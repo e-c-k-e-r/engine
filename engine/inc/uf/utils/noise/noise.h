@@ -1,0 +1,39 @@
+#pragma once
+
+#include <uf/config.h>
+
+#include <cmath>
+#include <vector>
+#include <random>
+#include <numeric>
+#include <algorithm>
+#include <functional>
+
+#include <uf/utils/math/vector.h>
+
+namespace uf {
+	class UF_API PerlinNoise {
+	protected:
+		std::size_t m_seed;
+		std::vector<int> m_permutations;
+	public:
+		typedef std::function<double(double&)> callback_t;
+
+		PerlinNoise();
+		PerlinNoise( std::size_t seed );
+		void seed( std::size_t seed );
+		double noise( double x, double y, double z ) const;
+		double fade(double t) const;
+		double lerp(double t, double a, double b) const;
+		double grad(int hash, double x, double y, double z) const;
+		std::vector<double> collect( uint size, const pod::Vector3d& noiseCoeff, const callback_t& callback = [](double& n)->double{
+			return n;
+		} );
+		std::vector<double> collect( const pod::Vector2ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback = [](double& n)->double{
+			return n;
+		} );
+		std::vector<double> collect( const pod::Vector3ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback = [](double& n)->double{
+			return n;
+		} );
+	};
+}

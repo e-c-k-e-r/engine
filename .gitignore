@@ -1,0 +1,53 @@
+# ---> C++
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.tmp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.glb
+*.spv
+*.msgpack.gz
+*.elf
+
+# Logs
+*.log
+*.txt
+
+# ISOs
+*.iso
+*.cdi
+*.gdi
+
+# Temporary
+/dep
+*.sublime-*
+*.html
+myconfig.config

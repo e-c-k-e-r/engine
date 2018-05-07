@@ -1,0 +1,76 @@
+template<typename T> pod::Component::id_t uf::component::type() {
+	return typeid(T).hash_code();
+}
+template<typename T> bool uf::component::is( const pod::Component& component ) {
+	return uf::component::type<T>() == component.id;
+}
+
+//
+//
+//
+template<typename T>
+pod::Component::id_t uf::Component::getType() const {
+	return uf::component::type<T>();
+}
+
+template<typename T>
+bool uf::Component::hasComponent() const {
+	return this->m_container.count(this->getType<T>()) != 0;
+}
+template<typename T>
+T* uf::Component::getComponentPointer() {
+	T* pointer = NULL;
+	if ( !this->hasComponent<T>() ) return ( this->m_addOn404 ) ? &this->addComponent<T>() : pointer;
+	pod::Component::id_t id = this->getType<T>();
+	pod::Component& component = this->m_container[id];
+
+	try {
+		pointer = &uf::userdata::get<T>(component.userdata);
+	} catch ( std::exception& e ) {
+		return NULL;
+	}
+	return pointer;
+}
+template<typename T>
+const T* uf::Component::getComponentPointer() const {
+	const T* pointer = NULL;
+	if ( !this->hasComponent<T>() ) return pointer;
+	pod::Component::id_t id = this->getType<T>();
+	const pod::Component& component = this->m_container.at(id);
+
+	try {
+		pointer = &uf::userdata::get<T>(component.userdata);
+	} catch ( std::exception& e ) {
+		return NULL;
+	}
+	return pointer;
+}
+template<typename T>
+T& uf::Component::getComponent() {
+	static T null;
+	T* pointer = this->getComponentPointer<T>();
+	return (pointer) ? *pointer : null;
+}
+template<typename T>
+const T& uf::Component::getComponent() const {
+	static T null;
+	const T* pointer = this->getComponentPointer<T>();
+	return (pointer) ? *pointer : null;
+}
+template<typename T> T& uf::Component::addComponent( const T& data ) {
+	if ( this->hasComponent<T>() ) return this->getComponent<T>();
+	
+	pod::Component::id_t id = this->getType<T>();
+	pod::Component& component = this->m_container[id];
+	component.userdata = uf::userdata::create(data);
+	component.id = id;
+
+	T* pointer = &uf::userdata::get<T>(component.userdata);
+	return *pointer;
+}
+template<typename T> void uf::Component::deleteComponent() {
+	if ( !this->hasComponent<T>() ) return;
+	pod::Component::id_t id = this->getType<T>();
+	pod::Component& component = this->m_container[id];
+	uf::userdata::destroy(component.userdata);
+}
