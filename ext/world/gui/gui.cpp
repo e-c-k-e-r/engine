@@ -74,9 +74,9 @@ void ext::Gui::render() {
 		pod::Vector4 offset = { metadata["gui"]["uv"][0].asDouble(), metadata["gui"]["uv"][1].asDouble(), metadata["gui"]["uv"][2].asDouble(), metadata["gui"]["uv"][3].asDouble() };
 		pod::Matrix4 matrix = uf::transform::model(transform);
 		if ( metadata["gui"]["world"].asBool() ) {
-			pod::Matrix4 rotation = uf::quaternion::matrix( uf::vector::multiply( { 1, 1, 1, -1 }, player.getComponent<pod::Transform<>>().orientation) );
+			pod::Transform<> flatten = uf::transform::flatten(camera.getTransform(), true);
+			pod::Matrix4 rotation = uf::quaternion::matrix( uf::vector::multiply( { 1, 1, 1, -1 }, flatten.orientation) );
 			matrix = matrix * rotation;
-		//	matrix = camera.getProjection() * camera.getView() * matrix;
 		}
 
 		shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {

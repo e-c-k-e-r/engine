@@ -180,13 +180,10 @@ template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Ve
 	uf::quaternion::normalize(q);
 	return q;
 }
-template<typename T> T uf::quaternion::unitVectors( const pod::Vector3t<typename T::type_t>& u, const pod::Vector3t<typename T::type_t>& v ) {
-	typename T::type_t dot = uf::vector::dot(u, v);
-	if ( dot + 1.0 < 0.00001 ) {
-		return uf::quaternion::axisAngle( uf::vector::normalize(u), 180 );
-	}
-
-	typename T::type_t mag = sqrt( 2.0 + 2.0 * dot );
+template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v ) {
+	T dot = uf::vector::dot(u, v);
+	if ( dot + 1.0 < 0.00001 ) return uf::quaternion::axisAngle( uf::vector::normalize(u), 3.1415926 );
+	T mag = sqrt( 2.0 + 2.0 * dot );
 	pod::Vector3t<T> w = uf::vector::multiply(uf::vector::cross(u, v), (1.0 / mag));
 	return {
 		.x = w.x,
@@ -196,14 +193,18 @@ template<typename T> T uf::quaternion::unitVectors( const pod::Vector3t<typename
 	};
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vector3t<T>& source, const pod::Vector3t<T>& destination ) { 
-	pod::Vector3t<T> forward = uf::vector::subtract( destination, source );
-	T dot = uf::vector::dot( {0, 0, 1}, forward );
+	pod::Vector3 forward = uf::vector::normalize(destination - source);
+	return uf::quaternion::unitVectors({0,0,1}, forward);
+/*	
+	pod::Vector3t<T> forward = uf::vector::normalize(uf::vector::subtract( destination, source ));
+	T dot = uf::vector::dot( {0, 0, -1}, forward );
 	T eps = 0.000001f;
-	if ( dot + 1 < eps ) return uf::quaternion::axisAngle( {0, 1, 0}, 3.1415926 );
-	if ( dot - 1 < eps ) return uf::quaternion::identity<T>();
+	if ( fabs(dot + 1) < eps ) return uf::quaternion::axisAngle( {0, 1, 0}, 3.1415926 );
+	if ( fabs(dot - 1) < eps ) return uf::quaternion::identity<T>();
 	T angle = acos(dot);
 	pod::Vector3t<T> axis = uf::vector::normalize(uf::vector::cross( {0, 0, 1}, forward ));
 	return uf::quaternion::axisAngle(axis, angle);
+*/
 }
 
 template<typename T> T uf::quaternion::conjugate( const T& quaternion ) {

@@ -50,7 +50,7 @@ namespace uf {
 	// 	Quaternion ops
 		template<typename T> pod::Matrix4t<typename T::type_t> matrix( const T& quaternion );
 		template<typename T> pod::Quaternion<T> axisAngle( const pod::Vector3t<T>& axis, T angle );
-		template<typename T> T unitVectors( const pod::Vector3t<typename T::type_t>& u, const pod::Vector3t<typename T::type_t>& v );
+		template<typename T> pod::Quaternion<T> unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v );
 		template<typename T> pod::Quaternion<T> lookAt( const pod::Vector3t<T>& source, const pod::Vector3t<T>& destination );
 		
 		template<typename T> T conjugate( const T& quaternion );
