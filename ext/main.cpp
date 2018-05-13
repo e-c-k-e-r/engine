@@ -2,6 +2,7 @@
 
 #include <uf/ext/ext.h>
 #include <uf/ext/ogl/ogl.h>
+#include <uf/ext/oal/oal.h>
 #include <uf/ext/assimp/assimp.h>
 
 #include <uf/spec/terminal/terminal.h>

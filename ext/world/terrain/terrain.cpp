@@ -52,10 +52,50 @@ void ext::Terrain::tick() {
 			generator.rasterize(mesh, *kv);
 		}
 	}
+
+	this->relocatePlayer();
 }
 void ext::Terrain::render() {
 	if ( !this->m_parent ) return; if ( this->m_children.empty() ) return;
 	uf::Entity::render();
+}
+
+void ext::Terrain::relocatePlayer() {
+	ext::World& parent = this->getRootParent<ext::World>();
+	ext::Player& player = parent.getPlayer();
+	const pod::Transform<>& transform = player.getComponent<pod::Transform<>>();
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	pod::Vector3ui size = {
+		metadata["region"]["size"][0].asUInt(),
+		metadata["region"]["size"][1].asUInt(),
+		metadata["region"]["size"][2].asUInt(),
+	};
+	pod::Vector3 pointf = uf::vector::divide(transform.position, {size.x, size.y, size.z});
+	pod::Vector3i point = {
+		(int) (pointf.x + (pointf.x > 0 ? 0.5 : -0.5)),
+		(int) (pointf.y + (pointf.y > 0 ? 0.5 : -0.5)),
+		(int) (pointf.z + (pointf.z > 0 ? 0.5 : -0.5)),
+	};
+
+
+	if ( !this->exists(point) ) return; // oops
+	ext::Region& region = *this->at(point);
+	bool should = false;
+	if ( player.getParent().getName() != "Region" ) should = true;
+	else {
+		ext::Region& current = player.getParent<ext::Region>();
+		const pod::Transform<>& t = current.getComponent<pod::Transform<>>();
+		pod::Vector3i location = {
+			(int) (t.position.x / size.x),
+			(int) (t.position.y / size.y),
+			(int) (t.position.z / size.z),
+		};
+		if ( !uf::vector::equals( point, location ) ) should = true;
+	}
+	if ( should ) {
+		region.moveChild(player);
+		std::cout << "Relocating to (" << point.x << ", " << point.y << ", " << point.z << ")" << std::endl;
+	}
 }
 
 bool ext::Terrain::exists( const pod::Vector3i& position ) const {
@@ -77,6 +117,7 @@ bool ext::Terrain::exists( const pod::Vector3i& position ) const {
 	}
 	return false;
 }
+
 bool ext::Terrain::inBounds( const pod::Vector3i& position ) const {
 	const ext::World& parent = this->getRootParent<ext::World>();
 	const pod::Transform<>& player = parent.getPlayer().getComponent<pod::Transform<>>();
@@ -202,6 +243,18 @@ void ext::Terrain::degenerate( const pod::Vector3i& position ) {
 			(int) (transform.position.z / size.z),
 		};
 		if ( uf::vector::equals( location, position ) ) {
+			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) {
+				this->getRootParent<ext::World>().moveChild(*e);
+				std::cout << "Emergency Provisions" << std::endl;
+				std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
+					for ( const uf::Entity* entity : parent->getChildren() ) {
+						for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
+						std::cout<<entity->getName()<<std::endl;
+						recurse(entity, indent + 1);
+					}
+				}; recurse(&this->getRootParent<ext::World>(), 0);
+				std::cout << "Emergency Provisions" << std::endl;
+			}
 			delete kv; *it = NULL;
 			this->m_children.erase(it);
 			// uf::iostream << "Degenerating Region @ ( " << position.x << ", " << position.y << ", " << position.z << ")" << "\n";

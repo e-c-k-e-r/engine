@@ -9,6 +9,8 @@
 #include "./light/light.h"
 #include "./gui/gui.h"
 
+#include <uf/utils/audio/audio.h>
+
 namespace {
 	uf::Camera* camera;
 	uf::GeometryBuffer light;
@@ -21,16 +23,38 @@ void ext::World::initialize() {
 }
 
 void ext::World::tick() {
+	static bool first = true; if ( first ) { first = false;
+		uf::physics::tick();
+	}
+
 	uf::Entity::tick();
 
 	{
-		static float x = 6.66992, y = 24.7805;
+		static float x = 1.07986, y = 24.7805;
 		if ( uf::Window::isKeyPressed("L") ) x += 0.01;
 		if ( uf::Window::isKeyPressed("J") ) x -= 0.01;
 		if ( uf::Window::isKeyPressed("I") ) y += 0.01;
 		if ( uf::Window::isKeyPressed("K") ) y -= 0.01;
 		if ( uf::Window::isKeyPressed("O") ) std::cout << x << ", " << y << std::endl;
 		glPolygonOffset(x, y);
+	}
+	if (uf::Window::isKeyPressed("U")) {
+		std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
+			for ( const uf::Entity* entity : parent->getChildren() ) {
+				for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
+				std::cout<<entity->getName()<<std::endl;
+				recurse(entity, indent + 1);
+			}
+		}; recurse(this, 0);
+	}
+	{
+		ext::Player& player = this->getPlayer();
+		pod::Transform<>& transform = player.getComponent<pod::Transform<>>();
+		
+		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
+		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
+		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
+
 	}
 }
 
@@ -45,18 +69,6 @@ void ext::World::render() {
 
 	{
 		::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-	}
-	if (uf::Window::isKeyPressed("U")) {
-		std::function<void(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
-			for ( uf::Entity* entity : parent->getChildren() ) {
-				if ( entity->getName() == "Light" ) {
-					::camera = entity->getComponentPointer<uf::Camera>();
-					return;
-				}
-				recurse(entity, indent + 1);
-			}
-		};
-		recurse(this, 0);
 	}
 
 	/* Prepare Geometry Buffer */ {
@@ -97,71 +109,88 @@ void ext::World::render() {
 			uf::GeometryBuffer& lightBuffer = metadata["light"]["dedicated"].asBool() ? light.getComponent<uf::GeometryBuffer>() : ::light;
 			uf::Camera& lightCam = light.getComponent<uf::Camera>();
 
-			if ( false ) { // override
-				pod::Transform<>& t = lightCam.getTransform();
-				uf::Matrix4t<> translation, rotation;
-				pod::Transform<> flatten = uf::transform::flatten(t, true);
-				rotation = uf::quaternion::matrix( flatten.orientation );
-				flatten.position += uf::quaternion::rotate( flatten.orientation, lightCam.getOffset() );
-				translation = uf::matrix::translate( uf::matrix::identity(), -flatten.position );
-
-				pod::Matrix4 m = rotation * translation;
-				lightCam.setView(m);
-			}
 			lightCam.updateView();
-			if ( !light.hasComponent<uf::GeometryBuffer>() || renderedState == 0 ){
+
+			if ( !light.hasComponent<uf::GeometryBuffer>() || metadata["light"]["render_state"].asInt() == 0 ){
 				lightBuffer.bind();
 				glClear(GL_DEPTH_BUFFER_BIT);
 				::camera = light.getComponentPointer<uf::Camera>();
 				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
 				glEnable(GL_POLYGON_OFFSET_FILL);
+				glDisable(GL_CULL_FACE);
 				uf::Entity::render();
 				glDisable(GL_POLYGON_OFFSET_FILL);
+				glEnable(GL_CULL_FACE);
 				::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-				if (uf::Window::isKeyPressed("U")) {
-					std::function<void(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
-						for ( uf::Entity* entity : parent->getChildren() ) {
-							if ( entity->getName() == "Light" ) {
-								::camera = entity->getComponentPointer<uf::Camera>();
-								return;
-							}
-							recurse(entity, indent + 1);
-						}
-					};
-					recurse(this, 0);
-				}
 				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
 			}
-			if ( renderedState++ >= metadata["light"]["rate"].asInt() ) renderedState = 0;
+			if ( (metadata["light"]["render_state"]=metadata["light"]["render_state"].asInt()+1).asInt()-1 >= metadata["light"]["rate"].asInt() ) metadata["light"]["render_state"]= 0;
 			{
 				::light.bind();
 
-				glEnable(GL_BLEND);
-				glBlendEquation(GL_FUNC_ADD);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				if ( metadata["light"]["blend"] != Json::nullValue ) {
+					glEnable(GL_BLEND);
+					GLenum parameters[4] = {
+						GL_ONE,
+						GL_ONE,
+						GL_ONE,
+						GL_ONE,
+					};
+					for ( int i = 0; i < metadata["light"]["blend"].size(); ++i ) {
+						if ( metadata["light"]["blend"][i] == "ZERO" || metadata["light"]["blend"][i] == "GL_ZERO" ) parameters[i] = GL_ZERO;
+						if ( metadata["light"]["blend"][i] == "ONE" || metadata["light"]["blend"][i] == "GL_ONE" ) parameters[i] = GL_ONE;
+						if ( metadata["light"]["blend"][i] == "SRC_COLOR" || metadata["light"]["blend"][i] == "GL_SRC_COLOR" ) parameters[i] = GL_SRC_COLOR;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
+						if ( metadata["light"]["blend"][i] == "DST_COLOR" || metadata["light"]["blend"][i] == "GL_DST_COLOR" ) parameters[i] = GL_DST_COLOR;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_DST_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_COLOR" ) parameters[i] = GL_ONE_MINUS_DST_COLOR;
+						if ( metadata["light"]["blend"][i] == "SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_SRC_ALPHA" ) parameters[i] = GL_SRC_ALPHA;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
+						if ( metadata["light"]["blend"][i] == "DST_ALPHA" || metadata["light"]["blend"][i] == "GL_DST_ALPHA" ) parameters[i] = GL_DST_ALPHA;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_DST_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_ALPHA" ) parameters[i] = GL_ONE_MINUS_DST_ALPHA;
+						if ( metadata["light"]["blend"][i] == "CONSTANT_COLOR" || metadata["light"]["blend"][i] == "GL_CONSTANT_COLOR" ) parameters[i] = GL_CONSTANT_COLOR;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_COLOR" ) parameters[i] = GL_ONE_MINUS_CONSTANT_COLOR;
+						if ( metadata["light"]["blend"][i] == "CONSTANT_ALPHA" || metadata["light"]["blend"][i] == "GL_CONSTANT_ALPHA" ) parameters[i] = GL_CONSTANT_ALPHA;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_ALPHA" ) parameters[i] = GL_ONE_MINUS_CONSTANT_ALPHA;
+						if ( metadata["light"]["blend"][i] == "SRC_ALPHA_SATURATE" || metadata["light"]["blend"][i] == "GL_SRC_ALPHA_SATURATE" ) parameters[i] = GL_SRC_ALPHA_SATURATE;
+						if ( metadata["light"]["blend"][i] == "SRC1_COLOR" || metadata["light"]["blend"][i] == "GL_SRC1_COLOR" ) parameters[i] = GL_SRC1_COLOR;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
+						if ( metadata["light"]["blend"][i] == "SRC1_ALPHA" || metadata["light"]["blend"][i] == "GL_SRC1_ALPHA" ) parameters[i] = GL_SRC1_ALPHA;
+						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
+					}
+				
+					if ( metadata["light"]["blend"].size() == 2 ) {
+						glBlendEquation(GL_FUNC_ADD);
+						glBlendFunc(parameters[0], parameters[1]);
+					} else if ( metadata["light"]["blend"].size() == 4 ) {
+						glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+						glBlendFuncSeparate(parameters[0], parameters[1], parameters[2], parameters[3]);
+					}
+				}
+
 				uf::Shader& shader = light.getComponent<uf::Shader>();
 				uf::Mesh& mesh = buffer.getComponent<uf::Mesh>();
+				pod::Transform<>& lightTransform = light.getComponent<pod::Transform<>>();
+
 				shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {
 						texture.bind(i);
-						shader.push("buffer_"+texture.getName(), i++);
+						shader.push("buffers.geom_"+texture.getName(), i++);
 					} for ( auto& texture : lightBuffer.getBuffers() ) {
 						texture.bind(i);
-						shader.push("lightBuffer_"+texture.getName(), i++);
-					}
-					pod::Vector2 projectionParameters; {
-						float cameraNear = this->getPlayer().getComponent<uf::Camera>().getBounds().x;
-						float cameraFar = this->getPlayer().getComponent<uf::Camera>().getBounds().y;
-						projectionParameters.x = cameraFar / ( cameraFar - cameraNear );
-						projectionParameters.y = ( -cameraFar * cameraNear ) / ( cameraFar - cameraNear );
+						shader.push("buffers.light_"+texture.getName(), i++);
 					}
 
-					shader.push("view", this->getPlayer().getComponent<uf::Camera>().getView());
-					shader.push("projection", this->getPlayer().getComponent<uf::Camera>().getProjection());
-					shader.push("projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
-					shader.push("projectionParameters", projectionParameters);
-					shader.push("lightColor", light.getColor());
-					shader.push("lightView", lightCam.getView());
-					shader.push("lightProjection", lightCam.getProjection());
+					shader.push("matrices.view", this->getPlayer().getComponent<uf::Camera>().getView());
+					shader.push("matrices.projection", this->getPlayer().getComponent<uf::Camera>().getProjection());
+					shader.push("matrices.projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
+
+					shader.push("parameters.color", light.getColor());
+					shader.push("parameters.attenuation", light.getAttenuation());
+					shader.push("parameters.power", light.getPower());
+					shader.push("parameters.specular", light.getSpecular());
+					shader.push("parameters.position", lightTransform.position);
+
+					shader.push("parameters.view", lightCam.getView());
+					shader.push("parameters.projection", lightCam.getProjection());
 				}
 				mesh.render();
 				glDisable(GL_BLEND);
@@ -174,23 +203,17 @@ void ext::World::render() {
 			uf::Mesh& mesh = buffer.getComponent<uf::Mesh>();
 			shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {
 					texture.bind(i);
-					shader.push("buffer_"+texture.getName(), i++);
+					shader.push("buffers.geom_"+texture.getName(), i++);
 				} for ( auto& texture : ::light.getBuffers() ) {
 					texture.bind(i);
-					shader.push("lightBuffer_"+texture.getName(), i++);
-				}
-				pod::Vector2 projectionParameters; {
-					float cameraNear = this->getPlayer().getComponent<uf::Camera>().getBounds().x;
-					float cameraFar = this->getPlayer().getComponent<uf::Camera>().getBounds().y;
-					projectionParameters.x = cameraFar / ( cameraFar - cameraNear );
-					projectionParameters.y = ( -cameraFar * cameraNear ) / ( cameraFar - cameraNear );
+					shader.push("buffers.light_"+texture.getName(), i++);
 				}
 
-				shader.push("view", camera.getView());
-				shader.push("projection", camera.getProjection());
-				shader.push("projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
-				shader.push("projectionParameters", projectionParameters);
-				shader.push("lightMapped", !lights.empty());
+				shader.push("matrices.view", camera.getView());
+				shader.push("matrices.projection", camera.getProjection());
+				shader.push("matrices.projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
+
+				shader.push("parameters.light", !lights.empty());
 			}
 			mesh.render();
 		}
@@ -209,14 +232,28 @@ void ext::World::render() {
 }
 
 ext::Player& ext::World::getPlayer() {
-	for ( uf::Entity* kv : this->m_children ) if ( kv->getName() == "Player" ) return *((ext::Player*) kv);
-	std::cout << "??" << std::endl;
-	return this->m_player;
+	std::function<uf::Entity*(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getName() == "Player" ) return entity;
+			uf::Entity* p = recurse(entity, indent + 1);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+	uf::Entity* pointer = recurse(this, 0);
+	return *((ext::Player*) pointer);
 }
 const ext::Player& ext::World::getPlayer() const {
-	for ( const uf::Entity* kv : this->m_children ) if ( kv->getName() == "Player" ) return *((const ext::Player*) kv);
-	std::cout << "??" << std::endl;
-	return this->m_player;
+	std::function<const uf::Entity*(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
+		for ( const uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getName() == "Player" ) return entity;
+			const uf::Entity* p = recurse(entity, indent + 1);
+			if ( p ) return p;
+		}
+		return (const uf::Entity*) NULL;
+	};
+	const uf::Entity* pointer = recurse(this, 0); return
+	*((const ext::Player*) pointer);
 }
 
 bool ext::World::load() {

@@ -20,5 +20,6 @@ namespace ext {
 
 		void generate();
 		void rasterize( uf::Mesh&, const ext::Region& );
+		ext::TerrainVoxel::uid_t*** getVoxels();
 	};
 }

@@ -4,6 +4,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/image/image.h>
 #include <uf/gl/gl.h>
+#include <uf/utils/audio/audio.h>
 #include <uf/spec/terminal/terminal.h>
 #include <uf/utils/hook/hook.h>
 
@@ -116,6 +117,14 @@ void client::initialize() {
 		ambient.w = client::config["light"]["ambient"]["a"].asDouble();
 		glClearColor(ambient.x, ambient.y, ambient.z, ambient.w);
 	}
+
+	/* Initialize OpenAL */ {
+		if ( !ext::oal.initialize() ) {
+			std::cerr << "[ERROR] AL failed to initialize!" << std::endl;
+			std::exit(EXIT_SUCCESS);
+			return;
+		}
+	}
 	
 	/* Initialize hooks */ {
 		if ( client::config["hook"]["mode"] == "Both" || client::config["hook"]["mode"] == "Readable" ) {
@@ -212,4 +221,10 @@ void client::render() {
 void client::terminate() {
 	client::window.terminate();
 	spec::Context::globalCleanup();
+
+	if ( !ext::oal.terminate() ) {
+		std::cerr << "[ERROR] AL failed to terminate!" << std::endl;
+		std::exit(EXIT_SUCCESS);
+		return;
+	}
 }

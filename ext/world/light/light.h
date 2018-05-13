@@ -17,6 +17,9 @@ namespace ext {
 	class EXT_API Light : public ext::Object {
 	protected:
 		pod::Vector3 m_color = {1, 1, 1};
+		pod::Vector3 m_specular = {1, 1, 1};
+		float m_attenuation = 0.00125f;
+		float m_power = 100.0f;
 		uint m_state = 0;
 	public:
 		void initialize();
@@ -25,5 +28,14 @@ namespace ext {
 
 		void setColor( const pod::Vector3& );
 		const pod::Vector3& getColor() const;
+
+		void setSpecular( const pod::Vector3& );
+		const pod::Vector3& getSpecular() const;
+		
+		void setAttenuation( float );
+		float getAttenuation() const;
+
+		void setPower( float );
+		float getPower() const;
 	};
 }

@@ -12,9 +12,9 @@ CLIENT_SRC_DIR 			= ./client
 UF_LIBS 				= 
 # EXT_LIBS 	 			= -lpng16 -lz -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics -llua52
-EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp
+EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp -lopenal32 -lalut -lvorbis -lvorbisfile -logg
 #FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW
-FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_ASSIMP -O2
+FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_ASSIMP -O2
 #-march=native
 LIB_NAME 				= uf
 EXT_LIB_NAME 			= ext

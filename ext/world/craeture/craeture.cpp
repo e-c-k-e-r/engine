@@ -14,17 +14,20 @@ namespace {
 
 void ext::Craeture::initialize() {	
 	ext::Object::initialize();
+	
 	this->addComponent<pod::Physics>();
 	this->addComponent<pod::Transform<>>();
-	this->addComponent<uf::Camera>(); {
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		transform = uf::transform::initialize(transform);
+	this->addComponent<uf::Camera>(); 
+
+	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
+	transform = uf::transform::initialize(transform); {
 		this->getComponent<uf::Camera>().getTransform().reference = this->getComponentPointer<pod::Transform<>>();
 	}
 
+
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	physics.linear.velocity = {0,0,0};
-	physics.linear.acceleration = {0,0,0};
+	physics.linear.acceleration = {0,-9.81,0};
 	physics.rotational.velocity = uf::quaternion::axisAngle( {0,1,0}, (pod::Math::num_t) 0 );
 	physics.rotational.acceleration = {0,0,0,0};
 
@@ -33,6 +36,9 @@ void ext::Craeture::initialize() {
 			const std::string& name = it->asString();
 			if ( this->m_animation.transforms.find(name) == this->m_animation.transforms.end() ) this->m_animation.transforms[name];
 		}
+	}
+	/* Collider */ {
+		uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
 	}
 }
 void ext::Craeture::tick() {
@@ -44,6 +50,44 @@ void ext::Craeture::tick() {
 		if ( it->asBool() ) serializer["animation"]["status"]["rest"] = false;
 	}
 	this->animate();
+
+	if ( uf::Window::isKeyPressed("P") ) {
+		pod::Transform<> transform = uf::transform::flatten(this->getComponent<uf::Camera>().getTransform());
+		std::cout << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
+	}
+
+	/* Collision */ if ( this->m_parent ) {
+		uf::Entity& parent = this->getParent();
+		if ( this->hasComponent<uf::CollisionBody>() && parent.hasComponent<uf::CollisionBody>() ) {
+			uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
+			uf::CollisionBody& pCollider = parent.getComponent<uf::CollisionBody>();
+
+			pod::Transform<>& transform = this->getComponent<pod::Transform<>>(); {
+				collider.clear();
+				uf::Collider* box = new uf::AABBox( uf::vector::add({0, 1.5, 0}, transform.position), {0.5, 1.5, 0.5} );
+				collider.add(box);
+			}
+
+			pod::Physics& physics = this->getComponent<pod::Physics>();
+			auto result = pCollider.intersects(collider);
+			uf::Collider::Manifold strongest;
+			for ( auto manifold : result ) {
+				if ( manifold.colliding && manifold.depth > 0 ) {
+					if ( strongest.depth < manifold.depth ) strongest = manifold;
+					pod::Vector3 mag = uf::vector::normalize(manifold.normal * manifold.depth) * pod::Vector3{0.02, 0.0005, 0.02};
+					transform.position += mag;
+
+				//	transform = physics.previous;
+				}
+			}
+			if ( strongest.colliding && strongest.depth > 0 ) {
+			//	std::cout << "Collision!\n\tNormal: " << strongest.normal.x << ", " << strongest.normal.y << ", " << strongest.normal.z << "\n\tDepth: " << strongest.depth << std::endl;
+				physics.linear.velocity = {0,0,0};
+			} else {
+				physics.linear.acceleration = {0,-9.81,0};
+			}
+		}
+	}
 }
 void ext::Craeture::render() {
 	if ( !this->m_parent ) return;

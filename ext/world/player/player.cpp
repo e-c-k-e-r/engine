@@ -6,6 +6,7 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
 #include <uf/gl/camera/camera.h>
+#include <uf/utils/audio/audio.h>
 
 namespace {
 	bool lockMouse = true;
@@ -211,6 +212,23 @@ void ext::Player::tick() {
 	} else {
 		serializer["animation"]["status"]["walk"] = false;
 		serializer["animation"]["status"]["rest"] = true;
+	}
+
+	if ( walking ) {
+		uf::SoundEmitter& emitter = this->getComponent<uf::SoundEmitter>();
+		int cycle = rand() % serializer["audio"]["footsteps"].size();
+		std::string filename = serializer["audio"]["footsteps"][cycle].asString();
+		uf::Audio& footstep = emitter.add(filename);
+
+		bool playing = false;
+		for ( uint i = 0; i < serializer["audio"]["footsteps"].size(); ++i ) {
+			uf::Audio& audio = emitter.add(serializer["audio"]["footsteps"][i].asString());
+			if ( audio.playing() ) playing = true;
+		}
+		if ( !playing ) {
+			footstep.play();
+			footstep.setPosition( transform.position );
+		}
 	}
 
 	/* Lock Mouse */ {

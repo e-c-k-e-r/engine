@@ -81,16 +81,16 @@ void ext::Gui::render() {
 
 		shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {
 				texture.bind(i);
-				shader.push("buffer_"+texture.getName(), i++);
+				shader.push("buffers."+texture.getName(), i++);
 			}
-			texture.bind(i);
-			shader.push("gui_element", i++);
-			shader.push("offset",  offset);
-			shader.push("model", matrix);
+			texture.bind(i); shader.push("gui.texture", i++);
+			shader.push("gui.offset", offset);
+			shader.push("parameters.window", camera.getSize());
+			shader.push("parameters.depth", metadata["gui"]["depth"].asBool());
+			shader.push("matrices.model", matrix);
 			if ( metadata["gui"]["world"].asBool() ) {
-				shader.push("projection", camera.getProjection());
-				shader.push("view", camera.getView());
-				shader.push("model", matrix);
+				shader.push("matrices.projection", camera.getProjection());
+				shader.push("matrices.view", camera.getView());
 			}
 		}
 		

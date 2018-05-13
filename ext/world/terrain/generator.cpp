@@ -27,14 +27,13 @@ void ext::TerrainGenerator::destroy(){ if ( !this->m_voxels ) return;
 	this->m_voxels = NULL;
 }
 void ext::TerrainGenerator::generate(){ if ( this->m_voxels ) return;
-	this->m_voxels = new ext::TerrainVoxel::uid_t**[this->m_size.x];
-
 	struct {
 		ext::TerrainVoxel::uid_t floor = ext::TerrainVoxelFloor().uid();
 		ext::TerrainVoxel::uid_t wall = ext::TerrainVoxelWall().uid();
 		ext::TerrainVoxel::uid_t ceiling = ext::TerrainVoxelCeiling().uid();
 	} atlas;
 
+	this->m_voxels = new ext::TerrainVoxel::uid_t**[this->m_size.x];
 	for ( uint x = 0; x < this->m_size.x; ++x ) { this->m_voxels[x] = new ext::TerrainVoxel::uid_t*[this->m_size.y];
 		for ( uint y = 0; y < this->m_size.y; ++y ) { this->m_voxels[x][y] = new ext::TerrainVoxel::uid_t[this->m_size.z];
 			for ( uint z = 0; z < this->m_size.z; ++z ) { ext::TerrainVoxel::uid_t voxel = 0;	
@@ -48,11 +47,16 @@ void ext::TerrainGenerator::generate(){ if ( this->m_voxels ) return;
 					if ( z > 4 && z < this->m_size.z - 4 ) voxel = 0;
 				}
 
+			//	if ( x > 2 && x < 6 && z > 2 && z < 6 ) voxel = atlas.wall;
 			//	if ( y > 3 ) voxel = 0;
+
 				this->m_voxels[x][y][z] = voxel;
 			}
 		}
 	}
+}
+ext::TerrainVoxel::uid_t*** ext::TerrainGenerator::getVoxels() {
+	return this->m_voxels;
 }
 void ext::TerrainGenerator::rasterize( uf::Mesh& mesh, const ext::Region& region ){
 	if ( !this->m_voxels ) this->generate();

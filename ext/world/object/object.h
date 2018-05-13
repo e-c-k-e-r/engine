@@ -12,6 +12,7 @@
 
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/math/collision.h>
 
 namespace ext {
 	class EXT_API Object : public uf::Entity {

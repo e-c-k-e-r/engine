@@ -19,7 +19,7 @@ namespace uf {
 	public:
 		Entity( bool = false );
 		virtual ~Entity();
-
+		
 		template<typename T=uf::Entity> T& getParent();
 		template<typename T=uf::Entity> T& getRootParent();
 		template<typename T=uf::Entity> const T& getParent() const;
@@ -28,7 +28,10 @@ namespace uf {
 		
 		void setParent( uf::Entity& parent = null );
 		void addChild( uf::Entity& child );
+		void moveChild( uf::Entity& child );
+		void removeChild( uf::Entity& child );
 		uf::Entity::container_t& getChildren();
+		const uf::Entity::container_t& getChildren() const;
 
 		virtual void initialize();
 		virtual void destroy();

@@ -10,8 +10,6 @@
 
 namespace ext {
 	class EXT_API World : public uf::Entity {
-	protected:
-		ext::Player m_player;
 	public:
 		ext::Player& getPlayer();
 		const ext::Player& getPlayer() const;

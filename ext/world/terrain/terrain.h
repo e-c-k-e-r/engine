@@ -23,6 +23,8 @@ namespace ext {
 		void render();
 		void tick();
 
+		void relocatePlayer();
+		
 		bool exists( const pod::Vector3i& ) const;
 		bool inBounds( const pod::Vector3i& ) const;
 		ext::Region* at( const pod::Vector3i& ) const;

@@ -14,6 +14,24 @@ const pod::Vector3& ext::Light::getColor() const {
 void ext::Light::setColor( const pod::Vector3& color ) {
 	this->m_color = color;
 }
+const pod::Vector3& ext::Light::getSpecular() const {
+	return this->m_specular;
+}
+void ext::Light::setSpecular( const pod::Vector3& specular ) {
+	this->m_specular = specular;
+}
+float ext::Light::getAttenuation() const {
+	return this->m_attenuation;
+}
+void ext::Light::setAttenuation( float attenuation ) {
+	this->m_attenuation = attenuation;
+}
+float ext::Light::getPower() const {
+	return this->m_power;
+}
+void ext::Light::setPower( float power ) {
+	this->m_power = power;
+}
 
 void ext::Light::initialize() {
 	this->addComponent<uf::Camera>(); {
@@ -75,6 +93,22 @@ void ext::Light::initialize() {
 		camera.update(true);
 
 		metadata["light"]["state"] = 0;
+
+		/* Attenuation */ {
+			if ( metadata["light"]["attenuation"] != Json::nullValue ) this->setAttenuation( metadata["light"]["attenuation"].asFloat() );
+		}
+		/* Power */ {
+			if (  metadata["light"]["power"] != Json::nullValue ) this->setPower(metadata["light"]["power"].asFloat() );
+		}
+		/* Specular */ {
+			if (  metadata["light"]["specular"] != Json::nullValue ) {
+				pod::Vector3 specular;
+				specular.x = metadata["light"]["specular"][0].asDouble();
+				specular.y = metadata["light"]["specular"][1].asDouble();
+				specular.z = metadata["light"]["specular"][2].asDouble();
+				this->setSpecular(specular);
+			}
+		}
 		
 		if ( metadata["light"]["dedicated"].asBool() ) {
 			uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>(); {
