@@ -20,9 +20,9 @@ namespace ext {
 	public:
 		typedef uint uid_t;
 	protected:
-		ext::TerrainVoxel::uid_t m_uid;
-		bool m_opaque;
-		pod::Vector2ui m_uv;
+		ext::TerrainVoxel::uid_t m_uid = 0;
+		bool m_opaque = false;
+		pod::Vector2ui m_uv = {0, 0};
 	public:
 		struct Model {
 			struct { std::vector<float> left, right, top, bottom, front, back; } position;
@@ -37,7 +37,7 @@ namespace ext {
 
 		static pod::Vector2ui size();
 		static const std::vector<ext::TerrainVoxel>& atlas();
-		static const ext::TerrainVoxel& atlas( ext::TerrainVoxel::uid_t );
+		static ext::TerrainVoxel atlas( ext::TerrainVoxel::uid_t );
 
 		virtual bool opaque() const;
 		virtual pod::Vector2ui uv() const;
@@ -56,5 +56,13 @@ namespace ext {
 	class EXT_API TerrainVoxelCeiling : public ext::TerrainVoxel  {
 	public:
 		TerrainVoxelCeiling();
+	};
+	class EXT_API TerrainVoxelPillar : public ext::TerrainVoxel  {
+	public:
+		TerrainVoxelPillar();
+	};
+	class EXT_API TerrainVoxelStair : public ext::TerrainVoxel  {
+	public:
+		TerrainVoxelStair();
 	};
 }

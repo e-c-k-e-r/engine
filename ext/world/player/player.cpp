@@ -177,20 +177,84 @@ void ext::Player::tick() {
 	struct {
 		float move = uf::physics::time::delta * 4;
 		float rotate = uf::physics::time::delta * 4;
+		float limitSquared = 4*4;
 	} speed;
 
 	uf::Camera& camera = this->getComponent<uf::Camera>();
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
+	pod::Physics& physics = this->getComponent<pod::Physics>();
 	uf::Serializer& serializer = this->getComponent<uf::Serializer>();
 
+	camera.update(true);
+
+	bool floored = physics.linear.velocity.y == 0;
 	if ( ::lockMouse ) {	
+	/*
 		if (uf::Window::isKeyPressed("W")) uf::transform::move( transform, transform.forward, speed.move ), updateCamera = walking = true;
 		if (uf::Window::isKeyPressed("S")) uf::transform::move( transform, transform.forward, -speed.move ), updateCamera = walking = true;
 		if (uf::Window::isKeyPressed("A")) uf::transform::move( transform, transform.right, -speed.move ), updateCamera = walking = true;
 		if (uf::Window::isKeyPressed("D")) uf::transform::move( transform, transform.right, speed.move ), updateCamera = walking = true;
-		
-		if (uf::Window::isKeyPressed("Left")) uf::transform::rotate( transform, transform.up, -speed.rotate ), updateCamera = true;
-		if (uf::Window::isKeyPressed("Right")) uf::transform::rotate( transform, transform.up, speed.rotate ), updateCamera = true;
+	*/
+		if ( true || floored ) {
+			if (uf::Window::isKeyPressed("W")) {
+				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				if ( mag < speed.limitSquared ) {
+					physics.linear.velocity += transform.forward * speed.move;
+					mag = uf::vector::magnitude(physics.linear.velocity);
+				}
+				pod::Vector3 correction = transform.forward * sqrt(mag);
+				physics.linear.velocity.x = correction.x;
+				physics.linear.velocity.z = correction.z;
+				updateCamera = walking = true;
+			}
+			if (uf::Window::isKeyPressed("S")) {
+				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				if ( mag < speed.limitSquared ) {
+					physics.linear.velocity += transform.forward * -speed.move;
+					mag = uf::vector::magnitude(physics.linear.velocity);
+				}
+				pod::Vector3 correction = transform.forward * -sqrt(mag);
+				physics.linear.velocity.x = correction.x;
+				physics.linear.velocity.z = correction.z;
+				updateCamera = walking = true;
+			}
+			if (uf::Window::isKeyPressed("A")) {
+				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				if ( mag < speed.limitSquared ) {
+					physics.linear.velocity += transform.right * -speed.move;
+					mag = uf::vector::magnitude(physics.linear.velocity);
+				}
+				pod::Vector3 correction = transform.right * -sqrt(mag);
+				physics.linear.velocity.x = correction.x;
+				physics.linear.velocity.z = correction.z;
+				updateCamera = walking = true;
+			}
+			if (uf::Window::isKeyPressed("D")) {
+				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				if ( mag < speed.limitSquared ) {
+					physics.linear.velocity += transform.right * speed.move;
+					mag = uf::vector::magnitude(physics.linear.velocity);
+				}
+				pod::Vector3 correction = transform.right * sqrt(mag);
+				physics.linear.velocity.x = correction.x;
+				physics.linear.velocity.z = correction.z;
+				updateCamera = walking = true;
+			}
+			if ( floored && uf::Window::isKeyPressed(" ") ) {
+				if ( serializer["collision"]["jump"] != Json::nullValue ) {
+					if ( serializer["collision"]["jump"][0].asFloat() != 0 ) physics.linear.velocity.x = serializer["collision"]["jump"][0].asFloat();
+					if ( serializer["collision"]["jump"][1].asFloat() != 0 ) physics.linear.velocity.y = serializer["collision"]["jump"][1].asFloat();
+					if ( serializer["collision"]["jump"][2].asFloat() != 0 ) physics.linear.velocity.z = serializer["collision"]["jump"][2].asFloat();
+				}
+			}
+		}
+
+		if (uf::Window::isKeyPressed("Left")) {
+			uf::transform::rotate( transform, transform.up, -speed.rotate ), updateCamera = true;
+		}
+		if (uf::Window::isKeyPressed("Right")) {
+			uf::transform::rotate( transform, transform.up, speed.rotate ), updateCamera = true;
+		}
 		
 		if (uf::Window::isKeyPressed("LControl")) {
 			if ( !::croutching )  deltaCrouch = true;
@@ -214,22 +278,32 @@ void ext::Player::tick() {
 		serializer["animation"]["status"]["rest"] = true;
 	}
 
-	if ( walking ) {
-		uf::SoundEmitter& emitter = this->getComponent<uf::SoundEmitter>();
-		int cycle = rand() % serializer["audio"]["footsteps"].size();
-		std::string filename = serializer["audio"]["footsteps"][cycle].asString();
-		uf::Audio& footstep = emitter.add(filename);
+	if ( floored ) {
+		if ( walking ) {
+			uf::SoundEmitter& emitter = this->getComponent<uf::SoundEmitter>();
+			int cycle = rand() % serializer["audio"]["footsteps"].size();
+			std::string filename = serializer["audio"]["footsteps"][cycle].asString();
+			uf::Audio& footstep = emitter.add(filename);
 
-		bool playing = false;
-		for ( uint i = 0; i < serializer["audio"]["footsteps"].size(); ++i ) {
-			uf::Audio& audio = emitter.add(serializer["audio"]["footsteps"][i].asString());
-			if ( audio.playing() ) playing = true;
-		}
-		if ( !playing ) {
-			footstep.play();
-			footstep.setPosition( transform.position );
+			bool playing = false;
+			for ( uint i = 0; i < serializer["audio"]["footsteps"].size(); ++i ) {
+				uf::Audio& audio = emitter.add(serializer["audio"]["footsteps"][i].asString());
+				if ( audio.playing() ) playing = true;
+			}
+			if ( !playing ) {
+				footstep.play();
+				footstep.setPosition( transform.position );
+			}
+		} else {
+			physics.linear.velocity.x = 0;
+			physics.linear.velocity.y = 0;
+			physics.linear.velocity.z = 0;
 		}
 	}
+
+	// std::cout << physics.linear.velocity.x << ", " << physics.linear.velocity.y << ", " << physics.linear.velocity.z << std::endl;
+	// std::cout << physics.linear.acceleration.x << ", " << physics.linear.acceleration.y << ", " << physics.linear.acceleration.z << std::endl;
+
 
 	/* Lock Mouse */ {
 		static uf::Timer<long long> timer(false);

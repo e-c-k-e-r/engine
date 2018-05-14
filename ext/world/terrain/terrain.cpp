@@ -32,9 +32,11 @@ void ext::Terrain::tick() {
 
 		if ( !this->inBounds(location) ) {
 			this->degenerate(location);
+			this->generate();
 			continue;
 		}
-
+	}
+	for ( uf::Entity* kv : this->m_children ) {
 		// Defer generation to make sure all neighbors have their voxels generated
 		std::vector<ext::Region*> queue;
 		for ( uf::Entity* kv : this->m_children ) { if ( !kv ) continue;
@@ -52,7 +54,6 @@ void ext::Terrain::tick() {
 			generator.rasterize(mesh, *kv);
 		}
 	}
-
 	this->relocatePlayer();
 }
 void ext::Terrain::render() {
@@ -244,6 +245,10 @@ void ext::Terrain::degenerate( const pod::Vector3i& position ) {
 		};
 		if ( uf::vector::equals( location, position ) ) {
 			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) {
+				return;
+			}
+		/*
+			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) {
 				this->getRootParent<ext::World>().moveChild(*e);
 				std::cout << "Emergency Provisions" << std::endl;
 				std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
@@ -255,10 +260,10 @@ void ext::Terrain::degenerate( const pod::Vector3i& position ) {
 				}; recurse(&this->getRootParent<ext::World>(), 0);
 				std::cout << "Emergency Provisions" << std::endl;
 			}
+		*/
 			delete kv; *it = NULL;
 			this->m_children.erase(it);
-			// uf::iostream << "Degenerating Region @ ( " << position.x << ", " << position.y << ", " << position.z << ")" << "\n";
-			this->generate();
+			// this->generate();
 			break;
 		}
 	}

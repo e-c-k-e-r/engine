@@ -31,10 +31,21 @@ void ext::Region::load() {
 
 	float r = (rand() % 100) / 100.0;
 	bool addLight = r < metadata["region"]["light"]["random"].asFloat();
-//	if ( metadata["region"]["location"][0].asInt() == 0 && metadata["region"]["location"][1].asInt() == 0 && metadata["region"]["location"][2].asInt() == 0 ) addLight = true;
-//	if ( metadata["region"]["location"][0].asInt() % 2 != 0 || metadata["region"]["location"][2].asInt() % 2 != 0 ) addLight = false;
-//	static bool first = false; if ( !first ) first = addLight = true; else addLight = false;
-//	addLight = false;
+	// Guarantee at least one light source (per XZ plane)
+	if ( !addLight ) { addLight = true;
+		ext::Terrain& parent = this->getParent<ext::Terrain>();
+		for ( const uf::Entity* pRegion : parent.getChildren() ) if ( pRegion->getName() == "Region" ) {
+			const pod::Transform<>& tRegion = pRegion->getComponent<pod::Transform<>>();
+			const pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
+			if ( tRegion.position.y != transform.position.y ) continue;
+			for ( const uf::Entity* pLight : pRegion->getChildren() ) if ( pLight->getName() == "Light" ) {
+				addLight = false;
+				break;
+			}
+			if ( !addLight ) break;
+		}
+	}
+
 	if ( addLight ) {
 	//	std::cout << metadata["region"]["location"][0] << ", " << metadata["region"]["location"][1] << ", " << metadata["region"]["location"][2] << std::endl;
 		pod::Vector3 color = { 1.0, 1.0, 1.0 }; {
@@ -57,7 +68,7 @@ void ext::Region::load() {
 
 			transform = uf::transform::initialize( transform );
 			transform.position = parent.position;
-			transform.position.y += size.y / 2;
+		//	transform.position.y += size.y / 2;
 			uf::transform::rotate( transform, transform.up, (360.0 / radius) * (3.1415926/180.0) * i );
 			entity->getComponent<uf::Camera>().update(true);
 			((ext::Light*)entity)->setColor( color );
@@ -74,7 +85,7 @@ void ext::Region::load() {
 
 			transform = uf::transform::initialize( transform );
 			transform.position = parent.position;
-			transform.position.y += size.y / 2;
+		//	transform.position.y += size.y / 2;
 			uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
 			entity->getComponent<uf::Camera>().setFov(120);
 			entity->getComponent<uf::Camera>().update(true);
@@ -92,7 +103,7 @@ void ext::Region::load() {
 
 			transform = uf::transform::initialize( transform );
 			transform.position = parent.position;
-			transform.position.y += size.y / 2;
+		//	transform.position.y += size.y / 2;
 			uf::transform::rotate( transform, transform.right, 1.5708 * 3 );
 			entity->getComponent<uf::Camera>().setFov(120);
 			entity->getComponent<uf::Camera>().update(true);
@@ -100,29 +111,24 @@ void ext::Region::load() {
 		}
 	}
 
-
 	/* Collider */ {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
-/*
-		uf::Collider* box = new uf::AABBox( uf::vector::add({0, 1, 0}, transform.position), {0.5, 0.5, 0.5} );
-	//	uf::Collider* box = new uf::SphereCollider( 1, uf::vector::add({0, 1, 0}, transform.position) );
-		collider.add(box);
-*/
+
 		auto*** voxels = generator.getVoxels();
 		for ( uint x = 0; x < size.x; ++x ) {
 		for ( uint y = 0; y < size.y; ++y ) {
 		for ( uint z = 0; z < size.z; ++z ) {
 				pod::Vector3 offset = transform.position;
 				offset.x += x - (size.x / 2.0f);
-				offset.y += y; // - (size.y / 2.0f);
+				offset.y += y - (size.y / 2.0f);
 				offset.z += z - (size.z / 2.0f);
 
-				const ext::TerrainVoxel& voxel = ext::TerrainVoxel::atlas(voxels[x][y][z]);
-
+				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas(voxels[x][y][z]);
 				if ( !voxel.opaque() ) continue;
 
 				uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
+			//	uf::Collider* box = new uf::SphereCollider( 0.5f, offset );
 				collider.add(box);
 			}
 		}

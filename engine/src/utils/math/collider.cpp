@@ -198,6 +198,35 @@ uf::Collider::Manifold UF_API uf::AABBox::intersects( const uf::AABBox& b ) cons
 	float b_back 	= b.m_origin.z - b.m_corner.z;
 	float b_front 	= b.m_origin.z + b.m_corner.z;
 
+	manifold.depth = 9E9;
+	auto test = [&]( const pod::Vector3& axis, float minA, float maxA, float minB, float maxB )->bool{
+		float axisLSqr = uf::vector::dot(axis, axis);
+		if ( axisLSqr < 1E-8f ) return false;
+
+		float d0 = maxB - minA;
+		float d1 = maxA - minB;
+		if ( d0 < 0 || d1 < 0 ) return false;
+		float overlap = d0 < d1 ? d0 : -d1;
+		pod::Vector3 sep = axis * ( overlap / axisLSqr );
+		float sepLSqr = uf::vector::dot( sep, sep );
+		if ( sepLSqr < manifold.depth ) {
+			manifold.normal = sep;
+			manifold.depth = sepLSqr;
+		}
+		return true;
+	};
+
+	if ( !test( {1, 0, 0}, a_left, a_right, b_left, b_right ) ) return manifold;
+	if ( !test( {0, 1, 0}, a_bottom, a_top, b_bottom, b_top ) ) return manifold;
+	if ( !test( {0, 0, 1}, a_back, a_front, b_back, b_front ) ) return manifold;
+
+	manifold.normal = uf::vector::normalize( manifold.normal );
+	manifold.depth = sqrt( manifold.depth ); // * 1.001;
+	manifold.colliding = true;
+
+	return manifold;
+
+/*
 	if ( a_right < b_left ) return manifold;
 	if ( a_left > b_right ) return manifold;
 
@@ -206,17 +235,18 @@ uf::Collider::Manifold UF_API uf::AABBox::intersects( const uf::AABBox& b ) cons
 
 	if ( a_front < b_back ) return manifold;
 	if ( a_back > b_front ) return manifold;
-	
+
 	pod::Vector3* a_points = a.expand();
 	pod::Vector3* b_points = b.expand();
 
 	float smallest = 9E9;
 	for ( uint b = 0; b < 8; b++ ) {
 	for ( uint a = 0; a < 8; a++ ) {
-		float distance = uf::vector::distanceSquared(a_points[a], b_points[b]);
-		if ( smallest > distance ) smallest = distance;
+		float distance = uf::vector::distanceSquared(b_points[b], a_points[a]);
+		smallest = fmin( smallest, distance );
 	}
 	}
+
 	delete[] a_points;
 	delete[] b_points;
 
@@ -225,6 +255,7 @@ uf::Collider::Manifold UF_API uf::AABBox::intersects( const uf::AABBox& b ) cons
 	manifold.colliding = true;
 
 	return manifold;
+*/
 }
 /*
 

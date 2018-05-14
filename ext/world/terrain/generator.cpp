@@ -27,12 +27,12 @@ void ext::TerrainGenerator::destroy(){ if ( !this->m_voxels ) return;
 	this->m_voxels = NULL;
 }
 void ext::TerrainGenerator::generate(){ if ( this->m_voxels ) return;
+/*
 	struct {
 		ext::TerrainVoxel::uid_t floor = ext::TerrainVoxelFloor().uid();
 		ext::TerrainVoxel::uid_t wall = ext::TerrainVoxelWall().uid();
 		ext::TerrainVoxel::uid_t ceiling = ext::TerrainVoxelCeiling().uid();
 	} atlas;
-
 	this->m_voxels = new ext::TerrainVoxel::uid_t**[this->m_size.x];
 	for ( uint x = 0; x < this->m_size.x; ++x ) { this->m_voxels[x] = new ext::TerrainVoxel::uid_t*[this->m_size.y];
 		for ( uint y = 0; y < this->m_size.y; ++y ) { this->m_voxels[x][y] = new ext::TerrainVoxel::uid_t[this->m_size.z];
@@ -47,12 +47,144 @@ void ext::TerrainGenerator::generate(){ if ( this->m_voxels ) return;
 					if ( z > 4 && z < this->m_size.z - 4 ) voxel = 0;
 				}
 
-			//	if ( x > 2 && x < 6 && z > 2 && z < 6 ) voxel = atlas.wall;
-			//	if ( y > 3 ) voxel = 0;
-
 				this->m_voxels[x][y][z] = voxel;
 			}
 		}
+	}
+*/
+	int lim_x = this->m_size.x;
+	int lim_y = this->m_size.y;
+	int lim_z = this->m_size.z;
+	if ( lim_x < 0 || lim_y < 0 || lim_z < 0 ) return;
+
+	int half_x = lim_x / 2;
+	int half_y = lim_y / 2;
+	int half_z = lim_z / 2;
+
+	struct {
+		ext::TerrainVoxel::uid_t floor = ext::TerrainVoxelFloor().uid();// = uf::World::atlas.getFromString("Regular Floor").getUid();
+		ext::TerrainVoxel::uid_t wall = ext::TerrainVoxelWall().uid();// = uf::World::atlas.getFromString("Regular Wall").getUid();
+		ext::TerrainVoxel::uid_t ceiling = ext::TerrainVoxelCeiling().uid();// = uf::World::atlas.getFromString("Regular Ceiling").getUid();
+		ext::TerrainVoxel::uid_t stair = ext::TerrainVoxelStair().uid();// = uf::World::atlas.getFromString("Regular Stair").getUid();
+		ext::TerrainVoxel::uid_t pillar = ext::TerrainVoxelPillar().uid();// = uf::World::atlas.getFromString("Regular Pillar").getUid();
+	} atlas;
+
+	this->m_voxels = new ext::TerrainVoxel::uid_t**[this->m_size.x];
+	for ( uint x = 0; x < this->m_size.x; ++x ) { this->m_voxels[x] = new ext::TerrainVoxel::uid_t*[this->m_size.y];
+		for ( uint y = 0; y < this->m_size.y; ++y ) { this->m_voxels[x][y] = new ext::TerrainVoxel::uid_t[this->m_size.z];
+		}
+	}
+
+	int rand_roomType = rand() % 6;
+	static bool first = false;
+	if ( !first ) rand_roomType = 0, first = true;
+	for ( int x = 0; x < lim_x; x++ ) { 
+	for ( int y = 0; y < lim_y; y++ ) { 
+	for ( int z = 0; z < lim_z; z++ ) {
+		if ( this->m_voxels == NULL || this->m_voxels[x] == NULL || this->m_voxels[x][y] == NULL ) break;
+		this->m_voxels[x][y][z] = 0;
+// 	Wall
+/*
+		if ((( x == 0 || x == 1 ) && ( z == lim_z - 1 || z == lim_z - 2 )) || 
+			(( z == 0 || z == 1 ) && ( x == lim_x - 1 || x == lim_x - 2 )))
+			this->m_voxels[x][y][z] = wall;
+*/
+// 	Floor
+		if ( y == 0 ) this->m_voxels[x][y][z] = atlas.floor;
+// 	Ceiling
+		if ( y + 1 == lim_y ) this->m_voxels[x][y][z] = rand() % 10 < 8.0f ? 0 : atlas.ceiling;
+	}
+	}
+	}
+
+	switch ( rand_roomType ) {
+	// Wall-less room
+		case 2: break;
+	// 	Typical Room
+		default:
+	// 	North
+			for ( int y = 0; y < lim_y; y++ ) {
+				for ( int x = 0; x < lim_x; x++ ) {
+					float randed_wall = rand() % 10;
+					if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
+						this->m_voxels[x][y][lim_z-1] = atlas.wall;
+					else
+						this->m_voxels[x][y][lim_z-1] = 0;
+				}
+			}
+	// 	South
+			for ( int y = 0; y < lim_y; y++ ) {
+				for ( int x = 0; x < lim_x; x++ ) {
+					float randed_wall = rand() % 10;
+					if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
+						this->m_voxels[x][y][0] = atlas.wall;
+					else
+						this->m_voxels[x][y][0] = 0;
+				}
+			}
+	// 	East
+			for ( int y = 0; y < lim_y; y++ ) {
+				for ( int z = 0; z < lim_x; z++ ) {
+					float randed_wall = rand() % 10;
+					if ( !(y < 5 && z>half_z-3&&z<half_z+3) && randed_wall > 3.0f )
+						this->m_voxels[lim_z-1][y][z] = atlas.wall;
+					else
+						this->m_voxels[lim_z-1][y][z] = 0;
+				}
+			}
+			for ( int x = 0; x < lim_x; x++ ) { 
+			for ( int z = 0; z < lim_z; z++ ) {
+				this->m_voxels[x][0][z] = atlas.floor;
+			}
+			}
+	// 	Default Room
+	// 	Hole room
+		case 0: 
+			for ( int x = half_x - (half_x / 2); x < half_x + (half_x / 2) + 1; x++ )
+			for ( int z = half_z - (half_z / 2); z < half_z + (half_z / 2) + 1; z++ )
+				if ( rand() % 10 > 1.25f ) this->m_voxels[x][0][z] = 0;
+		break;
+	// 	Pillar
+		case 3:
+			for ( int x = half_x - 1; x <= half_x + 1; x++ )
+			for ( int z = half_z - 1; z <= half_z + 1; z++ )
+			for ( int y = 0; y < lim_y; y++ )
+				if ( rand() % 10 > 1.25f ) this->m_voxels[x][y][z] = atlas.pillar;
+		break; 
+	// 	Stair room
+		case 4: 
+			int randed_direction = rand() % 2;
+			int start_x = std::max(half_x - 3, 0);
+			int stop_x = std::min(half_x + 5, lim_x);
+			int start_z = -2;
+			int stop_z = 2;
+			int slope_x = lim_y / ( stop_x - start_x );
+			int slope_z = lim_y / ( stop_z - start_z );
+			
+			for ( int x = start_x; x <= stop_x; x++ )
+			for ( int z = start_z; z <= stop_z; z++ )
+				this->m_voxels[x][lim_y - 1][half_z - 1 + z] = 0;
+			switch ( randed_direction ) {
+			// Left to Right
+				case 0:
+					for ( int x = start_x; x <= stop_x; x++ ) {
+						int y = (x - start_x) * slope_x + 1;
+						for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
+						for ( int i = y; i >= y - slope_x && i >= 0; i-- )
+							if ( rand() % stop_x > 3 ) this->m_voxels[x][i][half_z - 1 + z] = atlas.stair;
+					}
+				break;
+			// Right to Left
+				case 1:
+					for ( int x = start_x; x <= stop_x; x++ ) {
+						int y = (x - start_x) * slope_x + 3;
+						for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
+						for ( int i = y; i >= y - slope_x && i >= 0; i-- )
+							if ( rand() % stop_x > 3 ) this->m_voxels[x][lim_y - 1 - i][half_z - 1 + z] = atlas.stair;
+					}
+				break;
+			}
+		break;
 	}
 }
 ext::TerrainVoxel::uid_t*** ext::TerrainGenerator::getVoxels() {
@@ -87,10 +219,10 @@ void ext::TerrainGenerator::rasterize( uf::Mesh& mesh, const ext::Region& region
 		for ( uint y = 0; y < this->m_size.y; ++y ) {
 			for ( uint z = 0; z < this->m_size.z; ++z ) {
 				offset.position.x = x - (this->m_size.x / 2.0f);
-				offset.position.y = y; // - (this->m_size.y / 2.0f);
+				offset.position.y = y - (this->m_size.y / 2.0f);
 				offset.position.z = z - (this->m_size.z / 2.0f);
 
-				const ext::TerrainVoxel& voxel = ext::TerrainVoxel::atlas(this->m_voxels[x][y][z]);
+				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas(this->m_voxels[x][y][z]);
 				const ext::TerrainVoxel::Model& model = voxel.model();
 
 				if ( !voxel.opaque() ) continue;
@@ -105,7 +237,7 @@ void ext::TerrainGenerator::rasterize( uf::Mesh& mesh, const ext::Region& region
 					bool top = true, bottom = true, left = true, right = true, front = true, back = true;
 				} should;
 				struct {
-					ext::TerrainVoxel top, bottom, left, right, front, back;
+					ext::TerrainVoxel top = ext::TerrainVoxel::atlas(0), bottom = ext::TerrainVoxel::atlas(0), left = ext::TerrainVoxel::atlas(0), right = ext::TerrainVoxel::atlas(0), front = ext::TerrainVoxel::atlas(0), back = ext::TerrainVoxel::atlas(0);
 				} neighbor;
 
 				if ( x > 0 ) neighbor.left = ext::TerrainVoxel::atlas(this->m_voxels[x-1][y][z]); else if ( regions.left != NULL ) {
