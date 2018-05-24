@@ -17,6 +17,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/image/image.h>
+#include <uf/utils/thread/thread.h>
 
 #include <uf/gl/shader/shader.h>
 #include <uf/gl/mesh/mesh.h>
@@ -108,6 +109,12 @@ void EXT_API ext::initialize() {
 		::world.master.initialize();
 	}
 
+	/* */ {
+		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, false );
+		pod::Thread& threadAux = uf::thread::has("Aux") ? uf::thread::get("Aux") : uf::thread::create( "Aux", true, false );
+		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+	}
+
 	ext::ready = true;
 	uf::iostream << "EXT took " << times.sys.elapsed().asDouble() << " seconds to initialize!" << "\n";
 }
@@ -123,22 +130,30 @@ void EXT_API ext::tick() {
 	/* Update entities */ {
 		::world.master.tick();
 	}
-}
 
+
+	/* Tick Main Thread Queue */ {
+		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, false );
+		uf::thread::process( thread );
+	}
+}
 void EXT_API ext::render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
 	/* Draw geometry */ {
 		::world.master.render();
 	}
 }
 void EXT_API ext::terminate() {
-//	curTime = spec::time.getTime();
-	io.output << io.input << std::endl;
-	for ( const auto& str : uf::iostream.getHistory() )
-		io.output << str << std::endl;
-	io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << std::endl;
-	io.output.close();
+	/* Flush input buffer */ {
+		io.output << io.input << std::endl;
+		for ( const auto& str : uf::iostream.getHistory() ) io.output << str << std::endl;
+		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << std::endl;
+		io.output.close();
+	}
+
+	/* Close Threads */ {
+		uf::thread::terminate();
+	}
 
 	/* Write persistent data */ {
 		struct {

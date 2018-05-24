@@ -9,6 +9,7 @@ void ext::Terrain::initialize() {
 	
 	this->generate();
 }
+#include <uf/utils/thread/thread.h>
 void ext::Terrain::tick() {
 	uf::Entity::tick();
 	ext::World& parent = this->getRootParent<ext::World>();
@@ -21,8 +22,8 @@ void ext::Terrain::tick() {
 		metadata["region"]["size"][2].asUInt(),
 	};
 	if ( this->m_children.empty() ) return;
-	
-	for ( uf::Entity* kv : this->m_children ) {
+
+	for ( uf::Entity* kv : this->m_children ) { if ( !kv ) continue;
 		const pod::Transform<>& transform = kv->getComponent<pod::Transform<>>();
 		pod::Vector3i location = {
 			(int) (transform.position.x / size.x),
@@ -32,10 +33,16 @@ void ext::Terrain::tick() {
 
 		if ( !this->inBounds(location) ) {
 			this->degenerate(location);
-			this->generate();
+			pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", true );
+			auto function = [&]() -> int {
+				this->generate();
+				return 0;
+			};
+			uf::thread::add( thread, function, true );
 			continue;
 		}
 	}
+
 	for ( uf::Entity* kv : this->m_children ) {
 		// Defer generation to make sure all neighbors have their voxels generated
 		std::vector<ext::Region*> queue;
@@ -54,6 +61,7 @@ void ext::Terrain::tick() {
 			generator.rasterize(mesh, *kv);
 		}
 	}
+
 	this->relocatePlayer();
 }
 void ext::Terrain::render() {
@@ -223,8 +231,6 @@ void ext::Terrain::generate( const pod::Vector3i& position ) {
 		m["region"]["location"][0] = position.x;
 		m["region"]["location"][1] = position.y;
 		m["region"]["location"][2] = position.z;
-	
-	//	region.initialize();
 	}
 
 }
@@ -244,26 +250,9 @@ void ext::Terrain::degenerate( const pod::Vector3i& position ) {
 			(int) (transform.position.z / size.z),
 		};
 		if ( uf::vector::equals( location, position ) ) {
-			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) {
-				return;
-			}
-		/*
-			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) {
-				this->getRootParent<ext::World>().moveChild(*e);
-				std::cout << "Emergency Provisions" << std::endl;
-				std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
-					for ( const uf::Entity* entity : parent->getChildren() ) {
-						for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
-						std::cout<<entity->getName()<<std::endl;
-						recurse(entity, indent + 1);
-					}
-				}; recurse(&this->getRootParent<ext::World>(), 0);
-				std::cout << "Emergency Provisions" << std::endl;
-			}
-		*/
+			for ( uf::Entity* e : kv->getChildren() ) if ( e->getName() == "Player" ) return;
 			delete kv; *it = NULL;
 			this->m_children.erase(it);
-			// this->generate();
 			break;
 		}
 	}

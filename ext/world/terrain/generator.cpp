@@ -72,120 +72,139 @@ void ext::TerrainGenerator::generate(){ if ( this->m_voxels ) return;
 	this->m_voxels = new ext::TerrainVoxel::uid_t**[this->m_size.x];
 	for ( uint x = 0; x < this->m_size.x; ++x ) { this->m_voxels[x] = new ext::TerrainVoxel::uid_t*[this->m_size.y];
 		for ( uint y = 0; y < this->m_size.y; ++y ) { this->m_voxels[x][y] = new ext::TerrainVoxel::uid_t[this->m_size.z];
+			for ( uint z = 0; z < this->m_size.z; ++z ) this->m_voxels[x][y][z] = 0;
+		}
+	}
+	if ( true ) {
+		int rand_roomType = rand() % 6;
+		static bool first = false;
+		if ( !first ) rand_roomType = 0, first = true;
+		for ( int x = 0; x < lim_x; x++ ) { 
+		for ( int y = 0; y < lim_y; y++ ) { 
+		for ( int z = 0; z < lim_z; z++ ) {
+			if ( this->m_voxels == NULL || this->m_voxels[x] == NULL || this->m_voxels[x][y] == NULL ) break;
+			this->m_voxels[x][y][z] = 0;
+	// 	Wall
+	/*
+			if ((( x == 0 || x == 1 ) && ( z == lim_z - 1 || z == lim_z - 2 )) || 
+				(( z == 0 || z == 1 ) && ( x == lim_x - 1 || x == lim_x - 2 )))
+				this->m_voxels[x][y][z] = wall;
+	*/
+	// 	Floor
+			if ( y == 0 ) this->m_voxels[x][y][z] = atlas.floor;
+	// 	Ceiling
+			if ( y + 1 == lim_y ) this->m_voxels[x][y][z] = rand() % 10 < 8.0f ? 0 : atlas.ceiling;
+		}
+		}
+		}
+
+		switch ( rand_roomType ) {
+		// Wall-less room
+			case 0: break;
+		// 	Typical Room
+			default:
+		// 	North
+				for ( int y = 0; y < lim_y; y++ ) {
+					for ( int x = 0; x < lim_x; x++ ) {
+						float randed_wall = rand() % 10;
+						if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
+							this->m_voxels[x][y][lim_z-1] = atlas.wall;
+						else
+							this->m_voxels[x][y][lim_z-1] = 0;
+					}
+				}
+		// 	South
+				for ( int y = 0; y < lim_y; y++ ) {
+					for ( int x = 0; x < lim_x; x++ ) {
+						float randed_wall = rand() % 10;
+						if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
+							this->m_voxels[x][y][0] = atlas.wall;
+						else
+							this->m_voxels[x][y][0] = 0;
+					}
+				}
+		// 	East
+				for ( int y = 0; y < lim_y; y++ ) {
+					for ( int z = 0; z < lim_x; z++ ) {
+						float randed_wall = rand() % 10;
+						if ( !(y < 5 && z>half_z-3&&z<half_z+3) && randed_wall > 3.0f )
+							this->m_voxels[lim_z-1][y][z] = atlas.wall;
+						else
+							this->m_voxels[lim_z-1][y][z] = 0;
+					}
+				}
+				for ( int x = 0; x < lim_x; x++ ) { 
+				for ( int z = 0; z < lim_z; z++ ) {
+					this->m_voxels[x][0][z] = atlas.floor;
+				}
+				}
+		// 	Default Room
+		// 	Hole room
+			case 2: 
+				for ( int x = half_x - (half_x / 2); x < half_x + (half_x / 2) + 1; x++ )
+				for ( int z = half_z - (half_z / 2); z < half_z + (half_z / 2) + 1; z++ )
+					if ( rand() % 10 > 1.25f ) this->m_voxels[x][0][z] = 0;
+			break;
+		// 	Pillar
+			case 3:
+				for ( int x = half_x - 1; x <= half_x + 1; x++ )
+				for ( int z = half_z - 1; z <= half_z + 1; z++ )
+				for ( int y = 0; y < lim_y; y++ )
+					if ( rand() % 10 > 1.25f ) this->m_voxels[x][y][z] = atlas.pillar;
+			break; 
+		// 	Stair room
+			case -4: 
+				int randed_direction = rand() % 2;
+				int start_x = std::max(half_x - 3, 0);
+				int stop_x = std::min(half_x + 5, lim_x);
+				int start_z = -2;
+				int stop_z = 2;
+				int slope_x = lim_y / ( stop_x - start_x );
+				int slope_z = lim_y / ( stop_z - start_z );
+			/*	
+				for ( int x = start_x; x <= stop_x; x++ )
+				for ( int z = start_z; z <= stop_z; z++ ) this->m_voxels[x][lim_y - 1][half_z - 1 + z] = 0;
+			*/
+				switch ( randed_direction ) {
+				// Left to Right
+					case 0:
+						for ( int x = start_x; x <= stop_x; x++ ) {
+							int y = (x - start_x) * slope_x + 1;
+							for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
+							for ( int i = y; i >= y - slope_x && i >= 0; i-- )
+								if ( rand() % stop_x > 3 ) this->m_voxels[x][i][half_z - 1 + z] = atlas.stair;
+						}
+					break;
+				// Right to Left
+					case 1:
+						for ( int x = start_x; x <= stop_x; x++ ) {
+							int y = (x - start_x) * slope_x + 3;
+							for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
+							for ( int i = y; i >= y - slope_x && i >= 0; i-- )
+								if ( rand() % stop_x > 3 ) this->m_voxels[x][lim_y - 1 - i][half_z - 1 + z] = atlas.stair;
+						}
+					break;
+				}
+			break;
 		}
 	}
 
-	int rand_roomType = rand() % 6;
-	static bool first = false;
-	if ( !first ) rand_roomType = 0, first = true;
+
+/*
 	for ( int x = 0; x < lim_x; x++ ) { 
 	for ( int y = 0; y < lim_y; y++ ) { 
 	for ( int z = 0; z < lim_z; z++ ) {
-		if ( this->m_voxels == NULL || this->m_voxels[x] == NULL || this->m_voxels[x][y] == NULL ) break;
-		this->m_voxels[x][y][z] = 0;
-// 	Wall
-/*
-		if ((( x == 0 || x == 1 ) && ( z == lim_z - 1 || z == lim_z - 2 )) || 
-			(( z == 0 || z == 1 ) && ( x == lim_x - 1 || x == lim_x - 2 )))
-			this->m_voxels[x][y][z] = wall;
-*/
-// 	Floor
+	//	if ( y > 3 ) this->m_voxels[x][y][z] = 0;
+		if ( x == 0 ) this->m_voxels[x][y][z] = atlas.floor;
 		if ( y == 0 ) this->m_voxels[x][y][z] = atlas.floor;
-// 	Ceiling
-		if ( y + 1 == lim_y ) this->m_voxels[x][y][z] = rand() % 10 < 8.0f ? 0 : atlas.ceiling;
+		if ( z == 0 ) this->m_voxels[x][y][z] = atlas.floor;
+		if ( x == lim_x - 1 ) this->m_voxels[x][y][z] = atlas.floor;
+		if ( y == lim_y - 1 ) this->m_voxels[x][y][z] = atlas.floor;
+		if ( z == lim_z - 1 ) this->m_voxels[x][y][z] = atlas.floor;
 	}
 	}
 	}
-
-	switch ( rand_roomType ) {
-	// Wall-less room
-		case 2: break;
-	// 	Typical Room
-		default:
-	// 	North
-			for ( int y = 0; y < lim_y; y++ ) {
-				for ( int x = 0; x < lim_x; x++ ) {
-					float randed_wall = rand() % 10;
-					if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
-						this->m_voxels[x][y][lim_z-1] = atlas.wall;
-					else
-						this->m_voxels[x][y][lim_z-1] = 0;
-				}
-			}
-	// 	South
-			for ( int y = 0; y < lim_y; y++ ) {
-				for ( int x = 0; x < lim_x; x++ ) {
-					float randed_wall = rand() % 10;
-					if ( !(y < 5 && x>half_x-3&&x<half_x+3) && randed_wall > 4.0f )
-						this->m_voxels[x][y][0] = atlas.wall;
-					else
-						this->m_voxels[x][y][0] = 0;
-				}
-			}
-	// 	East
-			for ( int y = 0; y < lim_y; y++ ) {
-				for ( int z = 0; z < lim_x; z++ ) {
-					float randed_wall = rand() % 10;
-					if ( !(y < 5 && z>half_z-3&&z<half_z+3) && randed_wall > 3.0f )
-						this->m_voxels[lim_z-1][y][z] = atlas.wall;
-					else
-						this->m_voxels[lim_z-1][y][z] = 0;
-				}
-			}
-			for ( int x = 0; x < lim_x; x++ ) { 
-			for ( int z = 0; z < lim_z; z++ ) {
-				this->m_voxels[x][0][z] = atlas.floor;
-			}
-			}
-	// 	Default Room
-	// 	Hole room
-		case 0: 
-			for ( int x = half_x - (half_x / 2); x < half_x + (half_x / 2) + 1; x++ )
-			for ( int z = half_z - (half_z / 2); z < half_z + (half_z / 2) + 1; z++ )
-				if ( rand() % 10 > 1.25f ) this->m_voxels[x][0][z] = 0;
-		break;
-	// 	Pillar
-		case 3:
-			for ( int x = half_x - 1; x <= half_x + 1; x++ )
-			for ( int z = half_z - 1; z <= half_z + 1; z++ )
-			for ( int y = 0; y < lim_y; y++ )
-				if ( rand() % 10 > 1.25f ) this->m_voxels[x][y][z] = atlas.pillar;
-		break; 
-	// 	Stair room
-		case 4: 
-			int randed_direction = rand() % 2;
-			int start_x = std::max(half_x - 3, 0);
-			int stop_x = std::min(half_x + 5, lim_x);
-			int start_z = -2;
-			int stop_z = 2;
-			int slope_x = lim_y / ( stop_x - start_x );
-			int slope_z = lim_y / ( stop_z - start_z );
-			
-			for ( int x = start_x; x <= stop_x; x++ )
-			for ( int z = start_z; z <= stop_z; z++ )
-				this->m_voxels[x][lim_y - 1][half_z - 1 + z] = 0;
-			switch ( randed_direction ) {
-			// Left to Right
-				case 0:
-					for ( int x = start_x; x <= stop_x; x++ ) {
-						int y = (x - start_x) * slope_x + 1;
-						for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
-						for ( int i = y; i >= y - slope_x && i >= 0; i-- )
-							if ( rand() % stop_x > 3 ) this->m_voxels[x][i][half_z - 1 + z] = atlas.stair;
-					}
-				break;
-			// Right to Left
-				case 1:
-					for ( int x = start_x; x <= stop_x; x++ ) {
-						int y = (x - start_x) * slope_x + 3;
-						for ( int z = start_z; z <= stop_z && y < lim_y; z++ )
-						for ( int i = y; i >= y - slope_x && i >= 0; i-- )
-							if ( rand() % stop_x > 3 ) this->m_voxels[x][lim_y - 1 - i][half_z - 1 + z] = atlas.stair;
-					}
-				break;
-			}
-		break;
-	}
+*/
 }
 ext::TerrainVoxel::uid_t*** ext::TerrainGenerator::getVoxels() {
 	return this->m_voxels;
@@ -214,6 +233,137 @@ void ext::TerrainGenerator::rasterize( uf::Mesh& mesh, const ext::Region& region
 	regions.front = terrain.at( { location.x, location.y, location.z + 1 } );
 	regions.back = terrain.at( { location.x, location.y, location.z - 1 } );
 
+	if ( false ) {
+		ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas(ext::TerrainVoxelFloor().uid());
+		const ext::TerrainVoxel::Model& model = voxel.model();
+
+		{
+			for ( uint i = 0; i < model.position.right.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.right[i*3+0]; p.y = model.position.right[i*3+1]; p.z = model.position.right[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.x -= this->m_size.x;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.right.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.right[i*2+0]; p.y = model.uv.right[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.right.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.right[i*3+0]; p.y = model.normal.right[i*3+1]; p.z = model.normal.right[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		} {
+			for ( uint i = 0; i < model.position.left.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.left[i*3+0]; p.y = model.position.left[i*3+1]; p.z = model.position.left[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.x += this->m_size.x;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.left.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.left[i*2+0]; p.y = model.uv.left[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.left.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.left[i*3+0]; p.y = model.normal.left[i*3+1]; p.z = model.normal.left[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		} {
+			for ( uint i = 0; i < model.position.top.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.top[i*3+0]; p.y = model.position.top[i*3+1]; p.z = model.position.top[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.y -= this->m_size.y;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.top.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.top[i*2+0]; p.y = model.uv.top[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.top.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.top[i*3+0]; p.y = model.normal.top[i*3+1]; p.z = model.normal.top[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		} {
+			for ( uint i = 0; i < model.position.bottom.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.bottom[i*3+0]; p.y = model.position.bottom[i*3+1]; p.z = model.position.bottom[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.y += this->m_size.y;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.bottom.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.bottom[i*2+0]; p.y = model.uv.bottom[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.bottom.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.bottom[i*3+0]; p.y = model.normal.bottom[i*3+1]; p.z = model.normal.bottom[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		} {
+			for ( uint i = 0; i < model.position.front.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.front[i*3+0]; p.y = model.position.front[i*3+1]; p.z = model.position.front[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.z -= this->m_size.z;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.front.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.front[i*2+0]; p.y = model.uv.front[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.front.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.front[i*3+0]; p.y = model.normal.front[i*3+1]; p.z = model.normal.front[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		} {
+			for ( uint i = 0; i < model.position.back.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.position.back[i*3+0]; p.y = model.position.back[i*3+1]; p.z = model.position.back[i*3+2];
+				p.x *= this->m_size.x; p.y *= this->m_size.y; p.z *= this->m_size.z;
+				p.z += this->m_size.z;
+				position.push_back(p.x); position.push_back(p.y); position.push_back(p.z);
+			}
+			for ( uint i = 0; i < model.uv.back.size() / 2; ++i ) {
+				struct { float x, y; } p;
+				p.x = model.uv.back[i*2+0]; p.y = model.uv.back[i*2+1];
+			//	p.x *= offset.uv.x; p.y *= offset.uv.y;
+			//	p.x += offset.uv.u; p.y += offset.uv.v;
+				uv.push_back(p.x); uv.push_back(p.y);
+			}
+			for ( uint i = 0; i < model.normal.back.size() / 3; ++i ) {
+				struct { float x, y, z; } p;
+				p.x = model.normal.back[i*3+0]; p.y = model.normal.back[i*3+1]; p.z = model.normal.back[i*3+2];
+				normal.push_back(p.x); normal.push_back(p.y); normal.push_back(p.z);
+			}
+		}
+
+		mesh.index();
+		mesh.generate();
+
+		return;
+	}
 
 	for ( uint x = 0; x < this->m_size.x; ++x ) {
 		for ( uint y = 0; y < this->m_size.y; ++y ) {

@@ -6,20 +6,11 @@
 
 void ext::Object::initialize() {	
 	uf::Entity::initialize();
-	this->addComponent<pod::Physics>();
-	this->addComponent<pod::Transform<>>();
-
-	pod::Physics& physics = this->getComponent<pod::Physics>();
-	physics.linear.velocity = {0,0,0};
-	physics.linear.acceleration = {0,0,0};
-	physics.rotational.velocity = uf::quaternion::axisAngle( {0,1,0}, (pod::Math::num_t) 0 );
-	physics.rotational.acceleration = {0,0,0,0};
 }
 void ext::Object::tick() {
 	uf::Entity::tick();
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	pod::Physics& physics = this->getComponent<pod::Physics>();
-//	if ( this->m_name == "Cube" ) physics.linear.velocity = {0,1.0125f*cosf(0.125f*uf::physics::time::current),0};
 	transform = uf::physics::update( transform, physics );
 }
 void ext::Object::render() {

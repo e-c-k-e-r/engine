@@ -264,6 +264,7 @@ int main(int argc, char** argv){
 		client::render();
 		ext::render();
 	}
+
 	if ( !client::terminated ) {
 		uf::iostream << "Natural termination!" << "\n";
 		client::terminate();

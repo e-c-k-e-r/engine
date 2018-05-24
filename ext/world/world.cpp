@@ -10,6 +10,7 @@
 #include "./gui/gui.h"
 
 #include <uf/utils/audio/audio.h>
+#include <uf/utils/thread/thread.h>
 
 namespace {
 	uf::Camera* camera;
@@ -23,13 +24,9 @@ void ext::World::initialize() {
 }
 
 void ext::World::tick() {
-	static bool first = true; if ( first ) { first = false;
-		uf::physics::tick();
-	}
-
 	uf::Entity::tick();
 
-	{
+	/* Calibrates Polyfill */ {
 		static float x = 1.07986, y = 24.7805;
 		if ( uf::Window::isKeyPressed("L") ) x += 0.01;
 		if ( uf::Window::isKeyPressed("J") ) x -= 0.01;
@@ -38,7 +35,7 @@ void ext::World::tick() {
 		if ( uf::Window::isKeyPressed("O") ) std::cout << x << ", " << y << std::endl;
 		glPolygonOffset(x, y);
 	}
-	if (uf::Window::isKeyPressed("U")) {
+	/* Print World Tree */ if (uf::Window::isKeyPressed("U")) {
 		std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
 			for ( const uf::Entity* entity : parent->getChildren() ) {
 				for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
@@ -47,14 +44,14 @@ void ext::World::tick() {
 			}
 		}; recurse(this, 0);
 	}
-	{
+	
+	/* Updates Sound Listener */ {
 		ext::Player& player = this->getPlayer();
 		pod::Transform<>& transform = player.getComponent<pod::Transform<>>();
 		
 		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
-
 	}
 }
 

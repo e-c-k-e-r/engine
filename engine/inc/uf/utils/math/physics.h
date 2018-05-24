@@ -22,7 +22,7 @@ namespace uf {
 	namespace physics {
 		namespace time {
 			UF_API uf::Timer<> timer;
-			UF_API double current, previous, delta;
+			UF_API double current, previous, delta, clamp;
 		}
 		void UF_API tick();
 		template<typename T> pod::Transform<T>& update( pod::Transform<T>& transform, pod::Physics& physics );

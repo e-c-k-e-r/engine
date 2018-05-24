@@ -201,7 +201,7 @@ uf::Collider::Manifold UF_API uf::AABBox::intersects( const uf::AABBox& b ) cons
 	manifold.depth = 9E9;
 	auto test = [&]( const pod::Vector3& axis, float minA, float maxA, float minB, float maxB )->bool{
 		float axisLSqr = uf::vector::dot(axis, axis);
-		if ( axisLSqr < 1E-8f ) return false;
+		if ( axisLSqr < 1E-8f ) return true;
 
 		float d0 = maxB - minA;
 		float d1 = maxA - minB;

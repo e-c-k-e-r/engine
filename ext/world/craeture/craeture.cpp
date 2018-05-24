@@ -49,6 +49,8 @@ void ext::Craeture::initialize() {
 		uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
 	}
 }
+
+#include <uf/utils/thread/thread.h>
 void ext::Craeture::tick() {
 	ext::Object::tick();
 
@@ -59,45 +61,52 @@ void ext::Craeture::tick() {
 	}
 	this->animate();
 
-	/* Collision */ if ( this->m_parent && serializer["collision"]["should"].asBool() ) {
-		uf::Entity& parent = this->getParent();
-		if ( this->hasComponent<uf::CollisionBody>() && parent.hasComponent<uf::CollisionBody>() ) {
-			uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
-			uf::CollisionBody& pCollider = parent.getComponent<uf::CollisionBody>();
+		/* Threads */ {
+		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
+			auto function = [&]() -> int {
+			/* Collision */ if ( this->m_parent && serializer["collision"]["should"].asBool() ) {
+				uf::Entity& parent = this->getParent();
+				if ( this->hasComponent<uf::CollisionBody>() && parent.hasComponent<uf::CollisionBody>() ) {
+					uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
+					uf::CollisionBody& pCollider = parent.getComponent<uf::CollisionBody>();
 
-			pod::Transform<>& transform = this->getComponent<pod::Transform<>>(); {
-				collider.clear();
-				uf::Collider* box = new uf::AABBox( uf::vector::add({0, 1.5, 0}, transform.position), {0.7, 1.6, 0.7} );
-				collider.add(box);
-			}
+					pod::Transform<>& transform = this->getComponent<pod::Transform<>>(); {
+						collider.clear();
+						uf::Collider* box = new uf::AABBox( uf::vector::add({0, 1.5, 0}, transform.position), {0.7, 1.6, 0.7} );
+						collider.add(box);
+					}
 
-			pod::Physics& physics = this->getComponent<pod::Physics>();
-			auto result = pCollider.intersects(collider);
-			uf::Collider::Manifold strongest;
-			strongest.depth = 0.001;
-			bool useStrongest = true;
-			for ( auto manifold : result ) {
-				if ( manifold.colliding && manifold.depth > 0 ) {
-					if ( strongest.depth < manifold.depth ) strongest = manifold;
-					if ( !useStrongest ) {
-						pod::Vector3 correction = uf::vector::normalize(manifold.normal) * -(manifold.depth * manifold.depth * 1.001);
+					pod::Physics& physics = this->getComponent<pod::Physics>();
+					auto result = pCollider.intersects(collider);
+					uf::Collider::Manifold strongest;
+					strongest.depth = 0.001;
+					bool useStrongest = true;
+					for ( auto manifold : result ) {
+						if ( manifold.colliding && manifold.depth > 0 ) {
+							if ( strongest.depth < manifold.depth ) strongest = manifold;
+							if ( !useStrongest ) {
+								pod::Vector3 correction = uf::vector::normalize(manifold.normal) * -(manifold.depth * manifold.depth * 1.001);
+								transform.position += correction;
+								if ( manifold.normal.x == 1 || manifold.normal.x == -1 ) physics.linear.velocity.x = 0;
+								if ( manifold.normal.y == 1 || manifold.normal.y == -1 ) physics.linear.velocity.y = 0;
+								if ( manifold.normal.z == 1 || manifold.normal.z == -1 ) physics.linear.velocity.z = 0;
+							}
+						}
+					}
+					if ( useStrongest && strongest.colliding ) {
+						pod::Vector3 correction = uf::vector::normalize(strongest.normal) * -(strongest.depth * strongest.depth * 1.001);
 						transform.position += correction;
-						if ( manifold.normal.x == 1 || manifold.normal.x == -1 ) physics.linear.velocity.x = 0;
-						if ( manifold.normal.y == 1 || manifold.normal.y == -1 ) physics.linear.velocity.y = 0;
-						if ( manifold.normal.z == 1 || manifold.normal.z == -1 ) physics.linear.velocity.z = 0;
+
+					//	std::cout << "Collision! " << ( strongest.colliding ? "yes" : "no" ) << " " << strongest.normal.x << ", " << strongest.normal.y << ", " << strongest.normal.z << " / " << strongest.depth << std::endl;
+						if ( strongest.normal.x == 1 || strongest.normal.x == -1 ) physics.linear.velocity.x = 0;
+						if ( strongest.normal.y == 1 || strongest.normal.y == -1 ) physics.linear.velocity.y = 0;
+						if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
 					}
 				}
 			}
-			if ( useStrongest && strongest.colliding ) {
-				pod::Vector3 correction = uf::vector::normalize(strongest.normal) * -(strongest.depth * strongest.depth * 1.001);
-				transform.position += correction;
-
-			//	std::cout << "Collision! " << ( strongest.colliding ? "yes" : "no" ) << " " << strongest.normal.x << ", " << strongest.normal.y << ", " << strongest.normal.z << " / " << strongest.depth << std::endl;
-				if ( strongest.normal.x == 1 || strongest.normal.x == -1 ) physics.linear.velocity.x = 0;
-				if ( strongest.normal.y == 1 || strongest.normal.y == -1 ) physics.linear.velocity.y = 0;
-				if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
-			}
-		}
+			return 0;
+		};
+		uf::thread::add( thread, function, true );
 	}
 }
 void ext::Craeture::render() {

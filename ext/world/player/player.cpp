@@ -110,11 +110,32 @@ void ext::Player::initialize() {
 		uf::Camera& camera = this->getComponent<uf::Camera>();
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		pod::Transform<>& cameraTransform = camera.getTransform();
-		if ( delta.x != 0 ) uf::transform::rotate( transform, transform.up,                relta.x ), updateCamera = true;
+		uf::Serializer& serializer = this->getComponent<uf::Serializer>();
+		if ( delta.x != 0 ) {
+			double current, minima, maxima; {
+				current = serializer["camera"]["limit"]["current"][0] != Json::nullValue ? serializer["camera"]["limit"]["current"][0].asDouble() : NAN;
+				minima = serializer["camera"]["limit"]["minima"][0] != Json::nullValue ? serializer["camera"]["limit"]["minima"][0].asDouble() : NAN;
+				maxima = serializer["camera"]["limit"]["maxima"][0] != Json::nullValue ? serializer["camera"]["limit"]["maxima"][0].asDouble() : NAN;
+			}
+			if ( serializer["camera"]["invert"][0].asBool() ) relta.x *= -1;
+			current += relta.x;
+			if ( current != current || ( current < maxima && current > minima ) ) uf::transform::rotate( transform, transform.up, relta.x ), updateCamera = true; else current -= relta.x;
+			if ( serializer["camera"]["limit"]["current"][0] != Json::nullValue ) serializer["camera"]["limit"]["current"][0] = current;
+		}
 		if ( delta.y != 0 ) {
-			static float limit = 0; limit += -relta.y;
-			if ( limit < 1 && limit > -1.2 ) uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y ), updateCamera = true;
-			else limit -= -relta.y;
+			double current, minima, maxima; {
+				current = serializer["camera"]["limit"]["current"][1] != Json::nullValue ? serializer["camera"]["limit"]["current"][1].asDouble() : NAN;
+				minima = serializer["camera"]["limit"]["minima"][1] != Json::nullValue ? serializer["camera"]["limit"]["minima"][1].asDouble() : NAN;
+				maxima = serializer["camera"]["limit"]["maxima"][1] != Json::nullValue ? serializer["camera"]["limit"]["maxima"][1].asDouble() : NAN;
+			}
+			if ( serializer["camera"]["invert"][1].asBool() ) relta.y *= -1;
+			current += relta.y;
+			if ( current != current || ( current < maxima && current > minima ) ) {
+				uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y );
+				uf::transform::rotate( this->m_animation.transforms[serializer["animation"]["names"]["head"].asString()], {0, 0, 1}, -relta.y );
+				updateCamera = true;
+			} else current -= relta.y;
+			if ( serializer["camera"]["limit"]["current"][1] != Json::nullValue ) serializer["camera"]["limit"]["current"][1] = current;
 		}
 		if ( updateCamera ) {
 			camera.updateView();
@@ -158,11 +179,24 @@ void ext::Player::initialize() {
 		uf::Camera& camera = this->getComponent<uf::Camera>();
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		pod::Transform<>& cameraTransform = camera.getTransform();
+	/*
 		if ( delta.y != 0 ) {
+			double current, minima, maxima; {
+				current = serializer["camera"]["limit"]["current"][1] != Json::nullValue ? serializer["camera"]["limit"]["current"][1].asDouble() : NAN;
+				minima = serializer["camera"]["limit"]["minima"][1] != Json::nullValue ? serializer["camera"]["limit"]["minima"][1].asDouble() : NAN;
+				maxima = serializer["camera"]["limit"]["maxima"][1] != Json::nullValue ? serializer["camera"]["limit"]["maxima"][1].asDouble() : NAN;
+			}
+			if ( serializer["camera"]["invert"][1].asBool() ) relta.y *= -1;
+			current += relta.y;
+			std::cout << "Head: " << current << ", " << minima << ", " << maxima << std::endl;
+			if ( current != current || ( current < maxima && current > minima ) ) uf::transform::rotate( this->m_animation.transforms[serializer["animation"]["names"]["head"].asString()], {0, 0, 1}, relta.y ), updateCamera = true;
+		}
+		if ( false && delta.y != 0 ) {
 			static float limit = 0; limit += -relta.y;
 			if ( limit < 1 && limit > -1 ) uf::transform::rotate( this->m_animation.transforms[serializer["animation"]["names"]["head"].asString()], {0, 0, 1}, -relta.y ), updateCamera = true;
 			else limit -= -relta.y;
 		}
+	*/
 		if ( ::lockMouse ) {
 			uf::hooks.call("window:Mouse.Lock");
 			ignoreNext = true;
@@ -175,8 +209,8 @@ void ext::Player::tick() {
 	bool deltaCrouch = false;
 	bool walking = false;
 	struct {
-		float move = uf::physics::time::delta * 4;
-		float rotate = uf::physics::time::delta * 4;
+		float move = 4; //uf::physics::time::delta * 4;
+		float rotate = uf::physics::time::delta * 0.75;
 		float limitSquared = 4*4;
 	} speed;
 
@@ -185,7 +219,7 @@ void ext::Player::tick() {
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	uf::Serializer& serializer = this->getComponent<uf::Serializer>();
 
-	camera.update(true);
+	// camera.update(true);
 
 	bool floored = physics.linear.velocity.y == 0;
 	if ( ::lockMouse ) {	
