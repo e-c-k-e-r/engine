@@ -218,7 +218,12 @@ void client::render() {
 	client::window.display();
 }
 
+#include <uf/utils/thread/thread.h>
 void client::terminate() {
+	/* Close Threads */ {
+		uf::thread::terminate();
+	}
+
 	client::window.terminate();
 	spec::Context::globalCleanup();
 

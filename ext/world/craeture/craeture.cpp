@@ -61,10 +61,73 @@ void ext::Craeture::tick() {
 	}
 	this->animate();
 
-		/* Threads */ {
+	/* Threads */ {
 		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
 			auto function = [&]() -> int {
-			/* Collision */ if ( this->m_parent && serializer["collision"]["should"].asBool() ) {
+			/* Collision */ if ( this->hasParent() && serializer["collision"]["should"].asBool() ) {
+				if ( !this->hasParent() ) return 0; if ( this->getParent().getName() != "Region" ) return 0;
+				if ( !this->getParent().hasParent() ) return 0; if ( this->getParent().getParent().getName() != "Terrain" ) return 0;
+
+				uf::Entity& parentRegion = this->getParent();
+				uf::Entity& parentTerrain = parentRegion.getParent();
+
+				int regions = 0;
+				std::vector<uf::Entity*> entities;
+				entities.push_back(&parentRegion);
+				/* Retrieve close entities */ for ( uf::Entity* kv : parentTerrain.getChildren() ) { if ( !kv ) continue; if ( kv->getName() != "Region" ) continue;
+					if ( kv->getUid() == parentRegion.getUid() ) continue;
+					uf::Serializer& rMetadata = kv->getComponent<uf::Serializer>();
+					if ( !rMetadata["region"]["initialized"].asBool() ) continue;
+					if ( ++regions <= 9 ) entities.push_back(kv);
+				}
+				/* Sort by closest to farthest */ {
+					const pod::Vector3& position = this->getComponent<pod::Transform<>>().position;
+					std::sort( entities.begin(), entities.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
+						if ( !l ) return false; if ( !r ) return true;
+						if ( !l->hasComponent<pod::Transform<>>() ) return false; if ( !r->hasComponent<pod::Transform<>>() ) return true;
+						return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) < uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
+					} );
+				}
+
+				for ( uf::Entity* e : entities ) {
+					uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
+					uf::CollisionBody& pCollider = e->getComponent<uf::CollisionBody>();
+
+					pod::Transform<>& transform = this->getComponent<pod::Transform<>>(); {
+						collider.clear();
+						uf::Collider* box = new uf::AABBox( uf::vector::add({0, 1.5, 0}, transform.position), {0.7, 1.6, 0.7} );
+						collider.add(box);
+					}
+
+					pod::Physics& physics = this->getComponent<pod::Physics>();
+					auto result = pCollider.intersects(collider);
+					uf::Collider::Manifold strongest;
+					strongest.depth = 0.001;
+					bool useStrongest = true;
+					for ( auto manifold : result ) {
+						if ( manifold.colliding && manifold.depth > 0 ) {
+							if ( strongest.depth < manifold.depth ) strongest = manifold;
+							if ( !useStrongest ) {
+								pod::Vector3 correction = uf::vector::normalize(manifold.normal) * -(manifold.depth * manifold.depth * 1.001);
+								transform.position += correction;
+								if ( manifold.normal.x == 1 || manifold.normal.x == -1 ) physics.linear.velocity.x = 0;
+								if ( manifold.normal.y == 1 || manifold.normal.y == -1 ) physics.linear.velocity.y = 0;
+								if ( manifold.normal.z == 1 || manifold.normal.z == -1 ) physics.linear.velocity.z = 0;
+							}
+						}
+					}
+					if ( useStrongest && strongest.colliding ) {
+						pod::Vector3 correction = uf::vector::normalize(strongest.normal) * -(strongest.depth * strongest.depth * 1.001);
+						transform.position += correction;
+
+					//	std::cout << "Collision! " << ( strongest.colliding ? "yes" : "no" ) << " " << strongest.normal.x << ", " << strongest.normal.y << ", " << strongest.normal.z << " / " << strongest.depth << std::endl;
+						if ( strongest.normal.x == 1 || strongest.normal.x == -1 ) physics.linear.velocity.x = 0;
+						if ( strongest.normal.y == 1 || strongest.normal.y == -1 ) physics.linear.velocity.y = 0;
+						if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
+					}
+				}
+
+			/*
 				uf::Entity& parent = this->getParent();
 				if ( this->hasComponent<uf::CollisionBody>() && parent.hasComponent<uf::CollisionBody>() ) {
 					uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
@@ -103,6 +166,8 @@ void ext::Craeture::tick() {
 						if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
 					}
 				}
+			*/
+
 			}
 			return 0;
 		};

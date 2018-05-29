@@ -15,6 +15,21 @@ spec::ogl::Ibo<T>::Ibo() :
 
 }
 template<typename T>
+spec::ogl::Ibo<T>::Ibo( Ibo<T>&& ibo ) : 
+	Ibo()
+{
+	this->m_index = std::move( ibo.m_index );
+	this->m_indices = std::move( ibo.m_indices );
+	ibo.m_index = 0;
+}
+template<typename T>
+spec::ogl::Ibo<T>& spec::ogl::Ibo<T>::operator=( spec::ogl::Ibo<T>&& ibo ) {
+	this->m_index = std::move( ibo.m_index );
+	this->m_indices = std::move( ibo.m_indices );
+	ibo.m_index = 0;
+	return *this;
+}
+template<typename T>
 spec::ogl::Ibo<T>::Ibo( Ibo<T>::indices_t&& indices ) : 
 	Ibo()
 {
@@ -45,13 +60,13 @@ void spec::ogl::Ibo<T>::bind() const {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->m_index);
 }
 template<typename T>
-void spec::ogl::Ibo<T>::generate() {
+void spec::ogl::Ibo<T>::generate( GLuint mode, bool override ) {
 	if ( !this->loaded() ) return;
 	if ( this->generated() ) glDeleteBuffers( 1, &this->m_index );
 
 	glGenBuffers(1, &this->m_index);
 	this->bind();
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->m_indices.size() * sizeof(T), &this->m_indices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->m_indices.size() * sizeof(T), &this->m_indices[0], mode);
 }
 template<typename T>
 void spec::ogl::Ibo<T>::render( GLuint mode, void* offset ) const {
@@ -139,8 +154,6 @@ void spec::ogl::Ibo<T>::index( uf::Vertices3f& position, uf::Vertices3f& normal,
 		bool normal;
 		bool color;
 		bool uv;
-		bool bones_id;
-		bool bones_weight;
 	} use; /* Set up */ {
 		use.position = position.verticesCount() > 0;
 		use.normal = normal.verticesCount() > 0;

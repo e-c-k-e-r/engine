@@ -32,6 +32,9 @@ namespace uf {
 		template<typename T> pod::Component::id_t getType() const;
 		template<typename T> bool hasComponent() const;
 
+		template<typename T> pod::Component* getRawComponentPointer();
+		template<typename T> const pod::Component* getRawComponentPointer() const;
+
 		template<typename T> T* getComponentPointer();
 		template<typename T> const T* getComponentPointer() const;
 

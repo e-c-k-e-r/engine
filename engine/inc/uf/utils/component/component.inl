@@ -4,7 +4,6 @@ template<typename T> pod::Component::id_t uf::component::type() {
 template<typename T> bool uf::component::is( const pod::Component& component ) {
 	return uf::component::type<T>() == component.id;
 }
-
 //
 //
 //
@@ -16,6 +15,20 @@ pod::Component::id_t uf::Component::getType() const {
 template<typename T>
 bool uf::Component::hasComponent() const {
 	return this->m_container.count(this->getType<T>()) != 0;
+}
+template<typename T>
+pod::Component* uf::Component::getRawComponentPointer() {
+	if ( !this->hasComponent<T>() ) { if ( this->m_addOn404 ) this->addComponent<T>(); else return NULL; }
+	pod::Component::id_t id = this->getType<T>();
+	pod::Component& component = this->m_container[id];
+	return &component;
+}
+template<typename T>
+const pod::Component* uf::Component::getRawComponentPointer() const {
+	if ( !this->hasComponent<T>() ) return NULL;
+	pod::Component::id_t id = this->getType<T>();
+	const pod::Component& component = this->m_container.at(id);
+	return &component;
 }
 template<typename T>
 T* uf::Component::getComponentPointer() {

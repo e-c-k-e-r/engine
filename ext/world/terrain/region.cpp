@@ -4,7 +4,9 @@
 #include "generator.h"
 #include "../light/light.h"
 
-void ext::Region::initialize() {	
+void ext::Region::initialize() {
+	ext::Object::initialize();
+
 	this->addComponent<pod::Transform<>>();
 	this->addComponent<ext::TerrainGenerator>();
 
@@ -19,15 +21,26 @@ void ext::Region::load() {
 	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
 	ext::TerrainGenerator& generator = this->getComponent<ext::TerrainGenerator>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	
+
+	if ( metadata["region"]["initialized"].asBool() ) return;
+
 	pod::Vector3ui size; {
 		size.x = metadata["region"]["size"][0].asUInt();
 		size.y = metadata["region"]["size"][1].asUInt();
 		size.z = metadata["region"]["size"][2].asUInt();
 	}
 
+	/* Metadata */ {
+		metadata["region"]["modified"] = true;
+		metadata["region"]["initialized"] = true;
+		metadata["region"]["rasterized"] = false;
+	}
+
 	float r = (rand() % 100) / 100.0;
 	bool addLight = r < metadata["region"]["light"]["random"].asFloat();
+	static bool first = false; if ( !first ) {
+		addLight = (first = true);
+	}
 	// Guarantee at least one light source (per XZ plane)
 	if ( !addLight ) { addLight = true;
 		ext::Terrain& parent = this->getParent<ext::Terrain>();
@@ -44,11 +57,10 @@ void ext::Region::load() {
 	}
 
 	if ( addLight ) {
-	//	std::cout << metadata["region"]["location"][0] << ", " << metadata["region"]["location"][1] << ", " << metadata["region"]["location"][2] << std::endl;
 		pod::Vector3 color = { 1.0, 1.0, 1.0 }; {
-		//	float r = (rand() % 256) / 256.0; color.x -= r;
-		//	float g = (rand() % 256) / 256.0; color.y -= g;
-		//	float b = (rand() % 256) / 256.0; color.z -= b;
+			float r = (rand() % 256) / 256.0; color.x -= r;
+			float g = (rand() % 256) / 256.0; color.y -= g;
+			float b = (rand() % 256) / 256.0; color.z -= b;
 
 			color = uf::vector::normalize( color );
 		}
@@ -107,6 +119,7 @@ void ext::Region::load() {
 
 	generator.initialize(size);
 	generator.generate();
+
 	/* Collider */ {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
@@ -124,7 +137,6 @@ void ext::Region::load() {
 				if ( !voxel.opaque() ) continue;
 
 				uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
-			//	uf::Collider* box = new uf::SphereCollider( 0.5f, offset );
 				collider.add(box);
 			}
 		}
@@ -135,36 +147,25 @@ void ext::Region::load() {
 }
 void ext::Region::render() {
 	if ( !this->m_parent ) return;
-	ext::World& parent = this->getRootParent<ext::World>();
+	ext::World& root = this->getRootParent<ext::World>();
+	ext::Terrain& terrain = this->getParent<ext::Terrain>();		
+
+	uf::Entity::render();
+
+	if ( !this->hasComponent<uf::Mesh>() ) return; if ( !this->getComponent<uf::Mesh>().generated() ) return;
+	if ( terrain.hasComponent<uf::Mesh>() ) if ( terrain.getComponent<uf::Mesh>().generated() ) return;
 
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	uf::Shader& shader = this->getParent<ext::Terrain>().getComponent<uf::Shader>();
-	uf::Camera& camera = parent.getCamera(); //parent.getPlayer().getComponent<uf::Camera>();
+	uf::Camera& camera = root.getCamera(); //root.getPlayer().getComponent<uf::Camera>();
 	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	const uf::Serializer& pMetadata = parent.getComponent<uf::Serializer>();
-/*
-	if ( pMetadata["state"].asInt() == 1 && metadata["light"]["rendered"] != Json::nullValue ) {
-		const ext::Player& player = parent.getPlayer();
-		const pod::Transform<>& pTransform = player.getComponent<pod::Transform<>>();
-		pod::Vector3ui size = {
-			metadata["region"]["size"][0].asUInt(),
-			metadata["region"]["size"][1].asUInt(),
-			metadata["region"]["size"][2].asUInt(),
-		};
-		pod::Vector3 pointf = uf::vector::divide(pTransform.position, {size.x, size.y, size.z});
-		pod::Vector3i point = {
-			(int) (pointf.x + (pointf.x > 0 ? 0.5 : -0.5)),
-			(int) (pointf.y + (pointf.y > 0 ? 0.5 : -0.5)),
-			(int) (pointf.z + (pointf.z > 0 ? 0.5 : -0.5)),
-		};
-		if ( point.y != transform.position.y / size.y ) return;
-	}
-	metadata["light"]["rendered"] = true;
-*/
+	const uf::Serializer& pMetadata = root.getComponent<uf::Serializer>();
 
-	uf::Entity::render();
+	if ( !metadata["region"]["rasterized"].asBool() ) return;
+	if ( metadata["region"]["unified"].asBool() ) return;
+//	if ( pMetadata["terrain"]["unified"].asBool() ) return;
 
 	int slot = 0; 
 	if ( this->getParent<ext::Terrain>().hasComponent<uf::Texture>() ) {
@@ -180,7 +181,8 @@ void ext::Region::render() {
 	}
 	shader.bind(); {
 		camera.update();
-		shader.push("model", uf::transform::model(transform));
+		shader.push("model", uf::matrix::identity());
+	//	shader.push("model", uf::transform::model(transform));
 		shader.push("view", camera.getView());
 		shader.push("projection", camera.getProjection());
 		if ( this->getParent<ext::Terrain>().hasComponent<uf::Texture>() ) shader.push("texture", slot);

@@ -31,6 +31,10 @@ namespace uf {
 	public:
 		// C-tor
 		Mesh();
+		Mesh( Mesh&& );
+		Mesh( const Mesh& );
+		Mesh& operator=( Mesh&& );
+		Mesh& operator=( const Mesh& );
 		// D-tor
 		~Mesh();
 		void clear();
@@ -46,6 +50,11 @@ namespace uf {
 
 		// Indexed ops
 		void index();
+
+		// Pseudo-Move/Copy
+		void move( uf::Mesh& );
+		void copy( const uf::Mesh& );
+		void insert( const uf::Mesh& );
 
 		// Move Setters
 		void setPositions( uf::Vertices3f&& position );

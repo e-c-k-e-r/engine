@@ -1,9 +1,11 @@
 template<typename T> T& uf::Entity::getParent() {
-	static T null;
-	return this->m_parent ? *(T*)this->m_parent : null;
+//	static T null;
+//	return this->m_parent ? *(T*)this->m_parent : null;
+	if ( this->hasParent() ) return *(T*) this->m_parent;
+	throw "invalid call to uf::Entity::getParent";
 }
 template<typename T> T& uf::Entity::getRootParent() {
-	static T null;
+//	static T null;
 	uf::Entity* last = this;
 	uf::Entity* pointer = this->m_parent;
 	while ( pointer != NULL ) {
@@ -13,11 +15,13 @@ template<typename T> T& uf::Entity::getRootParent() {
 	return *(T*) last;
 }
 template<typename T> const T& uf::Entity::getParent() const {
-	static const T null;
-	return this->m_parent ? *(T*)this->m_parent : null;
+//	static const T null;
+//	return this->m_parent ? *(T*)this->m_parent : null;
+	if ( this->hasParent() ) return *(const T*) this->m_parent;
+	throw "invalid call to uf::Entity::getParent";
 }
 template<typename T> const T& uf::Entity::getRootParent() const {
-	static const T null;
+//	static const T null;
 	const uf::Entity* last = this;
 	const uf::Entity* pointer = this->m_parent;
 	while ( pointer != NULL ) {

@@ -8,6 +8,11 @@ uf::Mesh::Mesh() :
 {
 
 }
+uf::Mesh::Mesh( uf::Mesh&& mesh ) { this->move(mesh); }
+uf::Mesh::Mesh( const uf::Mesh& mesh ) { this->copy(mesh); }
+
+uf::Mesh& uf::Mesh::operator=( uf::Mesh&& mesh ) { this->move(mesh); return *this; }
+uf::Mesh& uf::Mesh::operator=( const uf::Mesh& mesh ) { this->clear(); this->destroy(); this->copy(mesh); return *this; }
 // D-tor
 uf::Mesh::~Mesh() {
 	this->clear();
@@ -85,6 +90,26 @@ void uf::Mesh::index() {
 	if ( this->m_indexed ) return;
 	this->m_indexed = true;
 	this->m_ibo.index( this->m_position, this->m_normal, this->m_color, this->m_uv );
+}
+// Pseudo-Move/Copy
+void uf::Mesh::move( uf::Mesh& mesh ) { // moves GL object
+	this->destroy();
+
+	this->m_vao = std::move( mesh.m_vao );
+	this->m_ibo = std::move( mesh.m_ibo );
+	this->m_indexed = std::move( mesh.m_indexed );
+}
+void uf::Mesh::copy( const uf::Mesh& mesh ) { // copies vertices
+	this->setPositions( mesh.getPositions() );
+	this->setNormals( mesh.getNormals() );
+	this->setColors( mesh.getColors() );
+	this->setUvs( mesh.getUvs() );
+}
+void uf::Mesh::insert( const uf::Mesh& mesh ) { // inserts vertices
+	this->m_position.getVertices().insert( this->m_position.getVertices().end(), mesh.getPositions().getVertices().cbegin(), mesh.getPositions().getVertices().cend() );
+	this->m_normal.getVertices().insert( this->m_normal.getVertices().end(), mesh.getNormals().getVertices().cbegin(), mesh.getNormals().getVertices().cend() );
+	this->m_color.getVertices().insert( this->m_color.getVertices().end(), mesh.getColors().getVertices().cbegin(), mesh.getColors().getVertices().cend() );
+	this->m_uv.getVertices().insert( this->m_uv.getVertices().end(), mesh.getUvs().getVertices().cbegin(), mesh.getUvs().getVertices().cend() );
 }
 // Move Setters
 void uf::Mesh::setPositions( uf::Vertices3f&& position ) {

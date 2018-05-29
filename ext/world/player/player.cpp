@@ -8,6 +8,10 @@
 #include <uf/gl/camera/camera.h>
 #include <uf/utils/audio/audio.h>
 
+#include "../gui/gui.h"
+#include "../world.h"
+
+
 namespace {
 	bool lockMouse = true;
 	bool croutching = false;
@@ -21,6 +25,7 @@ void ext::Player::initialize() {
 		transform = uf::transform::initialize(transform);
 		this->getComponent<uf::Camera>().getTransform().reference = this->getComponentPointer<pod::Transform<>>();
 	}
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	/* Load Config */ {
 		struct {
 			int mode = 0;
@@ -34,7 +39,6 @@ void ext::Player::initialize() {
 			} perspective;
 			pod::Vector3 offset = {0, 0, 0};
 		} settings;
-		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 		uf::Camera& camera = this->getComponent<uf::Camera>();
 		settings.mode = metadata["camera"]["ortho"].asBool() ? -1 : 1;
@@ -76,7 +80,7 @@ void ext::Player::initialize() {
 
 		// Update viewport
 		if ( metadata["camera"]["settings"]["size"]["auto"].asBool() )  {
-			uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+			metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 
 				// Update persistent window sized (size stored to JSON file)
@@ -95,7 +99,7 @@ void ext::Player::initialize() {
 	}
 
 	// Rotate Camera
-	uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
+	metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
 		static bool ignoreNext = false; if ( ignoreNext ) { ignoreNext = false; return "true"; }
 		
 		uf::Serializer json = event;
@@ -147,7 +151,7 @@ void ext::Player::initialize() {
 		return "true";
 	});
 	// Rotate model
-	uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
+	metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
 		static bool ignoreNext = false; if ( ignoreNext ) { ignoreNext = false; return "true"; }
 		
 		uf::Serializer json = event;
@@ -219,7 +223,70 @@ void ext::Player::tick() {
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	uf::Serializer& serializer = this->getComponent<uf::Serializer>();
 
-	// camera.update(true);
+	camera.update(true);
+
+	if (uf::Window::isKeyPressed("LShift")) speed.move = 8;
+
+	speed.limitSquared = speed.move * speed.move;
+
+	/* Running Element */ {
+		std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+				if ( entity->getName() == name ) return entity;
+				uf::Entity* p = findByName(entity, name);
+				if ( p ) return p;
+			}
+			return (uf::Entity*) NULL;
+		};
+		std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+				if ( entity->getUid() == id ) return entity;
+				uf::Entity* p = findByUid(entity, id);
+				if ( p ) return p;
+			}
+			return (uf::Entity*) NULL;
+		};
+		
+		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+		uint uid = metadata["gui"]["Sprinting Element"].asUInt();
+		uf::Entity& parent = this->getRootParent<ext::World>();		
+		ext::Gui* gui = (ext::Gui*) findByName(&parent, "Gui Manager");
+		uf::Entity* element = findByUid(gui, uid);
+
+		if ( uf::Window::isKeyPressed("LShift") ) {
+			if ( !element ) {
+				std::string config = "./text/config.json";
+				element = new ext::Gui;
+				ext::Gui& guiElement = *((ext::Gui*) element);
+				if ( !guiElement.load(config) ) { uf::iostream << "Error loading `" << config << "!" << "\n"; delete element; }
+				else {
+					gui->addChild(*element);
+
+					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+					
+					gMetadata["type"] = "Running Element";
+					gMetadata["gui"]["text"] = "Sprinting";
+					gMetadata["gui"]["position"][0] = 0;
+					gMetadata["gui"]["position"][1] = 0;
+					gMetadata["gui"]["origin"] = "top";
+					gMetadata["gui"]["direction"] = "down";
+					gMetadata["gui"]["size"] = 18;
+					
+					element->initialize();
+					
+					metadata["gui"]["Sprinting Element"] = element->getUid();
+				}
+			} else {
+				uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+				gMetadata["gui"]["render"] = true;
+			}
+		} else {
+			if ( element ) {
+				uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+				gMetadata["gui"]["render"] = false;
+			}
+		}
+	}
 
 	bool floored = physics.linear.velocity.y == 0;
 	if ( ::lockMouse ) {	
@@ -235,7 +302,7 @@ void ext::Player::tick() {
 				if ( mag < speed.limitSquared ) {
 					physics.linear.velocity += transform.forward * speed.move;
 					mag = uf::vector::magnitude(physics.linear.velocity);
-				}
+				} else mag = speed.limitSquared;
 				pod::Vector3 correction = transform.forward * sqrt(mag);
 				physics.linear.velocity.x = correction.x;
 				physics.linear.velocity.z = correction.z;
@@ -246,7 +313,7 @@ void ext::Player::tick() {
 				if ( mag < speed.limitSquared ) {
 					physics.linear.velocity += transform.forward * -speed.move;
 					mag = uf::vector::magnitude(physics.linear.velocity);
-				}
+				} else mag = speed.limitSquared;
 				pod::Vector3 correction = transform.forward * -sqrt(mag);
 				physics.linear.velocity.x = correction.x;
 				physics.linear.velocity.z = correction.z;
@@ -257,7 +324,7 @@ void ext::Player::tick() {
 				if ( mag < speed.limitSquared ) {
 					physics.linear.velocity += transform.right * -speed.move;
 					mag = uf::vector::magnitude(physics.linear.velocity);
-				}
+				} else mag = speed.limitSquared;
 				pod::Vector3 correction = transform.right * -sqrt(mag);
 				physics.linear.velocity.x = correction.x;
 				physics.linear.velocity.z = correction.z;
@@ -268,7 +335,7 @@ void ext::Player::tick() {
 				if ( mag < speed.limitSquared ) {
 					physics.linear.velocity += transform.right * speed.move;
 					mag = uf::vector::magnitude(physics.linear.velocity);
-				}
+				} else mag = speed.limitSquared;
 				pod::Vector3 correction = transform.right * sqrt(mag);
 				physics.linear.velocity.x = correction.x;
 				physics.linear.velocity.z = correction.z;
@@ -335,10 +402,6 @@ void ext::Player::tick() {
 		}
 	}
 
-	// std::cout << physics.linear.velocity.x << ", " << physics.linear.velocity.y << ", " << physics.linear.velocity.z << std::endl;
-	// std::cout << physics.linear.acceleration.x << ", " << physics.linear.acceleration.y << ", " << physics.linear.acceleration.z << std::endl;
-
-
 	/* Lock Mouse */ {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
@@ -351,9 +414,12 @@ void ext::Player::tick() {
 
 	ext::Craeture::tick();
 }
-#include "../world.h"
 void ext::Player::render() {
+	uf::Entity::render();
+
 	ext::World& parent = this->getRootParent<ext::World>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( &parent.getCamera() != this->getComponentPointer<uf::Camera>() || metadata["camera"]["ortho"].asBool() || metadata["model"]["render"].asBool() ) ext::Craeture::render();
+	if ( &parent.getCamera() != this->getComponentPointer<uf::Camera>() || metadata["camera"]["ortho"].asBool() || metadata["model"]["render"].asBool() ) {
+		ext::Craeture::render();
+	}
 }

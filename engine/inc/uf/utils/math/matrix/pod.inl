@@ -50,6 +50,16 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t, T f, T n ) {
 	return uf::matrix::initialize(m);
 }
 template<typename T>
+pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t ) {
+	std::vector<T> m = {
+		2 / (r - l), 0, 0, 0,
+		0, 2 / (t - b), 0, 0,
+		0, 0, 1, 0,
+		-(r + l) / (r - l), -(t+b)/(t-b), 0, 1
+	};
+	return uf::matrix::initialize(m);
+}
+template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const std::vector<T>& list ) {
 	pod::Matrix4t<T> matrix;
 	if ( list.size() != 16 ) return matrix;

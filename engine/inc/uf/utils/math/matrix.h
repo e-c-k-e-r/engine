@@ -45,6 +45,7 @@ namespace uf {
 	namespace matrix {
 	// 	Equality checking
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ identity();
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ ortho( T, T, T, T );
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ ortho( T, T, T, T, T, T );
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const std::vector<T>& );
 		template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> /*UF_API*/ identityi();

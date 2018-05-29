@@ -20,6 +20,7 @@ namespace ext {
 	
 	public:
 		void initialize();
+		void destroy();
 		void tick();
 		void render();
 

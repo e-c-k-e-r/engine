@@ -19,8 +19,10 @@ namespace pod {
 
 		Hook<Argument, Return>::name_t 		name;
 		Hook<Argument, Return>::function_t 	callback;
+		std::size_t uid;
 
 		Return operator()( const Argument& arg = Argument() ) { return callback( arg ); }
+		bool operator==( const Hook& hook ) { return this->uid == hook.uid; }
 	};
 	template<typename Argument = std::string>
 	struct UF_API HookAlias {
@@ -76,8 +78,9 @@ namespace uf {
 	public:
 		HookHandler();
 
-		void addHook( const Readable::name_t& name, const Readable::function_t& callback ); 	// Adds a hook that receives readable data
-		void addHook( const Optimal::name_t& name, const Optimal::function_t& callback ); 		// Adds a hook that receives optimal data
+		std::size_t addHook( const Readable::name_t& name, const Readable::function_t& callback ); 	// Adds a hook that receives readable data
+		std::size_t addHook( const Optimal::name_t& name, const Optimal::function_t& callback ); 		// Adds a hook that receives optimal data
+		void removeHook( const std::string&, std::size_t );
 		
 		bool exists( const Readable::name_t& name ) const; 				// Is there a hook bound to a name in either lists?
 		

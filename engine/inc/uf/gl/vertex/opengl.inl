@@ -10,7 +10,7 @@ spec::ogl::Vertices<T,N>::Vertices( typename Vertices<T,N>::vectors_t&& vectors,
 	m_vertices(std::move(vectors)),
 	Vbo(type, N)
 {
-//	this->m_vertices = std::move(vectors);
+
 }
 template<typename T, std::size_t N>
 spec::ogl::Vertices<T,N>::Vertices( const typename Vertices<T,N>::vectors_t& vectors, GLuint type ) : Vertices( type ) {
@@ -67,14 +67,23 @@ bool spec::ogl::Vertices<T,N>::loaded() const {
 }
 #include <uf/utils/io/iostream.h>
 template<typename T, std::size_t N>
-void spec::ogl::Vertices<T,N>::generate() {
+void spec::ogl::Vertices<T,N>::generate( GLuint mode, bool override ) {
 //	OpenGL >= 1.5
 	if ( !this->loaded() ) return;
 	if ( this->generated() ) glDeleteBuffers( 1, &this->m_index );
 
 	glGenBuffers( 1, &this->m_index );
 	glBindBuffer( this->m_type, this->m_index );
-	glBufferData( this->m_type, this->m_vertices.size() * sizeof(T), &this->m_vertices[0], GL_STATIC_DRAW );
+	glBufferData( this->m_type, this->m_vertices.size() * sizeof(T), !override ? &this->m_vertices[0] : NULL, mode );
+
+}
+template<typename T, std::size_t N>
+void spec::ogl::Vertices<T,N>::subBuffer() {
+//	OpenGL >= 1.5
+	if ( !this->loaded() ) return;
+	if ( !this->generated() ) return;
+	glBindBuffer( this->m_type, this->m_index );
+	glBufferSubData( this->m_type, 0, this->m_vertices.size() * sizeof(T), &this->m_vertices[0] );
 }
 template<typename T, std::size_t N>
 void spec::ogl::Vertices<T,N>::render( GLuint mode, std::size_t start, std::size_t end ) const {

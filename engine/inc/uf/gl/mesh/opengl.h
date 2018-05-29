@@ -19,6 +19,8 @@ namespace spec {
 		public:
 		// 	C-tors
 			Vao();
+			Vao( spec::ogl::Vao&& );
+			Vao& operator=( spec::ogl::Vao&& );
 		// 	D-tors
 			~Vao();
 			void clear();
@@ -48,6 +50,8 @@ namespace spec {
 		public:
 		// 	C-tors
 			Ibo();
+			Ibo( Ibo<T>&& );
+			Ibo<T>& operator=( spec::ogl::Ibo<T>&& );
 			Ibo( Ibo<T>::indices_t&& indices );
 			Ibo( const Ibo<T>::indices_t& indices );
 		// 	D-tors
@@ -56,7 +60,7 @@ namespace spec {
 			void destroy();
 		// 	OpenGL ops
 			void bind() const;
-			void generate();
+			void generate( GLuint mode = GL_STATIC_DRAW, bool override = false );
 			void render( GLuint mode = GL_TRIANGLES, void* offset = NULL ) const;
 		// 	OpenGL Getters
 			GLuint& getIndex();

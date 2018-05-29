@@ -31,7 +31,8 @@ namespace spec {
 			virtual void setType( GLuint type );
 			virtual void bindAttribute( bool enable = true );
 			virtual void bindAttribute( GLuint attribute, GLuint dimensions = 0, GLboolean normalize = GL_FALSE, GLuint stride = 0, void* offset = NULL );
-			virtual void generate() = 0;
+			virtual void generate( GLuint mode = GL_STATIC_DRAW, bool override = false ) = 0;
+			virtual void subBuffer() = 0;
 			virtual void render( GLuint mode = GL_TRIANGLES, std::size_t start = 0, std::size_t end = 0 ) const;
 		// 	OpenGL Getters
 			virtual GLuint& getIndex();
@@ -81,7 +82,8 @@ namespace spec {
 		
 		// 	Abstract implementations
 			virtual bool loaded() const;
-			virtual void generate();
+			virtual void generate( GLuint = GL_STATIC_DRAW, bool override = false );
+			virtual void subBuffer();
 			virtual void render( GLuint mode = GL_TRIANGLES, std::size_t start = 0, std::size_t end = 0 ) const;
 		// 	C++ Overloaded ops
 			spec::ogl::Vertices<T,N>& operator=( Vertices<T,N>&& move );

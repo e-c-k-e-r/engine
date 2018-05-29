@@ -6,6 +6,17 @@ spec::ogl::Vao::Vao() :
 {
 
 }
+spec::ogl::Vao::Vao( spec::ogl::Vao&& vao ) {
+	this->m_index = std::move(vao.m_index);
+	this->m_indexes = std::move(vao.m_indexes);
+	vao.m_index = 0;
+}
+spec::ogl::Vao& spec::ogl::Vao::operator=( spec::ogl::Vao&& vao ) {
+	this->m_index = std::move(vao.m_index);
+	this->m_indexes = std::move(vao.m_indexes);
+	vao.m_index = 0;
+	return *this;
+}
 spec::ogl::Vao::~Vao() {
 	this->clear();
 	this->destroy();

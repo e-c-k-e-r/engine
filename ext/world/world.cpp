@@ -18,6 +18,8 @@ namespace {
 }
 
 void ext::World::initialize() {
+	uf::Entity::initialize();
+
 	this->m_name = "World";
 	
 	this->load();
@@ -35,14 +37,32 @@ void ext::World::tick() {
 		if ( uf::Window::isKeyPressed("O") ) std::cout << x << ", " << y << std::endl;
 		glPolygonOffset(x, y);
 	}
-	/* Print World Tree */ if (uf::Window::isKeyPressed("U")) {
-		std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
-			for ( const uf::Entity* entity : parent->getChildren() ) {
-				for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
-				std::cout<<entity->getName()<<std::endl;
-				recurse(entity, indent + 1);
+	/* Print World Tree */ {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+			std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
+				for ( const uf::Entity* entity : parent->getChildren() ) {
+					for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
+					std::cout<<entity->getName()<<": "<<entity->getUid()<<std::endl;
+					recurse(entity, indent + 1);
+				}
+			}; recurse(this, 0);
+		}
+	}
+	/* Print Entity Information */  {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+			std::cout << "Current size: " << uf::Entity::entities.size() << " | UIDs: " << uf::Entity::uids << std::endl;
+			uint i = 0; for ( uf::Entity* e : uf::Entity::entities ) {
+				if ( e && !e->hasParent() ) {
+					++i;
+					std::cout << "Orphan: " << e->getName() << ": " << e << std::endl;
+				}
 			}
-		}; recurse(this, 0);
+			std::cout << "Orphans: " << i << std::endl;
+		}
 	}
 	
 	/* Updates Sound Listener */ {
@@ -64,8 +84,23 @@ void ext::World::render() {
 	uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
-	{
-		::camera = this->getPlayer().getComponentPointer<uf::Camera>();
+	::camera = this->getPlayer().getComponentPointer<uf::Camera>();
+	
+	if ( !metadata["buffer"]["deferred"].asBool() ) {
+		buffer.unbind();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		metadata["state"] = 0;
+		uf::Entity::render();
+
+		metadata["state"] = 2;
+		glEnable(GL_BLEND);
+		glDisable(GL_DEPTH_TEST);
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		for ( uf::Entity* entity : this->getChildren() ) if ( entity->getName() == "Gui Manager" ) entity->render();
+		glDisable(GL_BLEND);
+		glEnable(GL_DEPTH_TEST);
+		return;
 	}
 
 	/* Prepare Geometry Buffer */ {
@@ -90,7 +125,6 @@ void ext::World::render() {
 	}
 
 	std::vector<ext::Light*> lights;
-	static int renderedState = 0;
 	/* Light pass */ {
 		std::function<void(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
 			for ( uf::Entity* entity : parent->getChildren() ) {
@@ -121,9 +155,9 @@ void ext::World::render() {
 				::camera = this->getPlayer().getComponentPointer<uf::Camera>();
 				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
 			}
-			if ( (metadata["light"]["render_state"]=metadata["light"]["render_state"].asInt()+1).asInt()-1 >= metadata["light"]["rate"].asInt() ) metadata["light"]["render_state"]= 0;
+			if ( (metadata["light"]["render_state"]=metadata["light"]["render_state"].asInt()+1).asInt()-1 >= metadata["light"]["rate"].asInt() ) metadata["light"]["render_state"] = 0;
 			{
-				::light.bind();
+				metadata["buffer"]["lightmap"].asBool() ? ::light.bind() : buffer.unbind();
 
 				if ( metadata["light"]["blend"] != Json::nullValue ) {
 					glEnable(GL_BLEND);
@@ -150,9 +184,7 @@ void ext::World::render() {
 						if ( metadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_ALPHA" ) parameters[i] = GL_ONE_MINUS_CONSTANT_ALPHA;
 						if ( metadata["light"]["blend"][i] == "SRC_ALPHA_SATURATE" || metadata["light"]["blend"][i] == "GL_SRC_ALPHA_SATURATE" ) parameters[i] = GL_SRC_ALPHA_SATURATE;
 						if ( metadata["light"]["blend"][i] == "SRC1_COLOR" || metadata["light"]["blend"][i] == "GL_SRC1_COLOR" ) parameters[i] = GL_SRC1_COLOR;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
 						if ( metadata["light"]["blend"][i] == "SRC1_ALPHA" || metadata["light"]["blend"][i] == "GL_SRC1_ALPHA" ) parameters[i] = GL_SRC1_ALPHA;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
 					}
 				
 					if ( metadata["light"]["blend"].size() == 2 ) {
@@ -193,7 +225,7 @@ void ext::World::render() {
 				glDisable(GL_BLEND);
 			}
 		}
-		{
+		if ( metadata["buffer"]["lightmap"].asBool() ) {
 			buffer.unbind();
 			uf::Shader& shader = buffer.getComponent<uf::Shader>();
 			uf::Camera& camera = this->getCamera();

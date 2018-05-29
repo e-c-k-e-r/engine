@@ -110,7 +110,7 @@ void EXT_API ext::initialize() {
 	}
 
 	/* */ {
-		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, false );
+		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 		pod::Thread& threadAux = uf::thread::has("Aux") ? uf::thread::get("Aux") : uf::thread::create( "Aux", true, false );
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	}
@@ -131,9 +131,8 @@ void EXT_API ext::tick() {
 		::world.master.tick();
 	}
 
-
 	/* Tick Main Thread Queue */ {
-		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, false );
+		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 		uf::thread::process( thread );
 	}
 }
@@ -149,10 +148,6 @@ void EXT_API ext::terminate() {
 		for ( const auto& str : uf::iostream.getHistory() ) io.output << str << std::endl;
 		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << std::endl;
 		io.output.close();
-	}
-
-	/* Close Threads */ {
-		uf::thread::terminate();
 	}
 
 	/* Write persistent data */ {

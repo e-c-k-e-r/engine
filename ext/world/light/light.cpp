@@ -34,6 +34,8 @@ void ext::Light::setPower( float power ) {
 }
 
 void ext::Light::initialize() {
+	ext::Object::initialize();
+	
 	this->addComponent<uf::Camera>(); {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		transform = uf::transform::initialize(transform);
@@ -113,7 +115,7 @@ void ext::Light::initialize() {
 		if ( metadata["light"]["dedicated"].asBool() ) {
 			uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>(); {
 				if ( metadata["camera"]["settings"]["size"]["auto"].asBool() ) {
-					uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+					metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
 						uf::Serializer json = event;
 
 						// Update persistent window sized (size stored to JSON file)
@@ -150,7 +152,7 @@ void ext::Light::initialize() {
 			}
 		}
 		if ( metadata["camera"]["settings"]["size"]["auto"].asBool() ) {
-			uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+			metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 
 				// Update persistent window sized (size stored to JSON file)

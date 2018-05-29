@@ -2,23 +2,52 @@
 #include <uf/utils/io/iostream.h> 	// uf::iostream
 uf::HookHandler uf::hooks;
 
+namespace {
+	std::size_t hooks = 0;
+}
+
 uf::HookHandler::HookHandler() :
 	m_preferReadable(false)
 {
 }
 // Adds a hook that receives readable data
-void uf::HookHandler::addHook( const Readable::name_t& name, const Readable::function_t& callback ) {
+std::size_t uf::HookHandler::addHook( const Readable::name_t& name, const Readable::function_t& callback ) {
+	std::size_t uid = ++::hooks;
 	this->m_readable.hooks[name].emplace_back( Readable::hook_t{
 		.name = name,
-		.callback = callback
+		.callback = callback,
+		.uid = uid,
 	} );
+	return uid;
 }
 // Adds a hook that receives optimal data
-void uf::HookHandler::addHook( const Optimal::name_t& name, const Optimal::function_t& callback ) {
+std::size_t uf::HookHandler::addHook( const Optimal::name_t& name, const Optimal::function_t& callback ) {
+	std::size_t uid = ++::hooks;
 	this->m_optimal.hooks[name].emplace_back( Optimal::hook_t{
 		.name = name, 
-		.callback = callback
+		.callback = callback,
+		.uid = uid,
 	} );
+	return uid;
+}
+// Removes a hook
+void uf::HookHandler::removeHook( const std::string& name, std::size_t id ) {
+	if ( this->isReadable(name) ) {
+		auto& hooks = this->m_readable.hooks.at(name);
+		for ( auto& hook : hooks ) {
+			if ( hook.uid == id ) {
+				hooks.erase(std::find(hooks.begin(), hooks.end(), hook));
+			}
+		}
+	}
+	if ( this->isOptimal(name) ) {
+		auto& hooks = this->m_optimal.hooks.at(name);
+		for ( auto& hook : hooks ) {
+			if ( hook.uid == id ) {
+				hooks.erase(std::find(hooks.begin(), hooks.end(), hook));
+			}
+		}
+	}
 }
 
 // Is there a hook bound to a name in either lists?

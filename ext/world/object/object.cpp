@@ -7,6 +7,19 @@
 void ext::Object::initialize() {	
 	uf::Entity::initialize();
 }
+void ext::Object::destroy() {
+
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	for( Json::Value::iterator it = metadata["hooks"].begin() ; it != metadata["hooks"].end() ; ++it ) {
+	 	std::string name = it.key().asString();
+		for ( uint i = 0; i < metadata["hooks"][name].size(); ++i ) {
+			uint id = metadata["hooks"][name][i].asUInt();
+			uf::hooks.removeHook(name, id);
+		}
+	}
+
+	uf::Entity::destroy();
+}
 void ext::Object::tick() {
 	uf::Entity::tick();
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();

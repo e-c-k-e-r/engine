@@ -126,14 +126,12 @@ bool UF_API uf::thread::has( const std::string& name ) {
 	return false;
 }
 pod::Thread& UF_API uf::thread::get( uint uid ) {
-	static pod::Thread null;
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::uid(*thread) == uid ) return *thread;
-	return null;
+	throw "invalid call to uf::thread::get";
 }
 pod::Thread& UF_API uf::thread::get( const std::string& name ) {
-	static pod::Thread null;
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return *thread;
-	return null;
+	throw "invalid call to uf::thread::get";
 }
 
 /*
