@@ -83,7 +83,7 @@ void client::initialize() {
 		client::window.setVisible(client::config["window"]["visible"].asBool());
 		client::window.setCursorVisible(client::config["cursor"]["visible"].asBool());
 		client::window.setKeyRepeatEnabled(client::config["keyboard"]["repeat"].asBool());
-		client::window.centerWindow();
+	//	client::window.centerWindow();
 		client::window.setPosition({0, 0});
 	//	client::window.setMouseGrabbed(true);
 
@@ -159,7 +159,7 @@ void client::initialize() {
 				}
 				// Update viewport
 				glViewport( 0, 0, size.x, size.y );
-				client::window.centerWindow();
+			//	client::window.centerWindow();
 
 				return "true";
 			} );

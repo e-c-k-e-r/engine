@@ -4,8 +4,29 @@
 #include "generator.h"
 #include "region.h"
 
+#include "../light/light.h"
+#include "../gui/gui.h"
+
 #include <uf/utils/window/window.h>
 
+namespace {
+	std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getName() == name ) return entity;
+			uf::Entity* p = findByName(entity, name);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+	std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getUid() == id ) return entity;
+			uf::Entity* p = findByUid(entity, id);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+}
 
 void ext::Terrain::initialize() {
 	ext::Object::initialize();
@@ -30,7 +51,7 @@ void ext::Terrain::tick() {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 	/* Debug Information */ {
-		/* Terrain Metadata */ {
+		/* Terrain Metadata */ if ( false ) {
 			static uf::Timer<long long> timer(false);
 			if ( !timer.running() ) timer.start();
 			if ( uf::Window::isKeyPressed("L") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
@@ -42,20 +63,14 @@ void ext::Terrain::tick() {
 			if ( !timer.running() ) timer.start();
 			if ( uf::Window::isKeyPressed("G") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 				std::cout << "Regenerating ";
-
 				uint i = 0;
 				/* Retrieve changed regions */ for ( uf::Entity* kv : this->m_children ) { if ( !kv ) continue; if ( kv->getName() != "Region" ) continue;
 					uf::Serializer& rMetadata = kv->getComponent<uf::Serializer>();
 					if ( !rMetadata["region"]["initialized"].asBool() ) continue;
 					rMetadata["region"]["modified"] = true;
 					rMetadata["region"]["rasterized"] = false;
-//					kv->getComponent<uf::Mesh>().clear();
-//					kv->getComponent<uf::Mesh>().destroy();
-//					kv->getComponent<uf::Mesh>() = uf::Mesh();
 					++i;
 				}
-//				this->getComponent<uf::Mesh>().clear();
-//				this->getComponent<uf::Mesh>().destroy();
 				metadata["terrain"]["modified"] = true;
 				std::cout << i << " regions" << std::endl;
 			}
@@ -185,7 +200,6 @@ void ext::Terrain::tick() {
 				mesh.copy(nesh);
 				mesh.generate();
 				metadata["terrain"]["state"] = "open";
-				std::cout << "Finished!" << std::endl;
 			return 0;}, true );
 			return 0;}, true );
 		}  else {
@@ -390,7 +404,9 @@ void ext::Terrain::generate( const pod::Vector3i& position ) {
 	// uf::iostream << "Generating Region @ ( " << position.x << ", " << position.y << ", " << position.z << ")" << "\n";
 	uf::Entity* base = new ext::Region; this->addChild(*base); {
 		ext::Region& region = *((ext::Region*)base);
-		uf::Serializer& m = region.getComponent<uf::Serializer>() = metadata;
+		uf::Serializer& m = region.getComponent<uf::Serializer>(); // = metadata;
+		m["region"] = metadata["region"];
+		m["terrain"] = metadata["terrain"];
 
 		pod::Transform<>& transform = region.getComponent<pod::Transform<>>();
 		transform.position.x = position.x * size.x;

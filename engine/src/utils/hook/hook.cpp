@@ -5,6 +5,28 @@ uf::HookHandler uf::hooks;
 namespace {
 	std::size_t hooks = 0;
 }
+uf::Hooks::~Hooks() {
+	this->clear();
+}
+
+std::size_t uf::Hooks::addHook( const uf::HookHandler::Readable::name_t& name, const uf::HookHandler::Readable::function_t& callback ) {
+	std::size_t id = uf::hooks.addHook( name, callback );
+	this->m_container[name].push_back( id );
+	return id;
+}
+std::size_t uf::Hooks::addHook( const uf::HookHandler::Optimal::name_t& name, const uf::HookHandler::Optimal::function_t& callback ) {
+	std::size_t id = uf::hooks.addHook( name, callback );
+	this->m_container[name].push_back( id );
+	return id;
+}
+void uf::Hooks::clear() {
+	for ( uf::Hooks::container_t::iterator it = this->m_container.begin(); it != this->m_container.end(); ++it ) {
+	 	const std::string& name = it->first;
+	 	const std::vector<std::size_t>& vector = it->second;
+		for ( std::size_t id : vector ) uf::hooks.removeHook(name, id);
+	}
+	this->m_container.clear();
+}
 
 uf::HookHandler::HookHandler() :
 	m_preferReadable(false)

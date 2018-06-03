@@ -19,7 +19,7 @@ namespace ext {
 		void initialize( const pod::Vector3ui& = { 8, 8, 8 } );
 		void destroy();
 
-		void generate();
+		void generate( ext::Region& );
 		void rasterize( uf::Mesh&, const ext::Region&, bool = true, bool = true );
 		ext::TerrainVoxel::uid_t*** getVoxels();
 	};

@@ -15,9 +15,14 @@ namespace spec {
 	namespace ogl {	
 		class UF_API GlyphTexture : public spec::ogl::Texture {
 		protected:
-			pod::Vector2ui m_size;
-			pod::Vector2ui m_bearing;
-			pod::Vector2i m_advance;
+			pod::Vector2ui m_size = { 0, 0 };
+			pod::Vector2ui m_bearing = { 0, 0 };
+			pod::Vector2i m_advance = { 0, 0 };
+			
+			pod::Vector2ui m_padding = { 0, 0 };
+			
+			bool m_sdf = false;
+			int m_spread = 0;
 		public:
 		// 	OpenGL ops
 		//	void bind( uint ) const;
@@ -25,14 +30,24 @@ namespace spec {
 			void generate( ext::freetype::Glyph&, unsigned long, uint = 48 );
 			void generate( const std::string&, const uf::String&, uint = 48 );
 			void generate( ext::freetype::Glyph&, const uf::String&, uint = 48 );
+
+			void generateSdf( uint8_t* );
 		// 	Get
 			const pod::Vector2ui& getSize() const;
 			const pod::Vector2ui& getBearing() const;
 			const pod::Vector2i& getAdvance() const;
+			const pod::Vector2ui& getPadding() const;
+			
+			bool isSdf() const;
+			int getSpread() const;
 		//	Set
 			void setSize( const pod::Vector2ui& );
 			void setBearing( const pod::Vector2ui& );
 			void setAdvance( const pod::Vector2i& );
+			void setPadding( const pod::Vector2ui& );
+
+			void useSdf( bool = true );
+			void setSpread( int );
 		};
 		class UF_API GlyphMesh {
 		protected:

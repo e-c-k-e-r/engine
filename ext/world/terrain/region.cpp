@@ -36,89 +36,8 @@ void ext::Region::load() {
 		metadata["region"]["rasterized"] = false;
 	}
 
-	float r = (rand() % 100) / 100.0;
-	bool addLight = r < metadata["region"]["light"]["random"].asFloat();
-	static bool first = false; if ( !first ) {
-		addLight = (first = true);
-	}
-	// Guarantee at least one light source (per XZ plane)
-	if ( !addLight ) { addLight = true;
-		ext::Terrain& parent = this->getParent<ext::Terrain>();
-		for ( const uf::Entity* pRegion : parent.getChildren() ) if ( pRegion->getName() == "Region" ) {
-			const pod::Transform<>& tRegion = pRegion->getComponent<pod::Transform<>>();
-			const pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-			if ( tRegion.position.y != transform.position.y ) continue;
-			for ( const uf::Entity* pLight : pRegion->getChildren() ) if ( pLight->getName() == "Light" ) {
-				addLight = false;
-				break;
-			}
-			if ( !addLight ) break;
-		}
-	}
-
-	if ( addLight ) {
-		pod::Vector3 color = { 1.0, 1.0, 1.0 }; {
-			float r = (rand() % 256) / 256.0; color.x -= r;
-			float g = (rand() % 256) / 256.0; color.y -= g;
-			float b = (rand() % 256) / 256.0; color.z -= b;
-
-			color = uf::vector::normalize( color );
-		}
-		int radius = metadata["region"]["light"]["radius"].asInt();
-		/* Up */ if ( metadata["region"]["light"]["up"].asBool() ) {
-			uf::Entity* entity = new ext::Light;
-			if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-			this->addChild(*entity);
-			entity->initialize();
-
-			pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
-			entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-			transform = uf::transform::initialize( transform );
-			transform.position = parent.position;
-			uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
-			entity->getComponent<uf::Camera>().setFov(120);
-			entity->getComponent<uf::Camera>().update(true);
-			((ext::Light*)entity)->setColor( color );
-		}
-		/* Down */ if ( metadata["region"]["light"]["down"].asBool() ) {
-			uf::Entity* entity = new ext::Light;
-			if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-			this->addChild(*entity);
-			entity->initialize();
-
-			pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
-			entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-			transform = uf::transform::initialize( transform );
-			transform.position = parent.position;
-			uf::transform::rotate( transform, transform.right, 1.5708 * 3 );
-			entity->getComponent<uf::Camera>().setFov(120);
-			entity->getComponent<uf::Camera>().update(true);
-			((ext::Light*)entity)->setColor( color );
-		}
-		for ( int i = 0; i < radius; ++i ) {
-			uf::Entity* entity = new ext::Light;
-			if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-			this->addChild(*entity);
-			entity->initialize();
-
-			pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();//entity->getComponent<uf::Camera>().getTransform();
-			entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-			transform = uf::transform::initialize( transform );
-			transform.position = parent.position;
-			uf::transform::rotate( transform, transform.up, (360.0 / radius) * (3.1415926/180.0) * i );
-			entity->getComponent<uf::Camera>().update(true);
-			((ext::Light*)entity)->setColor( color );
-		}
-	}
-
 	generator.initialize(size);
-	generator.generate();
+	generator.generate(*this);
 
 	/* Collider */ {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
@@ -143,7 +62,98 @@ void ext::Region::load() {
 		}
 	}
 
-//	generator.rasterize(mesh, *this);
+	if ( this->getComponent<pod::Transform<>>().position.y < 0 ) {
+		float r = (rand() % 100) / 100.0;
+		bool addLight = r < metadata["region"]["light"]["random"].asFloat();
+		static bool first = false; if ( !first ) addLight = first = true;
+		// Guarantee at least one light source (per XZ plane)
+		if ( false && !addLight ) { addLight = true;
+			ext::Terrain& parent = this->getParent<ext::Terrain>();
+			for ( const uf::Entity* pRegion : parent.getChildren() ) if ( pRegion->getName() == "Region" ) {
+				const pod::Transform<>& tRegion = pRegion->getComponent<pod::Transform<>>();
+				const pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
+				if ( tRegion.position.y != transform.position.y ) continue;
+				for ( const uf::Entity* pLight : pRegion->getChildren() ) if ( pLight->getName() == "Light" ) {
+					addLight = false;
+					break;
+				}
+				if ( !addLight ) break;
+			}
+		}
+
+		if ( addLight ) {
+			pod::Vector3 color = { 1.0, 1.0, 1.0 }; {
+				float r = (rand() % 256) / 256.0; color.x -= r;
+				float g = (rand() % 256) / 256.0; color.y -= g;
+				float b = (rand() % 256) / 256.0; color.z -= b;
+
+				color = uf::vector::normalize( color );
+			}
+			int radius = metadata["region"]["light"]["radius"].asInt();
+			for ( int i = 0; i < radius; ++i ) {
+				uf::Entity* entity = new ext::Light;
+				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
+				this->addChild(*entity);
+				entity->initialize();
+
+				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();//entity->getComponent<uf::Camera>().getTransform();
+				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
+
+				transform = uf::transform::initialize( transform );
+				transform.position = parent.position;
+				uf::transform::rotate( transform, transform.up, (360.0 / radius) * (3.1415926/180.0) * i );
+				entity->getComponent<uf::Camera>().update(true);
+			//	((ext::Light*)entity)->setColor( color );
+				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+				lMetadata["light"]["color"][0] = color.x;
+				lMetadata["light"]["color"][1] = color.y;
+				lMetadata["light"]["color"][2] = color.z;
+			}
+			/* Down */ if ( metadata["region"]["light"]["down"].asBool() ) {
+				uf::Entity* entity = new ext::Light;
+				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
+				this->addChild(*entity);
+				entity->initialize();
+
+				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
+				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
+
+				transform = uf::transform::initialize( transform );
+				transform.position = parent.position;
+				uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
+				entity->getComponent<uf::Camera>().setFov(120);
+				entity->getComponent<uf::Camera>().update(true);
+			//	((ext::Light*)entity)->setColor( color );
+				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+				lMetadata["light"]["color"][0] = color.x;
+				lMetadata["light"]["color"][1] = color.y;
+				lMetadata["light"]["color"][2] = color.z;
+			}
+			/* Up */ if ( metadata["region"]["light"]["up"].asBool() ) {
+				uf::Entity* entity = new ext::Light;
+				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
+				this->addChild(*entity);
+				entity->initialize();
+
+				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
+				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
+
+				transform = uf::transform::initialize( transform );
+				transform.position = parent.position;
+				uf::transform::rotate( transform, transform.right, 1.5708 * 3 );
+				entity->getComponent<uf::Camera>().setFov(120);
+				entity->getComponent<uf::Camera>().update(true);
+			//	((ext::Light*)entity)->setColor( color );
+				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+				lMetadata["light"]["color"][0] = color.x;
+				lMetadata["light"]["color"][1] = color.y;
+				lMetadata["light"]["color"][2] = color.z;
+			}
+		}
+	}
 }
 void ext::Region::render() {
 	if ( !this->m_parent ) return;

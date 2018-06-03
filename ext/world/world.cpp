@@ -16,6 +16,24 @@ namespace {
 	uf::Camera* camera;
 	uf::GeometryBuffer light;
 }
+namespace {
+	std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getName() == name ) return entity;
+			uf::Entity* p = findByName(entity, name);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+	std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getUid() == id ) return entity;
+			uf::Entity* p = findByUid(entity, id);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+}
 
 void ext::World::initialize() {
 	uf::Entity::initialize();
@@ -29,7 +47,7 @@ void ext::World::tick() {
 	uf::Entity::tick();
 
 	/* Calibrates Polyfill */ {
-		static float x = 1.07986, y = 24.7805;
+		static float x = 2.98986, y = 24.7805;
 		if ( uf::Window::isKeyPressed("L") ) x += 0.01;
 		if ( uf::Window::isKeyPressed("J") ) x -= 0.01;
 		if ( uf::Window::isKeyPressed("I") ) y += 0.01;
@@ -44,7 +62,12 @@ void ext::World::tick() {
 			std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
 				for ( const uf::Entity* entity : parent->getChildren() ) {
 					for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
-					std::cout<<entity->getName()<<": "<<entity->getUid()<<std::endl;
+					std::cout<<entity->getName()<<": "<<entity->getUid();
+					if ( entity->hasComponent<pod::Transform<>>() ) {
+						const pod::Transform<>& t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
+						std::cout << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ")";
+					}
+					std::cout<<std::endl;
 					recurse(entity, indent + 1);
 				}
 			}; recurse(this, 0);
@@ -73,6 +96,45 @@ void ext::World::tick() {
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
 	}
+
+	static bool first = false; if ( !first ) { first = true;
+		uf::thread::add( uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true ), [&]() -> int {
+			ext::Terrain* terrain = (ext::Terrain*) findByName(this, "Terrain");
+			if ( !terrain ) return 0;
+			uf::Serializer& metadata = terrain->getComponent<uf::Serializer>();
+			pod::Vector3 position = { 0, 32, 0 };
+			/* Element */ {
+				ext::Gui* gui = (ext::Gui*) findByName(this, "Gui Manager");
+				if ( !gui ) return 0;
+				uf::Entity* element = new ext::Gui;
+				ext::Gui& guiElement = *((ext::Gui*) element);
+				std::string config = "./terrain/moon/config.json";
+				if ( !guiElement.load(config) ) { uf::iostream << "Error loading `" << config << "!" << "\n"; delete element; return 0; } {	
+					gui->addChild(*element);
+					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+					element->initialize();
+					pod::Transform<>& transform = element->getComponent<pod::Transform<>>();
+					position = transform.position;
+				}
+				
+				if ( !metadata["moon"]["light"]["should"].asBool() ) return 0;
+
+				uf::Entity* entity = new ext::Light;
+				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return 0; } {
+					terrain->addChild(*entity);
+					entity->getComponent<uf::Serializer>()["light"] = metadata["moon"]["light"];
+					entity->getComponent<uf::Serializer>()["camera"] = metadata["moon"]["camera"];
+					entity->initialize();
+					
+					pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
+					transform = uf::transform::initialize( transform );
+					transform.position = position;
+					uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
+					entity->getComponent<uf::Camera>().update(true);
+				}
+			}
+		return 0;}, true );
+	}
 }
 
 
@@ -84,23 +146,9 @@ void ext::World::render() {
 	uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
-	::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-	
-	if ( !metadata["buffer"]["deferred"].asBool() ) {
-		buffer.unbind();
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		metadata["state"] = 0;
-		uf::Entity::render();
-
-		metadata["state"] = 2;
-		glEnable(GL_BLEND);
-		glDisable(GL_DEPTH_TEST);
-		glBlendEquation(GL_FUNC_ADD);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		for ( uf::Entity* entity : this->getChildren() ) if ( entity->getName() == "Gui Manager" ) entity->render();
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
-		return;
+	{
+		::camera = this->getPlayer().getComponentPointer<uf::Camera>();
+		::camera->update(true);
 	}
 
 	/* Prepare Geometry Buffer */ {
@@ -133,33 +181,48 @@ void ext::World::render() {
 			}
 		};
 		recurse(this, 0);
+		/* Sort by closest to farthest */ {
+			const ext::World& world = this->getRootParent<ext::World>();
+			const ext::Player& player = world.getPlayer();
+			const pod::Vector3& position = player.getComponent<pod::Transform<>>().position;
+			std::sort( lights.begin(), lights.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
+				if ( !l ) return false;
+				if ( !r ) return true;
+				if ( !l->hasComponent<pod::Transform<>>() ) return false;
+				if ( !r->hasComponent<pod::Transform<>>() ) return true;
+				return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) > uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
+			} );
+		}
+		if ( uf::Window::isKeyPressed("G") ) {
+			::camera->update(true);
+			::camera->update(true);
+		}
 
 		for ( ext::Light* entity : lights ) {
 			ext::Light& light = *entity;
-			uf::Serializer& metadata = light.getComponent<uf::Serializer>();
-			uf::GeometryBuffer& lightBuffer = metadata["light"]["dedicated"].asBool() ? light.getComponent<uf::GeometryBuffer>() : ::light;
+			uf::Serializer& lMetadata = light.getComponent<uf::Serializer>();
+			if ( !lMetadata["light"]["render"].asBool() ) continue;
+			uf::GeometryBuffer& lightBuffer = lMetadata["light"]["dedicated"].asBool() ? light.getComponent<uf::GeometryBuffer>() : ::light;
 			uf::Camera& lightCam = light.getComponent<uf::Camera>();
-
-			lightCam.updateView();
-
-			if ( !light.hasComponent<uf::GeometryBuffer>() || metadata["light"]["render_state"].asInt() == 0 ){
+			if ( !light.hasComponent<uf::GeometryBuffer>() || lMetadata["light"]["render_state"].asInt() == 0 ){
 				lightBuffer.bind();
 				glClear(GL_DEPTH_BUFFER_BIT);
 				::camera = light.getComponentPointer<uf::Camera>();
 				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
 				glEnable(GL_POLYGON_OFFSET_FILL);
 				glDisable(GL_CULL_FACE);
+			//	::camera->update(true);
 				uf::Entity::render();
 				glDisable(GL_POLYGON_OFFSET_FILL);
 				glEnable(GL_CULL_FACE);
 				::camera = this->getPlayer().getComponentPointer<uf::Camera>();
 				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
 			}
-			if ( (metadata["light"]["render_state"]=metadata["light"]["render_state"].asInt()+1).asInt()-1 >= metadata["light"]["rate"].asInt() ) metadata["light"]["render_state"] = 0;
+			if ( (lMetadata["light"]["render_state"]=lMetadata["light"]["render_state"].asInt()+1).asInt()-1 >= lMetadata["light"]["rate"].asInt() ) lMetadata["light"]["render_state"]= 0;
 			{
 				metadata["buffer"]["lightmap"].asBool() ? ::light.bind() : buffer.unbind();
 
-				if ( metadata["light"]["blend"] != Json::nullValue ) {
+				if ( lMetadata["light"]["blend"] != Json::nullValue ) {
 					glEnable(GL_BLEND);
 					GLenum parameters[4] = {
 						GL_ONE,
@@ -167,30 +230,32 @@ void ext::World::render() {
 						GL_ONE,
 						GL_ONE,
 					};
-					for ( int i = 0; i < metadata["light"]["blend"].size(); ++i ) {
-						if ( metadata["light"]["blend"][i] == "ZERO" || metadata["light"]["blend"][i] == "GL_ZERO" ) parameters[i] = GL_ZERO;
-						if ( metadata["light"]["blend"][i] == "ONE" || metadata["light"]["blend"][i] == "GL_ONE" ) parameters[i] = GL_ONE;
-						if ( metadata["light"]["blend"][i] == "SRC_COLOR" || metadata["light"]["blend"][i] == "GL_SRC_COLOR" ) parameters[i] = GL_SRC_COLOR;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
-						if ( metadata["light"]["blend"][i] == "DST_COLOR" || metadata["light"]["blend"][i] == "GL_DST_COLOR" ) parameters[i] = GL_DST_COLOR;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_DST_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_COLOR" ) parameters[i] = GL_ONE_MINUS_DST_COLOR;
-						if ( metadata["light"]["blend"][i] == "SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_SRC_ALPHA" ) parameters[i] = GL_SRC_ALPHA;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
-						if ( metadata["light"]["blend"][i] == "DST_ALPHA" || metadata["light"]["blend"][i] == "GL_DST_ALPHA" ) parameters[i] = GL_DST_ALPHA;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_DST_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_ALPHA" ) parameters[i] = GL_ONE_MINUS_DST_ALPHA;
-						if ( metadata["light"]["blend"][i] == "CONSTANT_COLOR" || metadata["light"]["blend"][i] == "GL_CONSTANT_COLOR" ) parameters[i] = GL_CONSTANT_COLOR;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_COLOR" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_COLOR" ) parameters[i] = GL_ONE_MINUS_CONSTANT_COLOR;
-						if ( metadata["light"]["blend"][i] == "CONSTANT_ALPHA" || metadata["light"]["blend"][i] == "GL_CONSTANT_ALPHA" ) parameters[i] = GL_CONSTANT_ALPHA;
-						if ( metadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_ALPHA" || metadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_ALPHA" ) parameters[i] = GL_ONE_MINUS_CONSTANT_ALPHA;
-						if ( metadata["light"]["blend"][i] == "SRC_ALPHA_SATURATE" || metadata["light"]["blend"][i] == "GL_SRC_ALPHA_SATURATE" ) parameters[i] = GL_SRC_ALPHA_SATURATE;
-						if ( metadata["light"]["blend"][i] == "SRC1_COLOR" || metadata["light"]["blend"][i] == "GL_SRC1_COLOR" ) parameters[i] = GL_SRC1_COLOR;
-						if ( metadata["light"]["blend"][i] == "SRC1_ALPHA" || metadata["light"]["blend"][i] == "GL_SRC1_ALPHA" ) parameters[i] = GL_SRC1_ALPHA;
+					for ( int i = 0; i < lMetadata["light"]["blend"].size(); ++i ) {
+						if ( lMetadata["light"]["blend"][i] == "ZERO" || lMetadata["light"]["blend"][i] == "GL_ZERO" ) parameters[i] = GL_ZERO;
+						if ( lMetadata["light"]["blend"][i] == "ONE" || lMetadata["light"]["blend"][i] == "GL_ONE" ) parameters[i] = GL_ONE;
+						if ( lMetadata["light"]["blend"][i] == "SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_SRC_COLOR" ) parameters[i] = GL_SRC_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "DST_COLOR" || lMetadata["light"]["blend"][i] == "GL_DST_COLOR" ) parameters[i] = GL_DST_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_DST_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_COLOR" ) parameters[i] = GL_ONE_MINUS_DST_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_SRC_ALPHA" ) parameters[i] = GL_SRC_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "DST_ALPHA" || lMetadata["light"]["blend"][i] == "GL_DST_ALPHA" ) parameters[i] = GL_DST_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_DST_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_ALPHA" ) parameters[i] = GL_ONE_MINUS_DST_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "CONSTANT_COLOR" || lMetadata["light"]["blend"][i] == "GL_CONSTANT_COLOR" ) parameters[i] = GL_CONSTANT_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_COLOR" ) parameters[i] = GL_ONE_MINUS_CONSTANT_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "CONSTANT_ALPHA" || lMetadata["light"]["blend"][i] == "GL_CONSTANT_ALPHA" ) parameters[i] = GL_CONSTANT_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_ALPHA" ) parameters[i] = GL_ONE_MINUS_CONSTANT_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "SRC_ALPHA_SATURATE" || lMetadata["light"]["blend"][i] == "GL_SRC_ALPHA_SATURATE" ) parameters[i] = GL_SRC_ALPHA_SATURATE;
+						if ( lMetadata["light"]["blend"][i] == "SRC1_COLOR" || lMetadata["light"]["blend"][i] == "GL_SRC1_COLOR" ) parameters[i] = GL_SRC1_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
+						if ( lMetadata["light"]["blend"][i] == "SRC1_ALPHA" || lMetadata["light"]["blend"][i] == "GL_SRC1_ALPHA" ) parameters[i] = GL_SRC1_ALPHA;
+						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
 					}
 				
-					if ( metadata["light"]["blend"].size() == 2 ) {
+					if ( lMetadata["light"]["blend"].size() == 2 ) {
 						glBlendEquation(GL_FUNC_ADD);
 						glBlendFunc(parameters[0], parameters[1]);
-					} else if ( metadata["light"]["blend"].size() == 4 ) {
+					} else if ( lMetadata["light"]["blend"].size() == 4 ) {
 						glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
 						glBlendFuncSeparate(parameters[0], parameters[1], parameters[2], parameters[3]);
 					}
@@ -212,10 +277,10 @@ void ext::World::render() {
 					shader.push("matrices.projection", this->getPlayer().getComponent<uf::Camera>().getProjection());
 					shader.push("matrices.projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
 
-					shader.push("parameters.color", light.getColor());
-					shader.push("parameters.attenuation", light.getAttenuation());
-					shader.push("parameters.power", light.getPower());
-					shader.push("parameters.specular", light.getSpecular());
+					if ( lMetadata["light"]["color"] != Json::nullValue ) shader.push("parameters.color", {lMetadata["light"]["color"][0].asFloat(),lMetadata["light"]["color"][1].asFloat(),lMetadata["light"]["color"][2].asFloat()});//light.getColor());
+					if ( lMetadata["light"]["attenuation"] != Json::nullValue ) shader.push("parameters.attenuation", lMetadata["light"]["attenuation"].asFloat());//light.getAttenuation());
+					if ( lMetadata["light"]["power"] != Json::nullValue ) shader.push("parameters.power", lMetadata["light"]["power"].asFloat());//light.getPower());
+					if ( lMetadata["light"]["specular"] != Json::nullValue ) shader.push("parameters.specular", {lMetadata["light"]["specular"][0].asFloat(),lMetadata["light"]["specular"][1].asFloat(),lMetadata["light"]["specular"][2].asFloat()});//light.getColor());
 					shader.push("parameters.position", lightTransform.position);
 
 					shader.push("parameters.view", lightCam.getView());
@@ -319,7 +384,7 @@ bool ext::World::load() {
 		/* Geometry Buffer */ {
 			/* Generate default light shadowmap */ {
 				uf::GeometryBuffer& buffer = ::light;
-				uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+				this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
 					uf::Serializer json = event;
 
 					// Update persistent window sized (size stored to JSON file)
@@ -345,7 +410,7 @@ bool ext::World::load() {
 				} );
 			}
 			uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>(); {
-				uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+				this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
 					uf::Serializer json = event;
 
 					// Update persistent window sized (size stored to JSON file)

@@ -9,12 +9,30 @@
 #include <uf/utils/audio/audio.h>
 
 #include "../gui/gui.h"
+#include "../light/light.h"
 #include "../world.h"
 
 
 namespace {
 	bool lockMouse = true;
 	bool croutching = false;
+
+	std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getName() == name ) return entity;
+			uf::Entity* p = findByName(entity, name);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
+	std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
+		for ( uf::Entity* entity : parent->getChildren() ) {
+			if ( entity->getUid() == id ) return entity;
+			uf::Entity* p = findByUid(entity, id);
+			if ( p ) return p;
+		}
+		return (uf::Entity*) NULL;
+	};
 }
 
 void ext::Player::initialize() {
@@ -80,7 +98,7 @@ void ext::Player::initialize() {
 
 		// Update viewport
 		if ( metadata["camera"]["settings"]["size"]["auto"].asBool() )  {
-			metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+			this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 
 				// Update persistent window sized (size stored to JSON file)
@@ -99,7 +117,7 @@ void ext::Player::initialize() {
 	}
 
 	// Rotate Camera
-	metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
+	this->getComponent<uf::Hooks>().addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
 		static bool ignoreNext = false; if ( ignoreNext ) { ignoreNext = false; return "true"; }
 		
 		uf::Serializer json = event;
@@ -151,7 +169,7 @@ void ext::Player::initialize() {
 		return "true";
 	});
 	// Rotate model
-	metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
+	this->getComponent<uf::Hooks>().addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
 		static bool ignoreNext = false; if ( ignoreNext ) { ignoreNext = false; return "true"; }
 		
 		uf::Serializer json = event;
@@ -207,7 +225,47 @@ void ext::Player::initialize() {
 		}
 		return "true";
 	});
+
+	// Player Light
+	if ( metadata["light"]["should"].asBool() ) {
+		pod::Vector3 color = { 1, 1, 1 };
+		int radius = 3;
+		for ( int i = 0; i < radius; ++i ) {
+			uf::Entity* entity = new ext::Light;
+			if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
+			this->addChild(*entity);
+
+			uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+			lMetadata["light"] = metadata["light"];
+
+			entity->initialize();
+
+			pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();//entity->getComponent<uf::Camera>().getTransform();
+			transform = uf::transform::initialize( transform );
+			uf::transform::rotate( transform, transform.up, (360.0 / radius) * (3.1415926/180.0) * i );
+			entity->getComponent<uf::Camera>().update(true);
+		}
+		/* down */ {
+			uf::Entity* entity = new ext::Light;
+			if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
+			this->addChild(*entity);
+
+			uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+			lMetadata["light"] = metadata["light"];
+
+			entity->initialize();
+
+			pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();//entity->getComponent<uf::Camera>().getTransform();
+			transform = uf::transform::initialize( transform );
+			uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
+			entity->getComponent<uf::Camera>().setFov(120);
+			entity->getComponent<uf::Camera>().update(true);
+		}
+	}
 }
+#include <sstream>
 void ext::Player::tick() {
 	bool updateCamera = true;
 	bool deltaCrouch = false;
@@ -218,44 +276,133 @@ void ext::Player::tick() {
 		float limitSquared = 4*4;
 	} speed;
 
+	struct {
+		bool running;
+		bool light;
+	} keys = {
+		.running = uf::Window::isKeyPressed("LShift"),
+		.light = uf::Window::isKeyPressed("F"),
+	};
+
 	uf::Camera& camera = this->getComponent<uf::Camera>();
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	uf::Serializer& serializer = this->getComponent<uf::Serializer>();
 
-	camera.update(true);
-
-	if (uf::Window::isKeyPressed("LShift")) speed.move = 8;
+	if (keys.running) speed.move = 8;
 
 	speed.limitSquared = speed.move * speed.move;
 
+	/* Update light positions */ if ( this->getComponent<uf::Serializer>()["light"]["should"].asBool() ) {
+		pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
+		pod::Transform<>& camera = this->getComponent<uf::Camera>().getTransform();
+
+		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	//	if ( metadata["light"]["battery"] == Json::nullValue ) {
+			if ( metadata["light"]["battery"]["level"] == Json::nullValue ) metadata["light"]["battery"]["level"] = 1.0;
+			if ( metadata["light"]["battery"]["rate"] == Json::nullValue ) metadata["light"]["battery"]["rate"] = 0.1;
+			if ( metadata["light"]["battery"]["depleted"] == Json::nullValue ) metadata["light"]["battery"]["depleted"] = false;
+			if ( metadata["light"]["battery"]["attenuation"]["from"] == Json::nullValue ) metadata["light"]["battery"]["attenuation"]["from"] = 0.05;
+			if ( metadata["light"]["battery"]["attenuation"]["to"] == Json::nullValue ) metadata["light"]["battery"]["attenuation"]["to"] = 0.0005;
+	//	}
+		struct {
+			float level;
+			float rate;
+			bool depleted;
+			float from;
+			float to;
+		} battery = {
+			.level = metadata["light"]["battery"]["level"].asFloat(),
+			.rate = metadata["light"]["battery"]["rate"].asFloat(),
+			.depleted = metadata["light"]["battery"]["depleted"].asBool(),
+		};
+
+		/* Calculate ""battery"" */ {
+			if ( battery.level < 0 ) {
+				battery.depleted = true;
+			}
+			if ( keys.light && !battery.depleted ) {
+				battery.level -= battery.rate * uf::physics::time::delta;
+			} else if ( battery.level < 1 ) {
+				battery.level += battery.rate * uf::physics::time::delta;
+				if ( battery.level >= 1 ) {
+					battery.level = 1;
+					battery.depleted = false;
+				}
+			}
+			metadata["light"]["battery"]["level"] = battery.level;
+			metadata["light"]["battery"]["rate"] = battery.rate;
+			metadata["light"]["battery"]["depleted"] = battery.depleted;
+		}
+		/* Light Element */ {
+			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+			uint uid = metadata["gui"]["Battery Element"].asUInt();
+			uf::Entity& parent = this->getRootParent<ext::World>();		
+			ext::Gui* gui = (ext::Gui*) ::findByName(&parent, "Gui Manager");
+			uf::Entity* element = ::findByUid(gui, uid);
+			if ( keys.light ) {
+				if ( !element ) {
+					std::string config = "./gui/text/config.json";
+					element = new ext::Gui;
+					ext::Gui& guiElement = *((ext::Gui*) element);
+					if ( !guiElement.load(config) ) { uf::iostream << "Error loading `" << config << "!" << "\n"; delete element; }
+					else {
+						gui->addChild(*element);
+						uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+						gMetadata["type"] = "Battery Element";
+						gMetadata["gui"]["text"] = "Battery: ?%";
+						gMetadata["gui"]["position"][0] = 0.02;
+						gMetadata["gui"]["position"][1] = 0.8;
+						gMetadata["gui"]["origin"] = "bottom";
+						gMetadata["gui"]["direction"] = "up";
+						element->initialize();
+						metadata["gui"]["Battery Element"] = element->getUid();
+					}
+				} else {
+					std::string string = "?"; {
+						std::stringstream sstream; sstream.precision(0);
+						sstream << std::fixed << battery.level * 100;
+						string = sstream.str();
+					}
+					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+					gMetadata["gui"]["render"] = true;
+					gMetadata["gui"]["text"] = "Battery: " + string + "%";
+				}
+			} else {
+				if ( element ) {
+					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
+					gMetadata["gui"]["render"] = false;
+				}
+			}
+		}
+		for ( uf::Entity* entity : this->getChildren() ) { if ( entity->getName() != "Light" ) continue;
+			pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
+			transform.position = parent.position + camera.position + pod::Vector3{0, 1, 0};
+			
+			uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
+			lMetadata["light"]["render"] = battery.depleted ? false : keys.light;
+		/*
+			lMetadata["light"]["color"][0] = battery;
+			lMetadata["light"]["color"][1] = battery;
+			lMetadata["light"]["color"][2] = battery;
+		*/
+			float atten = 0.05; {
+				atten = uf::vector::lerp( pod::Vector1{ battery.from }, pod::Vector1{ battery.to }, battery.level ).x;
+			}
+			lMetadata["light"]["attenuation"] = atten;
+		}
+	}
+
 	/* Running Element */ {
-		std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
-		for ( uf::Entity* entity : parent->getChildren() ) {
-				if ( entity->getName() == name ) return entity;
-				uf::Entity* p = findByName(entity, name);
-				if ( p ) return p;
-			}
-			return (uf::Entity*) NULL;
-		};
-		std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
-		for ( uf::Entity* entity : parent->getChildren() ) {
-				if ( entity->getUid() == id ) return entity;
-				uf::Entity* p = findByUid(entity, id);
-				if ( p ) return p;
-			}
-			return (uf::Entity*) NULL;
-		};
-		
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		uint uid = metadata["gui"]["Sprinting Element"].asUInt();
 		uf::Entity& parent = this->getRootParent<ext::World>();		
-		ext::Gui* gui = (ext::Gui*) findByName(&parent, "Gui Manager");
-		uf::Entity* element = findByUid(gui, uid);
+		ext::Gui* gui = (ext::Gui*) ::findByName(&parent, "Gui Manager");
+		uf::Entity* element = ::findByUid(gui, uid);
 
-		if ( uf::Window::isKeyPressed("LShift") ) {
+		if ( keys.running ) {
 			if ( !element ) {
-				std::string config = "./text/config.json";
+				std::string config = "./gui/text/config.json";
 				element = new ext::Gui;
 				ext::Gui& guiElement = *((ext::Gui*) element);
 				if ( !guiElement.load(config) ) { uf::iostream << "Error loading `" << config << "!" << "\n"; delete element; }
@@ -264,14 +411,24 @@ void ext::Player::tick() {
 
 					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
 					
-					gMetadata["type"] = "Running Element";
-					gMetadata["gui"]["text"] = "Sprinting";
-					gMetadata["gui"]["position"][0] = 0;
-					gMetadata["gui"]["position"][1] = 0;
-					gMetadata["gui"]["origin"] = "top";
-					gMetadata["gui"]["direction"] = "down";
-					gMetadata["gui"]["size"] = 18;
-					
+					gMetadata["type"] = "Sprinting Element";
+					gMetadata["gui"]["text"] = "Sprint";
+					gMetadata["gui"]["position"][0] = 0.02;
+					gMetadata["gui"]["position"][1] = 0.02;
+					gMetadata["gui"]["origin"] = "bottom";
+					gMetadata["gui"]["direction"] = "up";
+				/*
+					gMetadata["gui"]["size"] = 32;
+					gMetadata["gui"]["scale"] = 1.5;
+					gMetadata["gui"]["shadowbox"]["color"][0] = 0.05;
+					gMetadata["gui"]["shadowbox"]["color"][1] = 0.05;
+					gMetadata["gui"]["shadowbox"]["color"][2] = 0.05;
+					gMetadata["gui"]["shadowbox"]["padding"]["left"] = 5;
+					gMetadata["gui"]["shadowbox"]["padding"]["right"] = 5;
+					gMetadata["gui"]["shadowbox"]["padding"]["bottom"] = 5;
+					gMetadata["gui"]["shadowbox"]["padding"]["top"] = 5;
+					gMetadata["gui"]["shadowbox"]["ignore"] = true;
+				*/
 					element->initialize();
 					
 					metadata["gui"]["Sprinting Element"] = element->getUid();
@@ -411,6 +568,8 @@ void ext::Player::tick() {
 			timer.reset();
 		}
 	}
+
+	camera.update(true);
 
 	ext::Craeture::tick();
 }

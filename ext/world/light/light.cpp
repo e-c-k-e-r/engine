@@ -7,7 +7,7 @@
 #include <uf/utils/window/window.h>
 #include <uf/gl/camera/camera.h>
 #include "../world.h"
-
+/*
 const pod::Vector3& ext::Light::getColor() const {
 	return this->m_color;
 }
@@ -32,7 +32,7 @@ float ext::Light::getPower() const {
 void ext::Light::setPower( float power ) {
 	this->m_power = power;
 }
-
+*/
 void ext::Light::initialize() {
 	ext::Object::initialize();
 	
@@ -58,6 +58,9 @@ void ext::Light::initialize() {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 		uf::Camera& camera = this->getComponent<uf::Camera>();
+		if ( metadata["light"]["camera"] != Json::nullValue && metadata["camera"] == Json::nullValue )
+			metadata["camera"] = metadata["light"]["camera"];
+
 		settings.mode = metadata["camera"]["ortho"].asBool() ? -1 : 1;
 		settings.perspective.size.x = metadata["camera"]["settings"]["size"]["x"].asDouble();
 		settings.perspective.size.y = metadata["camera"]["settings"]["size"]["y"].asDouble();
@@ -95,14 +98,33 @@ void ext::Light::initialize() {
 		camera.update(true);
 
 		metadata["light"]["state"] = 0;
+		metadata["light"]["render"] = true;
 
-		/* Attenuation */ {
+		if ( metadata["light"]["attenuation"] == Json::nullValue ) metadata["light"]["attenuation"] = 0.00125f;
+		if ( metadata["light"]["power"] == Json::nullValue ) metadata["light"]["power"] = 100.0f;
+		if ( metadata["light"]["specular"] == Json::nullValue ) {
+			metadata["light"]["specular"][0] = 1;
+			metadata["light"]["specular"][1] = 1;
+			metadata["light"]["specular"][2] = 1;
+		}
+		if ( metadata["light"]["color"] == Json::nullValue ) {
+			metadata["light"]["color"][0] = 1;
+			metadata["light"]["color"][1] = 1;
+			metadata["light"]["color"][2] = 1;
+		}
+
+	/*
+		pod::Vector3 m_color = {1, 1, 1};
+		pod::Vector3 m_specular = {1, 1, 1};
+		float m_attenuation = 0.00125f;
+		float m_power = 100.0f;
+
+		{
+		// Attenuation
 			if ( metadata["light"]["attenuation"] != Json::nullValue ) this->setAttenuation( metadata["light"]["attenuation"].asFloat() );
-		}
-		/* Power */ {
+		// Power
 			if (  metadata["light"]["power"] != Json::nullValue ) this->setPower(metadata["light"]["power"].asFloat() );
-		}
-		/* Specular */ {
+		// Specular
 			if (  metadata["light"]["specular"] != Json::nullValue ) {
 				pod::Vector3 specular;
 				specular.x = metadata["light"]["specular"][0].asDouble();
@@ -111,11 +133,12 @@ void ext::Light::initialize() {
 				this->setSpecular(specular);
 			}
 		}
+	*/
 		
 		if ( metadata["light"]["dedicated"].asBool() ) {
 			uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>(); {
 				if ( metadata["camera"]["settings"]["size"]["auto"].asBool() ) {
-					metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+					this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
 						uf::Serializer json = event;
 
 						// Update persistent window sized (size stored to JSON file)
@@ -152,7 +175,7 @@ void ext::Light::initialize() {
 			}
 		}
 		if ( metadata["camera"]["settings"]["size"]["auto"].asBool() ) {
-			metadata["hooks"]["window:Resized"][metadata["hooks"].size()] = uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
+			this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 
 				// Update persistent window sized (size stored to JSON file)

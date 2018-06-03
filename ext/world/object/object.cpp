@@ -67,7 +67,7 @@ void ext::Object::render() {
 					std::string name = "bones_" + std::to_string(bone.index);
 					shader.push(name, bone.matrix);
 				}
-				shader.push("debug", uf::Window::isKeyPressed("RControl"));
+			//	shader.push("debug", uf::Window::isKeyPressed("RControl"));
 			}
 		}
 		mesh.render();
