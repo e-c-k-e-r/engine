@@ -13,6 +13,7 @@ namespace uf {
 		typedef pod::PixelRgba8 pixel_t;
 		typedef std::vector<pixel_t::type_t> container_t;
 	protected:
+		std::string m_filename;
 		Image::container_t m_pixels;
 		Image::vec2_t m_dimensions;
 		std::size_t m_bpp;
@@ -34,6 +35,8 @@ namespace uf {
 		~Image();
 		void clear(); 																			// empties pixel container
 	// 	Getters
+		void loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
+		std::string getFilename() const;
 		Image::container_t& getPixels();
 		const Image::container_t& getPixels() const;
 		Image::pixel_t::type_t* getPixelsPtr();
@@ -46,10 +49,11 @@ namespace uf {
 		std::size_t getChannels() const;
 		Image::pixel_t at( const Image::vec2_t& at );
 	// 	Modifiers
+		void padToPowerOfTwo();
 		bool save( const std::string& filename, bool flip = false ); 							// to file
 		void save( std::ostream& stream ); 														// to stream
-		Image overlay(const Image& top, const pod::Vector2ui& corner = {} ) const; 	// Merges one image on top of another
+		Image overlay(const Image& top, const Image::vec2_t& corner = {} ) const; 	// Merges one image on top of another
 		Image replace(const Image::pixel_t& from, const Image::pixel_t& to ) const; 			// Changes all pixel from one color (from), to another (to)
-		Image subImage( const pod::Vector2ui& start, const pod::Vector2ui& end) const; 			// Crops an image
+		Image subImage( const Image::vec2_t& start, const Image::vec2_t& end) const; 			// Crops an image
 	};
 }

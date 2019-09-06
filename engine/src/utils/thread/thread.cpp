@@ -1,7 +1,10 @@
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/io/iostream.h>
 #include <iostream>
 
 uf::thread::container_t uf::thread::threads;
+double uf::thread::limiter = 1.0f / 120.0f;
+uint uf::thread::workers = 1;
 
 void UF_API uf::thread::start( pod::Thread& thread ) { if ( thread.running ) return;
 	thread.thread = std::thread( uf::thread::tick, std::ref(thread) );
@@ -16,11 +19,52 @@ void UF_API uf::thread::quit( pod::Thread& thread ) { // if ( !thread.running ) 
 
 }
 void UF_API uf::thread::tick( pod::Thread& thread ) {
+/*
+	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
+	if ( !res ) uf::iostream << "Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")" << "\n";
+	if ( !thread.timer.running() ) thread.timer.start();
+*/
+	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
+	if ( !res ) uf::iostream << "Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")" << "\n";
+	uf::iostream << "Starting Thread #" << thread.uid << " (" << thread.name << " on ID " << thread.affinity << ")" << "\n";
+
+	thread.timer.start();
+	
 	while ( thread.running ) {
 		uf::thread::process( thread );
 		if ( thread.terminates && thread.temps.empty() && thread.consts.empty() ) uf::thread::quit( thread );
+
+		if ( thread.limiter > 0 ) {
+			long long sleep = (thread.limiter * 1000) - thread.timer.elapsed().asMilliseconds();
+			if ( sleep > 0 ) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+			}
+			thread.timer.reset();
+		}
 	}
 }
+
+pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
+	static int current = 0;
+	static int limit = uf::thread::workers;
+	static uint threads = std::thread::hardware_concurrency();
+	if ( ++current >= limit ) current = 0;
+	std::string thread = name;
+	if ( current > 0 ) thread += " " + std::to_string(current);
+	bool exists = uf::thread::has(thread);
+	auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true, false );
+	if ( !exists ) {
+/*
+		pod.affinity = (current + 1) % threads;
+		std::cout << "Create: " << thread << ": " << pod.affinity << std::endl;
+		BOOL res = SetThreadAffinityMask((HANDLE) pod.thread.native_handle(), 1u << pod.affinity );
+		if ( res ) uf::iostream << "Bound worker thread #" << current << " to ID " << pod.affinity << "\n";
+		else uf::iostream << "Failed to bind worker thread #" << current << " to ID " << pod.affinity << "\n";
+*/
+	}
+	return pod;
+}
+
 /*
 void UF_API uf::thread::tick( pod::Thread& thread, const std::function<void()>& callback ) {
 	while ( thread.running ) {
@@ -35,7 +79,7 @@ void UF_API uf::thread::add( pod::Thread& thread, const pod::Thread::function_t&
 	temporary ? thread.temps.push( function ) : thread.consts.push_back( function );
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
-void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { std::cout << "Bad Thread: " << thread.uid << " " << thread.name << std::endl; return; } //ops
+void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { uf::iostream << "Bad Thread: " << thread.uid << " " << thread.name << "\n"; return; } //ops
 	std::function<int()> temps = [&] {
 		int i = 0;
 		while ( !thread.temps.empty() ) {
@@ -89,14 +133,18 @@ pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, boo
 	pod::Thread& thread = *pointer;
 
 	static uint uids = 0;
+	static int limit = uf::thread::workers;
+	static uint threads = std::thread::hardware_concurrency();
 	thread.name = name;
 	thread.uid = uids++;
 	thread.terminates = false;
 	thread.running = false;
 	thread.mutex = NULL;
 	thread.mutex = locks ? new std::mutex() : NULL;
+	thread.limiter = uf::thread::limiter;
+	thread.affinity = (thread.uid % limit) + 1;
 
-	std::cout << "Creating Thread #" << thread.uid << " (" << name << ") " << &thread << std::endl;
+	uf::iostream << "Creating Thread #" << thread.uid << " (" << name << ") " << &thread << " (Affinity: " << thread.affinity << ")" << "\n";
 
 	if ( start ) uf::thread::start( thread );
 
@@ -105,8 +153,9 @@ pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, boo
 void UF_API uf::thread::destroy( pod::Thread& thread ) {
 	if ( !uf::thread::has( uf::thread::uid(thread) ) ) return; // oops
 
+	uf::iostream << "Quitting Thread #" << thread.uid << " (" << thread.name << ")" << "\n";
 	uf::thread::quit( thread );
-	std::cout << "Quitted Thread #" << thread.uid << " (" << thread.name << ")" << std::endl;
+	uf::iostream << "Quitted Thread #" << thread.uid << " (" << thread.name << ")" << "\n";
 
 	if ( thread.mutex != NULL ) delete thread.mutex;
 
@@ -133,166 +182,3 @@ pod::Thread& UF_API uf::thread::get( const std::string& name ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return *thread;
 	throw "invalid call to uf::thread::get";
 }
-
-/*
-#include <sstream>
-
-uint uf::Thread::fps = 60;
-uint uf::Thread::threads = 0;
-
-UF_API_CALL uf::Thread::Thread( const std::string& name, bool start, uint mode ) {
-	static int uid = 0;
-	this->m_mode = mode;
-	this->m_name = name;
-	this->m_running = false;
-	this->m_shouldLock = false;
-	this->m_terminateOnEmpty = false;
-	this->m_uid = start ? ++uid : 0;
-
-	if ( uf::Thread::threads != 0 && this->m_uid > uf::Thread::threads ) start = false;
-	if ( start ) this->start();
-}
-UF_API_CALL uf::Thread::~Thread() {
-	this->m_quit();
-}
-
-void UF_API_CALL uf::Thread::start() {
-	if ( this->m_running ) return;
-	
-	this->m_running = true;
-	this->m_thread = std::thread( [&]{ this->tick(); } );
-}
-
-void UF_API_CALL uf::Thread::tick( const std::function<void()>& callback ) {
-	double curTime = uf::time::curTime;
-	double prevTime = uf::time::prevTime;
-	double deltaTime = curTime - prevTime;
-	double tempTime = 0;
-	double totalTime = 0;
-	double framerate = 1 / uf::Thread::fps;
-
-	bool should_call = (bool) callback;
-	while ( this->m_running ) {
-		prevTime = curTime;
-		curTime = uf::time::curTime;
-		deltaTime = curTime - prevTime;
-		tempTime += deltaTime;
-		totalTime += deltaTime;
-
-		if ( tempTime > framerate ) {
-			this->process();
-			tempTime = 0.0;
-			if ( should_call ) callback();
-			if ( this->m_terminateOnEmpty && this->m_temps.empty() && this->m_consts.empty() ) {
-				this->m_running = false;
-			}
-		}
-	}
-}
-
-void UF_API_CALL uf::Thread::add( const uf::Thread::function_t& function, uint mode ) {
-	if ( this->m_shouldLock ) this->m_mutex.lock();
-	switch ( mode ) {
-		case uf::Thread::TEMP: this->m_temps.push(function); break;
-		case uf::Thread::CONSTANT: this->m_consts.push_back(function); break;
-	}
-	if ( this->m_shouldLock ) this->m_mutex.unlock();
-}
-
-void UF_API_CALL uf::Thread::process() {
-	std::function<int()> temps = [&] {
-		int i = 0;
-		while ( !this->m_temps.empty() ) {
-			uf::Thread::function_t& function = this->m_temps.front();
-			if ( function() != -1 ) this->m_temps.pop();
-			i++;
-		}
-		return i;
-	};
-	std::function<int()> consts = [&] {
-		int i = 0;
-		for ( uf::Thread::container_t::iterator it = this->m_consts.begin(); it != this->m_consts.end(); ++it ) {
-			uf::Thread::function_t& function = *it;
-			function();
-			i++;
-		}
-		return i;
-	};
-
-	if ( this->m_shouldLock ) this->m_mutex.lock();
-	try {
-		switch ( this->m_mode ) {
-			case 0:
-				temps();
-				consts();
-			break;
-			case 1:
-				consts();
-				temps();
-			break;
-		}
-	}
-	catch ( ... ) {
-	//	std::cout << "error" << std::endl;
-	//	uf::iostream << "error" << "\n";
-	}
-	if ( this->m_shouldLock ) this->m_mutex.unlock();
-}
-
-void UF_API_CALL uf::Thread::quit() {
-	this->m_running = false;
-	this->m_thread.join();
-
-//	uf::log << uf::Log::Entree( { "basic", { this->m_toString() + " killed", __LINE__ - 1, __FILE__, __FUNCTION__, 0 } } );
-}
-
-std::string UF_API_CALL uf::Thread::toString() const {
-//	std::stringstream str;
-//	str << "Thread(Name: " << this->m_name << ")";
-//	return str.str();
-	return "Thread";
-}
-const std::string& UF_API_CALL uf::Thread::getName() const {
-	return this->m_name;
-}
-uint UF_API_CALL uf::Thread::getUid() const {
-	return this->m_uid;
-}
-const bool& UF_API_CALL uf::Thread::isRunning() const {
-	return this->m_running;
-}
-//
-uf::thread::container_t uf::thread::threads;
-
-void UF_API_CALL uf::thread::add( uf::Thread* thread ) {
-	std::string name = thread->getName();
-	uf::thread::threads[name] = thread;
-}
-uf::Thread& UF_API_CALL uf::thread::get( const std::string& name ) {
-	static uf::Thread null( "NULL", false );
-	try {
-		return *uf::thread::threads.at(name);
-	} catch ( std::out_of_range oor ) {
-		return null;
-	}
-}
-bool UF_API_CALL uf::thread::add( const std::string& name, const uf::Thread::function_t& function, uint mode  ) {
-	uf::Thread& thread = uf::thread::get(name);
-	if ( thread.getName() == "NULL" || ( uf::Thread::threads != 0 && thread.getUid() > uf::Thread::threads ) ) {
-		switch ( mode ) {
-			case uf::Thread::TEMP: function(); break;
-		}
-		return false;
-	}
-	thread.add( function, mode );
-
-	return true;
-}
-bool UF_API_CALL uf::thread::quit( const std::string& name ) {
-	uf::Thread& thread = uf::thread::get(name);
-	if ( thread.getName() == "NULL" ) return false;
-
-	thread.quit();
-	return true;
-}
-*/

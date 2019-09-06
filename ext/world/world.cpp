@@ -4,70 +4,279 @@
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/window/window.h>
-#include <uf/gl/gbuffer/gbuffer.h>
-#include "../ext.h"
-#include "./light/light.h"
-#include "./gui/gui.h"
 
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/thread/thread.h>
 
+#include "../ext.h"
+#include "../asset/asset.h"
+#include "../asset/masterdata.h"
+#include ".//battle.h"
+#include "./gui/menu.h"
+#include "./gui/battle.h"
+#include ".//dialogue.h"
+#include "./gui/dialogue.h"
+
+#include <uf/ext/vulkan/vulkan.h>
+
 namespace {
 	uf::Camera* camera;
-	uf::GeometryBuffer light;
-}
-namespace {
-	std::function<uf::Entity*(uf::Entity*, const std::string&)> findByName = [&]( uf::Entity* parent, const std::string& name ) {
-		for ( uf::Entity* entity : parent->getChildren() ) {
-			if ( entity->getName() == name ) return entity;
-			uf::Entity* p = findByName(entity, name);
-			if ( p ) return p;
-		}
-		return (uf::Entity*) NULL;
-	};
-	std::function<uf::Entity*(uf::Entity*, uint)> findByUid = [&]( uf::Entity* parent, uint id ) {
-		for ( uf::Entity* entity : parent->getChildren() ) {
-			if ( entity->getUid() == id ) return entity;
-			uf::Entity* p = findByUid(entity, id);
-			if ( p ) return p;
-		}
-		return (uf::Entity*) NULL;
-	};
 }
 
 void ext::World::initialize() {
-	uf::Entity::initialize();
+	ext::Object::initialize();
 
 	this->m_name = "World";
-	
-	this->load();
+
+	this->load("./entities/world.json");
+
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	ext::Asset& assetLoader = this->getComponent<ext::Asset>();
+
+	/* Grab master data */ {
+		std::vector<std::string> tables = {
+			"Card",
+			"Chara",
+			"Skill",
+			"Element",
+			"Status",
+		};
+		for ( auto& table : tables ) {
+			ext::MasterData data;
+			metadata["system"]["mastertable"][table] = data.load(table);
+		}
+	}
+
+	this->addHook( "system:Quit.%UID%", [&](const std::string& event)->std::string{
+		std::cout << event << std::endl;
+		ext::ready = false;
+		return "true";
+	});
+	this->addHook( "world:Music.LoadPrevious.%UID%", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+
+		if ( metadata["previous bgm"]["filename"] == "" ) return "false";
+
+		std::string filename = metadata["previous bgm"]["filename"].asString();
+		float timestamp = metadata["previous bgm"]["timestamp"].asFloat();
+
+//		std::cout << metadata["previous bgm"] << std::endl;
+
+		uf::Audio& audio = this->getComponent<uf::Audio>();
+		if ( audio.playing() ) {
+			metadata["previous bgm"]["filename"] = audio.getFilename();
+			metadata["previous bgm"]["timestamp"] = audio.getTime();
+			audio.stop();
+		}
+		audio.load(filename);
+		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
+		audio.setTime(timestamp);
+		audio.play();
+
+		return "true";
+	});
+	this->addHook( "asset:Load." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		std::string filename = json["filename"].asString();
+
+		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		const uf::Audio* audioPointer = NULL;
+		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
+		if ( !audioPointer ) return "false";
+
+		uf::Audio& audio = this->getComponent<uf::Audio>();
+		if ( audio.playing() ) {
+		/*
+			if ( filename.find("_intro") == std::string::npos ) {
+				metadata["previous bgm"]["filename"] = audio.getFilename();
+				metadata["previous bgm"]["timestamp"] = audio.getTime();
+			}
+		*/
+			audio.stop();
+		}
+		
+//		std::cout << metadata["previous bgm"] << std::endl;
+
+		audio.load(filename);
+		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
+		audio.play();
+
+		return "true";
+	});
+
+	static uf::Timer<long long> timer(false);
+	if ( !timer.running() ) timer.start();
+	this->addHook( "menu:Pause", [&](const std::string& event)->std::string{
+		if ( timer.elapsed().asDouble() < 1 ) return "false";
+		timer.reset();
+
+		uf::Serializer json = event;
+		ext::Gui* guiManager = (ext::Gui*) this->findByName("Gui Manager");
+		if ( !guiManager ) return "false";
+
+		ext::Gui* guiMenu = new ext::GuiMenu;
+		uf::Serializer& pMetadata = guiMenu->getComponent<uf::Serializer>();
+		guiManager->addChild(*guiMenu);
+		guiMenu->load("./entities/gui/pause/menu.json");
+		pMetadata["menu"] = json["menu"];
+		guiMenu->initialize();
+
+		uf::Serializer payload;
+		payload["uid"] = guiMenu->getUid();
+		return payload;
+	});
+	this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+
+		std::string asset = json["asset"].asString();
+		std::string uid = json["uid"].asString();
+
+		assetLoader.load(asset, "asset:Load." + uid);
+
+		return "true";
+	});
+	this->addHook( "world:Battle.Prepare", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+
+		ext::Player& player = this->getPlayer();
+		uf::Serializer& pMetadata = player.getComponent<uf::Serializer>();
+
+		uf::Serializer payload;
+		
+		payload["battle"]["music"] = json["music"];
+		payload["battle"]["enemy"] = json[""];
+		payload["battle"]["enemy"]["uid"] = json["uid"];
+
+		payload["battle"]["player"] = pMetadata[""];
+		payload["battle"]["player"]["uid"] = player.getUid();
+
+		pMetadata["system"]["control"] = false;
+		pMetadata["system"]["menu"] = "battle";
+			
+		this->callHook("world:Battle.Start", payload);
+
+		return "true";
+	});
+	this->addHook( "world:Battle.Start", [&](const std::string& event)->std::string{
+		if ( timer.elapsed().asDouble() < 1 ) return "false";
+		timer.reset();
+		ext::Gui* guiManager = (ext::Gui*) this->findByName("Gui Manager");
+		if ( !guiManager ) return "false";
+		uf::Serializer json = event;
+
+		ext::HousamoBattle* battleManager = new ext::HousamoBattle;
+		this->addChild(*battleManager);
+		battleManager->initialize();
+		battleManager->callHook("world:Battle.Start.%UID%", json);
+
+		uf::Serializer payload;
+		return payload;
+	});
+	this->addHook( "world:Battle.End", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+		ext::HousamoBattle* battleManager = (ext::HousamoBattle*) this->findByName("Battle Manager");
+		if ( !battleManager ) return "false";
+
+		this->removeChild(*battleManager);
+		battleManager->destroy();
+		delete battleManager;
+
+		return "true";
+	});
+	this->addHook( "menu:Dialogue.Start", [&](const std::string& event)->std::string{
+		if ( timer.elapsed().asDouble() < 1 ) return "false";
+		timer.reset();
+		ext::Gui* guiManager = (ext::Gui*) this->findByName("Gui Manager");
+		if ( !guiManager ) return "false";
+		uf::Serializer json = event;
+
+		ext::DialogueManager* dialogueManager = new ext::DialogueManager;
+		this->addChild(*dialogueManager);
+		dialogueManager->initialize();
+		dialogueManager->callHook("menu:Dialogue.Start.%UID%", json);
+		return json;
+	});
+	this->addHook( "menu:Dialogue.End", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+		ext::DialogueManager* dialogueManager = (ext::DialogueManager*) this->findByName("Dialogue Manager");
+		if ( !dialogueManager ) return "false";
+
+		this->removeChild(*dialogueManager);
+		dialogueManager->destroy();
+		delete dialogueManager;
+
+		return "true";
+	});
+
+	/* store viewport size */ {
+		metadata["window"]["size"]["x"] = ext::vulkan::width;
+		metadata["window"]["size"]["y"] = ext::vulkan::height;
+		
+		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
+			uf::Serializer json = event;
+
+			pod::Vector2ui size; {
+				size.x = json["window"]["size"]["x"].asUInt64();
+				size.y = json["window"]["size"]["y"].asUInt64();
+			}
+
+			metadata["window"] = json["window"];
+
+			return "true";
+		});
+	}
 }
 
 void ext::World::tick() {
-	uf::Entity::tick();
+	ext::Object::tick();
 
-	/* Calibrates Polyfill */ {
-		static float x = 2.98986, y = 24.7805;
-		if ( uf::Window::isKeyPressed("L") ) x += 0.01;
-		if ( uf::Window::isKeyPressed("J") ) x -= 0.01;
-		if ( uf::Window::isKeyPressed("I") ) y += 0.01;
-		if ( uf::Window::isKeyPressed("K") ) y -= 0.01;
-		if ( uf::Window::isKeyPressed("O") ) std::cout << x << ", " << y << std::endl;
-		glPolygonOffset(x, y);
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	ext::Asset& assetLoader = this->getComponent<ext::Asset>();
+
+	/* check if audio needs to loop */ try {
+		uf::Audio& bgm = this->getComponent<uf::Audio>();
+		float current = bgm.getTime();
+		float end = bgm.getDuration();
+		float epsilon = 0.005f;
+		if ( current + epsilon >= end || !bgm.playing() ) {
+			// intro to main transition
+			std::string filename = bgm.getFilename();
+			filename = assetLoader.getOriginal(filename);
+			if ( filename.find("_intro") != std::string::npos ) {
+				assetLoader.load(uf::string::replace( filename, "_intro", "" ), "asset:Load." + std::to_string(this->getUid()));
+			// loop
+			} else {
+				bgm.setTime(0);
+				if ( !bgm.playing() ) bgm.play();
+			}
+		}
+	} catch ( ... ) {
+
 	}
+
+	/* Regain control if nothing requests it */ {
+		ext::Gui* menu = (ext::Gui*) this->findByName("Gui: Menu");
+		if ( !menu ) {
+			uf::Serializer payload;
+			payload["state"] = false;
+			uf::hooks.call("window:Mouse.CursorVisibility", payload);
+			uf::hooks.call("window:Mouse.Lock");
+		}
+	}
+
 	/* Print World Tree */ {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 			std::function<void(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
 				for ( const uf::Entity* entity : parent->getChildren() ) {
-					for ( int i = 0; i < indent; ++i ) std::cout<<"\t";
-					std::cout<<entity->getName()<<": "<<entity->getUid();
+					for ( int i = 0; i < indent; ++i ) uf::iostream<<"\t";
+					uf::iostream<<entity->getName()<<": "<<entity->getUid();
 					if ( entity->hasComponent<pod::Transform<>>() ) {
 						const pod::Transform<>& t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
-						std::cout << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ")";
+						uf::iostream << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ")";
 					}
-					std::cout<<std::endl;
+					uf::iostream<<"\n";
 					recurse(entity, indent + 1);
 				}
 			}; recurse(this, 0);
@@ -77,14 +286,21 @@ void ext::World::tick() {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
-			std::cout << "Current size: " << uf::Entity::entities.size() << " | UIDs: " << uf::Entity::uids << std::endl;
+			uf::iostream << "Current size: " << uf::Entity::entities.size() << " | UIDs: " << uf::Entity::uids << "\n";
 			uint i = 0; for ( uf::Entity* e : uf::Entity::entities ) {
 				if ( e && !e->hasParent() ) {
 					++i;
-					std::cout << "Orphan: " << e->getName() << ": " << e << std::endl;
+					uf::iostream << "Orphan: " << e->getName() << ": " << e << "\n";
 				}
 			}
-			std::cout << "Orphans: " << i << std::endl;
+			uf::iostream << "Orphans: " << i << "\n";
+		}
+	}
+	/* Print Entity Information */  {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+	    	uf::iostream << ext::vulkan::allocatorStats() << "\n";
 		}
 	}
 	
@@ -96,387 +312,21 @@ void ext::World::tick() {
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
 	}
-
-	static bool first = false; if ( !first ) { first = true;
-		uf::thread::add( uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true ), [&]() -> int {
-			ext::Terrain* terrain = (ext::Terrain*) findByName(this, "Terrain");
-			if ( !terrain ) return 0;
-			uf::Serializer& metadata = terrain->getComponent<uf::Serializer>();
-			pod::Vector3 position = { 0, 32, 0 };
-			/* Element */ {
-				ext::Gui* gui = (ext::Gui*) findByName(this, "Gui Manager");
-				if ( !gui ) return 0;
-				uf::Entity* element = new ext::Gui;
-				ext::Gui& guiElement = *((ext::Gui*) element);
-				std::string config = "./terrain/moon/config.json";
-				if ( !guiElement.load(config) ) { uf::iostream << "Error loading `" << config << "!" << "\n"; delete element; return 0; } {	
-					gui->addChild(*element);
-					uf::Serializer& gMetadata = element->getComponent<uf::Serializer>();
-					element->initialize();
-					pod::Transform<>& transform = element->getComponent<pod::Transform<>>();
-					position = transform.position;
-				}
-				
-				if ( !metadata["moon"]["light"]["should"].asBool() ) return 0;
-
-				uf::Entity* entity = new ext::Light;
-				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return 0; } {
-					terrain->addChild(*entity);
-					entity->getComponent<uf::Serializer>()["light"] = metadata["moon"]["light"];
-					entity->getComponent<uf::Serializer>()["camera"] = metadata["moon"]["camera"];
-					entity->initialize();
-					
-					pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
-					transform = uf::transform::initialize( transform );
-					transform.position = position;
-					uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
-					entity->getComponent<uf::Camera>().update(true);
-				}
-			}
-		return 0;}, true );
-	}
 }
 
 
 uf::Camera& ext::World::getCamera() {
+	if ( !::camera ) ::camera = this->getPlayer().getComponentPointer<uf::Camera>();
 	return *::camera;
 }
 
 void ext::World::render() {
-	uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>();
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-
-	{
-		::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-		::camera->update(true);
-	}
-
-	/* Prepare Geometry Buffer */ {
-		buffer.bind();
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
-	/* Render entities (normal pass) */ {
-		metadata["state"] = 0;
-		uf::Entity::render();
-	}
-	
-	/* Prepare deferred pass */ {
-		metadata["state"] = 1;
-
-		/* */ {
-			::light.bind();
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		}
-
-		buffer.unbind();
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	}
-
-	std::vector<ext::Light*> lights;
-	/* Light pass */ {
-		std::function<void(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
-			for ( uf::Entity* entity : parent->getChildren() ) {
-				if ( entity->getName() == "Light" ) lights.push_back( (ext::Light*) entity );
-				recurse(entity, indent + 1);
-			}
-		};
-		recurse(this, 0);
-		/* Sort by closest to farthest */ {
-			const ext::World& world = this->getRootParent<ext::World>();
-			const ext::Player& player = world.getPlayer();
-			const pod::Vector3& position = player.getComponent<pod::Transform<>>().position;
-			std::sort( lights.begin(), lights.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
-				if ( !l ) return false;
-				if ( !r ) return true;
-				if ( !l->hasComponent<pod::Transform<>>() ) return false;
-				if ( !r->hasComponent<pod::Transform<>>() ) return true;
-				return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) > uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
-			} );
-		}
-		if ( uf::Window::isKeyPressed("G") ) {
-			::camera->update(true);
-			::camera->update(true);
-		}
-
-		for ( ext::Light* entity : lights ) {
-			ext::Light& light = *entity;
-			uf::Serializer& lMetadata = light.getComponent<uf::Serializer>();
-			if ( !lMetadata["light"]["render"].asBool() ) continue;
-			uf::GeometryBuffer& lightBuffer = lMetadata["light"]["dedicated"].asBool() ? light.getComponent<uf::GeometryBuffer>() : ::light;
-			uf::Camera& lightCam = light.getComponent<uf::Camera>();
-			if ( !light.hasComponent<uf::GeometryBuffer>() || lMetadata["light"]["render_state"].asInt() == 0 ){
-				lightBuffer.bind();
-				glClear(GL_DEPTH_BUFFER_BIT);
-				::camera = light.getComponentPointer<uf::Camera>();
-				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
-				glEnable(GL_POLYGON_OFFSET_FILL);
-				glDisable(GL_CULL_FACE);
-			//	::camera->update(true);
-				uf::Entity::render();
-				glDisable(GL_POLYGON_OFFSET_FILL);
-				glEnable(GL_CULL_FACE);
-				::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-				glViewport( 0, 0, ::camera->getSize().x, ::camera->getSize().y );
-			}
-			if ( (lMetadata["light"]["render_state"]=lMetadata["light"]["render_state"].asInt()+1).asInt()-1 >= lMetadata["light"]["rate"].asInt() ) lMetadata["light"]["render_state"]= 0;
-			{
-				metadata["buffer"]["lightmap"].asBool() ? ::light.bind() : buffer.unbind();
-
-				if ( lMetadata["light"]["blend"] != Json::nullValue ) {
-					glEnable(GL_BLEND);
-					GLenum parameters[4] = {
-						GL_ONE,
-						GL_ONE,
-						GL_ONE,
-						GL_ONE,
-					};
-					for ( int i = 0; i < lMetadata["light"]["blend"].size(); ++i ) {
-						if ( lMetadata["light"]["blend"][i] == "ZERO" || lMetadata["light"]["blend"][i] == "GL_ZERO" ) parameters[i] = GL_ZERO;
-						if ( lMetadata["light"]["blend"][i] == "ONE" || lMetadata["light"]["blend"][i] == "GL_ONE" ) parameters[i] = GL_ONE;
-						if ( lMetadata["light"]["blend"][i] == "SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_SRC_COLOR" ) parameters[i] = GL_SRC_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "DST_COLOR" || lMetadata["light"]["blend"][i] == "GL_DST_COLOR" ) parameters[i] = GL_DST_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_DST_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_COLOR" ) parameters[i] = GL_ONE_MINUS_DST_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_SRC_ALPHA" ) parameters[i] = GL_SRC_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "DST_ALPHA" || lMetadata["light"]["blend"][i] == "GL_DST_ALPHA" ) parameters[i] = GL_DST_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_DST_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_DST_ALPHA" ) parameters[i] = GL_ONE_MINUS_DST_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "CONSTANT_COLOR" || lMetadata["light"]["blend"][i] == "GL_CONSTANT_COLOR" ) parameters[i] = GL_CONSTANT_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_COLOR" ) parameters[i] = GL_ONE_MINUS_CONSTANT_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "CONSTANT_ALPHA" || lMetadata["light"]["blend"][i] == "GL_CONSTANT_ALPHA" ) parameters[i] = GL_CONSTANT_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_CONSTANT_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_CONSTANT_ALPHA" ) parameters[i] = GL_ONE_MINUS_CONSTANT_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "SRC_ALPHA_SATURATE" || lMetadata["light"]["blend"][i] == "GL_SRC_ALPHA_SATURATE" ) parameters[i] = GL_SRC_ALPHA_SATURATE;
-						if ( lMetadata["light"]["blend"][i] == "SRC1_COLOR" || lMetadata["light"]["blend"][i] == "GL_SRC1_COLOR" ) parameters[i] = GL_SRC1_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_COLOR" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_COLOR" ) parameters[i] = GL_ONE_MINUS_SRC_COLOR;
-						if ( lMetadata["light"]["blend"][i] == "SRC1_ALPHA" || lMetadata["light"]["blend"][i] == "GL_SRC1_ALPHA" ) parameters[i] = GL_SRC1_ALPHA;
-						if ( lMetadata["light"]["blend"][i] == "ONE_MINUS_SRC_ALPHA" || lMetadata["light"]["blend"][i] == "GL_ONE_MINUS_SRC_ALPHA" ) parameters[i] = GL_ONE_MINUS_SRC_ALPHA;
-					}
-				
-					if ( lMetadata["light"]["blend"].size() == 2 ) {
-						glBlendEquation(GL_FUNC_ADD);
-						glBlendFunc(parameters[0], parameters[1]);
-					} else if ( lMetadata["light"]["blend"].size() == 4 ) {
-						glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
-						glBlendFuncSeparate(parameters[0], parameters[1], parameters[2], parameters[3]);
-					}
-				}
-
-				uf::Shader& shader = light.getComponent<uf::Shader>();
-				uf::Mesh& mesh = buffer.getComponent<uf::Mesh>();
-				pod::Transform<>& lightTransform = light.getComponent<pod::Transform<>>();
-
-				shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {
-						texture.bind(i);
-						shader.push("buffers.geom_"+texture.getName(), i++);
-					} for ( auto& texture : lightBuffer.getBuffers() ) {
-						texture.bind(i);
-						shader.push("buffers.light_"+texture.getName(), i++);
-					}
-
-					shader.push("matrices.view", this->getPlayer().getComponent<uf::Camera>().getView());
-					shader.push("matrices.projection", this->getPlayer().getComponent<uf::Camera>().getProjection());
-					shader.push("matrices.projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
-
-					if ( lMetadata["light"]["color"] != Json::nullValue ) shader.push("parameters.color", {lMetadata["light"]["color"][0].asFloat(),lMetadata["light"]["color"][1].asFloat(),lMetadata["light"]["color"][2].asFloat()});//light.getColor());
-					if ( lMetadata["light"]["attenuation"] != Json::nullValue ) shader.push("parameters.attenuation", lMetadata["light"]["attenuation"].asFloat());//light.getAttenuation());
-					if ( lMetadata["light"]["power"] != Json::nullValue ) shader.push("parameters.power", lMetadata["light"]["power"].asFloat());//light.getPower());
-					if ( lMetadata["light"]["specular"] != Json::nullValue ) shader.push("parameters.specular", {lMetadata["light"]["specular"][0].asFloat(),lMetadata["light"]["specular"][1].asFloat(),lMetadata["light"]["specular"][2].asFloat()});//light.getColor());
-					shader.push("parameters.position", lightTransform.position);
-
-					shader.push("parameters.view", lightCam.getView());
-					shader.push("parameters.projection", lightCam.getProjection());
-				}
-				mesh.render();
-				glDisable(GL_BLEND);
-			}
-		}
-		if ( metadata["buffer"]["lightmap"].asBool() ) {
-			buffer.unbind();
-			uf::Shader& shader = buffer.getComponent<uf::Shader>();
-			uf::Camera& camera = this->getCamera();
-			uf::Mesh& mesh = buffer.getComponent<uf::Mesh>();
-			shader.bind(); { int i = 0; for ( auto& texture : buffer.getBuffers() ) {
-					texture.bind(i);
-					shader.push("buffers.geom_"+texture.getName(), i++);
-				} for ( auto& texture : ::light.getBuffers() ) {
-					texture.bind(i);
-					shader.push("buffers.light_"+texture.getName(), i++);
-				}
-
-				shader.push("matrices.view", camera.getView());
-				shader.push("matrices.projection", camera.getProjection());
-				shader.push("matrices.projectionInverse", uf::matrix::inverse(this->getPlayer().getComponent<uf::Camera>().getProjection()));
-
-				shader.push("parameters.light", !lights.empty());
-			}
-			mesh.render();
-		}
-	}
-	/* GUI pass */  {
-		metadata["state"] = 2;
-		glEnable(GL_BLEND);
-		glDisable(GL_DEPTH_TEST);
-		glBlendEquation(GL_FUNC_ADD);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		for ( uf::Entity* entity : this->getChildren() ) if ( entity->getName() == "Gui Manager" ) entity->render();
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
-	}
-	buffer.unbind();
+	ext::Object::render();
 }
 
 ext::Player& ext::World::getPlayer() {
-	std::function<uf::Entity*(uf::Entity*, int)> recurse = [&]( uf::Entity* parent, int indent ) {
-		for ( uf::Entity* entity : parent->getChildren() ) {
-			if ( entity->getName() == "Player" ) return entity;
-			uf::Entity* p = recurse(entity, indent + 1);
-			if ( p ) return p;
-		}
-		return (uf::Entity*) NULL;
-	};
-	uf::Entity* pointer = recurse(this, 0);
-	return *((ext::Player*) pointer);
+	return *((ext::Player*) this->findByName("Player"));
 }
 const ext::Player& ext::World::getPlayer() const {
-	std::function<const uf::Entity*(const uf::Entity*, int)> recurse = [&]( const uf::Entity* parent, int indent ) {
-		for ( const uf::Entity* entity : parent->getChildren() ) {
-			if ( entity->getName() == "Player" ) return entity;
-			const uf::Entity* p = recurse(entity, indent + 1);
-			if ( p ) return p;
-		}
-		return (const uf::Entity*) NULL;
-	};
-	const uf::Entity* pointer = recurse(this, 0); return
-	*((const ext::Player*) pointer);
-}
-
-bool ext::World::load() {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	struct { uf::Serializer base; uf::Serializer shader; } config;
-	/* Load entity file */ {
-		struct { bool exists = false; std::string filename = "./entities/world/config.json"; } file;
-		/* Read from file */ if ( !(file.exists = config.base.readFromFile(file.filename)) ) { uf::iostream << "Error loading `" << file.filename << "!" << "\n"; return false; }
-		metadata = config.base;
-		for ( uint i = 0; i < config.base["entities"].size(); ++i ) {
-			std::string json = config.base["entities"][i].asString();
-			std::string type = ""; {
-				std::string root = "./entities/" + uf::string::directory(json);
-				struct { uf::Serializer base; } config;
-				/* Load entity file */ {
-					struct { bool exists = false; std::string filename; } file;
-					file.filename = root + uf::string::filename(json);
-					/* Read from file */ if ( !(file.exists = config.base.readFromFile(file.filename)) ) { uf::iostream << "Error loading `" << file.filename << "!" << "\n"; return false; }
-					type = config.base["type"].asString();
-				}
-				if ( config.base["ignore"].asBool() ) continue;
-			}
-			uf::Entity* entity;
-			if ( type == "Terrain" ) entity = new ext::Terrain;
-			else if ( type == "Player" ) entity = new ext::Player;
-			else if ( type == "Craeture" ) entity = new ext::Craeture;
-			else if ( type == "Light" ) entity = new ext::Light;
-			else if ( type == "Gui" ) entity = new ext::Gui;
-			else entity = new ext::Object;
-
-			if ( !((ext::Object*) entity)->load(json) ) { uf::iostream << "Error loading `" << json << "!" << "\n"; delete entity; return false; }
-			this->addChild(*entity); entity->initialize();
-		}
-		/* Geometry Buffer */ {
-			/* Generate default light shadowmap */ {
-				uf::GeometryBuffer& buffer = ::light;
-				this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
-					uf::Serializer json = event;
-
-					// Update persistent window sized (size stored to JSON file)
-					pod::Vector2ui size; {
-						size.x = json["window"]["size"]["x"].asUInt64();
-						size.y = json["window"]["size"]["y"].asUInt64();
-					}
-					size *= metadata["buffer"]["scale"].asDouble();
-					if ( size.x == buffer.getSize().x && size.y == buffer.getSize().y ) return "false";
-
-					auto& buffers = buffer.getBuffers();
-					buffers.clear();
-					uint i = 0;
-					buffers.push_back( spec::ogl::GeometryTexture() );
-					buffers.push_back( spec::ogl::GeometryTexture() );
-					spec::ogl::GeometryTexture& light = buffers[i++];
-					spec::ogl::GeometryTexture& depth = buffers[i++];
-					light.setSize(size); light.setName("light"); light.setType({ GL_COLOR_ATTACHMENT0, GL_FLOAT, GL_RGBA, GL_RGBA16F });
-					depth.setSize(size); depth.setName("depth"); depth.setType({ GL_DEPTH_ATTACHMENT, GL_FLOAT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT });
-					buffer.setSize(size);
-					buffer.generate();
-					return "true";
-				} );
-			}
-			uf::GeometryBuffer& buffer = this->getComponent<uf::GeometryBuffer>(); {
-				this->getComponent<uf::Hooks>().addHook( "window:Resized", [&](const std::string& event)->std::string{
-					uf::Serializer json = event;
-
-					// Update persistent window sized (size stored to JSON file)
-					pod::Vector2ui size; {
-						size.x = json["window"]["size"]["x"].asUInt64();
-						size.y = json["window"]["size"]["y"].asUInt64();
-					}
-					size *= metadata["buffer"]["scale"].asDouble();
-					if ( size.x == buffer.getSize().x && size.y == buffer.getSize().y ) return "false";
-
-					auto& buffers = buffer.getBuffers();
-					buffers.clear();
-					uint i = 0;
-					buffers.push_back( spec::ogl::GeometryTexture() );
-					buffers.push_back( spec::ogl::GeometryTexture() );
-					buffers.push_back( spec::ogl::GeometryTexture() );
-			//		buffers.push_back( spec::ogl::GeometryTexture() );
-
-					spec::ogl::GeometryTexture& color = buffers[i++];
-					spec::ogl::GeometryTexture& normal = buffers[i++];
-			//		spec::ogl::GeometryTexture& position = buffers[i++];
-					spec::ogl::GeometryTexture& depth = buffers[i++];
-
-					color.setSize(size); color.setName("color"); color.setType({ GL_COLOR_ATTACHMENT0, GL_FLOAT, GL_RGBA, GL_RGBA16F });
-					normal.setSize(size); normal.setName("normal"); normal.setType({ GL_COLOR_ATTACHMENT1, GL_FLOAT, GL_RGB, GL_RGB16F });
-			//		position.setSize(size); position.setName("position"); position.setType({ GL_COLOR_ATTACHMENT2, GL_FLOAT, GL_RGB, GL_RGB16F });
-					depth.setSize(size); depth.setName("depth"); depth.setType({ GL_DEPTH_ATTACHMENT, GL_FLOAT, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT });
-
-					buffer.setSize(size);
-					buffer.generate();
-					return "true";
-				} );
-			}
-
-			uf::Shader& shader = buffer.getComponent<uf::Shader>();
-			/* Shader */ if ( config.base["shader"] != Json::nullValue ) {
-				struct {
-					bool exists = false;
-					std::string directory;
-					std::string localFilename;
-					std::string filename;
-				} file;
-				std::string root = "./entities/world/";
-				file.directory = root + uf::string::directory(config.base["shader"].asString());
-				file.localFilename = uf::string::filename(config.base["shader"].asString());
-				file.filename = file.directory + file.localFilename;
-				 file.exists = config.shader.readFromFile(file.filename);
-				/* Read from file */ if ( !file.exists ) { uf::iostream << "Error loading `" << file.filename << "!" << "\n"; return false; }
-				/* Load shaders */ {
-					bool fromFile = config.shader["source"] == "file";
-					// Vertex
-					std::string vertex = file.directory + config.shader["shaders"]["vertex"].asString();
-					shader.add( uf::Shader::Component( vertex, GL_VERTEX_SHADER, fromFile ) );
-					// Fragment
-					std::string fragment = file.directory + config.shader["shaders"]["fragment"].asString();
-					shader.add( uf::Shader::Component( fragment, GL_FRAGMENT_SHADER, fromFile ) );
-				}
-
-				shader.compile();
-				shader.link();
-				for ( std::size_t i = 0; i < config.shader["attributes"].size(); ++i ) shader.bindAttribute( i, config.shader["attributes"][(int) i].asString() );
-				for ( std::size_t i = 0; i < config.shader["fragmentData"].size(); ++i ) shader.bindFragmentData( i, config.shader["fragmentData"][(int) i].asString() );
-			}
-		}
-	}
-
-
-	return true;
+	return *((const ext::Player*) this->findByName("Player"));
 }

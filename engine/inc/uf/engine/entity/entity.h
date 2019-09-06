@@ -48,6 +48,13 @@ namespace uf {
 		template<typename T=uf::Entity> void destroy();
 		template<typename T=uf::Entity> void tick();
 		template<typename T=uf::Entity> void render();
+
+		uf::Entity* findByName( const std::string& name );
+		uf::Entity* findByUid( std::size_t id );
+		const uf::Entity* findByName( const std::string& name ) const;
+		const uf::Entity* findByUid( std::size_t id ) const;
+
+		static uf::Entity* globalFindByName( const std::string& name );
 	};
 /*
 namespace uf {

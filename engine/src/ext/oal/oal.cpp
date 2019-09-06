@@ -46,7 +46,7 @@ bool UF_API_CALL ext::AL::terminate() {
 }
 void UF_API_CALL ext::AL::checkError( const std::string& function, int line, const std::string& aux ) const {
 	std::string error = this->getError();
-	if ( error != "AL_NO_ERROR" ) std::cerr << "AL error @ " << function << ":" << line << ": "<<(aux!=""?"("+aux+") ":"")<< error << std::endl;
+	// if ( error != "AL_NO_ERROR" ) std::cerr << "AL error @ " << function << ":" << line << ": "<<(aux!=""?"("+aux+") ":"")<< error << std::endl;
 }
 std::string UF_API_CALL ext::AL::getError() const {
 	ALCenum error = alGetError();
@@ -106,7 +106,7 @@ void UF_API_CALL ext::al::Source::source( ALenum name, std::vector<ALfloat> para
 		case 3: alSource3f( this->m_index, name, parameters[0], parameters[1], parameters[2] ); break;
 		default: alSourcefv( this->m_index, name, &parameters[0] ); break;
 	}
-	ext::oal.checkError(__FUNCTION__, __LINE__);
+	ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(name));
 }
 void UF_API_CALL ext::al::Source::source( const std::string string, std::vector<ALfloat> parameters ) {
 	// alSourcef
@@ -120,6 +120,7 @@ void UF_API_CALL ext::al::Source::source( const std::string string, std::vector<
 	if ( string == "CONE_INNER_ANGLE" ) return this->source( AL_CONE_INNER_ANGLE, parameters );
 	if ( string == "CONE_OUTER_ANGLE" ) return this->source( AL_CONE_OUTER_ANGLE, parameters );
 	if ( string == "REFERENCE_DISTANCE" ) return this->source( AL_REFERENCE_DISTANCE, parameters );
+	if ( string == "SEC_OFFSET" ) return this->source( AL_SEC_OFFSET, parameters );
 	// alSource3f
 	// alSourcefv
 	if ( string == "POSITION" ) return this->source( AL_POSITION, parameters );
@@ -169,13 +170,11 @@ ext::al::Buffer::~Buffer() {
 
 void UF_API_CALL ext::al::Buffer::generate() {
 	if ( this->m_index ) this->destroy();
-	alGenBuffers(1, &this->m_index);
-	ext::oal.checkError(__FUNCTION__, __LINE__);
+	alGenBuffers(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
 }
 void UF_API_CALL ext::al::Buffer::destroy() {
 	if ( this->m_index && alIsBuffer(this->m_index) ) {
-		alDeleteBuffers(1, &this->m_index);
-		ext::oal.checkError(__FUNCTION__, __LINE__);
+		alDeleteBuffers(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
 	}
 	this->m_index = 0;
 }

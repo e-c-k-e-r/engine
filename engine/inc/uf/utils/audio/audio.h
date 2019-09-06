@@ -18,18 +18,29 @@ namespace uf {
 		std::string m_filename;
 		ext::al::Source m_source;
 		ext::al::Buffer m_buffer;
+		float m_duration;
 	public:
+	/*
 		Audio( const std::string& = "" );
-
+		Audio( Audio&& );
+		Audio( const Audio& );
+	*/
 		bool initialized();
 		bool playing();
 
 		void load( const std::string& = "" );
 		void play();
 		void stop();
+		ALfloat getTime();
+		void setTime( ALfloat );
+		float getDuration() const;
 
 		void setPosition( const pod::Vector3& );
 		void setOrientation( const pod::Quaternion<>& );
+		void setVolume( float );
+
+		float getVolume() const;
+		const std::string& getFilename() const;
 	};
 	class UF_API SoundEmitter {
 	public:
@@ -38,6 +49,7 @@ namespace uf {
 		uf::SoundEmitter::container_t m_container;
 	public:
 		uf::Audio& add( const std::string& );
+		uf::Audio& add( const uf::Audio& );
 		uf::Audio& get( const std::string& );
 		const uf::Audio& get( const std::string& ) const;
 

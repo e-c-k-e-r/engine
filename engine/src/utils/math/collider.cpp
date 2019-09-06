@@ -427,6 +427,7 @@ std::vector<uf::Collider::Manifold> UF_API uf::CollisionBody::intersects( const 
 	std::vector<uf::Collider::Manifold> manifolds;
 	for ( const uf::Collider* pointer : this->m_container ) {
 		uf::Collider::Manifold manifold;
+		if ( !pointer ) continue;
 		if ( pointer->type() == body.type() ) {
 			if ( pointer->type() == "AABBox" ) {
 				const uf::AABBox& a = *((const uf::AABBox*) pointer);

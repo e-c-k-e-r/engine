@@ -10,8 +10,8 @@ namespace ext {
 	class EXT_API Player : public ext::Craeture {
 	protected:
 	public:
-		void initialize();
-		void tick();
-		void render();
+		virtual void initialize();
+		virtual void tick();
+		virtual void render();
 	};
 }

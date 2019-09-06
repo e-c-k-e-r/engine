@@ -109,23 +109,7 @@ namespace uf {
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 		virtual uf::Collider::Manifold intersects( const uf::SphereCollider& ) const;
 	};
-/*
-	class UF_API MeshCollider : public uf::Collider {
-	protected:
-		uf::Mesh& mesh;
-		uf::Mesh::vertices_t::vector_t raw;
-	public:
-		MeshCollider( uf::Mesh& );
 
-		uf::Mesh& getMesh();
-		const uf::Mesh& getMesh() const;
-		void setMesh( const uf::Mesh& );
-
-		virtual std::string type() const;
-		virtual pod::Vector3* expand() const;
-		virtual pod::Vector3 support( const pod::Vector3& ) const;
-	};
-*/
 	class UF_API ModularCollider : public uf::Collider {
 	public:
 		typedef std::function<pod::Vector3*()> function_expand_t;

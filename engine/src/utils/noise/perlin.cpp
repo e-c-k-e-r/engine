@@ -20,6 +20,9 @@ uf::PerlinNoise::PerlinNoise() {
 uf::PerlinNoise::PerlinNoise(std::size_t seed) {
 	this->seed(seed);
 }
+std::size_t uf::PerlinNoise::seed() const {
+	return this->m_seed;
+}
 void uf::PerlinNoise::seed( std::size_t seed ) {
 	this->m_seed = seed;
 	this->m_permutations.clear();
@@ -113,4 +116,18 @@ std::vector<double> uf::PerlinNoise::collect( const pod::Vector3ui& size, const 
 	}
 	}
 	return res;
+}
+
+double uf::PerlinNoise::sample( const pod::Vector3d& position, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
+	std::vector<double> res;
+	double n = this->noise(noiseCoeff.x * position.x, noiseCoeff.y * position.y, noiseCoeff.z * position.z);
+	callback(n);
+	return n;
+}
+
+double uf::PerlinNoise::sample( const pod::Vector3f& position, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
+	std::vector<double> res;
+	double n = this->noise(noiseCoeff.x * position.x, noiseCoeff.y * position.y, noiseCoeff.z * position.z);
+	callback(n);
+	return n;
 }

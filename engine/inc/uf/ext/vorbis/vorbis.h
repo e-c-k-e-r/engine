@@ -16,6 +16,7 @@ namespace ext {
 		std::vector<char> m_buffer;
 		int m_format;
 		int m_frequency;
+		float m_duration;
 	public:
 		void load( const std::string& );
 		
@@ -23,6 +24,7 @@ namespace ext {
 		const std::vector<char>& getBuffer() const;
 		int getFormat() const;
 		int getFrequency() const;
+		float getDuration() const;
 	};
 }
 

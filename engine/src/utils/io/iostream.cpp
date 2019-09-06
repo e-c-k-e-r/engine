@@ -372,7 +372,8 @@ char UF_API_CALL uf::IoStream::writeChar( char ch ) {
 	}
 */
 	if ( !uf::IoStream::ncurses ) {
-		std::cout << ch;
+		if ( ch == '\n' ) std::cout << std::endl;
+		else std::cout << ch;
 		return ch;
 	}
 	ext::ncurses.addChar(ch);
@@ -394,7 +395,8 @@ const std::string& UF_API_CALL uf::IoStream::writeString( const std::string& str
 	::info.output.buffer += haystack;
 */
 	if ( !uf::IoStream::ncurses ) {
-		std::cout << str;
+		if ( str == "\n" ) std::cout << std::endl;
+		else std::cout << str;
 		return str;
 	}
 	ext::ncurses.addStr(str.c_str());
@@ -598,6 +600,12 @@ uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::String& val) {
 }
 uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const char* cstr) {
 	this->writeString(std::string(cstr));
+	return *this;
+}
+uf::IoStream& UF_API_CALL uf::IoStream::operator<< (void* ptr) {
+	std::stringstream ss;
+	ss << ptr;
+	this->writeString(ss.str());
 	return *this;
 }
 uf::IoStream& UF_API_CALL uf::IoStream::operator<< ( std::ostream& os ) {

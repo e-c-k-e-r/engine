@@ -4,9 +4,22 @@
 #if defined(UF_USE_OPENAL)
 #include <uf/ext/vorbis/vorbis.h>
 #endif
-
+/*
 UF_API uf::Audio::Audio( const std::string& filename ) : m_filename(filename) {
 }
+UF_API uf::Audio::Audio( uf::Audio&& move ) :
+	m_filename(move.m_filename),
+	m_source(move.m_source),
+	m_buffer(move.m_buffer)
+{
+}
+UF_API uf::Audio::Audio( const uf::Audio& copy ) :
+	m_filename(copy.m_filename),
+	m_source(copy.m_source),
+	m_buffer(copy.m_buffer)
+{
+}
+*/
 bool UF_API uf::Audio::initialized() {
 	if ( !this->m_source.getIndex() ) return false;
 	if ( !this->m_buffer.getIndex() ) return false;
@@ -27,6 +40,7 @@ void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != ""
 		buffer = vorbis.getBuffer();
 		format = vorbis.getFormat();
 		frequency = vorbis.getFrequency();
+		this->m_duration = vorbis.getDuration();
 
 		this->m_buffer.generate();
 		this->m_source.generate();
@@ -38,13 +52,31 @@ void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != ""
 		this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } );
 		this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } );
 	}
-	
 }
+
 void UF_API uf::Audio::play() {
 	this->m_source.play();
 }
 void UF_API uf::Audio::stop() {
 	this->m_source.stop();
+}
+const std::string& UF_API uf::Audio::getFilename() const {
+	return this->m_filename;
+}
+float uf::Audio::getDuration() const {
+	return this->m_duration;
+}
+#include <uf/ext/oal/oal.h>
+
+ALfloat UF_API uf::Audio::getTime() {
+	if ( this->playing() ) return 0;
+	ALfloat pos; 
+	alGetSourcef(this->m_source.getIndex(), AL_SEC_OFFSET,  &pos ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	return pos;
+}
+void UF_API uf::Audio::setTime( ALfloat pos ) { 
+	if ( this->playing() ) return;
+    this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
 }
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
@@ -52,12 +84,25 @@ void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
 void UF_API uf::Audio::setOrientation( const pod::Quaternion<>& orientation ) {
 
 }
+void UF_API uf::Audio::setVolume( float volume ) {
+	this->m_source.source("GAIN", std::vector<ALfloat>{volume} );
+}
+float UF_API uf::Audio::getVolume() const {
+	ALfloat pos; 
+	alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &pos ); ext::oal.checkError(__FUNCTION__, __LINE__);	
+	return pos;
+}
 
 uf::Audio& UF_API uf::SoundEmitter::add( const std::string& filename ) {
 	if ( this->m_container.find( filename ) != this->m_container.end() ) return this->get(filename);
 	uf::Audio& sound = this->m_container[filename];
 	sound.load(filename);
 	return sound;
+}
+uf::Audio& UF_API uf::SoundEmitter::add( const uf::Audio& audio ) {
+	std::string filename = audio.getFilename();
+	if ( this->m_container.find( filename ) != this->m_container.end() ) return this->get(filename);
+	return this->m_container[filename] = audio;
 }
 uf::Audio& UF_API uf::SoundEmitter::get( const std::string& filename ) {
 	return this->m_container[filename];

@@ -4,10 +4,10 @@
 
 #include <uf/utils/io/iostream.h>
 
-ext::TerrainVoxel::TerrainVoxel( ext::TerrainVoxel::uid_t uid, bool opaque, pod::Vector2ui uv ) : m_uid(uid), m_opaque(opaque), m_uv(uv) {
+ext::TerrainVoxel::TerrainVoxel( ext::TerrainVoxel::uid_t uid, bool opaque, bool solid, pod::Vector2ui uv, ext::TerrainVoxel::light_t light ) : m_uid(uid), m_opaque(opaque), m_solid(solid), m_uv(uv), m_light(light) {
 
 }
-ext::TerrainVoxel::TerrainVoxel( const ext::TerrainVoxel& voxel ) : m_uid(voxel.uid()), m_opaque(voxel.opaque()), m_uv(voxel.uv()) {
+ext::TerrainVoxel::TerrainVoxel( const ext::TerrainVoxel& voxel ) : m_uid(voxel.uid()), m_opaque(voxel.opaque()), m_solid(voxel.solid()), m_uv(voxel.uv()), m_light(voxel.light()) {
 
 }
 ext::TerrainVoxel::~TerrainVoxel() {
@@ -17,7 +17,9 @@ ext::TerrainVoxel::~TerrainVoxel() {
 pod::Vector2ui ext::TerrainVoxel::size() { return {4, 4}; }
 
 bool ext::TerrainVoxel::opaque() const { return this->m_opaque; }
+bool ext::TerrainVoxel::solid() const { return this->m_solid; }
 pod::Vector2ui ext::TerrainVoxel::uv() const { return this->m_uv; }
+ext::TerrainVoxel::light_t ext::TerrainVoxel::light() const { return this->m_light; }
 ext::TerrainVoxel::uid_t ext::TerrainVoxel::uid() const { return this->m_uid; }
 ext::TerrainVoxel::Model ext::TerrainVoxel::model() const {
 	ext::TerrainVoxel::Model model;
@@ -469,11 +471,12 @@ ext::TerrainVoxel::Model ext::TerrainVoxel::model() const {
 
 //
 
-ext::TerrainVoxelFloor::TerrainVoxelFloor() : ext::TerrainVoxel( 1, true, {0, 1} ) {}
-ext::TerrainVoxelWall::TerrainVoxelWall() : ext::TerrainVoxel( 2, true, {1, 1} ) {}
-ext::TerrainVoxelCeiling::TerrainVoxelCeiling() : ext::TerrainVoxel( 3, true, {2, 1} ) {}
-ext::TerrainVoxelPillar::TerrainVoxelPillar() : ext::TerrainVoxel( 4, true, {3, 0} ) {}
-ext::TerrainVoxelStair::TerrainVoxelStair() : ext::TerrainVoxel( 5, true, {2, 0} ) {}
+ext::TerrainVoxelFloor::TerrainVoxelFloor() : ext::TerrainVoxel( 1, true, true, {0, 1}, 0x0000 ) {}
+ext::TerrainVoxelWall::TerrainVoxelWall() : ext::TerrainVoxel( 2, true, true, {1, 1}, 0x0000 ) {}
+ext::TerrainVoxelCeiling::TerrainVoxelCeiling() : ext::TerrainVoxel( 3, true, true, {2, 1}, 0x0000 ) {}
+ext::TerrainVoxelPillar::TerrainVoxelPillar() : ext::TerrainVoxel( 4, true, true, {3, 0}, 0x0000 ) {}
+ext::TerrainVoxelStair::TerrainVoxelStair() : ext::TerrainVoxel( 5, true, true, {2, 0}, 0x0000 ) {}
+ext::TerrainVoxelLava::TerrainVoxelLava() : ext::TerrainVoxel( 6, true, true, {0, 2}, 0x66FF ) {}
 
 //
 const std::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {
@@ -485,6 +488,7 @@ const std::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {
 		atlas.push_back( ext::TerrainVoxelCeiling() );
 		atlas.push_back( ext::TerrainVoxelPillar() );
 		atlas.push_back( ext::TerrainVoxelStair() );
+		atlas.push_back( ext::TerrainVoxelLava() );
 	}
 	return atlas;
 }

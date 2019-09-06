@@ -4,11 +4,6 @@
 #include <uf/ext/ext.h>
 #include <uf/engine/entity/entity.h>
 
-#include <uf/gl/shader/shader.h>
-#include <uf/gl/mesh/mesh.h>
-#include <uf/gl/texture/texture.h>
-#include <uf/gl/camera/camera.h>
-
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 
@@ -18,11 +13,15 @@
 namespace ext {
 	class EXT_API TerrainVoxel {
 	public:
-		typedef uint uid_t;
+		typedef uint16_t uid_t;
+	//	typedef pod::Vector3t<uint8_t> light_t;
+		typedef uint16_t light_t;
 	protected:
 		ext::TerrainVoxel::uid_t m_uid = 0;
 		bool m_opaque = false;
+		bool m_solid = false;
 		pod::Vector2ui m_uv = {0, 0};
+		ext::TerrainVoxel::light_t m_light = 0x0000;
 	public:
 		struct Model {
 			struct { std::vector<float> left, right, top, bottom, front, back; } position;
@@ -31,7 +30,7 @@ namespace ext {
 			struct { std::vector<float> left, right, top, bottom, front, back; } color;
 		};
 
-		TerrainVoxel( ext::TerrainVoxel::uid_t = 0, bool = false, pod::Vector2ui = {0, 0} );
+		TerrainVoxel( ext::TerrainVoxel::uid_t = 0, bool = false, bool = false, pod::Vector2ui = {0, 0}, ext::TerrainVoxel::light_t = 0x0000 );
 		TerrainVoxel( const ext::TerrainVoxel& );
 		virtual ~TerrainVoxel();
 
@@ -40,7 +39,9 @@ namespace ext {
 		static ext::TerrainVoxel atlas( ext::TerrainVoxel::uid_t );
 
 		virtual bool opaque() const;
+		virtual bool solid() const;
 		virtual pod::Vector2ui uv() const;
+		virtual ext::TerrainVoxel::light_t light() const;
 		virtual ext::TerrainVoxel::uid_t uid() const;
 		virtual ext::TerrainVoxel::Model model() const;
 	};
@@ -64,5 +65,9 @@ namespace ext {
 	class EXT_API TerrainVoxelStair : public ext::TerrainVoxel  {
 	public:
 		TerrainVoxelStair();
+	};
+	class EXT_API TerrainVoxelLava : public ext::TerrainVoxel  {
+	public:
+		TerrainVoxelLava();
 	};
 }

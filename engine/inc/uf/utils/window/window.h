@@ -28,6 +28,7 @@ namespace uf {
 		/*virtual*/ void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );
 		/*virtual*/ void UF_API_CALL centerWindow();
 		/*virtual*/ void UF_API_CALL setMousePosition( const spec::uni::Window::vector_t& position );
+		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getMousePosition();
 		/*virtual*/ void UF_API_CALL setSize( const spec::uni::Window::vector_t& size );
 		/*virtual*/ void UF_API_CALL setTitle( const spec::uni::Window::title_t& title );
 		/*virtual*/ void UF_API_CALL setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );
@@ -40,6 +41,11 @@ namespace uf {
 		/*virtual*/ bool UF_API_CALL hasFocus() const;
 		/*virtual*/ void UF_API_CALL switchToFullscreen();
 	// 	Update
+	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+		std::vector<const char*> getExtensions( bool validationEnabled = true );
+		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
+	#endif
+		static bool focused;
 		static /*virtual*/ bool UF_API_CALL isKeyPressed(const std::string&);
 		/*virtual*/ void UF_API_CALL processEvents();
 		/*virtual*/ bool UF_API_CALL pollEvents(bool block = false);
@@ -50,5 +56,11 @@ namespace uf {
 #elif defined(UF_USE_SFML) && UF_USE_SFML == 1
 namespace uf {
 	typedef ext::sfml::Window Window;	
+}
+#elif defined(UF_USE_GLFW) && UF_USE_GLFW == 1
+#include <uf/ext/glfw/glfw.h>
+
+namespace uf {
+	typedef ext::glfw::Window Window;
 }
 #endif

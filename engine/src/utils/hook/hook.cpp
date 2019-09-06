@@ -131,36 +131,28 @@ void uf::HookHandler::call( const Readable::name_t& name ) {
 	this->call(name, Optimal::argument_t());
 }
 // Calls a hook in readable format
-void uf::HookHandler::call( const Readable::name_t& name, const Readable::argument_t& argument ) {
-	if ( !this->exists(name) ) return;
+std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Readable::name_t& name, const Readable::argument_t& argument ) {
+	std::vector<Readable::return_t> returns;
+	if ( !this->exists(name) ) return returns;
 	if ( !this->isReadable(name) ) {
-		if ( !this->isAliasToReadable(name) ) return;
+		if ( !this->isAliasToReadable(name) ) return returns;
 		auto& aliases = this->m_readable.aliases.at(name);
 		for ( auto& alias : aliases ) {
 			this->call( alias.name, (argument != "" ? argument : alias.argument) );
 		}
-		return;
+		return returns;
 	}
 	
 	auto& hooks = this->m_readable.hooks.at(name);
 	for ( auto& hook : hooks ) {
-		hook( argument );
-	/*
-		try {
-			hook( argument );
-		} catch ( std::exception& e ) {
-			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
-							<< "\twhat(): " << e.what() << "\n";
-		//	throw;
-		} catch ( bool handled ) {
-			if ( !handled ) throw;
+		try{
+			auto result = hook( argument );
+			returns.push_back(result);
 		} catch ( ... ) {
-			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
-							<< "\twhat(): " << "???" << "\n";
-		//	throw;
+			returns.push_back("");
 		}
-	*/
 	}
+	return returns;
 }
 // Calls a hook in optimal format
 void uf::HookHandler::call( const Optimal::name_t& name, const Optimal::argument_t& argument ) {

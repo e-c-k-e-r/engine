@@ -2,7 +2,9 @@
 
 #include <uf/config.h>
 
-#include <uf/ext/ogl/ogl.h>
+#if defined(UF_USE_OPENGL) && UF_USE_OPENGL == 1
+	#include <uf/ext/ogl/ogl.h>
+#endif
 #if defined(UF_USE_SFML) && UF_USE_SFML == 1
 	#include <uf/spec/window/universal.h>
 #else

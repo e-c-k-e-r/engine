@@ -3,7 +3,127 @@
 #include <uf/utils/io/iostream.h>
 
 #if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 0
+UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
+	uni::Context( NULL, true, settings ),
+	m_deviceContext 	(NULL),
+	m_context 			(NULL)
+{
+	// Creating a dummy window is mandatory: we could create a memory DC but then
+	// its pixel format wouldn't match the regular contexts' format, and thus
+	// wglShareLists would always fail. Too bad...
 
+	// Create a dummy window (disabled and hidden)
+	this->m_window = CreateWindowA("STATIC", "", WS_POPUP | WS_DISABLED, 0, 0, 1, 1, NULL, NULL, GetModuleHandle(NULL), NULL);
+	ShowWindow(this->m_window, SW_HIDE);
+	this->m_deviceContext = GetDC(this->m_window);
+
+	if ( this->m_deviceContext ) this->create(shared);
+}
+UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, const Context::window_t& window ) :
+	uni::Context( NULL, false, settings ),
+	m_deviceContext 	(NULL),
+	m_context 			(NULL)
+{
+	// Get the owner window and its device context
+	this->m_window = window.getHandle();
+	this->m_deviceContext = GetDC(this->m_window);
+
+	// Create the context
+	if ( this->m_deviceContext )
+		this->create(shared);
+}
+UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, unsigned int width, unsigned int height ) : Context( shared, settings ) {
+	
+}
+spec::win32::Context::~Context() {
+	this->terminate();
+}
+
+void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
+//	this->m_settings = settings;
+	Context::Settings l_settings(24, 4, 0, 3, 3);
+
+	int bestFormat = 0;
+
+	// Find a pixel format with no antialiasing, if not needed or not supported
+	if (bestFormat == 0) {
+		// Setup a pixel format descriptor from the rendering settings
+		PIXELFORMATDESCRIPTOR descriptor;
+		ZeroMemory(&descriptor,   sizeof(descriptor));
+		descriptor.nSize		= sizeof(descriptor);
+		descriptor.nVersion	 	= 1;
+		descriptor.iLayerType   = PFD_MAIN_PLANE;
+		descriptor.dwFlags	  	= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+		descriptor.iPixelType   = PFD_TYPE_RGBA;
+		descriptor.cColorBits   = (BYTE) l_settings.bitsPerPixel;
+		descriptor.cDepthBits   = (BYTE) l_settings.depthBits;
+		descriptor.cStencilBits = (BYTE) l_settings.stencilBits;
+		descriptor.cAlphaBits   = l_settings.bitsPerPixel == 32 ? 8 : 0;
+
+		// Get the pixel format that best matches our requirements
+		bestFormat = ChoosePixelFormat(this->m_deviceContext, &descriptor);
+		if (bestFormat == 0) {
+			uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to find a suitable pixel format for device context -- cannot create OpenGL context" << "\n";
+			return;
+		}
+	}
+
+	// Extract the depth and stencil bits from the chosen format
+	PIXELFORMATDESCRIPTOR actualFormat;
+	actualFormat.nSize		= sizeof(actualFormat);
+	actualFormat.nVersion 	= 1;
+	DescribePixelFormat(this->m_deviceContext, bestFormat, sizeof(actualFormat), &actualFormat);
+	l_settings.depthBits   	= actualFormat.cDepthBits;
+	l_settings.stencilBits 	= actualFormat.cStencilBits;
+
+	// Set the chosen pixel format
+	if (!SetPixelFormat(this->m_deviceContext, bestFormat, &actualFormat)) {
+		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to set pixel format for device context -- cannot create OpenGL context" << "\n";
+		return;
+	}
+
+	// Get the context to share display lists with
+	HGLRC sharedContext = shared ? ((win32::Context*) shared)->m_context : NULL;
+
+	// If the OpenGL >= 3.0 context failed or if we don't want one, create a regular OpenGL 1.x/2.x context
+	if (!this->m_context) {
+		// set the context version to 2.0 (arbitrary)
+		l_settings.majorVersion = 2;
+		l_settings.minorVersion = 0;
+
+		// Share this context with others
+		if (sharedContext) {
+
+		}
+	}
+}
+void UF_API_CALL spec::win32::Context::terminate() {
+	// Destroy the OpenGL context
+	if ( this->m_context ) {
+		
+	}
+
+	// Destroy the device context
+	if ( this->m_deviceContext ) ReleaseDC(this->m_window, this->m_deviceContext);
+
+	// Destroy the window if we own it
+	if ( this->m_window && this->m_ownsWindow ) DestroyWindow(this->m_window);
+}
+
+bool spec::win32::Context::makeCurrent() {
+	return true;
+}
+
+void spec::win32::Context::display() {
+	if (this->m_deviceContext && this->m_context)
+		SwapBuffers(this->m_deviceContext);
+}
+
+void spec::win32::Context::setVerticalSyncEnabled(bool enabled) {
+
+}
+# elif defined(UF_USE_OPENGL) && UF_USE_OPENGL == 0
 UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
 	uni::Context( NULL, true, settings ),
 	m_deviceContext 	(NULL),
@@ -231,5 +351,5 @@ void spec::win32::Context::setVerticalSyncEnabled(bool enabled) {
 	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(wglGetProcAddress("wglSwapIntervalEXT"));
 	if (wglSwapIntervalEXT) wglSwapIntervalEXT(enabled ? 1 : 0);
 }
-
+# endif
 #endif

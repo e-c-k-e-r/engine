@@ -121,7 +121,7 @@ namespace uf {
 			translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
 			return translation * rotation * scale;
 		}
-		template<typename T> pod::Matrix4t<T> /*UF_API*/ view( const pod::Transform<T>& transform, const pod::Vector3t<T>& offset ) {
+		template<typename T> pod::Matrix4t<T> /*UF_API*/ view( const pod::Transform<T>& transform, const pod::Vector3t<T>& offset = {0, 0, 0} ) {
 			uf::Matrix4t<T> translation, rotation;
 			pod::Transform<T> flatten = uf::transform::flatten(transform, true);
 			rotation = uf::quaternion::matrix( flatten.orientation );

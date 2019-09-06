@@ -133,6 +133,7 @@ pod::Angle /*UF_API*/ uf::vector::angle( const T& a, const T& b ) {
 template<typename T> 														// Linearly interpolate between two vectors
 T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta ) {
 	delta = fmax( 0, fmin(1,delta) );
+	// from + ( ( to - from ) * delta )
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
 }
 template<typename T> 														// Spherically interpolate between two vectors

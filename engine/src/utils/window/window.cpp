@@ -18,7 +18,7 @@ void UF_API_CALL uf::Window::create( const spec::uni::Window::vector_t& size, co
 	this->m_window = new uf::Window::window_t;
 	this->m_window->create( size, title );
 
-	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
+//	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
 }
 // 	D-tors
 uf::Window::~Window() {
@@ -55,6 +55,10 @@ void UF_API_CALL uf::Window::centerWindow() {
 void UF_API_CALL uf::Window::setMousePosition( const spec::uni::Window::vector_t& position ) {
 	if ( this->m_window ) this->m_window->setMousePosition(position);
 }
+spec::uni::Window::vector_t UF_API_CALL uf::Window::getMousePosition() {
+	if ( this->m_window ) return this->m_window->getMousePosition();
+	return { 0, 0 };
+}
 void UF_API_CALL uf::Window::setSize( const spec::uni::Window::vector_t& size ) {
 	if ( this->m_window ) this->m_window->setSize(size);
 }
@@ -81,7 +85,7 @@ void UF_API_CALL uf::Window::requestFocus() {
 	if ( this->m_window ) this->m_window->requestFocus();
 }
 bool UF_API_CALL uf::Window::hasFocus() const {
-	return this->m_window ? this->m_window->hasFocus() : false;
+	return uf::Window::focused = (this->m_window ? this->m_window->hasFocus() : false);
 }
 void UF_API_CALL uf::Window::switchToFullscreen() {
 	if ( this->m_window ) this->m_window->switchToFullscreen();
@@ -93,18 +97,26 @@ void UF_API_CALL uf::Window::processEvents() {
 bool UF_API_CALL uf::Window::pollEvents( bool block ) {
 	return this->m_window ? this->m_window->pollEvents(block) : false;
 }
+bool uf::Window::focused = false;
 bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
-	return uf::Window::window_t::isKeyPressed(key);
+	return uf::Window::focused && uf::Window::window_t::isKeyPressed(key);
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
 	if (this->m_context) {
-		if (this->m_context->setActive(active))
-			return true;
+	//	if (this->m_context->setActive(active)) return true;
 		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to activate the window's context" << "\n";
 		return false;
 	}
 	return false;
 }
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+std::vector<const char*> UF_API_CALL uf::Window::getExtensions( bool x ) {
+	return this->m_window->getExtensions( x );
+}
+void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
+	this->m_window->createSurface( instance, surface );
+}
+#endif
 
 
 ////////////////////////////////////////////////////////////

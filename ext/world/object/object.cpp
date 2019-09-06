@@ -4,339 +4,236 @@
 #include <uf/ext/assimp/assimp.h>
 #include <uf/utils/window/window.h>
 
+#include "../light/light.h"
+#include "../gui/gui.h"
+#include "..//sprite.h"
+#include "../../asset/asset.h"
+
+namespace {
+	uf::Timer<long long> timer(false);
+}
+
 void ext::Object::initialize() {	
 	uf::Entity::initialize();
 }
-void ext::Object::destroy() {
-
+void ext::Object::queueHook( const std::string& name, const std::string& payload, double timeout ) {
+	if ( !timer.running() ) timer.start();
+	float start = timer.elapsed().asDouble();
+	uf::Serializer queue;
+	queue["name"] = name;
+	queue["payload"] = uf::Serializer{payload};
+	queue["timeout"] = start + timeout;
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	for( Json::Value::iterator it = metadata["hooks"].begin() ; it != metadata["hooks"].end() ; ++it ) {
+	metadata["system"]["hooks"]["queue"].append(queue);
+}
+std::vector<std::string> ext::Object::callHook( const std::string& n, const std::string& payload ) {
+	std::string name = uf::string::replace( n, "%UID%", std::to_string(this->getUid()) );
+	return uf::hooks.call( name, payload );
+}
+std::size_t ext::Object::addHook( const std::string& name, const uf::HookHandler::Readable::function_t& callback ) {
+	std::string parsed = uf::string::replace( name, "%UID%", std::to_string(this->getUid()) );
+	std::size_t id = uf::hooks.addHook( parsed, callback );
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	metadata["system"]["hooks"]["alloc"][parsed].append(id);
+	return id;
+}
+void ext::Object::destroy() {
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	for( Json::Value::iterator it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
 	 	std::string name = it.key().asString();
-		for ( uint i = 0; i < metadata["hooks"][name].size(); ++i ) {
-			uint id = metadata["hooks"][name][i].asUInt();
+		for ( uint i = 0; i < metadata["system"]["hooks"]["alloc"][name].size(); ++i ) {
+			uint id = metadata["system"]["hooks"]["alloc"][name][i].asUInt();
 			uf::hooks.removeHook(name, id);
 		}
 	}
-
 	uf::Entity::destroy();
 }
 void ext::Object::tick() {
 	uf::Entity::tick();
-	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-	pod::Physics& physics = this->getComponent<pod::Physics>();
-	transform = uf::physics::update( transform, physics );
+	
+	/* Call queued hooks */ {
+		if ( !timer.running() ) timer.start();
+		float curTime = timer.elapsed().asDouble();
+		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+		uf::Serializer newQueue = std::string("[]");
+		for ( auto& member : metadata["system"]["hooks"]["queue"] ) {
+			uf::Serializer payload = member["payload"];
+			std::string name = member["name"].asString();
+			float timeout = member["timeout"].asFloat();
+			if ( timeout < curTime ) {
+				this->callHook( name, payload );
+			} else {
+				newQueue.append(member);
+			}
+		}
+		metadata["system"]["hooks"]["queue"] = newQueue;
+	}
 }
 void ext::Object::render() {
-	if ( !this->m_parent ) return;
 	uf::Entity::render();
-	ext::World& parent = this->getRootParent<ext::World>();
-
-	if ( this->hasComponent<uf::SkeletalMesh>() ) {	
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		uf::Shader& shader = this->getComponent<uf::Shader>();
-		uf::Camera& camera = parent.getCamera(); //parent.getPlayer().getComponent<uf::Camera>();
-		uf::SkeletalMesh& mesh = this->getComponent<uf::SkeletalMesh>();
-
-		int slot = 0; 
-		if ( this->hasComponent<uf::Texture>() ) {
-			uf::Texture& texture = this->getComponent<uf::Texture>();
-			texture.bind(slot);
-		}
-		struct {
-			int diffuse = 0; int specular = 1; int normal = 2;
-		} slots;
-		if ( this->hasComponent<uf::Material>() ) {
-			uf::Material& material = this->getComponent<uf::Material>();
-			material.bind(slots.diffuse, slots.specular, slots.normal);
-		}
-		shader.bind(); {
-			camera.update();
-			shader.push("model", uf::transform::model(transform));
-			shader.push("view", camera.getView());
-			shader.push("projection", camera.getProjection());
-			if ( this->hasComponent<uf::Texture>() ) shader.push("texture", slot);
-			if ( this->hasComponent<uf::Material>() ) {
-				if ( slots.diffuse >= 0 ) shader.push("diffuse", slots.diffuse);
-				if ( slots.specular >= 0 ) shader.push("specular", slots.specular);
-				if ( slots.normal >= 0 ) shader.push("normal", slots.normal);
-			}
-
-			auto& bones = mesh.getSkeleton().getBones();
-			if ( !bones.empty() ) {
-				for ( const auto& bone : bones ) {
-					std::string name = "bones_" + std::to_string(bone.index);
-					shader.push(name, bone.matrix);
-				}
-			//	shader.push("debug", uf::Window::isKeyPressed("RControl"));
-			}
-		}
-		mesh.render();
-	} else if ( this->hasComponent<uf::Mesh>() ) {	
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		uf::Shader& shader = this->getComponent<uf::Shader>();
-		uf::Camera& camera = parent.getCamera(); //parent.getPlayer().getComponent<uf::Camera>();
-		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-
-		int slot = 0; 
-		if ( this->hasComponent<uf::Texture>() ) {
-			uf::Texture& texture = this->getComponent<uf::Texture>();
-			texture.bind(slot);
-		}
-		struct {
-			int diffuse = 0; int specular = 1; int normal = 2;
-		} slots;
-		if ( this->hasComponent<uf::Material>() ) {
-			uf::Material& material = this->getComponent<uf::Material>();
-			material.bind(slots.diffuse, slots.specular, slots.normal);
-		}
-		shader.bind(); {
-			camera.update();
-			shader.push("model", uf::transform::model(transform));
-			shader.push("view", camera.getView());
-			shader.push("projection", camera.getProjection());
-			if ( this->hasComponent<uf::Texture>() ) shader.push("texture", slot);
-			if ( this->hasComponent<uf::Material>() ) {
-				if ( slots.diffuse >= 0 ) shader.push("diffuse", slots.diffuse);
-				if ( slots.specular >= 0 ) shader.push("specular", slots.specular);
-				if ( slots.normal >= 0 ) shader.push("normal", slots.normal);
-			}
-		}
-		mesh.render();
-	}
 }
-bool ext::Object::load( const std::string& json ) {
-	std::string root = "./entities/" + uf::string::directory(json);
-	struct {
-		uf::Serializer base;
-		uf::Serializer mesh;
-		uf::Serializer shader;
-		uf::Serializer texture;
-		uf::Serializer metadata;
-	} config;
-	/* Load entity file */ {
-		struct {
-			bool exists = false;
-			std::string filename;
-		} file;
-		file.filename = root + uf::string::filename(json);
-		/* Read from file */ if ( !(file.exists = config.base.readFromFile(file.filename)) ) {
-			uf::iostream << "Error loading `" << file.filename << "!" << "\n";
-			return false;
-		}
-
+bool ext::Object::load( const std::string& filename ) {
+	uf::Serializer json;
+	std::string root = "./data/" + uf::string::directory(filename);
+	if ( !json.readFromFile(root + uf::string::filename(filename)) ) {
+		uf::iostream << "Error: failed to open `" + root + uf::string::filename(filename) + "`" << "\n";
+		return false;
+	}
+	json["root"] = root;
+	return this->load(json);
+}
+bool ext::Object::load( const uf::Serializer& json ) {
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	/* Basic entity information */ {
 		// Set name
-		this->m_name = config.base["name"].asString();
+		this->m_name = json["name"].asString();
 		// Set transform
+		bool load = json["transform"].isObject();
+		if ( this->hasComponent<pod::Transform<>>() ) load = false;
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		transform.position = uf::vector::create( config.base["transform"]["position"][0].asDouble(),config.base["transform"]["position"][1].asDouble(),config.base["transform"]["position"][2].asDouble() );
-		transform.orientation = uf::quaternion::identity();
-		transform.orientation = uf::quaternion::axisAngle( { config.base["transform"]["rotation"]["axis"][0].asDouble(),config.base["transform"]["rotation"]["axis"][1].asDouble(),config.base["transform"]["rotation"]["axis"][2].asDouble() }, config.base["transform"]["rotation"]["angle"].asDouble() );
-		transform.scale = uf::vector::create( config.base["transform"]["scale"][0].asDouble(),config.base["transform"]["scale"][1].asDouble(),config.base["transform"]["scale"][2].asDouble() );
-		transform = uf::transform::reorient( transform );
-	}
-
-	/* Texture */ if ( config.base["texture"] != Json::nullValue ) {
-		struct {
-			bool exists = false;
-			std::string directory;
-			std::string localFilename;
-			std::string filename;
-		} file;
-		file.directory = root + uf::string::directory(config.base["texture"].asString()) ;
-		file.localFilename = uf::string::filename(config.base["texture"].asString());
-		file.filename = file.directory + file.localFilename;
-		file.exists = config.texture.readFromFile(file.filename);
-		/* Read from file */ if ( !file.exists ) {
-			uf::iostream << "Error loading `" << file.filename << "!" << "\n";
-			return false;
+		if ( transform.position.x == 0 && transform.position.y == 0 && transform.position.z == 0 ) {
+			load = true;
 		}
-		if ( config.texture["source"] != Json::nullValue ) {				
-			uf::Texture& texture = this->getComponent<uf::Texture>();
-			texture.open(file.directory + config.texture["source"].asString());
-			texture.generate();
-		} else {
-			uf::Material& material = this->getComponent<uf::Material>();
-			if ( config.texture["diffuse"] != Json::nullValue ) {
-				uf::Texture& texture = material.getDiffuse();
-				texture.open(file.directory + config.texture["diffuse"].asString());
+		if ( load ) {
+			transform.position = uf::vector::create( json["transform"]["position"][0].asFloat(),json["transform"]["position"][1].asFloat(),json["transform"]["position"][2].asFloat() );
+			transform.orientation = uf::quaternion::identity();
+			if ( json["transform"]["rotation"]["angle"].asFloat() != 0 ) {
+				transform.orientation = uf::quaternion::axisAngle( {
+					json["transform"]["rotation"]["axis"][0].asFloat(),
+					json["transform"]["rotation"]["axis"][1].asFloat(),
+					json["transform"]["rotation"]["axis"][2].asFloat()
+				}, 
+					json["transform"]["rotation"]["angle"].asFloat()
+				);
 			}
-			if ( config.texture["specular"] != Json::nullValue ) {
-				uf::Texture& texture = material.getSpecular();
-				texture.open(file.directory + config.texture["specular"].asString());
-			}
-			if ( config.texture["normal"] != Json::nullValue ) {
-				uf::Texture& texture = material.getNormal();
-				texture.open(file.directory + config.texture["normal"].asString());
-			}
-			material.generate();
+			transform.scale = uf::vector::create( json["transform"]["scale"][0].asFloat(),json["transform"]["scale"][1].asFloat(),json["transform"]["scale"][2].asFloat() );
+			transform = uf::transform::reorient( transform );
 		}
 	}
 
-	/* Shader */ if ( config.base["shader"] != Json::nullValue ) {
-		uf::Shader& shader = this->getComponent<uf::Shader>();
-		struct {
-			bool exists = false;
-			std::string directory;
-			std::string localFilename;
-			std::string filename;
-		} file;
-		file.directory = root + uf::string::directory(config.base["shader"].asString());
-		file.localFilename = uf::string::filename(config.base["shader"].asString());
-		file.filename = file.directory + file.localFilename;
-		 file.exists = config.shader.readFromFile(file.filename);
-		/* Read from file */ if ( !file.exists ) {
-			uf::iostream << "Error loading `" << file.filename << "!" << "\n";
-			return false;
-		}
-		/* Load shaders */ {
-			bool fromFile = config.shader["source"] == "file";
+	ext::World& world = this->getRootParent<ext::World>();
+	ext::Asset& assetLoader = world.getComponent<ext::Asset>();
+	// initialize base entity, needed for asset hooks
 
-			// Vertex
-			std::string vertex = file.directory + config.shader["shaders"]["vertex"].asString();
-			if ( fromFile && !uf::string::exists(vertex) ) {
-			//	vertex = config.fallbacks.embedded["vertex"].asString();
-				std::string filename = vertex;
-				std::ofstream output;
-				output.open(filename, std::ios::binary);
-				output.write( vertex.c_str(), vertex.size() );
-				output.close();
-			}
-			
-			shader.add( uf::Shader::Component( vertex, GL_VERTEX_SHADER, fromFile ) );
-			
-			// Fragment
-			std::string fragment = file.directory + config.shader["shaders"]["fragment"].asString();
-			if ( fromFile && !uf::string::exists(fragment) ) {
-			//	fragment = config.fallbacks.embedded["fragment"].asString();
-				std::string filename = fragment;
-				std::ofstream output;
-				output.open(filename, std::ios::binary);
-				output.write( fragment.c_str(), fragment.size() );
-				output.close();
-			}
-
-			shader.add( uf::Shader::Component( fragment, GL_FRAGMENT_SHADER, fromFile ) );
+	/* Audio (singular) */ {
+		// find first valid texture in asset list
+		uf::Serializer target;
+		if ( metadata["system"]["assets"].isArray() ) {
+			target = metadata["system"]["assets"];
+		} else if ( json["assets"].isArray() ) {
+			target = json["assets"];
+		} else if ( json["assets"].isObject() && !json["assets"]["audio"].isNull()  ) {
+			target = json["assets"]["audio"];
 		}
-
-		shader.compile();
-		shader.link();
-		for ( std::size_t i = 0; i < config.shader["attributes"].size(); ++i ) {
-			shader.bindAttribute( i, config.shader["attributes"][(int) i].asString() );
-		}
-		for ( std::size_t i = 0; i < config.shader["fragmentData"].size(); ++i ) {
-			shader.bindFragmentData( i, config.shader["fragmentData"][(int) i].asString() );
-		}
-	}	
-	/* Mesh */ if ( config.base["mesh"] != Json::nullValue ) {
-		struct {
-			bool exists = false;
-			std::string directory;
-			std::string localFilename;
-			std::string filename;
-		} file;
-		file.directory = root + uf::string::directory(config.base["mesh"].asString());
-		file.localFilename = uf::string::filename(config.base["mesh"].asString());
-		file.filename = file.directory + file.localFilename;
-		file.exists = config.mesh.readFromFile(file.filename);
-		/* Read from file */ if ( !file.exists ) {
-			uf::iostream << "Error loading `" << file.filename << "!" << "\n";
-			return false;
-		}
-		if ( !config.mesh["mesh"]["skeletal"].asBool() ) {
-			uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-			/* Load from file (if from file) */ if ( config.mesh["source"] == "file" ) {
-				std::string position = file.directory + config.mesh["mesh"]["position"].asString();
-				/* Parse JSON file */ if ( uf::string::extension(position) == "json" ) {
-					/* Positions */ {
-						uf::Serializer json;
-						if ( !json.readFromFile(position) ) {}
-						std::vector<float>& positions = mesh.getPositions().getVertices();
-						for ( auto& f : json ) positions.push_back(f.asFloat());
-					}
-				} /* Parse OBJ file */ else if ( uf::string::extension(position) == "obj" ) {}
-				
-				std::string uv = file.directory + config.mesh["mesh"]["uv"].asString();
-				/* Parse JSON file */ if ( uf::string::extension(uv) == "json" ) {
-					/* UVs */ {
-						uf::Serializer json;
-						if ( !json.readFromFile(uv) ) {	}
-						std::vector<float>& uvs = mesh.getUvs().getVertices();
-						for ( auto& f : json ) uvs.push_back(f.asFloat());
-					}
-				} /* Parse OBJ file */ else if ( uf::string::extension(uv) == "obj" ) {}
-				
-				std::string normal = file.directory + config.mesh["mesh"]["normal"].asString();
-				/* Parse JSON file */ if ( uf::string::extension(normal) == "json" ) {
-					/* Normals */ {
-						uf::Serializer json;
-						if ( !json.readFromFile(normal) ) {}
-						std::vector<float>& normals = mesh.getNormals().getVertices();
-						for ( auto& f : json ) normals.push_back(f.asFloat());
-					}
-				} /* Parse OBJ file */ else if ( uf::string::extension(normal) == "obj" ) {}
-				
-				std::string color = file.directory + config.mesh["mesh"]["color"].asString();
-				/* Parse JSON file */ if ( uf::string::extension(color) == "json" ) {
-					/* Colors */ {
-						uf::Serializer json;
-						if ( !json.readFromFile(color) ) {}
-						std::vector<float>& colors = mesh.getColors().getVertices();
-						for ( auto& f : json ) colors.push_back(f.asFloat());
-					}
-				} /* Parse OBJ file */ else if ( uf::string::extension(color) == "obj" ) {}
-			/* Load from JSON (if embedded) */ } else if ( config.mesh["source"] == "embedded" ) {
-				std::vector<float>& position 		= mesh.getPositions().getVertices();
-				std::vector<float>& normal 			= mesh.getNormals().getVertices();
-				std::vector<float>& color 			= mesh.getColors().getVertices();
-				std::vector<float>& uv 				= mesh.getUvs().getVertices();
-				
-				position.reserve(config.mesh["mesh"]["position"].size());
-				normal.reserve(config.mesh["mesh"]["normal"].size());
-				color.reserve(config.mesh["mesh"]["color"].size());
-				uv.reserve(config.mesh["mesh"]["uv"].size());
-
-				for ( auto& f : config.mesh["mesh"]["position"] ) 		position.push_back(f.asFloat());
-				for ( auto& f : config.mesh["mesh"]["normal"] ) 		normal.push_back(f.asFloat());
-				for ( auto& f : config.mesh["mesh"]["color"] ) 			color.push_back(f.asFloat());
-				for ( auto& f : config.mesh["mesh"]["uv"] ) 			uv.push_back(f.asFloat());
+		for ( uint i = 0; i < target.size(); ++i ) {
+			std::string filename = target[i].asString();
+			if ( uf::string::extension(filename) != "ogg" ) continue;
+			std::string canonical = "";
+			if ( (canonical = assetLoader.load( filename )) != "" ) {
+				uf::Serializer queue;
+				queue["name"] = "asset:Load.%UID%";
+				queue["payload"]["filename"] = canonical;
+				metadata["system"]["hooks"]["queue"].append(queue);
 			}
-			/* Load from Model (if specified) */ else if ( config.mesh["source"] == "model" ) {
-				std::string filename = file.directory + config.mesh["mesh"]["model"].asString();
-				ext::assimp::load( filename, mesh, config.mesh["mesh"]["flip"].asBool() );
-			}
-			if ( config.mesh["mesh"]["indexed"].asBool() ) mesh.index();
-			mesh.generate();
-		} else {
-			uf::SkeletalMesh& mesh = this->getComponent<uf::SkeletalMesh>();
-			/* Load from Model (if specified) */ if ( config.mesh["source"] == "model" ) {
-				std::string filename = file.directory + config.mesh["mesh"]["model"].asString();
-				ext::assimp::load( filename, mesh, config.mesh["mesh"]["flip"].asBool() );
-			}
-			if ( config.mesh["mesh"]["indexed"].asBool() ) mesh.index();
-			mesh.generate();
 		}
 	}
-	/* Metadata */ if ( config.base["metadata"] != Json::nullValue ) {
+
+	/* Texture (singular) */ {
+		// find first valid texture in asset list
+		uf::Serializer target;
+		if ( metadata["system"]["assets"].isArray() ) {
+			target = metadata["system"]["assets"];
+		} else if ( json["assets"].isArray() ) {
+			target = json["assets"];
+		} else if ( json["assets"].isObject() && !json["assets"]["textures"].isNull()  ) {
+			target = json["assets"]["textures"];
+		}
+		for ( uint i = 0; i < target.size(); ++i ) {
+			std::string filename = target[i].asString();
+			if ( uf::string::extension(filename) != "png" ) continue;
+			std::string canonical = "";
+			if ( (canonical = assetLoader.load( filename )) != "" ) {
+				uf::Serializer queue;
+				queue["name"] = "asset:Load.%UID%";
+				queue["payload"]["filename"] = canonical;
+				metadata["system"]["hooks"]["queue"].append(queue);
+			}
+		}
+	}
+
+	uf::Serializer queue = metadata["system"]["hooks"]["queue"];
+
+	/* Metadata */ if ( json["metadata"] != Json::nullValue ) {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		struct {
-			bool exists = false;
-			std::string directory;
-			std::string localFilename;
-			std::string filename;
-		} file;
-		file.directory = root + uf::string::directory(config.base["metadata"].asString());
-		file.localFilename = uf::string::filename(config.base["metadata"].asString());
-		file.filename = file.directory + file.localFilename;
-		file.exists = metadata.readFromFile(file.filename);
-		/* Read from file */ if ( !file.exists ) {
-			uf::iostream << "Error loading `" << file.filename << "!" << "\n";
-			return false;
+		if ( json["metadata"].type() == Json::stringValue ) {
+			std::string filename = json["root"].asString() + "/" + json["metadata"].asString();
+			if ( !metadata.readFromFile(filename) ) {
+				uf::iostream << "Error: failed to open `" + filename + "`" << "\n";
+				return false;
+			}
+		} else {
+			metadata = json["metadata"];
+		}
+	}
+	metadata["_config"] = json;
+	metadata["_config"].removeMember("metadata");
+	metadata["system"]["hooks"]["queue"] = queue;
+
+
+	/* check for children */ {
+		uf::Serializer target;
+		if ( metadata["system"]["assets"].isArray() ) {
+			target = metadata["system"]["assets"];
+		} else if ( metadata["_config"]["assets"].isArray() ) {
+			target = metadata["_config"]["assets"];
+		} else if ( metadata["_config"]["assets"].isObject() && !metadata["_config"]["assets"]["entities"].isNull()  ) {
+			target = metadata["_config"]["assets"]["entities"];
+		}
+		for ( uint i = 0; i < target.size(); ++i ) {
+			std::string filename = target[i].asString();
+			if ( uf::string::extension(filename) != "json" ) continue;
+			std::string root = "./data/entities/" + uf::string::directory(filename);
+			filename = root + uf::string::filename(filename);
+			if ( (filename = assetLoader.load(filename) ) == "" ) return false;
+			uf::Serializer json = assetLoader.getContainer<uf::Serializer>().back();
+			json["root"] = root;
+			if ( this->loadChild(json) == -1 ) return false;
 		}
 	}
 
 	return true;
 }
-void ext::Object::load( const uf::Serializer& m ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata = m;
+std::size_t ext::Object::loadChild( const std::string& filename, bool initialize ) {
+	uf::Serializer json;
+	std::string root = "./data/" + uf::string::directory(filename);
+	if ( !json.readFromFile(root + uf::string::filename(filename)) ) {
+		uf::iostream << "Error: failed to open `" + root + uf::string::filename(filename) + "`" << "\n";
+		return -1;
+	}
+	json["root"] = root;
+	return this->loadChild(json, initialize);
+}
+std::size_t ext::Object::loadChild( const uf::Serializer& json, bool initialize ) {
+	uf::Entity* entity;
+	std::string type = json["type"].asString();
+	if ( json["ignore"].asBool() ) return 0;
+	if ( type == "Terrain" ) entity = new ext::Terrain;
+	else if ( type == "Player" ) entity = new ext::Player;
+	else if ( type == "Craeture" ) entity = new ext::Craeture;
+	else if ( type == "Housamo" ) entity = new ext::HousamoSprite;
+	else if ( type == "Gui" ) entity = new ext::Gui;
+	else {
+		uf::iostream << "Unimplemented entity: " << type << "\n";
+		entity = new ext::Object;
+	}
+	uf::iostream << entity << ": " << type << "\n";
+	this->addChild(*entity);
+	if ( !((ext::Object*) entity)->load(json) ) {
+		uf::iostream << "Error loading `" << json << "!" << "\n";
+		this->removeChild(*entity);
+		delete entity;
+		return -1;
+	}
+	if ( initialize ) entity->initialize();
+	return entity->getUid();
 }

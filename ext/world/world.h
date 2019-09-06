@@ -9,17 +9,15 @@
 #include "object/object.h"
 
 namespace ext {
-	class EXT_API World : public uf::Entity {
+	class EXT_API World : public ext::Object {
 	public:
 		ext::Player& getPlayer();
 		const ext::Player& getPlayer() const;
 
 		uf::Camera& getCamera();
 
-		void initialize();
-		void tick();
-		void render();
-
-		bool load();
+		virtual void initialize();
+		virtual void tick();
+		virtual void render();
 	};
 }

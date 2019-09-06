@@ -39,6 +39,20 @@ namespace {
 			FreeLibrary(user32Dll);
 		}
 	}
+	LRESULT CALLBACK globalOnEvent(spec::win32::Window::handle_t handle, UINT message, WPARAM wParam, LPARAM lParam) {
+		if (message == WM_CREATE) {
+			LONG_PTR window = (LONG_PTR)reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams;
+			SetWindowLongPtrW(handle, GWLP_USERDATA, window);
+		}
+		spec::win32::Window* window = handle ? reinterpret_cast<spec::win32::Window*>(GetWindowLongPtr(handle, GWLP_USERDATA)) : NULL;
+		if (window) {
+			window->processEvent(message, wParam, lParam);
+			if (window->m_callback) return CallWindowProcW(reinterpret_cast<WNDPROC>(window->m_callback), handle, message, wParam, lParam);
+		}
+		if (message == WM_CLOSE) return 0;
+		if ((message == WM_SYSCOMMAND) && (wParam == SC_KEYMENU)) return 0;
+		return DefWindowProcW(handle, message, wParam, lParam);
+	}
 }
 
 UF_API_CALL spec::win32::Window::Window() : 
@@ -70,7 +84,7 @@ UF_API_CALL spec::win32::Window::Window( spec::win32::Window::handle_t handle ) 
 {
 	if ( handle ) {
 		SetWindowLongPtrW(this->m_handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-		m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&spec::win32::Window::globalOnEvent));
+		m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&::globalOnEvent));
 	}
 }
 UF_API_CALL spec::win32::Window::Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title ) : 
@@ -119,6 +133,9 @@ void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_
 		this
 	);
 	this->setSize( size );
+
+	// m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&::globalOnEvent));
+
 	++windowCount;
 }
 
@@ -183,6 +200,11 @@ void UF_API_CALL spec::win32::Window::setMousePosition( const spec::win32::Windo
 	ReleaseCapture();
 	SetCursorPos(pt.x,pt.y);
 	SetCapture(this->m_handle);
+}
+spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getMousePosition( ) {
+	POINT pt;
+	GetCursorPos( &pt );
+	return { pt.x, pt.y };
 }
 void UF_API_CALL spec::win32::Window::setSize( const spec::win32::Window::vector_t& size ) {
 	if ( fullscreenWindow == (void*) this ) return;
@@ -491,7 +513,7 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 void UF_API_CALL spec::win32::Window::registerWindowClass() {
 	WNDCLASSW windowClass;
 	windowClass.style 			= 0;
-	windowClass.lpfnWndProc 	= &(spec::win32::Window::globalOnEvent);
+	windowClass.lpfnWndProc 	= &(::globalOnEvent);
 	windowClass.cbClsExtra 		= 0;
 	windowClass.cbWndExtra 		= 0;
 	windowClass.hInstance 		= GetModuleHandleW(NULL);
@@ -805,7 +827,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 		case WM_MBUTTONDOWN:
 		case WM_MBUTTONUP:
 		case WM_XBUTTONDOWN:
-		case WM_XBUTTONUP: if ( /*true ||*/ this->m_syncParse ) {
+		case WM_XBUTTONUP: if ( true || this->m_syncParse ) {
 			static pod::Vector2i lastPosition = {};
 			struct Event {
 				std::string type = "unknown";
@@ -853,7 +875,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					default: 				event.mouse.state =  0; break; 
 				}
 			};
-			if ( this->m_syncParse ){
+			if ( true || this->m_syncParse ){
 				this->pushEvent(event.type, uf::userdata::create(event));
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
@@ -1255,18 +1277,20 @@ std::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 // 	return "Unknown";	
 	return std::string( "" + (int) key );
 }
-LRESULT CALLBACK spec::win32::Window::globalOnEvent(spec::win32::Window::handle_t handle, UINT message, WPARAM wParam, LPARAM lParam) {
-	if (message == WM_CREATE) {
-		LONG_PTR window = (LONG_PTR)reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams;
-		SetWindowLongPtrW(handle, GWLP_USERDATA, window);
-	}
-	spec::win32::Window* window = handle ? reinterpret_cast<spec::win32::Window*>(GetWindowLongPtr(handle, GWLP_USERDATA)) : NULL;
-	if (window) {
-		window->processEvent(message, wParam, lParam);
-		if (window->m_callback) return CallWindowProcW(reinterpret_cast<WNDPROC>(window->m_callback), handle, message, wParam, lParam);
-	}
-	if (message == WM_CLOSE) return 0;
-	if ((message == WM_SYSCOMMAND) && (wParam == SC_KEYMENU)) return 0;
-	return DefWindowProcW(handle, message, wParam, lParam);
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+std::vector<const char*> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
+	std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME  };
+	instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+
+	if ( validationEnabled ) instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	return instanceExtensions;
 }
+void UF_API_CALL spec::win32::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
+	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.hinstance = (HINSTANCE) GetModuleHandleW(NULL);
+	surfaceCreateInfo.hwnd = (HWND) this->m_handle; 
+	vkCreateWin32SurfaceKHR( instance, &surfaceCreateInfo, nullptr, &surface);
+}
+#endif
 #endif

@@ -3,6 +3,9 @@
 #include "../../ext.h"
 #include "generator.h"
 #include "../light/light.h"
+#include "..//sprite.h"
+#include "../gui/gui.h"
+#include "../../asset/asset.h"
 
 void ext::Region::initialize() {
 	ext::Object::initialize();
@@ -13,12 +16,171 @@ void ext::Region::initialize() {
 	this->m_name = "Region";
 
 	this->load();
+
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	this->addHook( "region:Reload.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+
+		if ( !this->hasComponent<ext::TerrainGenerator::mesh_t>() ) return "false";
+		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+		if ( mesh.vertices.empty() ) {
+			mesh.destroy();
+			this->deleteComponent<ext::TerrainGenerator::mesh_t>();
+			return "false";
+		}
+		mesh.initialize(true);
+		mesh.graphic.bindUniform<uf::MeshDescriptor>();
+
+		std::string suffix = ""; {
+			std::string _ = this->getRootParent<ext::World>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+			if ( _ != "" ) suffix = _ + ".";
+		}
+		mesh.graphic.initializeShaders({
+			{"./data/shaders/terrain.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
+		std::string texture = ""; {
+			uf::Serializer& metadata = this->getParent().getComponent<uf::Serializer>();
+			ext::Asset assetLoader;
+			for ( uint i = 0; i < metadata["_config"]["assets"].size(); ++i ) {
+				if ( texture != "" ) break;
+				std::string filename = metadata["_config"]["assets"][i].asString();
+				texture = assetLoader.cache( filename );
+			}
+		}
+		mesh.graphic.texture.loadFromFile( texture, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
+		mesh.graphic.initialize( ext::vulkan::device, ext::vulkan::swapchain );
+
+		this->queueHook("region:Generated.%UID%", "", 0.5);
+
+		return "true";
+	});
+	this->addHook( "region:Generated.%UID%", [&](const std::string& event)->std::string{	
+		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+		mesh.graphic.autoAssign();
+		
+		metadata["region"]["generated"] = true;
+		this->queueHook("region:Populate.%UID%", "", 1);
+		return "true";
+	});
+	this->addHook( "region:Populate.%UID%", [&](const std::string& event)->std::string{	
+		if ( metadata["region"][""]["initialized"].asBool() ) return "false";
+		metadata["region"][""]["initialized"] = true;
+		bool should = metadata["region"][""]["should"].asBool();
+		bool first = false;
+		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
+		float r = (rand() % 100) / 100.0;
+		pod::Vector3ui size = {
+			metadata["region"]["size"][0].asUInt64() / 4,
+			metadata["region"]["size"][1].asUInt64() / 4,
+			metadata["region"]["size"][2].asUInt64() / 4,
+		};
+		uint half_x = size.x / 2;
+		uint half_y = size.y / 2;
+		uint half_z = size.z / 2;
+		double noise[size.x][size.y][size.z];
+		double maxValue = 0.0;
+		double sum = 0.0;
+		{
+			for ( int z = 0; z < size.z; ++z ) {
+			for ( int y = 0; y < size.y; ++y ) {
+			for ( int x = 0; x < size.x; ++x ) {
+				pod::Vector3d position = {
+					transform.position.x - half_x, transform.position.y - half_y, transform.position.z - half_z
+				};
+				position.x += (double) x / (double) size.x;
+				position.y += (double) y / (double) size.y;
+				position.z += (double) z / (double) size.z;
+				noise[x][y][z] = ext::TerrainGenerator::noise.sample( position );
+				maxValue = std::max( maxValue, noise[x][y][z] );
+			}
+			}
+			}
+			for ( int z = 0; z < size.z; ++z ) {
+			for ( int y = 0; y < size.y; ++y ) {
+			for ( int x = 0; x < size.x; ++x ) {
+				sum += noise[x][y][z] / maxValue;
+			}
+			}
+			}
+			sum /= size.x * size.y * size.z;
+		}
+		if ( r > metadata["region"][""]["rate"].asFloat() ) should = false;
+		// std::cout << "Rate: " << r << ": " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
+		if (
+			metadata["region"]["location"][0] == 0 &&
+			metadata["region"]["location"][1] == 0 &&
+			metadata["region"]["location"][2] == 0
+		) {
+			first = true;
+			should = true;
+		}
+		if ( !should ) return "false";
+
+		if ( first ) {
+			ext::Object*  = new ext::HousamoSprite;
+			this->addChild(*);
+			uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
+			->load("./entities/shiro.json");
+			->initialize();
+
+			pod::Transform<>& pTransform = ->getComponent<pod::Transform<>>();
+			pTransform.position += transform.position;
+			std::cout << ->getName() << ": " <<  << " = " << pTransform.position.x << ", " << pTransform.position.y << ", " << pTransform.position.z << std::endl;
+
+			return "true";
+		}
+
+		for ( uint i = 0; i < metadata["region"][""]["amount"].asUInt64(); ++i ) {
+			ext::Object*  = new ext::HousamoSprite;
+			this->addChild(*);
+			
+			// set name
+			uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
+			->load("./entities/.json");
+		//	int ri = floor((noise[i][i][i] * metadata["region"][""]["list"].size());
+			int ri = floor(r * metadata["region"][""]["list"].size());
+			pMetadata[""] = metadata["region"][""]["list"][ri];
+			pMetadata["music"] = metadata["region"][""]["music"];
+		//	pMetadata["hostile"] = true;
+			->initialize();
+
+			pod::Transform<>& pTransform = ->getComponent<pod::Transform<>>();
+			float rx = first ? 0.3 : (rand() % 100) / 100.0;
+			float rz = first ? 0.7 : (rand() % 100) / 100.0;
+			float spread = 32.0f;
+			spread = std::min( metadata["region"]["size"][0].asFloat(), spread );
+			spread = std::min( metadata["region"]["size"][1].asFloat(), spread );
+			spread = std::min( metadata["region"]["size"][2].asFloat(), spread );
+			pod::Vector3f randomOffset = {
+				rx * spread - spread/2.0f,
+				0,
+				rz * spread - spread/2.0f,
+			};
+			pTransform.position += transform.position + randomOffset;
+			pTransform.orientation = uf::quaternion::axisAngle( { 0.0f, 1.0f, 0.0f }, r * 2 * 3.1415926f );
+		}
+		return "true";
+	});
 }
 void ext::Region::tick() {
-	uf::Entity::tick();
+	ext::Object::tick();
+
+	// check if ready
+	ext::World& world = this->getRootParent<ext::World>();
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+}
+void ext::Region::destroy() {
+	if ( this->hasComponent<ext::vulkan::RTGraphic>() ) {
+		this->getComponent<ext::vulkan::RTGraphic>().destroy();
+	}
+	if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
+		this->getComponent<ext::TerrainGenerator::mesh_t>().destroy();
+	}
+	ext::Object::destroy();
 }
 void ext::Region::load() {
-	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
+//	ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 	ext::TerrainGenerator& generator = this->getComponent<ext::TerrainGenerator>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
@@ -36,14 +198,42 @@ void ext::Region::load() {
 		metadata["region"]["rasterized"] = false;
 	}
 
-	generator.initialize(size);
+	generator.initialize(size, metadata["region"]["modulus"].asUInt64());
 	generator.generate(*this);
 
 	/* Collider */ {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
+	
+		std::size_t i = 0;
+		const auto& voxels = generator.getVoxels();
+		for ( auto& _ : voxels ) {
+			for ( std::size_t __ = 0; __ < _.length; ++__ ) {
+				{
+					std::size_t x = 0, y = 0, z = 0;
+					{
+						auto v = generator.unwrapIndex( i++ );
+						x = v.x;
+						y = v.y;
+						z = v.z;
+					}
 
-		auto*** voxels = generator.getVoxels();
+					ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( _.value );
+					pod::Vector3 offset = transform.position;
+					offset.x += x - (size.x / 2.0f);
+					offset.y += y - (size.y / 2.0f);
+					offset.z += z - (size.z / 2.0f);
+
+					if ( !voxel.solid() ) continue;
+
+					uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
+					collider.add(box);
+				}
+			}
+		}
+	
+	/*
+		auto*** voxels = generator.getRawVoxels();
 		for ( uint x = 0; x < size.x; ++x ) {
 		for ( uint y = 0; y < size.y; ++y ) {
 		for ( uint z = 0; z < size.z; ++z ) {
@@ -52,16 +242,19 @@ void ext::Region::load() {
 				offset.y += y - (size.y / 2.0f);
 				offset.z += z - (size.z / 2.0f);
 
-				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas(voxels[x][y][z]);
-				if ( !voxel.opaque() ) continue;
+				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( generator.getVoxel(x, y, z) );
+				if ( !voxel.solid() ) continue;
 
 				uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
 				collider.add(box);
 			}
 		}
 		}
-	}
+	*/
+	
 
+	}
+/*
 	if ( this->getComponent<pod::Transform<>>().position.y < 0 ) {
 		float r = (rand() % 100) / 100.0;
 		bool addLight = r < metadata["region"]["light"]["random"].asFloat();
@@ -80,127 +273,53 @@ void ext::Region::load() {
 				if ( !addLight ) break;
 			}
 		}
-
-		if ( addLight ) {
-			pod::Vector3 color = { 1.0, 1.0, 1.0 }; {
-				float r = (rand() % 256) / 256.0; color.x -= r;
-				float g = (rand() % 256) / 256.0; color.y -= g;
-				float b = (rand() % 256) / 256.0; color.z -= b;
-
-				color = uf::vector::normalize( color );
-			}
-			int radius = metadata["region"]["light"]["radius"].asInt();
-			for ( int i = 0; i < radius; ++i ) {
-				uf::Entity* entity = new ext::Light;
-				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-				this->addChild(*entity);
-				entity->initialize();
-
-				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();//entity->getComponent<uf::Camera>().getTransform();
-				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-				transform = uf::transform::initialize( transform );
-				transform.position = parent.position;
-				uf::transform::rotate( transform, transform.up, (360.0 / radius) * (3.1415926/180.0) * i );
-				entity->getComponent<uf::Camera>().update(true);
-			//	((ext::Light*)entity)->setColor( color );
-				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
-				lMetadata["light"]["color"][0] = color.x;
-				lMetadata["light"]["color"][1] = color.y;
-				lMetadata["light"]["color"][2] = color.z;
-			}
-			/* Down */ if ( metadata["region"]["light"]["down"].asBool() ) {
-				uf::Entity* entity = new ext::Light;
-				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-				this->addChild(*entity);
-				entity->initialize();
-
-				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
-				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-				transform = uf::transform::initialize( transform );
-				transform.position = parent.position;
-				uf::transform::rotate( transform, transform.right, 1.5708 * 1 );
-				entity->getComponent<uf::Camera>().setFov(120);
-				entity->getComponent<uf::Camera>().update(true);
-			//	((ext::Light*)entity)->setColor( color );
-				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
-				lMetadata["light"]["color"][0] = color.x;
-				lMetadata["light"]["color"][1] = color.y;
-				lMetadata["light"]["color"][2] = color.z;
-			}
-			/* Up */ if ( metadata["region"]["light"]["up"].asBool() ) {
-				uf::Entity* entity = new ext::Light;
-				if ( !((ext::Object*) entity)->load("./light/config.json") ) { uf::iostream << "Error loading `" << "./light/config.json" << "!" << "\n"; delete entity; return; }
-				this->addChild(*entity);
-				entity->initialize();
-
-				pod::Transform<>& parent = this->getComponent<pod::Transform<>>();
-				pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
-				entity->getComponent<uf::Camera>().getTransform().reference = &transform;
-
-				transform = uf::transform::initialize( transform );
-				transform.position = parent.position;
-				uf::transform::rotate( transform, transform.right, 1.5708 * 3 );
-				entity->getComponent<uf::Camera>().setFov(120);
-				entity->getComponent<uf::Camera>().update(true);
-			//	((ext::Light*)entity)->setColor( color );
-				uf::Serializer& lMetadata = entity->getComponent<uf::Serializer>();
-				lMetadata["light"]["color"][0] = color.x;
-				lMetadata["light"]["color"][1] = color.y;
-				lMetadata["light"]["color"][2] = color.z;
-			}
-		}
 	}
+*/
 }
 void ext::Region::render() {
 	if ( !this->m_parent ) return;
 	ext::World& root = this->getRootParent<ext::World>();
 	ext::Terrain& terrain = this->getParent<ext::Terrain>();		
-
-	uf::Entity::render();
-
-	if ( !this->hasComponent<uf::Mesh>() ) return; if ( !this->getComponent<uf::Mesh>().generated() ) return;
-	if ( terrain.hasComponent<uf::Mesh>() ) if ( terrain.getComponent<uf::Mesh>().generated() ) return;
-
-	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-	uf::Shader& shader = this->getParent<ext::Terrain>().getComponent<uf::Shader>();
-	uf::Camera& camera = root.getCamera(); //root.getPlayer().getComponent<uf::Camera>();
-	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	const uf::Serializer& pMetadata = root.getComponent<uf::Serializer>();
+	
 
-	if ( !metadata["region"]["rasterized"].asBool() ) return;
-	if ( metadata["region"]["unified"].asBool() ) return;
-//	if ( pMetadata["terrain"]["unified"].asBool() ) return;
+	if ( !metadata["region"]["generated"].asBool() ) return;
 
-	int slot = 0; 
-	if ( this->getParent<ext::Terrain>().hasComponent<uf::Texture>() ) {
-		uf::Texture& texture = this->getParent<ext::Terrain>().getComponent<uf::Texture>();
-		texture.bind(slot);
+	ext::Object::render();
+
+	/* Update uniforms */ if ( this->hasComponent<ext::vulkan::RTGraphic>() ) {
+		auto& world = this->getRootParent<ext::World>();
+		auto& rt = this->getComponent<ext::vulkan::RTGraphic>();
+		auto& player = world.getPlayer();
+		auto& camera = player.getComponent<uf::Camera>();
+		auto& transform = player.getComponent<pod::Transform<>>();
+		pod::Transform<> flatten = uf::transform::flatten(camera.getTransform(), true);
+		rt.compute.uniforms.camera.view = uf::quaternion::matrix( flatten.orientation ); 
+		rt.compute.uniforms.camera.aspectRatio = (float) camera.getSize().x / (float) camera.getSize().y;
+		rt.compute.uniforms.camera.position = camera.getTransform().position + transform.position;
+		rt.updateUniformBuffer();
 	}
-	struct {
-		int diffuse = 0; int specular = 1; int normal = 2;
-	} slots;
-	if ( this->getParent<ext::Terrain>().hasComponent<uf::Material>() ) {
-		uf::Material& material = this->getParent<ext::Terrain>().getComponent<uf::Material>();
-		material.bind(slots.diffuse, slots.specular, slots.normal);
-	}
-	shader.bind(); {
-		camera.update();
-		shader.push("model", uf::matrix::identity());
-	//	shader.push("model", uf::transform::model(transform));
-		shader.push("view", camera.getView());
-		shader.push("projection", camera.getProjection());
-		if ( this->getParent<ext::Terrain>().hasComponent<uf::Texture>() ) shader.push("texture", slot);
-		if ( this->getParent<ext::Terrain>().hasComponent<uf::Material>() ) {
-			if ( slots.diffuse >= 0 ) shader.push("diffuse", slots.diffuse);
-			if ( slots.specular >= 0 ) shader.push("specular", slots.specular);
-			if ( slots.normal >= 0 ) shader.push("normal", slots.normal);
+	/* Update uniforms */ if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
+		auto& world = this->getRootParent<ext::World>();
+		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+		auto& player = world.getPlayer();
+		auto& camera = player.getComponent<uf::Camera>();
+		auto& transform = player.getComponent<pod::Transform<>>();
+		if ( !mesh.generated ) return;
+		camera.updateView();
+		// ext::vulkan::MeshGraphic& graphic = *((ext::vulkan::MeshGraphic*) mesh.graphic);
+		//auto& uniforms = mesh.graphic.uniforms<uf::MeshDescriptor>();
+		uf::MeshDescriptor uniforms;
+		uniforms.matrices.model = uf::matrix::identity();
+		uniforms.matrices.view = camera.getView();
+		uniforms.matrices.projection = camera.getProjection();
+		if ( false ) {
+			for ( std::size_t i = 0; i < 16; ++i ) {
+				std::cout << uniforms.matrices.projection[i] << " ";
+				if ( (i+1) % 4 == 0 ) std::cout << "\n";
+			}
+			std::cout << std::endl;
 		}
+		mesh.graphic.updateBuffer( uniforms, 0, false );
 	}
-	mesh.render();
 }

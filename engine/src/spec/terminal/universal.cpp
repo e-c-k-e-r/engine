@@ -29,6 +29,7 @@ void UF_API_CALL spec::uni::Terminal::setLocale() {
 			uf::locale::current = name;
 			break;
 		} catch ( ... ) {
+			std::cout << "Attempted to set invalid locale: " << name << std::endl;
 			continue;
 		}
 	}

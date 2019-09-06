@@ -54,11 +54,15 @@ std::size_t uf::Entity::getUid() const {
 	return this->m_uid;
 }
 void uf::Entity::initialize(){
-	uf::Entity::entities.push_back(this);
-	this->m_uid = ++uf::Entity::uids;
+	if ( this->m_uid == 0 ) {	
+		uf::Entity::entities.push_back(this);
+		this->m_uid = ++uf::Entity::uids;
+	}
 }
 void uf::Entity::destroy(){
 	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
 		kv->destroy();
 		kv->setParent();
 	}
@@ -68,14 +72,62 @@ void uf::Entity::destroy(){
 	if ( it != uf::Entity::entities.end() ) {
 		*it = NULL;
 	}
+	this->m_uid = 0;
 }
 void uf::Entity::tick(){
 	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
 		kv->tick();
 	}
 }
 void uf::Entity::render(){
 	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
 		kv->render();
 	}
+}
+
+uf::Entity* uf::Entity::findByName( const std::string& name ) {
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( entity->getName() == name ) return entity;
+		uf::Entity* p = entity->findByName(name);
+		if ( p ) return p;
+	}
+	return (uf::Entity*) NULL;
+};
+uf::Entity* uf::Entity::findByUid( std::size_t id ) {
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( entity->getUid() == id ) return entity;
+		uf::Entity* p = entity->findByUid(id);
+		if ( p ) return p;
+	}
+	return (uf::Entity*) NULL;
+};
+
+const uf::Entity* uf::Entity::findByName( const std::string& name ) const {
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( entity->getName() == name ) return entity;
+		uf::Entity* p = entity->findByName(name);
+		if ( p ) return p;
+	}
+	return (uf::Entity*) NULL;
+};
+const uf::Entity* uf::Entity::findByUid( std::size_t id ) const {
+	for ( const uf::Entity* entity : this->getChildren() ) {
+		if ( entity->getUid() == id ) return entity;
+		const uf::Entity* p = entity->findByUid(id);
+		if ( p ) return p;
+	}
+	return (const uf::Entity*) NULL;
+};
+
+uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
+	for ( uf::Entity* e : uf::Entity::entities ) {
+		if ( !e ) continue;
+		if ( e->getUid() == 0 ) continue;
+		if ( e->getName() == name ) return e;
+	}
+	return NULL;
 }

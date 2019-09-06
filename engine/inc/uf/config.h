@@ -1,27 +1,5 @@
 #pragma once
 
-/*
-#ifndef UF_API_VAR
-	#if defined(_WIN32)
-		#if defined(UF_EXPORT)
-			#define UF_API_VAR __declspec(dllexport)
-		#else
-			#define UF_API_VAR __declspec(dllimport)
-		#endif
-	#else
-		#define UF_API_VAR
-	#endif
-#endif
-
-#ifndef UF_API
-	#define UF_API UF_API_VAR
-#endif
-
-#ifndef UF_API_CALL
-	#define UF_API_CALL __cdecl
-#endif
-*/
-
 #if defined(UF_ENV)
 	#warning Specific variables already defined; undefining...
 
@@ -41,6 +19,8 @@
 	#if defined(__CYGWIN__)
 		#define to_string(var) string(var)
 	#endif
+	#define _WIN32_WINNT 0x0600
+	#define WINVER 0x0600
 //	#warning Using "Windows"
 #elif defined(linux) || defined(__linux)
 	// Linux

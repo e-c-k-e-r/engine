@@ -22,6 +22,7 @@ namespace uf {
 		PerlinNoise();
 		PerlinNoise( std::size_t seed );
 		void seed( std::size_t seed );
+		std::size_t seed() const;
 		double noise( double x, double y, double z ) const;
 		double fade(double t) const;
 		double lerp(double t, double a, double b) const;
@@ -33,6 +34,13 @@ namespace uf {
 			return n;
 		} );
 		std::vector<double> collect( const pod::Vector3ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback = [](double& n)->double{
+			return n;
+		} );
+
+		double sample( const pod::Vector3d& position, const pod::Vector3d& noiseCoeff = { 1, 1, 1 }, const callback_t& callback = [](double& n)->double{
+			return n;
+		} );
+		double sample( const pod::Vector3f& position, const pod::Vector3d& noiseCoeff = { 1, 1, 1 }, const callback_t& callback = [](double& n)->double{
 			return n;
 		} );
 	};

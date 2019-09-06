@@ -35,6 +35,8 @@ void UF_API_CALL ext::Vorbis::load( const std::string& filename ) {
 		bytes = ov_read( &file, buffer, ext::Vorbis::BUFFER, endian, 2, 1, &bitStream );
 		this->m_buffer.insert( this->m_buffer.end(), buffer, buffer + bytes );
 	} while ( bytes > 0 );
+	
+	this->m_duration = ov_time_total(&file, -1);
 
 	ov_clear(&file);
 }
@@ -50,6 +52,9 @@ int UF_API_CALL ext::Vorbis::getFormat() const {
 }
 int UF_API_CALL ext::Vorbis::getFrequency() const {
 	return this->m_frequency;
+}
+float UF_API_CALL ext::Vorbis::getDuration() const {
+	return this->m_duration;
 }
 
 #endif

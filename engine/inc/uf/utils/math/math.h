@@ -2,7 +2,7 @@
 
 namespace pod {
 	namespace Math {
-		typedef double num_t;
+		typedef float num_t;
 	}
 }
 

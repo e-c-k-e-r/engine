@@ -26,11 +26,17 @@ namespace pod {
 
 		pod::Thread::queue_t temps;
 		pod::Thread::container_t consts;
+
+		uf::Timer<long long> timer;
+		uint affinity = 0;
 	};
 }
 
 namespace uf {
 	namespace thread {
+		extern UF_API double limiter;
+		extern UF_API uint workers;
+
 	/* Acts on thread */
 		void UF_API start( pod::Thread& );
 		void UF_API quit( pod::Thread& );
@@ -38,6 +44,7 @@ namespace uf {
 		void UF_API tick( pod::Thread& );
 	//	void UF_API tick( pod::Thread&, const std::function<void()>& = NULL );
 
+		pod::Thread& UF_API fetchWorker( const std::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
 		void UF_API process( pod::Thread& );
 
@@ -49,6 +56,7 @@ namespace uf {
 	/* Acts on global threads */
 		typedef std::vector<pod::Thread*> container_t;
 		extern UF_API uf::thread::container_t threads;
+		
 
 		void UF_API terminate();
 

@@ -1,7 +1,8 @@
 #include <uf/utils/image/image.h>
-#include <uf/utils/io/iostream.h> 	// uf::iostream
-#include <uf/utils/string/ext.h> 	// uf::string::exists
+#include <uf/utils/string/ext.h>
+#include <uf/utils/io/iostream.h>
 #include <fstream> 					// std::fstream
+#include <iostream> 				// std::fstream
 #include <png/png.h> 				// libpng
 // 	C-tor
 // Default
@@ -22,8 +23,9 @@ uf::Image::Image( const Image::vec2_t& size ) :
 uf::Image::Image( Image&& move ) : 
 	m_pixels(std::move(move.m_pixels)),
 	m_dimensions(std::move(move.m_dimensions)),
-	m_bpp(8),
-	m_channels(4)
+	m_bpp(move.m_bpp),
+	m_channels(move.m_channels),
+	m_filename(move.m_filename)
 {
 
 }
@@ -31,8 +33,9 @@ uf::Image::Image( Image&& move ) :
 uf::Image::Image( const Image& copy ) :
 	m_pixels(copy.m_pixels),
 	m_dimensions(copy.m_dimensions),
-	m_bpp(8),
-	m_channels(4)
+	m_bpp(copy.m_bpp),
+	m_channels(copy.m_channels),
+	m_filename(copy.m_filename)
 {
 
 }
@@ -55,12 +58,21 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 
 }
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+std::string uf::Image::getFilename() const {
+	return this->m_filename;
+}
+
 // from file
 bool uf::Image::open( const std::string& filename ) {
-	if ( !uf::string::exists(filename) ) return false;
+	if ( !uf::string::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
+	this->m_filename = filename;
+	this->m_pixels.clear();
 	std::string extension = uf::string::extension(filename);
 	if ( extension == "png" ) {
-		uint mode = 1;
+		uint mode = 2;
 		if ( mode == 1 ) {
 			png_byte header[8];
 			FILE* file = fopen(filename.c_str(), "rb");
@@ -68,8 +80,9 @@ bool uf::Image::open( const std::string& filename ) {
 			fread(header, 1, 8, file);
 			if (png_sig_cmp(header, 0, 8)) {
 				fclose(file);
-				uf::iostream << "[Error] Not a PNG file" << "\n";
-				return false;
+			//	uf::iostream << "[Error] Not a PNG file" << "\n";
+			//	return false;
+				throw std::runtime_error(filename + " not a png");
 			}
 
 			png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
@@ -153,10 +166,94 @@ bool uf::Image::open( const std::string& filename ) {
 		//		this->convert(uf::Image::Format::RGBA, 32);
 			}
 		*/
+		} else if ( mode == 2 ) {
+			int width, height, channels, bit_depth;
+			bit_depth = 8;
+			stbi_set_flip_vertically_on_load(true);
+			unsigned char* buffer = stbi_load(
+				filename.c_str(),
+				&width,
+				&height,
+				&channels,
+				STBI_rgb_alpha
+			);
+			uint len = width * height * channels;
+			this->m_dimensions.x = width;
+			this->m_dimensions.y = height;
+			this->m_bpp = bit_depth * channels;
+			this->m_channels = channels;
+			this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+			stbi_image_free(buffer);
 		}
 		return true;
 	}
 	return true;
+}
+void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
+	this->m_dimensions = size;
+	this->m_bpp = bit_depth * channels;
+	this->m_channels = channels;
+	this->m_pixels = container;
+
+	uint8_t* pixels = &this->m_pixels[0];
+	if ( flip ) {
+		auto w = this->m_dimensions.x;
+		auto h = this->m_dimensions.y;
+		for (uint j = 0; j * 2 < h; ++j) {
+			uint x = j * w * this->m_bpp/8;
+			uint y = (h - 1 - j) * w * this->m_bpp/8;
+			for (uint i = w * this->m_bpp/8; i > 0; --i) {
+				std::swap( pixels[x], pixels[y] );
+				++x, ++y;
+			}
+		}
+	}
+}
+void uf::Image::padToPowerOfTwo(  ) {
+	pod::Vector2ui next = {
+		this->m_dimensions.x,
+		this->m_dimensions.y
+	}; {
+		next.x--;
+		next.x |= next.x >> 1;
+		next.x |= next.x >> 2;
+		next.x |= next.x >> 4;
+		next.x |= next.x >> 8;
+		next.x |= next.x >> 16;
+		next.x++;
+		next.y--;
+		next.y |= next.y >> 1;
+		next.y |= next.y >> 2;
+		next.y |= next.y >> 4;
+		next.y |= next.y >> 8;
+		next.y |= next.y >> 16;
+		next.y++;
+	}
+	// no point in repadding
+	if ( this->m_dimensions.x == next.x && this->m_dimensions.y == next.y ) {
+		return;
+	}
+
+	uint len = next.x * next.y * this->m_bpp / 8;
+	uint8_t* buffer = new uint8_t[len];
+	for ( size_t i = 0; i < len; ++i ) buffer[i] = 0;
+
+	for ( size_t y = 0; y < this->m_dimensions.y; ++y ) {
+	for ( size_t x = 0; x < this->m_dimensions.x; ++x ) {
+		size_t src = x * this->m_channels + this->m_dimensions.x * this->m_channels * y;
+		size_t dst = x * this->m_channels + next.x * this->m_channels * y;
+		for ( size_t i = 0; i < this->m_channels; ++i ) {
+			buffer[dst+i] = this->m_pixels[src+i];
+		}
+	}
+	}
+
+	this->m_dimensions.x = next.x;
+	this->m_dimensions.y = next.y;
+
+	this->m_pixels.clear();
+	this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+	delete[] buffer;
 }
 // from stream
 void uf::Image::open( const std::istream& stream ) {
@@ -293,7 +390,7 @@ void uf::Image::save( std::ostream& stream ) {
 
 }
 // Merges one image on top of another
-uf::Image uf::Image::overlay(const Image& top, const pod::Vector2ui& corner) const {
+uf::Image uf::Image::overlay(const Image& top, const Image::vec2_t& corner) const {
 	return *this;
 }
 // Changes all pixel from one color (from), to another (to)
@@ -301,6 +398,42 @@ uf::Image uf::Image::replace(const Image::pixel_t& from, const Image::pixel_t& t
 	return *this;
 }
 // Crops an image
-uf::Image uf::Image::subImage( const pod::Vector2ui& start, const pod::Vector2ui& end) const {
-	return *this;
+uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& end) const {
+/*
+	uf::Vector2ui size = parameter;
+	if ( mode == uf::Image::CropMode::START_SPAN_SIZE ) size = parameter;
+	if ( mode == uf::Image::CropMode::START_TO_END ) size = parameter - start;
+	if ( size > this->size ) return uf::Image(*this);
+
+
+	uint len = size.product() * this->bpp / 8;
+	uint8_t* src = (uint8_t*) this->raw;
+	uint8_t* dst = new uint8_t[len];
+
+	uint minX = start.x();
+	uint minY = start.y();
+	uint dstWidth = size.x();
+	uint dstHeight = size.x();
+	uint srcWidth = this->size.x();
+	uint srcHeight = this->size.y();
+
+	for(uint x = minX; x < dstWidth + minX; x++) {
+		for(uint y = minY; y < dstHeight + minY; y++) {
+			uint srcOffset = y * srcWidth + x;
+			uint dstOffset = (y - minY) * dstWidth + (x - minX);
+			srcOffset *= this->bpp / 8;
+			dstOffset *= this->bpp / 8;
+
+			for ( uint i = 0; i < this->bpp/4; i++ ) dst[dstOffset+i] = src[srcOffset+i];
+		}
+	}
+
+	uf::Image image;
+	image.raw = (uint8_t*) dst;
+	image.len = len;
+	image.bpp = this->bpp;
+	image.size = size;
+	image.format = this->format;
+	return image;
+*/
 }

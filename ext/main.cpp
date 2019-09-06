@@ -1,7 +1,7 @@
 #include "main.h"
 
 #include <uf/ext/ext.h>
-#include <uf/ext/ogl/ogl.h>
+#include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/oal/oal.h>
 #include <uf/ext/assimp/assimp.h>
 
@@ -12,17 +12,15 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/math/transform.h>
 #include <uf/utils/string/string.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/image/image.h>
 #include <uf/utils/thread/thread.h>
-
-#include <uf/gl/shader/shader.h>
-#include <uf/gl/mesh/mesh.h>
-#include <uf/gl/camera/camera.h>
-#include <uf/gl/texture/texture.h>
+#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/camera/camera.h>
 
 #include <uf/engine/entity/entity.h>
 
@@ -33,6 +31,11 @@
 #include <iostream>
 
 #include "ext.h"
+#include "asset/asset.h"
+
+#include <uf/ext/vulkan/graphics/compute.h>
+#include <uf/ext/vulkan/graphics/mesh.h>
+#include <uf/ext/discord/discord.h>
 
 namespace {
 	struct {
@@ -77,6 +80,9 @@ namespace {
 	} world;
 }
 bool ext::ready = false;
+
+#include <uf/utils/http/http.h>
+
 void EXT_API ext::initialize() {
 	/**/ {
 		srand(time(NULL));
@@ -92,31 +98,52 @@ void EXT_API ext::initialize() {
 		times.prevTime = times.sys.elapsed().asDouble();
 		times.curTime = times.sys.elapsed().asDouble();
 	}
-	/* Initialize OpenGL */ {
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LEQUAL);
-
-		glEnable(GL_TEXTURE_2D);
-
-		glEnable(GL_CULL_FACE);
-		glCullFace( GL_BACK );
-		glFrontFace( GL_CW );
-	}
 	/* Read persistent data */ {
 		#include "./inits/persistence.inl"
 	}
-	/* Create entities */ {
-		::world.master.initialize();
+	/* Initialize Vulkan */ {
+		uf::Serializer config = ext::getConfig();
+		ext::vulkan::width = config["window"]["size"]["x"].asInt();
+		ext::vulkan::height = config["window"]["size"]["y"].asInt();
+		ext::vulkan::initialize();
 	}
-
 	/* */ {
 		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 		pod::Thread& threadAux = uf::thread::has("Aux") ? uf::thread::get("Aux") : uf::thread::create( "Aux", true, false );
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	}
+	/* Discord */ {
+		ext::discord::initialize();
+	}
+	/* Create entities */ {
+		::world.master.initialize();
+	}
 
 	ext::ready = true;
 	uf::iostream << "EXT took " << times.sys.elapsed().asDouble() << " seconds to initialize!" << "\n";
+
+	{
+		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
+			ext::Asset& assetLoader = ::world.master.getComponent<ext::Asset>();
+			assetLoader.processQueue();
+		return 0;}, false );
+	}
+
+/*
+	{
+	
+		std::vector<pod::Primitive> cubes;
+		for ( int x = 0; x < 4; ++x )
+		for ( int y = 0; y < 4; ++y )
+		for ( int z = 0; z < 4; ++z ) {
+			cubes.push_back( { pod::Primitive::CUBE, { x, y, z }, 0.5f } );
+		}
+	
+		std::vector<pod::Tree> trees = uf::primitive::populateEntirely( cubes );
+	}
+
+	uf::iostream << "TEST took " << times.sys.elapsed().asDouble() << " seconds to initialize!" << "\n";
+*/
 }
 void EXT_API ext::tick() {
 	/* Timer */ {
@@ -124,6 +151,9 @@ void EXT_API ext::tick() {
 		times.curTime = times.sys.elapsed().asDouble();
 		times.deltaTime = times.curTime - times.prevTime;
 	}
+	static uf::Timer<long long> timer(false);
+	if ( !timer.running() ) timer.start();
+
 	/* Update physics timer */ {
 		uf::physics::tick();
 	}
@@ -135,12 +165,29 @@ void EXT_API ext::tick() {
 		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 		uf::thread::process( thread );
 	}
+
+	/* Update vulkan */ {
+		ext::vulkan::tick();
+	}
+	/* Discord */ {
+		ext::discord::tick();
+	}
+	
+	/* Frame limiter of sorts I guess */ {
+		long long sleep = (uf::thread::limiter * 1000) - timer.elapsed().asMilliseconds();
+		if ( sleep > 0 ) {
+		//	std::cout << "Frame limiting: " << sleep << ", " << timer.elapsed().asMilliseconds() << std::endl;
+			std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+		}
+		timer.reset();
+	}
 }
 void EXT_API ext::render() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BITz);
 	/* Draw geometry */ {
 		::world.master.render();
 	}
+	ext::vulkan::render();
 }
 void EXT_API ext::terminate() {
 	/* Flush input buffer */ {
@@ -149,6 +196,8 @@ void EXT_API ext::terminate() {
 		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << std::endl;
 		io.output.close();
 	}
+
+	::world.master.destroy();
 
 	/* Write persistent data */ {
 		struct {
@@ -172,7 +221,7 @@ void EXT_API ext::terminate() {
 		config.file["meta"]["time"]["elapsed"] = times.sys.elapsed().asDouble();
 
 		/* Write persistent data */ {
-			config.file.writeToFile(file.filename);
+//			config.file.writeToFile(file.filename);
 		}
 	}
 }

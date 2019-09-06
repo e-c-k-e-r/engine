@@ -4,23 +4,81 @@
 #include <uf/ext/ext.h>
 
 #include <uf/utils/math/vector.h>
-#include <uf/gl/mesh/mesh.h>
 
 #include "voxel.h"
 #include "region.h"
 #include "terrain.h"
 
+#include <uf/utils/noise/noise.h>
+
+#include <uf/utils/mesh/mesh.h>
+#include <uf/ext/vulkan/graphics/compute.h>
+
+#include <uf/utils/string/rle.h>
+
 namespace ext {
 	class EXT_API TerrainGenerator {
 	protected:
-		ext::TerrainVoxel::uid_t*** m_voxels;
+		enum Swizzle {
+			XYZ, YZX, ZXY
+		};
+		struct {
+			struct {
+				std::vector<ext::TerrainVoxel::uid_t> raw;
+				pod::RLE<ext::TerrainVoxel::uid_t>::string_t rle;
+		 		Swizzle swizzle = Swizzle::YZX;
+			} id;
+			struct {
+				std::vector<ext::TerrainVoxel::light_t> raw;
+				pod::RLE<ext::TerrainVoxel::light_t>::string_t rle;
+		 		Swizzle swizzle = Swizzle::YZX;
+			} lighting;
+		} m_voxels;
+
 		pod::Vector3ui m_size;
+		pod::Vector3i m_location;
+		uint m_modulus;
+		uf::Entity* m_terrain;
 	public:
-		void initialize( const pod::Vector3ui& = { 8, 8, 8 } );
+		typedef uf::ColoredMesh mesh_t;
+		static uf::PerlinNoise noise;
+		static Swizzle DEFAULT_SWIZZLE;
+
+		void initialize( const pod::Vector3ui& = { 8, 8, 8 }, uint = 4 );
 		void destroy();
 
+		void light( int, int, int, const ext::TerrainVoxel::light_t& light );
+		void light( const pod::Vector3i&, const ext::TerrainVoxel::light_t& light );
+
+		void writeToFile();
+		void updateLight();
+
 		void generate( ext::Region& );
-		void rasterize( uf::Mesh&, const ext::Region&, bool = true, bool = true );
-		ext::TerrainVoxel::uid_t*** getVoxels();
+		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const ext::Region& );
+		void vectorize( std::vector<ext::vulkan::ComputeGraphic::Cube>&, const ext::Region& );
+		std::vector<ext::TerrainVoxel::uid_t> getRawVoxels();
+		const pod::RLE<ext::TerrainVoxel::uid_t>::string_t& getVoxels() const;
+
+		pod::Vector3ui unwrapIndex( std::size_t, Swizzle = DEFAULT_SWIZZLE ) const;
+		std::size_t wrapPosition( uint, uint, uint, Swizzle = DEFAULT_SWIZZLE ) const;
+		std::size_t wrapPosition( const pod::Vector3ui&, Swizzle = DEFAULT_SWIZZLE ) const;
+
+		void unwrapVoxel();
+		void unwrapLight();
+
+		void wrapVoxel();
+		void wrapLight();
+
+		ext::TerrainVoxel::uid_t getVoxel( int x, int y, int z ) const;
+		ext::TerrainVoxel::uid_t getVoxel( const pod::Vector3i& ) const;
+
+		ext::TerrainVoxel::light_t getLight( int x, int y, int z ) const;
+		ext::TerrainVoxel::light_t getLight( const pod::Vector3i& ) const;
+
+		void setVoxel( int x, int y, int z, const ext::TerrainVoxel::uid_t&, bool = true );
+		void setVoxel( const pod::Vector3i&, const ext::TerrainVoxel::uid_t&, bool = true );
+
+		void setLight( int x, int y, int z, const ext::TerrainVoxel::light_t&, bool = true );
+		void setLight( const pod::Vector3i&, const ext::TerrainVoxel::light_t&, bool = true );
 	};
 }

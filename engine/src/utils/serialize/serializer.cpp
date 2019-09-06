@@ -29,7 +29,6 @@ void uf::Serializer::deserialize( const std::string& str ) {
 			std::stringstream(str) >> *this;
 		} catch ( const std::exception& e ) {
 			uf::iostream << "Error: " << e.what() << "\n";
-			uf::iostream << str << "\n";
 		} catch (...) {
 			// ignore parse errors
 		}

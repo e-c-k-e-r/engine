@@ -22,6 +22,7 @@ UF_API bool ext::freetype::initialize() {
 		return false;
 	}
 	std::cout << "FreeType initialized" << std::endl;
+	ext::freetype::library.loaded = true;
 	return true;
 }
 UF_API bool ext::freetype::initialized() {
@@ -38,6 +39,9 @@ UF_API ext::freetype::Glyph ext::freetype::initialize( const std::string& font )
 	if ( (error = FT_New_Face( ext::freetype::library.library, font.c_str(), 0, &glyph.face )) ) {
 		std::cout << "Error #" <<  ext::freetype::getError(error) << ": FreeType failed to load file `" << font << "`" << std::endl;
 	}
+	if ( (error = FT_Select_Charmap( glyph.face, FT_ENCODING_UNICODE )) ) {
+		std::cout << "Error #" <<  ext::freetype::getError(error) << ": FreeType failed to load file `" << font << "`" << std::endl;
+	}
 	return glyph;
 }
 UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const std::string& font ) {
@@ -47,11 +51,14 @@ UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const std::s
 		std::cout << "Error #" <<  ext::freetype::getError(error) << ": FreeType failed to load file `" << font << "`" << std::endl;
 		return false;
 	}
+	if ( (error = FT_Select_Charmap( glyph.face, FT_ENCODING_UNICODE )) ) {
+		std::cout << "Error #" <<  ext::freetype::getError(error) << ": FreeType failed to load file `" << font << "`" << std::endl;
+		return false;
+	}
 	return true;
 }
 UF_API void ext::freetype::destroy( ext::freetype::Glyph& glyph ) {
 	FT_Done_Face( glyph.face );
-	FT_Select_Charmap( glyph.face, FT_ENCODING_UNICODE );
 }
 
 UF_API void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int height ) {

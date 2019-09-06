@@ -4,7 +4,9 @@
 #include "universal.h"
 
 #if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
-
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+	#include <uf/ext/vulkan.h>
+#endif
 namespace spec {
 	namespace win32 {
 		class UF_API Window : public spec::uni::Window {
@@ -14,9 +16,9 @@ namespace spec {
 			typedef spec::uni::Window::title_t 		title_t;
 			typedef spec::uni::Window::vector_t 	vector_t;
 		*/
+			LONG_PTR 								m_callback;
 		protected:
 			spec::win32::Window::handle_t 			m_handle;
-			LONG_PTR 								m_callback;
 			HCURSOR									m_cursor;
 			HICON 									m_icon;
 			
@@ -45,6 +47,7 @@ namespace spec {
 			/*virtual*/ void UF_API_CALL setPosition( const spec::win32::Window::vector_t& position );
 			/*virtual*/ void UF_API_CALL centerWindow();
 			/*virtual*/ void UF_API_CALL setMousePosition( const spec::win32::Window::vector_t& position );
+			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getMousePosition();
 			/*virtual*/ void UF_API_CALL setSize( const spec::win32::Window::vector_t& size );
 			/*virtual*/ void UF_API_CALL setTitle( const spec::win32::Window::title_t& title );
 			/*virtual*/ void UF_API_CALL setIcon( const spec::win32::Window::vector_t& size, uint8_t* pixels );
@@ -66,18 +69,14 @@ namespace spec {
 			
 			void UF_API_CALL setTracking(bool state);
 			void UF_API_CALL switchToFullscreen();
-			
+		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+			std::vector<const char*> UF_API_CALL getExtensions( bool validationEnabled );
+			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );
+		#endif
 			static std::string UF_API_CALL getKey(WPARAM key, LPARAM flags);
-		//	static bool UF_API_CALL isKeyPressed( const std::string& key );
-			static LRESULT CALLBACK globalOnEvent(spec::win32::Window::handle_t handle, UINT message, WPARAM wParam, LPARAM lParam);
 		};
 	}
 	typedef spec::win32::Window Window;
-/*
-	namespace imp {
-		typedef spec::win32::Window window_t;
-	}
-*/
 }
 #elif defined(UF_USE_SFML) && UF_USE_SFML == 1
 #include <uf/ext/sfml/window.h>

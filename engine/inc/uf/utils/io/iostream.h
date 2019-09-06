@@ -100,6 +100,7 @@ namespace uf {
 		uf::IoStream& UF_API_CALL operator<< (const std::string&);
 		uf::IoStream& UF_API_CALL operator<< (const uf::String&);
 		uf::IoStream& UF_API_CALL operator<< (const char*);
+		uf::IoStream& UF_API_CALL operator<< ( void* );
 		uf::IoStream& UF_API_CALL operator<< ( std::ostream& );
 		friend std::ostream& UF_API_CALL operator<< ( std::ostream&, uf::IoStream& );
 
