@@ -102,12 +102,12 @@ std::vector<double> uf::PerlinNoise::collect( const pod::Vector2ui& size, const 
 std::vector<double> uf::PerlinNoise::collect( const pod::Vector3ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
 	std::vector<double> res;
 	res.reserve( size.x * size.y * size.z );
-	for(unsigned int i = 0; i < size.z; ++i) { // z
-	for(unsigned int j = 0; j < size.y; ++j) { // y
-	for(unsigned int k = 0; k < size.x; ++k) { // x
-		double x = (double)k/((double)size.x);
-		double y = (double)j/((double)size.y);
-		double z = (double)i/((double)size.z);
+	for(unsigned int Z = 0; Z < size.z; ++Z) { // z
+	for(unsigned int Y = 0; Y < size.y; ++Y) { // y
+	for(unsigned int X = 0; X < size.x; ++X) { // x
+		double x = (double) Z / (double) size.x;
+		double y = (double) Y / (double) size.y;
+		double z = (double) X / (double) size.z;
 
 		double n = this->noise(noiseCoeff.x * x, noiseCoeff.y * y, noiseCoeff.z * z);
 		callback(n);

@@ -1,5 +1,6 @@
-#include <uf/ext/freetype/freetype.h>
 #include <iostream>
+#if UF_USE_FREETYPE
+#include <uf/ext/freetype/freetype.h>
 
 ext::freetype::Library ext::freetype::library;
 
@@ -16,12 +17,10 @@ ext::freetype::Glyph::~Glyph() {
 
 UF_API bool ext::freetype::initialize() {
 	int error = 0;
-	std::cout << "FreeType initializing" << std::endl;
 	if ( (error = FT_Init_FreeType( &ext::freetype::library.library ) )) {
 		std::cout << "Error #" << ext::freetype::getError(error) << ": FreeType failed to initialize" << std::endl;
 		return false;
 	}
-	std::cout << "FreeType initialized" << std::endl;
 	ext::freetype::library.loaded = true;
 	return true;
 }
@@ -106,3 +105,4 @@ UF_API std::string ext::freetype::getError( int error ) {
 
 	return ft_errors[0].err_msg;
 }
+#endif

@@ -4,7 +4,7 @@
 #include <uf/spec/window/window.h>
 #include <uf/spec/context/context.h>
 
-#if !defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0)
+#if !UF_USE_SFML
 namespace uf {
 	class UF_API Window : public spec::uni::Window {
 	public:
@@ -24,6 +24,7 @@ namespace uf {
 	// 	Gets
 		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getPosition() const;
 		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getSize() const;
+		/*virtual*/ size_t UF_API_CALL getRefreshRate() const;
 	// 	Attribute modifiers
 		/*virtual*/ void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );
 		/*virtual*/ void UF_API_CALL centerWindow();
@@ -39,10 +40,11 @@ namespace uf {
 	
 		/*virtual*/ void UF_API_CALL requestFocus();
 		/*virtual*/ bool UF_API_CALL hasFocus() const;
-		/*virtual*/ void UF_API_CALL switchToFullscreen();
+		static pod::Vector2ui UF_API_CALL getResolution();
+		/*virtual*/ void UF_API_CALL switchToFullscreen( bool borderless = false );
 	// 	Update
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-		std::vector<const char*> getExtensions( bool validationEnabled = true );
+		std::vector<std::string> getExtensions( bool validationEnabled = true );
 		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
 	#endif
 		static bool focused;
@@ -53,13 +55,12 @@ namespace uf {
 		/*virtual*/ void UF_API_CALL display();
 	};
 }
-#elif defined(UF_USE_SFML) && UF_USE_SFML == 1
+#elif UF_USE_SFML
 namespace uf {
 	typedef ext::sfml::Window Window;	
 }
-#elif defined(UF_USE_GLFW) && UF_USE_GLFW == 1
+#elif UF_USE_GLFW
 #include <uf/ext/glfw/glfw.h>
-
 namespace uf {
 	typedef ext::glfw::Window Window;
 }

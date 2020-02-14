@@ -3,8 +3,9 @@
 
 #if defined(UF_USE_OPENAL)
 #include <uf/ext/vorbis/vorbis.h>
+#include <uf/ext/oal/oal.h>
 #endif
-/*
+
 UF_API uf::Audio::Audio( const std::string& filename ) : m_filename(filename) {
 }
 UF_API uf::Audio::Audio( uf::Audio&& move ) :
@@ -14,26 +15,51 @@ UF_API uf::Audio::Audio( uf::Audio&& move ) :
 {
 }
 UF_API uf::Audio::Audio( const uf::Audio& copy ) :
-	m_filename(copy.m_filename),
-	m_source(copy.m_source),
-	m_buffer(copy.m_buffer)
+	m_filename(copy.m_filename)
 {
+
 }
-*/
+
+bool uf::Audio::mute = false;
+uf::Audio uf::Audio::null;
+
+uf::Audio::~Audio() {
+	this->destroy();
+}
+
 bool UF_API uf::Audio::initialized() {
+#if UF_USE_OPENAL
 	if ( !this->m_source.getIndex() ) return false;
 	if ( !this->m_buffer.getIndex() ) return false;
 	return true;
+#else
+	return false;
+#endif
+}
+void UF_API uf::Audio::destroy() {
+#if UF_USE_OPENAL
+	this->m_source.destroy();
+	this->m_buffer.destroy();
+#endif
 }
 bool UF_API uf::Audio::playing() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return false;
 	if ( !this->m_source.playing() ) return false;
 	return true;
+#else
+	return false;
+#endif
 }
-void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != "" ) this->m_filename = filename;
-	std::string extension = uf::string::extension( this->m_filename );
-
-	std::vector<char> buffer; ALenum format; ALsizei frequency;
+void UF_API uf::Audio::load( const std::string& filename ) {
+#if UF_USE_OPENAL
+	if ( uf::Audio::mute ) return;
+	if ( this->initialized() ) this->destroy();
+	if ( filename != "" ) this->m_filename = filename;
+	ALenum format;
+	ALsizei frequency;
+	std::vector<char> buffer;
+	std::string extension = uf::io::extension( this->m_filename );
 	if ( extension == "ogg" ) {
 		ext::Vorbis vorbis; vorbis.load( this->m_filename );
 
@@ -41,80 +67,241 @@ void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != ""
 		format = vorbis.getFormat();
 		frequency = vorbis.getFrequency();
 		this->m_duration = vorbis.getDuration();
-
-		this->m_buffer.generate();
-		this->m_source.generate();
-	
-		this->m_buffer.buffer( format, &buffer[0], buffer.size(), frequency );
-		this->m_source.source( "BUFFER", std::vector<ALint>{ this->m_buffer.getIndex() } );
-
-		this->m_source.source( "PITCH", std::vector<ALfloat>{ 1 } );
-		this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } );
-		this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } );
 	}
+
+	if ( buffer.empty() ) return;
+
+	AL_CHECK_ERROR(this->m_buffer.generate());
+	AL_CHECK_ERROR(this->m_source.generate());
+
+	AL_CHECK_ERROR(this->m_buffer.buffer( format, &buffer[0], buffer.size(), frequency ));
+	AL_CHECK_ERROR(this->m_source.source( "BUFFER", std::vector<ALint>{ this->m_buffer.getIndex() } ));
+
+	AL_CHECK_ERROR(this->m_source.source( "PITCH", std::vector<ALfloat>{ 1 } ));
+	AL_CHECK_ERROR(this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } ));
+	AL_CHECK_ERROR(this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } ));
+#endif
 }
 
 void UF_API uf::Audio::play() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
 	this->m_source.play();
+#endif
 }
 void UF_API uf::Audio::stop() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
 	this->m_source.stop();
+#endif
 }
 const std::string& UF_API uf::Audio::getFilename() const {
 	return this->m_filename;
 }
+
+uf::Audio& uf::Audio::operator=( const uf::Audio& copy ) {
+	this->m_filename = copy.m_filename;
+	return *this;
+}
+
 float uf::Audio::getDuration() const {
 	return this->m_duration;
 }
-#include <uf/ext/oal/oal.h>
 
 ALfloat UF_API uf::Audio::getTime() {
-	if ( this->playing() ) return 0;
+#if UF_USE_OPENAL
+	if ( !this->playing() ) return 0;
 	ALfloat pos; 
-	alGetSourcef(this->m_source.getIndex(), AL_SEC_OFFSET,  &pos ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_SEC_OFFSET,  &pos ));
 	return pos;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setTime( ALfloat pos ) { 
-	if ( this->playing() ) return;
-    this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
+	this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
+#endif
 }
+
+ALfloat UF_API uf::Audio::getPitch() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return 0;
+	ALfloat pitch; 
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_PITCH,  &pitch ));
+	return pitch;
+#else
+	return 0;
+#endif
+}
+void UF_API uf::Audio::setPitch( ALfloat pitch ) { 
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
+	this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
+#endif
+}
+
+ALfloat UF_API uf::Audio::getGain() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return 0;
+	ALfloat gain; 
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &gain ));
+	return gain;
+#else
+	return 0;
+#endif
+}
+void UF_API uf::Audio::setGain( ALfloat gain ) { 
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
+	this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
+#endif
+}
+
+ALfloat UF_API uf::Audio::getRolloffFactor() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return 0;
+	ALfloat rolloffFactor; 
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_ROLLOFF_FACTOR,  &rolloffFactor ));
+	return rolloffFactor;
+#else
+	return 0;
+#endif
+}
+void UF_API uf::Audio::setRolloffFactor( ALfloat rolloffFactor ) { 
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
+	this->m_source.source("ROLLOFF_FACTOR", std::vector<ALfloat>{ rolloffFactor } ); 
+#endif
+}
+
+ALfloat UF_API uf::Audio::getMaxDistance() {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return 0;
+	ALfloat maxDistance; 
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_MAX_DISTANCE,  &maxDistance ));
+	return maxDistance;
+#else
+	return 0;
+#endif
+}
+void UF_API uf::Audio::setMaxDistance( ALfloat maxDistance ) { 
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
+	this->m_source.source("MAX_DISTANCE", std::vector<ALfloat>{ maxDistance } ); 
+#endif
+}
+
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
+#if UF_USE_OPENAL
+	if ( !this->initialized() ) return;
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
+#endif
 }
 void UF_API uf::Audio::setOrientation( const pod::Quaternion<>& orientation ) {
 
 }
+
 void UF_API uf::Audio::setVolume( float volume ) {
+#if UF_USE_OPENAL
 	this->m_source.source("GAIN", std::vector<ALfloat>{volume} );
+#endif
 }
 float UF_API uf::Audio::getVolume() const {
+#if UF_USE_OPENAL
 	ALfloat pos; 
-	alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &pos ); ext::oal.checkError(__FUNCTION__, __LINE__);	
+	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &pos ));	
 	return pos;
+#endif
 }
+//
 
-uf::Audio& UF_API uf::SoundEmitter::add( const std::string& filename ) {
-	if ( this->m_container.find( filename ) != this->m_container.end() ) return this->get(filename);
-	uf::Audio& sound = this->m_container[filename];
+uf::SoundEmitter::~SoundEmitter() {
+	this->cleanup(true);
+}
+bool uf::SoundEmitter::has( const std::string& filename ) const {
+	for ( auto* pointer : this->m_container ) {
+		if ( pointer->getFilename() == filename ) return true;
+	}
+	return false;
+}
+uf::Audio& UF_API uf::SoundEmitter::add( const std::string& filename, bool unique ) {
+	if ( unique && this->has(filename) ) return this->get(filename);
+
+	uf::Audio& sound = *this->m_container.emplace_back(new uf::Audio);
 	sound.load(filename);
 	return sound;
 }
-uf::Audio& UF_API uf::SoundEmitter::add( const uf::Audio& audio ) {
-	std::string filename = audio.getFilename();
-	if ( this->m_container.find( filename ) != this->m_container.end() ) return this->get(filename);
-	return this->m_container[filename] = audio;
+uf::Audio& UF_API uf::SoundEmitter::add( const uf::Audio& audio, bool unique ) {
+	return this->add(audio.getFilename(), unique);
 }
 uf::Audio& UF_API uf::SoundEmitter::get( const std::string& filename ) {
-	return this->m_container[filename];
+	if ( !this->has(filename) ) return this->add(filename);
+	for ( auto* pointer : this->m_container ) {
+		if ( pointer->getFilename() == filename ) return *pointer;
+	}
+	return uf::Audio::null;
 }
 const uf::Audio& UF_API uf::SoundEmitter::get( const std::string& filename ) const {
-	return this->m_container.at(filename);
+	for ( auto* pointer : this->m_container ) {
+		if ( pointer->getFilename() == filename ) return *pointer;
+	}
+	return uf::Audio::null;
+}
+uf::SoundEmitter::container_t& UF_API uf::SoundEmitter::get() {
+	return this->m_container;
+}
+const uf::SoundEmitter::container_t& UF_API uf::SoundEmitter::get() const {
+	return this->m_container;
+}
+void UF_API uf::SoundEmitter::cleanup( bool purge ) {
+	for ( size_t i = 0; i < this->m_container.size(); ++i ) {
+		if ( !purge && this->m_container[i]->playing() ) continue;
+		this->m_container[i]->destroy();
+		delete this->m_container[i];
+		this->m_container.erase(this->m_container.begin() + i);
+	}
 }
 
-void UF_API uf::SoundEmitter::cleanup( bool purge ) {
-/*
-	for ( uf::Audio& k : this->m_container ) {
-		if ( !k.playing() ) this->m_container.erase(k);
+//
+uf::MappedSoundEmitter::~MappedSoundEmitter() {
+	this->cleanup(true);
+}
+bool uf::MappedSoundEmitter::has( const std::string& filename ) const {
+	return this->m_container.count(filename) > 0;
+}
+uf::Audio& UF_API uf::MappedSoundEmitter::add( const std::string& filename ) {
+	if ( this->has(filename) ) return this->get(filename);
+
+	this->m_container.emplace(filename, new uf::Audio);
+	uf::Audio& sound = this->get(filename);
+	sound.load(filename);
+	return sound;
+}
+uf::Audio& UF_API uf::MappedSoundEmitter::add( const uf::Audio& audio ) {
+	return this->add(audio.getFilename());
+}
+uf::Audio& UF_API uf::MappedSoundEmitter::get( const std::string& filename ) {
+	if ( !this->has(filename) ) return this->add(filename);
+	return *this->m_container[filename];
+}
+const uf::Audio& UF_API uf::MappedSoundEmitter::get( const std::string& filename ) const {
+	return *this->m_container.at(filename);
+}
+uf::MappedSoundEmitter::container_t& UF_API uf::MappedSoundEmitter::get() {
+	return this->m_container;
+}
+const uf::MappedSoundEmitter::container_t& UF_API uf::MappedSoundEmitter::get() const {
+	return this->m_container;
+}
+void UF_API uf::MappedSoundEmitter::cleanup( bool purge ) {
+	for ( auto& pair : this->m_container ) {
+		if ( purge || !pair.second->playing() ) {
+			pair.second->stop();
+			pair.second->destroy();
+			delete pair.second;
+			this->m_container.erase(pair.first);
+		}
 	}
-*/
 }

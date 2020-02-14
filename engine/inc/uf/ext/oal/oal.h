@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#if defined(UF_USE_OPENAL)
+#if UF_USE_OPENAL
 
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -11,6 +11,8 @@
 #include <vector>
 
 #include <uf/utils/math/vector.h>
+
+#define AL_CHECK_ERROR(...) __VA_ARGS__; ext::oal.checkError(__FUNCTION__, __LINE__)
 
 namespace ext {
 	class UF_API AL {

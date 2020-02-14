@@ -1,7 +1,7 @@
 #include <uf/utils/text/glyph.h>
-
+#include <iostream>
+#if UF_USE_FREETYPE
 uf::Glyph::~Glyph() {
-	pod::Vector2i padding = this->getPadding();
 	delete[] this->m_buffer;
 }
 
@@ -18,10 +18,10 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, unsigned long c, uint
 	}
 
 //	this->m_sdf = false;
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width / 64), static_cast<int>(glyph.face->glyph->metrics.height / 64) } );
+//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width) >> 6, static_cast<int>(glyph.face->glyph->metrics.height) >> 6 } );
 	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x / 64), static_cast<int>(glyph.face->glyph->advance.y / 64)} );
+	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
 //	this->setPadding( {4, 4} );
 
 	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
@@ -70,10 +70,9 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::String& c, 
 		delete[] this->m_buffer;
 	}
 
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width / 64), static_cast<int>(glyph.face->glyph->metrics.height / 64) } );
 	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x / 64), static_cast<int>(glyph.face->glyph->advance.y / 64)} );
+	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
 
 	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
 	std::size_t len = this->m_size.x * this->m_size.y;
@@ -180,8 +179,21 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 
 			lowest = std::min( lowest, dist );
 			highest = std::max( highest, dist );
-
-			buffer[y * this->m_size.x + x] = dist * this->getSpread() + 128;
+		
+			{
+				int value = dist * this->getSpread() + 128;
+				uint8_t uvalue = std::max( 0, std::min(255, value) );
+				buffer[y * this->m_size.x + x] = uvalue;
+			}
+		
+		/*
+			{
+				float value = 0.5f + 0.5f * ((float) dist / (float) this->getSpread());
+				value = std::max( 0.0f, std::min(1.0f, value) );
+				uint8_t uvalue = value * 256;
+				buffer[y * this->m_size.x + x] = uvalue;
+			}
+		*/
 		}
 	}
 }
@@ -226,3 +238,4 @@ void uf::Glyph::setSpread( int spread ) {
 void uf::Glyph::useSdf( bool b ) {
 	this->m_sdf = b;
 }
+#endif

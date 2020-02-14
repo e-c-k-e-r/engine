@@ -1,35 +1,19 @@
 #pragma once
 
-/* Read persistent data */ {
+/* Read persistent data */ if ( false ) {
 	struct {
 		bool exists = false;
-		std::string filename = "cfg/persistent.json";
+		std::string filename = "./data/persistent.json";
 	} file;
 	struct {
 		uf::Serializer file;
 	} config;
 	/* Read from file */ if (( file.exists = config.file.readFromFile(file.filename) )) {
-		persistent.window.size.x = config.file["window"]["size"]["x"].asUInt64();
-		persistent.window.size.y = config.file["window"]["size"]["y"].asUInt64();
+		persistent.window.size.x = config.file["window"]["size"]["x"].as<size_t>();
+		persistent.window.size.y = config.file["window"]["size"]["y"].as<size_t>();
 		if ( config.file["window"]["title"] != "null" ) {
-			persistent.window.title = config.file["window"]["title"].asString();
+			persistent.window.title = config.file["window"]["title"].as<std::string>();
 		}
-
-		{
-			double limit = config.file["engine"]["frame limit"].asDouble();
-			if ( limit != 0 ) 
-				uf::thread::limiter = 1.0 / config.file["engine"]["frame limit"].asDouble();
-			else uf::thread::limiter = 0;
-		}
-		{
-			double limit = config.file["engine"]["delta limit"].asDouble();
-			if ( limit != 0 ) 
-				uf::physics::time::clamp = 1.0 / config.file["engine"]["delta limit"].asDouble();
-			else uf::physics::time::clamp = 0;
-		}
-		
-		uf::thread::workers = config.file["engine"]["workers"].asUInt64();
-		ext::vulkan::validation = config.file["engine"]["validation"].asBool();
 
 		/* Update window size */ {
 			uf::Serializer json;

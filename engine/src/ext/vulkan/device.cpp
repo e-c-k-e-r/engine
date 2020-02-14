@@ -1,10 +1,216 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
+#include <uf/utils/string/ext.h>
+#include <uf/ext/openvr/openvr.h>
 
 #include <set>
 #include <map>
+
+#include <uf/utils/serialize/serializer.h>
+
+namespace {
+	void VRInstanceExtensions( std::vector<std::string>& requested ) {
+		if ( !vr::VRCompositor() ) return;
+		int32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
+		if ( nBufferSize < 0 ) return;
+		char pExtensionStr[nBufferSize];
+		pExtensionStr[0] = 0;
+		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
+		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		for ( auto& str : extensions ) {
+			// uf::iostream << str << "\n";
+			requested.push_back(str);
+		}
+		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
+	}
+	void VRDeviceExtensions( VkPhysicalDevice_T* physicalDevice, std::vector<std::string>& requested ) {
+		if ( !vr::VRCompositor() ) return;
+		int32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice, nullptr, 0 );
+		if ( nBufferSize < 0 ) return;
+		char pExtensionStr[nBufferSize];
+		pExtensionStr[0] = 0;
+		vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice , pExtensionStr, nBufferSize );
+		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		for ( auto& str : extensions ) requested.push_back(str);
+		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
+	}
+
+	void validateRequestedExtensions( const std::vector<VkExtensionProperties>& extensionProperties, const std::vector<std::string>& requestedExtensions, std::vector<std::string>& supportedExtensions ) {
+		for ( auto& requestedExtension : requestedExtensions ) {
+			bool found = false;
+			for ( auto& extensionProperty : extensionProperties ) {
+				std::string extensionName = extensionProperty.extensionName;
+				if ( requestedExtension != extensionName ) continue;
+				if ( std::find( supportedExtensions.begin(), supportedExtensions.end(), extensionName ) != supportedExtensions.end() ) {
+					found = true;
+					break;
+				}
+				if ( found ) break;
+				found = true;
+				supportedExtensions.push_back( extensionName );
+				break;
+			}
+			if ( !found ) {
+				uf::iostream << "Vulkan missing requested extension: " << requestedExtension << "\n";
+			}
+		}
+	}
+
+	void enableRequestedDeviceFeatures( ext::vulkan::Device& device ) {
+		uf::Serializer json;
+
+	#define CHECK_FEATURE( NAME )\
+		if ( feature == #NAME ) {\
+			if ( device.features.NAME == VK_TRUE ) {\
+				device.enabledFeatures.NAME = true;\
+				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
+			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
+		}
+
+		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
+			CHECK_FEATURE(robustBufferAccess);
+			CHECK_FEATURE(fullDrawIndexUint32);
+			CHECK_FEATURE(imageCubeArray);
+			CHECK_FEATURE(independentBlend);
+			CHECK_FEATURE(geometryShader);
+			CHECK_FEATURE(tessellationShader);
+			CHECK_FEATURE(sampleRateShading);
+			CHECK_FEATURE(dualSrcBlend);
+			CHECK_FEATURE(logicOp);
+			CHECK_FEATURE(multiDrawIndirect);
+			CHECK_FEATURE(drawIndirectFirstInstance);
+			CHECK_FEATURE(depthClamp);
+			CHECK_FEATURE(depthBiasClamp);
+			CHECK_FEATURE(fillModeNonSolid);
+			CHECK_FEATURE(depthBounds);
+			CHECK_FEATURE(wideLines);
+			CHECK_FEATURE(largePoints);
+			CHECK_FEATURE(alphaToOne);
+			CHECK_FEATURE(multiViewport);
+			CHECK_FEATURE(samplerAnisotropy);
+			CHECK_FEATURE(textureCompressionETC2);
+			CHECK_FEATURE(textureCompressionASTC_LDR);
+			CHECK_FEATURE(textureCompressionBC);
+			CHECK_FEATURE(occlusionQueryPrecise);
+			CHECK_FEATURE(pipelineStatisticsQuery);
+			CHECK_FEATURE(vertexPipelineStoresAndAtomics);
+			CHECK_FEATURE(fragmentStoresAndAtomics);
+			CHECK_FEATURE(shaderTessellationAndGeometryPointSize);
+			CHECK_FEATURE(shaderImageGatherExtended);
+			CHECK_FEATURE(shaderStorageImageExtendedFormats);
+			CHECK_FEATURE(shaderStorageImageMultisample);
+			CHECK_FEATURE(shaderStorageImageReadWithoutFormat);
+			CHECK_FEATURE(shaderStorageImageWriteWithoutFormat);
+			CHECK_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderSampledImageArrayDynamicIndexing);
+			CHECK_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderStorageImageArrayDynamicIndexing);
+			CHECK_FEATURE(shaderClipDistance);
+			CHECK_FEATURE(shaderCullDistance);
+			CHECK_FEATURE(shaderFloat64);
+			CHECK_FEATURE(shaderInt64);
+			CHECK_FEATURE(shaderInt16);
+			CHECK_FEATURE(shaderResourceResidency);
+			CHECK_FEATURE(shaderResourceMinLod);
+			CHECK_FEATURE(sparseBinding);
+			CHECK_FEATURE(sparseResidencyBuffer);
+			CHECK_FEATURE(sparseResidencyImage2D);
+			CHECK_FEATURE(sparseResidencyImage3D);
+			CHECK_FEATURE(sparseResidency2Samples);
+			CHECK_FEATURE(sparseResidency4Samples);
+			CHECK_FEATURE(sparseResidency8Samples);
+			CHECK_FEATURE(sparseResidency16Samples);
+			CHECK_FEATURE(sparseResidencyAliased);
+			CHECK_FEATURE(variableMultisampleRate);
+			CHECK_FEATURE(inheritedQueries);
+		}
+	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		if ( feature == #NAME ) {\
+			if ( device.features2.NAME == VK_TRUE ) {\
+				device.enabledFeatures2.NAME = true;\
+				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
+			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
+		}
+	#undef CHECK_FEATURE2
+	}
+	uf::Serializer retrieveDeviceFeatures( ext::vulkan::Device& device ) {
+		uf::Serializer json;
+
+	#define CHECK_FEATURE( NAME )\
+		json[#NAME]["supported"] = device.features.NAME;\
+		json[#NAME]["enabled"] = device.enabledFeatures.NAME;
+
+		CHECK_FEATURE(robustBufferAccess);
+		CHECK_FEATURE(fullDrawIndexUint32);
+		CHECK_FEATURE(imageCubeArray);
+		CHECK_FEATURE(independentBlend);
+		CHECK_FEATURE(geometryShader);
+		CHECK_FEATURE(tessellationShader);
+		CHECK_FEATURE(sampleRateShading);
+		CHECK_FEATURE(dualSrcBlend);
+		CHECK_FEATURE(logicOp);
+		CHECK_FEATURE(multiDrawIndirect);
+		CHECK_FEATURE(drawIndirectFirstInstance);
+		CHECK_FEATURE(depthClamp);
+		CHECK_FEATURE(depthBiasClamp);
+		CHECK_FEATURE(fillModeNonSolid);
+		CHECK_FEATURE(depthBounds);
+		CHECK_FEATURE(wideLines);
+		CHECK_FEATURE(largePoints);
+		CHECK_FEATURE(alphaToOne);
+		CHECK_FEATURE(multiViewport);
+		CHECK_FEATURE(samplerAnisotropy);
+		CHECK_FEATURE(textureCompressionETC2);
+		CHECK_FEATURE(textureCompressionASTC_LDR);
+		CHECK_FEATURE(textureCompressionBC);
+		CHECK_FEATURE(occlusionQueryPrecise);
+		CHECK_FEATURE(pipelineStatisticsQuery);
+		CHECK_FEATURE(vertexPipelineStoresAndAtomics);
+		CHECK_FEATURE(fragmentStoresAndAtomics);
+		CHECK_FEATURE(shaderTessellationAndGeometryPointSize);
+		CHECK_FEATURE(shaderImageGatherExtended);
+		CHECK_FEATURE(shaderStorageImageExtendedFormats);
+		CHECK_FEATURE(shaderStorageImageMultisample);
+		CHECK_FEATURE(shaderStorageImageReadWithoutFormat);
+		CHECK_FEATURE(shaderStorageImageWriteWithoutFormat);
+		CHECK_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderSampledImageArrayDynamicIndexing);
+		CHECK_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderStorageImageArrayDynamicIndexing);
+		CHECK_FEATURE(shaderClipDistance);
+		CHECK_FEATURE(shaderCullDistance);
+		CHECK_FEATURE(shaderFloat64);
+		CHECK_FEATURE(shaderInt64);
+		CHECK_FEATURE(shaderInt16);
+		CHECK_FEATURE(shaderResourceResidency);
+		CHECK_FEATURE(shaderResourceMinLod);
+		CHECK_FEATURE(sparseBinding);
+		CHECK_FEATURE(sparseResidencyBuffer);
+		CHECK_FEATURE(sparseResidencyImage2D);
+		CHECK_FEATURE(sparseResidencyImage3D);
+		CHECK_FEATURE(sparseResidency2Samples);
+		CHECK_FEATURE(sparseResidency4Samples);
+		CHECK_FEATURE(sparseResidency8Samples);
+		CHECK_FEATURE(sparseResidency16Samples);
+		CHECK_FEATURE(sparseResidencyAliased);
+		CHECK_FEATURE(variableMultisampleRate);
+		CHECK_FEATURE(inheritedQueries);
+	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		json[#NAME]["supported"] = device.features2.NAME;\
+		json[#NAME]["enabled"] = device.enabledFeatures2.NAME;
+	#undef CHECK_FEATURE2
+
+		return json;
+	}
+}
 
 uint32_t ext::vulkan::Device::getQueueFamilyIndex( VkQueueFlagBits queueFlags ) {
 	if ( queueFlags & VK_QUEUE_COMPUTE_BIT ) {
@@ -46,7 +252,7 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 		*memTypeFound = false;
 		return 0;
 	}
-		throw std::runtime_error("Could not find a matching memory type");
+	// throw std::runtime_error("Could not find a matching memory type");
 }
 
 int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
@@ -105,7 +311,7 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 }
 
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, bool begin ){
-	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( commandPool, level, 1 );
+	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(QueueEnum::TRANSFER), level, 1 );
 
 	VkCommandBuffer commandBuffer;
 	VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
@@ -117,7 +323,7 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	return commandBuffer;
 }
 
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, VkQueue queue, bool free ) {
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool free ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
@@ -132,13 +338,14 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, VkQ
 	VK_CHECK_RESULT(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence));
 	
 	// Submit to the queue
-	VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, fence));
+	VK_CHECK_RESULT(vkQueueSubmit( getQueue( QueueEnum::TRANSFER ), 1, &submitInfo, fence));
+	// vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence);
 	// Wait for the fence to signal that command buffer has finished executing
 	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
 
 	vkDestroyFence(logicalDevice, fence, nullptr);
 
-	if ( free ) vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( QueueEnum::TRANSFER ), 1, &commandBuffer);
 }
 
 VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size, VkBuffer* buffer, VkDeviceMemory* memory, void *data ) {
@@ -154,6 +361,7 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMem
 	memAlloc.allocationSize = memReqs.size;
 	// Find a memory type index that fits the properties of the buffer
 	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
+
 	VK_CHECK_RESULT( vkAllocateMemory(logicalDevice, &memAlloc, nullptr, memory));
 	
 	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
@@ -175,7 +383,6 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMem
 
 	// Attach the memory to the buffer object
 	VK_CHECK_RESULT(vkBindBufferMemory(logicalDevice, *buffer, *memory, 0));
-
 	return VK_SUCCESS;
 }
 
@@ -187,10 +394,13 @@ VkResult ext::vulkan::Device::createBuffer(
 	void *data
 ) {
 	buffer.device = logicalDevice;
+	buffer.usageFlags = usageFlags;
+	buffer.memoryPropertyFlags = memoryPropertyFlags;
 
 	// Create the buffer handle
 	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usageFlags, size);
 	buffer.allocate( bufferCreateInfo );
+
 /*
 //	VK_CHECK_RESULT(vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer.buffer));
 	// Create the memory backing up the buffer handle
@@ -226,13 +436,96 @@ VkResult ext::vulkan::Device::createBuffer(
 	// Attach the memory to the buffer object
 	return buffer.bind();
 }
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum) {
+	return this->getCommandPool( queueEnum, std::this_thread::get_id() );
+}
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum ) {
+	return this->getQueue( queueEnum, std::this_thread::get_id() );
+}
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
+	uint32_t index = 0;
+	VkCommandPool* pool = NULL;
+	bool exists = false;
+	switch ( queueEnum ) {
+		case QueueEnum::GRAPHICS:
+			index = device.queueFamilyIndices.graphics;
+		//	if ( commandPool.graphics.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.graphics[id];
+			exists = commandPool.graphics.has(id);
+			pool = &commandPool.graphics.get(id);
+		break;
+		case QueueEnum::COMPUTE:
+			index = device.queueFamilyIndices.compute;
+		//	if ( commandPool.compute.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.compute[id];
+			exists = commandPool.compute.has(id);
+			pool = &commandPool.compute.get(id);
+		break;
+		case QueueEnum::TRANSFER:
+			index = device.queueFamilyIndices.transfer;
+		//	if ( commandPool.transfer.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.transfer[id];
+			exists = commandPool.transfer.has(id);
+			pool = &commandPool.transfer.get(id);
+		break;
+	}
+	if ( !exists ) {
+		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.queueFamilyIndex = index;
+		cmdPoolInfo.flags = createFlags;
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for graphics!");
+	}
+	return *pool;
+}
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
+	uint32_t index = 0;
+	VkQueue* queue = NULL;
+	bool exists = false;
+	switch ( queueEnum ) {
+		case QueueEnum::GRAPHICS:
+			index = device.queueFamilyIndices.graphics;
+			exists = queues.graphics.has(id);
+			queue = &queues.graphics.get(id);
+		//	if ( queues.graphics.count(id) > 0 ) exists = true;
+		//	queue = &queues.graphics[id];
+		break;
+		case QueueEnum::PRESENT:
+			index = device.queueFamilyIndices.present;
+			exists = queues.present.has(id);
+			queue = &queues.present.get(id);
+		//	if ( queues.present.count(id) > 0 ) exists = true;
+		//	queue = &queues.present[id];
+		break;
+		case QueueEnum::COMPUTE:
+			index = device.queueFamilyIndices.compute;
+			exists = queues.compute.has(id);
+			queue = &queues.compute.get(id);
+		//	if ( queues.compute.count(id) > 0 ) exists = true;
+		//	queue = &queues.compute[id];
+		break;
+		case QueueEnum::TRANSFER:
+			index = device.queueFamilyIndices.transfer;
+			exists = queues.transfer.has(id);
+			queue = &queues.transfer.get(id);
+		//	if ( queues.transfer.count(id) > 0 ) exists = true;
+		//	queue = &queues.transfer[id];
+		break;
+	}
+	if ( !exists ) {
+		vkGetDeviceQueue( device, index, 0, queue );
+	}
+	return *queue;
+}
 
-void ext::vulkan::Device::initialize() {
+void ext::vulkan::Device::initialize() {	
 	const std::vector<const char*> validationLayers = {
-		"VK_LAYER_LUNARG_standard_validation"
+		"VK_LAYER_KHRONOS_validation"
 	};
 	// Assert validation layers
-	if ( ext::vulkan::validation ) {
+	if ( ext::vulkan::settings::validation ) {
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 		std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -241,36 +534,59 @@ void ext::vulkan::Device::initialize() {
 			bool layerFound = false;
 			for ( const auto& layerProperties : availableLayers ) {
 				if ( strcmp(layerName, layerProperties.layerName) == 0 ) {
-					layerFound = true;
-					break;
+					layerFound = true; break;
 				}
 			}
-			if ( !layerFound )
-				throw std::runtime_error("validation layers requested, but not available!");
+			if ( !layerFound ) throw std::runtime_error("validation layers requested, but not available!");
 		}
 	}
+	// 
 	// Get extensions
+	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
+	// Load any requested extensions
+	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedInstanceExtensions.begin(), ext::vulkan::settings::requestedInstanceExtensions.end() );
+	// OpenVR Support
+	if ( ext::openvr::enabled ) VRInstanceExtensions(requestedExtensions);
+
 	{
-		supportedExtensions = window->getExtensions( ext::vulkan::validation );
+		if ( ext::vulkan::settings::validation )
+			for ( auto ext : requestedExtensions )
+				uf::iostream << "Requested instance extension: " << ext << "\n";
+
+		uint32_t extensionsCount = 0;
+		uint32_t enabledExtensionsCount = 0;
+		
+		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
+		extensionProperties.instance.resize(extensionsCount);
+		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, extensionProperties.instance.data() ) );
+
+		validateRequestedExtensions( extensionProperties.instance, requestedExtensions, supportedExtensions.instance );
 	}
 	// Create instance
 	{
+		std::vector<const char*> instanceExtensions;
+		for ( auto& s : supportedExtensions.instance ) {
+			if ( ext::vulkan::settings::validation )
+				uf::iostream << "Enabled instance extension: " << s << "\n";
+			instanceExtensions.push_back( s.c_str() );
+		}
+
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Program";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
 		appInfo.pEngineName = "Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
+		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 		VkInstanceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(supportedExtensions.size());
-		createInfo.ppEnabledExtensionNames = supportedExtensions.data();
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+		createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-		if ( ext::vulkan::validation ) {
+		if ( ext::vulkan::settings::validation ) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 			createInfo.ppEnabledLayerNames = validationLayers.data();
 		} else {
@@ -278,9 +594,17 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		VK_CHECK_RESULT( vkCreateInstance( &createInfo, nullptr, &this->instance ));
+
+		{
+			ext::json::Value payload = ext::json::array();
+			for ( auto* c_str : instanceExtensions ) {
+				payload.emplace_back( std::string(c_str) );
+			}
+			uf::hooks.call("vulkan:Instance.ExtensionsEnabled", payload);
+		}
 	}
 	// Setup debug
-	if ( ext::vulkan::validation ) {
+	if ( ext::vulkan::settings::validation ) {
 		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
 
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -315,25 +639,74 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Update properties
 	{
-		vkGetPhysicalDeviceProperties( this->physicalDevice, &properties );
-		// Features should be checked by the examples before using them
-		vkGetPhysicalDeviceFeatures( this->physicalDevice, &features );
-		// Memory properties are used regularly for creating all kinds of buffers
-		vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
+		{
+			vkGetPhysicalDeviceProperties( this->physicalDevice, &properties );
+			// Features should be checked by the examples before using them
+			vkGetPhysicalDeviceFeatures( this->physicalDevice, &features );
+			// Memory properties are used regularly for creating all kinds of buffers
+			vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
+		}
+		{
+			properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			memoryProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+
+			vkGetPhysicalDeviceProperties2( this->physicalDevice, &properties2 );
+			// Features should be checked by the examples before using them
+			vkGetPhysicalDeviceFeatures2( this->physicalDevice, &features2 );
+			// Memory properties are used regularly for creating all kinds of buffers
+			vkGetPhysicalDeviceMemoryProperties2( this->physicalDevice, &memoryProperties2 );
+		}
 		// Queue family properties, used for setting up requested queues upon device creation
 		uint32_t queueFamilyCount;
 		vkGetPhysicalDeviceQueueFamilyProperties( this->physicalDevice, &queueFamilyCount, nullptr );
 		// assert(queueFamilyCount > 0);
 		queueFamilyProperties.resize(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties( this->physicalDevice, &queueFamilyCount, queueFamilyProperties.data() );
+		{
+			VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+			uint8_t maxSamples = 1;
+			if (counts & VK_SAMPLE_COUNT_64_BIT) maxSamples = 64;
+			else if (counts & VK_SAMPLE_COUNT_32_BIT) maxSamples = 32;
+			else if (counts & VK_SAMPLE_COUNT_16_BIT) maxSamples = 16;
+			else if (counts & VK_SAMPLE_COUNT_8_BIT) maxSamples = 8;
+			else if (counts & VK_SAMPLE_COUNT_4_BIT) maxSamples = 4;
+			else if (counts & VK_SAMPLE_COUNT_2_BIT) maxSamples = 2;
+			ext::vulkan::settings::msaa = std::min( maxSamples, ext::vulkan::settings::msaa );
+		}
 	}
 	// Create logical device
 	{
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+		std::vector<std::string> requestedExtensions;
+		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
+		// OpenVR Support
+		if ( ext::openvr::enabled ) {
+			VRDeviceExtensions( this->physicalDevice, requestedExtensions);
+		}
+		{
+			// Allocate enough ExtensionProperties to support all extensions being enabled
+			if ( ext::vulkan::settings::validation )
+				for ( auto ext : requestedExtensions ) uf::iostream << "Requested device extension: " << ext << "\n";
+
+			uint32_t extensionsCount = 0;
+			uint32_t enabledExtensionsCount = 0;
+			
+			VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, NULL ));
+			extensionProperties.device.resize( extensionsCount );
+			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, extensionProperties.device.data() ) );
+			
+			validateRequestedExtensions( extensionProperties.device, requestedExtensions, supportedExtensions.device );
+		}
 		std::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
+		for ( auto& s : supportedExtensions.device ) {
+			if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled device extension: " << s << "\n";
+			deviceExtensions.push_back( s.c_str() );
+		}
+
 		// Desired queues need to be requested upon logical device creation
 		// Due to differing queue family configurations of Vulkan implementations this can be a bit tricky, especially if the application
 		// requests different queue types
@@ -392,6 +765,8 @@ void ext::vulkan::Device::initialize() {
 			deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 
+		enableRequestedDeviceFeatures( *this );
+
 		VkDeviceCreateInfo deviceCreateInfo = {};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());;
@@ -405,17 +780,26 @@ void ext::vulkan::Device::initialize() {
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS )
 			throw std::runtime_error("failed to create logical device!"); 
+
+		
+
+		{
+			uf::Serializer payload = ext::json::array();
+			for ( auto* c_str : deviceExtensions ) {
+				payload.emplace_back( std::string(c_str) );
+			}
+			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
+		}
+		{
+			uf::Serializer payload = retrieveDeviceFeatures( *this );
+			if ( ext::vulkan::settings::validation ) uf::iostream << payload.dump() << "\n";
+			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
+		}
 	}
 	// Create command pool
-	{
-		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.graphics;
-		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool!");
-	}
+	getCommandPool( QueueEnum::GRAPHICS );
+	getCommandPool( QueueEnum::COMPUTE );
+	getCommandPool( QueueEnum::TRANSFER );
 	// Set queue
 	{
 		uint32_t graphicsQueueNodeIndex = UINT32_MAX;
@@ -435,7 +819,7 @@ void ext::vulkan::Device::initialize() {
 				transferQueueNodeIndex = i;
 
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR( device.physicalDevice, i, surface, &presentSupport );
+			vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
 			if ( queueFamily.queueCount > 0 && presentSupport )
 				presentQueueNodeIndex = i;
 
@@ -445,17 +829,113 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
+		getQueue( QueueEnum::GRAPHICS );
+		getQueue( QueueEnum::PRESENT );
+		getQueue( QueueEnum::COMPUTE );
+		getQueue( QueueEnum::TRANSFER );
+	/*
+		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &queues.graphics[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &queues.present[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &queues.compute[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.transfer, 0, &queues.transfer[std::this_thread::get_id()] );
+	*/
+	}
+	// Set formats
+	{
+		std::vector<VkSurfaceFormatKHR> formats;
+		uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
+		formats.resize( formatCount );
+		vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
+		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
+		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_UNORM
+		if ( (formatCount == 1) && (formats[0].format == VK_FORMAT_UNDEFINED) ) {
+			ext::vulkan::settings::formats::color = VK_FORMAT_B8G8R8A8_UNORM;
+			ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+		} else {
+			// iterate over the list of available surface format and
+			// check for the presence of VK_FORMAT_B8G8R8A8_UNORM
+			bool found = false;
+			for ( auto&& surfaceFormat : formats ) {
+				if ( surfaceFormat.format == ext::vulkan::settings::formats::color ) {
+					ext::vulkan::settings::formats::color = surfaceFormat.format;
+					ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
+					found = true;
+					break;
+				}
+			}
+			if ( !found ) {
+				for ( auto&& surfaceFormat : formats ) {
+					if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
+						ext::vulkan::settings::formats::color = surfaceFormat.format;
+						ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
+						found = true;
+						break;
+					}
+				}
+				// in case VK_FORMAT_B8G8R8A8_UNORM is not available
+				// select the first available color format
+				if ( !found ) {
+					ext::vulkan::settings::formats::color = formats[0].format;
+					ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+				}
+			}
+		}
+	}
+	// Grab depth/stencil format
+	{
+		// Since all depth formats may be optional, we need to find a suitable depth format to use
+		// Start with the highest precision packed format
+		std::vector<VkFormat> depthFormats = {
+			VK_FORMAT_D32_SFLOAT_S8_UINT,
+			VK_FORMAT_D32_SFLOAT,
+			VK_FORMAT_D24_UNORM_S8_UINT,
+			VK_FORMAT_D16_UNORM_S8_UINT,
+			VK_FORMAT_D16_UNORM,
+			ext::vulkan::settings::formats::depth
+		};
 
-		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &graphicsQueue );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &presentQueue );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &computeQueue );
+		for ( auto& format : depthFormats ) {
+			VkFormatProperties formatProps;
+			vkGetPhysicalDeviceFormatProperties( this->physicalDevice, format, &formatProps );
+			// Format must support depth stencil attachment for optimal tiling
+			if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+				ext::vulkan::settings::formats::depth = format;
+			}
+		}
+	}
+	// create pipeline cache
+	{
+		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
+	}
+	// setup allocator
+	{
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+		allocatorInfo.physicalDevice = physicalDevice;
+		allocatorInfo.instance = instance;
+		allocatorInfo.device = logicalDevice;
+		vmaCreateAllocator(&allocatorInfo, &allocator);
 	}
 }
 
 void ext::vulkan::Device::destroy() {
-	if ( this->commandPool ) {
-		vkDestroyCommandPool( this->logicalDevice, this->commandPool, nullptr );
-		this->commandPool = nullptr;
+	if ( this->pipelineCache ) {
+		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
+		this->pipelineCache = nullptr;
+	}
+	for ( auto& pair : this->commandPool.graphics.container() ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
+	}
+	for ( auto& pair : this->commandPool.compute.container() ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
+	}
+	for ( auto& pair : this->commandPool.transfer.container() ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
 	}
 	if ( this->logicalDevice ) {
 		vkDestroyDevice( this->logicalDevice, nullptr );
@@ -473,4 +953,7 @@ void ext::vulkan::Device::destroy() {
 		vkDestroyInstance( this->instance, nullptr );
 		this->instance = nullptr;
 	}
+	vmaDestroyAllocator( allocator );
 }
+
+#endif

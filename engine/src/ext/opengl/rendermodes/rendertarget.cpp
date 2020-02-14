@@ -1,0 +1,62 @@
+#if UF_USE_OPENGL
+
+#include <uf/ext/opengl/opengl.h>
+#include <uf/ext/opengl/rendermodes/rendertarget.h>
+#include <uf/ext/opengl/initializers.h>
+#include <uf/utils/window/window.h>
+#include <uf/utils/graphic/graphic.h>
+#include <uf/ext/opengl/graphic.h>
+
+const std::string ext::opengl::RenderTargetRenderMode::getTarget() const {
+	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+	return metadata["target"].as<std::string>();
+}
+void ext::opengl::RenderTargetRenderMode::setTarget( const std::string& target ) {
+	this->metadata["target"] = target;
+}
+
+const std::string ext::opengl::RenderTargetRenderMode::getType() const {
+	return "RenderTarget";
+}
+const size_t ext::opengl::RenderTargetRenderMode::blitters() const {
+	return 1;
+}
+ext::opengl::Graphic* ext::opengl::RenderTargetRenderMode::getBlitter( size_t i ) {
+	return &this->blitter;
+}
+std::vector<ext::opengl::Graphic*> ext::opengl::RenderTargetRenderMode::getBlitters() {
+	return { &this->blitter };
+}
+
+ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
+	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
+	descriptor.parse(metadata["descriptor"]);
+	std::string type = metadata["type"].as<std::string>();
+	return descriptor;
+}
+
+void ext::opengl::RenderTargetRenderMode::initialize( Device& device ) {
+	ext::opengl::RenderMode::initialize( device );
+
+}
+
+void ext::opengl::RenderTargetRenderMode::tick() {
+	ext::opengl::RenderMode::tick();
+}
+void ext::opengl::RenderTargetRenderMode::destroy() {
+	ext::opengl::RenderMode::destroy();
+	blitter.destroy();
+}
+void ext::opengl::RenderTargetRenderMode::render() {
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+}
+void ext::opengl::RenderTargetRenderMode::pipelineBarrier( GLhandle(VkCommandBuffer) commandBuffer, uint8_t state ) {
+}
+void ext::opengl::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::opengl::Graphic*>& graphics ) {
+	// destroy if exists
+	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
+	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
+
+}
+
+#endif

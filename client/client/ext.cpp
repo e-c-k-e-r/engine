@@ -6,8 +6,8 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/spec/terminal/terminal.h>
 #include <uf/utils/hook/hook.h>
-
-#include <uf/ext/vulkan/vulkan.h>
+#include <uf/utils/thread/thread.h>
+#include <uf/utils/renderer/renderer.h>
 
 bool client::ready = false;
 bool client::terminated = false;
@@ -15,39 +15,18 @@ uf::Window client::window;
 uf::Serializer client::config;
 
 void client::initialize() {
-//	spec::Context::globalInit();
 	uf::IoStream::ncurses = true;
-	ext::vulkan::device.window = &client::window;
+	uf::renderer::device.window = &client::window;
+
+	ext::load();
+
 	/* Initialize config */ {
 		struct {
 			uf::Serializer ext;
 			uf::Serializer fallback;
 		} config;
 		/* Get configuration */ {
-			config.ext = ext::getConfig();
-		}
-		/* Initialize default configuration */ {
-			config.fallback["terminal"]["visible"] 				= true;
-			config.fallback["terminal"]["ncurses"] 				= true;
-			config.fallback["window"]["title"] 					= "[uf] Grimgram";
-			config.fallback["window"]["icon"] 					= "./cfg/icon.png";
-			config.fallback["window"]["size"]["x"] 				= 640;
-			config.fallback["window"]["size"]["y"] 				= 480;
-			config.fallback["window"]["visible"] 				= true;
-			config.fallback["window"]["fullscreen"] 			= false;
-			config.fallback["cursor"]["visible"] 				= true;
-			config.fallback["keyboard"]["repeat"] 				= true;
-			config.fallback["hook"]["mode"] 					= "Readable";
-			config.fallback["light"]["ambient"]["g"] 			= 0.0f;
-			config.fallback["light"]["ambient"]["b"] 			= 0.0f;
-			config.fallback["light"]["ambient"]["a"] 			= 1.0f;
-
-			config.fallback["context"]["depthBits"] 			= 24;
-			config.fallback["context"]["stencilBits"] 			= 4;
-			config.fallback["context"]["bitsPerPixel"] 			= 8;
-			config.fallback["context"]["antialiasingLevel"] 	= 0;
-			config.fallback["context"]["majorVersion"] 			= 3;
-			config.fallback["context"]["minorVersion"] 			= 0;
+			config.ext = ext::config.serialize();
 		}
 		/* Merge */ {
 			client::config = config.ext;
@@ -57,42 +36,43 @@ void client::initialize() {
 	/* Initialize window */ {
 		// Window size
 		pod::Vector2i size; {
-			size.x = client::config["window"]["size"]["x"].asUInt();
-			size.y = client::config["window"]["size"]["y"].asUInt();
+			size.x = client::config["window"]["size"]["x"].as<size_t>();
+			size.y = client::config["window"]["size"]["y"].as<size_t>();
+			// request system size
+			if ( size.x <= 0 && size.y <= 0 ) {
+				auto resolution = client::window.getResolution();
+				client::config["window"]["size"]["x"] = (size.x = resolution.x);
+				client::config["window"]["size"]["y"] = (size.y = resolution.y);
+			}
 		}
 		// Window title
 		uf::String title; {
-			title = client::config["window"]["title"].asString();
+			title = client::config["window"]["title"].as<std::string>();
 		}
 		// Terminal window;
-		spec::terminal.setVisible( client::config["terminal"]["visible"].asBool() );
+		spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].as<bool>() );
 		// Ncurses
-		uf::IoStream::ncurses = client::config["terminal"]["ncurses"].asBool();
+		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].as<bool>();
 
 		// Window's context settings
-		spec::Context::Settings settings; {
-			settings.depthBits 			= client::config["context"]["depthBits"].asUInt();
-			settings.stencilBits 		= client::config["context"]["stencilBits"].asUInt();
-			settings.bitsPerPixel 		= client::config["context"]["bitsPerPixel"].asUInt();
-			settings.antialiasingLevel 	= client::config["context"]["antialiasingLevel"].asUInt();
-			settings.majorVersion 		= client::config["context"]["majorVersion"].asUInt();
-			settings.minorVersion 		= client::config["context"]["minorVersion"].asUInt();
-		}
-		ext::vulkan::width = size.x;
-		ext::vulkan::height = size.y;
-		client::window.create( size, title, settings );
+		uf::renderer::settings::width = size.x;
+		uf::renderer::settings::height = size.y;
+		client::window.create( size, title );
+
+		// Set refresh rate
+		ext::config["window"]["refresh rate"] = client::window.getRefreshRate();
 
 		// Miscellaneous
-		client::window.setVisible(client::config["window"]["visible"].asBool());
-		client::window.setCursorVisible(client::config["cursor"]["visible"].asBool());
-		client::window.setKeyRepeatEnabled(client::config["keyboard"]["repeat"].asBool());
+		client::window.setVisible(client::config["window"]["visible"].as<bool>());
+		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].as<bool>());
+		client::window.setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].as<bool>());
 	//	client::window.centerWindow();
 	//	client::window.setPosition({0, 0});
 	//	client::window.setMouseGrabbed(true);
 
-		/* Set Icon */ {
+		/* Set Icon */ if ( client::config["window"]["icon"].is<std::string>() ) {
 			uf::Image icon;
-			icon.open(client::config["window"]["icon"].asString());
+			icon.open(client::config["window"]["icon"].as<std::string>());
 			client::window.setIcon({(int) icon.getDimensions().x, (int) icon.getDimensions().y}, ((uint8_t*)icon.getPixelsPtr()));
 		}
 		client::window.setTitle(title); {
@@ -103,26 +83,15 @@ void client::initialize() {
 			json["window"]["title"] = std::string(title);
 			uf::hooks.call( hook, json );
 		}
-		uf::hooks.shouldPreferReadable();
-		if ( client::config["hook"]["mode"] == "Readable" ) {}
-	}
-	/* Initialize OpenGL */ {
 	/*
-		if ( !ext::gl.initialize() ) {
-			std::cerr << "[ERROR] GL failed to initialize!" << std::endl;
-			std::exit(EXIT_SUCCESS);
-			return;
-		}
+		uf::hooks.shouldPreferReadable();
+		if ( client::config["engine"]["hook"]["mode"] == "Readable" ) {
 
-		pod::Vector4f ambient;
-		ambient.x = client::config["light"]["ambient"]["r"].asDouble();
-		ambient.y = client::config["light"]["ambient"]["g"].asDouble();
-		ambient.z = client::config["light"]["ambient"]["b"].asDouble();
-		ambient.w = client::config["light"]["ambient"]["a"].asDouble();
-		glClearColor(ambient.x, ambient.y, ambient.z, ambient.w);
+		}
 	*/
 	}
 
+	#if UF_USE_OPENAL
 	/* Initialize OpenAL */ {
 		if ( !ext::oal.initialize() ) {
 			std::cerr << "[ERROR] AL failed to initialize!" << std::endl;
@@ -130,57 +99,52 @@ void client::initialize() {
 			return;
 		}
 	}
+	#endif
 	
 	/* Initialize hooks */ {
-		if ( client::config["hook"]["mode"] == "Both" || client::config["hook"]["mode"] == "Readable" ) {
-			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
-				client::window.setCursorVisible(json["state"].asBool());
-				client::window.setMouseGrabbed(!json["state"].asBool());
-				client::config["mouse"]["visible"] = json["state"].asBool();
-				return "true";
+	//	if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
+			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const ext::json::Value& json){
+				client::window.setCursorVisible(json["state"].as<bool>());
+				client::window.setMouseGrabbed(!json["state"].as<bool>());
+				client::config["mouse"]["visible"] = json["state"].as<bool>();
+				client::config["window"]["mouse"]["center"] = !json["state"].as<bool>();
 			});
-			uf::hooks.addHook( "window:Mouse.Lock", [&](const std::string& event)->std::string{
+			uf::hooks.addHook( "window:Mouse.Lock", [&](const ext::json::Value& json){
 				if ( client::window.hasFocus() ) {
 					client::window.setMousePosition(client::window.getSize()/2);
 				}
-				return "true";
 			});
-			uf::hooks.addHook( "window:Closed", [&](const std::string& event)->std::string{
+			uf::hooks.addHook( "window:Closed", [&](const ext::json::Value& json){
 				client::ready = false;
 			//	std::exit(EXIT_SUCCESS);
-				return "true";
 			} );
-			uf::hooks.addHook( "window:Title.Changed", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
+			uf::hooks.addHook( "window:Title.Changed", [&](const ext::json::Value& json){
 				if ( json["invoker"] != "os" ) {
-					if ( !json["window"].isObject() ) return "false";
-					uf::String title = json["window"]["title"].asString();
+					if ( !ext::json::isObject( json["window"] ) ) return;
+					uf::String title = json["window"]["title"].as<std::string>();
 					client::window.setTitle(title);
 				}
-				return "true";
 			} );
-			uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
+			uf::hooks.addHook( "window:Resized", [&](const ext::json::Value& json){
 				pod::Vector2i size; {
-					size.x = json["window"]["size"]["x"].asUInt64();
-					size.y = json["window"]["size"]["y"].asUInt64();
+					size.x = json["window"]["size"]["x"].as<size_t>();
+					size.y = json["window"]["size"]["y"].as<size_t>();
 				}
 				if ( json["invoker"] != "os" ) {
 					client::window.setSize(size);
 				}
 				// Update viewport
-			//	glViewport( 0, 0, size.x, size.y );
-			//	client::window.centerWindow();
+				if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
+					float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<double>() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>() : 1;
+					uf::renderer::settings::width = size.x * scale;
+					uf::renderer::settings::height = size.y * scale;
+				}
 
-				ext::vulkan::width = size.x;
-				ext::vulkan::height = size.y;
-
-				ext::vulkan::swapchain.rebuild = true;
-
-				return "true";
+				uf::renderer::states::resized = true;
 			} );
-		} else if ( client::config["hook"]["mode"] == "Both" || client::config["hook"]["mode"] == "Optimal" ) {
+	/*
+		}
+		else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {
 			uf::hooks.addHook( "window:Closed", [&](const uf::OptimalHook::argument_t& userdata)->uf::OptimalHook::return_t{
 				client::ready = false;
 				std::exit(EXIT_SUCCESS);
@@ -218,12 +182,13 @@ void client::initialize() {
 					client::window.setSize(hook.window.size);
 				}
 				// Update viewport
-			//	glViewport( 0, 0, hook.window.size.x, hook.window.size.y );
 				return NULL;
 			} );
 		}
+	*/
 	}
-	if ( client::config["window"]["fullscreen"].asBool() ) client::window.switchToFullscreen();
+	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
+	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
 	client::ready = true;
 }
 void client::tick() {
@@ -231,11 +196,11 @@ void client::tick() {
 	client::window.pollEvents();
 	// call mouse move
 	// query lock
-	if ( client::window.hasFocus() && !client::config["mouse"]["visible"].asBool() ) {
+	if ( client::window.hasFocus() && client::config["window"]["mouse"]["center"].as<bool>() ) {
 		auto previous = client::window.getMousePosition();
 		client::window.setMousePosition(client::window.getSize()/2);
 		auto current = client::window.getMousePosition();
-		// std::cout << "Delta: (" << current.x - previous.x << ", " << current.y - previous.y << ")" << std::endl;
+
 		auto size = client::window.getSize();
 		uf::Serializer payload;
 		payload["invoker"] = "client";
@@ -280,22 +245,18 @@ void client::render() {
 	client::window.display();
 }
 
-#include <uf/utils/thread/thread.h>
 void client::terminate() {
 	/* Close Threads */ {
 		uf::thread::terminate();
 	}
 
-	/* Close vulkan */ {
-		ext::vulkan::destroy();
-	}
-
 	client::window.terminate();
-//	spec::Context::globalCleanup();
 
+	#if UF_USE_BULLET
 	if ( !ext::oal.terminate() ) {
 		std::cerr << "[ERROR] AL failed to terminate!" << std::endl;
 		std::exit(EXIT_SUCCESS);
 		return;
 	}
+	#endif
 }

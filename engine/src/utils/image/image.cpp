@@ -1,9 +1,16 @@
 #include <uf/utils/image/image.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/string/hash.h>
 #include <uf/utils/io/iostream.h>
 #include <fstream> 					// std::fstream
 #include <iostream> 				// std::fstream
 #include <png/png.h> 				// libpng
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <gltf/stb_image.h>
+#include <gltf/stb_image_write.h>
+
 // 	C-tor
 // Default
 uf::Image::Image() :
@@ -58,22 +65,19 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 
 }
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 std::string uf::Image::getFilename() const {
 	return this->m_filename;
 }
 
 // from file
-bool uf::Image::open( const std::string& filename ) {
-	if ( !uf::string::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
+bool uf::Image::open( const std::string& filename, bool flip ) {
+	if ( !uf::io::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
-	std::string extension = uf::string::extension(filename);
+	std::string extension = uf::io::extension(filename);
+#if 0
 	if ( extension == "png" ) {
 		uint mode = 2;
-		if ( mode == 1 ) {
 			png_byte header[8];
 			FILE* file = fopen(filename.c_str(), "rb");
 
@@ -166,28 +170,60 @@ bool uf::Image::open( const std::string& filename ) {
 		//		this->convert(uf::Image::Format::RGBA, 32);
 			}
 		*/
-		} else if ( mode == 2 ) {
-			int width, height, channels, bit_depth;
-			bit_depth = 8;
-			stbi_set_flip_vertically_on_load(true);
-			unsigned char* buffer = stbi_load(
-				filename.c_str(),
-				&width,
-				&height,
-				&channels,
-				STBI_rgb_alpha
-			);
-			uint len = width * height * channels;
-			this->m_dimensions.x = width;
-			this->m_dimensions.y = height;
-			this->m_bpp = bit_depth * channels;
-			this->m_channels = channels;
-			this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
-			stbi_image_free(buffer);
-		}
 		return true;
 	}
 	return true;
+#else
+	int width, height, channels, bit_depth;
+	bit_depth = 8;
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* buffer = stbi_load(
+		filename.c_str(),
+		&width,
+		&height,
+		&channels,
+		STBI_rgb_alpha
+	);
+	channels = 4;
+	uint len = width * height * channels;
+	this->m_dimensions.x = width;
+	this->m_dimensions.y = height;
+	this->m_bpp = bit_depth * channels;
+	this->m_channels = channels;
+	this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+/*
+	if ( this->m_channels != 4 ) {
+		std::string from = "";
+		switch ( this->m_channels ) {
+			case 1: from = "r"; break;
+			case 2: from = "ra"; break;
+			case 3: from = "rgb"; break;
+		}
+		this->convert(from);
+	}
+	std::cout << "Hash of " << filename << ": " << uf::string::sha256( uf::io::readAsBuffer(filename) ) << std::endl;
+*/
+
+	stbi_image_free(buffer);
+	return true;
+#endif
+}
+void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
+	this->m_dimensions = size;
+	this->m_bpp = bit_depth * channels;
+	this->m_channels = channels;
+
+	size_t len = size.x * size.y * channels;
+	this->m_pixels.clear();
+	this->m_pixels.resize( len );
+	//for ( size_t i = 0; i < len; ++i ) this->m_pixels[i] = pointer[i];
+	if ( pointer ) {
+		memcpy( &this->m_pixels[0], pointer, len );
+	} else {
+		memset( &this->m_pixels[0], 0, len );
+	}
+
+	if ( flip ) this->flip();
 }
 void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;
@@ -195,17 +231,18 @@ void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::
 	this->m_channels = channels;
 	this->m_pixels = container;
 
+	if ( flip ) this->flip();
+}
+void uf::Image::flip() {
+	auto w = this->m_dimensions.x;
+	auto h = this->m_dimensions.y;
 	uint8_t* pixels = &this->m_pixels[0];
-	if ( flip ) {
-		auto w = this->m_dimensions.x;
-		auto h = this->m_dimensions.y;
-		for (uint j = 0; j * 2 < h; ++j) {
-			uint x = j * w * this->m_bpp/8;
-			uint y = (h - 1 - j) * w * this->m_bpp/8;
-			for (uint i = w * this->m_bpp/8; i > 0; --i) {
-				std::swap( pixels[x], pixels[y] );
-				++x, ++y;
-			}
+	for (uint j = 0; j * 2 < h; ++j) {
+		uint x = j * w * this->m_bpp/8;
+		uint y = (h - 1 - j) * w * this->m_bpp/8;
+		for (uint i = w * this->m_bpp/8; i > 0; --i) {
+			std::swap( pixels[x], pixels[y] );
+			++x, ++y;
 		}
 	}
 }
@@ -269,8 +306,16 @@ void uf::Image::copy( const Image::container_t& copy, const Image::vec2_t& size 
 	this->m_pixels = copy;
 	this->m_dimensions = size;
 }
+void uf::Image::copy( const uf::Image& copy ) {
+	this->m_pixels = copy.m_pixels;
+	this->m_dimensions = copy.m_dimensions;
+	this->m_bpp = copy.m_bpp;
+	this->m_channels = copy.m_channels;
+	this->m_filename = copy.m_filename;
+}
 // 	D-tor
 uf::Image::~Image() {
+	this->clear();
 }
 // empties pixel container
 void uf::Image::clear() {
@@ -308,6 +353,9 @@ std::size_t& uf::Image::getChannels() {
 std::size_t uf::Image::getChannels() const {
 	return this->m_channels;
 }
+std::string uf::Image::getHash() const {
+	return uf::string::sha256( this->m_pixels );
+}
 uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 	std::size_t i = at.x * this->m_channels + this->m_dimensions.x*this->m_channels*at.y;
 	uf::Image::pixel_t pixel;
@@ -323,71 +371,101 @@ bool uf::Image::save( const std::string& filename, bool flip ) {
 	uint w = this->m_dimensions.x;
 	uint h = this->m_dimensions.y;
 	uint8_t* pixels = &this->m_pixels[0];
-
-	if ( flip )
-		for (uint j = 0; j * 2 < h; ++j) {
-			uint x = j * w * this->m_bpp/8;
-			uint y = (h - 1 - j) * w * this->m_bpp/8;
-			for (uint i = w * this->m_bpp/8; i > 0; --i) {
-				std::swap( pixels[x], pixels[y] );
-				++x, ++y;
-			/*
-				uint8_t tmp = pixels[x];
-				pixels[x] = pixels[y];
-				pixels[y] = tmp;
-				++x;
-				++y;
-			*/
+	std::string extension = uf::io::extension(filename);
+	if ( extension == "png" ) {
+		if ( flip )
+			for (uint j = 0; j * 2 < h; ++j) {
+				uint x = j * w * this->m_bpp/8;
+				uint y = (h - 1 - j) * w * this->m_bpp/8;
+				for (uint i = w * this->m_bpp/8; i > 0; --i) {
+					std::swap( pixels[x], pixels[y] );
+					++x, ++y;
+				}
 			}
+	#if 0
+		png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+		if (!png)
+			return false;
+
+		png_infop info = png_create_info_struct(png);
+		if (!info) {
+			png_destroy_write_struct(&png, &info);
+			return false;
 		}
 
+		FILE *fp = fopen(filename.c_str(), "wb");
+		if (!fp) {
+			png_destroy_write_struct(&png, &info);
+			return false;
+		}
 
-	png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (!png)
-		return false;
+		png_init_io(png, fp);
+		png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		if ( this->m_channels == 4 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		if ( this->m_channels == 3 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		png_colorp palette = (png_colorp)png_malloc(png, PNG_MAX_PALETTE_LENGTH * sizeof(png_color));
+		if (!palette) {
+			fclose(fp);
+			png_destroy_write_struct(&png, &info);
+			return false;
+		}
+		png_set_PLTE(png, info, palette, PNG_MAX_PALETTE_LENGTH);
+		png_write_info(png, info);
+		png_set_packing(png);
 
-	png_infop info = png_create_info_struct(png);
-	if (!info) {
+		png_bytepp rows = (png_bytepp)png_malloc(png, h * sizeof(png_bytep));
+		for (uint i = 0; i < h; ++i)
+			rows[i] = (png_bytep)(pixels + (h - i - 1) * w * this->m_bpp/8);
+
+		png_write_image(png, rows);
+		png_write_end(png, info);
+		png_free(png, palette);
 		png_destroy_write_struct(&png, &info);
-		return false;
-	}
 
-	FILE *fp = fopen(filename.c_str(), "wb");
-	if (!fp) {
-		png_destroy_write_struct(&png, &info);
-		return false;
-	}
-
-	png_init_io(png, fp);
-	png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	if ( this->m_channels == 4 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	if ( this->m_channels == 3 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	png_colorp palette = (png_colorp)png_malloc(png, PNG_MAX_PALETTE_LENGTH * sizeof(png_color));
-	if (!palette) {
 		fclose(fp);
-		png_destroy_write_struct(&png, &info);
-		return false;
+		delete[] rows;
+	#endif
+		stbi_write_png(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
+	} else if ( extension == "jpg" || extension == "jpeg" ) {
+		stbi_write_jpg(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
 	}
-	png_set_PLTE(png, info, palette, PNG_MAX_PALETTE_LENGTH);
-	png_write_info(png, info);
-	png_set_packing(png);
-
-	png_bytepp rows = (png_bytepp)png_malloc(png, h * sizeof(png_bytep));
-	for (uint i = 0; i < h; ++i)
-		rows[i] = (png_bytep)(pixels + (h - i - 1) * w * this->m_bpp/8);
-
-	png_write_image(png, rows);
-	png_write_end(png, info);
-	png_free(png, palette);
-	png_destroy_write_struct(&png, &info);
-
-	fclose(fp);
-	delete[] rows;
 	return true;
 }
 // to stream
 void uf::Image::save( std::ostream& stream ) {
 
+}
+#include <uf/utils/string/ext.h>
+void uf::Image::convert( const std::string& from, const std::string& to ) {
+	uf::Image::container_t pixels = std::move(this->m_pixels);
+	if ( uf::string::lowercase(to) != "rgba" ) {
+	} else {
+		this->m_pixels.reserve(this->m_dimensions.x * this->m_dimensions.y * 4);
+		for ( size_t i = 0; i < this->m_dimensions.x * this->m_dimensions.y * this->m_channels; i += this->m_channels ) {
+			if ( uf::string::lowercase(from) == "r" ) {
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( 0xFF );
+			} else if ( uf::string::lowercase(from) == "ra" ) {
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+1] );
+			} else if ( uf::string::lowercase(from) == "rgba" ) {
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+1] );
+				this->m_pixels.emplace_back( pixels[i+2] );
+				this->m_pixels.emplace_back( 0xFF );
+			}
+		}
+	}
+	if ( !this->m_pixels.empty() ) {
+		this->m_channels = 4;
+		this->m_bpp = 8 * this->m_channels;
+	} else {
+		this->m_pixels = std::move(pixels);
+	}
 }
 // Merges one image on top of another
 uf::Image uf::Image::overlay(const Image& top, const Image::vec2_t& corner) const {
@@ -399,6 +477,7 @@ uf::Image uf::Image::replace(const Image::pixel_t& from, const Image::pixel_t& t
 }
 // Crops an image
 uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& end) const {
+	return *this;
 /*
 	uf::Vector2ui size = parameter;
 	if ( mode == uf::Image::CropMode::START_SPAN_SIZE ) size = parameter;
@@ -436,4 +515,13 @@ uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& 
 	image.format = this->format;
 	return image;
 */
+}
+
+uf::Image& uf::Image::operator=( const uf::Image& copy ) {
+	this->m_pixels = copy.m_pixels;
+	this->m_dimensions = copy.m_dimensions;
+	this->m_bpp = copy.m_bpp;
+	this->m_channels = copy.m_channels;
+	this->m_filename = copy.m_filename;
+	return *this;
 }

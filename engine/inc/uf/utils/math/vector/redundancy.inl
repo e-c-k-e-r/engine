@@ -1,155 +1,101 @@
-namespace pod {
-	template<typename T>
-	struct UF_API Vector<T,1> {			
-	// 	XY access
-		T x;
-	// 	n-dimensional/unspecialized vector access
-	//	T* components = (T*) this;
-	// 	POD information
-		typedef T type_t;
-		typedef T* container_t;
-		static const std::size_t size = 1;
-	// 	Overload access
-		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
-		// Arithmetic
-		inline Vector<T,1> operator()() const; 								// 	Creation
-		inline Vector<T,1> operator-() const; 								// 	Negation
-		inline Vector<T,1> operator+( const Vector<T,1>& vector ) const; 	// 	Addition between two vectors
-		inline Vector<T,1> operator-( const Vector<T,1>& vector ) const; 	// 	Subtraction between two vectors
-		inline Vector<T,1> operator*( const Vector<T,1>& vector ) const; 	// 	Multiplication between two vectors
-		inline Vector<T,1> operator/( const Vector<T,1>& vector ) const; 	// 	Division between two vectors
-		inline Vector<T,1> operator*( T scalar ) const; 					// 	Multiplication with scalar
-		inline Vector<T,1> operator/( T scalar ) const; 					// 	Division with scalar
-		inline Vector<T,1>& operator +=( const Vector<T,1>& vector ); 		// 	Addition set between two vectors
-		inline Vector<T,1>& operator -=( const Vector<T,1>& vector ); 		// 	Subtraction set between two vectors
-		inline Vector<T,1>& operator *=( const Vector<T,1>& vector ); 		// 	Multiplication set between two vectors
-		inline Vector<T,1>& operator /=( const Vector<T,1>& vector ); 		// 	Division set between two vectors
-		inline Vector<T,1>& operator *=( T scalar ); 						// 	Multiplication set with scalar
-		inline Vector<T,1>& operator /=( T scalar ); 						// 	Division set with scalar
-		inline bool operator==( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (equals)
-		inline bool operator!=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (not equals)
-		inline bool operator<( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (less than)
-		inline bool operator<=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
-		inline bool operator>( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than)
-		inline bool operator>=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
-	};
-	template<typename T>
-	struct UF_API Vector<T,2> {			
-	// 	XY access
-		T x;
-		T y;
-	// 	n-dimensional/unspecialized vector access
-	//	T* components = (T*) this;
-	// 	POD information
-		typedef T type_t;
-		typedef T* container_t;
-		static const std::size_t size = 2;
-	// 	Overload access
-		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
-		// Arithmetic
-		inline Vector<T,2> operator()() const; 								// 	Creation
-		inline Vector<T,2> operator-() const; 								// 	Negation
-		inline Vector<T,2> operator+( const Vector<T,2>& vector ) const; 	// 	Addition between two vectors
-		inline Vector<T,2> operator-( const Vector<T,2>& vector ) const; 	// 	Subtraction between two vectors
-		inline Vector<T,2> operator*( const Vector<T,2>& vector ) const; 	// 	Multiplication between two vectors
-		inline Vector<T,2> operator/( const Vector<T,2>& vector ) const; 	// 	Division between two vectors
-		inline Vector<T,2> operator*( T scalar ) const; 					// 	Multiplication with scalar
-		inline Vector<T,2> operator/( T scalar ) const; 					// 	Division with scalar
-		inline Vector<T,2>& operator +=( const Vector<T,2>& vector ); 		// 	Addition set between two vectors
-		inline Vector<T,2>& operator -=( const Vector<T,2>& vector ); 		// 	Subtraction set between two vectors
-		inline Vector<T,2>& operator *=( const Vector<T,2>& vector ); 		// 	Multiplication set between two vectors
-		inline Vector<T,2>& operator /=( const Vector<T,2>& vector ); 		// 	Division set between two vectors
-		inline Vector<T,2>& operator *=( T scalar ); 						// 	Multiplication set with scalar
-		inline Vector<T,2>& operator /=( T scalar ); 						// 	Division set with scalar
-		inline bool operator==( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (equals)
-		inline bool operator!=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (not equals)
-		inline bool operator<( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (less than)
-		inline bool operator<=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
-		inline bool operator>( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than)
-		inline bool operator>=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
-	};
-	template<typename T>
-	struct UF_API Vector<T,3> {
-	// 	XYZ access
-		T x;
-		T y;
-		T z;
-	// 	n-dimensional/unspecialized vector access
-	//	T* components = (T*) this;
-	// 	POD information
-		typedef T type_t;
-		typedef T* container_t;
-		static const std::size_t size = 3;
-	// 	Overload access
-		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
-		// Arithmetic
-		inline Vector<T,3> operator()() const; 								// 	Creation
-		inline Vector<T,3> operator-() const; 								// 	Negation
-		inline Vector<T,3> operator+( const Vector<T,3>& vector ) const; 	// 	Addition between two vectors
-		inline Vector<T,3> operator-( const Vector<T,3>& vector ) const; 	// 	Subtraction between two vectors
-		inline Vector<T,3> operator*( const Vector<T,3>& vector ) const; 	// 	Multiplication between two vectors
-		inline Vector<T,3> operator/( const Vector<T,3>& vector ) const; 	// 	Division between two vectors
-		inline Vector<T,3> operator*( T scalar ) const; 					// 	Multiplication with scalar
-		inline Vector<T,3> operator/( T scalar ) const; 					// 	Division with scalar
-		inline Vector<T,3>& operator +=( const Vector<T,3>& vector ); 		// 	Addition set between two vectors
-		inline Vector<T,3>& operator -=( const Vector<T,3>& vector ); 		// 	Subtraction set between two vectors
-		inline Vector<T,3>& operator *=( const Vector<T,3>& vector ); 		// 	Multiplication set between two vectors
-		inline Vector<T,3>& operator /=( const Vector<T,3>& vector ); 		// 	Division set between two vectors
-		inline Vector<T,3>& operator *=( T scalar ); 						// 	Multiplication set with scalar
-		inline Vector<T,3>& operator /=( T scalar ); 						// 	Division set with scalar
-		inline bool operator==( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (equals)
-		inline bool operator!=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (not equals)
-		inline bool operator<( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (less than)
-		inline bool operator<=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
-		inline bool operator>( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (greater than)
-		inline bool operator>=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
-	};
-	template<typename T>
-	struct UF_API Vector<T,4> {
-	// 	XYZW access
-		T x;
-		T y;
-		T z;
-		T w;
-	// 	n-dimensional/unspecialized vector access
-	//	T* components = (T*) this;
-	// 	POD information
-		typedef T type_t;
-		typedef T* container_t;
-		static const std::size_t size = 4;
-	// 	Overload access
-		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
-		// Arithmetic
-		inline Vector<T,4> operator()() const; 								// 	Creation
-		inline Vector<T,4> operator-() const; 								// 	Negation
-		inline Vector<T,4> operator+( const Vector<T,4>& vector ) const; 	// 	Addition between two vectors
-		inline Vector<T,4> operator-( const Vector<T,4>& vector ) const; 	// 	Subtraction between two vectors
-		inline Vector<T,4> operator*( const Vector<T,4>& vector ) const; 	// 	Multiplication between two vectors
-		inline Vector<T,4> operator/( const Vector<T,4>& vector ) const; 	// 	Division between two vectors
-		inline Vector<T,4> operator*( T scalar ) const; 					// 	Multiplication with scalar
-		inline Vector<T,4> operator/( T scalar ) const; 					// 	Division with scalar
-		inline Vector<T,4>& operator +=( const Vector<T,4>& vector ); 		// 	Addition set between two vectors
-		inline Vector<T,4>& operator -=( const Vector<T,4>& vector ); 		// 	Subtraction set between two vectors
-		inline Vector<T,4>& operator *=( const Vector<T,4>& vector ); 		// 	Multiplication set between two vectors
-		inline Vector<T,4>& operator /=( const Vector<T,4>& vector ); 		// 	Division set between two vectors
-		inline Vector<T,4>& operator *=( T scalar ); 						// 	Multiplication set with scalar
-		inline Vector<T,4>& operator /=( T scalar ); 						// 	Division set with scalar
-		inline bool operator==( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (equals)
-		inline bool operator!=( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (not equals)
-		inline bool operator<( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (less than)
-		inline bool operator<=( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
-		inline bool operator>( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (greater than)
-		inline bool operator>=( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
-	};
+//
+//
+template<typename T, std::size_t N>
+T& pod::Vector<T,N>::operator[](std::size_t i) {
+	return this->components[i];
 }
+template<typename T, std::size_t N>
+const T& pod::Vector<T,N>::operator[](std::size_t i) const {
+	return this->components[i];
+}
+// Arithmetic
+template<typename T, std::size_t N> 												// 	Negation
+inline pod::Vector<T,N> pod::Vector<T,N>::operator-() const {
+	return uf::vector::negate( *this );
+}			
+template<typename T, std::size_t N> 												// 	Addition between two vectors
+inline pod::Vector<T,N> pod::Vector<T,N>::operator+( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::add( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Subtraction between two vectors
+inline pod::Vector<T,N> pod::Vector<T,N>::operator-( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::subtract( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Multiplication between two vectors
+inline pod::Vector<T,N> pod::Vector<T,N>::operator*( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::multiply( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Division between two vectors
+inline pod::Vector<T,N> pod::Vector<T,N>::operator/( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::divide( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Multiplication with scalar
+inline pod::Vector<T,N> pod::Vector<T,N>::operator*( T scalar ) const {
+	return uf::vector::multiply( *this, scalar );
+}
+template<typename T, std::size_t N> 												// 	Division with scalar
+inline pod::Vector<T,N> pod::Vector<T,N>::operator/( T scalar ) const {
+	return uf::vector::divide( *this, scalar );
+}
+template<typename T, std::size_t N> 												// 	Addition set between two vectors
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator +=( const pod::Vector<T,N>& vector ) {
+	return uf::vector::add( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Subtraction set between two vectors
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator -=( const pod::Vector<T,N>& vector ) {
+	return uf::vector::subtract( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Multiplication set between two vectors
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator *=( const pod::Vector<T,N>& vector ) {
+	return uf::vector::multiply( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Division set between two vectors
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator /=( const pod::Vector<T,N>& vector ) {
+	return uf::vector::divide( *this, vector );
+}
+template<typename T, std::size_t N> 												// 	Multiplication set with scalar
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator *=( T scalar ) {
+	return uf::vector::multiply( *this, scalar );
+}
+template<typename T, std::size_t N> 												// 	Division set with scalar
+inline pod::Vector<T,N>& pod::Vector<T,N>::operator /=( T scalar ) {
+	return uf::vector::divide( *this, scalar );
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (equals)
+inline bool pod::Vector<T,N>::operator==( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::equals(*this, vector);
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (not equals)
+inline bool pod::Vector<T,N>::operator!=( const pod::Vector<T,N>& vector ) const {
+	return !uf::vector::equals(*this, vector);
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (less than)
+inline bool pod::Vector<T,N>::operator<( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::compareTo(vector) < 0;
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (less than or equals)
+inline bool pod::Vector<T,N>::operator<=( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::compareTo(vector) <= 0;
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (greater than)
+inline bool pod::Vector<T,N>::operator>( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::compareTo(vector) > 0;
+}
+template<typename T, std::size_t N> 												// 	Equality check between two vectors (greater than or equals)
+inline bool pod::Vector<T,N>::operator>=( const pod::Vector<T,N>& vector ) const {
+	return uf::vector::compareTo(vector) >= 0;
+}
+template<typename T, size_t N>
+template<typename U, size_t M>
+pod::Vector<T,N>::operator pod::Vector<U,M>() {
+	return uf::vector::cast<U,M>(*this);
+}
+template<typename T, size_t N>
+template<typename U, size_t M>
+pod::Vector<T,N>& pod::Vector<T,N>::operator=( const pod::Vector<U,M>& vector ) {
+	return *this = uf::vector::cast<T,N>(vector);
+}
+//
 template<typename T>
 T& pod::Vector<T,1>::operator[](std::size_t i) {
 	if ( i >= this->size ) i = this->size - 1;
@@ -163,7 +109,7 @@ const T& pod::Vector<T,1>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,1> pod::Vector<T,1>::operator()() const {
-	return uf::vector::create(0,0);
+	return uf::vector::create<T>(0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,1> pod::Vector<T,1>::operator-() const {
@@ -242,6 +188,17 @@ inline bool pod::Vector<T,1>::operator>=( const pod::Vector<T,1>& vector ) const
 	return uf::vector::compareTo(*this, vector) >= 0;
 }
 template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,1>::operator pod::Vector<U,M>() {
+	return uf::vector::cast<U,M>(*this);
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,1>& pod::Vector<T,1>::operator=( const pod::Vector<U,M>& vector ) {
+	return *this = uf::vector::cast<T,1>(vector);
+}
+//
+template<typename T>
 T& pod::Vector<T,2>::operator[](std::size_t i) {
 	if ( i >= this->size ) i = this->size - 1;
 	return (&this->x)[i];
@@ -254,7 +211,7 @@ const T& pod::Vector<T,2>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,2> pod::Vector<T,2>::operator()() const {
-	return uf::vector::create(0,0);
+	return uf::vector::create<T>(0,0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,2> pod::Vector<T,2>::operator-() const {
@@ -332,6 +289,16 @@ template<typename T> 												// 	Equality check between two vectors (greater
 inline bool pod::Vector<T,2>::operator>=( const pod::Vector<T,2>& vector ) const {
 	return uf::vector::compareTo(*this, vector) >= 0;
 }
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,2>::operator pod::Vector<U,M>() {
+	return uf::vector::cast<U,M>(*this);
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,2>& pod::Vector<T,2>::operator=( const pod::Vector<U,M>& vector ) {
+	return *this = uf::vector::cast<T,2>(vector);
+}
 //
 template<typename T>
 T& pod::Vector<T,3>::operator[](std::size_t i) {
@@ -346,7 +313,7 @@ const T& pod::Vector<T,3>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,3> pod::Vector<T,3>::operator()() const {
-	return uf::vector::create(0,0,0);
+	return uf::vector::create<T>(0,0,0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,3> pod::Vector<T,3>::operator-() const {
@@ -410,19 +377,42 @@ inline bool pod::Vector<T,3>::operator!=( const pod::Vector<T,3>& vector ) const
 }
 template<typename T> 												// 	Equality check between two vectors (less than)
 inline bool pod::Vector<T,3>::operator<( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) < 0;
+	return uf::vector::compareTo(*this, vector) < 0;
 }
 template<typename T> 												// 	Equality check between two vectors (less than or equals)
 inline bool pod::Vector<T,3>::operator<=( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) <= 0;
+	return uf::vector::compareTo(*this, vector) <= 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than)
 inline bool pod::Vector<T,3>::operator>( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) > 0;
+	return uf::vector::compareTo(*this, vector) > 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than or equals)
 inline bool pod::Vector<T,3>::operator>=( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) >= 0;
+	return uf::vector::compareTo(*this, vector) >= 0;
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,3>::operator pod::Vector<U,M>() {
+	return uf::vector::cast<U,M>(*this);
+/*
+	pod::Vector<U,M> vector = {};
+	for ( size_t i = 0; i < 3 && i < M; ++i ) {
+		vector[i] = (*this)[i];
+	}
+	return vector;
+*/
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,3>& pod::Vector<T,3>::operator=( const pod::Vector<U,M>& vector ) {
+	return *this = uf::vector::cast<T,3>(vector);
+/*
+	for ( size_t i = 0; i < 3 && i < M; ++i ) {
+		(*this)[i] = vector[i];
+	}
+	return *this;
+*/
 }
 //
 template<typename T>
@@ -438,7 +428,7 @@ const T& pod::Vector<T,4>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,4> pod::Vector<T,4>::operator()() const {
-	return uf::vector::create(0,0,0,1);
+	return uf::vector::create<T>(0,0,0,1);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,4> pod::Vector<T,4>::operator-() const {
@@ -502,24 +492,34 @@ inline bool pod::Vector<T,4>::operator!=( const pod::Vector<T,4>& vector ) const
 }
 template<typename T> 												// 	Equality check between two vectors (less than)
 inline bool pod::Vector<T,4>::operator<( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) < 0;
+	return uf::vector::compareTo(*this, vector) < 0;
 }
 template<typename T> 												// 	Equality check between two vectors (less than or equals)
 inline bool pod::Vector<T,4>::operator<=( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) <= 0;
+	return uf::vector::compareTo(*this, vector) <= 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than)
 inline bool pod::Vector<T,4>::operator>( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) > 0;
+	return uf::vector::compareTo(*this, vector) > 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than or equals)
 inline bool pod::Vector<T,4>::operator>=( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) >= 0;
+	return uf::vector::compareTo(*this, vector) >= 0;
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,4>::operator pod::Vector<U,M>() {
+	return uf::vector::cast<U,M>(*this);
+}
+template<typename T>
+template<typename U, std::size_t M>
+pod::Vector<T,4>& pod::Vector<T,4>::operator=( const pod::Vector<U,M>& vector ) {
+	return *this = uf::vector::cast<T,4>(vector);
 }
 //
 namespace uf {
 	template<typename T>
-	struct UF_API Vector<T,1> {
+	struct /*UF_API*/ Vector<T,1> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,1> pod_t;
@@ -609,7 +609,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,2> {
+	struct /*UF_API*/ Vector<T,2> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,2> pod_t;
@@ -700,7 +700,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,3> {
+	struct /*UF_API*/ Vector<T,3> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,3> pod_t;
@@ -796,7 +796,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,4> {
+	struct /*UF_API*/ Vector<T,4> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,4> pod_t;

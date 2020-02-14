@@ -6,15 +6,27 @@ template<typename T> bool uf::component::is( const pod::Component& component ) {
 }
 //
 //
-//
+/*
+template<typename T>
+bool uf::Component::hasAlias() const {
+	return this->m_aliases.count(uf::component::type<T>()) != 0;
+}
+template<typename T, typename U>
+bool uf::Component::addAlias() {
+	if ( this->hasAlias<T>() ) return false;
+	this->m_aliases[uf::component::type<T>()] = this->getType<U>();
+	return true;
+}
+*/
 template<typename T>
 pod::Component::id_t uf::Component::getType() const {
+//	if ( this->hasAlias<T>() ) return this->m_aliases.at(uf::component::type<T>());
 	return uf::component::type<T>();
 }
 
 template<typename T>
 bool uf::Component::hasComponent() const {
-	return this->m_container.count(this->getType<T>()) != 0;
+	return !this->m_container.empty() && this->m_container.count(this->getType<T>()) != 0;
 }
 template<typename T>
 pod::Component* uf::Component::getRawComponentPointer() {
@@ -37,11 +49,11 @@ T* uf::Component::getComponentPointer() {
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
 
-	try {
-		pointer = &uf::userdata::get<T>(component.userdata);
-	} catch ( std::exception& e ) {
-		return NULL;
-	}
+#if UF_COMPONENT_POINTERED_USERDATA
+	pointer = &uf::pointeredUserdata::get<T>(component.userdata);
+#else
+	pointer = &uf::userdata::get<T>(component.userdata);
+#endif
 	return pointer;
 }
 template<typename T>
@@ -51,11 +63,11 @@ const T* uf::Component::getComponentPointer() const {
 	pod::Component::id_t id = this->getType<T>();
 	const pod::Component& component = this->m_container.at(id);
 
-	try {
-		pointer = &uf::userdata::get<T>(component.userdata);
-	} catch ( std::exception& e ) {
-		return NULL;
-	}
+#if UF_COMPONENT_POINTERED_USERDATA
+	pointer = &uf::pointeredUserdata::get<T>(component.userdata);
+#else
+	pointer = &uf::userdata::get<T>(component.userdata);
+#endif
 	return pointer;
 }
 template<typename T>
@@ -75,15 +87,24 @@ template<typename T> T& uf::Component::addComponent( const T& data ) {
 	
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
-	component.userdata = uf::userdata::create(data);
 	component.id = id;
-
+#if UF_COMPONENT_POINTERED_USERDATA
+	component.userdata = uf::pointeredUserdata::create(uf::component::memoryPool, data);
+	T* pointer = &uf::pointeredUserdata::get<T>(component.userdata);
+#else
+	component.userdata = uf::userdata::create(uf::component::memoryPool, data);
 	T* pointer = &uf::userdata::get<T>(component.userdata);
+#endif
 	return *pointer;
 }
 template<typename T> void uf::Component::deleteComponent() {
 	if ( !this->hasComponent<T>() ) return;
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
-	uf::userdata::destroy(component.userdata);
+
+#if UF_COMPONENT_POINTERED_USERDATA
+	uf::pointeredUserdata::destroy(uf::component::memoryPool, component.userdata);
+#else
+	uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+#endif
 }
