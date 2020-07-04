@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#if UF_USE_FREETYPE
+#if defined(UF_USE_FREETYPE)
 
 #include <ft2build.h>
 #include FT_FREETYPE_H 

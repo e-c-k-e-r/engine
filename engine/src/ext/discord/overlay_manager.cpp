@@ -1,4 +1,3 @@
-#if defined(UF_USE_DISCORD)
 #if !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -111,4 +110,3 @@ void OverlayManager::OpenVoiceSettings(std::function<void(Result)> callback)
 }
 
 } // namespace discord
-#endif

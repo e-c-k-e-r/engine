@@ -1,7 +1,5 @@
 #include <uf/utils/http/http.h>
-#if UF_USE_CURL
 #include <curl/curl.h>
-#endif
 #include <iostream>
 
 namespace {
@@ -14,7 +12,6 @@ namespace {
 uf::Http UF_API uf::http::get( const std::string& url ) {
 	uf::Http http;
 
-#if UF_USE_CURL
 	auto curl = curl_easy_init();
 	if ( !curl ) return http;
 
@@ -38,6 +35,6 @@ uf::Http UF_API uf::http::get( const std::string& url ) {
 
 	curl_easy_cleanup(curl);
 	curl = NULL;
-#endif
+
     return http;
 }

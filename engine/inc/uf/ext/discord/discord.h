@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
+#include <discord/discord.h>
 
 namespace ext {
 	namespace discord {

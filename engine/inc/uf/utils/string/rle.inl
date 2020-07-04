@@ -1,4 +1,4 @@
-template<typename T, typename U>
+template<typename T, typename U = uint16_t>
 typename pod::RLE<T,U>::string_t uf::rle::encode( const std::vector<T>& source ) {
 	typename pod::RLE<T,U>::string_t destination;
 	destination.reserve( source.size() );
@@ -12,7 +12,7 @@ typename pod::RLE<T,U>::string_t uf::rle::encode( const std::vector<T>& source )
 	destination.shrink_to_fit();
 	return destination;
 }
-template<typename T, typename U>
+template<typename T, typename U = uint16_t>
 std::vector<T> uf::rle::decode( const pod::RLE<T,U>& source ) {
 	std::vector<T> destination;
 

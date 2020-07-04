@@ -1,4 +1,3 @@
-#if defined(UF_USE_DISCORD)
 #if !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -97,4 +96,3 @@ Result AchievementManager::GetUserAchievementAt(std::int32_t index,
 }
 
 } // namespace discord
-#endif

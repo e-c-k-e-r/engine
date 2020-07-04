@@ -1,105 +1,7 @@
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/io/iostream.h> 	// uf::iostream
-
-size_t uf::Hooks::uids = 0;
-uf::Hooks uf::hooks;
-
-size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const pod::Hook::function_t& callback, size_t type ) {
-	auto& hook = this->m_container[name].emplace_back();
-	hook.uid = ++uids;
-	hook.type = type;
-	hook.callback = callback;
-
-	return hook.uid;
-}
-void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
-	auto& container = this->m_container[name];
-	for ( auto it = container.begin(); it != container.end(); ++it ) {
-		if ( it->uid == uid ) {
-			this->m_container[name].erase(it);
-			break;
-		}
-	}
-}
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Userdata& payload ) {
-	auto& container = this->m_container[name];
-	std::vector<uf::Userdata> results;
-	results.reserve( container.size() );
-/*
-	if ( name[0] == 'w' ) {
-		std::cout << "Calling hook: " << name;
-		if ( payload.is<std::string>() ) std::cout << " (string) " << payload.get<std::string>();
-		else if ( payload.is<ext::json::Value>() ) std::cout << " (json) " << payload.get<ext::json::Value>();
-		else if ( payload.is<uf::Serializer>() ) std::cout << " (serializer) " << payload.get<uf::Serializer>();
-		std::cout << std::endl;
-	}
-*/
-	for ( auto& hook : container ) {
-		uf::Userdata& unconst_payload = const_cast<uf::Userdata&>(payload);
-		uf::Userdata hookResult = hook.callback(unconst_payload);
-		auto& returnResult = results.emplace_back();
-		returnResult.move( hookResult );
-	}
-	
-
-	return results;
-}
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::string& s ) {
-	uf::Userdata payload;
-	payload.create<ext::json::Value>();
-	auto& value = payload.get<ext::json::Value>();
-	value = uf::Serializer(s);
-//	payload.create<std::string>( s );
-	return call(name, payload);
-}
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const ext::json::Value& s ) {
-	uf::Userdata payload;
-	payload.create<ext::json::Value>( s );
-//	payload.create<std::string>( ext::json::encode( s ) );
-	return call(name, payload);
-}
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
-	uf::Userdata payload;
-	payload.create<ext::json::Value>( (const ext::json::Value&) s );
-//	payload.create<std::string>( s.serialize() );
-	return call(name, payload);
-}
-// specialization: void function
-size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void()>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
-		callback();
-		uf::Userdata ret;
-		return ret;
-	});
-}
-/*
-// specialization: serialized JSON handling
-size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void(const std::string&)>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
-		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
-		callback( payload );
-		uf::Userdata ret;
-		return ret;
-	});
-}
-// specialization: legacy callback handling
-size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<std::string(const std::string&)>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
-		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
-		std::string res = callback( payload );
-
-		uf::Userdata ret;
-		ret.create<std::string>(res);
-		return ret;
-	});
-}
-*/
-bool uf::Hooks::exists( const uf::Hooks::name_t& name ) {
-	return this->m_container.count(name) > 0;
-}
-
-#if 0
 uf::HookHandler uf::hooks;
+
 namespace {
 	std::size_t hooks = 0;
 }
@@ -223,32 +125,20 @@ bool uf::HookHandler::isAliasToOptimal( const Readable::alias_t::name_t& name ) 
 }
 
 // Calls a hook in either readable or optimal format (no argument is passed unless it's aliased)
-std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Readable::name_t& name ) {
-	struct {
-		std::vector<uf::HookHandler::Readable::return_t> readable;
-		std::vector<uf::HookHandler::Optimal::return_t> optimal;
-	} returns;
-	if ( !this->exists(name) ) return returns.readable;
-
-	returns.readable = this->call(name, Readable::argument_t());
-	returns.optimal = this->call(name, Optimal::argument_t());
-/*
-	if ( typeid(Readable::return_t) == typeid(Optimal::return_t) ) {
-		returns.readable.insert( returns.readable.end(), returns.optimal.begin(), returns.optimal.end() );
-	}
-*/
-	return returns.readable;
+void uf::HookHandler::call( const Readable::name_t& name ) {
+	if ( !this->exists(name) ) return;
+	this->call(name, Readable::argument_t());
+	this->call(name, Optimal::argument_t());
 }
 // Calls a hook in readable format
 std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Readable::name_t& name, const Readable::argument_t& argument ) {
-	std::vector<uf::HookHandler::Readable::return_t> returns;
+	std::vector<Readable::return_t> returns;
 	if ( !this->exists(name) ) return returns;
 	if ( !this->isReadable(name) ) {
 		if ( !this->isAliasToReadable(name) ) return returns;
 		auto& aliases = this->m_readable.aliases.at(name);
 		for ( auto& alias : aliases ) {
-			auto result = this->call( alias.name, (argument != "" ? argument : alias.argument) );
-			returns.insert( returns.end(), result.begin(), result.end() );
+			this->call( alias.name, (argument != "" ? argument : alias.argument) );
 		}
 		return returns;
 	}
@@ -265,25 +155,36 @@ std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Re
 	return returns;
 }
 // Calls a hook in optimal format
-std::vector<uf::HookHandler::Optimal::return_t> uf::HookHandler::call( const Optimal::name_t& name, const Optimal::argument_t& argument ) {
-	std::vector<uf::HookHandler::Optimal::return_t> returns;
-	if ( !this->exists(name) ) return returns;
+void uf::HookHandler::call( const Optimal::name_t& name, const Optimal::argument_t& argument ) {
+	if ( !this->exists(name) ) return;
 	if ( !this->isOptimal(name) ) {
-		if ( !this->isAliasToOptimal(name) ) return returns;
+		if ( !this->isAliasToOptimal(name) ) return;
 		auto& aliases = this->m_optimal.aliases.at(name);
 		for ( auto& alias : aliases ) {
-			auto result = this->call( alias.name, (argument ? argument : alias.argument) );
-			returns.insert( returns.end(), result.begin(), result.end() );
+			this->call( alias.name, (argument ? argument : alias.argument) );
 		}
-		return returns;
+		return;
 	}
 	
 	auto& hooks = this->m_optimal.hooks.at(name);
 	for ( auto& hook : hooks ) {
-		auto result = hook( argument );
-		returns.push_back(result);
+		hook( argument );
+	/*
+		try {
+			hook( argument );
+		} catch ( std::exception& e ) {
+			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
+							<< "\twhat(): " << e.what() << "\n";
+		//	throw;
+		} catch ( bool handled ) {
+			if ( !handled ) throw;
+		} catch ( ... ) {
+			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
+							<< "\twhat(): " << "???" << "\n";
+		//	throw;
+		}
+	*/
 	}
-	return returns;
 }
 /*
 
@@ -386,4 +287,3 @@ uf::HookHandler::return_vector_t UF_API_CALL uf::HookHandler::call( const uf::Ho
 }
 
 */
-#endif

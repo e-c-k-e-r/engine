@@ -8,10 +8,9 @@ uf::Timer<T>::Timer(bool running, uf::Timer<T>::exp_t b) :
 }
 
 template <typename T>
-void uf::Timer<T>::start( uf::Time<T> offset ) {
+void uf::Timer<T>::start() {
 	this->m_running = true;
 	this->reset();
-	this->m_begin = this->m_begin + offset;
 }
 template <typename T>
 void uf::Timer<T>::stop() {

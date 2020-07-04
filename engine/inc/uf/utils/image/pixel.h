@@ -5,7 +5,7 @@
 namespace pod {
 	// Simple Pixels (designed [to store in arrays] with minimal headaches)
 	template<typename T = pod::Math::num_t, std::size_t N = 4>
-	struct /*UF_API*/ Pixel {
+	struct UF_API Pixel {
 	// 	n-dimensional/unspecialized Pixel access
 		T components[N];
 	// 	POD information
@@ -30,7 +30,7 @@ namespace pod {
 		inline bool operator!=( const Pixel<T,N>& Pixel ) const; 		// 	Equality check between two Pixels (not equals)
 	};
 	template<typename T>
-	struct /*UF_API*/ Pixel<T,3> {
+	struct UF_API Pixel<T,3> {
 	// 	XYZ access
 		T r = 0;
 		T g = 0;
@@ -59,7 +59,7 @@ namespace pod {
 		inline bool operator!=( const Pixel<T,3>& Pixel ) const; 		// 	Equality check between two Pixels (not equals)
 	};
 	template<typename T>
-	struct /*UF_API*/ Pixel<T,4> {
+	struct UF_API Pixel<T,4> {
 	// 	XYZW access
 		T r = 0;
 		T g = 0;

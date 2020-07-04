@@ -3,43 +3,27 @@
 // Allows copy via assignment!
 template<typename T>
 pod::Userdata* uf::userdata::create( const T& data ) {
-	return uf::userdata::create<T>( uf::userdata::memoryPool, data );
-}
-template<typename T>
-pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
-//	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : requestedMemoryPool;
-	size_t len = sizeof(data);
-	size_t requestedLen = size( len );
-#if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
-	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( NULL, requestedLen );
-#else
-	uf::MemoryPool* memoryPool = NULL;
-	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
-	pod::Userdata* userdata = NULL;
-	if ( memoryPool )
-		userdata = (pod::Userdata*) memoryPool->alloc( NULL, requestedLen );
-	else
-		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some	}
-#endif
-	userdata->len = len;
-#if UF_USERDATA_RTTI
-	userdata->type = typeid(T).hash_code();
-#endif
+	std::size_t len = sizeof data; 													// get size of data
+//	void* pointer = malloc( sizeof(pod::Userdata) + sizeof(uint8_t) * len ); 		// allocate data for the userdata struct, and then some
+	void* pointer = operator new( sizeof(pod::Userdata) + sizeof(uint8_t) * len ); 	// allocate data for the userdata struct, and then some
+	pod::Userdata* userdata = (pod::Userdata*) pointer;
+	userdata->len = len; 															// don't forget to store its data's length!
+	// Allows warningless conversion from placeholder storage type to userdata type
 	union {
 		uint8_t* from;
 		T* to;
-	} kludge;
+	} static kludge;
 	kludge.from = userdata->data;
-	::new (kludge.to) T(data);
-	return userdata;
+	new (kludge.to) T(data); 														// copy via placement new w/ copy constructor
+	return userdata; 																// return address of userdata
 }
 // Easy way to get the userdata as a reference
 #include <stdexcept>
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
+	if ( validate && userdata->len != sizeof(T) ) {
+		throw std::logic_error("Userdata size mismatch");
+	}
 	union {
 		uint8_t* original;
 		T* casted;
@@ -48,25 +32,14 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 	return *cast.casted;
 }
 template<typename T>
-const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
+const T& uf::userdata::get( const pod::Userdata* userdata ) {
 	union {
-		const uint8_t* original;
+		uint8_t* original;
 		const T* casted;
 	} cast;
 	cast.original = userdata->data;
 	return *cast.casted;
 }
-
-template<typename T>
-bool uf::userdata::is( const pod::Userdata* userdata ) {
-#if UF_USERDATA_RTTI
-	return userdata && userdata->type == typeid(T).hash_code();
-#else
-	return userdata && userdata->len == sizeof(T);
-#endif
-}
-
 // No need to cast data to a pointer AND get the data's size!
 template<typename T>
 pod::Userdata* uf::Userdata::create( const T& data ) {
@@ -82,21 +55,14 @@ T& uf::Userdata::get() {
 	} cast;
 	cast.original = this->m_pod->data;
 	return *cast.casted;
-//	return uf::userdata::get<T>( this->m_pod );
 }
 // Easy way to get the userdata as a const-reference
 template<typename T>
 const T& uf::Userdata::get() const {
 	union {
-		const uint8_t* original;
+		uint8_t* original;
 		const T* casted;
 	} cast;
 	cast.original = this->m_pod->data;
 	return *cast.casted;
-//	return uf::userdata::get<T>( this->m_pod );
-}
-
-template<typename T>
-bool uf::Userdata::is() const {
-	return this->m_pod && uf::userdata::is<T>( this->m_pod );
 }

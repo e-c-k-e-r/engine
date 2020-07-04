@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uf/ext/vulkan/vk.h>
+#include <uf/ext/vulkan.h>
 #include <vector>
 
 namespace ext {
@@ -283,7 +283,7 @@ namespace ext {
 				return descriptorSetAllocateInfo;
 			}
 
-			inline VkDescriptorImageInfo descriptorImageInfo(VkImageView imageView, VkImageLayout imageLayout, VkSampler sampler = VK_NULL_HANDLE)
+			inline VkDescriptorImageInfo descriptorImageInfo(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
 			{
 				VkDescriptorImageInfo descriptorImageInfo {};
 				descriptorImageInfo.sampler = sampler;

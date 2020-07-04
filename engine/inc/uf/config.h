@@ -8,7 +8,6 @@
 	#undef UF_ENV_LINUX
 	#undef UF_ENV_MACOS
 	#undef UF_ENV_FREEBSD
-	#undef UF_ENV_DREAMCAST
 	#undef UF_ENV_UNKNOWN
 #endif
 
@@ -38,12 +37,6 @@
 	#define UF_ENV "FreeBSD"
 	#define UF_ENV_FREEBSD 1
 	#define UF_ENV_HEADER "freebsd.h"
-#elif defined(__sh__)
-	// Dreamcast
-	#define UF_ENV "Dreamcast"
-	#define UF_ENV_DREAMCAST 1
-	#define UF_ENV_HEADER "dreamcast.h"
-	#include UF_ENV_HEADER
 #else
 	// Unsupported system
 	#define UF_ENV "Unknown"
@@ -88,11 +81,33 @@
 
 // Legacy support
 #define UF_API_VAR UF_API
-#define UF_API_CALL //__cdecl
+#define UF_API_CALL __cdecl
 
-#ifdef UF_DISABLE_ALIGNAS
-	#define alignas(X)
+/*
+// External libraries
+#ifndef UF_USE_GLEW
+	#define UF_USE_GLEW 	1
 #endif
-
-#include "macros.h"
-#include "simd.h"
+#ifndef UF_USE_JSON
+	#define UF_USE_JSON 	1
+#endif
+#ifndef UF_USE_LUA
+	#define UF_USE_LUA 		0
+#endif
+#ifndef UF_USE_NCURSES
+	#define UF_USE_NCURSES 	1
+#endif
+#ifndef UF_USE_OPENGL
+	#define UF_USE_OPENGL 	0
+#endif
+#ifndef UF_USE_SFML
+	#define UF_USE_SFML 	0
+#endif
+// Planned
+#ifndef UF_USE_VULKAN
+	#define UF_USE_VULKAN 	0
+#endif
+#ifndef UF_USE_DIRECTX
+	#define UF_USE_DIRECTX 	0
+#endif
+*/

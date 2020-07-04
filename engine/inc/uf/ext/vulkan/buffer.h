@@ -1,28 +1,21 @@
 #pragma once
 
-#include <uf/ext/vulkan/vk.h>
-#include <vector>
+#include <uf/ext/vulkan.h>
 
 namespace ext {
 	namespace vulkan {
-		struct Device;
-
 		struct UF_API Buffer {
 			VkDevice device;
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VkDeviceMemory memory = VK_NULL_HANDLE;
-			VkDescriptorBufferInfo descriptor = {
-				VK_NULL_HANDLE,
-				0,
-				0
-			};
+			VkDescriptorBufferInfo descriptor;
 			VkDeviceSize size = 0;
 			VkDeviceSize alignment = 0;
 			void* mapped = nullptr;
 
 			VkBufferUsageFlags usageFlags;
+
 			VkMemoryPropertyFlags memoryPropertyFlags;
-			
 			VkMemoryAllocateInfo memAlloc;
 			VkMemoryRequirements memReqs;
 
@@ -56,25 +49,6 @@ namespace ext {
 			~Buffer();
 			void initialize( VkDevice device );
 			void destroy();
-		};
-		struct UF_API Buffers {
-			std::vector<Buffer> buffers;
-			Device* device;
-
-		//	~Buffers();
-			//
-			void initialize( Device& device );
-			void destroy();
-			//
-			size_t initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS );
-			template<typename T> inline size_t initializeBuffer( T data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, length, usageFlags, memoryPropertyFlags, stage ); }
-			template<typename T> inline size_t initializeBuffer( T data, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), usageFlags, memoryPropertyFlags, stage ); }
-
-			void updateBuffer( void* data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS );
-			void updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS );
-			template<typename T> inline void updateBuffer( T data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return updateBuffer( (void*) &data, length, index, stage ); }
-			template<typename T> inline void updateBuffer( T data, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return updateBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), index, stage ); }
-			template<typename T> inline void updateBuffer( T data, VkDeviceSize length, Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return updateBuffer( (void*) &data, length, buffer, stage ); }
 		};
 	}
 }

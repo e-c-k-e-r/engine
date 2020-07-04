@@ -2,7 +2,8 @@
 
 #include <uf/utils/io/iostream.h>
 
-#if UF_ENV_WINDOWS && !UF_USE_SFML && UF_USE_OPENGL
+#if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 0
 UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
 	uni::Context( NULL, true, settings ),
 	m_deviceContext 	(NULL),
@@ -350,4 +351,5 @@ void spec::win32::Context::setVerticalSyncEnabled(bool enabled) {
 	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(wglGetProcAddress("wglSwapIntervalEXT"));
 	if (wglSwapIntervalEXT) wglSwapIntervalEXT(enabled ? 1 : 0);
 }
+# endif
 #endif

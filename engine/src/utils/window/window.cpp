@@ -18,10 +18,8 @@ UF_API_CALL uf::Window::Window( const spec::uni::Window::vector_t& size, const s
 void UF_API_CALL uf::Window::create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title, const spec::Context::Settings& settings ) {
 	this->m_window = new uf::Window::window_t;
 	this->m_window->create( size, title );
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-#else
-	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
-#endif
+
+//	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
 }
 // 	D-tors
 uf::Window::~Window() {
@@ -47,10 +45,6 @@ spec::uni::Window::vector_t UF_API_CALL uf::Window::getPosition() const {
 spec::uni::Window::vector_t UF_API_CALL uf::Window::getSize() const {
 	static spec::uni::Window::vector_t null = {};
 	return this->m_window ? this->m_window->getSize() : null;
-}
-size_t UF_API_CALL uf::Window::getRefreshRate() const {
-	static spec::uni::Window::vector_t null = {};
-	return this->m_window ? this->m_window->getRefreshRate() : 0;
 }
 // 	Attribute modifiers
 void UF_API_CALL uf::Window::setPosition( const spec::uni::Window::vector_t& position ) {
@@ -94,11 +88,8 @@ void UF_API_CALL uf::Window::requestFocus() {
 bool UF_API_CALL uf::Window::hasFocus() const {
 	return uf::Window::focused = (this->m_window ? this->m_window->hasFocus() : false);
 }
-pod::Vector2ui UF_API_CALL uf::Window::getResolution() {
-	return uf::Window::window_t::getResolution();
-}
-void UF_API_CALL uf::Window::switchToFullscreen( bool borderless ) {
-	if ( this->m_window ) this->m_window->switchToFullscreen( borderless );
+void UF_API_CALL uf::Window::switchToFullscreen() {
+	if ( this->m_window ) this->m_window->switchToFullscreen();
 }
 // 	Update
 void UF_API_CALL uf::Window::processEvents() {
@@ -111,18 +102,15 @@ bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
 	return uf::Window::focused && uf::Window::window_t::isKeyPressed(key);
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-#else
 	if (this->m_context) {
-		if (this->m_context->setActive(active)) return true;
+	//	if (this->m_context->setActive(active)) return true;
 		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to activate the window's context" << "\n";
 		return false;
 	}
-#endif
 	return false;
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-std::vector<std::string> UF_API_CALL uf::Window::getExtensions( bool x ) {
+std::vector<const char*> UF_API_CALL uf::Window::getExtensions( bool x ) {
 	return this->m_window->getExtensions( x );
 }
 void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
@@ -140,7 +128,7 @@ void UF_API_CALL uf::Window::display() {
 	// Display the backbuffer on screen
 	if (this->m_context && this->setActive()) this->m_context->display();
 
-	/* FPS */ if ( false ) {
+	/* FPS */ {
 		static double limit = 1.0 / 60;
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
@@ -150,6 +138,15 @@ void UF_API_CALL uf::Window::display() {
 			timer.reset();
 		}
 	}
+
+/*
+	// Limit the framerate if needed
+	if (m_frameTimeLimit != Time::Zero)
+	{
+		sleep(m_frameTimeLimit - m_clock.getElapsedTime());
+		m_clock.restart();
+	}
+*/
 }
 
 #endif

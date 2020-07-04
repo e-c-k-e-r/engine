@@ -3,9 +3,9 @@
 #include <uf/config.h>
 #include "universal.h"
 
-#if UF_ENV_WINDOWS && !UF_USE_SFML
-#if UF_USE_VULKAN
-	#include <uf/ext/vulkan/vk.h>
+#if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+	#include <uf/ext/vulkan.h>
 #endif
 namespace spec {
 	namespace win32 {
@@ -43,7 +43,6 @@ namespace spec {
 			spec::win32::Window::handle_t UF_API_CALL getHandle() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getPosition() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getSize() const;
-			/*virtual*/ size_t UF_API_CALL getRefreshRate() const;
 		// 	Attribute modifiers
 			/*virtual*/ void UF_API_CALL setPosition( const spec::win32::Window::vector_t& position );
 			/*virtual*/ void UF_API_CALL centerWindow();
@@ -69,10 +68,9 @@ namespace spec {
 			void UF_API_CALL grabMouse(bool state);
 			
 			void UF_API_CALL setTracking(bool state);
-			static pod::Vector2ui UF_API_CALL getResolution();
-			void UF_API_CALL switchToFullscreen( bool borderless = false );
+			void UF_API_CALL switchToFullscreen();
 		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-			std::vector<std::string> UF_API_CALL getExtensions( bool validationEnabled );
+			std::vector<const char*> UF_API_CALL getExtensions( bool validationEnabled );
 			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );
 		#endif
 			static std::string UF_API_CALL getKey(WPARAM key, LPARAM flags);
@@ -80,7 +78,7 @@ namespace spec {
 	}
 	typedef spec::win32::Window Window;
 }
-#elif UF_USE_SFML
+#elif defined(UF_USE_SFML) && UF_USE_SFML == 1
 #include <uf/ext/sfml/window.h>
 namespace spec {
 	typedef ext::sfml::Window Window;

@@ -3,6 +3,10 @@
 layout (location = 0) in vec2 inPos;
 layout (location = 1) in vec2 inUv;
 
+layout (binding = 0) uniform UBO {
+	vec2 screenSize;
+} ubo;
+
 layout (location = 0) out vec2 outUv;
 
 out gl_PerVertex {

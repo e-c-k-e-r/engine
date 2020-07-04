@@ -1,4 +1,3 @@
-#if defined(UF_USE_DISCORD)
 #if !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -157,4 +156,3 @@ Result StorageManager::GetPath(char path[4096])
 }
 
 } // namespace discord
-#endif

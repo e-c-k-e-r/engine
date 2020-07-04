@@ -1,10 +1,7 @@
 #include <uf/config.h>
-#if UF_USE_VORBIS
+#if defined(UF_USE_VORBIS)
 
-#if UF_USE_OPENAL
 #include <uf/ext/oal/oal.h>
-#endif
-
 #include <uf/ext/vorbis/vorbis.h>
 #include <iostream>
 #include <cstdio>
@@ -31,9 +28,7 @@ void UF_API_CALL ext::Vorbis::load( const std::string& filename ) {
 	}
 
 	vorbis_info* info = ov_info(&file, -1);
-	#if UF_USE_OPENAL
-		this->m_format = info->channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
-	#endif
+	this->m_format = info->channels == 1 ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
 	this->m_frequency = info->rate;
 
 	do {

@@ -602,10 +602,6 @@ uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const char* cstr) {
 	this->writeString(std::string(cstr));
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::Serializer& val) {
-	this->writeString(val.serialize());
-	return *this;
-}
 uf::IoStream& UF_API_CALL uf::IoStream::operator<< (void* ptr) {
 	std::stringstream ss;
 	ss << ptr;

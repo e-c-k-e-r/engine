@@ -9,7 +9,6 @@
 #include <thread>
 #include <vector>
 #include <functional>
-#include <condition_variable>
 
 namespace pod {
 	struct UF_API Thread {
@@ -23,7 +22,6 @@ namespace pod {
 		bool running, terminates;
 
 		std::mutex* mutex;
-		std::condition_variable condition;
 		std::thread thread;
 
 		pod::Thread::queue_t temps;
@@ -47,7 +45,6 @@ namespace uf {
 	//	void UF_API tick( pod::Thread&, const std::function<void()>& = NULL );
 
 		pod::Thread& UF_API fetchWorker( const std::string& name = "Aux" );
-		void UF_API batchWorkers( const std::vector<pod::Thread::function_t>&, bool = true, const std::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
 		void UF_API process( pod::Thread& );
 
