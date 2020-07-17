@@ -84,7 +84,7 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 	}
 */
 	std::string base = region.getParent().getComponent<uf::Serializer>()["_config"]["hash"].asString();
-	std::string filename = "./data/save/regions/" + base + "/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
+	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
 	if ( uf::string::exists( filename ) ) {
 		uf::Serializer save; save.readFromFile(filename);
@@ -123,6 +123,22 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		}
 	// load failed / new region
 	}
+
+	// maze
+	/*
+	{
+		ext::Maze& maze = this->m_terrain->getComponent<ext::Maze>();
+		int ROW = this->m_location.z + (maze.WIDTH / 2) - 1;
+		int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+		auto value = maze( ROW, COL, 0 );
+		bool east = value & ext::Maze::EAST; // ROW + 1 < maze.WIDTH ? maze( ROW + 1, COL, 1 ) : 0;
+		bool west = value & ext::Maze::WEST; // ROW - 1 > 0 ? maze( ROW - 1, COL, 1 ) : 0;
+		bool north = value & ext::Maze::NORTH; // COL + 1 < maze.LENGTH ? maze( ROW, COL + 1, 1 ) : 0;
+		bool south = value & ext::Maze::SOUTH; // COL - 1 > 0 ? maze( ROW, COL - 1, 1 ) : 0;
+		std::cout << ROW << ", " << COL << " = " << value << "\t" << east << " " << west << " " << north << " " << south << std::endl;
+	}
+	*/
+
 	if ( this->m_voxels.id.rle.empty() ) {
 		double maxValue = 0.0;
 		double base = 0;
@@ -131,9 +147,9 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		ext::TerrainVoxel::light_t raw_lighting[this->m_size.x][this->m_size.y][this->m_size.z];
 		double raw_noise[this->m_size.x][this->m_size.y][this->m_size.z];
 
-		for ( int y = 0; y < this->m_size.y; ++y )
-		for ( int z = 0; z < this->m_size.z; ++z )
-		for ( int x = 0; x < this->m_size.x; ++x ) {
+		for ( uint y = 0; y < this->m_size.y; ++y )
+		for ( uint z = 0; z < this->m_size.z; ++z )
+		for ( uint x = 0; x < this->m_size.x; ++x ) {
 			pod::Vector3d position = {
 				transform.position.x - half_x, transform.position.y - half_y, transform.position.z - half_z
 			};
@@ -145,14 +161,13 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		}
 		
 
-		for ( int y = 0; y < this->m_size.y; ++y )
-		for ( int z = 0; z < this->m_size.z; ++z )
-		for ( int x = 0; x < this->m_size.x; ++x )
+		for ( uint y = 0; y < this->m_size.y; ++y )
+		for ( uint z = 0; z < this->m_size.z; ++z )
+		for ( uint x = 0; x < this->m_size.x; ++x )
 			base += raw_noise[x][y][z] / maxValue;
 
 		base /= this->m_size.x * this->m_size.y * this->m_size.z;
 
-		
 		uint partitions = this->m_modulus;
 		struct {
 			ext::TerrainVoxel::uid_t floor = ext::TerrainVoxelFloor().uid();
@@ -165,18 +180,32 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		
 		this->m_voxels.id.raw.reserve( this->m_size.x * this->m_size.y * this->m_size.z );
 		this->m_voxels.lighting.raw.reserve( this->m_size.x * this->m_size.y * this->m_size.z );
-		
-		std::size_t i = 0;
 
+		ext::Maze& maze = this->m_terrain->getComponent<ext::Maze>();
+		int LABYRINTH = ext::Maze::FLOOR | ext::Maze::CEIL;
+		{
+			int ROW = this->m_location.z + (maze.WIDTH / 2) - 1;
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH )
+				LABYRINTH = maze( ROW, COL, 0 );
+		}
+
+		std::size_t i = 0;
 		for ( uint y = 0; y < this->m_size.y; ++y ) {
 		for ( uint z = 0; z < this->m_size.z; ++z ) {
 		for ( uint x = 0; x < this->m_size.x; ++x ) {
 			ext::TerrainVoxel::uid_t voxel = 0;
-			/*
-				if ( y <= 4 ) voxel = atlas.floor;
-			*/
 
 			double e = raw_noise[x][y][z] / maxValue;
+			// generate walls if wall exists in maze
+			if ( LABYRINTH & ext::Maze::EAST ) if ( x == 0 ) voxel = atlas.wall;
+			if ( LABYRINTH & ext::Maze::WEST ) if ( x == this->m_size.x - 1 ) voxel = atlas.wall;
+			if ( LABYRINTH & ext::Maze::NORTH ) if ( z == 0 ) voxel = atlas.wall;
+			if ( LABYRINTH & ext::Maze::SOUTH ) if ( z == this->m_size.z - 1 ) voxel = atlas.wall;
+			if ( LABYRINTH & ext::Maze::FLOOR ) if ( y == 0 ) voxel = atlas.floor;
+			if ( LABYRINTH & ext::Maze::CEIL ) if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
+
+	/*
 		//	if ( (x) % (this->m_size.x / partitions) == 0 ) voxel = atlas.wall;
 		//	if ( (z) % (this->m_size.z / partitions) == 0 ) voxel = atlas.wall;
 			if ( (x + 1) % (this->m_size.x / partitions) == 0 ) voxel = atlas.wall;
@@ -195,7 +224,7 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 			} else {
 			//	if ( x == half_x && y == 4 && z == half_z ) voxel = atlas.lava;
 			}
-			
+	*/
 			auto light = ext::TerrainVoxel::atlas(voxel).light();
 			if ( light < 0x1111 ) light = 0x1111;
 
@@ -226,7 +255,7 @@ void ext::TerrainGenerator::writeToFile() {
 
 	uf::Serializer serializer;
 	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["_config"]["hash"].asString() : "UNKNOWN";
-	std::string filename = "./data/save/regions/" + base + "/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
+	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
 	{
 		// encode as base64, json safe
 		serializer["voxels"]["id"]["base64"] = uf::base64::encode( this->m_voxels.id.rle );
@@ -347,7 +376,7 @@ ext::TerrainVoxel::light_t ext::TerrainGenerator::getLight( int x, int y, int z 
 		ext::Region* region = terrain.at( location );
 		if ( !region ) {
 		//	std::cout << "Out of bounds Region("<< location.x << ", " << location.y << ", " << location.z <<") @ getLight( " << x << ", " << y << ", " << z << " ) " << std::endl;
-			return 0x0000;
+			return 0xFFFF;
 		}
 		return region->getComponent<ext::TerrainGenerator>().getLight( x, y, z );
 	}

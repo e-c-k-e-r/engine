@@ -10,7 +10,7 @@ layout (location = 0) out vec4 outFragColor;
 
 void fog( inout vec3 i ) {
 	vec3 color = vec3( 0, 0, 0 );
-	float inner = 8, outer = 64;
+	float inner = 8, outer = 32;
 	float distance = length(-inPositionEye);
 	float factor = (distance - inner) / (outer - inner);
 	factor = clamp( factor, 0.0, 1.0 );
@@ -46,7 +46,7 @@ void phong( inout vec3 i ) {
 
 void main() {
 	outFragColor = texture(samplerColor, inUv);
-//	phong(outFragColor.rgb);
+	phong(outFragColor.rgb);
 	fog(outFragColor.rgb);
 //	outFragColor.rgb = mix( outFragColor.rgb, inColor.rgb, inColor.a );
 	outFragColor.rgb = outFragColor.rgb * inColor.rgb;

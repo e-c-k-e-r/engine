@@ -476,7 +476,7 @@ ext::TerrainVoxelWall::TerrainVoxelWall() : ext::TerrainVoxel( 2, true, true, {1
 ext::TerrainVoxelCeiling::TerrainVoxelCeiling() : ext::TerrainVoxel( 3, true, true, {2, 1}, 0x0000 ) {}
 ext::TerrainVoxelPillar::TerrainVoxelPillar() : ext::TerrainVoxel( 4, true, true, {3, 0}, 0x0000 ) {}
 ext::TerrainVoxelStair::TerrainVoxelStair() : ext::TerrainVoxel( 5, true, true, {2, 0}, 0x0000 ) {}
-ext::TerrainVoxelLava::TerrainVoxelLava() : ext::TerrainVoxel( 6, true, true, {0, 2}, 0x66FF ) {}
+ext::TerrainVoxelLava::TerrainVoxelLava() : ext::TerrainVoxel( 6, true, true, {0, 2}, 0xFFFF ) {}
 
 //
 const std::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {

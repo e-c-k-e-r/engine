@@ -8,7 +8,9 @@
 #include <uf/utils/math/physics.h>
 
 #include "../../object/object.h"
+
 #include "region.h"
+#include "maze.h"
 
 namespace ext {
 	class EXT_API Terrain : public ext::Object {

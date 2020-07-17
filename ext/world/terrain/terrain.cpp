@@ -52,28 +52,17 @@ void ext::Terrain::initialize() {
 	ext::Object::initialize();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
+	std::size_t seed;
+	if ( metadata["terrain"]["seed"].isUInt64() ) {
+		seed = metadata["terrain"]["seed"].asUInt64();
+	} else if ( metadata["terrain"]["seed"].isString() ) {
+		seed = std::hash<std::string>{}( metadata["terrain"]["seed"].asString() );
+	}
 	{
-		std::size_t seed;
-		if ( metadata["terrain"]["seed"].isUInt64() ) {
-			seed = metadata["terrain"]["seed"].asUInt64();
-		} else if ( metadata["terrain"]["seed"].isString() ) {
-			seed = std::hash<std::string>{}( metadata["terrain"]["seed"].asString() );
-		}
 		std::cout << "Seed: " << seed << std::endl;
 		ext::TerrainGenerator::noise.seed( seed );
 	}
 
-	/* Test */
-/*
-	{
-		std::string seed = "170271159441424384 170271159441424384";
-		std::size_t hash = std::hash<std::string>{}(seed);
-		uf::PerlinNoise& noise = ext::TerrainGenerator::noise;
-		noise.seed(hash);
-		double y = noise.sample(pod::Vector3d{ 0.01, 0.01, 0.01 });
-		std::cout << seed << ": " << y << std::endl;
-	}
-*/
 
 	if ( metadata["terrain"]["raytrace"].asBool() ) {
 		this->addComponent<ext::vulkan::RTGraphic>();
@@ -90,11 +79,26 @@ void ext::Terrain::initialize() {
 		metadata["_config"]["hash"] = uf::string::sha256( input );
 
 		try {
-			std::string save = "./data/save/regions/" + metadata["_config"]["hash"].asString();
+			std::string save = "./data/save/" + metadata["_config"]["hash"].asString() + "/";
 			int status = mkdir(save.c_str());
 		} catch ( ... ) {
 
 		}
+		try {
+			std::string save = "./data/save/" + metadata["_config"]["hash"].asString() + "/regions/";
+			int status = mkdir(save.c_str());
+		} catch ( ... ) {
+
+		}
+	}
+
+	// setup maze
+	{
+		ext::Maze& maze = this->getComponent<ext::Maze>();
+		maze.initialize(16, 16, 1, 0.5, 0.5);
+		maze.seed = seed;
+		maze.build();
+		maze.print();
 	}
 	
 	if ( this->hasComponent<ext::vulkan::RTGraphic>() ) {
@@ -325,7 +329,7 @@ void ext::Terrain::tick() {
 				}
 				/* Sort by closest to farthest */ {
 					const ext::World& world = this->getRootParent<ext::World>();
-					const ext::Player& player = world.getController<ext::Player>();
+					const ext::Object& player = world.getController<ext::Object>();
 					const pod::Vector3& position = player.getComponent<pod::Transform<>>().position;
 					std::sort( regions.begin(), regions.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
 						if ( !l ) return false; if ( !r ) return true;
@@ -359,7 +363,7 @@ void ext::Terrain::tick() {
 				}
 				/* Sort by closest to farthest */ {
 					const ext::World& world = this->getRootParent<ext::World>();
-					const ext::Player& player = world.getController<ext::Player>();
+					const ext::Object& player = world.getController<ext::Object>();
 					const pod::Vector3& position = player.getComponent<pod::Transform<>>().position;
 					std::sort( regions.begin(), regions.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
 						if ( !l ) return false; if ( !r ) return true;
@@ -447,7 +451,7 @@ void ext::Terrain::tick() {
 
 	pod::Thread& mainThread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 	if ( metadata["terrain"]["state"] == "open" && 
-		( (generationTimer.running() && generationTimer.elapsed().asDouble() > 3) || !generationTimer.running() )
+		( (generationTimer.running() && generationTimer.elapsed().asDouble() > 1) || !generationTimer.running() )
 	) { metadata["terrain"]["state"] = "resolving:" + metadata["terrain"]["state"].asString();
 		if ( !generationTimer.running() ) generationTimer.start();
 		else generationTimer.reset();
@@ -489,6 +493,7 @@ void ext::Terrain::tick() {
 
 			bool resolved = !metadata["terrain"]["modified"].asBool();
 			if ( !locations.empty() ) {
+				std::cout << "GENERATING" << std::endl;
 				this->generate();
 				for ( pod::Vector3i& location : locations ) this->degenerate(location);
 				resolved = false;
