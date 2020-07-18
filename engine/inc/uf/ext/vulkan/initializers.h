@@ -283,7 +283,7 @@ namespace ext {
 				return descriptorSetAllocateInfo;
 			}
 
-			inline VkDescriptorImageInfo descriptorImageInfo(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
+			inline VkDescriptorImageInfo descriptorImageInfo(VkImageView imageView, VkImageLayout imageLayout, VkSampler sampler = VK_NULL_HANDLE)
 			{
 				VkDescriptorImageInfo descriptorImageInfo {};
 				descriptorImageInfo.sampler = sampler;

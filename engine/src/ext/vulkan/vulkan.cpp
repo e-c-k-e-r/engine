@@ -1,6 +1,7 @@
 #include <uf/ext/glfw/glfw.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/initializers.h>
+#include <uf/ext/vulkan/commands/deferred.h>
 
 #include <fstream>
 
@@ -157,7 +158,12 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				allocatorInfo.device = device.logicalDevice;
 				vmaCreateAllocator(&allocatorInfo, &allocator);
 			}
-			if ( !ext::vulkan::command ) ext::vulkan::command = ext::vulkan::openvr ? new ext::vulkan::MultiviewCommand() : new ext::vulkan::Command();
+			if ( !ext::vulkan::command ) {
+			//	ext::vulkan::command = ext::vulkan::openvr ? new ext::vulkan::MultiviewCommand() : new ext::vulkan::Command();
+				// would ternary but yields "conditional expression between distinct pointer types ‘ext::vulkan::MultiviewCommand*’ and ‘ext::vulkan::DeferredCommand*’ lacks a cast"
+				if ( ext::vulkan::openvr ) ext::vulkan::command = new ext::vulkan::MultiviewCommand();
+				else ext::vulkan::command = new ext::vulkan::DeferredCommand();
+			}
 			ext::vulkan::command->initialize(device);
 			ext::vulkan::command->createCommandBuffers();
 

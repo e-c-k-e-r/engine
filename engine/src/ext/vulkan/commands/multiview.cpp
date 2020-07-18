@@ -13,6 +13,13 @@ namespace {
 const std::string& ext::vulkan::MultiviewCommand::getName() const {
 	return "Multiview";
 }
+size_t ext::vulkan::MultiviewCommand::subpasses() const {
+	return framebuffers.left.passes.size();
+}
+VkRenderPass& ext::vulkan::MultiviewCommand::getRenderPass() {
+	return framebuffers.left.renderPass;
+}
+
 void ext::vulkan::MultiviewCommand::initialize( Device& device ) {
 	framebuffers.left.initialize( device );
 	framebuffers.right.initialize( device );
@@ -135,7 +142,7 @@ void ext::vulkan::MultiviewCommand::createCommandBuffers( const std::vector<void
 		// Start the first sub pass specified in our default render pass setup by the base class
 		// This will clear the color and depth attachment
 		renderPassBeginInfo.renderPass = framebuffers.left.renderPass;
-		renderPassBeginInfo.framebuffer = framebuffers.left.framebuffer;
+		renderPassBeginInfo.framebuffer = framebuffers.left.framebuffers[i];
 
 		vkCmdBeginRenderPass(swapchain.drawCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdSetViewport(swapchain.drawCommandBuffers[i], 0, 1, &viewport);
@@ -151,7 +158,7 @@ void ext::vulkan::MultiviewCommand::createCommandBuffers( const std::vector<void
 		vkCmdEndRenderPass(swapchain.drawCommandBuffers[i]);
 
 		renderPassBeginInfo.renderPass = framebuffers.right.renderPass;
-		renderPassBeginInfo.framebuffer = framebuffers.right.framebuffer;
+		renderPassBeginInfo.framebuffer = framebuffers.right.framebuffers[i];
 		vkCmdBeginRenderPass(swapchain.drawCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdSetViewport(swapchain.drawCommandBuffers[i], 0, 1, &viewport);
 			vkCmdSetScissor(swapchain.drawCommandBuffers[i], 0, 1, &scissor);

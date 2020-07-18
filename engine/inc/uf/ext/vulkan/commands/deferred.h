@@ -6,11 +6,8 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API MultiviewCommand : public ext::vulkan::Command {
-			struct {
-				ext::vulkan::RenderTarget left;
-				ext::vulkan::RenderTarget right;
-			} framebuffers;
+		struct UF_API DeferredCommand : public ext::vulkan::Command {
+			ext::vulkan::RenderTarget framebuffer;
 			ext::vulkan::FramebufferGraphic blitter;
 
 			// RAII

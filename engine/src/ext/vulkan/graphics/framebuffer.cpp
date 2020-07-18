@@ -35,6 +35,8 @@ void ext::vulkan::FramebufferGraphic::createCommandBuffer( VkCommandBuffer comma
 void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swapchain ) {
 	this->device = &device;
 
+	texture.loadFromFile( "./data/textures/texture.png", ext::vulkan::device, ext::vulkan::device.graphicsQueue );
+
 	std::vector<Vertex> vertices = {
 	
 		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
@@ -86,16 +88,36 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 		),
 		// Fragment shader
 		ext::vulkan::initializers::descriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			1
 		),
+	/*
 		ext::vulkan::initializers::descriptorSetLayoutBinding(
 			VK_DESCRIPTOR_TYPE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			2
 		),
+	*/
 	});
+	// Create sampler
+/*
+	{
+		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.magFilter = VK_FILTER_NEAREST;
+		samplerInfo.minFilter = VK_FILTER_NEAREST;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		samplerInfo.addressModeV = samplerInfo.addressModeU;
+		samplerInfo.addressModeW = samplerInfo.addressModeU;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.maxAnisotropy = 1.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 1.0f;
+		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		VK_CHECK_RESULT(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
+	}
+*/
 	// Create uniform buffer
 	initializeBuffer(
 		(void*) &uniforms,
@@ -188,7 +210,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			swapchain.renderPass,
+			ext::vulkan::command ? ext::vulkan::command->getRenderPass() : swapchain.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -201,23 +223,21 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
+		pipelineCreateInfo.subpass = 1;
 
 		initializePipeline(pipelineCreateInfo);
 	}
 	// Set descriptor pool
 	initializeDescriptorPool({
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
-		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1),
-		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 1)
-	}, 3);
+		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1),
+	}, 1);
 	// Set descriptor set
 	{
-		VkDescriptorImageInfo imageInfo = {};
-		imageInfo.imageLayout = framebuffer->attachments[0].layout;
-		imageInfo.imageView = framebuffer->attachments[0].view;
-		
-		VkDescriptorImageInfo samplerInfo = {};
-		samplerInfo.sampler = framebuffer->sampler;
+		VkDescriptorImageInfo textDescriptorAlbedo = ext::vulkan::initializers::descriptorImageInfo( 
+			framebuffer->attachments[0].view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
 
 		initializeDescriptorSet({
 			// Binding 0 : Projection/View matrix uniform buffer			
@@ -227,6 +247,14 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 				0,
 				&(buffers.at(0).descriptor)
 			),
+			// Binding 1 : Albedo input attachment
+			ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				1,
+				&textDescriptorAlbedo
+			),
+		/*
 			// Binding 1 : Fragment shader texture
 			//	Fragment shader: layout (binding = 1) uniform texture2D tex;
 			ext::vulkan::initializers::writeDescriptorSet(
@@ -243,6 +271,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 				2,
 				&samplerInfo
 			)
+		*/
 		});
 	}
 /*
@@ -266,4 +295,5 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, Swapchain& swa
 }
 void ext::vulkan::FramebufferGraphic::destroy() {
 	ext::vulkan::Graphic::destroy();
+	// vkDestroySampler( *device, sampler, nullptr );
 }

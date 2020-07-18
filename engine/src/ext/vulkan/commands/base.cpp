@@ -8,6 +8,12 @@
 const std::string& ext::vulkan::Command::getName() const {
 	return "Base";
 }
+size_t ext::vulkan::Command::subpasses() const {
+	return 1;
+}
+VkRenderPass& ext::vulkan::Command::getRenderPass() {
+	return swapchain.renderPass;
+}
 
 void ext::vulkan::Command::createCommandBuffers() {
 	std::vector<void*> graphics;

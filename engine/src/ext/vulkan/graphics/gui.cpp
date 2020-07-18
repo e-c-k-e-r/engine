@@ -161,7 +161,7 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, Swapchain& swapchain )
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			swapchain.renderPass,
+			ext::vulkan::command ? ext::vulkan::command->getRenderPass() : swapchain.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -174,6 +174,7 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, Swapchain& swapchain )
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
+		pipelineCreateInfo.subpass = 0;
 
 		initializePipeline(pipelineCreateInfo);
 	}
@@ -181,7 +182,7 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, Swapchain& swapchain )
 	initializeDescriptorPool({
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)
-	}, 2);
+	}, 1);
 	// Set descriptor set
 	initializeDescriptorSet({
 		// Binding 0 : Projection/View matrix uniform buffer			

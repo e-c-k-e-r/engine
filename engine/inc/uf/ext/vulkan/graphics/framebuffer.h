@@ -22,6 +22,7 @@ namespace ext {
 			} uniforms;
 
 			uint32_t indices = 0;
+			VkSampler sampler;
 			ext::vulkan::RenderTarget* framebuffer;
 			
 			virtual void createCommandBuffer( VkCommandBuffer );

@@ -229,7 +229,7 @@ VkResult ext::vulkan::Device::createBuffer(
 	return buffer.bind();
 }
 
-void ext::vulkan::Device::initialize() {
+void ext::vulkan::Device::initialize() {	
 	const std::vector<const char*> validationLayers = {
 		"VK_LAYER_LUNARG_standard_validation"
 	};
@@ -288,12 +288,11 @@ void ext::vulkan::Device::initialize() {
 						break;
 					}
 				}
-				//	if ( !found ) dprintf( "Vulkan missing requested extension '%s'.\n", extensions[ nExt ] );
+				if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
 			}
 		}
 	}
-
-	for ( auto ext : supportedExtensions ) std::cout << "Extension: " << ext << std::endl;
+	// for ( auto ext : supportedExtensions ) std::cout << "Extension: " << ext << std::endl;
 
 	// Create instance
 	{
@@ -408,13 +407,8 @@ void ext::vulkan::Device::initialize() {
 							deviceExtensions.push_back(extensionProperties[index].extensionName);
 						}
 					}
-					//	if ( !found ) dprintf( "Vulkan missing requested extension '%s'.\n", extensions[ nExt ] );
+					if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
 				}
-			/*
-				for ( auto ext : deviceExtensions ) {
-					std::cout << "Device Extension: " << ext << std::endl;
-				}
-			*/
 			}
 		}
 

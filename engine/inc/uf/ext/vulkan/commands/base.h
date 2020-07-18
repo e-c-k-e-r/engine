@@ -8,11 +8,14 @@ namespace ext {
 			uint32_t width, height;
 			// RAII
 			virtual const std::string& getName() const;
+			virtual size_t subpasses() const;
+			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();
 			virtual void createCommandBuffers( const std::vector<void*>& graphics, const std::vector<std::string>& passes );
 			virtual void render();
 			virtual void destroy();
+			virtual VkRenderPass& getRenderPass();
 		};
 	}
 }
