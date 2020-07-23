@@ -32,14 +32,13 @@
 #include <iostream>
 
 #include "ext.h"
-#include "scene/scene.h"
-#include "mainmenu/menu.h"
-#include "world/world.h"
-#include "asset/asset.h"
 
-#include <uf/ext/vulkan/graphics/compute.h>
-#include <uf/ext/vulkan/graphics/mesh.h>
-#include <uf/ext/vulkan/commands/multiview.h>
+#include <uf/engine/scene/scene.h>
+#include <uf/engine/asset/asset.h>
+
+#include <uf/ext/vulkan/rendermodes/deferred.h>
+#include <uf/ext/vulkan/rendermodes/multiview.h>
+#include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 
@@ -54,25 +53,6 @@ namespace {
 	} io;
 
 	struct {
-		struct {
-			pod::Vector2ui size;
-			uf::String title;
-		} window;
-		struct {
-			uint state = 0;
-		} opengl;
-		struct {
-			std::string mode = "Readable";
-		} hook;
-	} persistent;
-
-	struct {	
-		struct {
-			pod::Vector4f ambient = {};
-		} light;
-	} gl;
-
-	struct {
 		spec::Time::time_t 	epoch;
 		uf::Timer<> 		sys = uf::Timer<>(false);
 		uf::Timer<> 		delta = uf::Timer<>(false);
@@ -80,14 +60,8 @@ namespace {
 		double curTime = 0;
 		double deltaTime = 0;
 	} times;
-/*
-	struct {
-		ext::World master;
-	} world;
-*/
+
 	uf::Serializer config;
-
-
 }
 bool ext::ready = false;
 
@@ -107,19 +81,37 @@ void EXT_API ext::initialize() {
 		times.curTime = times.sys.elapsed().asDouble();
 	}
 	/* Read persistent data */ {
-		#include "./inits/persistence.inl"
+		// #include "./inits/persistence.inl"
 	}
 	
 	::config = ext::getConfig();
 
+	/* Parse config */ {
+		/* Frame limiter */ {
+			double limit = ::config["engine"]["frame limit"].asDouble();
+			if ( limit != 0 ) 
+				uf::thread::limiter = 1.0 / ::config["engine"]["frame limit"].asDouble();
+			else uf::thread::limiter = 0;
+		}
+		/* Max delta time */{
+			double limit = ::config["engine"]["delta limit"].asDouble();
+			if ( limit != 0 ) 
+				uf::physics::time::clamp = 1.0 / ::config["engine"]["delta limit"].asDouble();
+			else uf::physics::time::clamp = 0;
+		}
+		// Set worker threads
+		uf::thread::workers = ::config["engine"]["worker threads"].asUInt64();
+		// Enable valiation layer
+		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"].asBool();
+	}
+
 	/* Initialize Vulkan */ {
 		ext::vulkan::width = ::config["window"]["size"]["x"].asInt();
 		ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
-		ext::vulkan::openvr = ::config["vr"]["enable"].asBool();
 
-		// setup multiview command mode
-		//ext::vulkan::command = new ext::vulkan::Command();
-		//ext::vulkan::command = new ext::vulkan::MultiviewCommand();
+		// setup render mode
+		ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
+	//	ext::vulkan::addRenderMode( new ext::vulkan::RenderTargetRenderMode, "Gui" );
 		ext::vulkan::initialize();
 	}
 	/* */ {
@@ -128,34 +120,19 @@ void EXT_API ext::initialize() {
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	}
 
-	/* Discord */ if ( ::config["window"]["discord"].asBool() ) {
+	/* Discord */ if ( ::config["engine"]["ex"]["discord"]["enabled"].asBool() ) {
 		ext::discord::initialize();
 	}
 
 	/* Initialize root scene*/ {
-		ext::Scene::current = new ext::MainMenu();
-		ext::Scene::current->initialize();
+		uf::scene::loadScene( ::config["engine"]["scenes"]["start"].asString() );
 	}
 
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:LoadScene", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
-
-			ext::Scene* scene = NULL;
-			if ( json["scene"].asString() == "mainmenu" ) {
-				scene = new ext::MainMenu();
-			} else if ( json["scene"].asString() == "world" ) {
-				scene = new ext::World();
-			}
-			
-			if ( scene ) {
-				scene->initialize();
-
-				ext::Scene::current->destroy();
-				delete ext::Scene::current;
-				ext::Scene::current = scene;
-			}
-
+			uf::scene::unloadScene();
+			uf::scene::loadScene( json["scene"].asString() );
 			return "true";
 		});
 
@@ -171,14 +148,13 @@ void EXT_API ext::initialize() {
 
 	{
 		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
-		//	ext::Asset& assetLoader = ::world.master.getComponent<ext::Asset>();
-			ext::Asset& assetLoader = ext::Scene::current->getComponent<ext::Asset>();
+			uf::Asset& assetLoader = uf::scene::getCurrentScene().getComponent<uf::Asset>();
 			assetLoader.processQueue();
 		return 0;}, false );
 	}
 	{
 		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
-			/* OpenVR */ if ( ::config["vr"]["enable"].asBool() ) {
+			/* OpenVR */ if ( ::config["engine"]["ext"]["vr"]["enable"].asBool() ) {
 				ext::openvr::initialize();
 				uint32_t width, height;
 				ext::openvr::recommendedResolution( width, height );
@@ -193,8 +169,8 @@ void EXT_API ext::initialize() {
 				std::cout << width << ", " << height << std::endl;
 				ext::vulkan::swapchain.rebuild = true;
 			*/
-				if ( ::config["vr"]["resize"].asBool() )
-					ext::Scene::current->callHook("window:Resized", payload);
+				if ( ::config["engine"]["ext"]["vr"]["resize"].asBool() )
+					uf::hooks.call("window:Resized", payload);
 			}
 		return 0;}, true );
 	}
@@ -208,11 +184,39 @@ void EXT_API ext::tick() {
 	static uf::Timer<long long> timer(false);
 	if ( !timer.running() ) timer.start();
 
+	/* Print World Tree */ {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
+				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
+				uf::iostream << entity->getName() << ": " << entity->getUid();
+				if ( entity->hasComponent<pod::Transform<>>() ) {
+					pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
+					uf::iostream << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ")";
+				}
+				uf::iostream << "\n";
+			};
+			for ( uf::Scene* scene : ext::vulkan::scenes ) {
+				if ( !scene ) continue;
+				std::cout << "Scene: " << scene->getName() << ": " << scene << std::endl;
+				scene->process(filter, 1);
+			}
+		}
+	}
+	/* Print Entity Information */  {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+	    	uf::iostream << ext::vulkan::allocatorStats() << "\n";
+		}
+	}
+
 	/* Update physics timer */ {
 		uf::physics::tick();
 	}
-	/* Update entities */ if ( ext::Scene::current ) {
-		ext::Scene::current->tick();
+	/* Update entities */ {
+		uf::scene::tick();
 	}
 
 	/* Tick Main Thread Queue */ {
@@ -223,10 +227,10 @@ void EXT_API ext::tick() {
 	/* Update vulkan */ {
 		ext::vulkan::tick();
 	}
-	/* Discord */ if ( ::config["window"]["discord"].asBool() ) {
+	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enable"].asBool() ) {
 		ext::discord::tick();
 	}
-	/* OpenVR */ if ( ::config["vr"]["enable"].asBool() ) {
+	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::tick();
 	}
 	
@@ -240,17 +244,20 @@ void EXT_API ext::tick() {
 	}
 }
 void EXT_API ext::render() {
-	if ( ext::Scene::current ) {
-		ext::Scene::current->render();
-	}
+	uf::scene::render();
+
 	ext::vulkan::render();
 
-	/* OpenVR */ if ( ::config["vr"]["enable"].asBool() ) {
+	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::submit();
 	}
 }
 void EXT_API ext::terminate() {
-	/* OpenVR */ if ( ::config["vr"]["enable"].asBool() ) {
+	/* Kill threads */ {
+		uf::thread::terminate();
+	}
+
+	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::terminate();
 	}
 
@@ -261,15 +268,12 @@ void EXT_API ext::terminate() {
 		io.output.close();
 	}
 
-	// ::world.master.destroy();
-	if ( ext::Scene::current ) {
-		ext::Scene::current->destroy();
-	}
+	uf::scene::destroy();
 
-	/* Write persistent data */ {
+	/* Write persistent data */ if ( false ) {
 		struct {
 			bool exists = false;
-			std::string filename = "cfg/persistent.json";
+			std::string filename = "./data/persistent.json";
 		} file;
 		struct {
 			uf::Serializer file;
@@ -277,18 +281,8 @@ void EXT_API ext::terminate() {
 		/* Read from file */  {
 			file.exists = config.file.readFromFile(file.filename);
 		}
-	//	config.file["window"]["size"]["x"] = persistent.window.size.x;
-	//	config.file["window"]["size"]["y"] = persistent.window.size.y;
-	//	config.file["window"]["title"] = std::string(persistent.window.title);
-	//	config.file["OpenGL"]["state"] = persistent.opengl.state;
-
-		config.file["meta"]["version"] = "2018.04.09";
-		config.file["meta"]["time"]["initialized"] = times.sys.getStarting().asDouble();
-		config.file["meta"]["time"]["terminated"] = times.sys.getEnding().asDouble();
-		config.file["meta"]["time"]["elapsed"] = times.sys.elapsed().asDouble();
-
 		/* Write persistent data */ {
-//			config.file.writeToFile(file.filename);
+			config.file.writeToFile(file.filename);
 		}
 	}
 }
@@ -304,36 +298,29 @@ std::string EXT_API ext::getConfig() {
 
 	struct {
 		bool exists = false;
-		std::string filename = "cfg/ext.json";
+		std::string filename = "./data/config.json";
 	} file;
 	/* Read from file */  {
 		file.exists = config.file.readFromFile(file.filename);
 	}
-
-	/* Initialize fallback */ {
-		config.fallback["terminal"]["visible"] 				= true;
-		config.fallback["terminal"]["ncurses"] 				= true;
-		config.fallback["window"]["title"] 					= "[uf] Grimgram - Extended";
-		config.fallback["window"]["size"]["x"] 				= 640;
-		config.fallback["window"]["size"]["y"] 				= 480;
+	/* Initialize default configuration */ {
+		config.fallback["window"]["terminal"]["ncurses"] 	= true;
+		config.fallback["window"]["terminal"]["visible"] 	= true;
+		config.fallback["window"]["title"] 					= "Grimgram";
+		config.fallback["window"]["icon"] 					= "";
+		config.fallback["window"]["size"]["x"] 				= 1280;
+		config.fallback["window"]["size"]["y"] 				= 720;
 		config.fallback["window"]["visible"] 				= true;
-
-		config.fallback["cursor"]["visible"] 				= true;
-		config.fallback["keyboard"]["repeat"] 				= true;
+		config.fallback["window"]["fullscreen"] 			= false;
+		config.fallback["window"]["cursor"]["visible"] 		= true;
+		config.fallback["window"]["cursor"]["center"] 		= false;
+		config.fallback["window"]["keyboard"]["repeat"] 	= true;
 		
-		config.fallback["hook"]["mode"] 					= "Readable";
-
-		config.fallback["light"]["ambient"]["r"] 			= ::gl.light.ambient.x = 0.0f;
-		config.fallback["light"]["ambient"]["g"] 			= ::gl.light.ambient.y = 0.0f;
-		config.fallback["light"]["ambient"]["b"] 			= ::gl.light.ambient.z = 0.0f;
-		config.fallback["light"]["ambient"]["a"] 			= ::gl.light.ambient.w = 1.0f;
-
-		config.fallback["context"]["depthBits"] 			= 24;
-		config.fallback["context"]["stencilBits"] 			= 4;
-		config.fallback["context"]["bitsPerPixel"] 			= 8;
-		config.fallback["context"]["antialiasingLevel"] 	= 0;
-		config.fallback["context"]["majorVersion"] 			= 3;
-		config.fallback["context"]["minorVersion"] 			= 0;
+		config.fallback["engine"]["scenes"]["start"]		= "StartMenu";
+		config.fallback["engine"]["hook"]["mode"] 			= "Readable";
+		config.fallback["engine"]["frame limit"] 			= 60;
+		config.fallback["engine"]["delta limit"] 			= 120;
+		config.fallback["engine"]["worker threads"] 		= 1;
 	}
 	/* Merge */ if ( file.exists ){
 		config.merged = config.file;
@@ -341,20 +328,8 @@ std::string EXT_API ext::getConfig() {
 	} else {
 		config.merged = config.fallback;
 	}
-	/* Write default to file */ {
+	/* Write default to file */ if ( false ) {
 		config.merged.writeToFile(file.filename);
-	}
-	/* Update title */ {
-		persistent.window.title = config.merged["window"]["title"].asString();
-	}
-	/* Update hook mode */ {
-		persistent.hook.mode = config.merged["hook"]["mode"].asString();
-	}
-	/* Update ambient color */ {
-		::gl.light.ambient.x = config.merged["light"]["ambient"]["r"].asDouble();
-		::gl.light.ambient.y = config.merged["light"]["ambient"]["g"].asDouble();
-		::gl.light.ambient.z = config.merged["light"]["ambient"]["b"].asDouble();
-		::gl.light.ambient.w = config.merged["light"]["ambient"]["a"].asDouble();
 	}
 
 	config.initialized = true;

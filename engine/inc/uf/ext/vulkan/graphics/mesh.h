@@ -32,7 +32,8 @@ namespace ext {
 			virtual bool autoAssignable() const;
 			virtual std::string name() const;
 			// RAII
-			virtual void initialize( Device& device, Swapchain& swapchain );
+			virtual void initialize( const std::string& = "" );
+			virtual void initialize( Device& device, RenderMode& renderMode );
 			virtual void destroy();
 		};
 	}

@@ -121,115 +121,10 @@ void ext::vulkan::Graphic::initializeDescriptorLayout( const std::vector<VkDescr
 }
 // Create pipeline
 void ext::vulkan::Graphic::initializePipeline( VkGraphicsPipelineCreateInfo pipelineCreateInfo ) {
-/*
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		0,
-		VK_FALSE
-	);
-
-	VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
-		VK_POLYGON_MODE_FILL,
-		VK_CULL_MODE_NONE,
-		VK_FRONT_FACE_COUNTER_CLOCKWISE,
-		0
-	);
-
-	VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-		0xf,
-		VK_FALSE
-	);
-
-	VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
-		1,
-		&blendAttachmentState
-	);
-
-	VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-		VK_TRUE,
-		VK_TRUE,
-		VK_COMPARE_OP_LESS_OR_EQUAL
-	);
-
-	VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
-		1, 1, 0
-	);
-
-	VkPipelineMultisampleStateCreateInfo multisampleState = ext::vulkan::initializers::pipelineMultisampleStateCreateInfo(
-		VK_SAMPLE_COUNT_1_BIT,
-		0
-	);
-
-	std::vector<VkDynamicState> dynamicStateEnables = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-	VkPipelineDynamicStateCreateInfo dynamicState = ext::vulkan::initializers::pipelineDynamicStateCreateInfo(
-		dynamicStateEnables.data(),
-		static_cast<uint32_t>(dynamicStateEnables.size()),
-		0
-	);
-
-	// Binding description
-	vertices.bindingDescriptions.resize(1);
-	vertices.bindingDescriptions[0] = ext::vulkan::initializers::vertexInputBindingDescription(
-		VERTEX_BUFFER_BIND_ID, 
-		sizeof(Vertex), 
-		VK_VERTEX_INPUT_RATE_VERTEX
-	);
-	// Attribute descriptions
-	// Describes memory layout and shader positions
-	vertices.attributeDescriptions.resize(3);
-	// Location 0 : Position
-	vertices.attributeDescriptions[0] = ext::vulkan::initializers::vertexInputAttributeDescription(
-		VERTEX_BUFFER_BIND_ID,
-		0,
-		VK_FORMAT_R32G32B32_SFLOAT,
-		offsetof(Vertex, position)
-	);			
-	// Location 1 : Texture coordinates
-	vertices.attributeDescriptions[1] = ext::vulkan::initializers::vertexInputAttributeDescription(
-		VERTEX_BUFFER_BIND_ID,
-		1,
-		VK_FORMAT_R32G32_SFLOAT,
-		offsetof(Vertex, uv)
-	);
-	// Location 1 : Vertex normal
-	vertices.attributeDescriptions[2] = ext::vulkan::initializers::vertexInputAttributeDescription(
-		VERTEX_BUFFER_BIND_ID,
-		2,
-		VK_FORMAT_R32G32B32_SFLOAT,
-		offsetof(Vertex, normal)
-	);
-
-	vertices.inputState = ext::vulkan::initializers::pipelineVertexInputStateCreateInfo();
-	vertices.inputState.vertexBindingDescriptionCount = static_cast<uint32_t>(vertices.bindingDescriptions.size());
-	vertices.inputState.pVertexBindingDescriptions = vertices.bindingDescriptions.data();
-	vertices.inputState.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertices.attributeDescriptions.size());
-	vertices.inputState.pVertexAttributeDescriptions = vertices.attributeDescriptions.data();
-
-	// Load shaders
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = this->loadShaders();
-
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
-		pipelineLayout,
-		swapchain.renderPass,
-		0
-	);
-	pipelineCreateInfo.pVertexInputState = &vertices.inputState;
-	pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
-	pipelineCreateInfo.pRasterizationState = &rasterizationState;
-	pipelineCreateInfo.pColorBlendState = &colorBlendState;
-	pipelineCreateInfo.pMultisampleState = &multisampleState;
-	pipelineCreateInfo.pViewportState = &viewportState;
-	pipelineCreateInfo.pDepthStencilState = &depthStencilState;
-	pipelineCreateInfo.pDynamicState = &dynamicState;
-	pipelineCreateInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
-	pipelineCreateInfo.pStages = shaderStages.data();
-*/
-
 	ext::vulkan::mutex.lock();
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, swapchain->pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
+
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, device->pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
+
 	ext::vulkan::mutex.unlock();
 }
 // Set descriptor pool
@@ -266,8 +161,10 @@ bool ext::vulkan::Graphic::autoAssignable() const {
 }
 void ext::vulkan::Graphic::autoAssign() {
 	if ( !autoAssigned ) {
-		if ( this->swapchain ) this->swapchain->rebuild = true;
+		swapchain.rebuild = true;
+/*
 		ext::vulkan::graphics->push_back(this);
+*/
 	}
 	autoAssigned = true;
 }
@@ -275,9 +172,12 @@ std::string ext::vulkan::Graphic::name() const {
 	return "Graphic";
 }
 
-void ext::vulkan::Graphic::initialize( Device& device, Swapchain& swapchain ) {
+void ext::vulkan::Graphic::initialize( const std::string& renderMode ) {
+	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
+}
+void ext::vulkan::Graphic::initialize( Device& device, RenderMode& renderMode ) {
 	this->device = &device;
-	this->swapchain = &swapchain;
+	this->renderMode = &renderMode;
 	this->initialized = true;
 	if ( autoAssignable() ) autoAssign();
 }
@@ -289,12 +189,14 @@ void ext::vulkan::Graphic::destroy() {
 		buffer.destroy();
 	}
 	if ( autoAssigned ) {
+/*
 		ext::vulkan::graphics->erase(
 			std::remove(ext::vulkan::graphics->begin(), ext::vulkan::graphics->end(), this),
 			ext::vulkan::graphics->end()
 		);
-		if ( this->swapchain ) this->swapchain->rebuild = true;
+*/
 		autoAssigned = false;
+		swapchain.rebuild = true;
 	}
 	initialized = false;
 	if ( !device || device == VK_NULL_HANDLE ) return;

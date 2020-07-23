@@ -231,7 +231,7 @@ VkResult ext::vulkan::Device::createBuffer(
 
 void ext::vulkan::Device::initialize() {	
 	const std::vector<const char*> validationLayers = {
-		"VK_LAYER_LUNARG_standard_validation"
+		"VK_LAYER_KHRONOS_validation"
 	};
 	// Assert validation layers
 	if ( ext::vulkan::validation ) {
@@ -255,7 +255,8 @@ void ext::vulkan::Device::initialize() {
 	// Get extensions
 	// OpenVR Support
 	supportedExtensions = window->getExtensions( ext::vulkan::validation );
-	if ( ext::vulkan::openvr && vr::VRCompositor() ) {
+
+	if ( ext::openvr::context && vr::VRCompositor() ) {
 		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
 		if ( nBufferSize > 0 ) {
 			char pExtensionStr[nBufferSize];
@@ -292,7 +293,7 @@ void ext::vulkan::Device::initialize() {
 			}
 		}
 	}
-	// for ( auto ext : supportedExtensions ) std::cout << "Extension: " << ext << std::endl;
+	for ( auto ext : supportedExtensions ) std::cout << "Extension: " << ext << std::endl;
 
 	// Create instance
 	{
@@ -375,7 +376,7 @@ void ext::vulkan::Device::initialize() {
 		std::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
-		/* OpenVR support */ if ( ext::vulkan::openvr && vr::VRCompositor() ) {
+		/* OpenVR support */ if ( ext::openvr::context && vr::VRCompositor() ) {
 			uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, nullptr, 0 );
 			if ( nBufferSize > 0 ) {
 				char pExtensionStr[nBufferSize];
@@ -513,7 +514,7 @@ void ext::vulkan::Device::initialize() {
 				transferQueueNodeIndex = i;
 
 			VkBool32 presentSupport = false;
-			vkGetPhysicalDeviceSurfaceSupportKHR( device.physicalDevice, i, surface, &presentSupport );
+			vkGetPhysicalDeviceSurfaceSupportKHR( this->physicalDevice, i, surface, &presentSupport );
 			if ( queueFamily.queueCount > 0 && presentSupport )
 				presentQueueNodeIndex = i;
 
@@ -528,9 +529,71 @@ void ext::vulkan::Device::initialize() {
 		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &presentQueue );
 		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &computeQueue );
 	}
+	// Set formats
+	{
+		std::vector<VkSurfaceFormatKHR> formats;
+		uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
+		formats.resize( formatCount );
+		vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
+		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
+		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_UNORM
+		if ( (formatCount == 1) && (formats[0].format == VK_FORMAT_UNDEFINED) ) {
+			formats.color = VK_FORMAT_B8G8R8A8_UNORM;
+			formats.space = formats[0].colorSpace;
+		} else {
+			// iterate over the list of available surface format and
+			// check for the presence of VK_FORMAT_B8G8R8A8_UNORM
+			bool found_B8G8R8A8_UNORM = false;
+			for ( auto&& surfaceFormat : formats ) {
+				if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
+					formats.color = surfaceFormat.format;
+					formats.space = surfaceFormat.colorSpace;
+					found_B8G8R8A8_UNORM = true;
+					break;
+				}
+			}
+			// in case VK_FORMAT_B8G8R8A8_UNORM is not available
+			// select the first available color format
+			if ( !found_B8G8R8A8_UNORM ) {
+				formats.color = formats[0].format;
+				formats.space = formats[0].colorSpace;
+			}
+		}
+	}
+	// Grab depth/stencil format
+	{
+		// Since all depth formats may be optional, we need to find a suitable depth format to use
+		// Start with the highest precision packed format
+		std::vector<VkFormat> depthFormats = {
+			VK_FORMAT_D32_SFLOAT_S8_UINT,
+			VK_FORMAT_D32_SFLOAT,
+			VK_FORMAT_D24_UNORM_S8_UINT,
+			VK_FORMAT_D16_UNORM_S8_UINT,
+			VK_FORMAT_D16_UNORM
+		};
+
+		for ( auto& format : depthFormats ) {
+			VkFormatProperties formatProps;
+			vkGetPhysicalDeviceFormatProperties( this->physicalDevice, format, &formatProps );
+			// Format must support depth stencil attachment for optimal tiling
+			if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+				formats.depth = format;
+			}
+		}
+	}
+	// create pipeline cache
+	{
+		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
+	}
 }
 
 void ext::vulkan::Device::destroy() {
+	if ( this->pipelineCache ) {
+		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
+		this->pipelineCache = nullptr;
+	}
 	if ( this->commandPool ) {
 		vkDestroyCommandPool( this->logicalDevice, this->commandPool, nullptr );
 		this->commandPool = nullptr;

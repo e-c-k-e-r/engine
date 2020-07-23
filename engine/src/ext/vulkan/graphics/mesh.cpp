@@ -28,11 +28,13 @@ void ext::vulkan::MeshGraphic::createCommandBuffer( VkCommandBuffer commandBuffe
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices), 1, 0, 0, 1);
 }
-
-void ext::vulkan::MeshGraphic::initialize( Device& device, Swapchain& swapchain ) {
+void ext::vulkan::MeshGraphic::initialize( const std::string& renderMode ) {
+	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
+}
+void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMode ) {
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
-	ext::vulkan::Graphic::initialize( device, swapchain );
+	ext::vulkan::Graphic::initialize( device, renderMode );
 	// set descriptor layout
 	initializeDescriptorLayout({
 		// Vertex shader
@@ -167,7 +169,7 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, Swapchain& swapchain 
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			ext::vulkan::command ? ext::vulkan::command->getRenderPass() : swapchain.renderPass,
+			renderMode.getRenderPass(),
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;

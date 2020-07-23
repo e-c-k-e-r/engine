@@ -1,6 +1,9 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/io/iostream.h>
 
+#include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/vulkan/rendermodes/multiview.h>
+
 vr::IVRSystem* ext::openvr::context;
 ext::openvr::Driver ext::openvr::driver;
 uint8_t ext::openvr::renderPass = 0;
@@ -212,11 +215,10 @@ void ext::openvr::tick() {
 	}
 }
 
-#include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/commands/multiview.h>
 void ext::openvr::submit() {
-	float width = ext::vulkan::command->width > 0 ? ext::vulkan::command->width : ext::vulkan::width;
-	float height = ext::vulkan::command->height > 0 ? ext::vulkan::command->height : ext::vulkan::height;
+	ext::vulkan::MultiviewRenderMode* renderMode = (ext::vulkan::MultiviewRenderMode*) ext::vulkan::renderModes[0];
+	float width = renderMode->width > 0 ? renderMode->width : ext::vulkan::width;
+	float height = renderMode->height > 0 ? renderMode->height : ext::vulkan::height;
 	// Submit to SteamVR
 	vr::VRTextureBounds_t bounds;
 	bounds.uMin = 0.0f;
@@ -239,10 +241,10 @@ void ext::openvr::submit() {
 
 	vr::Texture_t texture = { &vulkanData, vr::TextureType_Vulkan, vr::ColorSpace_Auto };
 	
-	vulkanData.m_nImage = (uint64_t) (VkImage) ((ext::vulkan::MultiviewCommand*) ext::vulkan::command)->framebuffers.left.attachments[0].image;
+	vulkanData.m_nImage = (uint64_t) (VkImage) renderMode->framebuffers.left.attachments[0].image;
 	vr::VRCompositor()->Submit( vr::Eye_Left, &texture, &bounds );
 
-	vulkanData.m_nImage = (uint64_t) (VkImage) ((ext::vulkan::MultiviewCommand*) ext::vulkan::command)->framebuffers.right.attachments[0].image;
+	vulkanData.m_nImage = (uint64_t) (VkImage) renderMode->framebuffers.right.attachments[0].image;
 	vr::VRCompositor()->Submit( vr::Eye_Right, &texture, &bounds );
 
 	vr::VRCompositor()->PostPresentHandoff();

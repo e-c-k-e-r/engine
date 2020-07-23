@@ -3,11 +3,6 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
 
-#include <uf/utils/math/quaternion.h>
-// #include <uf/utils/math/glm.h>
-
-#include <uf/engine/entity/entity.h>
-
 int main(int argc, char** argv){
 	std::atexit([]{
 		uf::iostream << "Termination via std::atexit()!" << "\n";

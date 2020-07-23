@@ -2,6 +2,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <algorithm>
+
 std::string ext::vulkan::ComputeGraphic::name() const {
 	return "ComputeGraphic";
 }
@@ -78,9 +79,9 @@ void ext::vulkan::ComputeGraphic::updateStorageBuffers( Device& device, std::vec
 		);
 	}
 }
-void ext::vulkan::ComputeGraphic::initialize( Device& device, Swapchain& swapchain, uint32_t width, uint32_t height ) {
+void ext::vulkan::ComputeGraphic::initialize( Device& device, RenderMode& renderMode, uint32_t width, uint32_t height ) {
 	assert( buffers.size() >= 3 );
-	ext::vulkan::Graphic::initialize( device, swapchain );
+	ext::vulkan::Graphic::initialize( device, renderMode );
 	// Set queue
 	{
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
@@ -210,7 +211,7 @@ void ext::vulkan::ComputeGraphic::initialize( Device& device, Swapchain& swapcha
 			0
 		);
 		computePipelineCreateInfo.stage = shader.stages.at(0);
-		VK_CHECK_RESULT(vkCreateComputePipelines(device, swapchain.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+		VK_CHECK_RESULT(vkCreateComputePipelines(device, device.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
 	}
 	// Create command pool
 	{
@@ -283,9 +284,12 @@ std::string ext::vulkan::RTGraphic::name() const {
 void ext::vulkan::RTGraphic::updateUniformBuffer() {
 	compute.updateUniformBuffer();
 }
-void ext::vulkan::RTGraphic::initialize( Device& device, Swapchain& swapchain ) {
-	ext::vulkan::Graphic::initialize( device, swapchain );
-	compute.initialize( device, swapchain, this->width, this->height );
+void ext::vulkan::RTGraphic::initialize( const std::string& renderMode ) {
+	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
+}
+void ext::vulkan::RTGraphic::initialize( Device& device, RenderMode& renderMode ) {
+	ext::vulkan::Graphic::initialize( device, renderMode );
+	compute.initialize( device, renderMode, this->width, this->height );
 	// Set Descriptor Layout
 	initializeDescriptorLayout({
 		ext::vulkan::initializers::descriptorSetLayoutBinding(
@@ -352,7 +356,7 @@ void ext::vulkan::RTGraphic::initialize( Device& device, Swapchain& swapchain ) 
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			swapchain.renderPass,
+			renderMode.getRenderPass(),
 			0
 		);
 		VkPipelineVertexInputStateCreateInfo emptyInputState = {};

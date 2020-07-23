@@ -7,10 +7,10 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 
-#include "../object/object.h"
+#include <uf/engine/object/object.h>
 
 namespace ext {
-	class EXT_API Gui : public ext::Object {
+	class EXT_API Gui : public uf::Object {
 	public:
 		virtual void initialize();
 		virtual void tick();

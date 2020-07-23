@@ -160,6 +160,15 @@ void ext::vulkan::Texture::setImageLayout(
 }
 void ext::vulkan::Texture2D::loadFromFile(
 	std::string filename, 
+	VkFormat format,
+	VkImageUsageFlags imageUsageFlags,
+	VkImageLayout imageLayout, 
+	bool forceLinear
+) {
+	return loadFromFile( filename, ext::vulkan::device, ext::vulkan::device.graphicsQueue, format, imageUsageFlags, imageLayout, forceLinear );
+}
+void ext::vulkan::Texture2D::loadFromFile(
+	std::string filename, 
 	Device& device,
 	VkQueue copyQueue,
 	VkFormat format,
@@ -223,7 +232,7 @@ void ext::vulkan::Texture2D::loadFromFile(
 */
 
 	// convert to power of two
-	image.padToPowerOfTwo();
+	//image.padToPowerOfTwo();
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),
@@ -233,10 +242,19 @@ void ext::vulkan::Texture2D::loadFromFile(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		VK_FILTER_LINEAR,
+		filter,
 		imageUsageFlags,
 		imageLayout
 	);
+}
+void ext::vulkan::Texture2D::loadFromImage(
+	uf::Image& image,
+	VkFormat format,
+	VkImageUsageFlags imageUsageFlags,
+	VkImageLayout imageLayout, 
+	bool forceLinear
+) {
+	return loadFromImage( image, ext::vulkan::device, ext::vulkan::device.graphicsQueue, format, imageUsageFlags, imageLayout, forceLinear );
 }
 void ext::vulkan::Texture2D::loadFromImage(
 	uf::Image& image, 
@@ -287,7 +305,7 @@ void ext::vulkan::Texture2D::loadFromImage(
 	}
 
 	// convert to power of two
-	image.padToPowerOfTwo();
+	//image.padToPowerOfTwo();
 
 	this->fromBuffers( 
 		(void*) image.getPixelsPtr(),

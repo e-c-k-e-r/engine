@@ -19,6 +19,8 @@ namespace ext {
 			VkPhysicalDeviceFeatures enabledFeatures;
 			VkPhysicalDeviceMemoryProperties memoryProperties;
 			
+			VkPipelineCache pipelineCache;
+
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			std::vector<const char*> supportedExtensions;
 			
@@ -27,6 +29,12 @@ namespace ext {
 			VkQueue computeQueue;
 
 			uf::Window* window;
+
+			struct {
+				VkFormat depth;
+				VkFormat color;
+				VkColorSpaceKHR space;
+			} formats;
 
 			struct QueueFamilyIndices {
 				uint32_t graphics;

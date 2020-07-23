@@ -19,7 +19,8 @@ namespace ext {
 			uint32_t mips;
 			uint32_t layers;
 			VkDescriptorImageInfo descriptor;
-			VkSampler sampler; 					// optional
+			VkSampler sampler;
+			VkFilter filter = VK_FILTER_NEAREST;
 			// RAII
 			void initialize( Device& device, size_t width, size_t height );
 			void updateDescriptors();
@@ -46,6 +47,13 @@ namespace ext {
 		struct UF_API Texture2D : public Texture {
 			void loadFromFile(
 				std::string filename, 
+				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+				bool forceLinear = false
+			);
+			void loadFromFile(
+				std::string filename, 
 				Device& device,
 				VkQueue copyQueue,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
@@ -57,6 +65,13 @@ namespace ext {
 				uf::Image& image, 
 				Device& device,
 				VkQueue copyQueue,
+				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+				bool forceLinear = false
+			);
+			void loadFromImage(
+				uf::Image& image,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 

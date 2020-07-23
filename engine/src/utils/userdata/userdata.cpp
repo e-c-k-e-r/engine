@@ -1,4 +1,5 @@
 #include <uf/utils/userdata/userdata.h> 	// userdata
+#include <uf/utils/string/base64.h> 		// base64
 #include <cstdlib> 							// malloc, free
 #include <cstring> 							// memcpy
 
@@ -21,6 +22,13 @@ pod::Userdata* UF_API uf::userdata::create( std::size_t len, void* data ) {
 void UF_API uf::userdata::destroy( pod::Userdata* userdata ) {
 //	free(userdata);
 	delete[] userdata;
+}
+std::string UF_API uf::userdata::toBase64( pod::Userdata* userdata ) {
+	return uf::base64::encode( userdata->data, userdata->len );
+}
+pod::Userdata* UF_API uf::userdata::fromBase64( const std::string& base64 ) {
+	std::vector<uint8_t> decoded = uf::base64::decode( base64 );
+	return uf::userdata::create( decoded.size(), decoded.data() );
 }
 // 	C-tor
 

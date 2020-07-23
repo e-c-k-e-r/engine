@@ -4,7 +4,9 @@
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/graphic.h>
-#include <uf/ext/vulkan/commands/base.h>
+#include <uf/ext/vulkan/rendermodes/base.h>
+
+#include <uf/engine/scene/scene.h>
 
 namespace ext {
 	namespace vulkan {
@@ -33,26 +35,28 @@ namespace ext {
 
 		uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties);
 
-		typedef VmaAllocator Allocator;
-		extern UF_API Allocator allocator;
 
-		extern UF_API Device device;
-		extern UF_API Swapchain swapchain;
-	//	extern UF_API std::vector<Graphic*> graphics;
-		extern UF_API std::vector<Graphic*>* graphics;
-		extern UF_API std::vector<std::string> passes;
-		extern UF_API std::string currentPass;
-		extern UF_API bool resizedFramebuffer;
 		extern UF_API uint32_t width;
 		extern UF_API uint32_t height;
-		extern UF_API bool validation;
-		extern UF_API bool openvr;
-		extern UF_API std::mutex mutex;
-		extern UF_API uint32_t currentBuffer;
-		extern UF_API Command* command;
 
-		void createCommandBuffers();
-		void createCommandBuffers( const std::vector<void*>&, const std::vector<uint32_t>& );
+		extern UF_API bool validation;
+		extern UF_API Device device;
+		typedef VmaAllocator Allocator;
+		extern UF_API Allocator allocator;
+		extern UF_API Swapchain swapchain;
+		extern UF_API std::mutex mutex;
+
+		extern UF_API bool resizedFramebuffer;
+		extern UF_API uint32_t currentBuffer;
+
+		extern UF_API std::string currentPass;
+		extern UF_API std::vector<std::string> passes;
+	//	extern UF_API std::vector<Graphic*>* graphics;
+		extern UF_API std::vector<RenderMode*> renderModes;
+		extern UF_API std::vector<uf::Scene*> scenes;
+
+		RenderMode& UF_API addRenderMode( RenderMode*, const std::string& = "" );
+		RenderMode& UF_API getRenderMode( const std::string& );
 
 		void UF_API initialize( uint8_t = 0 );
 		void UF_API tick();

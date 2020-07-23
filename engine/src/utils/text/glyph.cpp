@@ -18,10 +18,10 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, unsigned long c, uint
 	}
 
 //	this->m_sdf = false;
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width / 64), static_cast<int>(glyph.face->glyph->metrics.height / 64) } );
+//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width) >> 6, static_cast<int>(glyph.face->glyph->metrics.height) >> 6 } );
 	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x / 64), static_cast<int>(glyph.face->glyph->advance.y / 64)} );
+	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
 //	this->setPadding( {4, 4} );
 
 	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
@@ -70,10 +70,10 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::String& c, 
 		delete[] this->m_buffer;
 	}
 
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width / 64), static_cast<int>(glyph.face->glyph->metrics.height / 64) } );
+//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width) >> 6, static_cast<int>(glyph.face->glyph->metrics.height) >> 6 } );
 	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
-	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x / 64), static_cast<int>(glyph.face->glyph->advance.y / 64)} );
+	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );
 
 	uint8_t* bitmap = glyph.face->glyph->bitmap.buffer;
 	std::size_t len = this->m_size.x * this->m_size.y;

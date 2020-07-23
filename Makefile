@@ -59,7 +59,7 @@ EXT_WIN64_LIB_DIR 		= $(ENGINE_LIB_DIR)/win64/
 EXT_WIN64_INCS 			= -I$(ENGINE_INC_DIR) -I$(EXT_WIN64_INC_DIR) -I$(VULKAN_WIN64_SDK_PATH)/include
 EXT_WIN64_LIBS 			= -L$(ENGINE_LIB_DIR) -L$(EXT_WIN64_LIB_DIR) -L$(VULKAN_WIN64_SDK_PATH)/Lib
 
-SRCS_EXT_WIN64_DLL 		= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp)
+SRCS_EXT_WIN64_DLL 		= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp)
 OBJS_EXT_WIN64_DLL 		= $(patsubst %.cpp,%.win64.o,$(SRCS_EXT_WIN64_DLL))
 BASE_EXT_WIN64_DLL 		= lib$(EXT_LIB_NAME)
 EXT_IM_WIN64_DLL 		= $(ENGINE_LIB_DIR)/win64/$(BASE_EXT_WIN64_DLL).dll.a

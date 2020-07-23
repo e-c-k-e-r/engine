@@ -106,7 +106,7 @@ namespace uf {
 			const pod::Transform<T>* pointer = &transform;
 			while ( pointer ) {
 			//	if ( invert ) combined.position -= pointer->position; else combined.position += pointer->position;
-				combined.position += pointer->position;
+				combined.position = combined.position + pointer->position;
 				combined.orientation = invert ? uf::quaternion::multiply( pointer->orientation, combined.orientation ) : uf::quaternion::multiply( combined.orientation, pointer->orientation );
 				pointer = pointer->reference;
 			}

@@ -4,6 +4,7 @@
 #include <uf/utils/component/component.h>
 #include <uf/utils/serialize/serializer.h>
 #include <vector>
+#include <functional>
 
 namespace uf {
 	class UF_API Entity : public uf::Component {
@@ -53,6 +54,10 @@ namespace uf {
 		uf::Entity* findByUid( std::size_t id );
 		const uf::Entity* findByName( const std::string& name ) const;
 		const uf::Entity* findByUid( std::size_t id ) const;
+		void process( std::function<void(uf::Entity*)> );
+		void process( std::function<void(uf::Entity*, int)>, int depth = 0 );
+	//	void process( std::function<void(const uf::Entity*)> ) const ;
+	//	void process( std::function<void(const uf::Entity*, int)>, int depth = 0 ) const;
 
 		static uf::Entity* globalFindByName( const std::string& name );
 	};

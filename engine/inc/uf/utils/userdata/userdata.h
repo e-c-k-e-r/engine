@@ -3,6 +3,7 @@
 #include <uf/config.h>
 #include <stdint.h>
 #include <cstddef>
+#include <string>
 #include <algorithm>
 
 namespace pod {
@@ -20,6 +21,9 @@ namespace uf {
 		template<typename T> pod::Userdata* create( const T& data );
 		template<typename T> T& get( pod::Userdata* userdata, bool validate = true);
 		template<typename T> const T& get(const pod::Userdata* userdata);
+
+		std::string UF_API toBase64( pod::Userdata* userdata );
+		pod::Userdata* UF_API fromBase64( const std::string& base64 );
 
 	//	void move( pod::Userdata& to, pod::Userdata&& from );
 	//	void copy( pod::Userdata& to, const pod::Userdata& from );

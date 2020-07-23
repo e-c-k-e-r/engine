@@ -68,10 +68,14 @@ void uf::Entity::destroy(){
 	}
 	this->m_children.clear();
 
-	auto it = std::find( uf::Entity::entities.begin(), uf::Entity::entities.end(), this );
-	if ( it != uf::Entity::entities.end() ) {
-		*it = NULL;
+	{
+		auto it = std::find(uf::Entity::entities.begin(), uf::Entity::entities.end(), this);
+		if ( it != uf::Entity::entities.end() ) {
+			uf::Entity::entities.erase(it);
+			// *it = NULL;
+		}
 	}
+
 	this->m_uid = 0;
 }
 void uf::Entity::tick(){
@@ -123,6 +127,36 @@ const uf::Entity* uf::Entity::findByUid( std::size_t id ) const {
 	return (const uf::Entity*) NULL;
 };
 
+void uf::Entity::process( std::function<void(uf::Entity*)> fn ) {
+	fn(this);
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( !entity ) continue;
+		entity->process(fn);
+	}
+}
+void uf::Entity::process( std::function<void(uf::Entity*, int)> fn, int depth ) {
+	fn(this, depth);
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( !entity ) continue;
+		entity->process(fn, depth + 1);
+	}
+}
+/*
+void uf::Entity::process( std::function<void(const uf::Entity*)> fn ) const {
+	fn(this);
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( !entity ) continue;
+		entity->process(fn);
+	}
+}
+void uf::Entity::process( std::function<void(const uf::Entity*, int)> fn, int depth ) const {
+	fn(this, depth);
+	for ( uf::Entity* entity : this->getChildren() ) {
+		if ( !entity ) continue;
+		entity->process(fn, depth + 1);
+	}
+}
+*/
 uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
 	for ( uf::Entity* e : uf::Entity::entities ) {
 		if ( !e ) continue;

@@ -16,12 +16,10 @@ ext::freetype::Glyph::~Glyph() {
 
 UF_API bool ext::freetype::initialize() {
 	int error = 0;
-	std::cout << "FreeType initializing" << std::endl;
 	if ( (error = FT_Init_FreeType( &ext::freetype::library.library ) )) {
 		std::cout << "Error #" << ext::freetype::getError(error) << ": FreeType failed to initialize" << std::endl;
 		return false;
 	}
-	std::cout << "FreeType initialized" << std::endl;
 	ext::freetype::library.loaded = true;
 	return true;
 }

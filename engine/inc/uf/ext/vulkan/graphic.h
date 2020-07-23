@@ -4,9 +4,11 @@
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
+#include <uf/ext/vulkan/rendermodes/base.h>
 
 namespace ext {
 	namespace vulkan {
+		struct RenderMode;
 		struct UF_API Graphic {
 			VkPipeline pipeline;
 			VkPipelineLayout pipelineLayout;
@@ -21,7 +23,7 @@ namespace ext {
 			std::vector<Buffer> buffers;
 
 			Device* device = VK_NULL_HANDLE;
-			Swapchain* swapchain = VK_NULL_HANDLE;
+			RenderMode* renderMode = VK_NULL_HANDLE;
 
 			bool autoAssigned = false;
 			bool initialized = false;
@@ -65,7 +67,8 @@ namespace ext {
 			void initializeDescriptorSet( const std::vector<VkWriteDescriptorSet>& writeDescriptorSets );
 
 			// RAII
-			virtual void initialize( Device& device, Swapchain& swapchain );
+			virtual void initialize( const std::string& = "" );
+			virtual void initialize( Device& device, RenderMode& renderMode );
 			virtual void destroy();
 			virtual void autoAssign();
 			virtual bool autoAssignable() const;

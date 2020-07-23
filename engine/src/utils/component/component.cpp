@@ -6,3 +6,10 @@ uf::Component::~Component() {
 		uf::userdata::destroy(component.userdata);
 	}
 }
+
+#include <uf/utils/serialize/serializer.h>
+// override serializers
+template<>
+uf::Serializer uf::Serializer::toBase64( const pod::Component& input ) {
+
+}

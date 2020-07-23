@@ -1,0 +1,29 @@
+#pragma once
+
+#include <uf/ext/vulkan/device.h>
+
+namespace ext {
+	namespace vulkan {
+		struct Graphic;
+		struct UF_API RenderMode {
+			uint32_t width = 0, height = 0;
+			std::string name = "";
+			
+			Device* device = VK_NULL_HANDLE;
+			// virtual ~RenderMode();
+			// RAII
+			virtual std::string getType() const;
+			const std::string& getName() const;
+			virtual size_t subpasses() const;
+			
+			virtual void initialize( Device& device );
+			virtual void createCommandBuffers();
+			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes );
+			virtual void render();
+			virtual void destroy();
+			
+			virtual VkRenderPass& getRenderPass();
+			virtual ext::vulkan::RenderTarget& getRenderTarget();
+		};
+	}
+}

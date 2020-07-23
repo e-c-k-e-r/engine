@@ -50,7 +50,7 @@ namespace ext {
 			virtual void createCommandBuffer( VkCommandBuffer );
 			virtual std::string name() const;
 			// RAII
-			void initialize( Device& device, Swapchain& swapchain, uint32_t width = 0, uint32_t height = 0 );
+			void initialize( Device& device, RenderMode& renderMode, uint32_t width = 0, uint32_t height = 0 );
 			virtual void destroy();
 		};
 	}
@@ -70,7 +70,8 @@ namespace ext {
 			virtual bool autoAssignable() const;
 			virtual std::string name() const;
 			// RAII
-			virtual void initialize( Device& device, Swapchain& swapchain );
+			virtual void initialize( const std::string& = "" );
+			virtual void initialize( Device& device, RenderMode& renderMode );
 			virtual void render();
 			virtual void destroy();
 		};

@@ -1,5 +1,11 @@
 #include <uf/utils/mesh/mesh.h>
-
+/*
+uf::Graphic::~Graphic() {
+	this->destroy();
+}
+void uf::Graphic::destroy( bool clear ) {
+}
+*/
 // Used for terrain
 std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
 	{

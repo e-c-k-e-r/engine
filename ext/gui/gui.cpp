@@ -10,8 +10,8 @@
 #include <uf/utils/string/ext.h>
 
 #include <uf/utils/text/glyph.h>
-#include "../world/world.h"
-#include "../asset/asset.h"
+#include <uf/engine/asset/asset.h>
+#include <uf/engine/scene/scene.h>
 
 #include <unordered_map>
 #include <locale>
@@ -25,10 +25,9 @@
 #include <sys/stat.h>
 #include <fstream>
 
-#include "menu.h"
-#include "battle.h"
-
 #include <regex>
+
+EXT_OBJECT_REGISTER_CPP(Gui)
 
 namespace {
 	struct {
@@ -42,18 +41,18 @@ namespace {
 			ext::vulkan::height,
 		};
 		pod::Vector2ui reference = {
-			ext::vulkan::width,
-			ext::vulkan::height,
+			1280,
+			720,
 		};
 	} size;
-
+/*
 	std::mutex mutex;
 	uint64_t uid = 0;
 	struct Job {
 		uint64_t uid;
 	};
 	std::queue<Job> jobs;
-
+*/
 	struct GlyphDescriptor {
 		struct {
 			alignas(16) pod::Matrix4f model[2];
@@ -82,10 +81,6 @@ namespace {
 
 	pod::Matrix4 matrix;
 
-	float area(int x1, int y1, int x2, int y2, int x3, int y3) { 
-		return abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0); 
-	}
-
 	std::vector<::GlyphBox> generateGlyphs( ext::Gui& gui, std::string string = "" ) {
 		uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
 		std::string font = "./data/fonts/" + metadata["text settings"]["font"].asString();
@@ -95,7 +90,6 @@ namespace {
 		if ( string == "" ) {
 			string = metadata["text settings"]["string"].asString();
 		}
-		// uf::Glyph& glyph = this->getComponent<uf::Glyph>();
 		pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
 		std::vector<::GlyphBox> gs;
 		struct {
@@ -131,14 +125,6 @@ namespace {
 		} stat;
 
 		float scale = metadata["text settings"]["scale"].asFloat();
-		float scaleX = 2.0f / (float) ::size.reference.x;
-		float scaleY = 2.0f / (float) ::size.reference.y;
-		if ( ::size.current.x != 0 && ::size.current.y != 0 ) {
-		//	scaleX = 2.0f / (float) ::size.current.x;
-		//	scaleY = 2.0f / (float) ::size.current.y;
-		}
-		scaleX *= scale;
-		scaleY *= scale;
 
 		{
 			pod::Vector3f color = {
@@ -209,10 +195,10 @@ namespace {
 					glyph.generate( ::glyphs.glyph, c, metadata["text settings"]["size"].asInt() );
 				}
 				
-				stat.biggest.x = std::max( (float) stat.biggest.x, glyph.getSize().x * scaleX);
-				stat.biggest.y = std::max( (float) stat.biggest.y, glyph.getSize().y * scaleY);
+				stat.biggest.x = std::max( (float) stat.biggest.x, (float) glyph.getSize().x);
+				stat.biggest.y = std::max( (float) stat.biggest.y, (float) glyph.getSize().y);
 
-				stat.average.sum += glyph.getSize().x * scaleX;
+				stat.average.sum += glyph.getSize().x;
 				++stat.average.len;
 			}
 			stat.average.proc = stat.average.sum / stat.average.len;
@@ -252,29 +238,13 @@ namespace {
 				uf::Glyph& glyph = ::glyphs.cache[font][key];
 				::GlyphBox g;
 
+				g.box.w = glyph.getSize().x;
+				g.box.h = glyph.getSize().y;
+					
+				g.box.x = stat.cursor.x + glyph.getBearing().x;
+				g.box.y = stat.cursor.y - glyph.getBearing().y; // - (glyph.getSize().y - glyph.getBearing().y);
 
-				g.box.w = glyph.getSize().x * scaleX;
-				g.box.h = glyph.getSize().y * scaleY;
-			//	stat.cursor.x -= glyph.getPadding().x * scaleX;
-				g.box.x = (stat.cursor.x + stat.origin.x) + (glyph.getBearing().x * scaleX);
-				if ( metadata["text settings"]["wrap"].asBool() && g.box.x + g.box.w >= 2 ) {
-					stat.cursor.y += stat.biggest.y;
-					g.box.x -= stat.cursor.x; stat.cursor.x = 0;
-				}
-			//	g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getBearing().y * scaleY);
-		//		g.box.y = (stat.cursor.y + stat.origin.y);
-				g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getBearing().y * scaleY) + (glyph.getSize().y * scaleY);
-			//	g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getSize().y - glyph.getBearing().y * scaleY);
-
-				stat.cursor.x += (glyph.getAdvance().x) * scaleX;
-				stat.cursor.x += metadata["text settings"]["kerning"].asFloat() * scaleX;
-			//	stat.cursor.x += glyph.getPadding().x * scaleX;
-			//	stat.cursor.y -= (glyph.getAdvance().y) * scaleY;
-			//	stat.cursor.y -= glyph.getPadding().y * scaleY;
-				
-				stat.box.w = std::max( (float) stat.box.w, (float) (stat.cursor.x + g.box.w) );
-				stat.box.h = std::max( (float) stat.box.h, (float) (stat.cursor.y + g.box.h) );
-
+				stat.cursor.x += (glyph.getAdvance().x);
 			}
 
 			stat.origin.x = ( !metadata["text settings"]["world"].asBool() && transform.position.x != (int) transform.position.x ) ? transform.position.x * ::size.current.x : transform.position.x;
@@ -289,23 +259,14 @@ namespace {
 			if ( metadata["text settings"]["align"] == "right" ) stat.origin.x = ::size.current.x - stat.origin.x - stat.box.w;// else stat.origin.x = stat.origin.x;
 			else if ( metadata["text settings"]["align"] == "center" )
 				stat.origin.x -= stat.box.w * 0.5f;
-			/*
-				std::cout << "String: " << metadata["text settings"]["string"].asString()
-					<< "\n\tWidth: " << stat.box.w << " | " << (stat.origin.x -= stat.box.w * 0.5f)
-				<< std::endl;
-			*/
 		}
-
-		stat.biggest.x *= 2;
-		stat.biggest.y *= 2;
 
 		// Render Glyphs
 		stat.cursor.x = 0;
-		stat.cursor.y = 0;
-
+		stat.cursor.y = stat.biggest.y;
 		for ( auto it = str.begin(); it != str.end(); ++it ) {
 			unsigned long c = *it; if ( c == '\n' ) {
-				if ( metadata["text settings"]["direction"] == "down" ) stat.cursor.y += stat.biggest.y; else stat.cursor.y -= stat.biggest.y;
+				if ( metadata["text settings"]["direction"] == "down" ) stat.cursor.y -= stat.biggest.y; else stat.cursor.y += stat.biggest.y;
 				stat.cursor.x = 0;
 				continue;
 			} else if ( c == '\t' ) {
@@ -313,11 +274,11 @@ namespace {
 				if ( false ) {
 					stat.cursor.x += stat.average.tab;
 				} else {
-					stat.cursor.x = ((stat.cursor.x / stat.average.tab) + (1 * scaleX)) * stat.average.tab;
+					stat.cursor.x = ((stat.cursor.x / stat.average.tab) + 1) * stat.average.tab;
 				}
 				continue;
 			} else if ( c == ' ' ) {
-				stat.cursor.x += stat.average.tab / 2.0f;
+				stat.cursor.x += stat.average.tab / 4.0f;
 				continue;
 			} else if ( c == COLORCONTROL ) {
 				++stat.colors.index;
@@ -337,18 +298,13 @@ namespace {
 			::GlyphBox g;
 			g.code = c;
 
-			g.box.w = glyph.getSize().x * scaleX;
-			g.box.h = glyph.getSize().y * scaleY;
-			g.box.x = (stat.cursor.x + stat.origin.x) + (glyph.getBearing().x * scaleX);
-			if ( metadata["text settings"]["wrap"].asBool() && g.box.x + g.box.w >= 2 ) {
-				if ( metadata["text settings"]["direction"] == "down" ) stat.cursor.y += stat.biggest.y; else stat.cursor.y -= stat.biggest.y;
-				g.box.x -= stat.cursor.x; stat.cursor.x = 0;
-			}
-		//	g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getBearing().y * scaleY);
-			g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getBearing().y * scaleY) + (glyph.getSize().y * scaleY);
-//			g.box.y = (stat.cursor.y + stat.origin.y) - ((glyph.getSize().y - glyph.getBearing().y) * scaleY);
-//			std::cout << "Glyph: " << (char) c << " " << glyph.getBearing().y << ", " << glyph.getSize().y << ", " << g.box.y << std::endl;
-		//	g.box.y = (stat.cursor.y + stat.origin.y) - (glyph.getSize().y - glyph.getBearing().y * scaleY);
+			g.box.w = glyph.getSize().x;
+			g.box.h = glyph.getSize().y;
+				
+			g.box.x = stat.cursor.x + (glyph.getBearing().x);
+			g.box.y = stat.cursor.y - glyph.getBearing().y; // - (glyph.getSize().y - glyph.getBearing().y);
+
+			stat.cursor.x += (glyph.getAdvance().x);
 
 			try {
 				g.color = stat.colors.container.at(stat.colors.index);
@@ -361,11 +317,6 @@ namespace {
 				};
 			}
 
-			stat.cursor.x += (glyph.getAdvance().x) * scaleX;
-			stat.cursor.x += metadata["text settings"]["kerning"].asFloat() * scaleX;
-		//	stat.cursor.y -= (glyph.getAdvance().y) * scaleY;
-		//	stat.cursor.y -= glyph.getPadding().y * scaleY;
-
 			gs.push_back(g);
 		}
 		return gs;
@@ -374,16 +325,21 @@ namespace {
 	void loadGui( ext::Gui& gui, uf::Image& image ) {
 		uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
 		metadata["render"] = true;
+		{
+		//	this->addAlias<uf::GuiMesh, uf::MeshBase>();
+			gui.addAlias<uf::GuiMesh, uf::Mesh>();
+		}
 		uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
 		/* get original image size (before padding) */ {
 			metadata["original size"]["x"] = image.getDimensions().x;
 			metadata["original size"]["y"] = image.getDimensions().y;
 
-			image.padToPowerOfTwo();
+			// image.padToPowerOfTwo();
 
 			metadata["current size"]["x"] = image.getDimensions().x;
 			metadata["current size"]["y"] = image.getDimensions().y;
 		}
+	/*
 		pod::Vector2f correction = {
 			(metadata["current size"]["x"].asInt() - metadata["original size"]["x"].asInt()) / (metadata["current size"]["x"].asFloat()),
 			(metadata["current size"]["y"].asInt() - metadata["original size"]["y"].asInt()) / (metadata["current size"]["y"].asFloat())
@@ -397,15 +353,33 @@ namespace {
 			{ {1.0f, -1.0f}, {1.0f-correction.x, 1.0f-correction.y}, },
 			{ {1.0f, 1.0f}, {1.0f-correction.x, 0.0f}, }
 		};
-		mesh.initialize(true);
+	*/
 		std::string suffix = ""; {
-			std::string _ = gui.getRootParent<ext::World>().getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].asString();
+			std::string _ = gui.getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].asString();
 			if ( _ != "" ) suffix = _ + ".";
 		}
 		if ( gui.getName() == "Gui: Text" ) {
+			::GlyphBox g;
+			g.box.x = metadata["text settings"]["box"][0].asFloat();
+			g.box.y = metadata["text settings"]["box"][1].asFloat();
+			g.box.w = metadata["text settings"]["box"][2].asFloat();
+			g.box.h = metadata["text settings"]["box"][3].asFloat();
+			mesh.vertices = {
+				{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
+				{{ g.box.x,           g.box.y           }, { 0.0f, 1.0f }},
+				{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
+				{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
+				{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
+				{{ g.box.x + g.box.w, g.box.y + g.box.h }, { 1.0f, 0.0f }},
+			};
+			for ( auto& vertex : mesh.vertices ) {
+				vertex.position.x /= ::size.reference.x;
+				vertex.position.y /= ::size.reference.y;
+			}
+			mesh.initialize(true);
 			mesh.graphic.bindUniform<::GlyphDescriptor>();
 			struct {
-				std::string vertex = "./data/shaders/gui.text.stereo.vert.spv";
+				std::string vertex = "./data/shaders/gui.text.vert.spv";
 				std::string fragment = "./data/shaders/gui.text.frag.spv";
 			} filenames;
 			if ( metadata["shaders"]["vertex"].isString() ) filenames.vertex = metadata["shaders"]["vertex"].asString();
@@ -416,9 +390,20 @@ namespace {
 				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		} else {
+			mesh.vertices = {
+				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+				{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+
+				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+				{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+			};
+
+			mesh.initialize(true);
 			mesh.graphic.bindUniform<uf::StereoGuiMeshDescriptor>();
 			struct {
-				std::string vertex = "./data/shaders/gui.stereo.vert.spv";
+				std::string vertex = "./data/shaders/gui.vert.spv";
 				std::string fragment = "./data/shaders/gui.frag.spv";
 			} filenames;
 			if ( metadata["shaders"]["vertex"].isString() ) filenames.vertex = metadata["shaders"]["vertex"].asString();
@@ -430,13 +415,9 @@ namespace {
 			});
 		}
 
-		mesh.graphic.texture.loadFromImage( 
-			image,
-			ext::vulkan::device,
-			ext::vulkan::device.graphicsQueue
-		);
+		mesh.graphic.texture.loadFromImage( image );
 
-		mesh.graphic.initialize( ext::vulkan::device, ext::vulkan::swapchain );
+		mesh.graphic.initialize( "Gui" );
 		mesh.graphic.autoAssign();
 
 		{
@@ -460,11 +441,16 @@ namespace {
 
 
 void ext::Gui::initialize() {
-	ext::Object::initialize();
-	
+	uf::Object::initialize();
 
+	// alias Mesh types
 	{
-		const ext::World& world = this->getRootParent<ext::World>();
+	//	this->addAlias<uf::GuiMesh, uf::MeshBase>();
+		this->addAlias<uf::GuiMesh, uf::Mesh>();
+	}
+	
+	{
+		const uf::Scene& world = this->getRootParent<uf::Scene>();
 		const uf::Serializer& _metadata = world.getComponent<uf::Serializer>();
 		::size.current = {
 			_metadata["window"]["size"]["x"].asFloat(),
@@ -473,7 +459,7 @@ void ext::Gui::initialize() {
 	}
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	ext::Asset& assetLoader = this->getComponent<ext::Asset>();
+	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
 
 	// master gui manager
@@ -486,7 +472,9 @@ void ext::Gui::initialize() {
 			size.y = json["window"]["size"]["y"].asUInt64();
 		}
 
-		::matrix = uf::matrix::ortho( 0.0f, (float) size.x, 0.0f, (float) size.y );
+	//	::matrix = uf::matrix::ortho( 0.0f, (float) size.x, 0.0f, (float) size.y );
+	//	::matrix = uf::matrix::ortho( size.x * -0.5f, size.x * 0.5f, size.y * -0.5f, size.y * 0.5f );
+	//	::matrix = uf::matrix::ortho( size.x * -1.0f, size.x * 1.0f, size.y * -1.0f, size.y * 1.0f );
 		::size.current = size;
 	//	::size.reference = size;
 
@@ -527,8 +515,8 @@ void ext::Gui::initialize() {
 
 		if ( uf::string::extension(filename) != "png" ) return "false";
 
-		ext::World& world = this->getRootParent<ext::World>();
-		ext::Asset& assetLoader = world.getComponent<ext::Asset>();
+		uf::Scene& world = this->getRootParent<uf::Scene>();
+		uf::Asset& assetLoader = world.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
 		if ( !imagePointer ) return "false";
@@ -606,11 +594,18 @@ void ext::Gui::initialize() {
 						if (intersect) clicked = !clicked;
 					}
 				}
+			/*
+				if ( clicked ) std::cout << "Clicked on " << this->m_name << std::endl;
+				else {
+					std::cout << click.x << ", " << click.y << " " << this->m_name << metadata["box"] << std::endl;
+				}
+			*/
 			}
 			metadata["clicked"] = clicked;
 
 			if ( metadata["clicked"].asBool() && clickTimer.elapsed().asDouble() >= 1 ) {
 				clickTimer.reset();
+				std::cout << "Calling hook" << std::endl;
 				this->callHook("gui:Clicked.%UID%");
 			}
 			return "true";
@@ -651,12 +646,6 @@ void ext::Gui::initialize() {
 		} );
 	}
 	if ( metadata["text settings"]["string"].isString() ) {
-	/*
-		mutex.lock();
-		jobs.push({ this->getUid() });
-		mutex.unlock();
-	*/
-
 		uf::Serializer defaultSettings;
 		defaultSettings.readFromFile("./data/entities/gui/text/string.json");
 
@@ -670,21 +659,30 @@ void ext::Gui::initialize() {
 		if ( metadata["text settings"]["font"].isNull() ) metadata["text settings"]["font"] = defaultSettings["metadata"]["text settings"]["font"];
 
 		float delay = 0.0f;
+		float scale = metadata["text settings"]["scale"].asFloat();
 		std::vector<::GlyphBox> glyphs = generateGlyphs(*this);
 		for ( auto& glyph : glyphs ) {
 			// append new child
-			ext::Gui* glyphElement = new ext::Gui;
-			this->addChild(*glyphElement);
-			glyphElement->load("./entities/gui/text/letter.json");
+		//	ext::Gui* glyphElement = new ext::Gui;
+		//	this->addChild(*glyphElement);
+		//	glyphElement->load("./entities/gui/text/letter.json");
+			size_t uid = this->loadChild("./entities/gui/text/letter.json");
+			ext::Gui* glyphElement = (ext::Gui*) this->findByUid( uid );
 			uf::Serializer& pMetadata = glyphElement->getComponent<uf::Serializer>();
 			pMetadata["events"] = metadata["events"];
 
 			pMetadata["text settings"] = metadata["text settings"];
 			pMetadata["text settings"].removeMember("string");
+			pMetadata["text settings"]["letter"] = (wchar_t) glyph.code;
 			
 			pMetadata["text settings"]["color"][0] = glyph.color[0];
 			pMetadata["text settings"]["color"][1] = glyph.color[1];
 			pMetadata["text settings"]["color"][2] = glyph.color[2];
+
+			pMetadata["text settings"]["box"][0] = glyph.box.x;
+			pMetadata["text settings"]["box"][1] = glyph.box.y;
+			pMetadata["text settings"]["box"][2] = glyph.box.w;
+			pMetadata["text settings"]["box"][3] = glyph.box.h;
 
 			pMetadata["_config"]["hoverable"] = metadata["_config"]["hoverable"];
 			pMetadata["_config"]["clickable"] = metadata["_config"]["clickable"];
@@ -692,12 +690,8 @@ void ext::Gui::initialize() {
 			glyphElement->initialize();
 
 			pod::Transform<>& pTransform = glyphElement->getComponent<pod::Transform<>>();
-
-			pTransform.position.x = glyph.box.x;
-			pTransform.position.y = glyph.box.y;
-			pTransform.scale.x = glyph.box.w;
-			pTransform.scale.y = glyph.box.h;
-		
+			pTransform.scale.x = scale;
+			pTransform.scale.y = scale;
 			pTransform.reference = this->getComponentPointer<pod::Transform<>>();
 		
 			uf::Serializer payload;
@@ -712,58 +706,7 @@ void ext::Gui::initialize() {
 	}
 }
 void ext::Gui::tick() {
-	ext::Object::tick();
-/*
-	if ( this->m_name == "Gui Manager" ) {
-		mutex.lock();
-		while ( !jobs.empty() ) {
-			auto job = jobs.front();
-			uint64_t uid = job.uid;
-			ext::Gui* element = (ext::Gui*) this->findByUid( uid );
-			jobs.pop();
-
-
-			if ( !element ) continue;
-			if ( element->getUid() != uid ) continue;
-
-			std::vector<::GlyphBox> glyphs = generateGlyphs(*element);
-			uf::Serializer& metadata = element->getComponent<uf::Serializer>();
-			
-			for ( auto& glyph : glyphs ) {
-				// append new child
-				ext::Gui* glyphElement = new ext::Gui;
-				element->addChild(*glyphElement);
-				glyphElement->load("./entities/gui/text/letter.json");
-				uf::Serializer& pMetadata = glyphElement->getComponent<uf::Serializer>();
-				pMetadata["text settings"] = metadata["text settings"];
-				pMetadata["text settings"].removeMember("string");
-				
-				pMetadata["text settings"]["color"][0] = glyph.color[0];
-				pMetadata["text settings"]["color"][1] = glyph.color[1];
-				pMetadata["text settings"]["color"][2] = glyph.color[2];
-
-				pMetadata["_config"]["hoverable"] = metadata["_config"]["hoverable"];
-				pMetadata["_config"]["clickable"] = metadata["_config"]["clickable"];
-				
-				glyphElement->initialize();
-
-				pod::Transform<>& pTransform = glyphElement->getComponent<pod::Transform<>>();
-
-				pTransform.position.x = glyph.box.x;
-				pTransform.position.y = glyph.box.y;
-				pTransform.scale.x = glyph.box.w;
-				pTransform.scale.y = glyph.box.h;
-			
-				pTransform.reference = element->getComponentPointer<pod::Transform<>>();
-
-				uf::Serializer payload;
-				payload["glyph"] = (uint64_t) glyph.code;
-				glyphElement->callHook("glyph:Load.%UID%", payload);
-			}
-		}
-		mutex.unlock();
-	}
-*/
+	uf::Object::tick();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( metadata["text settings"]["fade in speed"].isNumeric() && !metadata["system"]["faded in"].asBool() ) {
@@ -782,11 +725,11 @@ void ext::Gui::tick() {
 	}
 }
 void ext::Gui::render() {
-	ext::Object::render();
+	uf::Object::render();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	/* Update uniforms */ if ( this->hasComponent<uf::GuiMesh>() ) {
-		auto& scene = this->getRootParent<ext::World>();
+		auto& scene = this->getRootParent<uf::Scene>();
 		auto& mesh = this->getComponent<uf::GuiMesh>();
 		auto& camera = scene.getController()->getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
@@ -860,7 +803,7 @@ void ext::Gui::render() {
 
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				if ( metadata["text settings"]["world"].asBool() ) {
-					auto& scene = this->getRootParent<ext::Scene>();
+					auto& scene = this->getRootParent<uf::Scene>();
 					auto& camera = scene.getController()->getComponent<uf::Camera>();
 
 					pod::Transform<> flatten = uf::transform::flatten( this->getComponent<pod::Transform<>>() );
@@ -868,14 +811,19 @@ void ext::Gui::render() {
 					auto view = camera.getView(i);
 					auto projection = camera.getProjection(i);
 					uniforms.matrices.model[i] = projection * view * model;
-				} else {
+				} else {			
 					uf::Matrix4 translation, rotation, scale;
 					pod::Transform<> flatten = uf::transform::flatten(transform, false);
+					// make our own flattened position, for some reason this causes z to be 6.6E+28
+					flatten.position = transform.position + transform.reference->position;
 					flatten.orientation.w *= -1;
 					rotation = uf::quaternion::matrix(flatten.orientation);
-					scale = uf::matrix::scale( scale, transform.scale );
+				//	pod::Vector3f offsetSize = { ::size.current.x, ::size.current.y, 1 };
+				//	translation = uf::matrix::translate( uf::matrix::identity(), flatten.position * offsetSize );
 					translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
-					uniforms.matrices.model[i] = translation * scale * rotation;
+					scale = uf::matrix::scale( scale, transform.scale );
+				//	uniforms.matrices.model[i] = ::matrix * translation * rotation * scale;
+					uniforms.matrices.model[i] = translation * rotation * scale;
 				}
 			}
 			mesh.graphic.updateBuffer( uniforms, 0, false );
@@ -923,7 +871,7 @@ void ext::Gui::render() {
 					pod::Matrix4 rotation = uf::quaternion::matrix( uf::vector::multiply( { 1, 1, 1, -1 }, flatten.orientation) );
 					uniforms.matrices.model[i] = ::matrix * rotation;
 				*/
-					auto& scene = this->getRootParent<ext::Scene>();
+					auto& scene = this->getRootParent<uf::Scene>();
 					auto& camera = scene.getController()->getComponent<uf::Camera>();
 
 					pod::Transform<> flatten = uf::transform::flatten( this->getComponent<pod::Transform<>>() );
@@ -975,8 +923,8 @@ void ext::Gui::render() {
 	if ( metadata["debug"]["moveable"].asBool() ) {
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		pod::Vector2f step = {
-			1 / 1280.0f,
-			1 / 720.0f,
+			4 / ::size.current.x,
+			4 / ::size.current.y,
 		};
 		if ( uf::Window::isKeyPressed("U") ) {
 			step.x = (step.y = uf::physics::time::delta * 0.5f);
@@ -1031,5 +979,13 @@ void ext::Gui::destroy() {
 		mesh.graphic.destroy();
 		mesh.destroy();
 	}
-	ext::Object::destroy();
+/*
+	std::cout << "Destroying " << this->m_name;
+	if ( this->m_name == "Gui: Text" ) {
+		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+		std::cout << ", " << metadata["text settings"]["letter"].asString();
+	}
+	std::cout << std::endl;
+*/
+	uf::Object::destroy();
 }

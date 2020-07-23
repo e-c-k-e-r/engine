@@ -25,10 +25,10 @@ namespace ext {
 			} Subpass;
 			std::vector<Subpass> passes;
 
-			Device* device = nullptr;
-			VkRenderPass renderPass;
+			bool initialized = false;
+			Device* device = VK_NULL_HANDLE;
+			VkRenderPass renderPass = VK_NULL_HANDLE;
 			std::vector<VkFramebuffer> framebuffers;
-			bool commandBufferSet;
 			// RAII
 			void initialize( Device& device );
 			void destroy();

@@ -86,22 +86,48 @@ namespace std {
 	    }
     };
 }
-
 namespace uf {
+	struct UF_API MeshBase {
+	public:
+		ext::vulkan::BaseGraphic graphic;
+		bool generated = false;
+	};
 	template<typename T>
-	struct UF_API BaseMesh {
+	class UF_API BaseMesh : public MeshBase {
+	public:
 		typedef T vertex_t;
-		ext::vulkan::BaseGraphic graphic;		
 		std::vector<vertex_t> vertices;
 		std::vector<uint32_t> indices;
-		bool generated = false;
 
+		~BaseMesh();
 		void initialize( bool compress = true );
 		void destroy( bool clear = true );
-		~BaseMesh();
 	};
 }
+/*
+namespace uf {
+	class UF_API Graphic {
+	public:
+		ext::vulkan::BaseGraphic graphic;
 
+		bool generated = false;
+		virtual ~Graphic();
+
+		virtual void initialize( bool compress = true ) = 0;
+		virtual void destroy( bool clear = true ) = 0;
+	};
+	template<typename T>
+	class UF_API BaseMesh : public Graphic {
+	public:
+		typedef T vertex_t;
+		std::vector<vertex_t> vertices;
+		std::vector<uint32_t> indices;
+
+		virtual void initialize( bool compress = true );
+		virtual void destroy( bool clear = true );
+	};
+}
+*/
 #include "mesh.inl"
 
 namespace uf {

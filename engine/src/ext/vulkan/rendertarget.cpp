@@ -13,7 +13,7 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	pass.access = access;
 	for ( auto& i : colors ) pass.colors.push_back( { i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
 	for ( auto& i : inputs ) pass.inputs.push_back( { i, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
-	pass.depth = { depth, attachments[depth].layout };
+	if ( depth < attachments.size() ) pass.depth = { depth, attachments[depth].layout };
 	passes.push_back(pass);
 }
 size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, Attachment* attachment ) {
@@ -91,7 +91,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		if ( height == 0 ) height = ext::vulkan::height;
 	}
 	// resize attachments if necessary
-	if ( commandBufferSet ) {
+	if ( initialized ) {
 		for ( auto& attachment: this->attachments ) {
 			if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 			attach( attachment.format, attachment.usage, &attachment );
@@ -113,6 +113,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			description.finalLayout = attachment.layout;
+			description.flags = 0;
 
 			attachments.push_back(description);
 		}
@@ -144,6 +145,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			description.preserveAttachmentCount = 0;
 			description.pPreserveAttachments = nullptr;
 			description.pResolveAttachments = nullptr;
+			description.flags = 0;
 			descriptions.push_back(description);
 
 			// transition dependency between subpasses
@@ -166,7 +168,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependencies.push_back(dependency);
 		}
 
-	
+	/*
 		std::cout << this << std::endl;
 		for ( auto& dependency : dependencies ) {
 			std::cout << "Subpass:    " << std::hex << dependency.srcSubpass << " -> " << std::hex << dependency.dstSubpass << std::endl;;
@@ -174,7 +176,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			std::cout << "AccessMask: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask << std::endl;;
 			std::cout << std::endl;
 		}
-	
+	*/
 
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -190,8 +192,12 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	}
 
 	// Create framebuffer
+	bool boundToSwapchain = false;
+	for ( auto& attachment : this->attachments ) {
+		if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) boundToSwapchain = true;
+	}
 	{	
-		framebuffers.resize(swapchain.imageCount);
+		framebuffers.resize(boundToSwapchain ? swapchain.imageCount : 1);
 		for ( size_t i = 0; i < framebuffers.size(); ++i ) {
 			std::vector<VkImageView> attachments;										
 			for ( auto& attachment : this->attachments ) {
