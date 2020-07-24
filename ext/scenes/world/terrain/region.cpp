@@ -126,7 +126,7 @@ void ext::Region::initialize() {
 
 		if ( first ) {
 			// shiro
-			{
+			if ( metadata["region"][""]["NPCs"].asBool() ) {
 				uf::Object*  = new ext::HousamoSprite;
 				this->addChild(*);
 				uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
@@ -137,7 +137,7 @@ void ext::Region::initialize() {
 				pTransform.position += transform.position + pod::Vector3f{ 2, 0, 0 };
 			}
 			// pong
-			{
+			if ( metadata["region"][""]["NPCs"].asBool() ) {
 				uf::Object*  = new ext::HousamoSprite;
 				this->addChild(*);
 				uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
@@ -194,7 +194,9 @@ void ext::Region::destroy() {
 		this->getComponent<ext::vulkan::RTGraphic>().destroy();
 	}
 	if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
-		this->getComponent<ext::TerrainGenerator::mesh_t>().destroy();
+		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+		mesh.graphic.destroy();
+		mesh.destroy();
 	}
 	uf::Object::destroy();
 }

@@ -16,7 +16,7 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	if ( depth < attachments.size() ) pass.depth = { depth, attachments[depth].layout };
 	passes.push_back(pass);
 }
-size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, Attachment* attachment ) {
+size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, Attachment* attachment ) {
 	if ( width == 0 ) width = ext::vulkan::width;
 	if ( height == 0 ) height = ext::vulkan::height;
 
@@ -24,20 +24,29 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 		attachments.resize(attachments.size()+1);
 		attachment = &attachments.back();
 	} else {
-		vkDestroyImageView(*device, attachment->view, nullptr);
-		vkDestroyImage(*device, attachment->image, nullptr);
-		vkFreeMemory(*device, attachment->mem, nullptr);
+		if ( attachment->view ) {
+			vkDestroyImageView(*device, attachment->view, nullptr);
+			attachment->view = VK_NULL_HANDLE;
+		}
+		if ( attachment->image ) {
+			vkDestroyImage(*device, attachment->image, nullptr);
+			attachment->image = VK_NULL_HANDLE;
+		}
+		if ( attachment->mem ) {
+			vkFreeMemory(*device, attachment->mem, nullptr);
+			attachment->mem = VK_NULL_HANDLE;
+		}
 	}
 
 	VkImageAspectFlags aspectMask = 0;
 	// specialization: depth buffer
 	if ( usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
 		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // | VK_IMAGE_ASPECT_STENCIL_BIT;
-		attachment->layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	} else {
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		attachment->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
+
+	attachment->layout = layout;
 	attachment->format = format;
 	attachment->usage = usage;
 
@@ -50,7 +59,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	image.arrayLayers = USEVR ? 2 : 1;
 	image.samples = VK_SAMPLE_COUNT_1_BIT;
 	image.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	image.usage = usage;
 	image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	VK_CHECK_RESULT(vkCreateImage(*device, &image, nullptr, &attachment->image));
 
@@ -93,8 +102,8 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	// resize attachments if necessary
 	if ( initialized ) {
 		for ( auto& attachment: this->attachments ) {
-			if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
-			attach( attachment.format, attachment.usage, &attachment );
+			if ( attachment.aliased ) continue;
+			attach( attachment.format, attachment.usage, attachment.layout, &attachment );
 		}
 	}
 	// ensure attachments are already created
@@ -168,16 +177,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependencies.push_back(dependency);
 		}
 
-	/*
-		std::cout << this << std::endl;
-		for ( auto& dependency : dependencies ) {
-			std::cout << "Subpass:    " << std::hex << dependency.srcSubpass << " -> " << std::hex << dependency.dstSubpass << std::endl;;
-			std::cout << "StageMask:  " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask << std::endl;;
-			std::cout << "AccessMask: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask << std::endl;;
-			std::cout << std::endl;
-		}
-	*/
-
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.flags = 0;
@@ -191,18 +190,18 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 	}
 
-	// Create framebuffer
-	bool boundToSwapchain = false;
-	for ( auto& attachment : this->attachments ) {
-		if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) boundToSwapchain = true;
-	}
 	{	
-		framebuffers.resize(boundToSwapchain ? swapchain.imageCount : 1);
+		// destroy previous framebuffers
+		for ( auto& framebuffer : framebuffers ) vkDestroyFramebuffer( device, framebuffer, nullptr );
+
+		RenderMode& base = ext::vulkan::getRenderMode( "Swapchain", false );
+		framebuffers.resize(ext::vulkan::swapchain.buffers);
 		for ( size_t i = 0; i < framebuffers.size(); ++i ) {
 			std::vector<VkImageView> attachments;										
 			for ( auto& attachment : this->attachments ) {
-				if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) attachments.push_back(swapchain.buffers[i].view);
-				else attachments.push_back(attachment.view);
+				if ( attachment.aliased && attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
+					attachments.push_back(base.renderTarget.attachments[i].view);
+				} else attachments.push_back(attachment.view);
 			}
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
@@ -218,6 +217,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[i]));
 		}
 	}
+	initialized = true;
 }
 
 void ext::vulkan::RenderTarget::destroy() {
@@ -226,7 +226,7 @@ void ext::vulkan::RenderTarget::destroy() {
 	for ( auto& framebuffer : framebuffers ) vkDestroyFramebuffer( *device, framebuffer, nullptr );
 	
 	for ( auto& attachment : attachments ) {
-		if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+		if ( attachment.aliased ) continue;
 		vkDestroyImageView( *device, attachment.view, nullptr );
 		attachment.view = VK_NULL_HANDLE;
 		vkDestroyImage( *device, attachment.image, nullptr );

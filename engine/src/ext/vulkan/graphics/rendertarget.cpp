@@ -118,11 +118,25 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 		false
 	);
 	// Swap buffers
+	// Move uniform buffer to the front
+	{
+		for ( auto it = buffers.begin(); it != buffers.end(); ++it ) {
+			Buffer& buffer = *it;
+			if ( !(buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+			Buffer uniformBuffer = std::move(buffer);
+			buffers.erase(it);
+			buffers.insert( buffers.begin(), std::move(uniformBuffer) );
+			break;
+		}
+
+	}
+/*
 	buffers = {
 		std::move(buffers.at(2)),
 		std::move(buffers.at(0)),
 		std::move(buffers.at(1)),
 	};
+*/
 	// set pipeline
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -136,11 +150,30 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			0
 		);
-		
+		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
+		for ( auto& attachment : renderMode.renderTarget.attachments ) {
+			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+					0xf,
+					VK_FALSE
+				);
+				blendAttachmentStates.push_back(blendAttachmentState);
+			}
+		}
+		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
+			blendAttachmentStates.size(),
+			blendAttachmentStates.data()
+		);
+	/*	
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			0xf,
 			VK_FALSE
 		);
+		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
+			1,
+			&blendAttachmentState
+		);
+	*/
 	/*
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 		//	VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
@@ -159,10 +192,11 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			&blendAttachmentState
 		);
 	*/
+	/*
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		for ( auto& attachment : renderMode.framebuffer->attachments ) {
+		for ( auto& attachment : renderMode.renderTarget.attachments ) {
 			if ( attachment.layout == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-				blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 					0xf,
 					VK_FALSE
 				);
@@ -180,7 +214,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
         colorBlendState.blendConstants[1] = 0.0f;
         colorBlendState.blendConstants[2] = 0.0f;
         colorBlendState.blendConstants[3] = 0.0f;
-        
+    */
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
@@ -238,7 +272,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.getRenderPass(),
+			renderMode.renderTarget.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -263,7 +297,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 	// Set descriptor set
 	{
 		VkDescriptorImageInfo renderTargetDescriptor = ext::vulkan::initializers::descriptorImageInfo( 
-			framebuffer->attachments[0].view,
+			renderTarget->attachments[0].view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			sampler
 		);

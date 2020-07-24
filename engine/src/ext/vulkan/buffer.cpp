@@ -103,12 +103,12 @@ VkResult ext::vulkan::Buffer::invalidate( VkDeviceSize size, VkDeviceSize offset
 }
 
 void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
-	VK_CHECK_RESULT(vkCreateBuffer( device, &bufferCreateInfo, nullptr, &buffer));
-
+//	VK_CHECK_RESULT(vkCreateBuffer( device, &bufferCreateInfo, nullptr, &buffer));
 	VmaAllocationCreateInfo allocCreateInfo = {};
+	
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
 	allocCreateInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-	if ( bufferCreateInfo.usage | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT ) {
+	if ( bufferCreateInfo.usage & (VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT) ) {
 		allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	}
 

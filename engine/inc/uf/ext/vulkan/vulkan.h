@@ -46,7 +46,7 @@ namespace ext {
 		extern UF_API Swapchain swapchain;
 		extern UF_API std::mutex mutex;
 
-		extern UF_API bool resizedFramebuffer;
+		extern UF_API bool rebuild;
 		extern UF_API uint32_t currentBuffer;
 
 		extern UF_API std::string currentPass;
@@ -56,7 +56,7 @@ namespace ext {
 		extern UF_API std::vector<uf::Scene*> scenes;
 
 		RenderMode& UF_API addRenderMode( RenderMode*, const std::string& = "" );
-		RenderMode& UF_API getRenderMode( const std::string& );
+		RenderMode& UF_API getRenderMode( const std::string&, bool = true );
 
 		void UF_API initialize( uint8_t = 0 );
 		void UF_API tick();

@@ -6,7 +6,7 @@ void uf::Scene::initialize() {
 //	this->m_graphics = new std::vector<ext::vulkan::Graphic*>();
 //	ext::vulkan::graphics = (std::vector<ext::vulkan::Graphic*>*) this->m_graphics;
 	ext::vulkan::scenes.push_back(this);
-	ext::vulkan::swapchain.rebuild = true;
+	ext::vulkan::rebuild = true;
 	uf::Object::initialize();
 }
 void uf::Scene::tick() {
@@ -32,7 +32,7 @@ void uf::Scene::destroy() {
 		ext::vulkan::scenes.end()
 	);
 */
-	ext::vulkan::swapchain.rebuild = true;
+	ext::vulkan::rebuild = true;
 /*
 	std::vector<ext::vulkan::Graphic*>* graphics = (std::vector<ext::vulkan::Graphic*>*) this->m_graphics;
 	for ( auto* graphic : *graphics ) {

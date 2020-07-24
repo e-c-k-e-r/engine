@@ -58,12 +58,25 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMod
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
-	// Swap buffers
+	// Move uniform buffer to the front
+	{
+		for ( auto it = buffers.begin(); it != buffers.end(); ++it ) {
+			Buffer& buffer = *it;
+			if ( !(buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+			Buffer uniformBuffer = std::move(buffer);
+			buffers.erase(it);
+			buffers.insert( buffers.begin(), std::move(uniformBuffer) );
+			break;
+		}
+
+	}
+/*
 	buffers = {
 		std::move(buffers.at(2)),
 		std::move(buffers.at(0)),
 		std::move(buffers.at(1)),
 	};
+*/
 
 	// check
 /*
@@ -169,7 +182,7 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMod
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.getRenderPass(),
+			renderMode.renderTarget.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;

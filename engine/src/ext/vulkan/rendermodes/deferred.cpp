@@ -16,9 +16,6 @@ std::string ext::vulkan::DeferredRenderMode::getType() const {
 size_t ext::vulkan::DeferredRenderMode::subpasses() const {
 	return renderTarget.passes.size();
 }
-VkRenderPass& ext::vulkan::DeferredRenderMode::getRenderPass() {
-	return renderTarget.renderPass;
-}
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -29,13 +26,18 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t albedo, normals, depth, output;
 		} attachments;
 
-		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ); // albedo
-		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ); // normals
-		attachments.depth = renderTarget.attach( swapchain.depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ); // depth
+		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
+		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // normals
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
 		// Attach swapchain's image as output
 		{
 			attachments.output = renderTarget.attachments.size();
-			renderTarget.attachments.push_back({ device.formats.color, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, });
+			RenderTarget::Attachment swapchainAttachment;
+			swapchainAttachment.format = device.formats.color;
+			swapchainAttachment.usage = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+			swapchainAttachment.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			swapchainAttachment.aliased = true;
+			renderTarget.attachments.push_back(swapchainAttachment);
 		}
 
 		// First pass: fill the G-Buffer
@@ -43,6 +45,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{ attachments.albedo, attachments.normals, },
+			//	{ attachments.albedo },
 				{},
 				attachments.depth
 			);
@@ -53,13 +56,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
 				{ attachments.output, },
 				{ attachments.albedo, attachments.normals },
+			//	{ attachments.albedo },
 				attachments.depth
 			);
 		}
 	}
 	renderTarget.initialize( device );
 
-	blitter.framebuffer = &framebuffer;
+	blitter.renderTarget = &renderTarget;
 	blitter.initializeShaders({
 		{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 		{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
@@ -67,25 +71,18 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	blitter.initialize( device, *this );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
-	renderTarget.destroy();
+	ext::vulkan::RenderMode::destroy();
+	blitter.destroy();
 }
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
 	// destroy if exists
 	// ext::vulkan::RenderMode& swapchain = 
 	if ( ext::vulkan::rebuild ) {
-		if ( swapchain.initialized ) {
-			auto* device = swapchain.device;
-			swapchain.destroy();
-			swapchain.initialize( *device );
-		}
-		swapchain.initialized = true;
-
 		// destroy if exist
-		if ( renderTarget.initialized ) {
+		{
 			auto* device = renderTarget.device;
 			renderTarget.initialize( *device );
 		}
-		renderTarget.initialized = true;
 
 		// update descriptor set
 		if ( blitter.initialized ) {
@@ -109,7 +106,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 					&textDescriptorAlbedo
 				),
 			};
-			vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
+			blitter.initializeDescriptorSet( writeDescriptorSets );
 		}
 	}
 
@@ -121,8 +118,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
 	
-	for (int32_t i = 0; i < swapchain.commands.size(); ++i) {
-		VK_CHECK_RESULT(vkBeginCommandBuffer(swapchain.commands[i], &cmdBufInfo));
+	for (size_t i = 0; i < commands.size(); ++i) {
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		// Fill GBuffer
 		{
 			std::vector<VkClearValue> clearValues; clearValues.resize(4);
@@ -144,7 +141,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 
 			for ( auto graphic : graphics ) {
-				graphic->createImageMemoryBarrier(swapchain.commands[i]);
+				graphic->createImageMemoryBarrier(commands[i]);
 			}
 
 			// Update dynamic viewport state
@@ -161,30 +158,30 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 
-			vkCmdBeginRenderPass(swapchain.commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdSetViewport(swapchain.commands[i], 0, 1, &viewport);
-				vkCmdSetScissor(swapchain.commands[i], 0, 1, &scissor);
+			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commands[i], 0, 1, &viewport);
+				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( auto pass : passes ) {
 					ext::vulkan::currentPass = pass + ";DEFERRED";
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->renderMode->getName() != this->getName() ) continue;
-						graphic->createCommandBuffer(swapchain.commands[i] );
+						graphic->createCommandBuffer(commands[i] );
 					}
 				}
-			vkCmdNextSubpass(swapchain.commands[i], VK_SUBPASS_CONTENTS_INLINE);
-				blitter.createCommandBuffer(swapchain.commands[i]);
+			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+				blitter.createCommandBuffer(commands[i]);
 				// render gui layer
 				{
 					RenderMode* layer = &ext::vulkan::getRenderMode("Gui");
 					if ( layer->getName() == "Gui" ) {
 						RenderTargetRenderMode* guiLayer = (RenderTargetRenderMode*) layer;
-						guiLayer->blitter.createCommandBuffer(swapchain.commands[i]);
+						guiLayer->blitter.createCommandBuffer(commands[i]);
 					}
 				}
-			vkCmdEndRenderPass(swapchain.commands[i]);
+			vkCmdEndRenderPass(commands[i]);
 		}
 
-		VK_CHECK_RESULT(vkEndCommandBuffer(swapchain.commands[i]));
+		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
 }

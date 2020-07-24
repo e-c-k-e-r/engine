@@ -54,9 +54,9 @@ void ext::HousamoSprite::initialize() {
 	uf::Asset& assetLoader = world.getComponent<uf::Asset>();
 
 	this->addHook( "graphics:Assign.%UID%", [&](const std::string& event)->std::string{	
-		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-		mesh.graphic.initialize();
-		mesh.graphic.autoAssign();
+	//	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
+	//	mesh.graphic.initialize();
+	//	mesh.graphic.autoAssign();
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
 		return "true";
@@ -76,15 +76,17 @@ void ext::HousamoSprite::initialize() {
 		
 		uf::Image image = *imagePointer;
 		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-		float scalex = 1.0f; //(640.0f / 1024.0f);
-		float scaley = 1.0f; //(904.0f / 1024.0f);
+		float scalex = 1.0f;
+		float scaley = 1.0f;
+	//	float scaley = ((float) image.getDimensions().x / (float) image.getDimensions().y);
+	//	float scalex = (640.0f / 1024.0f);
+	//	float scaley = (904.0f / 1024.0f);
 	//	float scalex = (image.getDimensions().x / 1024.0f);
 	//	float scaley = (image.getDimensions().y / 1024.0f);
 		if ( metadata["orientation"] == "landscape" ) {
 			scalex = (904.0f / 1024.0f);
 			scaley = (640.0f / 1024.0f);
 		}
-	//	std::cout << this->m_name ": " << metadata["orientation"] << std::endl;
 		mesh.vertices = {
 			{{-1*-0.5f, 0.0f, 0.0f}, {scalex*1.0f, scaley*0.0f}, { 0.0f, 0.0f, -1.0f } },
 			{{-1*0.5f, 0.0f, 0.0f}, {scalex*0.0f, scaley*0.0f}, { 0.0f, 0.0f, -1.0f } },

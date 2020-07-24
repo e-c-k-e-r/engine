@@ -10,14 +10,15 @@ namespace {
 	uint8_t DOMINANT_EYE = 1;
 }
 
+ext::vulkan::MultiviewRenderMode::MultiviewRenderMode() : rendertargets.left( rendertarget ) {
+
+}
+
 std::string ext::vulkan::MultiviewRenderMode::getType() const {
 	return "Multiview";
 }
 size_t ext::vulkan::MultiviewRenderMode::subpasses() const {
 	return rendertargets.left.passes.size();
-}
-VkRenderPass& ext::vulkan::MultiviewRenderMode::getRenderPass() {
-	return rendertargets.left.renderPass;
 }
 
 void ext::vulkan::MultiviewRenderMode::initialize( Device& device ) {

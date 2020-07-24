@@ -10,9 +10,6 @@ std::string ext::vulkan::RenderTargetRenderMode::getType() const {
 size_t ext::vulkan::RenderTargetRenderMode::subpasses() const {
 	return renderTarget.passes.size();
 }
-VkRenderPass& ext::vulkan::RenderTargetRenderMode::getRenderPass() {
-	return renderTarget.renderPass;
-}
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -23,8 +20,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t color, depth;
 		} attachments;
 
-		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ); // albedo
-		attachments.depth = renderTarget.attach( swapchain.depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ); // depth
+		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
 
 		// First pass: write to target
 		{
@@ -38,58 +35,38 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	}
 	renderTarget.initialize( device );
 
-	blitter.framebuffer = &framebuffer;
+	blitter.renderTarget = &renderTarget;
 	blitter.initializeShaders({
 		{"./data/shaders/display.rendertarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 		{"./data/shaders/display.rendertarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 	});
 	blitter.initialize();
-
-	// Create command buffers
-	{
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			device.commandPool,
-			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			1
-		);
-		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &commandBuffer));
-	}
-	// Set sync objects
-	{
-		// Fence for syncs
-		VkFenceCreateInfo fenceCreateInfo = ext::vulkan::initializers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-		VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
-	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
-	renderTarget.destroy();
-
-	if ( fence != VK_NULL_HANDLE ) {
-		vkDestroyFence(*device, fence, nullptr);
-		fence = VK_NULL_HANDLE;
-	}
+	ext::vulkan::RenderMode::destroy();
+	blitter.destroy();
 }
 void ext::vulkan::RenderTargetRenderMode::render() {
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
-	vkWaitForFences( *device, 1, &fence, VK_TRUE, UINT64_MAX );
-	vkResetFences( *device, 1, &fence );
+	vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX );
+	vkResetFences( *device, 1, &fences[currentBuffer] );
 
 	VkSubmitInfo renderSubmitInfo = ext::vulkan::initializers::submitInfo();
 	renderSubmitInfo.commandBufferCount = 1;
-	renderSubmitInfo.pCommandBuffers = &commandBuffer;
+	renderSubmitInfo.pCommandBuffers = &commands[currentBuffer];
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->graphicsQueue, 1, &renderSubmitInfo, fence));
+	VK_CHECK_RESULT(vkQueueSubmit(device->graphicsQueue, 1, &renderSubmitInfo, fences[currentBuffer]));
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
 	// destroy if exists
-	if ( swapchain.rebuild ) {
+	if ( ext::vulkan::rebuild ) {
 		// destroy if exist
-		if ( renderTarget.commandBufferSet ) {
+		if ( renderTarget.initialized ) {
 			auto* device = renderTarget.device;
 			renderTarget.initialize( *device );
 		}
-		renderTarget.commandBufferSet = true;
+		renderTarget.initialized = true;
 
 		// update descriptor set
 		if ( blitter.initialized ) {
@@ -125,54 +102,56 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
 	
-	VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
-	{
-		std::vector<VkClearValue> clearValues; clearValues.resize(2);
-		clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-		clearValues[1].depthStencil = { 1.0f, 0 };
+	for (size_t i = 0; i < commands.size(); ++i) {
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
+		{
+			std::vector<VkClearValue> clearValues; clearValues.resize(2);
+			clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+			clearValues[1].depthStencil = { 1.0f, 0 };
 
-		VkRenderPassBeginInfo renderPassBeginInfo = {};
-		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBeginInfo.pNext = nullptr;
-		renderPassBeginInfo.renderArea.offset.x = 0;
-		renderPassBeginInfo.renderArea.offset.y = 0;
-		renderPassBeginInfo.renderArea.extent.width = width;
-		renderPassBeginInfo.renderArea.extent.height = height;
-		renderPassBeginInfo.clearValueCount = clearValues.size();
-		renderPassBeginInfo.pClearValues = &clearValues[0];
-		renderPassBeginInfo.renderPass = renderTarget.renderPass;
-		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[0];
+			VkRenderPassBeginInfo renderPassBeginInfo = {};
+			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassBeginInfo.pNext = nullptr;
+			renderPassBeginInfo.renderArea.offset.x = 0;
+			renderPassBeginInfo.renderArea.offset.y = 0;
+			renderPassBeginInfo.renderArea.extent.width = width;
+			renderPassBeginInfo.renderArea.extent.height = height;
+			renderPassBeginInfo.clearValueCount = clearValues.size();
+			renderPassBeginInfo.pClearValues = &clearValues[0];
+			renderPassBeginInfo.renderPass = renderTarget.renderPass;
+			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 
-		for ( auto graphic : graphics ) {
-			graphic.createImageMemoryBarrier(commandBuffer);
+			for ( auto graphic : graphics ) {
+				graphic->createImageMemoryBarrier(commands[i]);
+			}
+
+			// Update dynamic viewport state
+			VkViewport viewport = {};
+			viewport.width = (float) width;
+			viewport.height = (float) height;
+			viewport.minDepth = (float) 0.0f;
+			viewport.maxDepth = (float) 1.0f;
+			
+			// Update dynamic scissor state
+			VkRect2D scissor = {};
+			scissor.extent.width = width;
+			scissor.extent.height = height;
+			scissor.offset.x = 0;
+			scissor.offset.y = 0;
+
+			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commands[i], 0, 1, &viewport);
+				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				for ( auto pass : passes ) {
+					ext::vulkan::currentPass = pass + ";TOTEXTURE";
+					for ( auto graphic : graphics ) {
+						if ( graphic->renderMode && graphic->renderMode->getName() != this->getName() ) continue;
+						graphic->createCommandBuffer(commands[i] );
+					}
+				}
+			vkCmdEndRenderPass(commands[i]);
 		}
 
-		// Update dynamic viewport state
-		VkViewport viewport = {};
-		viewport.width = (float) width;
-		viewport.height = (float) height;
-		viewport.minDepth = (float) 0.0f;
-		viewport.maxDepth = (float) 1.0f;
-		
-		// Update dynamic scissor state
-		VkRect2D scissor = {};
-		scissor.extent.width = width;
-		scissor.extent.height = height;
-		scissor.offset.x = 0;
-		scissor.offset.y = 0;
-
-		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-			vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-			vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-			for ( auto pass : passes ) {
-				ext::vulkan::currentPass = pass + ";TOTEXTURE";
-				for ( auto graphic : graphics ) {
-					if ( graphic->renderMode && graphic->renderMode->getName() != this->getName() ) continue;
-					graphic->createCommandBuffer(commandBuffer );
-				}
-			}
-		vkCmdEndRenderPass(commandBuffer);
+		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
-
-	VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 }

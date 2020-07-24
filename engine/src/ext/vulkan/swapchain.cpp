@@ -3,7 +3,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
 
-VkResult ext::vulkan::Swapchain::acquireNextImage( uint32_t *imageIndex ) {
+VkResult ext::vulkan::Swapchain::acquireNextImage( uint32_t* imageIndex, VkSemaphore presentCompleteSemaphore ) {
 	// By setting timeout to UINT64_MAX we will always wait until the next image has been acquired or an actual error is thrown
 	// With that we don't have to handle VK_NOT_READY
 	return vkAcquireNextImageKHR( *device, swapChain, UINT64_MAX, presentCompleteSemaphore, (VkFence) nullptr, imageIndex );
@@ -121,8 +121,8 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		swapchainCI.pNext = NULL;
 		swapchainCI.surface = device.surface;
 		swapchainCI.minImageCount = desiredNumberOfSwapchainImages;
-		swapchainCI.imageFormat = device->formats.color;
-		swapchainCI.imageColorSpace = device->formats.space;
+		swapchainCI.imageFormat = device.formats.color;
+		swapchainCI.imageColorSpace = device.formats.space;
 		swapchainCI.imageExtent = { swapchainExtent.width, swapchainExtent.height };
 		swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		swapchainCI.preTransform = (VkSurfaceTransformFlagBitsKHR)preTransform;
@@ -150,7 +150,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 
 		// If an existing swap chain is re-created, destroy the old swap chain
 		// This also cleans up all the presentable images
-		if (oldSwapchain != VK_NULL_HANDLE)  vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
+		if (oldSwapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR( device.logicalDevice, oldSwapchain, nullptr);
 		VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device.logicalDevice, swapChain, &buffers, NULL));
 	}
 }
@@ -162,13 +162,6 @@ void ext::vulkan::Swapchain::destroy() {
 		vkDestroySwapchainKHR( *device, swapChain, nullptr);
 	}
 
-	for ( auto& fence : waitFences ) {
-		vkDestroyFence( *device, fence, nullptr);
-		fence = VK_NULL_HANDLE;
-	}
-
-	presentCompleteSemaphore = VK_NULL_HANDLE;
-	renderCompleteSemaphore = VK_NULL_HANDLE;
 	swapChain = VK_NULL_HANDLE;
 	device = VK_NULL_HANDLE;
 }

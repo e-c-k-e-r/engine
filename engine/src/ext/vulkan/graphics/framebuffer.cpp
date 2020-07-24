@@ -126,12 +126,25 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
-	// Swap buffers
+	// Move uniform buffer to the front
+	{
+		for ( auto it = buffers.begin(); it != buffers.end(); ++it ) {
+			Buffer& buffer = *it;
+			if ( !(buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+			Buffer uniformBuffer = std::move(buffer);
+			buffers.erase(it);
+			buffers.insert( buffers.begin(), std::move(uniformBuffer) );
+			break;
+		}
+
+	}
+/*
 	buffers = {
 		std::move(buffers.at(2)),
 		std::move(buffers.at(0)),
 		std::move(buffers.at(1)),
 	};
+*/
 	// set pipeline
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -145,6 +158,21 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 			VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			0
 		);
+		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
+		for ( auto& attachment : renderMode.renderTarget.attachments ) {
+			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+					0xf,
+					VK_FALSE
+				);
+				blendAttachmentStates.push_back(blendAttachmentState);
+			}
+		}
+		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
+			blendAttachmentStates.size(),
+			blendAttachmentStates.data()
+		);
+	/*
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			0xf,
 			VK_FALSE
@@ -153,6 +181,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 			1,
 			&blendAttachmentState
 		);
+	*/
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
@@ -210,7 +239,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.getRenderPass(),
+			renderMode.renderTarget.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -235,7 +264,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 	// Set descriptor set
 	{
 		VkDescriptorImageInfo textDescriptorAlbedo = ext::vulkan::initializers::descriptorImageInfo( 
-			framebuffer->attachments[0].view,
+			renderTarget->attachments[0].view,
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 

@@ -126,7 +126,7 @@ void client::initialize() {
 				ext::vulkan::width = size.x;
 				ext::vulkan::height = size.y;
 
-				ext::vulkan::swapchain.rebuild = true;
+				ext::vulkan::rebuild = true;
 				return "true";
 			} );
 		} else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {

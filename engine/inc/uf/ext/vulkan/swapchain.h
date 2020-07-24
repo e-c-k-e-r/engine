@@ -9,24 +9,20 @@ namespace ext {
 			Device* device = nullptr;
 			VkSurfaceKHR surface;
 			VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-			
 
-			VkSemaphore presentCompleteSemaphore;
-			VkSemaphore renderCompleteSemaphore;
-			std::vector<VkFence> waitFences;
-
-			bool commandBufferSet = false;
-			std::vector<VkCommandBuffer> drawCommandBuffers;
-
+			bool initialized = false;
 			bool vsync = true;
 			uint32_t buffers;
 
+			VkSemaphore presentCompleteSemaphore;
+			VkSemaphore renderCompleteSemaphore;
+
 			// helpers
-			VkResult acquireNextImage( uint32_t *imageIndex );
+			VkResult acquireNextImage( uint32_t* imageIndex, VkSemaphore );
 			VkResult queuePresent( VkQueue queue, uint32_t imageIndex, VkSemaphore waitSemaphore = VK_NULL_HANDLE );
 			
 			// RAII
-			void initialize( Device& device, size_t width = 0, size_t height = 0, bool vsync = true );
+			void initialize( Device& device );
 			void destroy();
 		};
 	}

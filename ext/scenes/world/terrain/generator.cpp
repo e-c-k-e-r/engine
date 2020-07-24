@@ -17,7 +17,7 @@
 
 namespace {
 	bool SWIZZLE_OPTIMIZATION = false;
-	ext::TerrainVoxel::light_t AMBIENT_LIGHT = 0x1111; //{std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max()};
+	ext::TerrainVoxel::light_t AMBIENT_LIGHT = 0x6666; //{std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max()};
 	struct COLOR {
 		uint r : 4;
 		uint g : 4;
@@ -204,6 +204,7 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 	
 		//	if ( (x) % (this->m_size.x / partitions) == 0 ) voxel = atlas.wall;
 		//	if ( (z) % (this->m_size.z / partitions) == 0 ) voxel = atlas.wall;
+		/*
 			if ( (x + 1) % (this->m_size.x / partitions) == 0 ) voxel = atlas.wall;
 			if ( (z + 1) % (this->m_size.z / partitions) == 0 ) voxel = atlas.wall;
 
@@ -211,8 +212,8 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 				if ( x % (this->m_size.x / partitions) >= 3 && x % (this->m_size.x / partitions) <= partitions - 4 ) voxel = 0;
 				if ( z % (this->m_size.z / partitions) >= 3 && z % (this->m_size.z / partitions) <= partitions - 4 ) voxel = 0;
 			}
+		*/
 			if ( y <= 1 ) voxel = atlas.floor; if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
-
 			if ( uf::vector::sum(location) != 0 ) {
 				if ( e < 0.5 ) voxel = y == 0 ? atlas.lava : 0;
 			//	if ( raw_noise[x][1][z] / maxValue < 0.2 || raw_noise[x][2][z] / maxValue > 0.8 ) voxel = atlas.stair;
@@ -227,8 +228,8 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 			if ( LABYRINTH & ext::Maze::WEST ) if ( x == this->m_size.x - 1 ) voxel = atlas.wall;
 			if ( LABYRINTH & ext::Maze::NORTH ) if ( z == 0 ) voxel = atlas.wall;
 			if ( LABYRINTH & ext::Maze::SOUTH ) if ( z == this->m_size.z - 1 ) voxel = atlas.wall;
-			if ( LABYRINTH & ext::Maze::FLOOR ) if ( y == 0 ) voxel = atlas.floor;
-			if ( LABYRINTH & ext::Maze::CEIL ) if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
+		//	if ( LABYRINTH & ext::Maze::FLOOR ) if ( y == 0 ) voxel = atlas.floor;
+		//	if ( LABYRINTH & ext::Maze::CEIL ) if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
 			
 			if ( light < AMBIENT_LIGHT ) light = AMBIENT_LIGHT;
 
@@ -355,14 +356,14 @@ ext::TerrainVoxel::uid_t ext::TerrainGenerator::getVoxel( int x, int y, int z ) 
 
 //	if ( this->m_voxels.id.raw ) return this->m_voxels.id.raw[x][y][z];
 	if ( !this->m_voxels.id.raw.empty() ) {
-		std::size_t i = this->wrapPosition( x, y, z );
+		std::size_t i = this->wrapPosition( x, y, z, this->m_voxels.id.swizzle );
 		return this->m_voxels.id.raw[i];
 	}
 
 	std::size_t i = 0;
 	for ( auto& _ : this->m_voxels.id.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
-			auto v = this->unwrapIndex( i++ );
+			auto v = this->unwrapIndex( i++, this->m_voxels.id.swizzle );
 			if ( v.x == x && v.y == y && v.z == z ) return _.value;
 		}
 	}
@@ -440,14 +441,14 @@ ext::TerrainVoxel::light_t ext::TerrainGenerator::getLight( int x, int y, int z 
 
 /*
 	if ( !this->m_voxels.lighting.raw.empty() ) {
-		std::size_t i = this->wrapPosition( x, y, z );
+		std::size_t i = this->wrapPosition( x, y, z, this->m_voxels.lighting.swizzle );
 		return this->m_voxels.lighting.raw[i];
 	}
 */
 	std::size_t i = 0;
 	for ( auto& _ : this->m_voxels.lighting.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
-			auto v = this->unwrapIndex( i++ );
+			auto v = this->unwrapIndex( i++, this->m_voxels.lighting.swizzle );
 			if ( v.x == x && v.y == y && v.z == z ) {
 				return _.value;
 			}
@@ -474,9 +475,9 @@ pod::Vector3ui ext::TerrainGenerator::unwrapIndex( std::size_t i, Swizzle swizzl
 				this->m_size.y,
 			};
 			return {
-				i % this->m_size.x,
-				i / ( this->m_size.x * this->m_size.y ),
-				( i / this->m_size.x ) % this->m_size.y,
+				i % size.x,
+				i / ( size.x * size.y ),
+				( i / size.x ) % size.y,
 			};
 		break;
 		case Swizzle::ZXY:
@@ -486,9 +487,9 @@ pod::Vector3ui ext::TerrainGenerator::unwrapIndex( std::size_t i, Swizzle swizzl
 				this->m_size.z,
 			};
 			return {
-				( i / this->m_size.x ) % this->m_size.y,
-				i % this->m_size.x,
-				i / ( this->m_size.x * this->m_size.y ),
+				( i / size.x ) % size.y,
+				i % size.x,
+				i / ( size.x * size.y ),
 			};
 		break;
 		case Swizzle::XYZ:
@@ -499,9 +500,9 @@ pod::Vector3ui ext::TerrainGenerator::unwrapIndex( std::size_t i, Swizzle swizzl
 				this->m_size.x,
 			};
 			return {
-				( i / this->m_size.x ) % this->m_size.y,
-				i / ( this->m_size.x * this->m_size.y ),
-				i % this->m_size.x,
+				( i / size.x ) % size.y,
+				i / ( size.x * size.y ),
+				i % size.x,
 			};
 		break;
 	}
@@ -565,7 +566,7 @@ void ext::TerrainGenerator::wrapVoxel() { if ( this->m_voxels.id.raw.empty() ) r
 	this->m_voxels.id.swizzle = ext::TerrainGenerator::DEFAULT_SWIZZLE;
 	
 	for ( std::size_t i = 0; i < this->m_size.x * this->m_size.y * this->m_size.z; ++i ) {
-		auto position = this->unwrapIndex( i );
+		auto position = this->unwrapIndex( i, this->m_voxels.id.swizzle );
 		raw_id[position.x][position.y][position.z] = this->m_voxels.id.raw[i];
 	}
 
@@ -622,7 +623,6 @@ void ext::TerrainGenerator::wrapVoxel() { if ( this->m_voxels.id.raw.empty() ) r
 		for ( uint x = 0; x < this->m_size.x; x++ ) 
 			buffer.push_back( raw_id[x][y][z] );
 		this->m_voxels.id.swizzle = Swizzle::YZX;
-
 		this->m_voxels.id.rle = uf::rle::encode( buffer );
 	}
 }
@@ -633,7 +633,7 @@ void ext::TerrainGenerator::wrapLight() { if ( this->m_voxels.lighting.raw.empty
 	this->m_voxels.lighting.swizzle = ext::TerrainGenerator::DEFAULT_SWIZZLE;
 	
 	for ( std::size_t i = 0; i < this->m_size.x * this->m_size.y * this->m_size.z; ++i ) {
-		auto position = this->unwrapIndex( i );
+		auto position = this->unwrapIndex( i, this->m_voxels.lighting.swizzle );
 		raw_lighting[position.x][position.y][position.z] = this->m_voxels.lighting.raw[i];
 	}
 
@@ -800,7 +800,7 @@ void ext::TerrainGenerator::setVoxel( int x, int y, int z, const ext::TerrainVox
 		if ( region ) region->getComponent<uf::Serializer>()["region"]["modified"] = true;
 	}
 
-	std::size_t i = this->wrapPosition(x, y, z);
+	std::size_t i = this->wrapPosition(x, y, z, this->m_voxels.id.swizzle);
 	this->m_voxels.id.raw[i] = voxel;
 
 	this->wrapVoxel();
@@ -880,7 +880,7 @@ void ext::TerrainGenerator::setLight( int x, int y, int z, const ext::TerrainVox
 		if ( region ) region->getComponent<uf::Serializer>()["region"]["modified"] = true;
 	}
 
-	std::size_t i = this->wrapPosition(x, y, z);
+	std::size_t i = this->wrapPosition(x, y, z, this->m_voxels.lighting.swizzle);
 //	std::cout << "Set Voxel( " << x << ", " << y << ", " << z << ") ("<< i <<") to level " << light << std::endl;
 	this->m_voxels.lighting.raw[i] = light;
 	this->wrapLight();
@@ -1211,8 +1211,7 @@ void ext::TerrainGenerator::light( const pod::Vector3i& location, const ext::Ter
 void ext::TerrainGenerator::updateLight(){
 //	this->unwrapLight();
 	// set lights to original values
-	return;
-	
+/*	
 	std::size_t i = 0;
 	std::cout << "Updating lights for " << this->m_location.x << ", " << this->m_location.y << ", " << this->m_location.z << std::endl;
 	for ( auto& _ : this->m_voxels.id.rle ) {
@@ -1224,10 +1223,10 @@ void ext::TerrainGenerator::updateLight(){
 		}
 	}
 	//this->wrapLight();
-
+*/
 	// set lights
-/*
-	i = 0;
+
+	std::size_t i = 0;
 	for ( auto& _ : this->m_voxels.id.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( _.value );
@@ -1236,7 +1235,6 @@ void ext::TerrainGenerator::updateLight(){
 			this->light(v.x, v.y, v.z, voxel.light() );
 		}
 	}
-*/
 //	this->wrapLight();
 //	this->writeToFile();
 }

@@ -216,7 +216,8 @@ void ext::openvr::tick() {
 }
 
 void ext::openvr::submit() {
-	ext::vulkan::MultiviewRenderMode* renderMode = (ext::vulkan::MultiviewRenderMode*) ext::vulkan::renderModes[0];
+/*
+//	ext::vulkan::MultiviewRenderMode* renderMode = (ext::vulkan::MultiviewRenderMode*) ext::vulkan::renderModes[0];
 	float width = renderMode->width > 0 ? renderMode->width : ext::vulkan::width;
 	float height = renderMode->height > 0 ? renderMode->height : ext::vulkan::height;
 	// Submit to SteamVR
@@ -248,6 +249,7 @@ void ext::openvr::submit() {
 	vr::VRCompositor()->Submit( vr::Eye_Right, &texture, &bounds );
 
 	vr::VRCompositor()->PostPresentHandoff();
+*/
 }
 
 void ext::openvr::recommendedResolution( uint32_t& width, uint32_t& height ) {

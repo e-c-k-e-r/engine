@@ -9,6 +9,8 @@ namespace ext {
 				VkFormat format;
 				VkImageLayout layout;
 				VkImageUsageFlags usage;
+				bool aliased = false;
+
 				VkImage image;
 				VkDeviceMemory mem;
 				VkImageView view;
@@ -33,7 +35,7 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, size_t );
-			size_t attach( VkFormat format, VkImageUsageFlags usage, Attachment* attachment = NULL );
+			size_t attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, Attachment* attachment = NULL );
 		};
 	}
 }

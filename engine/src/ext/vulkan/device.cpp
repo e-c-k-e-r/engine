@@ -156,6 +156,8 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMem
 	memAlloc.allocationSize = memReqs.size;
 	// Find a memory type index that fits the properties of the buffer
 	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
+
+	std::cout << "Allocating Memory: " << memory << std::endl;
 	VK_CHECK_RESULT( vkAllocateMemory(logicalDevice, &memAlloc, nullptr, memory));
 	
 	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
@@ -189,10 +191,13 @@ VkResult ext::vulkan::Device::createBuffer(
 	void *data
 ) {
 	buffer.device = logicalDevice;
+	buffer.usageFlags = usageFlags;
+	buffer.memoryPropertyFlags = memoryPropertyFlags;
 
 	// Create the buffer handle
 	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usageFlags, size);
 	buffer.allocate( bufferCreateInfo );
+
 /*
 //	VK_CHECK_RESULT(vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer.buffer));
 	// Create the memory backing up the buffer handle
@@ -538,16 +543,16 @@ void ext::vulkan::Device::initialize() {
 		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
 		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_UNORM
 		if ( (formatCount == 1) && (formats[0].format == VK_FORMAT_UNDEFINED) ) {
-			formats.color = VK_FORMAT_B8G8R8A8_UNORM;
-			formats.space = formats[0].colorSpace;
+			this->formats.color = VK_FORMAT_B8G8R8A8_UNORM;
+			this->formats.space = formats[0].colorSpace;
 		} else {
 			// iterate over the list of available surface format and
 			// check for the presence of VK_FORMAT_B8G8R8A8_UNORM
 			bool found_B8G8R8A8_UNORM = false;
 			for ( auto&& surfaceFormat : formats ) {
 				if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
-					formats.color = surfaceFormat.format;
-					formats.space = surfaceFormat.colorSpace;
+					this->formats.color = surfaceFormat.format;
+					this->formats.space = surfaceFormat.colorSpace;
 					found_B8G8R8A8_UNORM = true;
 					break;
 				}
@@ -555,8 +560,8 @@ void ext::vulkan::Device::initialize() {
 			// in case VK_FORMAT_B8G8R8A8_UNORM is not available
 			// select the first available color format
 			if ( !found_B8G8R8A8_UNORM ) {
-				formats.color = formats[0].format;
-				formats.space = formats[0].colorSpace;
+				this->formats.color = formats[0].format;
+				this->formats.space = formats[0].colorSpace;
 			}
 		}
 	}
@@ -577,7 +582,7 @@ void ext::vulkan::Device::initialize() {
 			vkGetPhysicalDeviceFormatProperties( this->physicalDevice, format, &formatProps );
 			// Format must support depth stencil attachment for optimal tiling
 			if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-				formats.depth = format;
+				this->formats.depth = format;
 			}
 		}
 	}

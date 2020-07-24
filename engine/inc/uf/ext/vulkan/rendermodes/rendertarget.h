@@ -1,14 +1,13 @@
 #pragma once
 
-#include <uf/ext/vulkan/device.h>
-#include <uf/ext/vulkan/rendertarget.h>
+#include <uf/ext/vulkan/rendermode.h>
 #include <uf/ext/vulkan/graphics/rendertarget.h>
 
 namespace ext {
 	namespace vulkan {
 		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
-			ext::vulkan::RenderTarget renderTarget;
 			ext::vulkan::RenderTargetGraphic blitter;
+			
 			VkFence fence;
 			VkCommandBuffer commandBuffer;
 
@@ -20,9 +19,6 @@ namespace ext {
 			virtual void initialize( Device& device );
 			virtual void destroy();
 			virtual void render();
-
-			virtual VkRenderPass& getRenderPass();
-			virtual ext::vulkan::RenderTarget& getRenderTarget();
 		};
 	}
 }

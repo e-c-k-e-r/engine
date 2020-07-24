@@ -356,7 +356,7 @@ void ext::vulkan::RTGraphic::initialize( Device& device, RenderMode& renderMode 
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.getRenderPass(),
+			renderMode.renderTarget.renderPass,
 			0
 		);
 		VkPipelineVertexInputStateCreateInfo emptyInputState = {};

@@ -110,8 +110,10 @@ void EXT_API ext::initialize() {
 		ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
 
 		// setup render mode
-		ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
-	//	ext::vulkan::addRenderMode( new ext::vulkan::RenderTargetRenderMode, "Gui" );
+		if ( ::config["engine"]["render modes"]["deferred"].asBool() )
+			ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
+		if ( ::config["engine"]["render modes"]["gui"].asBool() )
+			ext::vulkan::addRenderMode( new ext::vulkan::RenderTargetRenderMode, "Gui" );
 		ext::vulkan::initialize();
 	}
 	/* */ {

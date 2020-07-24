@@ -14,8 +14,8 @@ namespace ext {
 			void* mapped = nullptr;
 
 			VkBufferUsageFlags usageFlags;
-
 			VkMemoryPropertyFlags memoryPropertyFlags;
+			
 			VkMemoryAllocateInfo memAlloc;
 			VkMemoryRequirements memReqs;
 

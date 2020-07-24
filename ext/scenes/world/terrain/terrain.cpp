@@ -45,7 +45,9 @@ void ext::Terrain::destroy() {
 		this->getComponent<ext::vulkan::RTGraphic>().destroy();
 	}
 	if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
-		this->getComponent<ext::TerrainGenerator::mesh_t>().destroy();
+		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+		mesh.graphic.destroy();
+		mesh.destroy();
 	}
 	uf::Object::destroy();
 }
@@ -296,6 +298,10 @@ void ext::Terrain::tick() {
 						break;
 					}
 				}
+				{
+					uf::Serializer& rMetadata = kv->getComponent<uf::Serializer>();
+					if ( !rMetadata["region"]["rasterized"].asBool() ) degenerate = false;
+				}
 
 				if ( degenerate ) locations.push_back(location);
 			}
@@ -494,6 +500,10 @@ void ext::Terrain::tick() {
 						degenerate = false;
 						break;
 					}
+				}
+				{
+					uf::Serializer& rMetadata = kv->getComponent<uf::Serializer>();
+					if ( !rMetadata["region"]["rasterized"].asBool() ) degenerate = false;
 				}
 
 				if ( degenerate ) locations.push_back(location);

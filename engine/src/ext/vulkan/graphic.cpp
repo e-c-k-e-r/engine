@@ -161,7 +161,7 @@ bool ext::vulkan::Graphic::autoAssignable() const {
 }
 void ext::vulkan::Graphic::autoAssign() {
 	if ( !autoAssigned ) {
-		swapchain.rebuild = true;
+		ext::vulkan::rebuild = true;
 /*
 		ext::vulkan::graphics->push_back(this);
 */
@@ -196,7 +196,7 @@ void ext::vulkan::Graphic::destroy() {
 		);
 */
 		autoAssigned = false;
-		swapchain.rebuild = true;
+		ext::vulkan::rebuild = true;
 	}
 	initialized = false;
 	if ( !device || device == VK_NULL_HANDLE ) return;

@@ -8,8 +8,8 @@
 #include <ostream>
 #include <fstream>
 
-uint32_t ext::vulkan::width = 800;
-uint32_t ext::vulkan::height = 600;
+uint32_t ext::vulkan::width = 1280;
+uint32_t ext::vulkan::height = 720;
 
 bool ext::vulkan::validation = true;
 ext::vulkan::Device ext::vulkan::device;
@@ -17,15 +17,15 @@ ext::vulkan::Allocator ext::vulkan::allocator;
 ext::vulkan::Swapchain ext::vulkan::swapchain;
 std::mutex ext::vulkan::mutex;
 
-bool ext::vulkan::resizedFramebuffer = false;
-uint32_t ext::vulkan::currentBuffer = 600;
-// std::vector<ext::vulkan::Graphic*> ext::vulkan::graphics;
+bool ext::vulkan::rebuild = false;
+uint32_t ext::vulkan::currentBuffer = 0;
 std::vector<std::string> ext::vulkan::passes = { "BASE" };
-//std::vector<ext::vulkan::Graphic*>* ext::vulkan::graphics = NULL;
 std::vector<uf::Scene*> ext::vulkan::scenes;
 std::string ext::vulkan::currentPass = "BASE";
 
-std::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes;
+std::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
+	new ext::vulkan::BaseRenderMode,
+};
 
 VkResult ext::vulkan::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -44,7 +44,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData
 ) {
-	std::cerr << "[Validation Layer] " << pCallbackData->pMessage << std::endl;
+	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )  return VK_FALSE;
+	uf::iostream << "[Validation Layer] " << pCallbackData->pMessage << "\n";
 	return VK_FALSE;
 }
 
@@ -52,7 +53,7 @@ VkShaderModule ext::vulkan::loadShader(const char *filename, VkDevice device) {
 	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 
 	if ( !is.is_open() ) {
-		std::cerr << "Error: Could not open shader file \"" << filename << "\"" << std::endl;
+		uf::iostream << "Error: Could not open shader file \"" << filename << "\"" << "\n";
 		return VK_NULL_HANDLE;
 	}
 	size_t size = is.tellg();
@@ -155,12 +156,20 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	renderModes.push_back(mode);
 	return *mode;
 }
-ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name ) {
-	RenderMode* target = renderModes[ renderModes.size()-1 ];
+ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
+	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
-		if ( renderMode->getName() == name ) {
-			target = renderMode;
-			break;
+		if ( isName ) {
+			if ( renderMode->getName() == "" )  target = renderMode;
+			if ( renderMode->getName() == name ) {
+				target = renderMode;
+				break;
+			}
+		} else {
+			if ( renderMode->getType() == name ) {
+				target = renderMode;
+				break;
+			}
 		}
 	}
 	return *target;
@@ -180,6 +189,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
 				renderMode->initialize(device);
+				std::cout << "Initialized render mode `" << renderMode->name << "` (" << renderMode->getType() << ")" << std::endl;
 			}
 			/* resort */ {
 			/*
@@ -222,7 +232,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				if ( !mesh.generated ) return;
 				if ( graphic.initialized ) return;
 				graphic.initialize();
-				swapchain.rebuild = true;
+				ext::vulkan::rebuild = true;
 			};
 			for ( uf::Scene* scene : ext::vulkan::scenes ) {
 				if ( !scene ) continue;
@@ -252,7 +262,7 @@ void ext::vulkan::tick() {
 		auto& graphics = *ext::vulkan::graphics;
 		for ( Graphic* graphic : graphics ) {
 			if ( !graphic->initialized ) {
-				swapchain.rebuild = true;
+				ext::vulkan::rebuild = true;
 				graphic->initialize();
 			}
 		}
@@ -265,19 +275,19 @@ void ext::vulkan::tick() {
 		// if ( !graphic->process ) return;
 		if ( !mesh.generated ) return;
 		if ( graphic.initialized ) return;
-		swapchain.rebuild = true;
+		ext::vulkan::rebuild = true;
 		graphic.initialize();
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
-	if ( swapchain.rebuild ) {
+	if ( ext::vulkan::rebuild ) {
 		for ( auto& renderMode : renderModes ) {
 			if ( !renderMode ) continue;
 			renderMode->createCommandBuffers();
 		}
-		swapchain.rebuild = false;
+		ext::vulkan::rebuild = false;
 	}
 	// ext::vulkan::mutex.unlock();
 }
@@ -311,7 +321,7 @@ void ext::vulkan::render() {
 	}
 
 	// Handle resizes
-	if ( resizedFramebuffer ) resizedFramebuffer = false;
+	if ( ext::vulkan::rebuild ) ext::vulkan::rebuild = false;
 }
 void ext::vulkan::destroy() {
 	vkDeviceWaitIdle( device );
@@ -320,21 +330,13 @@ void ext::vulkan::destroy() {
 		if ( !entity->hasComponent<uf::Mesh>() ) return;
 		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 		ext::vulkan::Graphic& graphic = mesh.graphic;
-		if ( !graphic.initialized ) return;
 		graphic.destroy();
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
-/*
-	if ( ext::vulkan::graphics ) {
-		auto& graphics = *ext::vulkan::graphics;
-		for ( Graphic* graphic : graphics ) {
-			graphic->destroy();
-		}
-	}
-*/	
+
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();
@@ -343,6 +345,7 @@ void ext::vulkan::destroy() {
 	}
 
 	vmaDestroyAllocator( allocator );
+
 	swapchain.destroy();
 	device.destroy();
 }

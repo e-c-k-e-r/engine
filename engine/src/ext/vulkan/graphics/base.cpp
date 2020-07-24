@@ -98,13 +98,31 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
-	// Swap buffers
+	// Move uniform buffer to the front
+	{
+		for ( auto it = buffers.begin(); it != buffers.end(); ++it ) {
+			Buffer& buffer = *it;
+			if ( !(buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+			Buffer uniformBuffer = std::move(buffer);
+			buffers.erase(it);
+			buffers.insert( buffers.begin(), std::move(uniformBuffer) );
+			break;
+		}
+	}
+/*
 	buffers = {
 		std::move(buffers.at(2)),
 		std::move(buffers.at(0)),
 		std::move(buffers.at(1)),
 	};
-
+*/
+/*
+	std::cout << "Buffers for " << this << "(" << this->name() << ")" << std::endl;
+	for ( std::size_t i = 0; i < buffers.size(); ++i ) {
+		auto& buffer = buffers[i];
+		std::cout << i << ": " << buffer.buffer << ": " << std::hex << buffer.usageFlags << std::endl;
+	}
+*/
 	// set pipeline
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -119,13 +137,6 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 			VK_FRONT_FACE_CLOCKWISE,
 			0
 		);
-	
-	/*
-		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-			0xf,
-			VK_FALSE
-		);
-	*/
 	/*
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
@@ -138,21 +149,44 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 		blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 		blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
+			1,
+			&blendAttachmentState
+		);
 	*/
+	/*
+		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+			0xf,
+			VK_FALSE
+		);
+		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
+			1,
+			&blendAttachmentState
+		);
+	*/
+	
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		for ( auto& attachment : renderMode.getFramebuffer().attachments ) {
-			if ( attachment.layout == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-				blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+		for ( auto& attachment : renderMode.renderTarget.attachments ) {
+			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 					0xf,
-					VK_FALSE
+					VK_TRUE
 				);
+				blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+
 				blendAttachmentStates.push_back(blendAttachmentState);
 			}
 		}
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
-			blendAttachmentStates.size(),
+			renderMode.getType() == "Swapchain" ? 1 : blendAttachmentStates.size(),
 			blendAttachmentStates.data()
 		);
+	/*
 		colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlendState.logicOpEnable = VK_FALSE;
         colorBlendState.logicOp = VK_LOGIC_OP_COPY;
@@ -160,6 +194,7 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
         colorBlendState.blendConstants[1] = 0.0f;
         colorBlendState.blendConstants[2] = 0.0f;
         colorBlendState.blendConstants[3] = 0.0f;
+    */
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
@@ -211,7 +246,7 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.getRenderPass(),
+			renderMode.renderTarget.renderPass,
 			0
 		);
 		
