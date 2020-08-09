@@ -28,6 +28,8 @@ namespace ext {
 			bool autoAssigned = false;
 			bool initialized = false;
 			bool process = true;
+			uint32_t subpass = 0;
+			static VkFrontFace DEFAULT_WINDING_ORDER;
 
 			virtual ~Graphic();
 			//

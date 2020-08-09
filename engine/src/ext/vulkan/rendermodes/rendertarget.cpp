@@ -7,9 +7,6 @@
 std::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
 }
-size_t ext::vulkan::RenderTargetRenderMode::subpasses() const {
-	return renderTarget.passes.size();
-}
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -20,7 +17,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t color, depth;
 		} attachments;
 
-		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
+		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
 		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
 
 		// First pass: write to target
@@ -40,7 +37,13 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		{"./data/shaders/display.rendertarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 		{"./data/shaders/display.rendertarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 	});
-	blitter.initialize();
+	// blitter.initialize();
+}
+void ext::vulkan::RenderTargetRenderMode::tick() {
+	ext::vulkan::RenderMode::tick();
+	if ( ext::vulkan::resized ) {
+		renderTarget.initialize( *renderTarget.device );
+	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
@@ -49,65 +52,50 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 void ext::vulkan::RenderTargetRenderMode::render() {
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
-	vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX );
-	vkResetFences( *device, 1, &fences[currentBuffer] );
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[currentBuffer] ));
 
-	VkSubmitInfo renderSubmitInfo = ext::vulkan::initializers::submitInfo();
-	renderSubmitInfo.commandBufferCount = 1;
-	renderSubmitInfo.pCommandBuffers = &commands[currentBuffer];
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+/*
+	submitInfo.pWaitSemaphores = NULL;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 0;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;				// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+*/
+	submitInfo.pCommandBuffers = &commands[currentBuffer];		// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->graphicsQueue, 1, &renderSubmitInfo, fences[currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->graphicsQueue, 1, &submitInfo, fences[currentBuffer]));
+/*
+	VkSemaphoreWaitInfo waitInfo = {};
+	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+	waitInfo.flags = VK_SEMAPHORE_WAIT_ANY_BIT;
+	waitInfo.semaphoreCount = 1;
+	waitInfo.pSemaphores = &renderCompleteSemaphore;
+	waitInfo.pValues = NULL;
+	VK_CHECK_RESULT(vkWaitSemaphores( *device, &waitInfo, UINT64_MAX ));
+*/
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
 	// destroy if exists
-	if ( ext::vulkan::rebuild ) {
-		// destroy if exist
-		if ( renderTarget.initialized ) {
-			auto* device = renderTarget.device;
-			renderTarget.initialize( *device );
-		}
-		renderTarget.initialized = true;
-
-		// update descriptor set
-		if ( blitter.initialized ) {
-			VkDescriptorImageInfo renderTargetDescription = ext::vulkan::initializers::descriptorImageInfo( 
-				renderTarget.attachments[0].view,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				blitter.sampler
-			);
-			std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-				// Binding 0 : Projection/View matrix uniform buffer			
-				ext::vulkan::initializers::writeDescriptorSet(
-					blitter.descriptorSet,
-					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					0,
-					&(blitter.buffers.at(0).descriptor)
-				),
-				// Binding 1 : Albedo input attachment
-				ext::vulkan::initializers::writeDescriptorSet(
-					blitter.descriptorSet,
-					VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-					1,
-					&renderTargetDescription
-				),
-			};
-			vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
-		}
-	}
-
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::height;
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
-	
+
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		{
 			std::vector<VkClearValue> clearValues; clearValues.resize(2);
 			clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-			clearValues[1].depthStencil = { 1.0f, 0 };
+			clearValues[1].depthStencil = { 0.0f, 0 };
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

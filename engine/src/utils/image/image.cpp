@@ -189,6 +189,17 @@ bool uf::Image::open( const std::string& filename ) {
 	}
 	return true;
 }
+void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels ) {
+	this->m_dimensions = size;
+	this->m_bpp = bit_depth * channels;
+	this->m_channels = channels;
+
+	size_t len = size.x * size.y * channels;
+	this->m_pixels.clear();
+	this->m_pixels.resize( len );
+	//for ( size_t i = 0; i < len; ++i ) this->m_pixels[i] = pointer[i];
+	memcpy( &this->m_pixels[0], pointer, len );
+}
 void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;
 	this->m_bpp = bit_depth * channels;

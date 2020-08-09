@@ -8,6 +8,47 @@
 #include <set>
 #include <map>
 
+namespace {
+	void VRExtensions( std::vector<std::string>& requested ) {
+		if ( !vr::VRCompositor() ) return;
+		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
+		if ( nBufferSize < 0 ) return;
+		char pExtensionStr[nBufferSize];
+		pExtensionStr[0] = 0;
+		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
+		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		requested.insert( requested.end(), extensions.begin(), extensions.end() );
+	/*
+		// Allocate enough ExtensionProperties to support all extensions being enabled
+		uint32_t extensionsCount = 0;
+		uint32_t enabledExtensionsCount = 0;
+		
+		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
+		std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
+		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, &extensionProperties[0] ) );
+		for ( size_t i = 0; i < extensions.size(); ++i ) {
+			bool found = false;
+			uint32_t index = 0;
+			for ( index = 0; index < extensionsCount; index++ ) {
+				if ( strcmp( extensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
+					for ( auto alreadyAdded : supportedExtensions ) {
+						if ( strcmp( extensions[i].c_str(), alreadyAdded ) == 0 ) {
+							found = true;
+							break;
+						}
+					}
+					if ( found ) break;
+					found = true;
+					supportedExtensions.push_back(extensionProperties[index].extensionName);
+					break;
+				}
+			}
+			if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
+		}
+	*/
+	}
+}
+
 uint32_t ext::vulkan::Device::getQueueFamilyIndex( VkQueueFlagBits queueFlags ) {
 	if ( queueFlags & VK_QUEUE_COMPUTE_BIT ) {
 		for ( uint32_t i = 0; i < static_cast<uint32_t>(queueFamilyProperties.size()); ++i ) {
@@ -157,7 +198,6 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMem
 	// Find a memory type index that fits the properties of the buffer
 	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
 
-	std::cout << "Allocating Memory: " << memory << std::endl;
 	VK_CHECK_RESULT( vkAllocateMemory(logicalDevice, &memAlloc, nullptr, memory));
 	
 	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
@@ -248,60 +288,56 @@ void ext::vulkan::Device::initialize() {
 			bool layerFound = false;
 			for ( const auto& layerProperties : availableLayers ) {
 				if ( strcmp(layerName, layerProperties.layerName) == 0 ) {
-					layerFound = true;
-					break;
+					layerFound = true; break;
 				}
 			}
-			if ( !layerFound )
-				throw std::runtime_error("validation layers requested, but not available!");
+			if ( !layerFound ) throw std::runtime_error("validation layers requested, but not available!");
 		}
 	}
 	// 
 	// Get extensions
 	// OpenVR Support
-	supportedExtensions = window->getExtensions( ext::vulkan::validation );
+	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::validation );
+	if ( ext::openvr::enabled ) VRExtensions(requestedExtensions);
 
-	if ( ext::openvr::context && vr::VRCompositor() ) {
-		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
-		if ( nBufferSize > 0 ) {
-			char pExtensionStr[nBufferSize];
-			pExtensionStr[0] = 0;
-			vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
-			std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+	{
+		if ( ext::vulkan::validation )
+			for ( auto ext : requestedExtensions ) std::cout << "Requested extension: " << ext << std::endl;
+		uint32_t extensionsCount = 0;
+		uint32_t enabledExtensionsCount = 0;
+		
+		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
 
-			// Allocate enough ExtensionProperties to support all extensions being enabled
-			uint32_t extensionsCount = 0;
-			uint32_t enabledExtensionsCount = 0;
-			
-			VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
-			std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
-			VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, &extensionProperties[0] ) );
-			
-			for ( size_t i = 0; i < extensions.size(); ++i ) {
-				bool found = false;
-				uint32_t index = 0;
-				for ( index = 0; index < extensionsCount; index++ ) {
-					if ( strcmp( extensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
-						for ( auto alreadyAdded : supportedExtensions ) {
-							if ( strcmp( extensions[i].c_str(), alreadyAdded ) == 0 ) {
-								found = true;
-								break;
-							}
+		std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
+		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, &extensionProperties[0] ) );
+
+		for ( size_t i = 0; i < requestedExtensions.size(); ++i ) {
+			bool found = false; uint32_t index = 0;
+			for ( index = 0; index < extensionsCount; index++ ) {
+				if ( strcmp( requestedExtensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
+					for ( auto& alreadyAdded : supportedExtensions ) {
+						if ( requestedExtensions[i] == alreadyAdded ) {
+							found = true;
+							break;
 						}
-						if ( found ) break;
-						found = true;
-						supportedExtensions.push_back(extensionProperties[index].extensionName);
-						break;
 					}
+					if ( found ) break;
+					found = true;
+					supportedExtensions.push_back(extensionProperties[index].extensionName);
+					break;
 				}
-				if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
 			}
+			if ( !found ) std::cout << "Vulkan missing requested extension " << requestedExtensions[index] << std::endl;
 		}
 	}
-	for ( auto ext : supportedExtensions ) std::cout << "Extension: " << ext << std::endl;
-
 	// Create instance
 	{
+		std::vector<const char*> extensions;
+		for ( auto& s : supportedExtensions ) {
+			if ( ext::vulkan::validation ) std::cout << "Enabled extension: " << s << std::endl;
+			extensions.push_back( s.c_str() );
+		}
+
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Program";
@@ -314,8 +350,8 @@ void ext::vulkan::Device::initialize() {
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(supportedExtensions.size());
-		createInfo.ppEnabledExtensionNames = supportedExtensions.data();
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+		createInfo.ppEnabledExtensionNames = extensions.data();
 
 		if ( ext::vulkan::validation ) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -381,7 +417,7 @@ void ext::vulkan::Device::initialize() {
 		std::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
-		/* OpenVR support */ if ( ext::openvr::context && vr::VRCompositor() ) {
+		/* OpenVR support */ if ( ext::openvr::enabled && vr::VRCompositor() ) {
 			uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, nullptr, 0 );
 			if ( nBufferSize > 0 ) {
 				char pExtensionStr[nBufferSize];

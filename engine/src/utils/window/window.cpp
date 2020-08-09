@@ -88,8 +88,11 @@ void UF_API_CALL uf::Window::requestFocus() {
 bool UF_API_CALL uf::Window::hasFocus() const {
 	return uf::Window::focused = (this->m_window ? this->m_window->hasFocus() : false);
 }
-void UF_API_CALL uf::Window::switchToFullscreen() {
-	if ( this->m_window ) this->m_window->switchToFullscreen();
+pod::Vector2ui UF_API_CALL uf::Window::getResolution() {
+	return uf::Window::window_t::getResolution();
+}
+void UF_API_CALL uf::Window::switchToFullscreen( bool borderless ) {
+	if ( this->m_window ) this->m_window->switchToFullscreen( borderless );
 }
 // 	Update
 void UF_API_CALL uf::Window::processEvents() {
@@ -110,7 +113,7 @@ bool UF_API_CALL uf::Window::setActive(bool active) {
 	return false;
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-std::vector<const char*> UF_API_CALL uf::Window::getExtensions( bool x ) {
+std::vector<std::string> UF_API_CALL uf::Window::getExtensions( bool x ) {
 	return this->m_window->getExtensions( x );
 }
 void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {

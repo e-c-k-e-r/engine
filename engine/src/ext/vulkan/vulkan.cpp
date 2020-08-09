@@ -1,8 +1,7 @@
 #include <uf/ext/glfw/glfw.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/rendermodes/multiview.h>
-#include <uf/ext/vulkan/rendermodes/deferred.h>
+#include <uf/ext/vulkan/rendermode.h>
 #include <uf/utils/mesh/mesh.h>
 
 #include <ostream>
@@ -17,6 +16,7 @@ ext::vulkan::Allocator ext::vulkan::allocator;
 ext::vulkan::Swapchain ext::vulkan::swapchain;
 std::mutex ext::vulkan::mutex;
 
+bool ext::vulkan::resized = false;
 bool ext::vulkan::rebuild = false;
 uint32_t ext::vulkan::currentBuffer = 0;
 std::vector<std::string> ext::vulkan::passes = { "BASE" };
@@ -157,7 +157,7 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
-	RenderMode* target = renderModes[0];
+	RenderMode* target = renderModes[renderModes.size()-1];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
 			if ( renderMode->getName() == "" )  target = renderMode;
@@ -172,6 +172,7 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 			}
 		}
 	}
+	// std::cout << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << std::endl;
 	return *target;
 }
 
@@ -189,7 +190,6 @@ void ext::vulkan::initialize( uint8_t stage ) {
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
 				renderMode->initialize(device);
-				std::cout << "Initialized render mode `" << renderMode->name << "` (" << renderMode->getType() << ")" << std::endl;
 			}
 			/* resort */ {
 			/*
@@ -208,6 +208,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				}
 				std::cout << std::endl;
 			*/
+			//	std::reverse(renderModes.begin(), renderModes.end());
 			}
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
@@ -256,18 +257,9 @@ std::ostream& operator<<(std::ostream& os, const ext::vulkan::Graphic& graphic) 
 }
 void ext::vulkan::tick() {
 	// check for changes in swapchain
-	// ext::vulkan::mutex.lock();
-/*
-	if ( ext::vulkan::graphics ) {
-		auto& graphics = *ext::vulkan::graphics;
-		for ( Graphic* graphic : graphics ) {
-			if ( !graphic->initialized ) {
-				ext::vulkan::rebuild = true;
-				graphic->initialize();
-			}
-		}
-	}
-*/
+	ext::vulkan::mutex.lock();
+	if ( ext::vulkan::resized ) ext::vulkan::rebuild = true;
+
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Mesh>() ) return;
 		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
@@ -282,14 +274,19 @@ void ext::vulkan::tick() {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
-	if ( ext::vulkan::rebuild ) {
-		for ( auto& renderMode : renderModes ) {
-			if ( !renderMode ) continue;
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		renderMode->tick();
+	}
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		if ( ext::vulkan::rebuild ) {
 			renderMode->createCommandBuffers();
 		}
-		ext::vulkan::rebuild = false;
 	}
-	// ext::vulkan::mutex.unlock();
+	ext::vulkan::rebuild = false;
+	ext::vulkan::resized = false;
+	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
 /*	
@@ -315,15 +312,15 @@ void ext::vulkan::render() {
 		scene->process(filter);
 	}
 */
+	ext::vulkan::mutex.lock();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->render();
 	}
-
-	// Handle resizes
-	if ( ext::vulkan::rebuild ) ext::vulkan::rebuild = false;
+	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {
+	ext::vulkan::mutex.lock();
 	vkDeviceWaitIdle( device );
 
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -348,6 +345,7 @@ void ext::vulkan::destroy() {
 
 	swapchain.destroy();
 	device.destroy();
+	ext::vulkan::mutex.unlock();
 }
 
 std::string ext::vulkan::allocatorStats() {

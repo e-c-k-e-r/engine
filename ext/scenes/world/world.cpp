@@ -7,6 +7,7 @@
 
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/camera/camera.h>
 
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
@@ -17,20 +18,22 @@
 
 #include "./gui/battle.h"
 #include "./gui/dialogue.h"
-#include "./gui/menu.h"
+#include "./gui/pause.h"
 
 #include ".//battle.h"
 #include ".//dialogue.h"
 
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/vulkan/rendermodes/deferred.h>
+#include <uf/ext/vulkan/rendermodes/rendertarget.h>
+#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
+#include <uf/ext/openvr/openvr.h>
 
 EXT_OBJECT_REGISTER_CPP(World)
 void ext::World::initialize() {
 	uf::Scene::initialize();
-
 	this->m_name = "World";
-
-	this->load("./entities/world.json");
+//	this->load("./scenes/world/scene.json");
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
@@ -108,18 +111,13 @@ void ext::World::initialize() {
 		timer.reset();
 
 		uf::Serializer json = event;
-		ext::Gui* guiManager = (ext::Gui*) this->findByName("Gui Manager");
-		if ( !guiManager ) return "false";
-
-		ext::Gui* guiMenu = new ext::GuiMenu;
-		uf::Serializer& pMetadata = guiMenu->getComponent<uf::Serializer>();
-		guiManager->addChild(*guiMenu);
-		guiMenu->load("./entities/gui/pause/menu.json");
-		pMetadata["menu"] = json["menu"];
-		guiMenu->initialize();
-
+		ext::Gui* manager = (ext::Gui*) this->findByName("Gui Manager");
+		if ( !manager ) return "false";
 		uf::Serializer payload;
-		payload["uid"] = guiMenu->getUid();
+		ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/world/gui/pause/menu.json", false)).asUInt64() );
+		uf::Serializer& metadata = gui->getComponent<uf::Serializer>();
+		metadata["menu"] = json["menu"];
+		gui->initialize();
 		return payload;
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
@@ -294,6 +292,105 @@ void ext::World::tick() {
 		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
+	}
+
+	/* Update lights */ {
+		auto& scene = *this;
+		std::vector<ext::vulkan::DeferredRenderingGraphic*> blitters;
+		auto& renderMode = ext::vulkan::getRenderMode("Stereoscopic Deferred", true);
+		if ( renderMode.getType() == "Stereoscopic Deferred" ) {
+			auto* renderModePointer = (ext::vulkan::StereoscopicDeferredRenderMode*) &renderMode;
+			blitters.push_back(&renderModePointer->blitters.left);
+			blitters.push_back(&renderModePointer->blitters.right);
+		} else {
+			auto* renderModePointer = (ext::vulkan::DeferredRenderMode*) &renderMode;
+			blitters.push_back(&renderModePointer->blitter);
+		}
+		auto& controller = *scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+	//	auto& uniforms = blitter.uniforms;
+		struct UniformDescriptor {
+			struct Matrices {
+				alignas(16) pod::Matrix4f view[2];
+				alignas(16) pod::Matrix4f projection[2];
+			} matrices;
+			alignas(16) pod::Vector4f ambient;
+			struct Light {
+				alignas(16) pod::Vector4f position;
+				alignas(16) pod::Vector4f color;
+			} lights;
+		};
+		for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
+			auto& blitter = *blitters[_];
+			uint8_t* buffer = (uint8_t*) (void*) blitter.uniforms;
+			UniformDescriptor* uniforms = (UniformDescriptor*) buffer;
+			for ( std::size_t i = 0; i < 2; ++i ) {
+				uniforms->matrices.view[i] = camera.getView( i );
+				uniforms->matrices.projection[i] = camera.getProjection( i );
+			}
+			{
+				uniforms->ambient.x = metadata["light"]["ambient"][0].asFloat();
+				uniforms->ambient.y = metadata["light"]["ambient"][1].asFloat();
+				uniforms->ambient.z = metadata["light"]["ambient"][2].asFloat();
+				uniforms->ambient.w = metadata["light"]["kexp"].asFloat();
+			}
+			{
+				size_t MAX_LIGHTS = blitter.maxLights;
+				std::vector<uf::Entity*> entities;
+				std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+					if ( !entity || entity->getName() != "Light" ) return;
+					entities.push_back(entity);
+				};
+				for ( uf::Scene* scene : ext::vulkan::scenes ) { if ( !scene ) continue;
+					scene->process(filter);
+				}
+				{
+					const pod::Vector3& position = controller.getComponent<pod::Transform<>>().position;
+					std::sort( entities.begin(), entities.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
+						if ( !l ) return false; if ( !r ) return true;
+						if ( !l->hasComponent<pod::Transform<>>() ) return false; if ( !r->hasComponent<pod::Transform<>>() ) return true;
+						return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) < uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
+					} );
+				}
+
+				{
+					uf::Serializer& metadata = controller.getComponent<uf::Serializer>();
+					if ( metadata["light"]["should"].asBool() ) {
+						entities.push_back(&controller);
+					}
+				}
+				UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
+				for ( size_t i = 0; i < MAX_LIGHTS; ++i ) {
+					UniformDescriptor::Light& light = lights[i];
+					light.position = { 0, 0, 0, 0 };
+					light.color = { 0, 0, 0, 0 };
+				}
+				for ( size_t i = 0; i < MAX_LIGHTS && i < entities.size(); ++i ) {
+					UniformDescriptor::Light& light = lights[i];
+					uf::Entity* entity = entities[i];
+
+					pod::Transform<>& transform = entity->getComponent<pod::Transform<>>();
+					uf::Serializer& metadata = entity->getComponent<uf::Serializer>();
+					
+					light.position.x = transform.position.x;
+					light.position.y = transform.position.y;
+					light.position.z = transform.position.z;
+
+					if ( entity == &controller ) {
+						light.position.y += 2;
+					}
+
+					light.position.w = metadata["light"]["power"].asFloat();
+
+					light.color.x = metadata["light"]["color"][0].asFloat();
+					light.color.y = metadata["light"]["color"][1].asFloat();
+					light.color.z = metadata["light"]["color"][2].asFloat();
+					
+					light.color.w = metadata["light"]["radius"].asFloat();
+				}
+			}
+			blitter.updateBuffer( (void*) buffer, blitter.uniforms.data().len, 0, false );
+		}
 	}
 }
 

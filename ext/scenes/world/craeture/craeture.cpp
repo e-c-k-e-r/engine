@@ -28,7 +28,6 @@ void ext::Craeture::initialize() {
 		this->getComponent<uf::Camera>().getTransform().reference = this->getComponentPointer<pod::Transform<>>();
 	}
 
-
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	physics.linear.velocity = {0,0,0};
 	physics.linear.acceleration = {0,-9.81,0};
@@ -49,6 +48,11 @@ void ext::Craeture::initialize() {
 			physics.linear.acceleration.x = metadata["collision"]["gravity"][0].asFloat();
 			physics.linear.acceleration.y = metadata["collision"]["gravity"][1].asFloat();
 			physics.linear.acceleration.z = metadata["collision"]["gravity"][2].asFloat();
+		}
+		if ( !metadata["collision"]["should"].asBool() )  {
+			physics.linear.acceleration.x = 0;
+			physics.linear.acceleration.y = 0;
+			physics.linear.acceleration.z = 0;
 		}
 	}
 	/* Collider */ {
@@ -143,6 +147,18 @@ void ext::Craeture::tick() {
 
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	pod::Physics& physics = this->getComponent<pod::Physics>();
+	/* Gravity */ {
+		if ( metadata["collision"]["gravity"] != Json::nullValue ) {
+			physics.linear.acceleration.x = metadata["collision"]["gravity"][0].asFloat();
+			physics.linear.acceleration.y = metadata["collision"]["gravity"][1].asFloat();
+			physics.linear.acceleration.z = metadata["collision"]["gravity"][2].asFloat();
+		}
+		if ( !metadata["collision"]["should"].asBool() )  {
+			physics.linear.acceleration.x = 0;
+			physics.linear.acceleration.y = 0;
+			physics.linear.acceleration.z = 0;
+		}
+	}
 	transform = uf::physics::update( transform, physics );
 
 	bool local = false;
@@ -179,13 +195,19 @@ void ext::Craeture::tick() {
 					{ voxelPosition.x, voxelPosition.y, voxelPosition.z - 1 },
 					{ voxelPosition.x, voxelPosition.y, voxelPosition.z + 1},
 				};
-
-				if ( this->m_name == "Housamo" ) {
+				if ( this->m_name == "HousamoSprite" ) {
 					// bottom
 					uint16_t uid = generator.getVoxel( voxelPosition.x, voxelPosition.y, voxelPosition.z );
+					auto light = generator.getLight( voxelPosition.x, voxelPosition.y, voxelPosition.z );
+					metadata["color"][0] = ((light >> 12) & 0xF) / (float) (0xF);
+					metadata["color"][1] = ((light >>  8) & 0xF) / (float) (0xF);
+					metadata["color"][2] = ((light >>  4) & 0xF) / (float) (0xF);
+					metadata["color"][3] = ((light      ) & 0xF) / (float) (0xF);
+				/*
 					if ( uid == ext::TerrainVoxelLava().uid() ) {
 						this->callHook("world:Craeture.Hurt.%UID%");
 					}
+				*/
 				}
 
 				if ( false ) {

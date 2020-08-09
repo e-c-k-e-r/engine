@@ -18,8 +18,20 @@ namespace ext {
 			};
 
 			struct {
-				alignas(16) pod::Vector2f screenSize;
+				struct {
+					alignas(16) pod::Matrix4f models[2];
+				} matrices;
+				struct {
+					pod::Vector2f position = { 0.5f, 0.5f };
+					pod::Vector2f radius = { 0.1f, 0.1f };
+					pod::Vector4f color = { 1, 1, 1, 1 };
+				} cursor;
+				float alpha;
+				uint8_t _buffer[4];
 			} uniforms;
+			struct {
+				uint32_t pass = 0;
+			} pushConstants;
 
 			uint32_t indices = 0;
 			VkSampler sampler;

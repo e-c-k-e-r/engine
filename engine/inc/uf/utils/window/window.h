@@ -39,10 +39,11 @@ namespace uf {
 	
 		/*virtual*/ void UF_API_CALL requestFocus();
 		/*virtual*/ bool UF_API_CALL hasFocus() const;
-		/*virtual*/ void UF_API_CALL switchToFullscreen();
+		static pod::Vector2ui UF_API_CALL getResolution();
+		/*virtual*/ void UF_API_CALL switchToFullscreen( bool borderless = false );
 	// 	Update
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-		std::vector<const char*> getExtensions( bool validationEnabled = true );
+		std::vector<std::string> getExtensions( bool validationEnabled = true );
 		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
 	#endif
 		static bool focused;

@@ -22,23 +22,27 @@ namespace ext {
 
 			bool defaultedPushConstants = false;
 			uf::Userdata pushConstants;
+			struct {
+				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+				VkPolygonMode fill = VK_POLYGON_MODE_FILL;
+				float lineWidth = 1.0f;
+				VkFrontFace frontFace = ext::vulkan::Graphic::DEFAULT_WINDING_ORDER;
+			} rasterMode;
+
 		};
 		struct UF_API BaseGraphic : public Graphic {
 			uint32_t indices = 0;
 			ext::vulkan::GraphicDescriptor description;
 			ext::vulkan::Texture2D texture;
-			
 			//
 			void describeVertex( const std::vector<VertexDescriptor>& );
 			template<typename U>
 			void bindUniform() {
-				U tmp;
-				description.uniforms.create( tmp );
+				description.uniforms.create<U>();
 			}
 			template<typename U>
 			void bindPushConstants() {
-				U tmp;
-				description.pushConstants.create( tmp );
+				description.pushConstants.create<U>();
 			}
 			template<typename U>
 			U& uniforms() {

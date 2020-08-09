@@ -1,6 +1,9 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/openvr/openvr.h>
+
+VkFrontFace ext::vulkan::Graphic::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_CLOCKWISE;
 
 // Buffers
 size_t ext::vulkan::Graphic::initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage ) {
@@ -123,6 +126,7 @@ void ext::vulkan::Graphic::initializeDescriptorLayout( const std::vector<VkDescr
 void ext::vulkan::Graphic::initializePipeline( VkGraphicsPipelineCreateInfo pipelineCreateInfo ) {
 	ext::vulkan::mutex.lock();
 
+	pipelineCreateInfo.subpass = this->subpass;
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, device->pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
 
 	ext::vulkan::mutex.unlock();

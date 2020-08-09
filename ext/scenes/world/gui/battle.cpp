@@ -77,7 +77,7 @@ namespace {
 
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].asBool() ) {
-			url = "./data/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
+			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
 		uf::Asset& assetLoader = world->getComponent<uf::Asset>();
@@ -212,37 +212,37 @@ void ext::GuiBattle::initialize() {
 	{
 		battleMessage = new ext::Gui;
 		this->addChild(*battleMessage);
-		battleMessage->load("./entities/gui/battle/battle-text.json");
+		battleMessage->load("./battle-text.json", true);
 		battleMessage->initialize();
 	}
 	/* Magic Circle Outter */ {
 		circleOut = new ext::Gui;
 		this->addChild(*circleOut);
-		circleOut->load("./entities/gui/battle/circle-out.json");
+		circleOut->load("./circle-out.json", true);
 		circleOut->initialize();
 	}
 	/* Magic Circle Inner */ {
 		circleIn = new ext::Gui;
 		this->addChild(*circleIn);
-		circleIn->load("./entities/gui/battle/circle-in.json");
+		circleIn->load("./circle-in.json", true);
 		circleIn->initialize();
 	}
 	/* Command Circle */ {
 		partyMemberCommandCircle = new ext::Gui;
 		this->addChild(*partyMemberCommandCircle);
-		partyMemberCommandCircle->load("./entities/gui/battle/partyMemberCommandCircle.json");
+		partyMemberCommandCircle->load("./partyMemberCommandCircle.json", true);
 		partyMemberCommandCircle->initialize();
 	}
 	/* Command Circle */ {
 		optionsBackground = new ext::Gui;
 		this->addChild(*optionsBackground);
-		optionsBackground->load("./entities/gui/battle/optionsBackground.json");
+		optionsBackground->load("./optionsBackground.json", true);
 		optionsBackground->initialize();
 	}
 	/* Turn Counter Container */ {
 		turnCounters = new ext::Gui;
 		this->addChild(*turnCounters);
-		turnCounters->load("./entities/gui/battle/turnCounters.json");
+		turnCounters->load("./turnCounters.json", true);
 		turnCounters->initialize();
 	}	
 
@@ -283,7 +283,7 @@ void ext::GuiBattle::initialize() {
 		ext::Gui* particle = new ext::Gui;
 		this->addChild(*particle);
 		uf::Serializer& pMetadata = particle->getComponent<uf::Serializer>();
-		particle->load("./entities/gui/battle/damageText.json");
+		particle->load("./damageText.json", true);
 		std::string color = json["color"].isString() ? json["color"].asString() : "FF0000";
 		pMetadata["text settings"]["string"] = "%#"+color+"%" + damage;
 		pod::Transform<>& transform = particle->getComponent<pod::Transform<>>();
@@ -306,7 +306,7 @@ void ext::GuiBattle::initialize() {
 		battleMessage = new ext::Gui;
 		this->addChild(*battleMessage);
 		uf::Serializer& pMetadata = battleMessage->getComponent<uf::Serializer>();
-		battleMessage->load("./entities/gui/battle/battle-text.json");
+		battleMessage->load("./battle-text.json", true);
 		pMetadata["text settings"]["string"] = message;
 		battleMessage->initialize();
 
@@ -346,7 +346,7 @@ void ext::GuiBattle::initialize() {
 		{
 			critCutInBackground = new ext::Gui;
 			this->addChild(*critCutInBackground);
-			critCutInBackground->load("./entities/gui/battle/critCutInBackground.json");
+			critCutInBackground->load("./critCutInBackground.json", true);
 			critCutInBackground->initialize();
 		}
 		{
@@ -355,9 +355,9 @@ void ext::GuiBattle::initialize() {
 			uf::Serializer& pMetadata = critCutIn->getComponent<uf::Serializer>();
 
 			uf::Serializer cardData = masterDataGet("Card", json["id"].asString());
-			pMetadata["system"]["assets"][0] = "./data/smtsamo/ci/ci_"+ cardData["filename"].asString() +".png";
+			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].asString() +".png";
 			if ( !uf::string::exists( pMetadata["system"]["assets"][0].asString() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
-			critCutIn->load("./entities/gui/battle/critCutIn.json");
+			critCutIn->load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
 
@@ -379,7 +379,7 @@ void ext::GuiBattle::initialize() {
 			{
 				turnCounters = new ext::Gui;
 				this->addChild(*turnCounters);
-				turnCounters->load("./entities/gui/battle/turnCounters.json");
+				turnCounters->load("./turnCounters.json", true);
 				turnCounters->initialize();
 			}
 			// show full counters
@@ -387,7 +387,7 @@ void ext::GuiBattle::initialize() {
 			while ( turns > 0 ) {
 				ext::Gui* counter = new ext::Gui;
 				turnCounters->addChild(*counter);
-				counter->load("./entities/gui/battle/turnCounter.json");
+				counter->load("./turnCounter.json", true);
 				counter->initialize();
 				pod::Transform<>& pTransform = counter->getComponent<pod::Transform<>>();
 				pTransform.position.x -= 0.142716f * (i++);
@@ -437,7 +437,7 @@ void ext::GuiBattle::initialize() {
 			if ( member["skin"].isString() ) name += "_" + member["skin"].asString();
 			std::string filename = "https://cdn..xyz//unity/Android/icon/icon_" + name + ".png";
 			if ( cardData["internal"].asBool() ) {
-				filename = "./data/smtsamo/icon/icon_" + name + ".png";
+				filename = "/smtsamo/icon/icon_" + name + ".png";
 			}
 
 			ext::Gui* partyMemberButton = NULL;
@@ -471,7 +471,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberText = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
-					partyMemberText->load("./entities/gui/battle/partyMemberText.json");
+					partyMemberText->load("./partyMemberText.json", true);
 					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
@@ -505,7 +505,7 @@ void ext::GuiBattle::initialize() {
 				{
 					partyMemberButton = new ext::Gui;
 					this->addChild(*partyMemberButton);
-					partyMemberButton->load("./entities/gui/battle/partyMemberButton.json");
+					partyMemberButton->load("./partyMemberButton.json", true);
 					
 					pod::Transform<>& transform = partyMemberButton->getComponent<pod::Transform<>>();
 					transform.position.y += (i * 0.45);
@@ -524,7 +524,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberIconShadow);
 					uf::Serializer& pMetadata = partyMemberIconShadow->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = filename;
-					partyMemberIconShadow->load("./entities/gui/battle/partyMemberIconShadow.json");
+					partyMemberIconShadow->load("./partyMemberIconShadow.json", true);
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberIconShadow->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -538,7 +538,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberIcon);
 					uf::Serializer& pMetadata = partyMemberIcon->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = filename;
-					partyMemberIcon->load("./entities/gui/battle/partyMemberIcon.json");
+					partyMemberIcon->load("./partyMemberIcon.json", true);
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberIcon->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -550,7 +550,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberText = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
-					partyMemberText->load("./entities/gui/battle/partyMemberText.json");
+					partyMemberText->load("./partyMemberText.json", true);
 					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
@@ -561,7 +561,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberBar = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberBar);
-					partyMemberBar->load("./entities/gui/battle/partyMemberBars.json");
+					partyMemberBar->load("./partyMemberBars.json", true);
 					pod::Transform<>& transform = partyMemberBar->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -571,7 +571,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberHP = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberHP);
-					partyMemberHP->load("./entities/gui/battle/partyMemberHP.json");
+					partyMemberHP->load("./partyMemberHP.json", true);
 					pod::Transform<>& transform = partyMemberHP->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -589,7 +589,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberMP = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberMP);
-					partyMemberMP->load("./entities/gui/battle/partyMemberMP.json");
+					partyMemberMP->load("./partyMemberMP.json", true);
 					pod::Transform<>& transform = partyMemberMP->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -746,7 +746,7 @@ void ext::GuiBattle::tick() {
 			battleOptions = new ext::Gui;
 			this->addChild(*battleOptions);
 			uf::Serializer& pMetadata = battleOptions->getComponent<uf::Serializer>();
-			battleOptions->load("./entities/gui/battle/battle-option.json");
+			battleOptions->load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = battleOptions->getComponent<pod::Transform<>>();
 			battleOptions->initialize();
@@ -799,7 +799,7 @@ void ext::GuiBattle::tick() {
 			commandOptions = new ext::Gui;
 			this->addChild(*commandOptions);
 			uf::Serializer& pMetadata = commandOptions->getComponent<uf::Serializer>();
-			commandOptions->load("./entities/gui/battle/battle-option.json");
+			commandOptions->load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = commandOptions->getComponent<pod::Transform<>>();
 			commandOptions->initialize();
@@ -851,7 +851,7 @@ void ext::GuiBattle::tick() {
 			targetOptions = new ext::Gui;
 			this->addChild(*targetOptions);
 			uf::Serializer& pMetadata = targetOptions->getComponent<uf::Serializer>();
-			targetOptions->load("./entities/gui/battle/battle-option.json");
+			targetOptions->load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = targetOptions->getComponent<pod::Transform<>>();
 			targetOptions->initialize();

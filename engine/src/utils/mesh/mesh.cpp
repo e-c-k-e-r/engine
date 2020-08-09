@@ -51,6 +51,13 @@ std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
 		offsetof(pod::Vertex_3F2F, uv)
 	}
 };
+// Basic
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F::descriptor = {
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F, position)
+	}
+};
 /*
 #include <uf/ext/vulkan/graphics/mesh.h>
 #include <uf/ext/vulkan/graphics/gui.h>

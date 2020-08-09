@@ -182,7 +182,7 @@ template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Ve
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::Vector3t<T>& u, const pod::Vector3t<T>& v ) {
 	T dot = uf::vector::dot(u, v);
-	if ( dot + 1.0 < 0.00001 ) return uf::quaternion::axisAngle( uf::vector::normalize(u), 3.1415926 );
+	if ( dot + 1.0 < 0.00001 ) return uf::quaternion::axisAngle( uf::vector::normalize(u), (T) 3.1415926 );
 	T mag = sqrt( 2.0 + 2.0 * dot );
 	pod::Vector3t<T> w = uf::vector::multiply(uf::vector::cross(u, v), (1.0 / mag));
 	return {
@@ -224,8 +224,18 @@ template<typename T> T uf::quaternion::inverse( const T& quaternion ) {
 	};
 }
 template<typename T> T& uf::quaternion::conjugate( T& quaternion ) {
-	return quaternion = uf::quaternion::conjugate(quaternion);
+	return quaternion = {
+		.x = -quaternion.x,	
+		.y = -quaternion.y,	
+		.z = -quaternion.z,	
+		.w =  quaternion.w	
+	};
 }
 template<typename T> T& uf::quaternion::inverse( T& quaternion ) {
-	return quaternion = uf::quaternion::inverse(quaternion);
+	return quaternion = {
+		.x = -quaternion.x,	
+		.y = -quaternion.y,	
+		.z = -quaternion.z,	
+		.w =  quaternion.w	
+	};
 }

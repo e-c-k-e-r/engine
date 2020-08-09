@@ -14,6 +14,9 @@ void ext::vulkan::Texture::updateDescriptors() {
 	descriptor.imageView = view;
 	descriptor.imageLayout = imageLayout;
 }
+bool ext::vulkan::Texture::generated() const {
+	return view != VK_NULL_HANDLE;
+}
 void ext::vulkan::Texture::destroy() {
 	if ( !device ) return;
 	if ( view != VK_NULL_HANDLE ) {
@@ -315,7 +318,7 @@ void ext::vulkan::Texture2D::loadFromImage(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		VK_FILTER_LINEAR,
+		filter,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -350,7 +353,6 @@ void ext::vulkan::Texture2D::fromBuffers(
 		data
 	));
 
-
 	VkBufferImageCopy bufferCopyRegion = {};
 	bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -380,7 +382,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo);
+	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo));
 	deviceMemory = allocationInfo.deviceMemory;
 /*
 	VK_CHECK_RESULT(vkCreateImage(device.logicalDevice, &imageCreateInfo, nullptr, &image));
@@ -493,7 +495,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-	vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo);
+	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo));
 	deviceMemory = allocationInfo.deviceMemory;
 /*
 	VK_CHECK_RESULT(vkCreateImage(device, &imageCreateInfo, nullptr, &image));
@@ -518,8 +520,8 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 
 	// Create sampler
 	VkSamplerCreateInfo samplerCreateInfo = ext::vulkan::initializers::samplerCreateInfo();
-	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.magFilter = filter;
+	samplerCreateInfo.minFilter = filter;
 	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 	samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;

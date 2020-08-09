@@ -14,6 +14,8 @@ namespace ext {
 				VkImage image;
 				VkDeviceMemory mem;
 				VkImageView view;
+				VmaAllocation allocation;
+				VmaAllocationInfo allocationInfo;
 			} Attachment;
 			std::vector<Attachment> attachments;
 
@@ -31,6 +33,7 @@ namespace ext {
 			Device* device = VK_NULL_HANDLE;
 			VkRenderPass renderPass = VK_NULL_HANDLE;
 			std::vector<VkFramebuffer> framebuffers;
+			uint32_t width = 0, height = 0;
 			// RAII
 			void initialize( Device& device );
 			void destroy();

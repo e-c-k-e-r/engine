@@ -8,23 +8,25 @@ namespace ext {
 		struct UF_API Texture {
 			Device* device = nullptr;
 			VkImage image;
+			VkImageView view;
 			VkImageLayout imageLayout;
 			VkDeviceMemory deviceMemory;
+			VkDescriptorImageInfo descriptor;
+			
+			VkSampler sampler;
+			VkFilter filter = VK_FILTER_LINEAR;
 
 			VmaAllocation allocation;
 			VmaAllocationInfo allocationInfo;
 
-			VkImageView view;
 			uint32_t width, height;
 			uint32_t mips;
 			uint32_t layers;
-			VkDescriptorImageInfo descriptor;
-			VkSampler sampler;
-			VkFilter filter = VK_FILTER_NEAREST;
 			// RAII
 			void initialize( Device& device, size_t width, size_t height );
 			void updateDescriptors();
 			void destroy();
+			bool generated() const;
 			static void setImageLayout(
 				VkCommandBuffer cmdbuffer,
 				VkImage image,

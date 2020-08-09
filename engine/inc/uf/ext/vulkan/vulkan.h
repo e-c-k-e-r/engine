@@ -47,6 +47,7 @@ namespace ext {
 		extern UF_API std::mutex mutex;
 
 		extern UF_API bool rebuild;
+		extern UF_API bool resized;
 		extern UF_API uint32_t currentBuffer;
 
 		extern UF_API std::string currentPass;

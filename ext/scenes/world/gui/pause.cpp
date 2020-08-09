@@ -1,4 +1,4 @@
-#include "menu.h"
+#include "pause.h"
 
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/time/time.h>
@@ -37,29 +37,28 @@ namespace {
 }
 
 namespace {
-	void playSound( ext::GuiMenu& entity, const std::string& key ) {
-		uf::Scene& world = entity.getRootParent<ext::World>();
+	void playSound( ext::GuiWorldPauseMenu& entity, const std::string& key ) {
+		uf::Scene& scene = entity.getRootParent<ext::World>();
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
-		uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
+		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		std::string url = "./data/audio/ui/" + key + ".ogg";
 
-		uf::Asset& assetLoader = world.getComponent<uf::Asset>();
+		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache." + std::to_string(entity.getUid()));
 	}
 
-	ext::World* world;
-
+	uf::Scene* scene;
 	uf::Serializer masterTableGet( const std::string& table ) {
-		if ( !world ) world = (ext::World*) uf::Entity::globalFindByName("World");
-		if ( !world ) return std::string();
-		uf::Serializer& mastertable = world->getComponent<uf::Serializer>();
+		if ( !scene ) scene = (uf::Scene*) &uf::scene::getCurrentScene();
+		if ( !scene ) return std::string();
+		uf::Serializer& mastertable = scene->getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
 	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
-		if ( !world ) world = (ext::World*) uf::Entity::globalFindByName("World");
-		if ( !world ) return std::string();
-		uf::Serializer& mastertable = world->getComponent<uf::Serializer>();
+		if ( !scene ) scene = (uf::Scene*) &uf::scene::getCurrentScene();
+		if ( !scene ) return std::string();
+		uf::Serializer& mastertable = scene->getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
 	inline int64_t parseInt( const std::string& str ) {
@@ -68,12 +67,12 @@ namespace {
 }
 
 
-
-void ext::GuiMenu::initialize() {
+EXT_OBJECT_REGISTER_CPP(GuiWorldPauseMenu)
+void ext::GuiWorldPauseMenu::initialize() {
 	ext::Gui::initialize();
 
-	uf::Scene& world = this->getRootParent<uf::Scene>();
-	uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
+	uf::Scene& scene = this->getRootParent<uf::Scene>();
+	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 	// asset loading
@@ -107,20 +106,26 @@ void ext::GuiMenu::initialize() {
 	playSound(*this, "menu open");
 
 	/* Magic Circle Outter */ {
+		circleOut = (ext::Gui*) this->findByUid(this->loadChild("./circle-out.json", true));
+	/*
 		circleOut = new ext::Gui;
 		this->addChild(*circleOut);
-		circleOut->load("./entities/gui/pause/circle-out.json");
+		circleOut->load("./circle-out.json");
 		circleOut->initialize();
+	*/
 	}
 	/* Magic Circle Inner */ {
+		circleIn = (ext::Gui*) this->findByUid(this->loadChild("./circle-in.json", true));
+	/*
 		circleIn = new ext::Gui;
 		this->addChild(*circleIn);
-		circleIn->load("./entities/gui/pause/circle-in.json");
+		circleIn->load("./circle-in.json");
 		circleIn->initialize();
+	*/
 	}
 	/* set sprite order */ {
 		metadata["portraits"]["i"] = 0;
-		uf::Serializer& pMetadata = world.getController()->getComponent<uf::Serializer>();
+		uf::Serializer& pMetadata = scene.getController()->getComponent<uf::Serializer>();
 		int i = 0;
 		for ( auto& k : pMetadata[""]["party"] ) {
 			std::string id = k.asString();
@@ -130,23 +135,23 @@ void ext::GuiMenu::initialize() {
 			if ( member["skin"].isString() ) name += "_" + member["skin"].asString();
 			std::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
 			if ( cardData["internal"].asBool() ) {
-				filename = "./data/smtsamo/fg/fg_" + name + ".png";
+				filename = "/smtsamo/fg/fg_" + name + ".png";
 			}
 			metadata["portraits"]["list"][i++] = filename;
 		}
 	}
 	{
 		std::string portrait = metadata["portraits"]["list"][0].asString();
-		/* Transient shadow background */ {
+		/* Transient shadow background */ {		
 			transientSpriteShadow = new ext::Gui;
 			uf::Asset& assetLoader = transientSpriteShadow->getComponent<uf::Asset>();
 			this->addChild(*transientSpriteShadow);
 			uf::Serializer& pMetadata = transientSpriteShadow->getComponent<uf::Serializer>();
 			pMetadata["system"]["assets"][0] = portrait;
 
-			transientSpriteShadow->load("./entities/gui/pause/transient-shadow.json");
+			transientSpriteShadow->load("./transient-shadow.json", true);
 			transientSpriteShadow->initialize();
-
+		
 		}
 		/* Transient transientSprite */ {
 			transientSprite = new ext::Gui;
@@ -154,47 +159,65 @@ void ext::GuiMenu::initialize() {
 			this->addChild(*transientSprite);
 			uf::Serializer& pMetadata = transientSprite->getComponent<uf::Serializer>();
 			pMetadata["system"]["assets"][0] = portrait;
-
-			transientSprite->load("./entities/gui/pause/transient-portrait.json");
+			
+			transientSprite->load("./transient-portrait.json", true);
 			transientSprite->initialize();
-
+	
 		}
 	}
 	/* Main Text (the one that scrolls) */ {
+		mainText = (ext::Gui*) this->findByUid(this->loadChild("./main-text.json", true));
+	/*
 		mainText = new ext::Gui;
 		this->addChild(*mainText);
-		mainText->load("./entities/gui/pause/main-text.json");
+		mainText->load("./main-text.json");
 		mainText->initialize();
+	*/
 	}
 	/* Command text */ {
+		commandText = (ext::Gui*) this->findByUid(this->loadChild("./command-text.json", true));
+	/*
 		commandText = new ext::Gui;
 		this->addChild(*commandText);
-		commandText->load("./entities/gui/pause/command-text.json");
+		commandText->load("./command-text.json");
 		commandText->initialize();
+	*/
 	}
 	/* Cover bar */ {
+		coverBar = (ext::Gui*) this->findByUid(this->loadChild("./yellow-box.json", true));
+	/*
 		coverBar = new ext::Gui;
 		this->addChild(*coverBar);
-		coverBar->load("./entities/gui/pause/yellow-box.json");
+		coverBar->load("./yellow-box.json");
 		coverBar->initialize();
+	*/
 	}
 	/* Option 1 */ {
+		tenkouseiOption = (ext::Gui*) this->findByUid(this->loadChild("./tenkousei.json", true));
+	/*
 		tenkouseiOption = new ext::Gui;
 		this->addChild(*tenkouseiOption);
-		tenkouseiOption->load("./entities/gui/pause/tenkousei.json");
+		tenkouseiOption->load("./tenkousei.json");
 		tenkouseiOption->initialize();
+	*/
 	}
 	/* Option 2 */ {
+		closeOption = (ext::Gui*) this->findByUid(this->loadChild("./close.json", true));
+	/*
 		closeOption = new ext::Gui;
 		this->addChild(*closeOption);
-		closeOption->load("./entities/gui/pause/close.json");
+		closeOption->load("./close.json");
 		closeOption->initialize();
+	*/
 	}
 	/* Option 3 */ {
+		quitOption = (ext::Gui*) this->findByUid(this->loadChild("./quit.json", true));
+	/*
 		quitOption = new ext::Gui;
 		this->addChild(*quitOption);
-		quitOption->load("./entities/gui/pause/quit.json");
+		quitOption->load("./quit.json");
 		quitOption->initialize();
+	*/
 	}
 
 	this->addHook("menu:Close.%UID%", [&]( const std::string& event ) -> std::string {
@@ -209,11 +232,11 @@ void ext::GuiMenu::initialize() {
 		return "true";
 	});
 }
-void ext::GuiMenu::tick() {
+void ext::GuiWorldPauseMenu::tick() {
 	ext::Gui::tick();
 
-	uf::Scene& world = this->getRootParent<uf::Scene>();
-	uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
+	uf::Scene& scene = this->getRootParent<uf::Scene>();
+	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 	static uf::Timer<long long> timer(false);
 	static uf::Audio sfx;
 	if ( !timer.running() ) timer.start();
@@ -348,31 +371,29 @@ void ext::GuiMenu::tick() {
 			{
 				std::string portrait = master["portraits"]["list"][index].asString();
 				/* Transient shadow background */ if ( transientSpriteShadow ) {
-				transientSpriteShadow->destroy();
-				this->removeChild(*transientSpriteShadow);
-				delete transientSpriteShadow;
+					transientSpriteShadow->destroy();
+					this->removeChild(*transientSpriteShadow);
+					delete transientSpriteShadow;
 
 					transientSpriteShadow = new ext::Gui;
-					uf::Asset& assetLoader = transientSpriteShadow->getComponent<uf::Asset>();
-					this->addChild(*transientSpriteShadow);
 					uf::Serializer& pMetadata = transientSpriteShadow->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = portrait;
 
-					transientSpriteShadow->load("./entities/gui/pause/transient-shadow.json");
+					this->addChild(*transientSpriteShadow);
+					transientSpriteShadow->load("./transient-shadow.json", true);
 					transientSpriteShadow->initialize();
 				}
 				/* Transient transientSprite */ if ( transientSprite ) {
 					transientSprite->destroy();
 					this->removeChild(*transientSprite);
-					delete transientSprite;	
+					delete transientSprite;
 
 					transientSprite = new ext::Gui;
-					uf::Asset& assetLoader = transientSprite->getComponent<uf::Asset>();
-					this->addChild(*transientSprite);
 					uf::Serializer& pMetadata = transientSprite->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = portrait;
 
-					transientSprite->load("./entities/gui/pause/transient-portrait.json");
+					this->addChild(*transientSprite);
+					transientSprite->load("./transient-portrait.json", true);
 					transientSprite->initialize();
 				}
 			}
@@ -383,7 +404,7 @@ void ext::GuiMenu::tick() {
 				delete mainText;
 				mainText = new ext::Gui;
 				this->addChild(*mainText);
-				mainText->load("./entities/gui/pause/main-text.json");
+				mainText->load("./main-text.json");
 				mainText->getComponent<pod::Transform<>>() = cTransform;
 				mainText->initialize();
 			}
@@ -518,8 +539,8 @@ void ext::GuiMenu::tick() {
 			this->callHook("menu:Close.%UID%");
 			playSound(*this, "menu close");
 		/*
-			uf::Scene& world = this->getRootParent<uf::Scene>();
-			world.queueHook("system:Quit.%UID%", "", 1.0f);
+			uf::Scene& scene = this->getRootParent<uf::Scene>();
+			scene.queueHook("system:Quit.%UID%", "", 1.0f);
 		*/
 		}
 		metadata["color"][3] = alpha;
@@ -546,11 +567,11 @@ void ext::GuiMenu::tick() {
 		playSound(*this, "menu close");
 	}
 }
-void ext::GuiMenu::render() {
+void ext::GuiWorldPauseMenu::render() {
 	ext::Gui::render();
 }
 
-void ext::GuiMenu::destroy() {
+void ext::GuiWorldPauseMenu::destroy() {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	ext::Gui::destroy();
 }

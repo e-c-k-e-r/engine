@@ -51,7 +51,16 @@ namespace pod {
 					this->uv 		== that.uv;
 		}
 		bool operator!=( const Vertex_3F2F& that ) const { return !(*this == that); }
+	};
+	struct UF_API Vertex_3F {
+		alignas(16) pod::Vector3f position;
 
+		static std::vector<ext::vulkan::VertexDescriptor> descriptor;
+
+		bool operator==( const Vertex_3F& that ) const {
+			return 	this->position 	== that.position;
+		}
+		bool operator!=( const Vertex_3F& that ) const { return !(*this == that); }
 	};
 }
 namespace std {
@@ -78,10 +87,18 @@ namespace std {
 	};
     template<> struct hash<pod::Vertex_3F2F> {
 	    size_t operator()(pod::Vertex_3F2F const& vertex) const {
-	       std::size_t seed = 3 + 3 + 2;
+	       std::size_t seed = 3 + 2;
 	       std::hash<float> hasher;
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			return seed;
+	    }
+    };
+    template<> struct hash<pod::Vertex_3F> {
+	    size_t operator()(pod::Vertex_3F const& vertex) const {
+	       std::size_t seed = 3;
+	       std::hash<float> hasher;
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			return seed;
 	    }
     };
@@ -101,6 +118,7 @@ namespace uf {
 
 		~BaseMesh();
 		void initialize( bool compress = true );
+		void generate();
 		void destroy( bool clear = true );
 	};
 }
@@ -134,6 +152,7 @@ namespace uf {
 	typedef BaseMesh<pod::Vertex_3F2F3F32B> ColoredMesh;
 	typedef BaseMesh<pod::Vertex_3F2F3F> Mesh;
 	typedef BaseMesh<pod::Vertex_3F2F> GuiMesh;
+	typedef BaseMesh<pod::Vertex_3F> LineMesh;
 
 	struct MeshDescriptor {
 		struct {

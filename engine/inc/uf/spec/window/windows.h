@@ -68,9 +68,10 @@ namespace spec {
 			void UF_API_CALL grabMouse(bool state);
 			
 			void UF_API_CALL setTracking(bool state);
-			void UF_API_CALL switchToFullscreen();
+			static pod::Vector2ui UF_API_CALL getResolution();
+			void UF_API_CALL switchToFullscreen( bool borderless = false );
 		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-			std::vector<const char*> UF_API_CALL getExtensions( bool validationEnabled );
+			std::vector<std::string> UF_API_CALL getExtensions( bool validationEnabled );
 			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );
 		#endif
 			static std::string UF_API_CALL getKey(WPARAM key, LPARAM flags);

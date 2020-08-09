@@ -22,7 +22,7 @@ namespace ext {
 			VkPipelineCache pipelineCache;
 
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
-			std::vector<const char*> supportedExtensions;
+			std::vector<std::string> supportedExtensions;
 			
 			VkQueue graphicsQueue;
 			VkQueue presentQueue;

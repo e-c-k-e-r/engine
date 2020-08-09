@@ -60,7 +60,7 @@ namespace {
 		std::string name = charaData["filename"].asString();
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].asBool() ) {
-			url = "./data/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
+			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
 		uf::Asset& assetLoader = world->getComponent<uf::Asset>();
@@ -211,7 +211,7 @@ void ext::GuiDialogue::tick() {
 			dialogueMessage = new ext::Gui;
 			this->addChild(*dialogueMessage);
 			uf::Serializer& pMetadata = dialogueMessage->getComponent<uf::Serializer>();
-			dialogueMessage->load("./entities/gui/dialogue/dialogue-text.json");
+			dialogueMessage->load("./dialogue-text.json", true);
 			pMetadata["text settings"]["string"] = result["message"].asString();
 			dialogueMessage->initialize();
 		}
@@ -259,7 +259,7 @@ void ext::GuiDialogue::tick() {
 			dialogueOptions = new ext::Gui;
 			this->addChild(*dialogueOptions);
 			uf::Serializer& pMetadata = dialogueOptions->getComponent<uf::Serializer>();
-			dialogueOptions->load("./entities/gui/dialogue/dialogue-option.json");
+			dialogueOptions->load("./dialogue-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = dialogueOptions->getComponent<pod::Transform<>>();
 			dialogueOptions->initialize();

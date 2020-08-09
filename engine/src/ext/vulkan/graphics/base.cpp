@@ -39,6 +39,8 @@ void ext::vulkan::BaseGraphic::createCommandBuffer( VkCommandBuffer commandBuffe
 	vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices), 1, 0, 0, 1);
+
+	// std::cout << this << ": " << descriptorSet << std::endl;
 }
 void ext::vulkan::BaseGraphic::describeVertex( const std::vector<VertexDescriptor>& descriptor ) {
 	description.attributes = descriptor;
@@ -47,7 +49,6 @@ void ext::vulkan::BaseGraphic::initialize( const std::string& renderMode ) {
 	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
 }
 void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMode ) {
-//	updateUniforms = [&]() {};
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
 	ext::vulkan::Graphic::initialize( device, renderMode );
@@ -80,21 +81,11 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		)
 	}, description.pushConstants.data().len);
 	// Create uniform buffer
-/*
-	initializeBuffer(
-		(void*) &uniforms,
-		sizeof(uniforms),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		false
-	);
-*/
-
 	pod::Userdata& userdata = description.uniforms.data();
 	initializeBuffer(
 		(void*) userdata.data,
 		userdata.len,
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
@@ -116,27 +107,21 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		std::move(buffers.at(1)),
 	};
 */
-/*
-	std::cout << "Buffers for " << this << "(" << this->name() << ")" << std::endl;
-	for ( std::size_t i = 0; i < buffers.size(); ++i ) {
-		auto& buffer = buffers[i];
-		std::cout << i << ": " << buffer.buffer << ": " << std::hex << buffer.usageFlags << std::endl;
-	}
-*/
 	// set pipeline
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
-			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+			this->description.rasterMode.topology,
 			0,
 			VK_FALSE
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
-			VK_POLYGON_MODE_FILL,
-		//	VK_CULL_MODE_BACK_BIT,
-			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_CLOCKWISE,
+			this->description.rasterMode.fill,
+			VK_CULL_MODE_BACK_BIT,
+		//	VK_CULL_MODE_NONE,
+			this->description.rasterMode.frontFace,
 			0
 		);
+		rasterizationState.lineWidth = this->description.rasterMode.lineWidth;
 	/*
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
@@ -166,8 +151,21 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 	*/
 	
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		for ( auto& attachment : renderMode.renderTarget.attachments ) {
-			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+		if ( renderMode.getType() == "Swapchain" ) {
+			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+				0xf,
+				VK_TRUE
+			);
+			blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+			blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+			blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+			blendAttachmentStates.push_back(blendAttachmentState);
+		} else {
+			auto& subpass = renderMode.renderTarget.passes[this->subpass];
+			for ( auto& input : subpass.colors ) {
 				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 					0xf,
 					VK_TRUE
@@ -178,12 +176,12 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 				blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 				blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 				blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-
 				blendAttachmentStates.push_back(blendAttachmentState);
 			}
 		}
+		// std::cout << blendAttachmentStates.size() << ": " << renderMode.getType() << std::endl;
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
-			renderMode.getType() == "Swapchain" ? 1 : blendAttachmentStates.size(),
+			blendAttachmentStates.size(),
 			blendAttachmentStates.data()
 		);
 	/*
@@ -198,7 +196,8 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
-			VK_COMPARE_OP_LESS_OR_EQUAL
+			//VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -260,7 +259,7 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
-		pipelineCreateInfo.subpass = 0;
+		pipelineCreateInfo.subpass = this->subpass;
 
 		initializePipeline(pipelineCreateInfo);
 	}
@@ -270,6 +269,26 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)
 	}, 1);
 	// Set descriptor set
+	{
+		std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+			// Binding 0 : Projection/View matrix uniform buffer			
+			ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				0,
+				&(buffers.at(0).descriptor)
+			)
+		};
+		if ( texture.generated() )
+			writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				1,
+				&texture.descriptor
+			));
+		initializeDescriptorSet(writeDescriptorSets);
+	}
+/*
 	initializeDescriptorSet({
 		// Binding 0 : Projection/View matrix uniform buffer			
 		ext::vulkan::initializers::writeDescriptorSet(
@@ -287,6 +306,7 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 			&texture.descriptor
 		)
 	});
+*/
 }
 void ext::vulkan::BaseGraphic::destroy() {
 	texture.destroy();

@@ -21,20 +21,11 @@ std::string ext::vulkan::BaseRenderMode::getType() const {
 const std::string& ext::vulkan::BaseRenderMode::getName() const {
 	return this->name;
 }
-size_t ext::vulkan::BaseRenderMode::subpasses() const {
-	return 1;
-}
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
-	// destroy if exists
-	if ( ext::vulkan::rebuild ) {
-		this->destroy();
-		this->initialize( *this->device );
-	}
-	renderTarget.initialized = true;
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
-	float width = width > 0 ? this->width : ext::vulkan::width;
-	float height = height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::height;
 
 	VkCommandBufferBeginInfo commandBufferInfo = {};
 	commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -43,8 +34,8 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 	// Set clear values for all framebuffer attachments with loadOp set to clear
 	// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
 	VkClearValue clearValues[2];
-	clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-	clearValues[1].depthStencil = { 1.0f, 0 };
+	clearValues[0].color = { { clearColor.x, clearColor.y, clearColor.z, clearColor.w } };
+	clearValues[1].depthStencil = { 0.0f, 0 };
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -99,6 +90,13 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 	}
 }
 
+void ext::vulkan::BaseRenderMode::tick() {
+	ext::vulkan::RenderMode::tick();
+	if ( ext::vulkan::resized ) {
+		this->destroy();
+		this->initialize( *this->device );
+	}
+}
 void ext::vulkan::BaseRenderMode::render() {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 	ext::vulkan::RenderMode::render();
@@ -111,15 +109,19 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	// recreate swapchain
 	// destroy any existing imageviews
 	// attachments marked as aliased are actually from the swapchain
-
-	swapchain.destroy();
+	// swapchain.destroy();
 	swapchain.initialize( device );
 	// bind swapchain images
 	images.resize( ext::vulkan::swapchain.buffers );
 	VK_CHECK_RESULT(vkGetSwapchainImagesKHR( device, swapchain.swapChain, &swapchain.buffers, images.data()));
 	// create image views for swapchain images
+	
 	renderTarget.attachments.clear();
 	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers + 1 );
+
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::height;
+
 	for ( size_t i = 0; i < images.size(); ++i ) {
 		VkImageViewCreateInfo colorAttachmentView = {};
 		colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -153,19 +155,26 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	auto& depthAttachment = renderTarget.attachments.back();
 	{
 		// Create an optimal image used as the depth stencil attachment
-		VkImageCreateInfo image = {};
-		image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		image.imageType = VK_IMAGE_TYPE_2D;
-		image.format = device.formats.depth;
+		VkImageCreateInfo imageCreateInfo = {};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = device.formats.depth;
 		// Use example's height and width
-		image.extent = { width, height, 1 };
-		image.mipLevels = 1;
-		image.arrayLayers = 1;
-		image.samples = VK_SAMPLE_COUNT_1_BIT;
-		image.tiling = VK_IMAGE_TILING_OPTIMAL;
-		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &depthAttachment.image));
+		imageCreateInfo.extent = { width, height, 1 };
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &depthAttachment.image, &depthAttachment.allocation, &depthAttachment.allocationInfo));
+		depthAttachment.mem = depthAttachment.allocationInfo.deviceMemory;
+	
+	/*
+		VK_CHECK_RESULT(vkCreateImage(device, &imageCreateInfo, nullptr, &depthAttachment.image));
 
 		// Allocate memory for the image (device local) and bind it to our image
 		VkMemoryAllocateInfo memAlloc = {};
@@ -176,7 +185,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 		VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &depthAttachment.mem));
 		VK_CHECK_RESULT(vkBindImageMemory(device, depthAttachment.image, depthAttachment.mem, 0));
-
+	*/
 		// Create a view for the depth stencil image
 		// Images aren't directly accessed in Vulkan, but rather through views described by a subresource range
 		// This allows for multiple views of one image with differing ranges (e.g. for different layers)
@@ -341,15 +350,10 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 		// Semaphore used to ensures that image presentation is complete before starting to submit again
 		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapchain.presentCompleteSemaphore));
-
-		// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-		VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapchain.renderCompleteSemaphore));
 	}
 }
 
 void ext::vulkan::BaseRenderMode::destroy() {
-	ext::vulkan::RenderMode::destroy();
-
 	if ( renderTarget.renderPass != VK_NULL_HANDLE ) {
 		vkDestroyRenderPass( *device, renderTarget.renderPass, nullptr );
 		renderTarget.renderPass = VK_NULL_HANDLE;
@@ -368,19 +372,19 @@ void ext::vulkan::BaseRenderMode::destroy() {
 		}
 		if ( attachment.aliased ) continue;
 		if ( attachment.image != VK_NULL_HANDLE ) {
-			vkDestroyImage( *device, attachment.image, nullptr );
+		//	vkDestroyImage( *device, attachment.image, nullptr );
+			vmaDestroyImage( allocator, attachment.image, attachment.allocation );
 			attachment.image = VK_NULL_HANDLE;
 		}
 		if ( attachment.mem != VK_NULL_HANDLE ) {
-			vkFreeMemory( *device, attachment.mem, nullptr );
+		//	vkFreeMemory( *device, attachment.mem, nullptr );
 			attachment.mem = VK_NULL_HANDLE;
 		}
 	}
+	
+	ext::vulkan::RenderMode::destroy();
 
 	if ( swapchain.presentCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, swapchain.presentCompleteSemaphore, nullptr);
-	}
-	if ( swapchain.renderCompleteSemaphore != VK_NULL_HANDLE ) {
-		vkDestroySemaphore( *device, swapchain.renderCompleteSemaphore, nullptr);
 	}
 }

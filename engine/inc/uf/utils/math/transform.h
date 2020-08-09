@@ -13,8 +13,9 @@
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/time/time.h>
 #include <uf/utils/io/iostream.h>
-#include "glm.h"
-
+#ifdef UF_USE_GLM
+	#include "glm.h"
+#endif
 #include "math.h"
 namespace pod {
 	// Simple transforms (designed [to store in arrays] with minimal headaches)
@@ -112,14 +113,33 @@ namespace uf {
 			}
 			return combined = uf::transform::reorient(combined);
 		}
-		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform ) {
-			uf::Matrix4t<T> translation, rotation, scale;
-			pod::Transform<T> flatten = uf::transform::flatten(transform, false);
-			flatten.orientation.w *= -1;
-			rotation = uf::quaternion::matrix(flatten.orientation);
-			scale = uf::matrix::scale( scale, transform.scale );
-			translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
-			return translation * rotation * scale;
+		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform, bool flatten = true ) {
+			if ( flatten ) {
+				uf::Matrix4t<T> translation, rotation, scale;
+				pod::Transform<T> flatten = uf::transform::flatten(transform, false);
+				flatten.orientation.w *= -1;
+				rotation = uf::quaternion::matrix(flatten.orientation);
+				scale = uf::matrix::scale( scale, transform.scale );
+				translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
+				return translation * rotation * scale;
+			}
+			{
+				std::vector<pod::Matrix4t<T>> models;
+				pod::Matrix4t<T> translation, rotation, scale;
+				const pod::Transform<T>* pointer = &transform;
+				while ( pointer ) {					
+					rotation = uf::quaternion::matrix( pointer->orientation);
+					scale = uf::matrix::scale( scale, pointer->scale );
+					translation = uf::matrix::translate( uf::matrix::identity(),  pointer->position );
+
+					models.insert(models.begin(), translation * rotation * scale);
+
+					pointer = pointer->reference;
+				}
+				pod::Matrix4t<T> model;
+				for ( auto& matrix : models ) model = matrix * model;
+				return model;
+			}
 		}
 		template<typename T> pod::Matrix4t<T> /*UF_API*/ view( const pod::Transform<T>& transform, const pod::Vector3t<T>& offset = {0, 0, 0} ) {
 			uf::Matrix4t<T> translation, rotation;

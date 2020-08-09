@@ -7,18 +7,19 @@
 
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/camera/camera.h>
 
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
 
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/openvr/openvr.h>
 
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
 namespace {
 	uf::Object controller;
-	ext::Gui* gui;
 
 	ext::Gui* circleIn;
 	ext::Gui* circleOut;
@@ -34,11 +35,8 @@ const uf::Entity* ext::StartMenu::getController() const {
 EXT_OBJECT_REGISTER_CPP(StartMenu)
 void ext::StartMenu::initialize() {
 	uf::Scene::initialize();
-
 	this->m_name = "Main Menu";
-
-	this->load("./entities/mainmenu.json");
-
+//	this->load("./scenes/start/scene.json");
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
@@ -140,16 +138,19 @@ void ext::StartMenu::initialize() {
 	}
 
 	/* Magic Circle Outter */ {
-		circleOut = new ext::Gui;
-		this->addChild(*circleOut);
-		circleOut->load("./entities/gui/mainmenu/circle-out.json");
-		circleOut->initialize();
+		circleOut = (ext::Gui*) this->findByUid( this->loadChild("./gui/mainmenu/circle-out.json", true) );
 	}
 	/* Magic Circle Inner */ {
-		circleIn = new ext::Gui;
-		this->addChild(*circleIn);
-		circleIn->load("./entities/gui/mainmenu/circle-in.json");
-		circleIn->initialize();
+		circleIn = (ext::Gui*) this->findByUid( this->loadChild("./gui/mainmenu/circle-in.json", true) );
+	}
+	// update camera
+	{
+		controller.getComponent<uf::Camera>().update(true);
+		pod::Transform<>& transform = controller.getComponent<pod::Transform<>>();
+
+		uf::Serializer json;
+		json.readFromFile("./data/entities/player.json");
+		controller.getComponent<uf::Serializer>()["overlay"] = json["metadata"]["overlay"];
 	}
 }
 
@@ -221,6 +222,21 @@ void ext::StartMenu::tick() {
 			transform.position = uf::vector::lerp( start, end, delta );
 		}
 	//	metadata["color"][3] = alpha;
+	}
+
+	// check on controller position
+/*
+	{
+		pod::Vector3f position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Right );
+		pod::Quaternion<> orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right );
+		std::cout << "Right hand:\n";
+		std::cout << "\tPosition:    " << position.x << ", " << position.y << ", " << position.z << "\n";
+		std::cout << "\tOrientation: " << orientation.x << ", " << orientation.y << ", " << orientation.z << ", " << orientation.w << std::endl;
+	}
+*/
+	{
+		auto& camera = controller.getComponent<uf::Camera>();
+		camera.updateView();
 	}
 }
 

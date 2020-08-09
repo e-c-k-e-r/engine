@@ -1,6 +1,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/graphics/mesh.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/openvr/openvr.h>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
@@ -106,8 +107,8 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMod
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
-			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			VK_CULL_MODE_BACK_BIT,
+			ext::openvr::enabled ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE,
 			0
 		);
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
@@ -121,7 +122,8 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMod
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
-			VK_COMPARE_OP_LESS_OR_EQUAL
+			//VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -195,7 +197,7 @@ void ext::vulkan::MeshGraphic::initialize( Device& device, RenderMode& renderMod
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
-		pipelineCreateInfo.subpass = 0;
+		pipelineCreateInfo.subpass = this->subpass;
 
 		initializePipeline(pipelineCreateInfo);
 	}

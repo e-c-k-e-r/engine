@@ -37,7 +37,7 @@
 #include <uf/engine/asset/asset.h>
 
 #include <uf/ext/vulkan/rendermodes/deferred.h>
-#include <uf/ext/vulkan/rendermodes/multiview.h>
+#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
@@ -103,17 +103,44 @@ void EXT_API ext::initialize() {
 		uf::thread::workers = ::config["engine"]["worker threads"].asUInt64();
 		// Enable valiation layer
 		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"].asBool();
+		//
+		ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
+		//
+		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
+		ext::openvr::driver.manifest = ::config["engine"]["ext"]["vr"]["manifest"].asString();
+		if ( ext::openvr::enabled ) {
+			::config["engine"]["render modes"]["stereo deferred"] = true;
+			ext::vulkan::validation = false;
+			if ( ::config["engine"]["ext"]["vr"]["invert winding order"].asBool() )
+				ext::vulkan::Graphic::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		}
 	}
 
 	/* Initialize Vulkan */ {
-		ext::vulkan::width = ::config["window"]["size"]["x"].asInt();
-		ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
+		// ext::vulkan::width = ::config["window"]["size"]["x"].asInt();
+		// ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
 
 		// setup render mode
-		if ( ::config["engine"]["render modes"]["deferred"].asBool() )
-			ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
 		if ( ::config["engine"]["render modes"]["gui"].asBool() )
 			ext::vulkan::addRenderMode( new ext::vulkan::RenderTargetRenderMode, "Gui" );
+		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
+			ext::vulkan::addRenderMode( new ext::vulkan::StereoscopicDeferredRenderMode, "" );
+		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
+			ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
+
+		if ( ext::openvr::enabled ) {
+			ext::openvr::initialize();
+		
+			uint32_t width, height;
+			ext::openvr::recommendedResolution( width, height );
+
+			auto& renderMode = ext::vulkan::getRenderMode("Stereoscopic Deferred", true);
+			renderMode.width = width;
+			renderMode.height = height;
+
+			std::cout << "Recommended VR Resolution: " << width << ", " << height << std::endl;
+		}
+
 		ext::vulkan::initialize();
 	}
 	/* */ {
@@ -154,28 +181,6 @@ void EXT_API ext::initialize() {
 			assetLoader.processQueue();
 		return 0;}, false );
 	}
-	{
-		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
-			/* OpenVR */ if ( ::config["engine"]["ext"]["vr"]["enable"].asBool() ) {
-				ext::openvr::initialize();
-				uint32_t width, height;
-				ext::openvr::recommendedResolution( width, height );
-				uf::Serializer payload;
-				payload["window"]["size"]["x"] = width;
-				payload["window"]["size"]["y"] = height;
-			/*
-				ext::vulkan::command->width = width;
-				ext::vulkan::command->height = height;
-
-				std::cout << ext::vulkan::command->width << ", " << ext::vulkan::command->height << std::endl;
-				std::cout << width << ", " << height << std::endl;
-				ext::vulkan::swapchain.rebuild = true;
-			*/
-				if ( ::config["engine"]["ext"]["vr"]["resize"].asBool() )
-					uf::hooks.call("window:Resized", payload);
-			}
-		return 0;}, true );
-	}
 }
 void EXT_API ext::tick() {
 	/* Timer */ {
@@ -211,6 +216,13 @@ void EXT_API ext::tick() {
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 	    	uf::iostream << ext::vulkan::allocatorStats() << "\n";
+		}
+	}
+	/* Print Entity Information */  {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("Home") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+	    	uf::hooks.call("VR:Seat.Reset");
 		}
 	}
 
@@ -262,6 +274,11 @@ void EXT_API ext::terminate() {
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::terminate();
 	}
+	
+	/* Close vulkan */ {
+		ext::vulkan::destroy();
+	}
+
 
 	/* Flush input buffer */ {
 		io.output << io.input << std::endl;
@@ -310,15 +327,17 @@ std::string EXT_API ext::getConfig() {
 		config.fallback["window"]["terminal"]["visible"] 	= true;
 		config.fallback["window"]["title"] 					= "Grimgram";
 		config.fallback["window"]["icon"] 					= "";
-		config.fallback["window"]["size"]["x"] 				= 1280;
-		config.fallback["window"]["size"]["y"] 				= 720;
+		config.fallback["window"]["size"]["x"] 				= 0;
+		config.fallback["window"]["size"]["y"] 				= 0;
 		config.fallback["window"]["visible"] 				= true;
-		config.fallback["window"]["fullscreen"] 			= false;
+	//	config.fallback["window"]["fullscreen"] 			= false;
+		config.fallback["window"]["mode"] 					= "windowed";
 		config.fallback["window"]["cursor"]["visible"] 		= true;
 		config.fallback["window"]["cursor"]["center"] 		= false;
 		config.fallback["window"]["keyboard"]["repeat"] 	= true;
 		
 		config.fallback["engine"]["scenes"]["start"]		= "StartMenu";
+		config.fallback["engine"]["scenes"]["max lights"] 	= 32;
 		config.fallback["engine"]["hook"]["mode"] 			= "Readable";
 		config.fallback["engine"]["frame limit"] 			= 60;
 		config.fallback["engine"]["delta limit"] 			= 120;

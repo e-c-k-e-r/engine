@@ -14,10 +14,11 @@
 
 #include <fstream>
 #include <queue>
+#include <bitset>
 
 namespace {
 	bool SWIZZLE_OPTIMIZATION = false;
-	ext::TerrainVoxel::light_t AMBIENT_LIGHT = 0x6666; //{std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max()};
+	ext::TerrainVoxel::light_t AMBIENT_LIGHT = 0x2222; //{std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max(), std::numeric_limits<ext::TerrainVoxel::light_t::type_t>::max()};
 	struct COLOR {
 		uint r : 4;
 		uint g : 4;
@@ -40,13 +41,12 @@ namespace {
 	}
 }
 
-
 ext::TerrainGenerator::Swizzle ext::TerrainGenerator::DEFAULT_SWIZZLE = Swizzle::YZX;
 uf::PerlinNoise ext::TerrainGenerator::noise;
 
-void ext::TerrainGenerator::initialize( const pod::Vector3ui& size, uint modulus ){
-	this->m_size = size;
-	this->m_modulus = modulus;
+void ext::TerrainGenerator::initialize( const pod::Vector3ui& size, uint subdivisions ){
+	this->m_subdivisions = subdivisions;
+	this->m_size = size * m_subdivisions;
 }
 void ext::TerrainGenerator::destroy(){
 /*
@@ -86,7 +86,7 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		ambientLight.b *= tMetadata["region"]["light"]["ambient"][2].asFloat();
 	}
 */
-	std::string base = region.getParent().getComponent<uf::Serializer>()["_config"]["hash"].asString();
+	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].asString();
 	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
 	if ( uf::string::exists( filename ) ) {
@@ -128,20 +128,81 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 	}
 
 	// maze
-	/*
+/*
 	{
 		ext::Maze& maze = this->m_terrain->getComponent<ext::Maze>();
-		int ROW = this->m_location.z + (maze.WIDTH / 2) - 1;
-		int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
-		auto value = maze( ROW, COL, 0 );
-		bool east = value & ext::Maze::EAST; // ROW + 1 < maze.WIDTH ? maze( ROW + 1, COL, 1 ) : 0;
-		bool west = value & ext::Maze::WEST; // ROW - 1 > 0 ? maze( ROW - 1, COL, 1 ) : 0;
-		bool north = value & ext::Maze::NORTH; // COL + 1 < maze.LENGTH ? maze( ROW, COL + 1, 1 ) : 0;
-		bool south = value & ext::Maze::SOUTH; // COL - 1 > 0 ? maze( ROW, COL - 1, 1 ) : 0;
-		std::cout << ROW << ", " << COL << " = " << value << "\t" << east << " " << west << " " << north << " " << south << std::endl;
+		struct {
+			int CENTER = ext::Maze::FLOOR | ext::Maze::CEIL;
+			int NORTH = ext::Maze::FLOOR | ext::Maze::CEIL;
+			int SOUTH = ext::Maze::FLOOR | ext::Maze::CEIL;
+			int EAST = ext::Maze::FLOOR | ext::Maze::CEIL;
+			int WEST = ext::Maze::FLOOR | ext::Maze::CEIL;
+		} LABYRINTH;
+		{
+			std::cout << "MAZE AT: " << this->m_location.x << ", " << this->m_location.z << std::endl;
+		}
+		{
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.CENTER = maze( ROW, COL, 0 );
+			std::cout << "CENTER:\n\t"; // << std::bitset<8>(LABYRINTH.CENTER) << std::endl;
+				if ( LABYRINTH.CENTER & ext::Maze::NORTH ) std::cout << "NORTH\t";
+				if ( LABYRINTH.CENTER & ext::Maze::SOUTH ) std::cout << "SOUTH\t";
+				if ( LABYRINTH.CENTER & ext::Maze::EAST ) std::cout << "EAST\t";
+				if ( LABYRINTH.CENTER & ext::Maze::WEST ) std::cout << "WEST\t";
+			std::cout << std::endl;
+		}
+		{
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			--ROW;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.NORTH = maze( ROW, COL, 0 );
+			std::cout << "NORTH:\n\t"; // << std::bitset<8>(LABYRINTH.NORTH) << std::endl;
+				if ( LABYRINTH.NORTH & ext::Maze::NORTH ) std::cout << "NORTH\t";
+				if ( LABYRINTH.NORTH & ext::Maze::SOUTH ) std::cout << "SOUTH\t";
+				if ( LABYRINTH.NORTH & ext::Maze::EAST ) std::cout << "EAST\t";
+				if ( LABYRINTH.NORTH & ext::Maze::WEST ) std::cout << "WEST\t";
+			std::cout << std::endl;
+		}
+		{
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			++ROW;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.SOUTH = maze( ROW, COL, 0 );
+			std::cout << "SOUTH:\n\t"; // << std::bitset<8>(LABYRINTH.SOUTH) << std::endl;
+				if ( LABYRINTH.SOUTH & ext::Maze::NORTH ) std::cout << "NORTH\t";
+				if ( LABYRINTH.SOUTH & ext::Maze::SOUTH ) std::cout << "SOUTH\t";
+				if ( LABYRINTH.SOUTH & ext::Maze::EAST ) std::cout << "EAST\t";
+				if ( LABYRINTH.SOUTH & ext::Maze::WEST ) std::cout << "WEST\t";
+			std::cout << std::endl;
+		}
+		{
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			++COL;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.EAST = maze( ROW, COL, 0 );
+			std::cout << "EAST:\n\t"; // << std::bitset<8>(LABYRINTH.EAST) << std::endl;
+				if ( LABYRINTH.EAST & ext::Maze::NORTH ) std::cout << "NORTH\t";
+				if ( LABYRINTH.EAST & ext::Maze::SOUTH ) std::cout << "SOUTH\t";
+				if ( LABYRINTH.EAST & ext::Maze::EAST ) std::cout << "EAST\t";
+				if ( LABYRINTH.EAST & ext::Maze::WEST ) std::cout << "WEST\t";
+			std::cout << std::endl;
+		}
+		{
+			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			--COL;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.WEST = maze( ROW, COL, 0 );
+			std::cout << "WEST:\n\t"; // << std::bitset<8>(LABYRINTH.WEST) << std::endl;
+				if ( LABYRINTH.WEST & ext::Maze::NORTH ) std::cout << "NORTH\t";
+				if ( LABYRINTH.WEST & ext::Maze::SOUTH ) std::cout << "SOUTH\t";
+				if ( LABYRINTH.WEST & ext::Maze::EAST ) std::cout << "EAST\t";
+				if ( LABYRINTH.WEST & ext::Maze::WEST ) std::cout << "WEST\t";
+			std::cout << std::endl;
+		}
+		std::cout << std::endl;
 	}
-	*/
-
+*/
 	if ( this->m_voxels.id.rle.empty() ) {
 		double maxValue = 0.0;
 		double base = 0;
@@ -185,12 +246,13 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 		this->m_voxels.lighting.raw.reserve( this->m_size.x * this->m_size.y * this->m_size.z );
 
 		ext::Maze& maze = this->m_terrain->getComponent<ext::Maze>();
-		int LABYRINTH = ext::Maze::FLOOR | ext::Maze::CEIL;
+		struct {
+			int CENTER = ext::Maze::FLOOR | ext::Maze::CEIL;
+		} LABYRINTH;
 		{
-			int ROW = this->m_location.z + (maze.WIDTH / 2) - 1;
 			int COL = this->m_location.x + (maze.LENGTH / 2) - 1;
-			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH )
-				LABYRINTH = maze( ROW, COL, 0 );
+			int ROW = -this->m_location.z + (maze.WIDTH / 2) - 1;
+			if ( ROW >= 0 && ROW < maze.WIDTH && COL >= 0 && COL < maze.LENGTH ) LABYRINTH.CENTER = maze( ROW, COL, 0 );
 		}
 
 		std::size_t i = 0;
@@ -224,12 +286,12 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 	
 			auto light = ext::TerrainVoxel::atlas(voxel).light();
 
-			if ( LABYRINTH & ext::Maze::EAST ) if ( x == 0 ) voxel = atlas.wall;
-			if ( LABYRINTH & ext::Maze::WEST ) if ( x == this->m_size.x - 1 ) voxel = atlas.wall;
-			if ( LABYRINTH & ext::Maze::NORTH ) if ( z == 0 ) voxel = atlas.wall;
-			if ( LABYRINTH & ext::Maze::SOUTH ) if ( z == this->m_size.z - 1 ) voxel = atlas.wall;
-		//	if ( LABYRINTH & ext::Maze::FLOOR ) if ( y == 0 ) voxel = atlas.floor;
-		//	if ( LABYRINTH & ext::Maze::CEIL ) if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
+			if ( LABYRINTH.CENTER & ext::Maze::EAST ) if ( x == this->m_size.x - 1 ) voxel = atlas.wall;
+			if ( LABYRINTH.CENTER & ext::Maze::WEST ) if ( x == 0 ) voxel = atlas.wall;
+			if ( LABYRINTH.CENTER & ext::Maze::NORTH ) if ( z == this->m_size.z - 1 ) voxel = atlas.wall;
+			if ( LABYRINTH.CENTER & ext::Maze::SOUTH ) if ( z == 0 ) voxel = atlas.wall;
+		//	if ( LABYRINTH.CENTER & ext::Maze::FLOOR ) if ( y == 0 ) voxel = atlas.floor;
+		//	if ( LABYRINTH.CENTER & ext::Maze::CEIL ) if ( y == this->m_size.y - 1 ) voxel = atlas.ceiling;
 			
 			if ( light < AMBIENT_LIGHT ) light = AMBIENT_LIGHT;
 
@@ -259,7 +321,7 @@ void ext::TerrainGenerator::writeToFile() {
 	this->wrapLight();
 
 	uf::Serializer serializer;
-	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["_config"]["hash"].asString() : "UNKNOWN";
+	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].asString() : "UNKNOWN";
 	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
 	{
 		// encode as base64, json safe
@@ -459,7 +521,7 @@ ext::TerrainVoxel::light_t ext::TerrainGenerator::getLight( int x, int y, int z 
 ext::TerrainVoxel::light_t ext::TerrainGenerator::getLight( const pod::Vector3i& location ) const {
 	return this->getLight( location.x, location.y, location.z );
 }
-pod::Vector3ui ext::TerrainGenerator::unwrapIndex( std::size_t i, Swizzle swizzle ) const {
+pod::Vector3i ext::TerrainGenerator::unwrapIndex( int64_t i, Swizzle swizzle ) const {
 	// ordered from first to change to last to change
 	/*
 		result.x = i % this->m_size.x;
@@ -509,7 +571,7 @@ pod::Vector3ui ext::TerrainGenerator::unwrapIndex( std::size_t i, Swizzle swizzl
 }
 
 // (y, z, x) -> (x, y, z)
-std::size_t ext::TerrainGenerator::wrapPosition( uint x, uint y, uint z, Swizzle swizzle ) const {
+int64_t ext::TerrainGenerator::wrapPosition( int64_t x, int64_t y, int64_t z, Swizzle swizzle ) const {
 	// ordered from first to change to last to change
 	pod::Vector3ui input;
 	pod::Vector3ui size;
@@ -555,7 +617,7 @@ std::size_t ext::TerrainGenerator::wrapPosition( uint x, uint y, uint z, Swizzle
 //	return size.z * size.x * input.y + size.x * input.z + input.x;
 //	return (x * this->m_size.y * this->m_size.z) + (z * this->m_size.y) + y;
 }
-std::size_t ext::TerrainGenerator::wrapPosition( const pod::Vector3ui& position, Swizzle swizzle ) const {
+int64_t ext::TerrainGenerator::wrapPosition( const pod::Vector3i& position, Swizzle swizzle ) const {
 	return this->wrapPosition( position.x, position.y, position.z, swizzle );
 }
 
@@ -902,7 +964,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 
 	this->setLight( x,  y,  z, targetLight );
 
-	int lightingMode = 3;
+	int lightingMode = 2;
 	// REDGREEENBLUE
 	if ( lightingMode == 1 ) {
 		uint8_t steps = 1;
@@ -923,7 +985,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 		size_t i = 0;
 		while ( !bfs.empty() ) {
 			bfsNode node = bfs.front(); bfs.pop();
-			std::cout << "Calls: " << (++i) << " | Nodes: " << bfs.size() << std::endl; 
+		//	std::cout << "Calls: " << (++i) << " | Nodes: " << bfs.size() << std::endl; 
 			if ( !node.region ) continue;
 			auto& self = node.region->getComponent<ext::TerrainGenerator>();
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( self.getVoxel( node.position ) );
@@ -968,32 +1030,6 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 						position.z -= self.m_size.z;
 						++location.z;
 					}
-				/*
-					while ( position.x < 0 ) {
-						--location.x;
-						position.x += self.m_size.x;
-					}
-					while ( position.x >= self.m_size.x - 1 ) {
-						++location.x;
-						position.x -= self.m_size.x;
-					}
-					while ( position.y < 0 ) {
-						--location.y;
-						position.y += self.m_size.y;
-					}
-					while ( position.y >= self.m_size.y - 1 ) {
-						++location.y;
-						position.y -= self.m_size.y;
-					}
-					while ( position.z < 0 ) {
-						--location.z;
-						position.z += self.m_size.z;
-					}
-					while ( position.z >= self.m_size.z - 1 ) {
-						++location.z;
-						position.z -= self.m_size.z;
-					}
-				*/
 					node.region = terrain.at( location );
 				}
 				if ( !node.region ) continue;
@@ -1014,18 +1050,20 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 				targetLight.b = (neighbor.light >>  4) & 0xF;
 
 				if ( neighbor.voxel.opaque() ) continue;
+				bool spread = false;
 				if ( targetLight.r + (2 * steps) <= light.r ) {
-					selfGenerator.setLight( position, (neighbor.light & 0x0FFF ) | ((light.r - (1 * steps)) << 12), false );
-					node.position = position;
-					bfs.emplace( node );
+					selfGenerator.setLight( position, neighbor.light = (neighbor.light & 0x0FFF ) | ((light.r - (1 * steps)) << 12), false );
+					spread = true;
 				}
 				if ( targetLight.g + (2 * steps) <= light.g ) {
-					selfGenerator.setLight( position, (neighbor.light & 0xF0FF ) | ((light.g - (1 * steps)) <<  8), false );
-					node.position = position;
-					bfs.emplace( node );
+					selfGenerator.setLight( position, neighbor.light = (neighbor.light & 0xF0FF ) | ((light.g - (1 * steps)) <<  8), false );
+					spread = true;
 				}
 				if ( targetLight.b + (2 * steps) <= light.b ) {
-					selfGenerator.setLight( position, (neighbor.light & 0xFF0F ) | ((light.b - (1 * steps)) <<  4), false );
+					selfGenerator.setLight( position, neighbor.light = (neighbor.light & 0xFF0F ) | ((light.b - (1 * steps)) <<  4), false );
+					spread = true;
+				}
+				if ( spread ) {
 					node.position = position;
 					bfs.emplace( node );
 				}
@@ -1035,11 +1073,14 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 	// REDGREENBLUE
 	if ( lightingMode == 2 ) {
 		uint8_t steps = 1;
-		std::queue<pod::Vector3i> bfs;
-		bfs.emplace( pod::Vector3i{x, y, z});
+	//	std::queue<pod::Vector3i> bfs;
+		std::queue<int32_t> bfs;
+		bfs.emplace( this->wrapPosition( x, y, z ) );
 
 		while ( !bfs.empty() ) {
-			pod::Vector3i node = bfs.front(); bfs.pop();
+		//	pod::Vector3i node = bfs.front(); bfs.pop();
+			int32_t index = bfs.front(); bfs.pop();
+			pod::Vector3i node = this->unwrapIndex( index );
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( this->getVoxel( node ) );
 			struct LIGHT {
 				ext::TerrainVoxel::light_t r, g, b;
@@ -1048,21 +1089,20 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			light.g = (this->getLight( node ) >>  8) & 0xF;
 			light.b = (this->getLight( node ) >>  4) & 0xF;
 
-			std::vector<pod::Vector3i> positions = {
-				node + pod::Vector3i{-1, 0, 0 },
-				node + pod::Vector3i{ 1, 0, 0 },
-				node + pod::Vector3i{ 0,-1, 0 },
-				node + pod::Vector3i{ 0, 1, 0 },
-				node + pod::Vector3i{ 0, 0,-1 },
-				node + pod::Vector3i{ 0, 0, 1 },
+			std::vector<int32_t> positions = {
+				this->wrapPosition(node + pod::Vector3i{-1, 0, 0 }),
+				this->wrapPosition(node + pod::Vector3i{ 1, 0, 0 }),
+				this->wrapPosition(node + pod::Vector3i{ 0,-1, 0 }),
+				this->wrapPosition(node + pod::Vector3i{ 0, 1, 0 }),
+				this->wrapPosition(node + pod::Vector3i{ 0, 0,-1 }),
+				this->wrapPosition(node + pod::Vector3i{ 0, 0, 1 }),
 			};
-			
-			for ( auto& position : positions ) {
+			for ( auto& index : positions ) {
 				struct {
 					ext::TerrainVoxel voxel;
 					ext::TerrainVoxel::light_t light;
 				} neighbor;
-
+				auto position = this->unwrapIndex( index );
 				neighbor.voxel = ext::TerrainVoxel::atlas( this->getVoxel( position ) );
 				neighbor.light = this->getLight( position );
 				
@@ -1073,18 +1113,20 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 				 targetLight.b = (neighbor.light >>  4) & 0xF;
 
 				if ( neighbor.voxel.opaque() ) continue;
+				bool spread = false;
 				if ( targetLight.r + (2 * steps) <= light.r ) {
-					this->setLight( position, (neighbor.light & 0x0FFF ) | ((light.r - (1 * steps)) << 12), false );
-					bfs.emplace( position );
+					this->setLight( position, neighbor.light = (neighbor.light & 0x0FFF ) | ((light.r - (1 * steps)) << 12), false );
+					spread = true;
 				}
 				if ( targetLight.g + (2 * steps) <= light.g ) {
-					this->setLight( position, (neighbor.light & 0xF0FF ) | ((light.g - (1 * steps)) <<  8), false );
-					bfs.emplace( position );
+					this->setLight( position, neighbor.light = (neighbor.light & 0xF0FF ) | ((light.g - (1 * steps)) <<  8), false );
+					spread = true;
 				}
 				if ( targetLight.b + (2 * steps) <= light.b ) {
-					this->setLight( position, (neighbor.light & 0xFF0F ) | ((light.b - (1 * steps)) <<  4), false );
-					bfs.emplace( position );
+					this->setLight( position, neighbor.light = (neighbor.light & 0xFF0F ) | ((light.b - (1 * steps)) <<  4), false );
+					spread = true;
 				}
+				if ( spread ) bfs.emplace( this->wrapPosition(position) );
 			}
 		}
 	}
@@ -1211,8 +1253,8 @@ void ext::TerrainGenerator::light( const pod::Vector3i& location, const ext::Ter
 void ext::TerrainGenerator::updateLight(){
 //	this->unwrapLight();
 	// set lights to original values
-/*	
 	std::size_t i = 0;
+/*
 	std::cout << "Updating lights for " << this->m_location.x << ", " << this->m_location.y << ", " << this->m_location.z << std::endl;
 	for ( auto& _ : this->m_voxels.id.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
@@ -1223,10 +1265,9 @@ void ext::TerrainGenerator::updateLight(){
 		}
 	}
 	//this->wrapLight();
-*/
 	// set lights
-
-	std::size_t i = 0;
+*/
+	// std::size_t i = 0;
 	for ( auto& _ : this->m_voxels.id.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( _.value );
@@ -1248,9 +1289,9 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 	const ext::Terrain& terrain = region.getParent<ext::Terrain>();
 	const pod::Transform<>& transform = region.getComponent<pod::Transform<>>();
 	const pod::Vector3i location = {
-		transform.position.x / this->m_size.x,
-		transform.position.y / this->m_size.y,
-		transform.position.z / this->m_size.z,
+		transform.position.x / (this->m_size.x / m_subdivisions),
+		transform.position.y / (this->m_size.y / m_subdivisions),
+		transform.position.z / (this->m_size.z / m_subdivisions),
 	};
 
 	struct { 
@@ -1277,7 +1318,6 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 		color.b *= tMetadata["region"]["light"]["ambient"][2].asFloat();
 		ambientLight = colorToUint16( color );
 	}
-
 	#define TERRAIN_SHOULD_RENDER_FACE(SIDE)\
 		should.SIDE = !neighbor.SIDE.opaque();\
 		if ( should.SIDE ) {\
@@ -1286,6 +1326,7 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 				{\
 					pod::Vector3f& p = vertex.position;\
 					p.x = model.position.SIDE[i*3+0]; p.y = model.position.SIDE[i*3+1]; p.z = model.position.SIDE[i*3+2];\
+					p /= m_subdivisions;\
 					p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;\
 				}\
 				{\
@@ -1314,12 +1355,6 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 			}\
 		}
 
-/*
-	for ( uint y = 0; y < this->m_size.y; ++y ) {
-		for ( uint z = 0; z < this->m_size.z; ++z ) {
-			for ( uint x = 0; x < this->m_size.x; ++x ) {
-				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( this->getVoxel( x, y, z ) );
-*/
 	std::size_t i = 0;
 	for ( auto& _ : this->m_voxels.id.rle ) {
 		for ( std::size_t __ = 0; __ < _.length; ++__ ) {
@@ -1334,18 +1369,15 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 
 				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( _.value );
 
-				offset.position.x = x - (this->m_size.x / 2.0f);
-				offset.position.y = y - (this->m_size.y / 2.0f);
-				offset.position.z = z - (this->m_size.z / 2.0f);
 
 				const ext::TerrainVoxel::Model& model = voxel.model();
 
 				// clear block, don't render
 				if ( !voxel.opaque() ) continue;
 
-				offset.position.x += transform.position.x;
-				offset.position.y += transform.position.y;
-				offset.position.z += transform.position.z;
+				offset.position.x = (x / (float) m_subdivisions) + transform.position.x - (this->m_size.x / (m_subdivisions * 2.0f));
+				offset.position.y = (y / (float) m_subdivisions) + transform.position.y - (this->m_size.y / (m_subdivisions * 2.0f));
+				offset.position.z = (z / (float) m_subdivisions) + transform.position.z - (this->m_size.z / (m_subdivisions * 2.0f));
 			
 				offset.uv.x = 1.0f / ext::TerrainVoxel::size().x;
 				offset.uv.y = 1.0f / ext::TerrainVoxel::size().y;
@@ -1362,20 +1394,6 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 				struct {
 					ext::TerrainVoxel::light_t top = 0xffff, bottom = 0xfff, left = 0xffff, right = 0xffff, front = 0xffff, back = 0xffff;
 				} light;
-			/*
-				if ( x > 0 ) neighbor.left = ext::TerrainVoxel::atlas(this->getVoxel(x-1,y,z));
-				else if ( regions.left != NULL ) neighbor.left = ext::TerrainVoxel::atlas(regions.left->getComponent<ext::TerrainGenerator>().getVoxel(this->m_size.x-1,y,z));
-				if ( x + 1 < this->m_size.x ) neighbor.right = ext::TerrainVoxel::atlas(this->getVoxel(x+1,y,z));
-				else if ( regions.right != NULL ) neighbor.right = ext::TerrainVoxel::atlas(regions.right->getComponent<ext::TerrainGenerator>().getVoxel(0,y,z));
-				if ( y > 0 ) neighbor.bottom = ext::TerrainVoxel::atlas(this->getVoxel(x,y-1,z));
-				else if ( regions.bottom != NULL ) neighbor.bottom = ext::TerrainVoxel::atlas(regions.bottom->getComponent<ext::TerrainGenerator>().getVoxel(x,this->m_size.y-1,z));
-				if ( y + 1 < this->m_size.y ) neighbor.top = ext::TerrainVoxel::atlas(this->getVoxel(x,y+1,z));
-				else if ( regions.top != NULL ) neighbor.top = ext::TerrainVoxel::atlas(regions.top->getComponent<ext::TerrainGenerator>().getVoxel(x,0,z));
-				if ( z > 0 ) neighbor.back = ext::TerrainVoxel::atlas(this->getVoxel(x,y,z-1));
-				else if ( regions.back != NULL ) neighbor.back = ext::TerrainVoxel::atlas(regions.back->getComponent<ext::TerrainGenerator>().getVoxel(x,y,this->m_size.z-1));
-				if ( z + 1 < this->m_size.z ) neighbor.front = ext::TerrainVoxel::atlas(this->getVoxel(x,y,z+1));
-				else if ( regions.front != NULL ) neighbor.front = ext::TerrainVoxel::atlas(regions.front->getComponent<ext::TerrainGenerator>().getVoxel(x,y,0));
-			*/
 			
 				neighbor.left = ext::TerrainVoxel::atlas(this->getVoxel(x-1,y,z));
 				light.left = this->getLight(x-1,y,z);
@@ -1401,250 +1419,6 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 				TERRAIN_SHOULD_RENDER_FACE(bottom)
 				TERRAIN_SHOULD_RENDER_FACE(front)
 				TERRAIN_SHOULD_RENDER_FACE(back)
-			/*
-				should.right = !neighbor.right.opaque();
-				should.left = !neighbor.left.opaque();
-				should.top = !neighbor.top.opaque();
-				should.bottom = !neighbor.bottom.opaque();
-				should.front = !neighbor.front.opaque();
-				should.back = !neighbor.back.opaque();
-
-				if ( should.right ) {
-					for ( uint i = 0; i < model.position.right.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.right[i*3+0]; p.y = model.position.right[i*3+1]; p.z = model.position.right[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.right[i*2+0]; p.y = model.uv.right[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.right[i*3+0]; p.y = model.normal.right[i*3+1]; p.z = model.normal.right[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.right;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-						}
-						vertices.push_back(vertex);
-					}
-				}
-				if ( should.left ) {
-					for ( uint i = 0; i < model.position.left.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.left[i*3+0]; p.y = model.position.left[i*3+1]; p.z = model.position.left[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.left[i*2+0]; p.y = model.uv.left[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.left[i*3+0]; p.y = model.normal.left[i*3+1]; p.z = model.normal.left[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.left;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-
-						//	if ( p[0] > 0 ) std::cout << "LIGHT: " << std::hex << *((uint32_t*) &p[0]) << std::endl;
-						//	else std::cout << "BLACK: " << std::hex << (uint32_t) light.left << std::endl;
-						}
-						vertices.push_back(vertex);
-					}
-				}
-				if ( should.top ) {
-					for ( uint i = 0; i < model.position.top.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.top[i*3+0]; p.y = model.position.top[i*3+1]; p.z = model.position.top[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.top[i*2+0]; p.y = model.uv.top[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.top[i*3+0]; p.y = model.normal.top[i*3+1]; p.z = model.normal.top[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.top;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-
-						//	if ( p[0] > 0 ) std::cout << "LIGHT: " << std::hex << *((uint32_t*) &p[0]) << std::endl;
-						//	else std::cout << "BLACK: " << std::hex << (uint32_t) light.top << std::endl;
-
-						}
-						vertices.push_back(vertex);
-					}
-				}
-				if ( should.bottom ) {
-					for ( uint i = 0; i < model.position.bottom.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.bottom[i*3+0]; p.y = model.position.bottom[i*3+1]; p.z = model.position.bottom[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.bottom[i*2+0]; p.y = model.uv.bottom[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.bottom[i*3+0]; p.y = model.normal.bottom[i*3+1]; p.z = model.normal.bottom[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.bottom;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-
-						//	if ( p[0] > 0 ) std::cout << "LIGHT: " << std::hex << *((uint32_t*) &p[0]) << std::endl;
-						//	else std::cout << "BLACK: " << std::hex << (uint32_t) light.bottom << std::endl;
-
-						}
-						vertices.push_back(vertex);
-					}
-				}
-				if ( should.front ) {
-					for ( uint i = 0; i < model.position.front.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.front[i*3+0]; p.y = model.position.front[i*3+1]; p.z = model.position.front[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.front[i*2+0]; p.y = model.uv.front[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.front[i*3+0]; p.y = model.normal.front[i*3+1]; p.z = model.normal.front[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.front;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-
-						//	if ( p[0] > 0 ) std::cout << "LIGHT: " << std::hex << *((uint32_t*) &p[0]) << std::endl;
-						//	else std::cout << "BLACK: " << std::hex << (uint32_t) light.front << std::endl;
-
-						}
-						vertices.push_back(vertex);
-					}
-				}
-				if ( should.back ) {
-					for ( uint i = 0; i < model.position.back.size() / 3; ++i ) {
-						ext::TerrainGenerator::mesh_t::vertex_t vertex;
-						{
-							pod::Vector3f& p = vertex.position;
-							p.x = model.position.back[i*3+0]; p.y = model.position.back[i*3+1]; p.z = model.position.back[i*3+2];
-							p.x += offset.position.x; p.y += offset.position.y; p.z += offset.position.z;
-						}
-						{
-							pod::Vector2f& p = vertex.uv;
-							p.x = model.uv.back[i*2+0]; p.y = model.uv.back[i*2+1];
-							p.x *= offset.uv.x; p.y *= offset.uv.y;
-							p.x += offset.uv.u; p.y += offset.uv.v;
-						}
-						{
-							pod::Vector3f& p = vertex.normal;
-							p.x = model.normal.back[i*3+0]; p.y = model.normal.back[i*3+1]; p.z = model.normal.back[i*3+2];
-						}
-						{
-							pod::Vector4t<uint8_t>& p = vertex.color;
-							
-							ext::TerrainVoxel::light_t l = light.back;
-
-							p[0] = (l >> 12) & 0xF; // A/R
-							p[1] = (l >>  8) & 0xF; // B/G
-							p[2] = (l >>  4) & 0xF; // G/B
-							p[3] = (l      ) & 0xF; // R/A
-
-							p[0] = (p[0] << 4) | p[0];
-							p[1] = (p[1] << 4) | p[1];
-							p[2] = (p[2] << 4) | p[2];
-							p[3] = (p[3] << 4) | p[3];
-
-						//	if ( p[0] > 0 ) std::cout << "LIGHT: " << std::hex << *((uint32_t*) &p[0]) << std::endl;
-						//	else std::cout << "BLACK: " << std::hex << (uint32_t) light.back << std::endl;
-
-						}
-						vertices.push_back(vertex);
-					}
-				}
-		*/
 			}
 		}
 	}

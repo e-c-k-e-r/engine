@@ -14,7 +14,6 @@ namespace ext {
 	protected:
 	public:
 		virtual void initialize();
-		virtual void load();
 		virtual void tick();
 		virtual void render();
 		virtual void destroy();

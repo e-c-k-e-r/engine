@@ -289,7 +289,7 @@ void ext::HousamoBattle::initialize() {
 		ext::Gui* guiManager = (ext::Gui*) this->getRootParent().findByName("Gui Manager");
 		ext::Gui* guiMenu = new ext::GuiBattle;
 		guiManager->addChild(*guiMenu);
-		guiMenu->load("./entities/gui/battle/menu.json");
+		guiMenu->load("./scenes/world/gui/battle/menu.json");
 		guiMenu->initialize();
 
 		uf::Serializer payload;

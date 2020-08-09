@@ -25,7 +25,10 @@ void uf::BaseMesh<T>::initialize( bool compress ) {
 			this->indices.push_back(i);
 		}
 	}
-
+	this->generate();
+}	
+template<typename T>
+void uf::BaseMesh<T>::generate() {
 	graphic.device = &ext::vulkan::device;
 	graphic.description.size = sizeof(vertex_t);
 	graphic.description.attributes = vertex_t::descriptor;

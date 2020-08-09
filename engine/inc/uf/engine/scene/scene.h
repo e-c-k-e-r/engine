@@ -26,7 +26,8 @@ namespace uf {
 	namespace scene {
 		extern UF_API std::vector<uf::Scene*> scenes;
 		Scene& UF_API getCurrentScene();
-		Scene& UF_API loadScene( const std::string& name, const std::string data = "" );
+		Scene& UF_API loadScene( const std::string& name, const std::string& filename = "" );
+		Scene& UF_API loadScene( const std::string& name, const uf::Serializer& );
 		void UF_API unloadScene();
 
 		void UF_API tick();

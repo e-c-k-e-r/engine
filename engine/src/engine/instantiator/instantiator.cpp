@@ -8,6 +8,5 @@ uf::Entity* uf::instantiator::instantiate( const std::string& name ) {
 	auto& map = *uf::instantiator::map;
 	// assert it's already in map
 	assert( map.count(name) > 0 );
-	std::cout << "Instantiating " << name << std::endl;
 	return map[name]();
 }

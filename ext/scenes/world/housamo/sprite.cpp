@@ -54,9 +54,31 @@ void ext::HousamoSprite::initialize() {
 	uf::Asset& assetLoader = world.getComponent<uf::Asset>();
 
 	this->addHook( "graphics:Assign.%UID%", [&](const std::string& event)->std::string{	
-	//	uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-	//	mesh.graphic.initialize();
-	//	mesh.graphic.autoAssign();
+		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
+		mesh.vertices = {
+			{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
+			{{-1*0.5f, 0.0f, 0.0f}, {0.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
+			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, -1.0f } },
+			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, -1.0f } },
+			{{-1*-0.5f, 1.0f, 0.0f}, {1.0f, 1.0f}, { 0.0f, 0.0f, -1.0f } },
+			{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
+
+			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
+			{{-1*0.5f, 0.0f, 0.0f}, {0.0f, 0.0f}, { 0.0f, 0.0f, 1.0f } },
+			{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, 1.0f } },
+			{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, 1.0f } },
+			{{-1*-0.5f, 1.0f, 0.0f}, {1.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
+			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
+		};
+		mesh.initialize(true);
+		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
+		mesh.graphic.initializeShaders({
+			{"./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{"./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
+		mesh.graphic.initialize();
+		mesh.graphic.autoAssign();
+
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
 		return "true";
@@ -76,46 +98,7 @@ void ext::HousamoSprite::initialize() {
 		
 		uf::Image image = *imagePointer;
 		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
-		float scalex = 1.0f;
-		float scaley = 1.0f;
-	//	float scaley = ((float) image.getDimensions().x / (float) image.getDimensions().y);
-	//	float scalex = (640.0f / 1024.0f);
-	//	float scaley = (904.0f / 1024.0f);
-	//	float scalex = (image.getDimensions().x / 1024.0f);
-	//	float scaley = (image.getDimensions().y / 1024.0f);
-		if ( metadata["orientation"] == "landscape" ) {
-			scalex = (904.0f / 1024.0f);
-			scaley = (640.0f / 1024.0f);
-		}
-		mesh.vertices = {
-			{{-1*-0.5f, 0.0f, 0.0f}, {scalex*1.0f, scaley*0.0f}, { 0.0f, 0.0f, -1.0f } },
-			{{-1*0.5f, 0.0f, 0.0f}, {scalex*0.0f, scaley*0.0f}, { 0.0f, 0.0f, -1.0f } },
-			{{-1*0.5f, 1.0f, 0.0f}, {scalex*0.0f, scaley*1.0f}, { 0.0f, 0.0f, -1.0f } },
-			{{-1*0.5f, 1.0f, 0.0f}, {scalex*0.0f, scaley*1.0f}, { 0.0f, 0.0f, -1.0f } },
-			{{-1*-0.5f, 1.0f, 0.0f}, {scalex*1.0f, scaley*1.0f}, { 0.0f, 0.0f, -1.0f } },
-			{{-1*-0.5f, 0.0f, 0.0f}, {scalex*1.0f, scaley*0.0f}, { 0.0f, 0.0f, -1.0f } },
-
-			{{-1*0.5f, 1.0f, 0.0f}, {scalex*0.0f, scaley*1.0f}, { 0.0f, 0.0f, 1.0f } },
-			{{-1*0.5f, 0.0f, 0.0f}, {scalex*0.0f, scaley*0.0f}, { 0.0f, 0.0f, 1.0f } },
-			{{-1*-0.5f, 0.0f, 0.0f}, {scalex*1.0f, scaley*0.0f}, { 0.0f, 0.0f, 1.0f } },
-			{{-1*-0.5f, 0.0f, 0.0f}, {scalex*1.0f, scaley*0.0f}, { 0.0f, 0.0f, 1.0f } },
-			{{-1*-0.5f, 1.0f, 0.0f}, {scalex*1.0f, scaley*1.0f}, { 0.0f, 0.0f, 1.0f } },
-			{{-1*0.5f, 1.0f, 0.0f}, {scalex*0.0f, scaley*1.0f}, { 0.0f, 0.0f, 1.0f } },
-		};
-		mesh.initialize(true);
-		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-		//ext::vulkan::MeshGraphic& graphic = *((ext::vulkan::MeshGraphic*) mesh.graphic);
-		std::string suffix = ""; {
-			std::string _ = this->getRootParent<ext::World>().getComponent<uf::Serializer>()["shaders"]["sprite"]["suffix"].asString();
-			if ( _ != "" ) suffix = _ + ".";
-		}
-		mesh.graphic.initializeShaders({
-			{"./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/base."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-		});
-
 		mesh.graphic.texture.loadFromImage( image );
-
 		this->queueHook("graphics:Assign.%UID%", "", 0.5);
 		return "true";
 	});
@@ -135,16 +118,6 @@ void ext::HousamoSprite::initialize() {
 		
 		assetLoader.load(filename, "asset:Load." + std::to_string(this->getUid()) );
 	}
-
-/*
-	{
-		ext::Housamo*  = new ext::Housamo;
-		this->addChild(*);
-		uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
-		pMetadata = metadata[""];
-		->initialize();
-	}
-*/
 }
 
 void ext::HousamoSprite::tick() {
@@ -175,7 +148,7 @@ void ext::HousamoSprite::render() {
 		if ( !mesh.generated ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		//auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		uf::StereoMeshDescriptor uniforms;
+		auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( this->getComponent<pod::Transform<>>() );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );

@@ -101,10 +101,15 @@ UF_API_CALL spec::win32::Window::Window( const spec::win32::Window::vector_t& si
 {
 	this->create(size, title);
 }
-void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title ) {
+void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_t& _size, const spec::win32::Window::title_t& title ) {
 	setProcessDpiAware();
 	if ( windowCount == 0 ) this->registerWindowClass();
 
+	auto size = _size;
+	if ( size.x <= 0 && size.y <= 0 ) {
+		size.x = GetSystemMetrics(SM_CXSCREEN);
+		size.y = GetSystemMetrics(SM_CYSCREEN);
+	}
 	HDC screenDC = GetDC(NULL);
 	spec::win32::Window::vector_t position;
 	position.x = (uint) ((GetDeviceCaps(screenDC, HORZRES) - size.x ) / 2);
@@ -132,8 +137,8 @@ void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_
 		GetModuleHandle(NULL),
 		this
 	);
-	this->setSize( size );
 
+	this->setSize( size );
 	// m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&::globalOnEvent));
 
 	++windowCount;
@@ -204,11 +209,16 @@ void UF_API_CALL spec::win32::Window::setMousePosition( const spec::win32::Windo
 spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getMousePosition( ) {
 	POINT pt;
 	GetCursorPos( &pt );
+	ScreenToClient( this->m_handle, &pt );
 	return { pt.x, pt.y };
 }
 void UF_API_CALL spec::win32::Window::setSize( const spec::win32::Window::vector_t& size ) {
 	if ( fullscreenWindow == (void*) this ) return;
 	RECT rectangle = { 0, 0, size.x, size.y };
+	if ( rectangle.right <= 0 && rectangle.bottom <= 0 ) {
+		rectangle.right = GetSystemMetrics(SM_CXSCREEN);
+		rectangle.bottom = GetSystemMetrics(SM_CYSCREEN);
+	}
 	AdjustWindowRect( &rectangle, GetWindowLong(this->m_handle, GWL_STYLE), false );
 	SetWindowPos(this->m_handle, NULL, 0, 0, rectangle.right - rectangle.left, rectangle.bottom - rectangle.top, SWP_NOMOVE | SWP_NOZORDER);
 }
@@ -844,9 +854,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				event.type = "window:Mouse.Click";
 				event.invoker = "os";
 
+			//	event.mouse.position = this->getMousePosition();
 				event.mouse.position.x 	= static_cast<int16_t>(LOWORD(lParam));
 				event.mouse.position.y 	= static_cast<int16_t>(HIWORD(lParam));
-				event.mouse.delta 		= uf::vector::subtract( event.mouse.position, lastPosition );
+				event.mouse.delta 		= event.mouse.position - lastPosition;
 				switch ( message ) {	
 					case WM_LBUTTONDOWN:
 					case WM_LBUTTONUP: 		event.mouse.button = "Left"; break;
@@ -899,7 +910,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 
 				this->pushEvent(event.type, json);
 			}
-			lastPosition = event.mouse.position;
+			lastPosition = event.mouse.position; //this->getMousePosition();
 		} break;
 		case WM_MOUSELEAVE:
 			if (this->m_mouseInside) {
@@ -1009,8 +1020,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				}
 				this->pushEvent(event.type, json);
 			}
-			lastPosition.x = event.mouse.position.x;
-			lastPosition.y = event.mouse.position.y;
+			lastPosition = event.mouse.position; //this->getMousePosition();
 		break;
 		}
 	}
@@ -1038,7 +1048,17 @@ void UF_API_CALL spec::win32::Window::grabMouse(bool state) {
 		ClipCursor(NULL);
 	}
 }
-void UF_API_CALL spec::win32::Window::switchToFullscreen() {
+pod::Vector2ui UF_API_CALL spec::win32::Window::getResolution() {
+	return { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+}
+void UF_API_CALL spec::win32::Window::switchToFullscreen( bool borderless ) {
+	if ( borderless ) {
+		SetWindowLong(this->m_handle, GWL_STYLE, WS_POPUP );
+	//	SetWindowLong(this->m_handle, GWL_EXSTYLE, 0);
+	//	SetWindowPos(this->m_handle, HWND_TOP, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
+		ShowWindow(this->m_handle, SW_SHOW);
+		return;
+	}
 	SetWindowLong(this->m_handle, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 	SetWindowLong(this->m_handle, GWL_EXSTYLE, WS_EX_APPWINDOW);
 	SetWindowPos(this->m_handle, HWND_TOP, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
@@ -1278,10 +1298,8 @@ std::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 	return std::string( "" + (int) key );
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-std::vector<const char*> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
-	std::vector<const char*> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME  };
-	instanceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-
+std::vector<std::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
+	std::vector<std::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME  };
 	if ( validationEnabled ) instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	return instanceExtensions;
 }

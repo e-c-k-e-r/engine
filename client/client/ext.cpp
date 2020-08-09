@@ -35,6 +35,12 @@ void client::initialize() {
 		pod::Vector2i size; {
 			size.x = client::config["window"]["size"]["x"].asUInt();
 			size.y = client::config["window"]["size"]["y"].asUInt();
+			// request system size
+			if ( size.x <= 0 && size.y <= 0 ) {
+				auto resolution = client::window.getResolution();
+				client::config["window"]["size"]["x"] = (size.x = resolution.x);
+				client::config["window"]["size"]["y"] = (size.y = resolution.y);
+			}
 		}
 		// Window title
 		uf::String title; {
@@ -100,6 +106,7 @@ void client::initialize() {
 				return "true";
 			});
 			uf::hooks.addHook( "window:Closed", [&](const std::string& event)->std::string{
+				std::cout << "Window closed" << std::endl;
 				client::ready = false;
 			//	std::exit(EXIT_SUCCESS);
 				return "true";
@@ -126,7 +133,7 @@ void client::initialize() {
 				ext::vulkan::width = size.x;
 				ext::vulkan::height = size.y;
 
-				ext::vulkan::rebuild = true;
+				ext::vulkan::resized = true;
 				return "true";
 			} );
 		} else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {
@@ -171,7 +178,8 @@ void client::initialize() {
 			} );
 		}
 	}
-	if ( client::config["window"]["fullscreen"].asBool() ) client::window.switchToFullscreen();
+	if ( client::config["window"]["mode"].asString() == "fullscreen" ) client::window.switchToFullscreen();
+	if ( client::config["window"]["mode"].asString() == "borderless" ) client::window.switchToFullscreen( true );
 	client::ready = true;
 }
 void client::tick() {
@@ -231,10 +239,6 @@ void client::render() {
 void client::terminate() {
 	/* Close Threads */ {
 		uf::thread::terminate();
-	}
-
-	/* Close vulkan */ {
-		ext::vulkan::destroy();
 	}
 
 	client::window.terminate();

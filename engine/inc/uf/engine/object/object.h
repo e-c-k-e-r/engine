@@ -14,7 +14,8 @@ namespace uf {
 		virtual void tick();
 		virtual void render();
 
-		bool load( const std::string& );
+		bool reload( bool = false );
+		bool load( const std::string&, bool = false );
 		bool load( const uf::Serializer& );
 		std::size_t loadChild( const std::string&, bool = true );
 		std::size_t loadChild( const uf::Serializer&, bool = true );

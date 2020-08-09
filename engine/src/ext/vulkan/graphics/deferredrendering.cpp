@@ -1,23 +1,32 @@
 #include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/graphics/framebuffer.h>
+#include <uf/ext/vulkan/graphics/deferredrendering.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/texture.h>
-
+#include <uf/ext/openvr/openvr.h>
 #include <uf/utils/mesh/mesh.h>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
+	float r() {
+		return (rand() % 100) / 100.0;
+	}
 }
-bool ext::vulkan::FramebufferGraphic::autoAssignable() const {
+
+size_t ext::vulkan::DeferredRenderingGraphic::maxLights = 32;
+
+bool ext::vulkan::DeferredRenderingGraphic::autoAssignable() const {
 	return false;
 }
-std::string ext::vulkan::FramebufferGraphic::name() const {
-	return "FramebufferGraphic";
+std::string ext::vulkan::DeferredRenderingGraphic::name() const {
+	return "DeferredRenderingGraphic";
 }
-void ext::vulkan::FramebufferGraphic::createCommandBuffer( VkCommandBuffer commandBuffer ) {
+void ext::vulkan::DeferredRenderingGraphic::createCommandBuffer( VkCommandBuffer commandBuffer ) {
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(1);
 	Buffer& indexBuffer = buffers.at(2);
+
+	pushConstants = { ext::openvr::renderPass };
+	vkCmdPushConstants( commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants), &pushConstants );
 	// Bind descriptor sets describing shader binding points
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 	// Bind the rendering pipeline
@@ -31,14 +40,13 @@ void ext::vulkan::FramebufferGraphic::createCommandBuffer( VkCommandBuffer comma
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices), 1, 0, 0, 1);
 }
-void ext::vulkan::FramebufferGraphic::initialize( const std::string& renderMode ) {
+void ext::vulkan::DeferredRenderingGraphic::initialize( const std::string& renderMode ) {
 	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
 }
-void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& renderMode ) {
+void ext::vulkan::DeferredRenderingGraphic::initialize( Device& device, RenderMode& renderMode ) {
 	this->device = &device;
 
 	std::vector<Vertex> vertices = {
-	
 		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
 		{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
 		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
@@ -78,47 +86,66 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
 	ext::vulkan::Graphic::initialize( device, renderMode );
+
 	// set descriptor layout
-	initializeDescriptorLayout({
-		// Vertex shader
-		ext::vulkan::initializers::descriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0
-		),
-		// Fragment shader
-		ext::vulkan::initializers::descriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			1
-		),
-	/*
-		ext::vulkan::initializers::descriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_SAMPLER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			2
-		),
-	*/
-	});
-	// Create sampler
-/*
 	{
-		VkSamplerCreateInfo samplerInfo = {};
-		samplerInfo.magFilter = VK_FILTER_NEAREST;
-		samplerInfo.minFilter = VK_FILTER_NEAREST;
-		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		samplerInfo.addressModeV = samplerInfo.addressModeU;
-		samplerInfo.addressModeW = samplerInfo.addressModeU;
-		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.maxAnisotropy = 1.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 1.0f;
-		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CHECK_RESULT(vkCreateSampler(device, &samplerInfo, nullptr, &sampler));
+		std::vector<VkDescriptorSetLayoutBinding> bindings = {
+			// Uniforms
+			ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				VK_SHADER_STAGE_FRAGMENT_BIT,
+				0
+			)
+		};
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& input : subpass.inputs ) {
+			bindings.push_back(ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+				VK_SHADER_STAGE_FRAGMENT_BIT,
+				bindings.size()
+			));
+		}
+		initializeDescriptorLayout(bindings, sizeof(pushConstants));
 	}
-*/
+
 	// Create uniform buffer
+	// max kludge
+	{	
+		size_t MAX_LIGHTS = ext::vulkan::DeferredRenderingGraphic::maxLights;
+		struct UniformDescriptor {
+			struct Matrices {
+				alignas(16) pod::Matrix4f view[2];
+				alignas(16) pod::Matrix4f projection[2];
+			} matrices;
+			alignas(16) pod::Vector4f ambient;
+			struct Light {
+				alignas(16) pod::Vector4f position;
+				alignas(16) pod::Vector4f color;
+			} lights;
+		};
+		size_t size = sizeof(UniformDescriptor) + sizeof(UniformDescriptor::Light) * (MAX_LIGHTS - 1);
+		uint8_t buffer[size]; for ( size_t i = 0; i < size; ++i ) buffer[i] = 0;
+		{
+			UniformDescriptor* uniforms = (UniformDescriptor*) &buffer[0];
+			uniforms->ambient = { 1, 1, 1, 1 };
+			UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
+			for ( size_t i = 0; i < MAX_LIGHTS; ++i ) {
+				UniformDescriptor::Light& light = lights[i];
+				light.position = { 0, 0, 0, 0 };
+				light.color = { 0, 0, 0, 0 };
+			}
+		}
+		uniforms.create( size, (void*) &buffer );
+	}
+	pod::Userdata& userdata = uniforms.data();
+	initializeBuffer(
+		(void*) userdata.data,
+		userdata.len,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		false
+	);
+/*
 	initializeBuffer(
 		(void*) &uniforms,
 		sizeof(uniforms),
@@ -126,6 +153,7 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
+*/
 	// Move uniform buffer to the front
 	{
 		for ( auto it = buffers.begin(); it != buffers.end(); ++it ) {
@@ -138,13 +166,6 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 		}
 
 	}
-/*
-	buffers = {
-		std::move(buffers.at(2)),
-		std::move(buffers.at(0)),
-		std::move(buffers.at(1)),
-	};
-*/
 	// set pipeline
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -154,38 +175,29 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
-			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			VK_CULL_MODE_BACK_BIT,
+		//	VK_CULL_MODE_NONE,
+			VK_FRONT_FACE_CLOCKWISE,
 			0
 		);
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		for ( auto& attachment : renderMode.renderTarget.attachments ) {
-			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-					0xf,
-					VK_FALSE
-				);
-				blendAttachmentStates.push_back(blendAttachmentState);
-			}
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& input : subpass.colors ) {
+			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+				0xf,
+				VK_FALSE
+			);
+			blendAttachmentStates.push_back(blendAttachmentState);
 		}
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
 			blendAttachmentStates.size(),
 			blendAttachmentStates.data()
 		);
-	/*
-		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-			0xf,
-			VK_FALSE
-		);
-		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
-			1,
-			&blendAttachmentState
-		);
-	*/
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-			VK_TRUE,
-			VK_TRUE,
-			VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_FALSE,
+			VK_FALSE,
+			//VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -231,6 +243,30 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 			)
 		};
 
+		// Specialization Constants
+		
+		struct SpecializationConstants {
+			uint32_t lights;
+		} specializationConstants;
+		// grab requested light count
+		specializationConstants.lights = ext::vulkan::DeferredRenderingGraphic::maxLights;
+		
+		std::vector<VkSpecializationMapEntry> specializationMapEntries;
+		{
+			VkSpecializationMapEntry specializationMapEntry;
+			specializationMapEntry.constantID = 0;
+			specializationMapEntry.size = sizeof(specializationConstants.lights);
+			specializationMapEntry.offset = offsetof(SpecializationConstants, lights);
+			specializationMapEntries.push_back(specializationMapEntry);
+		}
+		VkSpecializationInfo specializationInfo{};
+		specializationInfo.dataSize = sizeof(specializationConstants);
+		specializationInfo.mapEntryCount = static_cast<uint32_t>(specializationMapEntries.size());
+		specializationInfo.pMapEntries = specializationMapEntries.data();
+		specializationInfo.pData = &specializationConstants;
+		// fragment shader
+		shader.stages[1].pSpecializationInfo = &specializationInfo;
+
 		VkPipelineVertexInputStateCreateInfo vertexInputState = ext::vulkan::initializers::pipelineVertexInputStateCreateInfo();
 		vertexInputState.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexBindingDescriptions.size());
 		vertexInputState.pVertexBindingDescriptions = vertexBindingDescriptions.data();
@@ -252,77 +288,45 @@ void ext::vulkan::FramebufferGraphic::initialize( Device& device, RenderMode& re
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
-		pipelineCreateInfo.subpass = 1;
+		pipelineCreateInfo.subpass = this->subpass;
 
 		initializePipeline(pipelineCreateInfo);
 	}
-	// Set descriptor pool
-	initializeDescriptorPool({
-		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
-		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1),
-	}, 1);
-	// Set descriptor set
 	{
-		VkDescriptorImageInfo textDescriptorAlbedo = ext::vulkan::initializers::descriptorImageInfo( 
-			renderTarget->attachments[0].view,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-
-		initializeDescriptorSet({
+		std::vector<VkDescriptorImageInfo> inputDescriptors;
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& input : subpass.inputs ) {
+			inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+				renderTarget->attachments[input.attachment].view,
+				input.layout
+			));
+		}
+		// Set descriptor pool
+		initializeDescriptorPool({
+			ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
+			ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, inputDescriptors.size()),
+		}, 1);
+		// Set descriptor set
+		std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
 			// Binding 0 : Projection/View matrix uniform buffer			
 			ext::vulkan::initializers::writeDescriptorSet(
 				descriptorSet,
 				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				0,
 				&(buffers.at(0).descriptor)
-			),
-			// Binding 1 : Albedo input attachment
-			ext::vulkan::initializers::writeDescriptorSet(
-				descriptorSet,
-				VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-				1,
-				&textDescriptorAlbedo
-			),
-		/*
-			// Binding 1 : Fragment shader texture
-			//	Fragment shader: layout (binding = 1) uniform texture2D tex;
-			ext::vulkan::initializers::writeDescriptorSet(
-				descriptorSet,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				1,
-				&imageInfo
-			),
-			// Binding 2 : Fragment shader texture sampler
-			//	Fragment shader: layout (binding = 1) uniform sampler samp;
-			ext::vulkan::initializers::writeDescriptorSet(
-				descriptorSet,
-				VK_DESCRIPTOR_TYPE_SAMPLER,
-				2,
-				&samplerInfo
 			)
-		*/
-		});
+		};
+		for ( size_t i = 0; i < inputDescriptors.size(); ++i ) {
+				writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+					descriptorSet,
+					VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+					i + 1,
+					&inputDescriptors[i]
+				));
+			}
+		initializeDescriptorSet(writeDescriptorSets);
 	}
-/*
-	for (int32_t i = 0; i < swapchain.drawCommandBuffers.size(); ++i) {
-		VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-		imageMemoryBarrier.srcAccessMask = 0;
-		imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		imageMemoryBarrier.image = swapchain.buffers[i].image;
-		imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-		imageMemoryBarrier.subresourceRange.levelCount = 1;
-		imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-		imageMemoryBarrier.subresourceRange.layerCount = 1;
-		imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
-		imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
-		vkCmdPipelineBarrier( swapchain.drawCommandBuffers[i], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	}
-*/
 }
-void ext::vulkan::FramebufferGraphic::destroy() {
+void ext::vulkan::DeferredRenderingGraphic::destroy() {
 	ext::vulkan::Graphic::destroy();
-	// vkDestroySampler( *device, sampler, nullptr );
 }

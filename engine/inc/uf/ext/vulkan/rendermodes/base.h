@@ -10,10 +10,10 @@ namespace ext {
 			// RAII
 			virtual std::string getType() const;
 			const std::string& getName() const;
-			virtual size_t subpasses() const;
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes );
+			virtual void tick();
 			virtual void render();
 			virtual void destroy();
 		};

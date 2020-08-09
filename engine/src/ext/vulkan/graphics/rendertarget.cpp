@@ -4,6 +4,7 @@
 #include <uf/ext/vulkan/texture.h>
 
 #include <uf/utils/mesh/mesh.h>
+#include <uf/ext/openvr/openvr.h>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
@@ -18,6 +19,9 @@ void ext::vulkan::RenderTargetGraphic::createCommandBuffer( VkCommandBuffer comm
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(1);
 	Buffer& indexBuffer = buffers.at(2);
+
+	pushConstants = { ext::openvr::renderPass };
+	vkCmdPushConstants( commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstants), &pushConstants );
 	// Bind descriptor sets describing shader binding points
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 	// Bind the rendering pipeline
@@ -56,7 +60,10 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 	};
 
 	std::vector<uint32_t> indices = {
-		0, 1, 2, 0, 2, 3
+	//	0, 1, 2, 0, 2, 3
+		0, 1, 2, 2, 3, 0
+	//	2, 1, 0, 0, 3, 2
+	//	0, 3, 2, 2, 1, 0
 	//	0, 1, 2, 3, 4, 5
 	};
 
@@ -92,10 +99,11 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			1
 		)
-	});
+	}, sizeof(pushConstants));
 	// Create sampler
 	{
 		VkSamplerCreateInfo samplerInfo = {};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerInfo.magFilter = VK_FILTER_NEAREST;
 		samplerInfo.minFilter = VK_FILTER_NEAREST;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
@@ -113,7 +121,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 	initializeBuffer(
 		(void*) &uniforms,
 		sizeof(uniforms),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		false
 	);
@@ -128,7 +136,6 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			buffers.insert( buffers.begin(), std::move(uniformBuffer) );
 			break;
 		}
-
 	}
 /*
 	buffers = {
@@ -146,10 +153,12 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
+		//	VK_CULL_MODE_BACK_BIT,
 			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			ext::vulkan::Graphic::DEFAULT_WINDING_ORDER,
 			0
 		);
+
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
 		for ( auto& attachment : renderMode.renderTarget.attachments ) {
 			if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
@@ -157,14 +166,22 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 					0xf,
 					VK_FALSE
 				);
+				blendAttachmentState.blendEnable = VK_TRUE;
+				blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 				blendAttachmentStates.push_back(blendAttachmentState);
 			}
 		}
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
-			blendAttachmentStates.size(),
+		//	renderMode.getType() == "Swapchain" ? 1 : blendAttachmentStates.size(),
+			1,
 			blendAttachmentStates.data()
 		);
-	/*	
+	/*
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			0xf,
 			VK_FALSE
@@ -216,9 +233,10 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
         colorBlendState.blendConstants[3] = 0.0f;
     */
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-			VK_TRUE,
-			VK_TRUE,
-			VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_FALSE,//VK_TRUE,
+			VK_FALSE,//VK_TRUE,
+			//VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -285,7 +303,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
-		pipelineCreateInfo.subpass = 1;
+		pipelineCreateInfo.subpass = this->subpass;
 
 		initializePipeline(pipelineCreateInfo);
 	}
@@ -320,24 +338,6 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			)
 		});
 	}
-/*
-	for (int32_t i = 0; i < swapchain.drawCommandBuffers.size(); ++i) {
-		VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-		imageMemoryBarrier.srcAccessMask = 0;
-		imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		imageMemoryBarrier.image = swapchain.buffers[i].image;
-		imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-		imageMemoryBarrier.subresourceRange.levelCount = 1;
-		imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-		imageMemoryBarrier.subresourceRange.layerCount = 1;
-		imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
-		imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
-		vkCmdPipelineBarrier( swapchain.drawCommandBuffers[i], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	}
-*/
 }
 void ext::vulkan::RenderTargetGraphic::destroy() {
 	vkDestroySampler( *device, sampler, nullptr );

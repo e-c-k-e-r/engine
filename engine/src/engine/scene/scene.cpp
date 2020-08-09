@@ -1,5 +1,6 @@
 #include <uf/engine/scene/scene.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/utils/string/ext.h>
 
 UF_OBJECT_REGISTER_CPP(Scene)
 void uf::Scene::initialize() {
@@ -51,11 +52,18 @@ const uf::Entity* uf::Scene::getController() const {
 }
 
 std::vector<uf::Scene*> uf::scene::scenes;
-uf::Scene& uf::scene::loadScene( const std::string& name, const std::string data ) {
+uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
+	uf::Scene* scene = (uf::Scene*) uf::instantiator::instantiate( name );
+	uf::scene::scenes.push_back(scene);
+	scene->load(filename != "" ? filename : "./scenes/"+uf::string::lowercase(name)+"/scene.json");
+	scene->initialize();
+	return *scene;
+}
+uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& data ) {
 	uf::Scene* scene = (uf::Scene*) uf::instantiator::instantiate( name );
 	uf::scene::scenes.push_back(scene);
 	if ( data != "" ) scene->load(data);
-	else scene->initialize();
+	scene->initialize();
 	return *scene;
 }
 void uf::scene::unloadScene() {

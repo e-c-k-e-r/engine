@@ -92,8 +92,8 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, RenderMode& renderMode
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
-			VK_CULL_MODE_NONE,
-			VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			VK_CULL_MODE_BACK_BIT,
+			ext::openvr::enabled ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE,
 			0
 		);
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
@@ -123,7 +123,8 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, RenderMode& renderMode
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
 			VK_TRUE,
 			VK_TRUE,
-			VK_COMPARE_OP_LESS_OR_EQUAL
+			//VK_COMPARE_OP_LESS_OR_EQUAL
+			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -190,7 +191,7 @@ void ext::vulkan::GuiGraphic::initialize( Device& device, RenderMode& renderMode
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = static_cast<uint32_t>(shader.stages.size());
 		pipelineCreateInfo.pStages = shader.stages.data();
-		pipelineCreateInfo.subpass = 0;
+		pipelineCreateInfo.subpass = this->subpass;
 
 		initializePipeline(pipelineCreateInfo);
 	}

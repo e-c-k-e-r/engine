@@ -21,13 +21,13 @@ namespace ext {
 		virtual void destroy();
 		virtual void tick();
 
-		void relocatePlayer();
+		void relocateChildren();
 		
 		bool exists( const pod::Vector3i& ) const;
 		bool inBounds( const pod::Vector3i& ) const;
 		ext::Region* at( const pod::Vector3i& ) const;
 
-		void generate();
+		void generate( bool single = false );
 		void generate( const pod::Vector3i& );
 		void degenerate( const pod::Vector3i& );
 	};

@@ -25,8 +25,6 @@ int main(int argc, char** argv){
 	}
 	while ( client::ready && ext::ready ) {
 		try {	
-			client::tick();
-			ext::tick();
 			static bool first = false; if ( !first ) { first = true;
 				uf::Serializer json;
 				std::string hook = "window:Resized";
@@ -36,16 +34,22 @@ int main(int argc, char** argv){
 				json["window"]["size"]["y"] = client::config["window"]["size"]["y"];
 				uf::hooks.call(hook, json);
 			}
-		} catch ( std::exception& e ) {
-			uf::iostream << "ERROR: " << e.what() << "\n";
+			client::tick();
+			ext::tick();
+			client::render();
+			ext::render();
+		} catch ( std::runtime_error& e ) {
+			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";
+			std::abort();
+			raise(SIGSEGV);
 			throw e;
+		} catch ( std::exception& e ) {
+			uf::iostream << "EXCEPTION ERROR: " << e.what() << "\n";
 		} catch ( bool handled ) {
-			if (!handled) uf::iostream << "ERROR: " << "???" << "\n";
+			if (!handled) uf::iostream << "UNHANDLED ERROR: " << "???" << "\n";
 		} catch ( ... ) {
-			uf::iostream << "ERROR: " << "???" << "\n";
+			uf::iostream << "UNKNOWN ERROR: " << "???" << "\n";
 		}
-		client::render();
-		ext::render();
 	}
 
 	if ( !client::terminated ) {

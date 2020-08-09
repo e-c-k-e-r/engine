@@ -157,7 +157,7 @@ void ext::vulkan::ComputeGraphic::initialize( Device& device, RenderMode& render
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1),	// Graphics image samplers
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1),				// Storage image for ray traced image output
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3), 			// Storage buffer for the scene primitives
-	}, 3);
+	}, 1);
 	// Set descriptor set
 	initializeDescriptorSet({
 		// Binding 0: Output storage image

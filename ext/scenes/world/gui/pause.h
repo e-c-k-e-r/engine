@@ -3,7 +3,7 @@
 #include "../../../gui/gui.h"
 
 namespace ext {
-	class EXT_API GuiMenu : public ext::Gui {
+	class EXT_API GuiWorldPauseMenu : public ext::Gui {
 	public:
 		virtual void initialize();
 		virtual void tick();

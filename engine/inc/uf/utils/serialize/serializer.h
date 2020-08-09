@@ -23,7 +23,8 @@ namespace uf {
 		// serializeable
 		template<typename T>
 		static bool serializeable() {
-			return std::is_pod<T>::value;
+		//	return std::is_pod<T>::value;
+			return std::is_standard_layout<T>::value && std::is_trivial<T>::value;
 		}
 		template<typename T>
 		static bool serializeable( const T& input ) {
@@ -33,7 +34,7 @@ namespace uf {
 		template<typename T>
 		static uf::Serializer toBase64( const T& input ) {
 			// ensure this is a safe type to serialize
-			if ( !serializeable(input) ) return "";
+			if ( !serializeable(input) ) return std::string("");
 			pod::Userdata* userdata = uf::userdata::create(input);
 			uf::Serializer res;
 			res["base64"] = uf::userdata::toBase64( userdata );

@@ -38,13 +38,14 @@ namespace ext {
 		pod::Vector3ui m_size;
 		pod::Vector3i m_location;
 		uint m_modulus;
+		uint m_subdivisions;
 		uf::Entity* m_terrain;
 	public:
 		typedef uf::ColoredMesh mesh_t;
 		static uf::PerlinNoise noise;
 		static Swizzle DEFAULT_SWIZZLE;
 
-		void initialize( const pod::Vector3ui& = { 8, 8, 8 }, uint = 4 );
+		void initialize( const pod::Vector3ui& = { 8, 8, 8 }, uint = 1 );
 		void destroy();
 
 		void light( int, int, int, const ext::TerrainVoxel::light_t& light );
@@ -59,9 +60,9 @@ namespace ext {
 		std::vector<ext::TerrainVoxel::uid_t> getRawVoxels();
 		const pod::RLE<ext::TerrainVoxel::uid_t>::string_t& getVoxels() const;
 
-		pod::Vector3ui unwrapIndex( std::size_t, Swizzle = DEFAULT_SWIZZLE ) const;
-		std::size_t wrapPosition( uint, uint, uint, Swizzle = DEFAULT_SWIZZLE ) const;
-		std::size_t wrapPosition( const pod::Vector3ui&, Swizzle = DEFAULT_SWIZZLE ) const;
+		pod::Vector3i unwrapIndex( int64_t, Swizzle = DEFAULT_SWIZZLE ) const;
+		int64_t wrapPosition( int64_t, int64_t, int64_t, Swizzle = DEFAULT_SWIZZLE ) const;
+		int64_t wrapPosition( const pod::Vector3i&, Swizzle = DEFAULT_SWIZZLE ) const;
 
 		void unwrapVoxel();
 		void unwrapLight();

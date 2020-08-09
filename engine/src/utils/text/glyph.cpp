@@ -1,7 +1,6 @@
 #include <uf/utils/text/glyph.h>
 
 uf::Glyph::~Glyph() {
-	pod::Vector2i padding = this->getPadding();
 	delete[] this->m_buffer;
 }
 
@@ -70,7 +69,6 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, const uf::String& c, 
 		delete[] this->m_buffer;
 	}
 
-//	this->setSize( { static_cast<int>(glyph.face->glyph->metrics.width) >> 6, static_cast<int>(glyph.face->glyph->metrics.height) >> 6 } );
 	this->setSize( { static_cast<int>(glyph.face->glyph->bitmap.width), static_cast<int>(glyph.face->glyph->bitmap.rows) } );
 	this->setBearing( { glyph.face->glyph->bitmap_left, glyph.face->glyph->bitmap_top } );
 	this->setAdvance( {static_cast<int>(glyph.face->glyph->advance.x) >> 6, static_cast<int>(glyph.face->glyph->advance.y) >> 6} );

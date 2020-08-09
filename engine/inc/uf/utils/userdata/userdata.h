@@ -18,7 +18,7 @@ namespace uf {
 		pod::Userdata* UF_API create( std::size_t len, void* data );
 		void UF_API destroy( pod::Userdata* userdata );
 
-		template<typename T> pod::Userdata* create( const T& data );
+		template<typename T> pod::Userdata* create( const T& data = T() );
 		template<typename T> T& get( pod::Userdata* userdata, bool validate = true);
 		template<typename T> const T& get(const pod::Userdata* userdata);
 
@@ -58,7 +58,7 @@ namespace uf {
 	// 	Validity checks
 		bool initialized() const;
 	// 	Variadic construction
-		template<typename T> pod::Userdata* create( const T& data );
+		template<typename T> pod::Userdata* create( const T& data = T() );
 		template<typename T> T& get();
 		template<typename T> const T& get() const;
 	// 	Overloaded ops
