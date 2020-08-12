@@ -124,12 +124,12 @@ void ext::vulkan::Graphic::initializeDescriptorLayout( const std::vector<VkDescr
 }
 // Create pipeline
 void ext::vulkan::Graphic::initializePipeline( VkGraphicsPipelineCreateInfo pipelineCreateInfo ) {
-	ext::vulkan::mutex.lock();
+	// ext::vulkan::mutex.lock();
 
 	pipelineCreateInfo.subpass = this->subpass;
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, device->pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
 
-	ext::vulkan::mutex.unlock();
+	// ext::vulkan::mutex.unlock();
 }
 // Set descriptor pool
 void ext::vulkan::Graphic::initializeDescriptorPool( const std::vector<VkDescriptorPoolSize>& poolSizes, size_t length ) {

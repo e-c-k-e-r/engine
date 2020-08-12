@@ -24,7 +24,10 @@ namespace uf {
 			pod::Vector3 offset;
 		} m_settings;
 		struct {
-			pod::Matrix4 view, projection, model;
+			struct {
+				pod::Matrix4 view, projection;
+			} left, right;
+			pod::Matrix4 model;
 		} m_matrices;
 		pod::Transform<> m_transform;
 	public:
@@ -61,8 +64,8 @@ namespace uf {
 
 		void setTransform( const pod::Transform<>& transform );
 		
-		void setView( const pod::Matrix4& mat );
-		void setProjection( const pod::Matrix4& mat );
+		void setView( const pod::Matrix4& mat, size_t = -1 );
+		void setProjection( const pod::Matrix4& mat, size_t = -1 );
 		void setModel( const pod::Matrix4& mat );
 
 

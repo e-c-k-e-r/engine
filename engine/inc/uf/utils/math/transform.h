@@ -20,7 +20,7 @@
 namespace pod {
 	// Simple transforms (designed [to store in arrays] with minimal headaches)
 	template<typename T = pod::Math::num_t>
-	struct UF_API Transform {
+	struct /*UF_API*/ Transform {
 		typedef T type_t;
 
 		pod::Vector3t<T> position;
@@ -117,9 +117,9 @@ namespace uf {
 			if ( flatten ) {
 				uf::Matrix4t<T> translation, rotation, scale;
 				pod::Transform<T> flatten = uf::transform::flatten(transform, false);
-				flatten.orientation.w *= -1;
-				rotation = uf::quaternion::matrix(flatten.orientation);
+				// flatten.orientation.w *= -1;
 				scale = uf::matrix::scale( scale, transform.scale );
+				rotation = uf::quaternion::matrix(flatten.orientation);
 				translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
 				return translation * rotation * scale;
 			}
@@ -141,13 +141,11 @@ namespace uf {
 				return model;
 			}
 		}
-		template<typename T> pod::Matrix4t<T> /*UF_API*/ view( const pod::Transform<T>& transform, const pod::Vector3t<T>& offset = {0, 0, 0} ) {
-			uf::Matrix4t<T> translation, rotation;
-			pod::Transform<T> flatten = uf::transform::flatten(transform, true);
-			rotation = uf::quaternion::matrix( flatten.orientation );
-			flatten.position += uf::quaternion::rotate( flatten.orientation, offset );
-			translation = uf::matrix::translate( uf::matrix::identity(), -flatten.position );
-			return rotation * translation;
+		template<typename T> pod::Transform<T> fromMatrix( const pod::Matrix4t<T>& matrix ) {
+			pod::Transform<T> transform;
+			transform.position = uf::matrix::multiply<float>( matrix, pod::Vector3f{ 0, 0, 0 } );
+			transform.orientation = uf::quaternion::fromMatrix( matrix );
+			return transform = reorient( transform );
 		}
 	}
 }

@@ -34,7 +34,7 @@ namespace uf {
 		
 		void setParent();
 		void setParent( uf::Entity& parent );
-		void addChild( uf::Entity& child );
+		uf::Entity& addChild( uf::Entity& child );
 		void moveChild( uf::Entity& child );
 		void removeChild( uf::Entity& child );
 		uf::Entity::container_t& getChildren();

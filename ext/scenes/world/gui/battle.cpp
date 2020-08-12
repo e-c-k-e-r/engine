@@ -16,7 +16,7 @@
 #include <unordered_map>
 
 #include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/graphics/gui.h>
+#include <uf/ext/vulkan/graphics/base.h>
 
 #include <uf/utils/http/http.h>
 #include <uf/utils/audio/audio.h>
@@ -719,7 +719,7 @@ void ext::GuiBattle::tick() {
 			string += "\n" + text;
 		}
 		if ( stats.currentMember["skills"].size() > stats.skill.selectionsMax ) {
-			for ( int i = 0; i < i < stats.currentMember["skills"].size(); ++i ) {
+			for ( int i = 0; i < stats.currentMember["skills"].size(); ++i ) {
 				std::string id = stats.currentMember["skills"][i].asString();
 				std::string text = "";
 				if ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), id ) != stats.skill.invalids.end() ) continue;

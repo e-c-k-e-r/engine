@@ -10,7 +10,7 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/thread/thread.h>
-#include <uf/ext/vulkan/graphics/mesh.h>
+#include <uf/ext/vulkan/graphics/base.h>
 #include <uf/ext/vulkan/vulkan.h>
 
 #include <uf/utils/string/hash.h>

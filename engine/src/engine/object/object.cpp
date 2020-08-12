@@ -158,13 +158,16 @@ bool uf::Object::load( const uf::Serializer& json ) {
 			load = true;
 		}
 		if ( load ) {
-			float x = json["transform"]["position"][0].asFloat();
-			float y = json["transform"]["position"][1].asFloat();
-			float z = json["transform"]["position"][2].asFloat();
-			
-			transform.position = { x, y, z };
+			transform.position.x = json["transform"]["position"][0].asFloat();
+			transform.position.y = json["transform"]["position"][1].asFloat();
+			transform.position.z = json["transform"]["position"][2].asFloat();
 			transform.orientation = uf::quaternion::identity();
-			if ( json["transform"]["rotation"]["angle"].asFloat() != 0 ) {
+			if ( json["transform"]["orientation"].isArray() ) {
+				transform.orientation.x = json["transform"]["orientation"][0].asFloat();
+				transform.orientation.y = json["transform"]["orientation"][1].asFloat();
+				transform.orientation.z = json["transform"]["orientation"][2].asFloat();
+				transform.orientation.w = json["transform"]["orientation"][3].asFloat();
+			} else if ( json["transform"]["rotation"]["angle"].asFloat() != 0 ) {
 				transform.orientation = uf::quaternion::axisAngle( {
 					json["transform"]["rotation"]["axis"][0].asFloat(),
 					json["transform"]["rotation"]["axis"][1].asFloat(),

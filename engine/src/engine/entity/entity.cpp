@@ -20,9 +20,10 @@ void uf::Entity::setParent() {
 void uf::Entity::setParent( uf::Entity& parent ) {
 	this->m_parent = &parent == &uf::Entity::null ? NULL : &parent;
 }
-void uf::Entity::addChild( uf::Entity& child ) {
+uf::Entity& uf::Entity::addChild( uf::Entity& child ) {
 	this->m_children.push_back(&child);
 	child.setParent(*this);
+	return child;
 }
 void uf::Entity::removeChild( uf::Entity& child ) {
 	for ( uf::Entity::container_t::iterator it = this->m_children.begin(); it != this->m_children.end(); ++it ) {

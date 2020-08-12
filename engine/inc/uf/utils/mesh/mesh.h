@@ -8,13 +8,13 @@
 #include <unordered_map>
 
 namespace pod {
-	struct UF_API Vertex_3F2F3F32B {
+	struct /*UF_API*/ Vertex_3F2F3F32B {
 		alignas(16) pod::Vector3f position;
-		alignas(16) pod::Vector2f uv;
+		alignas(8) pod::Vector2f uv;
 		alignas(16) pod::Vector3f normal;
 		alignas(16) pod::Vector4t<uint8_t> color;
 
-		static std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F32B& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -25,12 +25,12 @@ namespace pod {
 		bool operator!=( const Vertex_3F2F3F32B& that ) const { return !(*this == that); }
 
 	};
-	struct UF_API Vertex_3F2F3F {
+	struct /*UF_API*/ Vertex_3F2F3F {
 		alignas(16) pod::Vector3f position;
-		alignas(16) pod::Vector2f uv;
+		alignas(8) pod::Vector2f uv;
 		alignas(16) pod::Vector3f normal;
 
-		static std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -40,11 +40,11 @@ namespace pod {
 		bool operator!=( const Vertex_3F2F3F& that ) const { return !(*this == that); }
 
 	};
-	struct UF_API Vertex_3F2F {
+	struct /*UF_API*/ Vertex_3F2F {
 		alignas(16) pod::Vector3f position;
-		alignas(16) pod::Vector2f uv;
+		alignas(8) pod::Vector2f uv;
 
-		static std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -52,10 +52,10 @@ namespace pod {
 		}
 		bool operator!=( const Vertex_3F2F& that ) const { return !(*this == that); }
 	};
-	struct UF_API Vertex_3F {
+	struct /*UF_API*/ Vertex_3F {
 		alignas(16) pod::Vector3f position;
 
-		static std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F& that ) const {
 			return 	this->position 	== that.position;
@@ -104,13 +104,13 @@ namespace std {
     };
 }
 namespace uf {
-	struct UF_API MeshBase {
+	struct /*UF_API*/ MeshBase {
 	public:
 		ext::vulkan::BaseGraphic graphic;
 		bool generated = false;
 	};
 	template<typename T>
-	class UF_API BaseMesh : public MeshBase {
+	class /*UF_API*/ BaseMesh : public MeshBase {
 	public:
 		typedef T vertex_t;
 		std::vector<vertex_t> vertices;
@@ -177,8 +177,8 @@ namespace uf {
 		struct {
 			alignas(16) pod::Vector4f offset;
 			alignas(16) pod::Vector4f color;
-			int32_t mode = 0;
-			float depth = 0.0f;
+			alignas(4) int32_t mode = 0;
+			alignas(4) float depth = 0.0f;
 		} gui;
 	};
 	struct StereoGuiMeshDescriptor {
@@ -188,29 +188,8 @@ namespace uf {
 		struct {
 			alignas(16) pod::Vector4f offset;
 			alignas(16) pod::Vector4f color;
-			int32_t mode = 0;
-			float depth = 0.0f;
+			alignas(4) int32_t mode = 0;
+			alignas(4) float depth = 0.0f;
 		} gui;
 	};
 }
-
-/*
-	struct {
-		struct {
-			alignas(16) pod::Matrix4f model;
-			alignas(16) pod::Matrix4f view;
-			alignas(16) pod::Matrix4f projection;
-		} matrices;
-	} uniforms;
-	struct {
-		struct {
-			alignas(16) pod::Matrix4f model;
-		} matrices;
-		struct {
-			alignas(16) pod::Vector4f offset;
-			alignas(16) pod::Vector4f color;
-			int32_t mode = 0;
-			float depth = 0.0f;
-		} gui;
-	} uniforms;
-*/

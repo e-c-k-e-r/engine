@@ -1,4 +1,5 @@
 #include <uf/utils/text/glyph.h>
+#include <iostream>
 
 uf::Glyph::~Glyph() {
 	delete[] this->m_buffer;
@@ -178,8 +179,21 @@ void uf::Glyph::generateSdf( uint8_t* buffer ) { if ( !buffer ) return;
 
 			lowest = std::min( lowest, dist );
 			highest = std::max( highest, dist );
-
-			buffer[y * this->m_size.x + x] = dist * this->getSpread() + 128;
+		
+			{
+				int value = dist * this->getSpread() + 128;
+				uint8_t uvalue = std::max( 0, std::min(255, value) );
+				buffer[y * this->m_size.x + x] = uvalue;
+			}
+		
+		/*
+			{
+				float value = 0.5f + 0.5f * ((float) dist / (float) this->getSpread());
+				value = std::max( 0.0f, std::min(1.0f, value) );
+				uint8_t uvalue = value * 256;
+				buffer[y * this->m_size.x + x] = uvalue;
+			}
+		*/
 		}
 	}
 }

@@ -10,6 +10,7 @@ namespace ext {
 			
 			VkFence fence;
 			VkCommandBuffer commandBuffer;
+			std::string target;
 
 			// RAII
 			virtual std::string getType() const;

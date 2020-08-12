@@ -5,7 +5,13 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/utils/math/collision.h>
+#include <uf/utils/thread/thread.h>
+
 #include <uf/ext/openvr/openvr.h>
+
+#include "../terrain/generator.h"
+#include "../world.h"
 
 namespace {
 	struct {
@@ -170,68 +176,184 @@ void ext::Hands::tick() {
 		transform.orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right, true );
 		transform.scale = { 1, 1, 1 };
 		// transform.reference = hands.right.getComponentPointer<pod::Transform<>>();
+	}
 
-		// test
-		struct {
-			pod::Vector3f origin;
-			pod::Vector3f direction;
-		} ray;
-		struct {
-			pod::Vector3f center;
-			pod::Vector3f normal;
-		} plane;
+	// raytrace pointer / hand collision
+	{
+		std::vector<uf::Object*> handPointers = { &::hands.left, &::hands.right };
+		for ( auto pointer : handPointers ) { auto& hand = *pointer;
+			std::string side = &hand == &hands.left ? "left" : "right";
+			if ( !ext::openvr::controllerActive( side == "left" ? vr::Controller_Hand::Hand_Left : vr::Controller_Hand::Hand_Right ) ) continue;
+			{
+				pod::Transform<>& transform = (side == "left" ? lines.left : lines.right).getComponent<pod::Transform<>>();
+				struct {
+					pod::Vector3f origin;
+					pod::Vector3f direction;
+				} ray;
+				struct {
+					pod::Vector3f center;
+					pod::Vector3f normal;
+				} plane;
 
-		transform = uf::transform::reorient( transform );
-		ray.origin = transform.position;
-		ray.direction = transform.forward;
+				transform = uf::transform::reorient( transform );
+				ray.origin = transform.position;
+				ray.direction = transform.forward;
 
-		pod::Transform<> gtransform;
-		pod::Matrix4f mvp;
-		uf::Serializer& cMetadata = controller.getComponent<uf::Serializer>();
-		if ( cMetadata["overlay"]["position"].isArray() ) 
-			gtransform.position = {
-				cMetadata["overlay"]["position"][0].asFloat(),
-				cMetadata["overlay"]["position"][1].asFloat(),
-				cMetadata["overlay"]["position"][2].asFloat(),
-			};
-		if ( cMetadata["overlay"]["scale"].isArray() ) 
-			gtransform.scale = {
-				cMetadata["overlay"]["scale"][0].asFloat(),
-				cMetadata["overlay"]["scale"][1].asFloat(),
-				cMetadata["overlay"]["scale"][2].asFloat(),
-			};
-		if ( cMetadata["overlay"]["orientation"].isArray() ) 
-			gtransform.orientation = {
-				cMetadata["overlay"]["orientation"][0].asFloat(),
-				cMetadata["overlay"]["orientation"][1].asFloat(),
-				cMetadata["overlay"]["orientation"][2].asFloat(),
-				cMetadata["overlay"]["orientation"][3].asFloat(),
-			};
+				pod::Transform<> gtransform;
+				pod::Matrix4f mvp;
+				uf::Serializer& cMetadata = controller.getComponent<uf::Serializer>();
+				if ( cMetadata["overlay"]["position"].isArray() ) 
+					gtransform.position = {
+						cMetadata["overlay"]["position"][0].asFloat(),
+						cMetadata["overlay"]["position"][1].asFloat(),
+						cMetadata["overlay"]["position"][2].asFloat(),
+					};
+				if ( cMetadata["overlay"]["scale"].isArray() ) 
+					gtransform.scale = {
+						cMetadata["overlay"]["scale"][0].asFloat(),
+						cMetadata["overlay"]["scale"][1].asFloat(),
+						cMetadata["overlay"]["scale"][2].asFloat(),
+					};
+				if ( cMetadata["overlay"]["orientation"].isArray() ) 
+					gtransform.orientation = {
+						cMetadata["overlay"]["orientation"][0].asFloat(),
+						cMetadata["overlay"]["orientation"][1].asFloat(),
+						cMetadata["overlay"]["orientation"][2].asFloat(),
+						cMetadata["overlay"]["orientation"][3].asFloat(),
+					};
 
-		plane.center = gtransform.position;
-		{
-			auto rotated = uf::quaternion::multiply( gtransform.orientation, pod::Vector4f{ 0, 0, 1, 1 } );
-			plane.normal.x = rotated.x;
-			plane.normal.y = rotated.y;
-			plane.normal.z = rotated.z;
-			plane.normal = uf::vector::normalize( plane.normal );
-		}
-
-		float denom = uf::vector::dot(plane.normal, ray.direction);
-		if (abs(denom) > 0.0001f) {
-			float t = uf::vector::dot( uf::vector::subtract(plane.center, ray.origin), plane.normal ) / denom;
-			if ( t >= 0 ) {
-				pod::Vector3f hit = ray.origin + (ray.direction * t);
-				pod::Vector3f translated = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity(), gtransform.scale ) ), uf::vector::subtract( plane.center, hit ) );
+				plane.center = gtransform.position;
 				{
-					auto& metadata = this->getComponent<uf::Serializer>();
-					cMetadata["overlay"]["cursor"]["type"] = "vr";
-					cMetadata["overlay"]["cursor"]["position"][0] =  translated.x;
-					cMetadata["overlay"]["cursor"]["position"][1] =  translated.y;
-					cMetadata["overlay"]["cursor"]["position"][2] =  translated.z;
-
-					metadata["hands"]["right"]["cursor"] = cMetadata["overlay"]["cursor"];
+					auto rotated = uf::quaternion::multiply( gtransform.orientation, pod::Vector4f{ 0, 0, 1, 1 } );
+					plane.normal.x = rotated.x;
+					plane.normal.y = rotated.y;
+					plane.normal.z = rotated.z;
+					plane.normal = uf::vector::normalize( plane.normal );
 				}
+
+				float denom = uf::vector::dot(plane.normal, ray.direction);
+				if (abs(denom) > 0.0001f) {
+					float t = uf::vector::dot( uf::vector::subtract(plane.center, ray.origin), plane.normal ) / denom;
+					if ( t >= 0 ) {
+						pod::Vector3f hit = ray.origin + (ray.direction * t);
+						pod::Vector3f translated = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity(), gtransform.scale ) ), uf::vector::subtract( plane.center, hit ) );
+						{
+							auto& metadata = this->getComponent<uf::Serializer>();
+							cMetadata["overlay"]["cursor"]["type"] = "vr";
+							cMetadata["overlay"]["cursor"]["position"][0] =  translated.x;
+							cMetadata["overlay"]["cursor"]["position"][1] =  translated.y;
+							cMetadata["overlay"]["cursor"]["position"][2] =  translated.z;
+
+							metadata["hands"][side]["cursor"] = cMetadata["overlay"]["cursor"];
+						}
+					}
+				}
+			}
+
+			#define DEBUG_MARKER() std::cout << side << ": " << __LINE__ << std::endl;
+
+			/* Collision against world */ {
+				bool local = true;
+				bool sort = false;
+			//	pod::Thread& thread = uf::thread::fetchWorker();
+				pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+				auto function = [&]() -> int {
+					if ( !controller.hasParent() ) return 0;
+					if ( controller.getParent().getName() != "Region" ) return 0;
+					
+					pod::Transform<> transform = hand.getComponent<pod::Transform<>>();
+					transform.position = uf::quaternion::rotate( controller.getComponent<pod::Transform<>>().orientation, transform.position );
+					transform.position += controller.getComponent<pod::Transform<>>().position;
+					transform.position += camera.getTransform().position;
+
+					uf::Entity& parent = controller.getParent();
+					ext::TerrainGenerator& generator = parent.getComponent<ext::TerrainGenerator>();
+					uf::Serializer& rMetadata = parent.getComponent<uf::Serializer>();
+					pod::Transform<>& rTransform = parent.getComponent<pod::Transform<>>();
+
+					pod::Vector3ui size; {
+						size.x = rMetadata["region"]["size"][0].asUInt();
+						size.y = rMetadata["region"]["size"][1].asUInt();
+						size.z = rMetadata["region"]["size"][2].asUInt();
+					}
+					pod::Vector3f voxelPosition = transform.position - rTransform.position;
+					voxelPosition.x += size.x / 2.0f;
+					voxelPosition.y += size.y / 2.0f + 1;
+					voxelPosition.z += size.z / 2.0f;	
+
+					uf::CollisionBody pCollider;
+					std::vector<pod::Vector3ui> positions = {
+						{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
+						{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
+						{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
+						{ voxelPosition.x, voxelPosition.y - 1, voxelPosition.z },
+						{ voxelPosition.x, voxelPosition.y + 1, voxelPosition.z },
+						{ voxelPosition.x, voxelPosition.y, voxelPosition.z - 1 },
+						{ voxelPosition.x, voxelPosition.y, voxelPosition.z + 1 },
+					};
+					
+					{
+						auto& metadata = this->getComponent<uf::Serializer>();
+						// bottom
+						uint16_t uid = generator.getVoxel( voxelPosition.x, voxelPosition.y, voxelPosition.z );
+						auto light = generator.getLight( voxelPosition.x, voxelPosition.y, voxelPosition.z );
+						metadata["hands"][side]["controller"]["color"][0] = ((light >> 12) & 0xF) / (float) (0xF);
+						metadata["hands"][side]["controller"]["color"][1] = ((light >>  8) & 0xF) / (float) (0xF);
+						metadata["hands"][side]["controller"]["color"][2] = ((light >>  4) & 0xF) / (float) (0xF);
+						metadata["hands"][side]["controller"]["color"][3] = ((light      ) & 0xF) / (float) (0xF);
+					}
+					
+					for ( auto& position : positions ) {
+						ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( generator.getVoxel( position.x, position.y, position.z ) );
+						pod::Vector3 offset = rTransform.position;
+						offset.x += position.x - (size.x / 2.0f);
+						offset.y += position.y - (size.y / 2.0f);
+						offset.z += position.z - (size.z / 2.0f);
+
+						if ( !voxel.solid() ) continue;
+
+						uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
+						pCollider.add(box);
+					}
+					
+					uf::CollisionBody& collider = hand.getComponent<uf::CollisionBody>(); {
+						collider.clear();
+						uf::Collider* box = new uf::AABBox( transform.position, {0.25, 0.25, 0.25} );
+						collider.add(box);
+					}
+					
+					pod::Physics& physics = hand.getComponent<pod::Physics>();
+					auto result = pCollider.intersects(collider);
+					uf::Collider::Manifold strongest;
+					strongest.depth = 0.001;					
+					for ( auto manifold : result ) {
+						if ( manifold.colliding && manifold.depth > 0 ) {
+							if ( strongest.depth < manifold.depth ) strongest = manifold;
+						}
+					}
+					if ( strongest.colliding ) {
+						
+						pod::Vector3 correction = uf::vector::normalize(strongest.normal) * -(strongest.depth * strongest.depth * 1.001);
+						{
+							float mag = uf::vector::magnitude( correction );
+							uf::Serializer payload;
+							payload["delay"] = 0.0f;
+							payload["duration"] = uf::physics::time::delta;
+							payload["frequency"] = 1.0f;
+							payload["amplitude"] = fmin(1.0f, 1000.0f * mag);
+							payload["side"] = side;
+							uf::hooks.call( "VR:Haptics." + side, payload );
+						}
+					/*
+						transform.position += correction;
+						if ( strongest.normal.x == 1 || strongest.normal.x == -1 ) physics.linear.velocity.x = 0;
+						if ( strongest.normal.y == 1 || strongest.normal.y == -1 ) physics.linear.velocity.y = 0;
+						if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
+					*/
+					}
+					return 0;
+				};
+				if ( local ) function(); else uf::thread::add( thread, function, true );
 			}
 		}
 	}

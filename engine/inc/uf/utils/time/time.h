@@ -54,7 +54,7 @@ namespace uf {
 		uf::Time<T> UF_API_CALL operator+( const uf::Time<T>& t );
 	};
 	template<typename T = spec::Time::time_t>
-	class UF_API Timer {
+	class /*UF_API*/ Timer {
 	public:
 		typedef T time_t;
 		typedef spec::Time::exp_t exp_t;

@@ -10,22 +10,57 @@ std::string ext::vulkan::RenderTargetRenderMode::getType() const {
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
+
+	this->target = this->name;
+
 	{
 		renderTarget.device = &device;
 		// attach targets
+/*
 		struct {
 			size_t color, depth;
 		} attachments;
 
 		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
 		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
+*/
+		struct {
+			size_t albedo, position, normals, depth, output;
+		} attachments;
 
+		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
+		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // position
+		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // normals
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
+		// Attach swapchain's image as output
+		if ( !false ) {
+			attachments.output = renderTarget.attach( device.formats.color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ); // depth
+		} else {
+			attachments.output = renderTarget.attachments.size();
+			RenderTarget::Attachment swapchainAttachment;
+			swapchainAttachment.format = device.formats.color;
+			swapchainAttachment.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			swapchainAttachment.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			swapchainAttachment.aliased = true;
+			renderTarget.attachments.push_back(swapchainAttachment);
+		}
 		// First pass: write to target
 		{
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.color },
+				{ attachments.albedo, attachments.position, attachments.normals },
 				{},
+				attachments.depth
+			);
+		}
+		// NOP
+		{
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+			//	{ attachments.output },
+			//	{ attachments.albedo, attachments.position, attachments.normals },
+				{ attachments.output },
+				{ attachments.albedo, attachments.position, attachments.normals },
 				attachments.depth
 			);
 		}
@@ -93,9 +128,16 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		{
-			std::vector<VkClearValue> clearValues; clearValues.resize(2);
-			clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-			clearValues[1].depthStencil = { 0.0f, 0 };
+			std::vector<VkClearValue> clearValues;
+			for ( auto& attachment : renderTarget.attachments ) {
+				VkClearValue clearValue;
+				if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+					clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+				} else if ( attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+					clearValue.depthStencil = { 0.0f, 0 };
+				}
+				clearValues.push_back(clearValue);
+			}
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -130,13 +172,11 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				for ( auto pass : passes ) {
-					ext::vulkan::currentPass = pass + ";TOTEXTURE";
-					for ( auto graphic : graphics ) {
-						if ( graphic->renderMode && graphic->renderMode->getName() != this->getName() ) continue;
-						graphic->createCommandBuffer(commands[i] );
-					}
+				for ( auto graphic : graphics ) {
+					if ( graphic->renderMode && graphic->renderMode->getName() != this->target ) continue;
+					graphic->createCommandBuffer(commands[i] );
 				}
+			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);
 		}
 

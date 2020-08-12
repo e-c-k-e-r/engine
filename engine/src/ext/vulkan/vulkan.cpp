@@ -21,7 +21,7 @@ bool ext::vulkan::rebuild = false;
 uint32_t ext::vulkan::currentBuffer = 0;
 std::vector<std::string> ext::vulkan::passes = { "BASE" };
 std::vector<uf::Scene*> ext::vulkan::scenes;
-std::string ext::vulkan::currentPass = "BASE";
+ext::vulkan::RenderMode* ext::vulkan::currentRenderMode = NULL;
 
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
@@ -151,9 +151,25 @@ void ext::vulkan::alignedFree(void* data) {
 	free(data);
 #endif
 }
+
+namespace {
+	bool hasRenderMode( const std::string& name, bool isName ) {
+		for ( auto& renderMode: ext::vulkan::renderModes ) {
+			if ( isName ) {
+				if ( renderMode->getName() == name ) return true;
+			} else {
+				if ( renderMode->getType() == name ) return true;
+			}
+		}
+		return false;
+	}
+}
+
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
 	mode->name = name;
 	renderModes.push_back(mode);
+	std::cout << "Adding RenderMode: " << name << ": " << mode->getType() << std::endl;
+	// reorder
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
@@ -172,8 +188,24 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 			}
 		}
 	}
-	// std::cout << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << std::endl;
+//	std::cout << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << std::endl;
 	return *target;
+}
+std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::string& name, bool isName ) {
+	std::vector<RenderMode*> targets;
+	for ( auto& renderMode: renderModes ) {
+		if ( ( isName && renderMode->getName() == name ) || renderMode->getType() == name ) {
+			targets.push_back(renderMode);
+//			std::cout << "Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")" << std::endl;
+		}
+	}
+	return targets;
+}
+void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
+	if ( !mode ) return;
+	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
+	mode->destroy();
+	if ( free ) delete mode;
 }
 
 void ext::vulkan::initialize( uint8_t stage ) {
@@ -256,7 +288,6 @@ std::ostream& operator<<(std::ostream& os, const ext::vulkan::Graphic& graphic) 
 	return os;
 }
 void ext::vulkan::tick() {
-	// check for changes in swapchain
 	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::resized ) ext::vulkan::rebuild = true;
 
@@ -276,47 +307,34 @@ void ext::vulkan::tick() {
 	}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
+		if ( !renderMode->device ) renderMode->initialize(ext::vulkan::device);
 		renderMode->tick();
 	}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
-		if ( ext::vulkan::rebuild ) {
+		if ( ext::vulkan::rebuild )
 			renderMode->createCommandBuffers();
-		}
 	}
 	ext::vulkan::rebuild = false;
 	ext::vulkan::resized = false;
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
-/*	
-	if ( ext::vulkan::graphics ) {
-		auto& graphics = *ext::vulkan::graphics;
-		for ( Graphic* graphic : graphics ) {
-			if ( !graphic || !graphic->process ) continue;
-				graphic->render();
-		}
+	if ( hasRenderMode("", true) ) {
+		RenderMode& primary = getRenderMode("", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
-*/
-/*
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Mesh>() ) return;
-		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
-		ext::vulkan::Graphic& graphic = mesh.graphic;
-		// if ( !graphic.process ) return;
-		if ( !graphic.initialized ) return;
-		graphic.render();
-	};
-	for ( uf::Scene* scene : ext::vulkan::scenes ) {
-		if ( !scene ) continue;
-		scene->process(filter);
-	}
-*/
+
 	ext::vulkan::mutex.lock();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
+		ext::vulkan::currentRenderMode = renderMode;
+		for ( uf::Scene* scene : ext::vulkan::scenes ) scene->render();
 		renderMode->render();
 	}
+
+	ext::vulkan::currentRenderMode = NULL;
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {

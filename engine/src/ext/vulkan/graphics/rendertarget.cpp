@@ -86,6 +86,49 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 	assert( buffers.size() >= 2 );
 	ext::vulkan::Graphic::initialize( device, renderMode );
 	// set descriptor layout
+	{
+		std::vector<VkDescriptorSetLayoutBinding> bindings = {
+			// Uniforms
+			ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				VK_SHADER_STAGE_VERTEX_BIT,
+				0
+			),
+			ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_SAMPLER,
+				VK_SHADER_STAGE_FRAGMENT_BIT,
+				1
+			),
+		};
+	/*
+		bindings.push_back(ext::vulkan::initializers::descriptorSetLayoutBinding(
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			bindings.size()
+		));
+	*/
+		for ( auto& attachment : renderTarget->attachments ) {
+			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+			bindings.push_back(ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				VK_SHADER_STAGE_FRAGMENT_BIT,
+				bindings.size()
+			));
+			//break;
+		}
+	/*
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& color : subpass.colors ) {
+			bindings.push_back(ext::vulkan::initializers::descriptorSetLayoutBinding(
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				VK_SHADER_STAGE_FRAGMENT_BIT,
+				bindings.size()
+			));
+		}
+	*/
+		initializeDescriptorLayout(bindings, sizeof(pushConstants));
+	}
+/*
 	initializeDescriptorLayout({
 		// Vertex shader
 		ext::vulkan::initializers::descriptorSetLayoutBinding(
@@ -98,8 +141,9 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			1
-		)
+		),
 	}, sizeof(pushConstants));
+*/
 	// Create sampler
 	{
 		VkSamplerCreateInfo samplerInfo = {};
@@ -153,8 +197,8 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			VK_POLYGON_MODE_FILL,
-		//	VK_CULL_MODE_BACK_BIT,
-			VK_CULL_MODE_NONE,
+			VK_CULL_MODE_BACK_BIT,
+		//	VK_CULL_MODE_NONE,
 			ext::vulkan::Graphic::DEFAULT_WINDING_ORDER,
 			0
 		);
@@ -176,9 +220,10 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 				blendAttachmentStates.push_back(blendAttachmentState);
 			}
 		}
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
 		//	renderMode.getType() == "Swapchain" ? 1 : blendAttachmentStates.size(),
-			1,
+			subpass.colors.size(),
 			blendAttachmentStates.data()
 		);
 	/*
@@ -233,8 +278,8 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
         colorBlendState.blendConstants[3] = 0.0f;
     */
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-			VK_FALSE,//VK_TRUE,
-			VK_FALSE,//VK_TRUE,
+			VK_TRUE,
+			VK_TRUE,
 			//VK_COMPARE_OP_LESS_OR_EQUAL
 			VK_COMPARE_OP_GREATER_OR_EQUAL
 		);
@@ -307,6 +352,68 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 
 		initializePipeline(pipelineCreateInfo);
 	}
+
+	{
+		VkDescriptorImageInfo samplerDescriptor; samplerDescriptor.sampler = sampler;
+		std::vector<VkDescriptorImageInfo> colorDescriptors;
+	/*
+		colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+			renderTarget->attachments[0].view,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		));
+	*/
+	//	auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& attachment : renderTarget->attachments ) {
+			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+			colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+				attachment.view,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			));
+			//break;
+		}
+	/*
+		auto& subpass = renderMode.renderTarget.passes[this->subpass];
+		for ( auto& color : subpass.colors ) {
+			colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+				renderTarget->attachments[color].view,
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			));
+		}
+	*/
+		// Set descriptor pool
+		initializeDescriptorPool({
+			ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
+			ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLER, 1),
+			ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, colorDescriptors.size()),
+		}, 1);
+		// Set descriptor set
+		std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+			// Binding 0 : Projection/View matrix uniform buffer			
+			ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				0,
+				&(buffers.at(0).descriptor)
+			),
+			// Binding 1 : Sampler
+			ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_SAMPLER,
+				1,
+				&samplerDescriptor
+			)
+		};
+		for ( size_t i = 0; i < colorDescriptors.size(); ++i ) {
+			writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+				descriptorSet,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				i + 2,
+				&colorDescriptors[i]
+			));
+		}
+		initializeDescriptorSet(writeDescriptorSets);
+	}
+/*
 	// Set descriptor pool
 	initializeDescriptorPool({
 		ext::vulkan::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
@@ -338,6 +445,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			)
 		});
 	}
+*/
 }
 void ext::vulkan::RenderTargetGraphic::destroy() {
 	vkDestroySampler( *device, sampler, nullptr );

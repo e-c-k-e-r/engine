@@ -16,7 +16,7 @@ UF_LIBS 				=
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp -lopenal32 -lalut -lvorbis -lvorbisfile -logg -lfreetype
 EXT_LIBS 				=
 #FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW
-FLAGS 					= -Og -std=c++20 -Wall -g -DUF_DISABLE_ALIGNAS -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
+FLAGS 					= -std=c++20 -Wno-c++11-narrowing -Wno-narrowing -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
 #-march=native
 LIB_NAME 				= uf
 EXT_LIB_NAME 			= ext
@@ -71,6 +71,10 @@ TARGET_WIN64 			= $(BIN_DIR)/$(TARGET_NAME).exe
 SRCS_SHADERS 			= $(wildcard bin/data/shaders/*.glsl)
 TARGET_SHADERS 			= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
+# clang-win64: WIN64_CC=clang++
+#	make
+# gcc-win64: WIN64_CC=g++
+#	make
 win64: $(EX_WIN64_DLL) $(EXT_EX_WIN64_DLL) $(TARGET_WIN64) $(TARGET_SHADERS)
 
 rm-exe64:

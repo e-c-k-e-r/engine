@@ -10,7 +10,7 @@
 #include <uf/utils/math/transform.h>
 
 std::string ext::vulkan::DeferredRenderMode::getType() const {
-	return "Defered";
+	return "Deferred";
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
@@ -68,19 +68,27 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	// update layer rendertargets descriptor sets
 	{
-		std::vector<RenderMode*> layers = { &ext::vulkan::getRenderMode("Gui") };
+		std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false); //{ &ext::vulkan::getRenderMode("Gui") };
 		for ( auto layer : layers ) {
-			if ( layer->getName() == "Gui" ) {
-				RenderTargetRenderMode* guiLayer = (RenderTargetRenderMode*) layer;
-				auto& blitter = guiLayer->blitter;
-				blitter.subpass = 1;
-				blitter.initialize( device, *this );
-			}
+			RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
+			auto& blitter = rtLayer->blitter;
+			// blitter.subpass = 1;
+			blitter.initialize( device, *this );
 		}
 	}
 }
 void ext::vulkan::DeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
+	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
+	for ( auto layer : layers ) {
+		RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
+		auto& blitter = rtLayer->blitter;
+		// update descriptor set
+		if ( !blitter.initialized ) {
+			// blitter.subpass = 1;
+			if ( blitter.renderTarget ) blitter.initialize( *device, *this );
+		}
+	}
 	if ( ext::vulkan::resized ) {
 		// destroy if exist
 		{
@@ -117,37 +125,49 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			blitter.initializeDescriptorSet( writeDescriptorSets );
 		}
 		// update layer rendertargets descriptor sets
-		std::vector<RenderMode*> layers = { &ext::vulkan::getRenderMode("Gui") };
 		for ( auto layer : layers ) {
-			if ( layer->getName() == "Gui" ) {
-				RenderTargetRenderMode* guiLayer = (RenderTargetRenderMode*) layer;
-				auto& blitter = guiLayer->blitter;
-				auto& renderTarget = guiLayer->renderTarget;
-				// update descriptor set
-				if ( blitter.initialized ) {
-					VkDescriptorImageInfo renderTargetDescription = ext::vulkan::initializers::descriptorImageInfo( 
-						renderTarget.attachments[0].view,
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						blitter.sampler
-					);
-					std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-						// Binding 0 : Projection/View matrix uniform buffer			
-						ext::vulkan::initializers::writeDescriptorSet(
-							blitter.descriptorSet,
-							VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-							0,
-							&(blitter.buffers.at(0).descriptor)
-						),
-						// Binding 1 : Albedo input attachment
-						ext::vulkan::initializers::writeDescriptorSet(
-							blitter.descriptorSet,
-							VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-							1,
-							&renderTargetDescription
-						),
-					};
-					vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
+			RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
+			auto& blitter = rtLayer->blitter;
+			auto& renderTarget = rtLayer->renderTarget;
+			// update descriptor set
+			if ( blitter.initialized ) {
+				renderTarget.initialize( *renderTarget.device );
+				VkDescriptorImageInfo samplerDescriptor; samplerDescriptor.sampler = blitter.sampler;
+				std::vector<VkDescriptorImageInfo> colorDescriptors;
+				for ( auto& attachment : renderTarget.attachments ) {
+					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+					colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+						attachment.view,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+					));
 				}
+			
+				// Set descriptor set
+				std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+					// Binding 0 : Projection/View matrix uniform buffer			
+					ext::vulkan::initializers::writeDescriptorSet(
+						blitter.descriptorSet,
+						VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+						0,
+						&(blitter.buffers.at(0).descriptor)
+					),
+					// Binding 1 : Sampler
+					ext::vulkan::initializers::writeDescriptorSet(
+						blitter.descriptorSet,
+						VK_DESCRIPTOR_TYPE_SAMPLER,
+						1,
+						&samplerDescriptor
+					),
+				};
+				for ( size_t i = 0; i < colorDescriptors.size(); ++i ) {
+					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+						blitter.descriptorSet,
+						VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+						i + 2,
+						&colorDescriptors[i]
+					));
+				}
+				vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
 			}
 		}
 	}
@@ -175,7 +195,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		
-	std::vector<RenderMode*> layers = { &ext::vulkan::getRenderMode("Gui") };
+	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
 
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
@@ -227,24 +247,33 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			for ( auto layer : layers ) {
 				if ( layer->getName() == "" ) continue;
 				RenderTarget& renderTarget = layer->renderTarget;
-				imageMemoryBarrier.image = renderTarget.attachments[0].image;
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.oldLayout = renderTarget.attachments[0].layout;
-				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-				renderTarget.attachments[0].layout = imageMemoryBarrier.newLayout;
+				for ( auto& attachment : renderTarget.attachments ) {
+					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+					imageMemoryBarrier.image = attachment.image;
+					imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+					imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+					imageMemoryBarrier.oldLayout = attachment.layout;
+					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+					attachment.layout = imageMemoryBarrier.newLayout;
+				}
 			}
 		
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				for ( auto pass : passes ) {
-					ext::vulkan::currentPass = pass + ";DEFERRED";
-					for ( auto graphic : graphics ) {
-						// only draw graphics that are assigned to this type of render mode
-						if ( graphic->renderMode->getName() != this->getName() ) continue;
-						graphic->createCommandBuffer(commands[i] );
+				for ( auto graphic : graphics ) {
+					// only draw graphics that are assigned to this type of render mode
+					if ( graphic->renderMode->getName() != this->getName() ) continue;
+					graphic->createCommandBuffer(commands[i] );
+				}
+				// render gui layer
+				{
+					for ( auto layer : layers ) {
+						RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
+						if ( !rtLayer->blitter.initialized ) continue;
+						if ( rtLayer->blitter.subpass != 0 ) continue;
+						rtLayer->blitter.createCommandBuffer(commands[i]);
 					}
 				}
 			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
@@ -252,10 +281,10 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				// render gui layer
 				{
 					for ( auto layer : layers ) {
-						if ( layer->getName() == "Gui" ) {
-							RenderTargetRenderMode* guiLayer = (RenderTargetRenderMode*) layer;
-							guiLayer->blitter.createCommandBuffer(commands[i]);
-						}
+						RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
+						if ( !rtLayer->blitter.initialized ) continue;
+						if ( rtLayer->blitter.subpass != 1 ) continue;
+						rtLayer->blitter.createCommandBuffer(commands[i]);
 					}
 				}
 			vkCmdEndRenderPass(commands[i]);
@@ -263,13 +292,16 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			for ( auto layer : layers ) {
 				if ( layer->getName() == "" ) continue;
 				RenderTarget& renderTarget = layer->renderTarget;
-				imageMemoryBarrier.image = renderTarget.attachments[0].image;
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.oldLayout = renderTarget.attachments[0].layout;
-				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-				renderTarget.attachments[0].layout = imageMemoryBarrier.newLayout;
+				for ( auto& attachment : renderTarget.attachments ) {
+					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+					imageMemoryBarrier.image = attachment.image;
+					imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+					imageMemoryBarrier.oldLayout = attachment.layout;
+					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+					attachment.layout = imageMemoryBarrier.newLayout;
+				}
 			}
 		}
 

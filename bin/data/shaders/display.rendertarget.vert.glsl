@@ -15,7 +15,6 @@ layout (location = 2) out flat Cursor outCursor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
-  vec2 cursor;
 } PushConstant;
 
 out gl_PerVertex {

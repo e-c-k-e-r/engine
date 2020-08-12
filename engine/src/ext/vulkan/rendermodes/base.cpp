@@ -75,11 +75,8 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 			scissor.offset.y = 0;
 			vkCmdSetScissor(commands[i], 0, 1, &scissor);
 
-			for ( auto pass : passes ) {
-				ext::vulkan::currentPass = pass;
-				for ( auto graphic : graphics ) {
-					graphic->createCommandBuffer(commands[i] );
-				}
+			for ( auto graphic : graphics ) {
+				graphic->createCommandBuffer(commands[i] );
 			}
 		vkCmdEndRenderPass(commands[i]);
 

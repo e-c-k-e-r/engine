@@ -147,5 +147,6 @@ void ext::vulkan::RenderMode::destroy() {
 	}
 }
 void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
+	if ( !device ) return;
 	VK_CHECK_RESULT(vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout ));
 }

@@ -13,8 +13,8 @@ namespace ext {
 	namespace vulkan {
 		struct UF_API DeferredRenderingGraphic : public Graphic {
 			struct Vertex {
-				alignas(16) pod::Vector2f position;
-				alignas(16) pod::Vector2f uv;
+				pod::Vector2f position;
+				pod::Vector2f uv;
 			};
 
 			static size_t maxLights;

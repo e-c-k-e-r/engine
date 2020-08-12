@@ -1,6 +1,6 @@
 namespace pod {
 	template<typename T>
-	struct UF_API Vector<T,1> {			
+	struct /*UF_API*/ Vector<T,1> {			
 	// 	XY access
 		T x;
 	// 	n-dimensional/unspecialized vector access
@@ -36,7 +36,7 @@ namespace pod {
 		inline bool operator>=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
 	};
 	template<typename T>
-	struct UF_API Vector<T,2> {			
+	struct /*UF_API*/ Vector<T,2> {			
 	// 	XY access
 		T x;
 		T y;
@@ -73,7 +73,7 @@ namespace pod {
 		inline bool operator>=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
 	};
 	template<typename T>
-	struct UF_API Vector<T,3> {
+	struct /*UF_API*/ Vector<T,3> {
 	// 	XYZ access
 		T x;
 		T y;
@@ -111,7 +111,7 @@ namespace pod {
 		inline bool operator>=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
 	};
 	template<typename T>
-	struct UF_API Vector<T,4> {
+	struct /*UF_API*/ Vector<T,4> {
 	// 	XYZW access
 		T x;
 		T y;
@@ -519,7 +519,7 @@ inline bool pod::Vector<T,4>::operator>=( const pod::Vector<T,4>& vector ) const
 //
 namespace uf {
 	template<typename T>
-	struct UF_API Vector<T,1> {
+	struct /*UF_API*/ Vector<T,1> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,1> pod_t;
@@ -609,7 +609,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,2> {
+	struct /*UF_API*/ Vector<T,2> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,2> pod_t;
@@ -700,7 +700,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,3> {
+	struct /*UF_API*/ Vector<T,3> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,3> pod_t;
@@ -796,7 +796,7 @@ namespace uf {
 		inline operator const pod_t&() const { return this->m_pod; }
 	};
 	template<typename T>
-	struct UF_API Vector<T,4> {
+	struct /*UF_API*/ Vector<T,4> {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,4> pod_t;

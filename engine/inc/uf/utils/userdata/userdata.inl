@@ -3,9 +3,22 @@
 // Allows copy via assignment!
 template<typename T>
 pod::Userdata* uf::userdata::create( const T& data ) {
+	void* pointer = operator new( sizeof(pod::Userdata) + sizeof(uint8_t) * (sizeof data) );
+	pod::Userdata* userdata = (pod::Userdata*) pointer;
+	userdata->len = sizeof data;
+	//memcpy( userdata->data, &data, sizeof data );
+	//new (userdata->data) T(data);
+	union {
+		uint8_t* from;
+		T* to;
+	} static kludge;
+	kludge.from = userdata->data;
+	new (kludge.to) T(data);
+	return userdata;
+/*
 	std::size_t len = sizeof data; 													// get size of data
 //	void* pointer = malloc( sizeof(pod::Userdata) + sizeof(uint8_t) * len ); 		// allocate data for the userdata struct, and then some
-	void* pointer = operator new( sizeof(pod::Userdata) + sizeof(uint8_t) * len ); 	// allocate data for the userdata struct, and then some
+	void* pointer = operator new( sizeof(pod::Userdata) + sizeof(uint8_t) * (len) ); 	// allocate data for the userdata struct, and then some
 	pod::Userdata* userdata = (pod::Userdata*) pointer;
 	userdata->len = len; 															// don't forget to store its data's length!
 	// Allows warningless conversion from placeholder storage type to userdata type
@@ -16,6 +29,7 @@ pod::Userdata* uf::userdata::create( const T& data ) {
 	kludge.from = userdata->data;
 	new (kludge.to) T(data); 														// copy via placement new w/ copy constructor
 	return userdata; 																// return address of userdata
+*/
 }
 // Easy way to get the userdata as a reference
 #include <stdexcept>

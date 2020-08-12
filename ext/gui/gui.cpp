@@ -18,7 +18,7 @@
 #include <codecvt>
 
 #include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/graphics/gui.h>
+#include <uf/ext/vulkan/graphics/base.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/openvr/openvr.h>
 
@@ -62,14 +62,14 @@ namespace {
 		struct {
 			alignas(16) pod::Vector4f offset;
 			alignas(16) pod::Vector4f color;
-			int32_t mode = 0;
-			float depth = 0.0f;
-			int32_t sdf = false;
-			int32_t shadowbox = false;
+			alignas(4) int32_t mode = 0;
+			alignas(4) float depth = 0.0f;
+			alignas(4) int32_t sdf = false;
+			alignas(4) int32_t shadowbox = false;
 			alignas(16) pod::Vector4f stroke;
-			float weight;
-			int32_t spread;
-			float scale;
+			alignas(4) float weight;
+			alignas(4) int32_t spread;
+			alignas(4) float scale;
 		} gui;
 	};
 

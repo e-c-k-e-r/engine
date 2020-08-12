@@ -61,6 +61,7 @@ namespace uf {
 	// 	Writes to first value
 	//	template<typename T=pod::Matrix4> pod::Matrix<typename T::type_t, C, C>& /*UF_API*/ multiply( T& left, const T& right );								// 	Multiplies two matrices of same type and size together
 		template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> multiply( T& left, const U& right );								// 	Multiplies two matrices of same type and size together
+		template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> multiply( T& left, const T& right );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ invert( T& matrix );												// 	Flip sign of all components
 	// 	Complex arithmetic
 		template<typename T=pod::Matrix4> T /*UF_API*/ translate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector );
@@ -77,7 +78,7 @@ namespace uf {
 
 namespace uf {
 	template<typename T = pod::Math::num_t, std::size_t R = 4, std::size_t C = R>
-	class UF_API Matrix {
+	class /*UF_API*/ Matrix {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Matrix<T,R,C> pod_t;

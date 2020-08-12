@@ -3,7 +3,6 @@
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec3 inNormal;
-layout (location = 3) in uint inColor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;

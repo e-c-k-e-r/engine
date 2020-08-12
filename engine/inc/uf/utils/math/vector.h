@@ -53,7 +53,7 @@ namespace pod {
 */
 	// Simple vectors (designed [to store in arrays] with minimal headaches)
 	template<typename T = pod::Math::num_t, std::size_t N = 3>
-	struct UF_API Vector {
+	struct /*UF_API*/ Vector {
 	// 	n-dimensional/unspecialized vector access
 		T components[N];
 	// 	POD information
@@ -174,7 +174,7 @@ namespace uf {
 namespace uf {
 	// Provides operations for POD vector
 	template<typename T = pod::Math::num_t, std::size_t N = 3> 
-	class UF_API Vector {
+	class /*UF_API*/ Vector {
 	public:
 	// 	Easily access POD's type
 		typedef pod::Vector<T,N> pod_t;

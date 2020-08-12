@@ -50,7 +50,7 @@ namespace ext {
 		extern UF_API bool resized;
 		extern UF_API uint32_t currentBuffer;
 
-		extern UF_API std::string currentPass;
+		extern UF_API RenderMode* currentRenderMode;
 		extern UF_API std::vector<std::string> passes;
 	//	extern UF_API std::vector<Graphic*>* graphics;
 		extern UF_API std::vector<RenderMode*> renderModes;
@@ -58,6 +58,8 @@ namespace ext {
 
 		RenderMode& UF_API addRenderMode( RenderMode*, const std::string& = "" );
 		RenderMode& UF_API getRenderMode( const std::string&, bool = true );
+		std::vector<RenderMode*> UF_API getRenderModes( const std::string&, bool = true );
+		void UF_API removeRenderMode( RenderMode*, bool = true );
 
 		void UF_API initialize( uint8_t = 0 );
 		void UF_API tick();

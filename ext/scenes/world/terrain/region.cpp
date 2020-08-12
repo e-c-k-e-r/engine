@@ -290,11 +290,8 @@ void ext::Region::render( ) {
 	/* Update uniforms */ if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
 		auto& world = this->getRootParent<uf::Scene>();
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
-		auto& camera = world.getController()->getComponent<uf::Camera>();
-		
+		auto& camera = world.getController()->getComponent<uf::Camera>();		
 		if ( !mesh.generated ) return;
-		camera.updateView();
-
 		auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::matrix::identity();
 		for ( std::size_t i = 0; i < 2; ++i ) {

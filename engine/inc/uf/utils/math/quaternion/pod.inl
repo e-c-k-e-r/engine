@@ -33,14 +33,16 @@ template<typename T> T uf::quaternion::multiply( const T& left, const T& right )
 	return q;
 }
 // 	Multiplies this quaternion by a scalar
+/*
 template<typename T> T uf::quaternion::multiply( const T& quaternion, const typename T::type_t& scalar ) {
 	return uf::vector::multiply( quaternion, scalar );
 }
+*/
 // 	Flip sign of all components
 template<typename T> T uf::quaternion::negate( const T& quaternion ) {
 	return uf::quaternion::inverse(quaternion);
 }
-template<typename T = pod::Math::num_t> pod::Quaternion<T> uf::quaternion::identity() {
+template<typename T> pod::Quaternion<T> uf::quaternion::identity() {
 	return pod::Quaternion<T>{ 0, 0, 0, 1 };
 }
 // 	Writes to first value
@@ -238,4 +240,50 @@ template<typename T> T& uf::quaternion::inverse( T& quaternion ) {
 		.z = -quaternion.z,	
 		.w =  quaternion.w	
 	};
+}
+template<typename T> pod::Quaternion<T> uf::quaternion::fromMatrix( const pod::Matrix4t<T>& m ) {
+	pod::Quaternion<T> q;
+/*
+	T fourXSquaredMinus1 = m[(4*0)+0] - m[(4*1)+1] - m[(4*2)+2];
+	T fourYSquaredMinus1 = m[(4*1)+1] - m[(4*0)+0] - m[(4*2)+2];
+	T fourZSquaredMinus1 = m[(4*2)+2] - m[(4*0)+0] - m[(4*1)+1];
+	T fourWSquaredMinus1 = m[(4*0)+0] + m[(4*1)+1] + m[(4*2)+2];
+
+	int biggestIndex = 0;
+	T fourBiggestSquaredMinus1 = fourWSquaredMinus1;
+	if(fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
+		fourBiggestSquaredMinus1 = fourXSquaredMinus1;
+		biggestIndex = 1;
+	}
+	if(fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
+		fourBiggestSquaredMinus1 = fourYSquaredMinus1;
+		biggestIndex = 2;
+	}
+	if(fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
+		fourBiggestSquaredMinus1 = fourZSquaredMinus1;
+		biggestIndex = 3;
+	}
+
+	T biggestVal = sqrt(fourBiggestSquaredMinus1 + static_cast<T>(1)) * static_cast<T>(0.5);
+	T mult = static_cast<T>(0.25) / biggestVal;
+
+	switch(biggestIndex) {
+		case 0: return pod::Quaternion<T>{ biggestVal, (m[(4*1)+2] - m[(4*2)+1]) * mult, (m[(4*2)+0] - m[(4*0)+2]) * mult, (m[(4*0)+1] - m[(4*1)+0]) * mult };
+		case 1: return pod::Quaternion<T>{ (m[(4*1)+2] - m[(4*2)+1]) * mult, biggestVal, (m[(4*0)+1] + m[(4*1)+0]) * mult, (m[(4*2)+0] + m[(4*0)+2]) * mult };
+		case 2: return pod::Quaternion<T>{ (m[(4*2)+0] - m[(4*0)+2]) * mult, (m[(4*0)+1] + m[(4*1)+0]) * mult, biggestVal, (m[(4*1)+2] + m[(4*2)+1]) * mult };
+		case 3: return pod::Quaternion<T>{ (m[(4*0)+1] - m[(4*1)+0]) * mult, (m[(4*2)+0] + m[(4*0)+2]) * mult, (m[(4*1)+2] + m[(4*2)+1]) * mult, biggestVal };
+		default: // Silence a -Wswitch-default warning in GCC. Should never actually get here. Assert is just for sanity.
+			return pod::Quaternion<T>{ 1, 0, 0, 0 };
+	}
+*/
+
+	q.w = sqrt(fmax(0, 1 + m[(4*0)+0] + m[(4*1)+1] + m[(4*2)+2])) / 2;
+	q.x = sqrt(fmax(0, 1 + m[(4*0)+0] - m[(4*1)+1] - m[(4*2)+2])) / 2;
+	q.y = sqrt(fmax(0, 1 - m[(4*0)+0] + m[(4*1)+1] - m[(4*2)+2])) / 2;
+	q.z = sqrt(fmax(0, 1 - m[(4*0)+0] - m[(4*1)+1] + m[(4*2)+2])) / 2;
+
+	q.x = copysign(q.x, m[(4*1)+2] - m[(4*2)+1]);
+	q.y = copysign(q.y, m[(4*2)+0] - m[(4*0)+2]);
+	q.z = copysign(q.z, m[(4*0)+1] - m[(4*1)+0]);
+	return q;
 }

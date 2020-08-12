@@ -18,8 +18,8 @@ uf::Camera::Camera() :
 	this->m_settings.offset = {0, 0, 0};
 	this->m_settings.mode = 1;
 	
-	this->m_matrices.view = uf::matrix::identity();
-	this->m_matrices.projection = uf::matrix::identity();
+	this->setView(uf::matrix::identity());
+	this->setProjection(uf::matrix::identity());
 	
 	this->m_transform = uf::transform::initialize(this->m_transform);
 	this->m_transform.position = {0,1.725,0};
@@ -61,32 +61,84 @@ const pod::Transform<>& uf::Camera::getTransform() const {
 }
 
 pod::Matrix4& uf::Camera::getView( size_t eye ) {
+	switch ( eye ) {
+		case 0:
+			return this->m_matrices.left.view;
+		break;
+		case 1:
+			return this->m_matrices.right.view;
+		break;
+		default:
+			return this->m_matrices.left.view;
+		break;
+	}
+/*
 	if ( ext::openvr::context ) {
 		return eye == 0 ? ::eye.left : ::eye.right;
 	}
 	return this->m_matrices.view;
+*/
 }
 pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
+	switch ( eye ) {
+		case 0:
+			return this->m_matrices.left.projection;
+		break;
+		case 1:
+			return this->m_matrices.right.projection;
+		break;
+		default:
+			return this->m_matrices.left.projection;
+		break;
+	}
+/*
 	if ( ext::openvr::context ) {
 		return eye == 0 ? ::projection.left : ::projection.right;
 	}
 	return this->m_matrices.projection;
+*/
 }
 pod::Matrix4& uf::Camera::getModel() {
 	return this->m_matrices.model;
 }
 
 const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
+	switch ( eye ) {
+		case 0:
+			return this->m_matrices.left.view;
+		break;
+		case 1:
+			return this->m_matrices.right.view;
+		break;
+		default:
+			return this->m_matrices.left.view;
+		break;
+	}
+/*
 	if ( ext::openvr::context ) {
 		return eye == 0 ? ::eye.left : ::eye.right;
 	}
 	return this->m_matrices.view;
+*/
 }
 const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
+	switch ( eye ) {
+		case 0:
+			return this->m_matrices.left.projection;
+		break;
+		case 1:
+			return this->m_matrices.right.projection;
+		break;
+		default:
+			return this->m_matrices.left.projection;
+		break;
+	}
+/*
 	if ( ext::openvr::context ) {
 		return eye == 0 ? ::projection.left : ::projection.right;
 	}
 	return this->m_matrices.projection;
+*/
 }
 const pod::Matrix4& uf::Camera::getModel() const {
 	return this->m_matrices.model;
@@ -124,11 +176,33 @@ void uf::Camera::setTransform( const pod::Transform<>& transform ) {
 	this->m_transform = transform;
 	this->update(true);
 }
-void uf::Camera::setView( const pod::Matrix4& mat ) {
-	this->m_matrices.view = mat;
+void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
+	switch ( i ) {
+		case 0:
+			this->m_matrices.left.view = mat;
+		break;
+		case 1:
+			this->m_matrices.right.view = mat;
+		break;
+		default:
+			this->setView( mat, 0 );
+			this->setView( mat, 1 );
+		break;
+	}
 }
-void uf::Camera::setProjection( const pod::Matrix4& mat ) {
-	this->m_matrices.projection = mat;
+void uf::Camera::setProjection( const pod::Matrix4& mat, size_t i ) {
+	switch ( i ) {
+		case 0:
+			this->m_matrices.left.projection = mat;
+		break;
+		case 1:
+			this->m_matrices.right.projection = mat;
+		break;
+		default:
+			this->setProjection( mat, 0 );
+			this->setProjection( mat, 1 );
+		break;
+	}
 }
 void uf::Camera::setModel( const pod::Matrix4& mat ) {
 	this->m_matrices.model = mat;
@@ -179,10 +253,10 @@ void uf::Camera::updateView() {
 		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), -position );
 		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
 
-		this->m_matrices.view = rotation * translation; //uf::matrix::inverse( translation * rotation );
+		pod::Matrix4t<> view = rotation * translation; //uf::matrix::inverse( translation * rotation );
 		transform.orientation = ext::openvr::hmdQuaternion();
-		::eye.left = ext::openvr::hmdViewMatrix(vr::Eye_Left, this->m_matrices.view);
-		::eye.right = ext::openvr::hmdViewMatrix(vr::Eye_Right, this->m_matrices.view);
+		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
+		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );
 
 	//	::eye.left = ext::openvr::hmdEyePositionMatrix(vr::Eye_Left) * ext::openvr::hmdHeadPositionMatrix() * this->m_matrices.view;
 	//	::eye.right = ext::openvr::hmdEyePositionMatrix(vr::Eye_Right) * ext::openvr::hmdHeadPositionMatrix() * this->m_matrices.view;
@@ -242,37 +316,41 @@ void uf::Camera::updateView() {
 	}
 }
 void uf::Camera::updateProjection() {
+	if ( ext::openvr::context ) {
+	//	::projection.left = ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
+	//	::projection.right = ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
+		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 0 );
+		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 1 );
+		return;
+	}
+
 	if ( this->m_settings.mode < 0 ) {
 		// Maintain aspect ratio
 		if ( this->m_settings.ortho.lr.x == this->m_settings.ortho.bt.x && this->m_settings.ortho.lr.y == this->m_settings.ortho.bt.y && this->m_settings.ortho.bt.x == -this->m_settings.ortho.bt.y ) {
 			pod::Math::num_t raidou = this->m_settings.perspective.size.x / this->m_settings.perspective.size.y;
 			pod::Math::num_t range = this->m_settings.ortho.bt.y - this->m_settings.ortho.bt.x;
 			pod::Math::num_t correction = raidou * range / 2.0;
-			this->m_matrices.projection = uf::matrix::ortho(
+			this->setProjection(uf::matrix::ortho(
 				-correction, correction,
 				this->m_settings.ortho.bt.x, this->m_settings.ortho.bt.y, 
 				this->m_settings.ortho.nf.x, this->m_settings.ortho.nf.y
-			);
+			));
 			return;
 		}
-		this->m_matrices.projection = uf::matrix::ortho(
+		this->setProjection(uf::matrix::ortho(
 			this->m_settings.ortho.lr.x, this->m_settings.ortho.lr.y, 
 			this->m_settings.ortho.bt.x, this->m_settings.ortho.bt.y, 
 			this->m_settings.ortho.nf.x, this->m_settings.ortho.nf.y
-		);
+		));
 		return;
 	}
 	float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);
 	float raidou = (float) this->m_settings.perspective.size.x / (float) this->m_settings.perspective.size.y;
 	float f = 1.0f / tan( 0.5f * fov );
-	this->m_matrices.projection = {
+	this->setProjection({
 		f / raidou, 	0.0f, 	 0.0f, 	0.0f,
 		0.0f, 			-f, 	 0.0f, 	0.0f,
 		0.0f,       	0.0f,    0.0f, 	1.0f,
 		0.0f,       	0.0f,   this->m_settings.perspective.bounds.x, 	0.0f
-	};
-	if ( ext::openvr::context ) {
-		::projection.left = ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
-		::projection.right = ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
-	}
+	});
 }

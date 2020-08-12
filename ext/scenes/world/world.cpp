@@ -293,16 +293,21 @@ void ext::World::tick() {
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
 	}
+}
+
+void ext::World::render() {
+	uf::Scene::render();
 
 	/* Update lights */ {
+		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		auto& scene = *this;
 		std::vector<ext::vulkan::DeferredRenderingGraphic*> blitters;
-		auto& renderMode = ext::vulkan::getRenderMode("Stereoscopic Deferred", true);
-		if ( renderMode.getType() == "Stereoscopic Deferred" ) {
+		auto& renderMode = ext::vulkan::getRenderMode("", true);
+		if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
 			auto* renderModePointer = (ext::vulkan::StereoscopicDeferredRenderMode*) &renderMode;
 			blitters.push_back(&renderModePointer->blitters.left);
 			blitters.push_back(&renderModePointer->blitters.right);
-		} else {
+		} else if ( renderMode.getType() == "Deferred" ) {
 			auto* renderModePointer = (ext::vulkan::DeferredRenderMode*) &renderMode;
 			blitters.push_back(&renderModePointer->blitter);
 		}
@@ -394,6 +399,20 @@ void ext::World::tick() {
 	}
 }
 
-void ext::World::render() {
-	uf::Scene::render();
+uf::Entity* ext::World::getController() {
+	if ( ext::vulkan::currentRenderMode ) {
+		auto& renderMode = *ext::vulkan::currentRenderMode;
+		std::string name = renderMode.name;
+		auto split = uf::string::split( name, ": " );
+		if ( split.front() == "Portal" ) {
+			uint64_t uid = std::stoi( split.back() );
+			uf::Entity* portal = this->findByUid( uid );
+			if ( portal ) return portal;
+		}
+	}
+	return uf::Scene::getController();
+}
+
+const uf::Entity* ext::World::getController() const {
+	return uf::Scene::getController();
 }

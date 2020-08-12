@@ -312,6 +312,7 @@ void ext::Player::tick() {
 		bool paused = uf::Window::isKeyPressed("Escape");
 		bool aux = uf::Window::isKeyPressed("F");
 		bool vee = uf::Window::isKeyPressed("V");
+		bool walk = uf::Window::isKeyPressed("LAlt");
 	} keys;
 
 	if ( ext::openvr::context ) {
@@ -339,7 +340,7 @@ void ext::Player::tick() {
 
 	struct {
 		float move = 4; //uf::physics::time::delta * 4;
-		float rotate = uf::physics::time::delta * 0.75;
+		float rotate = uf::physics::time::delta * 1.25f;
 		float limitSquared = 4*4;
 	} speed;
 	static uf::Timer<long long> timer(false);
@@ -348,10 +349,12 @@ void ext::Player::tick() {
 		if ( timer.elapsed().asDouble() >= 0.25 ) {
 			timer.reset();
 			metadata["collision"]["should"] = !metadata["collision"]["should"].asBool();
-			std::cout << metadata["collision"] << std::endl;
+
+			physics.linear.velocity = {0,0,0};
 		}
 	}
-	if ( keys.running ) speed.move = 8;
+	if ( keys.running ) speed.move *= 2;
+	else if ( keys.walk ) speed.move /= 4;
 	speed.limitSquared = speed.move * speed.move;
 
 	uf::Object* menu = (uf::Object*) this->getRootParent().findByName("Gui: Menu");

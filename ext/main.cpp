@@ -121,8 +121,11 @@ void EXT_API ext::initialize() {
 		// ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
 
 		// setup render mode
-		if ( ::config["engine"]["render modes"]["gui"].asBool() )
-			ext::vulkan::addRenderMode( new ext::vulkan::RenderTargetRenderMode, "Gui" );
+		if ( ::config["engine"]["render modes"]["gui"].asBool() ) {
+			auto* renderMode = new ext::vulkan::RenderTargetRenderMode;
+			ext::vulkan::addRenderMode( renderMode, "Gui" );
+			renderMode->blitter.subpass = 1;
+		}
 		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
 			ext::vulkan::addRenderMode( new ext::vulkan::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
@@ -200,7 +203,7 @@ void EXT_API ext::tick() {
 				uf::iostream << entity->getName() << ": " << entity->getUid();
 				if ( entity->hasComponent<pod::Transform<>>() ) {
 					pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
-					uf::iostream << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ")";
+					uf::iostream << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ") (" << t.orientation.x << ", " << t.orientation.y << ", " << t.orientation.z << ", " << t.orientation.w << ")";
 				}
 				uf::iostream << "\n";
 			};
@@ -258,7 +261,7 @@ void EXT_API ext::tick() {
 	}
 }
 void EXT_API ext::render() {
-	uf::scene::render();
+	// uf::scene::render();
 
 	ext::vulkan::render();
 

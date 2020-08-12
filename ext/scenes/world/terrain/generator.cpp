@@ -28,12 +28,20 @@ namespace {
 
 	COLOR uint16ToColor( uint16_t color ) {
 		COLOR result;
-		memcpy( &result, &color, sizeof color );
+		// memcpy( &result, &color, sizeof color );
+		result.r = (color >> 12) & 0xF;
+		result.g = (color >>  8) & 0xF;
+		result.b = (color >>  4) & 0xF;
+		result.a = (color      ) & 0xF;
 		return result;
 	}
 	uint16_t colorToUint16( COLOR color ) {
 		uint16_t result;
-		memcpy( &result, &color, sizeof color );
+		// memcpy( &result, &color, sizeof color );
+		result |= (color.r << 12);
+		result |= (color.g <<  8);
+		result |= (color.b <<  4);
+		result |= (color.a      );
 		return result;
 	}
 	bool inBounds( int x, int y, int z, const pod::Vector3ui& size ) {

@@ -11,9 +11,9 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	Subpass pass;
 	pass.stage = stage;
 	pass.access = access;
-	for ( auto& i : colors ) pass.colors.push_back( { i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
-	for ( auto& i : inputs ) pass.inputs.push_back( { i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
-	if ( depth < attachments.size() ) pass.depth = { depth, attachments[depth].layout };
+	for ( auto& i : colors ) pass.colors.push_back( { (uint32_t) i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
+	for ( auto& i : inputs ) pass.inputs.push_back( { (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+	if ( depth < attachments.size() ) pass.depth = { (uint32_t) depth, attachments[depth].layout };
 	passes.push_back(pass);
 }
 size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, Attachment* attachment ) {
@@ -211,7 +211,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
-	//	std::cout << "Renderpass: " << renderPass << std::endl;
+		std::cout << renderPass << ": " << attachments.size() << std::endl;
 	}
 
 	{	

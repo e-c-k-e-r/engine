@@ -82,6 +82,7 @@
 // Legacy support
 #define UF_API_VAR UF_API
 #define UF_API_CALL __cdecl
+
 #ifdef UF_DISABLE_ALIGNAS
 	#define alignas(X)
 #endif

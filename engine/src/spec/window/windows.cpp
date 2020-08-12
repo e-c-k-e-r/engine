@@ -1106,11 +1106,11 @@ bool UF_API_CALL spec::win32::Window::isKeyPressed(const std::string& key) {
 	if ( (key == "Escape") && (GetAsyncKeyState(VK_ESCAPE) & 0x8000) ) return true;
 	if ( (key == "LControl") && (GetAsyncKeyState(VK_LCONTROL) & 0x8000) ) return true;
 	if ( (key == "LShift") && (GetAsyncKeyState(VK_LSHIFT) & 0x8000) ) return true;
-	if ( (key == "LMenu") && (GetAsyncKeyState(VK_LMENU) & 0x8000) ) return true;
+	if ( (key == "LAlt") && (GetAsyncKeyState(VK_LMENU) & 0x8000) ) return true;
 	if ( (key == "LSystem") && (GetAsyncKeyState(VK_LWIN) & 0x8000) ) return true;
 	if ( (key == "RControl") && (GetAsyncKeyState(VK_RCONTROL) & 0x8000) ) return true;
 	if ( (key == "RShift") && (GetAsyncKeyState(VK_RSHIFT) & 0x8000) ) return true;
-	if ( (key == "RMenu") && (GetAsyncKeyState(VK_RMENU) & 0x8000) ) return true;
+	if ( (key == "RAlt") && (GetAsyncKeyState(VK_RMENU) & 0x8000) ) return true;
 	if ( (key == "RSystem") && (GetAsyncKeyState(VK_RWIN) & 0x8000) ) return true;
 	if ( (key == "Apps") && (GetAsyncKeyState(VK_APPS) & 0x8000) ) return true;
 	if ( (key == "OEM4") && (GetAsyncKeyState(VK_OEM_4) & 0x8000) ) return true;

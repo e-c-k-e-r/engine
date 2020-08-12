@@ -12,5 +12,8 @@ namespace ext {
 		virtual void initialize();
 		virtual void tick();
 		virtual void render();
+
+		virtual uf::Entity* getController();
+		virtual const uf::Entity* getController() const;
 	};
 }

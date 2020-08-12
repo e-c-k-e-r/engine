@@ -44,8 +44,8 @@ namespace uf {
 		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, double delta ); 				// 	Linearly interpolate between two vectors
 		template<typename T> T /*UF_API*/ slerp( const T& from, const T& to, double delta ); 				// 	Spherically interpolate between two vectors
 		
-		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& vector ); 				// 	Gets the magnitude of the vector
-		template<typename T> typename T::type_t /*UF_API*/ distance( const T& vector ); 					// 	Gets the magnitude of the vector
+		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); 				// 	Gets the magnitude of the vector
+		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); 					// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); 						// 	Compute the norm of the vector
 		template<typename T> T /*UF_API*/ normalize( const T& vector ); 									// 	Normalizes a vector
@@ -59,12 +59,14 @@ namespace uf {
 		template<typename T> T inverse( const T& quaternion );
 		template<typename T> T& conjugate( T& quaternion );
 		template<typename T> T& inverse( T& quaternion );
+		
+		template<typename T> pod::Quaternion<T> fromMatrix( const pod::Matrix4t<T>& matrix );
 	}
 }
 
 namespace uf {
 	template<typename T = pod::Math::num_t>
-	class UF_API Quaternion {
+	class /*UF_API*/ Quaternion {
 public:
 	// 	Easily access POD's type
 		typedef pod::Quaternion<T> pod_t;
