@@ -14,7 +14,7 @@ namespace pod {
 		alignas(16) pod::Vector3f normal;
 		alignas(16) pod::Vector4t<uint8_t> color;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F32B& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -30,7 +30,7 @@ namespace pod {
 		alignas(8) pod::Vector2f uv;
 		alignas(16) pod::Vector3f normal;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -44,7 +44,7 @@ namespace pod {
 		alignas(16) pod::Vector3f position;
 		alignas(8) pod::Vector2f uv;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -55,7 +55,7 @@ namespace pod {
 	struct /*UF_API*/ Vertex_3F {
 		alignas(16) pod::Vector3f position;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F& that ) const {
 			return 	this->position 	== that.position;
@@ -106,7 +106,8 @@ namespace std {
 namespace uf {
 	struct /*UF_API*/ MeshBase {
 	public:
-		ext::vulkan::BaseGraphic graphic;
+	//	ext::vulkan::BaseGraphic graphic;
+		ext::vulkan::Graphic graphic;
 		bool generated = false;
 	};
 	template<typename T>

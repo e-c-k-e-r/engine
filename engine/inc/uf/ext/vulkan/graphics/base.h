@@ -3,7 +3,7 @@
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/graphic.h>
+#include <uf/ext/vulkan/graphic.old.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/utils/userdata/userdata.h>
 
@@ -26,11 +26,11 @@ namespace ext {
 				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 				VkPolygonMode fill = VK_POLYGON_MODE_FILL;
 				float lineWidth = 1.0f;
-				VkFrontFace frontFace = ext::vulkan::Graphic::DEFAULT_WINDING_ORDER;
+				VkFrontFace frontFace = ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER;
 			} rasterMode;
 
 		};
-		struct UF_API BaseGraphic : public Graphic {
+		struct UF_API BaseGraphic : public GraphicOld {
 			uint32_t indices = 0;
 			ext::vulkan::GraphicDescriptor description;
 			ext::vulkan::Texture2D texture;

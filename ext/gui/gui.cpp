@@ -366,6 +366,7 @@ namespace {
 			g.box.y = metadata["text settings"]["box"][1].asFloat();
 			g.box.w = metadata["text settings"]["box"][2].asFloat();
 			g.box.h = metadata["text settings"]["box"][3].asFloat();
+		/*
 			if ( ext::openvr::enabled ) {
 				mesh.vertices = {
 					{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
@@ -387,13 +388,22 @@ namespace {
 					{{ g.box.x + g.box.w, g.box.y + g.box.h }, { 1.0f, 0.0f }},
 				};
 			}
+		*/
+			mesh.vertices = {
+				{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
+				{{ g.box.x,           g.box.y           }, { 0.0f, 1.0f }},
+				{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
+
+				{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
+				{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
+				{{ g.box.x + g.box.w, g.box.y + g.box.h }, { 1.0f, 0.0f }},
+			};
 			for ( auto& vertex : mesh.vertices ) {
 				vertex.position.x /= ::size.reference.x;
 				vertex.position.y /= ::size.reference.y;
 			}
 			mesh.initialize(true);
-			mesh.graphic.bindUniform<::GlyphDescriptor>();
-			if ( ext::openvr::context ) mesh.graphic.description.rasterMode.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+			mesh.graphic.initialize( "Gui" );
 			struct {
 				std::string vertex = "./data/shaders/gui.text.vert.spv";
 				std::string fragment = "./data/shaders/gui.text.frag.spv";
@@ -401,11 +411,13 @@ namespace {
 			if ( metadata["shaders"]["vertex"].isString() ) filenames.vertex = metadata["shaders"]["vertex"].asString();
 			if ( metadata["shaders"]["fragment"].isString() ) filenames.fragment = metadata["shaders"]["fragment"].asString();
 			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
-			mesh.graphic.initializeShaders({
+
+			mesh.graphic.material.initializeShaders({
 				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
+				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
 			});
 		} else {
+		/*
 			if ( ext::openvr::enabled ) {
 				mesh.vertices = {
 					{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
@@ -427,10 +439,18 @@ namespace {
 					{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
 				};
 			}
+		*/
+			mesh.vertices = {
+				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+				{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
 
+				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+				{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+			};
 			mesh.initialize(true);
-			mesh.graphic.bindUniform<uf::StereoGuiMeshDescriptor>();
-			if ( ext::openvr::context ) mesh.graphic.description.rasterMode.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+			mesh.graphic.initialize( "Gui" );
 			struct {
 				std::string vertex = "./data/shaders/gui.vert.spv";
 				std::string fragment = "./data/shaders/gui.frag.spv";
@@ -438,21 +458,20 @@ namespace {
 			if ( metadata["shaders"]["vertex"].isString() ) filenames.vertex = metadata["shaders"]["vertex"].asString();
 			if ( metadata["shaders"]["fragment"].isString() ) filenames.fragment = metadata["shaders"]["fragment"].asString();
 			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
-			mesh.graphic.initializeShaders({
+		
+			mesh.graphic.material.initializeShaders({
 				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
+				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
 			});
 		}
 
-		mesh.graphic.texture.loadFromImage( image );
-
-		mesh.graphic.initialize( "Gui" );
-		mesh.graphic.autoAssign();
+		auto& texture = mesh.graphic.material.textures.emplace_back();
+		texture.loadFromImage( image );
 
 		{
 			pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
 			uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
-			auto& texture = mesh.graphic.texture;
+			auto& texture = mesh.graphic.material.textures.front();
 
 			pod::Vector2f textureSize = {
 				metadata["original size"]["x"].asFloat(),
@@ -596,7 +615,7 @@ void ext::Gui::initialize() {
 		}
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		uf::GuiMesh& mesh = this->getComponent<uf::GuiMesh>();
-		auto& texture = mesh.graphic.texture;
+		auto& texture = mesh.graphic.material.textures.front();
 		pod::Vector2f textureSize = {
 			metadata["original size"]["x"].asFloat(),
 			metadata["original size"]["y"].asFloat()
@@ -669,7 +688,6 @@ void ext::Gui::initialize() {
 
 			if ( metadata["clicked"].asBool() && clickTimer.elapsed().asDouble() >= 1 ) {
 				clickTimer.reset();
-				std::cout << "Calling hook" << std::endl;
 				this->callHook("gui:Clicked.%UID%");
 			}
 			return "true";
@@ -720,27 +738,18 @@ void ext::Gui::initialize() {
 			}
 
 		}
-/*
-		if ( metadata["text settings"]["padding"].isNull() ) metadata["text settings"]["padding"] = defaultSettings["metadata"]["text settings"]["padding"];
-		if ( metadata["text settings"]["spread"].isNull() ) metadata["text settings"]["spread"] = defaultSettings["metadata"]["text settings"]["spread"];
-		if ( metadata["text settings"]["weight"].isNull() ) metadata["text settings"]["weight"] = defaultSettings["metadata"]["text settings"]["weight"];
-		if ( metadata["text settings"]["size"].isNull() ) metadata["text settings"]["size"] = defaultSettings["metadata"]["text settings"]["size"];
-		if ( metadata["text settings"]["scale"].isNull() ) metadata["text settings"]["scale"] = defaultSettings["metadata"]["text settings"]["scale"];
-		if ( metadata["text settings"]["sdf"].isNull() ) metadata["text settings"]["sdf"] = defaultSettings["metadata"]["text settings"]["sdf"];
-		if ( metadata["text settings"]["kerning"].isNull() ) metadata["text settings"]["kerning"] = defaultSettings["metadata"]["text settings"]["kerning"];
-		if ( metadata["text settings"]["font"].isNull() ) metadata["text settings"]["font"] = defaultSettings["metadata"]["text settings"]["font"];
-		if ( metadata["text settings"]["color"].isNull() ) metadata["text settings"]["color"] = defaultSettings["metadata"]["text settings"]["color"];
-		if ( metadata["text settings"]["stroke"].isNull() ) metadata["text settings"]["stroke"] = defaultSettings["metadata"]["text settings"]["stroke"];
-*/
 		float delay = 0.0f;
 		float scale = metadata["text settings"]["scale"].asFloat();
 		std::vector<::GlyphBox> glyphs = generateGlyphs(*this);
+		std::cout << "Loading string: " << metadata["text settings"]["string"] << std::endl;
 		for ( auto& glyph : glyphs ) {
-			// append new child
-		//	ext::Gui* glyphElement = new ext::Gui;
-		//	this->addChild(*glyphElement);
-		//	glyphElement->load("./entities/gui/text/letter.json");
-			ext::Gui* glyphElement = (ext::Gui*) this->findByUid( this->loadChild("/gui/text/letter.json") );
+			ext::Gui* glyphElement = (ext::Gui*) this->findByUid( this->loadChild("/gui/text/letter.json", false) );
+		/*
+			ext::Gui* glyphElement = new ext::Gui;
+			this->addChild(*glyphElement);
+			glyphElement->load("/gui/text/letter.json", true);
+		*/
+
 			uf::Serializer& pMetadata = glyphElement->getComponent<uf::Serializer>();
 			pMetadata["events"] = metadata["events"];
 
@@ -806,7 +815,7 @@ void ext::Gui::render() {
 		auto& mesh = this->getComponent<uf::GuiMesh>();
 		auto& camera = scene.getController()->getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
-		if ( !mesh.generated ) return;		
+		if ( !mesh.generated ) return;
 
 		pod::Vector4 offset = {
 			metadata["uv"][0].asFloat(),
@@ -819,7 +828,9 @@ void ext::Gui::render() {
 		
 		if ( this->m_name == "Gui: Text" ) {
 		//	::GlyphDescriptor uniforms;
-			auto& uniforms = mesh.graphic.uniforms<::GlyphDescriptor>();
+		//	auto& uniforms = mesh.graphic.uniforms<::GlyphDescriptor>();
+			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<::GlyphDescriptor>();
+
 			if ( !metadata["text settings"]["color"].isArray() ) {
 				metadata["text settings"]["color"][0] = 1.0f;
 				metadata["text settings"]["color"][1] = 1.0f;
@@ -901,7 +912,8 @@ void ext::Gui::render() {
 				}
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
-			mesh.graphic.updateBuffer( uniforms, 0, false );
+			// mesh.graphic.updateBuffer( uniforms, 0, false );
+			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 			// calculate click box
 			{
 				auto& model = uniforms.matrices.model[0];
@@ -932,7 +944,8 @@ void ext::Gui::render() {
 				metadata["color"][3].asFloat()
 			};
 		//	uf::StereoGuiMeshDescriptor uniforms;
-			auto& uniforms = mesh.graphic.uniforms<uf::StereoGuiMeshDescriptor>();
+		//	auto& uniforms = mesh.graphic.uniforms<uf::StereoGuiMeshDescriptor>();
+			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoGuiMeshDescriptor>();
 			uniforms.gui.offset = offset;
 			uniforms.gui.color = color;
 			uniforms.gui.mode = mode;
@@ -967,7 +980,8 @@ void ext::Gui::render() {
 				}
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
-			mesh.graphic.updateBuffer( uniforms, 0, false );
+			// mesh.graphic.updateBuffer( uniforms, 0, false );
+			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 			// calculate click box
 			{
 				auto& model = uniforms.matrices.model[0];

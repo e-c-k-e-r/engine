@@ -84,6 +84,13 @@ void ext::HousamoSprite::initialize() {
 			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
 		};
 		mesh.initialize(true);
+
+		mesh.graphic.initialize();
+		auto& texture = mesh.graphic.material.textures.emplace_back();
+		texture.loadFromImage( image );
+		mesh.graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		mesh.graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	/*
 		mesh.graphic.texture.loadFromImage( image );
 		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
 		mesh.graphic.initializeShaders({
@@ -92,7 +99,7 @@ void ext::HousamoSprite::initialize() {
 		});
 		mesh.graphic.initialize();
 		mesh.graphic.autoAssign();
-
+	*/
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
 		return "true";
@@ -145,7 +152,8 @@ void ext::HousamoSprite::render() {
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !mesh.generated ) return;
 		//auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+		// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( transform );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
@@ -155,6 +163,7 @@ void ext::HousamoSprite::render() {
 		uniforms.color[1] = metadata["color"][1].asFloat();
 		uniforms.color[2] = metadata["color"][2].asFloat();
 		uniforms.color[3] = metadata["color"][3].asFloat();
-		mesh.graphic.updateBuffer( uniforms, 0, false );
+		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+		// mesh.graphic.updateBuffer( uniforms, 0, false );
 	};
 }

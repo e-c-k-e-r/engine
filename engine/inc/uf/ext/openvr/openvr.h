@@ -6,9 +6,9 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/serialize/serializer.h>
 #ifdef USE_OPENVR_MINGW
-	#include <openvr_mingw.h>
+	#include <openvr/openvr_mingw.h>
 #else
-	#include <openvr.h>
+	#include <openvr/openvr.h>
 #endif
 
 namespace vr {

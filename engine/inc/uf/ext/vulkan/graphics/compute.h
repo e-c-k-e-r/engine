@@ -4,14 +4,14 @@
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
-#include <uf/ext/vulkan/graphic.h>
+#include <uf/ext/vulkan/graphic.old.h>
 #include <uf/utils/math/rayt.h>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API ComputeGraphic : public Graphic {
+		struct UF_API ComputeGraphic : public GraphicOld {
 			// alias typedefs
 			typedef pod::Primitive Cube;
 			typedef pod::Light Light;
@@ -58,7 +58,7 @@ namespace ext {
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API RTGraphic : public Graphic {
+		struct UF_API RTGraphic : public GraphicOld {
 			ComputeGraphic compute;
 
 			uint32_t width = 0;

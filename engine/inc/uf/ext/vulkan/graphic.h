@@ -1,4 +1,4 @@
-#pragma once
+#pragma once 	
 
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
@@ -9,77 +9,100 @@
 namespace ext {
 	namespace vulkan {
 		struct RenderMode;
-		struct UF_API Graphic {
+		struct Graphic;
+
+		struct UF_API Shader : public Buffers {
+			bool aliased = false;
+
+			Device* device = NULL;
+			std::string filename = "";
+
+			VkShaderModule module = VK_NULL_HANDLE;
+			VkPipelineShaderStageCreateInfo descriptor;
+			std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+			std::vector<VkSpecializationMapEntry> specializationMapEntries;
+			VkSpecializationInfo specializationInfo;
+
+			std::vector<uf::Userdata> pushConstants;
+		//	std::vector<uf::Userdata> specializationConstants;
+			uf::Userdata specializationConstants;
+			std::vector<uf::Userdata> uniforms;
+
+		//	~Shader();
+			void initialize( Device& device, const std::string&, VkShaderStageFlagBits );
+			void destroy();
+		};
+		struct UF_API Pipeline {
+			bool aliased = false;
+
+			Device* device = NULL;
+
 			VkPipeline pipeline;
 			VkPipelineLayout pipelineLayout;
-			VkDescriptorSet descriptorSet;
 			VkDescriptorSetLayout descriptorSetLayout;
 			VkDescriptorPool descriptorPool;
+			VkDescriptorSet descriptorSet;
 
-			struct {
-				std::vector<VkShaderModule> modules;
-				std::vector<VkPipelineShaderStageCreateInfo> stages;
-			} shader;
-			std::vector<Buffer> buffers;
+			void initialize( Graphic& graphic );
+			void update( Graphic& graphic );
+			void record( Graphic& graphic, VkCommandBuffer );
+			void destroy();
+		};
+		struct UF_API Material {
+			bool aliased = false;
+			Device* device;
 
-			Device* device = VK_NULL_HANDLE;
-			RenderMode* renderMode = VK_NULL_HANDLE;
+			std::vector<Sampler> samplers;
+			std::vector<Texture2D> textures;
+			std::vector<Shader> shaders;
 
-			bool autoAssigned = false;
+			void initialize( Device& device );
+			void destroy();
+
+			void attachShader( const std::string&, VkShaderStageFlagBits );
+			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& );
+		};
+		struct UF_API Graphic : public Buffers {
+			struct UF_API VertexDescriptor {
+				VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
+				std::size_t offset; // offsetof(Vertex, position)
+			};
+			struct Descriptor {
+				std::string renderMode = "";
+				uint32_t subpass = 0;
+
+				std::size_t size; // sizeof(Vertex)
+				std::vector<VertexDescriptor> attributes;
+				size_t indices = 0;
+
+				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+				VkPolygonMode fill = VK_POLYGON_MODE_FILL;
+				float lineWidth = 1.0f;
+				VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
+				struct {
+					VkBool32 test = true;
+					VkBool32 write = true;
+					VkCompareOp operation = VK_COMPARE_OP_GREATER_OR_EQUAL;
+				} depthTest;
+
+				std::string hash() const;
+				bool operator==( const Descriptor& right ) const { return this->hash() == right.hash(); }
+			} descriptor;
+
 			bool initialized = false;
 			bool process = true;
-			uint32_t subpass = 0;
-			static VkFrontFace DEFAULT_WINDING_ORDER;
+			Material material;
+			std::unordered_map<std::string, Pipeline> pipelines;
 
-			virtual ~Graphic();
-			//
-			template<typename T>
-			inline size_t initializeBuffer( T data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = true ) {
-				return initializeBuffer( (void*) &data, length, usageFlags, memoryPropertyFlags, stage );
-			}
-			template<typename T>
-			inline void updateBuffer( T data, VkDeviceSize length, size_t index = 0, bool stage = true ) {
-				return updateBuffer( (void*) &data, length, index, stage );
-			}
-			template<typename T>
-			inline size_t initializeBuffer( T data, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = true ) {
-				return initializeBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), usageFlags, memoryPropertyFlags, stage );
-			}
-			template<typename T>
-			inline void updateBuffer( T data, size_t index = 0, bool stage = true ) {
-				return updateBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), index, stage );
-			}
-			template<typename T>
-			inline void updateBuffer( T data, VkDeviceSize length, Buffer& buffer, bool stage = true ) {
-				return updateBuffer( (void*) &data, length, buffer, stage );
-			}
-			size_t initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = true );
-			void updateBuffer( void* data, VkDeviceSize length, size_t index = 0, bool stage = true );
-			void updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage = true );
-
-			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& );
-
-			template<typename T>
-			inline void initializeDescriptorLayout( const std::vector<VkDescriptorSetLayoutBinding>& setLayoutBindings, const T& t ) {
-				return initializeDescriptorLayout( setLayoutBindings, sizeof(t) );
-			}
-			void initializeDescriptorLayout( const std::vector<VkDescriptorSetLayoutBinding>& setLayoutBindings, std::size_t = 0 );
-			void initializePipeline( VkGraphicsPipelineCreateInfo pipelineCreateInfo );
-			void initializeDescriptorPool( const std::vector<VkDescriptorPoolSize>& poolSize, size_t length );
-			void initializeDescriptorSet( const std::vector<VkWriteDescriptorSet>& writeDescriptorSets );
-
-			// RAII
-			virtual void initialize( const std::string& = "" );
-			virtual void initialize( Device& device, RenderMode& renderMode );
-			virtual void destroy();
-			virtual void autoAssign();
-			virtual bool autoAssignable() const;
-			virtual std::string name() const;
-			//
-			virtual void render();
-			virtual void createCommandBuffer( VkCommandBuffer );
-			virtual void createImageMemoryBarrier( VkCommandBuffer );
-			virtual void updateDynamicUniformBuffer(bool = false);
+			void initialize( const std::string& = "" );
+			void initializePipeline();
+			void destroy();
+			
+			Pipeline& initializePipeline( Descriptor& descriptor, bool update = true );
+			bool hasPipeline( Descriptor& descriptor );
+			Pipeline& getPipeline( Descriptor& descriptor );
+			
+			void record( VkCommandBuffer commandBuffer );
 		};
 	}
 }

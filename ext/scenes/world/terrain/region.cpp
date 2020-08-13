@@ -36,17 +36,32 @@ void ext::Region::initialize() {
 	metadata["region"]["initialized"] = true;
 
 	{
-		std::string texture = ""; {
+		std::string textureFilename = ""; {
 			uf::Serializer& metadata = this->getParent().getComponent<uf::Serializer>();
 			uf::Asset assetLoader;
 			for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
-				if ( texture != "" ) break;
+				if ( textureFilename != "" ) break;
 				std::string filename = grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
-				texture = assetLoader.cache( filename );
+				textureFilename = assetLoader.cache( filename );
 			}
 		}
 		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
-		mesh.graphic.texture.filter = VK_FILTER_NEAREST;
+
+		mesh.graphic.initialize();
+		mesh.graphic.process = false;
+
+		auto& texture = mesh.graphic.material.textures.emplace_back();
+		texture.sampler.filter = VK_FILTER_NEAREST;
+		texture.loadFromFile( textureFilename );
+
+		std::string suffix = ""; {
+			std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+			if ( _ != "" ) suffix = _ + ".";
+		}
+		mesh.graphic.material.attachShader("./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		mesh.graphic.material.attachShader("./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	/*
+		mesh.graphic.texture.sampler.filter = VK_FILTER_NEAREST;
 		mesh.graphic.texture.loadFromFile( texture );
 		std::string suffix = ""; {
 			std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
@@ -56,6 +71,7 @@ void ext::Region::initialize() {
 			{"./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
+	*/
 	}
 
 	this->addHook( "region:Generate.%UID%", [&](const std::string& event)->std::string{	
@@ -115,15 +131,18 @@ void ext::Region::initialize() {
 
 		ext::TerrainGenerator& generator = this->getComponent<ext::TerrainGenerator>();
 		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+	/*
 		if ( !mesh.vertices.empty() ) {
 			mesh.graphic.destroy();
 			mesh.destroy();
 		}
+	*/
 		generator.rasterize(mesh.vertices, *this);
 		mesh.initialize(true);
+	/*
 		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
 		mesh.graphic.initialize();
-		
+	*/
 		this->queueHook("region:Finalize.%UID%", "");
 		this->queueHook("region:Populate.%UID%", "");
 		return "true";
@@ -133,7 +152,9 @@ void ext::Region::initialize() {
 
 		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 
-		mesh.graphic.autoAssign();
+	//	mesh.graphic.autoAssign();
+		mesh.graphic.process = true;
+	//	mesh.graphic.initializePipeline();
 		metadata["region"]["rasterized"] = true;
 
 		return "true";
@@ -292,13 +313,15 @@ void ext::Region::render( ) {
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 		auto& camera = world.getController()->getComponent<uf::Camera>();		
 		if ( !mesh.generated ) return;
-		auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+	//	auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::matrix::identity();
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
 
-		mesh.graphic.updateBuffer( uniforms, 0, false );
+	//	mesh.graphic.updateBuffer( uniforms, 0, false );
+		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 	}
 }

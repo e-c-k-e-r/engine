@@ -5,6 +5,15 @@
 
 namespace ext {
 	namespace vulkan {
+		struct UF_API Sampler {
+			Device* device = NULL;
+			VkSampler sampler;
+			VkDescriptorImageInfo descriptor;
+			VkFilter filter = VK_FILTER_LINEAR;
+
+			void initialize( Device& device, VkFilter filter = VK_FILTER_LINEAR );
+			void destroy();
+		};
 		struct UF_API Texture {
 			Device* device = nullptr;
 			VkImage image;
@@ -13,8 +22,7 @@ namespace ext {
 			VkDeviceMemory deviceMemory;
 			VkDescriptorImageInfo descriptor;
 			
-			VkSampler sampler;
-			VkFilter filter = VK_FILTER_LINEAR;
+			Sampler sampler;
 
 			VmaAllocation allocation;
 			VmaAllocationInfo allocationInfo;

@@ -316,7 +316,7 @@ void ext::Marching::initialize() {
 	static uf::Timer<long long> timer(false);
 	if ( !timer.running() ) timer.start();
 	this->addHook( "object:Reload.%UID%", [&](const std::string& event)->std::string{	
-		this->queueHook("marching:Generate.%UID%");
+		// this->queueHook("marching:Generate.%UID%");
 		return "true";
 	});
 	this->addHook( "marching:Regenerate.%UID%", [&](const std::string& event)->std::string{	
@@ -324,7 +324,7 @@ void ext::Marching::initialize() {
 		timer.reset();
 		std::cout << "Reloading " << this << std::endl;
 		if ( !this->reload() ) return "false";
-		this->queueHook("marching:Generate.%UID%");
+		// this->queueHook("marching:Generate.%UID%");
 		return "true";
 	});
 	this->addHook( "marching:Generate.%UID%", [&](const std::string& event)->std::string{	
@@ -475,6 +475,21 @@ void ext::Marching::initialize() {
 			}
 			std::cout << "Done?" << std::endl;
 			mesh.vertices = std::move(vertices);
+
+			mesh.initialize(true);
+			mesh.graphic.initialize();
+		
+			auto& texture = mesh.graphic.material.textures.emplace_back();
+			texture.loadFromFile( "./data/textures/texture.png" );
+
+			std::string suffix = ""; {
+				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+				if ( _ != "" ) suffix = _ + ".";
+			}
+
+			mesh.graphic.material.attachShader("./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+			mesh.graphic.material.attachShader("./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		/*
 			mesh.graphic.texture.loadFromFile( "./data/textures/texture.png" );
 			std::string suffix = ""; {
 				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
@@ -488,6 +503,7 @@ void ext::Marching::initialize() {
 			mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
 			mesh.graphic.initialize();
 			mesh.graphic.autoAssign();
+		*/
 		}
 		return "true";
 	});
@@ -523,12 +539,14 @@ void ext::Marching::render() {
 		auto& model = this->getComponent<pod::Transform<>>();
 		if ( !mesh.generated ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+		// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( this->getComponent<pod::Transform<>>() );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
-		mesh.graphic.updateBuffer( uniforms, 0, false );
+		// mesh.graphic.updateBuffer( uniforms, 0, false );
+		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 	};
 }

@@ -85,7 +85,7 @@ void ext::vulkan::DeferredRenderingGraphic::initialize( Device& device, RenderMo
 	this->indices = indices.size();
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
-	ext::vulkan::Graphic::initialize( device, renderMode );
+	ext::vulkan::GraphicOld::initialize( device, renderMode );
 
 	// set descriptor layout
 	{
@@ -328,5 +328,5 @@ void ext::vulkan::DeferredRenderingGraphic::initialize( Device& device, RenderMo
 	}
 }
 void ext::vulkan::DeferredRenderingGraphic::destroy() {
-	ext::vulkan::Graphic::destroy();
+	ext::vulkan::GraphicOld::destroy();
 }

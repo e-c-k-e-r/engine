@@ -300,7 +300,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::destroy() {
 	blitters.right.destroy();
 	blitter.destroy();
 }
-void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
+void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
 	// ext::vulkan::RenderMode& swapchain = 
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
@@ -359,10 +359,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 				renderPassBeginInfo.renderPass = renderTarget.renderPass;
 				renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 
-				for ( auto graphic : graphics ) {
-					graphic->createImageMemoryBarrier(commands[i]);
-				}
-
 				// Update dynamic viewport state
 				VkViewport viewport = {};
 				viewport.width = (float) width;
@@ -395,8 +391,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					vkCmdSetScissor(commands[i], 0, 1, &scissor);
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
-						if ( graphic->renderMode->getName() != this->getName() ) continue;
-						graphic->createCommandBuffer(commands[i] );
+						if ( graphic->descriptor.renderMode != this->getName() ) continue;
+						graphic->record(commands[i] );
 					}
 					// render gui layer
 					{

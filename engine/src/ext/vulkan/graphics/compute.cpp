@@ -81,7 +81,7 @@ void ext::vulkan::ComputeGraphic::updateStorageBuffers( Device& device, std::vec
 }
 void ext::vulkan::ComputeGraphic::initialize( Device& device, RenderMode& renderMode, uint32_t width, uint32_t height ) {
 	assert( buffers.size() >= 3 );
-	ext::vulkan::Graphic::initialize( device, renderMode );
+	ext::vulkan::GraphicOld::initialize( device, renderMode );
 	// Set queue
 	{
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
@@ -271,7 +271,7 @@ void ext::vulkan::ComputeGraphic::destroy() {
 		vkDestroyCommandPool(*device, commandPool, nullptr);
 		commandPool = VK_NULL_HANDLE;
 	}
-	ext::vulkan::Graphic::destroy();
+	ext::vulkan::GraphicOld::destroy();
 }
 
 ////////////////////////////////////////////////////////////////
@@ -288,7 +288,7 @@ void ext::vulkan::RTGraphic::initialize( const std::string& renderMode ) {
 	return initialize(this->device ? *device : ext::vulkan::device, ext::vulkan::getRenderMode(renderMode));
 }
 void ext::vulkan::RTGraphic::initialize( Device& device, RenderMode& renderMode ) {
-	ext::vulkan::Graphic::initialize( device, renderMode );
+	ext::vulkan::GraphicOld::initialize( device, renderMode );
 	compute.initialize( device, renderMode, this->width, this->height );
 	// Set Descriptor Layout
 	initializeDescriptorLayout({
@@ -397,7 +397,7 @@ void ext::vulkan::RTGraphic::initialize( Device& device, RenderMode& renderMode 
 }
 void ext::vulkan::RTGraphic::destroy() {
 	compute.destroy();
-	ext::vulkan::Graphic::destroy();
+	ext::vulkan::GraphicOld::destroy();
 }
 void ext::vulkan::RTGraphic::createCommandBuffer( VkCommandBuffer commandBuffer ) {
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);

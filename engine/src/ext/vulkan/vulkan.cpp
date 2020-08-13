@@ -223,48 +223,20 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				if ( !renderMode ) continue;
 				renderMode->initialize(device);
 			}
-			/* resort */ {
-			/*
-				for ( auto it = renderModes.begin(); it != renderModes.end(); ++it ) {
-					if ( (*it)->getName() == "" ) {
-					//	std::rotate( renderModes.begin(), it, renderModes.end() );
-						RenderMode* target = *it;
-						renderModes.erase(it);
-						renderModes.push_back(target);
-						break;
-					}
-				}
-				std::cout << "Render order: ";
-				for ( auto it = renderModes.begin(); it != renderModes.end(); ++it ) {
-					std::cout << "`" << (*it)->getName() << "` -> ";
-				}
-				std::cout << std::endl;
-			*/
-			//	std::reverse(renderModes.begin(), renderModes.end());
-			}
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
 				renderMode->createCommandBuffers();
 			}
 		} break;
-	/*
-		case 1: if ( ext::vulkan::graphics ) {
-			auto& graphics = *ext::vulkan::graphics;
-			for ( Graphic* graphic : graphics ) {
-				if ( !graphic->initialized ) {
-					graphic->initialize();
-				}
-			}
-		} break;
-	*/
 		case 1: {
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 				if ( !entity->hasComponent<uf::Mesh>() ) return;
 				uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 				ext::vulkan::Graphic& graphic = mesh.graphic;
 				if ( !mesh.generated ) return;
+				if ( !graphic.process ) return;
 				if ( graphic.initialized ) return;
-				graphic.initialize();
+				graphic.initializePipeline();
 				ext::vulkan::rebuild = true;
 			};
 			for ( uf::Scene* scene : ext::vulkan::scenes ) {
@@ -283,10 +255,6 @@ void ext::vulkan::initialize( uint8_t stage ) {
 		} break;
 	}
 }
-std::ostream& operator<<(std::ostream& os, const ext::vulkan::Graphic& graphic) {
-	os << graphic.name() << ": " << &graphic;
-	return os;
-}
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::resized ) ext::vulkan::rebuild = true;
@@ -295,11 +263,11 @@ void ext::vulkan::tick() {
 		if ( !entity->hasComponent<uf::Mesh>() ) return;
 		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 		ext::vulkan::Graphic& graphic = mesh.graphic;
-		// if ( !graphic->process ) return;
 		if ( !mesh.generated ) return;
+		if ( !graphic.process ) return;
 		if ( graphic.initialized ) return;
+		graphic.initializePipeline();
 		ext::vulkan::rebuild = true;
-		graphic.initialize();
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {
 		if ( !scene ) continue;

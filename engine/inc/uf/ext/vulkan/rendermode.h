@@ -5,6 +5,7 @@
 namespace ext {
 	namespace vulkan {
 		struct Graphic;
+		
 		struct UF_API RenderMode {
 			uint32_t width = 0, height = 0;
 			std::string name = "";
@@ -21,11 +22,10 @@ namespace ext {
 			// RAII
 			virtual std::string getType() const;
 			const std::string& getName() const;
-			virtual size_t subpasses() const;
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();
-			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes );
+			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void tick();
 			virtual void render();
 			virtual void destroy();

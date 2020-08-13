@@ -3,6 +3,37 @@
 #include <uf/utils/image/image.h>
 #include <uf/ext/vulkan/vulkan.h>
 
+void ext::vulkan::Sampler::initialize( Device& device, VkFilter filter ) {
+	this->device = &device;
+	this->filter = filter;
+
+	{
+		VkSamplerCreateInfo samplerCreateInfo = {};
+		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter = filter;
+		samplerCreateInfo.minFilter = filter;
+		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerCreateInfo.mipLodBias = 0.0f;
+		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+		samplerCreateInfo.minLod = 0.0f;
+		samplerCreateInfo.maxLod = 0.0f;
+		samplerCreateInfo.maxAnisotropy = 1.0f;
+		VK_CHECK_RESULT(vkCreateSampler(device.logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+	}
+
+	{
+		descriptor.sampler = sampler;
+	}
+}
+void ext::vulkan::Sampler::destroy() {
+	if ( sampler != VK_NULL_HANDLE ) {
+		vkDestroySampler(device->logicalDevice, sampler, nullptr);
+		sampler = VK_NULL_HANDLE;
+	}
+}
 
 void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t height ) {
 	this->device = &device;
@@ -10,7 +41,7 @@ void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t heig
 	this->height = height;
 }
 void ext::vulkan::Texture::updateDescriptors() {
-	descriptor.sampler = sampler;
+	descriptor.sampler = sampler.sampler;
 	descriptor.imageView = view;
 	descriptor.imageLayout = imageLayout;
 }
@@ -28,10 +59,7 @@ void ext::vulkan::Texture::destroy() {
 		vmaDestroyImage( allocator, image, allocation );
 		image = VK_NULL_HANDLE;
 	}
-	if ( sampler != VK_NULL_HANDLE ) {
-		vkDestroySampler(device->logicalDevice, sampler, nullptr);
-		sampler = VK_NULL_HANDLE;
-	}
+	sampler.destroy();
 	if ( deviceMemory != VK_NULL_HANDLE ) {
 //		vkFreeMemory(device->logicalDevice, deviceMemory, nullptr);
 		deviceMemory = VK_NULL_HANDLE;
@@ -245,7 +273,7 @@ void ext::vulkan::Texture2D::loadFromFile(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		filter,
+		sampler.filter,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -318,7 +346,7 @@ void ext::vulkan::Texture2D::loadFromImage(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		filter,
+		sampler.filter,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -437,20 +465,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 	staging.destroy();
 	
 	// Create sampler
-	VkSamplerCreateInfo samplerCreateInfo = {};
-	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerCreateInfo.magFilter = filter;
-	samplerCreateInfo.minFilter = filter;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = 0.0f;
-	samplerCreateInfo.maxAnisotropy = 1.0f;
-	VK_CHECK_RESULT(vkCreateSampler(device.logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+	sampler.initialize( device, sampler.filter );
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = {};
@@ -519,20 +534,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	device.flushCommandBuffer(layoutCmd, copyQueue, true);
 
 	// Create sampler
-	VkSamplerCreateInfo samplerCreateInfo = ext::vulkan::initializers::samplerCreateInfo();
-	samplerCreateInfo.magFilter = filter;
-	samplerCreateInfo.minFilter = filter;
-	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;
-	samplerCreateInfo.addressModeW = samplerCreateInfo.addressModeU;
-	samplerCreateInfo.mipLodBias = 0.0f;
-	samplerCreateInfo.maxAnisotropy = 1.0f;
-	samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = 0.0f;
-	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	VK_CHECK_RESULT(vkCreateSampler(device, &samplerCreateInfo, nullptr, &sampler));
+	sampler.initialize( device, sampler.filter );
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = ext::vulkan::initializers::imageViewCreateInfo();

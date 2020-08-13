@@ -51,7 +51,7 @@ void ext::vulkan::BaseGraphic::initialize( const std::string& renderMode ) {
 void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMode ) {
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
-	ext::vulkan::Graphic::initialize( device, renderMode );
+	ext::vulkan::GraphicOld::initialize( device, renderMode );
 
 	// create default push constant
 	if ( !description.pushConstants.initialized() ) {
@@ -311,5 +311,5 @@ void ext::vulkan::BaseGraphic::initialize( Device& device, RenderMode& renderMod
 void ext::vulkan::BaseGraphic::destroy() {
 	texture.destroy();
 	shader.stages.clear();
-	ext::vulkan::Graphic::destroy();
+	ext::vulkan::GraphicOld::destroy();
 }

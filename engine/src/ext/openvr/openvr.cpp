@@ -301,7 +301,13 @@ void ext::openvr::tick() {
 			}
 			// grab texture
 			size_t len = queued.texture->unWidth * queued.texture->unHeight * 4;
-			mesh.graphic.texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
+		//	mesh.graphic.texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
+			mesh.initialize(true);
+			mesh.graphic.process = false;
+			mesh.graphic.initialize();
+
+			auto& texture = mesh.graphic.material.textures.emplace_back();
+			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
 		}
 		// clear
 		{

@@ -19,9 +19,6 @@ std::string ext::vulkan::RenderMode::getType() const {
 const std::string& ext::vulkan::RenderMode::getName() const {
 	return this->name;
 }
-size_t ext::vulkan::RenderMode::subpasses() const {
-	return 1;
-}
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
 	std::vector<ext::vulkan::Graphic*> graphics;
@@ -31,7 +28,6 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 		if ( !mesh.generated ) return;
 		ext::vulkan::Graphic& graphic = mesh.graphic;
 		if ( !graphic.initialized ) return;
-		if ( !graphic.renderMode ) return;
 		if ( !graphic.process ) return;
 		graphics.push_back(&graphic);
 	};
@@ -41,9 +37,9 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	}
 
 	VK_CHECK_RESULT(vkWaitForFences(*device, fences.size(), fences.data(), VK_TRUE, UINT64_MAX));
-	createCommandBuffers( graphics, ext::vulkan::passes );
+	createCommandBuffers( graphics );
 }
-void ext::vulkan::RenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
+void ext::vulkan::RenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 }
 
 void ext::vulkan::RenderMode::render() {

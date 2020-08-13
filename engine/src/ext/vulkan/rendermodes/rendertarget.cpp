@@ -116,7 +116,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	VK_CHECK_RESULT(vkWaitSemaphores( *device, &waitInfo, UINT64_MAX ));
 */
 }
-void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
+void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::height;
@@ -151,10 +151,6 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 			renderPassBeginInfo.renderPass = renderTarget.renderPass;
 			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 
-			for ( auto graphic : graphics ) {
-				graphic->createImageMemoryBarrier(commands[i]);
-			}
-
 			// Update dynamic viewport state
 			VkViewport viewport = {};
 			viewport.width = (float) width;
@@ -173,8 +169,8 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( auto graphic : graphics ) {
-					if ( graphic->renderMode && graphic->renderMode->getName() != this->target ) continue;
-					graphic->createCommandBuffer(commands[i] );
+					if ( graphic->descriptor.renderMode != this->target ) continue;
+					graphic->record(commands[i] );
 				}
 			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);

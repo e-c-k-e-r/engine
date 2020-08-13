@@ -1,7 +1,6 @@
 template<typename T>
 void uf::BaseMesh<T>::initialize( bool compress ) {
-	this->destroy(false);
-
+	// this->destroy(false);
 	if ( compress ) {
 		std::unordered_map<vertex_t, uint32_t> unique;
 		std::vector<vertex_t> _vertices = std::move( this->vertices );
@@ -29,9 +28,35 @@ void uf::BaseMesh<T>::initialize( bool compress ) {
 }	
 template<typename T>
 void uf::BaseMesh<T>::generate() {
+	// already generated, check if we can just update
+	if ( graphic.descriptor.indices > 0 ) {
+		if ( graphic.descriptor.size == sizeof(vertex_t) && graphic.descriptor.indices == indices.size() ) {
+			// too lazy to check if this equals, only matters in pipeline creation anyways
+			graphic.descriptor.attributes = vertex_t::descriptor;
+
+			graphic.updateBuffer(
+				(void*) vertices.data(),
+				vertices.size() * sizeof(vertex_t),
+				0,
+				false
+			);
+			graphic.updateBuffer(
+				(void*) indices.data(),
+				indices.size() * sizeof(uint32_t),
+				0,
+				false
+			);
+			return;
+		}
+		// can't reuse buffers, re-create buffers
+		this->destroy(false);
+	}
+
 	graphic.device = &ext::vulkan::device;
-	graphic.description.size = sizeof(vertex_t);
-	graphic.description.attributes = vertex_t::descriptor;
+	graphic.descriptor.size = sizeof(vertex_t);
+	graphic.descriptor.attributes = vertex_t::descriptor;
+	graphic.descriptor.indices = indices.size();
+
 	graphic.initializeBuffer(
 		(void*) vertices.data(),
 		vertices.size() * sizeof(vertex_t),
@@ -46,13 +71,16 @@ void uf::BaseMesh<T>::generate() {
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		false
 	);
-	graphic.indices = indices.size();
 	this->generated = true;
 	// wait for shaders and uniforms
 }
 template<typename T>
 void uf::BaseMesh<T>::destroy( bool clear ) {
-	if ( this->generated ) this->graphic.destroy();
+	// if ( this->generated ) this->graphic.destroy();
+	if ( this->generated ) {
+		for ( auto& buffer : graphic.buffers ) buffer.destroy();
+		graphic.buffers.clear();
+	}
 	this->generated = false;
 	if ( clear ) {
 		this->indices.clear();

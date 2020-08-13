@@ -278,6 +278,8 @@ void ext::GuiDialogue::tick() {
 
 			// renderDialogueOptions(std::string(""));
 			renderDialogueOptions(result["actions"]);
+
+			return "true";
 		});
 		this->queueHook("menu:Dialogue.Turn.%UID%");
 	}

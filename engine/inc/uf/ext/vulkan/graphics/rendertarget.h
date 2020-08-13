@@ -3,7 +3,7 @@
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/graphic.h>
+#include <uf/ext/vulkan/graphic.old.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/rendertarget.h>
 
@@ -11,7 +11,7 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API RenderTargetGraphic : public Graphic {
+		struct UF_API RenderTargetGraphic : public GraphicOld {
 			struct Vertex {
 				alignas(8) pod::Vector2f position;
 				alignas(8) pod::Vector2f uv;

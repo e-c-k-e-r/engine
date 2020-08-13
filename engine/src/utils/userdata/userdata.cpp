@@ -10,6 +10,10 @@
  */
 
 // Constructs a pod::Userdata struct with it's 
+pod::Userdata* UF_API uf::userdata::create( std::size_t len ) {
+	std::vector<uint8_t> empty( len, 0 );
+	return create( len, empty.data() );
+}
 pod::Userdata* UF_API uf::userdata::create( std::size_t len, void* data ) {
 	if ( !data ) return NULL;
 	void* pointer = operator new( sizeof(pod::Userdata) + sizeof(uint8_t) * len ); 	// allocate data for the userdata struct, and then some
@@ -49,6 +53,10 @@ uf::Userdata::Userdata( const Userdata& copy ) {
 }
 
 // 	Creates the POD
+pod::Userdata* uf::Userdata::create( std::size_t len ) {
+	this->destroy();
+	return this->m_pod = uf::userdata::create( len );
+}
 pod::Userdata* uf::Userdata::create( std::size_t len, void* data ) {
 	this->destroy();
 	return this->m_pod = uf::userdata::create( len, data );

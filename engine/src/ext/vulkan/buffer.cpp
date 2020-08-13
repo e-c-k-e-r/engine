@@ -2,6 +2,7 @@
 
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/vulkan/device.h>
 
 VkResult ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
 //	return vkMapMemory( device, memory, offset, size, 0, &mapped );
@@ -138,4 +139,98 @@ void ext::vulkan::Buffer::destroy() {
 
 	buffer = nullptr;
 	memory = nullptr;
+}
+
+//
+// Buffers
+void ext::vulkan::Buffers::initialize( Device& device ) {
+	this->device = &device;
+}
+/*
+ext::vulkan::Buffers::~Buffers() {
+	for ( auto& buffer : buffers ) buffer.destroy();
+	buffers.clear();
+}
+*/
+void ext::vulkan::Buffers::destroy() {
+	for ( auto& buffer : buffers ) buffer.destroy();
+	buffers.clear();
+}
+
+size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage ) {
+	Buffer buffer;
+	size_t index = buffers.size();
+//	Buffer& buffer = buffers.emplace_back();
+	
+	// Stage
+	if ( !stage ) {
+		VK_CHECK_RESULT(device->createBuffer(
+			usageFlags,
+			memoryPropertyFlags,
+			buffer,
+			length
+		));
+		size_t index = buffers.size();
+		buffers.push_back( std::move(buffer) );
+		this->updateBuffer( data, length, index, stage );
+		return index;
+	}
+
+	VkQueue queue = device->graphicsQueue;
+	Buffer staging;
+	VkDeviceSize storageBufferSize = length;
+	device->createBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		staging,
+		storageBufferSize,
+		data
+	);
+
+	device->createBuffer(
+		usageFlags,
+		memoryPropertyFlags,
+		buffer,
+		storageBufferSize
+	);
+
+	// Copy to staging buffer
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	VkBufferCopy copyRegion = {};
+	copyRegion.size = storageBufferSize;
+	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
+	device->flushCommandBuffer(copyCmd, queue, true);
+	staging.destroy();
+
+	buffers.push_back( std::move(buffer) );
+	return index;
+}
+void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, size_t index, bool stage ) {
+	Buffer& buffer = buffers.at(index);
+	return updateBuffer( data, length, buffer, stage );
+}
+void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage ) {
+	if ( !stage ) {
+		VK_CHECK_RESULT(buffer.map());
+		memcpy(buffer.mapped, data, length);
+		buffer.unmap();
+		return;
+	}
+	VkQueue queue = device->graphicsQueue;
+	Buffer staging;
+	device->createBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		staging,
+		length,
+		data
+	);
+
+	// Copy to staging buffer
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	VkBufferCopy copyRegion = {};
+	copyRegion.size = length;
+	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
+	device->flushCommandBuffer(copyCmd, queue, true);
+	staging.destroy();
 }

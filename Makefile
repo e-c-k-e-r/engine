@@ -31,7 +31,7 @@ WIN64_GLSL_VALIDATOR 	= $(VULKAN_WIN64_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 WIN64_INC_DIR 			= $(ENGINE_INC_DIR)/win64
 WIN64_LB_FLAGS 			= $(ENGINE_LIB_DIR)/win64
-WIN64_DEPS 				= -lgdi32 -lvulkan -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api
+WIN64_DEPS 				= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api
 #WIN64_DEPS 			= -lvulkan -lncursesw
 WIN64_LINKS 			= $(UF_LIBS) $(EXT_LIBS) $(WIN64_DEPS)
 WIN64_FLAGS 			= $(FLAGS) -g

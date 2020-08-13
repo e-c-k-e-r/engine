@@ -21,7 +21,7 @@ std::string ext::vulkan::BaseRenderMode::getType() const {
 const std::string& ext::vulkan::BaseRenderMode::getName() const {
 	return this->name;
 }
-void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
+void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
@@ -53,10 +53,6 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &commandBufferInfo));
 
-		for ( auto graphic : graphics ) {
-			graphic->createImageMemoryBarrier(commands[i]);
-		}
-
 		// Start the first sub pass specified in our default render pass setup by the base class
 		// This will clear the color and depth attachment
 		vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -76,7 +72,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 			vkCmdSetScissor(commands[i], 0, 1, &scissor);
 
 			for ( auto graphic : graphics ) {
-				graphic->createCommandBuffer(commands[i] );
+				graphic->record(commands[i] );
 			}
 		vkCmdEndRenderPass(commands[i]);
 

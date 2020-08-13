@@ -9,6 +9,11 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/transform.h>
 
+#include <uf/ext/vulkan/graphic.h>
+namespace {
+	ext::vulkan::Graphic newBlitter;
+}
+
 std::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
@@ -57,7 +62,16 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 	}
 	renderTarget.initialize( device );
-
+/*
+	{
+		::blitter.descriptor.subpass = 1;
+		::blitter.initialize();
+		::blitter.material.shader.initializeShaders({
+			{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
+	}
+*/
 	blitter.renderTarget = &renderTarget;
 	blitter.initializeShaders({
 		{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
@@ -176,7 +190,7 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
 	blitter.destroy();
 }
-void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics, const std::vector<std::string>& passes ) {
+void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
 	// ext::vulkan::RenderMode& swapchain = 
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
@@ -224,10 +238,6 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			renderPassBeginInfo.renderPass = renderTarget.renderPass;
 			renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 
-			for ( auto graphic : graphics ) {
-				graphic->createImageMemoryBarrier(commands[i]);
-			}
-
 			// Update dynamic viewport state
 			VkViewport viewport = {};
 			viewport.width = (float) width;
@@ -264,8 +274,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( auto graphic : graphics ) {
 					// only draw graphics that are assigned to this type of render mode
-					if ( graphic->renderMode->getName() != this->getName() ) continue;
-					graphic->createCommandBuffer(commands[i] );
+					if ( graphic->descriptor.renderMode != this->getName() ) continue;
+					graphic->record(commands[i] );
 				}
 				// render gui layer
 				{

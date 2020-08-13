@@ -15,6 +15,7 @@ namespace pod {
 
 namespace uf {
 	namespace userdata {
+		pod::Userdata* UF_API create( std::size_t len );
 		pod::Userdata* UF_API create( std::size_t len, void* data );
 		void UF_API destroy( pod::Userdata* userdata );
 
@@ -46,6 +47,7 @@ namespace uf {
 		Userdata( Userdata&& move ); 						// Move c-tor
 		Userdata( const Userdata& copy ); 					// Copy c-tor
 	
+		pod::Userdata* create( std::size_t len );
 		pod::Userdata* create( std::size_t len, void* data );
 		void move( Userdata&& move );
 		void copy( const Userdata& copy );

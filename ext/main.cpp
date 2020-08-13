@@ -112,7 +112,7 @@ void EXT_API ext::initialize() {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
 			ext::vulkan::validation = false;
 			if ( ::config["engine"]["ext"]["vr"]["invert winding order"].asBool() )
-				ext::vulkan::Graphic::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+				ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		}
 	}
 

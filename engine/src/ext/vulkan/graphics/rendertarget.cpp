@@ -84,7 +84,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 	this->indices = indices.size();
 	// asset correct buffer sizes
 	assert( buffers.size() >= 2 );
-	ext::vulkan::Graphic::initialize( device, renderMode );
+	ext::vulkan::GraphicOld::initialize( device, renderMode );
 	// set descriptor layout
 	{
 		std::vector<VkDescriptorSetLayoutBinding> bindings = {
@@ -199,7 +199,7 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 			VK_POLYGON_MODE_FILL,
 			VK_CULL_MODE_BACK_BIT,
 		//	VK_CULL_MODE_NONE,
-			ext::vulkan::Graphic::DEFAULT_WINDING_ORDER,
+			ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER,
 			0
 		);
 
@@ -449,5 +449,5 @@ void ext::vulkan::RenderTargetGraphic::initialize( Device& device, RenderMode& r
 }
 void ext::vulkan::RenderTargetGraphic::destroy() {
 	vkDestroySampler( *device, sampler, nullptr );
-	ext::vulkan::Graphic::destroy();
+	ext::vulkan::GraphicOld::destroy();
 }
