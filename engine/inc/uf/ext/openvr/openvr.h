@@ -3,7 +3,7 @@
 #include <uf/config.h>
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/math/quaternion.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
 #ifdef USE_OPENVR_MINGW
 	#include <openvr/openvr_mingw.h>
@@ -63,8 +63,8 @@ namespace ext {
 		bool UF_API controllerActive( vr::Controller_Hand );
 
 		bool UF_API requestRenderModel( const std::string& );
-		uf::Mesh& UF_API getRenderModel( const std::string& );
-		uf::Mesh& UF_API controllerRenderModel( vr::Controller_Hand );
+		uf::Graphic& UF_API getRenderModel( const std::string& );
+		uf::Graphic& UF_API controllerRenderModel( vr::Controller_Hand );
 
 		void UF_API resetPosition();
 	/*

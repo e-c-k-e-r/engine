@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/utils/math/vector.h>
-#include <uf/ext/vulkan/graphics/base.h>
+#include <uf/utils/math/matrix.h>
 #include <uf/ext/vulkan/vulkan.h>
 
 #include <functional>
@@ -14,7 +14,7 @@ namespace pod {
 		alignas(16) pod::Vector3f normal;
 		alignas(16) pod::Vector4t<uint8_t> color;
 
-		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F32B& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -30,7 +30,7 @@ namespace pod {
 		alignas(8) pod::Vector2f uv;
 		alignas(16) pod::Vector3f normal;
 
-		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F3F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -44,7 +44,7 @@ namespace pod {
 		alignas(16) pod::Vector3f position;
 		alignas(8) pod::Vector2f uv;
 
-		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F2F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -55,7 +55,7 @@ namespace pod {
 	struct /*UF_API*/ Vertex_3F {
 		alignas(16) pod::Vector3f position;
 
-		static UF_API std::vector<ext::vulkan::Graphic::VertexDescriptor> descriptor;
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
 		bool operator==( const Vertex_3F& that ) const {
 			return 	this->position 	== that.position;
@@ -104,23 +104,25 @@ namespace std {
     };
 }
 namespace uf {
-	struct /*UF_API*/ MeshBase {
+	struct /*UF_API*/ BaseGeometry {
 	public:
-	//	ext::vulkan::BaseGraphic graphic;
-		ext::vulkan::Graphic graphic;
-		bool generated = false;
+		struct {
+			size_t vertex;
+			size_t indices;
+		} sizes;
+		std::vector<ext::vulkan::VertexDescriptor> attributes;
 	};
-	template<typename T>
-	class /*UF_API*/ BaseMesh : public MeshBase {
+	template<typename T, typename U = uint32_t>
+	class /*UF_API*/ BaseMesh : public BaseGeometry {
 	public:
 		typedef T vertex_t;
+		typedef U indices_t;
 		std::vector<vertex_t> vertices;
-		std::vector<uint32_t> indices;
+		std::vector<indices_t> indices;
 
 		~BaseMesh();
 		void initialize( bool compress = true );
-		void generate();
-		void destroy( bool clear = true );
+		void destroy();
 	};
 }
 /*

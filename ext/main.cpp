@@ -19,7 +19,7 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/image/image.h>
 #include <uf/utils/thread/thread.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/http/http.h>
 

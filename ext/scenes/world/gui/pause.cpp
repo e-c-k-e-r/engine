@@ -6,7 +6,6 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/string/ext.h>
 // #include <uf/gl/glyph/glyph.h>
 #include <uf/engine/asset/asset.h>

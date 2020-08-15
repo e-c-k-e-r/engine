@@ -1,10 +1,11 @@
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermode.h>
 #include <uf/ext/vulkan/initializers.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/utils/window/window.h>
 
 #include <uf/ext/vulkan/rendertarget.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/engine/scene/scene.h>
 
@@ -23,12 +24,18 @@ const std::string& ext::vulkan::RenderMode::getName() const {
 void ext::vulkan::RenderMode::createCommandBuffers() {
 	std::vector<ext::vulkan::Graphic*> graphics;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized ) return;
+		if ( !graphic.process ) return;
+	/*
 		if ( !entity->hasComponent<uf::Mesh>() ) return;
 		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 		if ( !mesh.generated ) return;
 		ext::vulkan::Graphic& graphic = mesh.graphic;
 		if ( !graphic.initialized ) return;
 		if ( !graphic.process ) return;
+	*/
 		graphics.push_back(&graphic);
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {

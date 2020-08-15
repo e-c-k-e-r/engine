@@ -1,9 +1,10 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/graphics/deferredrendering.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/openvr/openvr.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;

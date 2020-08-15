@@ -71,7 +71,7 @@ namespace {
 				uf::Serializer state;
 				pod::Matrix4t<> matrix;
 				pod::Matrix4t<> tip;
-				uf::Mesh mesh;
+				uf::Graphic mesh;
 			} left, right;
 		} controllers;
 	} devices;
@@ -88,7 +88,7 @@ namespace {
 		vr::RenderModel_TextureMap_t* texture;
 	};
 	std::unordered_map<std::string, QueuedRenderModel> queuedRenderModels;
-	std::unordered_map<std::string, uf::Mesh> renderModels;
+	std::unordered_map<std::string, uf::Graphic> renderModels;
 	std::vector<std::string> renderModelNames;
 }
 
@@ -240,10 +240,12 @@ bool ext::openvr::initialize( int stage ) {
 	return true;
 }
 void ext::openvr::terminate() {
+/*
 	::devices.controllers.left.mesh.graphic.destroy();
 	::devices.controllers.right.mesh.graphic.destroy();
 	::devices.controllers.left.mesh.destroy();
 	::devices.controllers.right.mesh.destroy();
+*/
 	vr::VR_Shutdown();
 	ext::openvr::context = NULL;
 }
@@ -283,7 +285,10 @@ void ext::openvr::tick() {
 		}
 		// loaded texture, process
 		{
-			uf::Mesh& mesh = renderModels[name];
+		//	uf::Mesh& mesh = renderModels[name];
+			uf::Graphic& graphic = renderModels[name];
+
+			uf::Mesh mesh;
 			mesh.vertices.reserve(queued.model->unVertexCount);
 			for ( size_t i = 0; i < queued.model->unVertexCount; ++i ) {
 				auto& v = queued.model->rVertexData[i];
@@ -301,12 +306,10 @@ void ext::openvr::tick() {
 			}
 			// grab texture
 			size_t len = queued.texture->unWidth * queued.texture->unHeight * 4;
-		//	mesh.graphic.texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
-			mesh.initialize(true);
-			mesh.graphic.process = false;
-			mesh.graphic.initialize();
-
-			auto& texture = mesh.graphic.material.textures.emplace_back();
+			mesh.initialize();
+			graphic.initializeGeometry(mesh);
+		
+			auto& texture = graphic.material.textures.emplace_back();
 			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
 		}
 		// clear
@@ -666,10 +669,10 @@ bool ext::openvr::controllerActive( vr::Controller_Hand hand ) {
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return ::devices.controllers.right.active;
 	return false;
 }
-uf::Mesh& ext::openvr::getRenderModel( const std::string& name ) {
+uf::Graphic& ext::openvr::getRenderModel( const std::string& name ) {
 	return ::renderModels[name];
 }
-uf::Mesh& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
+uf::Graphic& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
 	if ( hand == vr::Controller_Hand::Hand_Left ) return renderModels["{indexcontroller}valve_controller_knu_1_0_left"]; //return ::devices.controllers.left.mesh;
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return renderModels["{indexcontroller}valve_controller_knu_1_0_right"]; //return ::devices.controllers.right.mesh;
 	throw false; //std::exception("error");

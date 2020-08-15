@@ -1,4 +1,4 @@
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
 /*
 uf::Graphic::~Graphic() {
 	this->destroy();
@@ -7,7 +7,7 @@ void uf::Graphic::destroy( bool clear ) {
 }
 */
 // Used for terrain
-std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
 	{
 		VK_FORMAT_R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F32B, position)
@@ -26,7 +26,7 @@ std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F3F32B::descr
 	}
 };
 // Used for normal meshses
-std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F3F::descriptor = {
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F::descriptor = {
 	{
 		VK_FORMAT_R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F, position)
@@ -41,7 +41,7 @@ std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F3F::descript
 	}
 };
 // (Typically) used for displaying textures
-std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
 	{
 		VK_FORMAT_R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F, position)
@@ -52,7 +52,7 @@ std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F2F::descriptor
 	}
 };
 // Basic
-std::vector<ext::vulkan::Graphic::VertexDescriptor> pod::Vertex_3F::descriptor = {
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F::descriptor = {
 	{
 		VK_FORMAT_R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F, position)

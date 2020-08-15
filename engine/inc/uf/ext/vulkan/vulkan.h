@@ -3,7 +3,6 @@
 #include <uf/ext/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
-#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/rendermodes/base.h>
 
 #include <uf/engine/scene/scene.h>
@@ -35,6 +34,10 @@ namespace ext {
 
 		uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties);
 
+		struct VertexDescriptor {
+			VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
+			std::size_t offset; // offsetof(Vertex, position)
+		};
 
 		extern UF_API uint32_t width;
 		extern UF_API uint32_t height;
@@ -52,7 +55,6 @@ namespace ext {
 
 		extern UF_API RenderMode* currentRenderMode;
 		extern UF_API std::vector<std::string> passes;
-	//	extern UF_API std::vector<Graphic*>* graphics;
 		extern UF_API std::vector<RenderMode*> renderModes;
 		extern UF_API std::vector<uf::Scene*> scenes;
 

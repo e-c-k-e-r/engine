@@ -262,14 +262,14 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions = {
 			ext::vulkan::initializers::vertexInputBindingDescription(
 				VERTEX_BUFFER_BIND_ID, 
-				graphic.descriptor.size, 
+				graphic.descriptor.geometry.sizes.vertex, 
 				VK_VERTEX_INPUT_RATE_VERTEX
 			)
 		};
 		// Attribute descriptions
 		// Describes memory layout and shader positions
 		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {};
-		for ( auto& attribute : graphic.descriptor.attributes ) {
+		for ( auto& attribute : graphic.descriptor.geometry.attributes ) {
 			auto d = ext::vulkan::initializers::vertexInputAttributeDescription(
 				VERTEX_BUFFER_BIND_ID,
 				vertexAttributeDescriptions.size(),
@@ -486,7 +486,16 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
 	VkDeviceSize offsets[1] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
 	// Bind triangle index buffer
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	VkIndexType indicesType = VK_INDEX_TYPE_UINT32;
+	switch ( descriptor.geometry.sizes.indices * 8 ) {
+		case  8: indicesType = VK_INDEX_TYPE_UINT8_EXT; break;
+		case 16: indicesType = VK_INDEX_TYPE_UINT16; break;
+		case 32: indicesType = VK_INDEX_TYPE_UINT32; break;
+		default:
+			throw std::runtime_error("invalid indices size of " + std::to_string((int) descriptor.geometry.sizes.indices));
+		break;
+	}
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, indicesType);
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, descriptor.indices, 1, 0, 0, 1);
 }
@@ -506,13 +515,14 @@ std::string ext::vulkan::Graphic::Descriptor::hash() const {
 	uf::Serializer serializer;
 
 	serializer["subpass"] = subpass;
-	serializer["size"] = size;
+	serializer["geometry"]["sizes"]["vertex"] = geometry.sizes.vertex;
+	serializer["geometry"]["sizes"]["indices"] = geometry.sizes.indices;
 
 	{
 		int i = 0;
-		for ( auto& attribute : attributes ) {
-			serializer["attributes"][i]["format"] = attribute.format;
-			serializer["attributes"][i]["offset"] = attribute.offset;
+		for ( auto& attribute : geometry.attributes ) {
+			serializer["geometry"]["attributes"][i]["format"] = attribute.format;
+			serializer["geometry"]["attributes"][i]["offset"] = attribute.offset;
 			++i;
 		}
 	}

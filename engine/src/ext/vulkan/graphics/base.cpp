@@ -1,4 +1,5 @@
 #include <uf/ext/vulkan/initializers.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/graphics/base.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/openvr/openvr.h>

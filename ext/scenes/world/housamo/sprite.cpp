@@ -4,7 +4,8 @@
 #include <uf/utils/time/time.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/userdata/userdata.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/vulkan/graphics/base.h>
@@ -68,6 +69,7 @@ void ext::HousamoSprite::initialize() {
 
 		uf::Image image = *imagePointer;
 		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
+		auto& graphic = this->getComponent<uf::Graphic>();
 		mesh.vertices = {
 			{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
 			{{-1*0.5f, 0.0f, 0.0f}, {0.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
@@ -83,23 +85,16 @@ void ext::HousamoSprite::initialize() {
 			{{-1*-0.5f, 1.0f, 0.0f}, {1.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
 			{{-1*0.5f, 1.0f, 0.0f}, {0.0f, 1.0f}, { 0.0f, 0.0f, 1.0f } },
 		};
-		mesh.initialize(true);
 
-		mesh.graphic.initialize();
-		auto& texture = mesh.graphic.material.textures.emplace_back();
+		graphic.initialize();
+		graphic.initializeGeometry( mesh );
+
+		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
-		mesh.graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		mesh.graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-	/*
-		mesh.graphic.texture.loadFromImage( image );
-		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-		mesh.graphic.initializeShaders({
-			{"./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-		});
-		mesh.graphic.initialize();
-		mesh.graphic.autoAssign();
-	*/
+
+		graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
 		return "true";
@@ -131,11 +126,8 @@ void ext::HousamoSprite::tick() {
 }
 
 void ext::HousamoSprite::destroy() {	
-	if ( this->hasComponent<uf::Mesh>() ) {
-		auto& mesh = this->getComponent<uf::Mesh>();
-		mesh.graphic.destroy();
-		mesh.destroy();
-	}
+	auto& graphic = this->getComponent<uf::Graphic>();
+	graphic.destroy();
 	ext::Craeture::destroy();
 }
 
@@ -146,14 +138,15 @@ void ext::HousamoSprite::render() {
 	ext::Craeture::render();
 	/* Update uniforms */ if ( this->hasComponent<uf::Mesh>() ) {
 		auto& mesh = this->getComponent<uf::Mesh>();
+		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& scene = uf::scene::getCurrentScene();
 		auto& controller = *scene.getController();
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
-		if ( !mesh.generated ) return;
-		//auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		if ( !graphic.initialized ) return;
+		//auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( transform );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
@@ -163,7 +156,7 @@ void ext::HousamoSprite::render() {
 		uniforms.color[1] = metadata["color"][1].asFloat();
 		uniforms.color[2] = metadata["color"][2].asFloat();
 		uniforms.color[3] = metadata["color"][3].asFloat();
-		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
-		// mesh.graphic.updateBuffer( uniforms, 0, false );
+		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+		// graphic.updateBuffer( uniforms, 0, false );
 	};
 }

@@ -4,11 +4,10 @@
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
-#include <uf/ext/vulkan/rendermodes/base.h>
+#include <uf/utils/graphic/mesh.h>
 
 namespace ext {
 	namespace vulkan {
-		struct RenderMode;
 		struct Graphic;
 
 		struct UF_API Shader : public Buffers {
@@ -63,16 +62,11 @@ namespace ext {
 			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& );
 		};
 		struct UF_API Graphic : public Buffers {
-			struct UF_API VertexDescriptor {
-				VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
-				std::size_t offset; // offsetof(Vertex, position)
-			};
 			struct Descriptor {
 				std::string renderMode = "";
 				uint32_t subpass = 0;
 
-				std::size_t size; // sizeof(Vertex)
-				std::vector<VertexDescriptor> attributes;
+				uf::BaseGeometry geometry;
 				size_t indices = 0;
 
 				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -95,14 +89,20 @@ namespace ext {
 			std::unordered_map<std::string, Pipeline> pipelines;
 
 			void initialize( const std::string& = "" );
-			void initializePipeline();
 			void destroy();
 			
-			Pipeline& initializePipeline( Descriptor& descriptor, bool update = true );
+			template<typename T, typename U>
+			void initializeGeometry( uf::BaseMesh<T, U>& mesh );
+
 			bool hasPipeline( Descriptor& descriptor );
+			void initializePipeline();
+			Pipeline& initializePipeline( Descriptor& descriptor, bool update = true );
 			Pipeline& getPipeline( Descriptor& descriptor );
 			
 			void record( VkCommandBuffer commandBuffer );
 		};
 	}
 }
+
+
+#include "graphic.inl"

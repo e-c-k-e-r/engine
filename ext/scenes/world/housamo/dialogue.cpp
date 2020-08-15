@@ -6,7 +6,7 @@
 #include <uf/utils/time/time.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/userdata/userdata.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/vulkan/graphics/base.h>

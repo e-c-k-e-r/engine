@@ -1,8 +1,9 @@
 #include <uf/ext/glfw/glfw.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/initializers.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/rendermode.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 
 #include <ostream>
 #include <fstream>
@@ -230,12 +231,17 @@ void ext::vulkan::initialize( uint8_t stage ) {
 		} break;
 		case 1: {
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				if ( !entity->hasComponent<uf::Graphic>() ) return;
+				ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+				if ( graphic.initialized ) return;
+			/*
 				if ( !entity->hasComponent<uf::Mesh>() ) return;
 				uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 				ext::vulkan::Graphic& graphic = mesh.graphic;
 				if ( !mesh.generated ) return;
 				if ( !graphic.process ) return;
 				if ( graphic.initialized ) return;
+			*/
 				graphic.initializePipeline();
 				ext::vulkan::rebuild = true;
 			};
@@ -260,10 +266,15 @@ void ext::vulkan::tick() {
 	if ( ext::vulkan::resized ) ext::vulkan::rebuild = true;
 
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( graphic.initialized ) return;
+	/*
 		if ( !entity->hasComponent<uf::Mesh>() ) return;
 		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
 		ext::vulkan::Graphic& graphic = mesh.graphic;
 		if ( !mesh.generated ) return;
+	*/
 		if ( !graphic.process ) return;
 		if ( graphic.initialized ) return;
 		graphic.initializePipeline();
@@ -310,9 +321,8 @@ void ext::vulkan::destroy() {
 	vkDeviceWaitIdle( device );
 
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Mesh>() ) return;
-		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
-		ext::vulkan::Graphic& graphic = mesh.graphic;
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {

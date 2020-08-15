@@ -1,6 +1,7 @@
 #include "marching.h"
 
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/noise/noise.h>
@@ -309,6 +310,7 @@ void ext::Marching::initialize() {
 
 	this->m_name = "Marching";
 	auto& mesh = this->getComponent<MESH_TYPE>();
+	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& metadata = this->getComponent<uf::Serializer>();
 
@@ -468,18 +470,18 @@ void ext::Marching::initialize() {
 		}
 		}
 		{
-			std::cout << mesh.graphic.initialized << std::endl;
-			if ( mesh.graphic.initialized ) {
-				mesh.graphic.destroy();
+			std::cout << graphic.initialized << std::endl;
+			if ( graphic.initialized ) {
+				graphic.destroy();
 				mesh.destroy();
 			}
 			std::cout << "Done?" << std::endl;
 			mesh.vertices = std::move(vertices);
 
-			mesh.initialize(true);
-			mesh.graphic.initialize();
+			graphic.initialize();
+			graphic.initializeGeometry( mesh );
 		
-			auto& texture = mesh.graphic.material.textures.emplace_back();
+			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromFile( "./data/textures/texture.png" );
 
 			std::string suffix = ""; {
@@ -487,23 +489,8 @@ void ext::Marching::initialize() {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 
-			mesh.graphic.material.attachShader("./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-			mesh.graphic.material.attachShader("./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-		/*
-			mesh.graphic.texture.loadFromFile( "./data/textures/texture.png" );
-			std::string suffix = ""; {
-				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
-				if ( _ != "" ) suffix = _ + ".";
-			}
-			mesh.graphic.initializeShaders({
-				{"./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{"./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-			});
-			mesh.initialize(true);
-			mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-			mesh.graphic.initialize();
-			mesh.graphic.autoAssign();
-		*/
+			graphic.material.attachShader("./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+			graphic.material.attachShader("./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 		}
 		return "true";
 	});
@@ -521,32 +508,30 @@ void ext::Marching::tick() {
 */
 }
 void ext::Marching::destroy() {
-	if ( this->hasComponent<MESH_TYPE>() ) {
-		auto& mesh = this->getComponent<MESH_TYPE>();
-		mesh.graphic.destroy();
-		mesh.destroy();
-	}
+	auto& graphic = this->getComponent<uf::Graphic>();
+	graphic.destroy();
 	uf::Object::destroy();
 }
 void ext::Marching::render() {
 	uf::Object::render();
 	/* Update uniforms */ if ( this->hasComponent<MESH_TYPE>() ) {
 		auto& mesh = this->getComponent<MESH_TYPE>();
+		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& root = this->getRootParent<uf::Scene>();
 		auto& player = *root.getController();
 		auto& camera = player.getComponent<uf::Camera>();
 		auto& transform = player.getComponent<pod::Transform<>>();
 		auto& model = this->getComponent<pod::Transform<>>();
-		if ( !mesh.generated ) return;
+		if ( !graphic.initialized ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( this->getComponent<pod::Transform<>>() );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
-		// mesh.graphic.updateBuffer( uniforms, 0, false );
-		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+		// graphic.updateBuffer( uniforms, 0, false );
+		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 	};
 }

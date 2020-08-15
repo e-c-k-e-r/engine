@@ -6,7 +6,8 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/string/ext.h>
 
 #include <uf/utils/text/glyph.h>
@@ -332,6 +333,7 @@ namespace {
 			gui.addAlias<uf::GuiMesh, uf::Mesh>();
 		}
 		uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
+		uf::Graphic& graphic = gui.getComponent<uf::Graphic>();
 		/* get original image size (before padding) */ {
 			metadata["original size"]["x"] = image.getDimensions().x;
 			metadata["original size"]["y"] = image.getDimensions().y;
@@ -402,8 +404,9 @@ namespace {
 				vertex.position.x /= ::size.reference.x;
 				vertex.position.y /= ::size.reference.y;
 			}
-			mesh.initialize(true);
-			mesh.graphic.initialize( "Gui" );
+			graphic.initialize( "Gui" );
+			graphic.initializeGeometry( mesh );
+
 			struct {
 				std::string vertex = "./data/shaders/gui.text.vert.spv";
 				std::string fragment = "./data/shaders/gui.text.frag.spv";
@@ -412,7 +415,7 @@ namespace {
 			if ( metadata["shaders"]["fragment"].isString() ) filenames.fragment = metadata["shaders"]["fragment"].asString();
 			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
 
-			mesh.graphic.material.initializeShaders({
+			graphic.material.initializeShaders({
 				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
 				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
 			});
@@ -449,8 +452,8 @@ namespace {
 				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
 				{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
 			};
-			mesh.initialize(true);
-			mesh.graphic.initialize( "Gui" );
+			graphic.initialize( "Gui" );
+			graphic.initializeGeometry( mesh );
 			struct {
 				std::string vertex = "./data/shaders/gui.vert.spv";
 				std::string fragment = "./data/shaders/gui.frag.spv";
@@ -459,19 +462,19 @@ namespace {
 			if ( metadata["shaders"]["fragment"].isString() ) filenames.fragment = metadata["shaders"]["fragment"].asString();
 			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
 		
-			mesh.graphic.material.initializeShaders({
+			graphic.material.initializeShaders({
 				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
 				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
 			});
 		}
 
-		auto& texture = mesh.graphic.material.textures.emplace_back();
+		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
 
 		{
 			pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
 			uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
-			auto& texture = mesh.graphic.material.textures.front();
+			auto& texture = graphic.material.textures.front();
 
 			pod::Vector2f textureSize = {
 				metadata["original size"]["x"].asFloat(),
@@ -615,7 +618,8 @@ void ext::Gui::initialize() {
 		}
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		uf::GuiMesh& mesh = this->getComponent<uf::GuiMesh>();
-		auto& texture = mesh.graphic.material.textures.front();
+		uf::Graphic& graphic = this->getComponent<uf::Graphic>();
+		auto& texture = graphic.material.textures.front();
 		pod::Vector2f textureSize = {
 			metadata["original size"]["x"].asFloat(),
 			metadata["original size"]["y"].asFloat()
@@ -813,9 +817,10 @@ void ext::Gui::render() {
 	/* Update uniforms */ if ( this->hasComponent<uf::GuiMesh>() ) {
 		auto& scene = this->getRootParent<uf::Scene>();
 		auto& mesh = this->getComponent<uf::GuiMesh>();
+		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& camera = scene.getController()->getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
-		if ( !mesh.generated ) return;
+		if ( !graphic.initialized ) return;
 
 		pod::Vector4 offset = {
 			metadata["uv"][0].asFloat(),
@@ -828,8 +833,8 @@ void ext::Gui::render() {
 		
 		if ( this->m_name == "Gui: Text" ) {
 		//	::GlyphDescriptor uniforms;
-		//	auto& uniforms = mesh.graphic.uniforms<::GlyphDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<::GlyphDescriptor>();
+		//	auto& uniforms = graphic.uniforms<::GlyphDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<::GlyphDescriptor>();
 
 			if ( !metadata["text settings"]["color"].isArray() ) {
 				metadata["text settings"]["color"][0] = 1.0f;
@@ -912,8 +917,8 @@ void ext::Gui::render() {
 				}
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 			// calculate click box
 			{
 				auto& model = uniforms.matrices.model[0];
@@ -944,8 +949,8 @@ void ext::Gui::render() {
 				metadata["color"][3].asFloat()
 			};
 		//	uf::StereoGuiMeshDescriptor uniforms;
-		//	auto& uniforms = mesh.graphic.uniforms<uf::StereoGuiMeshDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoGuiMeshDescriptor>();
+		//	auto& uniforms = graphic.uniforms<uf::StereoGuiMeshDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoGuiMeshDescriptor>();
 			uniforms.gui.offset = offset;
 			uniforms.gui.color = color;
 			uniforms.gui.mode = mode;
@@ -980,8 +985,8 @@ void ext::Gui::render() {
 				}
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 			// calculate click box
 			{
 				auto& model = uniforms.matrices.model[0];
@@ -1135,10 +1140,7 @@ void ext::Gui::render() {
 }
 
 void ext::Gui::destroy() {
-	if ( this->hasComponent<uf::GuiMesh>() ) {
-		auto& mesh = this->getComponent<uf::GuiMesh>();
-		mesh.graphic.destroy();
-		mesh.destroy();
-	}
+	auto& graphic = this->getComponent<uf::Graphic>();
+	graphic.destroy();
 	uf::Object::destroy();
 }

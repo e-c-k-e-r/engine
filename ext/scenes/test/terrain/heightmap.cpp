@@ -1,6 +1,7 @@
 #include "heightmap.h"
 
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/graphic.h>
+#include <uf/utils/graphic/mesh.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/noise/noise.h>
@@ -19,6 +20,7 @@ void ext::Heightmap::initialize() {
 
 	this->m_name = "Heightmap";
 	auto& mesh = this->getComponent<MESH_TYPE>();
+	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 
 	// generate heightmap
@@ -79,11 +81,11 @@ void ext::Heightmap::initialize() {
 		}
 	}
 	{
-	//	mesh.graphic.texture.loadFromFile( "./data/textures/texture.png" );
-		mesh.graphic.initialize();
+	//	graphic.texture.loadFromFile( "./data/textures/texture.png" );
+		graphic.initialize();
 		mesh.initialize(true);
 		
-		auto& texture = mesh.graphic.material.textures.emplace_back();
+		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromFile( "./data/textures/texture.png" );
 
 		std::string suffix = ""; {
@@ -91,52 +93,50 @@ void ext::Heightmap::initialize() {
 			if ( _ != "" ) suffix = _ + ".";
 		}
 
-		mesh.graphic.material.attachShader("./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		mesh.graphic.material.attachShader("./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		graphic.material.attachShader("./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		graphic.material.attachShader("./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	/*
-		mesh.graphic.initializeShaders({
+		graphic.initializeShaders({
 			{"./data/shaders/heightmap.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{"./data/shaders/heightmap."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 		mesh.initialize(true);
-		mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-		mesh.graphic.initialize();
-		mesh.graphic.autoAssign();
+		graphic.bindUniform<uf::StereoMeshDescriptor>();
+		graphic.initialize();
+		graphic.autoAssign();
 	*/
-		mesh.graphic.process = true;
+		graphic.process = true;
 	}
 }
 void ext::Heightmap::tick() {
 	uf::Object::tick();
 }
 void ext::Heightmap::destroy() {
-	if ( this->hasComponent<MESH_TYPE>() ) {
-		auto& mesh = this->getComponent<MESH_TYPE>();
-		mesh.graphic.destroy();
-		mesh.destroy();
-	}
+	auto& graphic = this->getComponent<uf::Graphic>();
+	graphic.destroy();
 	uf::Object::destroy();
 }
 void ext::Heightmap::render() {
 	uf::Object::render();
 	/* Update uniforms */ if ( this->hasComponent<MESH_TYPE>() ) {
 		auto& mesh = this->getComponent<MESH_TYPE>();
+		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& root = this->getRootParent<uf::Scene>();
 		auto& player = *root.getController();
 		auto& camera = player.getComponent<uf::Camera>();
 		auto& transform = player.getComponent<pod::Transform<>>();
 		auto& model = this->getComponent<pod::Transform<>>();
-		if ( !mesh.generated ) return;
+		if ( !graphic.initialized ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		//auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-		auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		//auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::transform::model( this->getComponent<pod::Transform<>>() );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
-		// mesh.graphic.updateBuffer( uniforms, 0, false );
-		mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+		// graphic.updateBuffer( uniforms, 0, false );
+		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 	};
 }

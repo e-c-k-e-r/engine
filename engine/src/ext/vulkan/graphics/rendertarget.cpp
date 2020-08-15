@@ -2,8 +2,8 @@
 #include <uf/ext/vulkan/graphics/rendertarget.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/texture.h>
-
-#include <uf/utils/mesh/mesh.h>
+#include <uf/ext/vulkan/graphic.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/ext/openvr/openvr.h>
 
 namespace {

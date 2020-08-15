@@ -11,10 +11,6 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API VertexDescriptor {
-			VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
-			std::size_t offset; // offsetof(Vertex, position)
-		};
 		struct UF_API GraphicDescriptor {
 			std::size_t size; // sizeof(Vertex)
 			std::vector<VertexDescriptor> attributes;

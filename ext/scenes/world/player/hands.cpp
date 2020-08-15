@@ -1,6 +1,7 @@
 #include "hands.h"
 
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
@@ -55,21 +56,13 @@ void ext::Hands::initialize() {
 
 				{
 					uf::Object& hand = *pointer;
-					uf::Mesh& mesh = (hand.getComponent<uf::Mesh>() = ext::openvr::getRenderModel( name ));
-					mesh.graphic.process = true;
-					mesh.graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-					mesh.graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-				/*
-					mesh.graphic.initializeShaders({
-						{"./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-						{"./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-					});
-					mesh.graphic.description.rasterMode.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-					mesh.generate();
-					mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-					mesh.graphic.initialize();
-					mesh.graphic.autoAssign();
-				*/
+					uf::Graphic& graphic = (hand.getComponent<uf::Graphic>() = ext::openvr::getRenderModel( name ));
+					
+					graphic.process = true;
+
+					graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
 					hand.initialize();
 				}
 				{
@@ -93,30 +86,32 @@ void ext::Hands::initialize() {
 					};
 
 					auto& mesh = line.getComponent<uf::LineMesh>();
+					auto& graphic = line.getComponent<uf::Graphic>();
+
 					mesh.vertices = {
 						{ {0.0f, 0.0f,    0.0f} },
 						{ {0.0f, 0.0f, metadata["hands"][hand]["pointer"]["length"].asFloat()} },
 					};
-					mesh.initialize(true);
+					graphic.initialize();
+					graphic.initializeGeometry(mesh);
 					
-					mesh.graphic.initialize();
-					mesh.graphic.material.attachShader("./data/shaders/line.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-					mesh.graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-					mesh.graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-					mesh.graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
-					mesh.graphic.descriptor.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
+					graphic.material.attachShader("./data/shaders/line.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+					graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+					graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
+					graphic.descriptor.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
 				/*
-					mesh.graphic.initializeShaders({
+					graphic.initializeShaders({
 						{"./data/shaders/line.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 						{"./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 					});
 					mesh.generate();
-					mesh.graphic.bindUniform<uf::StereoMeshDescriptor>();
-					mesh.graphic.description.rasterMode.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-					mesh.graphic.description.rasterMode.fill = VK_POLYGON_MODE_LINE;
-					mesh.graphic.description.rasterMode.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
-					mesh.graphic.initialize();
-					mesh.graphic.autoAssign();
+					graphic.bindUniform<uf::StereoMeshDescriptor>();
+					graphic.description.rasterMode.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+					graphic.description.rasterMode.fill = VK_POLYGON_MODE_LINE;
+					graphic.description.rasterMode.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
+					graphic.initialize();
+					graphic.autoAssign();
 				*/
 					line.initialize();
 				}
@@ -381,12 +376,13 @@ void ext::Hands::render() {
 	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
 	if ( hands.left.hasComponent<uf::Mesh>() ) {
 		auto& mesh = hands.left.getComponent<uf::Mesh>();
+		auto& graphic = hands.left.getComponent<uf::Graphic>();
 		auto& transform = hands.left.getComponent<pod::Transform<>>();
-		mesh.graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
 		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
-		if ( mesh.generated ) {	
-			// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		if ( graphic.initialized ) {	
+			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 			uniforms.matrices.model = model;
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
@@ -396,18 +392,19 @@ void ext::Hands::render() {
 			uniforms.color[1] = metadata["hands"]["left"]["controller"]["color"][1].asFloat();
 			uniforms.color[2] = metadata["hands"]["left"]["controller"]["color"][2].asFloat();
 			uniforms.color[3] = metadata["hands"]["left"]["controller"]["color"][3].asFloat();
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
 	if ( hands.right.hasComponent<uf::Mesh>() ) {
 		auto& mesh = hands.right.getComponent<uf::Mesh>();
+		auto& graphic = hands.right.getComponent<uf::Graphic>();
 		auto& transform = hands.right.getComponent<pod::Transform<>>();
-		mesh.graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
 		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
-		if ( mesh.generated ) {	
-			// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		if ( graphic.initialized ) {	
+			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 			uniforms.matrices.model = model;
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
@@ -417,18 +414,19 @@ void ext::Hands::render() {
 			uniforms.color[1] = metadata["hands"]["right"]["controller"]["color"][1].asFloat();
 			uniforms.color[2] = metadata["hands"]["right"]["controller"]["color"][2].asFloat();
 			uniforms.color[3] = metadata["hands"]["right"]["controller"]["color"][3].asFloat();
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
 	if ( lines.left.hasComponent<uf::Mesh>() ) {
 		auto& mesh = lines.left.getComponent<uf::Mesh>();
+		auto& graphic = lines.left.getComponent<uf::Graphic>();
 		auto& transform = lines.left.getComponent<pod::Transform<>>();
-		mesh.graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
 		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
-		if ( mesh.generated ) {	
-			// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		if ( graphic.initialized ) {	
+			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 			uniforms.matrices.model = model;
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
@@ -438,18 +436,19 @@ void ext::Hands::render() {
 			uniforms.color[1] = metadata["hands"]["left"]["pointer"]["color"][1].asFloat();
 			uniforms.color[2] = metadata["hands"]["left"]["pointer"]["color"][2].asFloat();
 			uniforms.color[3] = metadata["hands"]["left"]["pointer"]["color"][3].asFloat();
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
 	if ( lines.right.hasComponent<uf::Mesh>() ) {
 		auto& mesh = lines.right.getComponent<uf::Mesh>();
+		auto& graphic = lines.right.getComponent<uf::Graphic>();
 		auto& transform = lines.right.getComponent<pod::Transform<>>();
-		mesh.graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
 		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
-		if ( mesh.generated ) {	
-			// auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = mesh.graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		if ( graphic.initialized ) {	
+			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 			uniforms.matrices.model = model;
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
@@ -459,29 +458,8 @@ void ext::Hands::render() {
 			uniforms.color[1] = metadata["hands"]["right"]["pointer"]["color"][1].asFloat();
 			uniforms.color[2] = metadata["hands"]["right"]["pointer"]["color"][2].asFloat();
 			uniforms.color[3] = metadata["hands"]["right"]["pointer"]["color"][3].asFloat();
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+			// graphic.updateBuffer( uniforms, 0, false );
+			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
-/*
-	if ( lines.right.hasComponent<uf::Mesh>() ) {
-		auto& mesh = lines.right.getComponent<uf::Mesh>();
-		// mesh.graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
-		auto& transform = lines.right.getComponent<pod::Transform<>>();
-		if ( mesh.generated ) {				
-			auto& uniforms = mesh.graphic.uniforms<uf::StereoMeshDescriptor>();
-			uniforms.matrices.model = cameraModel * ext::openvr::controllerMatrix( vr::Controller_Hand::Hand_Right, true );//uf::transform::model( transform );
-			for ( std::size_t i = 0; i < 2; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-			uniforms.color[0] = metadata["hands"]["right"]["pointer"]["color"][0].asFloat();
-			uniforms.color[1] = metadata["hands"]["right"]["pointer"]["color"][1].asFloat();
-			uniforms.color[2] = metadata["hands"]["right"]["pointer"]["color"][2].asFloat();
-			uniforms.color[3] = metadata["hands"]["right"]["pointer"]["color"][3].asFloat();
-			// mesh.graphic.updateBuffer( uniforms, 0, false );
-			mesh.graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
-		}
-	}
-*/
 }

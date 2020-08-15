@@ -1,6 +1,7 @@
 #include "portal.h"
 
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>

@@ -7,7 +7,8 @@
 #include "region.h"
 
 #include <uf/utils/window/window.h>
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/ext/vulkan/graphics/base.h>

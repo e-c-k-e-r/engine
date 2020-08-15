@@ -11,7 +11,7 @@
 
 #include <uf/utils/noise/noise.h>
 
-#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/graphic/mesh.h>
 #include <uf/ext/vulkan/graphics/compute.h>
 
 #include <uf/utils/string/rle.h>
