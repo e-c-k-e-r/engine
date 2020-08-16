@@ -3,10 +3,13 @@
 #include <uf/ext/vulkan/device.h>
 #include <uf/utils/image/image.h>
 
+#include <uf/ext/vulkan/rendertarget.h>
+
 namespace ext {
 	namespace vulkan {
 		struct UF_API Sampler {
 			Device* device = NULL;
+
 			VkSampler sampler;
 			VkDescriptorImageInfo descriptor;
 			VkFilter filter = VK_FILTER_LINEAR;
@@ -16,6 +19,7 @@ namespace ext {
 		};
 		struct UF_API Texture {
 			Device* device = nullptr;
+
 			VkImage image;
 			VkImageView view;
 			VkImageLayout imageLayout;
@@ -106,6 +110,7 @@ namespace ext {
 				VkQueue copyQueue,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM
 			);
+			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
 		};
 	}
 }

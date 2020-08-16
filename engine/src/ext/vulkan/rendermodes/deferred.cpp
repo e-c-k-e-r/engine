@@ -10,9 +10,6 @@
 #include <uf/utils/math/transform.h>
 
 #include <uf/ext/vulkan/graphic.h>
-namespace {
-	ext::vulkan::Graphic newBlitter;
-}
 
 std::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
@@ -62,129 +59,75 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 	}
 	renderTarget.initialize( device );
-/*
+
 	{
-		::blitter.descriptor.subpass = 1;
-		::blitter.initialize();
-		::blitter.material.shader.initializeShaders({
+		uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
+	/*
+		mesh.vertices = {
+			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+
+			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+		};
+	*/
+		mesh.vertices = {
+			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+		};
+		mesh.indices = {
+			0, 1, 2, 0, 2, 3
+		};
+		blitter.descriptor.subpass = 1;
+		blitter.descriptor.depthTest.test = false;
+		blitter.descriptor.depthTest.write = false;
+
+		blitter.initialize( this->getName() );
+		blitter.initializeGeometry( mesh );
+		blitter.material.initializeShaders({
 			{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
+		blitter.initializePipeline();
 	}
-*/
-	blitter.renderTarget = &renderTarget;
-	blitter.initializeShaders({
-		{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-		{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-	});
-	blitter.subpass = 1;
-	blitter.initialize( device, *this );
-
 	// update layer rendertargets descriptor sets
+/*
 	{
 		std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false); //{ &ext::vulkan::getRenderMode("Gui") };
-		for ( auto layer : layers ) {
-			RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-			auto& blitter = rtLayer->blitter;
-			// blitter.subpass = 1;
-			blitter.initialize( device, *this );
+		for ( auto _ : layers ) {
+			RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+			auto& blitter = layer->blitter;
+			blitter.initialize( this->getName() );
 		}
 	}
+*/
 }
 void ext::vulkan::DeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
-	for ( auto layer : layers ) {
-		RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-		auto& blitter = rtLayer->blitter;
-		// update descriptor set
-		if ( !blitter.initialized ) {
-			// blitter.subpass = 1;
-			if ( blitter.renderTarget ) blitter.initialize( *device, *this );
-		}
-	}
+	
 	if ( ext::vulkan::resized ) {
-		// destroy if exist
-		{
-			renderTarget.initialize( *renderTarget.device );
-		}
+		renderTarget.initialize( *renderTarget.device );
 		// update blitter descriptor set
 		if ( blitter.initialized ) {
-			std::vector<VkDescriptorImageInfo> inputDescriptors;
-			auto& subpass = renderTarget.passes[blitter.subpass];
-			for ( auto& input : subpass.inputs ) {
-				inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-					renderTarget.attachments[input.attachment].view,
-					input.layout
-				));
-			}
-			// Set descriptor set
-			std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-				// Binding 0 : Projection/View matrix uniform buffer			
-				ext::vulkan::initializers::writeDescriptorSet(
-					blitter.descriptorSet,
-					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					0,
-					&(blitter.buffers.at(0).descriptor)
-				)
-			};
-			for ( size_t i = 0; i < inputDescriptors.size(); ++i ) {
-				writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-					blitter.descriptorSet,
-					VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-					i + 1,
-					&inputDescriptors[i]
-				));
-			}
-			blitter.initializeDescriptorSet( writeDescriptorSets );
-		}
-		// update layer rendertargets descriptor sets
-		for ( auto layer : layers ) {
-			RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-			auto& blitter = rtLayer->blitter;
-			auto& renderTarget = rtLayer->renderTarget;
-			// update descriptor set
-			if ( blitter.initialized ) {
-				renderTarget.initialize( *renderTarget.device );
-				VkDescriptorImageInfo samplerDescriptor; samplerDescriptor.sampler = blitter.sampler;
-				std::vector<VkDescriptorImageInfo> colorDescriptors;
-				for ( auto& attachment : renderTarget.attachments ) {
-					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-					colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-						attachment.view,
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-					));
-				}
-			
-				// Set descriptor set
-				std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-					// Binding 0 : Projection/View matrix uniform buffer			
-					ext::vulkan::initializers::writeDescriptorSet(
-						blitter.descriptorSet,
-						VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-						0,
-						&(blitter.buffers.at(0).descriptor)
-					),
-					// Binding 1 : Sampler
-					ext::vulkan::initializers::writeDescriptorSet(
-						blitter.descriptorSet,
-						VK_DESCRIPTOR_TYPE_SAMPLER,
-						1,
-						&samplerDescriptor
-					),
-				};
-				for ( size_t i = 0; i < colorDescriptors.size(); ++i ) {
-					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-						blitter.descriptorSet,
-						VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-						i + 2,
-						&colorDescriptors[i]
-					));
-				}
-				vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
-			}
+		//	blitter.material.textures.clear();
+			auto& pipeline = blitter.getPipeline();
+			pipeline.update( blitter );
 		}
 	}
+/*
+	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
+	for ( auto _ : layers ) {
+		RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+		auto& blitter = layer->blitter;
+		if ( blitter.initialized ) continue;
+		blitter.initialize( this->getName() );
+		blitter.initializePipeline();
+	}
+*/
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
@@ -279,22 +222,26 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				}
 				// render gui layer
 				{
-					for ( auto layer : layers ) {
-						RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-						if ( !rtLayer->blitter.initialized ) continue;
-						if ( rtLayer->blitter.subpass != 0 ) continue;
-						rtLayer->blitter.createCommandBuffer(commands[i]);
+					for ( auto _ : layers ) {
+						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+						auto& blitter = layer->blitter;
+						if ( !blitter.initialized ) continue;
+						if ( blitter.descriptor.subpass != 0 ) continue;
+						blitter.record(commands[i]);
 					}
 				}
 			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-				blitter.createCommandBuffer(commands[i]);
+				{
+					blitter.record(commands[i]);
+				}
 				// render gui layer
 				{
-					for ( auto layer : layers ) {
-						RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-						if ( !rtLayer->blitter.initialized ) continue;
-						if ( rtLayer->blitter.subpass != 1 ) continue;
-						rtLayer->blitter.createCommandBuffer(commands[i]);
+					for ( auto _ : layers ) {
+						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+						auto& blitter = layer->blitter;
+						if ( !blitter.initialized ) continue;
+						if ( blitter.descriptor.subpass != 1 ) continue;
+						blitter.record(commands[i]);
 					}
 				}
 			vkCmdEndRenderPass(commands[i]);

@@ -20,6 +20,12 @@ std::string ext::vulkan::RenderMode::getType() const {
 const std::string& ext::vulkan::RenderMode::getName() const {
 	return this->name;
 }
+ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
+	return renderTarget;
+}
+const ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) const {
+	return renderTarget;
+}
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
 	std::vector<ext::vulkan::Graphic*> graphics;

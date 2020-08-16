@@ -50,6 +50,7 @@ bool ext::vulkan::Texture::generated() const {
 }
 void ext::vulkan::Texture::destroy() {
 	if ( !device ) return;
+
 	if ( view != VK_NULL_HANDLE ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
 		view = VK_NULL_HANDLE;
@@ -546,5 +547,16 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	VK_CHECK_RESULT(vkCreateImageView(device, &viewCreateInfo, nullptr, &view));
 
 	// Initialize a descriptor for later use
+	this->updateDescriptors();
+}
+void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
+	image = attachment.image;
+	view = attachment.view;
+	imageLayout = attachment.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.layout;
+	deviceMemory = attachment.mem;
+
+	// Create sampler
+	if ( createSampler ) sampler.initialize( ext::vulkan::device, sampler.filter );
+	
 	this->updateDescriptors();
 }

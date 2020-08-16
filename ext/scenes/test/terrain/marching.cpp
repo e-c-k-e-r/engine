@@ -520,13 +520,12 @@ void ext::Marching::render() {
 		auto& root = this->getRootParent<uf::Scene>();
 		auto& player = *root.getController();
 		auto& camera = player.getComponent<uf::Camera>();
-		auto& transform = player.getComponent<pod::Transform<>>();
+		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& model = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
-		uniforms.matrices.model = uf::transform::model( this->getComponent<pod::Transform<>>() );
+		uniforms.matrices.model = uf::transform::model( transform );
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );

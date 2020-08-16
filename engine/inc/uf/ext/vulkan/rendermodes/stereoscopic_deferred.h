@@ -11,14 +11,16 @@ namespace ext {
 				ext::vulkan::RenderTarget right;
 			} renderTargets;
 			struct {
-				ext::vulkan::DeferredRenderingGraphic left;
-				ext::vulkan::DeferredRenderingGraphic right;
+				ext::vulkan::Graphic left;
+				ext::vulkan::Graphic right;
 			} blitters;
-			ext::vulkan::DeferredRenderingGraphic blitter;
+			ext::vulkan::Graphic blitter;
 
 			StereoscopicDeferredRenderMode();
 			// RAII
 			virtual std::string getType() const;
+			virtual ext::vulkan::RenderTarget& getRenderTarget(size_t = 0);
+			virtual const ext::vulkan::RenderTarget& getRenderTarget(size_t = 0) const;
 			
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );

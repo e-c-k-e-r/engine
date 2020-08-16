@@ -1,11 +1,5 @@
 #include <uf/utils/graphic/mesh.h>
-/*
-uf::Graphic::~Graphic() {
-	this->destroy();
-}
-void uf::Graphic::destroy( bool clear ) {
-}
-*/
+
 // Used for terrain
 std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
 	{
@@ -49,6 +43,16 @@ std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
 	{
 		VK_FORMAT_R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F, uv)
+	}
+};
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_2F2F::descriptor = {
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_2F2F, position)
+	},
+	{
+		VK_FORMAT_R32G32_SFLOAT,
+		offsetof(pod::Vertex_2F2F, uv)
 	}
 };
 // Basic

@@ -1026,6 +1026,21 @@ void ext::Gui::render() {
 			if ( renderMode->getName() == "Gui" ) {
 				auto& blitter = renderMode->blitter;
 				auto& metadata = controller.getComponent<uf::Serializer>();
+
+				struct UniformDescriptor {
+					struct {
+						alignas(16) pod::Matrix4f models[2];
+					} matrices;
+					struct {
+						alignas(8) pod::Vector2f position = { 0.5f, 0.5f };
+						alignas(8) pod::Vector2f radius = { 0.1f, 0.1f };
+						alignas(16) pod::Vector4f color = { 1, 1, 1, 1 };
+					} cursor;
+					alignas(4) float alpha;
+				};
+				auto& shader = blitter.material.shaders.front();
+				auto& uniforms = shader.uniforms.front().get<UniformDescriptor>();
+
 				for ( std::size_t i = 0; i < 2; ++i ) {
 					pod::Transform<> transform;
 					if ( metadata["overlay"]["position"].isArray() ) 
@@ -1050,37 +1065,37 @@ void ext::Gui::render() {
 					if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].asBool() || ext::vulkan::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
 						if ( metadata["overlay"]["floating"].asBool() ) {
 							pod::Matrix4f model = uf::transform::model( transform );
-							blitter.uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
+							uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
 						} else {
 							auto translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
 							auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
 	
 							pod::Matrix4f model = translation * rotation * uf::transform::model( transform );
-							blitter.uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
+							uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
 						}
 					} else {
 						pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
-						blitter.uniforms.matrices.models[i] = model;
+						uniforms.matrices.models[i] = model;
 					}
-					blitter.uniforms.alpha = metadata["overlay"]["alpha"].asFloat();
+					uniforms.alpha = metadata["overlay"]["alpha"].asFloat();
 
-					blitter.uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].asFloat() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
-					blitter.uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].asFloat() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
+					uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].asFloat() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
+					uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].asFloat() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
 
 					pod::Vector3f cursorSize;
 					cursorSize.x = metadata["overlay"]["cursor"]["radius"].asFloat();
 					cursorSize.y = metadata["overlay"]["cursor"]["radius"].asFloat();
 					cursorSize = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , transform.scale) ), cursorSize );
 					
-					blitter.uniforms.cursor.radius.x = cursorSize.x;
-					blitter.uniforms.cursor.radius.y = cursorSize.y;
+					uniforms.cursor.radius.x = cursorSize.x;
+					uniforms.cursor.radius.y = cursorSize.y;
 					
-					blitter.uniforms.cursor.color.x = metadata["overlay"]["cursor"]["color"][0].asFloat();
-					blitter.uniforms.cursor.color.y = metadata["overlay"]["cursor"]["color"][1].asFloat();
-					blitter.uniforms.cursor.color.z = metadata["overlay"]["cursor"]["color"][2].asFloat();
-					blitter.uniforms.cursor.color.w = metadata["overlay"]["cursor"]["color"][3].asFloat();
+					uniforms.cursor.color.x = metadata["overlay"]["cursor"]["color"][0].asFloat();
+					uniforms.cursor.color.y = metadata["overlay"]["cursor"]["color"][1].asFloat();
+					uniforms.cursor.color.z = metadata["overlay"]["cursor"]["color"][2].asFloat();
+					uniforms.cursor.color.w = metadata["overlay"]["cursor"]["color"][3].asFloat();
 				}
-				blitter.updateBuffer( (void*) &blitter.uniforms, sizeof(blitter.uniforms), 0 );
+				shader.updateBuffer( (void*) &uniforms, sizeof(uniforms), 0 );
 			}
 		}
 	}

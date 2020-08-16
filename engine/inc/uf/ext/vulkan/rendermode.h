@@ -12,7 +12,7 @@ namespace ext {
 			pod::Vector4f clearColor = {0, 0, 0, 1};
 			
 			Device* device = VK_NULL_HANDLE;
-			ext::vulkan::RenderTarget renderTarget;
+			RenderTarget renderTarget;
 
 			VkSemaphore renderCompleteSemaphore;
 			std::vector<VkFence> fences;
@@ -22,6 +22,8 @@ namespace ext {
 			// RAII
 			virtual std::string getType() const;
 			const std::string& getName() const;
+			virtual RenderTarget& getRenderTarget(size_t = 0);
+			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();

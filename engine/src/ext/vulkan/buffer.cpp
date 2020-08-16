@@ -158,9 +158,9 @@ void ext::vulkan::Buffers::destroy() {
 }
 
 size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage ) {
-	Buffer buffer;
+//	Buffer buffer;
 	size_t index = buffers.size();
-//	Buffer& buffer = buffers.emplace_back();
+	Buffer& buffer = buffers.emplace_back();
 	
 	// Stage
 	if ( !stage ) {
@@ -170,9 +170,9 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 			buffer,
 			length
 		));
-		size_t index = buffers.size();
-		buffers.push_back( std::move(buffer) );
-		this->updateBuffer( data, length, index, stage );
+		this->updateBuffer( data, length, buffer, stage );
+	//	size_t index = buffers.size();
+	//	buffers.push_back( std::move(buffer) );
 		return index;
 	}
 
@@ -202,7 +202,7 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 	device->flushCommandBuffer(copyCmd, queue, true);
 	staging.destroy();
 
-	buffers.push_back( std::move(buffer) );
+//	buffers.push_back( std::move(buffer) );
 	return index;
 }
 void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, size_t index, bool stage ) {
@@ -210,6 +210,15 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, size_t
 	return updateBuffer( data, length, buffer, stage );
 }
 void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage ) {
+//	assert(buffer.allocationInfo.size == length);
+
+	if ( buffer.allocationInfo.size != length ) {
+//		std::cout << "Mismatch buffer update: " << buffer.allocationInfo.size << " vs " << length << ", resetting for safety..." << std::endl;
+//		assert(buffer.allocationInfo.size > length);
+		length = buffer.allocationInfo.size;
+	}
+
+
 	if ( !stage ) {
 		VK_CHECK_RESULT(buffer.map());
 		memcpy(buffer.mapped, data, length);

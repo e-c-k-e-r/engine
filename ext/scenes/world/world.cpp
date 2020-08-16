@@ -301,7 +301,7 @@ void ext::World::render() {
 	/* Update lights */ {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		auto& scene = *this;
-		std::vector<ext::vulkan::DeferredRenderingGraphic*> blitters;
+		std::vector<ext::vulkan::Graphic*> blitters;
 		auto& renderMode = ext::vulkan::getRenderMode("", true);
 		if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
 			auto* renderModePointer = (ext::vulkan::StereoscopicDeferredRenderMode*) &renderMode;
@@ -325,9 +325,29 @@ void ext::World::render() {
 				alignas(16) pod::Vector4f color;
 			} lights;
 		};
+		
+		struct SpecializationConstant {
+			int32_t maxLights = 32;
+		} specializationConstants;
+
 		for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
 			auto& blitter = *blitters[_];
-			uint8_t* buffer = (uint8_t*) (void*) blitter.uniforms;
+			
+			uint8_t* buffer;
+			size_t len;
+			auto* shader = &blitter.material.shaders.front();
+			
+			for ( auto& _ : blitter.material.shaders ) {
+				if ( _.uniforms.empty() ) continue;
+				auto& userdata = _.uniforms.front();
+				buffer = (uint8_t*) (void*) userdata;
+				len = userdata.data().len;
+				shader = &_;
+				specializationConstants = _.specializationConstants.get<SpecializationConstant>();
+			}
+
+			if ( !buffer ) continue;
+
 			UniformDescriptor* uniforms = (UniformDescriptor*) buffer;
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms->matrices.view[i] = camera.getView( i );
@@ -340,7 +360,6 @@ void ext::World::render() {
 				uniforms->ambient.w = metadata["light"]["kexp"].asFloat();
 			}
 			{
-				size_t MAX_LIGHTS = blitter.maxLights;
 				std::vector<uf::Entity*> entities;
 				std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 					if ( !entity || entity->getName() != "Light" ) return;
@@ -365,12 +384,12 @@ void ext::World::render() {
 					}
 				}
 				UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
-				for ( size_t i = 0; i < MAX_LIGHTS; ++i ) {
+				for ( size_t i = 0; i < specializationConstants.maxLights; ++i ) {
 					UniformDescriptor::Light& light = lights[i];
 					light.position = { 0, 0, 0, 0 };
 					light.color = { 0, 0, 0, 0 };
 				}
-				for ( size_t i = 0; i < MAX_LIGHTS && i < entities.size(); ++i ) {
+				for ( size_t i = 0; i < specializationConstants.maxLights && i < entities.size(); ++i ) {
 					UniformDescriptor::Light& light = lights[i];
 					uf::Entity* entity = entities[i];
 
@@ -394,7 +413,8 @@ void ext::World::render() {
 					light.color.w = metadata["light"]["radius"].asFloat();
 				}
 			}
-			blitter.updateBuffer( (void*) buffer, blitter.uniforms.data().len, 0, false );
+			// blitter.updateBuffer( (void*) buffer, blitter.uniforms.data().len, 0, false );
+			shader->updateBuffer( (void*) buffer, len, 0, false );
 		}
 	}
 }

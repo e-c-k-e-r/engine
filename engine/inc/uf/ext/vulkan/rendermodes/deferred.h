@@ -6,7 +6,7 @@
 namespace ext {
 	namespace vulkan {
 		struct UF_API DeferredRenderMode : public ext::vulkan::RenderMode {
-			ext::vulkan::DeferredRenderingGraphic blitter;
+			ext::vulkan::Graphic blitter;
 
 			// RAII
 			virtual std::string getType() const;

@@ -1,6 +1,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/openvr/openvr.h>
 
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
@@ -20,6 +21,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 	this->device = &device;
 	
 	std::string spirv;
+	
 	{
 		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
@@ -31,6 +33,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 	
 		assert(spirv.size() > 0);
 	}
+	
 	{
 	
 		VkShaderModuleCreateInfo moduleCreateInfo = {};
@@ -40,6 +43,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 		VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &module));
 	}
+	
 	{
 		descriptor.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		descriptor.stage = stage;
@@ -48,6 +52,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 		assert(descriptor.module != VK_NULL_HANDLE);
 	}
+	
 	// do reflection
 	{
 		spirv_cross::Compiler comp( (uint32_t*) &spirv[0], spirv.size() / 4 );
@@ -55,6 +60,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType type ) {
 			// comp.get_decoration(resource.id, spv::DecorationDescriptorSet);
+			
 			switch ( type ) {
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
 				} break;
@@ -66,10 +72,11 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 				} break;
 			}
 			descriptorSetLayoutBindings.push_back(ext::vulkan::initializers::descriptorSetLayoutBinding( type, stage, comp.get_decoration(resource.id, spv::DecorationBinding) ) );
+			
 		};
-
-	// std::cout << "Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding) << std::endl;
-	#define LOOP_RESOURCES( key, type ) for ( const auto& resource : res.key ) {\
+		
+		//	std::cout << "Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding) << std::endl;
+		#define LOOP_RESOURCES( key, type ) for ( const auto& resource : res.key ) {\
 			parseResource( resource, type );\
 		}
 		LOOP_RESOURCES( sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
@@ -81,6 +88,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 	#undef LOOP_RESOURCES
 		
+		
 		for ( const auto& resource : res.push_constant_buffers ) {
 			auto& pushConstant = pushConstants.emplace_back();
 			const auto& type = comp.get_type(resource.base_type_id);
@@ -88,12 +96,12 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			pushConstant.create( size );
 		}
 	
+		
 		size_t specializationSize = 0;
 		for ( const auto& constant : comp.get_specialization_constants() ) {
 			const auto& value = comp.get_constant(constant.id);
 			const auto& type = comp.get_type(value.constant_type);
-			size_t size = comp.get_declared_struct_size(type);
-			// default: value.scalar_i32()
+			size_t size = 4; //comp.get_declared_struct_size(type);
 
 			VkSpecializationMapEntry specializationMapEntry;
 			specializationMapEntry.constantID = constant.constant_id;
@@ -105,19 +113,59 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		if ( specializationSize > 0 ) {
 			specializationConstants.create( specializationSize );
 
-			specializationInfo = {};
-			specializationInfo.dataSize = specializationSize;
-			specializationInfo.mapEntryCount = specializationMapEntries.size();
-			specializationInfo.pMapEntries = specializationMapEntries.data();
-			specializationInfo.pData = (void*) specializationConstants;
-			descriptor.pSpecializationInfo = &specializationInfo;
-		}	
+			uint8_t* s = (uint8_t*) (void*) specializationConstants;
+			size_t offset = 0;
+			for ( const auto& constant : comp.get_specialization_constants() ) {
+				const auto& value = comp.get_constant(constant.id);
+				const auto& type = comp.get_type(value.constant_type);
+				size_t size = 4;
+				uint8_t buffer[size];
+				switch ( type.basetype ) {
+					case spirv_cross::SPIRType::UInt: {
+						auto v = value.scalar();
+						memcpy( &buffer[0], &v, sizeof(v) );
+					} break;
+					case spirv_cross::SPIRType::Int: {
+						auto v = value.scalar_i32();
+						memcpy( &buffer[0], &v, sizeof(v) );
+					} break;
+					case spirv_cross::SPIRType::Float: {
+						auto v = value.scalar_f32();
+						memcpy( &buffer[0], &v, sizeof(v) );
+					} break;
+					case spirv_cross::SPIRType::Boolean: {
+						auto v = value.scalar()!=0;
+						memcpy( &buffer[0], &v, sizeof(v) );
+					} break;
+				}
+
+				memcpy( &s[offset], &buffer, size );
+				offset += size;
+			}
+
+			{
+				specializationInfo = {};
+				specializationInfo.dataSize = specializationSize;
+				specializationInfo.mapEntryCount = specializationMapEntries.size();
+				specializationInfo.pMapEntries = specializationMapEntries.data();
+				specializationInfo.pData = s;
+				descriptor.pSpecializationInfo = &specializationInfo;
+			}
+		}
 	/*
 	*/
 	//	LOOP_RESOURCES( stage_inputs, VkVertexInputAttributeDescription );
 	//	LOOP_RESOURCES( stage_outputs, VkPipelineColorBlendAttachmentState );
 	}
-	// update uniform buffers
+
+	// organize layouts
+	{
+		std::sort( descriptorSetLayoutBindings.begin(), descriptorSetLayoutBindings.end(), [&]( const VkDescriptorSetLayoutBinding& l, const VkDescriptorSetLayoutBinding& r ){
+			return l.binding < r.binding;
+		} );
+	}
+
+	// update uniform buffers	
 	for ( auto& uniform : uniforms ) {
 		pod::Userdata& userdata = uniform.data();
 		initializeBuffer(
@@ -128,6 +176,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			false
 		);
 	}
+	
 }
 
 void ext::vulkan::Shader::destroy() {
@@ -150,7 +199,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 	assert( graphic.material.shaders.size() > 0 );
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
-
+	auto& renderTarget = renderMode.getRenderTarget( graphic.descriptor.renderTarget );
 	{
 		std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 		std::vector<VkPushConstantRange> pushConstantRanges;
@@ -217,19 +266,33 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
 			graphic.descriptor.fill,
-			VK_CULL_MODE_BACK_BIT, //	VK_CULL_MODE_NONE,
+			graphic.descriptor.cullMode, //	VK_CULL_MODE_NONE,
 			graphic.descriptor.frontFace,
 			0
 		);
 		rasterizationState.lineWidth = graphic.descriptor.lineWidth;
 
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		auto& subpass = renderMode.renderTarget.passes[graphic.descriptor.subpass];
+		auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
 		for ( auto& color : subpass.colors ) {
 			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 				0xf,
-				VK_FALSE
+				VK_TRUE
 			);
+			blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+			blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+			blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+		/*
+			if ( !blendAttachmentStates.empty() ) {
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+					0xf,
+					VK_FALSE
+				);
+			}
+		*/
 			blendAttachmentStates.push_back(blendAttachmentState);
 		}
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
@@ -292,7 +355,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
-			renderMode.renderTarget.renderPass,
+			renderTarget.renderPass,
 			0
 		);
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
@@ -314,9 +377,18 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 	for ( auto& shader : graphic.material.shaders ) {
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
+			struct PushConstant {
+				uint32_t pass;
+			} p = { ext::openvr::renderPass };
+		/*
 			pod::Userdata& userdata = pushConstant.data();
+			{
+				pushConstant.get<PushConstant>() = { 0 };//ext::openvr::renderPass };
+			}
 			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, offset, userdata.len, userdata.data );
 			offset += userdata.len;
+		*/
+			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(p), &p );
 		}
 	}
 	// Bind descriptor sets describing shader binding points
@@ -335,10 +407,12 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	}
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
-	auto& subpass = renderMode.renderTarget.passes[graphic.descriptor.subpass];
+	auto& renderTarget = renderMode.getRenderTarget(graphic.descriptor.renderTarget );
+
+	auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
 	for ( auto& input : subpass.inputs ) {
 		inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-			renderMode.renderTarget.attachments[input.attachment].view,
+			renderTarget.attachments[input.attachment].view,
 			input.layout
 		));
 	}
@@ -420,6 +494,7 @@ void ext::vulkan::Material::initialize( Device& device ) {
 }
 void ext::vulkan::Material::destroy() {
 	if ( aliased ) return;
+
 	for ( auto& texture : textures ) texture.destroy();
 	for ( auto& shader : shaders ) shader.destroy();
 	for ( auto& sampler : samplers ) sampler.destroy();
@@ -431,20 +506,26 @@ void ext::vulkan::Material::destroy() {
 void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderStageFlagBits stage ) {
 	auto& shader = shaders.emplace_back();
 	shader.initialize( *device, filename, stage );
-/*
-	Shader shader;
-	shader.initialize( *device, filename, stage );
-	shaders.push_back( std::move( shader ) );
-*/
+
+	// check how many samplers requested
+	for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+		if ( layout.descriptorType != VK_DESCRIPTOR_TYPE_SAMPLER ) continue;
+		Sampler& sampler = samplers.emplace_back();
+		sampler.initialize( *device );
+	}
 }
 void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout ) {
 	shaders.clear(); shaders.reserve( layout.size() );
-	for ( auto& request : layout ) attachShader( request.first, request.second );
+	for ( auto& request : layout ) {
+		attachShader( request.first, request.second );
+	}
 }
 
 void ext::vulkan::Graphic::initialize( const std::string& renderModeName ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(renderModeName, true);
+
 	this->descriptor.renderMode = renderModeName;
+
 	material.initialize( *renderMode.device );
 
 	ext::vulkan::Buffers::initialize( *renderMode.device );
@@ -468,14 +549,20 @@ ext::vulkan::Pipeline& ext::vulkan::Graphic::initializePipeline( Descriptor& des
 bool ext::vulkan::Graphic::hasPipeline( Descriptor& descriptor ) {
 	return pipelines.count( descriptor.hash() ) > 0;
 }
+ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline() {
+	return getPipeline( descriptor );
+}
 ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( Descriptor& descriptor ) {
 	if ( !hasPipeline(descriptor) ) return initializePipeline( descriptor );
 	return pipelines[descriptor.hash()];
 }
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
-	if ( !this->hasPipeline( descriptor ) ) return;
+	if ( !this->hasPipeline( descriptor ) ) {
+		std::cout << this << ": has no valid pipeline" << std::endl;
+		return;
+	}
 
-	auto& pipeline = this->getPipeline( descriptor );
+	auto& pipeline = this->getPipeline();
 
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(0);
@@ -515,6 +602,7 @@ std::string ext::vulkan::Graphic::Descriptor::hash() const {
 	uf::Serializer serializer;
 
 	serializer["subpass"] = subpass;
+	serializer["renderTarget"] = renderTarget;
 	serializer["geometry"]["sizes"]["vertex"] = geometry.sizes.vertex;
 	serializer["geometry"]["sizes"]["indices"] = geometry.sizes.indices;
 
@@ -527,6 +615,7 @@ std::string ext::vulkan::Graphic::Descriptor::hash() const {
 		}
 	}
 	serializer["topology"] = topology;
+	serializer["cullMode"] = cullMode;
 	serializer["fill"] = fill;
 	serializer["lineWidth"] = lineWidth;
 	serializer["frontFace"] = frontFace;
@@ -534,7 +623,6 @@ std::string ext::vulkan::Graphic::Descriptor::hash() const {
 	serializer["depthTest"]["write"] = depthTest.write;
 	serializer["depthTest"]["operation"] = depthTest.operation;
 
-//	std::cout << this << ": " << indices << ": " << subpass << ": " << serializer << std::endl;
-
+//	std::cout << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << std::endl;
 	return uf::string::sha256( serializer.serialize() );
 }

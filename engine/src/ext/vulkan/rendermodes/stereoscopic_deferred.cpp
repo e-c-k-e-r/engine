@@ -16,12 +16,26 @@ namespace {
 	uint8_t DOMINANT_EYE = 0;
 }
 
-//ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }), blitters({ blitter }) {
+// ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }), blitters({ blitter }) {
 ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }) {
 }
 
 std::string ext::vulkan::StereoscopicDeferredRenderMode::getType() const {
 	return "Deferred (Stereoscopic)";
+}
+ext::vulkan::RenderTarget& ext::vulkan::StereoscopicDeferredRenderMode::getRenderTarget( size_t i ) {
+	switch ( i ) {
+		case 0: return renderTargets.left;
+		case 1: return renderTargets.right;
+		default: return renderTarget;
+	}
+}
+const ext::vulkan::RenderTarget& ext::vulkan::StereoscopicDeferredRenderMode::getRenderTarget( size_t i ) const {
+	switch ( i ) {
+		case 0: return renderTargets.left;
+		case 1: return renderTargets.right;
+		default: return renderTarget;
+	}
 }
 
 void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
@@ -29,12 +43,13 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 	
 	struct EYES {
 		RenderTarget* renderTarget;
-		DeferredRenderingGraphic* blitter;
+		Graphic* blitter;
 	};
 	std::vector<EYES> eyes = {
 		{ &renderTargets.left, &blitters.left },
 		{ &renderTargets.right, &blitters.right },
 	};
+	std::size_t i = 0;
 	for ( auto& eye : eyes ) {
 		auto& renderTarget = *eye.renderTarget;
 		auto& blitter = *eye.blitter;
@@ -81,18 +96,32 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 				attachments.depth
 			);
 		}
-		// Third render pass: write to swapchain
-	/*
-		{
-			renderTarget.addPass(
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-				{ attachments.swapchain },
-				{ attachments.output },
-				attachments.depth
-			);
-		}
-	*/
 		renderTarget.initialize( device );
+		{
+			uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
+			mesh.vertices = {
+				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+				{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+				{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+			};
+			mesh.indices = {
+				0, 1, 2, 0, 2, 3
+			};
+			blitter.descriptor.subpass = 1;
+			blitter.descriptor.renderTarget = i++;
+			blitter.descriptor.depthTest.test = false;
+			blitter.descriptor.depthTest.write = false;
+
+			blitter.initialize( this->getName() );
+			blitter.initializeGeometry( mesh );
+			blitter.material.initializeShaders({
+				{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+				{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
+			blitter.initializePipeline();
+		}
+	/*
 		blitter.renderTarget = &renderTarget;
 		blitter.initializeShaders({
 			{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
@@ -101,6 +130,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 
 		blitter.subpass = 1;
 		blitter.initialize( device, *this );
+	*/
 	}
 /*
 	{
@@ -114,6 +144,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 	}
 */
 	// update layer rendertargets descriptor sets
+/*
 	{
 		std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false); //{ &ext::vulkan::getRenderMode("Gui") };
 		for ( auto layer : layers ) {
@@ -123,9 +154,31 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			blitter.initialize( device, *this );
 		}
 	}
+*/
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
+	if ( ext::vulkan::resized ) {
+		struct EYES {
+			RenderTarget* renderTarget;
+			Graphic* blitter;
+		};
+		std::vector<EYES> eyes = {
+			{ &renderTargets.left, &blitters.left },
+			{ &renderTargets.right, &blitters.right },
+		};
+		for ( auto& eye : eyes ) {
+			auto& renderTarget = *eye.renderTarget;
+			auto& blitter = *eye.blitter;
+
+			renderTarget.initialize( *renderTarget.device );
+			if ( blitter.initialized ) {
+				auto& pipeline = blitter.getPipeline();
+				pipeline.update( blitter );
+			}
+		}
+	}
+/*
 	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
 	for ( auto layer : layers ) {
 		RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
@@ -139,7 +192,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 	if ( ext::vulkan::resized ) {
 		struct EYES {
 			RenderTarget* renderTarget;
-			DeferredRenderingGraphic* blitter;
+			Graphic* blitter;
 		};
 		std::vector<EYES> eyes = {
 			{ &renderTargets.left, &blitters.left },
@@ -224,12 +277,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 			if ( blitter.initialized ) {
 				VkDescriptorImageInfo samplerDescriptor; samplerDescriptor.sampler = blitter.sampler;
 				std::vector<VkDescriptorImageInfo> colorDescriptors;
-			/*
-				colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-					renderTarget.attachments[0].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				));
-			*/
 		
 				for ( auto& attachment : renderTarget.attachments ) {
 					colorDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
@@ -265,40 +312,17 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 					));
 				}
 				vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
-			/*
-				VkDescriptorImageInfo renderTargetDescription = ext::vulkan::initializers::descriptorImageInfo( 
-					renderTarget.attachments[0].view,
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					blitter.sampler
-				);
-				std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-					// Binding 0 : Projection/View matrix uniform buffer			
-					ext::vulkan::initializers::writeDescriptorSet(
-						blitter.descriptorSet,
-						VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-						0,
-						&(blitter.buffers.at(0).descriptor)
-					),
-					// Binding 1 : Albedo input attachment
-					ext::vulkan::initializers::writeDescriptorSet(
-						blitter.descriptorSet,
-						VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-						1,
-						&renderTargetDescription
-					),
-				};
-				vkUpdateDescriptorSets( *device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr );
-			*/
 			}
 		}
 	}
+*/
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
 	renderTargets.right.destroy();
 	blitters.left.destroy();
 	blitters.right.destroy();
-	blitter.destroy();
+//	blitter.destroy();
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
@@ -325,7 +349,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		struct EYES {
 			RenderTarget* renderTarget;
-			DeferredRenderingGraphic* blitter;
+			Graphic* blitter;
 		};
 		std::vector<EYES> eyes = {
 			{ &renderTargets.left, &blitters.left },
@@ -396,22 +420,24 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					}
 					// render gui layer
 					{
-						for ( auto layer : layers ) {
-							RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-							if ( !rtLayer->blitter.initialized ) continue;
-							if ( rtLayer->blitter.subpass != 0 ) continue;
-							rtLayer->blitter.createCommandBuffer(commands[i]);
+						for ( auto _ : layers ) {
+							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+							auto& blitter = layer->blitter;
+							if ( !blitter.initialized ) continue;
+							if ( blitter.descriptor.subpass != 0 ) continue;
+							blitter.record(commands[i]);
 						}
 					}
 				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-					blitter.createCommandBuffer(commands[i]);
+					blitter.record(commands[i]);
 					// render gui layer
 					{
-						for ( auto layer : layers ) {
-							RenderTargetRenderMode* rtLayer = (RenderTargetRenderMode*) layer;
-							if ( !rtLayer->blitter.initialized ) continue;
-							if ( rtLayer->blitter.subpass != 1 ) continue;
-							rtLayer->blitter.createCommandBuffer(commands[i]);
+						for ( auto _ : layers ) {
+							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+							auto& blitter = layer->blitter;
+							if ( !blitter.initialized ) continue;
+							if ( blitter.descriptor.subpass != 1 ) continue;
+							blitter.record(commands[i]);
 						}
 					}
 			/*

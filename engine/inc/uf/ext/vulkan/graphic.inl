@@ -1,6 +1,7 @@
 template<typename T, typename U>
 void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh ) {
 	if ( mesh.indices.empty() ) mesh.initialize();
+	mesh.updateDescriptor();
 
 	// already generated, check if we can just update
 	if ( descriptor.indices > 0 ) {

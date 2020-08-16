@@ -1,9 +1,7 @@
 template<typename T, typename U>
 void uf::BaseMesh<T, U>::initialize( bool compress ) {
 	// this->destroy(false);
-	sizes.vertex = sizeof(vertex_t);
-	sizes.indices = sizeof(indices_t);
-	attributes = vertex_t::descriptor;
+	this->updateDescriptor();
 
 	if ( compress ) {
 		std::unordered_map<vertex_t, indices_t> unique;
@@ -29,6 +27,12 @@ void uf::BaseMesh<T, U>::initialize( bool compress ) {
 		}
 	}
 }	
+template<typename T, typename U>
+void uf::BaseMesh<T, U>::updateDescriptor() {
+	sizes.vertex = sizeof(vertex_t);
+	sizes.indices = sizeof(indices_t);
+	attributes = vertex_t::descriptor;
+}
 template<typename T, typename U>
 void uf::BaseMesh<T, U>::destroy() {
 	this->indices.clear();

@@ -52,6 +52,18 @@ namespace pod {
 		}
 		bool operator!=( const Vertex_3F2F& that ) const { return !(*this == that); }
 	};
+	struct /*UF_API*/ Vertex_2F2F {
+		alignas(8) pod::Vector2f position;
+		alignas(8) pod::Vector2f uv;
+
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+
+		bool operator==( const Vertex_2F2F& that ) const {
+			return 	this->position 	== that.position 	&&
+					this->uv 		== that.uv;
+		}
+		bool operator!=( const Vertex_2F2F& that ) const { return !(*this == that); }
+	};
 	struct /*UF_API*/ Vertex_3F {
 		alignas(16) pod::Vector3f position;
 
@@ -94,6 +106,15 @@ namespace std {
 			return seed;
 	    }
     };
+    template<> struct hash<pod::Vertex_2F2F> {
+	    size_t operator()(pod::Vertex_2F2F const& vertex) const {
+	       std::size_t seed = 2 + 2;
+	       std::hash<float> hasher;
+			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			return seed;
+	    }
+    };
     template<> struct hash<pod::Vertex_3F> {
 	    size_t operator()(pod::Vertex_3F const& vertex) const {
 	       std::size_t seed = 3;
@@ -122,6 +143,7 @@ namespace uf {
 
 		~BaseMesh();
 		void initialize( bool compress = true );
+		void updateDescriptor();
 		void destroy();
 	};
 }

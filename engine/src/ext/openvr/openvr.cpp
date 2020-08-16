@@ -13,6 +13,7 @@ uint8_t ext::openvr::renderPass = 0;
 float ext::openvr::width = 0;
 float ext::openvr::height = 0;
 bool ext::openvr::enabled = false;
+bool ext::openvr::swapEyes = false;
 
 #define VR_CHECK_INPUT_RESULT(f)\
 	if ( f != vr::VRInputError_None ) {\
@@ -71,7 +72,7 @@ namespace {
 				uf::Serializer state;
 				pod::Matrix4t<> matrix;
 				pod::Matrix4t<> tip;
-				uf::Graphic mesh;
+				uf::Graphic graphic;
 			} left, right;
 		} controllers;
 	} devices;
@@ -186,30 +187,10 @@ bool ext::openvr::initialize( int stage ) {
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "hapticVibration" ) {
 						std::cout << "Registered hook for haptic: " << ("VR:Haptics."+split.back()) << std::endl;
-						
-						uf::hooks.addHook( "VR:Haptics."+split.back(), [](const std::string& event)->std::string{
+						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](const std::string& event)->std::string{
 							uf::Serializer json = event;
-							std::string name;
-							std::string side = json["side"].asString();
-							uf::Serializer manifest;
-							manifest.readFromFile(ext::openvr::driver.manifest);
-							{
-								for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
-									std::string handleName = manifest["actions"][i]["name"].asString();
-									std::vector<std::string> split = uf::string::split( handleName, "/" );
-									std::string shortname = split.back();
-									if ( shortname != "hapticVibration." + side ) continue;
-									name = handleName;
-									break;
-								}
-							}
-							if ( name == "" ) return "false";
-							vr::VRActionHandle_t& handle = handles.actions[name];
-							auto err = vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].asFloat(), json["duration"].asFloat(), json["frequency"].asFloat(), json["amplitude"].asFloat(), vr::k_ulInvalidInputValueHandle );
-							if ( err != vr::VRInputError_None ) {
-								std::cout << err << std::endl;
+							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].asFloat(), json["duration"].asFloat(), json["frequency"].asFloat(), json["amplitude"].asFloat(), vr::k_ulInvalidInputValueHandle ) )
 								return "false";
-							}
 							return "true";
 						});
 					}
@@ -240,12 +221,8 @@ bool ext::openvr::initialize( int stage ) {
 	return true;
 }
 void ext::openvr::terminate() {
-/*
-	::devices.controllers.left.mesh.graphic.destroy();
-	::devices.controllers.right.mesh.graphic.destroy();
-	::devices.controllers.left.mesh.destroy();
-	::devices.controllers.right.mesh.destroy();
-*/
+	::devices.controllers.left.graphic.destroy();
+	::devices.controllers.right.graphic.destroy();
 	vr::VR_Shutdown();
 	ext::openvr::context = NULL;
 }
@@ -306,7 +283,7 @@ void ext::openvr::tick() {
 			}
 			// grab texture
 			size_t len = queued.texture->unWidth * queued.texture->unHeight * 4;
-			mesh.initialize();
+			graphic.initialize();
 			graphic.initializeGeometry(mesh);
 		
 			auto& texture = graphic.material.textures.emplace_back();
@@ -457,7 +434,7 @@ bool ext::openvr::requestRenderModel( const std::string& name ) {
 	::queuedRenderModels[name];
 	return false;	
 }
-void ext::openvr::submit() { bool invert = false;
+void ext::openvr::submit() { bool invert = swapEyes;
 	
 	ext::vulkan::StereoscopicDeferredRenderMode* renderMode = (ext::vulkan::StereoscopicDeferredRenderMode*) &ext::vulkan::getRenderMode("");
 	
@@ -546,7 +523,17 @@ pod::Vector3f ext::openvr::hmdPosition( vr::Hmd_Eye eye ) {
 	return hmdPosition() + hmdEyePosition( eye );
 }
 pod::Quaternion<> ext::openvr::hmdQuaternion() {
-	return uf::quaternion::fromMatrix( hmdHeadPositionMatrix() ); // * pod::Vector4f{ 1, 1, -1, -1 };
+	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
+	pod::Quaternion<> q;
+	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
+	q.x = sqrt(fmax(0, 1 + mat[(4*0)+0] - mat[(4*1)+1] - mat[(4*2)+2])) / 2;
+	q.y = sqrt(fmax(0, 1 - mat[(4*0)+0] + mat[(4*1)+1] - mat[(4*2)+2])) / 2;
+	q.z = sqrt(fmax(0, 1 - mat[(4*0)+0] - mat[(4*1)+1] + mat[(4*2)+2])) / 2;
+
+	q.x = copysign(q.x, mat[(4*1)+2] - mat[(4*2)+1]);
+	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
+	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
+	return q; // * pod::Vector4f{ 1, 1, -1, -1 };
 }
 pod::Matrix4t<> ext::openvr::hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& mv ) {
 	return hmdEyePositionMatrix( eye ) * uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) * mv;
@@ -641,7 +628,17 @@ pod::Vector3f ext::openvr::controllerPosition( vr::Controller_Hand hand, bool ti
 	};
 }
 pod::Quaternion<> ext::openvr::controllerQuaternion( vr::Controller_Hand hand, bool tip ) {
-	return uf::quaternion::fromMatrix( controllerMatrix( hand, tip ) ) * pod::Vector4f{ 1, 1, -1, 1 };
+	pod::Matrix4t<> mat = controllerMatrix( hand, tip );
+	pod::Quaternion<> q;
+	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
+	q.x = sqrt(fmax(0, 1 + mat[(4*0)+0] - mat[(4*1)+1] - mat[(4*2)+2])) / 2;
+	q.y = sqrt(fmax(0, 1 - mat[(4*0)+0] + mat[(4*1)+1] - mat[(4*2)+2])) / 2;
+	q.z = sqrt(fmax(0, 1 - mat[(4*0)+0] - mat[(4*1)+1] + mat[(4*2)+2])) / 2;
+
+	q.x = copysign(q.x, mat[(4*1)+2] - mat[(4*2)+1]);
+	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
+	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
+	return q * pod::Vector4f{ 1, 1, -1, 1 };
 }
 pod::Matrix4t<> ext::openvr::controllerTranslationMatrix( vr::Controller_Hand hand, bool tip ) {
 	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) );

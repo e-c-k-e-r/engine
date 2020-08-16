@@ -78,9 +78,9 @@ void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
 }
 
 void main() {
+	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
 	position.eye = subpassLoad(samplerPosition).rgb;
 	normal.eye = subpassLoad(samplerNormal).rgb;
-	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
 
 	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
 	bool lit = false;

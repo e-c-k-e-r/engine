@@ -126,6 +126,7 @@ void ext::Portal::render() {
 	{
 		auto& renderMode = this->getComponent<ext::vulkan::RenderTargetRenderMode>();
 		auto& blitter = renderMode.blitter;
+
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& scene = uf::scene::getCurrentScene();
 		auto& controller = *scene.getController();
@@ -133,25 +134,40 @@ void ext::Portal::render() {
 		auto& controllerCamera = controller.getComponent<uf::Camera>();
 		if ( !blitter.initialized ) return;
 
+		struct UniformDescriptor {
+			struct {
+				alignas(16) pod::Matrix4f models[2];
+			} matrices;
+			struct {
+				alignas(8) pod::Vector2f position = { 0.5f, 0.5f };
+				alignas(8) pod::Vector2f radius = { 0.1f, 0.1f };
+				alignas(16) pod::Vector4f color = { 1, 1, 1, 1 };
+			} cursor;
+			alignas(4) float alpha;
+		};
+
+		auto& shader = blitter.material.shaders.front();
+		auto& uniforms = shader.uniforms.front().get<UniformDescriptor>();
+
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			pod::Matrix4f model = uf::transform::model( transform );
 
-			blitter.uniforms.matrices.models[i] = controllerCamera.getProjection(i) * controllerCamera.getView(i) * model;
+			uniforms.matrices.models[i] = controllerCamera.getProjection(i) * controllerCamera.getView(i) * model;
 
-			blitter.uniforms.alpha = 1.0f;
+			uniforms.alpha = 1.0f;
 
-			blitter.uniforms.cursor.position.x = -1.0f;
-			blitter.uniforms.cursor.position.y = -1.0f;
+			uniforms.cursor.position.x = -1.0f;
+			uniforms.cursor.position.y = -1.0f;
 
-			blitter.uniforms.cursor.radius.x = 0.0f;
-			blitter.uniforms.cursor.radius.y = 0.0f;
+			uniforms.cursor.radius.x = 0.0f;
+			uniforms.cursor.radius.y = 0.0f;
 			
-			blitter.uniforms.cursor.color.x = 0.0f;
-			blitter.uniforms.cursor.color.y = 0.0f;
-			blitter.uniforms.cursor.color.z = 0.0f;
-			blitter.uniforms.cursor.color.w = 0.0f;
+			uniforms.cursor.color.x = 0.0f;
+			uniforms.cursor.color.y = 0.0f;
+			uniforms.cursor.color.z = 0.0f;
+			uniforms.cursor.color.w = 0.0f;
 		}
-		blitter.updateBuffer( (void*) &blitter.uniforms, sizeof(blitter.uniforms), 0 );
+		shader.updateBuffer( (void*) &uniforms, sizeof(uniforms), 0 );
 	}
 }
 void ext::Portal::destroy() {

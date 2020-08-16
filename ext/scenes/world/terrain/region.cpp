@@ -304,6 +304,6 @@ void ext::Region::render( ) {
 		}
 
 	//	graphic.updateBuffer( uniforms, 0, false );
-		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
+		graphic.material.shaders.front().updateBuffer( uniforms, 0, true );
 	}
 }

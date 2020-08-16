@@ -68,17 +68,64 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	}
 	renderTarget.initialize( device );
 
-	blitter.renderTarget = &renderTarget;
-	blitter.initializeShaders({
-		{"./data/shaders/display.rendertarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-		{"./data/shaders/display.rendertarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-	});
-	// blitter.initialize();
+	{
+		uf::BaseMesh<pod::Vertex_2F2F, uint32_t> mesh;
+		mesh.vertices = {
+			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
+		};
+		mesh.indices = {
+			0, 1, 2, 2, 3, 0
+		};
+	/*
+		mesh.vertices = {
+			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+
+			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+		};
+	*/
+	//	blitter.descriptor.subpass = 1;
+	//	blitter.descriptor.depthTest.test = false;
+	//	blitter.descriptor.depthTest.write = false;
+	//	blitter.initialize(this->getName());
+
+		blitter.device = &device;
+		blitter.material.device = &device;
+		blitter.initializeGeometry( mesh );
+		blitter.material.initializeShaders({
+			{"./data/shaders/display.renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{"./data/shaders/display.renderTarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
+		for ( auto& attachment : renderTarget.attachments ) {
+			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+
+			Texture2D& texture = blitter.material.textures.emplace_back();
+			texture.aliasAttachment(attachment);
+		}
+	// 	blitter.initializePipeline();
+	}
 }
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 	if ( ext::vulkan::resized ) {
 		renderTarget.initialize( *renderTarget.device );
+
+		blitter.material.textures.clear();
+		for ( auto& attachment : renderTarget.attachments ) {
+			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+
+			Texture2D& texture = blitter.material.textures.emplace_back();
+			texture.aliasAttachment(attachment);
+		}
+		
+		auto& pipeline = blitter.getPipeline();
+		pipeline.update( blitter );
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {

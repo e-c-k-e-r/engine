@@ -64,6 +64,7 @@ namespace ext {
 		struct UF_API Graphic : public Buffers {
 			struct Descriptor {
 				std::string renderMode = "";
+				uint32_t renderTarget = 0;
 				uint32_t subpass = 0;
 
 				uf::BaseGeometry geometry;
@@ -71,6 +72,7 @@ namespace ext {
 
 				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 				VkPolygonMode fill = VK_POLYGON_MODE_FILL;
+				VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 				float lineWidth = 1.0f;
 				VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
 				struct {
@@ -97,6 +99,7 @@ namespace ext {
 			bool hasPipeline( Descriptor& descriptor );
 			void initializePipeline();
 			Pipeline& initializePipeline( Descriptor& descriptor, bool update = true );
+			Pipeline& getPipeline();
 			Pipeline& getPipeline( Descriptor& descriptor );
 			
 			void record( VkCommandBuffer commandBuffer );

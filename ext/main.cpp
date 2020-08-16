@@ -107,12 +107,13 @@ void EXT_API ext::initialize() {
 		ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
 		//
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
+		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
 		ext::openvr::driver.manifest = ::config["engine"]["ext"]["vr"]["manifest"].asString();
 		if ( ext::openvr::enabled ) {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
-			ext::vulkan::validation = false;
-			if ( ::config["engine"]["ext"]["vr"]["invert winding order"].asBool() )
-				ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		//	ext::vulkan::validation = false;
+		//	if ( ::config["engine"]["ext"]["vr"]["invert winding order"].asBool() )
+		//		ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		}
 	}
 
@@ -124,7 +125,7 @@ void EXT_API ext::initialize() {
 		if ( ::config["engine"]["render modes"]["gui"].asBool() ) {
 			auto* renderMode = new ext::vulkan::RenderTargetRenderMode;
 			ext::vulkan::addRenderMode( renderMode, "Gui" );
-			renderMode->blitter.subpass = 1;
+			renderMode->blitter.descriptor.subpass = 1;
 		}
 		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
 			ext::vulkan::addRenderMode( new ext::vulkan::StereoscopicDeferredRenderMode, "" );

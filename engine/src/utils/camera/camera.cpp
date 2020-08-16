@@ -250,10 +250,10 @@ void uf::Camera::updateView() {
 		transform.orientation = uf::quaternion::identity();
 
 		pod::Transform<> flatten = uf::transform::flatten( transform );
-		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), -position );
+		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), position );
 		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
 
-		pod::Matrix4t<> view = rotation * translation; //uf::matrix::inverse( translation * rotation );
+		pod::Matrix4t<> view = uf::matrix::inverse( translation * rotation );
 		transform.orientation = ext::openvr::hmdQuaternion();
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );

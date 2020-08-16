@@ -45,6 +45,9 @@ int main(int argc, char** argv){
 			throw e;
 		} catch ( std::exception& e ) {
 			uf::iostream << "EXCEPTION ERROR: " << e.what() << "\n";
+			std::abort();
+			raise(SIGSEGV);
+			throw e;
 		} catch ( bool handled ) {
 			if (!handled) uf::iostream << "UNHANDLED ERROR: " << "???" << "\n";
 		} catch ( ... ) {
