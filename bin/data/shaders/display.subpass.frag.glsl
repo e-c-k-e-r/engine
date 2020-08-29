@@ -3,6 +3,7 @@
 layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedo;
 layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerPosition;
 layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerNormal;
+layout (input_attachment_index = 0, binding = 4) uniform subpassInput samplerDepth;
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
@@ -81,6 +82,16 @@ void main() {
 	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
 	position.eye = subpassLoad(samplerPosition).rgb;
 	normal.eye = subpassLoad(samplerNormal).rgb;
+
+	{
+		float depth = subpassLoad(samplerDepth).r;
+		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
+		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
+		positionClip.y *= -1;
+		vec4 positionEye = iProj * positionClip;
+		positionEye /= positionEye.w;
+		position.eye = positionEye.xyz;
+	}
 
 	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
 	bool lit = false;

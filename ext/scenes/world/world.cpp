@@ -424,10 +424,10 @@ uf::Entity* ext::World::getController() {
 		auto& renderMode = *ext::vulkan::currentRenderMode;
 		std::string name = renderMode.name;
 		auto split = uf::string::split( name, ": " );
-		if ( split.front() == "Portal" ) {
+		if ( split.front() == "Render Target" ) {
 			uint64_t uid = std::stoi( split.back() );
-			uf::Entity* portal = this->findByUid( uid );
-			if ( portal ) return portal;
+			uf::Entity* ent = this->findByUid( uid );
+			if ( ent ) return ent;
 		}
 	}
 	return uf::Scene::getController();

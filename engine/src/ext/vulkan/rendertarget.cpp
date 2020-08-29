@@ -211,7 +211,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
-		std::cout << renderPass << ": " << attachments.size() << std::endl;
+	//	std::cout << renderPass << ": " << attachments.size() << std::endl;
 	}
 
 	{	

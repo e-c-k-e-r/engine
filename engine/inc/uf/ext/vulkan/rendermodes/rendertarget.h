@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/ext/vulkan/rendermode.h>
-#include <uf/ext/vulkan/graphics/rendertarget.h>
+#include <uf/ext/vulkan/graphic.h>
 
 namespace ext {
 	namespace vulkan {

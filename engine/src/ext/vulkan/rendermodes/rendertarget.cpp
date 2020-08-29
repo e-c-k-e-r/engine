@@ -16,15 +16,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 	{
 		renderTarget.device = &device;
-		// attach targets
-/*
-		struct {
-			size_t color, depth;
-		} attachments;
-
-		attachments.color = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
-		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
-*/
 		struct {
 			size_t albedo, position, normals, depth, output;
 		} attachments;
@@ -58,8 +49,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		{
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-			//	{ attachments.output },
-			//	{ attachments.albedo, attachments.position, attachments.normals },
 				{ attachments.output },
 				{ attachments.albedo, attachments.position, attachments.normals },
 				attachments.depth
@@ -79,22 +68,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		mesh.indices = {
 			0, 1, 2, 2, 3, 0
 		};
-	/*
-		mesh.vertices = {
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
-		};
-	*/
-	//	blitter.descriptor.subpass = 1;
-	//	blitter.descriptor.depthTest.test = false;
-	//	blitter.descriptor.depthTest.write = false;
-	//	blitter.initialize(this->getName());
-
 		blitter.device = &device;
 		blitter.material.device = &device;
 		blitter.initializeGeometry( mesh );

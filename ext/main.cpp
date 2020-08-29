@@ -104,7 +104,7 @@ void EXT_API ext::initialize() {
 		// Enable valiation layer
 		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"].asBool();
 		//
-		ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
+		// ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
 		//
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();

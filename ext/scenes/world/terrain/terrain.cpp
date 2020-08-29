@@ -11,7 +11,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/thread/thread.h>
-#include <uf/ext/vulkan/graphics/base.h>
+#include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/vulkan.h>
 
 #include <uf/utils/string/hash.h>

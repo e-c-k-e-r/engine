@@ -46,14 +46,32 @@ std::string UF_API uf::string::uppercase( const std::string& str ) {
 }
 std::vector<std::string> UF_API uf::string::split( const std::string& haystack, const std::string& needle ) {
 	std::vector<std::string> cont;
+	size_t last = 0, next = 0;
+	while ((next = haystack.find(needle, last)) != std::string::npos) {
+		cont.push_back(haystack.substr(last, next-last));
+		last = next + 1;
+	}
+	cont.push_back( haystack.substr(last) );
+/*
+	std::string token;
+	size_t pos = 0;
+	while ((pos = haystack.find(needle)) != std::string::npos) {
+		cont.push_back( haystack.substr(0, pos) );
+		haystack.erase(0, pos + needle.length());
+	}
+	cont.push_back(haystack);
+*/
+
+/*
 	std::size_t current, previous = 0;
 	current = haystack.find_first_of(needle);
 	while (current != std::string::npos) {
 		cont.push_back(haystack.substr(previous, current - previous));
-		previous = current + 1;
+		previous = current + needle.size();
 		current = haystack.find_first_of(needle, previous);
 	}
 	cont.push_back(haystack.substr(previous, current - previous));
+*/
 	return cont;
 }
 std::string UF_API uf::string::replace( const std::string& string, const std::string& search, const std::string& replace ) {

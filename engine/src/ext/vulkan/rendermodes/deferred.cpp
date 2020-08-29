@@ -53,7 +53,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.position, attachments.normals },
+				{ attachments.albedo, attachments.position, attachments.normals, attachments.depth },
 				attachments.depth
 			);
 		}
@@ -62,17 +62,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	{
 		uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
-	/*
-		mesh.vertices = {
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
-		};
-	*/
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
@@ -94,17 +83,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		});
 		blitter.initializePipeline();
 	}
-	// update layer rendertargets descriptor sets
-/*
-	{
-		std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false); //{ &ext::vulkan::getRenderMode("Gui") };
-		for ( auto _ : layers ) {
-			RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-			auto& blitter = layer->blitter;
-			blitter.initialize( this->getName() );
-		}
-	}
-*/
 }
 void ext::vulkan::DeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
@@ -113,21 +91,10 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		renderTarget.initialize( *renderTarget.device );
 		// update blitter descriptor set
 		if ( blitter.initialized ) {
-		//	blitter.material.textures.clear();
 			auto& pipeline = blitter.getPipeline();
 			pipeline.update( blitter );
 		}
 	}
-/*
-	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
-	for ( auto _ : layers ) {
-		RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-		auto& blitter = layer->blitter;
-		if ( blitter.initialized ) continue;
-		blitter.initialize( this->getName() );
-		blitter.initializePipeline();
-	}
-*/
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();

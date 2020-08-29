@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 #include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/graphics/base.h>
+#include <uf/ext/vulkan/graphic.h>
 
 #include <uf/utils/http/http.h>
 #include <uf/utils/audio/audio.h>
