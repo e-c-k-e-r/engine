@@ -214,8 +214,7 @@ std::string uf::Asset::load( const std::string& uri ) {
 		uf::Serializer& json = container.emplace_back();
 		json.readFromFile(filename);
 	} else {
-		uf::iostream << "Failed to load `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
-		return "";
+		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
 	}
 	return filename;
 }

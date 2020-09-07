@@ -27,7 +27,7 @@ struct Matrices {
 layout (binding = 0) uniform UBO {
 	Matrices matrices;
 	Cursor cursor;
-	float alpha;
+	vec2 alpha;
 } ubo;
 
 void main() {

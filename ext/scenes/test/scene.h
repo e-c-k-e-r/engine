@@ -10,5 +10,6 @@ namespace ext {
 	public:
 		virtual void initialize();
 		virtual void tick();
+		virtual void render();
 	};
 }

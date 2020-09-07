@@ -15,7 +15,7 @@ UF_LIBS 				=
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics -llua52
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp -lopenal32 -lalut -lvorbis -lvorbisfile -logg -lfreetype
 EXT_LIBS 				=
-#FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW
+#FLAGS 					= -Og -DUF_DISABLE_ALIGNAS -std=c++20 -Wno-c++11-narrowing -Wno-narrowing -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
 FLAGS 					= -std=c++20 -Wno-c++11-narrowing -Wno-narrowing -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
 #-march=native
 LIB_NAME 				= uf

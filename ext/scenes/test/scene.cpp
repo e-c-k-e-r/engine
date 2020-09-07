@@ -7,11 +7,18 @@
 
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/camera/camera.h>
 
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
 
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/ext/vulkan/rendermodes/deferred.h>
+#include <uf/ext/vulkan/rendermodes/rendertarget.h>
+#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
+#include <uf/ext/gltf/gltf.h>
+
+#include <uf/utils/math/collision.h>
 
 #include "../../ext.h"
 #include "../../gui/gui.h"
@@ -25,34 +32,6 @@ void ext::TestScene::initialize() {
 	this->addHook( "system:Quit.%UID%", [&](const std::string& event)->std::string{
 		std::cout << event << std::endl;
 		ext::ready = false;
-		return "true";
-	});
-	this->addHook( "asset:Load." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
-
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
-		const uf::Audio* audioPointer = NULL;
-		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
-		if ( !audioPointer ) return "false";
-
-		uf::Audio& audio = this->getComponent<uf::Audio>();
-		if ( audio.playing() ) {
-		/*
-			if ( filename.find("_intro") == std::string::npos ) {
-				metadata["previous bgm"]["filename"] = audio.getFilename();
-				metadata["previous bgm"]["timestamp"] = audio.getTime();
-			}
-		*/
-			audio.stop();
-		}
-		
-//		std::cout << metadata["previous bgm"] << std::endl;
-
-		audio.load(filename);
-		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
-		audio.play();
-
 		return "true";
 	});
 	{
@@ -115,6 +94,9 @@ void ext::TestScene::initialize() {
 	}
 }
 
+void ext::TestScene::render() {
+	uf::Scene::render();
+}
 void ext::TestScene::tick() {
 	uf::Scene::tick();
 
@@ -137,5 +119,58 @@ void ext::TestScene::tick() {
 		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
+	}
+
+	/* Collision */ {
+		bool local = false;
+		bool sort = false;
+		bool useStrongest = false;
+	//	pod::Thread& thread = uf::thread::fetchWorker();
+		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+		auto function = [&]() -> int {
+			std::vector<uf::Object*> entities;
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( entity->hasComponent<uf::Collider>() )
+					entities.push_back((uf::Object*) entity);
+			};
+			this->process(filter);
+			auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b ){				
+				uf::Serializer payload;
+				payload["normal"][0] = manifold.normal.x;
+				payload["normal"][1] = manifold.normal.y;
+				payload["normal"][2] = manifold.normal.z;
+				payload["entity"] = b->getUid();
+				payload["depth"] = -manifold.depth;
+				a->callHook("world:Collision.%UID%", payload);
+				
+				payload["entity"] = a->getUid();
+				payload["depth"] = manifold.depth;
+				b->callHook("world:Collision.%UID%", payload);
+			};
+			auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
+				pod::Collider::Manifold strongest;
+				auto manifolds = colliderA.intersects(colliderB);
+				for ( auto manifold : manifolds ) {
+					if ( manifold.colliding && manifold.depth > 0 ) {
+						if ( !useStrongest ) onCollision(manifold, a, b);
+						else if ( strongest.depth < manifold.depth ) strongest = manifold;
+					}
+				}
+				if ( useStrongest && strongest.colliding ) onCollision(strongest, a, b);
+			};
+			// collide with others
+			for ( auto* _a : entities ) {
+				uf::Object& entityA = *_a;
+				for ( auto* _b : entities ) { if ( _a == _b ) continue;
+					uf::Object& entityB = *_b;
+					testColliders( entityA.getComponent<uf::Collider>(), entityB.getComponent<uf::Collider>(), &entityA, &entityB, useStrongest );
+				}
+			}
+		
+			return 0;
+		};
+		if ( local ) function(); else uf::thread::add( thread, function, true );
 	}
 }

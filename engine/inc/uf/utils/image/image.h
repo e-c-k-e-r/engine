@@ -35,7 +35,7 @@ namespace uf {
 		~Image();
 		void clear(); 																			// empties pixel container
 	// 	Getters
-		void loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels );
+		void loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		void loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		std::string getFilename() const;
 		Image::container_t& getPixels();

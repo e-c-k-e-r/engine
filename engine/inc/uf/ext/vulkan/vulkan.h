@@ -43,6 +43,8 @@ namespace ext {
 		extern UF_API uint32_t height;
 
 		extern UF_API bool validation;
+		extern UF_API std::vector<std::string> validationFilters;
+		extern UF_API std::vector<std::string> requestedDeviceFeatures;
 		extern UF_API Device device;
 		typedef VmaAllocator Allocator;
 		extern UF_API Allocator allocator;

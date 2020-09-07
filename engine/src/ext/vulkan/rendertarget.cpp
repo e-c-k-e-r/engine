@@ -13,10 +13,11 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	pass.access = access;
 	for ( auto& i : colors ) pass.colors.push_back( { (uint32_t) i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
 	for ( auto& i : inputs ) pass.inputs.push_back( { (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+//	for ( auto& i : inputs ) pass.inputs.push_back( { (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
 	if ( depth < attachments.size() ) pass.depth = { (uint32_t) depth, attachments[depth].layout };
 	passes.push_back(pass);
 }
-size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, Attachment* attachment ) {
+size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, bool blend, Attachment* attachment ) {
 	uint32_t width = this->width > 0 ? this->width : ext::vulkan::width;
 	uint32_t height = this->height > 0 ? this->height : ext::vulkan::height;
 
@@ -98,6 +99,30 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
 
+	{
+		VkBool32 blendEnabled = VK_FALSE;
+		VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+
+		if ( blend ) {
+			blendEnabled = VK_TRUE;
+			writeMask |= VK_COLOR_COMPONENT_A_BIT;
+		}
+
+		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+			writeMask,
+			blendEnabled
+		);
+		if ( blendEnabled == VK_TRUE ) {
+			blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+			blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+			blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+		}
+		attachment->blendState = blendAttachmentState;
+	}
+
 	return attachments.size()-1;
 }
 void ext::vulkan::RenderTarget::initialize( Device& device ) {
@@ -112,7 +137,8 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	if ( initialized ) {
 		for ( auto& attachment: this->attachments ) {
 			if ( attachment.aliased ) continue;
-			attach( attachment.format, attachment.usage, attachment.layout, &attachment );
+			bool blend = attachment.blendState.blendEnable == VK_TRUE;
+			attach( attachment.format, attachment.usage, attachment.layout, blend, &attachment );
 		}
 	}
 	// ensure attachments are already created
@@ -131,7 +157,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			description.finalLayout = attachment.layout;
+			description.finalLayout = attachment.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : attachment.layout;
 			description.flags = 0;
 
 			attachments.push_back(description);
@@ -191,6 +217,39 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 			dependencies.push_back(dependency);
 		}
+
+		// depth dependency
+		{
+			VkSubpassDependency dependency;
+			dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			
+			dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+			dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			dependency.dstSubpass = 0;
+			dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			
+			dependencies.push_back(dependency);
+		}
+		{
+			VkSubpassDependency dependency;
+			dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+			
+			dependency.srcSubpass = 0;
+			dependency.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			dependency.dstSubpass = i == 1 ? VK_SUBPASS_EXTERNAL : 1;
+			dependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			dependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			
+			dependencies.push_back(dependency);
+		}
+
 	/*
 		for ( auto& dependency : dependencies  ) {
 			std::cout << "Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass << std::endl;

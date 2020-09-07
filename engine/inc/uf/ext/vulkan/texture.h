@@ -11,10 +11,29 @@ namespace ext {
 			Device* device = NULL;
 
 			VkSampler sampler;
-			VkDescriptorImageInfo descriptor;
-			VkFilter filter = VK_FILTER_LINEAR;
+			struct {
+				struct {
+					VkFilter min = VK_FILTER_LINEAR;
+					VkFilter mag = VK_FILTER_LINEAR;
+				} filter;
+				struct {
+					VkSamplerAddressMode u = VK_SAMPLER_ADDRESS_MODE_REPEAT, v = VK_SAMPLER_ADDRESS_MODE_REPEAT, w = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+				} addressMode;
+				struct {
+					VkSamplerMipmapMode mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+					float lodBias = 0.0f;
+				} mip;
+				VkCompareOp compareOp = VK_COMPARE_OP_NEVER;
+				struct {
+					float min = 0.0f;
+					float max = 0.0f;
+				} lod;
+				float maxAnisotropy;
 
-			void initialize( Device& device, VkFilter filter = VK_FILTER_LINEAR );
+				VkDescriptorImageInfo info;
+			} descriptor;
+
+			void initialize( Device& device );
 			void destroy();
 		};
 		struct UF_API Texture {
@@ -59,6 +78,7 @@ namespace ext {
 			);
 		};
 		struct UF_API Texture2D : public Texture {
+			static Texture2D empty;
 			void loadFromFile(
 				std::string filename, 
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
@@ -99,7 +119,6 @@ namespace ext {
 				uint32_t texHeight,
 				Device& device,
 				VkQueue copyQueue,
-				VkFilter filter = VK_FILTER_LINEAR,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);

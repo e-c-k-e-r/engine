@@ -22,6 +22,7 @@ namespace uf {
 			} perspective;
 			int mode;
 			pod::Vector3 offset;
+			bool stereoscopic = false;
 		} m_settings;
 		struct {
 			struct {
@@ -38,6 +39,7 @@ namespace uf {
 		Camera( const Camera& copy );
 */
 		bool modified() const;
+		void setStereoscopic( bool );
 		pod::Transform<>& getTransform();
 		const pod::Transform<>& getTransform() const;
 

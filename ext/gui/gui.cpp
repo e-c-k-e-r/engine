@@ -745,7 +745,7 @@ void ext::Gui::initialize() {
 		float delay = 0.0f;
 		float scale = metadata["text settings"]["scale"].asFloat();
 		std::vector<::GlyphBox> glyphs = generateGlyphs(*this);
-		std::cout << "Loading string: " << metadata["text settings"]["string"] << std::endl;
+	//	std::cout << "Loading string: " << metadata["text settings"]["string"] << std::endl;
 		for ( auto& glyph : glyphs ) {
 			ext::Gui* glyphElement = (ext::Gui*) this->findByUid( this->loadChild("/gui/text/letter.json", false) );
 		/*
@@ -860,7 +860,7 @@ void ext::Gui::render() {
 				metadata["text settings"]["stroke"][2].asFloat(),
 				metadata["text settings"]["stroke"][3].asFloat()
 			};
-
+		/*
 			if ( uf::Window::isKeyPressed("V") ) {
 				metadata["text settings"]["weight"] = metadata["text settings"]["weight"].asFloat() + uf::physics::time::delta;
 				std::cout << metadata["text settings"]["weight"].asFloat() << std::endl;
@@ -877,7 +877,7 @@ void ext::Gui::render() {
 				metadata["text settings"]["spread"] = metadata["text settings"]["spread"].asFloat() - uf::physics::time::delta;
 				std::cout << metadata["text settings"]["spread"].asFloat() << std::endl;
 			}
-
+		*/
 			uniforms.gui.offset = offset;
 			uniforms.gui.color = color;
 			uniforms.gui.stroke = stroke;
@@ -1036,7 +1036,7 @@ void ext::Gui::render() {
 						alignas(8) pod::Vector2f radius = { 0.1f, 0.1f };
 						alignas(16) pod::Vector4f color = { 1, 1, 1, 1 };
 					} cursor;
-					alignas(4) float alpha;
+					alignas(8) pod::Vector2f alpha;
 				};
 				auto& shader = blitter.material.shaders.front();
 				auto& uniforms = shader.uniforms.front().get<UniformDescriptor>();
@@ -1077,7 +1077,8 @@ void ext::Gui::render() {
 						pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
 						uniforms.matrices.models[i] = model;
 					}
-					uniforms.alpha = metadata["overlay"]["alpha"].asFloat();
+					uniforms.alpha.x = metadata["overlay"]["alpha"].asFloat();
+					uniforms.alpha.y = 0;
 
 					uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].asFloat() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
 					uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].asFloat() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;

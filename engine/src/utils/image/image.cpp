@@ -4,6 +4,10 @@
 #include <fstream> 					// std::fstream
 #include <iostream> 				// std::fstream
 #include <png/png.h> 				// libpng
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <gltf/stb_image.h>
+
 // 	C-tor
 // Default
 uf::Image::Image() :
@@ -57,9 +61,6 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 {
 
 }
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 
 std::string uf::Image::getFilename() const {
 	return this->m_filename;
@@ -189,7 +190,7 @@ bool uf::Image::open( const std::string& filename ) {
 	}
 	return true;
 }
-void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels ) {
+void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;
 	this->m_bpp = bit_depth * channels;
 	this->m_channels = channels;
@@ -199,6 +200,20 @@ void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod
 	this->m_pixels.resize( len );
 	//for ( size_t i = 0; i < len; ++i ) this->m_pixels[i] = pointer[i];
 	memcpy( &this->m_pixels[0], pointer, len );
+
+	if ( flip ) {
+		auto w = this->m_dimensions.x;
+		auto h = this->m_dimensions.y;
+		uint8_t* pixels = &this->m_pixels[0];
+		for (uint j = 0; j * 2 < h; ++j) {
+			uint x = j * w * this->m_bpp/8;
+			uint y = (h - 1 - j) * w * this->m_bpp/8;
+			for (uint i = w * this->m_bpp/8; i > 0; --i) {
+				std::swap( pixels[x], pixels[y] );
+				++x, ++y;
+			}
+		}
+	}
 }
 void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;
@@ -206,10 +221,10 @@ void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::
 	this->m_channels = channels;
 	this->m_pixels = container;
 
-	uint8_t* pixels = &this->m_pixels[0];
 	if ( flip ) {
 		auto w = this->m_dimensions.x;
 		auto h = this->m_dimensions.y;
+		uint8_t* pixels = &this->m_pixels[0];
 		for (uint j = 0; j * 2 < h; ++j) {
 			uint x = j * w * this->m_bpp/8;
 			uint y = (h - 1 - j) * w * this->m_bpp/8;

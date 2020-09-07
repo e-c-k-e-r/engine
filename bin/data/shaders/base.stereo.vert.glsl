@@ -20,9 +20,9 @@ layout (binding = 0) uniform UBO {
 } ubo;
 
 layout (location = 0) out vec2 outUv;
-layout (location = 1) out vec3 outPosition;
+layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec3 outNormal;
-layout (location = 3) out vec4 outColor;
+layout (location = 3) out vec3 outPosition;
 
 out gl_PerVertex {
     vec4 gl_Position;   
@@ -35,9 +35,7 @@ void main() {
 
 	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
-
-//	outPosition = vec3(ubo.matrices.model * vec4(inPos.xyz, 1.0));
-//	outNormal = vec3(ubo.matrices.model * vec4(inNormal.xyz, 0.0));
+	outNormal = normalize(outNormal);
 
 	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
 }

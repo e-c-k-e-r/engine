@@ -1,4 +1,5 @@
 #include "terrain.h"
+#include "generator.h"
 
 #include "../../../ext.h"
 #include <uf/engine/asset/asset.h>
@@ -10,6 +11,7 @@
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/math/collision.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/vulkan.h>
@@ -145,7 +147,150 @@ void ext::Terrain::tick() {
 
 	// multipurpose timer
 	static uf::Timer<long long> timer(false);
+	// do collision on children
+#if 0
+	{
+		bool local = false;
+		bool sort = false;
+		bool useStrongest = false;
+		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+		auto function = [&]() -> int {
+			std::vector<uf::Object*> entities;
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( entity->hasComponent<uf::Collider>() )
+					entities.push_back((uf::Object*) entity);
+			};
+			this->process(filter);
+			auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b ){				
+				uf::Serializer payload;
+				payload["normal"][0] = manifold.normal.x;
+				payload["normal"][1] = manifold.normal.y;
+				payload["normal"][2] = manifold.normal.z;
+				payload["entity"] = b->getUid();
+				payload["depth"] = -manifold.depth;
+				a->callHook("world:Collision.%UID%", payload);
+				
+				payload["entity"] = a->getUid();
+				payload["depth"] = manifold.depth;
+				b->callHook("world:Collision.%UID%", payload);
+			};
+			auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
+				pod::Collider::Manifold strongest;
+				auto manifolds = colliderA.intersects(colliderB);
+				for ( auto manifold : manifolds ) {
+					if ( manifold.colliding && manifold.depth > 0 ) {
+						if ( !useStrongest ) onCollision(manifold, a, b);
+						else if ( strongest.depth < manifold.depth ) strongest = manifold;
+					}
+				}
+				if ( useStrongest && strongest.colliding ) onCollision(strongest, a, b);
+			};
 
+			// collide with world
+			for ( auto* _ : entities ) {
+				uf::Object& entity = *_;
+				auto& transform = entity.getComponent<pod::Transform<>>();
+
+				pod::Vector3f size; {
+					size.x = metadata["region"]["size"][0].asUInt();
+					size.y = metadata["region"]["size"][1].asUInt();
+					size.z = metadata["region"]["size"][2].asUInt();
+				}
+				uf::Entity* regionPointer = _;
+				while ( regionPointer->getName() != "Region" ) {
+					regionPointer = &regionPointer->getParent();
+					if ( regionPointer->getUid() == 0 ) break;
+					if ( regionPointer->getUid() == this->getUid() ) break;
+				}
+				if ( regionPointer == this ) continue;
+				if ( regionPointer->getUid() == 0 ) continue;
+				if ( regionPointer->getName() != "Region" ) continue;
+				if ( !regionPointer ) continue;
+				ext::Region& region = *(ext::Region*) regionPointer;
+			/*
+				pod::Vector3f pointf = transform.position / size;
+				pod::Vector3i point = {
+					(int) (pointf.x + (pointf.x > 0 ? 0.5 : -0.5)),
+					(int) (pointf.y + (pointf.y > 0 ? 0.5 : -0.5)),
+					(int) (pointf.z + (pointf.z > 0 ? 0.5 : -0.5)),
+				};
+			//	std::cout << entity.getName() << ": " << entity.getUid() << ": " << point.x << ", " << point.y << ", " << point.z << std::endl;
+				if ( !this->exists(point) ) continue;
+				ext::Region* regionPointer = this->at(point);
+				if ( !regionPointer ) continue;
+				ext::Region& region = *regionPointer;
+			*/
+			
+				auto& generator = region.getComponent<ext::TerrainGenerator>();
+			
+				auto& regionPosition = region.getComponent<pod::Transform<>>().position;
+				pod::Vector3f voxelPosition = transform.position - regionPosition;
+				voxelPosition.x += size.x / 2.0f;
+				voxelPosition.y += size.y / 2.0f + 1;
+				voxelPosition.z += size.z / 2.0f;
+
+				uf::Collider collider;
+				std::vector<pod::Vector3ui> positions = {
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y - 1, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y + 1, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z - 1 },
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z + 1},
+				};
+				for ( auto& position : positions ) {
+					ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( generator.getVoxel( position.x, position.y, position.z ) );
+					pod::Vector3 offset = regionPosition;
+					offset.x += position.x - (size.x / 2.0f);
+					offset.y += position.y - (size.y / 2.0f);
+					offset.z += position.z - (size.z / 2.0f);
+
+					if ( !voxel.solid() ) continue;
+
+					collider.add( new uf::BoundingBox( offset, {0.5, 0.5, 0.5} ) );
+				/*
+					uf::BaseMesh<pod::Vertex_3F> mesh;
+					const ext::TerrainVoxel::Model& model = voxel.model();
+					#define TERRAIN_SHOULD_RENDER_FACE(SIDE)\
+						for ( uint i = 0; i < model.position.SIDE.size() / 3; ++i ) {\
+							auto& vertex = mesh.vertices.emplace_back();\
+							{\
+								pod::Vector3f& p = vertex.position;\
+								p.x = model.position.SIDE[i*3+0]; p.y = model.position.SIDE[i*3+1]; p.z = model.position.SIDE[i*3+2];\
+								p.x += offset.x; p.y += offset.y; p.z += offset.z;\
+							}\
+						}
+					TERRAIN_SHOULD_RENDER_FACE(left)
+					TERRAIN_SHOULD_RENDER_FACE(right)
+					TERRAIN_SHOULD_RENDER_FACE(top)
+					TERRAIN_SHOULD_RENDER_FACE(bottom)
+					TERRAIN_SHOULD_RENDER_FACE(back)
+					TERRAIN_SHOULD_RENDER_FACE(front)
+					uf::MeshCollider* mCollider = new uf::MeshCollider();
+					mCollider->setPositions( mesh );
+					pCollider.add(mCollider);
+				*/
+				}
+				testColliders( collider, entity.getComponent<uf::Collider>(), &region, &entity, useStrongest );
+			}
+		
+			// collide with others
+			for ( auto* _a : entities ) {
+				uf::Object& entityA = *_a;
+				for ( auto* _b : entities ) { if ( _a == _b ) continue;
+					uf::Object& entityB = *_b;
+					testColliders( entityA.getComponent<uf::Collider>(), entityB.getComponent<uf::Collider>(), &entityA, &entityB, useStrongest );
+				}
+			}
+		
+			return 0;
+		};
+		if ( local ) function(); else uf::thread::add( thread, function, true );
+	}
+#endif
 	// open gamestate, look for work
 	if ( metadata["system"]["state"] == "open" ) { transitionResolvingState(*this);
 		// cleanup orphans

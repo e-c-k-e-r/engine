@@ -136,8 +136,21 @@ void ext::HousamoSprite::render() {
 	if ( !metadata["system"]["loaded"].asBool() ) return;
 
 	ext::Craeture::render();
-	/* Update uniforms */ if ( this->hasComponent<uf::Mesh>() ) {
+	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& mesh = this->getComponent<uf::Mesh>();
+		auto& scene = this->getRootParent<uf::Scene>();
+		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& transform = this->getComponent<pod::Transform<>>();
+		auto& camera = scene.getController()->getComponent<uf::Camera>();		
+		if ( !graphic.initialized ) return;
+	//	auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		uniforms.matrices.model = uf::transform::model( transform );
+		for ( std::size_t i = 0; i < 2; ++i ) {
+			uniforms.matrices.view[i] = camera.getView( i );
+			uniforms.matrices.projection[i] = camera.getProjection( i );
+		}
+	/*
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& scene = uf::scene::getCurrentScene();
 		auto& controller = *scene.getController();
@@ -152,6 +165,7 @@ void ext::HousamoSprite::render() {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
+	*/
 		uniforms.color[0] = metadata["color"][0].asFloat();
 		uniforms.color[1] = metadata["color"][1].asFloat();
 		uniforms.color[2] = metadata["color"][2].asFloat();

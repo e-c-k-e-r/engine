@@ -17,12 +17,11 @@
 namespace {
 	struct {
 		uf::Object left, right;
-	} hands;
-
-
+	} hands, lines;
 	struct {
-		uf::Object left, right;
-	} lines;
+		uf::Object* left;
+		uf::Object* right;
+	} lights;
 }
 
 EXT_OBJECT_REGISTER_CPP(Hands)
@@ -35,8 +34,8 @@ void ext::Hands::initialize() {
 		this->addChild(::hands.left);
 		this->addChild(::hands.right);
 
-		this->addChild(::lines.left);
-		this->addChild(::lines.right);
+		::hands.left.addChild(::lines.left);
+		::hands.right.addChild(::lines.right);
 	}
 	{
 		bool loaded = true;
@@ -49,48 +48,51 @@ void ext::Hands::initialize() {
 				uf::Serializer json = event;
 
 				std::string name = json["name"].asString();
-				uf::Object* pointer = NULL;
-				if ( name == metadata["hands"]["left"]["controller"]["model"].asString() ) pointer = &hands.left;
-				else if ( name == metadata["hands"]["right"]["controller"]["model"].asString() ) pointer = &hands.right;
-				else return "false";
+				std::string side = "";
+				if ( name == metadata["hands"]["left"]["controller"]["model"].asString() ) {
+					side = "left";
+				} else if ( name == metadata["hands"]["right"]["controller"]["model"].asString() ) {
+					side = "right";
+				};
+				if ( side == "" ) return "false";
 
+				uf::Object& hand = side == "left" ? hands.left : hands.right;
+				uf::Object& line = side == "left" ? lines.left : lines.right;
 				{
-					uf::Object& hand = *pointer;
 					uf::Graphic& graphic = (hand.getComponent<uf::Graphic>() = ext::openvr::getRenderModel( name ));
 					
 					graphic.process = true;
 
+					graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 					graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 					graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 					hand.initialize();
 				}
-				{
-					std::string hand = pointer == &hands.left ? "left" : "right";
-					auto& line = pointer == &hands.left ? lines.left : lines.right;
+				if ( metadata["hands"][side]["pointer"]["length"].asFloat() > 0 ) {
 					line.addAlias<uf::LineMesh, uf::Mesh>();
 
 					pod::Transform<>& transform = line.getComponent<pod::Transform<>>();
 					transform.orientation = uf::quaternion::axisAngle( 
 						{
-							metadata["hands"][hand]["pointer"]["orientation"]["axis"][0].asFloat(),
-							metadata["hands"][hand]["pointer"]["orientation"]["axis"][1].asFloat(),
-							metadata["hands"][hand]["pointer"]["orientation"]["axis"][2].asFloat()
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][0].asFloat(),
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][1].asFloat(),
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][2].asFloat()
 						},
-						metadata["hands"][hand]["pointer"]["orientation"]["angle"].asFloat() * 3.14159f / 180.0f
+						metadata["hands"][side]["pointer"]["orientation"]["angle"].asFloat() * 3.14159f / 180.0f
 					);
 					transform.position = {
-						metadata["hands"][hand]["pointer"]["offset"][0].asFloat(),
-						metadata["hands"][hand]["pointer"]["offset"][1].asFloat(),
-						metadata["hands"][hand]["pointer"]["offset"][2].asFloat()
+						metadata["hands"][side]["pointer"]["offset"][0].asFloat(),
+						metadata["hands"][side]["pointer"]["offset"][1].asFloat(),
+						metadata["hands"][side]["pointer"]["offset"][2].asFloat()
 					};
 
 					auto& mesh = line.getComponent<uf::LineMesh>();
 					auto& graphic = line.getComponent<uf::Graphic>();
 
 					mesh.vertices = {
-						{ {0.0f, 0.0f,    0.0f} },
-						{ {0.0f, 0.0f, metadata["hands"][hand]["pointer"]["length"].asFloat()} },
+						{ {0.0f, 0.0f, 0.0f} },
+						{ {0.0f, 0.0f, metadata["hands"][side]["pointer"]["length"].asFloat()} },
 					};
 					graphic.initialize();
 					graphic.initializeGeometry(mesh);
@@ -99,27 +101,31 @@ void ext::Hands::initialize() {
 					graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 					graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 					graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
-					graphic.descriptor.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
-				/*
-					graphic.initializeShaders({
-						{"./data/shaders/line.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-						{"./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-					});
-					mesh.generate();
-					graphic.bindUniform<uf::StereoMeshDescriptor>();
-					graphic.description.rasterMode.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-					graphic.description.rasterMode.fill = VK_POLYGON_MODE_LINE;
-					graphic.description.rasterMode.lineWidth = metadata["hands"][hand]["pointer"]["width"].asFloat();
-					graphic.initialize();
-					graphic.autoAssign();
-				*/
+					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].asFloat();
+
 					line.initialize();
+				}
+				if ( metadata["hands"][side]["light"]["should"].asBool() ){
+					auto* child = (uf::Object*) hand.findByUid(hand.loadChild("/light.json", false));
+					if ( child ) {
+						if (side == "left" ) lights.left = child; else lights.right = child;
+						auto& json = metadata["hands"][side]["light"];
+						auto& light = side == "left" ? *lights.left : *lights.right;
+
+						auto& metadata = light.getComponent<uf::Serializer>();
+						if ( !json["color"].isNull() ) metadata["light"]["color"] = json["color"];
+						if ( !json["radius"].isNull() ) metadata["light"]["radius"] = json["radius"];
+						if ( !json["power"].isNull() ) metadata["light"]["power"] = json["power"];
+						if ( !json["shadows"].isNull() ) metadata["light"]["shadows"] = json["shadows"];
+						metadata["lights"]["external update"] = true;
+
+						light.initialize();
+					}
 				}
 
 				return "true";
 			});
 		}
-
 		std::vector<uf::Object*> vHands = { &::hands.left, &::hands.right };
 		for ( auto pointer : vHands ) {
 			auto& hand = *pointer;
@@ -142,12 +148,34 @@ void ext::Hands::initialize() {
 					payload["mouse"]["button"] 			= side == "left" ? "Right" : "Left";
 					payload["mouse"]["state"] = json["state"].asBool() ? "Down": "Up";
 
-
 					uf::hooks.call( payload["type"].asString(), payload );
 				}
 
 				return "true";
 			});
+			hand.addHook("world:Collision.%UID%", [&](const std::string& event)->std::string{
+				uf::Serializer json = event;
+	
+				std::string side = &hand == &hands.left ? "left" : "right";
+
+				float mag = json["depth"].asFloat();
+				uf::Serializer payload;
+				payload["delay"] = 0.0f;
+				payload["duration"] = uf::physics::time::delta;
+				payload["frequency"] = 1.0f;
+				payload["amplitude"] = fmin(1.0f, 1000.0f * mag);
+				payload["side"] = side;
+				uf::hooks.call( "VR:Haptics." + side, payload );
+
+				return "true";
+			});
+
+			auto& transform = hand.getComponent<pod::Transform<>>();
+			auto& collider = hand.getComponent<uf::Collider>();
+
+		//	auto* box = new uf::BoundingBox( transform.position, {0.25, 0.25, 0.25} );
+		//	box->getTransform().reference = &transform;
+		//	collider.add(box);
 		}
 	}
 }
@@ -155,26 +183,58 @@ void ext::Hands::tick() {
 	uf::Object::tick();
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = *scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
+	auto& controllerCamera = controller.getComponent<uf::Camera>();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto& controllerCameraTransform = controllerCamera.getTransform();
 	{
 		pod::Transform<>& transform = hands.left.getComponent<pod::Transform<>>();
 		transform.position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Left );
 		transform.orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Left );
 		transform.scale = { 1, 1, 1 };
-		// transform.reference = &camera.getTransform();
+		transform.reference = &controllerTransform;
+
+		auto& collider = hands.left.getComponent<uf::Collider>();
+		for ( auto* box : collider.getContainer() ) {
+			box->getTransform().position = transform.position + controllerTransform.position + controllerCameraTransform.position;
+		}
 	}
 	{
 		pod::Transform<>& transform = hands.right.getComponent<pod::Transform<>>();
 		transform.position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Right );
 		transform.orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right );
 		transform.scale = { 1, 1, 1 };
-		// transform.reference = &camera.getTransform();
+		transform.reference = &controllerTransform;
+
+		auto& collider = hands.right.getComponent<uf::Collider>();
+		for ( auto* box : collider.getContainer() ) {
+			box->getTransform().position = transform.position + controllerTransform.position + controllerCameraTransform.position;
+		}
 	}
 	{
 		pod::Transform<>& transform = lines.left.getComponent<pod::Transform<>>();
 		transform.position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Left, true );
 		transform.orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Left, true );
 		transform.scale = { 1, 1, 1 };
+		transform.reference = &controllerTransform;
+
+		if ( lights.left ) {
+			auto& light = *lights.left;
+			auto& lightTransform = light.getComponent<pod::Transform<>>();
+			lightTransform.position = controllerCameraTransform.position + controller.getComponent<pod::Transform<>>().position + transform.position;
+		//	lightTransform.orientation = controllerTransform.orientation * transform.orientation;
+			auto& lightCamera = light.getComponent<uf::Camera>();
+			pod::Matrix4f playerModel = uf::matrix::identity();
+			pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), controllerCameraTransform.position + controllerTransform.position );
+			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation * pod::Vector4f{1,1,1,-1} );
+			playerModel = translation * rotation;
+
+			pod::Matrix4f model = uf::matrix::inverse( playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true ) );
+			for ( size_t i = 0; i < 2; ++i ) lightCamera.setView( model, i );
+		
+		//	lightTransform.position = transform.position;
+		//	lightTransform.orientation = transform.orientation;
+		//	lightTransform.reference = &controllerTransform;
+		}
 		// transform.reference = hands.left.getComponentPointer<pod::Transform<>>();
 	}
 	{
@@ -182,6 +242,26 @@ void ext::Hands::tick() {
 		transform.position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Right, true );
 		transform.orientation = ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right, true );
 		transform.scale = { 1, 1, 1 };
+		transform.reference = &controllerTransform;
+
+		if ( lights.right ) {
+			auto& light = *lights.right;
+			auto& lightTransform = light.getComponent<pod::Transform<>>();
+			lightTransform.position = controllerCameraTransform.position + controllerTransform.position + transform.position;
+		//	lightTransform.orientation = controllerTransform.orientation * transform.orientation;
+			auto& lightCamera = light.getComponent<uf::Camera>();
+			pod::Matrix4f playerModel = uf::matrix::identity();
+			pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), controllerCameraTransform.position + controllerTransform.position );
+			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation * pod::Vector4f{1,1,1,-1} );
+			playerModel = translation * rotation;
+
+			pod::Matrix4f model = uf::matrix::inverse( playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true ) );
+			for ( size_t i = 0; i < 2; ++i ) lightCamera.setView( model, i );
+		
+		//	lightTransform.position = transform.position;
+		//	lightTransform.orientation = transform.orientation;
+		//	lightTransform.reference = &controllerTransform;
+		}
 		// transform.reference = hands.right.getComponentPointer<pod::Transform<>>();
 	}
 
@@ -256,9 +336,7 @@ void ext::Hands::tick() {
 					}
 				}
 			}
-
-			#define DEBUG_MARKER() std::cout << side << ": " << __LINE__ << std::endl;
-
+		#if 0
 			/* Collision against world */ {
 				bool local = true;
 				bool sort = false;
@@ -271,7 +349,7 @@ void ext::Hands::tick() {
 					pod::Transform<> transform = hand.getComponent<pod::Transform<>>();
 					transform.position = uf::quaternion::rotate( controller.getComponent<pod::Transform<>>().orientation, transform.position );
 					transform.position += controller.getComponent<pod::Transform<>>().position;
-					transform.position += camera.getTransform().position;
+					transform.position += controllerCamera.getTransform().position;
 
 					uf::Entity& parent = controller.getParent();
 					ext::TerrainGenerator& generator = parent.getComponent<ext::TerrainGenerator>();
@@ -319,13 +397,13 @@ void ext::Hands::tick() {
 
 						if ( !voxel.solid() ) continue;
 
-						uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
+						uf::Collider* box = new uf::BoundingBox( offset, {0.5, 0.5, 0.5} );
 						pCollider.add(box);
 					}
 					
 					uf::CollisionBody& collider = hand.getComponent<uf::CollisionBody>(); {
 						collider.clear();
-						uf::Collider* box = new uf::AABBox( transform.position, {0.25, 0.25, 0.25} );
+						uf::Collider* box = new uf::BoundingBox( transform.position, {0.25, 0.25, 0.25} );
 						collider.add(box);
 					}
 					
@@ -351,17 +429,12 @@ void ext::Hands::tick() {
 							payload["side"] = side;
 							uf::hooks.call( "VR:Haptics." + side, payload );
 						}
-					/*
-						transform.position += correction;
-						if ( strongest.normal.x == 1 || strongest.normal.x == -1 ) physics.linear.velocity.x = 0;
-						if ( strongest.normal.y == 1 || strongest.normal.y == -1 ) physics.linear.velocity.y = 0;
-						if ( strongest.normal.z == 1 || strongest.normal.z == -1 ) physics.linear.velocity.z = 0;
-					*/
 					}
 					return 0;
 				};
 				if ( local ) function(); else uf::thread::add( thread, function, true );
 			}
+		#endif
 		}
 	}
 }
@@ -373,13 +446,19 @@ void ext::Hands::render() {
 	auto& controller = *scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 
-	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
-	if ( hands.left.hasComponent<uf::Mesh>() ) {
-		auto& mesh = hands.left.getComponent<uf::Mesh>();
+	pod::Matrix4f playerModel = uf::matrix::identity(); {
+		auto& controller = this->getParent();
+		auto& camera = controller.getComponent<uf::Camera>();
+		pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
+		pod::Matrix4f rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
+		playerModel = translation * rotation;
+	}
+//	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );	
+	if ( hands.left.hasComponent<uf::Graphic>() ) {
 		auto& graphic = hands.left.getComponent<uf::Graphic>();
 		auto& transform = hands.left.getComponent<pod::Transform<>>();
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
-		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
 		if ( graphic.initialized ) {	
 			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
@@ -396,12 +475,11 @@ void ext::Hands::render() {
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
-	if ( hands.right.hasComponent<uf::Mesh>() ) {
-		auto& mesh = hands.right.getComponent<uf::Mesh>();
+	if ( hands.right.hasComponent<uf::Graphic>() ) {
 		auto& graphic = hands.right.getComponent<uf::Graphic>();
 		auto& transform = hands.right.getComponent<pod::Transform<>>();
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
-		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
 		if ( graphic.initialized ) {	
 			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
@@ -418,12 +496,11 @@ void ext::Hands::render() {
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
-	if ( lines.left.hasComponent<uf::Mesh>() ) {
-		auto& mesh = lines.left.getComponent<uf::Mesh>();
+	if ( lines.left.hasComponent<uf::Graphic>() ) {
 		auto& graphic = lines.left.getComponent<uf::Graphic>();
 		auto& transform = lines.left.getComponent<pod::Transform<>>();
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
-		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
 		if ( graphic.initialized ) {	
 			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
@@ -440,12 +517,11 @@ void ext::Hands::render() {
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
-	if ( lines.right.hasComponent<uf::Mesh>() ) {
-		auto& mesh = lines.right.getComponent<uf::Mesh>();
+	if ( lines.right.hasComponent<uf::Graphic>() ) {
 		auto& graphic = lines.right.getComponent<uf::Graphic>();
 		auto& transform = lines.right.getComponent<pod::Transform<>>();
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
-		pod::Matrix4f model = cameraModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
 		if ( graphic.initialized ) {	
 			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();

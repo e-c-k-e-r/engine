@@ -17,8 +17,7 @@ layout (binding = 0) uniform UBO {
 	vec4 color;
 } ubo;
 
-layout (location = 0) out vec3 outPosition;
-layout (location = 1) out vec4 outColor;
+layout (location = 0) out vec4 outColor;
 
 out gl_PerVertex {
     vec4 gl_Position;   
@@ -28,7 +27,7 @@ out gl_PerVertex {
 void main() {
 	outColor = ubo.color;
 
-	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
+//	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
 
 	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
 }

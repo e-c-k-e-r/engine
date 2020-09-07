@@ -17,16 +17,16 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	{
 		renderTarget.device = &device;
 		struct {
-			size_t albedo, position, normals, depth, output;
+			size_t albedo, normals, position, depth, output;
 		} attachments;
 
-		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
-		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // position
-		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // normals
-		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
+		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
+		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // normals
+		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // position
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, true ); // depth
 		// Attach swapchain's image as output
 		if ( !false ) {
-			attachments.output = renderTarget.attach( device.formats.color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ); // depth
+			attachments.output = renderTarget.attach( device.formats.color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, true ); // output
 		} else {
 			attachments.output = renderTarget.attachments.size();
 			RenderTarget::Attachment swapchainAttachment;
@@ -34,13 +34,31 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			swapchainAttachment.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			swapchainAttachment.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 			swapchainAttachment.aliased = true;
+			{
+				VkBool32 blendEnabled = VK_TRUE;
+				VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+					writeMask,
+					blendEnabled
+				);
+				if ( blendEnabled == VK_TRUE ) {
+					blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+					blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+					blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+					blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+					blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+					blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+				}
+				swapchainAttachment.blendState = blendAttachmentState;
+			}
 			renderTarget.attachments.push_back(swapchainAttachment);
 		}
+
 		// First pass: write to target
 		{
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.albedo, attachments.position, attachments.normals },
+				{ attachments.albedo, attachments.normals, attachments.position },
 				{},
 				attachments.depth
 			);
@@ -50,7 +68,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.position, attachments.normals },
+				{ attachments.albedo, attachments.normals, attachments.position/*, attachments.depth*/ },
 				attachments.depth
 			);
 		}

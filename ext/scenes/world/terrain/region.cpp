@@ -6,6 +6,7 @@
 #include "..//sprite.h"
 #include <uf/engine/asset/asset.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/thread/thread.h>
 #include <uf/utils/math/collision.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/graphic/mesh.h>
@@ -54,7 +55,8 @@ void ext::Region::initialize() {
 		graphic.process = false;
 
 		auto& texture = graphic.material.textures.emplace_back();
-		texture.sampler.filter = VK_FILTER_NEAREST;
+		texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 		texture.loadFromFile( textureFilename );
 
 		std::string suffix = ""; {
@@ -83,9 +85,9 @@ void ext::Region::initialize() {
 		generator.generate(*this);
 		generator.updateLight();
 
-		/* Collider */ {
+		/* Collider */ if ( false ) {
 			pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-			uf::CollisionBody& collider = this->getComponent<uf::CollisionBody>();
+			uf::Collider& collider = this->getComponent<uf::Collider>();
 		
 			std::size_t i = 0;
 			const auto& voxels = generator.getVoxels();
@@ -108,8 +110,7 @@ void ext::Region::initialize() {
 
 						if ( !voxel.solid() ) continue;
 
-						uf::Collider* box = new uf::AABBox( offset, {0.5, 0.5, 0.5} );
-						collider.add(box);
+						collider.add(new uf::BoundingBox( offset, {0.5, 0.5, 0.5} ));
 					}
 				}
 			}
@@ -200,12 +201,16 @@ void ext::Region::initialize() {
 			}
 			if ( should ) {
 				uf::Entity* light = this->findByUid(this->loadChild("./light.json", true));
-				uf::Serializer& metadata = light->getComponent<uf::Serializer>();
-				pod::Transform<>& lTransform = light->getComponent<pod::Transform<>>();
-				lTransform.position = transform.position;
-				metadata["light"]["color"][0] = r;
-				metadata["light"]["color"][1] = r;
-				metadata["light"]["color"][2] = r;
+				if ( light ) {
+					uf::Serializer& metadata = light->getComponent<uf::Serializer>();
+					pod::Transform<>& lTransform = light->getComponent<pod::Transform<>>();
+					lTransform.position += transform.position;
+					if ( !metadata["light"].isArray() ) {
+						metadata["light"]["color"][0] = (rand() % 100) / 100.0;
+						metadata["light"]["color"][1] = (rand() % 100) / 100.0;
+						metadata["light"]["color"][2] = (rand() % 100) / 100.0;
+					}
+				}
 			}
 		}
 		// add mobs
@@ -273,6 +278,139 @@ void ext::Region::initialize() {
 }
 void ext::Region::tick() {
 	uf::Object::tick();
+
+	// do collision on children
+#if 1
+	{
+		bool local = false;
+		bool sort = false;
+		bool useStrongest = true;
+		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+		auto function = [&]() -> int {
+			std::vector<uf::Object*> entities;
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( entity->hasComponent<uf::Collider>() )
+					entities.push_back((uf::Object*) entity);
+			};
+			this->process(filter);
+			auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b ){				
+				uf::Serializer payload;
+				payload["normal"][0] = manifold.normal.x;
+				payload["normal"][1] = manifold.normal.y;
+				payload["normal"][2] = manifold.normal.z;
+				payload["entity"] = b->getUid();
+				payload["depth"] = -manifold.depth;
+				a->callHook("world:Collision.%UID%", payload);
+				
+				payload["entity"] = a->getUid();
+				payload["depth"] = manifold.depth;
+				b->callHook("world:Collision.%UID%", payload);
+			/*
+				pod::Transform<>& transform = b->getComponent<pod::Transform<>>();
+				pod::Physics& physics = b->getComponent<pod::Physics>();
+
+				uf::Serializer payload;
+				pod::Vector3 correction = uf::vector::normalize(manifold.normal) * manifold.depth;
+				transform.position -= correction;
+
+				if ( manifold.normal.x == 1 || manifold.normal.x == -1 ) physics.linear.velocity.x = 0;
+				if ( manifold.normal.y == 1 || manifold.normal.y == -1 ) physics.linear.velocity.y = 0;
+				if ( manifold.normal.z == 1 || manifold.normal.z == -1 ) physics.linear.velocity.z = 0;
+			*/
+			};
+			auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
+				pod::Collider::Manifold strongest;
+				auto manifolds = colliderA.intersects(colliderB);
+				for ( auto manifold : manifolds ) {
+					if ( manifold.colliding && manifold.depth > 0 ) {
+						if ( !useStrongest ) onCollision(manifold, a, b);
+						else if ( strongest.depth < manifold.depth ) strongest = manifold;
+					}
+				}
+				if ( useStrongest && strongest.colliding ) onCollision(strongest, a, b);
+			};
+
+			// collide with world
+			auto& metadata = this->getComponent<uf::Serializer>();
+			auto& generator = this->getComponent<ext::TerrainGenerator>();
+			auto& regionPosition = this->getComponent<pod::Transform<>>().position;
+			pod::Vector3f size; {
+				size.x = metadata["region"]["size"][0].asUInt();
+				size.y = metadata["region"]["size"][1].asUInt();
+				size.z = metadata["region"]["size"][2].asUInt();
+			}
+			for ( auto* _ : entities ) {
+				uf::Object& entity = *_;
+				auto& transform = entity.getComponent<pod::Transform<>>();
+
+			
+				pod::Vector3f voxelPosition = transform.position - regionPosition;
+				voxelPosition.x += size.x / 2.0f;
+				voxelPosition.y += size.y / 2.0f + 1;
+				voxelPosition.z += size.z / 2.0f;
+
+				uf::Collider collider;
+				std::vector<pod::Vector3ui> positions = {
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y - 1, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y + 1, voxelPosition.z },
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z - 1 },
+					{ voxelPosition.x, voxelPosition.y, voxelPosition.z + 1},
+				};
+				for ( auto& position : positions ) {
+					ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( generator.getVoxel( position.x, position.y, position.z ) );
+					pod::Vector3 offset = regionPosition;
+					offset.x += position.x - (size.x / 2.0f);
+					offset.y += position.y - (size.y / 2.0f);
+					offset.z += position.z - (size.z / 2.0f);
+
+					if ( !voxel.solid() ) continue;
+
+					collider.add( new uf::BoundingBox( offset, {0.5, 0.5, 0.5} ) );
+				/*
+					uf::BaseMesh<pod::Vertex_3F> mesh;
+					const ext::TerrainVoxel::Model& model = voxel.model();
+					#define TERRAIN_SHOULD_RENDER_FACE(SIDE)\
+						for ( uint i = 0; i < model.position.SIDE.size() / 3; ++i ) {\
+							auto& vertex = mesh.vertices.emplace_back();\
+							{\
+								pod::Vector3f& p = vertex.position;\
+								p.x = model.position.SIDE[i*3+0]; p.y = model.position.SIDE[i*3+1]; p.z = model.position.SIDE[i*3+2];\
+								p.x += offset.x; p.y += offset.y; p.z += offset.z;\
+							}\
+						}
+					TERRAIN_SHOULD_RENDER_FACE(left)
+					TERRAIN_SHOULD_RENDER_FACE(right)
+					TERRAIN_SHOULD_RENDER_FACE(top)
+					TERRAIN_SHOULD_RENDER_FACE(bottom)
+					TERRAIN_SHOULD_RENDER_FACE(back)
+					TERRAIN_SHOULD_RENDER_FACE(front)
+					uf::MeshCollider* mCollider = new uf::MeshCollider();
+					mCollider->setPositions( mesh );
+					pCollider.add(mCollider);
+				*/
+				}
+				testColliders( collider, entity.getComponent<uf::Collider>(), this, &entity, useStrongest );
+			}
+		
+			// collide with others
+			for ( auto* _a : entities ) {
+				uf::Object& entityA = *_a;
+				for ( auto* _b : entities ) { if ( _a == _b ) continue;
+					uf::Object& entityB = *_b;
+					testColliders( entityA.getComponent<uf::Collider>(), entityB.getComponent<uf::Collider>(), &entityA, &entityB, useStrongest );
+				}
+			}
+		
+			return 0;
+		};
+		if ( local ) function(); else uf::thread::add( thread, function, true );
+	}
+#endif
 }
 void ext::Region::destroy() {
 	auto& graphic = this->getComponent<uf::Graphic>();
@@ -289,11 +427,11 @@ void ext::Region::render( ) {
 	uf::Object::render();
 
 	if ( !metadata["region"]["rasterized"].asBool() ) return;
-	/* Update uniforms */ if ( this->hasComponent<ext::TerrainGenerator::mesh_t>() ) {
-		auto& world = this->getRootParent<uf::Scene>();
+	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
+		auto& scene = this->getRootParent<uf::Scene>();
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& camera = world.getController()->getComponent<uf::Camera>();		
+		auto& camera = scene.getController()->getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
 	//	auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();

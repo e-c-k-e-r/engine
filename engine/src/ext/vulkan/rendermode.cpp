@@ -91,6 +91,10 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 	// this->width = 0; //ext::vulkan::width;
 	// this->height = 0; //ext::vulkan::height;
+	{
+		if ( this->width > 0 ) renderTarget.width = this->width;
+		if ( this->height > 0 ) renderTarget.height = this->height;
+	}
 
 	// Create command buffers
 	{

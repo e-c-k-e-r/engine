@@ -11,11 +11,6 @@
 #include <uf/utils/math/transform.h>
 #include <uf/ext/openvr/openvr.h>
 
-namespace {
-	// 0 left 1 right
-	uint8_t DOMINANT_EYE = 0;
-}
-
 // ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }), blitters({ blitter }) {
 ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }) {
 }
@@ -58,16 +53,18 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		renderTarget.height = this->height;
 		// attach targets
 		struct {
-			size_t albedo, position, normals, depth, output;
+			size_t albedo, normals, position, depth, output;
 		} attachments;
 
-		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
-		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // position
-		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // normals
-		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
-		attachments.output = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
-		// Attach swapchain's image as output
+		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
+		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
+		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+		attachments.output = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
+	//	attachments.ping = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
+	//	attachments.pong = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
 	/*
+		// Attach swapchain's image as output
 		if ( !true ) {
 			attachments.swapchain = renderTarget.attachments.size();
 			RenderTarget::Attachment swapchainAttachment;
@@ -81,8 +78,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		// First pass: fill the G-Buffer
 		{
 			renderTarget.addPass(
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.albedo, attachments.position, attachments.normals },
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{ attachments.albedo, attachments.normals, attachments.position },
 				{},
 				attachments.depth
 			);
@@ -90,9 +87,9 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		// Second pass: write to output
 		{
 			renderTarget.addPass(
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.position, attachments.normals },
+				{ attachments.albedo, attachments.normals, attachments.position/*, attachments.depth*/ },
 				attachments.depth
 			);
 		}
@@ -100,10 +97,10 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		{
 			uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
 			mesh.vertices = {
-				{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-				{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
-				{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-				{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+				{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+				{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
+				{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+				{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
 			};
 			mesh.indices = {
 				0, 1, 2, 0, 2, 3
@@ -230,13 +227,17 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 				for ( auto layer : layers ) {
 					if ( layer->getName() == "" ) continue;
 					RenderTarget& renderTarget = layer->renderTarget;
-					imageMemoryBarrier.image = renderTarget.attachments[0].image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-					imageMemoryBarrier.oldLayout = renderTarget.attachments[0].layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					renderTarget.attachments[0].layout = imageMemoryBarrier.newLayout;
+					for ( auto& attachment : renderTarget.attachments ) {
+						if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+						if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						imageMemoryBarrier.image = attachment.image;
+						imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+						imageMemoryBarrier.oldLayout = attachment.layout;
+						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						attachment.layout = imageMemoryBarrier.newLayout;
+					}
 				}
 			
 				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -258,7 +259,9 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						}
 					}
 				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-					blitter.record(commands[i]);
+					{
+						blitter.record(commands[i]);
+					}
 					// render gui layer
 					{
 						for ( auto _ : layers ) {
@@ -269,149 +272,117 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 							blitter.record(commands[i]);
 						}
 					}
-			/*
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-				if ( ext::openvr::renderPass == DOMINANT_EYE ) {
-					viewport.width = (float) ::ext::vulkan::width;
-					viewport.height = (float) ::ext::vulkan::height;
-					scissor.extent.width = ::ext::vulkan::width;
-					scissor.extent.height = ::ext::vulkan::height;
-
-					vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
-					this->blitter.createCommandBuffer(commands[i]);
-					// render gui layer
-					{
-						for ( auto layer : layers ) {
-							if ( layer->getName() == "Gui" ) {
-								RenderTargetRenderMode* guiLayer = (RenderTargetRenderMode*) layer;
-								if ( guiLayer->blitter.subpass == 2 ) guiLayer->blitter.createCommandBuffer(commands[i]);
-							}
-						}
-					}
-				}
-			*/
 				vkCmdEndRenderPass(commands[i]);
 
 				for ( auto layer : layers ) {
 					if ( layer->getName() == "" ) continue;
 					RenderTarget& renderTarget = layer->renderTarget;
-					imageMemoryBarrier.image = renderTarget.attachments[0].image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = renderTarget.attachments[0].layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					renderTarget.attachments[0].layout = imageMemoryBarrier.newLayout;
+					for ( auto& attachment : renderTarget.attachments ) {
+						if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+						if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						imageMemoryBarrier.image = attachment.image;
+						imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						imageMemoryBarrier.oldLayout = attachment.layout;
+						imageMemoryBarrier.newLayout = attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						attachment.layout = imageMemoryBarrier.newLayout;
+					}
 				}
 			}
-		}
-		// Blit eye to swapchain
-		{
-		//	if ( false ) {
-			auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
-			{
-				auto& renderTarget = swapchainRender.renderTarget;
-				float width = renderTarget.width;
-				float height = renderTarget.height;
-
-				std::vector<VkClearValue> clearValues; clearValues.resize(2);
-				clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-				clearValues[1].depthStencil = { 1.0f, 0 };
-
-				VkRenderPassBeginInfo renderPassBeginInfo = {};
-				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				renderPassBeginInfo.pNext = nullptr;
-				renderPassBeginInfo.renderArea.offset.x = 0;
-				renderPassBeginInfo.renderArea.offset.y = 0;
-				renderPassBeginInfo.renderArea.extent.width = width;
-				renderPassBeginInfo.renderArea.extent.height = height;
-				renderPassBeginInfo.clearValueCount = clearValues.size();
-				renderPassBeginInfo.pClearValues = &clearValues[0];
-				renderPassBeginInfo.renderPass = renderTarget.renderPass;
-				renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
-				
-				// Update dynamic viewport state
-				VkViewport viewport = {};
-				viewport.width = (float) width;
-				viewport.height = (float) height;
-				viewport.minDepth = (float) 0.0f;
-				viewport.maxDepth = (float) 1.0f;
-				
-				// Update dynamic scissor state
-				VkRect2D scissor = {};
-				scissor.extent.width = width;
-				scissor.extent.height = height;
-				scissor.offset.x = 0;
-				scissor.offset.y = 0;
-
-				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdEndRenderPass(commands[i]);
-
-			}
-			{
-				auto& renderTarget = DOMINANT_EYE == 0 ? renderTargets.left : renderTargets.right;
-				VkImageBlit imageBlitRegion{};
-				imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				imageBlitRegion.srcSubresource.layerCount = 1;
-				imageBlitRegion.srcOffsets[1] = { width, height, 1 };
-				imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				imageBlitRegion.dstSubresource.layerCount = 1;
-				imageBlitRegion.dstOffsets[1] = {
-					swapchainRender.width > 0 ? swapchainRender.width : ext::vulkan::width,
-					swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::height,
-					1
-				};
-
-				auto& outputAttachment = renderTarget.attachments[renderTarget.attachments.size()-1];
-				// Transition to KHR
+			// Blit eye to swapchain
+			if ( ext::openvr::dominantEye == ext::openvr::renderPass ) {
+			//	if ( false ) {
+				// transition swapchain to proper layout
+				auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
 				{
-					imageMemoryBarrier.image = outputAttachment.image;
-					imageMemoryBarrier.srcAccessMask = 0;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = outputAttachment.layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					outputAttachment.layout = imageMemoryBarrier.newLayout;
-				}
-				{
-					imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
-					imageMemoryBarrier.srcAccessMask = 0;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					auto& renderTarget = swapchainRender.renderTarget;
+					float width = renderTarget.width;
+					float height = renderTarget.height;
+
+					std::vector<VkClearValue> clearValues; clearValues.resize(2);
+					clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+					clearValues[1].depthStencil = { 1.0f, 0 };
+
+					VkRenderPassBeginInfo renderPassBeginInfo = {};
+					renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+					renderPassBeginInfo.pNext = nullptr;
+					renderPassBeginInfo.renderArea.offset.x = 0;
+					renderPassBeginInfo.renderArea.offset.y = 0;
+					renderPassBeginInfo.renderArea.extent.width = width;
+					renderPassBeginInfo.renderArea.extent.height = height;
+					renderPassBeginInfo.clearValueCount = clearValues.size();
+					renderPassBeginInfo.pClearValues = &clearValues[0];
+					renderPassBeginInfo.renderPass = renderTarget.renderPass;
+					renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
+
+					vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+					vkCmdEndRenderPass(commands[i]);
 				}
 
-				vkCmdBlitImage(
-					commands[i],
-					outputAttachment.image,
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					swapchainRender.renderTarget.attachments[i].image,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					1,
-					&imageBlitRegion,
-					VK_FILTER_LINEAR
-				);
+				{
+					VkImageBlit imageBlitRegion{};
+					imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+					imageBlitRegion.srcSubresource.layerCount = 1;
+					imageBlitRegion.srcOffsets[1] = { width, height, 1 };
+					imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+					imageBlitRegion.dstSubresource.layerCount = 1;
+					imageBlitRegion.dstOffsets[1] = {
+						swapchainRender.width > 0 ? swapchainRender.width : ext::vulkan::width,
+						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::height,
+						1
+					};
 
-				{
-					imageMemoryBarrier.image = outputAttachment.image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = outputAttachment.layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					outputAttachment.layout = imageMemoryBarrier.newLayout;
-				}
-				{
-					imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					auto& outputAttachment = renderTarget.attachments[renderTarget.attachments.size()-1];
+					// Transition to KHR
+					{
+						imageMemoryBarrier.image = outputAttachment.image;
+						imageMemoryBarrier.srcAccessMask = 0;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+						imageMemoryBarrier.oldLayout = outputAttachment.layout;
+						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						outputAttachment.layout = imageMemoryBarrier.newLayout;
+					}
+					{
+						imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
+						imageMemoryBarrier.srcAccessMask = 0;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+						imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
+						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					}
+
+					vkCmdBlitImage(
+						commands[i],
+						outputAttachment.image,
+						VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+						swapchainRender.renderTarget.attachments[i].image,
+						VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+						1,
+						&imageBlitRegion,
+						VK_FILTER_LINEAR
+					);
+
+					{
+						imageMemoryBarrier.image = outputAttachment.image;
+						imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						imageMemoryBarrier.oldLayout = outputAttachment.layout;
+						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						outputAttachment.layout = imageMemoryBarrier.newLayout;
+					}
+					{
+						imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
+						imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
+						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+						swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					}
 				}
 			}
 		}

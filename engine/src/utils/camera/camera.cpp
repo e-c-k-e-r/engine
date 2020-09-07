@@ -18,6 +18,7 @@ uf::Camera::Camera() :
 	this->m_settings.offset = {0, 0, 0};
 	this->m_settings.mode = 1;
 	
+	this->setModel(uf::matrix::identity());
 	this->setView(uf::matrix::identity());
 	this->setProjection(uf::matrix::identity());
 	
@@ -61,6 +62,7 @@ const pod::Transform<>& uf::Camera::getTransform() const {
 }
 
 pod::Matrix4& uf::Camera::getView( size_t eye ) {
+	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -80,6 +82,7 @@ pod::Matrix4& uf::Camera::getView( size_t eye ) {
 */
 }
 pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
+	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -103,6 +106,7 @@ pod::Matrix4& uf::Camera::getModel() {
 }
 
 const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
+	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -122,6 +126,7 @@ const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
 */
 }
 const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
+	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -177,6 +182,7 @@ void uf::Camera::setTransform( const pod::Transform<>& transform ) {
 	this->update(true);
 }
 void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
+	// if ( !this->m_settings.stereoscopic ) i = 2;
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.view = mat;
@@ -191,6 +197,7 @@ void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
 	}
 }
 void uf::Camera::setProjection( const pod::Matrix4& mat, size_t i ) {
+	// if ( !this->m_settings.stereoscopic ) i = 2;
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.projection = mat;
@@ -235,7 +242,9 @@ void uf::Camera::ortho( const pod::Vector2& lr, const pod::Vector2& bt, const po
 
 	this->update(true);
 }
-
+void uf::Camera::setStereoscopic(bool settings) {
+	this->m_settings.stereoscopic = settings;
+}
 void uf::Camera::update(bool override) {
 	if ( !override && !this->modified() ) return;
 	this->updateView();
@@ -243,7 +252,7 @@ void uf::Camera::update(bool override) {
 	this->m_modified = true;
 }
 void uf::Camera::updateView() {
-	if ( ext::openvr::context ) {
+	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
 		pod::Transform<>& transform = this->getTransform();
 		pod::Vector3t<> position = transform.position;
 		if ( transform.reference ) position += transform.reference->position;
@@ -251,9 +260,10 @@ void uf::Camera::updateView() {
 
 		pod::Transform<> flatten = uf::transform::flatten( transform );
 		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), position );
-		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
+		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation * pod::Vector4f{1,1,1,-1} );
 
 		pod::Matrix4t<> view = uf::matrix::inverse( translation * rotation );
+
 		transform.orientation = ext::openvr::hmdQuaternion();
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );
@@ -301,8 +311,11 @@ void uf::Camera::updateView() {
 		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), position * -1 );
 		pod::Transform<> flatten = uf::transform::flatten(transform, true);
 		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
+		pod::Matrix4t<> scale = uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity(), transform.scale ) );
 
-		this->setView(rotation * translation);
+		// std::cout << transform.scale.x << ", " << transform.scale.y << ", " << transform.scale.z << std::endl;
+
+		this->setView(rotation * translation * scale);
 	/*
 		pod::Transform<> transform = this->getTransform();
 		if ( transform.reference ) transform.position += transform.reference->position;
@@ -316,7 +329,7 @@ void uf::Camera::updateView() {
 	}
 }
 void uf::Camera::updateProjection() {
-	if ( ext::openvr::context ) {
+	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
 	//	::projection.left = ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
 	//	::projection.right = ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
 		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 0 );

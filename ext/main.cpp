@@ -102,12 +102,22 @@ void EXT_API ext::initialize() {
 		// Set worker threads
 		uf::thread::workers = ::config["engine"]["worker threads"].asUInt64();
 		// Enable valiation layer
-		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"].asBool();
+		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
+
+		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
+			ext::vulkan::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
+		}
+		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["features"].size(); ++i ) {
+			ext::vulkan::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
+		}
 		//
 		// ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
 		//
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
+	//	ext::openvr::dominantEye = ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "left" ? 0 : 1;
+		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "left" ) ext::openvr::dominantEye = 0;
+		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "right" ) ext::openvr::dominantEye = 1;
 		ext::openvr::driver.manifest = ::config["engine"]["ext"]["vr"]["manifest"].asString();
 		if ( ext::openvr::enabled ) {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
@@ -222,11 +232,40 @@ void EXT_API ext::tick() {
 	    	uf::iostream << ext::vulkan::allocatorStats() << "\n";
 		}
 	}
-	/* Print Entity Information */  {
+	/* Attempt to reset VR position */  {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("Home") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		if ( uf::Window::isKeyPressed("Z") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 	    	uf::hooks.call("VR:Seat.Reset");
+		}
+	}
+	/* Print controller position */ if ( false ) {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
+		if ( uf::Window::isKeyPressed("Z") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+			auto& scene = uf::scene::getCurrentScene();
+			auto* controller = scene.getController();
+			auto& camera = controller->getComponent<uf::Camera>();
+			auto& t = camera.getTransform(); //controller->getComponent<pod::Transform<>>();
+			uf::iostream << "Viewport position: (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ") (" << t.orientation.x << ", " << t.orientation.y << ", " << t.orientation.z << ", " << t.orientation.w << ")";
+			uf::iostream << "\n";
+			if ( false ) {
+				uf::Entity* light = scene.findByUid(scene.loadChild("/light.json", true));
+				if ( light ) {
+					auto& lTransform = light->getComponent<pod::Transform<>>();
+					auto& lMetadata = light->getComponent<uf::Serializer>();
+					lTransform.position = t.position;
+					lTransform.orientation = t.orientation;
+					if ( !lMetadata["light"].isArray() ) {
+						lMetadata["light"]["color"][0] = (rand() % 100) / 100.0;
+						lMetadata["light"]["color"][1] = (rand() % 100) / 100.0;
+						lMetadata["light"]["color"][2] = (rand() % 100) / 100.0;
+					}
+				}
+				
+				auto& sMetadata = scene.getComponent<uf::Serializer>();
+				sMetadata["light"]["should"] = true;
+			}
 		}
 	}
 

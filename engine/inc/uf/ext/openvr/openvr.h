@@ -35,6 +35,7 @@ namespace ext {
 		extern UF_API float width, height;
 		extern UF_API bool enabled;
 		extern UF_API bool swapEyes;
+		extern UF_API uint8_t dominantEye;
 
 		bool UF_API initialize( int stage = 0 );
 		void UF_API tick();

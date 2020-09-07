@@ -14,6 +14,7 @@ float ext::openvr::width = 0;
 float ext::openvr::height = 0;
 bool ext::openvr::enabled = false;
 bool ext::openvr::swapEyes = false;
+uint8_t ext::openvr::dominantEye = 0;
 
 #define VR_CHECK_INPUT_RESULT(f)\
 	if ( f != vr::VRInputError_None ) {\
@@ -556,7 +557,7 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 		frustum.bottom = abs( frustum.bottom );
 	} else {
 	}
-		std::cout << frustum.left << "\t" << frustum.right << "\t" << frustum.top << "\t" << frustum.bottom << std::endl;
+	//	std::cout << frustum.left << "\t" << frustum.right << "\t" << frustum.top << "\t" << frustum.bottom << std::endl;
 
 	/*
 		float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);

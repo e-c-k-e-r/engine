@@ -8,6 +8,8 @@
 #include <set>
 #include <map>
 
+#include <uf/utils/serialize/serializer.h>
+
 namespace {
 	void VRExtensions( std::vector<std::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
@@ -18,34 +20,142 @@ namespace {
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
 		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
 		requested.insert( requested.end(), extensions.begin(), extensions.end() );
-	/*
-		// Allocate enough ExtensionProperties to support all extensions being enabled
-		uint32_t extensionsCount = 0;
-		uint32_t enabledExtensionsCount = 0;
-		
-		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
-		std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
-		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, &extensionProperties[0] ) );
-		for ( size_t i = 0; i < extensions.size(); ++i ) {
-			bool found = false;
-			uint32_t index = 0;
-			for ( index = 0; index < extensionsCount; index++ ) {
-				if ( strcmp( extensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
-					for ( auto alreadyAdded : supportedExtensions ) {
-						if ( strcmp( extensions[i].c_str(), alreadyAdded ) == 0 ) {
-							found = true;
-							break;
-						}
-					}
-					if ( found ) break;
-					found = true;
-					supportedExtensions.push_back(extensionProperties[index].extensionName);
-					break;
-				}
-			}
-			if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
+	}
+	void enableRequestedDeviceFeatures( ext::vulkan::Device& device ) {
+		uf::Serializer json;
+
+	#define CHECK_FEATURE( NAME )\
+		if ( feature == #NAME ) {\
+			if ( device.features.NAME == VK_TRUE ) {\
+				device.enabledFeatures.NAME = true;\
+				if ( ext::vulkan::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
+			} else if ( ext::vulkan::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
 		}
-	*/
+
+		for ( auto& feature : ext::vulkan::requestedDeviceFeatures ) {
+			CHECK_FEATURE(robustBufferAccess);
+			CHECK_FEATURE(fullDrawIndexUint32);
+			CHECK_FEATURE(imageCubeArray);
+			CHECK_FEATURE(independentBlend);
+			CHECK_FEATURE(geometryShader);
+			CHECK_FEATURE(tessellationShader);
+			CHECK_FEATURE(sampleRateShading);
+			CHECK_FEATURE(dualSrcBlend);
+			CHECK_FEATURE(logicOp);
+			CHECK_FEATURE(multiDrawIndirect);
+			CHECK_FEATURE(drawIndirectFirstInstance);
+			CHECK_FEATURE(depthClamp);
+			CHECK_FEATURE(depthBiasClamp);
+			CHECK_FEATURE(fillModeNonSolid);
+			CHECK_FEATURE(depthBounds);
+			CHECK_FEATURE(wideLines);
+			CHECK_FEATURE(largePoints);
+			CHECK_FEATURE(alphaToOne);
+			CHECK_FEATURE(multiViewport);
+			CHECK_FEATURE(samplerAnisotropy);
+			CHECK_FEATURE(textureCompressionETC2);
+			CHECK_FEATURE(textureCompressionASTC_LDR);
+			CHECK_FEATURE(textureCompressionBC);
+			CHECK_FEATURE(occlusionQueryPrecise);
+			CHECK_FEATURE(pipelineStatisticsQuery);
+			CHECK_FEATURE(vertexPipelineStoresAndAtomics);
+			CHECK_FEATURE(fragmentStoresAndAtomics);
+			CHECK_FEATURE(shaderTessellationAndGeometryPointSize);
+			CHECK_FEATURE(shaderImageGatherExtended);
+			CHECK_FEATURE(shaderStorageImageExtendedFormats);
+			CHECK_FEATURE(shaderStorageImageMultisample);
+			CHECK_FEATURE(shaderStorageImageReadWithoutFormat);
+			CHECK_FEATURE(shaderStorageImageWriteWithoutFormat);
+			CHECK_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderSampledImageArrayDynamicIndexing);
+			CHECK_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderStorageImageArrayDynamicIndexing);
+			CHECK_FEATURE(shaderClipDistance);
+			CHECK_FEATURE(shaderCullDistance);
+			CHECK_FEATURE(shaderFloat64);
+			CHECK_FEATURE(shaderInt64);
+			CHECK_FEATURE(shaderInt16);
+			CHECK_FEATURE(shaderResourceResidency);
+			CHECK_FEATURE(shaderResourceMinLod);
+			CHECK_FEATURE(sparseBinding);
+			CHECK_FEATURE(sparseResidencyBuffer);
+			CHECK_FEATURE(sparseResidencyImage2D);
+			CHECK_FEATURE(sparseResidencyImage3D);
+			CHECK_FEATURE(sparseResidency2Samples);
+			CHECK_FEATURE(sparseResidency4Samples);
+			CHECK_FEATURE(sparseResidency8Samples);
+			CHECK_FEATURE(sparseResidency16Samples);
+			CHECK_FEATURE(sparseResidencyAliased);
+			CHECK_FEATURE(variableMultisampleRate);
+			CHECK_FEATURE(inheritedQueries);
+		}
+	#undef CHECK_FEATURE
+	}
+	uf::Serializer retrieveDeviceFeatures( ext::vulkan::Device& device ) {
+		uf::Serializer json;
+
+	#define CHECK_FEATURE( NAME )\
+		json[#NAME]["supported"] = device.features.NAME;\
+		json[#NAME]["enabled"] = device.enabledFeatures.NAME;
+
+		CHECK_FEATURE(robustBufferAccess);
+		CHECK_FEATURE(fullDrawIndexUint32);
+		CHECK_FEATURE(imageCubeArray);
+		CHECK_FEATURE(independentBlend);
+		CHECK_FEATURE(geometryShader);
+		CHECK_FEATURE(tessellationShader);
+		CHECK_FEATURE(sampleRateShading);
+		CHECK_FEATURE(dualSrcBlend);
+		CHECK_FEATURE(logicOp);
+		CHECK_FEATURE(multiDrawIndirect);
+		CHECK_FEATURE(drawIndirectFirstInstance);
+		CHECK_FEATURE(depthClamp);
+		CHECK_FEATURE(depthBiasClamp);
+		CHECK_FEATURE(fillModeNonSolid);
+		CHECK_FEATURE(depthBounds);
+		CHECK_FEATURE(wideLines);
+		CHECK_FEATURE(largePoints);
+		CHECK_FEATURE(alphaToOne);
+		CHECK_FEATURE(multiViewport);
+		CHECK_FEATURE(samplerAnisotropy);
+		CHECK_FEATURE(textureCompressionETC2);
+		CHECK_FEATURE(textureCompressionASTC_LDR);
+		CHECK_FEATURE(textureCompressionBC);
+		CHECK_FEATURE(occlusionQueryPrecise);
+		CHECK_FEATURE(pipelineStatisticsQuery);
+		CHECK_FEATURE(vertexPipelineStoresAndAtomics);
+		CHECK_FEATURE(fragmentStoresAndAtomics);
+		CHECK_FEATURE(shaderTessellationAndGeometryPointSize);
+		CHECK_FEATURE(shaderImageGatherExtended);
+		CHECK_FEATURE(shaderStorageImageExtendedFormats);
+		CHECK_FEATURE(shaderStorageImageMultisample);
+		CHECK_FEATURE(shaderStorageImageReadWithoutFormat);
+		CHECK_FEATURE(shaderStorageImageWriteWithoutFormat);
+		CHECK_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderSampledImageArrayDynamicIndexing);
+		CHECK_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderStorageImageArrayDynamicIndexing);
+		CHECK_FEATURE(shaderClipDistance);
+		CHECK_FEATURE(shaderCullDistance);
+		CHECK_FEATURE(shaderFloat64);
+		CHECK_FEATURE(shaderInt64);
+		CHECK_FEATURE(shaderInt16);
+		CHECK_FEATURE(shaderResourceResidency);
+		CHECK_FEATURE(shaderResourceMinLod);
+		CHECK_FEATURE(sparseBinding);
+		CHECK_FEATURE(sparseResidencyBuffer);
+		CHECK_FEATURE(sparseResidencyImage2D);
+		CHECK_FEATURE(sparseResidencyImage3D);
+		CHECK_FEATURE(sparseResidency2Samples);
+		CHECK_FEATURE(sparseResidency4Samples);
+		CHECK_FEATURE(sparseResidency8Samples);
+		CHECK_FEATURE(sparseResidency16Samples);
+		CHECK_FEATURE(sparseResidencyAliased);
+		CHECK_FEATURE(variableMultisampleRate);
+		CHECK_FEATURE(inheritedQueries);
+	#undef CHECK_FEATURE
+
+		return json;
 	}
 }
 
@@ -512,6 +622,8 @@ void ext::vulkan::Device::initialize() {
 			deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 
+		enableRequestedDeviceFeatures( *this );
+
 		VkDeviceCreateInfo deviceCreateInfo = {};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());;
@@ -525,6 +637,9 @@ void ext::vulkan::Device::initialize() {
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS )
 			throw std::runtime_error("failed to create logical device!"); 
+
+		if ( ext::vulkan::validation )
+			std::cout << retrieveDeviceFeatures( *this ) << std::endl;
 	}
 	// Create command pool
 	{

@@ -16,6 +16,7 @@ namespace ext {
 				VkImageView view;
 				VmaAllocation allocation;
 				VmaAllocationInfo allocationInfo;
+				VkPipelineColorBlendAttachmentState blendState;
 			} Attachment;
 			std::vector<Attachment> attachments;
 
@@ -38,7 +39,7 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, size_t );
-			size_t attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, Attachment* attachment = NULL );
+			size_t attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, bool blend = false, Attachment* attachment = NULL );
 		};
 	}
 }

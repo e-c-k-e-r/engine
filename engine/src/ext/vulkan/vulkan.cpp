@@ -12,6 +12,8 @@ uint32_t ext::vulkan::width = 1280;
 uint32_t ext::vulkan::height = 720;
 
 bool ext::vulkan::validation = true;
+std::vector<std::string> ext::vulkan::validationFilters;
+std::vector<std::string> ext::vulkan::requestedDeviceFeatures;
 ext::vulkan::Device ext::vulkan::device;
 ext::vulkan::Allocator ext::vulkan::allocator;
 ext::vulkan::Swapchain ext::vulkan::swapchain;
@@ -46,7 +48,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	void* pUserData
 ) {
 	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )  return VK_FALSE;
-	uf::iostream << "[Validation Layer] " << pCallbackData->pMessage << "\n";
+	std::string message = pCallbackData->pMessage;
+	for ( auto& filter : ext::vulkan::validationFilters ) {
+		if ( message.find(filter) != std::string::npos ) return VK_FALSE;
+	}
+	uf::iostream << "[Validation Layer] " << message << "\n";
 	return VK_FALSE;
 }
 
@@ -220,6 +226,15 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				allocatorInfo.device = device.logicalDevice;
 				vmaCreateAllocator(&allocatorInfo, &allocator);
 			}
+			{
+				std::vector<uint8_t> pixels = { 
+					255,   0, 255, 255,      0,   0,   0, 255,
+					  0,   0,   0, 255,    255,   0, 255, 255,
+				};
+				Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, ext::vulkan::device.graphicsQueue, VK_IMAGE_USAGE_SAMPLED_BIT );
+			}
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
 				renderMode->initialize(device);
@@ -234,14 +249,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				if ( !entity->hasComponent<uf::Graphic>() ) return;
 				ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 				if ( graphic.initialized ) return;
-			/*
-				if ( !entity->hasComponent<uf::Mesh>() ) return;
-				uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
-				ext::vulkan::Graphic& graphic = mesh.graphic;
-				if ( !mesh.generated ) return;
-				if ( !graphic.process ) return;
-				if ( graphic.initialized ) return;
-			*/
+
 				graphic.initializePipeline();
 				ext::vulkan::rebuild = true;
 			};
@@ -269,12 +277,7 @@ void ext::vulkan::tick() {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		if ( graphic.initialized ) return;
-	/*
-		if ( !entity->hasComponent<uf::Mesh>() ) return;
-		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
-		ext::vulkan::Graphic& graphic = mesh.graphic;
-		if ( !mesh.generated ) return;
-	*/
+
 		if ( !graphic.process ) return;
 		if ( graphic.initialized ) return;
 		graphic.initializePipeline();
@@ -319,6 +322,8 @@ void ext::vulkan::render() {
 void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();
 	vkDeviceWaitIdle( device );
+
+	Texture2D::empty.destroy();
 
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;

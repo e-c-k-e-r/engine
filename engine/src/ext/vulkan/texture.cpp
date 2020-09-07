@@ -3,29 +3,30 @@
 #include <uf/utils/image/image.h>
 #include <uf/ext/vulkan/vulkan.h>
 
-void ext::vulkan::Sampler::initialize( Device& device, VkFilter filter ) {
+ext::vulkan::Texture2D ext::vulkan::Texture2D::empty;
+
+void ext::vulkan::Sampler::initialize( Device& device ) {
 	this->device = &device;
-	this->filter = filter;
 
 	{
 		VkSamplerCreateInfo samplerCreateInfo = {};
 		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = filter;
-		samplerCreateInfo.minFilter = filter;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.0f;
-		samplerCreateInfo.maxLod = 0.0f;
-		samplerCreateInfo.maxAnisotropy = 1.0f;
+		samplerCreateInfo.minFilter = descriptor.filter.min;
+		samplerCreateInfo.magFilter = descriptor.filter.mag;
+		samplerCreateInfo.addressModeU = descriptor.addressMode.u;
+		samplerCreateInfo.addressModeV = descriptor.addressMode.v;
+		samplerCreateInfo.addressModeW = descriptor.addressMode.w;
+
+		samplerCreateInfo.mipmapMode = descriptor.mip.mode;
+		samplerCreateInfo.mipLodBias = descriptor.mip.lodBias;
+		samplerCreateInfo.compareOp = descriptor.compareOp;
+		samplerCreateInfo.minLod = descriptor.lod.min;
+		samplerCreateInfo.maxLod = descriptor.lod.max;
+		samplerCreateInfo.maxAnisotropy = descriptor.maxAnisotropy;
 		VK_CHECK_RESULT(vkCreateSampler(device.logicalDevice, &samplerCreateInfo, nullptr, &sampler));
 	}
-
 	{
-		descriptor.sampler = sampler;
+		descriptor.info.sampler = sampler;
 	}
 }
 void ext::vulkan::Sampler::destroy() {
@@ -274,7 +275,6 @@ void ext::vulkan::Texture2D::loadFromFile(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		sampler.filter,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -347,7 +347,6 @@ void ext::vulkan::Texture2D::loadFromImage(
 		image.getDimensions()[1],
 		device,
 		copyQueue,
-		sampler.filter,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -360,7 +359,6 @@ void ext::vulkan::Texture2D::fromBuffers(
 	uint32_t texHeight,
 	Device& device,
 	VkQueue copyQueue,
-	VkFilter filter,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
 ) {
@@ -466,7 +464,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 	staging.destroy();
 	
 	// Create sampler
-	sampler.initialize( device, sampler.filter );
+	sampler.initialize( device );
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = {};
@@ -535,7 +533,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	device.flushCommandBuffer(layoutCmd, copyQueue, true);
 
 	// Create sampler
-	sampler.initialize( device, sampler.filter );
+	sampler.initialize( device );
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = ext::vulkan::initializers::imageViewCreateInfo();
@@ -556,7 +554,7 @@ void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& at
 	deviceMemory = attachment.mem;
 
 	// Create sampler
-	if ( createSampler ) sampler.initialize( ext::vulkan::device, sampler.filter );
+	if ( createSampler ) sampler.initialize( ext::vulkan::device );
 	
 	this->updateDescriptors();
 }
