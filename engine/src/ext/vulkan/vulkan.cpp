@@ -302,13 +302,13 @@ void ext::vulkan::tick() {
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
+//	ext::vulkan::mutex.lock();
 	if ( hasRenderMode("", true) ) {
 		RenderMode& primary = getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
 
-	ext::vulkan::mutex.lock();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
@@ -317,7 +317,7 @@ void ext::vulkan::render() {
 	}
 
 	ext::vulkan::currentRenderMode = NULL;
-	ext::vulkan::mutex.unlock();
+//	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();

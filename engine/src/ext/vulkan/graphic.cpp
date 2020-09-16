@@ -420,8 +420,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	for ( auto& input : subpass.inputs ) {
 		inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
 			renderTarget.attachments[input.attachment].view,
-			input.layout
-		//	input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
+		//	input.layout
+			input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
 		));
 	}
 	{
@@ -446,8 +446,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 									if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && !d.sampler )
 										d.sampler = emptyTexture.sampler.sampler;
 
-								//	if ( d.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
-								//		d.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+									if ( d.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+										d.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 								}
 								imageInfos.push_back( d );
 							}

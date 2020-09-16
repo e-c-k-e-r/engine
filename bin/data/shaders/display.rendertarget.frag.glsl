@@ -4,6 +4,7 @@
 layout (binding = 1) uniform sampler samp;
 layout (binding = 2) uniform texture2D albedoTexture;
 layout (binding = 3) uniform texture2D normalTexture;
+layout (binding = 4) uniform texture2D positionTexture;
 
 struct Cursor {
 	vec2 position;
@@ -17,6 +18,7 @@ layout (location = 2) in Cursor inCursor;
 
 layout (location = 0) out vec4 outAlbedoSpecular;
 layout (location = 1) out vec4 outNormal;
+layout (location = 2) out vec4 outPosition;
 
 void main() {
 	outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), inUv);
@@ -25,6 +27,7 @@ void main() {
 		// uv.x = 1-uv.x;
 		outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), uv);
 		outNormal = texture(sampler2D(normalTexture, samp), uv);
+		outPosition = texture(sampler2D(positionTexture, samp), uv);
 		if ( outAlbedoSpecular.a < 0.01f ) outAlbedoSpecular = vec4(0,0,0,1);
 		return;
 	}

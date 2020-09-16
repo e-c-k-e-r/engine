@@ -69,7 +69,7 @@ void ext::Portal::initialize() {
 	}
 	{
 		auto& renderMode = this->getComponent<ext::vulkan::RenderTargetRenderMode>();
-		std::string name = "Render Target: " + std::to_string((int) this->getUid());
+		std::string name = "RT:" + std::to_string((int) this->getUid());
 		ext::vulkan::addRenderMode( &renderMode, name );
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();

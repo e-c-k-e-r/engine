@@ -14,7 +14,7 @@ void ext::Light::initialize() {
 	auto& camera = this->getComponent<uf::Camera>();
 	if ( metadata["light"]["shadows"]["enabled"].asBool() ) {
 		auto& renderMode = this->getComponent<ext::vulkan::RenderTargetRenderMode>();
-		std::string name = "Render Target: " + std::to_string((int) this->getUid());
+		std::string name = "RT:" + std::to_string((int) this->getUid());
 		ext::vulkan::addRenderMode( &renderMode, name );
 		if ( metadata["light"]["shadows"]["resolution"].isArray() ) {
 			renderMode.width = metadata["light"]["shadows"]["resolution"][0].asUInt64();

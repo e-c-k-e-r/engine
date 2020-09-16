@@ -148,12 +148,16 @@ void uf::Scene::tick() {
 						if ( entity->hasComponent<ext::vulkan::RenderTargetRenderMode>() ) {
 							auto& renderMode = entity->getComponent<ext::vulkan::RenderTargetRenderMode>();
 							auto& renderTarget = renderMode.renderTarget;
+
+							uint8_t i = 0;
 							for ( auto& attachment : renderTarget.attachments ) {
-								if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+							//	if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+							//	if ( (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+								if ( (attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) ) continue;
 								auto& texture = blitter.material.textures.emplace_back();
 								texture.aliasAttachment(attachment);
 								light.type.y = true;
-								break;
+							//	break;
 							}
 						} else {
 							light.type.y = false;
@@ -193,30 +197,48 @@ const uf::Entity* uf::Scene::getController() const {
 }
 */
 uf::Entity* uf::Scene::getController() {
+	static uf::Entity* cachedController = NULL;
 	if ( ext::vulkan::currentRenderMode ) {
+		static ext::vulkan::RenderMode* cachedRenderMode = NULL;
 		auto& renderMode = *ext::vulkan::currentRenderMode;
-		std::string name = renderMode.name;
-		auto split = uf::string::split( name, ": " );
-		if ( split.front() == "Render Target" ) {
+
+		if ( cachedRenderMode == &renderMode && cachedController && cachedController->getUid() > 0 ) {
+			return cachedController;
+		}
+		cachedController = NULL;
+		cachedRenderMode = &renderMode;
+		auto split = uf::string::split( renderMode.name, ":" );
+		if ( split.front() == "RT" ) {
 			uint64_t uid = std::stoi( split.back() );
 			uf::Entity* ent = this->findByUid( uid );
-			if ( ent ) return ent;
+			if ( ent ) return cachedController = ent;
 		}
 	}
-	return this->findByName("Player");
+	if ( cachedController && cachedController->getUid() > 0 ) return cachedController;
+	return cachedController = this->findByName("Player");
+	// return this;
 }
 const uf::Entity* uf::Scene::getController() const {
+	static const uf::Entity* cachedController = NULL;
 	if ( ext::vulkan::currentRenderMode ) {
+		static ext::vulkan::RenderMode* cachedRenderMode = NULL;
 		auto& renderMode = *ext::vulkan::currentRenderMode;
-		std::string name = renderMode.name;
-		auto split = uf::string::split( name, ": " );
-		if ( split.front() == "Render Target" ) {
+
+		if ( cachedRenderMode == &renderMode && cachedController && cachedController->getUid() > 0 ) {
+			return cachedController;
+		}
+		cachedController = NULL;
+		cachedRenderMode = &renderMode;
+		auto split = uf::string::split( renderMode.name, ":" );
+		if ( split.front() == "RT" ) {
 			uint64_t uid = std::stoi( split.back() );
 			const uf::Entity* ent = this->findByUid( uid );
-			if ( ent ) return ent;
+			if ( ent ) return cachedController = ent;
 		}
 	}
-	return this->findByName("Player");
+	if ( cachedController && cachedController->getUid() > 0 ) return cachedController;
+	return cachedController = this->findByName("Player");
+	// return this;
 }
 
 std::vector<uf::Scene*> uf::scene::scenes;
