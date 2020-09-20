@@ -89,7 +89,6 @@ namespace ext {
 			void loadFromFile(
 				std::string filename, 
 				Device& device,
-				VkQueue copyQueue,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
@@ -98,7 +97,6 @@ namespace ext {
 			void loadFromImage(
 				uf::Image& image, 
 				Device& device,
-				VkQueue copyQueue,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
@@ -118,7 +116,6 @@ namespace ext {
 				uint32_t texWidth,
 				uint32_t texHeight,
 				Device& device,
-				VkQueue copyQueue,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
@@ -126,7 +123,6 @@ namespace ext {
 				Device& device,
 				uint32_t texWidth,
 				uint32_t texHeight,
-				VkQueue copyQueue,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM
 			);
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );

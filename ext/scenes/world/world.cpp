@@ -293,26 +293,6 @@ void ext::World::tick() {
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
 	}
-
-	/**/ if ( false ) {
-		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		auto& scene = *this;
-		std::vector<ext::vulkan::Graphic*> blitters;
-		auto& renderMode = ext::vulkan::getRenderMode("", true);
-		if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
-			auto* renderModePointer = (ext::vulkan::StereoscopicDeferredRenderMode*) &renderMode;
-			blitters.push_back(&renderModePointer->blitters.left);
-			blitters.push_back(&renderModePointer->blitters.right);
-		} else if ( renderMode.getType() == "Deferred" ) {
-			auto* renderModePointer = (ext::vulkan::DeferredRenderMode*) &renderMode;
-			blitters.push_back(&renderModePointer->blitter);
-		}
-		for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
-			auto& blitter = *blitters[_];
-			blitter.getPipeline().update( blitter );
-		}
-	}
-
 }
 
 void ext::World::render() {

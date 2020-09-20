@@ -5,21 +5,18 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
-			ext::vulkan::Graphic blitter;
-			
-			VkFence fence;
-			VkCommandBuffer commandBuffer;
-			std::string target;
+		struct UF_API ComputeRenderMode : public ext::vulkan::RenderMode {
+			ext::vulkan::Graphic blitter, compute;
+			pod::Vector2ui dispatchSize = { 32, 32 };
 
 			// RAII
 			virtual std::string getType() const;
 			
-			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void createCommandBuffers();
 			virtual void initialize( Device& device );
 			virtual void tick();
-			virtual void destroy();
 			virtual void render();
+			virtual void destroy();
 			virtual void pipelineBarrier( VkCommandBuffer, uint8_t = -1 );
 		};
 	}

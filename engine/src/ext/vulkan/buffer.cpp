@@ -176,7 +176,7 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 		return index;
 	}
 
-	VkQueue queue = device->graphicsQueue;
+	// VkQueue queue = device->queues.transfer;
 	Buffer staging;
 	VkDeviceSize storageBufferSize = length;
 	device->createBuffer(
@@ -199,7 +199,7 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 	VkBufferCopy copyRegion = {};
 	copyRegion.size = storageBufferSize;
 	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
-	device->flushCommandBuffer(copyCmd, queue, true);
+	device->flushCommandBuffer(copyCmd, true);
 	staging.destroy();
 
 //	buffers.push_back( std::move(buffer) );
@@ -225,7 +225,7 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 		buffer.unmap();
 		return;
 	}
-	VkQueue queue = device->graphicsQueue;
+	// VkQueue queue = device->queues.transfer;
 	Buffer staging;
 	device->createBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -240,6 +240,6 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 	VkBufferCopy copyRegion = {};
 	copyRegion.size = length;
 	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
-	device->flushCommandBuffer(copyCmd, queue, true);
+	device->flushCommandBuffer(copyCmd, true);
 	staging.destroy();
 }

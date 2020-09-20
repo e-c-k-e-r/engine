@@ -14,6 +14,8 @@ uint32_t ext::vulkan::height = 720;
 bool ext::vulkan::validation = true;
 std::vector<std::string> ext::vulkan::validationFilters;
 std::vector<std::string> ext::vulkan::requestedDeviceFeatures;
+std::vector<std::string> ext::vulkan::requestedDeviceExtensions;
+std::vector<std::string> ext::vulkan::requestedInstanceExtensions;
 ext::vulkan::Device ext::vulkan::device;
 ext::vulkan::Allocator ext::vulkan::allocator;
 ext::vulkan::Swapchain ext::vulkan::swapchain;
@@ -159,17 +161,15 @@ void ext::vulkan::alignedFree(void* data) {
 #endif
 }
 
-namespace {
-	bool hasRenderMode( const std::string& name, bool isName ) {
-		for ( auto& renderMode: ext::vulkan::renderModes ) {
-			if ( isName ) {
-				if ( renderMode->getName() == name ) return true;
-			} else {
-				if ( renderMode->getType() == name ) return true;
-			}
+bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
+	for ( auto& renderMode: ext::vulkan::renderModes ) {
+		if ( isName ) {
+			if ( renderMode->getName() == name ) return true;
+		} else {
+			if ( renderMode->getType() == name ) return true;
 		}
-		return false;
 	}
+	return false;
 }
 
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
@@ -180,7 +180,7 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
-	RenderMode* target = renderModes[renderModes.size()-1];
+	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
 			if ( renderMode->getName() == "" )  target = renderMode;
@@ -199,9 +199,12 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 	return *target;
 }
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::string& name, bool isName ) {
+	return ext::vulkan::getRenderModes({name}, isName);
+}
+std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::vector<std::string>& names, bool isName ) {
 	std::vector<RenderMode*> targets;
 	for ( auto& renderMode: renderModes ) {
-		if ( ( isName && renderMode->getName() == name ) || renderMode->getType() == name ) {
+		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
 //			std::cout << "Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")" << std::endl;
 		}
@@ -233,7 +236,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				};
 				Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, ext::vulkan::device.graphicsQueue, VK_IMAGE_USAGE_SAMPLED_BIT );
+				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
 			}
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
@@ -303,6 +306,11 @@ void ext::vulkan::tick() {
 }
 void ext::vulkan::render() {
 //	ext::vulkan::mutex.lock();
+	if ( hasRenderMode("Gui", true) ) {
+		RenderMode& primary = getRenderMode("Gui", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
 	if ( hasRenderMode("", true) ) {
 		RenderMode& primary = getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );

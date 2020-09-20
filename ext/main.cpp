@@ -37,6 +37,7 @@
 #include <uf/engine/asset/asset.h>
 
 #include <uf/ext/vulkan/rendermodes/deferred.h>
+#include <uf/ext/vulkan/rendermodes/compute.h>
 #include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/discord/discord.h>
@@ -107,24 +108,33 @@ void EXT_API ext::initialize() {
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
 			ext::vulkan::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
 		}
+		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["device"].size(); ++i ) {
+			ext::vulkan::requestedDeviceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["device"][i].asString() );
+		}
+		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"].size(); ++i ) {
+			ext::vulkan::requestedInstanceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"][i].asString() );
+		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["features"].size(); ++i ) {
 			ext::vulkan::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
 		}
-		//
-		// ext::vulkan::DeferredRenderingGraphic::maxLights = ::config["engine"]["scenes"]["max lights"].asUInt();
-		//
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
-	//	ext::openvr::dominantEye = ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "left" ? 0 : 1;
-		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "left" ) ext::openvr::dominantEye = 0;
-		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "right" ) ext::openvr::dominantEye = 1;
+		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].isNumeric() )
+			ext::openvr::dominantEye = ::config["engine"]["ext"]["vr"]["dominatEye"].asUInt64();
+		else if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "left" ) ext::openvr::dominantEye = 0;
+		else if ( ::config["engine"]["ext"]["vr"]["dominatEye"].asString() == "right" ) ext::openvr::dominantEye = 1;
 		ext::openvr::driver.manifest = ::config["engine"]["ext"]["vr"]["manifest"].asString();
 		if ( ext::openvr::enabled ) {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
-		//	ext::vulkan::validation = false;
-		//	if ( ::config["engine"]["ext"]["vr"]["invert winding order"].asBool() )
-		//		ext::vulkan::GraphicOld::DEFAULT_WINDING_ORDER = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		}
+	}
+
+
+	/* Create initial scene (kludge) */ {
+		uf::Scene* scene = new uf::Scene;
+		uf::scene::scenes.push_back(scene);
+		auto& metadata = scene->getComponent<uf::Serializer>();
+		metadata["system"]["config"] = ::config;
 	}
 
 	/* Initialize Vulkan */ {
@@ -137,10 +147,14 @@ void EXT_API ext::initialize() {
 			ext::vulkan::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
 		}
+		
 		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
 			ext::vulkan::addRenderMode( new ext::vulkan::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
 			ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
+
+	//	if ( ::config["engine"]["render modes"]["compute"].asBool() )
+	//		ext::vulkan::addRenderMode( new ext::vulkan::ComputeRenderMode, "C:RT:0" );
 
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
@@ -168,19 +182,24 @@ void EXT_API ext::initialize() {
 	}
 
 	/* Initialize root scene*/ {
-		uf::scene::loadScene( ::config["engine"]["scenes"]["start"].asString() );
+		uf::scene::unloadScene();
+		auto& scene = uf::scene::loadScene( ::config["engine"]["scenes"]["start"].asString() );
+		auto& metadata = scene.getComponent<uf::Serializer>();
+		metadata["system"]["config"] = ::config;
 	}
 
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:LoadScene", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
 			uf::scene::unloadScene();
-			uf::scene::loadScene( json["scene"].asString() );
+			auto& scene = uf::scene::loadScene( json["scene"].asString() );
+			auto& metadata = scene.getComponent<uf::Serializer>();
+			metadata["system"]["config"] = ::config;
 			return "true";
 		});
 
 		uf::hooks.addHook( "system:Quit", [&](const std::string& event)->std::string{
-			std::cout << event << std::endl;
+			std::cout << "system:Quit: " << event << std::endl;
 			ext::ready = false;
 			return "true";
 		});

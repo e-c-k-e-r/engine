@@ -5,6 +5,7 @@
 
 #include <uf/ext/vulkan/rendermodes/deferred.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
+#include <uf/ext/vulkan/rendermodes/compute.h>
 #include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
 
 UF_OBJECT_REGISTER_CPP(Scene)
@@ -25,7 +26,16 @@ void uf::Scene::tick() {
 
 			std::vector<ext::vulkan::Graphic*> blitters;
 			auto& renderMode = ext::vulkan::getRenderMode("", true);
-			if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
+			bool hasCompute = ext::vulkan::hasRenderMode("C:RT:" + std::to_string(this->getUid()), true);
+			if ( hasCompute ) {
+		//		auto& renderMode = ext::vulkan::getRenderMode("C:RT:" + std::to_string(this->getUid()), true);
+		//		auto* renderModePointer = (ext::vulkan::ComputeRenderMode*) &renderMode;
+		//		if ( renderModePointer->compute.initialized ) {
+		//			blitters.push_back(&renderModePointer->compute);
+		//		} else {
+		//			hasCompute = false;
+		//		}
+			} else if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
 				auto* renderModePointer = (ext::vulkan::StereoscopicDeferredRenderMode*) &renderMode;
 				blitters.push_back(&renderModePointer->blitters.left);
 				blitters.push_back(&renderModePointer->blitters.right);
@@ -134,18 +144,18 @@ void uf::Scene::tick() {
 
 						if ( entity == &controller ) light.position.y += 2;
 
-						light.position.w = metadata["light"]["power"].asFloat();
+						light.position.w = metadata["light"]["radius"].asFloat();
 
 						light.color.x = metadata["light"]["color"][0].asFloat();
 						light.color.y = metadata["light"]["color"][1].asFloat();
 						light.color.z = metadata["light"]["color"][2].asFloat();
 
-						light.color.w = metadata["light"]["radius"].asFloat();
+						light.color.w = metadata["light"]["power"].asFloat();
 
 						light.type.x = metadata["light"]["type"].asUInt64();
 						light.type.y = metadata["light"]["shadows"]["enabled"].asBool();
 						
-						if ( entity->hasComponent<ext::vulkan::RenderTargetRenderMode>() ) {
+						if ( !hasCompute && entity->hasComponent<ext::vulkan::RenderTargetRenderMode>() ) {
 							auto& renderMode = entity->getComponent<ext::vulkan::RenderTargetRenderMode>();
 							auto& renderTarget = renderMode.renderTarget;
 

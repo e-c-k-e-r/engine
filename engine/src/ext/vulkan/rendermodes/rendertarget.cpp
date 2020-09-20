@@ -93,6 +93,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			{"./data/shaders/display.renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{"./data/shaders/display.renderTarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
+		
 		for ( auto& attachment : renderTarget.attachments ) {
 			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
@@ -144,7 +145,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.pCommandBuffers = &commands[currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->graphicsQueue, 1, &submitInfo, fences[currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]));
 /*
 	VkSemaphoreWaitInfo waitInfo = {};
 	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
@@ -154,6 +155,60 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	waitInfo.pValues = NULL;
 	VK_CHECK_RESULT(vkWaitSemaphores( *device, &waitInfo, UINT64_MAX ));
 */
+}
+void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
+	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+	imageMemoryBarrier.subresourceRange.layerCount = 1;
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	for ( auto& attachment : renderTarget.attachments ) {
+		if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+		if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+		
+		VkPipelineStageFlags srcStageMask, dstStageMask;
+		imageMemoryBarrier.image = attachment.image;
+		imageMemoryBarrier.oldLayout = attachment.layout;
+		imageMemoryBarrier.newLayout = attachment.layout;
+	
+		switch ( state ) {
+			case 0: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			} break;
+			case 1: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.newLayout = attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			} break;
+			// ensure 
+			default: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			}
+		}
+		
+		vkCmdPipelineBarrier( commandBuffer,
+			srcStageMask, dstStageMask,
+			VK_FLAGS_NONE,
+			0, NULL,
+			0, NULL,
+			1, &imageMemoryBarrier
+		);
+
+		attachment.layout = imageMemoryBarrier.newLayout;
+	}
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists

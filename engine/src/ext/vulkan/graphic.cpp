@@ -61,10 +61,17 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType ) {			
 			switch ( descriptorType ) {
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-					const auto& base_type = comp.get_type(resource.base_type_id);
     				auto& uniform = uniforms.emplace_back();
+					const auto& base_type = comp.get_type(resource.base_type_id);
     				uniform.create( comp.get_declared_struct_size(base_type) );
 				} break;
+			/*
+				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+    				auto& uniform = uniforms.emplace_back();
+					// const auto& base_type = comp.get_type(resource.base_type_id);
+    				// uniform.create( comp.get_declared_struct_size(base_type) );
+				} break;
+			*/
 			}
 
 			const auto& type = comp.get_type(resource.type_id);
@@ -73,8 +80,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, comp.get_decoration(resource.id, spv::DecorationBinding), size ) );
 		};
-		//	std::cout << "Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding) << std::endl;\
 		
+		//	std::cout << "["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding) << std::endl;\
+
 		#define LOOP_RESOURCES( key, type ) for ( const auto& resource : res.key ) {\
 			parseResource( resource, type );\
 		}
@@ -257,6 +265,21 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 	}
+	// Compute
+	for ( auto& shader : graphic.material.shaders ) {
+		if ( shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+
+		// Create compute shader pipelines
+		VkComputePipelineCreateInfo computePipelineCreateInfo = ext::vulkan::initializers::computePipelineCreateInfo(
+			pipelineLayout,
+			0
+		);
+		computePipelineCreateInfo.stage = shader.descriptor;
+		VK_CHECK_RESULT(vkCreateComputePipelines(device, device.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+	
+		return;
+	}
+	// Graphic
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
 			graphic.descriptor.topology,
@@ -272,30 +295,42 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		rasterizationState.lineWidth = graphic.descriptor.lineWidth;
 
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
-		auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
-	/*
-		for ( auto& color : subpass.colors ) {
-			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-				0xf,
-				VK_TRUE
-			);
-			blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-			blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-			blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-			blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-			blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-			blendAttachmentStates.push_back(blendAttachmentState);
-		}
-	*/
-		for ( auto& color : subpass.colors ) {
-			blendAttachmentStates.push_back(renderTarget.attachments[color.attachment].blendState);
-		}
-		// require blending if independentBlend is not an enabled feature
-		if ( !device.enabledFeatures.independentBlend ) {
-			for ( size_t i = 1; i < blendAttachmentStates.size(); ++i ) {
-				blendAttachmentStates[i] = blendAttachmentStates[0];
+
+		if ( renderMode.getType() != "Swapchain" ) {
+			auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
+			for ( auto& color : subpass.colors ) {
+				blendAttachmentStates.push_back(renderTarget.attachments[color.attachment].blendState);
 			}
+			// require blending if independentBlend is not an enabled feature
+			if ( !device.enabledFeatures.independentBlend ) {
+				for ( size_t i = 1; i < blendAttachmentStates.size(); ++i ) {
+					blendAttachmentStates[i] = blendAttachmentStates[0];
+				}
+			}
+		} else {
+			graphic.descriptor.subpass = 0;
+
+			VkBool32 blendEnabled = VK_FALSE;
+			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
+
+			if ( true ) {
+				blendEnabled = VK_TRUE;
+				writeMask |= VK_COLOR_COMPONENT_A_BIT;
+			}
+
+			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
+				writeMask,
+				blendEnabled
+			);
+			if ( blendEnabled == VK_TRUE ) {
+				blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+			}
+			blendAttachmentStates.push_back(blendAttachmentState);
 		}
 
 		VkPipelineColorBlendStateCreateInfo colorBlendState = ext::vulkan::initializers::pipelineColorBlendStateCreateInfo(
@@ -377,7 +412,11 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 	}
 }
 void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuffer ) {
+	auto bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	for ( auto& shader : graphic.material.shaders ) {
+		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) {
+			bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+		}
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
 			struct PushConstant {
@@ -395,10 +434,10 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		}
 	}
 	// Bind descriptor sets describing shader binding points
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, bindPoint,	 pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 	// Bind the rendering pipeline
 	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
 }
 void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	// generate fallback empty texture
@@ -416,19 +455,22 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
 	auto& renderTarget = renderMode.getRenderTarget(graphic.descriptor.renderTarget );
 
-	auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
-	for ( auto& input : subpass.inputs ) {
-		inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-			renderTarget.attachments[input.attachment].view,
-		//	input.layout
-			input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
-		));
+	if ( graphic.descriptor.subpass < renderTarget.passes.size() ) {
+		auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
+		for ( auto& input : subpass.inputs ) {
+			inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
+				renderTarget.attachments[input.attachment].view,
+			//	input.layout
+				input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
+			));
+		}
 	}
 	{
 		for ( auto& shader : graphic.material.shaders ) {
 			auto textures = graphic.material.textures.begin();
 			auto samplers = graphic.material.samplers.begin();
-			auto buffers = shader.buffers.begin();
+			auto buffersUniforms = shader.buffers.begin();
+			auto buffersStorage = graphic.buffers.begin();
 			auto attachments = inputDescriptors.begin();
 
 			for ( auto& layout : shader.descriptorSetLayoutBindings ) {
@@ -436,7 +478,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 				if ( layout.descriptorCount > 1 ) {
 					switch ( layout.descriptorType ) {
 						case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-						case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: {
+						case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+						case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 							size_t imageInfosStart = imageInfos.size();
 							// assume we have a texture, and fill it in the slots as defaults
 							for ( size_t i = 0; i < layout.descriptorCount; ++i ) {
@@ -467,7 +510,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 				VkDescriptorImageInfo* imageInfo = NULL;
 				switch ( layout.descriptorType ) {
 					case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-					case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: {
+					case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+					case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 						if ( textures == graphic.material.textures.end() ) {
 							imageInfo = &emptyTexture.descriptor;
 							break;
@@ -482,15 +526,27 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 						imageInfo = &((samplers++)->descriptor.info);
 					} break;
 					case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-						if ( buffers == shader.buffers.end() ) {
-							std::cout << "buffers == shader.buffers.end()" << std::endl;
+						if ( buffersUniforms == shader.buffers.end() ) {
+							std::cout << "buffersUniforms == shader.buffers.end()" << std::endl;
 							break;
 						}
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
 							layout.binding,
-							&((buffers++)->descriptor)
+							&((buffersUniforms++)->descriptor)
+						));
+					} break;
+					case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+						if ( buffersStorage == graphic.buffers.end() ) {
+							std::cout << "buffersStorage == graphic.buffers.end()" << std::endl;
+							break;
+						}
+						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&((buffersStorage++)->descriptor)
 						));
 					} break;
 					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {

@@ -45,6 +45,8 @@ namespace ext {
 		extern UF_API bool validation;
 		extern UF_API std::vector<std::string> validationFilters;
 		extern UF_API std::vector<std::string> requestedDeviceFeatures;
+		extern UF_API std::vector<std::string> requestedDeviceExtensions;
+		extern UF_API std::vector<std::string> requestedInstanceExtensions;
 		extern UF_API Device device;
 		typedef VmaAllocator Allocator;
 		extern UF_API Allocator allocator;
@@ -60,9 +62,11 @@ namespace ext {
 		extern UF_API std::vector<RenderMode*> renderModes;
 		extern UF_API std::vector<uf::Scene*> scenes;
 
+		bool UF_API hasRenderMode( const std::string&, bool = true );
 		RenderMode& UF_API addRenderMode( RenderMode*, const std::string& = "" );
 		RenderMode& UF_API getRenderMode( const std::string&, bool = true );
 		std::vector<RenderMode*> UF_API getRenderModes( const std::string&, bool = true );
+		std::vector<RenderMode*> UF_API getRenderModes( const std::vector<std::string>&, bool = true );
 		void UF_API removeRenderMode( RenderMode*, bool = true );
 
 		void UF_API initialize( uint8_t = 0 );

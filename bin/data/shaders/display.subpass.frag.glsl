@@ -17,9 +17,9 @@ layout (location = 0) out vec4 outFragColor;
 
 struct Light {
 	vec3 position;
-	float power;
-	vec3 color;
 	float radius;
+	vec3 color;
+	float power;
 	int type;
 	int shadowed;
 	mat4 view;

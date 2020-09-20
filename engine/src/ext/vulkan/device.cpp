@@ -258,7 +258,7 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 }
 
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, bool begin ){
-	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( commandPool, level, 1 );
+	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( commandPool.transfer, level, 1 );
 
 	VkCommandBuffer commandBuffer;
 	VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
@@ -270,7 +270,7 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	return commandBuffer;
 }
 
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, VkQueue queue, bool free ) {
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool free ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
@@ -285,13 +285,13 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, VkQ
 	VK_CHECK_RESULT(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence));
 	
 	// Submit to the queue
-	VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, fence));
+	VK_CHECK_RESULT(vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence));
 	// Wait for the fence to signal that command buffer has finished executing
 	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
 
 	vkDestroyFence(logicalDevice, fence, nullptr);
 
-	if ( free ) vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+	if ( free ) vkFreeCommandBuffers(logicalDevice, commandPool.transfer, 1, &commandBuffer);
 }
 
 VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size, VkBuffer* buffer, VkDeviceMemory* memory, void *data ) {
@@ -406,8 +406,10 @@ void ext::vulkan::Device::initialize() {
 	}
 	// 
 	// Get extensions
-	// OpenVR Support
 	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::validation );
+	// Load any requested extensions
+	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedInstanceExtensions.begin(), ext::vulkan::requestedInstanceExtensions.end() );
+	// OpenVR Support
 	if ( ext::openvr::enabled ) VRExtensions(requestedExtensions);
 
 	{
@@ -508,11 +510,20 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Update properties
 	{
-		vkGetPhysicalDeviceProperties( this->physicalDevice, &properties );
-		// Features should be checked by the examples before using them
-		vkGetPhysicalDeviceFeatures( this->physicalDevice, &features );
-		// Memory properties are used regularly for creating all kinds of buffers
-		vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
+		{
+			vkGetPhysicalDeviceProperties( this->physicalDevice, &properties );
+			// Features should be checked by the examples before using them
+			vkGetPhysicalDeviceFeatures( this->physicalDevice, &features );
+			// Memory properties are used regularly for creating all kinds of buffers
+			vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
+		}
+		{
+			vkGetPhysicalDeviceProperties2( this->physicalDevice, &properties2 );
+			// Features should be checked by the examples before using them
+			vkGetPhysicalDeviceFeatures2( this->physicalDevice, &features2 );
+			// Memory properties are used regularly for creating all kinds of buffers
+			vkGetPhysicalDeviceMemoryProperties2( this->physicalDevice, &memoryProperties2 );
+		}
 		// Queue family properties, used for setting up requested queues upon device creation
 		uint32_t queueFamilyCount;
 		vkGetPhysicalDeviceQueueFamilyProperties( this->physicalDevice, &queueFamilyCount, nullptr );
@@ -524,43 +535,45 @@ void ext::vulkan::Device::initialize() {
 	{
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+		std::vector<std::string> requestedExtensions;
 		std::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
+		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedInstanceExtensions.begin(), ext::vulkan::requestedInstanceExtensions.end() );
 		/* OpenVR support */ if ( ext::openvr::enabled && vr::VRCompositor() ) {
 			uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, nullptr, 0 );
 			if ( nBufferSize > 0 ) {
 				char pExtensionStr[nBufferSize];
 				pExtensionStr[0] = 0;
 				vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, pExtensionStr, nBufferSize );
-				std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
-
-				// Allocate enough ExtensionProperties to support all extensions being enabled
-				uint32_t extensionsCount = 0;
-				uint32_t enabledExtensionsCount = 0;
-				
-				VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, NULL ));
-				std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
-				VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, &extensionProperties[0] ) );
-				
-				for ( size_t i = 0; i < extensions.size(); ++i ) {
-					bool found = false;
-					uint32_t index = 0;
-					for ( index = 0; index < extensionsCount; index++ ) {
-						if ( strcmp( extensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
-							for ( auto alreadyAdded : deviceExtensions ) {
-								if ( strcmp( extensions[i].c_str(), alreadyAdded ) == 0 ) {
-									found = true;
-									break;
-								}
+				std::vector<std::string> vrExtensions = uf::string::split( pExtensionStr, " " );
+				requestedExtensions.insert( requestedExtensions.end(), vrExtensions.begin(), vrExtensions.end() );
+			}
+			// Allocate enough ExtensionProperties to support all extensions being enabled
+			uint32_t extensionsCount = 0;
+			uint32_t enabledExtensionsCount = 0;
+			
+			VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, NULL ));
+			std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
+			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, &extensionProperties[0] ) );
+			
+			for ( size_t i = 0; i < requestedExtensions.size(); ++i ) {
+				bool found = false;
+				uint32_t index = 0;
+				for ( index = 0; index < extensionsCount; index++ ) {
+					if ( strcmp( requestedExtensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
+						for ( auto alreadyAdded : deviceExtensions ) {
+							if ( strcmp( requestedExtensions[i].c_str(), alreadyAdded ) == 0 ) {
+								found = true;
+								break;
 							}
-							if ( found ) break;
-							found = true;
-							deviceExtensions.push_back(extensionProperties[index].extensionName);
 						}
+						if ( found ) break;
+						found = true;
+						deviceExtensions.push_back(extensionProperties[index].extensionName);
 					}
-					if ( !found ) std::cout << "Vulkan missing requested extension " << extensions[index] << std::endl;
 				}
+				if ( !found ) std::cout << "Vulkan missing requested extension " << requestedExtensions[index] << std::endl;
 			}
 		}
 
@@ -648,8 +661,26 @@ void ext::vulkan::Device::initialize() {
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.graphics;
 		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool!");
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.graphics ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for graphics!");
+	}
+	{
+		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.compute;
+		cmdPoolInfo.flags = createFlags;
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.compute ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for compute!");
+	}
+	{
+		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.transfer;
+		cmdPoolInfo.flags = createFlags;
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.transfer ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for transfer!");
 	}
 	// Set queue
 	{
@@ -681,9 +712,10 @@ void ext::vulkan::Device::initialize() {
 
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
 
-		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &graphicsQueue );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &presentQueue );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &computeQueue );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &queues.graphics );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &queues.present );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &queues.compute );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.transfer, 0, &queues.transfer );
 	}
 	// Set formats
 	{
@@ -750,9 +782,17 @@ void ext::vulkan::Device::destroy() {
 		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
 		this->pipelineCache = nullptr;
 	}
-	if ( this->commandPool ) {
-		vkDestroyCommandPool( this->logicalDevice, this->commandPool, nullptr );
-		this->commandPool = nullptr;
+	if ( this->commandPool.graphics ) {
+		vkDestroyCommandPool( this->logicalDevice, this->commandPool.graphics, nullptr );
+		this->commandPool.graphics = nullptr;
+	}
+	if ( this->commandPool.compute ) {
+		vkDestroyCommandPool( this->logicalDevice, this->commandPool.compute, nullptr );
+		this->commandPool.compute = nullptr;
+	}
+	if ( this->commandPool.transfer ) {
+		vkDestroyCommandPool( this->logicalDevice, this->commandPool.transfer, nullptr );
+		this->commandPool.transfer = nullptr;
 	}
 	if ( this->logicalDevice ) {
 		vkDestroyDevice( this->logicalDevice, nullptr );

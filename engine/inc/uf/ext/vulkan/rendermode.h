@@ -32,6 +32,7 @@ namespace ext {
 			virtual void render();
 			virtual void destroy();
 			virtual void synchronize( uint64_t = UINT64_MAX );
+			virtual void pipelineBarrier( VkCommandBuffer, uint8_t = -1 );
 		};
 	}
 }

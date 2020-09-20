@@ -288,7 +288,7 @@ void ext::openvr::tick() {
 			graphic.initializeGeometry(mesh);
 		
 			auto& texture = graphic.material.textures.emplace_back();
-			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device, ext::vulkan::device.graphicsQueue );
+			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device );
 		}
 		// clear
 		{
@@ -455,7 +455,7 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	vulkanData.m_pDevice = ( VkDevice_T * ) ext::vulkan::device;
 	vulkanData.m_pPhysicalDevice = ( VkPhysicalDevice_T * ) ext::vulkan::device.physicalDevice;
 	vulkanData.m_pInstance = ( VkInstance_T *) ext::vulkan::device.instance;
-	vulkanData.m_pQueue = ( VkQueue_T * ) ext::vulkan::device.presentQueue;
+	vulkanData.m_pQueue = ( VkQueue_T * ) ext::vulkan::device.queues.present;
 	vulkanData.m_nQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
 
 	vulkanData.m_nWidth = width;

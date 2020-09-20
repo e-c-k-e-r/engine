@@ -12,21 +12,33 @@ namespace ext {
 			VkSurfaceKHR surface;
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
-			VkCommandPool commandPool = VK_NULL_HANDLE;
+			struct {
+				VkCommandPool graphics = VK_NULL_HANDLE;
+				VkCommandPool compute = VK_NULL_HANDLE;
+				VkCommandPool transfer = VK_NULL_HANDLE;
+			} commandPool;
 
 			VkPhysicalDeviceProperties properties;
 			VkPhysicalDeviceFeatures features;
 			VkPhysicalDeviceFeatures enabledFeatures;
 			VkPhysicalDeviceMemoryProperties memoryProperties;
 			
+			VkPhysicalDeviceProperties2 properties2;
+			VkPhysicalDeviceFeatures2 features2;
+			VkPhysicalDeviceFeatures2 enabledFeatures2;
+			VkPhysicalDeviceMemoryProperties2 memoryProperties2;
+			
 			VkPipelineCache pipelineCache;
 
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			std::vector<std::string> supportedExtensions;
 			
-			VkQueue graphicsQueue;
-			VkQueue presentQueue;
-			VkQueue computeQueue;
+			struct {
+				VkQueue graphics;
+				VkQueue present;
+				VkQueue compute;
+				VkQueue transfer;
+			} queues;
 
 			uf::Window* window;
 
@@ -41,7 +53,6 @@ namespace ext {
 				uint32_t present;
 				uint32_t compute;
 				uint32_t transfer;
-
 			} queueFamilyIndices;
 			operator VkDevice() { return this->logicalDevice; };
 			
@@ -51,7 +62,7 @@ namespace ext {
 			int rate( VkPhysicalDevice device );
 			
 			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, bool begin = false );
-			void flushCommandBuffer( VkCommandBuffer commandBuffer, VkQueue queue, bool free = true );
+			void flushCommandBuffer( VkCommandBuffer commandBuffer, bool free = true );
 
 			VkResult createBuffer(
 				VkBufferUsageFlags usageFlags,

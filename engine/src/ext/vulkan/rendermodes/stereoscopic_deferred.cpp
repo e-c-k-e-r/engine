@@ -116,6 +116,17 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 				{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 				{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
+			{
+				auto& scene = uf::scene::getCurrentScene();
+				auto& metadata = scene.getComponent<uf::Serializer>();
+
+				auto& shader = blitter.material.shaders.back();
+				struct SpecializationConstant {
+					int32_t maxLights = 16;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			}
 			blitter.initializePipeline();
 		}
 	}
@@ -169,7 +180,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		
-	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes("RenderTarget", false);
+	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
 
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
@@ -225,6 +236,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 
 				// transition layers for read
 				for ( auto layer : layers ) {
+					layer->pipelineBarrier( commands[i], 0 );
+				/*
 					if ( layer->getName() == "" ) continue;
 					RenderTarget& renderTarget = layer->renderTarget;
 					for ( auto& attachment : renderTarget.attachments ) {
@@ -238,6 +251,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 						attachment.layout = imageMemoryBarrier.newLayout;
 					}
+				*/
 				}
 			
 				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -275,6 +289,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 				vkCmdEndRenderPass(commands[i]);
 
 				for ( auto layer : layers ) {
+					layer->pipelineBarrier( commands[i], 1 );
+				/*
 					if ( layer->getName() == "" ) continue;
 					RenderTarget& renderTarget = layer->renderTarget;
 					for ( auto& attachment : renderTarget.attachments ) {
@@ -288,6 +304,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 						attachment.layout = imageMemoryBarrier.newLayout;
 					}
+				*/
 				}
 			}
 			// Blit eye to swapchain

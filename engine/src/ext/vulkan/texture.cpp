@@ -198,12 +198,11 @@ void ext::vulkan::Texture2D::loadFromFile(
 	VkImageLayout imageLayout, 
 	bool forceLinear
 ) {
-	return loadFromFile( filename, ext::vulkan::device, ext::vulkan::device.graphicsQueue, format, imageUsageFlags, imageLayout, forceLinear );
+	return loadFromFile( filename, ext::vulkan::device, format, imageUsageFlags, imageLayout, forceLinear );
 }
 void ext::vulkan::Texture2D::loadFromFile(
 	std::string filename, 
 	Device& device,
-	VkQueue copyQueue,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout, 
@@ -274,7 +273,6 @@ void ext::vulkan::Texture2D::loadFromFile(
 		image.getDimensions()[0],
 		image.getDimensions()[1],
 		device,
-		copyQueue,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -286,12 +284,11 @@ void ext::vulkan::Texture2D::loadFromImage(
 	VkImageLayout imageLayout, 
 	bool forceLinear
 ) {
-	return loadFromImage( image, ext::vulkan::device, ext::vulkan::device.graphicsQueue, format, imageUsageFlags, imageLayout, forceLinear );
+	return loadFromImage( image, ext::vulkan::device, format, imageUsageFlags, imageLayout, forceLinear );
 }
 void ext::vulkan::Texture2D::loadFromImage(
 	uf::Image& image, 
 	Device& device,
-	VkQueue copyQueue,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout, 
@@ -346,7 +343,6 @@ void ext::vulkan::Texture2D::loadFromImage(
 		image.getDimensions()[0],
 		image.getDimensions()[1],
 		device,
-		copyQueue,
 		imageUsageFlags,
 		imageLayout
 	);
@@ -358,13 +354,11 @@ void ext::vulkan::Texture2D::fromBuffers(
 	uint32_t texWidth,
 	uint32_t texHeight,
 	Device& device,
-	VkQueue copyQueue,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
 ) {
 	this->initialize(device, texWidth, texHeight);
 	this->mips = 1;
-
 
 	// Use a separate command buffer for texture loading
 	VkCommandBuffer copyCmd = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
@@ -455,7 +449,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 		imageLayout,
 		subresourceRange
 	);
-	device.flushCommandBuffer(copyCmd, copyQueue);
+	device.flushCommandBuffer(copyCmd);
 	// Clean up staging resources
 /*
 	vkFreeMemory(device.logicalDevice, staging.memory, nullptr);
@@ -481,10 +475,10 @@ void ext::vulkan::Texture2D::fromBuffers(
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uint32_t height, VkQueue copyQueue, VkFormat format ) {
+void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uint32_t height, VkFormat format ) {
 	// Prepare blit target texture
 	this->initialize( device, width, height );
-
+	
 	// Get device properties for the requested texture format
 	VkFormatProperties formatProperties;
 	vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
@@ -530,7 +524,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 		imageLayout
 	);
 
-	device.flushCommandBuffer(layoutCmd, copyQueue, true);
+	device.flushCommandBuffer(layoutCmd, true);
 
 	// Create sampler
 	sampler.initialize( device );
