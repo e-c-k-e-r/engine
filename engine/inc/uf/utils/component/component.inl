@@ -86,7 +86,14 @@ template<typename T> T& uf::Component::addComponent( const T& data ) {
 	
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
-	component.userdata = uf::userdata::create(data);
+	component.userdata = uf::userdata::create(uf::component::memoryPool, data);
+/*
+	if ( uf::component::memoryPool.size() > 0 ) {
+		component.userdata = uf::userdata::create(uf::component::memoryPool, data);
+	} else {
+		component.userdata = uf::userdata::create(data);
+	}
+*/
 	component.id = id;
 
 	T* pointer = &uf::userdata::get<T>(component.userdata);
@@ -96,5 +103,21 @@ template<typename T> void uf::Component::deleteComponent() {
 	if ( !this->hasComponent<T>() ) return;
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
-	uf::userdata::destroy(component.userdata);
+
+	uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+/*
+	if ( uf::component::memoryPool.size() > 0 ) {
+		uf::userdata::destroy(component.userdata);
+	} else {
+		uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+	}
+*/
+//	uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+/*
+	if ( component.userdata->pointer ) {
+		uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+	} else {
+		uf::userdata::destroy(component.userdata);
+	}
+*/
 }

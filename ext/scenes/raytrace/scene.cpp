@@ -13,11 +13,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
 
-#include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/rendermodes/deferred.h>
-#include <uf/ext/vulkan/rendermodes/rendertarget.h>
-#include <uf/ext/vulkan/rendermodes/compute.h>
-#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/gltf/gltf.h>
 
 #include <uf/utils/math/collision.h>
@@ -25,16 +21,16 @@
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
-EXT_OBJECT_REGISTER_CPP(RaytracedScene)
-void ext::RaytracedScene::initialize() {
+EXT_OBJECT_REGISTER_CPP(TestScene_RayTracing)
+void ext::TestScene_RayTracing::initialize() {
 	uf::Scene::initialize();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
 	{
-		auto& renderMode = this->getComponent<ext::vulkan::ComputeRenderMode>();
+		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
 		std::string name = "C:RT:" + std::to_string((int) this->getUid());
-		ext::vulkan::addRenderMode( &renderMode, name );
+		uf::renderer::addRenderMode( &renderMode, name );
 		if ( metadata["light"]["shadows"]["resolution"].isArray() ) {
 			renderMode.width = metadata["light"]["shadows"]["resolution"][0].asUInt64();
 			renderMode.height = metadata["light"]["shadows"]["resolution"][1].asUInt64();
@@ -66,7 +62,7 @@ void ext::RaytracedScene::initialize() {
 				shapes.push_back( {{-1.0f, 0.0f, 0.0f, roomDim}, {1.0f, 0.0f, 0.0f}, 32.0f, 2} );
 				shapes.push_back( {{1.0f, 0.0f, 0.0f, roomDim}, {0.0f, 1.0f, 0.0f}, 32.0f, 2} );
 			}
-			renderMode.compute.device = &ext::vulkan::device;
+			renderMode.compute.device = &uf::renderer::device;
 			renderMode.compute.initializeBuffer(
 				(void*) shapes.data(),
 				shapes.size() * sizeof(Shape),
@@ -107,7 +103,7 @@ void ext::RaytracedScene::initialize() {
 			ext::Gui* manager = (ext::Gui*) this->findByName("Gui Manager");
 			if ( !manager ) return "false";
 			uf::Serializer payload;
-			ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/world/gui/pause/menu.json", false)).asUInt64() );
+			ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
 			uf::Serializer& metadata = gui->getComponent<uf::Serializer>();
 			metadata["menu"] = json["menu"];
 			gui->initialize();
@@ -116,8 +112,8 @@ void ext::RaytracedScene::initialize() {
 	}
 
 	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = ext::vulkan::width;
-		metadata["window"]["size"]["y"] = ext::vulkan::height;
+		metadata["window"]["size"]["x"] = uf::renderer::width;
+		metadata["window"]["size"]["y"] = uf::renderer::height;
 		
 		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
@@ -142,24 +138,24 @@ void ext::RaytracedScene::initialize() {
 	}
 }
 
-void ext::RaytracedScene::render() {
+void ext::TestScene_RayTracing::render() {
 	uf::Scene::render();
 }
-void ext::RaytracedScene::destroy() {
-	if ( this->hasComponent<ext::vulkan::ComputeRenderMode>() ) {
-		auto& renderMode = this->getComponent<ext::vulkan::ComputeRenderMode>();
-		ext::vulkan::removeRenderMode( &renderMode, false );
+void ext::TestScene_RayTracing::destroy() {
+	if ( this->hasComponent<uf::renderer::ComputeRenderMode>() ) {
+		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
+		uf::renderer::removeRenderMode( &renderMode, false );
 	}
 	uf::Scene::destroy();
 }
-void ext::RaytracedScene::tick() {
+void ext::TestScene_RayTracing::tick() {
 	uf::Scene::tick();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 #if 1
-	if ( this->hasComponent<ext::vulkan::ComputeRenderMode>() ) {
-		auto& renderMode = this->getComponent<ext::vulkan::ComputeRenderMode>();
+	if ( this->hasComponent<uf::renderer::ComputeRenderMode>() ) {
+		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
 		/* Add lights to scene */ if ( renderMode.compute.initialized ) {
 			struct UniformDescriptor {
 				alignas(16) pod::Matrix4f matrices[2];
@@ -202,7 +198,7 @@ void ext::RaytracedScene::tick() {
 				if ( !entity || entity->getName() != "Light" ) return;
 				entities.push_back(entity);
 			};
-			for ( uf::Scene* scene : ext::vulkan::scenes ) { if ( !scene ) continue;
+			for ( uf::Scene* scene : uf::renderer::scenes ) { if ( !scene ) continue;
 				scene->process(filter);
 			}
 			{

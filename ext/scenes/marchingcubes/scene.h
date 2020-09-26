@@ -6,11 +6,10 @@
 #include <uf/engine/scene/scene.h>
 
 namespace ext {
-	class EXT_API TestScene_RayTracing : public uf::Scene {
+	class EXT_API TestScene_MarchingCubes : public uf::Scene {
 	public:
 		virtual void initialize();
 		virtual void tick();
 		virtual void render();
-		virtual void destroy();
 	};
 }

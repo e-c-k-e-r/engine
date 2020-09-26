@@ -12,7 +12,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
 
-#include <uf/ext/vulkan/vulkan.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
 #include "../../ext.h"
@@ -112,8 +112,8 @@ void ext::StartMenu::initialize() {
 	});
 
 	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = ext::vulkan::width;
-		metadata["window"]["size"]["y"] = ext::vulkan::height;
+		metadata["window"]["size"]["x"] = uf::renderer::width;
+		metadata["window"]["size"]["y"] = uf::renderer::height;
 		
 		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;

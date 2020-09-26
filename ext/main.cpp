@@ -31,15 +31,14 @@
 #include <fstream>
 #include <iostream>
 
+#include <regex>
+
 #include "ext.h"
 
 #include <uf/engine/scene/scene.h>
 #include <uf/engine/asset/asset.h>
 
-#include <uf/ext/vulkan/rendermodes/deferred.h>
-#include <uf/ext/vulkan/rendermodes/compute.h>
-#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
-#include <uf/ext/vulkan/rendermodes/rendertarget.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 
@@ -86,8 +85,53 @@ void EXT_API ext::initialize() {
 	}
 	
 	::config = ext::getConfig();
-
 	/* Parse config */ {
+		// Set memory pool sizes
+			{
+				auto deduceSize = []( auto& value )->size_t{
+					if ( value.isNumeric() ) return value.asUInt64();
+					if ( value.isString() ) {
+						std::string str = value.asString();
+						std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
+						std::smatch match;
+						if ( std::regex_search( str, match, regex ) ) {
+							size_t requested = std::stoi( match[1].str() );
+							std::string prefix = match[2].str();
+							switch ( prefix.at(0) ) {
+								case 'K': return requested * 1024;
+								case 'M': return requested * 1024 * 1024;
+								case 'G': return requested * 1024 * 1024 * 1024;
+							}
+							return requested;
+						}
+					}
+					return 0;
+				};
+				{
+					size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
+					uf::MemoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].asBool();
+					std::cout << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << std::endl;
+					uf::MemoryPool::global.initialize( size );
+					uf::MemoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].asBool();
+					if ( size <= 0 || uf::MemoryPool::subPool ) {
+						{
+							size_t size = deduceSize( ::config["engine"]["memory pools"]["component"] );
+							std::cout << "Requesting " << (int) size << " bytes for component memory pool: " << &uf::component::memoryPool << std::endl;
+							uf::component::memoryPool.initialize( size );
+						}
+						{
+							size_t size = deduceSize( ::config["engine"]["memory pools"]["userdata"] );
+							std::cout << "Requesting " << (int) size << " bytes for userdata memory pool: " << &uf::userdata::memoryPool << std::endl;
+							uf::userdata::memoryPool.initialize( size );
+						}
+						{
+							size_t size = deduceSize( ::config["engine"]["memory pools"]["entity"] );
+							std::cout << "Requesting " << (int) size << " bytes for entity memory pool: " << &uf::Entity::memoryPool << std::endl;
+							uf::Entity::memoryPool.initialize( size );
+						}
+					}
+				}
+			}
 		/* Frame limiter */ {
 			double limit = ::config["engine"]["frame limit"].asDouble();
 			if ( limit != 0 ) 
@@ -103,19 +147,19 @@ void EXT_API ext::initialize() {
 		// Set worker threads
 		uf::thread::workers = ::config["engine"]["worker threads"].asUInt64();
 		// Enable valiation layer
-		ext::vulkan::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
+		uf::renderer::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
 
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
-			ext::vulkan::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
+			uf::renderer::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["device"].size(); ++i ) {
-			ext::vulkan::requestedDeviceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["device"][i].asString() );
+			uf::renderer::requestedDeviceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["device"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"].size(); ++i ) {
-			ext::vulkan::requestedInstanceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"][i].asString() );
+			uf::renderer::requestedInstanceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["features"].size(); ++i ) {
-			ext::vulkan::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
+			uf::renderer::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
 		}
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
@@ -131,30 +175,30 @@ void EXT_API ext::initialize() {
 
 
 	/* Create initial scene (kludge) */ {
-		uf::Scene* scene = new uf::Scene;
-		uf::scene::scenes.push_back(scene);
-		auto& metadata = scene->getComponent<uf::Serializer>();
+		uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
+		uf::scene::scenes.push_back(&scene);
+		auto& metadata = scene.getComponent<uf::Serializer>();
 		metadata["system"]["config"] = ::config;
 	}
 
 	/* Initialize Vulkan */ {
-		// ext::vulkan::width = ::config["window"]["size"]["x"].asInt();
-		// ext::vulkan::height = ::config["window"]["size"]["y"].asInt();
+		// uf::renderer::width = ::config["window"]["size"]["x"].asInt();
+		// uf::renderer::height = ::config["window"]["size"]["y"].asInt();
 
 		// setup render mode
 		if ( ::config["engine"]["render modes"]["gui"].asBool() ) {
-			auto* renderMode = new ext::vulkan::RenderTargetRenderMode;
-			ext::vulkan::addRenderMode( renderMode, "Gui" );
+			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
+			uf::renderer::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
 		}
 		
 		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
-			ext::vulkan::addRenderMode( new ext::vulkan::StereoscopicDeferredRenderMode, "" );
+			uf::renderer::addRenderMode( new uf::renderer::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
-			ext::vulkan::addRenderMode( new ext::vulkan::DeferredRenderMode, "" );
+			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
 
 	//	if ( ::config["engine"]["render modes"]["compute"].asBool() )
-	//		ext::vulkan::addRenderMode( new ext::vulkan::ComputeRenderMode, "C:RT:0" );
+	//		uf::renderer::addRenderMode( new uf::renderer::ComputeRenderMode, "C:RT:0" );
 
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
@@ -162,14 +206,14 @@ void EXT_API ext::initialize() {
 			uint32_t width, height;
 			ext::openvr::recommendedResolution( width, height );
 
-			auto& renderMode = ext::vulkan::getRenderMode("Stereoscopic Deferred", true);
+			auto& renderMode = uf::renderer::getRenderMode("Stereoscopic Deferred", true);
 			renderMode.width = width;
 			renderMode.height = height;
 
 			std::cout << "Recommended VR Resolution: " << width << ", " << height << std::endl;
 		}
 
-		ext::vulkan::initialize();
+		uf::renderer::initialize();
 	}
 	/* */ {
 		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
@@ -237,7 +281,7 @@ void EXT_API ext::tick() {
 				}
 				uf::iostream << "\n";
 			};
-			for ( uf::Scene* scene : ext::vulkan::scenes ) {
+			for ( uf::Scene* scene : uf::renderer::scenes ) {
 				if ( !scene ) continue;
 				std::cout << "Scene: " << scene->getName() << ": " << scene << std::endl;
 				scene->process(filter, 1);
@@ -248,7 +292,21 @@ void EXT_API ext::tick() {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
-	    	uf::iostream << ext::vulkan::allocatorStats() << "\n";
+	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
+			if ( uf::MemoryPool::global.size() > 0 ) uf::iostream << "Global Memory Pool:\n" << uf::MemoryPool::global.stats() << "\n";
+			if ( uf::Entity::memoryPool.size() > 0 ) uf::iostream << "Entity Memory Pool:\n" << uf::Entity::memoryPool.stats() << "\n";
+			if ( uf::component::memoryPool.size() > 0 ) uf::iostream << "Components Memory Pool:\n" << uf::component::memoryPool.stats() << "\n";
+			if ( uf::userdata::memoryPool.size() > 0 ) uf::iostream << "Userdata Memory Pool:\n" << uf::userdata::memoryPool.stats() << "\n";
+		/*
+			size_t size = uf::component::memoryPool.size();
+			size_t allocated = uf::component::memoryPool.allocated();
+			uf::iostream << "Memory Pools:\n"
+				<< "\tComponents:\n"
+				<< "\t\tSize     : " << size << "\n"
+				<< "\t\tAllocated: " << allocated << "\n"
+				<< "\t\tFree     : " << (size-allocated)
+			<< "\n";
+		*/
 		}
 	}
 	/* Attempt to reset VR position */  {
@@ -301,7 +359,7 @@ void EXT_API ext::tick() {
 	}
 
 	/* Update vulkan */ {
-		ext::vulkan::tick();
+		uf::renderer::tick();
 	}
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enable"].asBool() ) {
 		ext::discord::tick();
@@ -322,7 +380,7 @@ void EXT_API ext::tick() {
 void EXT_API ext::render() {
 	// uf::scene::render();
 
-	ext::vulkan::render();
+	uf::renderer::render();
 
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::submit();
@@ -338,7 +396,7 @@ void EXT_API ext::terminate() {
 	}
 	
 	/* Close vulkan */ {
-		ext::vulkan::destroy();
+		uf::renderer::destroy();
 	}
 
 
@@ -385,25 +443,28 @@ std::string EXT_API ext::getConfig() {
 		file.exists = config.file.readFromFile(file.filename);
 	}
 	/* Initialize default configuration */ {
-		config.fallback["window"]["terminal"]["ncurses"] 	= true;
-		config.fallback["window"]["terminal"]["visible"] 	= true;
-		config.fallback["window"]["title"] 					= "Grimgram";
-		config.fallback["window"]["icon"] 					= "";
-		config.fallback["window"]["size"]["x"] 				= 0;
-		config.fallback["window"]["size"]["y"] 				= 0;
-		config.fallback["window"]["visible"] 				= true;
-	//	config.fallback["window"]["fullscreen"] 			= false;
-		config.fallback["window"]["mode"] 					= "windowed";
-		config.fallback["window"]["cursor"]["visible"] 		= true;
-		config.fallback["window"]["cursor"]["center"] 		= false;
-		config.fallback["window"]["keyboard"]["repeat"] 	= true;
+		config.fallback["window"]["terminal"]["ncurses"] 			= true;
+		config.fallback["window"]["terminal"]["visible"] 			= true;
+		config.fallback["window"]["title"] 							= "Grimgram";
+		config.fallback["window"]["icon"] 							= "";
+		config.fallback["window"]["size"]["x"] 						= 0;
+		config.fallback["window"]["size"]["y"] 						= 0;
+		config.fallback["window"]["visible"] 						= true;
+	//	config.fallback["window"]["fullscreen"] 					= false;
+		config.fallback["window"]["mode"] 							= "windowed";
+		config.fallback["window"]["cursor"]["visible"] 				= true;
+		config.fallback["window"]["cursor"]["center"] 				= false;
+		config.fallback["window"]["keyboard"]["repeat"] 			= true;
 		
-		config.fallback["engine"]["scenes"]["start"]		= "StartMenu";
-		config.fallback["engine"]["scenes"]["max lights"] 	= 32;
-		config.fallback["engine"]["hook"]["mode"] 			= "Readable";
-		config.fallback["engine"]["frame limit"] 			= 60;
-		config.fallback["engine"]["delta limit"] 			= 120;
-		config.fallback["engine"]["worker threads"] 		= 1;
+		config.fallback["engine"]["scenes"]["start"]				= "StartMenu";
+		config.fallback["engine"]["scenes"]["max lights"] 			= 32;
+		config.fallback["engine"]["hook"]["mode"] 					= "Readable";
+		config.fallback["engine"]["frame limit"] 					= 60;
+		config.fallback["engine"]["delta limit"] 					= 120;
+		config.fallback["engine"]["worker threads"] 				= 1;
+		config.fallback["engine"]["memory pool"]["size"] 			= "512 MiB";
+		config.fallback["engine"]["memory pool"]["globalOverride"] 	= false;
+		config.fallback["engine"]["memory pool"]["subPools"] 		= true;
 	}
 	/* Merge */ if ( file.exists ){
 		config.merged = config.file;

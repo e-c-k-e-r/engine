@@ -15,10 +15,11 @@ ext::vulkan::Shader::~Shader() {
 	if ( !aliased ) destroy();
 }
 */
-void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::string& filename, VkShaderStageFlagBits stage ) {
+void ext::vulkan::Shader::initialize( ext::vulkan::Device& _device, const std::string& filename, VkShaderStageFlagBits stage ) {
+	auto& device = &_device ? _device : ext::vulkan::device;
+	this->device = &device;
 	ext::vulkan::Buffers::initialize( device );
 	aliased = false;
-	this->device = &device;
 	
 	std::string spirv;
 	
@@ -61,9 +62,11 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType ) {			
 			switch ( descriptorType ) {
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-    				auto& uniform = uniforms.emplace_back();
 					const auto& base_type = comp.get_type(resource.base_type_id);
-    				uniform.create( comp.get_declared_struct_size(base_type) );
+					size_t size = comp.get_declared_struct_size(base_type);
+					if ( size <= 0 ) break;
+    				auto& uniform = uniforms.emplace_back();
+    				uniform.create( size );
 				} break;
 			/*
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
@@ -96,12 +99,12 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		#undef LOOP_RESOURCES
 		
 		for ( const auto& resource : res.push_constant_buffers ) {
-			auto& pushConstant = pushConstants.emplace_back();
 			const auto& type = comp.get_type(resource.base_type_id);
     		size_t size = comp.get_declared_struct_size(type);
+    		if ( size <= 0 ) continue;
+			auto& pushConstant = pushConstants.emplace_back();
 			pushConstant.create( size );
 		}
-	
 		
 		size_t specializationSize = 0;
 		for ( const auto& constant : comp.get_specialization_constants() ) {
@@ -171,7 +174,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		} );
 	}
 
-	// update uniform buffers	
+	// update uniform buffers
 	for ( auto& uniform : uniforms ) {
 		pod::Userdata& userdata = uniform.data();
 		initializeBuffer(
@@ -182,7 +185,6 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			false
 		);
 	}
-	
 }
 
 void ext::vulkan::Shader::destroy() {
@@ -218,12 +220,17 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 
 			std::size_t offset = 0;
 			for ( auto& pushConstant : shader.pushConstants ) {
+				size_t len = pushConstant.data().len;
+				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
+					std::cout << "INVALID PUSH CONSTANT LEN OF : " << len << " FOR " << shader.filename << std::endl;
+					len = 4;
+				}
 				pushConstantRanges.push_back(ext::vulkan::initializers::pushConstantRange(
 					shader.descriptor.stage,
-					pushConstant.data().len,
+					len,
 					offset
 				));
-				offset += pushConstant.data().len;
+				offset += len;
 			}
 		}
 		for ( auto& descriptor : descriptorSetLayoutBindings ) {

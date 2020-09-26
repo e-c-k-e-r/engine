@@ -19,6 +19,7 @@ namespace pod {
 }
 namespace uf {
 	namespace component {
+		extern UF_API uf::MemoryPool memoryPool;
 		template<typename T> pod::Component::id_t type();
 		template<typename T> bool is( const pod::Component& );
 	}

@@ -1,10 +1,16 @@
 #pragma once
 
 #include <uf/config.h>
+
+#include <uf/utils/mempool/mempool.h>
+
 #include <stdint.h>
 #include <cstddef>
 #include <string>
 #include <algorithm>
+
+#define UF_USERDATA_POOLED 0
+#define UF_USERDATA_KLUDGE 0
 
 namespace pod {
 	struct UF_API Userdata {
@@ -15,8 +21,9 @@ namespace pod {
 
 namespace uf {
 	namespace userdata {
-		pod::Userdata* UF_API create( std::size_t len );
-		pod::Userdata* UF_API create( std::size_t len, void* data );
+		extern UF_API uf::MemoryPool memoryPool;
+
+		pod::Userdata* UF_API create( std::size_t len, void* data = NULL );
 		void UF_API destroy( pod::Userdata* userdata );
 
 		template<typename T> pod::Userdata* create( const T& data = T() );
@@ -28,6 +35,11 @@ namespace uf {
 
 	//	void move( pod::Userdata& to, pod::Userdata&& from );
 	//	void copy( pod::Userdata& to, const pod::Userdata& from );
+
+		// usage with MemoryPool
+		pod::Userdata* UF_API create( uf::MemoryPool&, std::size_t len, void* data = NULL );
+		template<typename T> pod::Userdata* create( uf::MemoryPool&, const T& data = T() );
+		void UF_API destroy( uf::MemoryPool&, pod::Userdata* userdata );
 	}
 }
 

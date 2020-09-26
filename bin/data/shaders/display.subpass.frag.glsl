@@ -44,8 +44,8 @@ layout (binding = 0) uniform UBO {
 } ubo;
 
 void fog( inout vec3 i ) {
-	vec3 color = vec3( 0, 0, 0 );
-	float inner = 8, outer = 64;
+	vec3 color = vec3( 0.1, 0.1, 0.1 );
+	float inner = 4, outer = 32;
 	float distance = length(-position.eye);
 	float factor = (distance - inner) / (outer - inner);
 	factor = clamp( factor, 0.0, 1.0 );

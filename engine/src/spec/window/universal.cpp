@@ -11,8 +11,14 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::name_t& n
 	this->m_events.readable.push({name, argument});
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& name, const uf::OptimalHook::argument_t& argument ) {
-	if ( uf::hooks.prefersReadable() ) return;
-	if ( !uf::hooks.exists(name) ) return;
+	if ( uf::hooks.prefersReadable() ) {
+		uf::userdata::destroy(argument);
+		return;
+	}
+	if ( !uf::hooks.exists(name) ) {
+		uf::userdata::destroy(argument);
+		return;
+	}
 	this->m_events.optimal.push({name});
 	this->m_events.optimal.back().argument = argument;
 }
@@ -31,7 +37,10 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 //	Header header = userdata.get<Header>();
 	const Header& header = uf::userdata::get<Header>(userdata);
 	this->m_events.optimal.push({header.type});
-	if ( !uf::hooks.exists(header.type) ) return;
+	if ( !uf::hooks.exists(header.type) ) {
+		uf::userdata::destroy(userdata);
+		return;
+	}
 	this->m_events.optimal.back().argument = userdata;
 }
 void UF_API_CALL spec::uni::Window::processEvents() {

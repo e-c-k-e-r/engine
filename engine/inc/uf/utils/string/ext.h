@@ -6,7 +6,6 @@
 
 namespace uf {
 	namespace string {
-
 		std::string UF_API filename( const std::string& );
 		std::string UF_API extension( const std::string& );
 		std::string UF_API directory( const std::string& );

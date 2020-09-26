@@ -3,6 +3,8 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
 
+#include <uf/utils/mempool/mempool.h>
+
 int main(int argc, char** argv){
 	std::atexit([]{
 		uf::iostream << "Termination via std::atexit()!" << "\n";

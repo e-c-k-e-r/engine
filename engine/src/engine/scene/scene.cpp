@@ -154,7 +154,7 @@ void uf::Scene::tick() {
 
 						light.type.x = metadata["light"]["type"].asUInt64();
 						light.type.y = metadata["light"]["shadows"]["enabled"].asBool();
-						
+
 						if ( !hasCompute && entity->hasComponent<ext::vulkan::RenderTargetRenderMode>() ) {
 							auto& renderMode = entity->getComponent<ext::vulkan::RenderTargetRenderMode>();
 							auto& renderTarget = renderMode.renderTarget;
@@ -250,12 +250,23 @@ const uf::Entity* uf::Scene::getController() const {
 	return cachedController = this->findByName("Player");
 	// return this;
 }
-
+#include <regex>
 std::vector<uf::Scene*> uf::scene::scenes;
 uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
 	uf::Scene* scene = (uf::Scene*) uf::instantiator::instantiate( name );
 	uf::scene::scenes.push_back(scene);
-	scene->load(filename != "" ? filename : "./scenes/"+uf::string::lowercase(name)+"/scene.json");
+	
+	std::string target = name;
+	
+	std::regex regex("^(TestScene_?)?(.+?)(_?Scene)?$");
+	std::smatch match;
+	
+	if ( std::regex_search( target, match, regex ) ) {
+		target = match[2];
+	}
+	target = uf::string::lowercase( target );
+	
+	scene->load(filename != "" ? filename : "./scenes/" + target + "/scene.json");
 	scene->initialize();
 	return *scene;
 }

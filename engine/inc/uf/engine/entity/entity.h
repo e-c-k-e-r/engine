@@ -6,13 +6,14 @@
 #include <vector>
 #include <functional>
 
+#include <uf/utils/mempool/mempool.h>
+
 namespace uf {
 	class UF_API Entity : public uf::Component {
 	public:
 		typedef std::vector<uf::Entity*> container_t;
 	protected:
 		static uf::Entity null;
-		static std::vector<uf::Entity*> entities;
 		static std::size_t uids;
 
 		uf::Entity* m_parent = NULL;
@@ -21,6 +22,7 @@ namespace uf {
 		std::size_t m_uid = 0;
 		std::string m_name = "Entity";
 	public:
+		static uf::MemoryPool memoryPool;
 		Entity( bool = false );
 		virtual ~Entity();
 
@@ -45,6 +47,9 @@ namespace uf {
 		virtual void tick();
 		virtual void render();
 
+		void* operator new(size_t, const std::string& = "");
+		void operator delete(void*);
+
 		template<typename T=uf::Entity> void initialize();
 		template<typename T=uf::Entity> void destroy();
 		template<typename T=uf::Entity> void tick();
@@ -58,37 +63,8 @@ namespace uf {
 		void process( std::function<void(uf::Entity*, int)>, int depth = 0 );
 	//	void process( std::function<void(const uf::Entity*)> ) const ;
 	//	void process( std::function<void(const uf::Entity*, int)>, int depth = 0 ) const;
-
+		static uf::Entity* globalFindByUid( size_t id );
 		static uf::Entity* globalFindByName( const std::string& name );
 	};
-/*
-namespace uf {
-	class UF_API Entity : public uf::Component {
-	public:
-		typedef std::vector<uf::Entity*> container_t;
-	protected:
-		static uf::Entity null;
-
-		uf::Entity* m_parent = NULL;
-		uf::Entity::container_t m_children;
-	public:
-		Entity();
-		virtual ~Entity();
-
-		template<typename T=uf::Entity> T& getParent();
-		template<typename T=uf::Entity> T& getRootParent();
-		template<typename T=uf::Entity> const T& getParent() const;
-		template<typename T=uf::Entity> const T& getRootParent() const;
-		
-		void setParent( uf::Entity& parent = null );
-		void addChild( uf::Entity& child );
-
-		virtual void initialize();
-		virtual void destroy();
-
-		virtual void tick();
-		virtual void render();
-	};
-*/
 }
 #include "entity.inl"

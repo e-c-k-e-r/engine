@@ -18,9 +18,7 @@
 #include <locale>
 #include <codecvt>
 
-#include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/graphic.h>
-#include <uf/ext/vulkan/rendermodes/rendertarget.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
 #include <uf/utils/http/http.h>
@@ -40,8 +38,8 @@ namespace {
 
 	struct {
 		pod::Vector2ui current = {
-			ext::vulkan::width,
-			ext::vulkan::height,
+			uf::renderer::width,
+			uf::renderer::height,
 		};
 		pod::Vector2ui reference = {
 			1280,
@@ -1022,7 +1020,7 @@ void ext::Gui::render() {
 			auto& scene = this->getRootParent<uf::Scene>();
 			auto& controller = *scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
-			auto* renderMode = (ext::vulkan::RenderTargetRenderMode*) &ext::vulkan::getRenderMode("Gui");
+			auto* renderMode = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode("Gui");
 			if ( renderMode->getName() == "Gui" ) {
 				auto& blitter = renderMode->blitter;
 				auto& metadata = controller.getComponent<uf::Serializer>();
@@ -1062,7 +1060,7 @@ void ext::Gui::render() {
 							metadata["overlay"]["orientation"][2].asFloat(),
 							metadata["overlay"]["orientation"][3].asFloat(),
 						};
-					if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].asBool() || ext::vulkan::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
+					if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].asBool() || uf::renderer::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
 						if ( metadata["overlay"]["floating"].asBool() ) {
 							pod::Matrix4f model = uf::transform::model( transform );
 							uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
