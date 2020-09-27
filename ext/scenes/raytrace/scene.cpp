@@ -23,7 +23,7 @@
 
 EXT_OBJECT_REGISTER_CPP(TestScene_RayTracing)
 void ext::TestScene_RayTracing::initialize() {
-	uf::Scene::initialize();
+	ext::Scene::initialize();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
@@ -72,84 +72,20 @@ void ext::TestScene_RayTracing::initialize() {
 			);
 		}
 	}
-
-	this->addHook( "system:Quit.%UID%", [&](const std::string& event)->std::string{
-		std::cout << event << std::endl;
-		ext::ready = false;
-		return "true";
-	});
-	{
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
-			std::string asset = json["asset"].asString();
-			std::string uid = json["uid"].asString();
-
-			assetLoader.load(asset, "asset:Load." + uid);
-
-			return "true";
-		});
-	}
-	{
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		this->addHook( "menu:Pause", [&](const std::string& event)->std::string{
-			if ( timer.elapsed().asDouble() < 1 ) return "false";
-			timer.reset();
-
-			uf::Serializer json = event;
-			ext::Gui* manager = (ext::Gui*) this->findByName("Gui Manager");
-			if ( !manager ) return "false";
-			uf::Serializer payload;
-			ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
-			uf::Serializer& metadata = gui->getComponent<uf::Serializer>();
-			metadata["menu"] = json["menu"];
-			gui->initialize();
-			return payload;
-		});
-	}
-
-	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = uf::renderer::width;
-		metadata["window"]["size"]["y"] = uf::renderer::height;
-		
-		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
-			pod::Vector2ui size; {
-				size.x = json["window"]["size"]["x"].asUInt64();
-				size.y = json["window"]["size"]["y"].asUInt64();
-			}
-
-			metadata["window"] = json["window"];
-
-			return "true";
-		});
-	}
-
-	// lock control
-	{
-		uf::Serializer payload;
-		payload["state"] = true;
-		uf::hooks.call("window:Mouse.CursorVisibility", payload);
-		uf::hooks.call("window:Mouse.Lock");
-	}
 }
 
 void ext::TestScene_RayTracing::render() {
-	uf::Scene::render();
+	ext::Scene::render();
 }
 void ext::TestScene_RayTracing::destroy() {
 	if ( this->hasComponent<uf::renderer::ComputeRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
 		uf::renderer::removeRenderMode( &renderMode, false );
 	}
-	uf::Scene::destroy();
+	ext::Scene::destroy();
 }
 void ext::TestScene_RayTracing::tick() {
-	uf::Scene::tick();
+	ext::Scene::tick();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
@@ -160,6 +96,10 @@ void ext::TestScene_RayTracing::tick() {
 			struct UniformDescriptor {
 				alignas(16) pod::Matrix4f matrices[2];
 				alignas(16) pod::Vector4f ambient;
+				struct {
+					alignas(8) pod::Vector2f range;
+					alignas(16) pod::Vector4f color;
+				} fog;
 				struct Light {
 					alignas(16) pod::Vector4f position;
 					alignas(16) pod::Vector4f color;
@@ -177,8 +117,22 @@ void ext::TestScene_RayTracing::tick() {
 			auto& shader = renderMode.compute.material.shaders.front();
 			specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
+			struct PushConstant {
+				uint32_t marchingSteps;
+				uint32_t rayBounces;
+				float shadowFactor;
+				float reflectionStrength;
+				float reflectionFalloff;
+			};
+			auto& pushConstant = shader.pushConstants.front().get<PushConstant>();
+			pushConstant.marchingSteps = metadata["rays"]["marching steps"].asUInt64();
+			pushConstant.rayBounces = metadata["rays"]["ray bounces"].asUInt64();
+			pushConstant.shadowFactor = metadata["rays"]["shadow factor"].asFloat();
+			pushConstant.reflectionStrength = metadata["rays"]["reflection"]["strength"].asFloat();
+			pushConstant.reflectionFalloff = metadata["rays"]["reflection"]["falloff"].asFloat();
+
 			auto& scene = uf::scene::getCurrentScene();
-			auto& controller = *scene.getController();
+			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
 			auto& transform = controller.getComponent<pod::Transform<>>();
 			
@@ -190,8 +144,20 @@ void ext::TestScene_RayTracing::tick() {
 				uniforms->matrices[i] = uf::matrix::inverse( camera.getProjection(i) * camera.getView(i) );
 			}
 
-		//	uniforms->lights.position = { 0, 0, 0, 32 };
-		//	uniforms->lights.color = { 1, 1, 1, 1 };
+			{
+				uniforms->ambient.x = metadata["light"]["ambient"][0].asFloat();
+				uniforms->ambient.y = metadata["light"]["ambient"][1].asFloat();
+				uniforms->ambient.z = metadata["light"]["ambient"][2].asFloat();
+				uniforms->ambient.w = metadata["light"]["kexp"].asFloat();
+			}
+			{
+				uniforms->fog.color.x = metadata["light"]["fog"]["color"][0].asFloat();
+				uniforms->fog.color.y = metadata["light"]["fog"]["color"][1].asFloat();
+				uniforms->fog.color.z = metadata["light"]["fog"]["color"][2].asFloat();
+				
+				uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].asFloat();
+				uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].asFloat();
+			}
 		
 			std::vector<uf::Entity*> entities;
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -229,7 +195,7 @@ void ext::TestScene_RayTracing::tick() {
 
 				if ( entity == &controller ) light.position.y += 2;
 
-				light.position.w = metadata["light"]["radius"].asFloat();
+				light.position.w = metadata["light"]["radius"][1].asFloat();
 
 				light.color.x = metadata["light"]["color"][0].asFloat();
 				light.color.y = metadata["light"]["color"][1].asFloat();
@@ -243,23 +209,6 @@ void ext::TestScene_RayTracing::tick() {
 		}
 	}
 #endif
-	/* Regain control if nothing requests it */ {
-		ext::Gui* menu = (ext::Gui*) this->findByName("Gui: Menu");
-		if ( !menu ) {
-			uf::Serializer payload;
-			payload["state"] = false;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-			uf::hooks.call("window:Mouse.Lock");
-		}
-	}
-
-	/* Updates Sound Listener */ {
-		pod::Transform<>& transform = this->getController()->getComponent<pod::Transform<>>();
-		
-		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
-		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
-		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
-	}
 
 	/* Collision */ {
 		bool local = false;

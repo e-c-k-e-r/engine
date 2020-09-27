@@ -433,10 +433,10 @@ void ext::Region::render( ) {
 
 	if ( !metadata["region"]["rasterized"].asBool() ) return;
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
-		auto& scene = this->getRootParent<uf::Scene>();
+		auto& scene = uf::scene::getCurrentScene();
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& camera = scene.getController()->getComponent<uf::Camera>();		
+		auto& camera = scene.getController().getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
 	//	auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();

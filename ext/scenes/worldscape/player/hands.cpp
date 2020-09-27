@@ -181,7 +181,7 @@ void ext::Hands::initialize() {
 void ext::Hands::tick() {
 	uf::Object::tick();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& controller = *scene.getController();
+	auto& controller = scene.getController();
 	auto& controllerCamera = controller.getComponent<uf::Camera>();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& controllerCameraTransform = controllerCamera.getTransform();
@@ -442,7 +442,7 @@ void ext::Hands::render() {
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& controller = *scene.getController();
+	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 
 	pod::Matrix4f playerModel = uf::matrix::identity(); {

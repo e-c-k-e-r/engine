@@ -11,7 +11,7 @@
 #include <uf/utils/serialize/serializer.h>
 
 namespace {
-	void VRExtensions( std::vector<std::string>& requested ) {
+	void VRInstanceExtensions( std::vector<std::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
 		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
 		if ( nBufferSize < 0 ) return;
@@ -19,8 +19,45 @@ namespace {
 		pExtensionStr[0] = 0;
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
 		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
-		requested.insert( requested.end(), extensions.begin(), extensions.end() );
+		for ( auto& str : extensions ) {
+			// std::cout << str << std::endl;
+			requested.push_back(str);
+		}
+		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
 	}
+	void VRDeviceExtensions( VkPhysicalDevice_T* physicalDevice, std::vector<std::string>& requested ) {
+		if ( !vr::VRCompositor() ) return;
+		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice, nullptr, 0 );
+		if ( nBufferSize < 0 ) return;
+		char pExtensionStr[nBufferSize];
+		pExtensionStr[0] = 0;
+		vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice , pExtensionStr, nBufferSize );
+		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		for ( auto& str : extensions ) requested.push_back(str);
+		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
+	}
+
+	void validateRequestedExtensions( const std::vector<VkExtensionProperties>& extensionProperties, const std::vector<std::string>& requestedExtensions, std::vector<std::string>& supportedExtensions ) {
+		for ( auto& requestedExtension : requestedExtensions ) {
+			bool found = false;
+			for ( auto& extensionProperty : extensionProperties ) {
+				std::string extensionName = extensionProperty.extensionName;
+				if ( requestedExtension != extensionName ) continue;
+				if ( std::find( supportedExtensions.begin(), supportedExtensions.end(), extensionName ) != supportedExtensions.end() ) {
+					found = true;
+					break;
+				}
+				if ( found ) break;
+				found = true;
+				supportedExtensions.push_back( extensionName );
+				break;
+			}
+			if ( !found ) {
+				std::cout << "Vulkan missing requested extension: " << requestedExtension << std::endl;
+			}
+		}
+	}
+
 	void enableRequestedDeviceFeatures( ext::vulkan::Device& device ) {
 		uf::Serializer json;
 
@@ -410,44 +447,29 @@ void ext::vulkan::Device::initialize() {
 	// Load any requested extensions
 	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedInstanceExtensions.begin(), ext::vulkan::requestedInstanceExtensions.end() );
 	// OpenVR Support
-	if ( ext::openvr::enabled ) VRExtensions(requestedExtensions);
+	if ( ext::openvr::enabled ) VRInstanceExtensions(requestedExtensions);
 
 	{
 		if ( ext::vulkan::validation )
-			for ( auto ext : requestedExtensions ) std::cout << "Requested extension: " << ext << std::endl;
+			for ( auto ext : requestedExtensions )
+				std::cout << "Requested instance extension: " << ext << std::endl;
+
 		uint32_t extensionsCount = 0;
 		uint32_t enabledExtensionsCount = 0;
 		
 		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
+		extensionProperties.instance.resize(extensionsCount);
+		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, extensionProperties.instance.data() ) );
 
-		std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
-		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, &extensionProperties[0] ) );
-
-		for ( size_t i = 0; i < requestedExtensions.size(); ++i ) {
-			bool found = false; uint32_t index = 0;
-			for ( index = 0; index < extensionsCount; index++ ) {
-				if ( strcmp( requestedExtensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
-					for ( auto& alreadyAdded : supportedExtensions ) {
-						if ( requestedExtensions[i] == alreadyAdded ) {
-							found = true;
-							break;
-						}
-					}
-					if ( found ) break;
-					found = true;
-					supportedExtensions.push_back(extensionProperties[index].extensionName);
-					break;
-				}
-			}
-			if ( !found ) std::cout << "Vulkan missing requested extension " << requestedExtensions[index] << std::endl;
-		}
+		validateRequestedExtensions( extensionProperties.instance, requestedExtensions, supportedExtensions.instance );
 	}
 	// Create instance
 	{
-		std::vector<const char*> extensions;
-		for ( auto& s : supportedExtensions ) {
-			if ( ext::vulkan::validation ) std::cout << "Enabled extension: " << s << std::endl;
-			extensions.push_back( s.c_str() );
+		std::vector<const char*> instanceExtensions;
+		for ( auto& s : supportedExtensions.instance ) {
+			if ( ext::vulkan::validation )
+				std::cout << "Enabled instance extension: " << s << std::endl;
+			instanceExtensions.push_back( s.c_str() );
 		}
 
 		VkApplicationInfo appInfo = {};
@@ -462,8 +484,8 @@ void ext::vulkan::Device::initialize() {
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-		createInfo.ppEnabledExtensionNames = extensions.data();
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+		createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
 		if ( ext::vulkan::validation ) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -536,45 +558,31 @@ void ext::vulkan::Device::initialize() {
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 		std::vector<std::string> requestedExtensions;
-		std::vector<const char*> deviceExtensions = {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME
-		};
-		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedInstanceExtensions.begin(), ext::vulkan::requestedInstanceExtensions.end() );
-		/* OpenVR support */ if ( ext::openvr::enabled && vr::VRCompositor() ) {
-			uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, nullptr, 0 );
-			if ( nBufferSize > 0 ) {
-				char pExtensionStr[nBufferSize];
-				pExtensionStr[0] = 0;
-				vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( ( VkPhysicalDevice_T * ) this->physicalDevice, pExtensionStr, nBufferSize );
-				std::vector<std::string> vrExtensions = uf::string::split( pExtensionStr, " " );
-				requestedExtensions.insert( requestedExtensions.end(), vrExtensions.begin(), vrExtensions.end() );
-			}
+		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedDeviceExtensions.begin(), ext::vulkan::requestedDeviceExtensions.end() );
+		// OpenVR Support
+		if ( ext::openvr::enabled ) {
+			VRDeviceExtensions( this->physicalDevice, requestedExtensions);
+		}
+		{
 			// Allocate enough ExtensionProperties to support all extensions being enabled
+			if ( ext::vulkan::validation )
+				for ( auto ext : requestedExtensions ) std::cout << "Requested device extension: " << ext << std::endl;
+
 			uint32_t extensionsCount = 0;
 			uint32_t enabledExtensionsCount = 0;
 			
 			VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, NULL ));
-			std::vector<VkExtensionProperties> extensionProperties(extensionsCount);
-			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, &extensionProperties[0] ) );
+			extensionProperties.device.resize( extensionsCount );
+			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, extensionProperties.device.data() ) );
 			
-			for ( size_t i = 0; i < requestedExtensions.size(); ++i ) {
-				bool found = false;
-				uint32_t index = 0;
-				for ( index = 0; index < extensionsCount; index++ ) {
-					if ( strcmp( requestedExtensions[i].c_str(), extensionProperties[index].extensionName ) == 0 ) {
-						for ( auto alreadyAdded : deviceExtensions ) {
-							if ( strcmp( requestedExtensions[i].c_str(), alreadyAdded ) == 0 ) {
-								found = true;
-								break;
-							}
-						}
-						if ( found ) break;
-						found = true;
-						deviceExtensions.push_back(extensionProperties[index].extensionName);
-					}
-				}
-				if ( !found ) std::cout << "Vulkan missing requested extension " << requestedExtensions[index] << std::endl;
-			}
+			validateRequestedExtensions( extensionProperties.device, requestedExtensions, supportedExtensions.device );
+		}
+		std::vector<const char*> deviceExtensions = {
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		};
+		for ( auto& s : supportedExtensions.device ) {
+			if ( ext::vulkan::validation ) std::cout << "Enabled device extension: " << s << std::endl;
+			deviceExtensions.push_back( s.c_str() );
 		}
 
 		// Desired queues need to be requested upon logical device creation

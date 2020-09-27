@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#include <uf/utils/component/component.h>
+#include <uf/engine/behavior/behavior.h>
 #include <uf/utils/serialize/serializer.h>
 #include <vector>
 #include <functional>
@@ -9,7 +9,16 @@
 #include <uf/utils/mempool/mempool.h>
 
 namespace uf {
-	class UF_API Entity : public uf::Component {
+/*
+	class UF_API EntityBehavior {
+	public:
+		void initialize();
+		void destroy();
+		void tick();
+		void render();
+	};
+*/
+	class UF_API Entity : public uf::Behaviors {
 	public:
 		typedef std::vector<uf::Entity*> container_t;
 	protected:
@@ -25,15 +34,15 @@ namespace uf {
 		static uf::MemoryPool memoryPool;
 		Entity( bool = false );
 		virtual ~Entity();
-
+		// identifiers
+		const std::string& getName() const;
+		std::size_t getUid() const;
+		// parent-child relationship
 		bool hasParent() const;
 		template<typename T=uf::Entity> T& getParent();
 		template<typename T=uf::Entity> T& getRootParent();
 		template<typename T=uf::Entity> const T& getParent() const;
 		template<typename T=uf::Entity> const T& getRootParent() const;
-		const std::string& getName() const;
-		std::size_t getUid() const;
-		
 		void setParent();
 		void setParent( uf::Entity& parent );
 		uf::Entity& addChild( uf::Entity& child );
@@ -41,30 +50,26 @@ namespace uf {
 		void removeChild( uf::Entity& child );
 		uf::Entity::container_t& getChildren();
 		const uf::Entity::container_t& getChildren() const;
-
-		virtual void initialize();
-		virtual void destroy();
-		virtual void tick();
-		virtual void render();
-
+		// use instantiate to allocate
 		void* operator new(size_t, const std::string& = "");
 		void operator delete(void*);
-
-		template<typename T=uf::Entity> void initialize();
-		template<typename T=uf::Entity> void destroy();
-		template<typename T=uf::Entity> void tick();
-		template<typename T=uf::Entity> void render();
-
+		// search
 		uf::Entity* findByName( const std::string& name );
 		uf::Entity* findByUid( std::size_t id );
 		const uf::Entity* findByName( const std::string& name ) const;
 		const uf::Entity* findByUid( std::size_t id ) const;
+		// filters
 		void process( std::function<void(uf::Entity*)> );
 		void process( std::function<void(uf::Entity*, int)>, int depth = 0 );
-	//	void process( std::function<void(const uf::Entity*)> ) const ;
-	//	void process( std::function<void(const uf::Entity*, int)>, int depth = 0 ) const;
+		// globals
 		static uf::Entity* globalFindByUid( size_t id );
 		static uf::Entity* globalFindByName( const std::string& name );
+
+		// behavior
+		virtual void initialize();
+		virtual void destroy();
+		virtual void tick();
+		virtual void render();
 	};
 }
 #include "entity.inl"

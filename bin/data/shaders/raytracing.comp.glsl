@@ -6,18 +6,15 @@ layout (constant_id = 0) const uint LIGHTS = 16;
 layout (constant_id = 1) const uint EYES = 2;
 layout (binding = 0, rgba8) uniform writeonly image2D resultImage[EYES];
 
-#define RAY_MARCH false
-#define MARCH_STEPS 32
 #define EPSILON 0.0001
 #define MAXLEN 1000.0
-#define SHADOW 0.5
-#define SHADOWS true
-#define RAYBOUNCES 0
-#define REFLECTION_STRENGTH 0.4
-#define REFLECTION_FALLOFF 0.5
 
 layout( push_constant ) uniform PushBlock {
-  uint pass;
+	uint marchingSteps;
+	uint rayBounces;
+	float shadowFactor;
+	float reflectionStrength;
+	float reflectionFalloff;
 } PushConstant;
 
 struct Ray {
@@ -45,9 +42,15 @@ struct State {
 	Result result;
 } state;
 
+struct Fog {
+	vec2 range;
+	vec4 color;
+};
+
 layout (binding = 2) uniform UBO {
 	mat4 matrices[2];
 	vec4 ambient;
+	Fog fog;
 	Light lights[LIGHTS];
 } ubo;
 
@@ -138,7 +141,7 @@ float calcShadow(in vec3 rayO, in vec3 rayD, in int objectID, inout float resT) 
 		float tShape = shapeIntersect(rayO, rayD, shape);
 		if ((tShape > EPSILON) && (tShape < resT)) {
 			resT = tShape;
-			return SHADOW;
+			return PushConstant.shadowFactor;
 		}
 	}
 	return 1.0;
@@ -146,7 +149,7 @@ float calcShadow(in vec3 rayO, in vec3 rayD, in int objectID, inout float resT) 
 // Marching ========================================
 int intersectMarch( in vec3 rayO, in vec3 rayD, inout float resT ) {
 	resT = 0;
-	for (int i = 0; i < MARCH_STEPS; ++i) {
+	for (int i = 0; i < PushConstant.marchingSteps; ++i) {
 		vec3 position = resT * rayD + rayO;
 		float tNearest = MAXLEN;
 		int objectID = -1;
@@ -171,7 +174,7 @@ int intersectMarch( in vec3 rayO, in vec3 rayD, inout float resT ) {
 float calcShadowMarch( in vec3 rayO, in vec3 rayD, in int objectID, inout float resT ) {
 	float distance = resT;
 	resT = 0;
-	for (int i = 0; i < MARCH_STEPS; ++i) {
+	for (int i = 0; i < PushConstant.marchingSteps; ++i) {
 		vec3 position = resT * rayD + rayO;
 		float tNearest = distance;
 		int objectID = -1;
@@ -186,7 +189,7 @@ float calcShadowMarch( in vec3 rayO, in vec3 rayD, in int objectID, inout float 
 			}
 		}
 		if (tNearest < EPSILON) {
-			return SHADOW;
+			return PushConstant.shadowFactor;
 		}
 		if (resT > distance) break;
 		resT += tNearest;
@@ -195,16 +198,26 @@ float calcShadowMarch( in vec3 rayO, in vec3 rayD, in int objectID, inout float 
 	return 1.0;
 }
 
-vec3 fog(in float t, in vec3 color) {
-	vec3 fogColor = vec3(0.1);
-	return mix(color, fogColor.rgb, clamp(sqrt(t*t)/20.0, 0.0, 1.0));
+void fog(inout vec3 i, in float t ) {
+/*
+	vec3 fogColor = ubo.ambient.rgb;
+	i = mix(i, fogColor.rgb, clamp(sqrt(t*t)/20.0, 0.0, 1.0));
+*/
+	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
+
+	vec3 color = ubo.fog.color.rgb;
+	float inner = ubo.fog.range.x, outer = ubo.fog.range.y;
+	float factor = (t - inner) / (outer - inner);
+	factor = clamp( factor, 0.0, 1.0 );
+
+	i = mix(i.rgb, color, factor);
 }
 
 Result renderScene(inout vec3 rayO, inout vec3 rayD ) {
 	Result result;
 	result.color = vec3(0.0);
 	result.t = MAXLEN;
-	result.id = RAY_MARCH ? intersectMarch(rayO, rayD, result.t) : intersect(rayO, rayD, result.t);
+	result.id = PushConstant.marchingSteps > 0 ? intersectMarch(rayO, rayD, result.t) : intersect(rayO, rayD, result.t);
 	if (result.id == -1) return result;
 	
 	Shape shape = shapes[result.id];
@@ -232,13 +245,13 @@ Result renderScene(inout vec3 rayO, inout vec3 rayD ) {
 		// Shadows
 		float tShadow = dist;
 		float shadowed = 1;
-		if ( SHADOWS )
-			shadowed = RAY_MARCH ? calcShadowMarch(position, D, result.id, tShadow) : calcShadow(position, D, result.id, tShadow);
+		if ( PushConstant.shadowFactor < 1.0 )
+			shadowed = PushConstant.marchingSteps > 0 ? calcShadowMarch(position, D, result.id, tShadow) : calcShadow(position, D, result.id, tShadow);
 		result.color += color * light.power * attenuation * shadowed;
 	}
 
 	// Fog
-	// result.color = fog(t, result.color);
+	// fog(t, result.color);
 
 	// Reflect ray for next render pass
 	reflectRay(rayD, normal);
@@ -266,13 +279,13 @@ void main() {
 		vec3 finalColor = state.result.color;
 		
 		// Reflection
-		float reflectionStrength = REFLECTION_STRENGTH;
-		for (int i = 0; i < RAYBOUNCES; i++) {
+		float reflectionStrength = PushConstant.reflectionStrength;
+		for (int i = 0; i < PushConstant.rayBounces; i++) {
 			Result result = renderScene(state.ray.origin, state.ray.direction);
 			vec3 reflectionColor = result.color;
 
 			finalColor = (1.0 - reflectionStrength) * finalColor + reflectionStrength * mix(reflectionColor, finalColor, 1.0 - reflectionStrength);
-			reflectionStrength *= REFLECTION_FALLOFF;
+			reflectionStrength *= PushConstant.reflectionFalloff;
 		}
 				
 		imageStore(resultImage[pass], ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1.0));

@@ -12,14 +12,14 @@ namespace uf {
 		virtual void render();
 		virtual void destroy();
 
-		virtual uf::Entity* getController();
-		virtual const uf::Entity* getController() const;
+		virtual uf::Entity& getController();
+		virtual const uf::Entity& getController() const;
 
 		template<typename T> T& getController() {
-			return *((T*) this->getController());
+			return *((T*) &this->getController());
 		}
 		template<typename T> const T& getController() const {
-			return *((const T*) this->getController());
+			return *((const T*) &this->getController());
 		}
 	};
 

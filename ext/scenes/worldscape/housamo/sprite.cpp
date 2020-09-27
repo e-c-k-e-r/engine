@@ -132,10 +132,10 @@ void ext::HousamoSprite::render() {
 	ext::Craeture::render();
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& mesh = this->getComponent<uf::Mesh>();
-		auto& scene = this->getRootParent<uf::Scene>();
+		auto& scene = uf::scene::getCurrentScene();
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& transform = this->getComponent<pod::Transform<>>();
-		auto& camera = scene.getController()->getComponent<uf::Camera>();		
+		auto& camera = scene.getController().getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
 	//	auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
@@ -147,7 +147,7 @@ void ext::HousamoSprite::render() {
 	/*
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& scene = uf::scene::getCurrentScene();
-		auto& controller = *scene.getController();
+		auto& controller = scene.getController();
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;

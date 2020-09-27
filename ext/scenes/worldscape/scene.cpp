@@ -29,7 +29,7 @@
 
 EXT_OBJECT_REGISTER_CPP(TestScene_WorldScape)
 void ext::TestScene_WorldScape::initialize() {
-	uf::Scene::initialize();
+	ext::Scene::initialize();
 	this->m_name = "World";
 //	this->load("./scenes/world/scene.json");
 
@@ -49,89 +49,14 @@ void ext::TestScene_WorldScape::initialize() {
 			metadata["system"]["mastertable"][table] = data.load(table);
 		}
 	}
-	
-	this->addHook( "world:Music.LoadPrevious.%UID%", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-
-		if ( metadata["previous bgm"]["filename"] == "" ) return "false";
-
-		std::string filename = metadata["previous bgm"]["filename"].asString();
-		float timestamp = metadata["previous bgm"]["timestamp"].asFloat();
-
-//		std::cout << metadata["previous bgm"] << std::endl;
-
-		uf::Audio& audio = this->getComponent<uf::Audio>();
-		if ( audio.playing() ) {
-			metadata["previous bgm"]["filename"] = audio.getFilename();
-			metadata["previous bgm"]["timestamp"] = audio.getTime();
-			audio.stop();
-		}
-		audio.load(filename);
-		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
-		audio.setTime(timestamp);
-		audio.play();
-
-		return "true";
-	});
-	this->addHook( "asset:Load." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
-
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
-		const uf::Audio* audioPointer = NULL;
-		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
-		if ( !audioPointer ) return "false";
-
-		uf::Audio& audio = this->getComponent<uf::Audio>();
-		if ( audio.playing() ) {
-		/*
-			if ( filename.find("_intro") == std::string::npos ) {
-				metadata["previous bgm"]["filename"] = audio.getFilename();
-				metadata["previous bgm"]["timestamp"] = audio.getTime();
-			}
-		*/
-			audio.stop();
-		}
-		
-//		std::cout << metadata["previous bgm"] << std::endl;
-
-		audio.load(filename);
-		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
-		audio.play();
-
-		return "true";
-	});
 
 	static uf::Timer<long long> timer(false);
 	if ( !timer.running() ) timer.start();
-	this->addHook( "menu:Pause", [&](const std::string& event)->std::string{
-		if ( timer.elapsed().asDouble() < 1 ) return "false";
-		timer.reset();
-
-		uf::Serializer json = event;
-		ext::Gui* manager = (ext::Gui*) this->findByName("Gui Manager");
-		if ( !manager ) return "false";
-		uf::Serializer payload;
-		ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
-		uf::Serializer& metadata = gui->getComponent<uf::Serializer>();
-		metadata["menu"] = json["menu"];
-		gui->initialize();
-		return payload;
-	});
-	this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-
-		std::string asset = json["asset"].asString();
-		std::string uid = json["uid"].asString();
-
-		assetLoader.load(asset, "asset:Load." + uid);
-
-		return "true";
-	});
+	
 	this->addHook( "world:Battle.Prepare", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
 
-		uf::Entity& player = *this->getController();
+		uf::Entity& player = this->getController();
 		uf::Serializer& pMetadata = player.getComponent<uf::Serializer>();
 
 		uf::Serializer payload;
@@ -200,109 +125,12 @@ void ext::TestScene_WorldScape::initialize() {
 
 		return "true";
 	});
-
-	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = uf::renderer::width;
-		metadata["window"]["size"]["y"] = uf::renderer::height;
-		
-		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
-			pod::Vector2ui size; {
-				size.x = json["window"]["size"]["x"].asUInt64();
-				size.y = json["window"]["size"]["y"].asUInt64();
-			}
-
-			metadata["window"] = json["window"];
-
-			return "true";
-		});
-	}
-
-	// lock control
-	{
-		uf::Serializer payload;
-		payload["state"] = false;
-		uf::hooks.call("window:Mouse.CursorVisibility", payload);
-		uf::hooks.call("window:Mouse.Lock");
-	}
 }
 
 void ext::TestScene_WorldScape::tick() {
-	uf::Scene::tick();
-
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
-
-	/* check if audio needs to loop */ try {
-		uf::Audio& bgm = this->getComponent<uf::Audio>();
-		float current = bgm.getTime();
-		float end = bgm.getDuration();
-		float epsilon = 0.005f;
-		if ( current + epsilon >= end || !bgm.playing() ) {
-			// intro to main transition
-			std::string filename = bgm.getFilename();
-			filename = assetLoader.getOriginal(filename);
-			if ( filename.find("_intro") != std::string::npos ) {
-				assetLoader.load(uf::string::replace( filename, "_intro", "" ), "asset:Load." + std::to_string(this->getUid()));
-			// loop
-			} else {
-				bgm.setTime(0);
-				if ( !bgm.playing() ) bgm.play();
-			}
-		}
-	} catch ( ... ) {
-
-	}
-
-	/* Regain control if nothing requests it */ {
-		ext::Gui* menu = (ext::Gui*) this->findByName("Gui: Menu");
-		if ( !menu ) {
-			uf::Serializer payload;
-			payload["state"] = false;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-			uf::hooks.call("window:Mouse.Lock");
-		}
-	}
-
-	/* Print Entity Information */  {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
-			auto& allocations = uf::Entity::memoryPool.allocations();
-			uf::iostream << "Current size: " << allocations.size() << " | UIDs: " << uf::Entity::uids << "\n";
-			uint orphans = 0;
-			uint empty = 0;
-			for ( auto& allocation : allocations ) {
-				uf::Entity* e = (uf::Entity*) allocation.pointer;
-				if ( !e->hasParent() ) {
-					++orphans;
-					uf::iostream << "Orphan: " << e->getName() << ": " << e << "\n";
-				}
-			}
-		/*
-			for ( uf::Entity* e : uf::Entity::entities ) {
-				if ( e && !e->hasParent() ) {
-					++orphans;
-					uf::iostream << "Orphan: " << e->getName() << ": " << e << "\n";
-				}
-				if ( !e ) ++empty;
-			}
-		*/
-			uf::iostream << "Orphans: " << orphans << "\n";
-			uf::iostream << "Empty: " << empty << "\n";
-		}
-	}
-	
-	/* Updates Sound Listener */ {
-		pod::Transform<>& transform = this->getController()->getComponent<pod::Transform<>>();
-		
-		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
-		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
-		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
-	}
+	ext::Scene::tick();
 }
 
 void ext::TestScene_WorldScape::render() {
-	uf::Scene::render();
+	ext::Scene::render();
 }

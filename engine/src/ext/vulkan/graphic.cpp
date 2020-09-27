@@ -426,9 +426,42 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		}
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
+			size_t len = 0;
+			void* pointer = NULL;
+			if ( bindPoint == VK_PIPELINE_BIND_POINT_COMPUTE ) {
+				len = pushConstant.data().len;
+				pointer = pushConstant.data().data;
+			} else {
+				struct Stereo {
+					uint32_t pass;
+				};
+				static Stereo stereo;
+				stereo.pass = ext::openvr::renderPass;
+
+				len = sizeof(stereo);
+				pointer = &stereo;
+			}
+			if ( len > 0 && pointer )
+				vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
+		/*
+			size_t len = pushConstant.data().len;
+			void* pointer = pushConstant.data().data;
+			std::cout << pointer << ": " << len << std::endl;
+			if ( len == 4 ) {
+				struct Stereo {
+					uint32_t pass;
+				};
+				auto& stereo = pushConstant.get<Stereo>();
+				std::cout << pointer << ": Got " << stereo.pass << std::endl;
+			}
+			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
+		*/
+		/*
 			struct PushConstant {
 				uint32_t pass;
 			} p = { ext::openvr::renderPass };
+			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(p), &p );
+		*/
 		/*
 			pod::Userdata& userdata = pushConstant.data();
 			{
@@ -437,7 +470,6 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, offset, userdata.len, userdata.data );
 			offset += userdata.len;
 		*/
-			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(p), &p );
 		}
 	}
 	// Bind descriptor sets describing shader binding points

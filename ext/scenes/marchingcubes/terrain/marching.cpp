@@ -517,9 +517,9 @@ void ext::Marching::render() {
 	/* Update uniforms */ if ( this->hasComponent<MESH_TYPE>() ) {
 		auto& mesh = this->getComponent<MESH_TYPE>();
 		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& root = this->getRootParent<uf::Scene>();
-		auto& player = *root.getController();
-		auto& camera = player.getComponent<uf::Camera>();
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& model = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;

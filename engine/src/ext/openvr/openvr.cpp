@@ -7,6 +7,8 @@
 
 #include <filesystem>
 
+#define DEBUG_MARKER 0
+
 vr::IVRSystem* ext::openvr::context;
 ext::openvr::Driver ext::openvr::driver;
 uint8_t ext::openvr::renderPass = 0;
@@ -163,14 +165,14 @@ bool ext::openvr::initialize( int stage ) {
 			uf::Serializer manifest;
 			manifest.readFromFile(ext::openvr::driver.manifest);
 
-			std::cout << ext::openvr::driver.manifest << std::endl;
+			if ( DEBUG_MARKER ) std::cout << ext::openvr::driver.manifest << std::endl;
 			for ( auto i = 0; i < manifest["action_sets"].size(); ++i ) {
-				std::cout << manifest["action_sets"][i] << std::endl;
+				if ( DEBUG_MARKER ) std::cout << manifest["action_sets"][i] << std::endl;
 				std::string name = manifest["action_sets"][i]["name"].asString();
 				vr::VRActionSetHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
 				handles.actionSets[name] = handle;
-				std::cout << "Registered action set: " << name << std::endl;
+				if ( DEBUG_MARKER ) std::cout << "Registered action set: " << name << std::endl;
 				// handles.actionSets.push_back(handle);
 			}
 			for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
@@ -178,7 +180,7 @@ bool ext::openvr::initialize( int stage ) {
 				vr::VRActionHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
 				handles.actions[name] = handle;
-				std::cout << "Registered action: " << name << std::endl;
+				if ( DEBUG_MARKER ) std::cout << "Registered action: " << name << std::endl;
 				// handles.actions.push_back(handle);
 
 				// add haptics to hooks
@@ -187,7 +189,7 @@ bool ext::openvr::initialize( int stage ) {
 					std::string shortname = split.back();
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "hapticVibration" ) {
-						std::cout << "Registered hook for haptic: " << ("VR:Haptics."+split.back()) << std::endl;
+						if ( DEBUG_MARKER ) std::cout << "Registered hook for haptic: " << ("VR:Haptics."+split.back()) << std::endl;
 						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](const std::string& event)->std::string{
 							uf::Serializer json = event;
 							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].asFloat(), json["duration"].asFloat(), json["frequency"].asFloat(), json["amplitude"].asFloat(), vr::k_ulInvalidInputValueHandle ) )
@@ -234,7 +236,7 @@ void ext::openvr::tick() {
 	if ( !ext::openvr::context ) return;
 	
 	// load render model from api
-	for ( auto pair : ::queuedRenderModels ) {
+	for ( auto& pair : ::queuedRenderModels ) {
 		std::string name = pair.first;
 		auto& queued = pair.second;
 		{
@@ -243,7 +245,7 @@ void ext::openvr::tick() {
 			if ( status == vr::VRRenderModelError_Loading ) continue;
 			// error'd out
 			if ( status != vr::VRRenderModelError_None ) {
-				std::cout << "Failed to load render model " << name << ": " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
+				if ( DEBUG_MARKER ) std::cout << "Failed to load render model " << name << ": " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
 				::queuedRenderModels.erase(name);
 				continue;
 			}
@@ -255,7 +257,7 @@ void ext::openvr::tick() {
 			if ( status == vr::VRRenderModelError_Loading ) continue;
 			// error'd out
 			if ( status != vr::VRRenderModelError_None ) {
-				std::cout << "Failed to load render model " << name << "'s texture: " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
+				if ( DEBUG_MARKER ) std::cout << "Failed to load render model " << name << "'s texture: " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
 				vr::VRRenderModels()->FreeRenderModel( queued.model );
 				::queuedRenderModels.erase(name);
 				continue;
@@ -430,6 +432,7 @@ void ext::openvr::tick() {
 	}
 }
 bool ext::openvr::requestRenderModel( const std::string& name ) {
+	if ( DEBUG_MARKER ) std::cout << "Requesting render model: " << name << std::endl;
 	if ( std::find( renderModelNames.begin(), renderModelNames.end(), name ) == renderModelNames.end() ) return false;
 	if ( renderModels.count(name) == 1 ) return true;
 	::queuedRenderModels[name];
@@ -466,12 +469,12 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	
 	vulkanData.m_nFormat = leftOutputAttachment.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) leftOutputAttachment.image;
-	// std::cout << leftOutputAttachment.image << std::endl;
+	// if ( DEBUG_MARKER ) std::cout << leftOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds );
 
 	vulkanData.m_nFormat = rightOutputAttachment.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) rightOutputAttachment.image;
-	// std::cout << rightOutputAttachment.image << std::endl;
+	// if ( DEBUG_MARKER ) std::cout << rightOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds );
 
 	vr::VRCompositor()->PostPresentHandoff();
@@ -557,7 +560,7 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 		frustum.bottom = abs( frustum.bottom );
 	} else {
 	}
-	//	std::cout << frustum.left << "\t" << frustum.right << "\t" << frustum.top << "\t" << frustum.bottom << std::endl;
+	//	if ( DEBUG_MARKER ) std::cout << frustum.left << "\t" << frustum.right << "\t" << frustum.top << "\t" << frustum.bottom << std::endl;
 
 	/*
 		float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);

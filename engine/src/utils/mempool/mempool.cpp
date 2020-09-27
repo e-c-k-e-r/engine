@@ -43,8 +43,7 @@ std::string uf::MemoryPool::stats() const {
 	metadata["free"] = size - allocated;
 	metadata["objects"] = this->m_allocations.size();
 	{
-		std::stringstream ss;
-		ss << std::hex << (void*) this->m_pool;
+		std::stringstream ss; ss << std::hex << (void*) this->m_pool;
 		metadata["pool"] = ss.str();
 	}
 
@@ -53,20 +52,16 @@ std::string uf::MemoryPool::stats() const {
 void uf::MemoryPool::initialize( size_t size ) {
 	if ( size <= 0 ) return;
 	if ( this->size() > 0 ) this->destroy();
-//	this->m_pool = (uint8_t*) malloc( size );
-//	this->m_allocations.reserve( 128 );
 	this->m_size = size;
 	if ( uf::MemoryPool::subPool && uf::MemoryPool::global.size() > 0 && this != &uf::MemoryPool::global ) {
 		this->m_pool = (uint8_t*) uf::MemoryPool::global.alloc( NULL, size );
 	} else {
 		this->m_pool = (uint8_t*) malloc( size );
 	}
-//	this->m_pool = (uint8_t*) operator new( size );
 	memset( this->m_pool, 0, size );
 }
 void uf::MemoryPool::destroy() {
 	if ( this->size() <= 0 ) return;
-//	::free(this->m_pool);
 	if ( uf::MemoryPool::subPool && this != &uf::MemoryPool::global ) {
 		uf::MemoryPool::global.free( this->m_pool );
 	} else {
@@ -79,32 +74,87 @@ void uf::MemoryPool::destroy() {
 pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.lock();
 	// find next available allocation
-	// RLE-esque
 	size_t index = 0;
 	size_t len = this->size();
 	pod::Allocation allocation;
+	// pool not initialized
 	if ( len <= 0 ) {
 		if ( DEBUG_PRINT ) std::cout << "CANNOT MALLOC: " << size << ", POOL NOT INITIALIZED" << std::endl;
 		goto MANUAL_MALLOC;
 	}
-	// find any availble spots in-between existing allocations
+
+	// an optimization by quickly reusing free'd allocations seemed like a good idea
+	// but still have to iterate through allocation information
+	// to keep allocation information in order
+
+	// check our cache of first
+#if UF_MEMORYPOOL_CACHED_ALLOCATIONS
+	if ( !this->m_cachedFreeAllocations.empty() ) {
+		auto it = this->m_cachedFreeAllocations.begin();
+		// check if any recently free'd allocation is big enough for our new allocation
+		for ( ; it != this->m_cachedFreeAllocations.end(); ++it ) {
+			if ( it->size < size ) break;
+		}
+		// found a suitable allocation, use it
+		if ( it != this->m_cachedFreeAllocations.end() ) {
+			index = it->index;
+			// find where to insert in our allocation table
+			auto next = this->m_allocations.begin();
+			while ( next != this->m_allocations.end() ) {
+				if ( index + size < next->index  ) break;
+				++next;
+			}
+			// check if it was actually valid
+			if ( next != this->m_allocations.end() ) {	
+				// initialize allocation info
+				allocation.index = index;
+				allocation.size = size;
+				allocation.pointer = &this->m_pool[0] + index;
+				
+				// security
+				if ( data ) memcpy( allocation.pointer, data, size );
+				else memset( allocation.pointer, 0, size );
+
+				// overrides if we're overloading global new/delete
+				IGNORE_GLOBAL_MEMORYPOOL = true;
+				// register as allocated
+				this->m_allocations.insert(next, allocation);
+				IGNORE_GLOBAL_MEMORYPOOL = false;
+
+				goto RETURN;
+			}
+			// remove from cache
+			this->m_cachedFreeAllocations.erase(it);
+		}
+	}
+#endif
 	{
+		// find any availble spots in-between existing allocations
 		auto next = this->m_allocations.begin();
 		for ( auto it = next; it != this->m_allocations.end(); ++it ) {
 			index = it->index + it->size;
 			if ( ++next == this->m_allocations.end() ) break;
+			// target index is behind next allocated space, use it
 			if ( index < next->index ) break;
 		}
+		// no allocation found, OOM
 		if ( index + size > len ) {
 			std::cout << "MemoryPool: " << this << ": Out of Memory!" << std::endl;
 			goto MANUAL_MALLOC;
 		}
+
+		// initialize allocation info
 		allocation.index = index;
 		allocation.size = size;
 		allocation.pointer = &this->m_pool[0] + index;
+		
+		// security
 		if ( data ) memcpy( allocation.pointer, data, size );
 		else memset( allocation.pointer, 0, size );
+
+		// overrides if we're overloading global new/delete
 		IGNORE_GLOBAL_MEMORYPOOL = true;
+		// register as allocated
 		this->m_allocations.insert(next, allocation);
 		IGNORE_GLOBAL_MEMORYPOOL = false;
 	}
@@ -149,31 +199,40 @@ bool uf::MemoryPool::exists( void* pointer, size_t size ) {
 }
 bool uf::MemoryPool::free( void* pointer, size_t size ) {
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.lock();
+	// fail if uninitialized or pointer is outside of our pool
 	if ( this->m_size <= 0 || pointer < &this->m_pool[0] || pointer >= &this->m_pool[0] + this->m_size ) {
 		if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", ERROR: " << (this->m_size <= 0) << " " << (pointer < &this->m_pool[0]) << " " << (pointer >= &this->m_pool[0] + this->m_size) << std::endl;
 		goto MANUAL_FREE;
 	}
 	{
+		// pointer arithmatic
 		size_t index = (uint8_t*) pointer - &this->m_pool[0];
 		auto it = this->m_allocations.begin();
 		pod::Allocation allocation;
+		// find our allocation in the allocation pool
 		for ( ; it != this->m_allocations.end(); ++it ) {
 			if ( it->index == index ) {
 				allocation = *it;
 				break;
 			}
 		}
-	//	if ( allocation.index != index || (size > 0 && allocation.size != size) ) {
+		// pointer isn't actually allocated
 		if ( allocation.index != index ) {
 			if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", NOT FOUND" << std::endl;
 			goto MANUAL_FREE;
 		}
+		// size validation mismatch, do not free
 		if (size > 0 && allocation.size != size) {
 			if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", MISMATCHED SIZES (" << size << " != " << allocation.size << ")" << std::endl;
 			goto MANUAL_FREE;
 		}
 		if ( DEBUG_PRINT ) std::cout << "FREE'D ALLOCATION: " << pointer << ", " << size << "\t" << allocation.pointer << ", " << allocation.size << ", " << allocation.index << std::endl;
+		// remove from our allocation table...
 		this->m_allocations.erase(it);
+		// ...but add it to our free'd allocation cache
+#if UF_MEMORYPOOL_CACHED_ALLOCATIONS
+		this->m_cachedFreeAllocations.push_back(allocation);
+#endif
 		if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.unlock();
 		return true;
 	}

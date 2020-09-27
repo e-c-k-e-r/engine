@@ -111,7 +111,7 @@ void ext::Craeture::initialize() {
 		if ( filename == "" ) return "false";
 		uf::Audio& sfx = this->getComponent<uf::SoundEmitter>().add(filename);
 		sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
-		auto& pTransform = world.getController()->getComponent<pod::Transform<>>();
+		auto& pTransform = world.getController().getComponent<pod::Transform<>>();
 		sfx.setPosition( transform.position );
 		sfx.play();
 
@@ -169,7 +169,7 @@ void ext::Craeture::tick() {
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Scene& world = uf::scene::getCurrentScene();
-	uf::Serializer& pMetadata = world.getController()->getComponent<uf::Serializer>();
+	uf::Serializer& pMetadata = world.getController().getComponent<uf::Serializer>();
 
 	if ( !pMetadata["system"]["control"].asBool() ) return;
 

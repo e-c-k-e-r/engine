@@ -23,7 +23,7 @@ uf::Camera::Camera() :
 	this->setProjection(uf::matrix::identity());
 	
 	this->m_transform = uf::transform::initialize(this->m_transform);
-	this->m_transform.position = {0,1.725,0};
+	this->m_transform.position = {0, 0, 0};
 }
 /*
 uf::Camera::Camera( const pod::Math::num_t& fov, const pod::Vector2& size, const pod::Vector2& bounds, const pod::Vector3& offset, const pod::Vector2& tops ) : 

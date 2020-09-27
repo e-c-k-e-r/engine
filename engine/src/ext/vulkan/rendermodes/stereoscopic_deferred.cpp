@@ -237,21 +237,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 				// transition layers for read
 				for ( auto layer : layers ) {
 					layer->pipelineBarrier( commands[i], 0 );
-				/*
-					if ( layer->getName() == "" ) continue;
-					RenderTarget& renderTarget = layer->renderTarget;
-					for ( auto& attachment : renderTarget.attachments ) {
-						if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-						if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						imageMemoryBarrier.image = attachment.image;
-						imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-						imageMemoryBarrier.oldLayout = attachment.layout;
-						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-						attachment.layout = imageMemoryBarrier.newLayout;
-					}
-				*/
 				}
 			
 				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -260,6 +245,20 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
+						// update push constants
+					/*
+						auto& shaders = graphic->material.shaders;
+						for ( auto& shader : shaders ) {
+							for ( auto& pushConstant : shader.pushConstants ) {
+								struct Stereo {
+									uint32_t pass;
+								};
+								auto& stereo = pushConstant.get<Stereo>();
+								stereo.pass = ext::openvr::renderPass;
+								std::cout << pushConstant.data().data << ": Expecting " << stereo.pass << std::endl;
+							}
+						}
+					*/
 						graphic->record(commands[i] );
 					}
 					// render gui layer
@@ -290,21 +289,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 
 				for ( auto layer : layers ) {
 					layer->pipelineBarrier( commands[i], 1 );
-				/*
-					if ( layer->getName() == "" ) continue;
-					RenderTarget& renderTarget = layer->renderTarget;
-					for ( auto& attachment : renderTarget.attachments ) {
-						if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-						if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						imageMemoryBarrier.image = attachment.image;
-						imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-						imageMemoryBarrier.oldLayout = attachment.layout;
-						imageMemoryBarrier.newLayout = attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-						attachment.layout = imageMemoryBarrier.newLayout;
-					}
-				*/
 				}
 			}
 			// Blit eye to swapchain

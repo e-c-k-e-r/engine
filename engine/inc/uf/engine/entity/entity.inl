@@ -30,7 +30,7 @@ template<typename T> const T& uf::Entity::getRootParent() const {
 	}
 	return *(const T*) last;
 }
-
+/*
 template<typename T> void uf::Entity::initialize() {
 	static_cast<T*>(this)->initialize();
 	this->initialize();
@@ -47,3 +47,4 @@ template<typename T> void uf::Entity::render() {
 	static_cast<T*>(this)->render();
 	this->render();
 }
+*/

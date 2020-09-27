@@ -100,8 +100,8 @@ void ext::Terrain::initialize() {
 void ext::Terrain::tick() {
 	uf::Object::tick();
 
-	uf::Scene& root = this->getRootParent<uf::Scene>();
-	uf::Object& controller = root.getController<uf::Object>();
+	auto& scene = uf::scene::getCurrentScene();
+	uf::Object& controller = scene.getController<uf::Object>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Thread& mainThread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 	// lambda to transition from a resolving state
@@ -132,7 +132,7 @@ void ext::Terrain::tick() {
 	};
 	// generate initial terrain
 	if ( metadata["system"]["state"] == "preinit" ) {
-		uf::Entity* controller = root.findByName("Player");
+		uf::Entity* controller = scene.findByName("Player");
 		if ( controller ) {
 			transitionState(*this, "initialize", true);
 			this->generate(true);
@@ -415,9 +415,9 @@ void ext::Terrain::render() {
 }
 
 void ext::Terrain::relocateChildren() {
-	uf::Scene& root = this->getRootParent<uf::Scene>();
+	uf::Scene& scene = uf::scene::getCurrentScene();
 	std::vector<uf::Entity*> entities;
-	root.process( [&]( uf::Entity* entity ) {
+	scene.process( [&]( uf::Entity* entity ) {
 		if ( !entity || entity->getUid() == 0 ) return;
 		uf::Serializer& metadata = entity->getComponent<uf::Serializer>();
 		if ( metadata["region"].isObject() && metadata["region"]["track"].asBool() ) {
@@ -485,7 +485,7 @@ bool ext::Terrain::exists( const pod::Vector3i& position ) const {
 
 bool ext::Terrain::inBounds( const pod::Vector3i& position ) const {
 	const uf::Scene& scene = uf::scene::getCurrentScene();
-	const pod::Transform<>& player = scene.getController()->getComponent<pod::Transform<>>();
+	const pod::Transform<>& player = scene.getController().getComponent<pod::Transform<>>();
 	const uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3ui size = {
 		metadata["region"]["size"][0].asUInt(),
@@ -521,7 +521,7 @@ void ext::Terrain::generate( bool single ) {
 	};
 
 	uf::Scene& scene = uf::scene::getCurrentScene();
-	const pod::Transform<>& player = scene.getController()->getComponent<pod::Transform<>>();
+	const pod::Transform<>& player = scene.getController().getComponent<pod::Transform<>>();
 	pod::Vector3i location = {
 		(int) player.position.x / size.x,
 		(int) player.position.y / size.y,

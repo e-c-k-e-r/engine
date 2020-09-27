@@ -27,11 +27,19 @@ namespace ext {
 			VkPhysicalDeviceFeatures2 features2;
 			VkPhysicalDeviceFeatures2 enabledFeatures2;
 			VkPhysicalDeviceMemoryProperties2 memoryProperties2;
+
+			struct {
+				std::vector<VkExtensionProperties> instance;
+				std::vector<VkExtensionProperties> device;
+			} extensionProperties;
+			struct {
+				std::vector<std::string> instance;
+				std::vector<std::string> device;
+			} supportedExtensions;
 			
 			VkPipelineCache pipelineCache;
 
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
-			std::vector<std::string> supportedExtensions;
 			
 			struct {
 				VkQueue graphics;

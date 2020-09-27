@@ -321,8 +321,8 @@ void EXT_API ext::tick() {
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("Z") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 			auto& scene = uf::scene::getCurrentScene();
-			auto* controller = scene.getController();
-			auto& camera = controller->getComponent<uf::Camera>();
+			auto& controller = scene.getController();
+			auto& camera = controller.getComponent<uf::Camera>();
 			auto& t = camera.getTransform(); //controller->getComponent<pod::Transform<>>();
 			uf::iostream << "Viewport position: (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ") (" << t.orientation.x << ", " << t.orientation.y << ", " << t.orientation.z << ", " << t.orientation.w << ")";
 			uf::iostream << "\n";

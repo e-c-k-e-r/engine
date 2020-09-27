@@ -49,38 +49,6 @@ const std::string& uf::Entity::getName() const {
 std::size_t uf::Entity::getUid() const {
 	return this->m_uid;
 }
-void uf::Entity::initialize(){
-	if ( this->m_uid == 0 ) this->m_uid = ++uf::Entity::uids;
-}
-void uf::Entity::destroy(){
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->destroy();
-		kv->setParent();
-		delete kv;
-	}
-	this->m_children.clear();
-	this->m_uid = 0;
-/*
-	auto it = std::find(uf::Entity::entities.begin(), uf::Entity::entities.end(), this);
-	if ( it != uf::Entity::entities.end() ) uf::Entity::entities.erase(it);
-*/
-}
-void uf::Entity::tick(){
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->tick();
-	}
-}
-void uf::Entity::render(){
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->render();
-	}
-}
 
 void* uf::Entity::operator new(size_t size, const std::string& type ) {
 	return type != "" && size == sizeof(uf::Entity) ? uf::instantiator::instantiate( type ) : uf::instantiator::alloc( size );
@@ -137,22 +105,6 @@ void uf::Entity::process( std::function<void(uf::Entity*, int)> fn, int depth ) 
 		entity->process(fn, depth + 1);
 	}
 }
-/*
-void uf::Entity::process( std::function<void(const uf::Entity*)> fn ) const {
-	fn(this);
-	for ( uf::Entity* entity : this->getChildren() ) {
-		if ( !entity ) continue;
-		entity->process(fn);
-	}
-}
-void uf::Entity::process( std::function<void(const uf::Entity*, int)> fn, int depth ) const {
-	fn(this, depth);
-	for ( uf::Entity* entity : this->getChildren() ) {
-		if ( !entity ) continue;
-		entity->process(fn, depth + 1);
-	}
-}
-*/
 uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 	for ( auto& allocation : uf::Entity::memoryPool.allocations() ) {
 		uf::Entity* entity = (uf::Entity*) allocation.pointer;
@@ -166,12 +118,74 @@ uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
 		if ( entity->getUid() == 0 ) continue;
 		if ( entity->getName() == name ) return entity;
 	}
-/*
-	for ( uf::Entity* e : uf::Entity::entities ) {
-		if ( !e ) continue;
-		if ( e->getUid() == 0 ) continue;
-		if ( e->getName() == name ) return e;
-	}
-*/
 	return NULL;
 }
+
+
+void uf::Entity::initialize(  ){
+	if ( this->m_uid == 0 ) this->m_uid = ++uf::Entity::uids;
+
+	uf::Behaviors::initialize();
+}
+void uf::Entity::tick( ){
+	uf::Behaviors::tick();
+
+	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->tick();
+	}
+}
+void uf::Entity::render( ){
+	uf::Behaviors::render();
+	
+	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->render();
+	}
+}
+void uf::Entity::destroy( ){
+	uf::Behaviors::destroy();
+
+	for ( uf::Entity* kv : this->m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->destroy();
+		kv->setParent();
+		delete kv;
+	}
+	this->m_children.clear();
+	this->m_uid = 0;
+}
+
+/*
+void uf::EntityBehavior::initialize( uf::Entity& base ){
+	if ( base.m_uid == 0 ) base.m_uid = ++uf::Entity::uids;
+}
+void uf::EntityBehavior::destroy( uf::Entity& entity ){
+	for ( uf::Entity* kv : base.m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->destroy();
+		kv->setParent();
+		delete kv;
+	}
+	base.m_children.clear();
+	base.m_uid = 0;
+}
+void uf::EntityBehavior::tick( uf::Entity& entity ){
+	for ( uf::Entity* kv : base.m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->tick();
+	}
+}
+void uf::EntityBehavior::render( uf::Entity& entity ){
+	for ( uf::Entity* kv : base.m_children ) {
+		if ( !kv ) continue;
+		if ( kv->getUid() == 0 ) continue;
+		kv->render();
+	}
+}
+*/

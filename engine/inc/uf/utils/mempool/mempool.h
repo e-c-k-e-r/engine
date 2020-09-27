@@ -10,6 +10,7 @@
 #define UF_MEMORYPOOL_INVALID_MALLOC 0
 #define UF_MEMORYPOOL_INVALID_FREE 0
 #define UF_MEMORYPOOL_OVERRIDE_NEW_DELETE 0
+#define UF_MEMORYPOOL_CACHED_ALLOCATIONS 0
 
 namespace pod {
 	struct UF_API Userdata;
@@ -29,6 +30,7 @@ namespace uf {
 
 		typedef std::vector<pod::Allocation> allocations_t;
 		allocations_t m_allocations;
+		allocations_t m_cachedFreeAllocations;
 	public:
 		static bool globalOverride;
 		static bool subPool;

@@ -118,7 +118,7 @@ void ext::GuiWorldPauseMenu::initialize() {
 	}
 	/* set sprite order */ {
 		metadata["portraits"]["i"] = 0;
-		uf::Serializer& pMetadata = scene.getController()->getComponent<uf::Serializer>();
+		uf::Serializer& pMetadata = scene.getController().getComponent<uf::Serializer>();
 		int i = 0;
 		for ( auto& k : pMetadata[""]["party"] ) {
 			std::string id = k.asString();

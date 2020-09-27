@@ -62,7 +62,7 @@ void ext::Portal::initialize() {
 	auto& camera = this->getComponent<uf::Camera>();
 	{
 		auto& scene = uf::scene::getCurrentScene();
-		auto& controller = *scene.getController();
+		auto& controller = scene.getController();
 		// copies camera settings
 		camera = controller.getComponent<uf::Camera>();
 	}
@@ -88,7 +88,7 @@ void ext::Portal::tick() {
 	renderMode.target = "";
 	
 	auto& scene = uf::scene::getCurrentScene();
-	auto& controller = *scene.getController();
+	auto& controller = scene.getController();
 	auto& camera = this->getComponent<uf::Camera>();
 	auto& metadata = this->getComponent<uf::Serializer>();
 /*
@@ -128,7 +128,7 @@ void ext::Portal::render() {
 
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& scene = uf::scene::getCurrentScene();
-		auto& controller = *scene.getController();
+		auto& controller = scene.getController();
 		auto& camera = this->getComponent<uf::Camera>();
 		auto& controllerCamera = controller.getComponent<uf::Camera>();
 		if ( !blitter.initialized ) return;

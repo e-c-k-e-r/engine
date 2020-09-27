@@ -549,7 +549,7 @@ void ext::Gui::initialize() {
 
 			{
 				auto& scene = uf::scene::getCurrentScene();
-				auto& controller = *scene.getController();
+				auto& controller = scene.getController();
 				auto& metadata = controller.getComponent<uf::Serializer>();
 
 				if ( metadata["overlay"]["cursor"]["type"].asString() == "mouse" ) {
@@ -816,7 +816,8 @@ void ext::Gui::render() {
 		auto& scene = this->getRootParent<uf::Scene>();
 		auto& mesh = this->getComponent<uf::GuiMesh>();
 		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& camera = scene.getController()->getComponent<uf::Camera>();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 
@@ -892,7 +893,8 @@ void ext::Gui::render() {
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				if ( metadata["text settings"]["world"].asBool() ) {
 					auto& scene = this->getRootParent<uf::Scene>();
-					auto& camera = scene.getController()->getComponent<uf::Camera>();
+					auto& controller = scene.getController();
+					auto& camera = controller.getComponent<uf::Camera>();
 
 					pod::Transform<> flatten = uf::transform::flatten( this->getComponent<pod::Transform<>>() );
 					auto model = uf::transform::model( flatten );
@@ -965,7 +967,8 @@ void ext::Gui::render() {
 					uniforms.matrices.model[i] = ::matrix * rotation;
 				*/
 					auto& scene = this->getRootParent<uf::Scene>();
-					auto& camera = scene.getController()->getComponent<uf::Camera>();
+					auto& controller = scene.getController();
+					auto& camera = controller.getComponent<uf::Camera>();
 
 					pod::Transform<> flatten = uf::transform::flatten( this->getComponent<pod::Transform<>>() );
 					auto model = uf::transform::model( flatten );
@@ -1018,7 +1021,7 @@ void ext::Gui::render() {
 		{
 		/* Update GUI panel */ {
 			auto& scene = this->getRootParent<uf::Scene>();
-			auto& controller = *scene.getController();
+			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
 			auto* renderMode = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode("Gui");
 			if ( renderMode->getName() == "Gui" ) {

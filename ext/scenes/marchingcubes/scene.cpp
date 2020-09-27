@@ -22,101 +22,14 @@
 
 EXT_OBJECT_REGISTER_CPP(TestScene_MarchingCubes)
 void ext::TestScene_MarchingCubes::initialize() {
-	uf::Scene::initialize();
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
-
-	this->addHook( "system:Quit.%UID%", [&](const std::string& event)->std::string{
-		std::cout << event << std::endl;
-		ext::ready = false;
-		return "true";
-	});
-	{
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
-			std::string asset = json["asset"].asString();
-			std::string uid = json["uid"].asString();
-
-			assetLoader.load(asset, "asset:Load." + uid);
-
-			return "true";
-		});
-	}
-	{
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		this->addHook( "menu:Pause", [&](const std::string& event)->std::string{
-			if ( timer.elapsed().asDouble() < 1 ) return "false";
-			timer.reset();
-
-			uf::Serializer json = event;
-			ext::Gui* manager = (ext::Gui*) this->findByName("Gui Manager");
-			if ( !manager ) return "false";
-			uf::Serializer payload;
-			ext::Gui* gui = (ext::Gui*) manager->findByUid( (payload["uid"] = manager->loadChild("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
-			uf::Serializer& metadata = gui->getComponent<uf::Serializer>();
-			metadata["menu"] = json["menu"];
-			gui->initialize();
-			return payload;
-		});
-	}
-
-	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = uf::renderer::width;
-		metadata["window"]["size"]["y"] = uf::renderer::height;
-		
-		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
-			pod::Vector2ui size; {
-				size.x = json["window"]["size"]["x"].asUInt64();
-				size.y = json["window"]["size"]["y"].asUInt64();
-			}
-
-			metadata["window"] = json["window"];
-
-			return "true";
-		});
-	}
-
-	// lock control
-	{
-		uf::Serializer payload;
-		payload["state"] = true;
-		uf::hooks.call("window:Mouse.CursorVisibility", payload);
-		uf::hooks.call("window:Mouse.Lock");
-	}
+	ext::Scene::initialize();
 }
 
 void ext::TestScene_MarchingCubes::render() {
-	uf::Scene::render();
+	ext::Scene::render();
 }
 void ext::TestScene_MarchingCubes::tick() {
-	uf::Scene::tick();
-
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
-
-	/* Regain control if nothing requests it */ {
-		ext::Gui* menu = (ext::Gui*) this->findByName("Gui: Menu");
-		if ( !menu ) {
-			uf::Serializer payload;
-			payload["state"] = false;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-			uf::hooks.call("window:Mouse.Lock");
-		}
-	}
-
-	/* Updates Sound Listener */ {
-		pod::Transform<>& transform = this->getController()->getComponent<pod::Transform<>>();
-		
-		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
-		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
-		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
-	}
+	ext::Scene::tick();
 
 	/* Collision */ {
 		bool local = false;

@@ -1,13 +1,9 @@
 #pragma once
 
-#include <uf/config.h>
-#include <uf/ext/ext.h>
-#include <uf/engine/entity/entity.h>
-
-#include <uf/engine/scene/scene.h>
+#include "../base.h"
 
 namespace ext {
-	class EXT_API TestScene_WorldScape : public uf::Scene {
+	class EXT_API TestScene_WorldScape : public ext::Scene {
 	public:
 		virtual void initialize();
 		virtual void tick();

@@ -121,10 +121,10 @@ void ext::Heightmap::render() {
 	/* Update uniforms */ if ( this->hasComponent<MESH_TYPE>() ) {
 		auto& mesh = this->getComponent<MESH_TYPE>();
 		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& root = this->getRootParent<uf::Scene>();
-		auto& player = *root.getController();
-		auto& camera = player.getComponent<uf::Camera>();
-		auto& transform = player.getComponent<pod::Transform<>>();
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+		auto& transform = controller.getComponent<pod::Transform<>>();
 		auto& model = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();

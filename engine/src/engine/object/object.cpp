@@ -71,14 +71,10 @@ void uf::Object::destroy() {
 }
 void uf::Object::tick() {
 	uf::Entity::tick();
+
 	// listen for metadata file changes
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( metadata["system"]["hot reload"]["enabled"].asBool() ) {
-	/*
-		std::string filename = "./entities/"+metadata["system"]["source"].asString();
-		std::string root = "./data/" + uf::string::directory(filename);
-		size_t mtime = uf::string::mtime( root + uf::string::filename(filename) );
-	*/
 		size_t mtime = uf::string::mtime( metadata["system"]["source"].asString() );
 		if ( metadata["system"]["hot reload"]["mtime"].asUInt64() < mtime ) {
 			std::cout << metadata["system"]["hot reload"]["mtime"] << ": " << mtime << std::endl;
@@ -115,7 +111,8 @@ void uf::Object::render() {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& graphic = this->getComponent<uf::Graphic>();
 			auto& transform = this->getComponent<pod::Transform<>>();
-			auto& camera = scene.getController()->getComponent<uf::Camera>();		
+			auto& controller = scene.getController();
+			auto& camera = controller.getComponent<uf::Camera>();		
 			
 			if ( !graphic.initialized ) return;
 
@@ -399,23 +396,45 @@ bool uf::Object::load( const uf::Serializer& json ) {
 		uf::Serializer target = metadata["system"]["lights"];
 		for ( uint i = 0; i < target.size(); ++i ) {
 			uf::Serializer json = target[i];
-			auto* light = this->findByUid(this->loadChild("/light.json", false));
-			if ( !light ) continue;
-			auto& metadata = light->getComponent<uf::Serializer>();
-			auto& transform = light->getComponent<pod::Transform<>>();
-			if ( json["position"].isArray() )
-				for ( uint j = 0; j < 3; ++j ) transform.position[j] = json["position"][j].asFloat();
-			if ( json["orientation"].isArray() )
-				for ( uint j = 0; j < 4; ++j ) transform.orientation[j] = json["orientation"][j].asFloat();
+			std::vector<pod::Vector4f> orientations;
+			if ( json["transform"]["orientation"].isNull() && json["shadows"]["fov"].asFloat() == 0.0f ) {
+				orientations.reserve(6);
+				orientations.push_back({0, 0, 0, -1});
+				orientations.push_back({0, 0.707107, 0, -0.707107});
+				orientations.push_back({0, 1, 0, 0});
+				orientations.push_back({0, 0.707107, 0, 0.707107});
+				orientations.push_back({-0.707107, 0, 0, -0.707107});
+				orientations.push_back({0.707107,  0, 0, -0.707107});
+				json["shadows"]["fov"] = 90.0f;
+			} else {
+				pod::Vector4f orientation;
+				for ( uint j = 0; j < 4; ++j ) orientation[j] = json["transform"]["orientation"][j].asFloat();
+				orientations.push_back(orientation);
+			}
+			uf::Object* target = this;
+			for ( auto& orientation : orientations ) {
+				auto* light = target->findByUid(target->loadChild("/light.json", false));
+				if ( !light ) continue;
+				if ( target == this ) target = (uf::Object*) light;
+				auto& metadata = light->getComponent<uf::Serializer>();
+				auto& transform = light->getComponent<pod::Transform<>>();
+				if ( json["transform"]["position"].isArray() )
+					for ( uint j = 0; j < 3; ++j )
+						transform.position[j] = json["transform"]["position"][j].asFloat();
+				for ( uint j = 0; j < 4; ++j )
+					transform.orientation[j] = orientation[j];
 
-			if ( !json["color"].isNull() ) metadata["light"]["color"] = json["color"];
-			if ( !json["radius"].isNull() ) metadata["light"]["radius"] = json["radius"];
-			if ( !json["power"].isNull() ) metadata["light"]["power"] = json["power"];
-			if ( !json["shadows"].isNull() ) metadata["light"]["shadows"] = json["shadows"];
+				if ( !json["color"].isNull() ) metadata["light"]["color"] = json["color"];
+				if ( !json["radius"].isNull() ) metadata["light"]["radius"] = json["radius"];
+				if ( !json["power"].isNull() ) metadata["light"]["power"] = json["power"];
+				if ( !json["shadows"].isNull() ) metadata["light"]["shadows"] = json["shadows"];
+				if ( !json["flicker"].isNull() ) metadata["light"]["flicker"] = json["flicker"];
+				if ( !json["fade"].isNull() ) metadata["light"]["fade"] = json["fade"];
 
-			light->initialize();
+				if ( !json["system"]["track"].isNull() ) metadata["system"]["track"] = json["system"]["track"];
 
-			// std::cout << json << "\t" << metadata["light"] << std::endl;
+				light->initialize();
+			}
 		}
 	}
 

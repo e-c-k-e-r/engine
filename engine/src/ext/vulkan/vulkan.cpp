@@ -177,6 +177,7 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	renderModes.push_back(mode);
 	std::cout << "Adding RenderMode: " << name << ": " << mode->getType() << std::endl;
 	// reorder
+	ext::vulkan::rebuild = true;
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
@@ -216,6 +217,7 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
 	mode->destroy();
 	if ( free ) delete mode;
+	ext::vulkan::rebuild = true;
 }
 
 void ext::vulkan::initialize( uint8_t stage ) {
@@ -292,7 +294,10 @@ void ext::vulkan::tick() {
 	}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
-		if ( !renderMode->device ) renderMode->initialize(ext::vulkan::device);
+		if ( !renderMode->device ) {
+			renderMode->initialize(ext::vulkan::device);
+			ext::vulkan::rebuild = true;
+		}
 		renderMode->tick();
 	}
 	for ( auto& renderMode : renderModes ) {
