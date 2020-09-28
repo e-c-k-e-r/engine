@@ -22,19 +22,9 @@
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
-#include "behavior_test.h"
-
 EXT_OBJECT_REGISTER_CPP(TestScene_Map)
 void ext::TestScene_Map::initialize() {
 	ext::Scene::initialize();
-
-	{
-		uf::Object* object = new uf::Object;
-		this->addChild(*object);
-		ext::TestBehavior::attach( *object );
-
-		object->initialize();
-	}
 }
 
 void ext::TestScene_Map::render() {

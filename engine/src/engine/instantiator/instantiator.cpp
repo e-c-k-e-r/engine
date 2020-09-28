@@ -1,16 +1,11 @@
 #include <uf/engine/instantiator/instantiator.h>
+#include <uf/engine/object/object.h>
 #include <assert.h>
 
-std::unordered_map<std::type_index, std::string>* uf::instantiator::names = NULL;
-std::unordered_map<std::string, uf::instantiator::function_t>* uf::instantiator::map = NULL;
+pod::NamedTypes<pod::Instantiator>* uf::instantiator::objects = NULL;
+pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
 
 uf::Entity* uf::instantiator::alloc( size_t size ) {
-/*
-	uf::Entity* pointer = (uf::Entity*) uf::Entity::memoryPool.alloc( NULL, size );
-	std::cout << "malloc uf::Entity: "<< pointer <<" (size: " << size << ")" << std::endl;
-	return pointer;
-*/
-//	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : uf::Entity::memoryPool;
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
 	return (uf::Entity*) memoryPool.alloc( NULL, size );
@@ -25,19 +20,8 @@ uf::Entity* uf::instantiator::alloc( size_t size ) {
 	else pointer = (uf::Entity*) malloc( size );
 	return pointer;
 #endif
-/*
-	uf::Entity* pointer = ( memoryPool.size() <= 0 ) ? (uf::Entity*) ::malloc( size ) : (uf::Entity*) memoryPool.alloc( NULL, size );
-	// std::cout << "malloc uf::Entity: "<< pointer <<" (size: " << size << ")" << std::endl;
-	return pointer;
-*/
-/*
-	std::cout << "malloc uf::Entity (size: " << size << ")" << std::endl;
-	if ( memoryPool.size() <= 0 ) return (uf::Entity*) ::malloc( size );
-	return (uf::Entity*) memoryPool.alloc( NULL, size );
-*/
 }
 void uf::instantiator::free( uf::Entity* pointer ) {
-//	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : uf::Entity::memoryPool;
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
 	memoryPool.free( pointer );
@@ -50,15 +34,39 @@ void uf::instantiator::free( uf::Entity* pointer ) {
 	if ( memoryPool ) memoryPool->free( pointer );
 	else ::free( pointer );
 #endif
-/*
-	// std::cout << "free uf::Entity: " << pointer << std::endl;
-	if ( !uf::Entity::memoryPool.free( pointer ) )
-		::free(pointer);
-*/
 }
-uf::Entity* uf::instantiator::instantiate( const std::string& name ) {
-	// std::cout << "instantiating " << name << std::endl;
-	auto& map = *uf::instantiator::map;
-	assert( map.count(name) > 0 );
-	return map[name]();
+
+void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
+	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
+	auto& instantiator = uf::instantiator::objects->get( object );
+	instantiator.behaviors.emplace_back( behavior );
+	
+	std::cout << "Registered binding: " << object << " and " << behavior << std::endl;
+}
+
+uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
+	if ( !uf::instantiator::objects->has( name ) ) {
+		auto& object = uf::instantiator::instantiate<uf::Object>();
+		return *((uf::Entity*) &object);
+	}
+	auto& instantiator = uf::instantiator::objects->get( name );
+	auto& entity = *instantiator.function();
+	bind( name, entity );
+	return entity;
+}
+
+void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
+	// was actually a behavior name, single bind
+	if ( !uf::instantiator::objects->has( name ) ) {
+		if ( !uf::instantiator::behaviors->has( name ) ) return;
+		auto& behavior = uf::instantiator::behaviors->get( name );
+		entity.addBehavior(behavior);
+		return;
+	}
+
+	auto& instantiator = uf::instantiator::objects->get( name );
+	for ( auto& name : instantiator.behaviors ) {
+		auto& behavior = uf::instantiator::behaviors->get( name );
+		entity.addBehavior(behavior);
+	}
 }

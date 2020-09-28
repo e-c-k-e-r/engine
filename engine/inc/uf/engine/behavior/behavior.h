@@ -6,13 +6,17 @@
 #include <vector>
 #include <typeindex>
 
+namespace uf {
+	class UF_API Entity;
+	class UF_API Object;
+}
 
 namespace pod {
 	struct UF_API Behavior {
 		typedef std::type_index type_t;
-		typedef std::function<void()> function_t;
+		typedef std::function<void(uf::Object&)> function_t;
 
-		type_t type;
+		type_t type = std::type_index(typeid(pod::Behavior));
 		function_t initialize;
 		function_t tick;
 		function_t render;
@@ -30,6 +34,15 @@ namespace uf {
 		void tick();
 		void render();
 		void destroy();
+
+		bool hasBehavior( const pod::Behavior& );
+		template<typename T>
+		bool hasBehavior() {
+			for ( auto& behavior : this->m_behaviors ) {
+				if ( behavior.type == getType<T>() ) return true;
+			}
+			return false;
+		}
 
 		void addBehavior( const pod::Behavior& );
 		
@@ -60,11 +73,4 @@ namespace uf {
 
 }
 
-#define UF_BEHAVIOR_ENTITY_HEADER( OBJ )\
-	class UF_API OBJ ## Behavior {\
-	public:\
-		void initialize();\
-		void tick();\
-		void render();\
-		void destroy();\
-	};
+#include "macros.inl"

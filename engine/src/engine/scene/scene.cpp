@@ -3,31 +3,11 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/renderer/renderer.h>
 
-UF_OBJECT_REGISTER_CPP(Scene)
-void uf::Scene::initialize() {
-	uf::renderer::scenes.push_back(this);
-	uf::renderer::rebuild = true;
-
-	uf::Object::initialize();
-}
-void uf::Scene::tick() {
-	uf::Object::tick();
-}
-void uf::Scene::render() {
-	uf::Object::render();
-
-}
-void uf::Scene::destroy() {
-	uf::Object::destroy();
-
-	{
-		auto it = std::find(uf::renderer::scenes.begin(), uf::renderer::scenes.end(), this);
-		if ( it != uf::renderer::scenes.end() ) uf::renderer::scenes.erase(it);
-		uf::renderer::rebuild = true;
-	}
-}
-
-
+UF_OBJECT_REGISTER_BEGIN(Scene)
+	UF_OBJECT_REGISTER_BEHAVIOR(EntityBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(ObjectBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(SceneBehavior)
+UF_OBJECT_REGISTER_END()
 uf::Entity& uf::Scene::getController() {
 	static uf::Entity* cachedController = NULL;
 	if ( uf::renderer::currentRenderMode ) {
@@ -58,7 +38,12 @@ const uf::Entity& uf::Scene::getController() const {
 #include <regex>
 std::vector<uf::Scene*> uf::scene::scenes;
 uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
-	uf::Scene* scene = (uf::Scene*) uf::instantiator::instantiate( name );
+	uf::Scene* scene;
+	if ( uf::instantiator::objects->has( name ) ) {
+		scene = (uf::Scene*) &uf::instantiator::instantiate( name );
+	} else {
+		scene = new uf::Scene;
+	}
 	uf::scene::scenes.push_back(scene);
 	
 	std::string target = name;
@@ -70,13 +55,17 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& fil
 		target = match[2];
 	}
 	target = uf::string::lowercase( target );
-	
 	scene->load(filename != "" ? filename : "./scenes/" + target + "/scene.json");
 	scene->initialize();
 	return *scene;
 }
 uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& data ) {
-	uf::Scene* scene = (uf::Scene*) uf::instantiator::instantiate( name );
+	uf::Scene* scene;
+	if ( uf::instantiator::objects->has( name ) ) {
+		scene = (uf::Scene*) &uf::instantiator::instantiate( name );
+	} else {
+		scene = new uf::Scene;
+	}
 	uf::scene::scenes.push_back(scene);
 	if ( data != "" ) scene->load(data);
 	scene->initialize();

@@ -1,0 +1,61 @@
+#pragma once
+
+#define NAMESPACE_CONCAT
+#define UF_OBJECT_REGISTER_CPP( OBJ ) \
+namespace {\
+	static uf::StaticInitialization REGISTER_UF_ ## OBJ( []{\
+		uf::instantiator::registerObject<uf::OBJ>( #OBJ );\
+	});\
+}
+#define EXT_OBJECT_REGISTER_CPP( OBJ ) \
+namespace {\
+	static uf::StaticInitialization REGISTER_EXT_ ## OBJ( []{\
+		uf::instantiator::registerObject<ext::OBJ>( #OBJ );\
+	});\
+}
+#define UF_BEHAVIOR_REGISTER_CPP( BEHAVIOR ) \
+namespace {\
+	static uf::StaticInitialization REGISTER_UF_ ## BEHAVIOR( []{\
+		uf::instantiator::registerBehavior<uf::BEHAVIOR>( #BEHAVIOR );\
+	});\
+}
+#define EXT_BEHAVIOR_REGISTER_CPP( BEHAVIOR ) \
+namespace {\
+	static uf::StaticInitialization REGISTER_EXT_ ## BEHAVIOR( []{\
+		uf::instantiator::registerBehavior<ext::BEHAVIOR>( #BEHAVIOR );\
+	});\
+}
+
+#define UF_OBJECT_REGISTER_BEGIN( OBJ )\
+namespace {\
+	static uf::StaticInitialization REGISTER_EXT_ ## OBJ( []{\
+		std::string name = #OBJ;\
+		uf::instantiator::registerObject<uf::OBJ>( name );
+
+#define UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBinding( name, #BEHAVIOR );
+
+#define UF_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBehavior<uf::BEHAVIOR>( #BEHAVIOR );\
+		UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )
+
+#define UF_OBJECT_REGISTER_END()\
+	});\
+}
+
+#define EXT_OBJECT_REGISTER_BEGIN( OBJ )\
+namespace {\
+	static uf::StaticInitialization REGISTER_EXT_ ## OBJ( []{\
+		std::string name = #OBJ;\
+		uf::instantiator::registerObject<ext::OBJ>( name );
+
+#define EXT_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBinding( name, #BEHAVIOR );
+
+#define EXT_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBehavior<ext::BEHAVIOR>( #BEHAVIOR );\
+		EXT_OBJECT_BIND_BEHAVIOR( BEHAVIOR )
+
+#define EXT_OBJECT_REGISTER_END()\
+	});\
+}

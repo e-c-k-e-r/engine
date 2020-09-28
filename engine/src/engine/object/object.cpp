@@ -9,9 +9,8 @@
 #include <uf/utils/graphic/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
+uf::Timer<long long> uf::Object::timer(false);
 namespace {
-	uf::Timer<long long> timer(false);
-
 	std::string grabURI( std::string filename, std::string root = "" ) {
 		if ( filename.substr(0,8) == "https://" ) return filename;
 		std::string extension = uf::string::extension(filename);
@@ -26,116 +25,13 @@ namespace {
 	}
 }
 
-UF_OBJECT_REGISTER_CPP(Object)
-void uf::Object::initialize() {	
-	uf::Entity::initialize();
-
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["asset load"].asBool()  ) {
-		// Default load: GLTF model
-		this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-			uf::Serializer json = event;
-			std::string filename = json["filename"].asString();
-
-			if ( uf::string::extension(filename) != "glb" ) return "false";
-			int8_t LOAD_FLAGS = 0;
-			if ( metadata["model"]["flags"]["GENERATE_NORMALS"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::GENERATE_NORMALS; 	// 0x1 << 0;
-			if ( metadata["model"]["flags"]["APPLY_TRANSFORMS"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::APPLY_TRANSFORMS; 	// 0x1 << 1;
-			if ( metadata["model"]["flags"]["SEPARATE_MESHES"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::SEPARATE_MESHES; 	// 0x1 << 2;
-			if ( metadata["model"]["flags"]["RENDER"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::RENDER; 				// 0x1 << 3;
-			if ( metadata["model"]["flags"]["COLLISION"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::COLLISION; 			// 0x1 << 4;
-			if ( metadata["model"]["flags"]["AABB"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::AABB; 				// 0x1 << 5;
-
-			ext::gltf::load( *this, filename, LOAD_FLAGS );
-			return "true";
-		});
-	}
-}
-void uf::Object::destroy() {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	for( Json::Value::iterator it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
-	 	std::string name = it.key().asString();
-		for ( size_t i = 0; i < metadata["system"]["hooks"]["alloc"][name].size(); ++i ) {
-			size_t id = metadata["system"]["hooks"]["alloc"][name][(int) i].asUInt();
-			uf::hooks.removeHook(name, id);
-		}
-	}
-	
-	uf::Entity::destroy();
-}
-void uf::Object::tick() {
-	uf::Entity::tick();
-
-	// listen for metadata file changes
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["hot reload"]["enabled"].asBool() ) {
-		size_t mtime = uf::string::mtime( metadata["system"]["source"].asString() );
-		if ( metadata["system"]["hot reload"]["mtime"].asUInt64() < mtime ) {
-			std::cout << metadata["system"]["hot reload"]["mtime"] << ": " << mtime << std::endl;
-			metadata["system"]["hot reload"]["mtime"] = mtime;
-			this->reload();
-			//this->queueHook("metadata:Reload.%UID%");
-		}
-	}
-
-	// Call queued hooks
-	{
-		if ( !timer.running() ) timer.start();
-		float curTime = timer.elapsed().asDouble();
-		uf::Serializer newQueue = Json::Value(Json::arrayValue);
-		for ( auto& member : metadata["system"]["hooks"]["queue"] ) {
-			uf::Serializer payload = member["payload"];
-			std::string name = member["name"].asString();
-			float timeout = member["timeout"].asFloat();
-			if ( timeout < curTime ) {
-				this->callHook( name, payload );
-			} else {
-				newQueue.append(member);
-			}
-		}
-		if ( metadata.isObject() ) metadata["system"]["hooks"]["queue"] = newQueue;
-	}
-}
-void uf::Object::render() {
-	uf::Entity::render();
-
-	auto& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["render"].asBool() ) {
-		/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& graphic = this->getComponent<uf::Graphic>();
-			auto& transform = this->getComponent<pod::Transform<>>();
-			auto& controller = scene.getController();
-			auto& camera = controller.getComponent<uf::Camera>();		
-			
-			if ( !graphic.initialized ) return;
-
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
-			uniforms.matrices.model = uf::transform::model( transform );
-			for ( std::size_t i = 0; i < 2; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-
-			uniforms.color[0] = 1;
-			uniforms.color[1] = 1;
-			uniforms.color[2] = 1;
-			uniforms.color[3] = 1;
-
-			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
-		};
-	}
-}
-
+UF_OBJECT_REGISTER_BEGIN(Object)
+	UF_OBJECT_REGISTER_BEHAVIOR(EntityBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(ObjectBehavior)
+UF_OBJECT_REGISTER_END()
 void uf::Object::queueHook( const std::string& name, const std::string& payload, double timeout ) {
-	if ( !timer.running() ) timer.start();
-	float start = timer.elapsed().asDouble();
+	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+	float start = uf::Object::timer.elapsed().asDouble();
 	uf::Serializer queue;
 	queue["name"] = name;
 	queue["payload"] = uf::Serializer{payload};
@@ -211,6 +107,21 @@ bool uf::Object::load( const uf::Serializer& json ) {
 	{
 		// Set name
 		this->m_name = json["name"].isString() ? json["name"].asString() : json["type"].asString();
+	}
+	// Bind behaviors
+	if ( json["type"].isString() ) {
+		uf::instantiator::bind( json["type"].asString(), *this );
+	}
+	{
+		uf::Serializer target;
+		if ( metadata["system"]["behaviors"].isArray() ) {
+			target = metadata["system"]["behaviors"];
+		} else if ( json["behaviors"].isArray() ) {
+			target = json["behaviors"];
+		}
+		for ( uint i = 0; i < target.size(); ++i ) {
+			uf::instantiator::bind( target[i].asString(), *this );
+		}
 	}
 	// Set transform
 	{
@@ -444,7 +355,7 @@ std::size_t uf::Object::loadChild( const uf::Serializer& json, bool initialize )
 	uf::Entity* entity;
 	std::string type = json["type"].asString();
 	if ( json["ignore"].asBool() ) return 0;
-	entity = uf::instantiator::instantiate(type);
+	entity = &uf::instantiator::instantiate(type);
 
 	if ( !((uf::Object*) entity)->load(json) ) {
 		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << " loading `" << json << "!" << "\n";

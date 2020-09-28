@@ -1,27 +1,36 @@
 #include <uf/engine/behavior/behavior.h>
+#include <uf/engine/object/object.h>
 
+bool uf::Behaviors::hasBehavior( const pod::Behavior& target ) {
+	for ( auto& behavior : this->m_behaviors ) {
+		if ( behavior.type == target.type ) return true;
+	}
+	return false;
+}
 void uf::Behaviors::addBehavior( const pod::Behavior& behavior ) {
-	std::cout << "[!!!] behavior attached" << std::endl;
+	if ( hasBehavior( behavior ) ) return;
 	this->m_behaviors.emplace_back(behavior);
 }
 
 void uf::Behaviors::initialize() {
-	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it ) {
-		std::cout << "[!!!] behavior called: initialize" << std::endl;
-		it->initialize();
-	}
+	uf::Object& self = *((uf::Object*) this);
+	for ( auto& behavior : this->m_behaviors ) behavior.initialize(self);
 }
 void uf::Behaviors::tick() {
-	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it )
-		it->tick();
+	uf::Object& self = *((uf::Object*) this);
+	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it ) {
+		it->tick(self);
+	}
 }
 void uf::Behaviors::render() {
-	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it )
-		it->render();
+	uf::Object& self = *((uf::Object*) this);
+	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it ) {
+		it->render(self);
+	}
 }
 void uf::Behaviors::destroy() {
+	uf::Object& self = *((uf::Object*) this);
 	for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it ) {
-		std::cout << "[!!!] behavior called: destroy" << std::endl;
-		it->destroy();
+		it->destroy(self);
 	}
 }

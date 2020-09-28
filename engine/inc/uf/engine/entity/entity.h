@@ -9,16 +9,8 @@
 #include <uf/utils/mempool/mempool.h>
 
 namespace uf {
-/*
-	class UF_API EntityBehavior {
-	public:
-		void initialize();
-		void destroy();
-		void tick();
-		void render();
-	};
-*/
 	class UF_API Entity : public uf::Behaviors {
+	friend class EntityBehavior;
 	public:
 		typedef std::vector<uf::Entity*> container_t;
 	protected:
@@ -30,9 +22,9 @@ namespace uf {
 
 		std::size_t m_uid = 0;
 		std::string m_name = "Entity";
+
 	public:
 		static uf::MemoryPool memoryPool;
-		Entity( bool = false );
 		virtual ~Entity();
 		// identifiers
 		const std::string& getName() const;
@@ -65,11 +57,10 @@ namespace uf {
 		static uf::Entity* globalFindByUid( size_t id );
 		static uf::Entity* globalFindByName( const std::string& name );
 
-		// behavior
-		virtual void initialize();
-		virtual void destroy();
-		virtual void tick();
-		virtual void render();
+		Entity();
+		UF_BEHAVIOR_VIRTUAL_H()
 	};
 }
+
 #include "entity.inl"
+#include "behavior.h"

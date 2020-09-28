@@ -5,9 +5,6 @@
 uf::Entity uf::Entity::null;
 std::size_t uf::Entity::uids = 0;
 uf::MemoryPool uf::Entity::memoryPool;
-uf::Entity::Entity( bool shouldInitialize ){
-	if ( shouldInitialize ) this->initialize();
-}
 uf::Entity::~Entity(){
 	this->destroy();
 }
@@ -51,7 +48,7 @@ std::size_t uf::Entity::getUid() const {
 }
 
 void* uf::Entity::operator new(size_t size, const std::string& type ) {
-	return type != "" && size == sizeof(uf::Entity) ? uf::instantiator::instantiate( type ) : uf::instantiator::alloc( size );
+	return type != "" && size == sizeof(uf::Entity) ? &uf::instantiator::instantiate( type ) : uf::instantiator::alloc( size );
 }
 void uf::Entity::operator delete( void* pointer ) {
 	uf::instantiator::free( (uf::Entity*) pointer );
@@ -120,72 +117,3 @@ uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
 	}
 	return NULL;
 }
-
-
-void uf::Entity::initialize(  ){
-	if ( this->m_uid == 0 ) this->m_uid = ++uf::Entity::uids;
-
-	uf::Behaviors::initialize();
-}
-void uf::Entity::tick( ){
-	uf::Behaviors::tick();
-
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->tick();
-	}
-}
-void uf::Entity::render( ){
-	uf::Behaviors::render();
-	
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->render();
-	}
-}
-void uf::Entity::destroy( ){
-	uf::Behaviors::destroy();
-
-	for ( uf::Entity* kv : this->m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->destroy();
-		kv->setParent();
-		delete kv;
-	}
-	this->m_children.clear();
-	this->m_uid = 0;
-}
-
-/*
-void uf::EntityBehavior::initialize( uf::Entity& base ){
-	if ( base.m_uid == 0 ) base.m_uid = ++uf::Entity::uids;
-}
-void uf::EntityBehavior::destroy( uf::Entity& entity ){
-	for ( uf::Entity* kv : base.m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->destroy();
-		kv->setParent();
-		delete kv;
-	}
-	base.m_children.clear();
-	base.m_uid = 0;
-}
-void uf::EntityBehavior::tick( uf::Entity& entity ){
-	for ( uf::Entity* kv : base.m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->tick();
-	}
-}
-void uf::EntityBehavior::render( uf::Entity& entity ){
-	for ( uf::Entity* kv : base.m_children ) {
-		if ( !kv ) continue;
-		if ( kv->getUid() == 0 ) continue;
-		kv->render();
-	}
-}
-*/

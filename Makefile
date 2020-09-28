@@ -110,3 +110,11 @@ clean-win64:
 	@-rm -f $(OBJS_WIN64_DLL)
 	@-rm -f $(OBJS_EXT_WIN64_DLL)
 	@-rm -f $(OBJS_WIN64)
+
+clean-uf-win64:
+	@-rm $(EX_WIN64_DLL)
+	@-rm -f $(OBJS_WIN64_DLL)
+
+clean-ext-win64:
+	@-rm $(EXT_EX_WIN64_DLL)
+	@-rm -f $(OBJS_EXT_WIN64_DLL)
