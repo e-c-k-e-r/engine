@@ -7,7 +7,7 @@
 #include <uf/ext/oal/oal.h>
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/quaternion.h>
@@ -39,12 +39,17 @@ namespace uf {
 		void setOrientation( const pod::Quaternion<>& );
 		void setVolume( float );
 
+		ALfloat getPitch();
+		void setPitch( ALfloat );
+		ALfloat getGain();
+		void setGain( ALfloat );
+
 		float getVolume() const;
 		const std::string& getFilename() const;
 	};
 	class UF_API SoundEmitter {
 	public:
-		typedef std::map<std::string, uf::Audio> container_t;
+		typedef std::unordered_map<std::string, uf::Audio> container_t;
 	protected:
 		uf::SoundEmitter::container_t m_container;
 	public:
@@ -52,6 +57,8 @@ namespace uf {
 		uf::Audio& add( const uf::Audio& );
 		uf::Audio& get( const std::string& );
 		const uf::Audio& get( const std::string& ) const;
+		container_t& get();
+		const container_t& get() const;
 
 		void cleanup( bool = false );
 	};

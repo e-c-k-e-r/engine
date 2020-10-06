@@ -25,6 +25,12 @@ namespace {\
 		uf::instantiator::registerBehavior<ext::BEHAVIOR>( #BEHAVIOR );\
 	});\
 }
+#define EXT_BEHAVIOR_REGISTER_AS_OBJECT( BEHAVIOR, OBJ )\
+namespace {\
+	static uf::StaticInitialization REGISTER_AS_OBJECT_EXT_ ## BEHAVIOR( []{\
+		uf::instantiator::registerBinding( #OBJ, #BEHAVIOR );\
+	});\
+}
 
 #define UF_OBJECT_REGISTER_BEGIN( OBJ )\
 namespace {\

@@ -11,6 +11,7 @@ namespace ext {
 			RENDER 					= 0x1 << 3,
 			COLLISION 				= 0x1 << 4,
 			AABB 					= 0x1 << 5,
+			THREADED 				= 0x1 << 6,
 		};
 		bool UF_API load( uf::Object&, const std::string&, uint8_t = LoadMode::GENERATE_NORMALS | LoadMode::RENDER );
 	}

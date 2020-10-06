@@ -11,17 +11,19 @@
 
 uf::Timer<long long> uf::Object::timer(false);
 namespace {
+	uf::Object null;
 	std::string grabURI( std::string filename, std::string root = "" ) {
 		if ( filename.substr(0,8) == "https://" ) return filename;
-		std::string extension = uf::string::extension(filename);
+		std::string extension = uf::io::extension(filename);
 		if ( filename[0] == '/' || root == "" ) {
 			if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
 			else if ( extension == "json" ) root = "./data/entities/";
 			else if ( extension == "png" ) root = "./data/textures/";
 			else if ( extension == "glb" ) root = "./data/models/";
+			else if ( extension == "gltf" ) root = "./data/models/";
 			else if ( extension == "ogg" ) root = "./data/audio/";
 		}
-		return uf::string::sanitize(filename, root);
+		return uf::io::sanitize(filename, root);
 	}
 }
 
@@ -64,9 +66,9 @@ bool uf::Object::load( const std::string& f, bool inheritRoot ) {
 		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 		return false;
 	}
-	json["root"] = uf::string::directory(filename);
-	json["source"] = filename; // uf::string::filename(filename);
-	json["hot reload"]["mtime"] = uf::string::mtime(filename);
+	json["root"] = uf::io::directory(filename);
+	json["source"] = filename; // uf::io::filename(filename);
+	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
 	return this->load(json);
 }
 
@@ -74,7 +76,7 @@ bool uf::Object::reload( bool hard ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( !metadata["system"]["source"].isString() ) return false;
 	uf::Serializer json;
-	std::string filename = metadata["system"]["source"].asString(); //grabURI( metadata["system"]["source"].asString(), metadata["system"]["root"].asString() ); // uf::string::sanitize(metadata["system"]["source"].asString(), metadata["system"]["root"].asString());
+	std::string filename = metadata["system"]["source"].asString(); //grabURI( metadata["system"]["source"].asString(), metadata["system"]["root"].asString() ); // uf::io::sanitize(metadata["system"]["source"].asString(), metadata["system"]["root"].asString());
 	if ( !json.readFromFile( filename ) ) {
 		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 		uf::iostream << this << ": " << this->getName() << ": " << this->getUid() << ": " << metadata << "\n";
@@ -84,25 +86,21 @@ bool uf::Object::reload( bool hard ) {
 	for ( auto it = json["metadata"].begin(); it != json["metadata"].end(); ++it ) {
 		metadata[it.key().asString()] = json["metadata"][it.key().asString()];
 	}
+	std::cout << "Updated metadata for " << this->getName() << ": " << this->getUid() << std::endl;
 	this->queueHook("object:Reload.%UID%");
 	return true;
 }
 
-std::size_t uf::Object::loadChild( const std::string& f, bool initialize ) {
+bool uf::Object::load( const uf::Serializer& _json ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	uf::Serializer json;
-	std::string filename = grabURI( f, metadata["system"]["root"].asString() );
-	if ( !json.readFromFile(filename) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
-		return -1;
+	uf::Serializer json = _json;
+	// copy system table to base
+	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
+		std::string key = it.key().asString();
+		if ( json[key].isNull() )
+			json[key] = json["system"][key];
 	}
-	json["root"] = uf::string::directory(filename);
-	json["source"] = metadata["system"]["source"].asString(); //uf::string::filename(filename);
-	json["hot reload"]["mtime"] = uf::string::mtime( filename );
-	return this->loadChild(json, initialize);
-}
-bool uf::Object::load( const uf::Serializer& json ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	json["hot reload"]["enabled"] = json["system"]["hot reload"]["enabled"];
 	// Basic entity information
 	{
 		// Set name
@@ -111,6 +109,12 @@ bool uf::Object::load( const uf::Serializer& json ) {
 	// Bind behaviors
 	if ( json["type"].isString() ) {
 		uf::instantiator::bind( json["type"].asString(), *this );
+	}
+	if ( json["defaults"]["render"].asBool() ) {
+		uf::instantiator::bind( "RenderBehavior", *this );
+	}
+	if ( json["defaults"]["asset load"].asBool() ) {
+		uf::instantiator::bind( "GltfBehavior", *this );
 	}
 	{
 		uf::Serializer target;
@@ -193,14 +197,14 @@ bool uf::Object::load( const uf::Serializer& json ) {
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
 			std::string canonical = "";
-			std::string f = target[i].asString();
-			std::string filename = grabURI( target[i].asString(), json["root"].asString() );
-			if ( uf::string::extension(filename) != "ogg" ) continue;
-			if ( (canonical = assetLoader.load( filename )) != "" ) {
-				uf::Serializer payload;
-				payload["filename"] = canonical;
-				this->queueHook( "asset:Load.%UID%", payload );
-			}
+			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
+			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
+			std::string filename = grabURI( f, json["root"].asString() );
+			if ( uf::io::extension(filename) != "ogg" ) continue;
+			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
+			uf::Serializer payload;
+			payload["filename"] = canonical;
+			this->queueHook( "asset:Load.%UID%", payload, delay );
 		}
 	}
 
@@ -217,14 +221,14 @@ bool uf::Object::load( const uf::Serializer& json ) {
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
 			std::string canonical = "";
-			std::string f = target[i].asString();
-			std::string filename = grabURI( target[i].asString(), json["root"].asString() );
-			if ( uf::string::extension(filename) != "png" ) continue;
-			if ( (canonical = assetLoader.load( filename )) != "" ) {
-				uf::Serializer payload;
-				payload["filename"] = canonical;
-				this->queueHook( "asset:Load.%UID%", payload );
-			}
+			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
+			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
+			std::string filename = grabURI( f, json["root"].asString() );
+			if ( uf::io::extension(filename) != "png" ) continue;
+			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
+			uf::Serializer payload;
+			payload["filename"] = canonical;
+			this->queueHook( "asset:Load.%UID%", payload, delay );
 		}
 	}
 
@@ -241,14 +245,14 @@ bool uf::Object::load( const uf::Serializer& json ) {
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
 			std::string canonical = "";
-			std::string f = target[i].asString();
-			std::string filename = grabURI( target[i].asString(), json["root"].asString() );
-			if ( uf::string::extension(filename) != "glb" ) continue;
-			if ( (canonical = assetLoader.load( filename )) != "" ) {
-				uf::Serializer payload;
-				payload["filename"] = canonical;
-				this->queueHook( "asset:Load.%UID%", payload );
-			}
+			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
+			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
+			std::string filename = grabURI( f, json["root"].asString() );
+			if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) continue;
+			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
+			uf::Serializer payload;
+			payload["filename"] = canonical;
+			this->queueHook( "asset:Load.%UID%", payload, delay );
 		}
 	}
 
@@ -270,10 +274,12 @@ bool uf::Object::load( const uf::Serializer& json ) {
 	metadata["system"] = json;
 	metadata["system"].removeMember("metadata");
 	metadata["system"]["hooks"] = hooks;
+/*
 	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
 		if ( metadata["system"][it.key().asString()].isNull() )
 			metadata["system"][it.key().asString()] = json["system"][it.key().asString()];
 	}
+*/
 
 	// check for children
 	{
@@ -286,28 +292,59 @@ bool uf::Object::load( const uf::Serializer& json ) {
 			target = metadata["system"]["assets"]["entities"];
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
+			std::string canonical = "";
+			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
+			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : -1;
+			std::string filename = grabURI( f, json["root"].asString() );
+			if ( uf::io::extension(filename) != "json" ) continue;
+			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
+			if ( delay > -1 ) {
+				uf::Serializer payload;
+				payload["filename"] = canonical;
+				this->queueHook( "asset:Load.%UID%", payload, delay );
+				continue;
+			}
+			{
+				uf::Serializer json;
+				if ( !json.readFromFile(filename) ) {
+					uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+					continue;
+				}
+				json["root"] = uf::io::directory(filename);
+				json["source"] = filename; // uf::io::filename(filename)
+				json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+				if ( this->loadChildUid(json) == -1 ) continue;
+			}
+		/*
 			uf::Serializer json;
 			std::string canonical = "";
-			std::string f = target[i].asString();
-			std::string filename = grabURI( target[i].asString(), metadata["system"]["root"].asString() );
-			if ( uf::string::extension(filename) != "json" ) continue;
+			if ( target[i].isObject() ) {
+
+				continue;
+			}
+			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
+			std::string filename = grabURI( f, metadata["system"]["root"].asString() );
+			if ( uf::io::extension(filename) != "json" ) continue;
 			if ( (filename = assetLoader.load(filename) ) == "" ) continue;
 			if ( !json.readFromFile(filename) ) {
 				uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 				continue;
 			}
-			json["root"] = uf::string::directory(filename);
-			json["source"] = filename; // uf::string::filename(filename)
-			json["hot reload"]["mtime"] = uf::string::mtime( filename );
-			if ( this->loadChild(json) == -1 ) continue;
+			json["root"] = uf::io::directory(filename);
+			json["source"] = filename; // uf::io::filename(filename)
+			json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+			if ( this->loadChildUid(json) == -1 ) continue;
+		*/
 		}
 	}
 	// Add lights
 	if ( metadata["system"]["lights"].isArray() ) {
 		uf::Serializer target = metadata["system"]["lights"];
+		auto& pTransform = this->getComponent<pod::Transform<>>();
 		for ( uint i = 0; i < target.size(); ++i ) {
 			uf::Serializer json = target[i];
 			std::vector<pod::Vector4f> orientations;
+			if ( json["ignore"].asBool() ) continue;
 			if ( json["transform"]["orientation"].isNull() && json["shadows"]["fov"].asFloat() == 0.0f ) {
 				orientations.reserve(6);
 				orientations.push_back({0, 0, 0, -1});
@@ -319,19 +356,27 @@ bool uf::Object::load( const uf::Serializer& json ) {
 				json["shadows"]["fov"] = 90.0f;
 			} else {
 				pod::Vector4f orientation;
-				for ( uint j = 0; j < 4; ++j ) orientation[j] = json["transform"]["orientation"][j].asFloat();
+				if ( json["transform"]["orientation"].isArray() ) {
+					orientation = pTransform.orientation;
+				} else {
+					for ( uint j = 0; j < 4; ++j ) orientation[j] = json["transform"]["orientation"][j].asFloat();
+				}
 				orientations.push_back(orientation);
 			}
 			uf::Object* target = this;
 			for ( auto& orientation : orientations ) {
-				auto* light = target->findByUid(target->loadChild("/light.json", false));
-				if ( !light ) continue;
-				if ( target == this ) target = (uf::Object*) light;
+				std::string fname = "/light.json";
+				if ( json["system"]["filename"].isString() ) fname = json["system"]["filename"].asString();
+				auto* light = target->loadChildPointer(fname, false);
+				if ( target == this ) target = light;
 				auto& metadata = light->getComponent<uf::Serializer>();
 				auto& transform = light->getComponent<pod::Transform<>>();
-				if ( json["transform"]["position"].isArray() )
+				if ( json["transform"]["position"].isArray() ) {
 					for ( uint j = 0; j < 3; ++j )
 						transform.position[j] = json["transform"]["position"][j].asFloat();
+				} else {
+					transform.position = pTransform.position;
+				}
 				for ( uint j = 0; j < 4; ++j )
 					transform.orientation[j] = orientation[j];
 
@@ -348,21 +393,49 @@ bool uf::Object::load( const uf::Serializer& json ) {
 			}
 		}
 	}
-
 	return true;
 }
-std::size_t uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
-	uf::Entity* entity;
-	std::string type = json["type"].asString();
-	if ( json["ignore"].asBool() ) return 0;
-	entity = &uf::instantiator::instantiate(type);
-
-	if ( !((uf::Object*) entity)->load(json) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << " loading `" << json << "!" << "\n";
-		delete entity;
-		return -1;
+uf::Object& uf::Object::loadChild( const std::string& f, bool initialize ) {
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	uf::Serializer json;
+	std::string filename = grabURI( f, metadata["system"]["root"].asString() );
+	if ( !json.readFromFile(filename) ) {
+		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+		return ::null;
 	}
-	this->addChild(*entity);
-	if ( initialize ) entity->initialize();
-	return entity->getUid();
+	json["root"] = uf::io::directory(filename);
+	json["source"] = filename; //uf::io::filename(filename);
+	json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+	return this->loadChild(json, initialize);
+}
+uf::Object& uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
+	std::string type = json["type"].asString();
+	if ( json["ignore"].asBool() ) return ::null;
+
+	uf::Entity& entity = uf::instantiator::instantiate(type);
+	uf::Object& object = entity.as<uf::Object>();
+	this->addChild(entity);
+	if ( !object.load(json) ) {
+		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << " loading `" << json << "!" << "\n";
+		this->removeChild(entity);
+		return ::null;
+	}
+	if ( initialize ) entity.initialize();
+	return object;
+}
+uf::Object* uf::Object::loadChildPointer( const std::string& f, bool initialize ) {
+	uf::Object* pointer = &this->loadChild(f, initialize);
+	return pointer != &::null ? pointer : NULL;
+}
+uf::Object* uf::Object::loadChildPointer( const uf::Serializer& json, bool initialize ) {
+	uf::Object* pointer = &this->loadChild(json, initialize);
+	return pointer != &::null ? pointer : NULL;
+}
+std::size_t uf::Object::loadChildUid( const std::string& f, bool initialize ) {
+	uf::Object* pointer = this->loadChildPointer(f, initialize);
+	return pointer ? pointer->getUid() : -1;
+}
+std::size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initialize ) {
+	uf::Object* pointer = this->loadChildPointer(json, initialize);
+	return pointer ? pointer->getUid() : -1;
 }

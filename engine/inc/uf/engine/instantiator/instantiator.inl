@@ -12,11 +12,11 @@ template<typename T> std::string pod::NamedTypes<C>::getName() {
 	return names[getType<T>()];	
 }
 template<typename C>
-bool pod::NamedTypes<C>::has( const std::string& name ) {
-	return names.count(getType(name)) > 0;
+bool pod::NamedTypes<C>::has( const std::string& name, bool useNames ) {
+	return useNames ? names.count(getType(name)) > 0 : map.count(name) > 0;
 }template<typename C>
-template<typename T> bool pod::NamedTypes<C>::has() {
-	return names.count(getType<T>()) > 0;
+template<typename T> bool pod::NamedTypes<C>::has( bool useNames ) {
+	return useNames ? names.count(getType<T>()) > 0 : map.count(getName<T>()) > 0;
 }
 template<typename C>
 template<typename T> void pod::NamedTypes<C>::add( const std::string& name, const C& c ) {
@@ -89,6 +89,15 @@ void uf::instantiator::bind( uf::Entity& entity ) {
 	for ( auto& name : instantiator.behaviors ) {
 		auto& behavior = uf::instantiator::behaviors->get( name );
 		entity.addBehavior(behavior);
+	}
+}
+
+template<typename T>
+void uf::instantiator::unbind( uf::Entity& entity ) {
+	auto& instantiator = uf::instantiator::objects->get<T>();
+	for ( auto& name : instantiator.behaviors ) {
+		auto& behavior = uf::instantiator::behaviors->get( name );
+		entity.removeBehavior(behavior);
 	}
 }
 /*

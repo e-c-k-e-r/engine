@@ -34,7 +34,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 	// Set clear values for all framebuffer attachments with loadOp set to clear
 	// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
 	VkClearValue clearValues[2];
-	clearValues[0].color = { { clearColor.x, clearColor.y, clearColor.z, clearColor.w } };
+	clearValues[0].color = { { 0, 0, 0, 0 } };
 	clearValues[1].depthStencil = { 0.0f, 0 };
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {};

@@ -123,7 +123,7 @@ void ext::HousamoBattle::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		if ( voice.playing() ) voice.stop();
@@ -142,7 +142,7 @@ void ext::HousamoBattle::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		if ( sfx.playing() ) sfx.stop();

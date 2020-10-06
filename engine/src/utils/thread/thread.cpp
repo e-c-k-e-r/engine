@@ -26,7 +26,7 @@ void UF_API uf::thread::tick( pod::Thread& thread ) {
 */
 	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
 	if ( !res ) uf::iostream << "Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")" << "\n";
-	uf::iostream << "Starting Thread #" << thread.uid << " (" << thread.name << " on ID " << thread.affinity << ")" << "\n";
+	uf::iostream << "Starting Thread #" << thread.uid << " (" << thread.name << " on ID " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)" << "\n";
 
 	thread.timer.start();
 	
@@ -144,7 +144,7 @@ pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, boo
 	thread.limiter = uf::thread::limiter;
 	thread.affinity = (thread.uid % limit) + 1;
 
-	uf::iostream << "Creating Thread #" << thread.uid << " (" << name << ") " << &thread << " (Affinity: " << thread.affinity << ")" << "\n";
+	uf::iostream << "Creating Thread #" << thread.uid << " (" << name << ") " << &thread << " (Affinity: " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)"<< "\n";
 
 	if ( start ) uf::thread::start( thread );
 

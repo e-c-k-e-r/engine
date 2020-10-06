@@ -3,19 +3,15 @@
 #include <uf/config.h>
 #include <uf/ext/ext.h>
 #include <uf/engine/entity/entity.h>
-
-#include <uf/utils/math/transform.h>
-#include <uf/utils/math/physics.h>
-
-#include <uf/engine/object/object.h>
+#include <uf/engine/scene/scene.h>
 
 namespace ext {
-	class EXT_API Region : public uf::Object {
-	protected:
+	class EXT_API RegionBehavior {
 	public:
-		virtual void initialize();
-		virtual void tick();
-		virtual void render();
-		virtual void destroy();
+		static void attach( uf::Object& );
+		static void initialize( uf::Object& );
+		static void tick( uf::Object& );
+		static void render( uf::Object& );
+		static void destroy( uf::Object& );
 	};
 }

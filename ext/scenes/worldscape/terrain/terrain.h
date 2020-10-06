@@ -14,18 +14,12 @@
 
 namespace ext {
 	class EXT_API Terrain : public uf::Object {
-	protected:
 	public:
-		virtual void initialize();
-		virtual void render();
-		virtual void destroy();
-		virtual void tick();
-
 		void relocateChildren();
 		
 		bool exists( const pod::Vector3i& ) const;
 		bool inBounds( const pod::Vector3i& ) const;
-		ext::Region* at( const pod::Vector3i& ) const;
+		uf::Object* at( const pod::Vector3i& ) const;
 
 		void generate( bool single = false );
 		void generate( const pod::Vector3i& );

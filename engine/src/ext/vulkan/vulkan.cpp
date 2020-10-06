@@ -324,6 +324,7 @@ void ext::vulkan::render() {
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
+		if ( !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
 		for ( uf::Scene* scene : ext::vulkan::scenes ) scene->render();
 		renderMode->render();

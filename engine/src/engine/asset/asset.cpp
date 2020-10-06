@@ -15,10 +15,6 @@
 #include <mutex>
 
 namespace {
-	inline bool exists( const std::string& name ) {
-		struct stat buffer;   
-		return (stat (name.c_str(), &buffer) == 0); 
-	}
 	bool retrieve( const std::string& url, const std::string& filename ) {
 		uf::Http http = uf::http::get( url );
 		if ( http.code < 200 || http.code > 300 ) {
@@ -146,17 +142,17 @@ void uf::Asset::load( const std::string& uri, const std::string& callback ) {
 }
 std::string uf::Asset::cache( const std::string& uri ) {
 	std::string filename = uri;
-	std::string extension = uf::string::extension( uri );
+	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
 		std::string cached = "./data/cache/" + hash + "." + extension;
-		if ( !exists( cached ) && !retrieve( uri, cached ) ) {
+		if ( !uf::io::exists( cached ) && !retrieve( uri, cached ) ) {
 			uf::iostream << "Failed to preload `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";
 		}
 		filename = cached;
 	}
-	if ( !exists( filename ) ) {
+	if ( !uf::io::exists( filename ) ) {
 		uf::iostream << "Failed to preload `" + filename + "`: Does not exist" << "\n"; 
 		return "";
 	}
@@ -164,17 +160,17 @@ std::string uf::Asset::cache( const std::string& uri ) {
 }
 std::string uf::Asset::load( const std::string& uri ) {
 	std::string filename = uri;
-	std::string extension = uf::string::extension( uri );
+	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
 		std::string cached = "./data/cache/" + hash + "." + extension;
-		if ( !exists( cached ) && !retrieve( uri, cached ) ) {
+		if ( !uf::io::exists( cached ) && !retrieve( uri, cached ) ) {
 			uf::iostream << "Failed to load `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";
 		}
 		filename = cached;
 	}
-	if ( !exists( filename ) ) {
+	if ( !uf::io::exists( filename ) ) {
 		uf::iostream << "Failed to load `" + filename + "`: Does not exist" << "\n"; 
 		return "";
 	}
@@ -219,7 +215,7 @@ std::string uf::Asset::load( const std::string& uri ) {
 	return filename;
 }
 std::string uf::Asset::getOriginal( const std::string& uri ) {
-	std::string extension = uf::string::extension( uri );
+	std::string extension = uf::io::extension( uri );
 	auto& map = masterAssetLoader.getComponent<uf::Serializer>();
 	if ( map[extension][uri].isNull() ) return uri;
 	std::size_t index = map[extension][uri].asUInt64();

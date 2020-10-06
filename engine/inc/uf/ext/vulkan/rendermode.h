@@ -7,9 +7,9 @@ namespace ext {
 		struct Graphic;
 		
 		struct UF_API RenderMode {
+			bool execute = false;
 			uint32_t width = 0, height = 0;
 			std::string name = "";
-			pod::Vector4f clearColor = {0, 0, 0, 1};
 			
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;

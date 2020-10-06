@@ -5,8 +5,9 @@
 namespace uf {
 	class UF_API Scene : public uf::Object {
 	public:
-		virtual uf::Entity& getController();
-		virtual const uf::Entity& getController() const;
+		Scene();
+		uf::Entity& getController();
+		const uf::Entity& getController() const;
 
 		template<typename T> T& getController() {
 			return *((T*) &this->getController());
@@ -14,14 +15,6 @@ namespace uf {
 		template<typename T> const T& getController() const {
 			return *((const T*) &this->getController());
 		}
-
-		Scene();
-	#if UF_BEHAVIOR_VIRTUAL
-		virtual void initialize();
-		virtual void tick();
-		virtual void render();
-		virtual void destroy();
-	#endif
 	};
 
 	namespace scene {

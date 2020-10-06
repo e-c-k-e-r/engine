@@ -22,6 +22,11 @@ uf::Entity& uf::Entity::addChild( uf::Entity& child ) {
 	child.setParent(*this);
 	return child;
 }
+void uf::Entity::addChild( uf::Entity* child ) {
+	if ( !child ) return;
+	this->m_children.push_back(child);
+	child->setParent(*this);
+}
 void uf::Entity::removeChild( uf::Entity& child ) {
 	auto it = std::find( this->m_children.begin(), this->m_children.end(), &child );
 	if ( it == this->m_children.end() ) return;

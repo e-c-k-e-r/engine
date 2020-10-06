@@ -47,7 +47,7 @@ struct Light {
 	vec3 color;
 	float power;
 	int type;
-	int shadowed;
+	float depthBias;
 	mat4 view;
 	mat4 projection;
 };
@@ -75,12 +75,12 @@ layout (binding = 0) uniform UBO {
 	Light lights[LIGHTS];
 } ubo;
 
-void fog( inout vec3 i ) {
+void fog( inout vec3 i, float scale ) {
 	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
 
 	vec3 color = ubo.fog.color.rgb;
 	float inner = ubo.fog.range.x;
-	float outer = ubo.fog.range.y;
+	float outer = ubo.fog.range.y * scale;
 	float distance = length(-position.eye);
 	float factor = (distance - inner) / (outer - inner);
 	factor = clamp( factor, 0.0, 1.0 );
@@ -110,15 +110,17 @@ void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
 	vec3 R = reflect( -D, normal.eye );
 	vec3 S = normalize(-position.eye);
 	float s_factor = pow( max(dot( R, S ), 0.0), Kexp );
+	if ( Kexp < 0.0001 ) s_factor = 0;
 	
-	float attenuation = light.radius / (pow(dist, 2.0) + 1.0);
-	if ( light.radius <= 0.0001 ) attenuation = 1;
+	float attenuation = 1;
+	if ( light.radius > 0.0001 )
+		attenuation = clamp( light.radius / (pow(dist, 2.0) + 1.0), 0.0, 1.0 );
 
 	vec3 Ia = La * Ka;
 	vec3 Id = Ld * Kd * d_dot * attenuation;
 	vec3 Is = Ls * Ks * s_factor * attenuation;
 	
-	i += Id * light.power;
+	i += Id * light.power + Is;
 }
 
 float random(vec3 seed, int i){
@@ -134,15 +136,27 @@ float shadowFactor( Light light, uint shadowMap ) {
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
 	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
 	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
+
+	float factor = 1.0;
+
+	// spot light
+	if ( light.type == 2 || light.type == 3 ) {
+		float dist = length( positionClip.xy );
+		if ( dist > 0.5 ) return 0.0;
+		
+		// spot light with attenuation
+		if ( light.type == 3 ) {
+			factor = 1.0 - (pow(dist * 2,2.0));
+		}
+	}
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
-	float bias = 0.00005;
-	if ( true ) {
+	float bias = light.depthBias;
+	if ( false ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
 	}
 
-	float factor = 1.0;
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
 	if ( samples <= 1 ) {
@@ -208,6 +222,7 @@ void main() {
 	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
 	bool lit = false;
 	uint shadowMap = 0;
+	float litFactor = 1.0;
 	for ( uint i = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
@@ -215,13 +230,16 @@ void main() {
 		lit = true;
 		
 		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-		if ( light.shadowed > 0 ) {
+		if ( light.type > 0 ) {
 			float shadowFactor = shadowFactor( light, shadowMap++ );
 			if ( shadowFactor <= 0.0001 ) continue;
+			light.power *= shadowFactor;
+			litFactor += light.power;
 		}
 		phong( light, albedoSpecular, fragColor );
 	}
 	// if ( !lit ) fragColor = albedoSpecular.rgb;
-	fog(fragColor);
+	fog(fragColor, litFactor);
+	// if ( length(position.eye) < 0.01 ) fragColor = vec3(1,0,1);
 	outFragColor = vec4(fragColor,1);
 }

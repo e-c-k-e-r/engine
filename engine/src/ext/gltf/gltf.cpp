@@ -8,6 +8,8 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/graphic/graphic.h>
+#include <uf/utils/thread/thread.h>
+#include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/collision.h>
 
 namespace {
@@ -303,7 +305,7 @@ bool ext::gltf::load( uf::Object& entity, const std::string& filename, uint8_t m
 	tinygltf::TinyGLTF loader;
 
 	std::string warn, err;
-	std::string extension = uf::string::extension( filename );
+	std::string extension = uf::io::extension( filename );
 	bool ret;
 	if ( extension == "glb" ) 
 		ret = loader.LoadBinaryFromFile(&model, &err, &warn, filename); // for binary glTF(.glb)
@@ -316,19 +318,32 @@ bool ext::gltf::load( uf::Object& entity, const std::string& filename, uint8_t m
 		return false;
 	}
 
-	const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
-	for ( auto i : scene.nodes ) {
-		loadNode( entity, model, model.nodes[i], mode );
-	}
+	auto& metadata = entity.getComponent<uf::Serializer>();
+	bool threaded = mode & ext::gltf::LoadMode::THREADED;
+	pod::Thread& thread = metadata["model"]["flags"]["USE_WORKER_THREAD"].asBool() ? uf::thread::fetchWorker() : (uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false ));
+	auto function = [&]() -> int {
+		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
+		for ( auto i : scene.nodes ) {
+			loadNode( entity, model, model.nodes[i], mode );
+		}
 
-	// parent transform
-	auto& transform = entity.getComponent<pod::Transform<>>();
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* child ) {
-		if ( child == &entity ) return;
-		if ( !child->hasComponent<pod::Transform<>>() ) return;
-		child->getComponent<pod::Transform<>>().reference = &transform;
+		auto& transform = entity.getComponent<pod::Transform<>>();
+		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* child ) {
+			// add default render behavior
+			if ( child->hasComponent<uf::Graphic>() ) uf::instantiator::bind("RenderBehavior", *child);
+
+			// parent transform
+			if ( child == &entity ) return;
+			if ( !child->hasComponent<pod::Transform<>>() ) return;
+			child->getComponent<pod::Transform<>>().reference = &transform;
+		};
+		entity.process(filter);
+
+		uf::Serializer payload;
+		entity.queueHook("asset:Parsed.%UID%", payload);
+
+		return 0;
 	};
-	entity.process(filter);
-
+	if ( threaded ) uf::thread::add( thread, function, true ); else function();
 	return true;
 }

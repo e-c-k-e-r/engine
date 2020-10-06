@@ -25,11 +25,11 @@ void uf::EntityBehavior::destroy( uf::Object& self ) {
 		if ( !kv ) continue;
 		if ( kv->getUid() == 0 ) continue;
 		kv->destroy();
-		kv->setParent();
 		delete kv;
 	}
 	this->m_children.clear();
 	this->m_uid = 0;
+	if ( this->hasParent() ) this->getParent().removeChild(*this);
 }
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Entity)

@@ -35,6 +35,10 @@ namespace uf {
 		void render();
 		void destroy();
 
+		container_t& getBehaviors() {
+			return this->m_behaviors;
+		}
+
 		bool hasBehavior( const pod::Behavior& );
 		template<typename T>
 		bool hasBehavior() {
@@ -45,6 +49,7 @@ namespace uf {
 		}
 
 		void addBehavior( const pod::Behavior& );
+		void removeBehavior( const pod::Behavior& );
 		
 		template<typename T>
 		static pod::Behavior::type_t getType() {
@@ -62,12 +67,17 @@ namespace uf {
 		}
 		template<typename T>
 		void removeBehavior() {
+			this->removeBehavior(pod::Behavior{
+				.type = getType<T>()
+			});
+		/*
 			auto it = this->m_behaviors.begin();
 			while ( it != this->m_behaviors.end() ) {
 				if ( (it++)->type == getType<T>() ) break;
 			}
 			if ( it != this->m_behaviors.end() )
 				this->m_behaviors.erase(it);
+		*/
 		}
 	};
 

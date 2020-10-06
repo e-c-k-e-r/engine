@@ -8,6 +8,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/string/ext.h>
 // #include <uf/gl/glyph/glyph.h>
+#include <uf/utils/math/physics.h>
 
 #include "..//battle.h"
 #include <uf/engine/asset/asset.h>
@@ -159,7 +160,7 @@ void ext::GuiBattle::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -181,7 +182,7 @@ void ext::GuiBattle::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -349,7 +350,7 @@ void ext::GuiBattle::initialize() {
 
 			uf::Serializer cardData = masterDataGet("Card", json["id"].asString());
 			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].asString() +".png";
-			if ( !uf::string::exists( pMetadata["system"]["assets"][0].asString() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
+			if ( !uf::io::exists( pMetadata["system"]["assets"][0].asString() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
 			critCutIn->load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
@@ -1460,7 +1461,7 @@ void ext::GuiBattle::tick() {
 			playSound(*this, "menu close");
 			uf::Serializer payload;
 			std::string action = getKeyFromIndex(stats.actions.current, stats.actions.selection);
-			action = uf::string::extension(action);
+			action = uf::io::extension(action);
 			payload["action"] = action;
 			payload["uid"] = stats.currentMember["uid"];
 		

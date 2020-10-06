@@ -8,6 +8,24 @@ UF_BEHAVIOR_ENTITY_CPP_BEGIN(Scene)
 void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::scenes.push_back(this);
 	uf::renderer::rebuild = true;
+
+	this->addHook( "system:Renderer.QueueRebuild", [&](const std::string& event)->std::string{	
+		uf::renderer::rebuild = true;
+		return "true";
+	});
+	this->addHook( "system:Destroy", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		size_t uid = json["uid"].asUInt64();
+		if ( uid <= 0 ) return "false";
+		auto* target = this->findByUid(uid);
+		if ( !target ) return "false";
+		target->destroy();
+		delete target;
+
+		this->queueHook("system:Renderer.QueueRebuild");
+
+		return "true";
+	});
 }
 void uf::SceneBehavior::tick( uf::Object& self ) {
 }

@@ -182,6 +182,9 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 		
 	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
 
+	auto& scene = uf::scene::getCurrentScene();
+	auto& metadata = scene.getComponent<uf::Serializer>();
+
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		struct EYES {
@@ -201,7 +204,17 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 				for ( auto& attachment : renderTarget.attachments ) {
 					VkClearValue clearValue;
 					if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-						clearValue.color = { { clearColor.x, clearColor.y, clearColor.z, clearColor.w } };
+						if ( !metadata["system"]["renderer"]["clear values"][(int) clearValues.size()].isNull() ) {
+							auto& v = metadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
+							clearValue.color = { {
+								v[0].asFloat(),
+								v[1].asFloat(),
+								v[2].asFloat(),
+								v[3].asFloat(),
+							} };
+						} else {
+							clearValue.color = { { 0, 0, 0, 0 } };
+						}
 					} else if ( attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
 						clearValue.depthStencil = { 0.0f, 0 };
 					}

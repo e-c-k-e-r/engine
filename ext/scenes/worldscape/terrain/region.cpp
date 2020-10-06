@@ -2,7 +2,7 @@
 
 #include "../../../ext.h"
 #include "generator.h"
-#include "..//sprite.h"
+
 #include <uf/engine/asset/asset.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/thread/thread.h>
@@ -10,29 +10,30 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/string/ext.h>
+#include <mutex>
 
 namespace {
 	std::string grabURI( std::string filename, std::string root = "" ) {
 		if ( filename.substr(0,8) == "https://" ) return filename;
-		std::string extension = uf::string::extension(filename);
+		std::string extension = uf::io::extension(filename);
 		if ( filename[0] == '/' || root == "" ) {
 			if ( extension == "json" ) root = "./data/entities/";
 			if ( extension == "png" ) root = "./data/textures/";
 			if ( extension == "ogg" ) root = "./data/audio/";
 		}
-		return uf::string::sanitize(filename, root);
+		return uf::io::sanitize(filename, root);
 	}
 }
 
-void ext::Region::initialize() {
-	uf::Object::initialize();
-	this->m_name = "Region";
-
+EXT_BEHAVIOR_REGISTER_CPP(RegionBehavior)
+EXT_BEHAVIOR_REGISTER_AS_OBJECT(RegionBehavior, Region)
+#define this (&self)
+void ext::RegionBehavior::initialize( uf::Object& self ) {
 	// alias Mesh types
 	{
-		this->addAlias<ext::TerrainGenerator::mesh_t, uf::Mesh>();
+		auto& mutexPointer = this->getComponent<std::mutex*>();
+		mutexPointer = new std::mutex;
 	}
-
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["region"]["initialized"] = true;
@@ -205,17 +206,35 @@ void ext::Region::initialize() {
 				should = true;
 			}
 			if ( should ) {
-				uf::Entity* light = this->findByUid(this->loadChild("./light.json", true));
-				if ( light ) {
-					uf::Serializer& metadata = light->getComponent<uf::Serializer>();
-					pod::Transform<>& lTransform = light->getComponent<pod::Transform<>>();
-					lTransform.position += transform.position;
-					if ( !metadata["light"].isArray() ) {
-						metadata["light"]["color"][0] = (rand() % 100) / 100.0;
-						metadata["light"]["color"][1] = (rand() % 100) / 100.0;
-						metadata["light"]["color"][2] = (rand() % 100) / 100.0;
-					}
+			//	uf::Entity* light = this->findByUid(this->loadChildUid("./light.json", true));
+				uf::Object& light = this->loadChild("./light.json", true);
+				pod::Vector3f origin = transform.position + light.getComponent<pod::Transform<>>().position;
+				pod::Vector3f color = {
+					(rand() % 100) / 100.0,
+					(rand() % 100) / 100.0,
+					(rand() % 100) / 100.0,
+				};
+				std::function<void(uf::Entity*, int)> filter = [&]( uf::Entity* entity, int indent ) {
+					auto& metadata = entity->getComponent<uf::Serializer>();
+					auto& transform = entity->getComponent<pod::Transform<>>();
+					transform.position = origin;
+				//	if ( !metadata["light"]["color"].isArray() ) {
+						metadata["light"]["color"][0] = color.x;
+						metadata["light"]["color"][1] = color.y;
+						metadata["light"]["color"][2] = color.z;
+				//	}
+				};
+				light.process(filter);
+			/*
+				uf::Serializer& metadata = light.getComponent<uf::Serializer>();
+				pod::Transform<>& lTransform = light.getComponent<pod::Transform<>>();
+				lTransform.position += transform.position;
+				if ( !metadata["light"]["color"].isArray() ) {
+					metadata["light"]["color"][0] = (rand() % 100) / 100.0;
+					metadata["light"]["color"][1] = (rand() % 100) / 100.0;
+					metadata["light"]["color"][2] = (rand() % 100) / 100.0;
 				}
+			*/
 			}
 		}
 		// add mobs
@@ -236,33 +255,36 @@ void ext::Region::initialize() {
 			if ( first ) {
 				// shiro
 				if ( metadata["region"][""]["NPCs"].asBool() ) {
-					uf::Object*  = (uf::Object*) this->findByUid(this->loadChild("./shiro.json", true));
-					pod::Transform<>& pTransform = ->getComponent<pod::Transform<>>();
+				//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./shiro.json", true));
+					uf::Object&  = this->loadChild("./shiro.json", true);
+					pod::Transform<>& pTransform = .getComponent<pod::Transform<>>();
 					pTransform.position += transform.position + pod::Vector3f{ 2, 0, 0 };
 				}
 				// pong
 				if ( metadata["region"][""]["NPCs"].asBool() ) {
-					uf::Object*  = (uf::Object*) this->findByUid(this->loadChild("./pongy.json", true));
-					uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
+				//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./pongy.json", true));
+					uf::Object&  = this->loadChild("./pongy.json", true);
+					uf::Serializer& pMetadata = .getComponent<uf::Serializer>();
 
-					pod::Transform<>& pTransform = ->getComponent<pod::Transform<>>();
+					pod::Transform<>& pTransform = .getComponent<pod::Transform<>>();
 					pTransform.position += transform.position + pod::Vector3f{ -2, 0, 0 };
 				}
 				return "true";
 			}
 
 			for ( uint i = 0; i < metadata["region"][""]["amount"].asUInt64(); ++i ) {
-				uf::Object*  = (uf::Object*) this->findByUid(this->loadChild("./.json", false));
+			//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./.json", false));
+				uf::Object&  = this->loadChild("./.json", false);
 				// set name
-				uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
+				uf::Serializer& pMetadata = .getComponent<uf::Serializer>();
 			//	int ri = floor((noise[i][i][i] * metadata["region"][""]["list"].size());
 				int ri = floor(r * metadata["region"][""]["list"].size());
 				pMetadata[""] = metadata["region"][""]["list"][ri];
 				pMetadata["music"] = metadata["region"][""]["music"];
 			//	pMetadata["hostile"] = true;
-				->initialize();
+				.initialize();
 
-				pod::Transform<>& pTransform = ->getComponent<pod::Transform<>>();
+				pod::Transform<>& pTransform = .getComponent<pod::Transform<>>();
 				float rx = first ? 0.3 : (rand() % 100) / 100.0;
 				float rz = first ? 0.7 : (rand() % 100) / 100.0;
 				float spread = 32.0f;
@@ -281,15 +303,190 @@ void ext::Region::initialize() {
 		return "true";
 	});
 }
-void ext::Region::tick() {
-	uf::Object::tick();
-
+void ext::RegionBehavior::tick( uf::Object& self ) {
 	// do collision on children
+#if 0
+	auto& mutex = *(this->getComponent<std::mutex*>());
+	mutex.lock();
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sMetadata = scene.getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<uf::Serializer>();
+	bool threaded = !sMetadata["system"]["physics"]["single threaded"].asBool();
+	bool sort = sMetadata["system"]["physics"]["sort"].asBool();
+	bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].asBool();
+	bool queued = sMetadata["system"]["physics"]["use"]["queue"].asBool();
+	bool updatePhysics = !sMetadata["system"]["physics"]["entity-local update"].asBool();
+	bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].asBool();
+	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+
+	auto& generator = this->getComponent<ext::TerrainGenerator>();
+	auto& regionPosition = this->getComponent<pod::Transform<>>().position;
+	pod::Vector3f size; {
+		size.x = metadata["region"]["size"][0].asUInt();
+		size.y = metadata["region"]["size"][1].asUInt();
+		size.z = metadata["region"]["size"][2].asUInt();
+	}
+
+	auto function = [&]() -> int {
+		std::vector<uf::Object*> entities;
+		// update physics
+		if ( updatePhysics ) {
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				if ( !entity->hasComponent<pod::Physics>() ) return;
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				auto& transform = entity->getComponent<pod::Transform<>>();
+				auto& physics = entity->getComponent<pod::Physics>();
+				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
+					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
+					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+				}
+				if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+					physics.linear.acceleration.x = 0;
+					physics.linear.acceleration.y = 0;
+					physics.linear.acceleration.z = 0;
+				}
+				transform = uf::physics::update( transform, physics );
+			};
+			this->process(filter);
+		}
+		{
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( entity->hasComponent<uf::Collider>() )
+					entities.push_back((uf::Object*) entity);
+			};
+			this->process(filter);
+		}
+		auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b, bool queued ){				
+			uf::Serializer payload;
+			payload["normal"][0] = manifold.normal.x;
+			payload["normal"][1] = manifold.normal.y;
+			payload["normal"][2] = manifold.normal.z;
+			payload["entity"] = b->getUid();
+			payload["depth"] = -manifold.depth;
+			if ( queued ) a->queueHook("world:Collision.%UID%", payload);
+			else a->callHook("world:Collision.%UID%", payload);
+			
+			payload["entity"] = a->getUid();
+			payload["depth"] = manifold.depth;
+			if ( queued ) b->queueHook("world:Collision.%UID%", payload);
+			else b->callHook("world:Collision.%UID%", payload);
+		};
+		auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
+			pod::Collider::Manifold strongest;
+			auto manifolds = colliderA.intersects(colliderB);
+			for ( auto manifold : manifolds ) {
+				if ( manifold.colliding && manifold.depth > 0 ) {
+					if ( !useStrongest ) onCollision(manifold, a, b, queued);
+					else if ( strongest.depth < manifold.depth ) strongest = manifold;
+				}
+			}
+			if ( useStrongest && strongest.colliding ) onCollision(strongest, a, b, queued);
+		};
+		// collide with world
+		for ( auto* _ : entities ) {
+			uf::Object& entity = *_;
+			auto& entityCollider = entity.getComponent<uf::Collider>();
+			auto function = [&]() -> int {
+			auto& entityTransform = entity.getComponent<pod::Transform<>>();
+			pod::Vector3f voxelPosition = entityTransform.position - regionPosition;
+			voxelPosition.x += size.x / 2.0f;
+			voxelPosition.y += size.y / 2.0f + 1;
+			voxelPosition.z += size.z / 2.0f;
+
+			std::vector<pod::Vector3ui> positions = {
+				{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
+				{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
+				{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
+				{ voxelPosition.x, voxelPosition.y - 1, voxelPosition.z },
+				{ voxelPosition.x, voxelPosition.y + 1, voxelPosition.z },
+				{ voxelPosition.x, voxelPosition.y, voxelPosition.z - 1 },
+				{ voxelPosition.x, voxelPosition.y, voxelPosition.z + 1},
+			};
+			
+			uf::Collider collider;
+			for ( auto& position : positions ) {
+				ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( generator.getVoxel( position.x, position.y, position.z ) );
+				pod::Vector3 offset = regionPosition;
+				offset.x += position.x - (size.x / 2.0f);
+				offset.y += position.y - (size.y / 2.0f);
+				offset.z += position.z - (size.z / 2.0f);
+
+				if ( !voxel.solid() ) continue;
+
+				collider.add( new uf::BoundingBox( offset, {0.5, 0.5, 0.5} ) );
+			#if 0
+				uf::BaseMesh<pod::Vertex_3F> mesh;
+				const ext::TerrainVoxel::Model& model = voxel.model();
+				#define TERRAIN_SHOULD_RENDER_FACE(SIDE)\
+					for ( uint i = 0; i < model.position.SIDE.size() / 3; ++i ) {\
+						auto& vertex = mesh.vertices.emplace_back();\
+						{\
+							pod::Vector3f& p = vertex.position;\
+							p.x = model.position.SIDE[i*3+0]; p.y = model.position.SIDE[i*3+1]; p.z = model.position.SIDE[i*3+2];\
+							p.x += offset.x; p.y += offset.y; p.z += offset.z;\
+						}\
+					}
+				TERRAIN_SHOULD_RENDER_FACE(left)
+				TERRAIN_SHOULD_RENDER_FACE(right)
+				TERRAIN_SHOULD_RENDER_FACE(top)
+				TERRAIN_SHOULD_RENDER_FACE(bottom)
+				TERRAIN_SHOULD_RENDER_FACE(back)
+				TERRAIN_SHOULD_RENDER_FACE(front)
+				uf::MeshCollider* mCollider = new uf::MeshCollider();
+				mCollider->setPositions( mesh );
+				pCollider.add(mCollider);
+			#endif
+			}
+				testColliders( collider, entityCollider, this, &entity, useStrongest );
+				return 0;
+			};
+			// if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else
+				function();
+		}
+	
+		// collide with others
+		for ( auto* _a : entities ) {
+			uf::Object& entityA = *_a;
+			for ( auto* _b : entities ) { if ( _a == _b ) continue;
+				uf::Object& entityB = *_b;
+				auto& colliderA = entityA.getComponent<uf::Collider>();
+				auto& colliderB = entityB.getComponent<uf::Collider>();
+				auto function = [&]() -> int {
+					testColliders( colliderA, colliderB, &entityA, &entityB, useStrongest );
+					return 0;
+				};
+				if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
+			}
+		}
+		mutex.unlock();
+		return 0;
+	};
+	if ( threaded ) uf::thread::add( thread, function, true ); else function();
+#else
 #if 1
 	{
-		bool local = false;
-		bool sort = false;
-		bool useStrongest = true;
+
+		auto& metadata = this->getComponent<uf::Serializer>();
+
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sMetadata = scene.getComponent<uf::Serializer>();
+
+		if ( !sMetadata["system"]["physics"]["collision"].asBool() ) return;
+		auto& mutex = *(this->getComponent<std::mutex*>());
+		mutex.lock();
+
+		bool threaded = !sMetadata["system"]["physics"]["single threaded"].asBool();
+		bool sort = sMetadata["system"]["physics"]["sort"].asBool();
+		bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].asBool();
+		bool queued = sMetadata["system"]["physics"]["use"]["queue"].asBool();
+		bool ignoreStaticEntities = sMetadata["system"]["physics"]["optimizations"]["ignore static entities"].asBool();
+		bool ignoreDuplicateTests = sMetadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].asBool();
+		bool updatePhysics = !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].asBool();
+		bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].asBool();
 		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 		auto function = [&]() -> int {
 			std::vector<uf::Object*> entities;
@@ -312,18 +509,6 @@ void ext::Region::tick() {
 				payload["entity"] = a->getUid();
 				payload["depth"] = manifold.depth;
 				b->callHook("world:Collision.%UID%", payload);
-			/*
-				pod::Transform<>& transform = b->getComponent<pod::Transform<>>();
-				pod::Physics& physics = b->getComponent<pod::Physics>();
-
-				uf::Serializer payload;
-				pod::Vector3 correction = uf::vector::normalize(manifold.normal) * manifold.depth;
-				transform.position -= correction;
-
-				if ( manifold.normal.x == 1 || manifold.normal.x == -1 ) physics.linear.velocity.x = 0;
-				if ( manifold.normal.y == 1 || manifold.normal.y == -1 ) physics.linear.velocity.y = 0;
-				if ( manifold.normal.z == 1 || manifold.normal.z == -1 ) physics.linear.velocity.z = 0;
-			*/
 			};
 			auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
 				pod::Collider::Manifold strongest;
@@ -403,6 +588,54 @@ void ext::Region::tick() {
 			}
 		
 			// collide with others
+			if ( ignoreDuplicateTests ) {
+				struct Pair {
+					uf::Object* a = NULL;
+					uf::Object* b = NULL;
+				};
+				std::unordered_map<std::string, Pair> queued;
+				for ( auto* _a : entities ) {
+					uf::Object& entityA = *_a;
+					if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
+					for ( auto* _b : entities ) { if ( _a == _b ) continue;
+						uf::Object& entityB = *_b;
+
+						std::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
+						if ( queued.count(hash) > 0 ) continue;
+						queued[hash] = {
+							.a = _a,
+							.b = _b,
+						};
+					}
+				}
+				for ( auto& pair : queued ) {
+					auto* entityA = pair.second.a;
+					auto* entityB = pair.second.b;
+					auto& colliderA = entityA->getComponent<uf::Collider>();
+					auto& colliderB = entityB->getComponent<uf::Collider>();
+					auto function = [&]() -> int {
+						testColliders( colliderA, colliderB, entityA, entityB, useStrongest );
+						return 0;
+					};
+					if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
+				}
+			} else {
+				for ( auto* _a : entities ) {
+					uf::Object& entityA = *_a;
+					if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
+					for ( auto* _b : entities ) { if ( _a == _b ) continue;
+						uf::Object& entityB = *_b;
+						auto& colliderA = entityA.getComponent<uf::Collider>();
+						auto& colliderB = entityB.getComponent<uf::Collider>();
+						auto function = [&]() -> int {
+							testColliders( colliderA, colliderB, &entityA, &entityB, useStrongest );
+							return 0;
+						};
+						if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
+					}
+				}
+			}
+		/*
 			for ( auto* _a : entities ) {
 				uf::Object& entityA = *_a;
 				for ( auto* _b : entities ) { if ( _a == _b ) continue;
@@ -410,27 +643,19 @@ void ext::Region::tick() {
 					testColliders( entityA.getComponent<uf::Collider>(), entityB.getComponent<uf::Collider>(), &entityA, &entityB, useStrongest );
 				}
 			}
-		
+		*/
+			mutex.unlock();
 			return 0;
 		};
-		if ( local ) function(); else uf::thread::add( thread, function, true );
+		if ( threaded ) function(); else uf::thread::add( thread, function, true );
 	}
 #endif
+#endif
 }
-void ext::Region::destroy() {
-	auto& graphic = this->getComponent<uf::Graphic>();
-	graphic.destroy();
-
-	uf::Object::destroy();
-}
-void ext::Region::render( ) {
-	if ( !this->m_parent ) return;
-	uf::Scene& root = this->getRootParent<uf::Scene>();
-	ext::Terrain& terrain = this->getParent<ext::Terrain>();		
+void ext::RegionBehavior::render( uf::Object& self ){
+	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	
-	uf::Object::render();
-
 	if ( !metadata["region"]["rasterized"].asBool() ) return;
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& scene = uf::scene::getCurrentScene();
@@ -438,15 +663,20 @@ void ext::Region::render( ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& camera = scene.getController().getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
-	//	auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
 		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 		uniforms.matrices.model = uf::matrix::identity();
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
-
-	//	graphic.updateBuffer( uniforms, 0, false );
 		graphic.material.shaders.front().updateBuffer( uniforms, 0, true );
 	}
 }
+void ext::RegionBehavior::destroy( uf::Object& self ){
+	{
+		auto& mutexPointer = this->getComponent<std::mutex*>();
+		delete mutexPointer;
+		mutexPointer = NULL;
+	}
+}
+#undef this

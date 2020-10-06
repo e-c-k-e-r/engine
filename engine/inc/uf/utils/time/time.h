@@ -65,7 +65,7 @@ namespace uf {
 	public:
 		Timer(bool running = true, uf::Timer<T>::exp_t b = spec::Time::unit);
 
-		void start();
+		void start( uf::Time<T> = 0 );
 		void stop();
 		void reset();
 		void update();

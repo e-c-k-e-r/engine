@@ -9,6 +9,7 @@
 #include <uf/utils/mempool/mempool.h>
 
 namespace uf {
+	class UF_API Object;
 	class UF_API Entity : public uf::Behaviors {
 	friend class EntityBehavior;
 	public:
@@ -25,21 +26,28 @@ namespace uf {
 
 	public:
 		static uf::MemoryPool memoryPool;
-		virtual ~Entity();
+		Entity();
+		~Entity();
 		// identifiers
 		const std::string& getName() const;
 		std::size_t getUid() const;
+		// cast to other Entity classes, avoid nasty shit like *((uf::Object*) &entity)
+		template<typename T=uf::Object> T& as();
+		template<typename T=uf::Object> const T& as() const;
 		// parent-child relationship
 		bool hasParent() const;
 		template<typename T=uf::Entity> T& getParent();
 		template<typename T=uf::Entity> T& getRootParent();
 		template<typename T=uf::Entity> const T& getParent() const;
 		template<typename T=uf::Entity> const T& getRootParent() const;
+
 		void setParent();
 		void setParent( uf::Entity& parent );
 		uf::Entity& addChild( uf::Entity& child );
+		void addChild( uf::Entity* child );
 		void moveChild( uf::Entity& child );
 		void removeChild( uf::Entity& child );
+
 		uf::Entity::container_t& getChildren();
 		const uf::Entity::container_t& getChildren() const;
 		// use instantiate to allocate
@@ -57,8 +65,6 @@ namespace uf {
 		static uf::Entity* globalFindByUid( size_t id );
 		static uf::Entity* globalFindByName( const std::string& name );
 
-		Entity();
-		UF_BEHAVIOR_VIRTUAL_H()
 	};
 }
 

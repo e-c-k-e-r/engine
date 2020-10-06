@@ -71,7 +71,7 @@ void ext::TerrainGenerator::destroy(){
 //	this->m_voxels.lighting.raw.clear();
 
 }
-void ext::TerrainGenerator::generate( ext::Region& region ){
+void ext::TerrainGenerator::generate( uf::Object& region ){
 	// if ( !this->m_voxels.id.raw.empty() || !this->m_voxels.id.rle.empty() ) return;
 	this->destroy();
 
@@ -97,7 +97,7 @@ void ext::TerrainGenerator::generate( ext::Region& region ){
 	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].asString();
 	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
-	if ( uf::string::exists( filename ) ) {
+	if ( uf::io::exists( filename ) ) {
 		uf::Serializer save; save.readFromFile(filename);
 
 		// ID
@@ -390,7 +390,7 @@ ext::TerrainVoxel::uid_t ext::TerrainGenerator::getVoxel( int x, int y, int z ) 
 				++location.z;
 			}
 		}
-		ext::Region* region = terrain.at( location );
+		uf::Object* region = terrain.at( location );
 		if ( !region ) return 0;
 		return region->getComponent<ext::TerrainGenerator>().getVoxel( x, y, z );
 	/*
@@ -418,7 +418,7 @@ ext::TerrainVoxel::uid_t ext::TerrainGenerator::getVoxel( int x, int y, int z ) 
 			++location.z;
 			z -= this->m_size.z;
 		}
-		ext::Region* region = terrain.at( location );
+		uf::Object* region = terrain.at( location );
 		if ( !region ) return 0;
 		return region->getComponent<ext::TerrainGenerator>().getVoxel( x, y, z );
 	*/
@@ -501,7 +501,7 @@ ext::TerrainVoxel::light_t ext::TerrainGenerator::getLight( int x, int y, int z 
 			z -= this->m_size.z - 1;
 		}
 	*/
-		ext::Region* region = terrain.at( location );
+		uf::Object* region = terrain.at( location );
 		if ( !region ) {
 		//	std::cout << "Out of bounds Region("<< location.x << ", " << location.y << ", " << location.z <<") @ getLight( " << x << ", " << y << ", " << z << " ) " << std::endl;
 			return 0xFFFF;
@@ -857,7 +857,7 @@ void ext::TerrainGenerator::setVoxel( int x, int y, int z, const ext::TerrainVox
 			z -= this->m_size.z - 1;
 		}
 	*/
-		ext::Region* region = terrain.at( location );
+		uf::Object* region = terrain.at( location );
 		if ( !region ) return;
 		region->getComponent<ext::TerrainGenerator>().setVoxel( x, y, z, voxel, update );
 		return;
@@ -866,7 +866,7 @@ void ext::TerrainGenerator::setVoxel( int x, int y, int z, const ext::TerrainVox
 	// set modified
 	if ( this->m_terrain ) {
 		const ext::Terrain& terrain = *((const ext::Terrain*)this->m_terrain);
-		ext::Region* region = terrain.at( this->m_location );
+		uf::Object* region = terrain.at( this->m_location );
 		if ( region ) region->getComponent<uf::Serializer>()["region"]["modified"] = true;
 	}
 
@@ -934,7 +934,7 @@ void ext::TerrainGenerator::setLight( int x, int y, int z, const ext::TerrainVox
 			z -= this->m_size.z - 1;
 		}
 	*/
-		ext::Region* region = terrain.at( location );
+		uf::Object* region = terrain.at( location );
 		if ( !region ) {
 		//	std::cout << "Out of bounds Region("<< location.x << ", " << location.y << ", " << location.z <<") @ setLight( " << x << ", " << y << ", " << z << " ) " << std::endl;
 			return;
@@ -946,7 +946,7 @@ void ext::TerrainGenerator::setLight( int x, int y, int z, const ext::TerrainVox
 	// set modified
 	if ( this->m_terrain ) {
 		const ext::Terrain& terrain = *((const ext::Terrain*)this->m_terrain);
-		ext::Region* region = terrain.at( this->m_location );
+		uf::Object* region = terrain.at( this->m_location );
 		if ( region ) region->getComponent<uf::Serializer>()["region"]["modified"] = true;
 	}
 
@@ -978,7 +978,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 		uint8_t steps = 1;
 		struct bfsNode {
 			pod::Vector3i position;
-			ext::Region* region;
+			uf::Object* region;
 		};
 		std::queue<bfsNode> bfs;
 		const ext::Terrain& terrain = *((const ext::Terrain*)this->m_terrain);
@@ -1287,7 +1287,7 @@ void ext::TerrainGenerator::updateLight(){
 //	this->wrapLight();
 //	this->writeToFile();
 }
-void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const ext::Region& region ){
+void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& region ){
 	if ( this->m_voxels.id.rle.empty() ) return;
 
 	this->writeToFile();
@@ -1303,12 +1303,12 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 	};
 
 	struct { 
-		ext::Region* right = NULL;
-		ext::Region* left = NULL;
-		ext::Region* top = NULL;
-		ext::Region* bottom = NULL;
-		ext::Region* front = NULL;
-		ext::Region* back = NULL;
+		uf::Object* right = NULL;
+		uf::Object* left = NULL;
+		uf::Object* top = NULL;
+		uf::Object* bottom = NULL;
+		uf::Object* front = NULL;
+		uf::Object* back = NULL;
 	} regions;
 
 	regions.right = terrain.at( { location.x + 1, location.y, location.z } );

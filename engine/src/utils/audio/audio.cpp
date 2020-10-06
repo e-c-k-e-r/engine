@@ -31,7 +31,7 @@ bool UF_API uf::Audio::playing() {
 	return true;
 }
 void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != "" ) this->m_filename = filename;
-	std::string extension = uf::string::extension( this->m_filename );
+	std::string extension = uf::io::extension( this->m_filename );
 
 	std::vector<char> buffer; ALenum format; ALsizei frequency;
 	if ( extension == "ogg" ) {
@@ -78,6 +78,26 @@ void UF_API uf::Audio::setTime( ALfloat pos ) {
 	if ( this->playing() ) return;
     this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
 }
+ALfloat UF_API uf::Audio::getPitch() {
+	if ( this->playing() ) return 0;
+	ALfloat pitch; 
+	alGetSourcef(this->m_source.getIndex(), AL_PITCH,  &pitch ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	return pitch;
+}
+void UF_API uf::Audio::setPitch( ALfloat pitch ) { 
+	if ( this->playing() ) return;
+    this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
+}
+ALfloat UF_API uf::Audio::getGain() {
+	if ( this->playing() ) return 0;
+	ALfloat gain; 
+	alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &gain ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	return gain;
+}
+void UF_API uf::Audio::setGain( ALfloat gain ) { 
+	if ( this->playing() ) return;
+    this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
+}
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
 }
@@ -109,6 +129,12 @@ uf::Audio& UF_API uf::SoundEmitter::get( const std::string& filename ) {
 }
 const uf::Audio& UF_API uf::SoundEmitter::get( const std::string& filename ) const {
 	return this->m_container.at(filename);
+}
+uf::SoundEmitter::container_t& UF_API uf::SoundEmitter::get() {
+	return this->m_container;
+}
+const uf::SoundEmitter::container_t& UF_API uf::SoundEmitter::get() const {
+	return this->m_container;
 }
 
 void UF_API uf::SoundEmitter::cleanup( bool purge ) {

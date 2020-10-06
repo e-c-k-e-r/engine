@@ -1,8 +1,14 @@
+template<typename T=uf::Object> T& uf::Entity::as() {
+	return *((T*) this);
+}
+template<typename T=uf::Object> const T& uf::Entity::as() const {
+	return *((T*) this);
+}
 template<typename T> T& uf::Entity::getParent() {
 //	static T null;
 //	return this->m_parent ? *(T*)this->m_parent : null;
 	if ( this->hasParent() ) return *(T*) this->m_parent;
-	throw std::string("invalid call to uf::Entity::getParent");
+	return uf::Entity::null.as<T>();
 }
 template<typename T> T& uf::Entity::getRootParent() {
 //	static T null;
@@ -18,7 +24,7 @@ template<typename T> const T& uf::Entity::getParent() const {
 //	static const T null;
 //	return this->m_parent ? *(T*)this->m_parent : null;
 	if ( this->hasParent() ) return *(const T*) this->m_parent;
-	throw std::string("invalid call to uf::Entity::getParent");
+	return uf::Entity::null.as<T>();
 }
 template<typename T> const T& uf::Entity::getRootParent() const {
 //	static const T null;

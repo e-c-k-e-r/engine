@@ -27,8 +27,8 @@ namespace pod {
 		template<typename T> type_t getType();
 		template<typename T> std::string getName();
 
-		bool has( const std::string& name );
-		template<typename T> bool has();
+		bool has( const std::string& name, bool = true );
+		template<typename T> bool has( bool = true );
 
 		template<typename T> void add( const std::string& name, const C& c );
 
@@ -57,6 +57,8 @@ namespace uf {
 
 		void UF_API bind( const std::string&, uf::Entity& );
 		template<typename T> void bind( uf::Entity& );
+		void UF_API unbind( const std::string&, uf::Entity& );
+		template<typename T> void unbind( uf::Entity& );
 	};
 }
 

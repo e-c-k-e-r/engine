@@ -28,6 +28,8 @@ const ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_
 }
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
+	this->execute = true;
+
 	std::vector<ext::vulkan::Graphic*> graphics;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
@@ -134,12 +136,6 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 void ext::vulkan::RenderMode::tick() {
 	this->synchronize();
-
-	uf::Serializer& metadata = uf::scene::getCurrentScene().getComponent<uf::Serializer>();
-	this->clearColor.x = metadata["system"]["clear color"][0].asFloat();
-	this->clearColor.y = metadata["system"]["clear color"][1].asFloat();
-	this->clearColor.z = metadata["system"]["clear color"][2].asFloat();
-	this->clearColor.w = metadata["system"]["clear color"][3].asFloat();
 }
 
 void ext::vulkan::RenderMode::destroy() {

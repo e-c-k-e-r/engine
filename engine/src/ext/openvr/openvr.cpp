@@ -235,8 +235,11 @@ void ext::openvr::resetPosition() {
 void ext::openvr::tick() {
 	if ( !ext::openvr::context ) return;
 	
+	if ( DEBUG_MARKER ) std::cout << "OPENVR TICK" << std::endl;
+
 	// load render model from api
 	for ( auto& pair : ::queuedRenderModels ) {
+		if ( DEBUG_MARKER ) std::cout << "QUEUED: " << pair.first << std::endl;
 		std::string name = pair.first;
 		auto& queued = pair.second;
 		{
@@ -247,7 +250,7 @@ void ext::openvr::tick() {
 			if ( status != vr::VRRenderModelError_None ) {
 				if ( DEBUG_MARKER ) std::cout << "Failed to load render model " << name << ": " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
 				::queuedRenderModels.erase(name);
-				continue;
+				break;
 			}
 		}
 		// loaded, now to load texture
@@ -260,7 +263,7 @@ void ext::openvr::tick() {
 				if ( DEBUG_MARKER ) std::cout << "Failed to load render model " << name << "'s texture: " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ) << std::endl;
 				vr::VRRenderModels()->FreeRenderModel( queued.model );
 				::queuedRenderModels.erase(name);
-				continue;
+				break;
 			}
 		}
 		// loaded texture, process
@@ -292,16 +295,23 @@ void ext::openvr::tick() {
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device );
 		}
-		// clear
-		{
-			::queuedRenderModels.erase(name);
-			vr::VRRenderModels()->FreeRenderModel( queued.model );
-			vr::VRRenderModels()->FreeTexture( queued.texture );
-		}
 		// call hook
 		uf::Serializer payload;
 		payload["name"] = name;
 		uf::hooks.call( "VR:Model.Loaded", payload );
+		
+		// clear
+		{
+			if ( DEBUG_MARKER ) std::cout << "QUEUED MODEL: " << queued.model << std::endl;
+			if ( DEBUG_MARKER ) std::cout << "QUEUED TEXTURE: " << queued.texture << std::endl;
+			vr::VRRenderModels()->FreeRenderModel( queued.model );
+			vr::VRRenderModels()->FreeTexture( queued.texture );
+		}
+		{
+			if ( DEBUG_MARKER ) std::cout << "FINISHED LOADING: " << name << std::endl;
+			::queuedRenderModels.erase(name);
+			break;
+		}
 	}
 	// 
 

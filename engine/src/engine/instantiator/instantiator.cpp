@@ -38,10 +38,15 @@ void uf::instantiator::free( uf::Entity* pointer ) {
 
 void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
+/*
+	if ( !uf::instantiator::objects->has( object ) ) {
+	//	uf::instantiator::registerObject<uf::Object>( object );
+	}
+*/
 	auto& instantiator = uf::instantiator::objects->get( object );
 	instantiator.behaviors.emplace_back( behavior );
 	
-	std::cout << "Registered binding: " << object << " and " << behavior << std::endl;
+	std::cout << "Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size() << std::endl;
 }
 
 uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
@@ -57,16 +62,30 @@ uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
 
 void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
 	// was actually a behavior name, single bind
-	if ( !uf::instantiator::objects->has( name ) ) {
-		if ( !uf::instantiator::behaviors->has( name ) ) return;
+	if ( !uf::instantiator::objects->has( name, false ) ) {
+		if ( !uf::instantiator::behaviors->has( name, false ) ) return;
 		auto& behavior = uf::instantiator::behaviors->get( name );
 		entity.addBehavior(behavior);
 		return;
 	}
-
 	auto& instantiator = uf::instantiator::objects->get( name );
 	for ( auto& name : instantiator.behaviors ) {
 		auto& behavior = uf::instantiator::behaviors->get( name );
 		entity.addBehavior(behavior);
+	}
+}
+
+void uf::instantiator::unbind( const std::string& name, uf::Entity& entity ) {
+	// was actually a behavior name, single bind
+	if ( !uf::instantiator::objects->has( name, false ) ) {
+		if ( !uf::instantiator::behaviors->has( name, false ) ) return;
+		auto& behavior = uf::instantiator::behaviors->get( name );
+		entity.removeBehavior(behavior);
+		return;
+	}
+	auto& instantiator = uf::instantiator::objects->get( name );
+	for ( auto& name : instantiator.behaviors ) {
+		auto& behavior = uf::instantiator::behaviors->get( name );
+		entity.removeBehavior(behavior);
 	}
 }

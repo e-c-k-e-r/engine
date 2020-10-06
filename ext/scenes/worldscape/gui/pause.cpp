@@ -9,6 +9,7 @@
 #include <uf/utils/string/ext.h>
 // #include <uf/gl/glyph/glyph.h>
 #include <uf/engine/asset/asset.h>
+#include <uf/utils/math/physics.h>
 
 #include <unordered_map>
 
@@ -20,16 +21,16 @@
 #include <fstream>
 
 namespace {
-	ext::Gui* mainText;
-	ext::Gui* commandText;
-	ext::Gui* transientSprite;
-	ext::Gui* transientSpriteShadow;
-	ext::Gui* circleIn;
-	ext::Gui* circleOut;
-	ext::Gui* coverBar;
-	ext::Gui* tenkouseiOption;
-	ext::Gui* closeOption;
-	ext::Gui* quitOption;
+	uf::Object* mainText;
+	uf::Object* commandText;
+	uf::Object* transientSprite;
+	uf::Object* transientSpriteShadow;
+	uf::Object* circleIn;
+	uf::Object* circleOut;
+	uf::Object* coverBar;
+	uf::Object* tenkouseiOption;
+	uf::Object* closeOption;
+	uf::Object* quitOption;
 }
 
 namespace {
@@ -62,7 +63,7 @@ namespace {
 
 EXT_OBJECT_REGISTER_CPP(GuiWorldPauseMenu)
 void ext::GuiWorldPauseMenu::initialize() {
-	ext::Gui::initialize();
+	uf::Object::initialize();
 
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -74,7 +75,7 @@ void ext::GuiWorldPauseMenu::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Audio& sfx = this->getComponent<uf::Audio>();
@@ -99,18 +100,20 @@ void ext::GuiWorldPauseMenu::initialize() {
 	playSound(*this, "menu open");
 
 	/* Magic Circle Outter */ {
-		circleOut = (ext::Gui*) this->findByUid(this->loadChild("./circle-out.json", true));
+	//	circleOut = (uf::Object*) this->findByUid(this->loadChildUid("./circle-out.json", true));
+		circleOut = this->loadChildPointer("./circle-out.json", true);
 	/*
-		circleOut = new ext::Gui;
+		circleOut = new uf::Object;
 		this->addChild(*circleOut);
 		circleOut->load("./circle-out.json");
 		circleOut->initialize();
 	*/
 	}
 	/* Magic Circle Inner */ {
-		circleIn = (ext::Gui*) this->findByUid(this->loadChild("./circle-in.json", true));
+	//	circleIn = (uf::Object*) this->findByUid(this->loadChildUid("./circle-in.json", true));
+		circleIn = this->loadChildPointer("./circle-in.json", true);
 	/*
-		circleIn = new ext::Gui;
+		circleIn = new uf::Object;
 		this->addChild(*circleIn);
 		circleIn->load("./circle-in.json");
 		circleIn->initialize();
@@ -136,7 +139,7 @@ void ext::GuiWorldPauseMenu::initialize() {
 	{
 		std::string portrait = metadata["portraits"]["list"][0].asString();
 		/* Transient shadow background */ {		
-			transientSpriteShadow = new ext::Gui;
+			transientSpriteShadow = new uf::Object;
 			uf::Asset& assetLoader = transientSpriteShadow->getComponent<uf::Asset>();
 			this->addChild(*transientSpriteShadow);
 			uf::Serializer& pMetadata = transientSpriteShadow->getComponent<uf::Serializer>();
@@ -147,7 +150,7 @@ void ext::GuiWorldPauseMenu::initialize() {
 		
 		}
 		/* Transient transientSprite */ {
-			transientSprite = new ext::Gui;
+			transientSprite = new uf::Object;
 			uf::Asset& assetLoader = transientSprite->getComponent<uf::Asset>();
 			this->addChild(*transientSprite);
 			uf::Serializer& pMetadata = transientSprite->getComponent<uf::Serializer>();
@@ -159,54 +162,60 @@ void ext::GuiWorldPauseMenu::initialize() {
 		}
 	}
 	/* Main Text (the one that scrolls) */ {
-		mainText = (ext::Gui*) this->findByUid(this->loadChild("./main-text.json", true));
+	//	mainText = (uf::Object*) this->findByUid(this->loadChildUid("./main-text.json", true));
+		mainText = this->loadChildPointer("./main-text.json", true);
 	/*
-		mainText = new ext::Gui;
+		mainText = new uf::Object;
 		this->addChild(*mainText);
 		mainText->load("./main-text.json");
 		mainText->initialize();
 	*/
 	}
 	/* Command text */ {
-		commandText = (ext::Gui*) this->findByUid(this->loadChild("./command-text.json", true));
+	//	commandText = (uf::Object*) this->findByUid(this->loadChildUid("./command-text.json", true));
+		commandText = this->loadChildPointer("./command-text.json", true);
 	/*
-		commandText = new ext::Gui;
+		commandText = new uf::Object;
 		this->addChild(*commandText);
 		commandText->load("./command-text.json");
 		commandText->initialize();
 	*/
 	}
 	/* Cover bar */ {
-		coverBar = (ext::Gui*) this->findByUid(this->loadChild("./yellow-box.json", true));
+	//	coverBar = (uf::Object*) this->findByUid(this->loadChildUid("./yellow-box.json", true));
+		coverBar = this->loadChildPointer("./yellow-box.json", true);
 	/*
-		coverBar = new ext::Gui;
+		coverBar = new uf::Object;
 		this->addChild(*coverBar);
 		coverBar->load("./yellow-box.json");
 		coverBar->initialize();
 	*/
 	}
 	/* Option 1 */ {
-		tenkouseiOption = (ext::Gui*) this->findByUid(this->loadChild("./tenkousei.json", true));
+	//	tenkouseiOption = (uf::Object*) this->findByUid(this->loadChildUid("./tenkousei.json", true));
+		tenkouseiOption = this->loadChildPointer("./tenkousei.json", true);
 	/*
-		tenkouseiOption = new ext::Gui;
+		tenkouseiOption = new uf::Object;
 		this->addChild(*tenkouseiOption);
 		tenkouseiOption->load("./tenkousei.json");
 		tenkouseiOption->initialize();
 	*/
 	}
 	/* Option 2 */ {
-		closeOption = (ext::Gui*) this->findByUid(this->loadChild("./close.json", true));
+	//	closeOption = (uf::Object*) this->findByUid(this->loadChildUid("./close.json", true));
+		closeOption = this->loadChildPointer("./close.json", true);
 	/*
-		closeOption = new ext::Gui;
+		closeOption = new uf::Object;
 		this->addChild(*closeOption);
 		closeOption->load("./close.json");
 		closeOption->initialize();
 	*/
 	}
 	/* Option 3 */ {
-		quitOption = (ext::Gui*) this->findByUid(this->loadChild("./quit.json", true));
+	//	quitOption = (uf::Object*) this->findByUid(this->loadChildUid("./quit.json", true));
+		quitOption = this->loadChildPointer("./quit.json", true);
 	/*
-		quitOption = new ext::Gui;
+		quitOption = new uf::Object;
 		this->addChild(*quitOption);
 		quitOption->load("./quit.json");
 		quitOption->initialize();
@@ -226,7 +235,7 @@ void ext::GuiWorldPauseMenu::initialize() {
 	});
 }
 void ext::GuiWorldPauseMenu::tick() {
-	ext::Gui::tick();
+	uf::Object::tick();
 
 	uf::Scene& scene = this->getRootParent<uf::Scene>();
 	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -254,7 +263,6 @@ void ext::GuiWorldPauseMenu::tick() {
 			// kill
 			timer.stop();
 			this->destroy();
-			this->getParent().removeChild(*this);
 			delete this;
 			return;
 		} else {
@@ -368,7 +376,7 @@ void ext::GuiWorldPauseMenu::tick() {
 					this->removeChild(*transientSpriteShadow);
 					delete transientSpriteShadow;
 
-					transientSpriteShadow = new ext::Gui;
+					transientSpriteShadow = new uf::Object;
 					uf::Serializer& pMetadata = transientSpriteShadow->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = portrait;
 
@@ -381,7 +389,7 @@ void ext::GuiWorldPauseMenu::tick() {
 					this->removeChild(*transientSprite);
 					delete transientSprite;
 
-					transientSprite = new ext::Gui;
+					transientSprite = new uf::Object;
 					uf::Serializer& pMetadata = transientSprite->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = portrait;
 
@@ -395,7 +403,7 @@ void ext::GuiWorldPauseMenu::tick() {
 				mainText->destroy();
 				this->removeChild(*mainText);
 				delete mainText;
-				mainText = new ext::Gui;
+				mainText = new uf::Object;
 				this->addChild(*mainText);
 				mainText->load("./main-text.json");
 				mainText->getComponent<pod::Transform<>>() = cTransform;
@@ -561,10 +569,10 @@ void ext::GuiWorldPauseMenu::tick() {
 	}
 }
 void ext::GuiWorldPauseMenu::render() {
-	ext::Gui::render();
+	uf::Object::render();
 }
 
 void ext::GuiWorldPauseMenu::destroy() {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	ext::Gui::destroy();
+	uf::Object::destroy();
 }

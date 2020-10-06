@@ -41,7 +41,7 @@ bool uf::Serializer::readFromFile( const std::string& from ) {
 		std::string filename;
 		bool exists;
 	} file; {
-		file.exists = uf::string::exists(from);
+		file.exists = uf::io::exists(from);
 		file.filename = from;
 	}
 

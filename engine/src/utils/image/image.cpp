@@ -68,13 +68,13 @@ std::string uf::Image::getFilename() const {
 
 // from file
 bool uf::Image::open( const std::string& filename ) {
-	if ( !uf::string::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
+	if ( !uf::io::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
-	std::string extension = uf::string::extension(filename);
+	std::string extension = uf::io::extension(filename);
 	if ( extension == "png" ) {
 		uint mode = 2;
-		if ( mode == 1 ) {
+		#if 0
 			png_byte header[8];
 			FILE* file = fopen(filename.c_str(), "rb");
 
@@ -167,7 +167,7 @@ bool uf::Image::open( const std::string& filename ) {
 		//		this->convert(uf::Image::Format::RGBA, 32);
 			}
 		*/
-		} else if ( mode == 2 ) {
+		#else
 			int width, height, channels, bit_depth;
 			bit_depth = 8;
 			stbi_set_flip_vertically_on_load(true);
@@ -185,7 +185,7 @@ bool uf::Image::open( const std::string& filename ) {
 			this->m_channels = channels;
 			this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
 			stbi_image_free(buffer);
-		}
+		#endif
 		return true;
 	}
 	return true;

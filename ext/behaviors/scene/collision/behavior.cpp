@@ -1,0 +1,172 @@
+#include "behavior.h"
+
+#include <uf/utils/time/time.h>
+#include <uf/utils/io/iostream.h>
+#include <uf/utils/math/vector.h>
+#include <uf/utils/math/transform.h>
+#include <uf/utils/math/physics.h>
+#include <uf/utils/window/window.h>
+
+#include <uf/utils/audio/audio.h>
+#include <uf/utils/thread/thread.h>
+#include <uf/utils/camera/camera.h>
+
+#include <uf/engine/asset/asset.h>
+#include <uf/engine/asset/masterdata.h>
+
+#include <uf/utils/renderer/renderer.h>
+
+#include <uf/ext/gltf/gltf.h>
+
+#include <uf/utils/math/collision.h>
+
+#include <mutex>
+
+EXT_BEHAVIOR_REGISTER_CPP(SceneCollisionBehavior)
+#define this ((uf::Scene*) &self)
+
+void ext::SceneCollisionBehavior::initialize( uf::Object& self ) {
+	{
+		auto& mutexPointer = this->getComponent<std::mutex*>();
+		mutexPointer = new std::mutex;
+	}
+}
+void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
+
+	auto& metadata = this->getComponent<uf::Serializer>();
+
+	if ( !metadata["system"]["physics"]["collision"].asBool() ) return;
+	auto& mutex = *(this->getComponent<std::mutex*>());
+	mutex.lock();
+
+	bool threaded = !metadata["system"]["physics"]["single threaded"].asBool();
+	bool sort = metadata["system"]["physics"]["sort"].asBool();
+	bool useStrongest = metadata["system"]["physics"]["use"]["strongest"].asBool();
+	bool queued = metadata["system"]["physics"]["use"]["queue"].asBool();
+	bool updatePhysics = !metadata["system"]["physics"]["optimizations"]["entity-local update"].asBool();
+	bool ignoreStaticEntities = metadata["system"]["physics"]["optimizations"]["ignore static entities"].asBool();
+	bool ignoreDuplicateTests = metadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].asBool();
+	bool useWorkers = metadata["system"]["physics"]["use"]["worker"].asBool();
+	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
+	auto function = [&]() -> int {
+		std::vector<uf::Object*> entities;
+		// update physics
+		if ( updatePhysics ) {
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				if ( !entity->hasComponent<pod::Physics>() ) return;
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				auto& transform = entity->getComponent<pod::Transform<>>();
+				auto& physics = entity->getComponent<pod::Physics>();
+				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
+					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
+					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+				}
+				if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+					physics.linear.acceleration.x = 0;
+					physics.linear.acceleration.y = 0;
+					physics.linear.acceleration.z = 0;
+				}
+				transform = uf::physics::update( transform, physics );
+			};
+			this->process(filter);
+		}
+		{
+			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				auto& metadata = entity->getComponent<uf::Serializer>();
+				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( entity->hasComponent<uf::Collider>() )
+					entities.push_back((uf::Object*) entity);
+			};
+			this->process(filter);
+		}
+		auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b, bool queued ){				
+			uf::Serializer payload;
+			payload["normal"][0] = manifold.normal.x;
+			payload["normal"][1] = manifold.normal.y;
+			payload["normal"][2] = manifold.normal.z;
+			payload["entity"] = b->getUid();
+			payload["depth"] = -manifold.depth;
+			if ( queued ) a->queueHook("world:Collision.%UID%", payload);
+			else a->callHook("world:Collision.%UID%", payload);
+			
+			payload["entity"] = a->getUid();
+			payload["depth"] = manifold.depth;
+			if ( queued ) b->queueHook("world:Collision.%UID%", payload);
+			else b->callHook("world:Collision.%UID%", payload);
+		};
+		auto testColliders = [&]( uf::Collider& colliderA, uf::Collider& colliderB, uf::Object* a, uf::Object* b, bool useStrongest ){
+			pod::Collider::Manifold strongest;
+			auto manifolds = colliderA.intersects(colliderB);
+			for ( auto manifold : manifolds ) {
+				if ( manifold.colliding && manifold.depth > 0 ) {
+					if ( !useStrongest ) onCollision(manifold, a, b, queued);
+					else if ( strongest.depth < manifold.depth ) strongest = manifold;
+				}
+			}
+			if ( useStrongest && strongest.colliding ) onCollision(strongest, a, b, queued);
+		};
+		// collide with others
+		if ( ignoreDuplicateTests ) {
+			struct Pair {
+				uf::Object* a = NULL;
+				uf::Object* b = NULL;
+			};
+			std::unordered_map<std::string, Pair> queued;
+			for ( auto* _a : entities ) {
+				uf::Object& entityA = *_a;
+				if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
+				for ( auto* _b : entities ) { if ( _a == _b ) continue;
+					uf::Object& entityB = *_b;
+
+					std::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
+					if ( queued.count(hash) > 0 ) continue;
+
+					queued[hash] = {
+						.a = _a,
+						.b = _b,
+					};
+				}
+			}
+			for ( auto& pair : queued ) {
+				auto* entityA = pair.second.a;
+				auto* entityB = pair.second.b;
+				auto& colliderA = entityA->getComponent<uf::Collider>();
+				auto& colliderB = entityB->getComponent<uf::Collider>();
+				auto function = [&]() -> int {
+					testColliders( colliderA, colliderB, entityA, entityB, useStrongest );
+					return 0;
+				};
+				if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
+			}
+		} else {
+			for ( auto* _a : entities ) {
+				uf::Object& entityA = *_a;
+				if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
+				for ( auto* _b : entities ) { if ( _a == _b ) continue;
+					uf::Object& entityB = *_b;
+					auto& colliderA = entityA.getComponent<uf::Collider>();
+					auto& colliderB = entityB.getComponent<uf::Collider>();
+					auto function = [&]() -> int {
+						testColliders( colliderA, colliderB, &entityA, &entityB, useStrongest );
+						return 0;
+					};
+					if ( threaded && useWorkers ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
+				}
+			}
+		}
+		mutex.unlock();
+		return 0;
+	};
+	if ( threaded ) uf::thread::add( thread, function, true ); else function();
+}
+
+void ext::SceneCollisionBehavior::render( uf::Object& self ){}
+void ext::SceneCollisionBehavior::destroy( uf::Object& self ){
+	{
+		auto& mutexPointer = this->getComponent<std::mutex*>();
+		delete mutexPointer;
+		mutexPointer = NULL;
+	}
+}
+#undef this

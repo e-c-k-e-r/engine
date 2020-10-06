@@ -9,6 +9,7 @@
 #include <uf/utils/string/ext.h>
 // #include <uf/gl/glyph/glyph.h>
 #include <uf/engine/asset/asset.h>
+#include <uf/utils/math/physics.h>
 
 #include <unordered_map>
 
@@ -126,7 +127,7 @@ void ext::GuiDialogue::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -145,7 +146,7 @@ void ext::GuiDialogue::initialize() {
 		
 		std::string filename = json["filename"].asString();
 
-		if ( uf::string::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();

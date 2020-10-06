@@ -53,9 +53,9 @@ namespace ext {
 		void writeToFile();
 		void updateLight();
 
-		void generate( ext::Region& );
-		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const ext::Region& );
-	//	void vectorize( std::vector<uf::renderer::ComputeGraphic::Cube>&, const ext::Region& );
+		void generate( uf::Object& );
+		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& );
+	//	void vectorize( std::vector<uf::renderer::ComputeGraphic::Cube>&, const uf::Object& );
 		
 		std::vector<ext::TerrainVoxel::uid_t> getRawVoxels();
 		const pod::RLE<ext::TerrainVoxel::uid_t>::string_t& getVoxels() const;

@@ -7,11 +7,13 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/graphic/mesh.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/gltf/gltf.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(Object)
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {	
+/*
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["asset load"].asBool()  ) {
 		// Default load: GLTF model
@@ -19,7 +21,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::Serializer json = event;
 			std::string filename = json["filename"].asString();
 
-			if ( uf::string::extension(filename) != "glb" ) return "false";
+			if ( uf::io::extension(filename) != "glb" ) return "false";
 			int8_t LOAD_FLAGS = 0;
 			if ( metadata["model"]["flags"]["GENERATE_NORMALS"].asBool() )
 				LOAD_FLAGS |= ext::gltf::LoadMode::GENERATE_NORMALS; 	// 0x1 << 0;
@@ -35,9 +37,28 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 				LOAD_FLAGS |= ext::gltf::LoadMode::AABB; 				// 0x1 << 5;
 
 			ext::gltf::load( *this, filename, LOAD_FLAGS );
+			std::cout << this->getName() << ": " << this->getUid() << " finished loading " << filename << std::endl;
 			return "true";
 		});
 	}
+*/
+	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		std::string filename = json["filename"].asString();
+		
+		if ( uf::io::extension(filename) != "json" ) return "false";
+
+		if ( !json.readFromFile(filename) ) {
+			uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+			return "false";
+		}
+		json["root"] = uf::io::directory(filename);
+		json["source"] = filename; // uf::io::filename(filename)
+		json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+		if ( this->loadChildUid(json) == -1 ) return "false";
+
+		return "true";
+	});
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -48,14 +69,20 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 			uf::hooks.removeHook(name, id);
 		}
 	}
+
+	if ( this->hasComponent<uf::Graphic>() ) {
+		auto& graphic = this->getComponent<uf::Graphic>();
+		graphic.destroy();
+		uf::renderer::rebuild = true;
+	}
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// listen for metadata file changes
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( metadata["system"]["hot reload"]["enabled"].asBool() ) {
-		size_t mtime = uf::string::mtime( metadata["system"]["source"].asString() );
+		size_t mtime = uf::io::mtime( metadata["system"]["source"].asString() );
 		if ( metadata["system"]["hot reload"]["mtime"].asUInt64() < mtime ) {
-			std::cout << metadata["system"]["hot reload"]["mtime"] << ": " << mtime << std::endl;
+			std::cout << "File reload detected: " << ": " << metadata["system"]["source"].asString() << ", " << metadata["system"]["hot reload"]["mtime"] << " -> " << mtime << std::endl;
 			metadata["system"]["hot reload"]["mtime"] = mtime;
 			this->reload();
 			//this->queueHook("metadata:Reload.%UID%");
@@ -82,8 +109,9 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 }
 void uf::ObjectBehavior::render( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
+/*
 	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["render"].asBool() ) {
-		/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
+		if ( this->hasComponent<uf::Graphic>() ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& graphic = this->getComponent<uf::Graphic>();
 			auto& transform = this->getComponent<pod::Transform<>>();
@@ -107,6 +135,7 @@ void uf::ObjectBehavior::render( uf::Object& self ) {
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		};
 	}
+*/
 }
 #undef this
-UF_BEHAVIOR_ENTITY_CPP_END(Entity)
+UF_BEHAVIOR_ENTITY_CPP_END(Object)

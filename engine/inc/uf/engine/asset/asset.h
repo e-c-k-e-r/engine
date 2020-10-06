@@ -37,7 +37,7 @@ namespace uf {
 		}
 		template<typename T>
 		T& get( const std::string& url ) {
-			std::string extension = uf::string::extension( url );
+			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
 			std::size_t index = map[extension][url].asUInt64();
 			return this->get<T>(index);
@@ -45,7 +45,7 @@ namespace uf {
 
 		template<typename T>
 		T& add( const std::string& url, const T& copy ) {
-			std::string extension = uf::string::extension( url );
+			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
@@ -55,7 +55,7 @@ namespace uf {
 		}
 		template<typename T>
 		T& add( const std::string& url, T&& move ) {
-			std::string extension = uf::string::extension( url );
+			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
