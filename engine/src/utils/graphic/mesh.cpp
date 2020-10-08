@@ -55,6 +55,39 @@ std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_2F2F::descriptor = {
 		offsetof(pod::Vertex_2F2F, uv)
 	}
 };
+// used for texture arrays
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F3F3F::descriptor = {
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F3F3F, position)
+	},
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F3F3F, uv)
+	},
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F3F3F, normal)
+	}
+};
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F1UI::descriptor = {
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F1UI, position)
+	},
+	{
+		VK_FORMAT_R32G32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F1UI, uv)
+	},
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F1UI, normal)
+	},
+	{
+		VK_FORMAT_R32_UINT,
+		offsetof(pod::Vertex_3F2F3F1UI, id)
+	}
+};
 // Basic
 std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F::descriptor = {
 	{

@@ -24,7 +24,8 @@ namespace ext {
 
 			std::vector<uf::Userdata> pushConstants;
 		//	std::vector<uf::Userdata> specializationConstants;
-			uf::Userdata specializationConstants;
+		//	uf::Userdata specializationConstants;
+			std::vector<uint8_t> specializationConstants;
 			std::vector<uf::Userdata> uniforms;
 
 		//	~Shader();
@@ -94,7 +95,7 @@ namespace ext {
 			void destroy();
 			
 			template<typename T, typename U>
-			void initializeGeometry( uf::BaseMesh<T, U>& mesh );
+			void initializeGeometry( uf::BaseMesh<T, U>& mesh, bool = false );
 
 			bool hasPipeline( Descriptor& descriptor );
 			void initializePipeline();

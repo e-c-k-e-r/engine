@@ -60,9 +60,11 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& _device, const std::s
 		spirv_cross::ShaderResources res = comp.get_shader_resources();
 
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType ) {			
+			const auto& type = comp.get_type(resource.type_id);
+			const auto& base_type = comp.get_type(resource.base_type_id);
+			
 			switch ( descriptorType ) {
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-					const auto& base_type = comp.get_type(resource.base_type_id);
 					size_t size = comp.get_declared_struct_size(base_type);
 					if ( size <= 0 ) break;
     				auto& uniform = uniforms.emplace_back();
@@ -77,10 +79,20 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& _device, const std::s
 			*/
 			}
 
-			const auto& type = comp.get_type(resource.type_id);
 			size_t size = 1;
-			if ( !type.array.empty() ) size = type.array[0];
-
+			if ( !type.array.empty() ) {
+				size = type.array[0];
+			/*
+				std::cout << "ARRAY: " << filename << ":\t";
+				for ( auto v : type.array ) 
+					std::cout << v << " ";
+				std::cout << std::endl;
+				std::cout << "ARRAY: " << filename << ":\t";
+				for ( auto v : type.array_size_literal ) 
+					std::cout << v << " ";
+				std::cout << std::endl;
+			*/
+			}
 			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, comp.get_decoration(resource.id, spv::DecorationBinding), size ) );
 		};
 		
@@ -120,9 +132,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& _device, const std::s
 			specializationSize += size;
 		}
 		if ( specializationSize > 0 ) {
-			specializationConstants.create( specializationSize );
+		//	specializationConstants.create( specializationSize );
+			specializationConstants.resize( specializationSize, 0 );
 
-			uint8_t* s = (uint8_t*) (void*) specializationConstants;
+			uint8_t* s = (uint8_t*) &specializationConstants[0];
 			size_t offset = 0;
 			for ( const auto& constant : comp.get_specialization_constants() ) {
 				const auto& value = comp.get_constant(constant.id);
@@ -441,35 +454,9 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 				len = sizeof(stereo);
 				pointer = &stereo;
 			}
-			if ( len > 0 && pointer )
+			if ( len > 0 && pointer ) {
 				vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
-		/*
-			size_t len = pushConstant.data().len;
-			void* pointer = pushConstant.data().data;
-			std::cout << pointer << ": " << len << std::endl;
-			if ( len == 4 ) {
-				struct Stereo {
-					uint32_t pass;
-				};
-				auto& stereo = pushConstant.get<Stereo>();
-				std::cout << pointer << ": Got " << stereo.pass << std::endl;
 			}
-			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
-		*/
-		/*
-			struct PushConstant {
-				uint32_t pass;
-			} p = { ext::openvr::renderPass };
-			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(p), &p );
-		*/
-		/*
-			pod::Userdata& userdata = pushConstant.data();
-			{
-				pushConstant.get<PushConstant>() = { 0 };//ext::openvr::renderPass };
-			}
-			vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, offset, userdata.len, userdata.data );
-			offset += userdata.len;
-		*/
 		}
 	}
 	// Bind descriptor sets describing shader binding points
@@ -521,7 +508,11 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 						case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 							size_t imageInfosStart = imageInfos.size();
 							// assume we have a texture, and fill it in the slots as defaults
-							for ( size_t i = 0; i < layout.descriptorCount; ++i ) {
+							size_t target = layout.descriptorCount;
+							if ( target == 132 ) {
+								target = graphic.material.textures.size();
+							}
+							for ( size_t i = 0; i < target; ++i ) {
 								VkDescriptorImageInfo d = emptyTexture.descriptor;
 								if ( textures != graphic.material.textures.end() ) {
 									d = (textures++)->descriptor;
@@ -533,13 +524,15 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 								}
 								imageInfos.push_back( d );
 							}
-						
+							
+							size_t len = imageInfos.size() - imageInfosStart;
+
 							writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 								descriptorSet,
 								layout.descriptorType,
 								layout.binding,
 								&imageInfos[imageInfosStart],
-								imageInfos.size() - imageInfosStart
+								len
 							));
 						} break;
 					}

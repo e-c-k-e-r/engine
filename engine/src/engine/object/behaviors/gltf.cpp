@@ -17,30 +17,47 @@ UF_BEHAVIOR_REGISTER_CPP(GltfBehavior)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	// Default load: GLTF model
-
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		std::string filename = json["filename"].asString();
 
 		if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) return "false";
-		int8_t LOAD_FLAGS = 0;
-		if ( metadata["model"]["flags"]["GENERATE_NORMALS"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::GENERATE_NORMALS; 	// 0x1 << 0;
-		if ( metadata["model"]["flags"]["APPLY_TRANSFORMS"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::APPLY_TRANSFORMS; 	// 0x1 << 1;
-		if ( metadata["model"]["flags"]["SEPARATE_MESHES"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::SEPARATE_MESHES; 	// 0x1 << 2;
-		if ( metadata["model"]["flags"]["RENDER"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::RENDER; 				// 0x1 << 3;
-		if ( metadata["model"]["flags"]["COLLISION"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::COLLISION; 			// 0x1 << 4;
-		if ( metadata["model"]["flags"]["AABB"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::AABB; 				// 0x1 << 5;
-		if ( metadata["model"]["flags"]["THREADED"].asBool() )
-			LOAD_FLAGS |= ext::gltf::LoadMode::THREADED; 			// 0x1 << 6;
-
-		ext::gltf::load( *this, filename, LOAD_FLAGS );
 		
+		uf::Scene& scene = uf::scene::getCurrentScene();
+		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
+		uf::Object* objectPointer = NULL;
+		try { objectPointer = assetLoader.get<uf::Object*>(filename); } catch ( ... ) {}
+		if ( !objectPointer ) return "false";
+
+		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() || !entity->hasComponent<ext::gltf::mesh_t>() ) return;
+			auto& graphic = entity->getComponent<uf::Graphic>();
+			auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
+			graphic.initialize();
+			graphic.initializeGeometry( mesh );
+
+			graphic.material.attachShader("./data/shaders/gltf.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+			graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+			graphic.process = true;
+
+			auto& shader = graphic.material.shaders.back();
+			struct SpecializationConstant {
+				uint32_t textures = 1;
+			};
+			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
+			specializationConstants->textures = graphic.material.textures.size();
+
+			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+				if ( binding.descriptorCount > 1 )
+					binding.descriptorCount = specializationConstants->textures;
+			}
+		};
+		objectPointer->process(filter);
+
+		this->addChild(objectPointer->as<uf::Entity>());
+		objectPointer->initialize();
+
 		return "true";
 	});
 }

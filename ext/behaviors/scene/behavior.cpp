@@ -10,6 +10,7 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/math/physics.h>
 
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
@@ -194,11 +195,17 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	
 	/* Updates Sound Listener */ {
 		auto& controller = this->getController();
-		auto& transform = controller.getComponent<pod::Transform<>>();
-		
+		// copy
+		pod::Transform<> transform = controller.getComponent<pod::Transform<>>();
+		if ( controller.hasComponent<uf::Camera>() ) {
+			auto& camera = controller.getComponent<uf::Camera>();
+			transform.position += camera.getTransform().position;
+			transform = uf::transform::reorient( transform );
+		}
+		transform.forward *= -1;
 		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
-		ext::oal.listener( "ORIENTATION", { 0, 0, 1, 1, 0, 0 } );
+		ext::oal.listener( "ORIENTATION", { transform.forward.x, transform.forward.y, transform.forward.z, transform.up.x, transform.up.y, transform.up.z } );
 	}
 
 	if ( uf::scene::getCurrentScene().getUid() == this->getUid() ) {
@@ -236,6 +243,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					alignas(16) pod::Matrix4f projection[2];
 				} matrices;
 				alignas(16) pod::Vector4f ambient;
+				struct Mode {
+					alignas(8) pod::Vector2ui type;
+					alignas(16) pod::Vector4f parameters;
+				} mode;
 				struct {
 					alignas(8) pod::Vector2f range;
 					alignas(16) pod::Vector4f color;
@@ -251,7 +262,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			};
 			
 			struct SpecializationConstant {
-				int32_t maxLights = 32;
+				uint32_t maxLights = 32;
 			} specializationConstants;
 
 			for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
@@ -267,7 +278,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					buffer = (uint8_t*) (void*) userdata;
 					len = userdata.data().len;
 					shader = &_;
-					specializationConstants = _.specializationConstants.get<SpecializationConstant>();
+				//	specializationConstants = _.specializationConstants.get<SpecializationConstant>();
+					specializationConstants = *((SpecializationConstant*) &_.specializationConstants[0]);
 				}
 
 				if ( !buffer ) continue;
@@ -290,6 +302,19 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 					uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].asFloat();
 					uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].asFloat();
+				}
+				{
+					uniforms->mode.type.x = metadata["system"]["renderer"]["shader"]["mode"].asUInt();
+					uniforms->mode.type.y = metadata["system"]["renderer"]["shader"]["scalar"].asUInt();
+					uniforms->mode.parameters.x = metadata["system"]["renderer"]["shader"]["parameters"][0].asFloat();
+					uniforms->mode.parameters.y = metadata["system"]["renderer"]["shader"]["parameters"][1].asFloat();
+					uniforms->mode.parameters.z = metadata["system"]["renderer"]["shader"]["parameters"][2].asFloat();
+
+					if ( metadata["system"]["renderer"]["shader"]["parameters"][3].asString() == "time" ) {
+						uniforms->mode.parameters.w = uf::physics::time::current;
+					} else {
+						uniforms->mode.parameters.w = metadata["system"]["renderer"]["shader"]["parameters"][3].asFloat();
+					}
 				}
 				{
 					std::vector<uf::Entity*> entities;

@@ -12,36 +12,53 @@
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(Object)
 #define this (&self)
-void uf::ObjectBehavior::initialize( uf::Object& self ) {	
-/*
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["asset load"].asBool()  ) {
-		// Default load: GLTF model
-		this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-			uf::Serializer json = event;
-			std::string filename = json["filename"].asString();
-
-			if ( uf::io::extension(filename) != "glb" ) return "false";
-			int8_t LOAD_FLAGS = 0;
-			if ( metadata["model"]["flags"]["GENERATE_NORMALS"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::GENERATE_NORMALS; 	// 0x1 << 0;
-			if ( metadata["model"]["flags"]["APPLY_TRANSFORMS"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::APPLY_TRANSFORMS; 	// 0x1 << 1;
-			if ( metadata["model"]["flags"]["SEPARATE_MESHES"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::SEPARATE_MESHES; 	// 0x1 << 2;
-			if ( metadata["model"]["flags"]["RENDER"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::RENDER; 				// 0x1 << 3;
-			if ( metadata["model"]["flags"]["COLLISION"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::COLLISION; 			// 0x1 << 4;
-			if ( metadata["model"]["flags"]["AABB"].asBool() )
-				LOAD_FLAGS |= ext::gltf::LoadMode::AABB; 				// 0x1 << 5;
-
-			ext::gltf::load( *this, filename, LOAD_FLAGS );
-			std::cout << this->getName() << ": " << this->getUid() << " finished loading " << filename << std::endl;
-			return "true";
-		});
+void uf::ObjectBehavior::initialize( uf::Object& self ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& assetLoader = scene.getComponent<uf::Asset>();
+	auto& metadata = this->getComponent<uf::Serializer>();
+/*	
+	size_t target = 0;
+	for ( int i = 0; i < metadata["system"]["assets"].size(); ++i ) {
+		std::string filename = metadata["system"]["assets"][i].isObject() ? metadata["system"]["assets"][i]["filename"].asString() : metadata["system"]["assets"][i].asString();
+		if ( uf::io::extension(filename) != "json" ) ++target;
+	}
+	if ( target > 0 ) {
+		metadata["system"]["load"]["progress"] = 0;
+		metadata["system"]["load"]["total"] = target;
 	}
 */
+
+	// 
+	{
+		size_t assets = metadata["system"]["assets"].size();
+		metadata["system"]["load"]["progress"] = 0;
+		metadata["system"]["load"]["total"] = assets;
+		if ( assets == 0 )  {
+			auto& parent = this->getParent().as<uf::Object>();
+			uf::Serializer payload;
+			payload["uid"] = this->getUid();
+			parent.callHook("asset:Parsed.%UID%", payload);
+		}
+	}
+
+	this->addHook( "asset:QueueLoad.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		std::string filename = json["filename"].asString();
+		std::string callback = "asset:FinishedLoad." + std::to_string(this->getUid());
+		if ( json["single threaded"].asBool() ) {
+			assetLoader.load( filename );
+			this->queueHook( callback, event );
+		} else {
+			assetLoader.load( filename, callback );
+		}
+
+		return "true";
+	});
+	this->addHook( "asset:FinishedLoad.%UID%", [&](const std::string& event)->std::string{
+		this->queueHook("asset:Load.%UID%", event);
+		this->queueHook("asset:Parsed.%UID%", event);
+		return "true";
+	});	
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		std::string filename = json["filename"].asString();
@@ -57,6 +74,32 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
 		if ( this->loadChildUid(json) == -1 ) return "false";
 
+		return "true";
+	});
+	this->addHook( "asset:Parsed.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		int portion = 1;
+		auto& total = metadata["system"]["load"]["total"];
+		auto& progress = metadata["system"]["load"]["progress"];
+		progress = progress.asInt() + portion;
+		if ( progress.asInt() == total.asInt() ) {
+			auto& parent = this->getParent().as<uf::Object>();
+
+			uf::Serializer payload;
+			payload["uid"] = this->getUid();
+			parent.callHook("asset:Parsed.%UID%", payload);
+		}
+	/*
+		float portion = 1.0f / metadata["system"]["load"]["total"].asFloat();
+		auto& progress = metadata["system"]["load"]["progress"];
+		progress = progress.asFloat() + portion;
+	*/
+	/*
+		if ( metadata["system"]["loaded"].asBool() ) return "false";
+		if ( progress.asFloat() >= 1.0f ) {
+			this->queueHook("system:Load.Finished.%UID%");
+		}
+	*/
 		return "true";
 	});
 }

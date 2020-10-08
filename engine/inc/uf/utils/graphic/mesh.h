@@ -25,6 +25,38 @@ namespace pod {
 		bool operator!=( const Vertex_3F2F3F32B& that ) const { return !(*this == that); }
 
 	};
+	struct /*UF_API*/ Vertex_3F3F3F {
+		alignas(16) pod::Vector3f position;
+		alignas(16) pod::Vector3f uv;
+		alignas(16) pod::Vector3f normal;
+
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+
+		bool operator==( const Vertex_3F3F3F& that ) const {
+			return 	this->position 	== that.position 	&&
+					this->normal 	== that.normal 		&&
+					this->uv 		== that.uv;
+		}
+		bool operator!=( const Vertex_3F3F3F& that ) const { return !(*this == that); }
+
+	};
+	struct /*UF_API*/ Vertex_3F2F3F1UI {
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
+		alignas(16) pod::Vector3f normal;
+		alignas(4) uint32_t id;
+
+		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+
+		bool operator==( const Vertex_3F2F3F1UI& that ) const {
+			return 	this->position 	== that.position 	&&
+					this->normal 	== that.normal 		&&
+					this->uv 		== that.uv 			&&
+					this->id 		== that.id;
+		}
+		bool operator!=( const Vertex_3F2F3F1UI& that ) const { return !(*this == that); }
+
+	};
 	struct /*UF_API*/ Vertex_3F2F3F {
 		alignas(16) pod::Vector3f position;
 		alignas(8) pod::Vector2f uv;
@@ -84,6 +116,27 @@ namespace std {
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.normal[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 4; ++i ) seed ^= hasher( vertex.color[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			return seed;
+	    }
+	};
+	template<> struct hash<pod::Vertex_3F2F3F1UI> {
+	    size_t operator()(pod::Vertex_3F2F3F1UI const& vertex) const {
+	       std::size_t seed = 3 + 2 + 3 + 1;
+	       std::hash<float> hasher;
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.normal[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			seed ^= hasher( (float) vertex.id ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			return seed;
+	    }
+	};
+	template<> struct hash<pod::Vertex_3F3F3F> {
+	    size_t operator()(pod::Vertex_3F3F3F const& vertex) const {
+	       std::size_t seed = 3 + 3 + 3;
+	       std::hash<float> hasher;
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.normal[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			return seed;
 	    }
 	};

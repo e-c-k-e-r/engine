@@ -180,9 +180,23 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		}
 	}
 
-	uf::Scene& scene = this->getRootParent<uf::Scene>();
+	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 	// initialize base entity, needed for asset hooks
+
+	#define UF_OBJECT_LOAD_ASSET(...)\
+		std::string canonical = "";\
+		std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();\
+		float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;\
+		std::string filename = grabURI( f, json["root"].asString() );\
+		bool singleThreaded = target[i].isObject() ? target[i]["single threaded"].asBool() : false;\
+		std::vector<std::string> allowedExtensions = {__VA_ARGS__};\
+		if (  std::find( allowedExtensions.begin(), allowedExtensions.end(), uf::io::extension(filename) ) == allowedExtensions.end() ) continue;\
+		uf::Serializer payload;\
+		payload["filename"] = filename;\
+		payload["single threaded"] = singleThreaded;\
+		this->queueHook( "asset:QueueLoad.%UID%", payload, delay );\
+
 
 	// Audio (singular)
 	{
@@ -196,15 +210,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			target = json["assets"]["audio"];
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
-			std::string canonical = "";
-			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
-			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
-			std::string filename = grabURI( f, json["root"].asString() );
-			if ( uf::io::extension(filename) != "ogg" ) continue;
-			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
-			uf::Serializer payload;
-			payload["filename"] = canonical;
-			this->queueHook( "asset:Load.%UID%", payload, delay );
+			UF_OBJECT_LOAD_ASSET("ogg")
 		}
 	}
 
@@ -220,15 +226,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			target = json["assets"]["textures"];
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
-			std::string canonical = "";
-			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
-			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
-			std::string filename = grabURI( f, json["root"].asString() );
-			if ( uf::io::extension(filename) != "png" ) continue;
-			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
-			uf::Serializer payload;
-			payload["filename"] = canonical;
-			this->queueHook( "asset:Load.%UID%", payload, delay );
+			UF_OBJECT_LOAD_ASSET("png")
 		}
 	}
 
@@ -244,15 +242,10 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			target = json["assets"]["models"];
 		}
 		for ( uint i = 0; i < target.size(); ++i ) {
-			std::string canonical = "";
-			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
-			float delay = target[i].isObject() ? target[i]["delay"].asFloat() : 0;
-			std::string filename = grabURI( f, json["root"].asString() );
-			if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) continue;
-			if ( (canonical = assetLoader.load( filename )) == "" ) continue;
-			uf::Serializer payload;
-			payload["filename"] = canonical;
-			this->queueHook( "asset:Load.%UID%", payload, delay );
+			UF_OBJECT_LOAD_ASSET("gltf", "glb")
+			
+			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
+			aMetadata[filename] = json["metadata"]["model"];
 		}
 	}
 
@@ -315,26 +308,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
 				if ( this->loadChildUid(json) == -1 ) continue;
 			}
-		/*
-			uf::Serializer json;
-			std::string canonical = "";
-			if ( target[i].isObject() ) {
-
-				continue;
-			}
-			std::string f = target[i].isObject() ? target[i]["filename"].asString() : target[i].asString();
-			std::string filename = grabURI( f, metadata["system"]["root"].asString() );
-			if ( uf::io::extension(filename) != "json" ) continue;
-			if ( (filename = assetLoader.load(filename) ) == "" ) continue;
-			if ( !json.readFromFile(filename) ) {
-				uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
-				continue;
-			}
-			json["root"] = uf::io::directory(filename);
-			json["source"] = filename; // uf::io::filename(filename)
-			json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
-			if ( this->loadChildUid(json) == -1 ) continue;
-		*/
 		}
 	}
 	// Add lights

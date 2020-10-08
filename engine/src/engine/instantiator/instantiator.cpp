@@ -46,7 +46,7 @@ void uf::instantiator::registerBinding( const std::string& object, const std::st
 	auto& instantiator = uf::instantiator::objects->get( object );
 	instantiator.behaviors.emplace_back( behavior );
 	
-	std::cout << "Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size() << std::endl;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size() << std::endl;
 }
 
 uf::Entity& uf::instantiator::instantiate( const std::string& name ) {

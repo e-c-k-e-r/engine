@@ -11,6 +11,7 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/collision.h>
+#include <uf/utils/image/atlas.h>
 
 namespace {
 
@@ -37,6 +38,7 @@ VkFilter getVkFilterMode(int32_t filterMode) {
 
 void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf::Node& node, uint8_t mode ) {
 	auto& transform = entity.getComponent<pod::Transform<>>();
+	auto& atlas = entity.getComponent<uf::Atlas>();
 
 	if ( node.translation.size() == 3 ) {
 		transform.position.x = node.translation[0];
@@ -56,7 +58,7 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 	}
 // 	if ( node.matrix.size() == 16 ) {}
 
-	auto fillMesh = [&]( uf::BaseMesh<pod::Vertex_3F2F3F, uint32_t>& mesh, const tinygltf::Primitive& primitive, uf::Collider& collider ) {
+	auto fillMesh = [&]( ext::gltf::mesh_t& mesh, const tinygltf::Primitive& primitive, uf::Collider& collider, size_t num ) {
 		size_t verticesStart = mesh.vertices.size();
 		size_t indicesStart = mesh.indices.size();
 
@@ -95,56 +97,63 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 					collider.add(box);
 				}
 			}
-
 			attribute.components = accessor.ByteStride(view) / sizeof(float);
-			attribute.buffer.reserve( accessor.count * attribute.components );
-			attribute.buffer.insert( attribute.buffer.end(), &buffer[0], &buffer[accessor.count * attribute.components] );
+			size_t len = accessor.count * attribute.components;
+			attribute.buffer.reserve( len );
+			attribute.buffer.insert( attribute.buffer.end(), &buffer[0], &buffer[len] );
 		}
 
 		mesh.vertices.reserve( vertices + verticesStart );
-
 		for ( size_t i = 0; i < vertices; ++i ) {
-			auto& vertex = mesh.vertices.emplace_back();
-
 			#define ITERATE_ATTRIBUTE( name, member )\
 				if ( !attributes[name].buffer.empty() ) { \
 					for ( size_t j = 0; j < attributes[name].components; ++j )\
 						vertex.member[j] = attributes[name].buffer[i * attributes[name].components + j];\
 				}
 
+			auto& vertex = mesh.vertices.emplace_back();
 			ITERATE_ATTRIBUTE("POSITION", position);
 			ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
 			ITERATE_ATTRIBUTE("NORMAL", normal);
 
 			#undef ITERATE_ATTRIBUTE
+			if ( !(mode & ext::gltf::LoadMode::SEPARATE_MESHES) && (mode & ext::gltf::LoadMode::USE_ATLAS) ) {
+				vertex.uv = atlas.mapUv( vertex.uv, num );
+			}
+			vertex.id = num;
 		}
-
 
 		if ( primitive.indices > -1 ) {
 			auto& accessor = model.accessors[primitive.indices];
 			auto& view = model.bufferViews[accessor.bufferView];
 			auto& buffer = model.buffers[view.buffer];
 
-			mesh.indices.reserve( accessor.count + indicesStart );
-
+			auto indices = static_cast<uint32_t>(accessor.count);
+			mesh.indices.reserve( indices + indicesStart );
 			const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
+
+			#define COPY_INDICES()\
+				for (size_t index = 0; index < indices; index++)\
+						mesh.indices.emplace_back(buf[index] + verticesStart);
+
 			switch (accessor.componentType) {
 				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
 					auto* buf = static_cast<const uint32_t*>( pointer );
-					for (size_t index = 0; index < accessor.count; index++) mesh.indices.push_back(buf[index] + verticesStart );
+					COPY_INDICES()
 					break;
 				}
 				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
 					auto* buf = static_cast<const uint16_t*>( pointer );
-					for (size_t index = 0; index < accessor.count; index++) mesh.indices.push_back(buf[index] + verticesStart );
+					COPY_INDICES()
 					break;
 				}
 				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
 					auto* buf = static_cast<const uint8_t*>( pointer );
-					for (size_t index = 0; index < accessor.count; index++) mesh.indices.push_back(buf[index] + verticesStart );
+					COPY_INDICES()
 					break;
 				}
 			}
+			#undef COPY_INDICES
 
 			if ( mode & ext::gltf::LoadMode::GENERATE_NORMALS ) {
 				for ( size_t i = 0; i < mesh.indices.size(); i+=3 ) {
@@ -163,13 +172,20 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 					C.normal = normal;
 				}
 			}
+
+			// validate incides
+			size_t maxIndex = mesh.vertices.size();
+			for ( size_t i = 0; i < mesh.indices.size(); ++i ) {
+				size_t index = mesh.indices[i];
+				if ( index >= maxIndex ) {
+					std::cout << "mesh.indices["<< i <<"] = " << index << " >= " << maxIndex << std::endl;
+				}
+			}
 		} else {
 			// recalc normals
 			if ( mode & ext::gltf::LoadMode::GENERATE_NORMALS ) {
 				// bool invert = false;
 				for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
-				//	auto& b = mesh.vertices[i+(invert ? 2 : 1)].position;
-				//	auto& c = mesh.vertices[i+(invert ? 1 : 2)].position;
 					auto& a = mesh.vertices[i+0].position;
 					auto& b = mesh.vertices[i+1].position;
 					auto& c = mesh.vertices[i+2].position;
@@ -192,22 +208,10 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 	if ( node.mesh > -1 ) {
 		auto& m = model.meshes[node.mesh];
 		std::vector<ext::vulkan::Sampler> samplers;
-		std::vector<uf::Image> images;
-	/*
-		std::vector<uf::Object> lights;
-		for ( auto& l : model.lights ) {
-			auto& light = lights.emplace_back();
-			auto& metadata = light.getComponent<uf::Serializer>();
-			metadata["light"]["color"][0] = l.color[0];
-			metadata["light"]["color"][1] = l.color[1];
-			metadata["light"]["color"][2] = l.color[2];
-			
-			metadata["light"]["radius"] = l.range;
-			metadata["light"]["power"] = l.intensity;
+		std::vector<uf::Image> _images;
+		bool useAtlas = (mode & ext::gltf::LoadMode::USE_ATLAS) && (mode & ext::gltf::LoadMode::SEPARATE_MESHES);
+		auto& images = useAtlas ? atlas.getImages() : _images;
 
-			std::cout << metadata << std::endl;
-		}
-	*/
 		for ( auto& s : model.samplers ) {
 			auto& sampler = samplers.emplace_back();
 			sampler.descriptor.filter.min = getVkFilterMode( s.minFilter );
@@ -219,22 +223,22 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 		for ( auto& t : model.textures ) {
 			auto& im = model.images[t.source];
 			uf::Image& image = images.emplace_back();
-		//	std::cout << "Loading image: " << im.width << ", " << im.height << std::endl;
 			image.loadFromBuffer( &im.image[0], {im.width, im.height}, 8, im.component, true );
 		}
-	//	if ( model.textures.size() > 1 && m.primitives.size() == model.textures.size() ) {
 		if ( mode & ext::gltf::LoadMode::SEPARATE_MESHES ) {
 			auto sampler = samplers.begin();
 			auto image = images.begin();
+			size_t num = 0;
 			for ( auto& primitive : m.primitives ) {
 				uf::Object* child = new uf::Object;
 				
-				uf::BaseMesh<pod::Vertex_3F2F3F, uint32_t> mesh;
+				//ext::gltf::mesh_t mesh;
+				auto& mesh = child->getComponent<ext::gltf::mesh_t>();
 				auto& cTransform = child->getComponent<pod::Transform<>>();
 				cTransform = transform;
 
 				auto& collider = child->getComponent<uf::Collider>();
-				fillMesh( mesh, primitive, collider );
+				fillMesh( mesh, primitive, collider, num++ );
 
 				if ( (mode & ext::gltf::LoadMode::COLLISION) && !(mode & ext::gltf::LoadMode::AABB) ) {
 					auto* box = new uf::MeshCollider( cTransform );
@@ -243,12 +247,26 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 				}
 				if ( mode & ext::gltf::LoadMode::RENDER ) {
 					auto& graphic = child->getComponent<uf::Graphic>();
-				//	graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
-					graphic.initialize();
-					graphic.initializeGeometry( mesh );
+					if ( mode & ext::gltf::LoadMode::DEFER_INIT ) {
+						graphic.process = false;
+					} else {
+						graphic.initialize();
+						graphic.initializeGeometry( mesh );
 
-					graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-					graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+						graphic.material.attachShader("./data/shaders/gltf.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+						graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+						auto& shader = graphic.material.shaders.back();
+						struct SpecializationConstant {
+							uint32_t textures = 1;
+						};
+						auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
+						specializationConstants->textures = graphic.material.textures.size();
+						for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+							if ( binding.descriptorCount > 1 )
+								binding.descriptorCount = specializationConstants->textures;
+						}
+					}
 					
 					if ( image != images.end() ) graphic.material.textures.emplace_back().loadFromImage( *(image++) );
 					if ( sampler != samplers.end() ) graphic.material.samplers.push_back( *(sampler++) );
@@ -260,11 +278,14 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 				
 				if ( mode & ext::gltf::LoadMode::APPLY_TRANSFORMS ) cTransform = {};
 			}
-		} else {		
-			uf::BaseMesh<pod::Vertex_3F2F3F, uint32_t> mesh;
+		} else {	
+			auto& mesh = entity.getComponent<ext::gltf::mesh_t>();
 			auto& collider = entity.getComponent<uf::Collider>();
 
-			for ( auto& primitive : m.primitives ) fillMesh( mesh, primitive, collider );
+			size_t num = 0;
+			for ( auto& primitive : m.primitives ) {
+				fillMesh( mesh, primitive, collider, num++ );
+			}
 		
 			if ( (mode & ext::gltf::LoadMode::COLLISION) && !(mode & ext::gltf::LoadMode::AABB) ) {
 				auto* c = new uf::MeshCollider( transform );
@@ -276,14 +297,32 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 
 			if ( mode & ext::gltf::LoadMode::RENDER ) {
 				auto& graphic = entity.getComponent<uf::Graphic>();
+				if ( mode & ext::gltf::LoadMode::DEFER_INIT ) {
+					graphic.process = false;
+				} else {
+					graphic.initialize();
+					graphic.initializeGeometry( mesh );
 
-				graphic.initialize();
-				graphic.initializeGeometry( mesh );
+					graphic.material.attachShader("./data/shaders/gltf.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
-				graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-				graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-
-				for ( auto& image : images ) graphic.material.textures.emplace_back().loadFromImage( image );
+					auto& shader = graphic.material.shaders.back();
+					struct SpecializationConstant {
+						uint32_t textures = 1;
+					};
+					auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
+					specializationConstants->textures = graphic.material.textures.size();
+					for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+						if ( binding.descriptorCount > 1 )
+							binding.descriptorCount = specializationConstants->textures;
+					}
+				}
+				if ( useAtlas ) {
+					atlas.generate();
+					graphic.material.textures.emplace_back().loadFromImage( atlas.getAtlas() );
+				} else {
+					for ( auto& image : images ) graphic.material.textures.emplace_back().loadFromImage( image );
+				}
 				for ( auto& sampler : samplers ) graphic.material.samplers.push_back(sampler);
 			}
 			if ( mode & ext::gltf::LoadMode::APPLY_TRANSFORMS ) transform = {};
@@ -319,31 +358,21 @@ bool ext::gltf::load( uf::Object& entity, const std::string& filename, uint8_t m
 	}
 
 	auto& metadata = entity.getComponent<uf::Serializer>();
-	bool threaded = mode & ext::gltf::LoadMode::THREADED;
-	pod::Thread& thread = metadata["model"]["flags"]["USE_WORKER_THREAD"].asBool() ? uf::thread::fetchWorker() : (uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false ));
-	auto function = [&]() -> int {
-		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
-		for ( auto i : scene.nodes ) {
-			loadNode( entity, model, model.nodes[i], mode );
-		}
+	const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
+	for ( auto i : scene.nodes ) {
+		loadNode( entity, model, model.nodes[i], mode );
+	}
 
-		auto& transform = entity.getComponent<pod::Transform<>>();
-		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* child ) {
-			// add default render behavior
-			if ( child->hasComponent<uf::Graphic>() ) uf::instantiator::bind("RenderBehavior", *child);
+	auto& transform = entity.getComponent<pod::Transform<>>();
+	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* child ) {
+		// add default render behavior
+		if ( child->hasComponent<uf::Graphic>() ) uf::instantiator::bind("RenderBehavior", *child);
 
-			// parent transform
-			if ( child == &entity ) return;
-			if ( !child->hasComponent<pod::Transform<>>() ) return;
-			child->getComponent<pod::Transform<>>().reference = &transform;
-		};
-		entity.process(filter);
-
-		uf::Serializer payload;
-		entity.queueHook("asset:Parsed.%UID%", payload);
-
-		return 0;
+		// parent transform
+		if ( child == &entity ) return;
+		if ( !child->hasComponent<pod::Transform<>>() ) return;
+		child->getComponent<pod::Transform<>>().reference = &transform;
 	};
-	if ( threaded ) uf::thread::add( thread, function, true ); else function();
+	entity.process(filter);
 	return true;
 }

@@ -44,6 +44,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 			auto& metadata = scene.getComponent<uf::Serializer>();
 
 			auto& shader = compute.material.shaders.front();
+		/*
 			struct SpecializationConstant {
 				int32_t eyes = 2;
 				int32_t maxLights = 16;
@@ -51,6 +52,18 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
 			specializationConstants.eyes = ext::openvr::context ? 2 : 1;
+		*/
+			struct SpecializationConstant {
+				uint32_t eyes = 2;
+				uint32_t maxLights = 16;
+			};
+			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			specializationConstants->eyes = ext::openvr::context ? 2 : 1;
+			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+				if ( binding.descriptorCount > 1 )
+					binding.descriptorCount = specializationConstants->maxLights;
+			}
 		}
 
 		// update buffers
@@ -103,6 +116,7 @@ void ext::vulkan::ComputeRenderMode::render() {
 	submitInfo.pCommandBuffers = &commands[currentBuffer];
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[currentBuffer]));
+	//vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[currentBuffer]);
 }
 void ext::vulkan::ComputeRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();

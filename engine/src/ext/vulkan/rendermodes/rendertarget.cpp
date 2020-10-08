@@ -146,6 +146,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
 /*
 	VkSemaphoreWaitInfo waitInfo = {};
 	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;

@@ -81,6 +81,7 @@ void ext::vulkan::RenderMode::render() {
 
 	// Submit to the graphics queue passing a wait fence
 	VK_CHECK_RESULT(vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation

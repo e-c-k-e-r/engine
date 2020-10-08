@@ -21,7 +21,6 @@ const vec2 poissonDisk[4] = vec2[](
 	vec2( 0.34495938, 0.29387760 )
 );
 */
-
 vec2 poissonDisk[16] = vec2[]( 
    vec2( -0.94201624, -0.39906216 ), 
    vec2( 0.94558609, -0.76890725 ), 
@@ -67,10 +66,17 @@ struct Fog {
 	vec4 color;
 };
 
+struct Mode {
+	uint type;
+	uint scalar;
+	vec4 parameters;
+};
+
 layout (binding = 0) uniform UBO {
 	Matrices matrices;
 	vec3 ambient;
 	float kexp;
+	Mode mode;
 	Fog fog;
 	Light lights[LIGHTS];
 } ubo;
@@ -171,63 +177,357 @@ float shadowFactor( Light light, uint shadowMap ) {
 	}
 	return factor;
 }
+vec3 hslToRgb(vec3 HSL) {
+	vec3 RGB; {
+		float H = HSL.x;
+		float R = abs(H * 6 - 3) - 1;
+		float G = 2 - abs(H * 6 - 2);
+		float B = 2 - abs(H * 6 - 4);
+		RGB = clamp(vec3(R,G,B), 0, 1);
+	}
+	float C = (1 - abs(2 * HSL.z - 1)) * HSL.y;
+	return (RGB - 0.5) * C + HSL.z;
+}
+
+vec3 rgbToHsl(vec3 RGB) {
+	float Epsilon = 1e-10;
+	vec3 HCV; {
+		vec4 P = (RGB.g < RGB.b) ? vec4(RGB.bg, -1.0, 2.0/3.0) : vec4(RGB.gb, 0.0, -1.0/3.0);
+		vec4 Q = (RGB.r < P.x) ? vec4(P.xyw, RGB.r) : vec4(RGB.r, P.yzx);
+		float C = Q.x - min(Q.w, Q.y);
+		float H = abs((Q.w - Q.y) / (6 * C + Epsilon) + Q.z);
+		HCV = vec3(H, C, Q.x);
+	}
+	float L = HCV.z - HCV.y * 0.5;
+	float S = HCV.y / (1 - abs(L * 2 - 1) + Epsilon);
+	return vec3(HCV.x, S, L);
+}
+
+float hueDistance(float h1, float h2) {
+	float diff = abs((h1 - h2));
+	return min(abs((1.0 - diff)), diff);
+}
+const float lightnessSteps = 4.0;
+float lightnessStep(float l) {
+    /* Quantize the lightness to one of `lightnessSteps` values */
+    return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
+}
+const int indexMatrix16x16[256] = int[](0,192, 48,240, 12,204, 60,252,  3,195, 51,243, 15,207, 63,255,
+									 128, 64,176,112,140, 76,188,124,131, 67,179,115,143, 79,191,127,
+									  32,224, 16,208, 44,236, 28,220, 35,227, 19,211, 47,239, 31,223,
+									 160, 96,144, 80,172,108,156, 92,163, 99,147, 83,175,111,159, 95,
+									   8,200, 56,248,  4,196, 52,244, 11,203, 59,251,  7,199, 55,247,
+									 136, 72,184,120,132, 68,180,116,139, 75,187,123,135, 71,183,119,
+									  40,232, 24,216, 36,228, 20,212, 43,235, 27,219, 39,231, 23,215,
+									 168,104,152, 88,164,100,148, 84,171,107,155, 91,167,103,151, 87,
+									   2,194, 50,242, 14,206, 62,254,  1,193, 49,241, 13,205, 61,253,
+									 130, 66,178,114,142, 78,190,126,129, 65,177,113,141, 77,189,125,
+									  34,226, 18,210, 46,238, 30,222, 33,225, 17,209, 45,237, 29,221,
+									 162, 98,146, 82,174,110,158, 94,161, 97,145, 81,173,109,157, 93,
+									  10,202, 58,250,  6,198, 54,246,  9,201, 57,249,  5,197, 53,245,
+									 138, 74,186,122,134, 70,182,118,137, 73,185,121,133, 69,181,117,
+									  42,234, 26,218, 38,230, 22,214, 41,233, 25,217, 37,229, 21,213,
+									 170,106,154, 90,166,102,150, 86,169,105,153, 89,165,101,149, 85);
+float indexValue16x16() {
+	int x = int(mod(gl_FragCoord.x, 16));
+	int y = int(mod(gl_FragCoord.y, 16));
+	return indexMatrix16x16[(x + y * 16)] / 256.0;
+}
+const int paletteSize = 40;
+const vec3 palette16x16[paletteSize] = vec3[](
+	vec3( 0, 0, 0),
+	vec3( 0, 0, 0.502),
+	vec3( 0, 0, 0.753),
+	vec3( 0, 0, 1),
+	vec3( 0, 1, 0.251),
+	vec3( 0, 1, 0.50),
+	vec3( 24.0/360.0, 1, 0.251),
+	vec3( 24.0/360.0, 1, 0.5),
+	vec3( 24.0/360.0, 1, 0.625),
+	vec3( 24.0/360.0, 1, 0.751),
+	vec3( 30.0/360.0, 1, 0.251),
+	vec3( 60.0/360.0, 0.333, 0.376),
+	vec3( 60.0/360.0, 1, 0.251),
+	vec3( 60.0/360.0, 1, 0.5),
+	vec3( 60.0/360.0, 1, 0.751),
+	vec3(120.0/360.0, 1, 0.251),
+	vec3(120.0/360.0, 1, 0.5),
+	vec3(120.0/360.0, 1, 0.751),
+	vec3(150.0/360.0, 1, 0.251),
+	vec3(150.0/360.0, 1, 0.5),
+	vec3(150.0/360.0, 1, 0.751),
+	vec3(180.0/360.0, 1, 0.125),
+	vec3(180.0/360.0, 1, 0.251),
+	vec3(180.0/360.0, 1, 0.5),
+	vec3(180.0/360.0, 1, 0.751),
+	vec3(210.0/360.0, 1, 0.251),
+	vec3(210.0/360.0, 1, 0.5),
+	vec3(210.0/360.0, 1, 0.751),
+	vec3(240.0/360.0, 1, 0.251),
+	vec3(240.0/360.0, 1, 0.5),
+	vec3(240.0/360.0, 1, 0.751),
+	vec3(270.0/360.0, 1, 0.251),
+	vec3(270.0/360.0, 1, 0.5),
+	vec3(270.0/360.0, 1, 0.751),
+	vec3(300.0/360.0, 1, 0.251),
+	vec3(300.0/360.0, 1, 0.5),
+	vec3(300.0/360.0, 1, 0.751),
+	vec3(330.0/360.0, 1, 0.251),
+	vec3(330.0/360.0, 1, 0.5),
+	vec3(330.0/360.0, 1, 0.751)
+);
+const int indexMatrix8x8[64] = int[](0,  32, 8,  40, 2,  34, 10, 42,
+									 48, 16, 56, 24, 50, 18, 58, 26,
+									 12, 44, 4,  36, 14, 46, 6,  38,
+									 60, 28, 52, 20, 62, 30, 54, 22,
+									 3,  35, 11, 43, 1,  33, 9,  41,
+									 51, 19, 59, 27, 49, 17, 57, 25,
+									 15, 47, 7,  39, 13, 45, 5,  37,
+									 63, 31, 55, 23, 61, 29, 53, 21);
+float indexValue8x8() {
+	int x = int(mod(gl_FragCoord.x, 8));
+	int y = int(mod(gl_FragCoord.y, 8));
+	return indexMatrix8x8[(x + y * 8)] / 64.0;
+}
+const int palette8x8Size = 28;
+const vec3 palette8x8[28] = vec3[](
+	vec3(0, 0, 0),
+	vec3(0, 0, 1),
+	vec3(0, 0, 0.502),
+	vec3(0, 0, 0.753),
+	vec3(0, 1, 0.251),
+	vec3(0, 1, 0.50),
+	vec3(60.0/360.0, 1, 0.251),
+	vec3(60.0/360.0, 1, 0.5),
+	vec3(120.0/360.0, 1, 0.251),
+	vec3(120.0/360.0, 1, 0.5),
+	vec3(180.0/360.0, 1, 0.251),
+	vec3(180.0/360.0, 1, 0.5),
+	vec3(240.0/360.0, 1, 0.251),
+	vec3(240.0/360.0, 1, 0.5),
+	vec3(300.0/360.0, 1, 0.251),
+	vec3(300.0/360.0, 1, 0.5),
+	vec3(60.0/360.0, 0.333, 0.376),
+	vec3(60.0/360.0, 1, 0.751),
+	vec3(180.0/360.0, 1, 0.125),
+	vec3(150.0/360.0, 1, 0.5),
+	vec3(210.0/360.0, 1, 0.5),
+	vec3(180.0/360.0, 1, 0.751),
+	vec3(210.0/360.0, 1, 0.251),
+	vec3(240.0/360.0, 1, 0.751),
+	vec3(270.0/360.0, 1, 0.5),
+	vec3(330.0/360.0, 1, 0.5),
+	vec3(30.0/360.0, 1, 0.251),
+	vec3(24.0/360.0, 1, 0.625)
+);
+const int indexMatrix4x4[16] = int[](0,  8,  2,  10,
+									 12, 4,  14, 6,
+									 3,  11, 1,  9,
+									 15, 7,  13, 5);
+
+float indexValue4x4() {
+	int x = int(mod(gl_FragCoord.x, 4));
+	int y = int(mod(gl_FragCoord.y, 4));
+	return indexMatrix4x4[(x + y * 4)] / 16.0;
+}
+const int palette4x4Size = 28;
+const vec3 palette4x4[28] = vec3[](
+	vec3(0, 0, 0),
+	vec3(0, 0, 1),
+	vec3(0, 0, 0.502),
+	vec3(0, 0, 0.753),
+	vec3(0, 1, 0.251),
+	vec3(0, 1, 0.50),
+	vec3(60.0/360.0, 1, 0.251),
+	vec3(60.0/360.0, 1, 0.5),
+	vec3(120.0/360.0, 1, 0.251),
+	vec3(120.0/360.0, 1, 0.5),
+	vec3(180.0/360.0, 1, 0.251),
+	vec3(180.0/360.0, 1, 0.5),
+	vec3(240.0/360.0, 1, 0.251),
+	vec3(240.0/360.0, 1, 0.5),
+	vec3(300.0/360.0, 1, 0.251),
+	vec3(300.0/360.0, 1, 0.5),
+	vec3(60.0/360.0, 0.333, 0.376),
+	vec3(60.0/360.0, 1, 0.751),
+	vec3(180.0/360.0, 1, 0.125),
+	vec3(150.0/360.0, 1, 0.5),
+	vec3(210.0/360.0, 1, 0.5),
+	vec3(180.0/360.0, 1, 0.751),
+	vec3(210.0/360.0, 1, 0.251),
+	vec3(240.0/360.0, 1, 0.751),
+	vec3(270.0/360.0, 1, 0.5),
+	vec3(330.0/360.0, 1, 0.5),
+	vec3(30.0/360.0, 1, 0.251),
+	vec3(24.0/360.0, 1, 0.625)
+);
+vec3[2] closestColors16x16(float hue) {
+	vec3 ret[2];
+	vec3 closest = vec3(-2, 0, 0);
+	vec3 secondClosest = vec3(-2, 0, 0);
+	vec3 temp;
+	for (int i = 0; i < paletteSize; ++i) {
+		temp = rgbToHsl(palette16x16[i]);
+		float tempDistance = hueDistance(temp.x, hue);
+		if (tempDistance < hueDistance(closest.x, hue)) {
+			secondClosest = closest;
+			closest = temp;
+		} else {
+			if (tempDistance < hueDistance(secondClosest.x, hue)) {
+				secondClosest = temp;
+			}
+		}
+	}
+	ret[0] = closest;
+	ret[1] = secondClosest;
+	return ret;
+}
+vec3 dither1_16x16(vec3 color) {
+	vec3 hsl = rgbToHsl(color);
+
+	vec3 cs[2] = closestColors16x16(hsl.x);
+	vec3 c1 = cs[0];
+	vec3 c2 = cs[1];
+	float d = indexValue16x16();
+	float hueDiff = hueDistance(hsl.x, c1.x) / hueDistance(c2.x, c1.x);
+
+	float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+	float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+	float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+
+	vec3 resultColor = (hueDiff < d) ? c1 : c2;
+	resultColor.z = (lightnessDiff < d) ? l1 : l2;
+	return hslToRgb(resultColor);
+}
+vec3[2] closestColors8x8(float hue) {
+	vec3 ret[2];
+	vec3 closest = vec3(-2, 0, 0);
+	vec3 secondClosest = vec3(-2, 0, 0);
+	vec3 temp;
+	for (int i = 0; i < palette8x8Size; ++i) {
+		temp = palette8x8[i];
+		float tempDistance = hueDistance(temp.x, hue);
+		if (tempDistance < hueDistance(closest.x, hue)) {
+			secondClosest = closest;
+			closest = temp;
+		} else {
+			if (tempDistance < hueDistance(secondClosest.x, hue)) {
+				secondClosest = temp;
+			}
+		}
+	}
+	ret[0] = closest;
+	ret[1] = secondClosest;
+	return ret;
+}
+vec3 dither1_8x8(vec3 color) {
+    vec3 hsl = rgbToHsl(color);
+
+    vec3 cs[2] = closestColors8x8(hsl.x);
+    vec3 c1 = cs[0];
+    vec3 c2 = cs[1];
+    float d = indexValue8x8();
+    float hueDiff = hueDistance(hsl.x, c1.x) / hueDistance(c2.x, c1.x);
+
+    float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+    float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+    float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+
+    vec3 resultColor = (hueDiff < d) ? c1 : c2;
+    //resultColor.z = (lightnessDiff < d) ? l1 : l2;
+    return hslToRgb(resultColor);
+}
+vec3[2] closestColors4x4(float hue) {
+	vec3 ret[2];
+	vec3 closest = vec3(-2, 0, 0);
+	vec3 secondClosest = vec3(-2, 0, 0);
+	vec3 temp;
+	for (int i = 0; i < palette4x4Size; ++i) {
+		temp = palette4x4[i];
+		float tempDistance = hueDistance(temp.x, hue);
+		if (tempDistance < hueDistance(closest.x, hue)) {
+			secondClosest = closest;
+			closest = temp;
+		} else {
+			if (tempDistance < hueDistance(secondClosest.x, hue)) {
+				secondClosest = temp;
+			}
+		}
+	}
+	ret[0] = closest;
+	ret[1] = secondClosest;
+	return ret;
+}
+
+vec3 dither1_4x4(vec3 color) {
+    vec3 hsl = rgbToHsl(color);
+
+    vec3 cs[2] = closestColors4x4(hsl.x);
+    vec3 c1 = cs[0];
+    vec3 c2 = cs[1];
+    float d = indexValue4x4();
+    float hueDiff = hueDistance(hsl.x, c1.x) / hueDistance(c2.x, c1.x);
+
+    float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+    float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+    float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+
+    vec3 resultColor = (hueDiff < d) ? c1 : c2;
+    //resultColor.z = (lightnessDiff < d) ? l1 : l2;
+    return hslToRgb(resultColor);
+}
+float dither(float color) {
+	float closestColor = (color < 0.5) ? 0 : 1;
+	float secondClosestColor = 1 - closestColor;
+	float d;
+	if ( ubo.mode.scalar == 16 ) {
+	 	d = indexValue16x16();
+	} else if ( ubo.mode.scalar == 8 ) {
+	 	d = indexValue8x8();
+	} else if ( ubo.mode.scalar == 4 ) {
+	 	d = indexValue4x4();
+	}
+	float distance = abs(closestColor - color);
+	return (distance < d) ? closestColor : secondClosestColor;
+}
+void dither(inout vec3 color) { 
+	vec3 hsl = rgbToHsl(color);
+	hsl.y = dither(hsl.y);
+	color = hslToRgb(hsl);
+}
+
+float rand2(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
+}
+float rand3(vec3 co){
+    return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453);
+}
+void whitenoise(inout vec3 color) {
+	float flicker = ubo.mode.parameters.x;
+	float pieces = ubo.mode.parameters.y;
+	float blend = ubo.mode.parameters.z;
+	float time = ubo.mode.parameters.w;
+	if ( blend < 0.0001 ) return;
+	float freq = sin(pow(mod(time, flicker) + flicker, 1.9));
+//	float whiteNoise = rand3( floor(position.world / pieces) + floor(time * 2) );
+	float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
+	color = mix( color, vec3(whiteNoise), blend );
+}
 
 void main() {
 	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
+	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
 	normal.eye = subpassLoad(samplerNormal).rgb;
-	position.eye = subpassLoad(samplerPosition).rgb;
-
-	{
+	position.eye = subpassLoad(samplerPosition).rgb; {
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
 		vec4 positionWorld = iView * vec4(position.eye, 1);
 		position.world = positionWorld.xyz;
 	}
-/*
-	{
-		for ( int i = 0; i < LIGHTS; ++i ) {
-			outFragColor.rgb = texture(samplerShadows[i], inUv).rgb;
-		}
-		float depth = texture(samplerShadows[3], inUv).r;
-		depth /= 0.00526;
-		outFragColor.rgb = vec3(1 - depth);
-	//	outFragColor.rgb = texture(samplerShadows[0], inUv).rgb;
-		outFragColor.a = 1;
-		return;
-	}
-*/
-/*
-	{
-		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
-		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
-
-		float depth = subpassLoad(samplerDepth).r;
-
-		if ( false ) {
-			depth /= 0.00526;
-			outFragColor.rgb = vec3( 1 - depth );
-			outFragColor.a = 1;
-			return;
-		}
-		
-		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
-		vec4 positionEye = iProj * positionClip;
-		positionEye /= positionEye.w;
-		position.eye = positionEye.xyz;
-
-		vec4 positionWorld = iView * positionEye;
-		position.world = positionWorld.xyz;
-	}
-*/
-
-	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
-	bool lit = false;
-	uint shadowMap = 0;
 	float litFactor = 1.0;
-	for ( uint i = 0; i < LIGHTS; ++i ) {
+	for ( uint i = 0, shadowMap = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
 		if ( light.power <= 0.001 ) continue;
-		lit = true;
 		
 		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 		if ( light.type > 0 ) {
@@ -238,8 +538,18 @@ void main() {
 		}
 		phong( light, albedoSpecular, fragColor );
 	}
-	// if ( !lit ) fragColor = albedoSpecular.rgb;
+
 	fog(fragColor, litFactor);
-	// if ( length(position.eye) < 0.01 ) fragColor = vec3(1,0,1);
+
+	if ( (ubo.mode.type & (0x1 >> 1)) == (0x1 >> 1) ) {
+		dither(fragColor);
+	}
+	if ( (ubo.mode.type & (0x1 >> 2)) == (0x1 >> 2) ) {
+		whitenoise(fragColor);
+	}
+	if ( (ubo.mode.type & (0x1 >> 3)) == (0x1 >> 3) ) {
+		dither(fragColor);
+	}
+
 	outFragColor = vec4(fragColor,1);
 }

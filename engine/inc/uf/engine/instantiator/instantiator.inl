@@ -45,7 +45,7 @@ template<typename T> void uf::instantiator::registerObject( const std::string& n
 		.function = _instantiate<T>
 	});
 
-	std::cout << "Registered instantiation for " << name << std::endl;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered instantiation for " << name << std::endl;
 }
 template<typename T> void uf::instantiator::registerBehavior( const std::string& name ) {
 	if ( !behaviors ) behaviors = new pod::NamedTypes<pod::Behavior>;
@@ -58,7 +58,7 @@ template<typename T> void uf::instantiator::registerBehavior( const std::string&
 		.destroy = T::destroy,
 	});
 
-	std::cout << "Registered behavior for " << name << std::endl;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered behavior for " << name << std::endl;
 }
 
 template<typename T> void uf::instantiator::registerBinding( const std::string& name ) {
@@ -67,7 +67,7 @@ template<typename T> void uf::instantiator::registerBinding( const std::string& 
 	auto& instantiator = container.get<T>();
 	instantiator.behaviors.emplace_back(name);
 	
-	std::cout << "Registered binding for " << name << std::endl;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered binding for " << name << std::endl;
 }
 
 template<typename T>

@@ -101,12 +101,12 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 			};
 			
 			struct SpecializationConstant {
-				int32_t eyes = 2;
-				int32_t maxLights = 16;
+				uint32_t eyes = 2;
+				uint32_t maxLights = 16;
 			} specializationConstants;
 			
 			auto& shader = renderMode.compute.material.shaders.front();
-			specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+			specializationConstants = *((SpecializationConstant*) &shader.specializationConstants[0]);
 
 			struct PushConstant {
 				uint32_t marchingSteps;

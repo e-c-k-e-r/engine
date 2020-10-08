@@ -11,6 +11,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/ext/gltf/gltf.h>
 
 #include <mutex>
 
@@ -86,6 +87,7 @@ void uf::Asset::processQueue() {
 			continue;
 		}
 		std::string filename = type == "cache" ? this->cache(uri) : this->load(uri);
+		// uf::iostream << "Parsed `" + filename + "` (" + type + "). Callback: " + callback << "\n";
 		if ( callback != "" ) {
 			uf::Serializer payload;
 			payload["filename"] = filename;
@@ -174,44 +176,51 @@ std::string uf::Asset::load( const std::string& uri ) {
 		uf::iostream << "Failed to load `" + filename + "`: Does not exist" << "\n"; 
 		return "";
 	}
+	#define UF_ASSET_REGISTER(type)\
+		auto& container = this->getContainer<type>();\
+		if ( !map[extension][uri].isNull() ) return filename;\
+		if ( !map[extension][filename].isNull() ) return filename;\
+		map[extension][uri] = container.size();\
+		map[extension][filename] = container.size();\
+		type& asset = container.emplace_back();
+
 	// deduce PNG, load as texture
 	auto& map = masterAssetLoader.getComponent<uf::Serializer>();
 	if ( extension == "png" ) {
-		auto& container = this->getContainer<uf::Image>();
-
-		if ( !map[extension][uri].isNull() ) return filename;
-		if ( !map[extension][filename].isNull() ) return filename;
-
-		map[extension][uri] = container.size();
-		map[extension][filename] = container.size();
-
-		uf::Image& image = container.emplace_back();
-		image.open(filename);
+		UF_ASSET_REGISTER(uf::Image)
+		asset.open(filename);
 	} else if ( extension == "ogg" ) {
-		auto& container = this->getContainer<uf::Audio>();
-
-		if ( !map[extension][uri].isNull() ) return filename;
-		if ( !map[extension][filename].isNull() ) return filename;
-
-		map[extension][uri] = container.size();
-		map[extension][filename] = container.size();
-
-		uf::Audio& audio = container.emplace_back();
-		audio.load(filename);
+		UF_ASSET_REGISTER(uf::Audio)
+		asset.load(filename);
 	} else if ( extension == "json" ) {
-		auto& container = this->getContainer<uf::Serializer>();
+		UF_ASSET_REGISTER(uf::Serializer)
+		asset.readFromFile(filename);
+	} else if ( extension == "gltf" || extension == "glb" ) {
+		UF_ASSET_REGISTER(uf::Object*)
+		uint8_t LOAD_FLAGS = 0;
 
-		if ( !map[extension][uri].isNull() ) return filename;
-		if ( !map[extension][filename].isNull() ) return filename;
+		asset = &uf::instantiator::instantiate<uf::Object>();
 
-		map[extension][uri] = container.size();
-		map[extension][filename] = container.size();
+		auto& metadata = this->getComponent<uf::Serializer>();
 
-		uf::Serializer& json = container.emplace_back();
-		json.readFromFile(filename);
+		#define LOAD_FLAG(name)\
+			if ( metadata[uri]["flags"][#name].asBool() )\
+				LOAD_FLAGS |= ext::gltf::LoadMode::name;
+
+		LOAD_FLAG(GENERATE_NORMALS); 	// 0x1 << 0;
+		LOAD_FLAG(APPLY_TRANSFORMS); 	// 0x1 << 1;
+		LOAD_FLAG(SEPARATE_MESHES); 	// 0x1 << 2;
+		LOAD_FLAG(RENDER); 				// 0x1 << 3;
+		LOAD_FLAG(COLLISION); 			// 0x1 << 4;
+		LOAD_FLAG(AABB); 				// 0x1 << 5;
+		LOAD_FLAG(DEFER_INIT); 			// 0x1 << 6;
+		LOAD_FLAG(USE_ATLAS); 			// 0x1 << 7;
+
+		ext::gltf::load( *asset, filename, LOAD_FLAGS );
 	} else {
 		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
 	}
+	// uf::iostream << "Parsed URI: `" + uri + "` -> `" + filename + "`" << "\n"; 
 	return filename;
 }
 std::string uf::Asset::getOriginal( const std::string& uri ) {

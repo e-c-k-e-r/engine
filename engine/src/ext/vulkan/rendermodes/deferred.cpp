@@ -103,13 +103,23 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		{
 			auto& scene = uf::scene::getCurrentScene();
 			auto& metadata = scene.getComponent<uf::Serializer>();
-
-			auto& shader = blitter.material.shaders.back();
+		/*
 			struct SpecializationConstant {
 				int32_t maxLights = 16;
 			};
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+		*/
+			auto& shader = blitter.material.shaders.back();
+			struct SpecializationConstant {
+				uint32_t maxLights = 16;
+			};
+			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+				if ( binding.descriptorCount > 1 )
+					binding.descriptorCount = specializationConstants->maxLights;
+			}
 		}
 		blitter.initializePipeline();
 	}

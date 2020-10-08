@@ -78,6 +78,7 @@ void UF_API uf::Audio::setTime( ALfloat pos ) {
 	if ( this->playing() ) return;
     this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
 }
+
 ALfloat UF_API uf::Audio::getPitch() {
 	if ( this->playing() ) return 0;
 	ALfloat pitch; 
@@ -88,6 +89,7 @@ void UF_API uf::Audio::setPitch( ALfloat pitch ) {
 	if ( this->playing() ) return;
     this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
 }
+
 ALfloat UF_API uf::Audio::getGain() {
 	if ( this->playing() ) return 0;
 	ALfloat gain; 
@@ -98,12 +100,36 @@ void UF_API uf::Audio::setGain( ALfloat gain ) {
 	if ( this->playing() ) return;
     this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
 }
+
+ALfloat UF_API uf::Audio::getRolloffFactor() {
+	if ( this->playing() ) return 0;
+	ALfloat rolloffFactor; 
+	alGetSourcef(this->m_source.getIndex(), AL_ROLLOFF_FACTOR,  &rolloffFactor ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	return rolloffFactor;
+}
+void UF_API uf::Audio::setRolloffFactor( ALfloat rolloffFactor ) { 
+	if ( this->playing() ) return;
+    this->m_source.source("ROLLOFF_FACTOR", std::vector<ALfloat>{ rolloffFactor } ); 
+}
+
+ALfloat UF_API uf::Audio::getMaxDistance() {
+	if ( this->playing() ) return 0;
+	ALfloat maxDistance; 
+	alGetSourcef(this->m_source.getIndex(), AL_MAX_DISTANCE,  &maxDistance ); ext::oal.checkError(__FUNCTION__, __LINE__);
+	return maxDistance;
+}
+void UF_API uf::Audio::setMaxDistance( ALfloat maxDistance ) { 
+	if ( this->playing() ) return;
+    this->m_source.source("MAX_DISTANCE", std::vector<ALfloat>{ maxDistance } ); 
+}
+
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
 }
 void UF_API uf::Audio::setOrientation( const pod::Quaternion<>& orientation ) {
 
 }
+
 void UF_API uf::Audio::setVolume( float volume ) {
 	this->m_source.source("GAIN", std::vector<ALfloat>{volume} );
 }

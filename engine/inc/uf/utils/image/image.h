@@ -50,6 +50,7 @@ namespace uf {
 		std::size_t getChannels() const;
 		Image::pixel_t at( const Image::vec2_t& at );
 	// 	Modifiers
+		void flip();
 		void padToPowerOfTwo();
 		bool save( const std::string& filename, bool flip = false ); 							// to file
 		void save( std::ostream& stream ); 														// to stream

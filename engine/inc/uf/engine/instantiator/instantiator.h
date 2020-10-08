@@ -7,6 +7,8 @@
 #include <typeindex>
 #include <functional>
 
+#define UF_INSTANTIATOR_ANNOUNCE 0
+
 namespace pod {
 	struct UF_API Instantiator {
 		typedef std::function<uf::Entity*()> function_t;

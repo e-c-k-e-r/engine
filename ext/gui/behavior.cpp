@@ -41,8 +41,8 @@ namespace {
 			uf::renderer::height,
 		};
 		pod::Vector2ui reference = {
-			1280,
-			720,
+			1920,
+			1080,
 		};
 	} size;
 /*
@@ -492,7 +492,7 @@ EXT_BEHAVIOR_REGISTER_AS_OBJECT(GuiBehavior, Gui)
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {
 	{
-		const uf::Scene& world = this->getRootParent<uf::Scene>();
+		const uf::Scene& world = uf::scene::getCurrentScene();
 		const uf::Serializer& _metadata = world.getComponent<uf::Serializer>();
 		::size.current = {
 			_metadata["window"]["size"]["x"].asFloat(),
@@ -587,8 +587,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		if ( uf::io::extension(filename) != "png" ) return "false";
 
-		uf::Scene& world = this->getRootParent<uf::Scene>();
-		uf::Asset& assetLoader = world.getComponent<uf::Asset>();
+		uf::Scene& scene = uf::scene::getCurrentScene();
+		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
 		if ( !imagePointer ) return "false";
@@ -669,7 +669,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 						float xi = metadata["box"][i]["x"].asFloat(), yi = metadata["box"][i]["y"].asFloat();
 						float xj = metadata["box"][j]["x"].asFloat(), yj = metadata["box"][j]["y"].asFloat();
 						bool intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-						if (intersect) clicked = !clicked;
+						if (intersect) {
+							clicked = !clicked;
+						}
 					}
 				}
 			/*
@@ -715,7 +717,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					float xi = metadata["box"][i]["x"].asFloat(), yi = metadata["box"][i]["y"].asFloat();
 					float xj = metadata["box"][j]["x"].asFloat(), yj = metadata["box"][j]["y"].asFloat();
 					bool intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-					if (intersect) clicked = !clicked;
+					if (intersect) {
+						clicked = !clicked;
+					}
 				}
 			}
 			metadata["hovered"] = clicked;
@@ -805,7 +809,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 void ext::GuiBehavior::render( uf::Object& self ){
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	/* Update uniforms */ if ( this->hasComponent<uf::GuiMesh>() ) {
-		auto& scene = this->getRootParent<uf::Scene>();
+		auto& scene = uf::scene::getCurrentScene();
 		auto& mesh = this->getComponent<uf::GuiMesh>();
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& controller = scene.getController();
@@ -884,7 +888,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				if ( metadata["text settings"]["world"].asBool() ) {
-					auto& scene = this->getRootParent<uf::Scene>();
+					auto& scene = uf::scene::getCurrentScene();
 					auto& controller = scene.getController();
 					auto& camera = controller.getComponent<uf::Camera>();
 
@@ -958,7 +962,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 					pod::Matrix4 rotation = uf::quaternion::matrix( uf::vector::multiply( { 1, 1, 1, -1 }, flatten.orientation) );
 					uniforms.matrices.model[i] = ::matrix * rotation;
 				*/
-					auto& scene = this->getRootParent<uf::Scene>();
+					auto& scene = uf::scene::getCurrentScene();
 					auto& controller = scene.getController();
 					auto& camera = controller.getComponent<uf::Camera>();
 
@@ -1012,7 +1016,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 	} else {
 		{
 		/* Update GUI panel */ {
-			auto& scene = this->getRootParent<uf::Scene>();
+			auto& scene = uf::scene::getCurrentScene();
 			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
 			auto* renderMode = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode("Gui");

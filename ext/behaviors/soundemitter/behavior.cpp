@@ -31,12 +31,20 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		uf::Audio& audio = this->getComponent<uf::Audio>(); //emitter.add(filename);
 		audio.load(filename);
 		{
-			float volume = metadata["volume"].isNumeric() ? metadata["volume"].asFloat() : sMetadata["volumes"]["sfx"].asFloat();
+			float volume = metadata["audio"]["volume"].isNumeric() ? metadata["audio"]["volume"].asFloat() : sMetadata["volumes"]["sfx"].asFloat();
 			audio.setVolume(volume);
 		}
-		{
-			float pitch = metadata["volume"].isNumeric() ? metadata["volume"].asFloat() : 1;
-			audio.setPitch(pitch);
+		if ( metadata["audio"]["pitch"].isNumeric() ) {
+			audio.setPitch(metadata["audio"]["pitch"].asFloat());
+		}
+		if ( metadata["audio"]["gain"].isNumeric() ) {
+			audio.setGain(metadata["audio"]["gain"].asFloat());
+		}
+		if ( metadata["audio"]["rolloffFactor"].isNumeric() ) {
+			audio.setRolloffFactor(metadata["audio"]["rolloffFactor"].asFloat());
+		}
+		if ( metadata["audio"]["maxDistance"].isNumeric() ) {
+			audio.setMaxDistance(metadata["audio"]["maxDistance"].asFloat());
 		}
 		audio.play();
 
@@ -55,7 +63,7 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 		audio.setPosition( transform.position );
 		audio.setOrientation( transform.orientation );
 
-		if ( metadata["loop"].asBool() ) {
+		if ( metadata["audio"]["loop"].asBool() ) {
 			float current = audio.getTime();
 			float end = audio.getDuration();
 			float epsilon = 0.005f;

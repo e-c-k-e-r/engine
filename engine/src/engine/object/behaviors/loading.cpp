@@ -14,22 +14,43 @@
 
 UF_BEHAVIOR_REGISTER_CPP(LoadingBehavior)
 #define this (&self)
-void uf::LoadingBehavior::initialize( uf::Object& self ) {	
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-
-	size_t target = 0;
-	for ( int i = 0; i < metadata["system"]["assets"].size(); ++i ) {
-		std::string filename = metadata["system"]["assets"][i].asString();
-		if ( uf::io::extension(filename) != "json" ) ++target;
-	}
-	if ( target > 0 ) {
-		metadata["system"]["load"]["progress"] = 0;
-		metadata["system"]["load"]["total"] = target;
-	}
-	
+void uf::LoadingBehavior::initialize( uf::Object& self ) {
+	auto& metadata = this->getComponent<uf::Serializer>();
+/*
+	this->addHook( "asset:Parsed.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		int portion = 1;
+		auto& total = metadata["system"]["load"]["total"];
+		auto& progress = metadata["system"]["load"]["progress"];
+		if ( json["uid"].isNull() ) return "false";
+		// progress = progress.asInt() + portion;
+		if ( progress.asInt() == total.asInt() ) {
+			auto& parent = this->getParent().as<uf::Object>();
+			parent.callHook("asset:Parsed.%UID%");
+		}
+		return "true";
+	});
+*/
+/*
+	this->addHook( "system:Load.Finished.%UID%", [&](const std::string& event)->std::string{
+		std::cout << "FINISHED LOADING" << std::endl;
+		uf::Serializer json = event;
+		auto& parent = this->getParent();
+		// unbind all children
+		for ( auto* child : this->getChildren() ) {
+			this->removeChild(*child);
+			parent.addChild(*child);
+		}
+		auto& scene = uf::scene::getCurrentScene();
+		uf::Serializer payload;
+		payload["uid"] = this->getUid();
+		parent.removeChild(*this);
+		scene.queueHook("system:Destroy", payload);
+		return "true";
+	});
+*/
 	this->addHook( "system:Load.Finished.%UID%", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
-		
 
 		metadata["system"]["loaded"] = true;
 		this->removeBehavior<uf::LoadingBehavior>();
@@ -52,31 +73,6 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 			
 			scene.queueHook("system:Destroy", payload);
 		}
-	/*
-		auto& parent = this->getParent();
-		// unbind all children
-		for ( auto* child : this->getChildren() ) {
-			this->removeChild(*child);
-			parent.addChild(*child);
-		}
-		auto& scene = uf::scene::getCurrentScene();
-		if ( parent.getUid() != scene.getUid() ) {
-			uf::Serializer payload;
-			payload["uid"] = parent.getUid();
-			parent.removeChild(*this);
-			scene.queueHook("system:Destroy", payload);
-		}
-	*/	
-
-		return "true";
-	});
-	this->addHook( "asset:Parsed.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-
-		float portion = 1.0f / metadata["system"]["load"]["total"].asFloat();
-		auto& progress = metadata["system"]["load"]["progress"];
-		progress = progress.asFloat() + portion;
-
 		return "true";
 	});
 }
@@ -85,8 +81,25 @@ void uf::LoadingBehavior::destroy( uf::Object& self ) {
 }
 void uf::LoadingBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
-	// if ( this->getChildren().empty() ) return;
-	/* Check if we're a loading screen */ if ( !metadata["system"]["loaded"].asBool() ) {
+	if ( metadata["system"]["loaded"].asBool() ) return;
+	size_t loading = 0;
+	size_t loaded = 1;
+	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+		if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
+		auto& metadata = entity->getComponent<uf::Serializer>();
+		if ( metadata["system"]["load"].isNull() ) return;
+		++loading;
+		if ( metadata["system"]["load"]["progress"].asInt() < metadata["system"]["load"]["total"].asInt() ) return;
+		++loaded;
+	};
+	this->process(filter);
+	if ( loading == loaded ) {
+		metadata["system"]["loaded"] = true;
+		this->callHook("system:Load.Finished.%UID%");
+	}
+/*
+	auto& metadata = this->getComponent<uf::Serializer>();
+	if ( !metadata["system"]["loaded"].asBool() ) {
 		size_t loading = 0;
 		size_t loaded = 0;
 		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -102,7 +115,12 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 		if ( loading == loaded ) {
 			this->callHook("system:Load.Finished.%UID%");
 		}
+		auto& metadata = this->getComponent<uf::Serializer>();
+		if ( metadata["system"]["load"]["progress"].asFloat() >= 1.0f ) {
+			this->callHook("system:Load.Finished.%UID%");
+		}
 	}
+*/
 }
 void uf::LoadingBehavior::render( uf::Object& self ) {
 

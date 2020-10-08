@@ -43,6 +43,10 @@ namespace uf {
 		void setPitch( ALfloat );
 		ALfloat getGain();
 		void setGain( ALfloat );
+		ALfloat getRolloffFactor();
+		void setRolloffFactor( ALfloat );
+		ALfloat getMaxDistance();
+		void setMaxDistance( ALfloat );
 
 		float getVolume() const;
 		const std::string& getFilename() const;

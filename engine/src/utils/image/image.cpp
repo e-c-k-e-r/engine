@@ -199,21 +199,13 @@ void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod
 	this->m_pixels.clear();
 	this->m_pixels.resize( len );
 	//for ( size_t i = 0; i < len; ++i ) this->m_pixels[i] = pointer[i];
-	memcpy( &this->m_pixels[0], pointer, len );
-
-	if ( flip ) {
-		auto w = this->m_dimensions.x;
-		auto h = this->m_dimensions.y;
-		uint8_t* pixels = &this->m_pixels[0];
-		for (uint j = 0; j * 2 < h; ++j) {
-			uint x = j * w * this->m_bpp/8;
-			uint y = (h - 1 - j) * w * this->m_bpp/8;
-			for (uint i = w * this->m_bpp/8; i > 0; --i) {
-				std::swap( pixels[x], pixels[y] );
-				++x, ++y;
-			}
-		}
+	if ( pointer ) {
+		memcpy( &this->m_pixels[0], pointer, len );
+	} else {
+		memset( &this->m_pixels[0], 0, len );
 	}
+
+	if ( flip ) this->flip();
 }
 void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;
@@ -221,17 +213,18 @@ void uf::Image::loadFromBuffer( const Image::container_t& container, const pod::
 	this->m_channels = channels;
 	this->m_pixels = container;
 
-	if ( flip ) {
-		auto w = this->m_dimensions.x;
-		auto h = this->m_dimensions.y;
-		uint8_t* pixels = &this->m_pixels[0];
-		for (uint j = 0; j * 2 < h; ++j) {
-			uint x = j * w * this->m_bpp/8;
-			uint y = (h - 1 - j) * w * this->m_bpp/8;
-			for (uint i = w * this->m_bpp/8; i > 0; --i) {
-				std::swap( pixels[x], pixels[y] );
-				++x, ++y;
-			}
+	if ( flip ) this->flip();
+}
+void uf::Image::flip() {
+	auto w = this->m_dimensions.x;
+	auto h = this->m_dimensions.y;
+	uint8_t* pixels = &this->m_pixels[0];
+	for (uint j = 0; j * 2 < h; ++j) {
+		uint x = j * w * this->m_bpp/8;
+		uint y = (h - 1 - j) * w * this->m_bpp/8;
+		for (uint i = w * this->m_bpp/8; i > 0; --i) {
+			std::swap( pixels[x], pixels[y] );
+			++x, ++y;
 		}
 	}
 }

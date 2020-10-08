@@ -1,5 +1,5 @@
 template<typename T, typename U>
-void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh ) {
+void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, bool stage ) {
 	if ( mesh.indices.empty() ) mesh.initialize();
 	mesh.updateDescriptor();
 
@@ -13,13 +13,13 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh ) {
 				(void*) mesh.vertices.data(),
 				mesh.vertices.size() * mesh.sizes.vertex,
 				0,
-				false
+				stage
 			);
 			updateBuffer(
 				(void*) mesh.indices.data(),
 				mesh.indices.size() * mesh.sizes.indices,
 				0,
-				false
+				stage
 			);
 			return;
 		}
@@ -38,13 +38,13 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh ) {
 		mesh.vertices.size() * mesh.sizes.vertex,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		false
+		stage
 	);
 	initializeBuffer(
 		(void*) mesh.indices.data(),
 		mesh.indices.size() * mesh.sizes.indices,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		false
+		stage
 	);
 }
