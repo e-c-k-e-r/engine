@@ -21,6 +21,7 @@ struct Gui {
 	float weight;
 	int spread;
 	float scale;
+	float padding;
 };
 
 layout (binding = 0) uniform UBO {

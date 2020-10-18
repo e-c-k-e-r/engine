@@ -103,13 +103,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		{
 			auto& scene = uf::scene::getCurrentScene();
 			auto& metadata = scene.getComponent<uf::Serializer>();
-		/*
-			struct SpecializationConstant {
-				int32_t maxLights = 16;
-			};
-			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
-		*/
+
 			auto& shader = blitter.material.shaders.back();
 			struct SpecializationConstant {
 				uint32_t maxLights = 16;
@@ -120,6 +114,41 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				if ( binding.descriptorCount > 1 )
 					binding.descriptorCount = specializationConstants->maxLights;
 			}
+		/*
+			std::vector<pod::Vector4f> palette;
+			// size of palette
+			if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].isNumeric() ) {
+				size_t size = metadata["system"]["config"]["engine"]["scenes"]["palette"].asUInt64();
+				for ( size_t x = 0; x < size; ++x ) {
+					palette.push_back(pod::Vector4f{
+						(128.0f + 128.0f * sin(3.1415f * x / 16.0f)) / 256.0f,
+						(128.0f + 128.0f * sin(3.1415f * x / 32.0f)) / 256.0f,
+						(128.0f + 128.0f * sin(3.1415f * x / 64.0f)) / 256.0f,
+						1.0f,
+					});
+				}
+			// palette array
+			} else if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].isArray() ) {
+				for ( int i = 0; i < metadata["system"]["config"]["engine"]["scenes"]["palette"].size(); ++i ) {
+					auto& color = palette.emplace_back();
+					palette.push_back(pod::Vector4f{
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][0].asFloat(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][1].asFloat(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][2].asFloat(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][3].asFloat(),
+					});
+				}
+			}
+			if ( !palette.empty() ) {
+				shader.initializeBuffer(
+					(void*) palette.data(),
+					palette.size() * sizeof(pod::Vector4f),
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+					true
+				);
+			}
+		*/
 		}
 		blitter.initializePipeline();
 	}
@@ -133,6 +162,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		if ( blitter.initialized ) {
 			auto& pipeline = blitter.getPipeline();
 			pipeline.update( blitter );
+			ext::vulkan::rebuild = true;
 		}
 	}
 }

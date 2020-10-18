@@ -12,6 +12,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/collision.h>
 #include <uf/utils/image/atlas.h>
+#include <uf/utils/string/hash.h>
 
 namespace {
 
@@ -224,6 +225,14 @@ void loadNode( uf::Object& entity, const tinygltf::Model& model, const tinygltf:
 			auto& im = model.images[t.source];
 			uf::Image& image = images.emplace_back();
 			image.loadFromBuffer( &im.image[0], {im.width, im.height}, 8, im.component, true );
+		/*
+			{
+				static int i = 0;
+				auto& pixels = image.getPixels();
+				std::string hash = uf::string::sha256( pixels );
+				image.save("./textures/" + std::to_string(i++) + "."+hash+".png");
+			}
+		*/
 		}
 		if ( mode & ext::gltf::LoadMode::SEPARATE_MESHES ) {
 			auto sampler = samplers.begin();

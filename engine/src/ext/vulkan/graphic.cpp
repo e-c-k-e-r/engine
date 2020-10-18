@@ -322,7 +322,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 				blendAttachmentStates.push_back(renderTarget.attachments[color.attachment].blendState);
 			}
 			// require blending if independentBlend is not an enabled feature
-			if ( !device.enabledFeatures.independentBlend ) {
+			if ( device.enabledFeatures.independentBlend == VK_FALSE ) {
 				for ( size_t i = 1; i < blendAttachmentStates.size(); ++i ) {
 					blendAttachmentStates[i] = blendAttachmentStates[0];
 				}
@@ -365,8 +365,18 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
 		);
+		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+		switch ( ext::vulkan::msaa ) {
+			case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
+			case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
+			case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
+			case  8: samples =  VK_SAMPLE_COUNT_8_BIT; break;
+			case  4: samples =  VK_SAMPLE_COUNT_4_BIT; break;
+			case  2: samples =  VK_SAMPLE_COUNT_2_BIT; break;
+			default: samples =  VK_SAMPLE_COUNT_1_BIT; break;
+		}
 		VkPipelineMultisampleStateCreateInfo multisampleState = ext::vulkan::initializers::pipelineMultisampleStateCreateInfo(
-			VK_SAMPLE_COUNT_1_BIT,
+			samples,
 			0
 		);
 		std::vector<VkDynamicState> dynamicStateEnables = {
@@ -460,7 +470,7 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		}
 	}
 	// Bind descriptor sets describing shader binding points
-	vkCmdBindDescriptorSets(commandBuffer, bindPoint,	 pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, bindPoint, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 	// Bind the rendering pipeline
 	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
 	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
@@ -493,11 +503,46 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	}
 	{
 		for ( auto& shader : graphic.material.shaders ) {
+			std::vector<VkDescriptorBufferInfo> buffersStorageVector;
+			std::vector<VkDescriptorBufferInfo> buffersUniformsVector;
+			for ( auto& buffer : shader.buffers ) {
+				if ( buffer.usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) {
+					auto& descriptor = buffersStorageVector.emplace_back(buffer.descriptor);
+					if ( descriptor.offset % device->properties.limits.minStorageBufferOffsetAlignment != 0 ) {
+					//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo->offset << std::endl;
+						descriptor.offset = 0;
+					}
+				}
+				if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+					auto& descriptor = buffersUniformsVector.emplace_back(buffer.descriptor);
+					if ( descriptor.offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
+					//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo->offset << std::endl;
+						descriptor.offset = 0;
+					}
+				}
+			}
+			for ( auto& buffer : graphic.buffers ) {
+				if ( buffer.usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) {
+					auto& descriptor = buffersStorageVector.emplace_back(buffer.descriptor);
+					if ( descriptor.offset % device->properties.limits.minStorageBufferOffsetAlignment != 0 ) {
+						std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
+						descriptor.offset = 0;
+					}
+				}
+				if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+					auto& descriptor = buffersUniformsVector.emplace_back(buffer.descriptor);
+					if ( descriptor.offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
+						std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
+						descriptor.offset = 0;
+					}
+				}
+			}
+
 			auto textures = graphic.material.textures.begin();
 			auto samplers = graphic.material.samplers.begin();
-			auto buffersUniforms = shader.buffers.begin();
-			auto buffersStorage = graphic.buffers.begin();
 			auto attachments = inputDescriptors.begin();
+			auto buffersStorage = buffersStorageVector.begin();
+			auto buffersUniforms = buffersUniformsVector.begin();
 
 			for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 
@@ -509,9 +554,6 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 							size_t imageInfosStart = imageInfos.size();
 							// assume we have a texture, and fill it in the slots as defaults
 							size_t target = layout.descriptorCount;
-							if ( target == 132 ) {
-								target = graphic.material.textures.size();
-							}
 							for ( size_t i = 0; i < target; ++i ) {
 								VkDescriptorImageInfo d = emptyTexture.descriptor;
 								if ( textures != graphic.material.textures.end() ) {
@@ -558,27 +600,38 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 						imageInfo = &((samplers++)->descriptor.info);
 					} break;
 					case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-						if ( buffersUniforms == shader.buffers.end() ) {
-							std::cout << "buffersUniforms == shader.buffers.end()" << std::endl;
+						if ( buffersUniforms == buffersUniformsVector.end() ) {
+							std::cout << "buffersUniforms == buffersUniformsVector.end()" << std::endl;
 							break;
+						}
+						auto* descriptor = &(*(buffersUniforms++));
+						if ( descriptor->offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
+							std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor->offset << std::endl;
+							descriptor->offset = 0;
 						}
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
 							layout.binding,
-							&((buffersUniforms++)->descriptor)
+							descriptor
 						));
 					} break;
 					case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-						if ( buffersStorage == graphic.buffers.end() ) {
-							std::cout << "buffersStorage == graphic.buffers.end()" << std::endl;
+						if ( buffersStorage == buffersStorageVector.end() ) {
+							std::cout << "buffersStorage == buffersStorageVector.end()" << std::endl;
 							break;
 						}
+						auto* descriptor = &(*(buffersStorage++));
+						if ( descriptor->offset % device->properties.limits.minStorageBufferOffsetAlignment != 0 ) {
+							std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor->offset << std::endl;
+							descriptor->offset = 0;
+						}
+
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
 							layout.binding,
-							&((buffersStorage++)->descriptor)
+							descriptor
 						));
 					} break;
 					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
@@ -591,6 +644,16 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 				}
 
 				if ( imageInfo ) {
+					if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) {
+						if ( imageInfo->imageView == VK_NULL_HANDLE ) {
+							imageInfo = &emptyTexture.descriptor;
+						}
+					}
+					if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER ) {
+						if ( imageInfo->sampler == VK_NULL_HANDLE ) {
+							imageInfo->sampler = emptyTexture.sampler.sampler;
+						}
+					}
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -598,6 +661,22 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 						imageInfo
 					));
 				}
+			}
+		}
+	}
+
+	for ( auto& descriptor : writeDescriptorSets ) {
+		if ( descriptor.pBufferInfo ) {
+		//	std::cout << descriptor.pBufferInfo->offset << std::endl;
+			if ( descriptor.pBufferInfo->offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
+			//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo->offset << std::endl;
+				std::cout << "Invalid descriptor for buffer: " << descriptor.pBufferInfo->buffer << " " << descriptor.pBufferInfo->offset << " " << descriptor.pBufferInfo->range << ", invalidating..." << std::endl;
+				auto pointer = const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo);
+				pointer->offset = 0;
+				pointer->range = 0;
+				pointer->buffer = VK_NULL_HANDLE;
+
+				// const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo)->offset = 0;
 			}
 		}
 	}
@@ -667,10 +746,12 @@ void ext::vulkan::Graphic::initialize( const std::string& renderModeName ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(renderModeName, true);
 
 	this->descriptor.renderMode = renderModeName;
+	auto* device = renderMode.device;
+	if ( !device ) device = &ext::vulkan::device;
 
-	material.initialize( *renderMode.device );
+	material.initialize( *device );
 
-	ext::vulkan::Buffers::initialize( *renderMode.device );
+	ext::vulkan::Buffers::initialize( *device );
 }
 void ext::vulkan::Graphic::initializePipeline() {
 	initializePipeline( this->descriptor, false );

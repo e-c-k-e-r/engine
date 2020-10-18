@@ -172,6 +172,7 @@ void ext::LightBehavior::destroy( uf::Object& self ){
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::renderer::removeRenderMode( &renderMode, false );
+		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}
 }
 #undef this

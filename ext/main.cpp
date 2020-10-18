@@ -64,9 +64,38 @@ namespace {
 	uf::Serializer config;
 }
 bool ext::ready = false;
+std::vector<std::string> ext::arguments;
 
 void EXT_API ext::initialize() {
-	/**/ {
+	::config = ext::getConfig();
+	/* Arguments */ {
+		auto& arguments = ::config["arguments"];
+		for ( auto& arg : ext::arguments ) {
+			// store raw argument
+			int i = arguments.size();
+			arguments[i] = arg;
+			// parse --key=value
+			{
+				std::regex regex("^--(.+?)=(.+?)$");
+				std::smatch match;
+				if ( std::regex_search( arg, match, regex ) ) {
+					std::string keyString = match[1].str();
+					std::string valueString = match[2].str();
+					auto keys = uf::string::split(keyString, ".");
+					uf::Serializer value; value.deserialize(valueString);
+					Json::Value* traversal = &::config;
+					for ( auto& key : keys ) {
+						traversal = &((*traversal)[key]);
+					}
+					*traversal = value;
+				}
+			}
+		}
+		uf::iostream << "Arguments: " << uf::Serializer(arguments) << "\n";
+		uf::iostream << "New config: " << ::config << "\n";
+	}
+
+	/* Seed */ {
 		srand(time(NULL));
 	}
 	/* Open output file */ {
@@ -84,7 +113,6 @@ void EXT_API ext::initialize() {
 		// #include "./inits/persistence.inl"
 	}
 	
-	::config = ext::getConfig();
 	/* Parse config */ {
 		// Set memory pool sizes
 			{
@@ -153,6 +181,11 @@ void EXT_API ext::initialize() {
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].asUInt64();
 		// Enable valiation layer
 		uf::renderer::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
+		if ( ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].isNumeric() )
+			uf::renderer::msaa = ::config["engine"]["ext"]["vulkan"]["msaa"].asUInt64();
+		
+		uf::renderer::rebuildOnTickStart = ::config["engine"]["ext"]["vulkan"]["validation"]["rebuild on tick begin"].asBool();
+		uf::renderer::waitOnRenderEnd = ::config["engine"]["ext"]["vulkan"]["validation"]["wait on render end"].asBool();
 
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
 			uf::renderer::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
@@ -196,7 +229,6 @@ void EXT_API ext::initialize() {
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
 		}
-		
 		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
 			uf::renderer::addRenderMode( new uf::renderer::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
@@ -240,6 +272,9 @@ void EXT_API ext::initialize() {
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:LoadScene", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
+			std::cout << "SCENE CHANGE: " << event << std::endl;
+			uf::renderer::mutex.lock();
+			uf::renderer::mutex.unlock();
 			uf::scene::unloadScene();
 			auto& scene = uf::scene::loadScene( json["scene"].asString() );
 			auto& metadata = scene.getComponent<uf::Serializer>();

@@ -31,9 +31,12 @@ namespace uf {
 		template<typename T>
 		T loadChild( const std::string&, bool = true );
 
+		std::string formatHookName( const std::string& name );
 		void queueHook( const std::string&, const std::string& = "", double = 0 );
 		std::vector<std::string> callHook( const std::string&, const std::string& = "" );
 		std::size_t addHook( const std::string&, const uf::HookHandler::Readable::function_t& );
+
+		std::string grabURI( const std::string& filename, const std::string& root = "" );
 	};
 }
 

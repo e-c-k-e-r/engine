@@ -9,6 +9,7 @@ namespace ext {
 				VkFormat format;
 				VkImageLayout layout;
 				VkImageUsageFlags usage;
+				VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 				bool aliased = false;
 
 				VkImage image;

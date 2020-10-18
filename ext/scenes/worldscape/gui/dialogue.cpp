@@ -203,7 +203,7 @@ void ext::GuiDialogue::tick() {
 			dialogueMessage = new ext::Gui;
 			this->addChild(*dialogueMessage);
 			uf::Serializer& pMetadata = dialogueMessage->getComponent<uf::Serializer>();
-			dialogueMessage->load("./dialogue-text.json", true);
+			dialogueMessage->as<uf::Object>().load("./dialogue-text.json", true);
 			pMetadata["text settings"]["string"] = result["message"].asString();
 			dialogueMessage->initialize();
 		}
@@ -251,7 +251,7 @@ void ext::GuiDialogue::tick() {
 			dialogueOptions = new ext::Gui;
 			this->addChild(*dialogueOptions);
 			uf::Serializer& pMetadata = dialogueOptions->getComponent<uf::Serializer>();
-			dialogueOptions->load("./dialogue-option.json", true);
+			dialogueOptions->as<uf::Object>().load("./dialogue-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = dialogueOptions->getComponent<pod::Transform<>>();
 			dialogueOptions->initialize();

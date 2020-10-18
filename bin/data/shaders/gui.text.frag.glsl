@@ -13,6 +13,7 @@ struct Gui {
 	float weight;
 	int spread;
 	float scale;
+	float padding;
 };
 
 layout (location = 0) in vec2 inUv;

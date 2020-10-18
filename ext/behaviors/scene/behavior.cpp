@@ -85,7 +85,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		timer.reset();
 
 		uf::Serializer json = event;
-		uf::Object* manager = (uf::Object*) this->findByName("Gui Manager");
+		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !manager ) return "false";
 		uf::Serializer payload;
 	//	uf::Object* gui = (uf::Object*) manager->findByUid( (payload["uid"] = manager->loadChildUid("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
@@ -109,8 +109,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		return "true";
 	});
 	/* store viewport size */ {
-		metadata["window"]["size"]["x"] = uf::renderer::width;
-		metadata["window"]["size"]["y"] = uf::renderer::height;
+		metadata["system"]["window"]["size"]["x"] = uf::renderer::width;
+		metadata["system"]["window"]["size"]["y"] = uf::renderer::height;
+		ext::gui::size.current.x = uf::renderer::width;
+		ext::gui::size.current.y = uf::renderer::height;
 		
 		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
@@ -120,7 +122,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 				size.y = json["window"]["size"]["y"].asUInt64();
 			}
 
-			metadata["window"] = json["window"];
+			metadata["system"]["window"] = json["system"]["window"];
+			ext::gui::size.current = size;
 
 			return "true";
 		});
@@ -160,7 +163,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	/* Regain control if nothing requests it */ {
-		uf::Object* menu = (uf::Object*) this->findByName("Gui: Menu");
+		uf::Object* menu = (uf::Object*) this->globalFindByName("Gui: Menu");
 		if ( !menu ) {
 			uf::Serializer payload;
 			payload["state"] = false;
@@ -245,17 +248,20 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				alignas(16) pod::Vector4f ambient;
 				struct Mode {
 					alignas(8) pod::Vector2ui type;
+					alignas(8) pod::Vector2ui padding;
 					alignas(16) pod::Vector4f parameters;
 				} mode;
 				struct {
-					alignas(8) pod::Vector2f range;
 					alignas(16) pod::Vector4f color;
+					alignas(8) pod::Vector2f range;
+					alignas(8) pod::Vector2f padding;
 				} fog;
 				struct Light {
 					alignas(16) pod::Vector4f position;
 					alignas(16) pod::Vector4f color;
 					alignas(4) uint32_t type;
 					alignas(4) float depthBias;
+					alignas(8) pod::Vector2f padding;
 					alignas(16) pod::Matrix4f view;
 					alignas(16) pod::Matrix4f projection;
 				} lights;

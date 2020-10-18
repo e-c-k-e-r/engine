@@ -15,21 +15,24 @@ namespace ext {
 				struct {
 					VkFilter min = VK_FILTER_LINEAR;
 					VkFilter mag = VK_FILTER_LINEAR;
+					VkBorderColor borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 				} filter;
 				struct {
 					VkSamplerAddressMode u = VK_SAMPLER_ADDRESS_MODE_REPEAT, v = VK_SAMPLER_ADDRESS_MODE_REPEAT, w = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+					VkBool32 unnormalizedCoordinates = VK_FALSE;
 				} addressMode;
 				struct {
+					VkBool32 compareEnable = VK_FALSE;
+					VkCompareOp compareOp = VK_COMPARE_OP_ALWAYS;
 					VkSamplerMipmapMode mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 					float lodBias = 0.0f;
-				} mip;
-				VkCompareOp compareOp = VK_COMPARE_OP_NEVER;
-				struct {
 					float min = 0.0f;
 					float max = 0.0f;
-				} lod;
-				float maxAnisotropy;
-
+				} mip;
+				struct {
+					VkBool32 enabled = VK_TRUE;
+					float max = 16.0f;
+				} anisotropy;
 				VkDescriptorImageInfo info;
 			} descriptor;
 
@@ -41,9 +44,10 @@ namespace ext {
 
 			VkImage image;
 			VkImageView view;
-			VkImageLayout imageLayout;
+			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			VkDeviceMemory deviceMemory;
 			VkDescriptorImageInfo descriptor;
+			VkFormat format;
 			
 			Sampler sampler;
 
@@ -63,9 +67,7 @@ namespace ext {
 				VkImage image,
 				VkImageLayout oldImageLayout,
 				VkImageLayout newImageLayout,
-				VkImageSubresourceRange subresourceRange,
-				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+				VkImageSubresourceRange subresourceRange
 			);
 			static void setImageLayout(
 				VkCommandBuffer cmdbuffer,
@@ -73,8 +75,7 @@ namespace ext {
 				VkImageAspectFlags aspectMask,
 				VkImageLayout oldImageLayout,
 				VkImageLayout newImageLayout,
-				VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-				VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+				uint32_t mipLevels
 			);
 		};
 		struct UF_API Texture2D : public Texture {
@@ -83,31 +84,27 @@ namespace ext {
 				std::string filename, 
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-				bool forceLinear = false
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromFile(
 				std::string filename, 
 				Device& device,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-				bool forceLinear = false
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
 				uf::Image& image, 
 				Device& device,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-				bool forceLinear = false
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
 				uf::Image& image,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
-				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-				bool forceLinear = false
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void fromBuffers(
 				void* buffer,
@@ -119,13 +116,14 @@ namespace ext {
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			void asRenderTarget(
-				Device& device,
-				uint32_t texWidth,
-				uint32_t texHeight,
-				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM
-			);
+			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
+			void update( uf::Image& image, VkImageLayout );
+			void update( void*, VkDeviceSize, VkImageLayout );
+			inline void update( uf::Image& image ) { return this->update(image, this->imageLayout) ; }
+			inline void update( void* data, VkDeviceSize size ) { return this->update(data, size, this->imageLayout) ; }
+			
+			void generateMipmaps(VkCommandBuffer commandBuffer);
 		};
 	}
 }

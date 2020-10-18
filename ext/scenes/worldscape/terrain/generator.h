@@ -54,7 +54,7 @@ namespace ext {
 		void updateLight();
 
 		void generate( uf::Object& );
-		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& );
+		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object&, bool = false );
 	//	void vectorize( std::vector<uf::renderer::ComputeGraphic::Cube>&, const uf::Object& );
 		
 		std::vector<ext::TerrainVoxel::uid_t> getRawVoxels();

@@ -60,10 +60,10 @@ void uf::Atlas::generate() {
 	auto& dstBuffer = this->m_image.getPixels();
 
 	for ( size_t i = 0; i < size.x * size.y * 4; i+=4 ) {
-		dstBuffer[i+0] = 255;
+		dstBuffer[i+0] = 0;
 		dstBuffer[i+1] = 0;
-		dstBuffer[i+2] = 255;
-		dstBuffer[i+3] = 255;
+		dstBuffer[i+2] = 0;
+		dstBuffer[i+3] = 0;
 	}
 
 	for ( auto& it : stored.Get() ) {
@@ -83,6 +83,11 @@ void uf::Atlas::generate() {
 		}
 		}
 	}
+}
+void uf::Atlas::clear() {
+	this->m_images.clear();
+	this->m_image.clear();
+	this->m_atlas = uf::Atlas::atlas_t{};
 }
 pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
 	BinPack2D::ContentAccumulator<uf::Atlas::identifier_t> stored;

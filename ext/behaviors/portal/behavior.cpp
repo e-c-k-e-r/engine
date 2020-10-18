@@ -158,5 +158,6 @@ void ext::PortalBehavior::render( uf::Object& self ){
 void ext::PortalBehavior::destroy( uf::Object& self ){
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	uf::renderer::removeRenderMode( &renderMode, false );
+	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 }
 #undef this

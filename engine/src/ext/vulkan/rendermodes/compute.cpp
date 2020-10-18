@@ -115,7 +115,7 @@ void ext::vulkan::ComputeRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commands[currentBuffer];
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::COMPUTE ), 1, &submitInfo, fences[currentBuffer]));
 	//vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[currentBuffer]);
 }
 void ext::vulkan::ComputeRenderMode::tick() {

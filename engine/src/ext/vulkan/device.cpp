@@ -127,6 +127,15 @@ namespace {
 			CHECK_FEATURE(inheritedQueries);
 		}
 	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		if ( feature == #NAME ) {\
+			if ( device.features2.NAME == VK_TRUE ) {\
+				device.enabledFeatures2.NAME = true;\
+				if ( ext::vulkan::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
+			} else if ( ext::vulkan::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
+		}
+	#undef CHECK_FEATURE2
 	}
 	uf::Serializer retrieveDeviceFeatures( ext::vulkan::Device& device ) {
 		uf::Serializer json;
@@ -191,6 +200,11 @@ namespace {
 		CHECK_FEATURE(variableMultisampleRate);
 		CHECK_FEATURE(inheritedQueries);
 	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		json[#NAME]["supported"] = device.features2.NAME;\
+		json[#NAME]["enabled"] = device.enabledFeatures2.NAME;
+	#undef CHECK_FEATURE2
 
 		return json;
 	}
@@ -295,7 +309,7 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 }
 
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, bool begin ){
-	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( commandPool.transfer, level, 1 );
+	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(QueueEnum::TRANSFER), level, 1 );
 
 	VkCommandBuffer commandBuffer;
 	VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
@@ -322,14 +336,14 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, boo
 	VK_CHECK_RESULT(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence));
 	
 	// Submit to the queue
-	VK_CHECK_RESULT(vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence));
+	VK_CHECK_RESULT(vkQueueSubmit( getQueue( QueueEnum::TRANSFER ), 1, &submitInfo, fence));
 	// vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence);
 	// Wait for the fence to signal that command buffer has finished executing
 	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
 
 	vkDestroyFence(logicalDevice, fence, nullptr);
 
-	if ( free ) vkFreeCommandBuffers(logicalDevice, commandPool.transfer, 1, &commandBuffer);
+	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( QueueEnum::TRANSFER ), 1, &commandBuffer);
 }
 
 VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size, VkBuffer* buffer, VkDeviceMemory* memory, void *data ) {
@@ -420,6 +434,71 @@ VkResult ext::vulkan::Device::createBuffer(
 
 	// Attach the memory to the buffer object
 	return buffer.bind();
+}
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum ) {
+	uint32_t index = 0;
+	VkCommandPool* pool = NULL;
+	bool exists = false;
+	auto id = std::this_thread::get_id();
+	switch ( queueEnum ) {
+		case QueueEnum::GRAPHICS:
+			index = device.queueFamilyIndices.graphics;
+			if ( commandPool.graphics.count(id) > 0 ) exists = true;
+			pool = &commandPool.graphics[id];
+		break;
+		case QueueEnum::COMPUTE:
+			index = device.queueFamilyIndices.compute;
+			if ( commandPool.compute.count(id) > 0 ) exists = true;
+			pool = &commandPool.compute[id];
+		break;
+		case QueueEnum::TRANSFER:
+			index = device.queueFamilyIndices.transfer;
+			if ( commandPool.transfer.count(id) > 0 ) exists = true;
+			pool = &commandPool.transfer[id];
+		break;
+	}
+	if ( !exists ) {
+		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.queueFamilyIndex = index;
+		cmdPoolInfo.flags = createFlags;
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for graphics!");
+	}
+	return *pool;
+}
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum ) {
+	uint32_t index = 0;
+	VkQueue* queue = NULL;
+	bool exists = false;
+	auto id = std::this_thread::get_id();
+	switch ( queueEnum ) {
+		case QueueEnum::GRAPHICS:
+			index = device.queueFamilyIndices.graphics;
+			if ( queues.graphics.count(id) > 0 ) exists = true;
+			queue = &queues.graphics[id];
+		break;
+		case QueueEnum::PRESENT:
+			index = device.queueFamilyIndices.present;
+			if ( queues.present.count(id) > 0 ) exists = true;
+			queue = &queues.present[id];
+		break;
+		case QueueEnum::COMPUTE:
+			index = device.queueFamilyIndices.compute;
+			if ( queues.compute.count(id) > 0 ) exists = true;
+			queue = &queues.compute[id];
+		break;
+		case QueueEnum::TRANSFER:
+			index = device.queueFamilyIndices.transfer;
+			if ( queues.transfer.count(id) > 0 ) exists = true;
+			queue = &queues.transfer[id];
+		break;
+	}
+	if ( !exists ) {
+		vkGetDeviceQueue( device, index, 0, queue );
+	}
+	return *queue;
 }
 
 void ext::vulkan::Device::initialize() {	
@@ -540,7 +619,11 @@ void ext::vulkan::Device::initialize() {
 			// Memory properties are used regularly for creating all kinds of buffers
 			vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
 		}
-		if ( false ) {
+		{
+			properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			memoryProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+
 			vkGetPhysicalDeviceProperties2( this->physicalDevice, &properties2 );
 			// Features should be checked by the examples before using them
 			vkGetPhysicalDeviceFeatures2( this->physicalDevice, &features2 );
@@ -553,6 +636,17 @@ void ext::vulkan::Device::initialize() {
 		// assert(queueFamilyCount > 0);
 		queueFamilyProperties.resize(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties( this->physicalDevice, &queueFamilyCount, queueFamilyProperties.data() );
+		{
+			VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+			uint8_t maxSamples = 1;
+			if (counts & VK_SAMPLE_COUNT_64_BIT) maxSamples = 64;
+			else if (counts & VK_SAMPLE_COUNT_32_BIT) maxSamples = 32;
+			else if (counts & VK_SAMPLE_COUNT_16_BIT) maxSamples = 16;
+			else if (counts & VK_SAMPLE_COUNT_8_BIT) maxSamples = 8;
+			else if (counts & VK_SAMPLE_COUNT_4_BIT) maxSamples = 4;
+			else if (counts & VK_SAMPLE_COUNT_2_BIT) maxSamples = 2;
+			ext::vulkan::msaa = std::min( maxSamples, ext::vulkan::msaa );
+		}
 	}
 	// Create logical device
 	{
@@ -664,33 +758,9 @@ void ext::vulkan::Device::initialize() {
 			std::cout << retrieveDeviceFeatures( *this ) << std::endl;
 	}
 	// Create command pool
-	{
-		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.graphics;
-		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.graphics ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool for graphics!");
-	}
-	{
-		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.compute;
-		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.compute ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool for compute!");
-	}
-	{
-		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.queueFamilyIndex = queueFamilyIndices.transfer;
-		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &commandPool.transfer ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool for transfer!");
-	}
+	getCommandPool( QueueEnum::GRAPHICS );
+	getCommandPool( QueueEnum::COMPUTE );
+	getCommandPool( QueueEnum::TRANSFER );
 	// Set queue
 	{
 		uint32_t graphicsQueueNodeIndex = UINT32_MAX;
@@ -720,11 +790,16 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
-
-		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &queues.graphics );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &queues.present );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &queues.compute );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.transfer, 0, &queues.transfer );
+		getQueue( QueueEnum::GRAPHICS );
+		getQueue( QueueEnum::PRESENT );
+		getQueue( QueueEnum::COMPUTE );
+		getQueue( QueueEnum::TRANSFER );
+	/*
+		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &queues.graphics[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &queues.present[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &queues.compute[std::this_thread::get_id()] );
+		vkGetDeviceQueue( device, device.queueFamilyIndices.transfer, 0, &queues.transfer[std::this_thread::get_id()] );
+	*/
 	}
 	// Set formats
 	{
@@ -791,17 +866,17 @@ void ext::vulkan::Device::destroy() {
 		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
 		this->pipelineCache = nullptr;
 	}
-	if ( this->commandPool.graphics ) {
-		vkDestroyCommandPool( this->logicalDevice, this->commandPool.graphics, nullptr );
-		this->commandPool.graphics = nullptr;
+	for ( auto& pair : this->commandPool.graphics ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
 	}
-	if ( this->commandPool.compute ) {
-		vkDestroyCommandPool( this->logicalDevice, this->commandPool.compute, nullptr );
-		this->commandPool.compute = nullptr;
+	for ( auto& pair : this->commandPool.compute ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
 	}
-	if ( this->commandPool.transfer ) {
-		vkDestroyCommandPool( this->logicalDevice, this->commandPool.transfer, nullptr );
-		this->commandPool.transfer = nullptr;
+	for ( auto& pair : this->commandPool.transfer ) {
+		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
+		pair.second = VK_NULL_HANDLE;
 	}
 	if ( this->logicalDevice ) {
 		vkDestroyDevice( this->logicalDevice, nullptr );

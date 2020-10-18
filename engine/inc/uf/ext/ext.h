@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
+#include <vector>
 
 #if !defined(EXT_STATIC)
 	#if defined(UF_ENV_WINDOWS)
@@ -38,6 +39,7 @@
 #include <string>
 namespace ext {
 	extern bool EXT_API ready;
+	extern std::vector<std::string> EXT_API arguments;
 	
 	extern void EXT_API initialize();
 	extern bool EXT_API running();

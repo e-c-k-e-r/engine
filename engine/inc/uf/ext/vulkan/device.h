@@ -3,6 +3,7 @@
 #include <uf/ext/vulkan.h>
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/utils/window/window.h>
+#include <uf/utils/thread/thread.h>
 
 namespace ext {
 	namespace vulkan {
@@ -13,9 +14,9 @@ namespace ext {
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
 			struct {
-				VkCommandPool graphics = VK_NULL_HANDLE;
-				VkCommandPool compute = VK_NULL_HANDLE;
-				VkCommandPool transfer = VK_NULL_HANDLE;
+				std::unordered_map<std::thread::id, VkCommandPool> graphics;
+				std::unordered_map<std::thread::id, VkCommandPool> compute;
+				std::unordered_map<std::thread::id, VkCommandPool> transfer;
 			} commandPool;
 
 			VkPhysicalDeviceProperties properties;
@@ -42,10 +43,10 @@ namespace ext {
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			
 			struct {
-				VkQueue graphics;
-				VkQueue present;
-				VkQueue compute;
-				VkQueue transfer;
+				std::unordered_map<std::thread::id,VkQueue> graphics;
+				std::unordered_map<std::thread::id,VkQueue> present;
+				std::unordered_map<std::thread::id,VkQueue> compute;
+				std::unordered_map<std::thread::id,VkQueue> transfer;
 			} queues;
 
 			uf::Window* window;
@@ -87,6 +88,15 @@ namespace ext {
 				VkDeviceSize size,
 				void *data = nullptr
 			);
+
+			enum QueueEnum {
+				GRAPHICS,
+				PRESENT,
+				COMPUTE,
+				TRANSFER,
+			};
+			VkQueue& getQueue( QueueEnum );
+			VkCommandPool& getCommandPool( QueueEnum );
 
 			// RAII
 			void initialize();

@@ -92,7 +92,7 @@ namespace {
 void ext::DialogueManager::initialize() {	
 	uf::Object::initialize();
 
-	gui = NULL;
+	::gui = NULL;
 	transients.clear();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -175,17 +175,17 @@ void ext::DialogueManager::initialize() {
 		return payload;
 	});
 	this->addHook( "menu:Dialogue.Gui.%UID%", [&](const std::string& event)->std::string{	
-		ext::Gui* guiManager = (ext::Gui*) this->getRootParent().findByName("Gui Manager");
+		ext::Gui* guiManager = (ext::Gui*) this->globalFindByName("Gui Manager");
 		ext::Gui* guiMenu = new ext::GuiDialogue;
 		guiManager->addChild(*guiMenu);
-		guiMenu->load("./entities/gui/dialogue/menu.json");
+		guiMenu->as<uf::Object>().load("./entities/gui/dialogue/menu.json");
 		guiMenu->initialize();
 
 		uf::Serializer payload;
 		payload["dialogue"] = metadata["dialogue"];
 		guiMenu->queueHook("menu:Dialogue.Start.%UID%", payload);
 
-		gui = guiMenu;
+		::gui = guiMenu;
 
 		return "true";
 	});
@@ -251,7 +251,7 @@ void ext::DialogueManager::initialize() {
 		// play music
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		scene.callHook("world:Music.LoadPrevious.%UID%");
-		gui->callHook("menu:Close.%UID%");
+		::gui->callHook("menu:Close.%UID%");
 
 		this->callHook("menu:Dialogue.End");
 

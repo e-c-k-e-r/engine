@@ -4,14 +4,35 @@
 #include <uf/ext/ext.h>
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
+#include <uf/utils/math/vector.h>
+#include <uf/utils/renderer/renderer.h>
 
 #include "behavior.h"
+
+namespace pod {
+	struct GlyphBox {
+		struct {
+			float x, y, w, h;
+		} box;
+		uint64_t code;
+		pod::Vector3f color;
+	};
+}
 
 namespace ext {
 	class EXT_API Gui : public uf::Object {
 	public:
-		Gui() {
-			this->addBehavior<ext::GuiBehavior>();
-		}
+		typedef uf::BaseMesh<pod::Vertex_3F2F3F> glyph_mesh_t;
+
+		Gui();
+		std::vector<pod::GlyphBox> generateGlyphs( const std::string& = "" );
+		void load( uf::Image& );
 	};
+	namespace gui {
+		struct Size {
+			pod::Vector2ui current = {};
+			pod::Vector2ui reference = {};
+		};
+		extern Size size;
+	}
 }

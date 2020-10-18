@@ -10,8 +10,11 @@
 
 uint32_t ext::vulkan::width = 1280;
 uint32_t ext::vulkan::height = 720;
+uint8_t ext::vulkan::msaa = 1;
 
 bool ext::vulkan::validation = true;
+bool ext::vulkan::rebuildOnTickStart = false;
+bool ext::vulkan::waitOnRenderEnd = false;
 std::vector<std::string> ext::vulkan::validationFilters;
 std::vector<std::string> ext::vulkan::requestedDeviceFeatures;
 std::vector<std::string> ext::vulkan::requestedDeviceExtensions;
@@ -49,7 +52,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData
 ) {
-	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )  return VK_FALSE;
+//	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ) return VK_FALSE;
 	std::string message = pCallbackData->pMessage;
 	for ( auto& filter : ext::vulkan::validationFilters ) {
 		if ( message.find(filter) != std::string::npos ) return VK_FALSE;
@@ -276,15 +279,14 @@ void ext::vulkan::initialize( uint8_t stage ) {
 }
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
-	if ( ext::vulkan::resized ) ext::vulkan::rebuild = true;
+	if ( ext::vulkan::resized || ext::vulkan::rebuildOnTickStart ) {
+		ext::vulkan::rebuild = true;
+	}
 
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.initialized ) return;
-
-		if ( !graphic.process ) return;
-		if ( graphic.initialized ) return;
+		if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
 		graphic.initializePipeline();
 		ext::vulkan::rebuild = true;
 	};
@@ -310,7 +312,7 @@ void ext::vulkan::tick() {
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
-//	ext::vulkan::mutex.lock();
+	ext::vulkan::mutex.lock();
 	if ( hasRenderMode("Gui", true) ) {
 		RenderMode& primary = getRenderMode("Gui", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
@@ -331,7 +333,15 @@ void ext::vulkan::render() {
 	}
 
 	ext::vulkan::currentRenderMode = NULL;
-//	ext::vulkan::mutex.unlock();
+	if ( ext::vulkan::waitOnRenderEnd ) {
+		for ( auto& renderMode : renderModes ) {
+			if ( !renderMode ) continue;
+			if ( !renderMode->execute ) continue;
+			renderMode->synchronize();
+		}
+		vkDeviceWaitIdle( device );
+	}
+	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();

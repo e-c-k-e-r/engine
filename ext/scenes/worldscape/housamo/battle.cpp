@@ -105,7 +105,7 @@ namespace {
 void ext::HousamoBattle::initialize() {	
 	uf::Object::initialize();
 
-	gui = NULL;
+	::gui = NULL;
 	transients.clear();
 
 	uf::Scene& scene = uf::scene::getCurrentScene();
@@ -283,17 +283,17 @@ void ext::HousamoBattle::initialize() {
 		return payload;
 	});
 	this->addHook( "world:Battle.Gui.%UID%", [&](const std::string& event)->std::string{	
-		ext::Gui* guiManager = (ext::Gui*) this->getRootParent().findByName("Gui Manager");
+		ext::Gui* guiManager = (ext::Gui*) this->globalFindByName("Gui Manager");
 		ext::Gui* guiMenu = new ext::GuiBattle;
 		guiManager->addChild(*guiMenu);
-		guiMenu->load("./scenes/world/gui/battle/menu.json");
+		guiMenu->as<uf::Object>().load("./scenes/world/gui/battle/menu.json");
 		guiMenu->initialize();
 
 		uf::Serializer payload;
 		payload["battle"] = metadata["battle"];
 		guiMenu->queueHook("world:Battle.Start.%UID%", payload);
 
-		gui = guiMenu;
+		::gui = guiMenu;
 
 		return "true";
 	});
@@ -403,10 +403,10 @@ void ext::HousamoBattle::initialize() {
 			// std::cout << metadata["battle"]["transients"] << std::endl;
 		}
 
-		if ( gui ) {
+		if ( ::gui ) {
 			uf::Serializer payload;
 			payload["battle"] = metadata["battle"];
-			gui->queueHook("world:Battle.Update.%UID%", payload);
+			::gui->queueHook("world:Battle.Update.%UID%", payload);
 		}
 
 		if ( hookName == "" ) return payload;
@@ -657,10 +657,10 @@ void ext::HousamoBattle::initialize() {
 				turnState["counter"] = counter;
 				turnState["start of turn"] = true;
 
-				if ( gui ) {
+				if ( ::gui ) {
 					uf::Serializer payload;
 					payload["battle"] = metadata["battle"];
-					gui->queueHook("world:Battle.TurnStart.%UID%", payload);
+					::gui->queueHook("world:Battle.TurnStart.%UID%", payload);
 				}
 			} else {
 				turnState["start of turn"] = false;
@@ -791,10 +791,10 @@ void ext::HousamoBattle::initialize() {
 			}
 		}
 
-		if ( gui ) {
+		if ( ::gui ) {
 			uf::Serializer payload;
 			payload["battle"] = metadata["battle"];
-			gui->queueHook("world:Battle.Update.%UID%", payload);
+			::gui->queueHook("world:Battle.Update.%UID%", payload);
 		}
 
 		if ( skipped ) payload["skipped"] = true;
@@ -906,7 +906,7 @@ void ext::HousamoBattle::initialize() {
 			payload["color"] = json["color"];
 			payload["target"]["uid"] = json["uid"];
 			payload["target"]["damage"] = json["message"];
-			gui->queueHook("world:Battle.Damage.%UID%", payload, delays.damage);
+			::gui->queueHook("world:Battle.Damage.%UID%", payload, delays.damage);
 			delays.damage += 0.25f;
 		};
 		
@@ -1062,7 +1062,7 @@ void ext::HousamoBattle::initialize() {
 				uf::Serializer payload;
 				payload["target"]["uid"] = target["uid"];
 				payload["target"]["damage"] = "Miss";
-				gui->queueHook("world:Battle.Damage.%UID%", payload);
+				::gui->queueHook("world:Battle.Damage.%UID%", payload);
 				continue;
 			}
 
@@ -1337,7 +1337,7 @@ void ext::HousamoBattle::initialize() {
 				uf::Serializer payload;
 				payload["uid"] = json["uid"];
 				payload["id"] = member["id"];
-				gui->queueHook("world:Battle.OnCrit.%UID%", payload, 0.1f);
+				::gui->queueHook("world:Battle.OnCrit.%UID%", payload, 0.1f);
 			}
 		}
 
@@ -1435,7 +1435,7 @@ void ext::HousamoBattle::initialize() {
 	*/
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		scene.callHook("world:Music.LoadPrevious.%UID%");
-		gui->callHook("menu:Close.%UID%");
+		::gui->callHook("menu:Close.%UID%");
 	
 		// cleanup
 		for ( ext::Housamo* pointer : transients ) {

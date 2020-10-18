@@ -1287,7 +1287,7 @@ void ext::TerrainGenerator::updateLight(){
 //	this->wrapLight();
 //	this->writeToFile();
 }
-void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& region ){
+void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& region, bool applyTransform ){
 	if ( this->m_voxels.id.rle.empty() ) return;
 
 	this->writeToFile();
@@ -1326,6 +1326,7 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 		color.b *= tMetadata["region"]["light"]["ambient"][2].asFloat();
 		ambientLight = colorToUint16( color );
 	}
+	pod::Matrix4f modelMatrix = uf::transform::model( transform );
 	#define TERRAIN_SHOULD_RENDER_FACE(SIDE)\
 		should.SIDE = !neighbor.SIDE.opaque();\
 		if ( should.SIDE ) {\
@@ -1358,6 +1359,10 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 					p[1] = (p[1] << 4) | p[1];\
 					p[2] = (p[2] << 4) | p[2];\
 					p[3] = (p[3] << 4) | p[3];\
+				}\
+				if ( applyTransform ) {\
+					pod::Vector3f& p = vertex.position;\
+					p += transform.position; /*p = uf::matrix::multiply<float>( modelMatrix, p );*/\
 				}\
 				vertices.push_back(vertex);\
 			}\

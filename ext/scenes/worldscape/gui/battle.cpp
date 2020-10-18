@@ -206,37 +206,37 @@ void ext::GuiBattle::initialize() {
 	{
 		battleMessage = new ext::Gui;
 		this->addChild(*battleMessage);
-		battleMessage->load("./battle-text.json", true);
+		battleMessage->as<uf::Object>().load("./battle-text.json", true);
 		battleMessage->initialize();
 	}
 	/* Magic Circle Outter */ {
 		circleOut = new ext::Gui;
 		this->addChild(*circleOut);
-		circleOut->load("./circle-out.json", true);
+		circleOut->as<uf::Object>().load("./circle-out.json", true);
 		circleOut->initialize();
 	}
 	/* Magic Circle Inner */ {
 		circleIn = new ext::Gui;
 		this->addChild(*circleIn);
-		circleIn->load("./circle-in.json", true);
+		circleIn->as<uf::Object>().load("./circle-in.json", true);
 		circleIn->initialize();
 	}
 	/* Command Circle */ {
 		partyMemberCommandCircle = new ext::Gui;
 		this->addChild(*partyMemberCommandCircle);
-		partyMemberCommandCircle->load("./partyMemberCommandCircle.json", true);
+		partyMemberCommandCircle->as<uf::Object>().load("./partyMemberCommandCircle.json", true);
 		partyMemberCommandCircle->initialize();
 	}
 	/* Command Circle */ {
 		optionsBackground = new ext::Gui;
 		this->addChild(*optionsBackground);
-		optionsBackground->load("./optionsBackground.json", true);
+		optionsBackground->as<uf::Object>().load("./optionsBackground.json", true);
 		optionsBackground->initialize();
 	}
 	/* Turn Counter Container */ {
 		turnCounters = new ext::Gui;
 		this->addChild(*turnCounters);
-		turnCounters->load("./turnCounters.json", true);
+		turnCounters->as<uf::Object>().load("./turnCounters.json", true);
 		turnCounters->initialize();
 	}	
 
@@ -277,7 +277,7 @@ void ext::GuiBattle::initialize() {
 		ext::Gui* particle = new ext::Gui;
 		this->addChild(*particle);
 		uf::Serializer& pMetadata = particle->getComponent<uf::Serializer>();
-		particle->load("./damageText.json", true);
+		particle->as<uf::Object>().load("./damageText.json", true);
 		std::string color = json["color"].isString() ? json["color"].asString() : "FF0000";
 		pMetadata["text settings"]["string"] = "%#"+color+"%" + damage;
 		pod::Transform<>& transform = particle->getComponent<pod::Transform<>>();
@@ -300,7 +300,7 @@ void ext::GuiBattle::initialize() {
 		battleMessage = new ext::Gui;
 		this->addChild(*battleMessage);
 		uf::Serializer& pMetadata = battleMessage->getComponent<uf::Serializer>();
-		battleMessage->load("./battle-text.json", true);
+		battleMessage->as<uf::Object>().load("./battle-text.json", true);
 		pMetadata["text settings"]["string"] = message;
 		battleMessage->initialize();
 
@@ -340,7 +340,7 @@ void ext::GuiBattle::initialize() {
 		{
 			critCutInBackground = new ext::Gui;
 			this->addChild(*critCutInBackground);
-			critCutInBackground->load("./critCutInBackground.json", true);
+			critCutInBackground->as<uf::Object>().load("./critCutInBackground.json", true);
 			critCutInBackground->initialize();
 		}
 		{
@@ -351,7 +351,7 @@ void ext::GuiBattle::initialize() {
 			uf::Serializer cardData = masterDataGet("Card", json["id"].asString());
 			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].asString() +".png";
 			if ( !uf::io::exists( pMetadata["system"]["assets"][0].asString() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
-			critCutIn->load("./critCutIn.json", true);
+			critCutIn->as<uf::Object>().load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
 
@@ -373,7 +373,7 @@ void ext::GuiBattle::initialize() {
 			{
 				turnCounters = new ext::Gui;
 				this->addChild(*turnCounters);
-				turnCounters->load("./turnCounters.json", true);
+				turnCounters->as<uf::Object>().load("./turnCounters.json", true);
 				turnCounters->initialize();
 			}
 			// show full counters
@@ -381,7 +381,7 @@ void ext::GuiBattle::initialize() {
 			while ( turns > 0 ) {
 				ext::Gui* counter = new ext::Gui;
 				turnCounters->addChild(*counter);
-				counter->load("./turnCounter.json", true);
+				counter->as<uf::Object>().load("./turnCounter.json", true);
 				counter->initialize();
 				pod::Transform<>& pTransform = counter->getComponent<pod::Transform<>>();
 				pTransform.position.x -= 0.142716f * (i++);
@@ -465,7 +465,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberText = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
-					partyMemberText->load("./partyMemberText.json", true);
+					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
 					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
@@ -499,7 +499,7 @@ void ext::GuiBattle::initialize() {
 				{
 					partyMemberButton = new ext::Gui;
 					this->addChild(*partyMemberButton);
-					partyMemberButton->load("./partyMemberButton.json", true);
+					partyMemberButton->as<uf::Object>().load("./partyMemberButton.json", true);
 					
 					pod::Transform<>& transform = partyMemberButton->getComponent<pod::Transform<>>();
 					transform.position.y += (i * 0.45);
@@ -518,7 +518,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberIconShadow);
 					uf::Serializer& pMetadata = partyMemberIconShadow->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = filename;
-					partyMemberIconShadow->load("./partyMemberIconShadow.json", true);
+					partyMemberIconShadow->as<uf::Object>().load("./partyMemberIconShadow.json", true);
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberIconShadow->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -532,7 +532,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberIcon);
 					uf::Serializer& pMetadata = partyMemberIcon->getComponent<uf::Serializer>();
 					pMetadata["system"]["assets"][0] = filename;
-					partyMemberIcon->load("./partyMemberIcon.json", true);
+					partyMemberIcon->as<uf::Object>().load("./partyMemberIcon.json", true);
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberIcon->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -544,7 +544,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberText = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
-					partyMemberText->load("./partyMemberText.json", true);
+					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
 					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
@@ -555,7 +555,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberBar = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberBar);
-					partyMemberBar->load("./partyMemberBars.json", true);
+					partyMemberBar->as<uf::Object>().load("./partyMemberBars.json", true);
 					pod::Transform<>& transform = partyMemberBar->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -565,7 +565,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberHP = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberHP);
-					partyMemberHP->load("./partyMemberHP.json", true);
+					partyMemberHP->as<uf::Object>().load("./partyMemberHP.json", true);
 					pod::Transform<>& transform = partyMemberHP->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -583,7 +583,7 @@ void ext::GuiBattle::initialize() {
 				{
 					ext::Gui* partyMemberMP = new ext::Gui;
 					partyMemberButton->addChild(*partyMemberMP);
-					partyMemberMP->load("./partyMemberMP.json", true);
+					partyMemberMP->as<uf::Object>().load("./partyMemberMP.json", true);
 					pod::Transform<>& transform = partyMemberMP->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
 					transform.position.x = 0.742573;
@@ -740,7 +740,7 @@ void ext::GuiBattle::tick() {
 			battleOptions = new ext::Gui;
 			this->addChild(*battleOptions);
 			uf::Serializer& pMetadata = battleOptions->getComponent<uf::Serializer>();
-			battleOptions->load("./battle-option.json", true);
+			battleOptions->as<uf::Object>().load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = battleOptions->getComponent<pod::Transform<>>();
 			battleOptions->initialize();
@@ -793,7 +793,7 @@ void ext::GuiBattle::tick() {
 			commandOptions = new ext::Gui;
 			this->addChild(*commandOptions);
 			uf::Serializer& pMetadata = commandOptions->getComponent<uf::Serializer>();
-			commandOptions->load("./battle-option.json", true);
+			commandOptions->as<uf::Object>().load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = commandOptions->getComponent<pod::Transform<>>();
 			commandOptions->initialize();
@@ -845,7 +845,7 @@ void ext::GuiBattle::tick() {
 			targetOptions = new ext::Gui;
 			this->addChild(*targetOptions);
 			uf::Serializer& pMetadata = targetOptions->getComponent<uf::Serializer>();
-			targetOptions->load("./battle-option.json", true);
+			targetOptions->as<uf::Object>().load("./battle-option.json", true);
 			pMetadata["text settings"]["string"] = string;
 			pod::Transform<>& pTransform = targetOptions->getComponent<pod::Transform<>>();
 			targetOptions->initialize();

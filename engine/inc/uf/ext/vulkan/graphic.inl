@@ -18,7 +18,7 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, bool st
 			updateBuffer(
 				(void*) mesh.indices.data(),
 				mesh.indices.size() * mesh.sizes.indices,
-				0,
+				1,
 				stage
 			);
 			return;

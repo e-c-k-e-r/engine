@@ -48,9 +48,21 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 
+	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+	switch ( ext::vulkan::msaa ) {
+		case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
+		case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
+		case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
+		case  8: samples =  VK_SAMPLE_COUNT_8_BIT; break;
+		case  4: samples =  VK_SAMPLE_COUNT_4_BIT; break;
+		case  2: samples =  VK_SAMPLE_COUNT_2_BIT; break;
+		default: samples =  VK_SAMPLE_COUNT_1_BIT; break;
+	}
+
 	attachment->layout = layout;
 	attachment->format = format;
 	attachment->usage = usage;
+	attachment->samples = samples;
 
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -59,7 +71,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	imageCreateInfo.extent = { width, height, 1 };
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = USEVR ? 2 : 1;
-	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.samples = samples;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = usage;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -151,7 +163,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		for ( auto& attachment : this->attachments ) {
 			VkAttachmentDescription description;
 			description.format = attachment.format;
-			description.samples = VK_SAMPLE_COUNT_1_BIT;
+			description.samples = attachment.samples;
 			description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 			description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 			description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;

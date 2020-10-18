@@ -22,6 +22,7 @@ namespace uf {
 		void addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
 		
 		void generate();
+		void clear();
 		
 		pod::Vector2f mapUv( const pod::Vector2f&, size_t );
 		pod::Vector3f mapUv( const pod::Vector3f& );

@@ -6,6 +6,12 @@
 #include <uf/utils/mempool/mempool.h>
 
 int main(int argc, char** argv){
+	for ( size_t i = 0; i < argc; ++i ) {
+		char* c_str = argv[i];
+		std::string string(argv[i]);
+		ext::arguments.emplace_back(string);
+	}
+
 	std::atexit([]{
 		uf::iostream << "Termination via std::atexit()!" << "\n";
 		client::terminated = !(client::ready = ext::ready = false);
@@ -42,13 +48,9 @@ int main(int argc, char** argv){
 			ext::render();
 		} catch ( std::runtime_error& e ) {
 			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";
-			std::abort();
-			raise(SIGSEGV);
-			throw e;
+			break;
 		} catch ( std::exception& e ) {
 			uf::iostream << "EXCEPTION ERROR: " << e.what() << "\n";
-			std::abort();
-			raise(SIGSEGV);
 			throw e;
 		} catch ( bool handled ) {
 			if (!handled) uf::iostream << "UNHANDLED ERROR: " << "???" << "\n";
@@ -59,8 +61,8 @@ int main(int argc, char** argv){
 
 	if ( !client::terminated ) {
 		uf::iostream << "Natural termination!" << "\n";
-		ext::terminate();
-		client::terminate();
 	}
+	ext::terminate();
+	client::terminate();
 	return 0;
 }

@@ -12,22 +12,9 @@
 #include <uf/utils/string/ext.h>
 #include <mutex>
 
-namespace {
-	std::string grabURI( std::string filename, std::string root = "" ) {
-		if ( filename.substr(0,8) == "https://" ) return filename;
-		std::string extension = uf::io::extension(filename);
-		if ( filename[0] == '/' || root == "" ) {
-			if ( extension == "json" ) root = "./data/entities/";
-			if ( extension == "png" ) root = "./data/textures/";
-			if ( extension == "ogg" ) root = "./data/audio/";
-		}
-		return uf::io::sanitize(filename, root);
-	}
-}
-
 EXT_BEHAVIOR_REGISTER_CPP(RegionBehavior)
 EXT_BEHAVIOR_REGISTER_AS_OBJECT(RegionBehavior, Region)
-#define this (&self)
+#define this ((uf::Object*) &self)
 void ext::RegionBehavior::initialize( uf::Object& self ) {
 	// alias Mesh types
 	{
@@ -38,13 +25,13 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["region"]["initialized"] = true;
 
-	{
+	if ( !metadata["terrain"]["unified"].asBool() ) {
 		std::string textureFilename = ""; {
 			uf::Serializer& metadata = this->getParent().getComponent<uf::Serializer>();
 			uf::Asset assetLoader;
 			for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
 				if ( textureFilename != "" ) break;
-				std::string filename = grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
+				std::string filename = this->grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
 				textureFilename = assetLoader.cache( filename );
 			}
 		}
@@ -141,10 +128,10 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 	this->addHook( "region:Finalize.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 
-		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
-		auto& graphic = this->getComponent<uf::Graphic>();
-
-		graphic.process = true;
+		if ( this->hasComponent<uf::Graphic>() ) {
+			auto& graphic = this->getComponent<uf::Graphic>();
+			graphic.process = true;
+		}
 		metadata["region"]["rasterized"] = true;
 
 		return "true";

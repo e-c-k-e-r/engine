@@ -127,6 +127,7 @@ void ext::GuiWorldPauseMenuBehavior::initialize( uf::Object& self ) {
 			uf::Serializer member = pMetadata[""]["transients"][id];
 			uf::Serializer cardData = masterDataGet("Card", id);
 			std::string name = cardData["filename"].asString();
+			if ( name == "" ) continue;
 			if ( member["skin"].isString() ) name += "_" + member["skin"].asString();
 			std::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
 			if ( cardData["internal"].asBool() ) {
@@ -137,7 +138,7 @@ void ext::GuiWorldPauseMenuBehavior::initialize( uf::Object& self ) {
 	}
 	{
 		std::string portrait = metadata["portraits"]["list"][0].asString();
-		/* Transient shadow background */ {		
+		/* Transient shadow background */ if ( portrait != "" ) {
 			transientSpriteShadow = new uf::Object;
 			uf::Asset& assetLoader = transientSpriteShadow->getComponent<uf::Asset>();
 			this->addChild(*transientSpriteShadow);
@@ -148,7 +149,7 @@ void ext::GuiWorldPauseMenuBehavior::initialize( uf::Object& self ) {
 			transientSpriteShadow->initialize();
 		
 		}
-		/* Transient transientSprite */ {
+		/* Transient transientSprite */ if ( portrait != "" ) {
 			transientSprite = new uf::Object;
 			uf::Asset& assetLoader = transientSprite->getComponent<uf::Asset>();
 			this->addChild(*transientSprite);
@@ -229,7 +230,13 @@ void ext::GuiWorldPauseMenuBehavior::initialize( uf::Object& self ) {
 		delete this;
 		return "true";
 	*/
+		uf::Serializer json = event;
+
+		metadata["system"]["hooks"]["onClose"] = json["callback"];
+
 		metadata["system"]["closing"] = true;
+		playSound(*this, "menu close");
+
 		return "true";
 	});
 }
@@ -238,6 +245,7 @@ void ext::GuiWorldPauseMenuBehavior::tick( uf::Object& self ) {
 	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 	static uf::Timer<long long> timer(false);
 	static uf::Audio sfx;
+//	if ( !timer.running() ) timer.start( uf::Time<>(-1000000) );
 	if ( !timer.running() ) timer.start();
 
 	static float alpha = 0.0f;
@@ -259,6 +267,21 @@ void ext::GuiWorldPauseMenuBehavior::tick( uf::Object& self ) {
 		} else if ( metadata["system"]["closed"].asBool() ) {
 			// kill
 			timer.stop();
+
+			uf::Serializer callback = metadata["system"]["hooks"]["onClose"];
+			uf::Serializer payload = callback["payload"];
+			uf::Object* target = this;
+			if ( callback["scope"].asString() == "parent" ) {
+				target = &this->getParent().as<uf::Object>();
+			} else if ( callback["scope"].asString() == "scene" ) {
+				target = &uf::scene::getCurrentScene();
+			}
+			if ( callback["delay"].isNumeric() ) {
+				target->queueHook( callback["name"].asString(), payload, callback["delay"].asFloat() );
+			} else {
+				target->callHook( callback["name"].asString(), payload );
+			}
+
 			this->destroy();
 			this->getParent().removeChild(*this);
 			delete this;
@@ -495,13 +518,13 @@ void ext::GuiWorldPauseMenuBehavior::tick( uf::Object& self ) {
 			delta += uf::physics::time::delta * 1.5f;
 			transform.position = uf::vector::lerp( start, end, delta );
 		}
-
-
+	/*
 		if ( metadata["clicked"].asBool() && timer.elapsed().asDouble() >= 1 ) {
 			timer.reset();
 			this->callHook("menu:Close.%UID%");
 			playSound(*this, "menu close");
 		}
+	*/
 		metadata["color"][3] = alpha;
 
 		for ( uf::Entity* pointer : closeOption->getChildren()  ) {
@@ -531,17 +554,13 @@ void ext::GuiWorldPauseMenuBehavior::tick( uf::Object& self ) {
 			delta += uf::physics::time::delta * 1.5f;
 			transform.position = uf::vector::lerp( start, end, delta );
 		}
-
-
+	/*
 		if ( metadata["clicked"].asBool() && timer.elapsed().asDouble() >= 1 ) {
 			timer.reset();
 			this->callHook("menu:Close.%UID%");
 			playSound(*this, "menu close");
-		/*
-			uf::Scene& scene = this->getRootParent<uf::Scene>();
-			scene.queueHook("system:Quit.%UID%", "", 1.0f);
-		*/
 		}
+	*/
 		metadata["color"][3] = alpha;
 
 		for ( uf::Entity* pointer : quitOption->getChildren()  ) {

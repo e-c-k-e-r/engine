@@ -12,19 +12,6 @@
 uf::Timer<long long> uf::Object::timer(false);
 namespace {
 	uf::Object null;
-	std::string grabURI( std::string filename, std::string root = "" ) {
-		if ( filename.substr(0,8) == "https://" ) return filename;
-		std::string extension = uf::io::extension(filename);
-		if ( filename[0] == '/' || root == "" ) {
-			if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
-			else if ( extension == "json" ) root = "./data/entities/";
-			else if ( extension == "png" ) root = "./data/textures/";
-			else if ( extension == "glb" ) root = "./data/models/";
-			else if ( extension == "gltf" ) root = "./data/models/";
-			else if ( extension == "ogg" ) root = "./data/audio/";
-		}
-		return uf::io::sanitize(filename, root);
-	}
 }
 
 UF_OBJECT_REGISTER_BEGIN(Object)
@@ -41,12 +28,22 @@ void uf::Object::queueHook( const std::string& name, const std::string& payload,
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["system"]["hooks"]["queue"].append(queue);
 }
-std::vector<std::string> uf::Object::callHook( const std::string& n, const std::string& payload ) {
-	std::string name = uf::string::replace( n, "%UID%", std::to_string(this->getUid()) );
-	return uf::hooks.call( name, payload );
+std::string uf::Object::formatHookName( const std::string& n ) {
+	std::unordered_map<std::string, std::string> formats = {
+		{"%UID%", std::to_string(this->getUid())},
+		{"%P-UID%", std::to_string(this->getParent().getUid())},
+	};
+	std::string name = n;
+	for ( auto& pair : formats ) {
+		name = uf::string::replace( name, pair.first, pair.second );
+	}
+	return name;
+}
+std::vector<std::string> uf::Object::callHook( const std::string& name, const std::string& payload ) {
+	return uf::hooks.call( this->formatHookName( name ), payload );
 }
 std::size_t uf::Object::addHook( const std::string& name, const uf::HookHandler::Readable::function_t& callback ) {
-	std::string parsed = uf::string::replace( name, "%UID%", std::to_string(this->getUid()) );
+	std::string parsed = this->formatHookName( name );
 	std::size_t id = uf::hooks.addHook( parsed, callback );
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["system"]["hooks"]["alloc"][parsed].append(id);
@@ -76,6 +73,7 @@ bool uf::Object::reload( bool hard ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( !metadata["system"]["source"].isString() ) return false;
 	uf::Serializer json;
+	uf::Serializer payload;
 	std::string filename = metadata["system"]["source"].asString(); //grabURI( metadata["system"]["source"].asString(), metadata["system"]["root"].asString() ); // uf::io::sanitize(metadata["system"]["source"].asString(), metadata["system"]["root"].asString());
 	if ( !json.readFromFile( filename ) ) {
 		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
@@ -83,11 +81,15 @@ bool uf::Object::reload( bool hard ) {
 		return false;
 	}
 	if ( hard ) return this->load(filename);
+
+	payload["old"] = metadata;
 	for ( auto it = json["metadata"].begin(); it != json["metadata"].end(); ++it ) {
 		metadata[it.key().asString()] = json["metadata"][it.key().asString()];
 	}
+	payload["new"] = metadata;
 	std::cout << "Updated metadata for " << this->getName() << ": " << this->getUid() << std::endl;
-	this->queueHook("object:Reload.%UID%");
+
+	this->queueHook("object:Reload.%UID%", payload);
 	return true;
 }
 
@@ -306,6 +308,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				json["root"] = uf::io::directory(filename);
 				json["source"] = filename; // uf::io::filename(filename)
 				json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+
 				if ( this->loadChildUid(json) == -1 ) continue;
 			}
 		}
@@ -411,4 +414,20 @@ std::size_t uf::Object::loadChildUid( const std::string& f, bool initialize ) {
 std::size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initialize ) {
 	uf::Object* pointer = this->loadChildPointer(json, initialize);
 	return pointer ? pointer->getUid() : -1;
+}
+
+std::string uf::Object::grabURI( const std::string& filename, const std::string& _root  ) {
+	std::string root = _root;
+	if ( filename.substr(0,8) == "https://" ) return filename;
+	std::string extension = uf::io::extension(filename);
+	if ( filename[0] == '/' || root == "" ) {
+		if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
+		else if ( extension == "json" ) root = "./data/entities/";
+		else if ( extension == "png" ) root = "./data/textures/";
+		else if ( extension == "glb" ) root = "./data/models/";
+		else if ( extension == "gltf" ) root = "./data/models/";
+		else if ( extension == "ogg" ) root = "./data/audio/";
+		else if ( extension == "spv" ) root = "./data/shaders/";
+	}
+	return uf::io::sanitize(filename, root);
 }

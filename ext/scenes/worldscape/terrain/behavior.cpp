@@ -8,6 +8,7 @@
 #include <uf/utils/math/physics.h>
 
 #include <uf/engine/object/object.h>
+#include <uf/engine/asset/asset.h>
 
 #include <uf/utils/window/window.h>
 #include <uf/utils/graphic/mesh.h>
@@ -77,7 +78,51 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		uf::thread::limiter = metadata["system"]["limiter"].asFloat();
 		return "true";
 	});
+	this->addHook( "terrain:GenerateMesh.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+
+		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+
+		graphic.initializeGeometry( mesh );
+		graphic.getPipeline().update( graphic );
+		graphic.process = true;
+		uf::renderer::rebuild = true;
+
+		return "true";
+	});
 	this->addHook( "terrain:Post-Initialize.%UID%", [&](const std::string& event)->std::string{	
+		if ( metadata["terrain"]["unified"].asBool() ) {
+			std::string textureFilename = ""; {
+				uf::Asset assetLoader;
+				for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
+					if ( textureFilename != "" ) break;
+					std::string filename = this->grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
+					textureFilename = assetLoader.cache( filename );
+				}
+			}
+			auto& graphic = this->getComponent<uf::Graphic>();
+
+			graphic.initialize();
+			graphic.process = false;
+
+			auto& texture = graphic.material.textures.emplace_back();
+			texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+			texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+			texture.loadFromFile( textureFilename );
+
+			std::string suffix = ""; {
+				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+				if ( _ != "" ) suffix = _ + ".";
+			}
+			graphic.material.initializeShaders({
+				{"./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+				{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
+
+			uf::renderer::rebuildOnTickStart = false;
+		}
+
 		this->generate();
 	/*
 		auto& parent = this->getParent().as<uf::Object>();
@@ -185,15 +230,34 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 			}
 			// sort by closest to farthest
 			sortRegions(controller, regions);
+			if ( metadata["terrain"]["unified"].asBool() ) {
+				auto& graphic = this->getComponent<uf::Graphic>();
+				auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
+				mesh.destroy();
+				for ( uf::Object* region : regions ) {
+					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
+					if ( !metadata["region"]["initialized"].asBool() ) region->initialize();
+					if ( !metadata["region"]["generated"].asBool() ) region->callHook("region:Generate.%UID%", "");
+					if ( !metadata["region"]["rasterized"].asBool() ) {
+						region->queueHook("region:Finalize.%UID%", "");
+						region->queueHook("region:Populate.%UID%", "");
+					}
+					auto& generator = region->getComponent<ext::TerrainGenerator>();
+					generator.rasterize(mesh.vertices, *region, false);
+				}
+				this->queueHook("terrain:GenerateMesh.%UID%");
+			} else {
 			// initialize uninitialized regions
-			for ( uf::Object* region : regions ) {
-			//	uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
-				uf::Serializer& metadata = region->getComponent<uf::Serializer>();
-				if ( !metadata["region"]["initialized"].asBool() ) region->initialize();
-				if ( !metadata["region"]["generated"].asBool() ) region->callHook("region:Generate.%UID%", "");
-				if ( !metadata["region"]["rasterized"].asBool() ) region->callHook("region:Rasterize.%UID%", "");
-			//	return 0;}, true );
+				for ( uf::Object* region : regions ) {
+				//	uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
+					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
+					if ( !metadata["region"]["initialized"].asBool() ) region->initialize();
+					if ( !metadata["region"]["generated"].asBool() ) region->callHook("region:Generate.%UID%", "");
+					if ( !metadata["region"]["rasterized"].asBool() ) region->callHook("region:Rasterize.%UID%", "");
+				//	return 0;}, true );
+				}
 			}
+
 			// move to next state:
 			transitionState(*this, "open", !regions.empty());
 		return 0;}, true );
@@ -201,7 +265,25 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 	// check if we need to relocate entities
 	this->relocateChildren();
 }
-void ext::TerrainBehavior::render( uf::Object& self ){}
+void ext::TerrainBehavior::render( uf::Object& self ){
+	uf::Scene& scene = uf::scene::getCurrentScene();
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	
+	if ( !metadata["terrain"]["unified"].asBool() ) return;
+	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& camera = scene.getController().getComponent<uf::Camera>();		
+		if ( !graphic.initialized ) return;
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		uniforms.matrices.model = uf::matrix::identity();
+		for ( std::size_t i = 0; i < 2; ++i ) {
+			uniforms.matrices.view[i] = camera.getView( i );
+			uniforms.matrices.projection[i] = camera.getProjection( i );
+		}
+		graphic.material.shaders.front().updateBuffer( uniforms, 0, true );
+	}
+}
 void ext::TerrainBehavior::destroy( uf::Object& self ){}
 #undef this
 EXT_BEHAVIOR_ENTITY_CPP_END(Terrain)

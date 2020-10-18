@@ -27,12 +27,14 @@ struct Matrices {
 layout (binding = 0) uniform UBO {
 	Matrices matrices;
 	Cursor cursor;
-	vec2 alpha;
+//	float alpha;
+//	float padding;
 } ubo;
 
 void main() {
 	outUv = inUv;
 	outCursor = ubo.cursor;
+	outAlpha = 1;
 
 	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, 0.0, 1.0);
 }

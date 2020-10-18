@@ -21,20 +21,20 @@ layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outPosition;
 
 void main() {
-	outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), inUv);
 	if ( inCursor.radius.x <= 0 && inCursor.radius.y <= 0 ) {
 		vec2 uv = gl_FragCoord.xy / textureSize(albedoTexture, 0);
-		// uv.x = 1-uv.x;
 		outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), uv);
 		outNormal = texture(sampler2D(normalTexture, samp), uv);
 		outPosition = texture(sampler2D(positionTexture, samp), uv);
-		if ( outAlbedoSpecular.a < 0.01f ) outAlbedoSpecular = vec4(0,0,0,1);
+	//	if ( outAlbedoSpecular.a < 0.01f ) outAlbedoSpecular = vec4(0,0,0,1);
 		return;
 	}
 
+	outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), inUv);
 	float dist = pow(inUv.x - inCursor.position.x, 2) / pow(inCursor.radius.x, 2) + pow(inUv.y - inCursor.position.y, 2) / pow(inCursor.radius.y, 2);
 	if ( dist <= 1 ) {
 		float attenuation = dist;
 		outAlbedoSpecular.rgb = mix( inCursor.color.rgb * inCursor.color.a, outAlbedoSpecular.rgb, attenuation );
 	}
+	if ( inAlpha < 1.0 ) outAlbedoSpecular.a = inAlpha;
 }

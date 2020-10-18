@@ -248,26 +248,4 @@ namespace uf {
 		} matrices;
 		alignas(16) pod::Vector4f color = { 1, 1, 1, 0 };
 	};
-	struct GuiMeshDescriptor {
-		struct {
-			alignas(16) pod::Matrix4f model;
-		} matrices;
-		struct {
-			alignas(16) pod::Vector4f offset;
-			alignas(16) pod::Vector4f color;
-			alignas(4) int32_t mode = 0;
-			alignas(4) float depth = 0.0f;
-		} gui;
-	};
-	struct StereoGuiMeshDescriptor {
-		struct {
-			alignas(16) pod::Matrix4f model[2];
-		} matrices;
-		struct {
-			alignas(16) pod::Vector4f offset;
-			alignas(16) pod::Vector4f color;
-			alignas(4) int32_t mode = 0;
-			alignas(4) float depth = 0.0f;
-		} gui;
-	};
 }

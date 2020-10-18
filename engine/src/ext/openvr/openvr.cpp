@@ -468,7 +468,7 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	vulkanData.m_pDevice = ( VkDevice_T * ) ext::vulkan::device;
 	vulkanData.m_pPhysicalDevice = ( VkPhysicalDevice_T * ) ext::vulkan::device.physicalDevice;
 	vulkanData.m_pInstance = ( VkInstance_T *) ext::vulkan::device.instance;
-	vulkanData.m_pQueue = ( VkQueue_T * ) ext::vulkan::device.queues.present;
+	vulkanData.m_pQueue = ( VkQueue_T * ) ext::vulkan::device.getQueue( ext::vulkan::Device::QueueEnum::PRESENT );
 	vulkanData.m_nQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
 
 	vulkanData.m_nWidth = width;

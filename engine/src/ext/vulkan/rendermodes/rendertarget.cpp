@@ -145,7 +145,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.pCommandBuffers = &commands[currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[currentBuffer]));
 	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
 /*
 	VkSemaphoreWaitInfo waitInfo = {};

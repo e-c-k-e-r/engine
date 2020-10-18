@@ -41,8 +41,11 @@ namespace ext {
 
 		extern UF_API uint32_t width;
 		extern UF_API uint32_t height;
+		extern UF_API uint8_t msaa;
 
 		extern UF_API bool validation;
+		extern UF_API bool rebuildOnTickStart;
+		extern UF_API bool waitOnRenderEnd;
 		extern UF_API std::vector<std::string> validationFilters;
 		extern UF_API std::vector<std::string> requestedDeviceFeatures;
 		extern UF_API std::vector<std::string> requestedDeviceExtensions;

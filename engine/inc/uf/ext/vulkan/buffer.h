@@ -11,7 +11,11 @@ namespace ext {
 			VkDevice device;
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VkDeviceMemory memory = VK_NULL_HANDLE;
-			VkDescriptorBufferInfo descriptor;
+			VkDescriptorBufferInfo descriptor = {
+				VK_NULL_HANDLE,
+				0,
+				0
+			};
 			VkDeviceSize size = 0;
 			VkDeviceSize alignment = 0;
 			void* mapped = nullptr;

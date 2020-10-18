@@ -7,6 +7,7 @@ struct Gui {
 	vec4 color;
 	int mode;
 	float depth;
+	vec2 padding;
 };
 
 layout (location = 0) in vec2 inUv;
@@ -19,7 +20,7 @@ void main() {
 	if ( inUv.x > inGui.offset.z ) discard;
 	if ( inUv.y > inGui.offset.w ) discard;
 
-	outFragColor = texture(samplerColor, inUv);// vec4(inUv.s, inUv.t, 1.0, 1.0);
+	outFragColor = texture(samplerColor, inUv);
 	if ( outFragColor.a < 0.001 ) discard;
 	if ( inGui.mode == 1 ) {
 		outFragColor = inGui.color;

@@ -15,6 +15,7 @@ struct Gui {
 	vec4 color;
 	int mode;
 	float depth;
+	vec2 padding;
 };
 
 layout (binding = 0) uniform UBO {

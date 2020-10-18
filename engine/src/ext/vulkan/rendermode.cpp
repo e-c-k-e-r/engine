@@ -80,14 +80,14 @@ void ext::vulkan::RenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence
-	VK_CHECK_RESULT(vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[currentBuffer]));
 	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
 	// This ensures that the image is not presented to the windowing system until all commands have been submitted
-	VK_CHECK_RESULT(swapchain.queuePresent(device->queues.present, currentBuffer, renderCompleteSemaphore));
-	VK_CHECK_RESULT(vkQueueWaitIdle(device->queues.present));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), currentBuffer, renderCompleteSemaphore));
+	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
 }
 
 void ext::vulkan::RenderMode::initialize( Device& device ) {
@@ -105,7 +105,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 		commands.resize( swapchain.buffers );
 
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			this->getType() == "Compute" ? device.commandPool.compute : device.commandPool.graphics,
+			this->getType() == "Compute" ? device.getCommandPool(Device::QueueEnum::COMPUTE) : device.getCommandPool(Device::QueueEnum::GRAPHICS),
 			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			static_cast<uint32_t>(commands.size())
 		);
@@ -145,20 +145,23 @@ void ext::vulkan::RenderMode::destroy() {
 	renderTarget.destroy();
 	
 	if ( commands.size() > 0 ) {
-		vkFreeCommandBuffers( *device, this->getType() == "Compute" ? device->commandPool.compute : device->commandPool.graphics, static_cast<uint32_t>(commands.size()), commands.data());
+		vkFreeCommandBuffers( *device, this->getType() == "Compute" ? device->getCommandPool(Device::QueueEnum::COMPUTE) : device->getCommandPool(Device::QueueEnum::GRAPHICS), static_cast<uint32_t>(commands.size()), commands.data());
 	}
+	commands.clear();
 
 	if ( renderCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, renderCompleteSemaphore, nullptr);
+		renderCompleteSemaphore = VK_NULL_HANDLE;
 	}
 
 	for ( auto& fence : fences ) {
 		vkDestroyFence( *device, fence, nullptr);
-		fence = VK_NULL_HANDLE;
 	}
+	fences.clear();
 }
 void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 	if ( !device ) return;
+	if ( fences.empty() ) return;
 	VK_CHECK_RESULT(vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout ));
 }
 void ext::vulkan::RenderMode::pipelineBarrier( VkCommandBuffer command, uint8_t stage ) {

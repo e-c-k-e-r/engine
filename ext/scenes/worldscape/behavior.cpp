@@ -74,7 +74,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 	this->addHook( "world:Battle.Start", [&](const std::string& event)->std::string{
 		if ( timer.elapsed().asDouble() < 1 ) return "false";
 		timer.reset();
-		uf::Object* guiManager = (uf::Object*) this->findByName("Gui Manager");
+		uf::Object* guiManager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !guiManager ) return "false";
 		uf::Serializer json = event;
 
@@ -88,7 +88,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "world:Battle.End", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
-		ext::HousamoBattle* battleManager = (ext::HousamoBattle*) this->findByName("Battle Manager");
+		ext::HousamoBattle* battleManager = (ext::HousamoBattle*) this->globalFindByName("Battle Manager");
 		if ( !battleManager ) return "false";
 
 		this->removeChild(*battleManager);
@@ -100,7 +100,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 	this->addHook( "menu:Dialogue.Start", [&](const std::string& event)->std::string{
 		if ( timer.elapsed().asDouble() < 1 ) return "false";
 		timer.reset();
-		uf::Object* guiManager = (uf::Object*) this->findByName("Gui Manager");
+		uf::Object* guiManager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !guiManager ) return "false";
 		uf::Serializer json = event;
 
@@ -112,7 +112,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "menu:Dialogue.End", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
-		ext::DialogueManager* dialogueManager = (ext::DialogueManager*) this->findByName("Dialogue Manager");
+		ext::DialogueManager* dialogueManager = (ext::DialogueManager*) this->globalFindByName("Dialogue Manager");
 		if ( !dialogueManager ) return "false";
 
 		this->removeChild(*dialogueManager);
