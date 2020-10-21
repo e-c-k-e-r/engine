@@ -435,11 +435,16 @@ VkResult ext::vulkan::Device::createBuffer(
 	// Attach the memory to the buffer object
 	return buffer.bind();
 }
-VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum ) {
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum) {
+	return this->getCommandPool( queueEnum, std::this_thread::get_id() );
+}
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum ) {
+	return this->getQueue( queueEnum, std::this_thread::get_id() );
+}
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
 	uint32_t index = 0;
 	VkCommandPool* pool = NULL;
 	bool exists = false;
-	auto id = std::this_thread::get_id();
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;
@@ -468,11 +473,10 @@ VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEn
 	}
 	return *pool;
 }
-VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum ) {
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
 	uint32_t index = 0;
 	VkQueue* queue = NULL;
 	bool exists = false;
-	auto id = std::this_thread::get_id();
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;

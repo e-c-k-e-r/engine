@@ -31,6 +31,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	// 
 	{
 		size_t assets = metadata["system"]["assets"].size();
+		if ( metadata["system"]["load"]["ignore"].isBool() ) assets = 0;
 		metadata["system"]["load"]["progress"] = 0;
 		metadata["system"]["load"]["total"] = assets;
 		if ( assets == 0 )  {
@@ -62,6 +63,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		std::string filename = json["filename"].asString();
+		bool initialize = json["initialize"].isNull() ? true : json["initialize"].asBool();
 		
 		if ( uf::io::extension(filename) != "json" ) return "false";
 
@@ -72,7 +74,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		json["root"] = uf::io::directory(filename);
 		json["source"] = filename; // uf::io::filename(filename)
 		json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
-		if ( this->loadChildUid(json) == -1 ) return "false";
+
+		if ( this->loadChildUid(json, initialize) == -1 ) return "false";
 
 		return "true";
 	});

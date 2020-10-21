@@ -825,7 +825,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			// graphic.descriptor.indices = 0;
 			graphic.initializeGeometry( mesh );
 			graphic.getPipeline().update( graphic );
-			uf::renderer::rebuild = true;
+			// uf::renderer::rebuild = true;
 
 		/*
 			graphic.destroy();

@@ -196,7 +196,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& metadata = scene.getComponent<uf::Serializer>();
-
+	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		struct EYES {

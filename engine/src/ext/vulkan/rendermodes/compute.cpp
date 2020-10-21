@@ -44,25 +44,18 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 			auto& metadata = scene.getComponent<uf::Serializer>();
 
 			auto& shader = compute.material.shaders.front();
-		/*
+
 			struct SpecializationConstant {
-				int32_t eyes = 2;
-				int32_t maxLights = 16;
-			};
-			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
-			specializationConstants.eyes = ext::openvr::context ? 2 : 1;
-		*/
-			struct SpecializationConstant {
-				uint32_t eyes = 2;
 				uint32_t maxLights = 16;
+				uint32_t eyes = 2;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
 			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
 			specializationConstants->eyes = ext::openvr::context ? 2 : 1;
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants->maxLights;
+				if ( binding.descriptorCount > 1 ) {
+					binding.descriptorCount = specializationConstants->eyes;
+				}
 			}
 		}
 
@@ -106,6 +99,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 void ext::vulkan::ComputeRenderMode::render() {
 	if ( compute.buffers.empty() ) return;
 
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit compute commands
 	// Use a fence to ensure that compute command buffer has finished executing before using it again
 	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX ));
@@ -143,13 +137,10 @@ void ext::vulkan::ComputeRenderMode::tick() {
 				texture = computeTexture;
 				texture.device = NULL;
 			}
-			auto& pipeline = blitter.getPipeline();
-			pipeline.update( blitter );
+			blitter.getPipeline().update( blitter );
 		}
-	//	if ( compute.initialized ) {
 		if ( !compute.buffers.empty() ) {
-			auto& pipeline = compute.getPipeline();
-			pipeline.update( compute );
+			compute.getPipeline().update( compute );
 		}
 	}
 }
@@ -212,14 +203,16 @@ void ext::vulkan::ComputeRenderMode::createCommandBuffers( ) {
 	float width = this->width > 0 ? this->width : ext::vulkan::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::height;
 
-	if ( compute.buffers.empty() ) return;
-
 	VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
 	auto& pipeline = compute.getPipeline();
+	auto& commands = getCommands();
+	if ( compute.buffers.empty() ) return;
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 			pipeline.record(compute, commands[i]);
 			vkCmdDispatch(commands[i], width / dispatchSize.x, height / dispatchSize.y, 1);
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
+	
+	this->mostRecentCommandPoolId = std::this_thread::get_id();
 }

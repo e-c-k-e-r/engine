@@ -32,6 +32,7 @@ struct Light {
 	vec3 color;
 	float power;
 	vec2 type;
+	vec2 padding;
 	mat4 view;
 	mat4 projection;
 };
@@ -44,6 +45,7 @@ struct State {
 
 struct Fog {
 	vec2 range;
+	vec2 padding;
 	vec4 color;
 };
 

@@ -54,7 +54,7 @@ pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
 	std::string thread = name;
 	if ( current > 0 ) thread += " " + std::to_string(current);
 	bool exists = uf::thread::has(thread);
-	auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true, false );
+	auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true );
 	if ( !exists ) {
 /*
 		pod.affinity = (current + 1) % threads;
@@ -66,7 +66,17 @@ pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
 	}
 	return pod;
 }
-
+void UF_API uf::thread::batchWorkers( const std::vector<pod::Thread::function_t>& functions, bool wait, const std::string& name ) {
+	std::vector<pod::Thread*> workers;
+	for ( auto& function : functions ) {
+		auto& worker = uf::thread::fetchWorker( name );
+		workers.emplace_back(&worker);
+		uf::thread::add( worker, function, true );
+	}
+	if ( wait )
+		for ( auto& worker : workers )
+			uf::thread::wait( *worker );
+}
 /*
 void UF_API uf::thread::tick( pod::Thread& thread, const std::function<void()>& callback ) {
 	while ( thread.running ) {
@@ -82,6 +92,7 @@ void UF_API uf::thread::add( pod::Thread& thread, const pod::Thread::function_t&
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
 void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Bad Thread: " << thread.uid << " " << thread.name << "\n"; return; } //ops
+/*
 	std::function<int()> temps = [&] {
 		int i = 0;
 		while ( !thread.temps.empty() ) {
@@ -100,17 +111,40 @@ void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(u
 		}
 		return i;
 	};
-
 	if ( thread.mutex != NULL ) thread.mutex->lock();
 	temps();
 	consts();
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
+*/
+	size_t temps = 0;
+	size_t consts = 0;
+	while ( !thread.temps.empty() ) {
+		auto& function = thread.temps.front();
+		if ( function ) function();
+		thread.temps.pop();
+		++temps;
+	}
+	for ( auto function : thread.consts ) {
+		function();
+		++consts;
+	}
+	thread.condition.notify_one();
 }
 void UF_API uf::thread::wait( pod::Thread& thread ) {
 	if ( thread.mutex != NULL ) {
+		std::unique_lock<std::mutex> lock(*thread.mutex);
+    	thread.condition.wait(lock, [&]{return thread.temps.empty();});
+    	return;
+    }
+	while ( !thread.temps.empty() );
+/*
+	if ( thread.mutex != NULL ) {
 		thread.mutex->lock();
 		thread.mutex->unlock();
+		return;
 	}
+	while ( !thread.temps.empty() );
+*/
 }
 
 const std::string& UF_API uf::thread::name( const pod::Thread& thread ) {

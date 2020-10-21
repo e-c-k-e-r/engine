@@ -104,6 +104,7 @@ namespace ext {
 			Pipeline& getPipeline( Descriptor& descriptor );
 			
 			void record( VkCommandBuffer commandBuffer );
+			void record( VkCommandBuffer commandBuffer, Descriptor& descriptor );
 		};
 	}
 }

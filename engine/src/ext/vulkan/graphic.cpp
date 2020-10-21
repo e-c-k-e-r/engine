@@ -479,6 +479,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	// generate fallback empty texture
 	auto& emptyTexture = Texture2D::empty;
 
+	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
+	auto& renderTarget = renderMode.getRenderTarget(graphic.descriptor.renderTarget );
+
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 	std::vector<VkDescriptorImageInfo> inputDescriptors;
@@ -487,9 +490,6 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	for ( auto& shader : graphic.material.shaders ) {
 		descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
 	}
-
-	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget(graphic.descriptor.renderTarget );
 
 	if ( graphic.descriptor.subpass < renderTarget.passes.size() ) {
 		auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
@@ -563,6 +563,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 
 									if ( d.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
 										d.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+								} else {
+								//	std::cout << "textures == graphic.material.textures.end()" << std::endl;
 								}
 								imageInfos.push_back( d );
 							}
@@ -668,19 +670,35 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 	for ( auto& descriptor : writeDescriptorSets ) {
 		if ( descriptor.pBufferInfo ) {
 		//	std::cout << descriptor.pBufferInfo->offset << std::endl;
-			if ( descriptor.pBufferInfo->offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-			//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo->offset << std::endl;
-				std::cout << "Invalid descriptor for buffer: " << descriptor.pBufferInfo->buffer << " " << descriptor.pBufferInfo->offset << " " << descriptor.pBufferInfo->range << ", invalidating..." << std::endl;
-				auto pointer = const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo);
-				pointer->offset = 0;
-				pointer->range = 0;
-				pointer->buffer = VK_NULL_HANDLE;
+			for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
+				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
+				//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo[i].offset << std::endl;
+					std::cout << "Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " " << descriptor.pBufferInfo[i].offset << " " << descriptor.pBufferInfo[i].range << ", invalidating..." << std::endl;
+					auto pointer = const_cast<VkDescriptorBufferInfo*>(&descriptor.pBufferInfo[i]);
+					pointer->offset = 0;
+					pointer->range = 0;
+					pointer->buffer = VK_NULL_HANDLE;
 
-				// const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo)->offset = 0;
+					// const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo)->offset = 0;
+				}
 			}
 		}
 	}
 
+	// render mode's command buffer is in flight, queue a rebuild
+	// ext::vulkan::rebuild = true;
+	// renderMode.synchronize();
+	renderMode.rebuild = true;
+/*
+	std::cout << this << ": " << renderMode.getName() << ": " << renderMode.getType() << " " << descriptorSet << std::endl;
+	for ( auto& descriptor : writeDescriptorSets ) {
+		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
+			if ( descriptor.pImageInfo ) {
+				std::cout << "[" << i << "]: " << descriptor.pImageInfo[i].imageView << std::endl;
+			}
+		}	
+	}
+*/
 	vkUpdateDescriptorSets(
 		*device,
 		writeDescriptorSets.size(),
@@ -780,12 +798,15 @@ ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( Descriptor& descriptor
 	return pipelines[descriptor.hash()];
 }
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
+	return this->record( commandBuffer, descriptor );
+}
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, Descriptor& descriptor ) {
 	if ( !this->hasPipeline( descriptor ) ) {
 		std::cout << this << ": has no valid pipeline" << std::endl;
 		return;
 	}
 
-	auto& pipeline = this->getPipeline();
+	auto& pipeline = this->getPipeline( descriptor );
 
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(0);

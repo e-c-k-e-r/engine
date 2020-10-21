@@ -7,6 +7,19 @@
 #include <fstream>
 #include <uf/utils/io/iostream.h>
 
+#ifdef WINDOWS
+	#include <direct.h>
+	#define GetCurrentDir _getcwd
+#else
+	#include <unistd.h>
+	#define GetCurrentDir getcwd
+#endif
+
+std::string UF_API uf::io::absolute( const std::string& path ) {
+	char buff[FILENAME_MAX];
+	GetCurrentDir( buff, FILENAME_MAX );
+	return std::string(buff) + path;
+}
 std::string UF_API uf::io::filename( const std::string& str ) {
 	return str.substr( str.find_last_of('/') + 1 );
 }

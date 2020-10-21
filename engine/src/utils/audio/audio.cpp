@@ -3,6 +3,7 @@
 
 #if defined(UF_USE_OPENAL)
 #include <uf/ext/vorbis/vorbis.h>
+#include <uf/ext/oal/oal.h>
 #endif
 /*
 UF_API uf::Audio::Audio( const std::string& filename ) : m_filename(filename) {
@@ -20,10 +21,18 @@ UF_API uf::Audio::Audio( const uf::Audio& copy ) :
 {
 }
 */
+uf::Audio::~Audio() {
+	this->destroy();
+}
+
 bool UF_API uf::Audio::initialized() {
 	if ( !this->m_source.getIndex() ) return false;
 	if ( !this->m_buffer.getIndex() ) return false;
 	return true;
+}
+void UF_API uf::Audio::destroy() {
+	this->m_source.destroy();
+	this->m_buffer.destroy();
 }
 bool UF_API uf::Audio::playing() {
 	if ( !this->initialized() ) return false;
@@ -42,22 +51,24 @@ void UF_API uf::Audio::load( const std::string& filename ) { if ( filename != ""
 		frequency = vorbis.getFrequency();
 		this->m_duration = vorbis.getDuration();
 
-		this->m_buffer.generate();
-		this->m_source.generate();
+		this->m_buffer.generate(); ext::oal.checkError(__FUNCTION__, __LINE__);
+		this->m_source.generate(); ext::oal.checkError(__FUNCTION__, __LINE__);
 	
-		this->m_buffer.buffer( format, &buffer[0], buffer.size(), frequency );
-		this->m_source.source( "BUFFER", std::vector<ALint>{ this->m_buffer.getIndex() } );
+		this->m_buffer.buffer( format, &buffer[0], buffer.size(), frequency ); ext::oal.checkError(__FUNCTION__, __LINE__);
+		this->m_source.source( "BUFFER", std::vector<ALint>{ this->m_buffer.getIndex() } ); ext::oal.checkError(__FUNCTION__, __LINE__);
 
-		this->m_source.source( "PITCH", std::vector<ALfloat>{ 1 } );
-		this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } );
-		this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } );
+		this->m_source.source( "PITCH", std::vector<ALfloat>{ 1 } ); ext::oal.checkError(__FUNCTION__, __LINE__);
+		this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } ); ext::oal.checkError(__FUNCTION__, __LINE__);
+		this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	}
 }
 
 void UF_API uf::Audio::play() {
+	if ( !this->initialized() ) return;
 	this->m_source.play();
 }
 void UF_API uf::Audio::stop() {
+	if ( !this->initialized() ) return;
 	this->m_source.stop();
 }
 const std::string& UF_API uf::Audio::getFilename() const {
@@ -66,64 +77,64 @@ const std::string& UF_API uf::Audio::getFilename() const {
 float uf::Audio::getDuration() const {
 	return this->m_duration;
 }
-#include <uf/ext/oal/oal.h>
 
 ALfloat UF_API uf::Audio::getTime() {
-	if ( this->playing() ) return 0;
+	if ( !this->playing() ) return 0;
 	ALfloat pos; 
 	alGetSourcef(this->m_source.getIndex(), AL_SEC_OFFSET,  &pos ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	return pos;
 }
 void UF_API uf::Audio::setTime( ALfloat pos ) { 
-	if ( this->playing() ) return;
+	if ( !this->initialized() ) return;
     this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
 }
 
 ALfloat UF_API uf::Audio::getPitch() {
-	if ( this->playing() ) return 0;
+	if ( !this->initialized() ) return 0;
 	ALfloat pitch; 
 	alGetSourcef(this->m_source.getIndex(), AL_PITCH,  &pitch ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	return pitch;
 }
 void UF_API uf::Audio::setPitch( ALfloat pitch ) { 
-	if ( this->playing() ) return;
+	if ( !this->initialized() ) return;
     this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
 }
 
 ALfloat UF_API uf::Audio::getGain() {
-	if ( this->playing() ) return 0;
+	if ( !this->initialized() ) return 0;
 	ALfloat gain; 
 	alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &gain ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	return gain;
 }
 void UF_API uf::Audio::setGain( ALfloat gain ) { 
-	if ( this->playing() ) return;
+	if ( !this->initialized() ) return;
     this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
 }
 
 ALfloat UF_API uf::Audio::getRolloffFactor() {
-	if ( this->playing() ) return 0;
+	if ( !this->initialized() ) return 0;
 	ALfloat rolloffFactor; 
 	alGetSourcef(this->m_source.getIndex(), AL_ROLLOFF_FACTOR,  &rolloffFactor ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	return rolloffFactor;
 }
 void UF_API uf::Audio::setRolloffFactor( ALfloat rolloffFactor ) { 
-	if ( this->playing() ) return;
+	if ( !this->initialized() ) return;
     this->m_source.source("ROLLOFF_FACTOR", std::vector<ALfloat>{ rolloffFactor } ); 
 }
 
 ALfloat UF_API uf::Audio::getMaxDistance() {
-	if ( this->playing() ) return 0;
+	if ( !this->initialized() ) return 0;
 	ALfloat maxDistance; 
 	alGetSourcef(this->m_source.getIndex(), AL_MAX_DISTANCE,  &maxDistance ); ext::oal.checkError(__FUNCTION__, __LINE__);
 	return maxDistance;
 }
 void UF_API uf::Audio::setMaxDistance( ALfloat maxDistance ) { 
-	if ( this->playing() ) return;
+	if ( !this->initialized() ) return;
     this->m_source.source("MAX_DISTANCE", std::vector<ALfloat>{ maxDistance } ); 
 }
 
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
+	if ( !this->initialized() ) return;
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
 }
 void UF_API uf::Audio::setOrientation( const pod::Quaternion<>& orientation ) {
@@ -164,9 +175,9 @@ const uf::SoundEmitter::container_t& UF_API uf::SoundEmitter::get() const {
 }
 
 void UF_API uf::SoundEmitter::cleanup( bool purge ) {
-/*
-	for ( uf::Audio& k : this->m_container ) {
-		if ( !k.playing() ) this->m_container.erase(k);
+	for ( auto& pair : this->m_container ) {
+		if ( !pair.second.playing() ) {
+			this->m_container.erase(pair.first);
+		}
 	}
-*/
 }

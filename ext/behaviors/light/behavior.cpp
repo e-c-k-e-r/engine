@@ -99,7 +99,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 				float delta = metadata["light"]["fade"]["timer"].asFloat();
 				delta = std::clamp( delta, 0.f, 1.f );
 				if ( metadata["light"]["fade"]["power"].isNumeric() ) {
-					metadata["light"]["power"] = std::lerp( metadata["light"]["backup"]["power"].asFloat(), metadata["light"]["fade"]["power"].asFloat(), delta );
+					metadata["light"]["power"] = uf::math::lerp( metadata["light"]["backup"]["power"].asFloat(), metadata["light"]["fade"]["power"].asFloat(), delta );
 				}
 				if ( metadata["light"]["fade"]["color"].isArray() ) {
 					pod::Vector3f fadeColor; {

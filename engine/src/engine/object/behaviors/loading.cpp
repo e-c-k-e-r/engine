@@ -87,6 +87,7 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
 		auto& metadata = entity->getComponent<uf::Serializer>();
+		if ( metadata["system"]["load"]["ignore"].isBool() ) return;
 		if ( metadata["system"]["load"].isNull() ) return;
 		++loading;
 		if ( metadata["system"]["load"]["progress"].asInt() < metadata["system"]["load"]["total"].asInt() ) return;

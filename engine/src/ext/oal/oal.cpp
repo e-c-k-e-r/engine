@@ -31,9 +31,11 @@ bool UF_API_CALL ext::AL::initialize() {
 	}
 	return this->m_initialized = true;
 */
-	bool res = this->m_initialized = (alutInit(NULL, NULL) == AL_TRUE);
+	this->m_initialized = alutInit(NULL, NULL)  == AL_TRUE;
+	auto error = alutGetError();
+	std::cout << alutGetErrorString(error) << std::endl;
 	this->checkError(__FUNCTION__, __LINE__);
-	return res;
+	return this->m_initialized;
 }
 bool UF_API_CALL ext::AL::terminate() {
 /*
@@ -46,7 +48,9 @@ bool UF_API_CALL ext::AL::terminate() {
 }
 void UF_API_CALL ext::AL::checkError( const std::string& function, int line, const std::string& aux ) const {
 	std::string error = this->getError();
-	// if ( error != "AL_NO_ERROR" ) std::cerr << "AL error @ " << function << ":" << line << ": "<<(aux!=""?"("+aux+") ":"")<< error << std::endl;
+	if ( error != "AL_NO_ERROR" ) std::cerr << "AL error @ " << function << ":" << line << ": "<<(aux!=""?"("+aux+") ":"")<< error << std::endl;
+	error = alutGetErrorString(alutGetError());
+	if ( error != "No ALUT error found" ) std::cerr << "AL error @ " << function << ":" << line << ": "<<(aux!=""?"("+aux+") ":"")<< error << std::endl;
 }
 std::string UF_API_CALL ext::AL::getError() const {
 	ALCenum error = alGetError();
@@ -58,7 +62,7 @@ std::string UF_API_CALL ext::AL::getError() const {
 		case AL_INVALID_OPERATION: return "AL_INVALID_OPERATION"; // the requested operation is not valid
 		case AL_OUT_OF_MEMORY: return "AL_OUT_OF_MEMORY"; // the requested operation resulted in OpenAL running out ofmemory 
 	}
-	return "AL_UNKNOWN";
+	return "AL_UNKNOWN(" + std::to_string(error) + ")";
 }
 void UF_API_CALL ext::AL::listener( ALenum name, std::vector<ALfloat> parameters ) {
 	switch ( parameters.size() ) {
@@ -86,13 +90,12 @@ ext::al::Source::~Source() {
 
 void UF_API_CALL ext::al::Source::generate() {
 	if ( this->m_index ) this->destroy();
-	alGenSources(1, &this->m_index);
-	ext::oal.checkError(__FUNCTION__, __LINE__);
+	alGenSources(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
 }
 void UF_API_CALL ext::al::Source::destroy() {
 	if ( this->m_index && alIsSource(this->m_index) ) {
-		alDeleteSources(1, &this->m_index);
-		ext::oal.checkError(__FUNCTION__, __LINE__);
+		if ( this->playing() ) this->stop();
+		alDeleteSources(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
 	}
 	this->m_index = 0;
 }

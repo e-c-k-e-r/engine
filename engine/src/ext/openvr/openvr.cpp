@@ -1,12 +1,11 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/string/io.h>
 
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
-
-#include <filesystem>
-
+#include <stdlib.h>
 #define DEBUG_MARKER 0
 
 vr::IVRSystem* ext::openvr::context;
@@ -156,10 +155,7 @@ bool ext::openvr::initialize( int stage ) {
 
 	// load manifest
 	{
-		std::filesystem::path p = ext::openvr::driver.manifest;
-		p = std::filesystem::absolute( p );
-		ext::openvr::driver.manifest = p.string();
-		VR_CHECK_INPUT_RESULT( vr::VRInput()->SetActionManifestPath( ext::openvr::driver.manifest.c_str() ) );
+		VR_CHECK_INPUT_RESULT( vr::VRInput()->SetActionManifestPath( uf::io::absolute(ext::openvr::driver.manifest).c_str() ) );
 		// configure action handles
 		{
 			uf::Serializer manifest;

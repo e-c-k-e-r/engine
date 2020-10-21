@@ -271,6 +271,29 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				uint32_t maxLights = 32;
 			} specializationConstants;
 
+			std::vector<uf::Entity*> entities;
+			{
+				std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+					if ( !entity || entity->getName() != "Light" ) return;
+					entities.push_back(entity);
+				};
+				for ( uf::Scene* scene : uf::renderer::scenes ) { if ( !scene ) continue;
+					scene->process(filter);
+				}
+				{
+					const pod::Vector3& position = controller.getComponent<pod::Transform<>>().position;
+					std::sort( entities.begin(), entities.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
+						if ( !l ) return false; if ( !r ) return true;
+						if ( !l->hasComponent<pod::Transform<>>() ) return false; if ( !r->hasComponent<pod::Transform<>>() ) return true;
+						return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) < uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
+					} );
+				}
+
+				{
+					uf::Serializer& metadata = controller.getComponent<uf::Serializer>();
+					if ( metadata["light"]["should"].asBool() ) entities.push_back(&controller);
+				}
+			}
 			for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
 				auto& blitter = *blitters[_];
 				
@@ -284,7 +307,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					buffer = (uint8_t*) (void*) userdata;
 					len = userdata.data().len;
 					shader = &_;
-				//	specializationConstants = _.specializationConstants.get<SpecializationConstant>();
 					specializationConstants = *((SpecializationConstant*) &_.specializationConstants[0]);
 				}
 
@@ -323,27 +345,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					}
 				}
 				{
-					std::vector<uf::Entity*> entities;
-					std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-						if ( !entity || entity->getName() != "Light" ) return;
-						entities.push_back(entity);
-					};
-					for ( uf::Scene* scene : uf::renderer::scenes ) { if ( !scene ) continue;
-						scene->process(filter);
-					}
-					{
-						const pod::Vector3& position = controller.getComponent<pod::Transform<>>().position;
-						std::sort( entities.begin(), entities.end(), [&]( const uf::Entity* l, const uf::Entity* r ){
-							if ( !l ) return false; if ( !r ) return true;
-							if ( !l->hasComponent<pod::Transform<>>() ) return false; if ( !r->hasComponent<pod::Transform<>>() ) return true;
-							return uf::vector::magnitude( uf::vector::subtract( l->getComponent<pod::Transform<>>().position, position ) ) < uf::vector::magnitude( uf::vector::subtract( r->getComponent<pod::Transform<>>().position, position ) );
-						} );
-					}
-
-					{
-						uf::Serializer& metadata = controller.getComponent<uf::Serializer>();
-						if ( metadata["light"]["should"].asBool() ) entities.push_back(&controller);
-					}
 					UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
 					for ( size_t i = 0; i < specializationConstants.maxLights; ++i ) {
 						UniformDescriptor::Light& light = lights[i];
@@ -353,6 +354,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						light.depthBias = 0;
 					}
 
+					std::vector<VkImage> previousTextures;
+					for ( auto& texture : blitter.material.textures ) {
+						previousTextures.emplace_back(texture.image);
+					}
 					blitter.material.textures.clear();
 
 					for ( size_t i = 0; i < specializationConstants.maxLights && i < entities.size(); ++i ) {
@@ -390,7 +395,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 							uint8_t i = 0;
 							for ( auto& attachment : renderTarget.attachments ) {
 								if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-							//	if ( (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 								if ( (attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) ) continue;
 								auto& texture = blitter.material.textures.emplace_back();
 								texture.aliasAttachment(attachment);
@@ -399,9 +403,21 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 							}
 						}
 					}
+					size_t i = 0;
+					bool shouldUpdate = blitter.material.textures.size() != previousTextures.size();
+					while ( !shouldUpdate && i < blitter.material.textures.size() ) {
+						auto& texture = blitter.material.textures[i];
+						auto& previousTexture = previousTextures[i];
+						if ( texture.image != previousTexture ) shouldUpdate = true;
+						++i;
+					}
+					// check if we actually do need to update our pipeline, to avoid the command buffer rebuild cost
+					if ( shouldUpdate ) {
+						blitter.getPipeline().update( blitter );
+					}
 				}
-				blitter.getPipeline().update( blitter );
 				shader->updateBuffer( (void*) buffer, len, 0, false );
+				
 			}
 		}
 	}

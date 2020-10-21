@@ -97,6 +97,8 @@ namespace ext {
 			};
 			VkQueue& getQueue( QueueEnum );
 			VkCommandPool& getCommandPool( QueueEnum );
+			VkQueue& getQueue( QueueEnum, std::thread::id );
+			VkCommandPool& getCommandPool( QueueEnum, std::thread::id );
 
 			// RAII
 			void initialize();

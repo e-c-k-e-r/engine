@@ -6,6 +6,7 @@
 
 namespace uf {
 	namespace io {
+		std::string UF_API absolute( const std::string& );
 		std::string UF_API filename( const std::string& );
 		std::string UF_API extension( const std::string& );
 		std::string UF_API directory( const std::string& );

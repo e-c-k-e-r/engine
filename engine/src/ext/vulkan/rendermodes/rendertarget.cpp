@@ -8,6 +8,9 @@
 std::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
 }
+const std::string& ext::vulkan::RenderTargetRenderMode::getName( bool wantsTarget ) const {
+	return wantsTarget ? this->target : this->name;
+}
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -125,6 +128,7 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 	blitter.destroy();
 }
 void ext::vulkan::RenderTargetRenderMode::render() {
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
 	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX ));
@@ -219,7 +223,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
-
+	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		{
@@ -265,7 +269,9 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->target ) continue;
-					graphic->record(commands[i] );
+					ext::vulkan::Graphic::Descriptor descriptor = graphic->descriptor;
+					descriptor.renderMode = this->name;
+					graphic->record(commands[i], descriptor );
 				}
 			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);

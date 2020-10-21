@@ -1,10 +1,10 @@
 template<typename C>
-pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const std::string& name ) {
+typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const std::string& name ) {
 	for ( auto pair : names ) if ( pair.second == name ) return pair.first;
 	return getType<void>();
 }
 template<typename C>
-template<typename T> pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType() {
+template<typename T> typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType() {
 	return std::type_index(typeid(T));
 }
 template<typename C>

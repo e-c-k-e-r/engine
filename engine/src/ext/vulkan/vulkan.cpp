@@ -7,6 +7,7 @@
 
 #include <ostream>
 #include <fstream>
+#include <atomic>
 
 uint32_t ext::vulkan::width = 1280;
 uint32_t ext::vulkan::height = 720;
@@ -302,11 +303,23 @@ void ext::vulkan::tick() {
 		}
 		renderMode->tick();
 	}
+
+	std::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
-		if ( ext::vulkan::rebuild )
-			renderMode->createCommandBuffers();
+		if ( ext::vulkan::rebuild || renderMode->rebuild ) {
+			jobs.emplace_back([&]{
+				renderMode->createCommandBuffers();
+				return 0;
+			});
+		}
 	}
+	if ( !jobs.empty() ) {
+	//	std::cout << "Batching " << jobs.size() << " command buffer jobs" << std::endl;
+		uf::thread::batchWorkers( jobs );
+	//	std::cout << "Done" << std::endl;
+	}
+	
 	ext::vulkan::rebuild = false;
 	ext::vulkan::resized = false;
 	ext::vulkan::mutex.unlock();

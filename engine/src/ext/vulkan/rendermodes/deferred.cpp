@@ -11,7 +11,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 
-std::string ext::vulkan::DeferredRenderMode::getType() const {
+std::string ext::vulkan::DeferredRenderMode::getType(  ) const {
 	return "Deferred";
 }
 
@@ -160,9 +160,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		renderTarget.initialize( *renderTarget.device );
 		// update blitter descriptor set
 		if ( blitter.initialized ) {
-			auto& pipeline = blitter.getPipeline();
-			pipeline.update( blitter );
-			ext::vulkan::rebuild = true;
+			blitter.getPipeline().update( blitter );
 		}
 	}
 }
@@ -193,6 +191,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
 	auto& scene = uf::scene::getCurrentScene();
 	auto& metadata = scene.getComponent<uf::Serializer>();
+	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		// Fill GBuffer

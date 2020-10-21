@@ -18,9 +18,6 @@ ext::vulkan::BaseRenderMode::~BaseRenderMode() {
 std::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
-const std::string& ext::vulkan::BaseRenderMode::getName() const {
-	return this->name;
-}
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
@@ -47,6 +44,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 	renderPassBeginInfo.renderArea.extent.height = height;
 	renderPassBeginInfo.clearValueCount = 2;
 	renderPassBeginInfo.pClearValues = clearValues;
+	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
 		// Set target frame buffer
 		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];

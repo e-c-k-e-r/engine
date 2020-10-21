@@ -89,20 +89,22 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 				alignas(16) pod::Vector4f ambient;
 				struct {
 					alignas(8) pod::Vector2f range;
+					alignas(8) pod::Vector2f padding;
 					alignas(16) pod::Vector4f color;
 				} fog;
 				struct Light {
 					alignas(16) pod::Vector4f position;
 					alignas(16) pod::Vector4f color;
 					alignas(8) pod::Vector2i type;
+					alignas(8) pod::Vector2i padding;
 					alignas(16) pod::Matrix4f view;
 					alignas(16) pod::Matrix4f projection;
 				} lights;
 			};
 			
 			struct SpecializationConstant {
-				uint32_t eyes = 2;
 				uint32_t maxLights = 16;
+				uint32_t eyes = 2;
 			} specializationConstants;
 			
 			auto& shader = renderMode.compute.material.shaders.front();

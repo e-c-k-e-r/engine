@@ -25,8 +25,11 @@ namespace uf {
 		Audio( Audio&& );
 		Audio( const Audio& );
 	*/
+		~Audio();
+
 		bool initialized();
 		bool playing();
+		void destroy();
 
 		void load( const std::string& = "" );
 		void play();

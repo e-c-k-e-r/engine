@@ -14,6 +14,7 @@ namespace ext {
 
 			// RAII
 			virtual std::string getType() const;
+			virtual const std::string& getName( bool ) const;
 			
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );

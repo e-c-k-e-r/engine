@@ -11,8 +11,12 @@ EXT_BEHAVIOR_REGISTER_CPP(StaticEmitterBehavior)
 #define this ((uf::Object*) &self)
 void ext::StaticEmitterBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
-	auto* hud = this->loadChildPointer("/hud.json", true);
-	metadata["hud"]["uid"] = hud->getUid();
+//	this->addHook( "system:Load.Finished.%UID%", [&](const std::string& event)->std::string{
+//		uf::Serializer json = event;
+		auto* hud = this->loadChildPointer("/hud.json", true);
+		metadata["hud"]["uid"] = hud->getUid();
+//		return "true";
+//	});
 }
 void ext::StaticEmitterBehavior::tick( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();

@@ -17,7 +17,7 @@ ext::vulkan::RenderMode::~RenderMode() {
 std::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }
-const std::string& ext::vulkan::RenderMode::getName() const {
+const std::string& ext::vulkan::RenderMode::getName( bool ) const {
 	return this->name;
 }
 ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
@@ -52,13 +52,78 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	}
 
 	this->synchronize();
-	//VK_CHECK_RESULT(vkWaitForFences(*device, fences.size(), fences.data(), VK_TRUE, UINT64_MAX));
+	bindPipelines( graphics );
 	createCommandBuffers( graphics );
+	this->mostRecentCommandPoolId = std::this_thread::get_id();
+	this->rebuild = false;
+}
+ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands() {
+	return getCommands( std::this_thread::get_id() );
+}
+ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( std::thread::id id ) {
+	bool exists = this->commands.count(id) > 0;
+	auto& commands = this->commands[id];
+	if ( !exists ) {
+		commands.resize( swapchain.buffers );
+
+		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
+			this->getType() == "Compute" ? device->getCommandPool(Device::QueueEnum::COMPUTE) : device->getCommandPool(Device::QueueEnum::GRAPHICS),
+			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			static_cast<uint32_t>(commands.size())
+		);
+
+		VK_CHECK_RESULT(vkAllocateCommandBuffers(*device, &cmdBufAllocateInfo, commands.data()));
+	}
+	return commands;
+/*
+	VkCommandPool* pool = NULL;
+	switch ( queueEnum ) {
+		case QueueEnum::GRAPHICS:
+			index = device.queueFamilyIndices.graphics;
+			if ( commandPool.graphics.count(id) > 0 ) exists = true;
+			pool = &commandPool.graphics[id];
+		break;
+		case QueueEnum::COMPUTE:
+			index = device.queueFamilyIndices.compute;
+			if ( commandPool.compute.count(id) > 0 ) exists = true;
+			pool = &commandPool.compute[id];
+		break;
+		case QueueEnum::TRANSFER:
+			index = device.queueFamilyIndices.transfer;
+			if ( commandPool.transfer.count(id) > 0 ) exists = true;
+			pool = &commandPool.transfer[id];
+		break;
+	}
+	if ( !exists ) {
+		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo cmdPoolInfo = {};
+		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		cmdPoolInfo.queueFamilyIndex = index;
+		cmdPoolInfo.flags = createFlags;
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
+			throw std::runtime_error("failed to create command pool for graphics!");
+	}
+	return *pool;
+*/
 }
 void ext::vulkan::RenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+
+}
+void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+	for ( auto* pointer : graphics ) {
+		auto& graphic = *pointer;
+		// copy descriptor
+		ext::vulkan::Graphic::Descriptor descriptor = graphic.descriptor;
+		// bind to this render mode
+		descriptor.renderMode = this->getName();
+		// ignore if pipeline exists for this render mode
+		if ( graphic.hasPipeline( descriptor ) ) continue;
+		graphic.initializePipeline( descriptor );
+	}
 }
 
 void ext::vulkan::RenderMode::render() {
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Get next image in the swap chain (back/front buffer)
 	VK_CHECK_RESULT(swapchain.acquireNextImage(&currentBuffer, swapchain.presentCompleteSemaphore));
 
@@ -101,6 +166,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 	}
 
 	// Create command buffers
+/*
 	{
 		commands.resize( swapchain.buffers );
 
@@ -112,6 +178,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, commands.data()));
 	}
+*/
 	// Set sync objects
 	{
 		// Fences (Used to check draw command buffer completion)
@@ -119,7 +186,7 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		// Create in signaled state so we don't wait on first render of each command buffer
 		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		fences.resize( commands.size() );
+		fences.resize( swapchain.buffers );
 		for ( auto& fence : fences ) {
 			VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
 		}
@@ -143,12 +210,16 @@ void ext::vulkan::RenderMode::destroy() {
 	this->synchronize();
 
 	renderTarget.destroy();
-	
+/*	
 	if ( commands.size() > 0 ) {
 		vkFreeCommandBuffers( *device, this->getType() == "Compute" ? device->getCommandPool(Device::QueueEnum::COMPUTE) : device->getCommandPool(Device::QueueEnum::GRAPHICS), static_cast<uint32_t>(commands.size()), commands.data());
 	}
 	commands.clear();
-
+*/
+	for ( auto& pair : this->commands ) {
+		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		pair.second.clear();
+	}
 	if ( renderCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, renderCompleteSemaphore, nullptr);
 		renderCompleteSemaphore = VK_NULL_HANDLE;
