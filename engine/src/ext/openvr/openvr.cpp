@@ -2,7 +2,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/io.h>
-
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
 #include <stdlib.h>
@@ -448,8 +448,8 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	
 	ext::vulkan::StereoscopicDeferredRenderMode* renderMode = (ext::vulkan::StereoscopicDeferredRenderMode*) &ext::vulkan::getRenderMode("");
 	
-	float width = renderMode->width > 0 ? renderMode->width : ext::vulkan::width;
-	float height = renderMode->height > 0 ? renderMode->height : ext::vulkan::height;
+	float width = renderMode->width > 0 ? renderMode->width : uf::renderer::settings::width;
+	float height = renderMode->height > 0 ? renderMode->height : uf::renderer::settings::height;
 	auto& leftOutputAttachment = renderMode->renderTargets.left.attachments[renderMode->renderTargets.left.attachments.size()-1];
 	auto& rightOutputAttachment = renderMode->renderTargets.right.attachments[renderMode->renderTargets.right.attachments.size()-1];
 

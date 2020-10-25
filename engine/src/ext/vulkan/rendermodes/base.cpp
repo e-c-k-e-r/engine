@@ -21,8 +21,8 @@ std::string ext::vulkan::BaseRenderMode::getType() const {
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
-	float width = this->width > 0 ? this->width : ext::vulkan::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	VkCommandBufferBeginInfo commandBufferInfo = {};
 	commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -83,7 +83,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::v
 
 void ext::vulkan::BaseRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	if ( ext::vulkan::resized ) {
+	if ( ext::vulkan::states::resized ) {
 		this->destroy();
 		this->initialize( *this->device );
 	}
@@ -110,8 +110,8 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	renderTarget.attachments.clear();
 	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers + 1 );
 
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::height;
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	for ( size_t i = 0; i < images.size(); ++i ) {
 		VkImageViewCreateInfo colorAttachmentView = {};

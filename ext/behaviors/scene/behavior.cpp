@@ -109,10 +109,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		return "true";
 	});
 	/* store viewport size */ {
-		metadata["system"]["window"]["size"]["x"] = uf::renderer::width;
-		metadata["system"]["window"]["size"]["y"] = uf::renderer::height;
-		ext::gui::size.current.x = uf::renderer::width;
-		ext::gui::size.current.y = uf::renderer::height;
+		metadata["system"]["window"]["size"]["x"] = uf::renderer::settings::width;
+		metadata["system"]["window"]["size"]["y"] = uf::renderer::settings::height;
+		ext::gui::size.current.x = uf::renderer::settings::width;
+		ext::gui::size.current.y = uf::renderer::settings::height;
 		
 		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
@@ -413,7 +413,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					}
 					// check if we actually do need to update our pipeline, to avoid the command buffer rebuild cost
 					if ( shouldUpdate ) {
-						blitter.getPipeline().update( blitter );
+					//	blitter.getPipeline().update( blitter );
+						blitter.updatePipelines();
 					}
 				}
 				shader->updateBuffer( (void*) buffer, len, 0, false );

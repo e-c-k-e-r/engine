@@ -67,7 +67,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			);
 		}
 		// NOP
-		{
+		if ( !false ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
@@ -78,7 +78,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	}
 	renderTarget.initialize( device );
 
-	{
+	if ( blitter.process ) {
 		uf::BaseMesh<pod::Vertex_2F2F, uint32_t> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
@@ -108,19 +108,18 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 }
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	if ( ext::vulkan::resized ) {
+	if ( ext::vulkan::states::resized ) {
 		renderTarget.initialize( *renderTarget.device );
-
 		blitter.material.textures.clear();
 		for ( auto& attachment : renderTarget.attachments ) {
 			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-
 			Texture2D& texture = blitter.material.textures.emplace_back();
 			texture.aliasAttachment(attachment);
 		}
-		
-		auto& pipeline = blitter.getPipeline();
-		pipeline.update( blitter );
+		if ( blitter.process ) {
+			blitter.getPipeline().update( blitter );
+		//	blitter.updatePipelines();
+		}
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
@@ -131,8 +130,8 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX ));
-	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[currentBuffer] ));
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
 
 	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -146,11 +145,11 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;				// Semaphore(s) to be signaled when command buffers have completed
 	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
 */
-	submitInfo.pCommandBuffers = &commands[currentBuffer];		// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[currentBuffer]));
-	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
 /*
 	VkSemaphoreWaitInfo waitInfo = {};
 	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
@@ -217,8 +216,8 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
-	float width = this->width > 0 ? this->width : ext::vulkan::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -269,11 +268,11 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->target ) continue;
-					ext::vulkan::Graphic::Descriptor descriptor = graphic->descriptor;
-					descriptor.renderMode = this->name;
+					ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor;
+				//	descriptor.renderMode = this->name;
 					graphic->record(commands[i], descriptor );
 				}
-			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+			if ( !false ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);
 		}
 

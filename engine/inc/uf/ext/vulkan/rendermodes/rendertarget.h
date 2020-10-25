@@ -6,10 +6,7 @@
 namespace ext {
 	namespace vulkan {
 		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
-			ext::vulkan::Graphic blitter;
-			
-			VkFence fence;
-			VkCommandBuffer commandBuffer;
+			ext::vulkan::Graphic blitter;		
 			std::string target;
 
 			// RAII

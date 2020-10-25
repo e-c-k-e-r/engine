@@ -76,6 +76,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		pod::Vector3 normal;
 		float scale = metadata["system"]["physics"]["collision"].asFloat();
 		float depth = json["depth"].asFloat() * scale;
+	//	if ( fabs(depth) < 0.005 ) return "false"; //std::cout << "Collision depth: " << depth << std::endl;
 
 		normal.x = json["normal"][0].asFloat();
 		normal.y = json["normal"][1].asFloat();
@@ -83,6 +84,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		pod::Vector3 correction = normal * depth;
 
 		transform.position -= correction;
+
 
 		if ( normal.x == 1 || normal.x == -1 ) physics.linear.velocity.x = 0;
 		if ( normal.y == 1 || normal.y == -1 ) physics.linear.velocity.y = 0;

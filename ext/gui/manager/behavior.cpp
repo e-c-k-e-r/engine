@@ -32,8 +32,8 @@
 
 ext::gui::Size ext::gui::size = {
 	.current = {
-		uf::renderer::width,
-		uf::renderer::height,
+		uf::renderer::settings::width,
+		uf::renderer::settings::height,
 	},
 	.reference = {
 		1920,
@@ -47,8 +47,8 @@ EXT_BEHAVIOR_REGISTER_AS_OBJECT(GuiManagerBehavior, GuiManager)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	{
-		ext::gui::size.current.x = uf::renderer::width;
-		ext::gui::size.current.y = uf::renderer::height;
+		ext::gui::size.current.x = uf::renderer::settings::width;
+		ext::gui::size.current.y = uf::renderer::settings::height;
 	}
 	// add gui render mode
 	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {

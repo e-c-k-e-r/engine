@@ -65,11 +65,11 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features.NAME == VK_TRUE ) {\
 				device.enabledFeatures.NAME = true;\
-				if ( ext::vulkan::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
-			} else if ( ext::vulkan::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
+				if ( ext::vulkan::settings::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
+			} else if ( ext::vulkan::settings::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
 		}
 
-		for ( auto& feature : ext::vulkan::requestedDeviceFeatures ) {
+		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
 			CHECK_FEATURE(robustBufferAccess);
 			CHECK_FEATURE(fullDrawIndexUint32);
 			CHECK_FEATURE(imageCubeArray);
@@ -132,8 +132,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features2.NAME == VK_TRUE ) {\
 				device.enabledFeatures2.NAME = true;\
-				if ( ext::vulkan::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
-			} else if ( ext::vulkan::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
+				if ( ext::vulkan::settings::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
+			} else if ( ext::vulkan::settings::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
 		}
 	#undef CHECK_FEATURE2
 	}
@@ -510,7 +510,7 @@ void ext::vulkan::Device::initialize() {
 		"VK_LAYER_KHRONOS_validation"
 	};
 	// Assert validation layers
-	if ( ext::vulkan::validation ) {
+	if ( ext::vulkan::settings::validation ) {
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 		std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -527,14 +527,14 @@ void ext::vulkan::Device::initialize() {
 	}
 	// 
 	// Get extensions
-	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::validation );
+	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
 	// Load any requested extensions
-	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedInstanceExtensions.begin(), ext::vulkan::requestedInstanceExtensions.end() );
+	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedInstanceExtensions.begin(), ext::vulkan::settings::requestedInstanceExtensions.end() );
 	// OpenVR Support
 	if ( ext::openvr::enabled ) VRInstanceExtensions(requestedExtensions);
 
 	{
-		if ( ext::vulkan::validation )
+		if ( ext::vulkan::settings::validation )
 			for ( auto ext : requestedExtensions )
 				std::cout << "Requested instance extension: " << ext << std::endl;
 
@@ -551,7 +551,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		std::vector<const char*> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
-			if ( ext::vulkan::validation )
+			if ( ext::vulkan::settings::validation )
 				std::cout << "Enabled instance extension: " << s << std::endl;
 			instanceExtensions.push_back( s.c_str() );
 		}
@@ -571,7 +571,7 @@ void ext::vulkan::Device::initialize() {
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
 		createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-		if ( ext::vulkan::validation ) {
+		if ( ext::vulkan::settings::validation ) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
 			createInfo.ppEnabledLayerNames = validationLayers.data();
 		} else {
@@ -581,7 +581,7 @@ void ext::vulkan::Device::initialize() {
 		VK_CHECK_RESULT( vkCreateInstance( &createInfo, nullptr, &this->instance ));
 	}
 	// Setup debug
-	if ( ext::vulkan::validation ) {
+	if ( ext::vulkan::settings::validation ) {
 		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
 
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -649,7 +649,7 @@ void ext::vulkan::Device::initialize() {
 			else if (counts & VK_SAMPLE_COUNT_8_BIT) maxSamples = 8;
 			else if (counts & VK_SAMPLE_COUNT_4_BIT) maxSamples = 4;
 			else if (counts & VK_SAMPLE_COUNT_2_BIT) maxSamples = 2;
-			ext::vulkan::msaa = std::min( maxSamples, ext::vulkan::msaa );
+			ext::vulkan::settings::msaa = std::min( maxSamples, ext::vulkan::settings::msaa );
 		}
 	}
 	// Create logical device
@@ -657,14 +657,14 @@ void ext::vulkan::Device::initialize() {
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
 		std::vector<std::string> requestedExtensions;
-		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::requestedDeviceExtensions.begin(), ext::vulkan::requestedDeviceExtensions.end() );
+		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
 		// OpenVR Support
 		if ( ext::openvr::enabled ) {
 			VRDeviceExtensions( this->physicalDevice, requestedExtensions);
 		}
 		{
 			// Allocate enough ExtensionProperties to support all extensions being enabled
-			if ( ext::vulkan::validation )
+			if ( ext::vulkan::settings::validation )
 				for ( auto ext : requestedExtensions ) std::cout << "Requested device extension: " << ext << std::endl;
 
 			uint32_t extensionsCount = 0;
@@ -680,7 +680,7 @@ void ext::vulkan::Device::initialize() {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
-			if ( ext::vulkan::validation ) std::cout << "Enabled device extension: " << s << std::endl;
+			if ( ext::vulkan::settings::validation ) std::cout << "Enabled device extension: " << s << std::endl;
 			deviceExtensions.push_back( s.c_str() );
 		}
 
@@ -758,7 +758,7 @@ void ext::vulkan::Device::initialize() {
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS )
 			throw std::runtime_error("failed to create logical device!"); 
 
-		if ( ext::vulkan::validation )
+		if ( ext::vulkan::settings::validation )
 			std::cout << retrieveDeviceFeatures( *this ) << std::endl;
 	}
 	// Create command pool

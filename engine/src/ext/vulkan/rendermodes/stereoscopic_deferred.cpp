@@ -85,14 +85,29 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			);
 		}
 		// Second pass: write to output
-		{
+	/*
+		if ( i == 0 ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.normals, attachments.position/*, attachments.depth*/ },
+				{ attachments.albedo, attachments.normals, attachments.depth },
+				attachments.depth
+			);
+		} else {
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+				{ attachments.output },
+				{ attachments.albedo, attachments.normals, attachments.position },
 				attachments.depth
 			);
 		}
+	*/
+		renderTarget.addPass(
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+			{ attachments.output },
+			{ attachments.albedo, attachments.normals, attachments.position },
+			attachments.depth
+		);
 		renderTarget.initialize( device );
 		{
 			uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
@@ -112,10 +127,18 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 
 			blitter.initialize( this->getName() );
 			blitter.initializeGeometry( mesh );
-			blitter.material.initializeShaders({
-				{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-			});
+			if ( i == 0 ) {
+				blitter.material.initializeShaders({
+					{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+				//	{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+					{"./data/shaders/display.subpass.stereo.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				});
+			} else {
+				blitter.material.initializeShaders({
+					{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+					{"./data/shaders/display.subpass.stereo.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				});
+			}
 			{
 				auto& scene = uf::scene::getCurrentScene();
 				auto& metadata = scene.getComponent<uf::Serializer>();
@@ -141,11 +164,12 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			}
 			blitter.initializePipeline();
 		}
+		++i;
 	}
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	if ( ext::vulkan::resized ) {
+	if ( ext::vulkan::states::resized ) {
 		struct EYES {
 			RenderTarget* renderTarget;
 			Graphic* blitter;
@@ -160,8 +184,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 
 			renderTarget.initialize( *renderTarget.device );
 			if ( blitter.initialized ) {
-				auto& pipeline = blitter.getPipeline();
-				pipeline.update( blitter );
+				blitter.getPipeline().update( blitter );
+			//	blitter.updatePipelines();
 			}
 		}
 	}
@@ -176,8 +200,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::destroy() {
 void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
 	// ext::vulkan::RenderMode& swapchain = 
-	float width = this->width > 0 ? this->width : ext::vulkan::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -270,20 +294,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
-						// update push constants
-					/*
-						auto& shaders = graphic->material.shaders;
-						for ( auto& shader : shaders ) {
-							for ( auto& pushConstant : shader.pushConstants ) {
-								struct Stereo {
-									uint32_t pass;
-								};
-								auto& stereo = pushConstant.get<Stereo>();
-								stereo.pass = ext::openvr::renderPass;
-								std::cout << pushConstant.data().data << ": Expecting " << stereo.pass << std::endl;
-							}
-						}
-					*/
 						graphic->record(commands[i] );
 					}
 					// render gui layer
@@ -291,8 +301,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized ) continue;
-							if ( blitter.descriptor.subpass != 0 ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
 							blitter.record(commands[i]);
 						}
 					}
@@ -305,8 +314,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized ) continue;
-							if ( blitter.descriptor.subpass != 1 ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
 							blitter.record(commands[i]);
 						}
 					}
@@ -354,8 +362,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 					imageBlitRegion.dstSubresource.layerCount = 1;
 					imageBlitRegion.dstOffsets[1] = {
-						swapchainRender.width > 0 ? swapchainRender.width : ext::vulkan::width,
-						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::height,
+						swapchainRender.width > 0 ? swapchainRender.width : ext::vulkan::settings::width,
+						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::settings::height,
 						1
 					};
 

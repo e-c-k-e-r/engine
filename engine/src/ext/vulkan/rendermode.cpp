@@ -34,16 +34,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized ) return;
-		if ( !graphic.process ) return;
-	/*
-		if ( !entity->hasComponent<uf::Mesh>() ) return;
-		uf::MeshBase& mesh = entity->getComponent<uf::Mesh>();
-		if ( !mesh.generated ) return;
-		ext::vulkan::Graphic& graphic = mesh.graphic;
-		if ( !graphic.initialized ) return;
-		if ( !graphic.process ) return;
-	*/
+		if ( !graphic.initialized || !graphic.process ) return;
 		graphics.push_back(&graphic);
 	};
 	for ( uf::Scene* scene : ext::vulkan::scenes ) {
@@ -52,7 +43,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	}
 
 	this->synchronize();
-	bindPipelines( graphics );
+//	bindPipelines( graphics );
 	createCommandBuffers( graphics );
 	this->mostRecentCommandPoolId = std::this_thread::get_id();
 	this->rebuild = false;
@@ -75,45 +66,35 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 		VK_CHECK_RESULT(vkAllocateCommandBuffers(*device, &cmdBufAllocateInfo, commands.data()));
 	}
 	return commands;
-/*
-	VkCommandPool* pool = NULL;
-	switch ( queueEnum ) {
-		case QueueEnum::GRAPHICS:
-			index = device.queueFamilyIndices.graphics;
-			if ( commandPool.graphics.count(id) > 0 ) exists = true;
-			pool = &commandPool.graphics[id];
-		break;
-		case QueueEnum::COMPUTE:
-			index = device.queueFamilyIndices.compute;
-			if ( commandPool.compute.count(id) > 0 ) exists = true;
-			pool = &commandPool.compute[id];
-		break;
-		case QueueEnum::TRANSFER:
-			index = device.queueFamilyIndices.transfer;
-			if ( commandPool.transfer.count(id) > 0 ) exists = true;
-			pool = &commandPool.transfer[id];
-		break;
-	}
-	if ( !exists ) {
-		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		VkCommandPoolCreateInfo cmdPoolInfo = {};
-		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		cmdPoolInfo.queueFamilyIndex = index;
-		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
-			throw std::runtime_error("failed to create command pool for graphics!");
-	}
-	return *pool;
-*/
 }
 void ext::vulkan::RenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 
+}
+void ext::vulkan::RenderMode::bindPipelines() {
+	this->execute = true;
+
+	std::vector<ext::vulkan::Graphic*> graphics;
+	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized ) return;
+		if ( !graphic.process ) return;
+		graphics.push_back(&graphic);
+	};
+	for ( uf::Scene* scene : ext::vulkan::scenes ) {
+		if ( !scene ) continue;
+		scene->process(filter);
+	}
+
+	this->synchronize();
+	this->bindPipelines( graphics );
 }
 void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
 		// copy descriptor
-		ext::vulkan::Graphic::Descriptor descriptor = graphic.descriptor;
+		if ( graphic.descriptor.renderMode == this->getName() ) continue;
+		ext::vulkan::GraphicDescriptor descriptor = graphic.descriptor;
 		// bind to this render mode
 		descriptor.renderMode = this->getName();
 		// ignore if pipeline exists for this render mode
@@ -125,11 +106,11 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 void ext::vulkan::RenderMode::render() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Get next image in the swap chain (back/front buffer)
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&currentBuffer, swapchain.presentCompleteSemaphore));
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
 
 	// Use a fence to wait until the command buffer has finished execution before using it again
-	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX));
-	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[currentBuffer]));
+	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX));
+	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
 
 	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -141,17 +122,17 @@ void ext::vulkan::RenderMode::render() {
 	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
 	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[currentBuffer];							// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];							// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence
-	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[currentBuffer]));
-	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[currentBuffer]);
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
 	// This ensures that the image is not presented to the windowing system until all commands have been submitted
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), currentBuffer, renderCompleteSemaphore));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
 	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
 }
 

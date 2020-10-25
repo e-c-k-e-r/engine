@@ -86,8 +86,9 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 
 		graphic.initializeGeometry( mesh );
 		graphic.getPipeline().update( graphic );
+	//	graphic.updatePipelines();
 		graphic.process = true;
-		uf::renderer::rebuild = true;
+		uf::renderer::states::rebuild = true;
 
 		return "true";
 	});
@@ -119,8 +120,7 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 				{"./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 				{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
-
-			uf::renderer::rebuildOnTickStart = false;
+			// uf::renderer::rebuildOnTickStart = false;
 		}
 
 		this->generate();

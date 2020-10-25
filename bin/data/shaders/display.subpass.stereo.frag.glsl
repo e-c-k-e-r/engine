@@ -4,7 +4,7 @@ layout (constant_id = 0) const uint LIGHTS = 32;
 
 layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedo;
 layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormal;
-layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerDepth;
+layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerPosition;
 layout (binding = 5) uniform sampler2D samplerShadows[LIGHTS];
 /*
 layout (std140, binding = 6) buffer Palette {
@@ -346,32 +346,9 @@ void main() {
 	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
 	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
 	normal.eye = subpassLoad(samplerNormal).rgb;
-/*
 	position.eye = subpassLoad(samplerPosition).rgb; {
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
 		vec4 positionWorld = iView * vec4(position.eye, 1);
-		position.world = positionWorld.xyz;
-	}
-*/
-	{
-		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
-		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
-
-		float depth = subpassLoad(samplerDepth).r;
-
-		if ( false ) {
-			depth /= 0.00526;
-			outFragColor.rgb = vec3( 1 - depth );
-			outFragColor.a = 1;
-			return;
-		}
-		
-		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
-		vec4 positionEye = iProj * positionClip;
-		positionEye /= positionEye.w;
-		position.eye = positionEye.xyz;
-
-		vec4 positionWorld = iView * positionEye;
 		position.world = positionWorld.xyz;
 	}
 	float litFactor = 1.0;

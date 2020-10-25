@@ -7,6 +7,7 @@
 #include <uf/spec/terminal/terminal.h>
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/vulkan/vulkan.h>
 
 bool client::ready = false;
@@ -16,7 +17,7 @@ uf::Serializer client::config;
 
 void client::initialize() {
 	uf::IoStream::ncurses = true;
-	ext::vulkan::device.window = &client::window;
+	uf::renderer::device.window = &client::window;
 	/* Initialize config */ {
 		struct {
 			uf::Serializer ext;
@@ -52,8 +53,8 @@ void client::initialize() {
 		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].asBool();
 
 		// Window's context settings
-		ext::vulkan::width = size.x;
-		ext::vulkan::height = size.y;
+		uf::renderer::settings::width = size.x;
+		uf::renderer::settings::height = size.y;
 		client::window.create( size, title );
 
 		// Miscellaneous
@@ -130,10 +131,10 @@ void client::initialize() {
 					client::window.setSize(size);
 				}
 				// Update viewport
-				ext::vulkan::width = size.x;
-				ext::vulkan::height = size.y;
+				uf::renderer::settings::width = size.x;
+				uf::renderer::settings::height = size.y;
 
-				ext::vulkan::resized = true;
+				uf::renderer::states::resized = true;
 				return "true";
 			} );
 		} else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {

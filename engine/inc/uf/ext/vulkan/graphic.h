@@ -9,7 +9,28 @@
 namespace ext {
 	namespace vulkan {
 		struct Graphic;
+		struct GraphicDescriptor {
+			std::string renderMode = "";
+			uint32_t renderTarget = 0;
+			uint32_t subpass = 0;
 
+			uf::BaseGeometry geometry;
+			size_t indices = 0;
+
+			VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+			VkPolygonMode fill = VK_POLYGON_MODE_FILL;
+			VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+			float lineWidth = 1.0f;
+			VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
+			struct {
+				VkBool32 test = true;
+				VkBool32 write = true;
+				VkCompareOp operation = VK_COMPARE_OP_GREATER_OR_EQUAL;
+			} depthTest;
+
+			std::string hash() const;
+			bool operator==( const GraphicDescriptor& right ) const { return this->hash() == right.hash(); }
+		};
 		struct UF_API Shader : public Buffers {
 			bool aliased = false;
 
@@ -44,7 +65,9 @@ namespace ext {
 			VkDescriptorSet descriptorSet;
 
 			void initialize( Graphic& graphic );
+			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
 			void update( Graphic& graphic );
+			void update( Graphic& graphic, GraphicDescriptor& descriptor );
 			void record( Graphic& graphic, VkCommandBuffer );
 			void destroy();
 		};
@@ -63,28 +86,7 @@ namespace ext {
 			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& );
 		};
 		struct UF_API Graphic : public Buffers {
-			struct Descriptor {
-				std::string renderMode = "";
-				uint32_t renderTarget = 0;
-				uint32_t subpass = 0;
-
-				uf::BaseGeometry geometry;
-				size_t indices = 0;
-
-				VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-				VkPolygonMode fill = VK_POLYGON_MODE_FILL;
-				VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-				float lineWidth = 1.0f;
-				VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
-				struct {
-					VkBool32 test = true;
-					VkBool32 write = true;
-					VkCompareOp operation = VK_COMPARE_OP_GREATER_OR_EQUAL;
-				} depthTest;
-
-				std::string hash() const;
-				bool operator==( const Descriptor& right ) const { return this->hash() == right.hash(); }
-			} descriptor;
+			GraphicDescriptor descriptor;
 
 			bool initialized = false;
 			bool process = true;
@@ -97,14 +99,15 @@ namespace ext {
 			template<typename T, typename U>
 			void initializeGeometry( uf::BaseMesh<T, U>& mesh, bool = false );
 
-			bool hasPipeline( Descriptor& descriptor );
+			bool hasPipeline( GraphicDescriptor& descriptor );
 			void initializePipeline();
-			Pipeline& initializePipeline( Descriptor& descriptor, bool update = true );
+			Pipeline& initializePipeline( GraphicDescriptor& descriptor, bool update = true );
 			Pipeline& getPipeline();
-			Pipeline& getPipeline( Descriptor& descriptor );
+			Pipeline& getPipeline( GraphicDescriptor& descriptor );
+			void updatePipelines();
 			
 			void record( VkCommandBuffer commandBuffer );
-			void record( VkCommandBuffer commandBuffer, Descriptor& descriptor );
+			void record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor );
 		};
 	}
 }

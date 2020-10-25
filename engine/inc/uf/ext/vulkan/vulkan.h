@@ -28,40 +28,44 @@ namespace ext {
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData
 		);
-
-		VkShaderModule loadShader(const char *fileName, VkDevice device);
-		VkPipelineShaderStageCreateInfo loadShader( std::string fileName, VkShaderStageFlagBits stage, VkDevice device, std::vector<VkShaderModule>& shaderModules );
-
 		uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties);
 
 		struct VertexDescriptor {
 			VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
 			std::size_t offset; // offsetof(Vertex, position)
 		};
-
-		extern UF_API uint32_t width;
-		extern UF_API uint32_t height;
-		extern UF_API uint8_t msaa;
-
-		extern UF_API bool validation;
-		extern UF_API bool rebuildOnTickStart;
-		extern UF_API bool waitOnRenderEnd;
-		extern UF_API std::vector<std::string> validationFilters;
-		extern UF_API std::vector<std::string> requestedDeviceFeatures;
-		extern UF_API std::vector<std::string> requestedDeviceExtensions;
-		extern UF_API std::vector<std::string> requestedInstanceExtensions;
-		extern UF_API Device device;
 		typedef VmaAllocator Allocator;
+
+		namespace settings {
+			extern UF_API uint32_t width;
+			extern UF_API uint32_t height;
+			extern UF_API uint8_t msaa;
+			extern UF_API bool validation;
+
+			extern UF_API std::vector<std::string> validationFilters;
+			extern UF_API std::vector<std::string> requestedDeviceFeatures;
+			extern UF_API std::vector<std::string> requestedDeviceExtensions;
+			extern UF_API std::vector<std::string> requestedInstanceExtensions;
+			
+			namespace experimental {
+				extern UF_API bool rebuildOnTickBegin;
+				extern UF_API bool waitOnRenderEnd;
+				extern UF_API bool individualPipelines;
+				extern UF_API bool multithreadedCommandRecording;
+			}
+		}
+		namespace states {
+			extern UF_API bool rebuild;
+			extern UF_API bool resized;
+			extern UF_API uint32_t currentBuffer;
+		}
+
+		extern UF_API Device device;
 		extern UF_API Allocator allocator;
 		extern UF_API Swapchain swapchain;
 		extern UF_API std::mutex mutex;
 
-		extern UF_API bool rebuild;
-		extern UF_API bool resized;
-		extern UF_API uint32_t currentBuffer;
-
 		extern UF_API RenderMode* currentRenderMode;
-		extern UF_API std::vector<std::string> passes;
 		extern UF_API std::vector<RenderMode*> renderModes;
 		extern UF_API std::vector<uf::Scene*> scenes;
 
@@ -76,6 +80,7 @@ namespace ext {
 		void UF_API tick();
 		void UF_API render();
 		void UF_API destroy();
+		void UF_API synchronize( uint8_t = 0b11 );
 		std::string UF_API allocatorStats();
 	}
 }

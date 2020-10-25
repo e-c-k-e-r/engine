@@ -18,8 +18,8 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	passes.push_back(pass);
 }
 size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, bool blend, Attachment* attachment ) {
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::height;
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	if ( !attachment ) {
 		attachments.resize(attachments.size()+1);
@@ -49,7 +49,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	}
 
 	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-	switch ( ext::vulkan::msaa ) {
+	switch ( ext::vulkan::settings::msaa ) {
 		case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
 		case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
 		case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
@@ -142,8 +142,8 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	{
 		this->device = &device;
 	}
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::height;
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	// resize attachments if necessary
 	if ( initialized ) {

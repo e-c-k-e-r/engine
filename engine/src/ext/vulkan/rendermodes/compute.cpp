@@ -24,8 +24,8 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 //	this->height = 2160;
 
 	{
-		auto width = this->width > 0 ? this->width : ext::vulkan::width;
-		auto height = this->height > 0 ? this->height : ext::vulkan::height;
+		auto width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+		auto height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 		compute.device = &device;
 		compute.material.device = &device;
@@ -61,8 +61,8 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 
 		// update buffers
 		if ( !compute.buffers.empty() ) {
-			auto& pipeline = compute.getPipeline();
-			pipeline.update( compute );
+		//	compute.getPipeline().update( compute );
+			compute.updatePipelines();
 		}
 	}
 	{
@@ -102,24 +102,24 @@ void ext::vulkan::ComputeRenderMode::render() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit compute commands
 	// Use a fence to ensure that compute command buffer has finished executing before using it again
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[currentBuffer], VK_TRUE, UINT64_MAX ));
-	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[currentBuffer] ));
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
 
 	VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commands[currentBuffer];
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::COMPUTE ), 1, &submitInfo, fences[currentBuffer]));
-	//vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[currentBuffer]);
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::COMPUTE ), 1, &submitInfo, fences[states::currentBuffer]));
+	//vkQueueSubmit(device->queues.compute, 1, &submitInfo, fences[states::currentBuffer]);
 }
 void ext::vulkan::ComputeRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 
-	if ( ext::vulkan::resized ) {
+	if ( ext::vulkan::states::resized ) {
 		// auto-resize texture
 		if ( this->width == 0 && this->height == 0 ) {
-			auto width = this->width > 0 ? this->width : ext::vulkan::width;
-			auto height = this->height > 0 ? this->height : ext::vulkan::height;
+			auto width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+			auto height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 			for ( auto& texture : compute.material.textures ) {
 				texture.destroy();
 			}
@@ -138,9 +138,11 @@ void ext::vulkan::ComputeRenderMode::tick() {
 				texture.device = NULL;
 			}
 			blitter.getPipeline().update( blitter );
+		//	blitter.updatePipelines();
 		}
 		if ( !compute.buffers.empty() ) {
 			compute.getPipeline().update( compute );
+		//	compute.updatePipelines();
 		}
 	}
 }
@@ -200,8 +202,8 @@ void ext::vulkan::ComputeRenderMode::pipelineBarrier( VkCommandBuffer commandBuf
 void ext::vulkan::ComputeRenderMode::createCommandBuffers( ) {
 	this->synchronize();
 
-	float width = this->width > 0 ? this->width : ext::vulkan::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
 	auto& pipeline = compute.getPipeline();

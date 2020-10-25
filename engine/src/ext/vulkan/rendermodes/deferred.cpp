@@ -72,7 +72,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.normals, attachments.position/*, attachments.depth*/ },
+				{ attachments.albedo, attachments.normals, attachments.position },
 				attachments.depth
 			);
 		}
@@ -98,7 +98,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		blitter.initializeGeometry( mesh );
 		blitter.material.initializeShaders({
 			{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			{"./data/shaders/display.subpass.stereo.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 		{
 			auto& scene = uf::scene::getCurrentScene();
@@ -156,11 +156,12 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 void ext::vulkan::DeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 	
-	if ( ext::vulkan::resized ) {
+	if ( ext::vulkan::states::resized ) {
 		renderTarget.initialize( *renderTarget.device );
 		// update blitter descriptor set
 		if ( blitter.initialized ) {
 			blitter.getPipeline().update( blitter );
+		//	blitter.updatePipelines();
 		}
 	}
 }
@@ -169,24 +170,12 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 	blitter.destroy();
 }
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
-	// destroy if exists
-	// ext::vulkan::RenderMode& swapchain = 
-	float width = this->width > 0 ? this->width : ext::vulkan::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::height;
+	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
-/*
-	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-	imageMemoryBarrier.subresourceRange.levelCount = 1;
-	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-	imageMemoryBarrier.subresourceRange.layerCount = 1;
-	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-*/
 
 	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
 	auto& scene = uf::scene::getCurrentScene();
@@ -246,21 +235,6 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			// transition layers for read
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 0 );
-			/*
-				if ( layer->getName() == "" ) continue;
-				RenderTarget& renderTarget = layer->renderTarget;
-				for ( auto& attachment : renderTarget.attachments ) {
-					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-					if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-					imageMemoryBarrier.image = attachment.image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-					imageMemoryBarrier.oldLayout = attachment.layout;
-					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					attachment.layout = imageMemoryBarrier.newLayout;
-				}
-			*/
 			}
 		
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -269,15 +243,14 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				for ( auto graphic : graphics ) {
 					// only draw graphics that are assigned to this type of render mode
 					if ( graphic->descriptor.renderMode != this->getName() ) continue;
-					graphic->record(commands[i] );
+					graphic->record( commands[i] );
 				}
-				// render gui layer
+				// blit any RT's
 				{
 					for ( auto _ : layers ) {
 						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 						auto& blitter = layer->blitter;
-						if ( !blitter.initialized ) continue;
-						if ( blitter.descriptor.subpass != 0 ) continue;
+						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
 						blitter.record(commands[i]);
 					}
 				}
@@ -285,13 +258,12 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				{
 					blitter.record(commands[i]);
 				}
-				// render gui layer
+				// blit any RT's
 				{
 					for ( auto _ : layers ) {
 						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 						auto& blitter = layer->blitter;
-						if ( !blitter.initialized ) continue;
-						if ( blitter.descriptor.subpass != 1 ) continue;
+						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
 						blitter.record(commands[i]);
 					}
 				}
@@ -299,21 +271,6 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 1 );
-			/*
-				if ( layer->getName() == "" ) continue;
-				RenderTarget& renderTarget = layer->renderTarget;
-				for ( auto& attachment : renderTarget.attachments ) {
-					if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-					if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-					imageMemoryBarrier.image = attachment.image;
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = attachment.layout;
-					imageMemoryBarrier.newLayout = attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT , 0, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					attachment.layout = imageMemoryBarrier.newLayout;
-				}
-			*/
 			}
 		}
 

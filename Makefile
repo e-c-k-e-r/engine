@@ -15,18 +15,18 @@ UF_LIBS 				=
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics -llua52
 # EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp -lopenal32 -lalut -lvorbis -lvorbisfile -logg -lfreetype
 EXT_LIBS 				=
-#FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW
-FLAGS 					= -Og -std=c++17 -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
+#FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_DISCORD
+FLAGS 					= -fdiagnostics-color=always -Og -std=c++17 -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
 #-march=native
 LIB_NAME 				= uf
 EXT_LIB_NAME 			= ext
 
 
-#VULKAN_WIN64_SDK_PATH 	= /cygdrive/c/VulkanSDK/1.1.101.0/
-#VULKAN_WIN64_SDK_PATH 	= /cygdrive/c/VulkanSDK/1.1.108.0/
-#VULKAN_WIN64_SDK_PATH 	= /cygdrive/c/VulkanSDK/1.1.114.0/
-#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.141.2/
-VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.154.0/
+#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.101.0/
+#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.108.0/
+#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.114.0/
+VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.141.2/
+#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.154.0/
 WIN64_CC 				= /opt/mingw-w64/x86_64-7.2.0-posix-seh-rt_v5-rev1/mingw64/bin/g++
 WIN64_GLSL_VALIDATOR 	= $(VULKAN_WIN64_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
@@ -35,7 +35,7 @@ WIN64_LB_FLAGS 			= $(ENGINE_LIB_DIR)/win64
 WIN64_DEPS 				= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api
 #WIN64_DEPS 			= -lvulkan -lncursesw
 WIN64_LINKS 			= $(UF_LIBS) $(EXT_LIBS) $(WIN64_DEPS)
-WIN64_FLAGS 			= $(FLAGS) -g
+WIN64_FLAGS 			= $(FLAGS)
 #-Wl,-subsystem,windows
 
 WIN64_LIB_DIR 			= $(ENGINE_LIB_DIR)/win64/

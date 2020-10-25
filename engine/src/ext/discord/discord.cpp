@@ -1,4 +1,5 @@
 #include <uf/ext/discord/discord.h>
+#if defined(UF_USE_DISCORD)
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <array>
@@ -438,3 +439,9 @@ void UF_API ext::::discord::tick() {
 	DISCORD_REQUIRE(app.core->run_callbacks(app.core));
 }
 */
+#else
+void UF_API ext::discord::initialize(){
+}
+void UF_API ext::discord::tick(){
+}
+#endif

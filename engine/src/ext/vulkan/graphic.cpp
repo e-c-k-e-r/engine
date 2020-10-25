@@ -214,14 +214,17 @@ void ext::vulkan::Shader::destroy() {
 }
 
 void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
+	return this->initialize( graphic, graphic.descriptor );
+}
+void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& descriptor ) {
 	this->device = graphic.device;
 	Device& device = *graphic.device;
 
 	// std::cout << &graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size() << std::endl;
 	assert( graphic.material.shaders.size() > 0 );
 
-	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget( graphic.descriptor.renderTarget );
+	RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true);
+	auto& renderTarget = renderMode.getRenderTarget(  descriptor.renderTarget );
 	{
 		std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 		std::vector<VkPushConstantRange> pushConstantRanges;
@@ -302,14 +305,14 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 	// Graphic
 	{
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
-			graphic.descriptor.topology,
+			descriptor.topology,
 			0,
 			VK_FALSE
 		);
 		VkPipelineRasterizationStateCreateInfo rasterizationState = ext::vulkan::initializers::pipelineRasterizationStateCreateInfo(
-			graphic.descriptor.fill,
-			graphic.descriptor.cullMode, //	VK_CULL_MODE_NONE,
-			graphic.descriptor.frontFace,
+			descriptor.fill,
+			descriptor.cullMode, //	VK_CULL_MODE_NONE,
+			descriptor.frontFace,
 			0
 		);
 		rasterizationState.lineWidth = graphic.descriptor.lineWidth;
@@ -317,7 +320,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
 
 		if ( renderMode.getType() != "Swapchain" ) {
-			auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
+			auto& subpass = renderTarget.passes[descriptor.subpass];
 			for ( auto& color : subpass.colors ) {
 				blendAttachmentStates.push_back(renderTarget.attachments[color.attachment].blendState);
 			}
@@ -328,7 +331,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 				}
 			}
 		} else {
-			graphic.descriptor.subpass = 0;
+			descriptor.subpass = 0;
 
 			VkBool32 blendEnabled = VK_FALSE;
 			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
@@ -358,15 +361,15 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 			blendAttachmentStates.data()
 		);
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-			graphic.descriptor.depthTest.test,
-			graphic.descriptor.depthTest.write,
-			graphic.descriptor.depthTest.operation //VK_COMPARE_OP_LESS_OR_EQUAL
+			descriptor.depthTest.test,
+			descriptor.depthTest.write,
+			descriptor.depthTest.operation //VK_COMPARE_OP_LESS_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
 		);
 		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-		switch ( ext::vulkan::msaa ) {
+		switch ( ext::vulkan::settings::msaa ) {
 			case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
 			case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
 			case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
@@ -393,14 +396,14 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		std::vector<VkVertexInputBindingDescription> vertexBindingDescriptions = {
 			ext::vulkan::initializers::vertexInputBindingDescription(
 				VERTEX_BUFFER_BIND_ID, 
-				graphic.descriptor.geometry.sizes.vertex, 
+				descriptor.geometry.sizes.vertex, 
 				VK_VERTEX_INPUT_RATE_VERTEX
 			)
 		};
 		// Attribute descriptions
 		// Describes memory layout and shader positions
 		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions = {};
-		for ( auto& attribute : graphic.descriptor.geometry.attributes ) {
+		for ( auto& attribute : descriptor.geometry.attributes ) {
 			auto d = ext::vulkan::initializers::vertexInputAttributeDescription(
 				VERTEX_BUFFER_BIND_ID,
 				vertexAttributeDescriptions.size(),
@@ -436,7 +439,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 		pipelineCreateInfo.pDynamicState = &dynamicState;
 		pipelineCreateInfo.stageCount = shaderDescriptors.size();
 		pipelineCreateInfo.pStages = shaderDescriptors.data();
-		pipelineCreateInfo.subpass = graphic.descriptor.subpass;
+		pipelineCreateInfo.subpass = descriptor.subpass;
 
 		VK_CHECK_RESULT(vkCreateGraphicsPipelines( device, device.pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
 	}
@@ -476,11 +479,14 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
 }
 void ext::vulkan::Pipeline::update( Graphic& graphic ) {
+	return this->update( graphic, graphic.descriptor );
+}
+void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descriptor ) {
 	// generate fallback empty texture
 	auto& emptyTexture = Texture2D::empty;
 
-	RenderMode& renderMode = ext::vulkan::getRenderMode(graphic.descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget(graphic.descriptor.renderTarget );
+	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
+	auto& renderTarget = renderMode.getRenderTarget(descriptor.renderTarget );
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
@@ -491,8 +497,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 		descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
 	}
 
-	if ( graphic.descriptor.subpass < renderTarget.passes.size() ) {
-		auto& subpass = renderTarget.passes[graphic.descriptor.subpass];
+	if ( descriptor.subpass < renderTarget.passes.size() ) {
+		auto& subpass = renderTarget.passes[descriptor.subpass];
 		for ( auto& input : subpass.inputs ) {
 			inputDescriptors.push_back(ext::vulkan::initializers::descriptorImageInfo( 
 				renderTarget.attachments[input.attachment].view,
@@ -525,14 +531,14 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 				if ( buffer.usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) {
 					auto& descriptor = buffersStorageVector.emplace_back(buffer.descriptor);
 					if ( descriptor.offset % device->properties.limits.minStorageBufferOffsetAlignment != 0 ) {
-						std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
+						std::cout << "[" << __LINE__ << "] Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
 						descriptor.offset = 0;
 					}
 				}
 				if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
 					auto& descriptor = buffersUniformsVector.emplace_back(buffer.descriptor);
 					if ( descriptor.offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-						std::cout << __LINE__ << ": Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
+						std::cout << "[" << __LINE__ << "] Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset << std::endl;
 						descriptor.offset = 0;
 					}
 				}
@@ -673,7 +679,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 			for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
 				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
 				//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo[i].offset << std::endl;
-					std::cout << "Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " " << descriptor.pBufferInfo[i].offset << " " << descriptor.pBufferInfo[i].range << ", invalidating..." << std::endl;
+					std::cout << "[" << __LINE__ << "] Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " " << descriptor.pBufferInfo[i].offset << " " << descriptor.pBufferInfo[i].range << ", invalidating..." << std::endl;
 					auto pointer = const_cast<VkDescriptorBufferInfo*>(&descriptor.pBufferInfo[i]);
 					pointer->offset = 0;
 					pointer->range = 0;
@@ -774,33 +780,38 @@ void ext::vulkan::Graphic::initialize( const std::string& renderModeName ) {
 void ext::vulkan::Graphic::initializePipeline() {
 	initializePipeline( this->descriptor, false );
 }
-ext::vulkan::Pipeline& ext::vulkan::Graphic::initializePipeline( Descriptor& descriptor, bool update ) {
+ext::vulkan::Pipeline& ext::vulkan::Graphic::initializePipeline( GraphicDescriptor& descriptor, bool update ) {
 	auto& pipeline = pipelines[descriptor.hash()];
 
-	Descriptor previous = this->descriptor;
-	this->descriptor = descriptor;
-	pipeline.initialize(*this);
-	pipeline.update(*this);
-	if ( !update ) this->descriptor = previous;
+//	auto previous = this->descriptor;
+//	this->descriptor = descriptor;
+	pipeline.initialize(*this, descriptor);
+	pipeline.update(*this, descriptor);
+//	if ( !update ) this->descriptor = previous;
 
 	initialized = true;
 
 	return pipeline;
 }
-bool ext::vulkan::Graphic::hasPipeline( Descriptor& descriptor ) {
+bool ext::vulkan::Graphic::hasPipeline( GraphicDescriptor& descriptor ) {
 	return pipelines.count( descriptor.hash() ) > 0;
 }
 ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline() {
 	return getPipeline( descriptor );
 }
-ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( Descriptor& descriptor ) {
+ext::vulkan::Pipeline& ext::vulkan::Graphic::getPipeline( GraphicDescriptor& descriptor ) {
 	if ( !hasPipeline(descriptor) ) return initializePipeline( descriptor );
 	return pipelines[descriptor.hash()];
+}
+void ext::vulkan::Graphic::updatePipelines() {
+	for ( auto pair : this->pipelines ) {
+		pair.second.update( *this );
+	}
 }
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
 	return this->record( commandBuffer, descriptor );
 }
-void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, Descriptor& descriptor ) {
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor ) {
 	if ( !this->hasPipeline( descriptor ) ) {
 		std::cout << this << ": has no valid pipeline" << std::endl;
 		return;
@@ -838,14 +849,15 @@ void ext::vulkan::Graphic::destroy() {
 
 	ext::vulkan::Buffers::destroy();
 
-	ext::vulkan::rebuild = true;
+	ext::vulkan::states::rebuild = true;
 }
 
 #include <uf/utils/string/hash.h>
-std::string ext::vulkan::Graphic::Descriptor::hash() const {
+std::string ext::vulkan::GraphicDescriptor::hash() const {
 	uf::Serializer serializer;
 
 	serializer["subpass"] = subpass;
+	if ( settings::experimental::individualPipelines ) serializer["renderMode"] = renderMode;
 	serializer["renderTarget"] = renderTarget;
 	serializer["geometry"]["sizes"]["vertex"] = geometry.sizes.vertex;
 	serializer["geometry"]["sizes"]["indices"] = geometry.sizes.indices;
@@ -867,6 +879,6 @@ std::string ext::vulkan::Graphic::Descriptor::hash() const {
 	serializer["depthTest"]["write"] = depthTest.write;
 	serializer["depthTest"]["operation"] = depthTest.operation;
 
-//	std::cout << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << std::endl;
+//	if ( renderMode != "Gui" ) std::cout << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << std::endl;
 	return uf::string::sha256( serializer.serialize() );
 }

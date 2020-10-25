@@ -12,27 +12,26 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& camera = this->getComponent<uf::Camera>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+
 	if ( metadata["light"]["shadows"]["enabled"].asBool() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		std::string name = "RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
-		{
-			auto& scene = uf::scene::getCurrentScene();
-			auto& controller = scene.getController();
-
-			camera = controller.getComponent<uf::Camera>();
-			camera.getTransform() = {};
-			camera.setStereoscopic(false);
-			if ( metadata["light"]["shadows"]["fov"].isNumeric() ) {
-				camera.setFov( metadata["light"]["shadows"]["fov"].asFloat() );
-				camera.updateProjection();
-			}
-			if ( metadata["light"]["radius"].isArray() ) {
-				auto bounds = camera.getBounds();
-				bounds.x = metadata["light"]["radius"][0].asFloat();
-				bounds.y = metadata["light"]["radius"][1].asFloat();
-				camera.setBounds(bounds);
-			}
+		renderMode.blitter.process = false;
+		camera = controller.getComponent<uf::Camera>();
+		camera.getTransform() = {};
+		camera.setStereoscopic(false);
+		if ( metadata["light"]["shadows"]["fov"].isNumeric() ) {
+			camera.setFov( metadata["light"]["shadows"]["fov"].asFloat() );
+			camera.updateProjection();
+		}
+		if ( metadata["light"]["radius"].isArray() ) {
+			auto bounds = camera.getBounds();
+			bounds.x = metadata["light"]["radius"][0].asFloat();
+			bounds.y = metadata["light"]["radius"][1].asFloat();
+			camera.setBounds(bounds);
 		}
 		if ( metadata["light"]["shadows"]["resolution"].isArray() ) {
 			renderMode.width = metadata["light"]["shadows"]["resolution"][0].asUInt64();

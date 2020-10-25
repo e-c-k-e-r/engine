@@ -35,6 +35,7 @@ namespace ext {
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void bindPipelines();
 			virtual void bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void tick();
 			virtual void render();

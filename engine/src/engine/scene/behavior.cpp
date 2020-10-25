@@ -7,10 +7,10 @@ UF_BEHAVIOR_ENTITY_CPP_BEGIN(Scene)
 #define this ((uf::Scene*) &self)
 void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::scenes.push_back(this);
-	uf::renderer::rebuild = true;
+	uf::renderer::states::rebuild = true;
 
 	this->addHook( "system:Renderer.QueueRebuild", [&](const std::string& event)->std::string{	
-		uf::renderer::rebuild = true;
+		uf::renderer::states::rebuild = true;
 		return "true";
 	});
 	this->addHook( "system:Destroy", [&](const std::string& event)->std::string{	
@@ -34,7 +34,7 @@ void uf::SceneBehavior::render( uf::Object& self ) {
 void uf::SceneBehavior::destroy( uf::Object& self ) {
 	auto it = std::find(uf::renderer::scenes.begin(), uf::renderer::scenes.end(), this);
 	if ( it != uf::renderer::scenes.end() ) uf::renderer::scenes.erase(it);
-	uf::renderer::rebuild = true;
+	uf::renderer::states::rebuild = true;
 }
 #undef self
 UF_BEHAVIOR_ENTITY_CPP_END(Scene)

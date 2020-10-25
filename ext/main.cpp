@@ -59,6 +59,7 @@ namespace {
 		double prevTime = 0;
 		double curTime = 0;
 		double deltaTime = 0;
+		size_t frames = 0;
 	} times;
 
 	uf::Serializer config;
@@ -69,6 +70,7 @@ std::vector<std::string> ext::arguments;
 void EXT_API ext::initialize() {
 	::config = ext::getConfig();
 	/* Arguments */ {
+		bool modified = false;
 		auto& arguments = ::config["arguments"];
 		for ( auto& arg : ext::arguments ) {
 			// store raw argument
@@ -88,11 +90,12 @@ void EXT_API ext::initialize() {
 						traversal = &((*traversal)[key]);
 					}
 					*traversal = value;
+					modified = true;
 				}
 			}
 		}
 		uf::iostream << "Arguments: " << uf::Serializer(arguments) << "\n";
-		uf::iostream << "New config: " << ::config << "\n";
+		if ( modified ) uf::iostream << "New config: " << ::config << "\n";
 	}
 
 	/* Seed */ {
@@ -138,23 +141,23 @@ void EXT_API ext::initialize() {
 				{
 					size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
 					uf::MemoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].asBool();
-					std::cout << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << std::endl;
+					uf::iostream << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << "\n";
 					uf::MemoryPool::global.initialize( size );
 					uf::MemoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].asBool();
 					if ( size <= 0 || uf::MemoryPool::subPool ) {
 						{
 							size_t size = deduceSize( ::config["engine"]["memory pools"]["component"] );
-							std::cout << "Requesting " << (int) size << " bytes for component memory pool: " << &uf::component::memoryPool << std::endl;
+							uf::iostream << "Requesting " << (int) size << " bytes for component memory pool: " << &uf::component::memoryPool << "\n";
 							uf::component::memoryPool.initialize( size );
 						}
 						{
 							size_t size = deduceSize( ::config["engine"]["memory pools"]["userdata"] );
-							std::cout << "Requesting " << (int) size << " bytes for userdata memory pool: " << &uf::userdata::memoryPool << std::endl;
+							uf::iostream << "Requesting " << (int) size << " bytes for userdata memory pool: " << &uf::userdata::memoryPool << "\n";
 							uf::userdata::memoryPool.initialize( size );
 						}
 						{
 							size_t size = deduceSize( ::config["engine"]["memory pools"]["entity"] );
-							std::cout << "Requesting " << (int) size << " bytes for entity memory pool: " << &uf::Entity::memoryPool << std::endl;
+							uf::iostream << "Requesting " << (int) size << " bytes for entity memory pool: " << &uf::Entity::memoryPool << "\n";
 							uf::Entity::memoryPool.initialize( size );
 						}
 					}
@@ -178,27 +181,35 @@ void EXT_API ext::initialize() {
 				uf::thread::limiter = 1.0 / ::config["engine"]["threads"]["frame limiter"].asDouble();
 		}
 		// Set worker threads
+		if ( ::config["engine"]["threads"]["workers"].asString() == "auto" ) {
+			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
+			::config["engine"]["threads"]["workers"] = threads;
+			uf::iostream << "Using " << threads << " worker threads" << "\n";
+		}
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].asUInt64();
 		// Enable valiation layer
-		uf::renderer::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
-		if ( ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].isNumeric() )
-			uf::renderer::msaa = ::config["engine"]["ext"]["vulkan"]["msaa"].asUInt64();
+		uf::renderer::settings::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
 		
-		uf::renderer::rebuildOnTickStart = ::config["engine"]["ext"]["vulkan"]["validation"]["rebuild on tick begin"].asBool();
-		uf::renderer::waitOnRenderEnd = ::config["engine"]["ext"]["vulkan"]["validation"]["wait on render end"].asBool();
-
+		if ( ::config["engine"]["ext"]["vulkan"]["msaa"].isNumeric() )
+			uf::renderer::settings::msaa = ::config["engine"]["ext"]["vulkan"]["msaa"].asUInt64();
+		
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
-			uf::renderer::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
+			uf::renderer::settings::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["device"].size(); ++i ) {
-			uf::renderer::requestedDeviceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["device"][i].asString() );
+			uf::renderer::settings::requestedDeviceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["device"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"].size(); ++i ) {
-			uf::renderer::requestedInstanceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"][i].asString() );
+			uf::renderer::settings::requestedInstanceExtensions.push_back( ::config["engine"]["ext"]["vulkan"]["extensions"]["instance"][i].asString() );
 		}
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["features"].size(); ++i ) {
-			uf::renderer::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
+			uf::renderer::settings::requestedDeviceFeatures.push_back( ::config["engine"]["ext"]["vulkan"]["features"][i].asString() );
 		}
+		uf::renderer::settings::experimental::rebuildOnTickBegin = ::config["engine"]["ext"]["vulkan"]["experimental"]["rebuild on tick begin"].asBool();
+		uf::renderer::settings::experimental::waitOnRenderEnd = ::config["engine"]["ext"]["vulkan"]["experimental"]["wait on render end"].asBool();
+		uf::renderer::settings::experimental::individualPipelines = ::config["engine"]["ext"]["vulkan"]["experimental"]["individual pipelines"].asBool();
+		uf::renderer::settings::experimental::multithreadedCommandRecording = ::config["engine"]["ext"]["vulkan"]["experimental"]["multithreaded command recording"].asBool();
+
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
 		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].isNumeric() )
@@ -234,9 +245,6 @@ void EXT_API ext::initialize() {
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
 
-	//	if ( ::config["engine"]["render modes"]["compute"].asBool() )
-	//		uf::renderer::addRenderMode( new uf::renderer::ComputeRenderMode, "C:RT:0" );
-
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
 		
@@ -247,7 +255,7 @@ void EXT_API ext::initialize() {
 			renderMode.width = width;
 			renderMode.height = height;
 
-			std::cout << "Recommended VR Resolution: " << width << ", " << height << std::endl;
+			uf::iostream << "Recommended VR Resolution: " << width << ", " << height << "\n";
 		}
 
 		uf::renderer::initialize();
@@ -271,9 +279,8 @@ void EXT_API ext::initialize() {
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:LoadScene", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
-			std::cout << "SCENE CHANGE: " << event << std::endl;
-			uf::renderer::mutex.lock();
-			uf::renderer::mutex.unlock();
+			uf::iostream << "SCENE CHANGE: " << event << "\n";
+			uf::renderer::synchronize();
 			uf::scene::unloadScene();
 			auto& scene = uf::scene::loadScene( json["scene"].asString() );
 			auto& metadata = scene.getComponent<uf::Serializer>();
@@ -282,7 +289,7 @@ void EXT_API ext::initialize() {
 		});
 
 		uf::hooks.addHook( "system:Quit", [&](const std::string& event)->std::string{
-			std::cout << "system:Quit: " << event << std::endl;
+			uf::iostream << "system:Quit: " << event << "\n";
 			ext::ready = false;
 			return "true";
 		});
@@ -304,8 +311,6 @@ void EXT_API ext::tick() {
 		times.curTime = times.sys.elapsed().asDouble();
 		times.deltaTime = times.curTime - times.prevTime;
 	}
-	static uf::Timer<long long> timer(false);
-	if ( !timer.running() ) timer.start();
 
 	/* Print World Tree */ {
 		static uf::Timer<long long> timer(false);
@@ -322,7 +327,7 @@ void EXT_API ext::tick() {
 			};
 			for ( uf::Scene* scene : uf::renderer::scenes ) {
 				if ( !scene ) continue;
-				std::cout << "Scene: " << scene->getName() << ": " << scene << std::endl;
+				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
 				scene->process(filter, 1);
 			}
 		}
@@ -335,13 +340,13 @@ void EXT_API ext::tick() {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << entity->getName() << ": " << entity->getUid() << " [";
 				for ( auto& behavior : entity->getBehaviors() ) {
-					std::cout << uf::instantiator::behaviors->names[behavior.type] << ", ";
+					uf::iostream << uf::instantiator::behaviors->names[behavior.type] << ", ";
 				}
 				uf::iostream << "]\n";
 			};
 			for ( uf::Scene* scene : uf::renderer::scenes ) {
 				if ( !scene ) continue;
-				std::cout << "Scene: " << scene->getName() << ": " << scene << std::endl;
+				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
 				scene->process(filter, 1);
 			}
 			uf::Serializer instantiator;
@@ -357,7 +362,7 @@ void EXT_API ext::tick() {
 					instantiator["behaviors"][i++] = pair.second;
 				}
 			}
-			std::cout << instantiator << std::endl;
+			uf::iostream << instantiator << "\n";
 		}
 	}
 	/* Print Entity Information */  {
@@ -431,19 +436,26 @@ void EXT_API ext::tick() {
 	/* FPS Print */ if ( ::config["engine"]["debug"]["framerate"]["print"].asBool() ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
-		if ( timer.elapsed().asDouble() >= ::config["engine"]["debug"]["framerate"]["every"].asDouble() ) { timer.reset();
-			std::cout << "Framerate: " << (1.0/times.deltaTime) << " FPS | Frametime: " << (times.deltaTime * 1000) << "ms" << std::endl;
+		++::times.frames;
+		double every = ::config["engine"]["debug"]["framerate"]["every"].asDouble();
+		double time = 0;
+		if ( (time = timer.elapsed().asDouble()) >= every ) { timer.reset();
+//			uf::iostream << "Framerate: " << (1.0/times.deltaTime) << " FPS | Frametime: " << (times.deltaTime * 1000) << "ms" << "\n";
+			uf::iostream << "System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time << "\n";
+			::times.frames = 0;
 		}
 	}
 	
 	/* Frame limiter of sorts I guess */ if ( uf::thread::limiter > 0 ) {
+		static uf::Timer<long long> timer(false);
+		if ( !timer.running() ) timer.start();
 		auto elapsed = timer.elapsed().asMilliseconds();
 		long long sleep = (uf::thread::limiter * 1000) - elapsed;
 		if ( sleep > 0 ) {
 			if ( ::config["engine"]["debug"]["framerate"]["print"].asBool() ) {
-				std::cout << "Frame limiting: " << elapsed << "ms exceeds limit, sleeping for " << elapsed << "ms" << std::endl;
+			//	uf::iostream << "Frame limiting: " << elapsed << "ms exceeds limit, sleeping for " << elapsed << "ms" << "\n";
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+		//	std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
 		}
 		timer.reset();
 	}
@@ -472,9 +484,9 @@ void EXT_API ext::terminate() {
 
 
 	/* Flush input buffer */ {
-		io.output << io.input << std::endl;
-		for ( const auto& str : uf::iostream.getHistory() ) io.output << str << std::endl;
-		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << std::endl;
+		io.output << io.input << "\n";
+		for ( const auto& str : uf::iostream.getHistory() ) io.output << str << "\n";
+		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << "\n";
 		io.output.close();
 	}
 
@@ -532,7 +544,7 @@ std::string EXT_API ext::getConfig() {
 		config.fallback["engine"]["hook"]["mode"] 					= "Readable";
 		config.fallback["engine"]["limiters"]["framerate"] 			= 60;
 		config.fallback["engine"]["limiters"]["deltaTime"] 			= 120;
-		config.fallback["engine"]["threads"]["workers"] 			= 1;
+		config.fallback["engine"]["threads"]["workers"] 			= "auto";
 		config.fallback["engine"]["threads"]["frame limiter"] 		= 144;
 		config.fallback["engine"]["memory pool"]["size"] 			= "512 MiB";
 		config.fallback["engine"]["memory pool"]["globalOverride"] 	= false;

@@ -119,7 +119,7 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();
-		uf::renderer::rebuild = true;
+		uf::renderer::states::rebuild = true;
 	}
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {

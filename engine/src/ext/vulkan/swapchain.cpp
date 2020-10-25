@@ -28,8 +28,8 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 	// Bind
 	{
 		this->device = &device;
-		if ( width == 0 ) width = ext::vulkan::width;
-		if ( height == 0 ) height = ext::vulkan::height;
+//		if ( width == 0 ) width = ext::vulkan::settings::width;
+//		if ( height == 0 ) height = ext::vulkan::settings::height;
 	}
 	// Set present
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
