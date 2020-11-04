@@ -6,6 +6,7 @@
 #include <uf/ext/vulkan/rendermodes/deferred.h>
 #include <uf/ext/vulkan/rendermodes/compute.h>
 #include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
+#include <uf/ext/vulkan/rendermodes/multiview_stereoscopic_deferred.h>
 #include <uf/ext/vulkan/rendertarget.h>
 
 namespace spec {

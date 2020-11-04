@@ -198,11 +198,12 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		payload["filename"] = filename;\
 		payload["single threaded"] = singleThreaded;\
 		this->queueHook( "asset:QueueLoad.%UID%", payload, delay );\
+		addBehavior = true;
 
-
-	// Audio (singular)
+	// Audio
 	{
 		// find first valid texture in asset list
+		bool addBehavior = false;
 		uf::Serializer target;
 		if ( metadata["system"]["assets"].isArray() ) {
 			target = metadata["system"]["assets"];
@@ -216,9 +217,10 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		}
 	}
 
-	// Texture (singular)
+	// Texture
 	{
 		// find first valid texture in asset list
+		bool addBehavior = false;
 		uf::Serializer target;
 		if ( metadata["system"]["assets"].isArray() ) {
 			target = metadata["system"]["assets"];
@@ -232,9 +234,10 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		}
 	}
 
-	// gltf (singular)
+	// gltf
 	{
 		// find first valid texture in asset list
+		bool addBehavior = false;
 		uf::Serializer target;
 		if ( metadata["system"]["assets"].isArray() ) {
 			target = metadata["system"]["assets"];
@@ -249,6 +252,24 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
 			aMetadata[filename] = json["metadata"]["model"];
 		}
+		if ( addBehavior ) uf::instantiator::bind( "GltfBehavior", *this );
+	}
+	// lua
+	{
+		// find first valid texture in asset list
+		uf::Serializer target;
+		bool addBehavior = false;
+		if ( metadata["system"]["assets"].isArray() ) {
+			target = metadata["system"]["assets"];
+		} else if ( json["assets"].isArray() ) {
+			target = json["assets"];
+		} else if ( json["assets"].isObject() && !json["assets"]["scripts"].isNull()  ) {
+			target = json["assets"]["scripts"];
+		}
+		for ( uint i = 0; i < target.size(); ++i ) {
+			UF_OBJECT_LOAD_ASSET("lua")
+		}
+		if ( addBehavior ) uf::instantiator::bind( "LuaBehavior", *this );
 	}
 
 	uf::Serializer hooks = metadata["system"]["hooks"];
@@ -416,18 +437,6 @@ std::size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initializ
 	return pointer ? pointer->getUid() : -1;
 }
 
-std::string uf::Object::grabURI( const std::string& filename, const std::string& _root  ) {
-	std::string root = _root;
-	if ( filename.substr(0,8) == "https://" ) return filename;
-	std::string extension = uf::io::extension(filename);
-	if ( filename[0] == '/' || root == "" ) {
-		if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
-		else if ( extension == "json" ) root = "./data/entities/";
-		else if ( extension == "png" ) root = "./data/textures/";
-		else if ( extension == "glb" ) root = "./data/models/";
-		else if ( extension == "gltf" ) root = "./data/models/";
-		else if ( extension == "ogg" ) root = "./data/audio/";
-		else if ( extension == "spv" ) root = "./data/shaders/";
-	}
-	return uf::io::sanitize(filename, root);
+std::string uf::Object::grabURI( const std::string& filename, const std::string& root  ) {
+	return uf::io::resolveURI( filename, root );
 }

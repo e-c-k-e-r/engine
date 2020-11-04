@@ -19,6 +19,6 @@ namespace uf {
 		virtual std::string type() const;
 		virtual pod::Vector3* expand() const;
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
-		virtual pod::Collider::Manifold intersects( const uf::SphereCollider& ) const;
+		pod::Collider::Manifold intersects( const uf::SphereCollider& ) const;
 	};
 }

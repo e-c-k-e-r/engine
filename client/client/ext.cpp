@@ -131,8 +131,11 @@ void client::initialize() {
 					client::window.setSize(size);
 				}
 				// Update viewport
-				uf::renderer::settings::width = size.x;
-				uf::renderer::settings::height = size.y;
+				if ( !client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isArray() ) {
+					float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isNumeric() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].asFloat() : 1;
+					uf::renderer::settings::width = size.x * scale;
+					uf::renderer::settings::height = size.y * scale;
+				}
 
 				uf::renderer::states::resized = true;
 				return "true";

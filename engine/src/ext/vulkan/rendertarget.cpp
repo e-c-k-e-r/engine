@@ -70,7 +70,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	imageCreateInfo.format = format;
 	imageCreateInfo.extent = { width, height, 1 };
 	imageCreateInfo.mipLevels = 1;
-	imageCreateInfo.arrayLayers = USEVR ? 2 : 1;
+	imageCreateInfo.arrayLayers = this->multiviews;
 	imageCreateInfo.samples = samples;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = usage;
@@ -106,7 +106,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	imageView.subresourceRange.baseMipLevel = 0;
 	imageView.subresourceRange.levelCount = 1;
 	imageView.subresourceRange.baseArrayLayer = 0;
-	imageView.subresourceRange.layerCount = USEVR ? 2 : 1;
+	imageView.subresourceRange.layerCount = this->multiviews;
 	imageView.image = attachment->image;
 
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
@@ -203,6 +203,12 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			description.pPreserveAttachments = nullptr;
 			description.pResolveAttachments = nullptr;
 			description.flags = 0;
+			for ( auto& input : pass.inputs ) {
+				if ( input.attachment == pass.depth.attachment ) {
+					description.pDepthStencilAttachment = NULL;
+					break;
+				}
+			}
 			descriptions.push_back(description);
 		/*
 			std::cout << "Pass: " << descriptions.size() - 1 << std::endl;
@@ -279,6 +285,26 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		renderPassInfo.pSubpasses = &descriptions[0];
 		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 		renderPassInfo.pDependencies = &dependencies[0];
+
+		
+		uint32_t mask = 0;
+		std::vector<uint32_t> masks;
+		for ( size_t i = 0; i < this->multiviews; ++i ) {
+			mask |= (0b00000001 << i);
+		}
+		for ( size_t i = 0; i < static_cast<uint32_t>(descriptions.size()); ++i ) {
+			masks.emplace_back(mask);
+		}
+		VkRenderPassMultiviewCreateInfo renderPassMultiviewInfo = {};
+		renderPassMultiviewInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
+		renderPassMultiviewInfo.subpassCount = 1; //static_cast<uint32_t>(descriptions.size());
+	//	renderPassMultiviewInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+		renderPassMultiviewInfo.pViewMasks = masks.data();
+		renderPassMultiviewInfo.pCorrelationMasks = masks.data();
+		renderPassMultiviewInfo.correlationMaskCount = 1;
+		if ( this->multiviews > 1 ) {
+			renderPassInfo.pNext = &renderPassMultiviewInfo;
+		}
 
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 

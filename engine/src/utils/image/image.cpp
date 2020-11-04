@@ -418,6 +418,7 @@ uf::Image uf::Image::replace(const Image::pixel_t& from, const Image::pixel_t& t
 }
 // Crops an image
 uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& end) const {
+	return *this;
 /*
 	uf::Vector2ui size = parameter;
 	if ( mode == uf::Image::CropMode::START_SPAN_SIZE ) size = parameter;

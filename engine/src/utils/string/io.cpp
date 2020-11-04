@@ -82,3 +82,19 @@ size_t UF_API uf::io::mtime( const std::string& filename ) {
 	if ( stat(filename.c_str(), &buffer) != 0 ) return -1;
 	return buffer.st_mtime;
 }
+std::string UF_API uf::io::resolveURI( const std::string& filename, const std::string& _root ) {
+	std::string root = _root;
+	if ( filename.substr(0,8) == "https://" ) return filename;
+	std::string extension = uf::io::extension(filename);
+	if ( filename[0] == '/' || root == "" ) {
+		if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
+		else if ( extension == "json" ) root = "./data/entities/";
+		else if ( extension == "png" ) root = "./data/textures/";
+		else if ( extension == "glb" ) root = "./data/models/";
+		else if ( extension == "gltf" ) root = "./data/models/";
+		else if ( extension == "ogg" ) root = "./data/audio/";
+		else if ( extension == "spv" ) root = "./data/shaders/";
+		else if ( extension == "lua" ) root = "./data/scripts/";
+	}
+	return uf::io::sanitize(filename, root);
+}

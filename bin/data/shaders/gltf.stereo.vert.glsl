@@ -20,16 +20,24 @@ layout (binding = 0) uniform UBO {
 	vec4 color;
 } ubo;
 
-layout (location = 0) out vec2 outUv;
+layout (location = 0) noperspective out vec2 outUv;
 layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec3 outNormal;
 layout (location = 3) out vec3 outPosition;
 layout (location = 4) flat out uint outId;
+layout (location = 5) out float affine;
 
 out gl_PerVertex {
     vec4 gl_Position;   
 };
 
+vec4 snap(vec4 vertex, vec2 resolution) {
+    vec4 snappedPos = vertex;
+    snappedPos.xyz = vertex.xyz / vertex.w;
+    snappedPos.xy = floor(resolution * snappedPos.xy) / resolution;
+    snappedPos.xyz *= vertex.w;
+    return snappedPos;
+}
 
 void main() {
 	outUv = inUv;
@@ -42,4 +50,9 @@ void main() {
 	outId = inId;
 
 	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
+//	gl_Position = snap( gl_Position, vec2(320.0, 240.0) );
+//	gl_Position = snap( gl_Position, vec2(480.0, 270.0) );
+//	gl_Position = snap( gl_Position, vec2(640.0, 480.0) );
+
+	affine = 1;
 }

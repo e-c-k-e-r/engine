@@ -3,6 +3,8 @@
 
 // 	Equality checking
 template<typename T>
+pod::Vector1t<T> /*UF_API*/ uf::vector::create( T x ) { pod::Vector1t<T> vec; vec.x = x; return vec; }
+template<typename T>
 pod::Vector2t<T> /*UF_API*/ uf::vector::create( T x, T y ) { pod::Vector2t<T> vec; vec.x = x, vec.y = y; return vec; }
 template<typename T>
 pod::Vector3t<T> /*UF_API*/ uf::vector::create( T x, T y, T z ) { pod::Vector3t<T> vec; vec.x = x, vec.y = y, vec.z = z; return vec; }

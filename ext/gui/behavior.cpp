@@ -109,7 +109,7 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 		std::smatch match;
 		bool matched = false;
 		int maxTries = 128;
-		while ( matched = std::regex_search( text, match, regex ) && --maxTries > 0 ) {
+		while ( (matched = std::regex_search( text, match, regex )) && --maxTries > 0 ) {
 			struct {
 				std::string str;
 				int dec;

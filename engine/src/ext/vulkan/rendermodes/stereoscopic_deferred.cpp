@@ -58,7 +58,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 
 		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
 		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
-		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
+		if ( !settings::experimental::deferredReconstructPosition )
+			attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
 		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
 		attachments.output = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
 	//	attachments.ping = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
@@ -76,7 +77,14 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		}
 	*/
 		// First pass: fill the G-Buffer
-		{
+		if ( settings::experimental::deferredReconstructPosition ) {
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{ attachments.albedo, attachments.normals },
+				{},
+				attachments.depth
+			);
+		} else {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{ attachments.albedo, attachments.normals, attachments.position },
@@ -85,8 +93,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			);
 		}
 		// Second pass: write to output
-	/*
-		if ( i == 0 ) {
+		if ( settings::experimental::deferredReconstructPosition ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
@@ -101,13 +108,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 				attachments.depth
 			);
 		}
-	*/
-		renderTarget.addPass(
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-			{ attachments.output },
-			{ attachments.albedo, attachments.normals, attachments.position },
-			attachments.depth
-		);
 		renderTarget.initialize( device );
 		{
 			uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
@@ -127,11 +127,24 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 
 			blitter.initialize( this->getName() );
 			blitter.initializeGeometry( mesh );
+		/*
 			if ( i == 0 ) {
 				blitter.material.initializeShaders({
 					{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 				//	{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 					{"./data/shaders/display.subpass.stereo.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				});
+			} else {
+				blitter.material.initializeShaders({
+					{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+					{"./data/shaders/display.subpass.stereo.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				});
+			}
+		*/
+			if ( settings::experimental::deferredReconstructPosition ) {
+				blitter.material.initializeShaders({
+					{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+					{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 				});
 			} else {
 				blitter.material.initializeShaders({
@@ -164,7 +177,6 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			}
 			blitter.initializePipeline();
 		}
-		++i;
 	}
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
@@ -396,7 +408,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 						1,
 						&imageBlitRegion,
-						VK_FILTER_LINEAR
+						settings::swapchainUpscaleFilter
 					);
 
 					{

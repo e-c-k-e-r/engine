@@ -22,7 +22,7 @@ namespace ext {
 			std::thread::id mostRecentCommandPoolId;
 			std::unordered_map<std::thread::id, commands_container_t> commands;
 
-			// virtual ~RenderMode();
+			virtual ~RenderMode();
 			// RAII
 			virtual std::string getType() const;
 			const std::string& getName( bool = false ) const;

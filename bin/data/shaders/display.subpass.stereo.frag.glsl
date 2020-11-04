@@ -164,10 +164,12 @@ float shadowFactor( Light light, uint shadowMap ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-	if ( false ) {
+	if ( !true ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
-	}
+	} else if ( true ) {
+        bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+    }
 
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
@@ -323,6 +325,11 @@ void dither1(inout vec3 color) {
     resultColor.z = (lightnessDiff < d) ? l1 : l2;
     color = hslToRgb(resultColor);
 }
+vec3 dither2() {
+	vec3 vDither = dot( vec2( 171.0, 231.0 ), inUv.xy + ubo.mode.parameters.w ).xxx;
+	vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) ) - vec3( 0.5, 0.5, 0.5 );
+	return ( vDither.rgb / 255.0 ) * 0.375;
+}
 
 float rand2(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
@@ -370,7 +377,8 @@ void main() {
 	fog(fragColor, litFactor);
 
 	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-		dither1(fragColor);
+		//dither1(fragColor);
+		fragColor += dither2();
 	}
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);

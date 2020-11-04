@@ -19,5 +19,6 @@ uf::Component::~Component() {
 // override serializers
 template<>
 uf::Serializer uf::Serializer::toBase64( const pod::Component& input ) {
-
+	uf::Serializer serialized;
+	return serialized;
 }

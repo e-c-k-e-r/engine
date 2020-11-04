@@ -9,11 +9,9 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/engine/scene/scene.h>
 
-/*
 ext::vulkan::RenderMode::~RenderMode() {
 	this->destroy();
 }
-*/
 std::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }

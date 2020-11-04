@@ -228,6 +228,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		//		} else {
 		//			hasCompute = false;
 		//		}
+			} else if ( renderMode.getType() == "Deferred (Stereoscopic, Multiview)" ) {
+				auto* renderModePointer = (uf::renderer::MultiviewStereoscopicDeferredRenderMode*) &renderMode;
+				blitters.push_back(&renderModePointer->blitter);
 			} else if ( renderMode.getType() == "Deferred (Stereoscopic)" ) {
 				auto* renderModePointer = (uf::renderer::StereoscopicDeferredRenderMode*) &renderMode;
 				blitters.push_back(&renderModePointer->blitters.left);
@@ -297,8 +300,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
 				auto& blitter = *blitters[_];
 				
-				uint8_t* buffer;
-				size_t len;
+				uint8_t* buffer = NULL;
+				size_t len = 0;
 				auto* shader = &blitter.material.shaders.front();
 				
 				for ( auto& _ : blitter.material.shaders ) {
@@ -395,7 +398,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 							uint8_t i = 0;
 							for ( auto& attachment : renderTarget.attachments ) {
 								if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-								if ( (attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) ) continue;
+								if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 								auto& texture = blitter.material.textures.emplace_back();
 								texture.aliasAttachment(attachment);
 								if ( light.type == 0 ) light.type = 1;

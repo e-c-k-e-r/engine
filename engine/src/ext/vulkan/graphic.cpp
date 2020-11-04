@@ -15,8 +15,7 @@ ext::vulkan::Shader::~Shader() {
 	if ( !aliased ) destroy();
 }
 */
-void ext::vulkan::Shader::initialize( ext::vulkan::Device& _device, const std::string& filename, VkShaderStageFlagBits stage ) {
-	auto& device = &_device ? _device : ext::vulkan::device;
+void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::string& filename, VkShaderStageFlagBits stage ) {
 	this->device = &device;
 	ext::vulkan::Buffers::initialize( device );
 	aliased = false;
@@ -599,6 +598,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 							break;
 						}
 						imageInfo = &((textures++)->descriptor);
+						if ( imageInfo->imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+							imageInfo->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 					} break;
 					case VK_DESCRIPTOR_TYPE_SAMPLER: {
 						if ( samplers == graphic.material.samplers.end() ) {
@@ -673,38 +674,41 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 		}
 	}
 
+	bool invalid = false;
 	for ( auto& descriptor : writeDescriptorSets ) {
-		if ( descriptor.pBufferInfo ) {
-		//	std::cout << descriptor.pBufferInfo->offset << std::endl;
-			for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
+		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
+			if ( descriptor.pBufferInfo ) {
 				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-				//	std::cout << "Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.pBufferInfo[i].offset << std::endl;
-					std::cout << "[" << __LINE__ << "] Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " " << descriptor.pBufferInfo[i].offset << " " << descriptor.pBufferInfo[i].range << ", invalidating..." << std::endl;
+					std::cout << "[" << __LINE__ << "] Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating..." << std::endl;
 					auto pointer = const_cast<VkDescriptorBufferInfo*>(&descriptor.pBufferInfo[i]);
 					pointer->offset = 0;
 					pointer->range = 0;
 					pointer->buffer = VK_NULL_HANDLE;
-
-					// const_cast<VkDescriptorBufferInfo*>(descriptor.pBufferInfo)->offset = 0;
+					invalid = true;
+					break;
+				}
+			}
+			if ( descriptor.pImageInfo ) {
+				if ( descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
+			//		auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
+			//		pointer->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 			}
 		}
 	}
 
-	// render mode's command buffer is in flight, queue a rebuild
-	// ext::vulkan::rebuild = true;
-	// renderMode.synchronize();
 	renderMode.rebuild = true;
-/*
-	std::cout << this << ": " << renderMode.getName() << ": " << renderMode.getType() << " " << descriptorSet << std::endl;
-	for ( auto& descriptor : writeDescriptorSets ) {
-		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
-			if ( descriptor.pImageInfo ) {
-				std::cout << "[" << i << "]: " << descriptor.pImageInfo[i].imageView << std::endl;
-			}
-		}	
+
+	if ( invalid ) {
+		graphic.process = false;
+		std::cout << "[" << __LINE__ << "] Pipeline invalid, updating next tick..." << std::endl;
+		uf::thread::add( uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true ), [&]() -> int {
+			this->update( graphic, descriptor );
+		return 0;}, true );
+		return;
 	}
-*/
+	graphic.process = true;
+
 	vkUpdateDescriptorSets(
 		*device,
 		writeDescriptorSets.size(),

@@ -47,11 +47,16 @@ namespace ext {
 			extern UF_API std::vector<std::string> requestedDeviceExtensions;
 			extern UF_API std::vector<std::string> requestedInstanceExtensions;
 			
+			extern UF_API VkFilter swapchainUpscaleFilter;
+
 			namespace experimental {
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
 				extern UF_API bool multithreadedCommandRecording;
+				extern UF_API bool deferredReconstructPosition;
+				extern UF_API bool deferredAliasOutputToSwapchain;
+				extern UF_API bool multiview;
 			}
 		}
 		namespace states {

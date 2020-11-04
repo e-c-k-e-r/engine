@@ -15,5 +15,6 @@ namespace uf {
 		std::vector<uint8_t> UF_API readAsBuffer( const std::string& );
 		bool UF_API exists( const std::string& );
 		size_t UF_API mtime( const std::string& );
+		std::string UF_API resolveURI( const std::string&, const std::string& = "" );
 	}
 }

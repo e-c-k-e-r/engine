@@ -25,7 +25,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
 		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // normals
-		attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // position
+		if ( !settings::experimental::deferredReconstructPosition )
+			attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // position
 		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, true ); // depth
 		// Attach swapchain's image as output
 		if ( !false ) {
@@ -58,7 +59,14 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 
 		// First pass: write to target
-		{
+		if ( settings::experimental::deferredReconstructPosition ) {
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{ attachments.albedo, attachments.normals },
+				{},
+				attachments.depth
+			);
+		} else {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{ attachments.albedo, attachments.normals, attachments.position },
@@ -67,11 +75,18 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			);
 		}
 		// NOP
-		if ( !false ) {
+		if ( settings::experimental::deferredReconstructPosition ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 				{ attachments.output },
-				{ attachments.albedo, attachments.normals, attachments.position/*, attachments.depth*/ },
+				{ attachments.albedo, attachments.normals, attachments.depth },
+				attachments.depth
+			);
+		} else {
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+				{ attachments.output },
+				{ attachments.albedo, attachments.normals, attachments.position },
 				attachments.depth
 			);
 		}

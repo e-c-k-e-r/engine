@@ -15,6 +15,7 @@ layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec3 inNormal;
 layout (location = 3) in vec3 inPosition;
 layout (location = 4) flat in uint inId;
+layout (location = 5) in float inAffine;
 
 layout (location = 0) out vec4 outAlbedoSpecular;
 layout (location = 1) out vec4 outNormal;
@@ -22,12 +23,12 @@ layout (location = 2) out vec4 outPosition;
 
 void main() {
 	uint offset = inId;
-	outAlbedoSpecular = texture(samplerTextures[offset], inUv.xy);
+	outAlbedoSpecular = texture(samplerTextures[offset], inUv.xy / inAffine);
 	Map mapped = ubo.map[offset];
 	if ( offset != mapped.target ) {
-		outAlbedoSpecular = mix(texture(samplerTextures[offset], inUv.xy), texture(samplerTextures[mapped.target], inUv.xy), mapped.blend);
+		outAlbedoSpecular = mix(texture(samplerTextures[offset], inUv.xy / inAffine), texture(samplerTextures[mapped.target], inUv.xy / inAffine), mapped.blend);
 	} else {
-		outAlbedoSpecular = texture(samplerTextures[offset], inUv.xy);
+		outAlbedoSpecular = texture(samplerTextures[offset], inUv.xy / inAffine);
 	}
 
 	if ( outAlbedoSpecular.a < 0.001 ) discard;

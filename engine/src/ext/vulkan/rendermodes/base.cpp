@@ -21,8 +21,9 @@ std::string ext::vulkan::BaseRenderMode::getType() const {
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
-	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+	auto windowSize = device->window->getSize();
+	float width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
+	float height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
 	VkCommandBufferBeginInfo commandBufferInfo = {};
 	commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -95,6 +96,10 @@ void ext::vulkan::BaseRenderMode::render() {
 
 void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	this->name = "Swapchain";
+	auto windowSize = device.window->getSize();
+	this->width = windowSize.x;
+	this->height = windowSize.y;
+
 	ext::vulkan::RenderMode::initialize( device );
 	// manual initialization
 	// recreate swapchain
@@ -110,8 +115,8 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	renderTarget.attachments.clear();
 	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers + 1 );
 
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+//	uint32_t width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
+//	uint32_t height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
 	for ( size_t i = 0; i < images.size(); ++i ) {
 		VkImageViewCreateInfo colorAttachmentView = {};

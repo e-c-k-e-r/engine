@@ -164,10 +164,12 @@ float shadowFactor( Light light, uint shadowMap ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-	if ( false ) {
+	if ( !true ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
-	}
+	} else if ( true ) {
+        bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+    }
 
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
@@ -212,9 +214,9 @@ float hueDistance(float h1, float h2) {
 	float diff = abs((h1 - h2));
 	return min(abs((1.0 - diff)), diff);
 }
-const float lightnessSteps = 4.0;
+const float lightnessSteps = 16.0;
 float lightnessStep(float l) {
-    return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
+	return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
 }
 const int indexMatrix16x16[256] = int[](0,192, 48,240, 12,204, 60,252,  3,195, 51,243, 15,207, 63,255,
 									 128, 64,176,112,140, 76,188,124,131, 67,179,115,143, 79,191,127,
@@ -286,12 +288,13 @@ float dither(float color) {
 	float closestColor = (color < 0.5) ? 0 : 1;
 	float secondClosestColor = 1 - closestColor;
 	float d = 1; // -0.5 - fract(ubo.mode.parameters.w / 8.0);
+	float scale = 1;
 	if ( ubo.mode.scalar == 16 ) {
-	 	d = indexValue16x16(1);
+	 	d = indexValue16x16(scale);
 	} else if ( ubo.mode.scalar == 8 ) {
-	 	d = indexValue8x8(1);
+	 	d = indexValue8x8(scale);
 	} else if ( ubo.mode.scalar == 4 ) {
-	 	d = indexValue4x4(1);
+	 	d = indexValue4x4(scale);
 	}
 	float distance = abs(closestColor - color);
 	return (distance < d) ? closestColor : secondClosestColor;
@@ -314,21 +317,45 @@ void dither1(inout vec3 color) {
 	} else if ( ubo.mode.scalar == 4 ) {
 	 	d = indexValue4x4(scale);
 	}
-    float hueDiff = hueDistance(hsl.x, cs[0].x) / hueDistance(cs[1].x, cs[0].x);
-    float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
-    float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
-    float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+	float hueDiff = hueDistance(hsl.x, cs[0].x) / hueDistance(cs[1].x, cs[0].x);
+	float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+	float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+	float lightnessDiff = (hsl.z - l1) / (l2 - l1);
 
-    vec3 resultColor = (hueDiff < d) ? cs[0] : cs[1];
-    resultColor.z = (lightnessDiff < d) ? l1 : l2;
-    color = hslToRgb(resultColor);
+	vec3 resultColor = (hueDiff < d) ? cs[0] : cs[1];
+	resultColor.z = (lightnessDiff < d) ? l1 : l2;
+	color = hslToRgb(resultColor);
 }
-
+void dither2(inout vec3 color) { 
+	vec3 hsl = rgbToHsl(color);
+	float d = 1;
+	float scale = 1;
+	if ( ubo.mode.scalar == 16 ) {
+	 	d = indexValue16x16(scale);
+	} else if ( ubo.mode.scalar == 8 ) {
+	 	d = indexValue8x8(scale);
+	} else if ( ubo.mode.scalar == 4 ) {
+	 	d = indexValue4x4(scale);
+	}
+	hsl.z *= d;
+/*
+	float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+	float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+	float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+	hsl.z = (lightnessDiff < d) ? l1 : l2;
+*/
+	color = hslToRgb(hsl);
+}
+vec3 dither3() {
+    vec3 vDither = dot( vec2( 171.0, 231.0 ), inUv.xy + ubo.mode.parameters.w ).xxx;
+    vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) ) - vec3( 0.5, 0.5, 0.5 );
+    return ( vDither.rgb / 255.0 ) * 0.375;
+}
 float rand2(vec2 co){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
+	return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
 }
 float rand3(vec3 co){
-    return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453);
+	return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453);
 }
 void whitenoise(inout vec3 color) {
 	float flicker = ubo.mode.parameters.x;
@@ -345,27 +372,13 @@ void whitenoise(inout vec3 color) {
 void main() {
 	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
 	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
+
 	normal.eye = subpassLoad(samplerNormal).rgb;
-/*
-	position.eye = subpassLoad(samplerPosition).rgb; {
-		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
-		vec4 positionWorld = iView * vec4(position.eye, 1);
-		position.world = positionWorld.xyz;
-	}
-*/
 	{
 		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
 
-		float depth = subpassLoad(samplerDepth).r;
-
-		if ( false ) {
-			depth /= 0.00526;
-			outFragColor.rgb = vec3( 1 - depth );
-			outFragColor.a = 1;
-			return;
-		}
-		
+		float depth = subpassLoad(samplerDepth).r;		
 		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
 		vec4 positionEye = iProj * positionClip;
 		positionEye /= positionEye.w;
@@ -389,12 +402,14 @@ void main() {
 		}
 		phong( light, albedoSpecular, fragColor );
 	}
-
+	
 	fog(fragColor, litFactor);
 
 	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-		dither1(fragColor);
+	//	dither2(fragColor);
+        fragColor += dither3();
 	}
+	
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);
 	}

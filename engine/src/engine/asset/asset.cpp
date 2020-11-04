@@ -11,6 +11,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/ext/lua/lua.h>
 #include <uf/ext/gltf/gltf.h>
 
 #include <mutex>
@@ -43,34 +44,6 @@ namespace {
 		std::string type;
 	};
 	std::queue<Job> jobs;
-/*
-	uint64_t queueJob( const std::string& uri, const std::string& callback ) {
-		mutex.lock();
-		uint64_t id = ++uid;
-		jobs.push({
-			id, uri, callback
-		});
-		mutex.unlock();
-		return id;
-	}
-	std::unordered_map<uint64_t, Job> jobs;
-	Job getJob( uint64_t id ){
-		mutex.lock();
-		Job job = jobs[id];
-		jobs.erase(id);
-		mutex.unlock();
-		return job;
-	}
-	uint64_t queueJob( const std::string& uri, const std::string& callback ) {
-		mutex.lock();
-		uint64_t id = ++uid;
-		jobs[id] = {
-			id, uri, callback
-		};
-		mutex.unlock();
-		return id;
-	}
-*/
 }
 
 uf::Entity uf::Asset::masterAssetLoader;
@@ -87,7 +60,6 @@ void uf::Asset::processQueue() {
 			continue;
 		}
 		std::string filename = type == "cache" ? this->cache(uri) : this->load(uri);
-		// uf::iostream << "Parsed `" + filename + "` (" + type + "). Callback: " + callback << "\n";
 		if ( callback != "" ) {
 			uf::Serializer payload;
 			payload["filename"] = filename;
@@ -100,47 +72,11 @@ void uf::Asset::cache( const std::string& uri, const std::string& callback ) {
 	mutex.lock();
 	jobs.push({ uri, callback, "cache" });
 	mutex.unlock();
-/*
-	uint64_t id = queueJob(uri, callback);
-	std::cout << "Queued job: " + std::to_string(id) + ": " + callback + " " + uri << std::endl;
-	uf::thread::add( uf::thread::get("Aux"), [&]() -> int {
-		auto job = getJob(id);
-		std::string uri = job.uri;
-		std::string callback = job.callback;
-		if ( uri == "" || callback == "" || id == 0 ) {
-			std::cout << "Failed job: " << id << std::endl;
-			return 0;
-		}
-		std::string filename = this->cache(uri);
-		if ( callback != "" ) {
-			uf::Serializer payload;
-			payload["filename"] = filename;
-			uf::hooks.call(callback, payload);
-		}
-	return 0;}, true );
-*/
 }
 void uf::Asset::load( const std::string& uri, const std::string& callback ) {
 	mutex.lock();
 	jobs.push({ uri, callback, "load" });
 	mutex.unlock();
-/*
-	uf::thread::add( uf::thread::get("Aux"), [&]() -> int {
-		auto job = getJob(id);
-		std::string uri = job.uri;
-		std::string callback = job.callback;
-		if ( uri == "" || callback == "" || id == 0 ) {
-			std::cout << "Failed job: " << id << std::endl;
-			return 0;
-		}
-		std::string filename = this->load(uri);
-		if ( callback != "" ) {
-			uf::Serializer payload;
-			payload["filename"] = filename;
-			uf::hooks.call(callback, payload);
-		}
-	return 0;}, true );
-*/
 }
 std::string uf::Asset::cache( const std::string& uri ) {
 	std::string filename = uri;
@@ -195,6 +131,9 @@ std::string uf::Asset::load( const std::string& uri ) {
 	} else if ( extension == "json" ) {
 		UF_ASSET_REGISTER(uf::Serializer)
 		asset.readFromFile(filename);
+	} else if ( extension == "lua" ) {
+		UF_ASSET_REGISTER(pod::LuaScript)
+		asset = ext::lua::script( filename );
 	} else if ( extension == "gltf" || extension == "glb" ) {
 		UF_ASSET_REGISTER(uf::Object*)
 		uint8_t LOAD_FLAGS = 0;

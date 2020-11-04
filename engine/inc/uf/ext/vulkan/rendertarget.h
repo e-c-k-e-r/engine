@@ -36,6 +36,7 @@ namespace ext {
 			VkRenderPass renderPass = VK_NULL_HANDLE;
 			std::vector<VkFramebuffer> framebuffers;
 			uint32_t width = 0, height = 0;
+			uint8_t multiviews = 1;
 			// RAII
 			void initialize( Device& device );
 			void destroy();

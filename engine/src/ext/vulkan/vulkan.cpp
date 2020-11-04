@@ -19,10 +19,15 @@ std::vector<std::string> ext::vulkan::settings::requestedDeviceFeatures;
 std::vector<std::string> ext::vulkan::settings::requestedDeviceExtensions;
 std::vector<std::string> ext::vulkan::settings::requestedInstanceExtensions;
 
+VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
+
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::waitOnRenderEnd = false;
 bool ext::vulkan::settings::experimental::individualPipelines = false;
 bool ext::vulkan::settings::experimental::multithreadedCommandRecording = false;
+bool ext::vulkan::settings::experimental::deferredReconstructPosition = false;
+bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
+bool ext::vulkan::settings::experimental::multiview = true;
 
 ext::vulkan::Device ext::vulkan::device;
 ext::vulkan::Allocator ext::vulkan::allocator;

@@ -27,7 +27,7 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	// alias Mesh types
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
-	std::size_t seed;
+	std::size_t seed = 0;
 	if ( metadata["terrain"]["seed"].isUInt64() ) {
 		seed = metadata["terrain"]["seed"].asUInt64();
 	} else if ( metadata["terrain"]["seed"].isString() ) {

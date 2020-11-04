@@ -1,117 +1,112 @@
- .PHONY: win64
+DEFAULT_PREFIX			= gcc
+include makefiles/win64.$(DEFAULT_PREFIX).make
 
-TARGET_NAME 			= program
-BIN_DIR 				= ./bin
+ .PHONY: $(ARCH)-$(PREFIX)
 
-ENGINE_SRC_DIR 			= ./engine/src
-ENGINE_INC_DIR 			= ./engine/inc
-ENGINE_LIB_DIR 			= ./engine/lib
+TARGET_NAME 			+= program
+BIN_DIR 				+= ./bin
 
-EXT_SRC_DIR 			= ./ext
-CLIENT_SRC_DIR 			= ./client
+ENGINE_SRC_DIR 			+= ./engine/src
+ENGINE_INC_DIR 			+= ./engine/inc
+ENGINE_LIB_DIR 			+= ./engine/lib
 
-UF_LIBS 				= 
-# EXT_LIBS 	 			= -lpng16 -lz -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics
-# EXT_LIBS 	 			= -lpng16 -lz -lassimp -lsfml-main -lsfml-system -lsfml-window -lsfml-graphics -llua52
-# EXT_LIBS 	 			= -lpng16 -lz -lassimp -ljsoncpp -lopenal32 -lalut -lvorbis -lvorbisfile -logg -lfreetype
-EXT_LIBS 				=
-#FLAGS 					= -std=c++0x -Wall -g -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_DISCORD
-FLAGS 					= -fdiagnostics-color=always -Og -std=c++17 -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
-#-march=native
-LIB_NAME 				= uf
-EXT_LIB_NAME 			= ext
+EXT_SRC_DIR 			+= ./ext
+CLIENT_SRC_DIR 			+= ./client
 
+UF_LIBS 				+= 
+EXT_LIBS 				+=
+FLAGS 				  	+= -std=c++17 -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
+LIB_NAME 				+= uf
+EXT_LIB_NAME 			+= ext
 
-#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.101.0/
-#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.108.0/
-#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.1.114.0/
-VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.141.2/
-#VULKAN_WIN64_SDK_PATH 	= /c/VulkanSDK/1.2.154.0/
-WIN64_CC 				= /opt/mingw-w64/x86_64-7.2.0-posix-seh-rt_v5-rev1/mingw64/bin/g++
-WIN64_GLSL_VALIDATOR 	= $(VULKAN_WIN64_SDK_PATH)/Bin32/glslangValidator
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.101.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.108.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.114.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.141.2/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
+GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
-WIN64_INC_DIR 			= $(ENGINE_INC_DIR)/win64
-WIN64_LB_FLAGS 			= $(ENGINE_LIB_DIR)/win64
-WIN64_DEPS 				= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api
-#WIN64_DEPS 			= -lvulkan -lncursesw
-WIN64_LINKS 			= $(UF_LIBS) $(EXT_LIBS) $(WIN64_DEPS)
-WIN64_FLAGS 			= $(FLAGS)
+INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
+LB_FLAGS 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)
+DEPS 					+= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api -lluajit-5.1
+#DEPS 					+= -lvulkan -lncursesw
+LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 #-Wl,-subsystem,windows
 
-WIN64_LIB_DIR 			= $(ENGINE_LIB_DIR)/win64/
-WIN64_INCS 				= -I$(ENGINE_INC_DIR) -I$(WIN64_INC_DIR) -I$(VULKAN_WIN64_SDK_PATH)/include -I/mingw64/include
-WIN64_LIBS 				= -L$(ENGINE_LIB_DIR) -L$(WIN64_LIB_DIR) -L$(VULKAN_WIN64_SDK_PATH)/Lib -L/mingw64/lib
+LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)
+INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include -I/mingw64/include/luajit-2.1
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
 
-SRCS_WIN64_DLL 			= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
-OBJS_WIN64_DLL 			= $(patsubst %.cpp,%.win64.o,$(SRCS_WIN64_DLL))
-BASE_WIN64_DLL 			= lib$(LIB_NAME)
-IM_WIN64_DLL 			= $(ENGINE_LIB_DIR)/win64/$(BASE_WIN64_DLL).dll.a
-EX_WIN64_DLL 			= $(BIN_DIR)/lib/win64/$(BASE_WIN64_DLL).dll
+SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL))
+BASE_DLL 				+= lib$(LIB_NAME)
+IM_DLL 					+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll.a
+EX_DLL 					+= $(BIN_DIR)/lib/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll
 # External Engine's DLL
-EXT_WIN64_INC_DIR 		= $(WIN64_INC_DIR)
-EXT_WIN64_LB_FLAGS 		= $(WIN64_LIB_DIR)
-EXT_WIN64_DEPS 			= -l$(LIB_NAME) $(WIN64_DEPS)
-EXT_WIN64_LINKS 		= $(UF_LIBS) $(EXT_LIBS) $(EXT_WIN64_DEPS)
-EXT_WIN64_FLAGS 		= $(FLAGS) 
+EXT_INC_DIR 			+= $(INC_DIR)
+EXT_LB_FLAGS 			+= $(LIB_DIR)
+EXT_DEPS 				+= -l$(LIB_NAME) $(DEPS)
+EXT_LINKS 				+= $(UF_LIBS) $(EXT_LIBS) $(EXT_DEPS)
+EXT_FLAGS 				+= $(FLAGS) 
 #-Wl,-subsystem,windows
 
-EXT_WIN64_LIB_DIR 		= $(ENGINE_LIB_DIR)/win64/
-EXT_WIN64_INCS 			= -I$(ENGINE_INC_DIR) -I$(EXT_WIN64_INC_DIR) -I$(VULKAN_WIN64_SDK_PATH)/include -I/mingw64/include
-EXT_WIN64_LIBS 			= -L$(ENGINE_LIB_DIR) -L$(EXT_WIN64_LIB_DIR) -L$(VULKAN_WIN64_SDK_PATH)/Lib -L/mingw64/lib
+EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/
+EXT_INCS 				+= -I$(ENGINE_INC_DIR) -I$(EXT_INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include
+EXT_LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(EXT_LIB_DIR) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
 
-SRCS_EXT_WIN64_DLL 		= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
-OBJS_EXT_WIN64_DLL 		= $(patsubst %.cpp,%.win64.o,$(SRCS_EXT_WIN64_DLL))
-BASE_EXT_WIN64_DLL 		= lib$(EXT_LIB_NAME)
-EXT_IM_WIN64_DLL 		= $(ENGINE_LIB_DIR)/win64/$(BASE_EXT_WIN64_DLL).dll.a
-EXT_EX_WIN64_DLL 		= $(BIN_DIR)/lib/win64/$(BASE_EXT_WIN64_DLL).dll
+SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
+OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL))
+BASE_EXT_DLL 			+= lib$(EXT_LIB_NAME)
+EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll.a
+EXT_EX_DLL 				+= $(BIN_DIR)/lib/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll
 # Client EXE
-SRCS_WIN64 				= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
-OBJS_WIN64 				= $(patsubst %.cpp,%.win64.o,$(SRCS_WIN64))
-TARGET_WIN64 			= $(BIN_DIR)/$(TARGET_NAME).exe
+SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
+OBJS 					+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
+TARGET 					+= $(BIN_DIR)/$(TARGET_NAME).$(PREFIX).exe
 # Shaders
-SRCS_SHADERS 			= $(wildcard bin/data/shaders/*.glsl)
-TARGET_SHADERS 			= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
+SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl)
+TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
-win64: $(EX_WIN64_DLL) $(EXT_EX_WIN64_DLL) $(TARGET_WIN64) $(TARGET_SHADERS)
+$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
 rm-exe64:
-	-rm $(EX_WIN64_DLL)
-	-rm $(EXT_EX_WIN64_DLL)
-	-rm $(TARGET_WIN64)
+	-rm $(EX_DLL)
+	-rm $(EXT_EX_DLL)
+	-rm $(TARGET)
 	-rm $(TARGET_SHADERS)
 
-%.win64.o: %.cpp
-	$(WIN64_CC) $(WIN64_FLAGS) $(WIN64_INCS) -c $< -o $@
+%.$(ARCH).$(PREFIX).o: %.cpp
+	$(CC) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_WIN64_DLL): WIN64_FLAGS += -DUF_EXPORTS
-$(EX_WIN64_DLL): $(OBJS_WIN64_DLL) 
-	$(WIN64_CC) -shared -o $(EX_WIN64_DLL) -g -Wl,--out-implib=$(IM_WIN64_DLL) $(OBJS_WIN64_DLL) $(WIN64_LIBS) $(WIN64_INCS) $(WIN64_LINKS)
-	cp $(ENGINE_LIB_DIR)/win64/$(BASE_WIN64_DLL).dll.a $(ENGINE_LIB_DIR)/win64/$(BASE_WIN64_DLL).a
+$(EX_DLL): FLAGS += -DUF_EXPORTS
+$(EX_DLL): $(OBJS_DLL) 
+	$(CC) -shared -o $(EX_DLL) -g -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
+	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll.a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).a
 
-$(EXT_EX_WIN64_DLL): WIN64_FLAGS += -DEXT_EXPORTS
-$(EXT_EX_WIN64_DLL): $(OBJS_EXT_WIN64_DLL) 
-	$(WIN64_CC) -shared -o $(EXT_EX_WIN64_DLL) -g -Wl,--out-implib=$(EXT_IM_WIN64_DLL) $(OBJS_EXT_WIN64_DLL) $(EXT_WIN64_LIBS) $(EXT_WIN64_INCS) $(EXT_WIN64_LINKS)
-	cp $(ENGINE_LIB_DIR)/win64/$(BASE_EXT_WIN64_DLL).dll.a $(ENGINE_LIB_DIR)/win64/$(BASE_EXT_WIN64_DLL).a
+$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
+$(EXT_EX_DLL): $(OBJS_EXT_DLL) 
+	$(CC) -shared -o $(EXT_EX_DLL) -g -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
+	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll.a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).a
 
-$(TARGET_WIN64): $(OBJS_WIN64)
-	$(WIN64_CC) $(WIN64_FLAGS) $(OBJS_WIN64) $(WIN64_LIBS) $(WIN64_INCS) $(WIN64_LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET_WIN64)
+$(TARGET): $(OBJS)
+	$(CC) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
 
 %.spv: %.glsl
-	$(WIN64_GLSL_VALIDATOR) -V $< -o $@
+	$(GLSL_VALIDATOR) -V $< -o $@
 
-clean-win64:
-	@-rm $(EX_WIN64_DLL)
-	@-rm $(EXT_EX_WIN64_DLL)
-	@-rm $(TARGET_WIN64)
+clean-$(ARCH):
+	@-rm $(EX_DLL)
+	@-rm $(EXT_EX_DLL)
+	@-rm $(TARGET)
 	
-	@-rm -f $(OBJS_WIN64_DLL)
-	@-rm -f $(OBJS_EXT_WIN64_DLL)
-	@-rm -f $(OBJS_WIN64)
+	@-rm -f $(OBJS_DLL)
+	@-rm -f $(OBJS_EXT_DLL)
+	@-rm -f $(OBJS)
 
-clean-uf-win64:
-	@-rm $(EX_WIN64_DLL)
-	@-rm -f $(OBJS_WIN64_DLL)
+clean-uf-$(ARCH):
+	@-rm $(EX_DLL)
+	@-rm -f $(OBJS_DLL)
 
-clean-ext-win64:
-	@-rm $(EXT_EX_WIN64_DLL)
-	@-rm -f $(OBJS_EXT_WIN64_DLL)
+clean-ext-$(ARCH):
+	@-rm $(EXT_EX_DLL)
+	@-rm -f $(OBJS_EXT_DLL)

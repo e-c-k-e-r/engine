@@ -41,6 +41,7 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
+#include <uf/ext/lua/lua.h>
 
 namespace {
 	struct {
@@ -114,6 +115,9 @@ void EXT_API ext::initialize() {
 	}
 	/* Read persistent data */ {
 		// #include "./inits/persistence.inl"
+	}
+	/* Lua */ {
+		ext::lua::initialize();
 	}
 	
 	/* Parse config */ {
@@ -190,8 +194,21 @@ void EXT_API ext::initialize() {
 		// Enable valiation layer
 		uf::renderer::settings::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].asBool();
 		
-		if ( ::config["engine"]["ext"]["vulkan"]["msaa"].isNumeric() )
-			uf::renderer::settings::msaa = ::config["engine"]["ext"]["vulkan"]["msaa"].asUInt64();
+		if ( ::config["engine"]["ext"]["vulkan"]["framebuffer"]["msaa"].isNumeric() )
+			uf::renderer::settings::msaa = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["msaa"].asUInt64();
+
+		if ( ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isNumeric() ) {
+			float scale = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].asFloat();
+			uf::renderer::settings::width *= scale;
+			uf::renderer::settings::height *= scale;
+		} else if ( ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isArray() ) {
+			uf::renderer::settings::width = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][0].asFloat();
+			uf::renderer::settings::height = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][1].asFloat();
+			std::string filter = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][2].asString();
+			if ( uf::string::lowercase( filter )  == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_NEAREST;
+			else if ( uf::string::lowercase( filter )  == "linear" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
+		}
+
 		
 		for ( int i = 0; i < ::config["engine"]["ext"]["vulkan"]["validation"]["filters"].size(); ++i ) {
 			uf::renderer::settings::validationFilters.push_back( ::config["engine"]["ext"]["vulkan"]["validation"]["filters"][i].asString() );
@@ -209,6 +226,8 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::waitOnRenderEnd = ::config["engine"]["ext"]["vulkan"]["experimental"]["wait on render end"].asBool();
 		uf::renderer::settings::experimental::individualPipelines = ::config["engine"]["ext"]["vulkan"]["experimental"]["individual pipelines"].asBool();
 		uf::renderer::settings::experimental::multithreadedCommandRecording = ::config["engine"]["ext"]["vulkan"]["experimental"]["multithreaded command recording"].asBool();
+		uf::renderer::settings::experimental::deferredReconstructPosition = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred reconstruct position"].asBool();
+		uf::renderer::settings::experimental::deferredAliasOutputToSwapchain = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred alias output to swapchain"].asBool();
 
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].asBool();
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].asBool();
@@ -240,7 +259,9 @@ void EXT_API ext::initialize() {
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
 		}
-		if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
+		if ( ::config["engine"]["render modes"]["multiview stereo deferred"].asBool() )
+			uf::renderer::addRenderMode( new uf::renderer::MultiviewStereoscopicDeferredRenderMode, "" );
+		else if ( ::config["engine"]["render modes"]["stereo deferred"].asBool() )
 			uf::renderer::addRenderMode( new uf::renderer::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].asBool() )
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
@@ -255,7 +276,15 @@ void EXT_API ext::initialize() {
 			renderMode.width = width;
 			renderMode.height = height;
 
-			uf::iostream << "Recommended VR Resolution: " << width << ", " << height << "\n";
+			uf::iostream << "Recommended VR Resolution: " << renderMode.width << ", " << renderMode.height << "\n";
+
+			if ( ::config["engine"]["ext"]["vr"]["scale"].isNumeric() ) {
+				float scale = ::config["engine"]["ext"]["vr"]["scale"].asFloat();
+				renderMode.width *= scale;
+				renderMode.height *= scale;
+				
+				uf::iostream << "VR Resolution: " << renderMode.width << ", " << renderMode.height << "\n";
+			}
 		}
 
 		uf::renderer::initialize();
@@ -411,11 +440,18 @@ void EXT_API ext::tick() {
 		}
 	}
 
-	/* Update physics timer */ {
-		uf::physics::tick();
-	}
-	/* Update entities */ {
-		uf::scene::tick();
+	/* Limit tickrate */ {
+	//	static uf::Timer<long long> timer(false);
+	//	if ( !timer.running() ) timer.start();
+	//	if ( timer.elapsed().asDouble() >= uf::thread::limiter ) { timer.reset();
+		{
+			/* Update physics timer */ {
+				uf::physics::tick();
+			}
+			/* Update entities */ {
+				uf::scene::tick();
+			}
+		}
 	}
 
 	/* Tick Main Thread Queue */ {
@@ -478,10 +514,11 @@ void EXT_API ext::terminate() {
 		ext::openvr::terminate();
 	}
 	
+	uf::scene::destroy();
+
 	/* Close vulkan */ {
 		uf::renderer::destroy();
 	}
-
 
 	/* Flush input buffer */ {
 		io.output << io.input << "\n";
@@ -489,8 +526,6 @@ void EXT_API ext::terminate() {
 		io.output << "\nTerminated after " << times.sys.elapsed().asDouble() << " seconds" << "\n";
 		io.output.close();
 	}
-
-	uf::scene::destroy();
 
 	/* Write persistent data */ if ( false ) {
 		struct {

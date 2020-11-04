@@ -36,7 +36,7 @@ namespace {
 		return result;
 	}
 	uint16_t colorToUint16( COLOR color ) {
-		uint16_t result;
+		uint16_t result = 0;
 		// memcpy( &result, &color, sizeof color );
 		result |= (color.r << 12);
 		result |= (color.g <<  8);

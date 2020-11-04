@@ -1,7 +1,7 @@
-template<typename T=uf::Object> T& uf::Entity::as() {
+template<typename T> T& uf::Entity::as() {
 	return *((T*) this);
 }
-template<typename T=uf::Object> const T& uf::Entity::as() const {
+template<typename T> const T& uf::Entity::as() const {
 	return *((T*) this);
 }
 template<typename T> T& uf::Entity::getParent() {

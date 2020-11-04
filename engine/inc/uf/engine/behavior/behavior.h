@@ -70,14 +70,6 @@ namespace uf {
 			this->removeBehavior(pod::Behavior{
 				.type = getType<T>()
 			});
-		/*
-			auto it = this->m_behaviors.begin();
-			while ( it != this->m_behaviors.end() ) {
-				if ( (it++)->type == getType<T>() ) break;
-			}
-			if ( it != this->m_behaviors.end() )
-				this->m_behaviors.erase(it);
-		*/
 		}
 	};
 

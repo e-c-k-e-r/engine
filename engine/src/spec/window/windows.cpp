@@ -1295,7 +1295,7 @@ std::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 		case '0':				return "Num0";
 	}
 // 	return "Unknown";	
-	return std::string( "" + (int) key );
+	return std::to_string((int) key);
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 std::vector<std::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {

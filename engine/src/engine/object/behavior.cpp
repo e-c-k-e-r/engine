@@ -45,7 +45,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:QueueLoad.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		std::string filename = json["filename"].asString();
-		std::string callback = "asset:FinishedLoad." + std::to_string(this->getUid());
+		std::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
 		if ( json["single threaded"].asBool() ) {
 			assetLoader.load( filename );
 			this->queueHook( callback, event );

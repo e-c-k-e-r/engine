@@ -163,7 +163,7 @@ const T& pod::Vector<T,1>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,1> pod::Vector<T,1>::operator()() const {
-	return uf::vector::create(0,0);
+	return uf::vector::create<T>(0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,1> pod::Vector<T,1>::operator-() const {
@@ -254,7 +254,7 @@ const T& pod::Vector<T,2>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,2> pod::Vector<T,2>::operator()() const {
-	return uf::vector::create(0,0);
+	return uf::vector::create<T>(0,0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,2> pod::Vector<T,2>::operator-() const {
@@ -346,7 +346,7 @@ const T& pod::Vector<T,3>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,3> pod::Vector<T,3>::operator()() const {
-	return uf::vector::create(0,0,0);
+	return uf::vector::create<T>(0,0,0);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,3> pod::Vector<T,3>::operator-() const {
@@ -410,19 +410,19 @@ inline bool pod::Vector<T,3>::operator!=( const pod::Vector<T,3>& vector ) const
 }
 template<typename T> 												// 	Equality check between two vectors (less than)
 inline bool pod::Vector<T,3>::operator<( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) < 0;
+	return uf::vector::compareTo(*this, vector) < 0;
 }
 template<typename T> 												// 	Equality check between two vectors (less than or equals)
 inline bool pod::Vector<T,3>::operator<=( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) <= 0;
+	return uf::vector::compareTo(*this, vector) <= 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than)
 inline bool pod::Vector<T,3>::operator>( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) > 0;
+	return uf::vector::compareTo(*this, vector) > 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than or equals)
 inline bool pod::Vector<T,3>::operator>=( const pod::Vector<T,3>& vector ) const {
-	return uf::vector::compareTo(vector) >= 0;
+	return uf::vector::compareTo(*this, vector) >= 0;
 }
 //
 template<typename T>
@@ -438,7 +438,7 @@ const T& pod::Vector<T,4>::operator[](std::size_t i) const {
 // Arithmetic
 template<typename T> 												// 	Negation
 inline pod::Vector<T,4> pod::Vector<T,4>::operator()() const {
-	return uf::vector::create(0,0,0,1);
+	return uf::vector::create<T>(0,0,0,1);
 }			
 template<typename T> 												// 	Negation
 inline pod::Vector<T,4> pod::Vector<T,4>::operator-() const {
@@ -502,19 +502,19 @@ inline bool pod::Vector<T,4>::operator!=( const pod::Vector<T,4>& vector ) const
 }
 template<typename T> 												// 	Equality check between two vectors (less than)
 inline bool pod::Vector<T,4>::operator<( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) < 0;
+	return uf::vector::compareTo(*this, vector) < 0;
 }
 template<typename T> 												// 	Equality check between two vectors (less than or equals)
 inline bool pod::Vector<T,4>::operator<=( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) <= 0;
+	return uf::vector::compareTo(*this, vector) <= 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than)
 inline bool pod::Vector<T,4>::operator>( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) > 0;
+	return uf::vector::compareTo(*this, vector) > 0;
 }
 template<typename T> 												// 	Equality check between two vectors (greater than or equals)
 inline bool pod::Vector<T,4>::operator>=( const pod::Vector<T,4>& vector ) const {
-	return uf::vector::compareTo(vector) >= 0;
+	return uf::vector::compareTo(*this, vector) >= 0;
 }
 //
 namespace uf {
