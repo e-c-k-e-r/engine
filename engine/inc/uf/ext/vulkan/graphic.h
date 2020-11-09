@@ -97,7 +97,7 @@ namespace ext {
 			void destroy();
 			
 			template<typename T, typename U>
-			void initializeGeometry( uf::BaseMesh<T, U>& mesh, bool = false );
+			void initializeGeometry( uf::BaseMesh<T, U>& mesh, bool stage = VK_DEFAULT_STAGE_BUFFERS );
 
 			bool hasPipeline( GraphicDescriptor& descriptor );
 			void initializePipeline();

@@ -164,7 +164,7 @@ bool ext::openvr::initialize( int stage ) {
 			if ( DEBUG_MARKER ) std::cout << ext::openvr::driver.manifest << std::endl;
 			for ( auto i = 0; i < manifest["action_sets"].size(); ++i ) {
 				if ( DEBUG_MARKER ) std::cout << manifest["action_sets"][i] << std::endl;
-				std::string name = manifest["action_sets"][i]["name"].asString();
+				std::string name = manifest["action_sets"][i]["name"].as<std::string>();
 				vr::VRActionSetHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
 				handles.actionSets[name] = handle;
@@ -172,7 +172,7 @@ bool ext::openvr::initialize( int stage ) {
 				// handles.actionSets.push_back(handle);
 			}
 			for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
-				std::string name = manifest["actions"][i]["name"].asString();
+				std::string name = manifest["actions"][i]["name"].as<std::string>();
 				vr::VRActionHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
 				handles.actions[name] = handle;
@@ -188,7 +188,7 @@ bool ext::openvr::initialize( int stage ) {
 						if ( DEBUG_MARKER ) std::cout << "Registered hook for haptic: " << ("VR:Haptics."+split.back()) << std::endl;
 						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](const std::string& event)->std::string{
 							uf::Serializer json = event;
-							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].asFloat(), json["duration"].asFloat(), json["frequency"].asFloat(), json["amplitude"].asFloat(), vr::k_ulInvalidInputValueHandle ) )
+							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].as<float>(), json["duration"].as<float>(), json["frequency"].as<float>(), json["amplitude"].as<float>(), vr::k_ulInvalidInputValueHandle ) )
 								return "false";
 							return "true";
 						});

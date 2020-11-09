@@ -2,12 +2,14 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/renderer/renderer.h>
+#include <regex>
 
-UF_OBJECT_REGISTER_BEGIN(Scene)
-	UF_OBJECT_REGISTER_BEHAVIOR(EntityBehavior)
-	UF_OBJECT_REGISTER_BEHAVIOR(ObjectBehavior)
-	UF_OBJECT_REGISTER_BEHAVIOR(SceneBehavior)
+UF_OBJECT_REGISTER_BEGIN(uf::Scene)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::SceneBehavior)
 UF_OBJECT_REGISTER_END()
+uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 uf::Entity& uf::Scene::getController() {
 	static uf::Entity* cachedController = NULL;
 	if ( uf::renderer::currentRenderMode ) {
@@ -35,16 +37,12 @@ const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
 	return scene.getController();
 }
-#include <regex>
 std::vector<uf::Scene*> uf::scene::scenes;
 uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
-	uf::Scene* scene;
-	if ( uf::instantiator::objects->has( name ) ) {
-		scene = (uf::Scene*) &uf::instantiator::instantiate( name );
-	} else {
-		scene = new uf::Scene;
-	}
-	uf::scene::scenes.push_back(scene);
+	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
+
+//	uf::scene::scenes.insert(uf::scene::scenes.begin(), scene);
+	uf::scene::scenes.emplace_back( scene );
 	
 	std::string target = name;
 	
@@ -60,13 +58,11 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& fil
 	return *scene;
 }
 uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& data ) {
-	uf::Scene* scene;
-	if ( uf::instantiator::objects->has( name ) ) {
-		scene = (uf::Scene*) &uf::instantiator::instantiate( name );
-	} else {
-		scene = new uf::Scene;
-	}
-	uf::scene::scenes.push_back(scene);
+	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
+
+//	uf::scene::scenes.insert(uf::scene::scenes.begin(), scene);
+	uf::scene::scenes.emplace_back( scene );
+
 	if ( data != "" ) scene->load(data);
 	scene->initialize();
 	return *scene;

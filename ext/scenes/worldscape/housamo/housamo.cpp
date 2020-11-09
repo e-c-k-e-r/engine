@@ -38,58 +38,58 @@ void ext::Housamo::initialize() {
 		*	"skin": "skin1"
 		},
 	*/
-	std::string id = metadata[""]["id"].asString();
-	uint64_t lv = !metadata[""]["level"].isNull() ? parseInt(metadata[""]["level"].asString()) : parseInt(metadata[""]["lv"].asString());
-	uint64_t sl = !metadata[""]["skill level"].isNull() ? parseInt(metadata[""]["skill level"].asString()) : parseInt(metadata[""]["sl"].asString());
-	uint64_t jingi = parseInt(metadata[""]["jingi"].asString());
-	uint64_t limit = parseInt(metadata[""]["limit"].asString());
-	uint64_t str = parseInt(metadata[""]["str"].asString());
-	uint64_t mag = parseInt(metadata[""]["mag"].asString());
-	uint64_t vit = parseInt(metadata[""]["vit"].asString());
-	uint64_t agi = parseInt(metadata[""]["agi"].asString());
-	 int64_t hp = metadata[""]["hp"].isNull() ? -1 : parseInt(metadata[""]["hp"].asString());
-	 int64_t mp = metadata[""]["mp"].isNull() ? -1 : parseInt(metadata[""]["mp"].asString());
+	std::string id = metadata[""]["id"].as<std::string>();
+	uint64_t lv = !ext::json::isNull( metadata[""]["level"] ) ? parseInt(metadata[""]["level"].as<std::string>()) : parseInt(metadata[""]["lv"].as<std::string>());
+	uint64_t sl = !ext::json::isNull( metadata[""]["skill level"] ) ? parseInt(metadata[""]["skill level"].as<std::string>()) : parseInt(metadata[""]["sl"].as<std::string>());
+	uint64_t jingi = parseInt(metadata[""]["jingi"].as<std::string>());
+	uint64_t limit = parseInt(metadata[""]["limit"].as<std::string>());
+	uint64_t str = parseInt(metadata[""]["str"].as<std::string>());
+	uint64_t mag = parseInt(metadata[""]["mag"].as<std::string>());
+	uint64_t vit = parseInt(metadata[""]["vit"].as<std::string>());
+	uint64_t agi = parseInt(metadata[""]["agi"].as<std::string>());
+	 int64_t hp = ext::json::isNull( metadata[""]["hp"] ) ? -1 : parseInt(metadata[""]["hp"].as<std::string>());
+	 int64_t mp = ext::json::isNull( metadata[""]["mp"] ) ? -1 : parseInt(metadata[""]["mp"].as<std::string>());
 	
 	std::vector<std::string> skills;
 	for ( auto i = 0; i < metadata[""]["skills"].size(); ++i ) {
-		skills.push_back(metadata[""]["skills"][i].asString());
+		skills.push_back(metadata[""]["skills"][i].as<std::string>());
 	}
 	uf::Serializer cardData = masterDataGet("Card",id);
 /*
 	{
-		uint64_t base = parseInt(cardData["base_hp"].asString());
-		uint64_t max = parseInt(cardData["max_hp"].asString());
-		uint64_t maxlv = parseInt(cardData["max_lv"].asString());
+		uint64_t base = parseInt(cardData["base_hp"].as<std::string>());
+		uint64_t max = parseInt(cardData["max_hp"].as<std::string>());
+		uint64_t maxlv = parseInt(cardData["max_lv"].as<std::string>());
 		max_hp += ( (max - base) * (lv - 1) / (maxlv - 1) ) + base;
 		max_hp /= 20.0f;
 	}
 	{
-		uint64_t base = parseInt(cardData["base_mp"].asString());
-		uint64_t max = parseInt(cardData["max_mp"].asString());
-		uint64_t maxlv = parseInt(cardData["max_lv"].asString());
+		uint64_t base = parseInt(cardData["base_mp"].as<std::string>());
+		uint64_t max = parseInt(cardData["max_mp"].as<std::string>());
+		uint64_t maxlv = parseInt(cardData["max_lv"].as<std::string>());
 		max_mp += ( (max - base) * (lv - 1) / (maxlv - 1) ) + base;
 	}
 */
 	{
 		float scale = 3.0f;
 		if ( str == 0 ) {
-			uint64_t base = parseInt(cardData["base_atk"].asString());
-			uint64_t max = parseInt(cardData["max_atk"].asString());
-			uint64_t maxlv = parseInt(cardData["max_lv"].asString());
+			uint64_t base = parseInt(cardData["base_atk"].as<std::string>());
+			uint64_t max = parseInt(cardData["max_atk"].as<std::string>());
+			uint64_t maxlv = parseInt(cardData["max_lv"].as<std::string>());
 			str = ( (max - base) * (lv - 1) / (maxlv - 1) ) + base;
 			str /= scale * 100.0f;
 		}
 		if ( mag == 0 ) {
-			uint64_t base = parseInt(cardData["base_atk"].asString());
-			uint64_t max = parseInt(cardData["max_atk"].asString());
-			uint64_t maxlv = parseInt(cardData["max_lv"].asString());
+			uint64_t base = parseInt(cardData["base_atk"].as<std::string>());
+			uint64_t max = parseInt(cardData["max_atk"].as<std::string>());
+			uint64_t maxlv = parseInt(cardData["max_lv"].as<std::string>());
 			mag = ( (max - base) * (lv - 1) / (maxlv - 1) ) + base;
 			mag /= scale * 100.0f;
 		}
 		if ( vit == 0 ) {
-			uint64_t base = parseInt(cardData["base_hp"].asString());
-			uint64_t max = parseInt(cardData["max_hp"].asString());
-			uint64_t maxlv = parseInt(cardData["max_lv"].asString());
+			uint64_t base = parseInt(cardData["base_hp"].as<std::string>());
+			uint64_t max = parseInt(cardData["max_hp"].as<std::string>());
+			uint64_t maxlv = parseInt(cardData["max_lv"].as<std::string>());
 			vit = ( (max - base) * (lv - 1) / (maxlv - 1) ) + base;
 			vit /= scale * 100.0f;
 		}
@@ -97,14 +97,14 @@ void ext::Housamo::initialize() {
 	uint64_t max_hp = (lv + vit) * 6;
 	uint64_t max_mp = (mag + lv) * 3;
 
-	if ( metadata[""]["max hp"].isNumeric() ) max_hp = parseInt(metadata[""]["max hp"].asString());
-	if ( metadata[""]["max mp"].isNumeric() ) max_mp = parseInt(metadata[""]["max mp"].asString());
+	if ( metadata[""]["max hp"].is<double>() ) max_hp = parseInt(metadata[""]["max hp"].as<std::string>());
+	if ( metadata[""]["max mp"].is<double>() ) max_mp = parseInt(metadata[""]["max mp"].as<std::string>());
 
 	if ( hp == -1 ) hp = max_hp;
 	if ( mp == -1 ) mp = max_mp;
 	if ( limit == 0 ) {
 		uint64_t baseL0 = 0;
-		switch ( parseInt(cardData["rarity"].asString() ) ) {
+		switch ( parseInt(cardData["rarity"].as<std::string>() ) ) {
 			case 1: baseL0 = 20; break;
 			case 2: baseL0 = 25; break;
 			case 3: baseL0 = 30; break;
@@ -119,9 +119,9 @@ void ext::Housamo::initialize() {
 	// populate skills based on masterdata
 	if ( skills.empty() ) {
 		for ( auto i = 0; i < cardData["skill_id"].size(); ++i ) {
-			int learn = cardData["skill_learn_lv"][i].asInt();
+			int learn = cardData["skill_learn_lv"][i].as<int>();
 			if ( lv < learn ) break;
-			skills.push_back(cardData["skill_id"][i].asString());
+			skills.push_back(cardData["skill_id"][i].as<std::string>());
 		}
 	}
 	

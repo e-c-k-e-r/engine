@@ -23,7 +23,7 @@
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
-EXT_BEHAVIOR_REGISTER_CPP(RayTracingSceneBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::RayTracingSceneBehavior)
 #define this ((uf::Scene*) &self)
 void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -33,12 +33,12 @@ void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
 		std::string name = "C:RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
-		if ( metadata["light"]["shadows"]["resolution"].isArray() ) {
-			renderMode.width = metadata["light"]["shadows"]["resolution"][0].asUInt64();
-			renderMode.height = metadata["light"]["shadows"]["resolution"][1].asUInt64();
+		if ( ext::json::isArray( metadata["light"]["shadows"]["resolution"] ) ) {
+			renderMode.width = metadata["light"]["shadows"]["resolution"][0].as<size_t>();
+			renderMode.height = metadata["light"]["shadows"]["resolution"][1].as<size_t>();
 		} else {
-			renderMode.width = metadata["light"]["shadows"]["resolution"].asUInt64();
-			renderMode.height = metadata["light"]["shadows"]["resolution"].asUInt64();
+			renderMode.width = metadata["light"]["shadows"]["resolution"].as<size_t>();
+			renderMode.height = metadata["light"]["shadows"]["resolution"].as<size_t>();
 		}
 		{
 			struct Shape {
@@ -118,11 +118,11 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 				float reflectionFalloff;
 			};
 			auto& pushConstant = shader.pushConstants.front().get<PushConstant>();
-			pushConstant.marchingSteps = metadata["rays"]["marching steps"].asUInt64();
-			pushConstant.rayBounces = metadata["rays"]["ray bounces"].asUInt64();
-			pushConstant.shadowFactor = metadata["rays"]["shadow factor"].asFloat();
-			pushConstant.reflectionStrength = metadata["rays"]["reflection"]["strength"].asFloat();
-			pushConstant.reflectionFalloff = metadata["rays"]["reflection"]["falloff"].asFloat();
+			pushConstant.marchingSteps = metadata["rays"]["marching steps"].as<size_t>();
+			pushConstant.rayBounces = metadata["rays"]["ray bounces"].as<size_t>();
+			pushConstant.shadowFactor = metadata["rays"]["shadow factor"].as<float>();
+			pushConstant.reflectionStrength = metadata["rays"]["reflection"]["strength"].as<float>();
+			pushConstant.reflectionFalloff = metadata["rays"]["reflection"]["falloff"].as<float>();
 
 			auto& scene = uf::scene::getCurrentScene();
 			auto& controller = scene.getController();
@@ -138,18 +138,18 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 			}
 
 			{
-				uniforms->ambient.x = metadata["light"]["ambient"][0].asFloat();
-				uniforms->ambient.y = metadata["light"]["ambient"][1].asFloat();
-				uniforms->ambient.z = metadata["light"]["ambient"][2].asFloat();
-				uniforms->ambient.w = metadata["light"]["kexp"].asFloat();
+				uniforms->ambient.x = metadata["light"]["ambient"][0].as<float>();
+				uniforms->ambient.y = metadata["light"]["ambient"][1].as<float>();
+				uniforms->ambient.z = metadata["light"]["ambient"][2].as<float>();
+				uniforms->ambient.w = metadata["light"]["kexp"].as<float>();
 			}
 			{
-				uniforms->fog.color.x = metadata["light"]["fog"]["color"][0].asFloat();
-				uniforms->fog.color.y = metadata["light"]["fog"]["color"][1].asFloat();
-				uniforms->fog.color.z = metadata["light"]["fog"]["color"][2].asFloat();
+				uniforms->fog.color.x = metadata["light"]["fog"]["color"][0].as<float>();
+				uniforms->fog.color.y = metadata["light"]["fog"]["color"][1].as<float>();
+				uniforms->fog.color.z = metadata["light"]["fog"]["color"][2].as<float>();
 				
-				uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].asFloat();
-				uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].asFloat();
+				uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].as<float>();
+				uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].as<float>();
 			}
 		
 			std::vector<uf::Entity*> entities;
@@ -171,7 +171,7 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 
 			{
 				uf::Serializer& metadata = controller.getComponent<uf::Serializer>();
-			//	if ( metadata["light"]["should"].asBool() )
+			//	if ( metadata["light"]["should"].as<bool>() )
 					entities.push_back(&controller);
 			}
 			UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &uniforms_buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
@@ -189,13 +189,13 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 
 				if ( entity == &controller ) light.position.y += 2;
 
-				light.position.w = metadata["light"]["radius"][1].asFloat();
+				light.position.w = metadata["light"]["radius"][1].as<float>();
 
-				light.color.x = metadata["light"]["color"][0].asFloat();
-				light.color.y = metadata["light"]["color"][1].asFloat();
-				light.color.z = metadata["light"]["color"][2].asFloat();
+				light.color.x = metadata["light"]["color"][0].as<float>();
+				light.color.y = metadata["light"]["color"][1].as<float>();
+				light.color.z = metadata["light"]["color"][2].as<float>();
 
-				light.color.w = metadata["light"]["power"].asFloat();
+				light.color.w = metadata["light"]["power"].as<float>();
 			}
 		
 			shader.updateBuffer( (void*) uniforms_buffer, uniforms_len, 0, false );

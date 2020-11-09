@@ -1,6 +1,48 @@
 #pragma once
 
-#define NAMESPACE_CONCAT
+#define TOKEN__PASTE(x, y) x ## y
+#define TOKEN_PASTE(x, y) TOKEN__PASTE(x, y)
+#define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
+
+#define UF_OBJECT_REGISTER_CPP( OBJ ) \
+namespace {\
+	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
+		uf::instantiator::registerObject<OBJ>( UF_NS_GET_LAST(OBJ) );\
+	});\
+}
+
+#define UF_BEHAVIOR_REGISTER_CPP( BEHAVIOR ) \
+namespace {\
+	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
+		uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );\
+	});\
+}
+
+#define UF_BEHAVIOR_REGISTER_AS_OBJECT( BEHAVIOR, OBJ )\
+namespace {\
+	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
+		uf::instantiator::registerBinding( UF_NS_GET_LAST(OBJ), UF_NS_GET_LAST(BEHAVIOR) );\
+	});\
+}
+
+#define UF_OBJECT_REGISTER_BEGIN( OBJ )\
+namespace {\
+	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
+		std::string name = UF_NS_GET_LAST(OBJ);\
+		uf::instantiator::registerObject<OBJ>( name );
+
+#define UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBinding( name, UF_NS_GET_LAST(BEHAVIOR) );
+
+#define UF_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
+		uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );\
+		UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )
+
+#define UF_OBJECT_REGISTER_END()\
+	});\
+}
+
+/*
 #define UF_OBJECT_REGISTER_CPP( OBJ ) \
 namespace {\
 	static uf::StaticInitialization REGISTER_UF_ ## OBJ( []{\
@@ -65,3 +107,4 @@ namespace {\
 #define EXT_OBJECT_REGISTER_END()\
 	});\
 }
+*/

@@ -48,6 +48,8 @@ namespace uf {
 
 		template<typename T> T& addComponent( const T& = T() );
 		template<typename T> void deleteComponent();
+
+		void destroyComponents();
 	};
 }
 

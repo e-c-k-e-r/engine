@@ -12,7 +12,7 @@
 #include <uf/utils/graphic/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
-UF_BEHAVIOR_REGISTER_CPP(LoadingBehavior)
+UF_BEHAVIOR_REGISTER_CPP(uf::LoadingBehavior)
 #define this (&self)
 void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -22,9 +22,9 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 		int portion = 1;
 		auto& total = metadata["system"]["load"]["total"];
 		auto& progress = metadata["system"]["load"]["progress"];
-		if ( json["uid"].isNull() ) return "false";
-		// progress = progress.asInt() + portion;
-		if ( progress.asInt() == total.asInt() ) {
+		if ( ext::json::isNull( json["uid"] ) ) return "false";
+		// progress = progress.as<int>() + portion;
+		if ( progress.as<int>() == total.as<int>() ) {
 			auto& parent = this->getParent().as<uf::Object>();
 			parent.callHook("asset:Parsed.%UID%");
 		}
@@ -81,16 +81,16 @@ void uf::LoadingBehavior::destroy( uf::Object& self ) {
 }
 void uf::LoadingBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["loaded"].asBool() ) return;
+	if ( metadata["system"]["loaded"].as<bool>() ) return;
 	size_t loading = 0;
 	size_t loaded = 1;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
 		auto& metadata = entity->getComponent<uf::Serializer>();
-		if ( metadata["system"]["load"]["ignore"].isBool() ) return;
-		if ( metadata["system"]["load"].isNull() ) return;
+		if ( metadata["system"]["load"]["ignore"].is<bool>() ) return;
+		if ( ext::json::isNull( metadata["system"]["load"] ) ) return;
 		++loading;
-		if ( metadata["system"]["load"]["progress"].asInt() < metadata["system"]["load"]["total"].asInt() ) return;
+		if ( metadata["system"]["load"]["progress"].as<int>() < metadata["system"]["load"]["total"].as<int>() ) return;
 		++loaded;
 	};
 	this->process(filter);
@@ -100,15 +100,15 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 	}
 /*
 	auto& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["system"]["loaded"].asBool() ) {
+	if ( !metadata["system"]["loaded"].as<bool>() ) {
 		size_t loading = 0;
 		size_t loaded = 0;
 		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 			if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
 			auto& metadata = entity->getComponent<uf::Serializer>();
-			if ( metadata["system"]["load"].isNull() ) return;
+			if ( ext::json::isNull( metadata["system"]["load"] ) ) return;
 			++loading;
-			if ( metadata["system"]["load"]["progress"].asFloat() < 1.0f ) return;
+			if ( metadata["system"]["load"]["progress"].as<float>() < 1.0f ) return;
 			++loaded;
 		};
 		this->process(filter);
@@ -117,7 +117,7 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 			this->callHook("system:Load.Finished.%UID%");
 		}
 		auto& metadata = this->getComponent<uf::Serializer>();
-		if ( metadata["system"]["load"]["progress"].asFloat() >= 1.0f ) {
+		if ( metadata["system"]["load"]["progress"].as<float>() >= 1.0f ) {
 			this->callHook("system:Load.Finished.%UID%");
 		}
 	}

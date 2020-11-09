@@ -10,28 +10,17 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/gltf/gltf.h>
 
-UF_BEHAVIOR_ENTITY_CPP_BEGIN(Object)
+UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
 	auto& metadata = this->getComponent<uf::Serializer>();
-/*	
-	size_t target = 0;
-	for ( int i = 0; i < metadata["system"]["assets"].size(); ++i ) {
-		std::string filename = metadata["system"]["assets"][i].isObject() ? metadata["system"]["assets"][i]["filename"].asString() : metadata["system"]["assets"][i].asString();
-		if ( uf::io::extension(filename) != "json" ) ++target;
-	}
-	if ( target > 0 ) {
-		metadata["system"]["load"]["progress"] = 0;
-		metadata["system"]["load"]["total"] = target;
-	}
-*/
 
 	// 
 	{
 		size_t assets = metadata["system"]["assets"].size();
-		if ( metadata["system"]["load"]["ignore"].isBool() ) assets = 0;
+		if ( metadata["system"]["load"]["ignore"].is<bool>() ) assets = 0;
 		metadata["system"]["load"]["progress"] = 0;
 		metadata["system"]["load"]["total"] = assets;
 		if ( assets == 0 )  {
@@ -42,11 +31,27 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	}
 
+	this->addHook( "object:UpdateMetadata.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		metadata.merge(json, true);
+		return "true";
+	/*
+		std::string keyString = match[1].str();
+		std::string valueString = match[2].str();
+		auto keys = uf::string::split(keyString, ".");
+		uf::Serializer value; value.deserialize(valueString);
+		Json::Value* traversal = &::config;
+		for ( auto& key : keys ) {
+			traversal = &((*traversal)[key]);
+		}
+		*traversal = value;
+	*/
+	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 		std::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
-		if ( json["single threaded"].asBool() ) {
+		if ( json["single threaded"].as<bool>() ) {
 			assetLoader.load( filename );
 			this->queueHook( callback, event );
 		} else {
@@ -62,8 +67,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});	
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
-		bool initialize = json["initialize"].isNull() ? true : json["initialize"].asBool();
+		std::string filename = json["filename"].as<std::string>();
+		bool initialize = ext::json::isNull( json["initialize"] ) ? true : json["initialize"].as<bool>();
 		
 		if ( uf::io::extension(filename) != "json" ) return "false";
 
@@ -84,8 +89,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		int portion = 1;
 		auto& total = metadata["system"]["load"]["total"];
 		auto& progress = metadata["system"]["load"]["progress"];
-		progress = progress.asInt() + portion;
-		if ( progress.asInt() == total.asInt() ) {
+		progress = progress.as<int>() + portion;
+		if ( progress.as<int>() == total.as<int>() ) {
 			auto& parent = this->getParent().as<uf::Object>();
 
 			uf::Serializer payload;
@@ -93,13 +98,13 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	/*
-		float portion = 1.0f / metadata["system"]["load"]["total"].asFloat();
+		float portion = 1.0f / metadata["system"]["load"]["total"].as<float>();
 		auto& progress = metadata["system"]["load"]["progress"];
-		progress = progress.asFloat() + portion;
+		progress = progress.as<float>() + portion;
 	*/
 	/*
-		if ( metadata["system"]["loaded"].asBool() ) return "false";
-		if ( progress.asFloat() >= 1.0f ) {
+		if ( metadata["system"]["loaded"].as<bool>() ) return "false";
+		if ( progress.as<float>() >= 1.0f ) {
 			this->queueHook("system:Load.Finished.%UID%");
 		}
 	*/
@@ -109,9 +114,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	for( Json::Value::iterator it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
-	 	std::string name = it.key().asString();
+	 	std::string name = it.key().as<std::string>();
 		for ( size_t i = 0; i < metadata["system"]["hooks"]["alloc"][name].size(); ++i ) {
-			size_t id = metadata["system"]["hooks"]["alloc"][name][(int) i].asUInt();
+			size_t id = metadata["system"]["hooks"]["alloc"][name][(int) i].as<size_t>();
 			uf::hooks.removeHook(name, id);
 		}
 	}
@@ -125,10 +130,10 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// listen for metadata file changes
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( metadata["system"]["hot reload"]["enabled"].asBool() ) {
-		size_t mtime = uf::io::mtime( metadata["system"]["source"].asString() );
-		if ( metadata["system"]["hot reload"]["mtime"].asUInt64() < mtime ) {
-			std::cout << "File reload detected: " << ": " << metadata["system"]["source"].asString() << ", " << metadata["system"]["hot reload"]["mtime"] << " -> " << mtime << std::endl;
+	if ( metadata["system"]["hot reload"]["enabled"].as<bool>() ) {
+		size_t mtime = uf::io::mtime( metadata["system"]["source"].as<std::string>() );
+		if ( metadata["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
+			std::cout << "File reload detected: " << ": " << metadata["system"]["source"].as<std::string>() << ", " << metadata["system"]["hot reload"]["mtime"] << " -> " << mtime << std::endl;
 			metadata["system"]["hot reload"]["mtime"] = mtime;
 			this->reload();
 			//this->queueHook("metadata:Reload.%UID%");
@@ -142,21 +147,21 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		uf::Serializer newQueue = Json::Value(Json::arrayValue);
 		for ( auto& member : metadata["system"]["hooks"]["queue"] ) {
 			uf::Serializer payload = member["payload"];
-			std::string name = member["name"].asString();
-			float timeout = member["timeout"].asFloat();
+			std::string name = member["name"].as<std::string>();
+			float timeout = member["timeout"].as<float>();
 			if ( timeout < curTime ) {
 				this->callHook( name, payload );
 			} else {
 				newQueue.append(member);
 			}
 		}
-		if ( metadata.isObject() ) metadata["system"]["hooks"]["queue"] = newQueue;
+		if ( ext::json::isObject( metadata ) ) metadata["system"]["hooks"]["queue"] = newQueue;
 	}
 }
 void uf::ObjectBehavior::render( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 /*
-	if ( metadata["system"]["type"].isNull() || metadata["system"]["defaults"]["render"].asBool() ) {
+	if ( ext::json::isNull( metadata["system"]["type"] ) || metadata["system"]["defaults"]["render"].as<bool>() ) {
 		if ( this->hasComponent<uf::Graphic>() ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& graphic = this->getComponent<uf::Graphic>();

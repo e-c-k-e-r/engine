@@ -51,22 +51,29 @@ void UF_API uf::userdata::destroy( pod::Userdata* userdata ) {
 */
 }
 
+size_t uf::userdata::size( size_t len, size_t padding ) {
+	padding = 0;
+	// return sizeof(pod::Userdata) + len + ( sizeof(uint8_t) * padding );
+	return sizeof(size_t) + len + ( sizeof(uint8_t) * padding );
+}
+
 //
 pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool, std::size_t len, void* data ) {
 	if ( len <= 0 ) return NULL;
+	size_t requestedLen = size( len );
 //	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : requestedMemoryPool;
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
-	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( data, sizeof(pod::Userdata) + len );
+	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( data, requestedLen );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
 	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
 	pod::Userdata* userdata = NULL;
 	if ( memoryPool )
-		userdata = (pod::Userdata*) memoryPool->alloc( data, sizeof(pod::Userdata) + len );
+		userdata = (pod::Userdata*) memoryPool->alloc( data, requestedLen );
 	else {
-		userdata = (pod::Userdata*) operator new( sizeof(pod::Userdata) + len ); 	// allocate data for the userdata struct, and then some
+		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some
 		if ( data ) memcpy( userdata->data, data, len );
 		else memset( userdata->data, 0, len );
 	}
@@ -75,7 +82,7 @@ pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool,
 	return userdata;
 /*
 	if ( uf::userdata::memoryPool.size() > 0 ) {
-		auto allocation = uf::userdata::memoryPool.allocate( NULL, sizeof(pod::Userdata) + len );
+		auto allocation = uf::userdata::memoryPool.allocate( NULL, requestedLen );
 		pod::Userdata* userdata = (pod::Userdata*) allocation.pointer;
 		if ( data ) memcpy( userdata->data, data, len );
 		else memset( userdata->data, 0, len );

@@ -125,20 +125,32 @@ bool uf::HookHandler::isAliasToOptimal( const Readable::alias_t::name_t& name ) 
 }
 
 // Calls a hook in either readable or optimal format (no argument is passed unless it's aliased)
-void uf::HookHandler::call( const Readable::name_t& name ) {
-	if ( !this->exists(name) ) return;
-	this->call(name, Readable::argument_t());
-	this->call(name, Optimal::argument_t());
+std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Readable::name_t& name ) {
+	struct {
+		std::vector<uf::HookHandler::Readable::return_t> readable;
+		std::vector<uf::HookHandler::Optimal::return_t> optimal;
+	} returns;
+	if ( !this->exists(name) ) return returns.readable;
+
+	returns.readable = this->call(name, Readable::argument_t());
+	returns.optimal = this->call(name, Optimal::argument_t());
+/*
+	if ( typeid(Readable::return_t) == typeid(Optimal::return_t) ) {
+		returns.readable.insert( returns.readable.end(), returns.optimal.begin(), returns.optimal.end() );
+	}
+*/
+	return returns.readable;
 }
 // Calls a hook in readable format
 std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Readable::name_t& name, const Readable::argument_t& argument ) {
-	std::vector<Readable::return_t> returns;
+	std::vector<uf::HookHandler::Readable::return_t> returns;
 	if ( !this->exists(name) ) return returns;
 	if ( !this->isReadable(name) ) {
 		if ( !this->isAliasToReadable(name) ) return returns;
 		auto& aliases = this->m_readable.aliases.at(name);
 		for ( auto& alias : aliases ) {
-			this->call( alias.name, (argument != "" ? argument : alias.argument) );
+			auto result = this->call( alias.name, (argument != "" ? argument : alias.argument) );
+			returns.insert( returns.end(), result.begin(), result.end() );
 		}
 		return returns;
 	}
@@ -155,36 +167,25 @@ std::vector<uf::HookHandler::Readable::return_t> uf::HookHandler::call( const Re
 	return returns;
 }
 // Calls a hook in optimal format
-void uf::HookHandler::call( const Optimal::name_t& name, const Optimal::argument_t& argument ) {
-	if ( !this->exists(name) ) return;
+std::vector<uf::HookHandler::Optimal::return_t> uf::HookHandler::call( const Optimal::name_t& name, const Optimal::argument_t& argument ) {
+	std::vector<uf::HookHandler::Optimal::return_t> returns;
+	if ( !this->exists(name) ) return returns;
 	if ( !this->isOptimal(name) ) {
-		if ( !this->isAliasToOptimal(name) ) return;
+		if ( !this->isAliasToOptimal(name) ) return returns;
 		auto& aliases = this->m_optimal.aliases.at(name);
 		for ( auto& alias : aliases ) {
-			this->call( alias.name, (argument ? argument : alias.argument) );
+			auto result = this->call( alias.name, (argument ? argument : alias.argument) );
+			returns.insert( returns.end(), result.begin(), result.end() );
 		}
-		return;
+		return returns;
 	}
 	
 	auto& hooks = this->m_optimal.hooks.at(name);
 	for ( auto& hook : hooks ) {
-		hook( argument );
-	/*
-		try {
-			hook( argument );
-		} catch ( std::exception& e ) {
-			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
-							<< "\twhat(): " << e.what() << "\n";
-		//	throw;
-		} catch ( bool handled ) {
-			if ( !handled ) throw;
-		} catch ( ... ) {
-			uf::iostream 	<< "ERROR: Exception thrown while calling hook `" << name << "`!" << "\n"
-							<< "\twhat(): " << "???" << "\n";
-		//	throw;
-		}
-	*/
+		auto result = hook( argument );
+		returns.push_back(result);
 	}
+	return returns;
 }
 /*
 

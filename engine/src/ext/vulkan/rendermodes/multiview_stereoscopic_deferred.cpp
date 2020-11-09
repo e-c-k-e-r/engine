@@ -121,7 +121,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 				uint32_t maxLights = 16;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
 
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
@@ -180,13 +180,13 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::createCommandBuffers(
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
 				if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-					if ( !metadata["system"]["renderer"]["clear values"][(int) clearValues.size()].isNull() ) {
+					if ( !ext::json::isNull( metadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
 						auto& v = metadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
 						clearValue.color = { {
-							v[0].asFloat(),
-							v[1].asFloat(),
-							v[2].asFloat(),
-							v[3].asFloat(),
+							v[0].as<float>(),
+							v[1].as<float>(),
+							v[2].as<float>(),
+							v[3].as<float>(),
 						} };
 					} else {
 						clearValue.color = { { 0, 0, 0, 0 } };

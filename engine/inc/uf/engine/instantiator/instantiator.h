@@ -3,6 +3,7 @@
 #include <uf/config.h>
 #include <uf/engine/entity/entity.h>
 #include <uf/utils/singletons/pre_main.h>
+#include <uf/utils/string/ext.h>
 #include <unordered_map>
 #include <typeindex>
 #include <functional>
@@ -47,6 +48,9 @@ namespace uf {
 		uf::Entity* UF_API alloc( size_t );
 		template<typename T> T* alloc();
 		void UF_API free( uf::Entity* );
+
+		uf::Entity* UF_API reuse( size_t );
+		size_t UF_API collect( uint8_t = 0 );
 
 		template<typename T> void registerObject( const std::string& name );
 		template<typename T> void registerBehavior( const std::string& name );

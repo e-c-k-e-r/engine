@@ -43,13 +43,13 @@ namespace {
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
-		std::string name = charaData["filename"].asString();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+		std::string name = charaData["filename"].as<std::string>();
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 
 		std::cout << url << std::endl;
 
-		if ( charaData["internal"].asBool() ) {
+		if ( charaData["internal"].as<bool>() ) {
 			url = "./data/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
@@ -64,7 +64,7 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].asString();
+		std::string id = metadata[""]["id"].as<std::string>();
 		playSound( entity, id, key );
 	}
 	void playSound( ext::DialogueManager& entity, const std::string& key ) {
@@ -107,7 +107,7 @@ void ext::DialogueManager::initialize() {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -115,7 +115,7 @@ void ext::DialogueManager::initialize() {
 		if ( voice.playing() ) voice.stop();
 		voice = uf::Audio();
 		voice.load(filename);
-		voice.setVolume(masterdata["volumes"]["voice"].asFloat());
+		voice.setVolume(masterdata["volumes"]["voice"].as<float>());
 		voice.play();
 
 		return "true";
@@ -126,7 +126,7 @@ void ext::DialogueManager::initialize() {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -134,24 +134,24 @@ void ext::DialogueManager::initialize() {
 		if ( sfx.playing() ) sfx.stop();
 		sfx = uf::Audio();
 		sfx.load(filename);
-		sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+		sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 		sfx.play();
 
 		return "true";
 	});
 	this->addHook( "asset:Music.Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		if ( json["music"].isString() ) playMusic(*this, json["music"].asString());
+		if ( json["music"].is<std::string>() ) playMusic(*this, json["music"].as<std::string>());
 		return "true";
 	});
 	this->addHook( "asset:Sfx.Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		if ( json["sfx"].isString() ) playSound(*this, json["sfx"].asString());
+		if ( json["sfx"].is<std::string>() ) playSound(*this, json["sfx"].as<std::string>());
 		return "true";
 	});
 	this->addHook( "asset:Voice.Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		if ( json["voice"].isObject() ) playSound(*this, json["voice"]["id"].asString(), json["voice"]["key"].asString());
+		if ( ext::json::isObject( json["voice"] ) ) playSound(*this, json["voice"]["id"].as<std::string>(), json["voice"]["key"].as<std::string>());
 		return "true";
 	});
 
@@ -196,7 +196,7 @@ void ext::DialogueManager::initialize() {
 		std::string hookName = "";
 		uf::Serializer payload;
 
-		std::string action = json["action"].asString();
+		std::string action = json["action"].as<std::string>();
 		
 		if ( action == "dialogue-select" ) {
 			payload = json;
@@ -217,32 +217,32 @@ void ext::DialogueManager::initialize() {
 		uf::Serializer json = event;
 
 		uf::Serializer payload;
-		std::string index = json["index"].asString();
+		std::string index = json["index"].as<std::string>();
 		uf::Serializer part = metadata["dialogue"][index];
-		if ( part["quit"].asBool() ) return this->callHook("menu:Dialogue.End.%UID%")[0];
+		if ( part["quit"].as<bool>() ) return this->callHook("menu:Dialogue.End.%UID%")[0];
 		payload["message"] = part["message"];
 		payload["actions"] = part["actions"];
-		if ( part["music"].isString() ) {
+		if ( part["music"].is<std::string>() ) {
 			uf::Serializer pload;
 			pload["music"] =  part["music"];
 			this->queueHook( "asset:Music.Load.%UID%", pload );
 		}
-		if ( part["sfx"].isString() ) {
+		if ( part["sfx"].is<std::string>() ) {
 			uf::Serializer pload;
 			pload["sfx"] =  part["sfx"];
 			this->queueHook( "asset:Sfx.Load.%UID%", pload );
 		}
-		if ( part["voice"].isObject() ) {
+		if ( ext::json::isObject( part["voice"] ) ) {
 			uf::Serializer pload;
 			pload["voice"] =  part["voice"];
 			this->queueHook( "asset:Voice.Load.%UID%", pload );
 		}
-		if ( part["hook"].isObject() ) {
+		if ( ext::json::isObject( part["hook"] ) ) {
 			part["hooks"].append( part["hook"] );
 		}
 		for ( auto hook : part["hooks"] ) {
 			hook["payload"]["uid"] = metadata["uid"];
-			this->queueHook( hook["name"].asString(), uf::Serializer{hook["payload"]}, hook["timeout"].asFloat() );
+			this->queueHook( hook["name"].as<std::string>(), uf::Serializer{hook["payload"]}, hook["timeout"].as<float>() );
 		}
 		return payload;
 	});

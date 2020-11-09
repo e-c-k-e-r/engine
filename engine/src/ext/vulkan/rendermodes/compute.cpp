@@ -50,7 +50,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 				uint32_t eyes = 2;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
 			specializationConstants->eyes = ext::openvr::context ? 2 : 1;
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 ) {

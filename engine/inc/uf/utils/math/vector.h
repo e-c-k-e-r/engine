@@ -128,9 +128,11 @@ namespace pod {
 // 	POD vector accessing/manipulation
 namespace uf {
 	namespace vector {
+		template<typename T> pod::Vector1t<T> /*UF_API*/ create( T x );
 		template<typename T> pod::Vector2t<T> /*UF_API*/ create( T x, T y );
 		template<typename T> pod::Vector3t<T> /*UF_API*/ create( T x, T y, T z );
 		template<typename T> pod::Vector4t<T> /*UF_API*/ create( T x, T y, T z, T w );
+		template<typename T, size_t N> pod::Vector<T, N> /*UF_API*/ copy( const pod::Vector<T, N>& = {});
 	// 	Equality checking
 		template<typename T> std::size_t /*UF_API*/ compareTo( const T& left, const T& right ); 			// 	Equality check between two vectors (less than)
 		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two vectors (equals)

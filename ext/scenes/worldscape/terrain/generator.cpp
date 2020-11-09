@@ -89,23 +89,23 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 /*
 	COLOR ambientLight = uint16ToColor(AMBIENT_LIGHT); {
 		uf::Serializer& tMetadata = region.getComponent<uf::Serializer>();
-		ambientLight.r *= tMetadata["region"]["light"]["ambient"][0].asFloat();
-		ambientLight.g *= tMetadata["region"]["light"]["ambient"][1].asFloat();
-		ambientLight.b *= tMetadata["region"]["light"]["ambient"][2].asFloat();
+		ambientLight.r *= tMetadata["region"]["light"]["ambient"][0].as<float>();
+		ambientLight.g *= tMetadata["region"]["light"]["ambient"][1].as<float>();
+		ambientLight.b *= tMetadata["region"]["light"]["ambient"][2].as<float>();
 	}
 */
-	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].asString();
+	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].as<std::string>();
 	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
 	if ( uf::io::exists( filename ) ) {
 		uf::Serializer save; save.readFromFile(filename);
 
 		// ID
-		if ( save["voxels"]["id"]["base64"].isString() ) {
-			std::string base64 = save["voxels"]["id"]["base64"].asString();
+		if ( save["voxels"]["id"]["base64"].is<std::string>() ) {
+			std::string base64 = save["voxels"]["id"]["base64"].as<std::string>();
 			auto raw = uf::base64::decode( base64 );
 
-			if ( save["voxels"]["id"]["rle"].asBool() ) {
+			if ( save["voxels"]["id"]["rle"].as<bool>() ) {
 				// [uint8_t]*4 -> [uint16_t, uint16_t]
 				this->m_voxels.id.rle.resize( raw.size() / ( sizeof(pod::RLE<ext::TerrainVoxel::uid_t>::length_t) + sizeof(pod::RLE<ext::TerrainVoxel::uid_t>::value_t) ) );
 				memcpy( &this->m_voxels.id.rle[0], &raw[0], raw.size() );
@@ -113,15 +113,15 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 			} else {
 
 			}
-			this->m_voxels.id.swizzle = (TerrainGenerator::Swizzle) save["voxels"]["id"]["swizzle"].asUInt64();
+			this->m_voxels.id.swizzle = (TerrainGenerator::Swizzle) save["voxels"]["id"]["swizzle"].as<size_t>();
 			this->unwrapVoxel();
 		}
 		// Lighting
-		if ( save["voxels"]["lighting"]["base64"].isString() ) {
-			std::string base64 = save["voxels"]["lighting"]["base64"].asString();
+		if ( save["voxels"]["lighting"]["base64"].is<std::string>() ) {
+			std::string base64 = save["voxels"]["lighting"]["base64"].as<std::string>();
 			auto raw = uf::base64::decode( base64 );
 
-			if ( save["voxels"]["lighting"]["rle"].asBool() ) {
+			if ( save["voxels"]["lighting"]["rle"].as<bool>() ) {
 				// [uint8_t]*4 -> [uint8_t, uint8_t]
 				this->m_voxels.lighting.rle.resize( raw.size() / ( sizeof(pod::RLE<ext::TerrainVoxel::light_t>::length_t) + sizeof(pod::RLE<ext::TerrainVoxel::light_t>::value_t) ) );
 				memcpy( &this->m_voxels.lighting.rle[0], &raw[0], raw.size() );
@@ -129,7 +129,7 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 			} else {
 
 			}
-			this->m_voxels.lighting.swizzle = (TerrainGenerator::Swizzle) save["voxels"]["lighting"]["swizzle"].asUInt64();
+			this->m_voxels.lighting.swizzle = (TerrainGenerator::Swizzle) save["voxels"]["lighting"]["swizzle"].as<size_t>();
 			this->unwrapLight();
 		}
 	// load failed / new region
@@ -329,13 +329,13 @@ void ext::TerrainGenerator::writeToFile() {
 	this->wrapLight();
 
 	uf::Serializer serializer;
-	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].asString() : "UNKNOWN";
+	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].as<std::string>() : "UNKNOWN";
 	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
 	{
 		// encode as base64, json safe
 		serializer["voxels"]["id"]["base64"] = uf::base64::encode( this->m_voxels.id.rle );
 		// hash of raw data for data integrity
-		serializer["voxels"]["id"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["id"]["rle"]["base64"].asString()) );
+		serializer["voxels"]["id"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["id"]["rle"]["base64"].as<std::string>()) );
 		serializer["voxels"]["id"]["rle"] = true;
 		serializer["voxels"]["id"]["swizzle"] = this->m_voxels.id.swizzle;
 	}
@@ -343,7 +343,7 @@ void ext::TerrainGenerator::writeToFile() {
 		// encode as base64, json safe
 		serializer["voxels"]["lighting"]["base64"] = uf::base64::encode( this->m_voxels.lighting.rle );
 		// hash of raw data for data integrity
-		serializer["voxels"]["lighting"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["lighting"]["rle"]["base64"].asString()) );
+		serializer["voxels"]["lighting"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["lighting"]["rle"]["base64"].as<std::string>()) );
 		serializer["voxels"]["lighting"]["rle"] = true;
 		serializer["voxels"]["lighting"]["swizzle"] = this->m_voxels.lighting.swizzle;
 	}
@@ -1321,9 +1321,9 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 	ext::TerrainVoxel::light_t ambientLight = AMBIENT_LIGHT; {
 		const uf::Serializer& tMetadata = region.getComponent<uf::Serializer>();
 		COLOR color = uint16ToColor( ambientLight );
-		color.r *= tMetadata["region"]["light"]["ambient"][0].asFloat();
-		color.g *= tMetadata["region"]["light"]["ambient"][1].asFloat();
-		color.b *= tMetadata["region"]["light"]["ambient"][2].asFloat();
+		color.r *= tMetadata["region"]["light"]["ambient"][0].as<float>();
+		color.g *= tMetadata["region"]["light"]["ambient"][1].as<float>();
+		color.b *= tMetadata["region"]["light"]["ambient"][2].as<float>();
 		ambientLight = colorToUint16( color );
 	}
 	pod::Matrix4f modelMatrix = uf::transform::model( transform );

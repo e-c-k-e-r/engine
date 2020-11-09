@@ -15,15 +15,29 @@ std::string UF_API uf::string::uppercase( const std::string& str ) {
 	std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
 	return upper;
 }
-std::vector<std::string> UF_API uf::string::split( const std::string& haystack, const std::string& needle ) {
+#include <iostream>
+std::vector<std::string> UF_API uf::string::split( const std::string& str, const std::string& delim ) {
+	std::vector<std::string> tokens;
+	size_t prev = 0, pos = 0;
+	do {
+		pos = str.find(delim, prev);
+		if (pos == std::string::npos) pos = str.length();
+		std::string token = str.substr(prev, pos-prev);
+		if (!token.empty()) tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	if ( tokens.empty() ) tokens.emplace_back(str);
+    return tokens;
+/*
 	std::vector<std::string> cont;
 	size_t last = 0, next = 0;
-	while ((next = haystack.find(needle, last)) != std::string::npos) {
-		cont.push_back(haystack.substr(last, next-last));
+	while ((next = str.find(needle, last)) != std::string::npos) {
+		cont.push_back(str.substr(last, next-last));
 		last = next + 1;
 	}
-	cont.push_back( haystack.substr(last) );
+	cont.push_back( str.substr(last) );
 	return cont;
+*/
 }
 std::string UF_API uf::string::replace( const std::string& string, const std::string& search, const std::string& replace ) {
 	std::string result = string;

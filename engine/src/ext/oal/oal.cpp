@@ -70,7 +70,7 @@ void UF_API_CALL ext::AL::listener( ALenum name, std::vector<ALfloat> parameters
 		case 3: alListener3f( name, parameters[0], parameters[1], parameters[2] ); break;
 		default: alListenerfv( name, &parameters[0] ); break;
 	}
-	ext::oal.checkError(__FUNCTION__, __LINE__);
+	AL_CHECK_ERROR();
 }
 void UF_API_CALL ext::AL::listener( const std::string string, std::vector<ALfloat> parameters ) {
 	if ( string == "GAIN" ) return this->listener( AL_GAIN, parameters );
@@ -90,12 +90,13 @@ ext::al::Source::~Source() {
 
 void UF_API_CALL ext::al::Source::generate() {
 	if ( this->m_index ) this->destroy();
-	alGenSources(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
+	AL_CHECK_ERROR(alGenSources(1, &this->m_index));
 }
 void UF_API_CALL ext::al::Source::destroy() {
 	if ( this->m_index && alIsSource(this->m_index) ) {
 		if ( this->playing() ) this->stop();
-		alDeleteSources(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
+		AL_CHECK_ERROR(alSourcei(this->m_index, AL_BUFFER, 0));
+		AL_CHECK_ERROR(alDeleteSources(1, &this->m_index));
 	}
 	this->m_index = 0;
 }
@@ -109,7 +110,8 @@ void UF_API_CALL ext::al::Source::source( ALenum name, std::vector<ALfloat> para
 		case 3: alSource3f( this->m_index, name, parameters[0], parameters[1], parameters[2] ); break;
 		default: alSourcefv( this->m_index, name, &parameters[0] ); break;
 	}
-	ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(name));
+	AL_CHECK_ERROR();
+	//ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(name));
 }
 void UF_API_CALL ext::al::Source::source( const std::string string, std::vector<ALfloat> parameters ) {
 	// alSourcef
@@ -137,7 +139,7 @@ void UF_API_CALL ext::al::Source::source( ALenum name, std::vector<ALint> parame
 		case 3: alSource3i( this->m_index, name, parameters[0], parameters[1], parameters[2] ); break;
 		default: alSourceiv( this->m_index, name, &parameters[0] ); break;
 	}
-	ext::oal.checkError(__FUNCTION__, __LINE__);
+	AL_CHECK_ERROR();
 }
 void UF_API_CALL ext::al::Source::source( const std::string string, std::vector<ALint> parameters ) {
 	// alSourcei
@@ -154,13 +156,14 @@ void UF_API_CALL ext::al::Source::source( const std::string string, std::vector<
 	if ( string == "DIRECTION" ) return this->source( AL_DIRECTION, parameters );
 }
 void UF_API_CALL ext::al::Source::play() {
-	alSourcePlay(this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(this->m_index));
+	AL_CHECK_ERROR(alSourcePlay(this->m_index));
 }
 void UF_API_CALL ext::al::Source::stop() {
-	alSourceStop(this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(this->m_index));
+	AL_CHECK_ERROR(alSourceStop(this->m_index));
 }
 bool UF_API_CALL ext::al::Source::playing() {
-	ALCenum state; alGetSourcei(this->m_index, AL_SOURCE_STATE, &state);
+	ALCenum state;
+	AL_CHECK_ERROR(alGetSourcei(this->m_index, AL_SOURCE_STATE, &state));
 	return state == AL_PLAYING;
 }
 
@@ -173,11 +176,11 @@ ext::al::Buffer::~Buffer() {
 
 void UF_API_CALL ext::al::Buffer::generate() {
 	if ( this->m_index ) this->destroy();
-	alGenBuffers(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
+	AL_CHECK_ERROR(alGenBuffers(1, &this->m_index));
 }
 void UF_API_CALL ext::al::Buffer::destroy() {
 	if ( this->m_index && alIsBuffer(this->m_index) ) {
-		alDeleteBuffers(1, &this->m_index); ext::oal.checkError(__FUNCTION__, __LINE__);
+		AL_CHECK_ERROR(alDeleteBuffers(1, &this->m_index));
 	}
 	this->m_index = 0;
 }
@@ -186,7 +189,7 @@ ALuint UF_API_CALL ext::al::Buffer::getIndex() const { return this->m_index; }
 
 void UF_API_CALL ext::al::Buffer::buffer(ALenum format, const ALvoid* data, ALsizei size, ALsizei frequency) {
 	if ( !this->m_index ) this->generate();
-	alBufferData(this->m_index, format, data, size, frequency); ext::oal.checkError(__FUNCTION__, __LINE__, std::to_string(format) + " @ " + std::to_string(size) + " @ " + std::to_string(frequency));
+	AL_CHECK_ERROR(alBufferData(this->m_index, format, data, size, frequency));
 }
 
 

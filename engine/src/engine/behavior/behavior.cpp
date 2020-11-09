@@ -24,6 +24,8 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	if ( it != this->m_behaviors.end() ) this->m_behaviors.erase(it);
 }
 
+#define FUNCTION_AS_VARIABLE(x) x
+
 #define UF_BEHAVIOR_POLYFILL(f)\
 	uf::Object& self = *((uf::Object*) this);\
 	bool headLoopChildren = true;\
@@ -31,12 +33,12 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	bool multithreading = false;\
 	if ( this->hasComponent<uf::Serializer>() ) {\
 		auto& metadata = this->getComponent<uf::Serializer>();\
-		if ( !metadata["system"]["behavior"][#f]["head loop children"].isNull() )\
-			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].asBool();\
-		if ( !metadata["system"]["behavior"][#f]["forward iteration"].isNull() )\
-			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].asBool();\
-		if ( !metadata["system"]["behavior"][#f]["multithreading"].isNull() )\
-			multithreading = metadata["system"]["behavior"][#f]["multithreading"].asBool();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
+			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].as<bool>();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["forward iteration"] ) )\
+			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
+			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
 	}\
 	auto function = [&]() -> int {\
 		if ( headLoopChildren ) {\
@@ -48,16 +50,18 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 					it->f(self);\
 		} else {\
 			if ( forwardIteration ) {\
-				for ( auto it = this->m_behaviors.begin() + 1; it != this->m_behaviors.end(); ++it )\
+				auto it = this->m_behaviors.begin();\
+				for ( ++it; it != this->m_behaviors.end(); ++it )\
 					it->f(self);\
-				if ( this->m_behaviors.begin() != this->m_behaviors.end() ) {\
-					this->m_behaviors.begin()->f(self);\
+				if ( (it = this->m_behaviors.begin()) != this->m_behaviors.end() ) {\
+					it->f(self);\
 				}\
 			} else {\
-				for ( auto it = this->m_behaviors.rbegin() + 1; it != this->m_behaviors.rend(); ++it )\
+				auto it = this->m_behaviors.rbegin();\
+				for ( ++it; it != this->m_behaviors.rend(); ++it )\
 					it->f(self);\
-				if ( this->m_behaviors.rbegin() != this->m_behaviors.rend() ) {\
-					this->m_behaviors.rbegin()->f(self);\
+				if ( (it = this->m_behaviors.rbegin()) != this->m_behaviors.rend() ) {\
+					it->f(self);\
 				}\
 			}\
 		}\
@@ -66,24 +70,25 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();
 
 #define UF_BEHAVIOR_POLYFILL_FAST(f)\
+	if ( this->m_behaviors.empty() ) return;\
 	uf::Object& self = *((uf::Object*) this);\
 	bool headLoopChildren = true;\
 	bool forwardIteration = true;\
 	bool multithreading = false;\
 	if ( this->hasComponent<uf::Serializer>() ) {\
 		auto& metadata = this->getComponent<uf::Serializer>();\
-		if ( !metadata["system"]["behavior"][#f]["head loop children"].isNull() )\
-			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].asBool();\
-		if ( !metadata["system"]["behavior"][#f]["forward iteration"].isNull() )\
-			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].asBool();\
-		if ( !metadata["system"]["behavior"][#f]["multithreading"].isNull() )\
-			multithreading = metadata["system"]["behavior"][#f]["multithreading"].asBool();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
+			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].as<bool>();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["forward iteration"] ) )\
+			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
+			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
 	}\
 	if ( headLoopChildren ) {\
 		if ( forwardIteration ) {\
 			auto it = this->m_behaviors.begin();\
 			if ( it != this->m_behaviors.end() ) {\
-				this->m_behaviors.begin()->f(self);\
+				it->f(self);\
 			}\
 			for ( ++it; it != this->m_behaviors.end(); ++it ) {\
 				auto function = [&]() -> int {\
@@ -95,7 +100,7 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 		} else {\
 			auto it = this->m_behaviors.rbegin();\
 			if ( it != this->m_behaviors.rend() ) {\
-				this->m_behaviors.rbegin()->f(self);\
+				it->f(self);\
 			}\
 			for ( ++it; it != this->m_behaviors.rend(); ++it ) {\
 				auto function = [&]() -> int {\
@@ -107,26 +112,28 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 		}\
 	} else {\
 		if ( forwardIteration ) {\
-			for ( auto it = this->m_behaviors.begin() + 1; it != this->m_behaviors.end(); ++it ) {\
+			auto it = this->m_behaviors.begin();\
+			for ( ++it; it != this->m_behaviors.end(); ++it ) {\
 				auto function = [&]() -> int {\
 					it->f(self);\
 					return 0;\
 				};\
 				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
 			}\
-			if ( this->m_behaviors.begin() != this->m_behaviors.end() ) {\
-				this->m_behaviors.begin()->f(self);\
+			if ( (it = this->m_behaviors.begin()) != this->m_behaviors.end() ) {\
+				it->f(self);\
 			}\
 		} else {\
-			for ( auto it = this->m_behaviors.rbegin() + 1; it != this->m_behaviors.rend(); ++it ) {\
+			auto it = this->m_behaviors.rbegin();\
+			for ( ++it; it != this->m_behaviors.rend(); ++it ) {\
 				auto function = [&]() -> int {\
 					it->f(self);\
 					return 0;\
 				};\
 				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
 			}\
-			if ( this->m_behaviors.rbegin() != this->m_behaviors.rend() ) {\
-				this->m_behaviors.rbegin()->f(self);\
+			if ( (it = this->m_behaviors.rbegin()) != this->m_behaviors.rend() ) {\
+				it->f(self);\
 			}\
 		}\
 	}

@@ -1,5 +1,5 @@
-DEFAULT_PREFIX			= gcc
-include makefiles/win64.$(DEFAULT_PREFIX).make
+PREFIX					= gcc
+include makefiles/win64.$(PREFIX).make
 
  .PHONY: $(ARCH)-$(PREFIX)
 
@@ -15,15 +15,15 @@ CLIENT_SRC_DIR 			+= ./client
 
 UF_LIBS 				+= 
 EXT_LIBS 				+=
-FLAGS 				  	+= -std=c++17 -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
+FLAGS 				  	+= -Wno-unknown-pragmas -std=c++17 -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
 LIB_NAME 				+= uf
 EXT_LIB_NAME 			+= ext
 
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.101.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.108.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.114.0/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.141.2/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.141.2/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
@@ -41,13 +41,12 @@ SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
 IM_DLL 					+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll.a
-EX_DLL 					+= $(BIN_DIR)/lib/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll
+EX_DLL 					+= $(BIN_DIR)/exe/lib/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll
 # External Engine's DLL
 EXT_INC_DIR 			+= $(INC_DIR)
 EXT_LB_FLAGS 			+= $(LIB_DIR)
 EXT_DEPS 				+= -l$(LIB_NAME) $(DEPS)
 EXT_LINKS 				+= $(UF_LIBS) $(EXT_LIBS) $(EXT_DEPS)
-EXT_FLAGS 				+= $(FLAGS) 
 #-Wl,-subsystem,windows
 
 EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/
@@ -58,11 +57,11 @@ SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/
 OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL))
 BASE_EXT_DLL 			+= lib$(EXT_LIB_NAME)
 EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll.a
-EXT_EX_DLL 				+= $(BIN_DIR)/lib/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll
+EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll
 # Client EXE
 SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
 OBJS 					+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
-TARGET 					+= $(BIN_DIR)/$(TARGET_NAME).$(PREFIX).exe
+TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX).exe
 # Shaders
 SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl)
 TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
@@ -78,12 +77,12 @@ rm-exe64:
 %.$(ARCH).$(PREFIX).o: %.cpp
 	$(CC) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_DLL): FLAGS += -DUF_EXPORTS
+$(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
 $(EX_DLL): $(OBJS_DLL) 
 	$(CC) -shared -o $(EX_DLL) -g -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).dll.a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).a
 
-$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS
+$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS -DJSON_DLL_BUILD
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
 	$(CC) -shared -o $(EXT_EX_DLL) -g -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).dll.a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).a

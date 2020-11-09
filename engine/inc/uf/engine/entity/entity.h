@@ -14,8 +14,10 @@ namespace uf {
 	friend class EntityBehavior;
 	public:
 		typedef std::vector<uf::Entity*> container_t;
-	protected:
 		static uf::Entity null;
+		static bool deleteChildrenOnDestroy;
+		static bool deleteComponentsOnDestroy;
+	protected:
 		static std::size_t uids;
 
 		uf::Entity* m_parent = NULL;

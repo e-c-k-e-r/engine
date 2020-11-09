@@ -23080,6 +23080,13 @@ namespace sol {
 		}
 
 		template <typename T>
+		bool is() const {
+			typedef decltype(get<T>()) U;
+			optional<U> option = get<optional<U>>();
+			return option;
+		}
+
+		template <typename T>
 		decltype(auto) get_or(T&& otherwise) const {
 			typedef decltype(get<T>()) U;
 			optional<U> option = get<optional<U>>();
@@ -23194,6 +23201,24 @@ namespace sol {
 				this->set(new_table());
 			}
 			return *this;
+		}
+
+		// added by me
+		template<typename T>
+		inline decltype(auto) as() const& {
+			return get<T>();
+		}
+
+		template<typename T>
+		inline decltype(auto) as() && {
+			return get<T>();
+		}
+
+		inline decltype(auto) begin() {
+			return get<sol::table>().begin();
+		}
+		inline decltype(auto) end() {
+			return get<sol::table>().end();
 		}
 	};
 

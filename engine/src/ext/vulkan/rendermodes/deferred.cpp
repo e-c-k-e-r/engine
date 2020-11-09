@@ -34,10 +34,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		} attachments;
 
 		attachments.albedo = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
-		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // normals
+		attachments.normals = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
 		if ( !settings::experimental::deferredReconstructPosition )
-			attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // position
-		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, true ); // depth
+			attachments.position = renderTarget.attach( VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
+		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
 
 	//	attachments.ping = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
 	//	attachments.pong = renderTarget.attach( VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ); // albedo
@@ -144,7 +144,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				uint32_t maxLights = 16;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].asUInt64();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
 					binding.descriptorCount = specializationConstants->maxLights;
@@ -152,8 +152,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*
 			std::vector<pod::Vector4f> palette;
 			// size of palette
-			if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].isNumeric() ) {
-				size_t size = metadata["system"]["config"]["engine"]["scenes"]["palette"].asUInt64();
+			if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].is<double>() ) {
+				size_t size = metadata["system"]["config"]["engine"]["scenes"]["palette"].as<size_t>();
 				for ( size_t x = 0; x < size; ++x ) {
 					palette.push_back(pod::Vector4f{
 						(128.0f + 128.0f * sin(3.1415f * x / 16.0f)) / 256.0f,
@@ -163,14 +163,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					});
 				}
 			// palette array
-			} else if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].isArray() ) {
+			} else if ( ext::json::isArray( metadata["system"]["config"]["engine"]["scenes"]["palette"] ) ) {
 				for ( int i = 0; i < metadata["system"]["config"]["engine"]["scenes"]["palette"].size(); ++i ) {
 					auto& color = palette.emplace_back();
 					palette.push_back(pod::Vector4f{
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][0].asFloat(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][1].asFloat(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][2].asFloat(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][3].asFloat(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][0].as<float>(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][1].as<float>(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][2].as<float>(),
+						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][3].as<float>(),
 					});
 				}
 			}
@@ -234,13 +234,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
 				if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-					if ( !metadata["system"]["renderer"]["clear values"][(int) clearValues.size()].isNull() ) {
+					if ( !ext::json::isNull( metadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
 						auto& v = metadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
 						clearValue.color = { {
-							v[0].asFloat(),
-							v[1].asFloat(),
-							v[2].asFloat(),
-							v[3].asFloat(),
+							v[0].as<float>(),
+							v[1].as<float>(),
+							v[2].as<float>(),
+							v[3].as<float>(),
 						} };
 					} else {
 						clearValue.color = { { 0, 0, 0, 0 } };

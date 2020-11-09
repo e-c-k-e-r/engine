@@ -43,12 +43,12 @@ namespace {
 		std::string callback;
 		std::string type;
 	};
-	std::queue<Job> jobs;
 }
 
-uf::Entity uf::Asset::masterAssetLoader;
+uf::Asset uf::Asset::masterAssetLoader;
 
 void uf::Asset::processQueue() {
+	auto& jobs = this->getComponent<std::queue<Job>>();
 	mutex.lock();
 	while ( !jobs.empty() ) {
 		auto job = jobs.front();
@@ -70,11 +70,13 @@ void uf::Asset::processQueue() {
 }
 void uf::Asset::cache( const std::string& uri, const std::string& callback ) {
 	mutex.lock();
+	auto& jobs = this->getComponent<std::queue<Job>>();
 	jobs.push({ uri, callback, "cache" });
 	mutex.unlock();
 }
 void uf::Asset::load( const std::string& uri, const std::string& callback ) {
 	mutex.lock();
+	auto& jobs = this->getComponent<std::queue<Job>>();
 	jobs.push({ uri, callback, "load" });
 	mutex.unlock();
 }
@@ -114,14 +116,16 @@ std::string uf::Asset::load( const std::string& uri ) {
 	}
 	#define UF_ASSET_REGISTER(type)\
 		auto& container = this->getContainer<type>();\
-		if ( !map[extension][uri].isNull() ) return filename;\
-		if ( !map[extension][filename].isNull() ) return filename;\
+		if ( !ext::json::isNull( map[extension][uri] ) ) return filename;\
+		if ( !ext::json::isNull( map[extension][filename] ) ) return filename;\
 		map[extension][uri] = container.size();\
 		map[extension][filename] = container.size();\
 		type& asset = container.emplace_back();
 
+//	auto& scene = uf::scene::getCurrentScene();
+//	auto& masterAssetLoader = scene.getComponent<uf::Asset>();
+	auto& map = this->getComponent<uf::Serializer>();
 	// deduce PNG, load as texture
-	auto& map = masterAssetLoader.getComponent<uf::Serializer>();
 	if ( extension == "png" ) {
 		UF_ASSET_REGISTER(uf::Image)
 		asset.open(filename);
@@ -143,7 +147,7 @@ std::string uf::Asset::load( const std::string& uri ) {
 		auto& metadata = this->getComponent<uf::Serializer>();
 
 		#define LOAD_FLAG(name)\
-			if ( metadata[uri]["flags"][#name].asBool() )\
+			if ( metadata[uri]["flags"][#name].as<bool>() )\
 				LOAD_FLAGS |= ext::gltf::LoadMode::name;
 
 		LOAD_FLAG(GENERATE_NORMALS); 	// 0x1 << 0;
@@ -164,12 +168,14 @@ std::string uf::Asset::load( const std::string& uri ) {
 }
 std::string uf::Asset::getOriginal( const std::string& uri ) {
 	std::string extension = uf::io::extension( uri );
-	auto& map = masterAssetLoader.getComponent<uf::Serializer>();
-	if ( map[extension][uri].isNull() ) return uri;
-	std::size_t index = map[extension][uri].asUInt64();
+//	auto& scene = uf::scene::getCurrentScene();
+//	auto& masterAssetLoader = scene.getComponent<uf::Asset>();
+	auto& map = this->getComponent<uf::Serializer>();
+	if ( ext::json::isNull( map[extension][uri] ) ) return uri;
+	std::size_t index = map[extension][uri].as<size_t>();
 	for ( auto it = map[extension].begin(); it != map[extension].end(); ++it ) {
-		std::string key = it.key().asString();
-		std::size_t i = it->asUInt64();
+		std::string key = it.key().as<std::string>();
+		std::size_t i = it->as<size_t>();
 		if ( index == i && key != uri ) return key;
 	}
 	return uri;

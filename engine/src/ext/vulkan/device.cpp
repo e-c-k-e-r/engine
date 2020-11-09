@@ -20,7 +20,7 @@ namespace {
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
 		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
 		for ( auto& str : extensions ) {
-			// std::cout << str << std::endl;
+			// uf::iostream << str << "\n";
 			requested.push_back(str);
 		}
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
@@ -53,7 +53,7 @@ namespace {
 				break;
 			}
 			if ( !found ) {
-				std::cout << "Vulkan missing requested extension: " << requestedExtension << std::endl;
+				uf::iostream << "Vulkan missing requested extension: " << requestedExtension << "\n";
 			}
 		}
 	}
@@ -65,8 +65,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features.NAME == VK_TRUE ) {\
 				device.enabledFeatures.NAME = true;\
-				if ( ext::vulkan::settings::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
-			} else if ( ext::vulkan::settings::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
+				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
+			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
 		}
 
 		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
@@ -132,8 +132,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features2.NAME == VK_TRUE ) {\
 				device.enabledFeatures2.NAME = true;\
-				if ( ext::vulkan::settings::validation ) std::cout << "Enabled feature: " << feature << std::endl;\
-			} else if ( ext::vulkan::settings::validation ) std::cout << "Failed to enable feature: " << feature << std::endl;\
+				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
+			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
 		}
 	#undef CHECK_FEATURE2
 	}
@@ -536,7 +536,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		if ( ext::vulkan::settings::validation )
 			for ( auto ext : requestedExtensions )
-				std::cout << "Requested instance extension: " << ext << std::endl;
+				uf::iostream << "Requested instance extension: " << ext << "\n";
 
 		uint32_t extensionsCount = 0;
 		uint32_t enabledExtensionsCount = 0;
@@ -552,7 +552,7 @@ void ext::vulkan::Device::initialize() {
 		std::vector<const char*> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
 			if ( ext::vulkan::settings::validation )
-				std::cout << "Enabled instance extension: " << s << std::endl;
+				uf::iostream << "Enabled instance extension: " << s << "\n";
 			instanceExtensions.push_back( s.c_str() );
 		}
 
@@ -665,7 +665,7 @@ void ext::vulkan::Device::initialize() {
 		{
 			// Allocate enough ExtensionProperties to support all extensions being enabled
 			if ( ext::vulkan::settings::validation )
-				for ( auto ext : requestedExtensions ) std::cout << "Requested device extension: " << ext << std::endl;
+				for ( auto ext : requestedExtensions ) uf::iostream << "Requested device extension: " << ext << "\n";
 
 			uint32_t extensionsCount = 0;
 			uint32_t enabledExtensionsCount = 0;
@@ -680,7 +680,7 @@ void ext::vulkan::Device::initialize() {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
-			if ( ext::vulkan::settings::validation ) std::cout << "Enabled device extension: " << s << std::endl;
+			if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled device extension: " << s << "\n";
 			deviceExtensions.push_back( s.c_str() );
 		}
 
@@ -759,7 +759,7 @@ void ext::vulkan::Device::initialize() {
 			throw std::runtime_error("failed to create logical device!"); 
 
 		if ( ext::vulkan::settings::validation )
-			std::cout << retrieveDeviceFeatures( *this ) << std::endl;
+			uf::iostream << retrieveDeviceFeatures( *this ) << "\n";
 	}
 	// Create command pool
 	getCommandPool( QueueEnum::GRAPHICS );

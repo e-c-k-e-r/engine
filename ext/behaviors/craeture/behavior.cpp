@@ -18,7 +18,7 @@
 
 #include <uf/engine/asset/asset.h>
 
-EXT_BEHAVIOR_REGISTER_CPP(CraetureBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::CraetureBehavior)
 #define this (&self)
 void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
@@ -36,11 +36,11 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 
 	/* Gravity */ {
 		if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
-			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
-			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
-			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
+			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
+			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
 		}
-		if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+		if ( !metadata["system"]["physics"]["collision"].as<bool>() )  {
 			physics.linear.acceleration.x = 0;
 			physics.linear.acceleration.y = 0;
 			physics.linear.acceleration.z = 0;
@@ -69,18 +69,18 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	this->addHook( "world:Collision.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 
-		size_t uid = json["uid"].asUInt64();
+		size_t uid = json["uid"].as<size_t>();
 		// do not collide with children
 		// if ( this->findByUid(uid) ) return "false";
 
 		pod::Vector3 normal;
-		float scale = metadata["system"]["physics"]["collision"].asFloat();
-		float depth = json["depth"].asFloat() * scale;
+		float scale = metadata["system"]["physics"]["collision"].as<float>();
+		float depth = json["depth"].as<float>() * scale;
 	//	if ( fabs(depth) < 0.005 ) return "false"; //std::cout << "Collision depth: " << depth << std::endl;
 
-		normal.x = json["normal"][0].asFloat();
-		normal.y = json["normal"][1].asFloat();
-		normal.z = json["normal"][2].asFloat();
+		normal.x = json["normal"][0].as<float>();
+		normal.y = json["normal"][1].as<float>();
+		normal.z = json["normal"][2].as<float>();
 		pod::Vector3 correction = normal * depth;
 
 		transform.position -= correction;
@@ -97,13 +97,13 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		uf::Scene& world = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
 		if ( filename == "" ) return "false";
 		uf::Audio& sfx = this->getComponent<uf::SoundEmitter>().add(filename);
-		sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+		sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 		auto& pTransform = world.getController().getComponent<pod::Transform<>>();
 		sfx.setPosition( transform.position );
 		sfx.play();
@@ -112,15 +112,15 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "world:Craeture.OnHit.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		uint64_t phase = json["phase"].asUInt64();
+		uint64_t phase = json["phase"].as<size_t>();
 		// start color
 		pod::Vector4f color = { 1, 1, 1, 0 };
 		if ( phase == 0 ) {
 			color = pod::Vector4f{
-				json["color"][0].asFloat(),
-				json["color"][1].asFloat(),
-				json["color"][2].asFloat(),
-				json["color"][3].asFloat(),
+				json["color"][0].as<float>(),
+				json["color"][1].as<float>(),
+				json["color"][2].as<float>(),
+				json["color"][3].as<float>(),
 			};
 		}
 		metadata["color"][0] = color[0];
@@ -128,7 +128,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		metadata["color"][2] = color[2];
 		metadata["color"][3] = color[3];
 
-		if ( metadata["timers"]["hurt"].asFloat() < timer.elapsed().asDouble() ) {
+		if ( metadata["timers"]["hurt"].as<float>() < timer.elapsed().asDouble() ) {
 
 			metadata["timers"]["hurt"] = timer.elapsed().asDouble() + 1.0f;
 			uf::Scene& scene = uf::scene::getCurrentScene();
@@ -140,7 +140,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "world:Craeture.Hurt.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		if ( metadata["timers"]["flash"].asFloat() < timer.elapsed().asDouble() ) {
+		if ( metadata["timers"]["flash"].as<float>() < timer.elapsed().asDouble() ) {
 			metadata["timers"]["flash"] = timer.elapsed().asDouble() + 0.4f;
 			for ( int i = 0; i < 16; ++i ) {
 				uf::Serializer payload;
@@ -162,18 +162,18 @@ void ext::CraetureBehavior::tick( uf::Object& self ) {
 	uf::Serializer& sMetadata = scene.getComponent<uf::Serializer>();
 	uf::Serializer& pMetadata = scene.getController().getComponent<uf::Serializer>();
 
-	if ( !pMetadata["system"]["control"].asBool() ) return;
-	if ( !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].asBool() ) return;
+	if ( !pMetadata["system"]["control"].as<bool>() ) return;
+	if ( !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].as<bool>() ) return;
 
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	/* Gravity */ {
 		if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
-			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
-			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
-			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
+			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
+			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
 		}
-		if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+		if ( !metadata["system"]["physics"]["collision"].as<bool>() )  {
 			physics.linear.acceleration.x = 0;
 			physics.linear.acceleration.y = 0;
 			physics.linear.acceleration.z = 0;

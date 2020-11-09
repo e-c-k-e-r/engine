@@ -8,30 +8,54 @@
 #include <fstream>
 #include <functional>
 
-uf::Serializer::Serializer( const std::string& str ) {
-	this->deserialize(str);
-}
-uf::Serializer::Serializer( const Json::Value& json ) {
-	try {
-		*this = json;
-	} catch (...) {
-		// ignore parse errors
+namespace {
+	std::string encode( const Json::Value& json, bool pretty = true ) {
+/*
+		std::stringstream ss;
+		if ( pretty ) {
+			ss << json;
+		} else {
+			Json::StreamWriterBuilder builder;
+			builder["commentStyle"] = "None";
+			builder["indentation"] = "";
+			std::unique_ptr<Json::StreamWriter> writer( builder.newStreamWriter() );
+			writer->write(json, &ss);
+		}
+		return ss.str();
+*/
+		Json::FastWriter fast;
+		Json::StyledWriter styled;
+		std::string output = pretty ? styled.write(json) : fast.write(json);
+		if ( output.back() == '\n' ) output.pop_back();
+		return output;
+	}
+	std::string encode( const sol::table& table ) {
+		return ext::lua::state["json"]["encode"]( table );
+	}
+
+	void decode( Json::Value& json, const std::string& str ) {
+		Json::Reader reader;
+		if ( !reader.parse(str, json) ) {
+			uf::iostream << "JSON Error: " << reader.getFormattedErrorMessages() << "\n";
+		}
 	}
 }
-uf::Serializer::output_t uf::Serializer::serialize() const {
-	std::stringstream ss;
-	ss << *this;
-	return ss.str();
+
+uf::Serializer::Serializer( const std::string& str ) { //: sol::table(ext::lua::state, sol::create) {
+	this->deserialize(str);
+}
+uf::Serializer::Serializer( const sol::table& table ) { //: sol::table(ext::lua::state, sol::create) {
+	this->deserialize( encode( table ) );
+}
+uf::Serializer::Serializer( const Json::Value& json ) { //: sol::table(ext::lua::state, sol::create) {
+	this->deserialize( encode( json ) );
+}
+uf::Serializer::output_t uf::Serializer::serialize( bool pretty ) const {
+	return encode( *this, pretty );
 }
 void uf::Serializer::deserialize( const std::string& str ) {
-	if ( str != "" ) 
-		try {
-			std::stringstream(str) >> *this;
-		} catch ( const std::exception& e ) {
-			uf::iostream << "Error: " << e.what() << "\n";
-		} catch (...) {
-			// ignore parse errors
-		}
+	if ( str == "" ) return;
+	decode( *this, str );
 }
 
 bool uf::Serializer::readFromFile( const std::string& from ) {
@@ -68,13 +92,21 @@ bool uf::Serializer::writeToFile( const std::string& to ) const {
 }
 
 void uf::Serializer::merge( const uf::Serializer& other, bool priority ) {
-	if ( !this->isObject() || !other.isObject() ) return;
+	if ( !ext::json::isObject( *this ) || !ext::json::isObject( other ) ) return;
 
 	std::function<void(Json::Value&, const Json::Value&)> update = [&]( Json::Value& a, const Json::Value& b ) {
-		if ( !b.isObject() ) return;
+		if ( !ext::json::isObject( b ) ) return;
 		for ( const auto& key : b.getMemberNames() ) {
-			if ( !a.isObject() || !priority ) a[key] = b[key];
+		/*
+			if ( !ext::json::isObject( a ) || !priority )
+				a[key] = b[key];
 			update(a[key], b[key]);
+		*/
+			if( a[key].type() == Json::objectValue && b[key].type() == Json::objectValue ) {
+				update(a[key], b[key]);
+			}
+			if ( !priority )
+				a[key] = b[key];
 		}
 	};
 
@@ -92,8 +124,12 @@ uf::Serializer& uf::Serializer::operator=( const std::string& str ) {
 	this->deserialize(str);
 	return *this;
 }
+uf::Serializer& uf::Serializer::operator=( const sol::table& table ) {
+	this->deserialize( encode( table ) );
+	return *this;
+}
 uf::Serializer& uf::Serializer::operator=( const Json::Value& json ) {
-	Value::operator=(json);
+	this->deserialize( encode( json ) );
 	return *this;
 }
 uf::Serializer& uf::Serializer::operator<<( const std::string& str ) {

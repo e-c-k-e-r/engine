@@ -1,5 +1,32 @@
 #pragma once
 
+#define UF_BEHAVIOR_ENTITY_H( OBJ )\
+	class UF_API OBJ ## Behavior {\
+	public:\
+		static void attach( uf::Entity& );\
+		static void initialize( uf::Object& );\
+		static void tick( uf::Object& );\
+		static void render( uf::Object& );\
+		static void destroy( uf::Object& );\
+	};
+
+#define UF_BEHAVIOR_ENTITY_CPP_BEGIN( OBJ )\
+	void OBJ ## Behavior::attach( uf::Entity& self ) {\
+		self.addBehavior(pod::Behavior{\
+			.type = uf::Behaviors::getType<OBJ ## Behavior>(),\
+			.initialize = OBJ ## Behavior::initialize,\
+			.tick = OBJ ## Behavior::tick,\
+			.render = OBJ ## Behavior::render,\
+			.destroy = OBJ ## Behavior::destroy,\
+		});\
+	}
+#define UF_BEHAVIOR_ENTITY_CPP_ATTACH( OBJ ) {\
+	OBJ ## Behavior::attach( *this );\
+}
+
+#define UF_BEHAVIOR_ENTITY_CPP_END( OBJ )
+
+/*
 #define UF_BEHAVIOR_VIRTUAL 0
 
 #define UF_BEHAVIOR_ENTITY_H( OBJ )\
@@ -54,3 +81,4 @@
 		});\
 	}
 #define EXT_BEHAVIOR_ENTITY_CPP_END( OBJ )
+*/

@@ -192,28 +192,28 @@ void UF_API ext::discord::initialize(){
 
 
 	uf::hooks.addHook( "discord:Activity.Update", [&](const std::string& event)->std::string{
-		static uf::Serializer canonical; if ( canonical["details"].isNull() ) {
+		static uf::Serializer canonical; if ( ext::json::isNull( canonical["details"] ) ) {
 			canonical["large image"] = "icon";
 			canonical["large text"] = "Playing";
 		}
 		uf::Serializer json = event;
 
 		{
-			if ( json["details"].isString() ) canonical["details"] = json["details"];
-			if ( json["state"].isString() ) canonical["state"] = json["state"];
-			if ( json["small image"].isString() ) canonical["small image"] = json["small image"];
-			if ( json["small text"].isString() ) canonical["small text"] = json["small text"];
-			if ( json["large image"].isString() ) canonical["large image"] = json["large image"];
-			if ( json["large text"].isString() ) canonical["large text"] = json["large text"];
+			if ( json["details"].is<std::string>() ) canonical["details"] = json["details"];
+			if ( json["state"].is<std::string>() ) canonical["state"] = json["state"];
+			if ( json["small image"].is<std::string>() ) canonical["small image"] = json["small image"];
+			if ( json["small text"].is<std::string>() ) canonical["small text"] = json["small text"];
+			if ( json["large image"].is<std::string>() ) canonical["large image"] = json["large image"];
+			if ( json["large text"].is<std::string>() ) canonical["large text"] = json["large text"];
 		}
 
 		::discord::Activity activity{};
-		if ( canonical["details"].isString() ) activity.SetDetails(canonical["details"].asCString());
-		if ( canonical["state"].isString() ) activity.SetState(canonical["state"].asCString());
-		if ( canonical["small image"].isString() ) activity.GetAssets().SetSmallImage(canonical["small image"].asCString());
-		if ( canonical["small text"].isString() ) activity.GetAssets().SetSmallText(canonical["small text"].asCString());
-		if ( canonical["large image"].isString() ) activity.GetAssets().SetLargeImage(canonical["large image"].asCString());
-		if ( canonical["large text"].isString() ) activity.GetAssets().SetLargeText(canonical["large text"].asCString());
+		if ( canonical["details"].is<std::string>() ) activity.SetDetails(canonical["details"].asCString());
+		if ( canonical["state"].is<std::string>() ) activity.SetState(canonical["state"].asCString());
+		if ( canonical["small image"].is<std::string>() ) activity.GetAssets().SetSmallImage(canonical["small image"].asCString());
+		if ( canonical["small text"].is<std::string>() ) activity.GetAssets().SetSmallText(canonical["small text"].asCString());
+		if ( canonical["large image"].is<std::string>() ) activity.GetAssets().SetLargeImage(canonical["large image"].asCString());
+		if ( canonical["large text"].is<std::string>() ) activity.GetAssets().SetLargeText(canonical["large text"].asCString());
 		activity.SetType(::discord::ActivityType::Playing);
 		state.core->ActivityManager().UpdateActivity(activity, [](::discord::Result result) {
 			std::cout << ((result == ::discord::Result::Ok) ? "Succeeded" : "Failed") << " updating activity!\n";

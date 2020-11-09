@@ -2,161 +2,97 @@
 
 sol::state ext::lua::state;
 std::string ext::lua::main = "./data/scripts/main.lua";
+std::unordered_map<std::string, std::string> ext::lua::modules;
 
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/engine/asset/asset.h>
 #include <uf/engine/object/object.h>
 #include <uf/engine/object/behaviors/lua.h>
 #include <uf/utils/string/io.h>
+#include <uf/utils/string/ext.h>
 #include <uf/utils/window/window.h>
+#include <uf/utils/audio/audio.h>
+
+sol::table ext::lua::createTable() {
+	return sol::table(ext::lua::state, sol::create);
+}
+std::string ext::lua::sanitize( const std::string& dirty, int index  ) {
+	auto split = uf::string::split( dirty, "::" );
+	if ( index < 0 ) index = split.size() + index;
+	std::string part = split.at(index);
+	part = uf::string::replace( part, "<>", "" );
+	return part;
+}
+std::optional<std::string> ext::lua::encode( sol::table table ) {
+	sol::protected_function fun = ext::lua::state["json"]["encode"];
+	auto result = fun( table );
+	if ( !result.valid() ) {
+		sol::error err = result;
+		uf::iostream << err.what() << "\n";
+		return "{}";
+	}
+	return result;
+}
+std::optional<sol::table> ext::lua::decode( const std::string& string ) {
+	sol::protected_function fun = ext::lua::state["json"]["decode"];
+	auto result = fun( string );
+	if ( !result.valid() ) {
+		sol::error err = result;
+		uf::iostream << err.what() << "\n";
+		return createTable();
+	}
+	return result;
+}
+
+std::vector<std::function<void()>>* ext::lua::onInitializationFunctions = NULL;
+void ext::lua::onInitialization( const std::function<void()>& function ) {
+	if ( !ext::lua::onInitializationFunctions ) {
+		ext::lua::onInitializationFunctions = new std::vector<std::function<void()>>;
+	}
+	auto& functions = *ext::lua::onInitializationFunctions;
+	functions.emplace_back(function);
+}
 
 void ext::lua::initialize() {
-	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string);
+	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string, sol::lib::ffi, sol::lib::jit);
 
-	POD_LUA_REGISTER_USERTYPE_BEGIN(Matrix4f)
-		"value", []( pod::Matrix4f& self, const size_t& index ) {
-			return self[index];
+	// load modules
+	for ( auto pair : modules ) {
+		const std::string& name = pair.first;
+		const std::string& script = pair.second;
+		if ( uf::io::extension(script) == "lua" ) {
+			state.require_file(name, uf::io::resolveURI( script ), true);
+		} else {
+			state.require_script(name, script, true);
 		}
-	POD_LUA_REGISTER_USERTYPE_END()
-	POD_LUA_REGISTER_USERTYPE_BEGIN(Vector3f)
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector3f, x),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector3f, y),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector3f, z)
-	POD_LUA_REGISTER_USERTYPE_END()
-	POD_LUA_REGISTER_USERTYPE_BEGIN(Vector4f)
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector4f, x),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector4f, y),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector4f, z),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Vector4f, w)
-	POD_LUA_REGISTER_USERTYPE_END()
-	POD_LUA_REGISTER_USERTYPE_BEGIN(Quaternion<>)
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Quaternion<>, x),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Quaternion<>, y),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Quaternion<>, z),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Quaternion<>, w)
-	POD_LUA_REGISTER_USERTYPE_END()
-	POD_LUA_REGISTER_USERTYPE_BEGIN(Transform<>)
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, position),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, scale),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, up),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, right),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, forward),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, orientation),
-		POD_LUA_REGISTER_USERTYPE_MEMBER(Transform<>, model),
-		"move", []( pod::Transform<>& self, sol::variadic_args va ) {
-			auto it = va.begin();
-			if ( va.size() == 1 ) {
-				pod::Vector3f delta = *it++;
-				self = uf::transform::move( self, delta );
-			} else if ( va.size() == 2 ) {
-				pod::Vector3f axis = *it++;
-				double delta = *it++;
-				self = uf::transform::move( self, axis, delta );
-			}
-		},
-		"rotate", []( pod::Transform<>& self, sol::variadic_args va ) {
-			auto it = va.begin();
-			if ( va.size() == 1 ) {
-				pod::Quaternion<> delta = *it++;
-				self = uf::transform::rotate( self, delta );
-			} else if ( va.size() == 2 ) {
-				pod::Vector3f axis = *it++;
-				double delta = *it++;
-				self = uf::transform::rotate( self, axis, delta );
-			}
-		}
-	POD_LUA_REGISTER_USERTYPE_END()
+	}
 
-	UF_LUA_REGISTER_USERTYPE_BEGIN(Object)
-		"uid", &uf::Object::getUid,
-		"name", &uf::Object::getName,
-		"getComponent", [](uf::Object& self, const std::string& type, sol::this_state L ) {
-			sol::variadic_results values;
-			if ( type == "Metadata" ) {
-				std::string serialized = self.getComponent<uf::Serializer>();
-				sol::table table = state["json"]["decode"]( serialized );
-				values.push_back( { L, sol::in_place, table } );
-			} else if ( type == "Transform" ) {
-				values.push_back( { L, sol::in_place, &self.getComponent<pod::Transform<>>() } );
-			}
-			return values;
-		},
-		"setComponent", [](uf::Object& self, const std::string& type, sol::variadic_args va ) {
-			auto value = *va.begin();
-			if ( type == "Metadata" ) {
-				std::string encoded = state["json"]["encode"]( value.as<sol::table>() );
-				self.getComponent<uf::Serializer>().merge(encoded);
-			} else if ( type == "Transform" ) {
-				self.getComponent<pod::Transform<>>() = value.as<pod::Transform<>>();
-			}
-		},
-		"bind", [](uf::Object& self, const std::string& type, const sol::function& fun ) {
-			if ( !self.hasBehavior<uf::LuaBehavior>() ) uf::instantiator::bind( "LuaBehavior", self );
-			pod::Behavior* behaviorPointer = NULL;
-			auto& behaviors = self.getBehaviors();
-			for ( auto& b : behaviors ) {
-				if ( b.type != self.getType<uf::LuaBehavior>() ) continue;
-				behaviorPointer = &b;
-				break;
-			}
-			if ( !behaviorPointer ) return false;
-			pod::Behavior& behavior = *behaviorPointer;
-
-			pod::Behavior::function_t* functionPointer = NULL;
-			if ( type == "initialize" ) functionPointer = &behavior.initialize;
-			else if ( type == "tick" ) functionPointer = &behavior.tick;
-			else if ( type == "render" ) functionPointer = &behavior.render;
-			else if ( type == "destroy" ) functionPointer = &behavior.destroy;
-			
-			if ( !functionPointer ) return false;
-			pod::Behavior::function_t& function = *functionPointer;
-
-			function = [fun]( uf::Object& s ) {
-				fun(s);
-			};
-			return true;
-		},
-		"findByUid", []( uf::Object& self, const size_t& index )->uf::Object&{
-			auto* pointer = self.findByUid( index );
-			if ( pointer ) return pointer->as<uf::Object>();
-			static uf::Object null;
-			return null;
-		},
-		"findByName", []( uf::Object& self, const std::string& index )->uf::Object&{
-			auto* pointer = self.findByName( index );
-			if ( pointer ) return pointer->as<uf::Object>();
-			static uf::Object null;
-			return null;
-		},
-		"loadChild", []( uf::Object& self, const std::string& filename )->uf::Object&{
-			auto* pointer = self.loadChildPointer( filename );
-			if ( pointer ) return pointer->as<uf::Object>();
-			static uf::Object null;
-			return null;
-		},
-		"getChildren", []( uf::Object& self )->sol::table{
-			sol::table table(ext::lua::state, sol::create);
-			for ( auto* child : self.getChildren() ) {
-				table.add(&child->as<uf::Object>());
-			}
-			return table;
-		},
-		"getParent", []( uf::Object& self )->uf::Object&{
-			return self.getParent().as<uf::Object>();
-		}
-	UF_LUA_REGISTER_USERTYPE_END()
-
+	// load on-initialization defines
+	if ( ext::lua::onInitializationFunctions ) {
+		auto& functions = *ext::lua::onInitializationFunctions;
+		for ( auto& function : functions ) function();
+	}
+	
 	// `hooks` table
 	{
 
 		auto hooks = state["hooks"].get_or_create<sol::table>();
 		hooks["add"] = []( const std::string& name, const sol::function& function ) {
 			uf::hooks.addHook( name, [function]( const std::string& payload )->std::string{
-				return function( payload );
+				sol::table table = ext::lua::state["json"]["decode"]( payload );
+				auto result = function( table );
+				if ( !result.valid() ) {
+					sol::error err = result;
+					uf::iostream << err.what() << "\n";
+					return "false";
+				}
+				return "true";
 			});
 		};
-		hooks["call"] = []( const std::string& name, const std::string& payload ) {
+		hooks["call"] = []( const std::string& name, sol::table table = createTable() ) {
+			uf::Serializer payload = table;
 			return uf::hooks.call( name, payload );
 		};
 	}
@@ -169,6 +105,54 @@ void ext::lua::initialize() {
 			static uf::Object null;
 			return null;
 		};
+		entities["currentScene"] = []()->uf::Object&{
+			return uf::scene::getCurrentScene().as<uf::Object>();
+		};
+		entities["controller"] = []()->uf::Object&{
+			return uf::scene::getCurrentScene().getController().as<uf::Object>();
+		};
+		entities["destroy"] = []( uf::Object& object ){
+			object.getParent().removeChild(object);
+			object.destroy();
+		//	delete &object;
+		};
+	}
+	// `string` table
+	{
+		auto string = state["string"].get_or_create<sol::table>();
+		string["extension"] = []( const std::string& filename ) {
+			return uf::io::extension( filename );
+		};
+		string["resolveURI"] = []( const std::string& filename ) {
+			return uf::io::resolveURI( filename );
+		};
+		string["si"] = []( sol::variadic_args va ) {
+			auto it = va.begin();
+			double value = *(it++);
+			std::string unit = *(it++);
+			size_t precision = va.size() > 2 ? *(it++) : 3;
+			return uf::string::si( value, unit, precision );
+		};
+	}
+	// `io` table
+	{
+		auto io = state["io"].get_or_create<sol::table>();
+		io["print"] = []( sol::variadic_args va ) {
+			size_t count = va.size();
+			for ( auto value : va ) {
+				std::string str = ext::lua::state["tostring"]( value );
+				uf::iostream << str;
+				if ( --count != 0 ) uf::iostream << "\t";
+			}
+			uf::iostream << "\n";
+		};
+	}
+	// `math` table
+	{
+		auto math = state["math"].get_or_create<sol::table>();
+		math["clamp"] = []( double value, double min, double max ) {
+			return std::clamp( value, min, max );
+		};
 	}
 	// `time` table
 	{
@@ -179,10 +163,26 @@ void ext::lua::initialize() {
 	}
 	// `json` table
 	{
-		auto json = state.require_file("json", "./data/scripts/json.lua", true);
 		state["json"]["pretty"] = []( const std::string& json )->std::string{
 			uf::Serializer serializer = json;
 			return serializer.serialize();
+		};
+		state["json"]["readFromFile"] = []( const std::string& filename ){
+			uf::Serializer serializer;
+			serializer.readFromFile( filename );
+			std::string string = serializer.serialize(false);
+			auto decoded = decode( string );
+			return decoded ? decoded.value() : ext::lua::createTable();
+		};
+		state["json"]["writeToFile"] = []( sol::table table, const std::string& path ) {
+			if ( uf::io::extension(path) != "json" ) return false;
+			auto encoded = encode( table );
+			if ( encoded ) {
+				uf::Serializer json = encoded.value();
+				json.writeToFile( path );
+				return true;
+			}
+			return false;
 		};
 	}
 	// `window` table
@@ -198,14 +198,14 @@ bool ext::lua::run( const std::string& s, bool safe ) {
 	// is file
 	if ( uf::io::extension(s) == "lua" ) {
 		if ( safe ) {
-			auto result = state.safe_script_file( s, sol::script_pass_on_error );
+			auto result = state.safe_script_file( uf::io::resolveURI( s ), sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << "Invalid call to Lua script: " << err.what() << "\n";
+				uf::iostream << err.what() << "\n";
 				return false;
 			}
 		} else {
-			state.script_file( s );
+			state.script_file( uf::io::resolveURI( s ) );
 		}
 	// is string with lua
 	} else {
@@ -213,7 +213,7 @@ bool ext::lua::run( const std::string& s, bool safe ) {
 			auto result = state.safe_script( s, sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << "Invalid call to Lua script: " << err.what() << "\n";
+				uf::iostream << err.what() << "\n";
 				return false;
 			}
 		} else {
@@ -225,20 +225,41 @@ bool ext::lua::run( const std::string& s, bool safe ) {
 
 pod::LuaScript ext::lua::script( const std::string& filename ) {
 	pod::LuaScript script;
-	script.filename = filename;
+	script.file = filename;
 	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
 	return script;
 }
-bool ext::lua::run( const pod::LuaScript& s ) {
-	std::string script = s.header + "\n" + uf::io::readAsString( s.filename );
-	auto result = state.safe_script( script, s.env, sol::script_pass_on_error );
-	if ( !result.valid() ) {
-		sol::error err = result;
-		uf::iostream << "Invalid call to Lua script: " << err.what() << "\n";
-		return false;
+bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
+	// is file
+	if ( uf::io::extension(s.file) == "lua" ) {
+		if ( safe ) {
+			auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );
+			if ( !result.valid() ) {
+				sol::error err = result;
+				uf::iostream << err.what() << "\n";
+				return false;
+			}
+		} else {
+			state.script_file( s.file );
+		}
+	// is string with lua
+	} else {
+		if ( safe ) {
+			auto result = state.safe_script( s.file, s.env, sol::script_pass_on_error );
+			if ( !result.valid() ) {
+				sol::error err = result;
+				uf::iostream << err.what() << "\n";
+				return false;
+			}
+		} else {
+			state.script( s.file );
+		}
 	}
 	return true;
 }
 void ext::lua::terminate() {
-
+	if ( ext::lua::onInitializationFunctions ) {
+		delete ext::lua::onInitializationFunctions;
+		ext::lua::onInitializationFunctions = NULL;
+	}
 }

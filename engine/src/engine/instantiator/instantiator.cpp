@@ -1,11 +1,51 @@
 #include <uf/engine/instantiator/instantiator.h>
 #include <uf/engine/object/object.h>
+#include <uf/engine/scene/scene.h>
 #include <assert.h>
 
 pod::NamedTypes<pod::Instantiator>* uf::instantiator::objects = NULL;
 pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
 
+uf::Entity* uf::instantiator::reuse( size_t size ) {
+	uf::Entity* laxed = NULL;
+	auto& allocations = uf::Entity::memoryPool.allocations();
+
+	for ( auto& allocation : allocations ) {
+		uf::Entity* e = (uf::Entity*) allocation.pointer;
+		// no scenes
+		if ( std::find( uf::scene::scenes.begin(), uf::scene::scenes.end(), (uf::Scene*) e ) != uf::scene::scenes.end() ) continue;
+		// only orphaned
+		if ( e->hasParent() ) continue;
+		// only destroyed entities 
+		if ( e->getName() == "Entity" || e->getUid() > 0 ) continue;
+		if ( allocation.size == size ) return e;
+		if ( allocation.size > size ) laxed = e;
+	}
+	return laxed;
+}
+size_t uf::instantiator::collect( uint8_t level ) {
+	size_t collected = 0;
+	auto& allocations = uf::Entity::memoryPool.allocations();
+	auto& scene = uf::scene::getCurrentScene();
+	for ( auto& allocation : allocations ) {
+		uf::Entity* e = (uf::Entity*) allocation.pointer;
+		// no scenes
+		// if ( std::find( uf::scene::scenes.begin(), uf::scene::scenes.end(), (uf::Scene*) e ) != uf::scene::scenes.end() ) continue;
+		// not current scene
+		if ( e->getUid() == scene.getUid() ) continue;
+		// only orphaned
+		if ( e->hasParent() ) continue;
+		// uninitialized
+		if ( e->getName() == "Entity" && e->getUid() == 0 ) continue;
+		uf::iostream << "Found orphan: " << e->getName() << ": " << e->getUid() << "\n";
+		uf::instantiator::free( e );
+		++collected;
+	}
+	return collected;
+}
+
 uf::Entity* uf::instantiator::alloc( size_t size ) {
+	// auto* reused = reuse( size ); if ( reused ) return reused;
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
 	return (uf::Entity*) memoryPool.alloc( NULL, size );
@@ -22,6 +62,9 @@ uf::Entity* uf::instantiator::alloc( size_t size ) {
 #endif
 }
 void uf::instantiator::free( uf::Entity* pointer ) {
+	if ( !pointer ) return;
+	if ( pointer->getUid() > 0 ) pointer->destroy();
+
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
 	memoryPool.free( pointer );

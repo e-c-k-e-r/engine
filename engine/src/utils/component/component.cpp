@@ -2,17 +2,15 @@
 
 UF_API uf::MemoryPool uf::component::memoryPool;
 uf::Component::~Component() {
+	this->destroyComponents();
+}
+
+void uf::Component::destroyComponents() {
 	for ( auto& kv : this->m_container ) {
 		pod::Component& component = kv.second;
 		uf::userdata::destroy(uf::component::memoryPool, component.userdata);
-	/*
-		if ( uf::component::memoryPool.size() > 0 ) {
-			uf::userdata::destroy(uf::component::memoryPool, component.userdata);
-		} else {
-			uf::userdata::destroy(component.userdata);
-		}
-	*/
 	}
+	this->m_container.clear();
 }
 
 #include <uf/utils/serialize/serializer.h>

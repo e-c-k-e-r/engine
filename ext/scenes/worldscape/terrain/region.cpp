@@ -12,8 +12,8 @@
 #include <uf/utils/string/ext.h>
 #include <mutex>
 
-EXT_BEHAVIOR_REGISTER_CPP(RegionBehavior)
-EXT_BEHAVIOR_REGISTER_AS_OBJECT(RegionBehavior, Region)
+UF_BEHAVIOR_REGISTER_CPP(ext::RegionBehavior)
+UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::RegionBehavior, ext::Region)
 #define this ((uf::Object*) &self)
 void ext::RegionBehavior::initialize( uf::Object& self ) {
 	// alias Mesh types
@@ -25,13 +25,13 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["region"]["initialized"] = true;
 
-	if ( !metadata["terrain"]["unified"].asBool() ) {
+	if ( !metadata["terrain"]["unified"].as<bool>() ) {
 		std::string textureFilename = ""; {
 			uf::Serializer& metadata = this->getParent().getComponent<uf::Serializer>();
 			uf::Asset assetLoader;
 			for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
 				if ( textureFilename != "" ) break;
-				std::string filename = this->grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
+				std::string filename = this->grabURI( metadata["system"]["assets"][i].as<std::string>(), metadata["system"]["root"].as<std::string>() );
 				textureFilename = assetLoader.cache( filename );
 			}
 		}
@@ -47,7 +47,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		texture.loadFromFile( textureFilename );
 
 		std::string suffix = ""; {
-			std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+			std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<std::string>();
 			if ( _ != "" ) suffix = _ + ".";
 		}
 	/*
@@ -64,15 +64,15 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		uf::Serializer json = event;
 
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		if ( !metadata["region"]["initialized"].asBool() ) return "false";
-		if ( metadata["region"]["generated"].asBool() ) return "false";
+		if ( !metadata["region"]["initialized"].as<bool>() ) return "false";
+		if ( metadata["region"]["generated"].as<bool>() ) return "false";
 
 		pod::Vector3ui size; {
-			size.x = metadata["region"]["size"][0].asUInt();
-			size.y = metadata["region"]["size"][1].asUInt();
-			size.z = metadata["region"]["size"][2].asUInt();
+			size.x = metadata["region"]["size"][0].as<size_t>();
+			size.y = metadata["region"]["size"][1].as<size_t>();
+			size.z = metadata["region"]["size"][2].as<size_t>();
 		}
-		uint subdivisions = metadata["region"]["subdivisions"].asUInt();
+		uint subdivisions = metadata["region"]["subdivisions"].as<size_t>();
 		ext::TerrainGenerator& generator = this->getComponent<ext::TerrainGenerator>();
 		generator.initialize(size, subdivisions);
 		generator.generate(*this);
@@ -139,16 +139,16 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 	this->addHook( "region:Populate.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 
-		if ( metadata["region"][""]["initialized"].asBool() ) return "false";
+		if ( metadata["region"][""]["initialized"].as<bool>() ) return "false";
 
 		metadata["region"][""]["initialized"] = true;
 		bool first = false;
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 		float r = (rand() % 100) / 100.0;
 		pod::Vector3ui size = {
-			metadata["region"]["size"][0].asUInt64() / 4,
-			metadata["region"]["size"][1].asUInt64() / 4,
-			metadata["region"]["size"][2].asUInt64() / 4,
+			metadata["region"]["size"][0].as<size_t>() / 4,
+			metadata["region"]["size"][1].as<size_t>() / 4,
+			metadata["region"]["size"][2].as<size_t>() / 4,
 		};
 		uint half_x = size.x / 2;
 		uint half_y = size.y / 2;
@@ -182,8 +182,8 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		}
 		// add lights
 		{
-			bool should = metadata["region"]["lights"]["should"].asBool();
-			if ( r > metadata["region"]["lights"]["rate"].asFloat() ) should = false;
+			bool should = metadata["region"]["lights"]["should"].as<bool>();
+			if ( r > metadata["region"]["lights"]["rate"].as<float>() ) should = false;
 			// std::cout << "Rate: " << r << ": " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
 			if (
 				metadata["region"]["location"][0] == 0 &&
@@ -205,7 +205,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 					auto& metadata = entity->getComponent<uf::Serializer>();
 					auto& transform = entity->getComponent<pod::Transform<>>();
 					transform.position = origin;
-				//	if ( !metadata["light"]["color"].isArray() ) {
+				//	if ( !ext::json::isArray( metadata["light"]["color"] ) ) {
 						metadata["light"]["color"][0] = color.x;
 						metadata["light"]["color"][1] = color.y;
 						metadata["light"]["color"][2] = color.z;
@@ -216,7 +216,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 				uf::Serializer& metadata = light.getComponent<uf::Serializer>();
 				pod::Transform<>& lTransform = light.getComponent<pod::Transform<>>();
 				lTransform.position += transform.position;
-				if ( !metadata["light"]["color"].isArray() ) {
+				if ( !ext::json::isArray( metadata["light"]["color"] ) ) {
 					metadata["light"]["color"][0] = (rand() % 100) / 100.0;
 					metadata["light"]["color"][1] = (rand() % 100) / 100.0;
 					metadata["light"]["color"][2] = (rand() % 100) / 100.0;
@@ -226,8 +226,8 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		}
 		// add mobs
 		{
-			bool should = metadata["region"][""]["should"].asBool();
-			if ( r > metadata["region"][""]["rate"].asFloat() ) should = false;
+			bool should = metadata["region"][""]["should"].as<bool>();
+			if ( r > metadata["region"][""]["rate"].as<float>() ) should = false;
 			// std::cout << "Rate: " << r << ": " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
 			if (
 				metadata["region"]["location"][0] == 0 &&
@@ -241,14 +241,14 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 
 			if ( first ) {
 				// shiro
-				if ( metadata["region"][""]["NPCs"].asBool() ) {
+				if ( metadata["region"][""]["NPCs"].as<bool>() ) {
 				//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./shiro.json", true));
 					uf::Object&  = this->loadChild("./shiro.json", true);
 					pod::Transform<>& pTransform = .getComponent<pod::Transform<>>();
 					pTransform.position += transform.position + pod::Vector3f{ 2, 0, 0 };
 				}
 				// pong
-				if ( metadata["region"][""]["NPCs"].asBool() ) {
+				if ( metadata["region"][""]["NPCs"].as<bool>() ) {
 				//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./pongy.json", true));
 					uf::Object&  = this->loadChild("./pongy.json", true);
 					uf::Serializer& pMetadata = .getComponent<uf::Serializer>();
@@ -259,7 +259,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 				return "true";
 			}
 
-			for ( uint i = 0; i < metadata["region"][""]["amount"].asUInt64(); ++i ) {
+			for ( uint i = 0; i < metadata["region"][""]["amount"].as<size_t>(); ++i ) {
 			//	uf::Object*  = (uf::Object*) this->findByUid(this->loadChildUid("./.json", false));
 				uf::Object&  = this->loadChild("./.json", false);
 				// set name
@@ -275,9 +275,9 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 				float rx = first ? 0.3 : (rand() % 100) / 100.0;
 				float rz = first ? 0.7 : (rand() % 100) / 100.0;
 				float spread = 32.0f;
-				spread = std::min( metadata["region"]["size"][0].asFloat(), spread );
-				spread = std::min( metadata["region"]["size"][1].asFloat(), spread );
-				spread = std::min( metadata["region"]["size"][2].asFloat(), spread );
+				spread = std::min( metadata["region"]["size"][0].as<float>(), spread );
+				spread = std::min( metadata["region"]["size"][1].as<float>(), spread );
+				spread = std::min( metadata["region"]["size"][2].as<float>(), spread );
 				pod::Vector3f randomOffset = {
 					rx * spread - spread/2.0f,
 					0,
@@ -299,20 +299,20 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sMetadata = scene.getComponent<uf::Serializer>();
 	auto& metadata = this->getComponent<uf::Serializer>();
-	bool threaded = !sMetadata["system"]["physics"]["single threaded"].asBool();
-	bool sort = sMetadata["system"]["physics"]["sort"].asBool();
-	bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].asBool();
-	bool queued = sMetadata["system"]["physics"]["use"]["queue"].asBool();
-	bool updatePhysics = !sMetadata["system"]["physics"]["entity-local update"].asBool();
-	bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].asBool();
+	bool threaded = !sMetadata["system"]["physics"]["single threaded"].as<bool>();
+	bool sort = sMetadata["system"]["physics"]["sort"].as<bool>();
+	bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].as<bool>();
+	bool queued = sMetadata["system"]["physics"]["use"]["queue"].as<bool>();
+	bool updatePhysics = !sMetadata["system"]["physics"]["entity-local update"].as<bool>();
+	bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].as<bool>();
 	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 
 	auto& generator = this->getComponent<ext::TerrainGenerator>();
 	auto& regionPosition = this->getComponent<pod::Transform<>>().position;
 	pod::Vector3f size; {
-		size.x = metadata["region"]["size"][0].asUInt();
-		size.y = metadata["region"]["size"][1].asUInt();
-		size.z = metadata["region"]["size"][2].asUInt();
+		size.x = metadata["region"]["size"][0].as<size_t>();
+		size.y = metadata["region"]["size"][1].as<size_t>();
+		size.z = metadata["region"]["size"][2].as<size_t>();
 	}
 
 	auto function = [&]() -> int {
@@ -325,11 +325,11 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				auto& physics = entity->getComponent<pod::Physics>();
 				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
-					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
-					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
-					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
+					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
+					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
 				}
-				if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+				if ( !metadata["system"]["physics"]["collision"].as<bool>() )  {
 					physics.linear.acceleration.x = 0;
 					physics.linear.acceleration.y = 0;
 					physics.linear.acceleration.z = 0;
@@ -341,7 +341,7 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 		{
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 				auto& metadata = entity->getComponent<uf::Serializer>();
-				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( !ext::json::isNull( metadata["system"]["physics"]["collision"] ) && !metadata["system"]["physics"]["collision"].as<bool>() ) return;
 				if ( entity->hasComponent<uf::Collider>() )
 					entities.push_back((uf::Object*) entity);
 			};
@@ -462,24 +462,24 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sMetadata = scene.getComponent<uf::Serializer>();
 
-		if ( !sMetadata["system"]["physics"]["collision"].asBool() ) return;
+		if ( !sMetadata["system"]["physics"]["collision"].as<bool>() ) return;
 		auto& mutex = *(this->getComponent<std::mutex*>());
 		mutex.lock();
 
-		bool threaded = !sMetadata["system"]["physics"]["single threaded"].asBool();
-		bool sort = sMetadata["system"]["physics"]["sort"].asBool();
-		bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].asBool();
-		bool queued = sMetadata["system"]["physics"]["use"]["queue"].asBool();
-		bool ignoreStaticEntities = sMetadata["system"]["physics"]["optimizations"]["ignore static entities"].asBool();
-		bool ignoreDuplicateTests = sMetadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].asBool();
-		bool updatePhysics = !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].asBool();
-		bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].asBool();
+		bool threaded = !sMetadata["system"]["physics"]["single threaded"].as<bool>();
+		bool sort = sMetadata["system"]["physics"]["sort"].as<bool>();
+		bool useStrongest = sMetadata["system"]["physics"]["use"]["strongest"].as<bool>();
+		bool queued = sMetadata["system"]["physics"]["use"]["queue"].as<bool>();
+		bool ignoreStaticEntities = sMetadata["system"]["physics"]["optimizations"]["ignore static entities"].as<bool>();
+		bool ignoreDuplicateTests = sMetadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].as<bool>();
+		bool updatePhysics = !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].as<bool>();
+		bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].as<bool>();
 		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 		auto function = [&]() -> int {
 			std::vector<uf::Object*> entities;
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 				auto& metadata = entity->getComponent<uf::Serializer>();
-				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( !ext::json::isNull( metadata["system"]["physics"]["collision"] ) && !metadata["system"]["physics"]["collision"].as<bool>() ) return;
 				if ( entity->hasComponent<uf::Collider>() )
 					entities.push_back((uf::Object*) entity);
 			};
@@ -514,9 +514,9 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 			auto& generator = this->getComponent<ext::TerrainGenerator>();
 			auto& regionPosition = this->getComponent<pod::Transform<>>().position;
 			pod::Vector3f size; {
-				size.x = metadata["region"]["size"][0].asUInt();
-				size.y = metadata["region"]["size"][1].asUInt();
-				size.z = metadata["region"]["size"][2].asUInt();
+				size.x = metadata["region"]["size"][0].as<size_t>();
+				size.y = metadata["region"]["size"][1].as<size_t>();
+				size.z = metadata["region"]["size"][2].as<size_t>();
 			}
 			for ( auto* _ : entities ) {
 				uf::Object& entity = *_;
@@ -643,7 +643,7 @@ void ext::RegionBehavior::render( uf::Object& self ){
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	
-	if ( !metadata["region"]["rasterized"].asBool() ) return;
+	if ( !metadata["region"]["rasterized"].as<bool>() ) return;
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();

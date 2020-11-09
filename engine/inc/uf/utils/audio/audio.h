@@ -20,6 +20,7 @@ namespace uf {
 		ext::al::Buffer m_buffer;
 		float m_duration;
 	public:
+		static bool mute;
 	/*
 		Audio( const std::string& = "" );
 		Audio( Audio&& );
@@ -60,6 +61,7 @@ namespace uf {
 	protected:
 		uf::SoundEmitter::container_t m_container;
 	public:
+		~SoundEmitter();
 		uf::Audio& add( const std::string& );
 		uf::Audio& add( const uf::Audio& );
 		uf::Audio& get( const std::string& );

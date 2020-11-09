@@ -33,7 +33,7 @@ namespace {
 	}
 }
 
-EXT_BEHAVIOR_REGISTER_CPP(HousamoSpriteBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::HousamoSpriteBehavior)
 #define this (&self)
 void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 	uf::Scene& scene = uf::scene::getCurrentScene();
@@ -43,7 +43,7 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "graphics:Assign.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 		metadata["system"]["control"] = false;
 
 		if ( uf::io::extension(filename) != "png" ) return "false";
@@ -92,17 +92,17 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 	});
 
 	{
-		std::string id = metadata[""]["party"][0].asString();
+		std::string id = metadata[""]["party"][0].as<std::string>();
 		uf::Serializer member = metadata[""]["transients"][id];
 		uf::Serializer cardData = masterDataGet("Card", id);
-		std::string name = cardData["filename"].asString();
-		if ( member["skin"].isString() ) name += "_" + member["skin"].asString();
+		std::string name = cardData["filename"].as<std::string>();
+		if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
 		std::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
-		if ( cardData["internal"].asBool() ) {
+		if ( cardData["internal"].as<bool>() ) {
 			filename = "./data/smtsamo/fg/fg_" + name + ".png";
 		}
 		
-		metadata["orientation"] = cardData["orientation"].asString() == "" ? "portrait" : "landscape";
+		metadata["orientation"] = cardData["orientation"].as<std::string>() == "" ? "portrait" : "landscape";
 		
 		assetLoader.load(filename, "asset:Load." + std::to_string(this->getUid()) );
 	}
@@ -110,7 +110,7 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 void ext::HousamoSpriteBehavior::tick( uf::Object& self ) {}
 void ext::HousamoSpriteBehavior::render( uf::Object& self ){
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["system"]["loaded"].asBool() ) return;
+	if ( !metadata["system"]["loaded"].as<bool>() ) return;
 
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& mesh = this->getComponent<uf::Mesh>();
@@ -126,10 +126,10 @@ void ext::HousamoSpriteBehavior::render( uf::Object& self ){
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}
 	
-		uniforms.color[0] = metadata["color"][0].asFloat();
-		uniforms.color[1] = metadata["color"][1].asFloat();
-		uniforms.color[2] = metadata["color"][2].asFloat();
-		uniforms.color[3] = metadata["color"][3].asFloat();
+		uniforms.color[0] = metadata["color"][0].as<float>();
+		uniforms.color[1] = metadata["color"][1].as<float>();
+		uniforms.color[2] = metadata["color"][2].as<float>();
+		uniforms.color[3] = metadata["color"][3].as<float>();
 		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 	};
 }

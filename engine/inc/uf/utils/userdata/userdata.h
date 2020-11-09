@@ -40,6 +40,8 @@ namespace uf {
 		pod::Userdata* UF_API create( uf::MemoryPool&, std::size_t len, void* data = NULL );
 		template<typename T> pod::Userdata* create( uf::MemoryPool&, const T& data = T() );
 		void UF_API destroy( uf::MemoryPool&, pod::Userdata* userdata );
+
+		size_t UF_API size( size_t size, size_t padding = 0 );
 	}
 }
 

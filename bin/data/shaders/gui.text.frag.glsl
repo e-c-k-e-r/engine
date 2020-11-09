@@ -31,8 +31,6 @@ void main() {
 		return;
 	}
 	float dist = texture(samplerColor, inUv).r;
-//	outFragColor = mix(vec4(inGui.color) * dist, vec4(1.0f, 0.0f, 1.0f, 0.5f), 0.9);
-
 	if ( inGui.sdf == 1 ) {
 		float smoothing = ( inGui.spread > 0 && inGui.scale > 0 ) ? 0.25 / (inGui.spread * inGui.scale) : 0.25 / (4 * 1.5);
 		float outlining = smoothstep(0.5 - smoothing, 0.5 + smoothing, dist);

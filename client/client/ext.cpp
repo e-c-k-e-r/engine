@@ -34,8 +34,8 @@ void client::initialize() {
 	/* Initialize window */ {
 		// Window size
 		pod::Vector2i size; {
-			size.x = client::config["window"]["size"]["x"].asUInt();
-			size.y = client::config["window"]["size"]["y"].asUInt();
+			size.x = client::config["window"]["size"]["x"].as<size_t>();
+			size.y = client::config["window"]["size"]["y"].as<size_t>();
 			// request system size
 			if ( size.x <= 0 && size.y <= 0 ) {
 				auto resolution = client::window.getResolution();
@@ -45,12 +45,12 @@ void client::initialize() {
 		}
 		// Window title
 		uf::String title; {
-			title = client::config["window"]["title"].asString();
+			title = client::config["window"]["title"].as<std::string>();
 		}
 		// Terminal window;
-		spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].asBool() );
+		spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].as<bool>() );
 		// Ncurses
-		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].asBool();
+		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].as<bool>();
 
 		// Window's context settings
 		uf::renderer::settings::width = size.x;
@@ -58,16 +58,16 @@ void client::initialize() {
 		client::window.create( size, title );
 
 		// Miscellaneous
-		client::window.setVisible(client::config["window"]["visible"].asBool());
-		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].asBool());
-		client::window.setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].asBool());
+		client::window.setVisible(client::config["window"]["visible"].as<bool>());
+		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].as<bool>());
+		client::window.setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].as<bool>());
 	//	client::window.centerWindow();
 	//	client::window.setPosition({0, 0});
 	//	client::window.setMouseGrabbed(true);
 
-		/* Set Icon */ if ( client::config["window"]["icon"].isString() ) {
+		/* Set Icon */ if ( client::config["window"]["icon"].is<std::string>() ) {
 			uf::Image icon;
-			icon.open(client::config["window"]["icon"].asString());
+			icon.open(client::config["window"]["icon"].as<std::string>());
 			client::window.setIcon({(int) icon.getDimensions().x, (int) icon.getDimensions().y}, ((uint8_t*)icon.getPixelsPtr()));
 		}
 		client::window.setTitle(title); {
@@ -94,10 +94,10 @@ void client::initialize() {
 		if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
 			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
-				client::window.setCursorVisible(json["state"].asBool());
-				client::window.setMouseGrabbed(!json["state"].asBool());
-				client::config["mouse"]["visible"] = json["state"].asBool();
-				client::config["window"]["mouse"]["center"] = !json["state"].asBool();
+				client::window.setCursorVisible(json["state"].as<bool>());
+				client::window.setMouseGrabbed(!json["state"].as<bool>());
+				client::config["mouse"]["visible"] = json["state"].as<bool>();
+				client::config["window"]["mouse"]["center"] = !json["state"].as<bool>();
 				return "true";
 			});
 			uf::hooks.addHook( "window:Mouse.Lock", [&](const std::string& event)->std::string{
@@ -115,8 +115,8 @@ void client::initialize() {
 			uf::hooks.addHook( "window:Title.Changed", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 				if ( json["invoker"] != "os" ) {
-					if ( !json["window"].isObject() ) return "false";
-					uf::String title = json["window"]["title"].asString();
+					if ( !ext::json::isObject( json["window"] ) ) return "false";
+					uf::String title = json["window"]["title"].as<std::string>();
 					client::window.setTitle(title);
 				}
 				return "true";
@@ -124,15 +124,15 @@ void client::initialize() {
 			uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 				pod::Vector2i size; {
-					size.x = json["window"]["size"]["x"].asUInt64();
-					size.y = json["window"]["size"]["y"].asUInt64();
+					size.x = json["window"]["size"]["x"].as<size_t>();
+					size.y = json["window"]["size"]["y"].as<size_t>();
 				}
 				if ( json["invoker"] != "os" ) {
 					client::window.setSize(size);
 				}
 				// Update viewport
-				if ( !client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isArray() ) {
-					float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].isNumeric() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].asFloat() : 1;
+				if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
+					float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<double>() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>() : 1;
 					uf::renderer::settings::width = size.x * scale;
 					uf::renderer::settings::height = size.y * scale;
 				}
@@ -182,8 +182,8 @@ void client::initialize() {
 			} );
 		}
 	}
-	if ( client::config["window"]["mode"].asString() == "fullscreen" ) client::window.switchToFullscreen();
-	if ( client::config["window"]["mode"].asString() == "borderless" ) client::window.switchToFullscreen( true );
+	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
+	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
 	client::ready = true;
 }
 void client::tick() {
@@ -191,7 +191,7 @@ void client::tick() {
 	client::window.pollEvents();
 	// call mouse move
 	// query lock
-	if ( client::window.hasFocus() && client::config["window"]["mouse"]["center"].asBool() ) {
+	if ( client::window.hasFocus() && client::config["window"]["mouse"]["center"].as<bool>() ) {
 		auto previous = client::window.getMousePosition();
 		client::window.setMousePosition(client::window.getSize()/2);
 		auto current = client::window.getMousePosition();

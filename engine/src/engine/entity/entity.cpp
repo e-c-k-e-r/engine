@@ -5,6 +5,8 @@
 uf::Entity uf::Entity::null;
 std::size_t uf::Entity::uids = 0;
 uf::MemoryPool uf::Entity::memoryPool;
+bool uf::Entity::deleteChildrenOnDestroy = false;
+bool uf::Entity::deleteComponentsOnDestroy = false;
 uf::Entity::~Entity(){
 	this->destroy();
 }

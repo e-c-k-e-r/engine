@@ -24,7 +24,7 @@
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
-EXT_BEHAVIOR_REGISTER_CPP(ExtSceneBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
 #define this ((uf::Scene*) &self)
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
@@ -41,8 +41,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 		if ( metadata["previous bgm"]["filename"] == "" ) return "false";
 
-		std::string filename = metadata["previous bgm"]["filename"].asString();
-		float timestamp = metadata["previous bgm"]["timestamp"].asFloat();
+		std::string filename = metadata["previous bgm"]["filename"].as<std::string>();
+		float timestamp = metadata["previous bgm"]["timestamp"].as<float>();
 
 //		std::cout << metadata["previous bgm"] << std::endl;
 
@@ -53,7 +53,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			audio.stop();
 		}
 		audio.load(filename);
-		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
+		audio.setVolume(metadata["volumes"]["bgm"].as<float>());
 		audio.setTime(timestamp);
 		audio.play();
 
@@ -61,7 +61,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 		const uf::Audio* audioPointer = NULL;
@@ -72,7 +72,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		if ( audio.playing() ) audio.stop();
 
 		audio.load(filename);
-		audio.setVolume(metadata["volumes"]["bgm"].asFloat());
+		audio.setVolume(metadata["volumes"]["bgm"].as<float>());
 		audio.play();
 
 		return "true";
@@ -88,8 +88,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !manager ) return "false";
 		uf::Serializer payload;
-	//	uf::Object* gui = (uf::Object*) manager->findByUid( (payload["uid"] = manager->loadChildUid("/scenes/worldscape/gui/pause/menu.json", false)).asUInt64() );
-		uf::Object& gui = manager->loadChild("/scenes/worldscape/gui/pause/menu.json", false);
+		std::string config = metadata["menus"]["pause"].is<std::string>() ? metadata["menus"]["pause"].as<std::string>() : "/scenes/worldscape/gui/pause/menu.json";
+		uf::Object& gui = manager->loadChild(config, false);
 		payload["uid"] = gui.getUid();
 
 		uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
@@ -101,10 +101,19 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
 
-		std::string asset = json["asset"].asString();
-		std::string uid = json["uid"].asString();
+		std::string asset = json["asset"].as<std::string>();
+		std::string uid = json["uid"].as<std::string>();
 
 		assetLoader.load(asset, "asset:Load." + uid);
+
+		return "true";
+	});
+	this->addHook( "shader:Update.%UID%", [&](const std::string& event)->std::string{
+		uf::Serializer json = event;
+
+		json["mode"] = json["mode"].as<size_t>() | metadata["system"]["renderer"]["shader"]["mode"].as<size_t>();
+		metadata["system"]["renderer"]["shader"]["mode"] = json["mode"];
+		metadata["system"]["renderer"]["shader"]["parameters"] = json["parameters"];
 
 		return "true";
 	});
@@ -118,8 +127,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			uf::Serializer json = event;
 
 			pod::Vector2ui size; {
-				size.x = json["window"]["size"]["x"].asUInt64();
-				size.y = json["window"]["size"]["y"].asUInt64();
+				size.x = json["window"]["size"]["x"].as<size_t>();
+				size.y = json["window"]["size"]["y"].as<size_t>();
 			}
 
 			metadata["system"]["window"] = json["system"]["window"];
@@ -141,8 +150,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
-	/* check if audio needs to loop */ try {
-		uf::Audio& bgm = this->getComponent<uf::Audio>();
+	/* check if audio needs to loop */ {
+	/*
+		auto& bgm = this->getComponent<uf::Audio>();
 		float current = bgm.getTime();
 		float end = bgm.getDuration();
 		float epsilon = 0.005f;
@@ -151,15 +161,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			std::string filename = bgm.getFilename();
 			filename = assetLoader.getOriginal(filename);
 			if ( filename.find("_intro") != std::string::npos ) {
-				assetLoader.load(uf::string::replace( filename, "_intro", "" ), "asset:Load." + std::to_string(this->getUid()));
+				assetLoader.load(uf::string::replace( filename, "_intro", "" ), this->formatHookName("asset:Load.%UID%"));
 			// loop
 			} else {
 				bgm.setTime(0);
 				if ( !bgm.playing() ) bgm.play();
 			}
 		}
-	} catch ( ... ) {
-
+	*/
 	}
 
 	/* Regain control if nothing requests it */ {
@@ -180,15 +189,15 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
-			auto& allocations = uf::Entity::memoryPool.allocations();
-			uf::iostream << "Current size: " << allocations.size() << "\n"; //" | UIDs: " << uf::Entity::uids << "\n";
 			uint orphans = 0;
 			uint empty = 0;
+			auto& allocations = uf::Entity::memoryPool.allocations();
+			uf::iostream << "Current size: " << allocations.size() << "\n"; //" | UIDs: " << uf::Entity::uids << "\n";
 			for ( auto& allocation : allocations ) {
 				uf::Entity* e = (uf::Entity*) allocation.pointer;
-				if ( !e->hasParent() ) {
+				if ( !e->hasParent() && e != this ) {
 					++orphans;
-					uf::iostream << "Orphan: " << e->getName() << ": " << e << "\n";
+					uf::iostream << "Orphan: " << e->getName() << ": " << e->getUid() << ": " << e << "\n";
 				}
 			}
 			uf::iostream << "Orphans: " << orphans << "\n";
@@ -212,7 +221,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	if ( uf::scene::getCurrentScene().getUid() == this->getUid() ) {
-		/* Update lights */ if ( metadata["light"]["should"].asBool() ) {
+		/* Update lights */ if ( metadata["light"]["should"].as<bool>() ) {
 		//	if ( !uf::renderer::currentRenderMode || uf::renderer::currentRenderMode->name != "" ) return;
 
 			auto& scene = uf::scene::getCurrentScene();
@@ -294,7 +303,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 				{
 					uf::Serializer& metadata = controller.getComponent<uf::Serializer>();
-					if ( metadata["light"]["should"].asBool() ) entities.push_back(&controller);
+					if ( metadata["light"]["should"].as<bool>() ) entities.push_back(&controller);
 				}
 			}
 			for ( size_t _ = 0; _ < blitters.size(); ++_ ) {
@@ -321,30 +330,30 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					uniforms->matrices.projection[i] = camera.getProjection( i );
 				}
 				{
-					uniforms->ambient.x = metadata["light"]["ambient"][0].asFloat();
-					uniforms->ambient.y = metadata["light"]["ambient"][1].asFloat();
-					uniforms->ambient.z = metadata["light"]["ambient"][2].asFloat();
-					uniforms->ambient.w = metadata["light"]["kexp"].asFloat();
+					uniforms->ambient.x = metadata["light"]["ambient"][0].as<float>();
+					uniforms->ambient.y = metadata["light"]["ambient"][1].as<float>();
+					uniforms->ambient.z = metadata["light"]["ambient"][2].as<float>();
+					uniforms->ambient.w = metadata["light"]["kexp"].as<float>();
 				}
 				{
-					uniforms->fog.color.x = metadata["light"]["fog"]["color"][0].asFloat();
-					uniforms->fog.color.y = metadata["light"]["fog"]["color"][1].asFloat();
-					uniforms->fog.color.z = metadata["light"]["fog"]["color"][2].asFloat();
+					uniforms->fog.color.x = metadata["light"]["fog"]["color"][0].as<float>();
+					uniforms->fog.color.y = metadata["light"]["fog"]["color"][1].as<float>();
+					uniforms->fog.color.z = metadata["light"]["fog"]["color"][2].as<float>();
 
-					uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].asFloat();
-					uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].asFloat();
+					uniforms->fog.range.x = metadata["light"]["fog"]["range"][0].as<float>();
+					uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].as<float>();
 				}
 				{
-					uniforms->mode.type.x = metadata["system"]["renderer"]["shader"]["mode"].asUInt();
-					uniforms->mode.type.y = metadata["system"]["renderer"]["shader"]["scalar"].asUInt();
-					uniforms->mode.parameters.x = metadata["system"]["renderer"]["shader"]["parameters"][0].asFloat();
-					uniforms->mode.parameters.y = metadata["system"]["renderer"]["shader"]["parameters"][1].asFloat();
-					uniforms->mode.parameters.z = metadata["system"]["renderer"]["shader"]["parameters"][2].asFloat();
+					uniforms->mode.type.x = metadata["system"]["renderer"]["shader"]["mode"].as<size_t>();
+					uniforms->mode.type.y = metadata["system"]["renderer"]["shader"]["scalar"].as<size_t>();
+					uniforms->mode.parameters.x = metadata["system"]["renderer"]["shader"]["parameters"][0].as<float>();
+					uniforms->mode.parameters.y = metadata["system"]["renderer"]["shader"]["parameters"][1].as<float>();
+					uniforms->mode.parameters.z = metadata["system"]["renderer"]["shader"]["parameters"][2].as<float>();
 
-					if ( metadata["system"]["renderer"]["shader"]["parameters"][3].asString() == "time" ) {
+					if ( metadata["system"]["renderer"]["shader"]["parameters"][3].as<std::string>() == "time" ) {
 						uniforms->mode.parameters.w = uf::physics::time::current;
 					} else {
-						uniforms->mode.parameters.w = metadata["system"]["renderer"]["shader"]["parameters"][3].asFloat();
+						uniforms->mode.parameters.w = metadata["system"]["renderer"]["shader"]["parameters"][3].as<float>();
 					}
 				}
 				{
@@ -380,16 +389,16 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 						if ( entity == &controller ) light.position.y += 2;
 
-						light.position.w = metadata["light"]["radius"][1].asFloat();
+						light.position.w = metadata["light"]["radius"][1].as<float>();
 
-						light.color.x = metadata["light"]["color"][0].asFloat();
-						light.color.y = metadata["light"]["color"][1].asFloat();
-						light.color.z = metadata["light"]["color"][2].asFloat();
+						light.color.x = metadata["light"]["color"][0].as<float>();
+						light.color.y = metadata["light"]["color"][1].as<float>();
+						light.color.z = metadata["light"]["color"][2].as<float>();
 
-						light.color.w = metadata["light"]["power"].asFloat();
+						light.color.w = metadata["light"]["power"].as<float>();
 
-						light.type = metadata["light"]["type"].asUInt64();
-						light.depthBias = metadata["light"]["shadows"]["bias"].asFloat();
+						light.type = metadata["light"]["type"].as<size_t>();
+						light.depthBias = metadata["light"]["shadows"]["bias"].as<float>();
 
 						if ( !hasCompute && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 							auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();

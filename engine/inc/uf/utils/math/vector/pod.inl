@@ -10,6 +10,8 @@ template<typename T>
 pod::Vector3t<T> /*UF_API*/ uf::vector::create( T x, T y, T z ) { pod::Vector3t<T> vec; vec.x = x, vec.y = y, vec.z = z; return vec; }
 template<typename T>
 pod::Vector4t<T> /*UF_API*/ uf::vector::create( T x, T y, T z, T w ) { pod::Vector4t<T> vec; vec.x = x, vec.y = y, vec.z = z, vec.w = w; return vec; }
+template<typename T, size_t N>
+pod::Vector<T, N> /*UF_API*/ uf::vector::copy( const pod::Vector<T, N>& v ) { return v; }
 // 	Equality checking
 template<typename T> 														// 	Equality check between two vectors (less than)
 std::size_t /*UF_API*/ uf::vector::compareTo( const T& left, const T& right ) {

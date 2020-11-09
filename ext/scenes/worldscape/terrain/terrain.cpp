@@ -23,18 +23,18 @@ namespace {
 	std::unordered_map<pod::Vector3i, uf::Object*> region_table;
 }
 
-EXT_OBJECT_REGISTER_BEGIN(Terrain)
-	UF_OBJECT_REGISTER_BEHAVIOR(EntityBehavior)
-	UF_OBJECT_REGISTER_BEHAVIOR(ObjectBehavior)
-	EXT_OBJECT_REGISTER_BEHAVIOR(TerrainBehavior)
-EXT_OBJECT_REGISTER_END()
+UF_OBJECT_REGISTER_BEGIN(ext::Terrain)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
+	UF_OBJECT_REGISTER_BEHAVIOR(ext::TerrainBehavior)
+UF_OBJECT_REGISTER_END()
 void ext::Terrain::relocateChildren() {
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	std::vector<uf::Entity*> entities;
 	scene.process( [&]( uf::Entity* entity ) {
 		if ( !entity || entity->getUid() == 0 ) return;
 		uf::Serializer& metadata = entity->getComponent<uf::Serializer>();
-		if ( metadata["region"].isObject() && metadata["region"]["track"].asBool() ) {
+		if ( ext::json::isObject( metadata["region"] ) && metadata["region"]["track"].as<bool>() ) {
 			if ( std::find( entities.begin(), entities.end(), entity ) == entities.end() ) {
 				entities.push_back(entity);
 			}
@@ -43,9 +43,9 @@ void ext::Terrain::relocateChildren() {
 	
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3ui size = {
-		metadata["region"]["size"][0].asUInt(),
-		metadata["region"]["size"][1].asUInt(),
-		metadata["region"]["size"][2].asUInt(),
+		metadata["region"]["size"][0].as<size_t>(),
+		metadata["region"]["size"][1].as<size_t>(),
+		metadata["region"]["size"][2].as<size_t>(),
 	};
 	for ( uf::Entity* e : entities ) {
 		uf::Entity& entity = *e;
@@ -80,9 +80,9 @@ void ext::Terrain::relocateChildren() {
 bool ext::Terrain::exists( const pod::Vector3i& position ) const {
 	const uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3i size = {
-		metadata["region"]["size"][0].asInt(),
-		metadata["region"]["size"][1].asInt(),
-		metadata["region"]["size"][2].asInt(),
+		metadata["region"]["size"][0].as<int>(),
+		metadata["region"]["size"][1].as<int>(),
+		metadata["region"]["size"][2].as<int>(),
 	};
 	if ( this->getChildren().empty() ) return false;
 	for ( auto it = this->getChildren().begin(); it != this->getChildren().end(); ++it ) { uf::Entity* kv = *it;
@@ -102,14 +102,14 @@ bool ext::Terrain::inBounds( const pod::Vector3i& position ) const {
 	const pod::Transform<>& player = scene.getController().getComponent<pod::Transform<>>();
 	const uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3ui size = {
-		metadata["region"]["size"][0].asUInt(),
-		metadata["region"]["size"][1].asUInt(),
-		metadata["region"]["size"][2].asUInt(),
+		metadata["region"]["size"][0].as<size_t>(),
+		metadata["region"]["size"][1].as<size_t>(),
+		metadata["region"]["size"][2].as<size_t>(),
 	};
 	pod::Vector3ui threshold = {
-		metadata["terrain"]["radius"][0].asUInt(),
-		metadata["terrain"]["radius"][1].asUInt(),
-		metadata["terrain"]["radius"][2].asUInt(),
+		metadata["terrain"]["radius"][0].as<size_t>(),
+		metadata["terrain"]["radius"][1].as<size_t>(),
+		metadata["terrain"]["radius"][2].as<size_t>(),
 	};
 	pod::Vector3i point = {
 		(int) (player.position.x / size.x),
@@ -124,14 +124,14 @@ bool ext::Terrain::inBounds( const pod::Vector3i& position ) const {
 void ext::Terrain::generate( bool single ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3i radius = {
-		metadata["terrain"]["radius"][0].asInt(),
-		metadata["terrain"]["radius"][1].asInt(),
-		metadata["terrain"]["radius"][2].asInt(),
+		metadata["terrain"]["radius"][0].as<int>(),
+		metadata["terrain"]["radius"][1].as<int>(),
+		metadata["terrain"]["radius"][2].as<int>(),
 	};
 	pod::Vector3i size = {
-		metadata["region"]["size"][0].asInt(),
-		metadata["region"]["size"][1].asInt(),
-		metadata["region"]["size"][2].asInt(),
+		metadata["region"]["size"][0].as<int>(),
+		metadata["region"]["size"][1].as<int>(),
+		metadata["region"]["size"][2].as<int>(),
 	};
 
 	uf::Scene& scene = uf::scene::getCurrentScene();
@@ -164,9 +164,9 @@ uf::Object* ext::Terrain::at( const pod::Vector3i& position ) const {
 
 	const uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3i size = {
-		metadata["region"]["size"][0].asInt(),
-		metadata["region"]["size"][1].asInt(),
-		metadata["region"]["size"][2].asInt(),
+		metadata["region"]["size"][0].as<int>(),
+		metadata["region"]["size"][1].as<int>(),
+		metadata["region"]["size"][2].as<int>(),
 	};
 	if ( this->getChildren().empty() ) return NULL;
 	for ( auto it = this->getChildren().begin(); it != this->getChildren().end(); ++it ) { uf::Entity* kv = *it;
@@ -183,9 +183,9 @@ uf::Object* ext::Terrain::at( const pod::Vector3i& position ) const {
 void ext::Terrain::generate( const pod::Vector3i& position ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector3i size = {
-		metadata["region"]["size"][0].asInt(),
-		metadata["region"]["size"][1].asInt(),
-		metadata["region"]["size"][2].asInt(),
+		metadata["region"]["size"][0].as<int>(),
+		metadata["region"]["size"][1].as<int>(),
+		metadata["region"]["size"][2].as<int>(),
 	};
 
 	if ( this->exists(position) ) return;

@@ -8,7 +8,7 @@
 
 #include <mutex>
 
-EXT_BEHAVIOR_REGISTER_CPP(SoundEmitterBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::SoundEmitterBehavior)
 #define this ((uf::Scene*) &self)
 
 void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
@@ -21,7 +21,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 		const uf::Audio* audioPointer = NULL;
@@ -31,20 +31,20 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		uf::Audio& audio = this->getComponent<uf::Audio>(); //emitter.add(filename);
 		audio.load(filename);
 		{
-			float volume = metadata["audio"]["volume"].isNumeric() ? metadata["audio"]["volume"].asFloat() : sMetadata["volumes"]["sfx"].asFloat();
+			float volume = metadata["audio"]["volume"].is<double>() ? metadata["audio"]["volume"].as<float>() : sMetadata["volumes"]["sfx"].as<float>();
 			audio.setVolume(volume);
 		}
-		if ( metadata["audio"]["pitch"].isNumeric() ) {
-			audio.setPitch(metadata["audio"]["pitch"].asFloat());
+		if ( metadata["audio"]["pitch"].is<double>() ) {
+			audio.setPitch(metadata["audio"]["pitch"].as<float>());
 		}
-		if ( metadata["audio"]["gain"].isNumeric() ) {
-			audio.setGain(metadata["audio"]["gain"].asFloat());
+		if ( metadata["audio"]["gain"].is<double>() ) {
+			audio.setGain(metadata["audio"]["gain"].as<float>());
 		}
-		if ( metadata["audio"]["rolloffFactor"].isNumeric() ) {
-			audio.setRolloffFactor(metadata["audio"]["rolloffFactor"].asFloat());
+		if ( metadata["audio"]["rolloffFactor"].is<double>() ) {
+			audio.setRolloffFactor(metadata["audio"]["rolloffFactor"].as<float>());
 		}
-		if ( metadata["audio"]["maxDistance"].isNumeric() ) {
-			audio.setMaxDistance(metadata["audio"]["maxDistance"].asFloat());
+		if ( metadata["audio"]["maxDistance"].is<double>() ) {
+			audio.setMaxDistance(metadata["audio"]["maxDistance"].as<float>());
 		}
 		audio.play();
 
@@ -63,7 +63,7 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 		audio.setPosition( transform.position );
 		audio.setOrientation( transform.orientation );
 
-		if ( metadata["audio"]["loop"].asBool() ) {
+		if ( metadata["audio"]["loop"].as<bool>() ) {
 			float current = audio.getTime();
 			float end = audio.getDuration();
 			float epsilon = 0.005f;

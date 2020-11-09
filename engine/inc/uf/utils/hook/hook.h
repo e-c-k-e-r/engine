@@ -95,9 +95,9 @@ namespace uf {
 		bool isAliasToReadable( const Readable::alias_t::name_t& name ) const; 	// Is there an alias bound to a readable hook?
 		bool isAliasToOptimal( const Optimal::alias_t::name_t& name ) const; 	// Is there an alias bound to an optimal hook?
 
-		void call( const Readable::name_t& name );
+		std::vector<Readable::return_t> call( const Readable::name_t& name );
 		std::vector<Readable::return_t> call( const Readable::name_t& name, const Readable::argument_t& argument );
-		void call( const Optimal::name_t& name, const Optimal::argument_t& argument );
+		std::vector<Optimal::return_t> call( const Optimal::name_t& name, const Optimal::argument_t& argument );
 	};
 	class UF_API Hooks {
 	public:

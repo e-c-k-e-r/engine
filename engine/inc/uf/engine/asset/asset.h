@@ -8,9 +8,9 @@
 #include <functional>
 
 namespace uf {
-	class UF_API Asset : public uf::Entity {
+	class UF_API Asset : public uf::Component {
 	protected:
-		static uf::Entity masterAssetLoader;
+		static uf::Asset masterAssetLoader;
 	public:
 		// URL or file path
 		void processQueue();
@@ -22,7 +22,7 @@ namespace uf {
 
 		template<typename T>
 		std::vector<T>& getContainer() {
-			return masterAssetLoader.getComponent<std::vector<T>>();
+			return this->getComponent<std::vector<T>>();
 		}
 
 		template<typename T>
@@ -38,28 +38,38 @@ namespace uf {
 		template<typename T>
 		T& get( const std::string& url ) {
 			std::string extension = uf::io::extension( url );
-			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
-			std::size_t index = map[extension][url].asUInt64();
+			uf::Serializer& map = this->getComponent<uf::Serializer>();
+		
+			std::size_t index = map[extension][url].as<size_t>();
+		//	std::size_t index = map[extension][url];
+		
 			return this->get<T>(index);
 		}
 
 		template<typename T>
 		T& add( const std::string& url, const T& copy ) {
 			std::string extension = uf::io::extension( url );
-			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
+			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
+			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
+			
+		//	sol::optional<std::string> value = map[extension][url];
+		//	if ( !value ) return this->get<T>(url);
 
-			if ( !map[extension][url].isNull() ) return this->get<T>(url);
 			container.push_back( copy );
 			return container.back();
 		}
 		template<typename T>
 		T& add( const std::string& url, T&& move ) {
 			std::string extension = uf::io::extension( url );
-			uf::Serializer& map = masterAssetLoader.getComponent<uf::Serializer>();
+			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
-			if ( !map[extension][url].isNull() ) return this->get<T>(url);
+			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
+		
+		//	sol::optional<std::string> value = map[extension][url];
+		//	if ( !value ) return this->get<T>(url);
+		
 			container.push_back( move );
 			return container.back();
 		}

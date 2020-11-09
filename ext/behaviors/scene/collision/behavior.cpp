@@ -22,7 +22,7 @@
 
 #include <mutex>
 
-EXT_BEHAVIOR_REGISTER_CPP(SceneCollisionBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::SceneCollisionBehavior)
 #define this ((uf::Scene*) &self)
 
 void ext::SceneCollisionBehavior::initialize( uf::Object& self ) {
@@ -35,18 +35,18 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 
 	auto& metadata = this->getComponent<uf::Serializer>();
 
-	if ( !metadata["system"]["physics"]["collision"].asBool() ) return;
+	if ( !metadata["system"]["physics"]["collision"].as<bool>() ) return;
 	auto& mutex = *(this->getComponent<std::mutex*>());
 	mutex.lock();
 
-	bool threaded = !metadata["system"]["physics"]["single threaded"].asBool();
-	bool sort = metadata["system"]["physics"]["sort"].asBool();
-	bool useStrongest = metadata["system"]["physics"]["use"]["strongest"].asBool();
-	bool queued = metadata["system"]["physics"]["use"]["queue"].asBool();
-	bool updatePhysics = !metadata["system"]["physics"]["optimizations"]["entity-local update"].asBool();
-	bool ignoreStaticEntities = metadata["system"]["physics"]["optimizations"]["ignore static entities"].asBool();
-	bool ignoreDuplicateTests = metadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].asBool();
-	bool useWorkers = metadata["system"]["physics"]["use"]["worker"].asBool();
+	bool threaded = !metadata["system"]["physics"]["single threaded"].as<bool>();
+	bool sort = metadata["system"]["physics"]["sort"].as<bool>();
+	bool useStrongest = metadata["system"]["physics"]["use"]["strongest"].as<bool>();
+	bool queued = metadata["system"]["physics"]["use"]["queue"].as<bool>();
+	bool updatePhysics = !metadata["system"]["physics"]["optimizations"]["entity-local update"].as<bool>();
+	bool ignoreStaticEntities = metadata["system"]["physics"]["optimizations"]["ignore static entities"].as<bool>();
+	bool ignoreDuplicateTests = metadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].as<bool>();
+	bool useWorkers = metadata["system"]["physics"]["use"]["worker"].as<bool>();
 	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	auto function = [&]() -> int {
 		std::vector<uf::Object*> entities;
@@ -58,11 +58,11 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				auto& physics = entity->getComponent<pod::Physics>();
 				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
-					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].asFloat();
-					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].asFloat();
-					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].asFloat();
+					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
+					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
+					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
 				}
-				if ( !metadata["system"]["physics"]["collision"].asBool() )  {
+				if ( !metadata["system"]["physics"]["collision"].as<bool>() )  {
 					physics.linear.acceleration.x = 0;
 					physics.linear.acceleration.y = 0;
 					physics.linear.acceleration.z = 0;
@@ -73,14 +73,17 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 		}
 		{
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+				if ( !entity ) return;
 				auto& metadata = entity->getComponent<uf::Serializer>();
-				if ( !metadata["system"]["physics"]["collision"].isNull() && !metadata["system"]["physics"]["collision"].asBool() ) return;
+				if ( !ext::json::isNull( metadata["system"]["physics"]["collision"] ) && !metadata["system"]["physics"]["collision"].as<bool>() ) return;
 				if ( entity->hasComponent<uf::Collider>() )
 					entities.push_back((uf::Object*) entity);
 			};
 			this->process(filter);
 		}
-		auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b, bool queued ){				
+		auto onCollision = []( pod::Collider::Manifold& manifold, uf::Object* a, uf::Object* b, bool queued ){
+			if ( !a || !b )	return;
+
 			uf::Serializer payload;
 			payload["normal"][0] = manifold.normal.x;
 			payload["normal"][1] = manifold.normal.y;

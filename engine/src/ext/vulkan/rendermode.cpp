@@ -35,7 +35,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 		if ( !graphic.initialized || !graphic.process ) return;
 		graphics.push_back(&graphic);
 	};
-	for ( uf::Scene* scene : ext::vulkan::scenes ) {
+	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
@@ -79,7 +79,7 @@ void ext::vulkan::RenderMode::bindPipelines() {
 		if ( !graphic.process ) return;
 		graphics.push_back(&graphic);
 	};
-	for ( uf::Scene* scene : ext::vulkan::scenes ) {
+	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}

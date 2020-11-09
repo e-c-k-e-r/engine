@@ -42,8 +42,8 @@ ext::gui::Size ext::gui::size = {
 };
 
 
-EXT_BEHAVIOR_REGISTER_CPP(GuiManagerBehavior)
-EXT_BEHAVIOR_REGISTER_AS_OBJECT(GuiManagerBehavior, GuiManager)
+UF_BEHAVIOR_REGISTER_CPP(ext::GuiManagerBehavior)
+UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::GuiManagerBehavior, ext::GuiManager)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	{
@@ -65,8 +65,8 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 		uf::Serializer json = event;
 
 		pod::Vector2ui size; {
-			size.x = json["window"]["size"]["x"].asUInt64();
-			size.y = json["window"]["size"]["y"].asUInt64();
+			size.x = json["window"]["size"]["x"].as<size_t>();
+			size.y = json["window"]["size"]["y"].as<size_t>();
 		}
 		ext::gui::size.current = size;
 	//	ext::gui::size.reference = size;
@@ -76,11 +76,11 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
 
-		bool down = json["mouse"]["state"].asString() == "Down";
+		bool down = json["mouse"]["state"].as<std::string>() == "Down";
 		bool clicked = false;
 		pod::Vector2ui position; {
-			position.x = json["mouse"]["position"]["x"].asInt() > 0 ? json["mouse"]["position"]["x"].asUInt() : 0;
-			position.y = json["mouse"]["position"]["y"].asInt() > 0 ? json["mouse"]["position"]["y"].asUInt() : 0;
+			position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
+			position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
 		}
 		pod::Vector2f click; {
 			click.x = (float) position.x / (float) ext::gui::size.current.x;
@@ -96,7 +96,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 			auto& controller = scene.getController();
 			auto& metadata = controller.getComponent<uf::Serializer>();
 
-			if ( metadata["overlay"]["cursor"]["type"].asString() == "mouse" ) {
+			if ( metadata["overlay"]["cursor"]["type"].as<std::string>() == "mouse" ) {
 				metadata["overlay"]["cursor"]["position"][0] = click.x;
 				metadata["overlay"]["cursor"]["position"][1] = click.y;
 			}
@@ -139,27 +139,27 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 
 	for ( size_t i = 0; i < 2; ++i ) {
 		pod::Transform<> transform;
-		if ( metadata["overlay"]["position"].isArray() ) 
+		if ( ext::json::isArray( metadata["overlay"]["position"] ) ) 
 			transform.position = {
-				metadata["overlay"]["position"][0].asFloat(),
-				metadata["overlay"]["position"][1].asFloat(),
-				metadata["overlay"]["position"][2].asFloat(),
+				metadata["overlay"]["position"][0].as<float>(),
+				metadata["overlay"]["position"][1].as<float>(),
+				metadata["overlay"]["position"][2].as<float>(),
 			};
-		if ( metadata["overlay"]["scale"].isArray() ) 
+		if ( ext::json::isArray( metadata["overlay"]["scale"] ) ) 
 			transform.scale = {
-				metadata["overlay"]["scale"][0].asFloat(),
-				metadata["overlay"]["scale"][1].asFloat(),
-				metadata["overlay"]["scale"][2].asFloat(),
+				metadata["overlay"]["scale"][0].as<float>(),
+				metadata["overlay"]["scale"][1].as<float>(),
+				metadata["overlay"]["scale"][2].as<float>(),
 			};
-		if ( metadata["overlay"]["orientation"].isArray() ) 
+		if ( ext::json::isArray( metadata["overlay"]["orientation"] ) ) 
 			transform.orientation = {
-				metadata["overlay"]["orientation"][0].asFloat(),
-				metadata["overlay"]["orientation"][1].asFloat(),
-				metadata["overlay"]["orientation"][2].asFloat(),
-				metadata["overlay"]["orientation"][3].asFloat(),
+				metadata["overlay"]["orientation"][0].as<float>(),
+				metadata["overlay"]["orientation"][1].as<float>(),
+				metadata["overlay"]["orientation"][2].as<float>(),
+				metadata["overlay"]["orientation"][3].as<float>(),
 			};
-		if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].asBool() || uf::renderer::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
-			if ( metadata["overlay"]["floating"].asBool() ) {
+		if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].as<bool>() || uf::renderer::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
+			if ( metadata["overlay"]["floating"].as<bool>() ) {
 				pod::Matrix4f model = uf::transform::model( transform );
 				uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
 			} else {
@@ -173,24 +173,24 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 			pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
 			uniforms.matrices.models[i] = model;
 		}
-	//	uniforms.alpha.x = metadata["overlay"]["alpha"].asFloat();
+	//	uniforms.alpha.x = metadata["overlay"]["alpha"].as<float>();
 	//	uniforms.alpha.y = 0;
 
-		uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].asFloat() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
-		uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].asFloat() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
+		uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].as<float>() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
+		uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].as<float>() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
 
 		pod::Vector3f cursorSize;
-		cursorSize.x = metadata["overlay"]["cursor"]["radius"].asFloat();
-		cursorSize.y = metadata["overlay"]["cursor"]["radius"].asFloat();
+		cursorSize.x = metadata["overlay"]["cursor"]["radius"].as<float>();
+		cursorSize.y = metadata["overlay"]["cursor"]["radius"].as<float>();
 		cursorSize = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , transform.scale) ), cursorSize );
 		
 		uniforms.cursor.radius.x = cursorSize.x;
 		uniforms.cursor.radius.y = cursorSize.y;
 		
-		uniforms.cursor.color.x = metadata["overlay"]["cursor"]["color"][0].asFloat();
-		uniforms.cursor.color.y = metadata["overlay"]["cursor"]["color"][1].asFloat();
-		uniforms.cursor.color.z = metadata["overlay"]["cursor"]["color"][2].asFloat();
-		uniforms.cursor.color.w = metadata["overlay"]["cursor"]["color"][3].asFloat();
+		uniforms.cursor.color.x = metadata["overlay"]["cursor"]["color"][0].as<float>();
+		uniforms.cursor.color.y = metadata["overlay"]["cursor"]["color"][1].as<float>();
+		uniforms.cursor.color.z = metadata["overlay"]["cursor"]["color"][2].as<float>();
+		uniforms.cursor.color.w = metadata["overlay"]["cursor"]["color"][3].as<float>();
 	}
 	shader.updateBuffer( (void*) &uniforms, sizeof(uniforms), 0 );
 }

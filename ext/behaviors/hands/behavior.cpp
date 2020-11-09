@@ -25,7 +25,7 @@ namespace {
 	} hands, lines, lights;
 }
 
-EXT_BEHAVIOR_REGISTER_CPP(PlayerHandBehavior)
+UF_BEHAVIOR_REGISTER_CPP(ext::PlayerHandBehavior)
 #define this (&self)
 void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -46,18 +46,18 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 	{
 		bool loaded = true;
 		for ( auto it = metadata["hands"].begin(); it != metadata["hands"].end(); ++it ) {
-			std::string key = it.key().asString();
-			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].asString()) ) loaded = false;
+			std::string key = it.key().as<std::string>();
+			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].as<std::string>()) ) loaded = false;
 		}
 		if ( !loaded ) {
 			this->addHook( "VR:Model.Loaded", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 
-				std::string name = json["name"].asString();
+				std::string name = json["name"].as<std::string>();
 				std::string side = "";
-				if ( name == metadata["hands"]["left"]["controller"]["model"].asString() ) {
+				if ( name == metadata["hands"]["left"]["controller"]["model"].as<std::string>() ) {
 					side = "left";
-				} else if ( name == metadata["hands"]["right"]["controller"]["model"].asString() ) {
+				} else if ( name == metadata["hands"]["right"]["controller"]["model"].as<std::string>() ) {
 					side = "right";
 				};
 				if ( side == "" ) return "false";
@@ -77,22 +77,22 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					uf::instantiator::bind( "ObjectBehavior", hand );
 					hand.initialize();
 				}
-				if ( metadata["hands"][side]["pointer"]["length"].asFloat() > 0 ) {
+				if ( metadata["hands"][side]["pointer"]["length"].as<float>() > 0 ) {
 					line.addAlias<uf::LineMesh, uf::Mesh>();
 
 					pod::Transform<>& transform = line.getComponent<pod::Transform<>>();
 					transform.orientation = uf::quaternion::axisAngle( 
 						{
-							metadata["hands"][side]["pointer"]["orientation"]["axis"][0].asFloat(),
-							metadata["hands"][side]["pointer"]["orientation"]["axis"][1].asFloat(),
-							metadata["hands"][side]["pointer"]["orientation"]["axis"][2].asFloat()
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][0].as<float>(),
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][1].as<float>(),
+							metadata["hands"][side]["pointer"]["orientation"]["axis"][2].as<float>()
 						},
-						metadata["hands"][side]["pointer"]["orientation"]["angle"].asFloat() * 3.14159f / 180.0f
+						metadata["hands"][side]["pointer"]["orientation"]["angle"].as<float>() * 3.14159f / 180.0f
 					);
 					transform.position = {
-						metadata["hands"][side]["pointer"]["offset"][0].asFloat(),
-						metadata["hands"][side]["pointer"]["offset"][1].asFloat(),
-						metadata["hands"][side]["pointer"]["offset"][2].asFloat()
+						metadata["hands"][side]["pointer"]["offset"][0].as<float>(),
+						metadata["hands"][side]["pointer"]["offset"][1].as<float>(),
+						metadata["hands"][side]["pointer"]["offset"][2].as<float>()
 					};
 
 					auto& mesh = line.getComponent<uf::LineMesh>();
@@ -100,7 +100,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 
 					mesh.vertices = {
 						{ {0.0f, 0.0f, 0.0f} },
-						{ {0.0f, 0.0f, metadata["hands"][side]["pointer"]["length"].asFloat()} },
+						{ {0.0f, 0.0f, metadata["hands"][side]["pointer"]["length"].as<float>()} },
 					};
 					graphic.initialize();
 					graphic.initializeGeometry(mesh);
@@ -109,11 +109,11 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 					graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 					graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
-					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].asFloat();
+					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].as<float>();
 
 					line.initialize();
 				}
-				if ( metadata["hands"][side]["light"]["should"].asBool() ){
+				if ( metadata["hands"][side]["light"]["should"].as<bool>() ){
 					auto& child = hand.loadChild("/light.json", false);
 					if (side == "left" )
 						lights.left = &child;
@@ -124,11 +124,11 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					auto& light = side == "left" ? *lights.left : *lights.right;
 
 					auto& metadata = light.getComponent<uf::Serializer>();
-					if ( !json["color"].isNull() ) metadata["light"]["color"] = json["color"];
-					if ( !json["radius"].isNull() ) metadata["light"]["radius"] = json["radius"];
-					if ( !json["power"].isNull() ) metadata["light"]["power"] = json["power"];
-					if ( !json["type"].isNull() ) metadata["light"]["type"] = json["type"];
-					if ( !json["shadows"].isNull() ) metadata["light"]["shadows"] = json["shadows"];
+					if ( !ext::json::isNull( json["color"] ) ) metadata["light"]["color"] = json["color"];
+					if ( !ext::json::isNull( json["radius"] ) ) metadata["light"]["radius"] = json["radius"];
+					if ( !ext::json::isNull( json["power"] ) ) metadata["light"]["power"] = json["power"];
+					if ( !ext::json::isNull( json["type"] ) ) metadata["light"]["type"] = json["type"];
+					if ( !ext::json::isNull( json["shadows"] ) ) metadata["light"]["shadows"] = json["shadows"];
 					metadata["lights"]["external update"] = true;
 
 					// light.initialize();
@@ -140,10 +140,10 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 						auto& light = side == "left" ? *lights.left : *lights.right;
 
 						auto& metadata = light.getComponent<uf::Serializer>();
-						if ( !json["color"].isNull() ) metadata["light"]["color"] = json["color"];
-						if ( !json["radius"].isNull() ) metadata["light"]["radius"] = json["radius"];
-						if ( !json["power"].isNull() ) metadata["light"]["power"] = json["power"];
-						if ( !json["shadows"].isNull() ) metadata["light"]["shadows"] = json["shadows"];
+						if ( !ext::json::isNull( json["color"] ) ) metadata["light"]["color"] = json["color"];
+						if ( !ext::json::isNull( json["radius"] ) ) metadata["light"]["radius"] = json["radius"];
+						if ( !ext::json::isNull( json["power"] ) ) metadata["light"]["power"] = json["power"];
+						if ( !ext::json::isNull( json["shadows"] ) ) metadata["light"]["shadows"] = json["shadows"];
 						metadata["lights"]["external update"] = true;
 
 						light.initialize();
@@ -161,22 +161,22 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 				uf::Serializer json = event;
 				
 				std::string side = &hand == hands.left ? "left" : "right";
-				if ( json["hand"].asString() != side ) return "false";
+				if ( json["hand"].as<std::string>() != side ) return "false";
 
 				// fire mouse click
-				if ( json["name"].asString() == "click" ) {
+				if ( json["name"].as<std::string>() == "click" ) {
 
 					uf::Serializer payload;
 					payload["type"] = "window:Mouse.Click";
 					payload["invoker"] = "vr";
-					payload["mouse"]["position"]["x"]	= metadata["hands"][side]["cursor"]["position"][0].asFloat();
-					payload["mouse"]["position"]["y"]	= metadata["hands"][side]["cursor"]["position"][1].asFloat();
+					payload["mouse"]["position"]["x"]	= metadata["hands"][side]["cursor"]["position"][0].as<float>();
+					payload["mouse"]["position"]["y"]	= metadata["hands"][side]["cursor"]["position"][1].as<float>();
 					payload["mouse"]["delta"]["x"] 		= 0;
 					payload["mouse"]["delta"]["y"] 		= 0;
 					payload["mouse"]["button"] 			= side == "left" ? "Right" : "Left";
-					payload["mouse"]["state"] = json["state"].asBool() ? "Down": "Up";
+					payload["mouse"]["state"] = json["state"].as<bool>() ? "Down": "Up";
 
-					uf::hooks.call( payload["type"].asString(), payload );
+					uf::hooks.call( payload["type"].as<std::string>(), payload );
 				}
 
 				return "true";
@@ -186,7 +186,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 	
 				std::string side = &hand == hands.left ? "left" : "right";
 
-				float mag = json["depth"].asFloat();
+				float mag = json["depth"].as<float>();
 				uf::Serializer payload;
 				payload["delay"] = 0.0f;
 				payload["duration"] = uf::physics::time::delta;
@@ -312,24 +312,24 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 				pod::Transform<> gtransform;
 				pod::Matrix4f mvp;
 				uf::Serializer& cMetadata = controller.getComponent<uf::Serializer>();
-				if ( cMetadata["overlay"]["position"].isArray() ) 
+				if ( ext::json::isArray( cMetadata["overlay"]["position"] ) ) 
 					gtransform.position = {
-						cMetadata["overlay"]["position"][0].asFloat(),
-						cMetadata["overlay"]["position"][1].asFloat(),
-						cMetadata["overlay"]["position"][2].asFloat(),
+						cMetadata["overlay"]["position"][0].as<float>(),
+						cMetadata["overlay"]["position"][1].as<float>(),
+						cMetadata["overlay"]["position"][2].as<float>(),
 					};
-				if ( cMetadata["overlay"]["scale"].isArray() ) 
+				if ( ext::json::isArray( cMetadata["overlay"]["scale"] ) ) 
 					gtransform.scale = {
-						cMetadata["overlay"]["scale"][0].asFloat(),
-						cMetadata["overlay"]["scale"][1].asFloat(),
-						cMetadata["overlay"]["scale"][2].asFloat(),
+						cMetadata["overlay"]["scale"][0].as<float>(),
+						cMetadata["overlay"]["scale"][1].as<float>(),
+						cMetadata["overlay"]["scale"][2].as<float>(),
 					};
-				if ( cMetadata["overlay"]["orientation"].isArray() ) 
+				if ( ext::json::isArray( cMetadata["overlay"]["orientation"] ) ) 
 					gtransform.orientation = {
-						cMetadata["overlay"]["orientation"][0].asFloat(),
-						cMetadata["overlay"]["orientation"][1].asFloat(),
-						cMetadata["overlay"]["orientation"][2].asFloat(),
-						cMetadata["overlay"]["orientation"][3].asFloat(),
+						cMetadata["overlay"]["orientation"][0].as<float>(),
+						cMetadata["overlay"]["orientation"][1].as<float>(),
+						cMetadata["overlay"]["orientation"][2].as<float>(),
+						cMetadata["overlay"]["orientation"][3].as<float>(),
 					};
 
 				plane.center = gtransform.position;
@@ -390,10 +390,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
-			uniforms.color[0] = metadata["hands"]["left"]["controller"]["color"][0].asFloat();
-			uniforms.color[1] = metadata["hands"]["left"]["controller"]["color"][1].asFloat();
-			uniforms.color[2] = metadata["hands"]["left"]["controller"]["color"][2].asFloat();
-			uniforms.color[3] = metadata["hands"]["left"]["controller"]["color"][3].asFloat();
+			uniforms.color[0] = metadata["hands"]["left"]["controller"]["color"][0].as<float>();
+			uniforms.color[1] = metadata["hands"]["left"]["controller"]["color"][1].as<float>();
+			uniforms.color[2] = metadata["hands"]["left"]["controller"]["color"][2].as<float>();
+			uniforms.color[3] = metadata["hands"]["left"]["controller"]["color"][3].as<float>();
 			// graphic.updateBuffer( uniforms, 0, false );
 
 			if ( uf::renderer::currentRenderMode ) {
@@ -420,10 +420,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
-			uniforms.color[0] = metadata["hands"]["right"]["controller"]["color"][0].asFloat();
-			uniforms.color[1] = metadata["hands"]["right"]["controller"]["color"][1].asFloat();
-			uniforms.color[2] = metadata["hands"]["right"]["controller"]["color"][2].asFloat();
-			uniforms.color[3] = metadata["hands"]["right"]["controller"]["color"][3].asFloat();
+			uniforms.color[0] = metadata["hands"]["right"]["controller"]["color"][0].as<float>();
+			uniforms.color[1] = metadata["hands"]["right"]["controller"]["color"][1].as<float>();
+			uniforms.color[2] = metadata["hands"]["right"]["controller"]["color"][2].as<float>();
+			uniforms.color[3] = metadata["hands"]["right"]["controller"]["color"][3].as<float>();
 			// graphic.updateBuffer( uniforms, 0, false );
 
 			if ( uf::renderer::currentRenderMode ) {
@@ -450,10 +450,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
-			uniforms.color[0] = metadata["hands"]["left"]["pointer"]["color"][0].asFloat();
-			uniforms.color[1] = metadata["hands"]["left"]["pointer"]["color"][1].asFloat();
-			uniforms.color[2] = metadata["hands"]["left"]["pointer"]["color"][2].asFloat();
-			uniforms.color[3] = metadata["hands"]["left"]["pointer"]["color"][3].asFloat();
+			uniforms.color[0] = metadata["hands"]["left"]["pointer"]["color"][0].as<float>();
+			uniforms.color[1] = metadata["hands"]["left"]["pointer"]["color"][1].as<float>();
+			uniforms.color[2] = metadata["hands"]["left"]["pointer"]["color"][2].as<float>();
+			uniforms.color[3] = metadata["hands"]["left"]["pointer"]["color"][3].as<float>();
 			// graphic.updateBuffer( uniforms, 0, false );
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
@@ -471,10 +471,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
-			uniforms.color[0] = metadata["hands"]["right"]["pointer"]["color"][0].asFloat();
-			uniforms.color[1] = metadata["hands"]["right"]["pointer"]["color"][1].asFloat();
-			uniforms.color[2] = metadata["hands"]["right"]["pointer"]["color"][2].asFloat();
-			uniforms.color[3] = metadata["hands"]["right"]["pointer"]["color"][3].asFloat();
+			uniforms.color[0] = metadata["hands"]["right"]["pointer"]["color"][0].as<float>();
+			uniforms.color[1] = metadata["hands"]["right"]["pointer"]["color"][1].as<float>();
+			uniforms.color[2] = metadata["hands"]["right"]["pointer"]["color"][2].as<float>();
+			uniforms.color[3] = metadata["hands"]["right"]["pointer"]["color"][3].as<float>();
 			// graphic.updateBuffer( uniforms, 0, false );
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}

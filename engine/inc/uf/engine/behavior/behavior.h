@@ -17,10 +17,10 @@ namespace pod {
 		typedef std::function<void(uf::Object&)> function_t;
 
 		type_t type = std::type_index(typeid(pod::Behavior));
-		function_t initialize;
-		function_t tick;
-		function_t render;
-		function_t destroy;
+		function_t initialize = function_t();
+		function_t tick = function_t();
+		function_t render = function_t();
+		function_t destroy = function_t();
 	};
 }
 

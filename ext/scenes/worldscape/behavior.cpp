@@ -15,18 +15,10 @@
 
 #include "../../ext.h"
 
-#include "./gui/battle.h"
-#include "./gui/dialogue.h"
-#include "./gui/pause.h"
-
-#include ".//battle.h"
-#include ".//dialogue.h"
-
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
-EXT_BEHAVIOR_REGISTER_CPP(WorldScapeSceneBehavior)
-EXT_BEHAVIOR_REGISTER_AS_OBJECT(WorldScapeSceneBehavior, WorldScapeScene)
+UF_BEHAVIOR_REGISTER_CPP(ext::WorldScapeSceneBehavior)
 #define this ((uf::Scene*) &self)
 void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -48,7 +40,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 
 	static uf::Timer<long long> timer(false);
 	if ( !timer.running() ) timer.start();
-	
+/*	
 	this->addHook( "world:Battle.Prepare", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
 
@@ -121,6 +113,7 @@ void ext::WorldScapeSceneBehavior::initialize( uf::Object& self ) {
 
 		return "true";
 	});
+*/
 }
 void ext::WorldScapeSceneBehavior::tick( uf::Object& self ) {
 }

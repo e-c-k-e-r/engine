@@ -21,7 +21,7 @@
 
 #include <sys/stat.h>
 
-EXT_BEHAVIOR_ENTITY_CPP_BEGIN(Terrain)
+UF_BEHAVIOR_ENTITY_CPP_BEGIN(ext::Terrain)
 #define this ((ext::Terrain*) &self)
 void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	// alias Mesh types
@@ -29,9 +29,9 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 
 	std::size_t seed = 0;
 	if ( metadata["terrain"]["seed"].isUInt64() ) {
-		seed = metadata["terrain"]["seed"].asUInt64();
-	} else if ( metadata["terrain"]["seed"].isString() ) {
-		seed = std::hash<std::string>{}( metadata["terrain"]["seed"].asString() );
+		seed = metadata["terrain"]["seed"].as<size_t>();
+	} else if ( metadata["terrain"]["seed"].is<std::string>() ) {
+		seed = std::hash<std::string>{}( metadata["terrain"]["seed"].as<std::string>() );
 	}
 	{
 		std::cout << "Seed: " << seed << std::endl;
@@ -48,13 +48,13 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		metadata["system"]["hash"] = uf::string::sha256( input );
 
 		try {
-			std::string save = "./data/save/" + metadata["system"]["hash"].asString() + "/";
+			std::string save = "./data/save/" + metadata["system"]["hash"].as<std::string>() + "/";
 			int status = mkdir(save.c_str());
 		} catch ( ... ) {
 
 		}
 		try {
-			std::string save = "./data/save/" + metadata["system"]["hash"].asString() + "/regions/";
+			std::string save = "./data/save/" + metadata["system"]["hash"].as<std::string>() + "/regions/";
 			int status = mkdir(save.c_str());
 		} catch ( ... ) {
 
@@ -74,8 +74,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	metadata["system"]["modified"] = true;
 
 	this->addHook( "system:TickRate.Restore", [&](const std::string& event)->std::string{	
-		std::cout << "Returning limiter from " << uf::thread::limiter << " to " << metadata["system"]["limiter"].asFloat() << std::endl;
-		uf::thread::limiter = metadata["system"]["limiter"].asFloat();
+		std::cout << "Returning limiter from " << uf::thread::limiter << " to " << metadata["system"]["limiter"].as<float>() << std::endl;
+		uf::thread::limiter = metadata["system"]["limiter"].as<float>();
 		return "true";
 	});
 	this->addHook( "terrain:GenerateMesh.%UID%", [&](const std::string& event)->std::string{	
@@ -93,12 +93,12 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		return "true";
 	});
 	this->addHook( "terrain:Post-Initialize.%UID%", [&](const std::string& event)->std::string{	
-		if ( metadata["terrain"]["unified"].asBool() ) {
+		if ( metadata["terrain"]["unified"].as<bool>() ) {
 			std::string textureFilename = ""; {
 				uf::Asset assetLoader;
 				for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
 					if ( textureFilename != "" ) break;
-					std::string filename = this->grabURI( metadata["system"]["assets"][i].asString(), metadata["system"]["root"].asString() );
+					std::string filename = this->grabURI( metadata["system"]["assets"][i].as<std::string>(), metadata["system"]["root"].as<std::string>() );
 					textureFilename = assetLoader.cache( filename );
 				}
 			}
@@ -113,7 +113,7 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 			texture.loadFromFile( textureFilename );
 
 			std::string suffix = ""; {
-				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].asString();
+				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<std::string>();
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
@@ -141,18 +141,18 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 	auto transitionState = [&]( ext::Terrain& that, const std::string& next, bool unresolved ){
 		uf::Serializer& metadata = that.getComponent<uf::Serializer>();
 	//	uf::thread::add( mainThread, [&]() -> int {
-		//	std::cout << "Transitioning: " << metadata["system"]["state"].asString() << " -> ";
+		//	std::cout << "Transitioning: " << metadata["system"]["state"].as<std::string>() << " -> ";
 			metadata["system"]["state"] = unresolved ? next : "open";
 			metadata["system"]["modified"] = unresolved;
-		//	std::cout << metadata["system"]["state"].asString() << std::endl;
+		//	std::cout << metadata["system"]["state"].as<std::string>() << std::endl;
 	//	return 0;}, true );
 	};
 	// lambda to transition into a resolving state
 	auto transitionResolvingState = [&]( ext::Terrain& that ){
 		uf::Serializer& metadata = that.getComponent<uf::Serializer>();
-	//	std::cout << "Resolving: " << metadata["system"]["state"].asString() << " -> ";
-		metadata["system"]["state"] = "resolving:" + metadata["system"]["state"].asString();
-	//	std::cout << metadata["system"]["state"].asString() << std::endl;
+	//	std::cout << "Resolving: " << metadata["system"]["state"].as<std::string>() << " -> ";
+		metadata["system"]["state"] = "resolving:" + metadata["system"]["state"].as<std::string>();
+	//	std::cout << metadata["system"]["state"].as<std::string>() << std::endl;
 	};
 	// lambda for sorting regions, nearest to farthest, from the controller
 	auto sortRegions = [&]( uf::Object& controller, std::vector<uf::Object*>& regions ){
@@ -191,16 +191,16 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 			for ( uf::Entity* region : this->getChildren() ) { if ( !region || region->getName() != "Region" ) continue;
 				const pod::Transform<>& transform = region->getComponent<pod::Transform<>>();
 				pod::Vector3i location = { 
-					(int) transform.position.x / metadata["region"]["size"][0].asInt(),
-					(int) transform.position.y / metadata["region"]["size"][1].asInt(),
-					(int) transform.position.z / metadata["region"]["size"][2].asInt()
+					(int) transform.position.x / metadata["region"]["size"][0].as<int>(),
+					(int) transform.position.y / metadata["region"]["size"][1].as<int>(),
+					(int) transform.position.z / metadata["region"]["size"][2].as<int>()
 				};
 				// location too far
 				bool degenerate = !this->inBounds( location );
 				// keep if an entity requests for it
 				for ( uf::Entity* entity : region->getChildren() ) { if ( !entity ) continue;
 					uf::Serializer& metadata = entity->getComponent<uf::Serializer>();
-					if ( metadata["region"].isObject() && metadata["region"]["persist"].asBool() ) {
+					if ( ext::json::isObject( metadata["region"] ) && metadata["region"]["persist"].as<bool>() ) {
 						degenerate = false;
 						break;
 					}
@@ -225,20 +225,20 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 			// retrieve changed regions
 			for ( uf::Entity* region : this->getChildren() ) { if ( !region ) continue;
 				uf::Serializer& metadata = region->getComponent<uf::Serializer>();
-			//	if ( metadata["region"]["location"].isObject() )
+			//	if ( ext::json::isObject( metadata["region"]["location"] ) )
 					regions.push_back((uf::Object*) region);
 			}
 			// sort by closest to farthest
 			sortRegions(controller, regions);
-			if ( metadata["terrain"]["unified"].asBool() ) {
+			if ( metadata["terrain"]["unified"].as<bool>() ) {
 				auto& graphic = this->getComponent<uf::Graphic>();
 				auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 				mesh.destroy();
 				for ( uf::Object* region : regions ) {
 					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
-					if ( !metadata["region"]["initialized"].asBool() ) region->initialize();
-					if ( !metadata["region"]["generated"].asBool() ) region->callHook("region:Generate.%UID%", "");
-					if ( !metadata["region"]["rasterized"].asBool() ) {
+					if ( !metadata["region"]["initialized"].as<bool>() ) region->initialize();
+					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%", "");
+					if ( !metadata["region"]["rasterized"].as<bool>() ) {
 						region->queueHook("region:Finalize.%UID%", "");
 						region->queueHook("region:Populate.%UID%", "");
 					}
@@ -251,9 +251,9 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 				for ( uf::Object* region : regions ) {
 				//	uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
 					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
-					if ( !metadata["region"]["initialized"].asBool() ) region->initialize();
-					if ( !metadata["region"]["generated"].asBool() ) region->callHook("region:Generate.%UID%", "");
-					if ( !metadata["region"]["rasterized"].asBool() ) region->callHook("region:Rasterize.%UID%", "");
+					if ( !metadata["region"]["initialized"].as<bool>() ) region->initialize();
+					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%", "");
+					if ( !metadata["region"]["rasterized"].as<bool>() ) region->callHook("region:Rasterize.%UID%", "");
 				//	return 0;}, true );
 				}
 			}
@@ -269,7 +269,7 @@ void ext::TerrainBehavior::render( uf::Object& self ){
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	
-	if ( !metadata["terrain"]["unified"].asBool() ) return;
+	if ( !metadata["terrain"]["unified"].as<bool>() ) return;
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& graphic = this->getComponent<uf::Graphic>();
@@ -286,4 +286,4 @@ void ext::TerrainBehavior::render( uf::Object& self ){
 }
 void ext::TerrainBehavior::destroy( uf::Object& self ){}
 #undef this
-EXT_BEHAVIOR_ENTITY_CPP_END(Terrain)
+UF_BEHAVIOR_ENTITY_CPP_END(Terrain)

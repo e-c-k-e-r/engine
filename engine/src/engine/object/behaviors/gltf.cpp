@@ -13,7 +13,7 @@
 #include <uf/ext/gltf/gltf.h>
 #include <uf/utils/string/hash.h>
 
-UF_BEHAVIOR_REGISTER_CPP(GltfBehavior)
+UF_BEHAVIOR_REGISTER_CPP(uf::GltfBehavior)
 #define this (&self)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
@@ -21,7 +21,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 	// Default load: GLTF model
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 		if ( uf::io::extension(filename) != "png" ) return "false";
 		auto& vector = metadata["textures"]["additional"];
 		vector[vector.size()] = filename;
@@ -29,7 +29,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) return "false";
 		
@@ -47,21 +47,21 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 
 			{
 				std::string filename = "/gltf.stereo.vert.spv";
-				if ( metadata["system"]["renderer"]["shaders"]["vertex"].isString() )
-					filename = metadata["system"]["renderer"]["shaders"]["vertex"].asString();
-				filename = this->grabURI( filename, metadata["system"]["root"].asString() );
+				if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
+					filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
+				filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
 				graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
 			}
 			{
 				std::string filename = "/gltf.frag.spv";
-				if ( metadata["system"]["renderer"]["shaders"]["fragment"].isString() ) 
-					filename = metadata["system"]["renderer"]["shaders"]["fragment"].asString();
-				filename = this->grabURI( filename, metadata["system"]["root"].asString() );
+				if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
+					filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
+				filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
 				graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
 			}
 
 			for ( int i = 0; i < metadata["textures"]["additional"].size(); ++i ) {
-				std::string filename = metadata["textures"]["additional"][i].asString();
+				std::string filename = metadata["textures"]["additional"][i].as<std::string>();
 				auto& scene = uf::scene::getCurrentScene();
 				auto& assetLoader = scene.getComponent<uf::Asset>();
 				const uf::Image* imagePointer = NULL;
@@ -128,16 +128,16 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			mappings[i].blend = 0.0f;
 		}
 		for ( auto it = metadata["textures"]["map"].begin(); it != metadata["textures"]["map"].end(); ++it ) {
-			std::string key = it.key().asString();
+			std::string key = it.key().as<std::string>();
 			uint32_t from = std::stoi(key);
-			uint32_t to = metadata["textures"]["map"][key][0].asUInt();
+			uint32_t to = metadata["textures"]["map"][key][0].as<size_t>();
 			float blend = 1.0f;
-			if ( metadata["textures"]["map"][key][1].asString() == "sin(time)" ) {
+			if ( metadata["textures"]["map"][key][1].as<std::string>() == "sin(time)" ) {
 				blend = sin(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( metadata["textures"]["map"][key][1].asString() == "cos(time)" ) {
+			} else if ( metadata["textures"]["map"][key][1].as<std::string>() == "cos(time)" ) {
 				blend = cos(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( metadata["textures"]["map"][key][1].isNumeric() ) {
-				blend = metadata["textures"]["map"][key][1].asFloat();
+			} else if ( metadata["textures"]["map"][key][1].is<double>() ) {
+				blend = metadata["textures"]["map"][key][1].as<float>();
 			}
 			if ( from >= textures || to >= textures ) continue;
 			mappings[from].target = to;

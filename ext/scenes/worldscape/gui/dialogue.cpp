@@ -50,10 +50,10 @@ namespace {
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
-		std::string name = charaData["filename"].asString();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+		std::string name = charaData["filename"].as<std::string>();
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
-		if ( charaData["internal"].asBool() ) {
+		if ( charaData["internal"].as<bool>() ) {
 			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
@@ -68,7 +68,7 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].asString();
+		std::string id = metadata[""]["id"].as<std::string>();
 		playSound( entity, id, key );
 	}
 	void playSound( ext::GuiDialogue& entity, const std::string& key ) {
@@ -92,7 +92,7 @@ namespace {
 		uint64_t i = 0;
 		std::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
-			if ( i++ == index ) key = it.key().asString();
+			if ( i++ == index ) key = it.key().as<std::string>();
 		}
 		return key;
 	}
@@ -125,7 +125,7 @@ void ext::GuiDialogue::initialize() {
 	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -135,7 +135,7 @@ void ext::GuiDialogue::initialize() {
 		if ( sfx.playing() ) sfx.stop();
 		sfx = uf::Audio();
 		sfx.load(filename);
-		sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+		sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 		sfx.play();
 
 		return "true";
@@ -144,7 +144,7 @@ void ext::GuiDialogue::initialize() {
 	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -154,7 +154,7 @@ void ext::GuiDialogue::initialize() {
 		if ( voice.playing() ) voice.stop();
 		voice = uf::Audio();
 		voice.load(filename);
-		voice.setVolume(masterdata["volumes"]["voice"].asFloat());
+		voice.setVolume(masterdata["volumes"]["voice"].as<float>());
 		voice.play();
 
 		return "true";
@@ -191,10 +191,10 @@ void ext::GuiDialogue::tick() {
 	if ( !timer.running() ) timer.start();
 
 	std::function<void(uf::Serializer&)> postParseResult = [&]( uf::Serializer& result ) {
-		if ( result["end"].asBool() ) bMetadata["system"]["closing"] = true;
-		if ( !result["timeout"].isNull() ) timeout = result["timeout"].asFloat();
+		if ( result["end"].as<bool>() ) bMetadata["system"]["closing"] = true;
+		if ( !ext::json::isNull( result["timeout"] ) ) timeout = result["timeout"].as<float>();
 		else timeout = 1;
-		if ( result["message"].asString() != "" ) {
+		if ( result["message"].as<std::string>() != "" ) {
 			if ( dialogueMessage ) {
 				dialogueMessage->destroy();
 				this->removeChild(*dialogueMessage);
@@ -204,7 +204,7 @@ void ext::GuiDialogue::tick() {
 			this->addChild(*dialogueMessage);
 			uf::Serializer& pMetadata = dialogueMessage->getComponent<uf::Serializer>();
 			dialogueMessage->as<uf::Object>().load("./dialogue-text.json", true);
-			pMetadata["text settings"]["string"] = result["message"].asString();
+			pMetadata["text settings"]["string"] = result["message"].as<std::string>();
 			dialogueMessage->initialize();
 		}
 		timer.reset();
@@ -217,7 +217,7 @@ void ext::GuiDialogue::tick() {
 			delete dialogueOptions;
 			dialogueOptions = NULL;
 		}
-		if ( actions.isNull() ) {
+		if ( ext::json::isNull( actions ) ) {
 			stats.actions.selection = 0;
 			return;
 		}
@@ -228,7 +228,7 @@ void ext::GuiDialogue::tick() {
 		auto keys = actions.getMemberNames();
 		for ( int i = start; i < keys.size(); ++i ) {
 			std::string key = getKeyFromIndex( actions, i );
-			std::string text = actions[key].asString();
+			std::string text = actions[key].as<std::string>();
 			if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 			if ( ++counter > stats.actions.selectionsMax ) break;
 			if ( i != stats.actions.selection ) text = "%#FFFFFF%" + text;
@@ -238,7 +238,7 @@ void ext::GuiDialogue::tick() {
 		if ( keys.size() > stats.actions.selectionsMax ) {
 			for ( int i = 0; i < keys.size(); ++i ) {
 				std::string key = getKeyFromIndex( actions, i );
-				std::string text = actions[key].asString();
+				std::string text = actions[key].as<std::string>();
 				if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 				if ( ++counter > stats.actions.selectionsMax ) break;
 				if ( i != stats.actions.selection ) text = "%#FFFFFF%" + text;
@@ -278,12 +278,12 @@ void ext::GuiDialogue::tick() {
 
 	{
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		if ( metadata["system"]["closing"].asBool() ) {
+		if ( metadata["system"]["closing"].as<bool>() ) {
 			if ( alpha >= 1.0f ) {
 				uf::Asset assetLoader;
 				std::string canonical = assetLoader.load("./data/audio/ui/menu close.ogg");
 				uf::Audio& sfx = assetLoader.get<uf::Audio>(canonical);
-				sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+				sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 				sfx.play();
 			}
 			if ( alpha <= 0.0f ) {
@@ -292,13 +292,13 @@ void ext::GuiDialogue::tick() {
 				metadata["system"]["closed"] = true;
 			} else alpha -= uf::physics::time::delta;
 			metadata["color"][3] = alpha;
-		} else if ( metadata["system"]["closed"].asBool() ) {
+		} else if ( metadata["system"]["closed"].as<bool>() ) {
 			uf::Object& parent = this->getParent<uf::Object>();
 			parent.getComponent<uf::Serializer>()["system"]["closed"] = true;
 			this->destroy();
 			parent.removeChild(*this);
 		} else {
-			if ( !metadata["initialized"].asBool() ) alpha = 0.0f;
+			if ( !metadata["initialized"].as<bool>() ) alpha = 0.0f;
 			metadata["initialized"] = true;
 			if ( alpha >= 1.0f ) alpha = 1.0f;
 			else alpha += uf::physics::time::delta * 1.5f;

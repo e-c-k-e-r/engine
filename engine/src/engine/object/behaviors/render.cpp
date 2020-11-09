@@ -11,7 +11,7 @@
 #include <uf/utils/graphic/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
-UF_BEHAVIOR_REGISTER_CPP(RenderBehavior)
+UF_BEHAVIOR_REGISTER_CPP(uf::RenderBehavior)
 #define this (&self)
 void uf::RenderBehavior::initialize( uf::Object& self ) {	
 

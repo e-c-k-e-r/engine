@@ -16,8 +16,8 @@
 
 #include <uf/utils/renderer/renderer.h>
 
-EXT_BEHAVIOR_REGISTER_CPP(PortalsBehavior)
-EXT_BEHAVIOR_REGISTER_AS_OBJECT(PortalsBehavior, Portals)
+UF_BEHAVIOR_REGISTER_CPP(ext::PortalsBehavior)
+UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::PortalsBehavior, Portals)
 #define this (&self)
 void ext::PortalsBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -43,8 +43,8 @@ void ext::PortalsBehavior::render( uf::Object& self ){}
 void ext::PortalsBehavior::destroy( uf::Object& self ){}
 #undef this
 
-EXT_BEHAVIOR_REGISTER_CPP(PortalBehavior)
-EXT_BEHAVIOR_REGISTER_AS_OBJECT(PortalBehavior, Portal)
+UF_BEHAVIOR_REGISTER_CPP(ext::PortalBehavior)
+UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::PortalBehavior, Portal)
 #define this (&self)
 void ext::PortalBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -97,7 +97,7 @@ void ext::PortalBehavior::tick( uf::Object& self ) {
 	{
 		auto& conCamera = controller.getComponent<uf::Camera>();
 		auto& prtTransform = this->getComponent<pod::Transform<>>();
-		auto& otherSideTransform = this->getParent().findByUid( metadata["target"].asUInt() )->getComponent<pod::Transform<>>();
+		auto& otherSideTransform = this->getParent().findByUid( metadata["target"].as<size_t>() )->getComponent<pod::Transform<>>();
 
 		for ( std::size_t i = 0; i < 2; ++i ) {
 			pod::Matrix4f controllerCameraToWorldMatrix = uf::matrix::inverse( conCamera.getView(i) );

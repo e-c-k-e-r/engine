@@ -25,8 +25,8 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& na
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::argument_t& serialized ) {
 	if ( !uf::hooks.prefersReadable() ) return;
 	uf::Serializer json = serialized;
-	if ( !uf::hooks.exists(json["type"].asString()) ) return;
-	this->m_events.readable.push({json["type"].asString(), serialized});
+	if ( !uf::hooks.exists(json["type"].as<std::string>()) ) return;
+	this->m_events.readable.push({json["type"].as<std::string>(), serialized});
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t& userdata ) {
 	if ( uf::hooks.prefersReadable() ) return;

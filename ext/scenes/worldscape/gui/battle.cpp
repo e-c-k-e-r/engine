@@ -66,13 +66,13 @@ namespace {
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
-		std::string name = charaData["filename"].asString();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+		std::string name = charaData["filename"].as<std::string>();
 
 		if ( name == "none" ) return;
 
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
-		if ( charaData["internal"].asBool() ) {
+		if ( charaData["internal"].as<bool>() ) {
 			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
@@ -87,7 +87,7 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].asString();
+		std::string id = metadata[""]["id"].as<std::string>();
 		playSound( entity, id, key );
 	}
 	void playSound( ext::GuiBattle& entity, const std::string& key ) {
@@ -111,7 +111,7 @@ namespace {
 		uint64_t i = 0;
 		std::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
-			if ( i++ == index ) key = it.key().asString();
+			if ( i++ == index ) key = it.key().as<std::string>();
 		}
 		return key;
 	}
@@ -158,7 +158,7 @@ void ext::GuiBattle::initialize() {
 	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -171,7 +171,7 @@ void ext::GuiBattle::initialize() {
 		sfx = uf::Audio();
 		sfx.load(filename);
 	*/
-		sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+		sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 		sfx.play();
 
 		return "true";
@@ -180,7 +180,7 @@ void ext::GuiBattle::initialize() {
 	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].asString();
+		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -190,7 +190,7 @@ void ext::GuiBattle::initialize() {
 		if ( voice.playing() ) voice.stop();
 		voice = uf::Audio();
 		voice.load(filename);
-		voice.setVolume(masterdata["volumes"]["voice"].asFloat());
+		voice.setVolume(masterdata["volumes"]["voice"].as<float>());
 		voice.play();
 
 		return "true";
@@ -245,7 +245,7 @@ void ext::GuiBattle::initialize() {
 
 		
 		// turn start, play sfx
-		if ( json["battle"]["turn"]["start of turn"].asBool() ) {
+		if ( json["battle"]["turn"]["start of turn"].as<bool>() ) {
 			playSound(*this, "turn");
 		}
 		
@@ -254,8 +254,8 @@ void ext::GuiBattle::initialize() {
 	this->addHook("world:Battle.Damage.%UID%", [&](const std::string& event) -> std::string {
 		uf::Serializer json = event;
 
-		std::string uid = json["target"]["uid"].asString();
-		std::string damage = json["target"]["damage"].asString();
+		std::string uid = json["target"]["uid"].as<std::string>();
+		std::string damage = json["target"]["damage"].as<std::string>();
 
 		pod::Transform<> pTransform;
 		pTransform.position = { 0, 0, 0 };
@@ -268,7 +268,7 @@ void ext::GuiBattle::initialize() {
 				if ( pointer->getUid() == 0 ) continue;
 				if ( pointer->getName() == "Menu: Party Member Icon" ) {
 					uf::Serializer& pMetadata = pointer->getComponent<uf::Serializer>();
-					if ( pMetadata[""]["uid"].asString() != uid ) continue;
+					if ( pMetadata[""]["uid"].as<std::string>() != uid ) continue;
 					pTransform = pointer->getComponent<pod::Transform<>>();
 					pTransform.position.y -= (0.1);
 				}
@@ -278,7 +278,7 @@ void ext::GuiBattle::initialize() {
 		this->addChild(*particle);
 		uf::Serializer& pMetadata = particle->getComponent<uf::Serializer>();
 		particle->as<uf::Object>().load("./damageText.json", true);
-		std::string color = json["color"].isString() ? json["color"].asString() : "FF0000";
+		std::string color = json["color"].is<std::string>() ? json["color"].as<std::string>() : "FF0000";
 		pMetadata["text settings"]["string"] = "%#"+color+"%" + damage;
 		pod::Transform<>& transform = particle->getComponent<pod::Transform<>>();
 		transform = pTransform;
@@ -290,7 +290,7 @@ void ext::GuiBattle::initialize() {
 	});
 	this->addHook("world:Battle.Message.%UID%", [&](const std::string& event) -> std::string {
 		uf::Serializer json = event;
-		std::string message = json["message"].asString();
+		std::string message = json["message"].as<std::string>();
 
 		if ( battleMessage ) {
 			battleMessage->destroy();
@@ -348,9 +348,9 @@ void ext::GuiBattle::initialize() {
 			this->addChild(*critCutIn);
 			uf::Serializer& pMetadata = critCutIn->getComponent<uf::Serializer>();
 
-			uf::Serializer cardData = masterDataGet("Card", json["id"].asString());
-			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].asString() +".png";
-			if ( !uf::io::exists( pMetadata["system"]["assets"][0].asString() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
+			uf::Serializer cardData = masterDataGet("Card", json["id"].as<std::string>());
+			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].as<std::string>() +".png";
+			if ( !uf::io::exists( pMetadata["system"]["assets"][0].as<std::string>() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
 			critCutIn->as<uf::Object>().load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
@@ -364,7 +364,7 @@ void ext::GuiBattle::initialize() {
 		uf::Serializer json = event;
 	
 		{
-			float turns = json["battle"]["turn"]["counter"].asFloat();
+			float turns = json["battle"]["turn"]["counter"].as<float>();
 			if ( turnCounters && turnCounters->getUid() != 0 ) {
 				this->removeChild(*turnCounters);
 				turnCounters->destroy();
@@ -422,15 +422,15 @@ void ext::GuiBattle::initialize() {
 		int i = 0;
 
 		for ( auto& member : json["battle"]["transients"] ) {
-			if ( member["uid"].isNull() ) continue;
+			if ( ext::json::isNull( member["uid"] ) ) continue;
 			if ( member["type"] == "enemy" ) continue;
-			if ( member["hp"].asFloat() <= 0 ) continue;
+			if ( member["hp"].as<float>() <= 0 ) continue;
 			if ( i >= 4 ) break;
-			uf::Serializer cardData = masterDataGet("Card", member["id"].asString());
-			std::string name = cardData["filename"].asString();
-			if ( member["skin"].isString() ) name += "_" + member["skin"].asString();
+			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
+			std::string name = cardData["filename"].as<std::string>();
+			if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
 			std::string filename = "https://cdn..xyz//unity/Android/icon/icon_" + name + ".png";
-			if ( cardData["internal"].asBool() ) {
+			if ( cardData["internal"].as<bool>() ) {
 				filename = "/smtsamo/icon/icon_" + name + ".png";
 			}
 
@@ -466,7 +466,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
 					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
-					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
+					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].as<std::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<std::string>();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -478,7 +478,7 @@ void ext::GuiBattle::initialize() {
 				if ( partyMemberHP ) {
 					uf::Serializer& pMetadata = partyMemberHP->getComponent<uf::Serializer>();
 					float percentage = 1.0f;
-					percentage = member["hp"].asFloat() / member["max hp"].asFloat();
+					percentage = member["hp"].as<float>() / member["max hp"].as<float>();
 					// uv[0, 0] -> uv[09.43, 23.81]
 					// uv[1, 1] -> uv[84.91, 68.25]
 					pMetadata["uv"][2] = (percentage * 0.8491) + 0.0660;
@@ -488,7 +488,7 @@ void ext::GuiBattle::initialize() {
 				if ( partyMemberMP ) {
 					uf::Serializer& pMetadata = partyMemberMP->getComponent<uf::Serializer>();
 					float percentage = 1.0f;
-					percentage = member["mp"].asFloat() / member["max mp"].asFloat();
+					percentage = member["mp"].as<float>() / member["max mp"].as<float>();
 					// uv[0, 0] -> uv[09.43, 23.81]
 					// uv[1, 1] -> uv[84.91, 68.25]
 					pMetadata["uv"][2] = (percentage * 0.8491) + 0.0943;
@@ -545,7 +545,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
 					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
-					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].asString() + "\n" + colorString("0000FF") + "" + member["mp"].asString();
+					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].as<std::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<std::string>();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -574,7 +574,7 @@ void ext::GuiBattle::initialize() {
 
 					uf::Serializer& pMetadata = partyMemberHP->getComponent<uf::Serializer>();
 					float percentage = 1.0f;
-					percentage = member["hp"].asFloat() / member["max hp"].asFloat();
+					percentage = member["hp"].as<float>() / member["max hp"].as<float>();
 					// uv[0, 0] -> uv[09.43, 23.81]
 					// uv[1, 1] -> uv[84.91, 68.25]
 					pMetadata["uv"][2] = (percentage * 0.8491) + 0.0660;
@@ -592,7 +592,7 @@ void ext::GuiBattle::initialize() {
 
 					uf::Serializer& pMetadata = partyMemberMP->getComponent<uf::Serializer>();
 					float percentage = 1.0f;
-					percentage = member["mp"].asFloat() / member["max mp"].asFloat();
+					percentage = member["mp"].as<float>() / member["max mp"].as<float>();
 					// uv[0, 0] -> uv[09.43, 23.81]
 					// uv[1, 1] -> uv[84.91, 68.25]
 					pMetadata["uv"][2] = (percentage * 0.8491) + 0.0943;
@@ -637,12 +637,12 @@ void ext::GuiBattle::tick() {
 	static std::string queuedAction;
 
 	std::function<void(uf::Serializer&)> postParseResult = [&]( uf::Serializer& result ) {
-		if ( result["end"].asBool() ) bMetadata["system"]["closing"] = true;
-		if ( !result["timeout"].isNull() ) timeout = result["timeout"].asFloat();
+		if ( result["end"].as<bool>() ) bMetadata["system"]["closing"] = true;
+		if ( !ext::json::isNull( result["timeout"] ) ) timeout = result["timeout"].as<float>();
 		else timeout = 1;
 		// modify timeout based on string length
-		if ( result["message"].isString() && !result["target"].isNull() ) {
-			uint64_t size = result["message"].asString().size();
+		if ( result["message"].is<std::string>() && !ext::json::isNull( result["target"] ) ) {
+			uint64_t size = result["message"].as<std::string>().size();
 			float modified = size * 0.025f;
 			if ( timeout < modified ) timeout = modified;
 		}
@@ -661,7 +661,7 @@ void ext::GuiBattle::tick() {
 			delete battleOptions;
 			battleOptions = NULL;
 		}
-		if ( member["uid"].isNull() ) {
+		if ( ext::json::isNull( member["uid"] ) ) {
 			stats.previousMember = stats.currentMember;
 			return;
 		}
@@ -672,25 +672,25 @@ void ext::GuiBattle::tick() {
 		stats.actions.invalids.clear();
 		stats.currentMember["skills"] = Json::arrayValue;
 		for ( int i = 0; i < member["skills"].size(); ++i ) {
-			std::string id = member["skills"][i].asString();
+			std::string id = member["skills"][i].as<std::string>();
 			uf::Serializer skillData = masterDataGet("Skill", id);
 			bool add = false;
-			if ( skillData["type"].asInt() > 0 && skillData["type"].asInt() < 16 ) add = true;
+			if ( skillData["type"].as<int>() > 0 && skillData["type"].as<int>() < 16 ) add = true;
 			if ( add ) stats.currentMember["skills"].append(id);
 		}
 
 		std::string skillDescription = "";
 
 		for ( int i = start; i < stats.currentMember["skills"].size(); ++i ) {
-			std::string id = stats.currentMember["skills"][i].asString();
+			std::string id = stats.currentMember["skills"][i].as<std::string>();
 			std::string text = "";
 			if ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), id ) != stats.skill.invalids.end() ) continue;
 			if ( ++counter > stats.skill.selectionsMax ) break;
-			uf::Serializer cardData = masterDataGet("Card", member["id"].asString());
-			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
+			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
+			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 			uf::Serializer skillData = masterDataGet("Skill", id);
 			if ( id != "0" ) {
-				text = skillData["name"].asString();
+				text = skillData["name"].as<std::string>();
 			} else {
 				text = "攻撃";
 			}
@@ -699,34 +699,34 @@ void ext::GuiBattle::tick() {
 			}
 			else {
 				text = "" + colorString("FF0000") + "" + text;
-				skillDescription = skillData["effect"].asString();
-				if ( skillData["mp"].isNumeric() ) {
-					int64_t cost = skillData["mp"].asInt64();
-					skillDescription = skillData["effect"].asString() + "\nCost: " + colorString("0000FF") + ""+std::to_string(cost)+" MP" + colorString("FFFFFF") + "";
+				skillDescription = skillData["effect"].as<std::string>();
+				if ( skillData["mp"].is<double>() ) {
+					int64_t cost = skillData["mp"].as<int>();
+					skillDescription = skillData["effect"].as<std::string>() + "\nCost: " + colorString("0000FF") + ""+std::to_string(cost)+" MP" + colorString("FFFFFF") + "";
 				}
-				if ( skillData["hp%"].isNumeric() ) {
-					int64_t cost = skillData["hp%"].asInt64();
-					cost = member["max hp"].asFloat() * ( cost / 100.0f );
-					skillDescription = skillData["effect"].asString() + "\nCost: " + colorString("00FF00") + ""+std::to_string(cost)+" HP" + colorString("FFFFFF") + "";
+				if ( skillData["hp%"].is<double>() ) {
+					int64_t cost = skillData["hp%"].as<int>();
+					cost = member["max hp"].as<float>() * ( cost / 100.0f );
+					skillDescription = skillData["effect"].as<std::string>() + "\nCost: " + colorString("00FF00") + ""+std::to_string(cost)+" HP" + colorString("FFFFFF") + "";
 				}
 			}
 			string += "\n" + text;
 		}
 		if ( stats.currentMember["skills"].size() > stats.skill.selectionsMax ) {
 			for ( int i = 0; i < stats.currentMember["skills"].size(); ++i ) {
-				std::string id = stats.currentMember["skills"][i].asString();
+				std::string id = stats.currentMember["skills"][i].as<std::string>();
 				std::string text = "";
 				if ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), id ) != stats.skill.invalids.end() ) continue;
 				if ( ++counter > stats.skill.selectionsMax ) break;
 				if ( id != "0" ) {
-					uf::Serializer cardData = masterDataGet("Card", member["id"].asString());
-					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
+					uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
+					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 					uf::Serializer skillData = masterDataGet("Skill", id);
 
-					text = skillData["name"].asString();
+					text = skillData["name"].as<std::string>();
 				} else {
-					uf::Serializer cardData = masterDataGet("Card", member["id"].asString());
-					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
+					uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
+					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 
 					text = "攻撃";
 				}
@@ -758,7 +758,7 @@ void ext::GuiBattle::tick() {
 			delete commandOptions;
 			commandOptions = NULL;
 		}
-		if ( actions.isNull() ) {
+		if ( ext::json::isNull( actions ) ) {
 			stats.actions.selection = 0;
 			queuedAction = "";
 			return;
@@ -770,7 +770,7 @@ void ext::GuiBattle::tick() {
 		auto keys = actions.getMemberNames();
 		for ( int i = start; i < keys.size(); ++i ) {
 			std::string key = getKeyFromIndex( actions, i );
-			std::string text = actions[key].asString();
+			std::string text = actions[key].as<std::string>();
 			if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 			if ( ++counter > stats.actions.selectionsMax ) break;
 			if ( i != stats.actions.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -780,7 +780,7 @@ void ext::GuiBattle::tick() {
 		if ( keys.size() > stats.actions.selectionsMax ) {
 			for ( int i = 0; i < keys.size(); ++i ) {
 				std::string key = getKeyFromIndex( actions, i );
-				std::string text = actions[key].asString();
+				std::string text = actions[key].as<std::string>();
 				if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 				if ( ++counter > stats.actions.selectionsMax ) break;
 				if ( i != stats.actions.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -806,7 +806,7 @@ void ext::GuiBattle::tick() {
 			delete targetOptions;
 			targetOptions = NULL;
 		}
-		if ( actions.isNull() ) {
+		if ( ext::json::isNull( actions ) ) {
 			stats.skill.selection = 0;
 			stats.targets.selection = 0;
 			return;
@@ -819,9 +819,9 @@ void ext::GuiBattle::tick() {
 		stats.actions.invalids.clear();
 		std::string targetDescription = "";
 		for ( int i = start; i < actions.size(); ++i ) {
-			uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].asString());
-			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
-			std::string text = charaData["name"].asString();
+			uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<std::string>());
+			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+			std::string text = charaData["name"].as<std::string>();
 			if ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), text ) != stats.targets.invalids.end() ) continue;
 			if ( ++counter > stats.targets.selectionsMax ) break;
 			if ( i != stats.targets.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -830,9 +830,9 @@ void ext::GuiBattle::tick() {
 		}
 		if ( actions.size() > stats.targets.selectionsMax ) {
 			for ( int i = 0; i < actions.size(); ++i ) {
-				uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].asString());
-				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].asString());
-				std::string text = charaData["name"].asString();
+				uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<std::string>());
+				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+				std::string text = charaData["name"].as<std::string>();
 				if ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), text ) != stats.targets.invalids.end() ) continue;
 				if ( ++counter > stats.targets.selectionsMax ) break;
 				if ( i != stats.targets.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -852,12 +852,12 @@ void ext::GuiBattle::tick() {
 		}
 		if ( queuedAction == "analyze" ) {
 			uf::Serializer payload;
-			payload["uid"] = stats.targets.current[stats.targets.selection]["uid"].asString();
-		//	if ( payload["uid"].asString() == "")
+			payload["uid"] = stats.targets.current[stats.targets.selection]["uid"].as<std::string>();
+		//	if ( payload["uid"].as<std::string>() == "")
 			payload["action"] = "analyze";
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
 
-			targetDescription = result["message"].asString();
+			targetDescription = result["message"].as<std::string>();
 		}
 		if ( targetDescription != "" ) {
 			uf::Serializer payload;
@@ -874,7 +874,7 @@ void ext::GuiBattle::tick() {
 			uf::Serializer json = event;
 			uf::Serializer payload;
 			payload["action"] = "turn-start";
-			if ( !stats.previousMember["uid"].isNull() ) payload["uid"] = stats.previousMember["uid"].asUInt64() + 1;
+			if ( !ext::json::isNull( stats.previousMember["uid"] ) ) payload["uid"] = stats.previousMember["uid"].as<size_t>() + 1;
 			auto hookCall = battleManager->callHook("world:Battle.Action.%UID%", payload);
 			if ( hookCall.empty() ) {
 				metadata["system"]["closing"] = true;
@@ -882,14 +882,14 @@ void ext::GuiBattle::tick() {
 			}
 			uf::Serializer result = hookCall[0];
 
-			if ( result["end"].asBool() ) {
-				if ( metadata.isObject() ) metadata["system"]["closing"] = true;
+			if ( result["end"].as<bool>() ) {
+				if ( ext::json::isObject( metadata ) ) metadata["system"]["closing"] = true;
 				return "false";
 			}
 
 			postParseResult(result);
-			if ( result["uid"].isNull() ) return "false";
-			uint64_t uid = result["uid"].asUInt64();
+			if ( ext::json::isNull( result["uid"] ) ) return "false";
+			uint64_t uid = result["uid"].as<size_t>();
 
 			renderCommandOptions(std::string(""));
 			renderSkillOptions(std::string(""));
@@ -899,7 +899,7 @@ void ext::GuiBattle::tick() {
 			payload["uid"] = uid;
 			if ( result[""]["type"] == "enemy" ) {
 				payload["action"] = "enemy-attack";
-			} else if ( result["skipped"].asBool() ) {
+			} else if ( result["skipped"].as<bool>() ) {
 				payload["action"] = "forced-pass";
 			} else {
 				stats.currentMember = result[""];
@@ -919,12 +919,12 @@ void ext::GuiBattle::tick() {
 
 	{
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		if ( metadata["system"]["closing"].asBool() ) {
+		if ( metadata["system"]["closing"].as<bool>() ) {
 			if ( alpha >= 1.0f ) {
 				uf::Asset assetLoader;
 				std::string canonical = assetLoader.load("./data/audio/ui/menu close.ogg");
 				uf::Audio& sfx = assetLoader.get<uf::Audio>(canonical);
-				sfx.setVolume(masterdata["volumes"]["sfx"].asFloat());
+				sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 				sfx.play();
 			}
 			if ( alpha <= 0.0f ) {
@@ -933,13 +933,13 @@ void ext::GuiBattle::tick() {
 				metadata["system"]["closed"] = true;
 			} else alpha -= uf::physics::time::delta;
 			metadata["color"][3] = alpha;
-		} else if ( metadata["system"]["closed"].asBool() ) {
+		} else if ( metadata["system"]["closed"].as<bool>() ) {
 			uf::Object& parent = this->getParent<uf::Object>();
 			parent.getComponent<uf::Serializer>()["system"]["closed"] = true;
 			this->destroy();
 			parent.removeChild(*this);
 		} else {
-			if ( !metadata["initialized"].asBool() ) alpha = 0.0f;
+			if ( !metadata["initialized"].as<bool>() ) alpha = 0.0f;
 			metadata["initialized"] = true;
 			if ( alpha >= 1.0f ) alpha = 1.0f;
 			else alpha += uf::physics::time::delta * 1.5f;
@@ -952,14 +952,14 @@ void ext::GuiBattle::tick() {
 		static float time = 0.0f;
 		float speed = 0.0125f;
 		uf::Serializer& metadata = circleIn->getComponent<uf::Serializer>();
-		if ( metadata["hovered"].asBool() ) speed = -0.25f;
+		if ( metadata["hovered"].as<bool>() ) speed = -0.25f;
 		time += uf::physics::time::delta * speed;
 		transform.orientation = uf::quaternion::axisAngle( { 0.0f, 0.0f, 1.0f }, time );
 
 		static pod::Vector3f start = { transform.position.x, -2.0f, 0.0f };
 		static pod::Vector3f end = transform.position;
 		static float delta = 0.0f;
-		if ( !metadata["initialized"].asBool() ) delta = 0.0f;
+		if ( !metadata["initialized"].as<bool>() ) delta = 0.0f;
 		metadata["initialized"] = true;
 		if ( delta >= 1 ) delta = 1;
 		else {
@@ -973,14 +973,14 @@ void ext::GuiBattle::tick() {
 		uf::Serializer& metadata = circleOut->getComponent<uf::Serializer>();
 		static float time = 0.0f;
 		float speed = 0.0125f;
-		if ( metadata["hovered"].asBool() ) speed = 0.25f;
+		if ( metadata["hovered"].as<bool>() ) speed = 0.25f;
 		time += uf::physics::time::delta * speed;
 		transform.orientation = uf::quaternion::axisAngle( { 0.0f, 0.0f, 1.0f }, time );
 
 		static pod::Vector3f start = { transform.position.x, 2.0f, 0.0f };
 		static pod::Vector3f end = transform.position;
 		static float delta = 0.0f;
-		if ( !metadata["initialized"].asBool() ) delta = 0.0f;
+		if ( !metadata["initialized"].as<bool>() ) delta = 0.0f;
 		metadata["initialized"] = true;
 		if ( delta >= 1 ) delta = 1;
 		else {
@@ -995,7 +995,7 @@ void ext::GuiBattle::tick() {
 		for ( uf::Entity* pointer : turnCounters->getChildren() ) {
 			uf::Serializer& pMetadata = pointer->getComponent<uf::Serializer>();
 			float coeff = 2.0f;
-	//		if ( pMetadata["half counter"].asBool() ) coeff = 4.0f;
+	//		if ( pMetadata["half counter"].as<bool>() ) coeff = 4.0f;
 		//	pMetadata["color"][3] = sin(time * coeff) * 0.25f + 0.75f;
 			pMetadata["color"][3] = std::min( 1.0f, (float) sin(time * coeff) * 0.5f + 1.0f );
 		}
@@ -1007,7 +1007,7 @@ void ext::GuiBattle::tick() {
 		static pod::Vector3f start = { transform.position.x, 2.0f, 0.0f };
 		static pod::Vector3f end = transform.position;
 		static float delta = 0.0f;
-		if ( !metadata["initialized"].asBool() ) delta = 0.0f;
+		if ( !metadata["initialized"].as<bool>() ) delta = 0.0f;
 		metadata["initialized"] = true;
 		if ( delta >= 1 ) delta = 1;
 		else {
@@ -1030,7 +1030,7 @@ void ext::GuiBattle::tick() {
 				pod::Transform<>& transform = pointer->getComponent<pod::Transform<>>();
 				uf::Serializer& metadata = pointer->getComponent<uf::Serializer>();
 				metadata["color"][3] = alpha;
-				if ( metadata["clicked"].asBool() && timer.elapsed().asDouble() >= timeout ) {
+				if ( metadata["clicked"].as<bool>() && timer.elapsed().asDouble() >= timeout ) {
 				}
 				static float color = 0.0f;
 			//	std::cout << pointer << ": " << metadata << ": " << stats.currentMember << std::endl;
@@ -1065,7 +1065,7 @@ void ext::GuiBattle::tick() {
 				pod::Transform<>& transform = pointer->getComponent<pod::Transform<>>();
 				uf::Serializer& metadata = pointer->getComponent<uf::Serializer>();
 				metadata["color"][3] = alpha;
-				if ( metadata["clicked"].asBool() && timer.elapsed().asDouble() >= timeout ) {
+				if ( metadata["clicked"].as<bool>() && timer.elapsed().asDouble() >= timeout ) {
 				}
 				static float color = 0.0f;
 			//	std::cout << pointer << ": " << metadata << ": " << stats.currentMember << std::endl;
@@ -1093,7 +1093,7 @@ void ext::GuiBattle::tick() {
 	//	std::cout << particle << ": " <<  metadata["system"]["percent"] << ": " << metadata["text settings"]["string"] <<  std::endl;
 	//	std::cout << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
 		try {
-			if ( !metadata["system"].isObject() ) {
+			if ( !ext::json::isObject( metadata["system"] ) ) {
 				this->removeChild(*particle);
 				particle->destroy();
 				delete particle;
@@ -1112,7 +1112,7 @@ void ext::GuiBattle::tick() {
 				*it = NULL;
 				continue;
 			}
-			metadata["system"]["percent"] = metadata["system"]["percent"].asFloat() + uf::physics::time::delta;
+			metadata["system"]["percent"] = metadata["system"]["percent"].as<float>() + uf::physics::time::delta;
 		} catch ( ... ) {
 			if ( particle ) {
 				this->removeChild(*particle);
@@ -1136,23 +1136,23 @@ void ext::GuiBattle::tick() {
 		uf::Serializer& metadata = partyMemberCommandCircle->getComponent<uf::Serializer>();
 		static float time = 0.0f;
 		float speed = 0.5f;
-		if ( metadata["hovered"].asBool() ) speed = 0.75f;
+		if ( metadata["hovered"].as<bool>() ) speed = 0.75f;
 		time += uf::physics::time::delta * speed;
 		transform.orientation = uf::quaternion::axisAngle( { 0.0f, 0.0f, 1.0f }, time );
 		metadata["color"][3] = alpha;
 
 		{
 			pod::Vector3f start = {
-				metadata["system"]["lerp"]["start"][0].asFloat(),
-				metadata["system"]["lerp"]["start"][1].asFloat(),
-				metadata["system"]["lerp"]["start"][2].asFloat(),
+				metadata["system"]["lerp"]["start"][0].as<float>(),
+				metadata["system"]["lerp"]["start"][1].as<float>(),
+				metadata["system"]["lerp"]["start"][2].as<float>(),
 			};
 			pod::Vector3f end = {
-				metadata["system"]["lerp"]["end"][0].asFloat(),
-				metadata["system"]["lerp"]["end"][1].asFloat(),
-				metadata["system"]["lerp"]["end"][2].asFloat(),
+				metadata["system"]["lerp"]["end"][0].as<float>(),
+				metadata["system"]["lerp"]["end"][1].as<float>(),
+				metadata["system"]["lerp"]["end"][2].as<float>(),
 			};
-			float delta = metadata["system"]["lerp"]["delta"].asFloat();
+			float delta = metadata["system"]["lerp"]["delta"].as<float>();
 			if ( delta >= 1 ) delta = 1;
 			else {
 				delta += uf::physics::time::delta * 8.0f;
@@ -1194,7 +1194,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.targets.selection;
 					if ( stats.targets.selection < 0 ) { stats.targets.selection = stats.targets.current.size() - 1; }
-				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].asString() ) != stats.targets.invalids.end() );
+				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<std::string>() ) != stats.targets.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1204,7 +1204,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.targets.selection;
 					if ( stats.targets.selection >= stats.targets.current.size() ) { stats.targets.selection = 0; }
-				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].asString() ) != stats.targets.invalids.end() );
+				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<std::string>() ) != stats.targets.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1245,7 +1245,7 @@ void ext::GuiBattle::tick() {
 
 			timer.reset();
 			stats.state = "waiting";
-			if ( result["invalid"].asBool() ) {
+			if ( result["invalid"].as<bool>() ) {
 			//	stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
 			//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
@@ -1271,7 +1271,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.skill.selection;
 					if ( stats.skill.selection < 0 ) { stats.skill.selection = stats.currentMember["skills"].size()- 1; }
-				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].asString() ) != stats.skill.invalids.end() );
+				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<std::string>() ) != stats.skill.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1281,7 +1281,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.skill.selection;
 					if ( stats.skill.selection >= stats.currentMember["skills"].size()) { stats.skill.selection = 0; }
-				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].asString() ) != stats.skill.invalids.end() );
+				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<std::string>() ) != stats.skill.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1310,10 +1310,10 @@ void ext::GuiBattle::tick() {
 			payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
 
-			std::string skillId = stats.currentMember["skills"][stats.skill.selection].asString();
+			std::string skillId = stats.currentMember["skills"][stats.skill.selection].as<std::string>();
 			uf::Serializer skillData = masterDataGet("Skill", skillId);
-			if ( result["range"].isNumeric() ) skillData["range"] = result["range"];
-			if ( skillData["range"].asInt64() > 1 ) {
+			if ( result["range"].is<double>() ) skillData["range"] = result["range"];
+			if ( skillData["range"].as<int>() > 1 ) {
 				uf::Serializer payload;
 				payload["action"] = "member-attack";
 				payload["uid"] = stats.currentMember["uid"];
@@ -1322,7 +1322,7 @@ void ext::GuiBattle::tick() {
 				postParseResult(result);
 				timer.reset();
 				stats.state = "waiting";
-				if ( result["invalid"].asBool() ) {
+				if ( result["invalid"].as<bool>() ) {
 				//	stats.actions.invalids.push_back(action);
 					renderCommandOptions(stats.actions.current);
 				//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
@@ -1353,7 +1353,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.actions.selection;
 					if ( stats.actions.selection < 0 ) { stats.actions.selection = stats.actions.current.size() - 1; }
-				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].asString() ) != stats.actions.invalids.end() );
+				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<std::string>() ) != stats.actions.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1363,7 +1363,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.actions.selection;
 					if ( stats.actions.selection >= stats.actions.current.size() ) { stats.actions.selection = 0; }
-				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].asString() ) != stats.actions.invalids.end() );
+				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<std::string>() ) != stats.actions.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1382,7 +1382,7 @@ void ext::GuiBattle::tick() {
 		} else if ( keys.select && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
 			uf::Serializer payload;
-			std::string action = stats.actions.current[stats.actions.selection].asString();
+			std::string action = stats.actions.current[stats.actions.selection].as<std::string>();
 			payload["action"] = action;
 			if ( payload["action"] == "member-attack" ) {
 				payload["uid"] = stats.currentMember["uid"];
@@ -1396,7 +1396,7 @@ void ext::GuiBattle::tick() {
 			renderCommandOptions(std::string(""));
 
 			stats.state = "waiting";
-			if ( result["invalid"].asBool() ) {
+			if ( result["invalid"].as<bool>() ) {
 				stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
 			//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
@@ -1484,7 +1484,7 @@ void ext::GuiBattle::tick() {
 			queuedAction = action;
 
 			stats.state = "waiting";
-			if ( result["invalid"].asBool() ) {
+			if ( result["invalid"].as<bool>() ) {
 				stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
 			} else if ( payload["action"] == "member-attack" ) {

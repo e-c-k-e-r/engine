@@ -9,10 +9,10 @@
 		uf::Serializer file;
 	} config;
 	/* Read from file */ if (( file.exists = config.file.readFromFile(file.filename) )) {
-		persistent.window.size.x = config.file["window"]["size"]["x"].asUInt64();
-		persistent.window.size.y = config.file["window"]["size"]["y"].asUInt64();
+		persistent.window.size.x = config.file["window"]["size"]["x"].as<size_t>();
+		persistent.window.size.y = config.file["window"]["size"]["y"].as<size_t>();
 		if ( config.file["window"]["title"] != "null" ) {
-			persistent.window.title = config.file["window"]["title"].asString();
+			persistent.window.title = config.file["window"]["title"].as<std::string>();
 		}
 
 		/* Update window size */ {

@@ -1,6 +1,7 @@
 #include <uf/engine/entity/entity.h>
 
-UF_BEHAVIOR_ENTITY_CPP_BEGIN(Entity)
+UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Entity)
+uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Entity)
 #define this ((uf::Entity*) &self)
 void uf::EntityBehavior::initialize( uf::Object& self ) {
 	if ( this->m_uid == 0 )
@@ -25,11 +26,14 @@ void uf::EntityBehavior::destroy( uf::Object& self ) {
 		if ( !kv ) continue;
 		if ( kv->getUid() == 0 ) continue;
 		kv->destroy();
-		delete kv;
+		if ( uf::Entity::deleteChildrenOnDestroy ) delete kv;
 	}
 	this->m_children.clear();
 	this->m_uid = 0;
-	if ( this->hasParent() ) this->getParent().removeChild(*this);
+	if ( this->hasParent() )
+		this->getParent().removeChild(*this);
+
+	if ( uf::Entity::deleteComponentsOnDestroy ) this->destroyComponents();
 }
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Entity)

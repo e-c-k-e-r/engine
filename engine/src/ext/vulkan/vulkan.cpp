@@ -149,7 +149,7 @@ bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
 	mode->name = name;
 	renderModes.push_back(mode);
-	std::cout << "Adding RenderMode: " << name << ": " << mode->getType() << std::endl;
+	if ( ext::vulkan::settings::validation ) uf::iostream << "Adding RenderMode: " << name << ": " << mode->getType() << "\n";
 	// reorder
 	ext::vulkan::states::rebuild = true;
 	return *mode;
@@ -170,7 +170,7 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 			}
 		}
 	}
-//	std::cout << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << std::endl;
+//	if ( ext::vulkan::settings::validation ) uf::iostream << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << "\n";
 	return *target;
 }
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::string& name, bool isName ) {
@@ -181,7 +181,7 @@ std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::ve
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
-//			std::cout << "Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")" << std::endl;
+//			if ( ext::vulkan::settings::validation ) uf::iostream << "Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")" << "\n";
 		}
 	}
 	return targets;
@@ -250,7 +250,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				graphic.initializePipeline();
 				ext::vulkan::states::rebuild = true;
 			};
-			for ( uf::Scene* scene : ext::vulkan::scenes ) {
+			for ( uf::Scene* scene : uf::scene::scenes ) {
 				if ( !scene ) continue;
 				scene->process(filter);
 			}
@@ -297,7 +297,7 @@ void ext::vulkan::tick() {
 		graphic.initializePipeline();
 		ext::vulkan::states::rebuild = true;
 	};
-	for ( uf::Scene* scene : ext::vulkan::scenes ) {
+	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
@@ -350,7 +350,7 @@ void ext::vulkan::render() {
 		if ( !renderMode ) continue;
 		if ( !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
-		for ( uf::Scene* scene : ext::vulkan::scenes ) scene->render();
+		for ( uf::Scene* scene : uf::scene::scenes ) scene->render();
 		renderMode->render();
 	}
 
@@ -371,7 +371,7 @@ void ext::vulkan::destroy() {
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	};
-	for ( uf::Scene* scene : ext::vulkan::scenes ) {
+	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
 	}
@@ -379,7 +379,7 @@ void ext::vulkan::destroy() {
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();
-		delete renderMode;
+	//	delete renderMode;
 		renderMode = NULL;
 	}
 

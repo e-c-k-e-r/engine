@@ -26,7 +26,6 @@ void main() {
 		outAlbedoSpecular = texture(sampler2D(albedoTexture, samp), uv);
 		outNormal = texture(sampler2D(normalTexture, samp), uv);
 		outPosition = texture(sampler2D(positionTexture, samp), uv);
-	//	if ( outAlbedoSpecular.a < 0.01f ) outAlbedoSpecular = vec4(0,0,0,1);
 		return;
 	}
 
