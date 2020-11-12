@@ -46,6 +46,10 @@ spec::uni::Window::vector_t UF_API_CALL uf::Window::getSize() const {
 	static spec::uni::Window::vector_t null = {};
 	return this->m_window ? this->m_window->getSize() : null;
 }
+size_t UF_API_CALL uf::Window::getRefreshRate() const {
+	static spec::uni::Window::vector_t null = {};
+	return this->m_window ? this->m_window->getRefreshRate() : 0;
+}
 // 	Attribute modifiers
 void UF_API_CALL uf::Window::setPosition( const spec::uni::Window::vector_t& position ) {
 	if ( this->m_window ) this->m_window->setPosition(position);

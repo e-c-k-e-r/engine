@@ -18,13 +18,16 @@ uf::Serializer client::config;
 void client::initialize() {
 	uf::IoStream::ncurses = true;
 	uf::renderer::device.window = &client::window;
+
+	ext::load();
+
 	/* Initialize config */ {
 		struct {
 			uf::Serializer ext;
 			uf::Serializer fallback;
 		} config;
 		/* Get configuration */ {
-			config.ext = ext::getConfig();
+			config.ext = ext::config.serialize();
 		}
 		/* Merge */ {
 			client::config = config.ext;
@@ -56,6 +59,9 @@ void client::initialize() {
 		uf::renderer::settings::width = size.x;
 		uf::renderer::settings::height = size.y;
 		client::window.create( size, title );
+
+		// Set refresh rate
+		ext::config["window"]["refresh rate"] = client::window.getRefreshRate();
 
 		// Miscellaneous
 		client::window.setVisible(client::config["window"]["visible"].as<bool>());

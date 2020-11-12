@@ -68,12 +68,6 @@ TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
 $(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
-rm-exe64:
-	-rm $(EX_DLL)
-	-rm $(EXT_EX_DLL)
-	-rm $(TARGET)
-	-rm $(TARGET_SHADERS)
-
 %.$(ARCH).$(PREFIX).o: %.cpp
 	$(CC) $(FLAGS) $(INCS) -c $< -o $@
 
@@ -93,7 +87,7 @@ $(TARGET): $(OBJS)
 %.spv: %.glsl
 	$(GLSL_VALIDATOR) -V $< -o $@
 
-clean-$(ARCH):
+clean:
 	@-rm $(EX_DLL)
 	@-rm $(EXT_EX_DLL)
 	@-rm $(TARGET)
@@ -102,10 +96,16 @@ clean-$(ARCH):
 	@-rm -f $(OBJS_EXT_DLL)
 	@-rm -f $(OBJS)
 
-clean-uf-$(ARCH):
+clean-uf:
 	@-rm $(EX_DLL)
 	@-rm -f $(OBJS_DLL)
 
-clean-ext-$(ARCH):
+clean-exf:
 	@-rm $(EXT_EX_DLL)
 	@-rm -f $(OBJS_EXT_DLL)
+
+clean-exe:
+	-rm $(EX_DLL)
+	-rm $(EXT_EX_DLL)
+	-rm $(TARGET)
+	-rm $(TARGET_SHADERS)

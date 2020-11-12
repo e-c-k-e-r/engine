@@ -58,6 +58,7 @@ namespace spec {
 		// 	Gets
 			/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getPosition() const;/* = 0;*/
 			/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getSize() const;/* = 0;*/
+			/*virtual*/ size_t UF_API_CALL getRefreshRate() const;/* = 0;*/
 		// 	Attribute modifiers
 			/*virtual*/ void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );/* = 0;*/
 			/*virtual*/ void UF_API_CALL centerWindow();/* = 0;*/

@@ -38,6 +38,7 @@ int main(int argc, char** argv){
 				std::string hook = "window:Resized";
 				json["type"] = hook;
 				json["invoker"] = "ext";
+
 				json["window"]["size"]["x"] = client::config["window"]["size"]["x"];
 				json["window"]["size"]["y"] = client::config["window"]["size"]["y"];
 				uf::hooks.call(hook, json);

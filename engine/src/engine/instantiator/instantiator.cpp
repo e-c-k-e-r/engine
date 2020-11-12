@@ -37,7 +37,7 @@ size_t uf::instantiator::collect( uint8_t level ) {
 		if ( e->hasParent() ) continue;
 		// uninitialized
 		if ( e->getName() == "Entity" && e->getUid() == 0 ) continue;
-		uf::iostream << "Found orphan: " << e->getName() << ": " << e->getUid() << "\n";
+		// uf::iostream << "Found orphan: " << e->getName() << ": " << e->getUid() << "\n";
 		uf::instantiator::free( e );
 		++collected;
 	}

@@ -93,6 +93,7 @@ namespace ext {
 			Material material;
 			std::unordered_map<std::string, Pipeline> pipelines;
 
+			~Graphic();
 			void initialize( const std::string& = "" );
 			void destroy();
 			

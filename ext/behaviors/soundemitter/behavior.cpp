@@ -16,7 +16,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	
 	auto& scene = uf::scene::getCurrentScene();
-	auto& sMetadata = this->getComponent<uf::Serializer>();
+	auto& sMetadata = scene.getComponent<uf::Serializer>();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
 
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
@@ -31,7 +31,15 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		uf::Audio& audio = this->getComponent<uf::Audio>(); //emitter.add(filename);
 		audio.load(filename);
 		{
-			float volume = metadata["audio"]["volume"].is<double>() ? metadata["audio"]["volume"].as<float>() : sMetadata["volumes"]["sfx"].as<float>();
+			float volume = 1.0f; 
+			if ( metadata["audio"]["volume"].is<double>() ) {
+				volume = metadata["audio"]["volume"].as<float>();
+			} else if ( metadata["audio"]["volume"].is<std::string>() ) {
+				std::string key = metadata["audio"]["volume"].as<std::string>();
+				if ( sMetadata["volumes"][key].is<double>() ) {
+					volume = sMetadata["volumes"][key].as<float>();
+				}
+			}
 			audio.setVolume(volume);
 		}
 		if ( metadata["audio"]["pitch"].is<double>() ) {
@@ -60,8 +68,10 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 //		uf::Audio& audio = pair.second;
 	{
 		uf::Audio& audio = this->getComponent<uf::Audio>();
-		audio.setPosition( transform.position );
-		audio.setOrientation( transform.orientation );
+		if ( metadata["audio"]["spatial"].as<bool>() ) {
+			audio.setPosition( transform.position );
+			audio.setOrientation( transform.orientation );
+		}
 
 		if ( metadata["audio"]["loop"].as<bool>() ) {
 			float current = audio.getTime();

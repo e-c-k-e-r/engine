@@ -17,6 +17,7 @@ namespace ext {
 			virtual void tick();
 			virtual void render();
 			virtual void destroy();
+			virtual void bindPipelines();
 			virtual void pipelineBarrier( VkCommandBuffer, uint8_t = -1 );
 		};
 	}

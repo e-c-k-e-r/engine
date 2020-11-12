@@ -44,6 +44,10 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
 
+bool ext::ready = false;
+std::vector<std::string> ext::arguments;
+uf::Serializer ext::config;
+
 namespace {
 	struct {
 		uf::String input;
@@ -65,13 +69,70 @@ namespace {
 		double limiter = 1.0 / 144.0;
 	} times;
 
-	uf::Serializer config;
+	uf::Serializer& config = ext::config;
 }
-bool ext::ready = false;
-std::vector<std::string> ext::arguments;
 
+namespace {
+	std::string getConfig() {
+		struct {
+			bool initialized = false;
+			uf::Serializer file;
+			uf::Serializer fallback;
+			uf::Serializer merged;
+		} static config;
+		if ( config.initialized ) return config.merged;
+
+		struct {
+			bool exists = false;
+			std::string filename = "./data/config.json";
+		} file;
+		/* Read from file */  {
+			file.exists = config.file.readFromFile(file.filename);
+		}
+		/* Initialize default configuration */ {
+			config.fallback["window"]["terminal"]["ncurses"] 			= true;
+			config.fallback["window"]["terminal"]["visible"] 			= true;
+			config.fallback["window"]["title"] 							= "Grimgram";
+			config.fallback["window"]["icon"] 							= "";
+			config.fallback["window"]["size"]["x"] 						= 0;
+			config.fallback["window"]["size"]["y"] 						= 0;
+			config.fallback["window"]["visible"] 						= true;
+		//	config.fallback["window"]["fullscreen"] 					= false;
+			config.fallback["window"]["mode"] 							= "windowed";
+			config.fallback["window"]["cursor"]["visible"] 				= true;
+			config.fallback["window"]["cursor"]["center"] 				= false;
+			config.fallback["window"]["keyboard"]["repeat"] 			= true;
+			
+			config.fallback["engine"]["scenes"]["start"]				= "StartMenu";
+			config.fallback["engine"]["scenes"]["max lights"] 			= 32;
+			config.fallback["engine"]["hook"]["mode"] 					= "Readable";
+			config.fallback["engine"]["limiters"]["framerate"] 			= 60;
+			config.fallback["engine"]["limiters"]["deltaTime"] 			= 120;
+			config.fallback["engine"]["threads"]["workers"] 			= "auto";
+			config.fallback["engine"]["threads"]["frame limiter"] 		= 144;
+			config.fallback["engine"]["memory pool"]["size"] 			= "512 MiB";
+			config.fallback["engine"]["memory pool"]["globalOverride"] 	= false;
+			config.fallback["engine"]["memory pool"]["subPools"] 		= true;
+		}
+		/* Merge */ if ( file.exists ){
+			config.merged = config.file;
+			config.merged.merge( config.fallback, true );
+		} else {
+			config.merged = config.fallback;
+		}
+		/* Write default to file */ if ( false ) {
+			config.merged.writeToFile(file.filename);
+		}
+
+		config.initialized = true;
+		return config.merged;
+	}
+}
+
+void EXT_API ext::load() {
+	ext::config = getConfig();
+}
 void EXT_API ext::initialize() {
-	::config = ext::getConfig();
 	/* Arguments */ {
 		bool modified = false;
 		auto& arguments = ::config["arguments"];
@@ -128,63 +189,68 @@ void EXT_API ext::initialize() {
 	}
 	
 	/* Parse config */ {
-		// Set memory pool sizes
-			{
-				auto deduceSize = []( const Json::Value& value )->size_t{
-					if ( value.is<double>() ) return value.as<size_t>();
-					if ( value.is<std::string>() ) {
-						std::string str = value.as<std::string>();
-						std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
-						std::smatch match;
-						if ( std::regex_search( str, match, regex ) ) {
-							size_t requested = std::stoi( match[1].str() );
-							std::string prefix = match[2].str();
-							switch ( prefix.at(0) ) {
-								case 'K': return requested * 1024;
-								case 'M': return requested * 1024 * 1024;
-								case 'G': return requested * 1024 * 1024 * 1024;
-							}
-							return requested;
+		/* Set memory pool sizes */ {
+			auto deduceSize = []( const Json::Value& value )->size_t{
+				if ( value.is<double>() ) return value.as<size_t>();
+				if ( value.is<std::string>() ) {
+					std::string str = value.as<std::string>();
+					std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
+					std::smatch match;
+					if ( std::regex_search( str, match, regex ) ) {
+						size_t requested = std::stoi( match[1].str() );
+						std::string prefix = match[2].str();
+						switch ( prefix.at(0) ) {
+							case 'K': return requested * 1024;
+							case 'M': return requested * 1024 * 1024;
+							case 'G': return requested * 1024 * 1024 * 1024;
 						}
+						return requested;
 					}
-					return 0;
-				};
-				{
-					size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
-					uf::MemoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].as<bool>();
-					uf::iostream << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << "\n";
-					uf::MemoryPool::global.initialize( size );
-					uf::MemoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].as<bool>();
-					if ( size <= 0 || uf::MemoryPool::subPool ) {
-						{
-							size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["component"] );
-							uf::iostream << "Requesting " << (int) size << " bytes for component memory pool: " << &uf::component::memoryPool << "\n";
-							uf::component::memoryPool.initialize( size );
-						}
-						{
-							size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["userdata"] );
-							uf::iostream << "Requesting " << (int) size << " bytes for userdata memory pool: " << &uf::userdata::memoryPool << "\n";
-							uf::userdata::memoryPool.initialize( size );
-						}
-						{
-							size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["entity"] );
-							uf::iostream << "Requesting " << (int) size << " bytes for entity memory pool: " << &uf::Entity::memoryPool << "\n";
-							uf::Entity::memoryPool.initialize( size );
-						}
+				}
+				return 0;
+			};
+			{
+				size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
+				uf::MemoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].as<bool>();
+				uf::iostream << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << "\n";
+				uf::MemoryPool::global.initialize( size );
+				uf::MemoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].as<bool>();
+				if ( size <= 0 || uf::MemoryPool::subPool ) {
+					{
+						size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["component"] );
+						uf::iostream << "Requesting " << (int) size << " bytes for component memory pool: " << &uf::component::memoryPool << "\n";
+						uf::component::memoryPool.initialize( size );
+					}
+					{
+						size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["userdata"] );
+						uf::iostream << "Requesting " << (int) size << " bytes for userdata memory pool: " << &uf::userdata::memoryPool << "\n";
+						uf::userdata::memoryPool.initialize( size );
+					}
+					{
+						size_t size = deduceSize( ::config["engine"]["memory pool"]["pools"]["entity"] );
+						uf::iostream << "Requesting " << (int) size << " bytes for entity memory pool: " << &uf::Entity::memoryPool << "\n";
+						uf::Entity::memoryPool.initialize( size );
 					}
 				}
 			}
+		}
+		if ( ::config["engine"]["limiters"]["framerate"].as<std::string>() == "auto" && ::config["window"]["refresh rate"].is<size_t>() ) {
+			double scale = 1.0;
+			size_t refreshRate = ::config["window"]["refresh rate"].as<size_t>();
+			::config["engine"]["limiters"]["framerate"] = refreshRate * scale;
+			uf::iostream << "Setting framerate cap to " << (int) refreshRate * scale << "\n";
+		}
+		if ( ::config["engine"]["threads"]["frame limiter"].as<std::string>() == "auto" && ::config["window"]["refresh rate"].is<size_t>() ) {
+			double scale = 2.0;
+			size_t refreshRate = ::config["window"]["refresh rate"].as<size_t>();
+			::config["engine"]["threads"]["frame limiter"] = refreshRate * scale;
+			uf::iostream << "Setting thread frame limiter to " << (int) refreshRate * scale << "\n";
+		}
 		/* Frame limiter */ {
 			double limit = ::config["engine"]["limiters"]["framerate"].as<double>();
-			if ( limit != 0 ) 
+			if ( limit != 0 )
 				::times.limiter = 1.0 / ::config["engine"]["limiters"]["framerate"].as<double>();
 			else ::times.limiter = 0;
-		}
-		/* Max delta time */{
-			double limit = ::config["engine"]["limiters"]["deltaTime"].as<double>();
-			if ( limit != 0 ) 
-				uf::physics::time::clamp = 1.0 / ::config["engine"]["limiters"]["deltaTime"].as<double>();
-			else uf::physics::time::clamp = 0;
 		}
 		/* Thread frame limiter */ {
 			double limit = ::config["engine"]["threads"]["frame limiter"].as<double>();
@@ -192,6 +258,12 @@ void EXT_API ext::initialize() {
 				uf::thread::limiter = 1.0 / ::config["engine"]["threads"]["frame limiter"].as<double>();
 			else
 				uf::thread::limiter = 0;
+		}
+		/* Max delta time */{
+			double limit = ::config["engine"]["limiters"]["deltaTime"].as<double>();
+			if ( limit != 0 )
+				uf::physics::time::clamp = 1.0 / ::config["engine"]["limiters"]["deltaTime"].as<double>();
+			else uf::physics::time::clamp = 0;
 		}
 		// Mute audio
 		if ( ::config["engine"]["audio"]["mute"].is<bool>() )
@@ -320,8 +392,8 @@ void EXT_API ext::initialize() {
 				uf::Serializer json = event;
 				uf::renderer::synchronize();
 
-				// uf::hooks.call("game:Scene.Cleanup");
-				uf::scene::unloadScene();
+				uf::hooks.call("game:Scene.Cleanup");
+				// uf::scene::unloadScene();
 
 				auto& scene = uf::scene::loadScene( json["scene"].as<std::string>() );
 				auto& metadata = scene.getComponent<uf::Serializer>();
@@ -340,14 +412,22 @@ void EXT_API ext::initialize() {
 
 		uf::hooks.addHook( "game:Scene.Cleanup", [&](const std::string& event)->std::string{
 			for ( auto* scene : uf::scene::scenes ) {
+				if ( scene->hasComponent<uf::Audio>() ) {
+					scene->getComponent<uf::Audio>().destroy();
+				}
+			}
+			uf::scene::unloadScene();
+		/*
+			for ( auto* scene : uf::scene::scenes ) {
 				scene->destroy();
 				delete scene;
 			}
 			uf::scene::scenes.clear();
+		*/
 			return "true";
 		});
 		uf::hooks.addHook( "system:Quit", [&](const std::string& event)->std::string{
-			uf::iostream << "system:Quit: " << event << "\n";
+		//	uf::iostream << "system:Quit: " << event << "\n";
 			ext::ready = false;
 			return "true";
 		});
@@ -498,11 +578,12 @@ void EXT_API ext::tick() {
 	/* Garbage collection */ if ( ::config["engine"]["debug"]["garbage collection"]["enabled"].as<bool>() ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
-		double every = ::config["engine"]["debug"]["framerate"]["every"].as<double>();
-		uint8_t mode = ::config["engine"]["debug"]["framerate"]["mode"].as<uint64_t>();
+		double every = ::config["engine"]["debug"]["garbage collection"]["every"].as<double>();
+		uint8_t mode = ::config["engine"]["debug"]["garbage collection"]["mode"].as<uint64_t>();
+		bool announce = ::config["engine"]["debug"]["garbage collection"]["announce"].as<bool>();
 		if ( timer.elapsed().asDouble() >= every ) { timer.reset();
 			size_t collected = uf::instantiator::collect( mode );
-			if ( collected > 0 ) {
+			if ( announce && collected > 0 ) {
 				uf::iostream << "GC collected " << (int) collected << " unused entities" << "\n";
 			}
 		}
@@ -593,6 +674,7 @@ void EXT_API ext::terminate() {
 	}
 }
 
+#if 0
 std::string EXT_API ext::getConfig() {
 	struct {
 		bool initialized = false;
@@ -647,3 +729,4 @@ std::string EXT_API ext::getConfig() {
 	config.initialized = true;
 	return config.merged;
 }
+#endif

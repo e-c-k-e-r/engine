@@ -3,7 +3,7 @@
 #include <uf/ext/vulkan.h>
 #include <vector>
 
-#define VK_DEFAULT_STAGE_BUFFERS 0
+#define VK_DEFAULT_STAGE_BUFFERS 1
 
 namespace ext {
 	namespace vulkan {

@@ -29,8 +29,21 @@ void uf::Object::queueHook( const std::string& name, const std::string& payload,
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["system"]["hooks"]["queue"].append(queue);
 }
+std::string uf::Object::formatHookName( const std::string& n, size_t uid, bool fetch ) {
+	if ( fetch ) {
+		uf::Object* object = (uf::Object*) uf::Entity::globalFindByUid( uid );
+		if ( object ) return object->formatHookName( n );
+	}
+	std::unordered_map<std::string, std::string> formats = {
+		{"%UID%", std::to_string(uid)},
+	};
+	std::string name = n;
+	for ( auto& pair : formats ) {
+		name = uf::string::replace( name, pair.first, pair.second );
+	}
+	return name;
+}
 std::string uf::Object::formatHookName( const std::string& n ) {
-	if ( !this ) return n;
 	size_t uid = this->getUid();
 	size_t parent = uid;
 	if ( this->hasParent() ) {

@@ -157,7 +157,7 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 				if ( !entity || entity->getName() != "Light" ) return;
 				entities.push_back(entity);
 			};
-			for ( uf::Scene* scene : uf::renderer::scenes ) { if ( !scene ) continue;
+			for ( uf::Scene* scene : uf::scene::scenes ) { if ( !scene ) continue;
 				scene->process(filter);
 			}
 			{

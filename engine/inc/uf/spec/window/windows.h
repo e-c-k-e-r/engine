@@ -43,6 +43,7 @@ namespace spec {
 			spec::win32::Window::handle_t UF_API_CALL getHandle() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getPosition() const;
 			/*virtual*/ spec::win32::Window::vector_t UF_API_CALL getSize() const;
+			/*virtual*/ size_t UF_API_CALL getRefreshRate() const;
 		// 	Attribute modifiers
 			/*virtual*/ void UF_API_CALL setPosition( const spec::win32::Window::vector_t& position );
 			/*virtual*/ void UF_API_CALL centerWindow();

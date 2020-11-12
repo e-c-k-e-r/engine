@@ -32,6 +32,7 @@ namespace uf {
 		T loadChild( const std::string&, bool = true );
 
 		std::string formatHookName( const std::string& name );
+		static std::string formatHookName( const std::string& name, size_t uid, bool fetch = true );
 		void queueHook( const std::string&, const std::string& = "", double = 0 );
 		std::vector<std::string> callHook( const std::string&, const std::string& = "" );
 		std::size_t addHook( const std::string&, const uf::HookHandler::Readable::function_t& );

@@ -182,6 +182,12 @@ spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getSize() const {
 	vec.y = rectangle.bottom - rectangle.top;
 	return vec;
 }
+size_t UF_API_CALL spec::win32::Window::getRefreshRate() const {
+	HDC screenDC = GetDC(NULL);
+	int refreshRate = GetDeviceCaps( screenDC, VREFRESH );
+	ReleaseDC(NULL, screenDC);
+	return refreshRate;
+}
 
 void UF_API_CALL spec::win32::Window::centerWindow() {
 	if ( fullscreenWindow == (void*) this ) return;

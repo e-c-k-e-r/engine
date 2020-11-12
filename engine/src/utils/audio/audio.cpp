@@ -34,10 +34,6 @@ bool UF_API uf::Audio::initialized() {
 	return true;
 }
 void UF_API uf::Audio::destroy() {
-	{
-		auto filename = this->getFilename();
-		if ( filename != "" ) std::cout << "Audio::Destroy() Destroying " << filename << std::endl;
-	}
 	this->m_source.destroy();
 	this->m_buffer.destroy();
 }

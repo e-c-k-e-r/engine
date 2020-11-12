@@ -219,7 +219,6 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 			length = buffer.allocationInfo.size;
 			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length << ", resetting for safety");
 		}
-		uf::iostream << "\n";
 //		assert(buffer.allocationInfo.size > length);
 	}
 

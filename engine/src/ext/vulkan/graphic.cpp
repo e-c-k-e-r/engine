@@ -25,7 +25,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 	{
 		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
-			VK_DEBUG_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
+			VK_VALIDATION_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
 			return;
 		}
 		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
@@ -67,12 +67,12 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 					size_t size = comp.get_declared_struct_size(base_type);
 					if ( size <= 0 ) break;
 					if ( size > device.properties.limits.maxUniformBufferRange ) {
-						VK_DEBUG_MESSAGE("Invalid uniform buffer length of " << size << " for shader " << filename);
+						VK_VALIDATION_MESSAGE("Invalid uniform buffer length of " << size << " for shader " << filename);
 						size = device.properties.limits.maxUniformBufferRange;
 					}
 					size_t misalignment = size % device.properties.limits.minStorageBufferOffsetAlignment;
 					if ( misalignment != 0 ) {
-						VK_DEBUG_MESSAGE("Invalid uniform buffer alignmnet of " << misalignment << " for shader " << filename << ", correcting...");
+						VK_VALIDATION_MESSAGE("Invalid uniform buffer alignmnet of " << misalignment << " for shader " << filename << ", correcting...");
 						size += misalignment;
 					}
     				auto& uniform = uniforms.emplace_back();
@@ -123,7 +123,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
     		size_t size = comp.get_declared_struct_size(type);
     		if ( size <= 0 ) continue;
     		if ( size > device.properties.limits.maxPushConstantsSize ) {
-				VK_DEBUG_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
+				VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
 				size = device.properties.limits.maxPushConstantsSize;
 			}
 			auto& pushConstant = pushConstants.emplace_back();
@@ -232,7 +232,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 	this->device = graphic.device;
 	Device& device = *graphic.device;
 
-	// VK_DEBUG_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
+	// VK_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
 	assert( graphic.material.shaders.size() > 0 );
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true);
@@ -250,7 +250,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			for ( auto& pushConstant : shader.pushConstants ) {
 				size_t len = pushConstant.data().len;
 				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
-					VK_DEBUG_MESSAGE("Invalid push constent length of " << len << " for shader " << shader.filename);
+					VK_VALIDATION_MESSAGE("Invalid push constent length of " << len << " for shader " << shader.filename);
 				//	goto PIPELINE_INITIALIZATION_INVALID;
 					len = device.properties.limits.maxPushConstantsSize;
 				}
@@ -461,7 +461,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 	return;
 PIPELINE_INITIALIZATION_INVALID:
 	graphic.process = false;
-	VK_DEBUG_MESSAGE("Pipeline initialization invalid, updating next tick...");
+	VK_VALIDATION_MESSAGE("Pipeline initialization invalid, updating next tick...");
 	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
 		this->initialize( graphic, descriptor );
 	return 0;}, true );
@@ -582,12 +582,12 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	auto samplerInfo = infos.sampler.begin();
 	auto inputInfo = infos.input.begin();
 
-	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_DEBUG_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
+	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
 
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	for ( auto& shader : graphic.material.shaders ) {
 		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-		//	VK_DEBUG_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
+		//	VK_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
 			switch ( layout.descriptorType ) {
 				// consume an texture image info
 				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
@@ -652,180 +652,26 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 		}
 	}
 
-/*
-	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
-	std::vector<VkDescriptorImageInfo> imageInfos;
-	{
-		for ( auto& shader : graphic.material.shaders ) {
-			std::vector<VkDescriptorBufferInfo> buffersStorageVector;
-			std::vector<VkDescriptorBufferInfo> buffersUniformsVector;
-		
-			#define PARSE_BUFFER( buffers ) for ( auto& buffer : buffers ) {\
-				if ( buffer.usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) {\
-					auto& descriptor = buffersStorageVector.emplace_back(buffer.descriptor);\
-					if ( descriptor.offset % device->properties.limits.minStorageBufferOffsetAlignment != 0 ) {\
-						VK_DEBUG_MESSAGE("Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset);\
-						goto PIPELINE_UPDATE_INVALID;\
-					}\
-				}\
-				if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {\
-					auto& descriptor = buffersUniformsVector.emplace_back(buffer.descriptor);\
-					if ( descriptor.offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {\
-						VK_DEBUG_MESSAGE("Unaligned offset! Expecting " << device->properties.limits.minUniformBufferOffsetAlignment << ", got " << descriptor.offset);\
-						goto PIPELINE_UPDATE_INVALID;\
-					}\
-				}\
-			}
-
-			PARSE_BUFFER(shader.buffers)
-			PARSE_BUFFER(graphic.buffers)
-
-			auto textures = graphic.material.textures.begin();
-			auto samplers = graphic.material.samplers.begin();
-			auto attachments = inputDescriptors.begin();
-			auto buffersStorage = buffersStorageVector.begin();
-			auto buffersUniforms = buffersUniformsVector.begin();
-
-			for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-
-				if ( layout.descriptorCount > 1 ) {
-					switch ( layout.descriptorType ) {
-						case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-						case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-						case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-							size_t imageInfosStart = imageInfos.size();
-							// assume we have a texture, and fill it in the slots as defaults
-							size_t target = layout.descriptorCount;
-							for ( size_t i = 0; i < target; ++i ) {
-								VkDescriptorImageInfo d = emptyTexture.descriptor;
-								if ( textures != graphic.material.textures.end() ) {
-									d = (textures++)->descriptor;
-									if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && !d.sampler )
-										d.sampler = emptyTexture.sampler.sampler;
-
-									if ( d.imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
-										d.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-								} else {
-								//	VK_DEBUG_MESSAGE("textures == graphic.material.textures.end()");
-								}
-								imageInfos.push_back( d );
-							}
-							
-							size_t len = imageInfos.size() - imageInfosStart;
-
-							writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-								descriptorSet,
-								layout.descriptorType,
-								layout.binding,
-								&imageInfos[imageInfosStart],
-								len
-							));
-						} break;
-					}
-					continue;
-				}
-
-				VkDescriptorImageInfo* imageInfo = NULL;
-				switch ( layout.descriptorType ) {
-					case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-					case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-					case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-						if ( textures == graphic.material.textures.end() ) {
-							imageInfo = &emptyTexture.descriptor;
-							break;
-						}
-						imageInfo = &((textures++)->descriptor);
-						if ( imageInfo->imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
-							imageInfo->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-					} break;
-					case VK_DESCRIPTOR_TYPE_SAMPLER: {
-						if ( samplers == graphic.material.samplers.end() ) {
-							VK_DEBUG_MESSAGE("samplers == graphic.material.samplers.end()");
-							break;
-						}
-						imageInfo = &((samplers++)->descriptor.info);
-					} break;
-					case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-						if ( buffersUniforms == buffersUniformsVector.end() ) {
-							VK_DEBUG_MESSAGE("buffersUniforms == buffersUniformsVector.end()");
-							break;
-						}
-						auto* descriptor = &(*(buffersUniforms++));
-						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-							descriptorSet,
-							layout.descriptorType,
-							layout.binding,
-							descriptor
-						));
-					} break;
-					case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-						if ( buffersStorage == buffersStorageVector.end() ) {
-							VK_DEBUG_MESSAGE("buffersStorage == buffersStorageVector.end()");
-							break;
-						}
-						auto* descriptor = &(*(buffersStorage++));
-						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-							descriptorSet,
-							layout.descriptorType,
-							layout.binding,
-							descriptor
-						));
-					} break;
-					case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-						if ( attachments == inputDescriptors.end() ) {
-							VK_DEBUG_MESSAGE("attachments == inputDescriptors.end()");
-							break;
-						}
-						imageInfo = &(*(attachments++));
-					} break;
-				}
-
-				if ( imageInfo ) {
-					if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) {
-						if ( imageInfo->imageView == VK_NULL_HANDLE ) {
-							imageInfo = &emptyTexture.descriptor;
-						}
-					}
-					if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER ) {
-						if ( imageInfo->sampler == VK_NULL_HANDLE ) {
-							imageInfo->sampler = emptyTexture.sampler.sampler;
-						}
-					}
-					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						imageInfo
-					));
-				}
-			}
-		}
-	}
-*/
 	for ( auto& descriptor : writeDescriptorSets ) {
 		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
 			if ( descriptor.pBufferInfo ) {
 				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-					VK_DEBUG_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
+					VK_VALIDATION_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
 					goto PIPELINE_UPDATE_INVALID;
-				/*
-					auto pointer = const_cast<VkDescriptorBufferInfo*>(&descriptor.pBufferInfo[i]);
-					pointer->offset = 0;
-					pointer->range = 0;
-					pointer->buffer = VK_NULL_HANDLE;
-					invalid = true;
-					break;
-				*/
 				}
 			}
-		/*
 			if ( descriptor.pImageInfo ) {
 				if ( descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
+					VK_VALIDATION_MESSAGE("Image layout is VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
 					auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 					pointer->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
+				if ( descriptor.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && !descriptor.pImageInfo[i].sampler ) {
+					VK_VALIDATION_MESSAGE("Image descriptor type is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, yet lacks a sampler, adding default sampler...");
+					auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
+					pointer->sampler = emptyTexture.sampler.sampler;
+				}
 			}
-		*/
 		}
 	}
 	renderMode.rebuild = true;
@@ -842,7 +688,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 
 PIPELINE_UPDATE_INVALID:
 	graphic.process = false;
-	VK_DEBUG_MESSAGE("Pipeline update invalid, updating next tick...");
+	VK_VALIDATION_MESSAGE("Pipeline update invalid, updating next tick...");
 	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
 		this->update( graphic, descriptor );
 	return 0;}, true );
@@ -900,7 +746,9 @@ void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::
 		attachShader( request.first, request.second );
 	}
 }
-
+ext::vulkan::Graphic::~Graphic() {
+	this->destroy();
+}
 void ext::vulkan::Graphic::initialize( const std::string& renderModeName ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(renderModeName, true);
 
@@ -949,7 +797,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor ) {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
-		VK_DEBUG_MESSAGE(this << ": has no valid pipeline");
+		VK_VALIDATION_MESSAGE(this << ": has no valid pipeline");
 		return;
 	}
 
