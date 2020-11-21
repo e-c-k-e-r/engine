@@ -84,8 +84,12 @@ void client::initialize() {
 			json["window"]["title"] = std::string(title);
 			uf::hooks.call( hook, json );
 		}
+	/*
 		uf::hooks.shouldPreferReadable();
-		if ( client::config["engine"]["hook"]["mode"] == "Readable" ) {}
+		if ( client::config["engine"]["hook"]["mode"] == "Readable" ) {
+
+		}
+	*/
 	}
 
 	/* Initialize OpenAL */ {
@@ -97,7 +101,7 @@ void client::initialize() {
 	}
 	
 	/* Initialize hooks */ {
-		if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
+	//	if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
 			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const std::string& event)->std::string{
 				uf::Serializer json = event;
 				client::window.setCursorVisible(json["state"].as<bool>());
@@ -146,7 +150,9 @@ void client::initialize() {
 				uf::renderer::states::resized = true;
 				return "true";
 			} );
-		} else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {
+	/*
+		}
+		else if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Optimal" ) {
 			uf::hooks.addHook( "window:Closed", [&](const uf::OptimalHook::argument_t& userdata)->uf::OptimalHook::return_t{
 				client::ready = false;
 				std::exit(EXIT_SUCCESS);
@@ -187,6 +193,7 @@ void client::initialize() {
 				return NULL;
 			} );
 		}
+	*/
 	}
 	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
 	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );

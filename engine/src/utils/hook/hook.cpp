@@ -1,7 +1,85 @@
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/io/iostream.h> 	// uf::iostream
-uf::HookHandler uf::hooks;
 
+size_t uf::Hooks::uids = 0;
+uf::Hooks uf::hooks;
+
+size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const pod::Hook::function_t& callback, size_t type ) {
+	auto& hook = this->m_container[name].emplace_back();
+	hook.uid = ++uids;
+	hook.type = type;
+	hook.callback = callback;
+
+	return hook.uid;
+}
+void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
+	auto& container = this->m_container[name];
+	for ( auto it = container.begin(); it != container.end(); ++it ) {
+		if ( it->uid == uid ) {
+			this->m_container[name].erase(it);
+			break;
+		}
+	}
+}
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Userdata& payload ) {
+	auto& container = this->m_container[name];
+	std::vector<uf::Userdata> results;
+	results.reserve( container.size() );
+	for ( auto& hook : container ) {
+		uf::Userdata hookResult = hook.callback(payload);
+		auto& returnResult = results.emplace_back();
+		returnResult.move( hookResult );
+
+	//	results.emplace_back(std::move());
+	}
+	return results;
+}
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::string& s ) {
+	uf::Userdata payload;
+	payload.create<std::string>( s );
+	return call(name, payload);
+}
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
+	uf::Userdata payload;
+	payload.create<std::string>( s.serialize() );
+	return call(name, payload);
+}
+// specialization: void function
+size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void()>& callback ) {
+	return addHook( name, [=]( const uf::Userdata& userdata ){
+		callback();
+		uf::Userdata ret;
+		return ret;
+	});
+}
+/*
+// specialization: serialized JSON handling
+size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void(const std::string&)>& callback ) {
+	return addHook( name, [=]( const uf::Userdata& userdata ){
+		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
+		callback( payload );
+		uf::Userdata ret;
+		return ret;
+	});
+}
+// specialization: legacy callback handling
+size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<std::string(const std::string&)>& callback ) {
+	return addHook( name, [=]( const uf::Userdata& userdata ){
+		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
+		std::string res = callback( payload );
+
+		uf::Userdata ret;
+		ret.create<std::string>(res);
+		return ret;
+	});
+}
+*/
+bool uf::Hooks::exists( const uf::Hooks::name_t& name ) {
+	return this->m_container.count(name) > 0;
+}
+
+#if 0
+uf::HookHandler uf::hooks;
 namespace {
 	std::size_t hooks = 0;
 }
@@ -288,3 +366,4 @@ uf::HookHandler::return_vector_t UF_API_CALL uf::HookHandler::call( const uf::Ho
 }
 
 */
+#endif

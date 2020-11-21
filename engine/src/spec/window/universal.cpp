@@ -4,7 +4,7 @@
 
 #include <uf/utils/serialize/serializer.h>
 #include <sstream>
-
+/*
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument ) {
 	if ( !uf::hooks.prefersReadable() ) return;
 	if ( !uf::hooks.exists(name) ) return;
@@ -43,12 +43,42 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 	}
 	this->m_events.optimal.back().argument = userdata;
 }
+*/
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const std::string& payload ) {
+	uf::Userdata userdata;
+	userdata.create<std::string>( payload );
+	this->m_events.push({ name, std::move(userdata) });
+}
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload ) {
+	this->m_events.push({ name, std::move(payload) });
+}
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payload ) {
+	struct Header {
+		std::string type;
+	};
+	const Header& header = payload.get<Header>();
+	if ( !uf::hooks.exists(header.type) ) return;
+	this->m_events.push({ header.type, std::move(payload) });
+}
 void UF_API_CALL spec::uni::Window::processEvents() {
 }
 bool UF_API_CALL spec::uni::Window::isKeyPressed(const std::string& key) {
 	return false;
 }
 bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
+	if ( this->m_events.empty() ) {
+		do {
+			this->processEvents();
+		} while ( block && this->m_events.empty() );
+	}
+
+	while ( !this->m_events.empty() ) {
+		auto& event = this->m_events.front();
+		uf::hooks.call( event.name, event.payload );
+		this->m_events.pop();
+	}
+	return true;
+#if 0
 	/* Empty; look for something! */ if ( this->m_events.readable.empty() && this->m_events.optimal.empty() ) {
 		do {
 			this->processEvents();
@@ -88,4 +118,5 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 	//	this->m_events.readable.clear(); 	// flush queue in case
 	}
 	return true;
+#endif
 }

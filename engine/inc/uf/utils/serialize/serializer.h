@@ -61,6 +61,7 @@ namespace uf {
 		bool writeToFile( const std::string& to ) const;
 		
 		void merge( const uf::Serializer& other, bool priority = true );
+		void import( const uf::Serializer& other );
 
 		operator Serializer::output_t();
 		operator Serializer::output_t() const;

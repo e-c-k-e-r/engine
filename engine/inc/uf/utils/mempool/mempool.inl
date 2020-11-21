@@ -1,10 +1,13 @@
+#include <uf/utils/type/type.h>
+
 template<typename T>
 T& uf::MemoryPool::alloc( const T& data ) {
 	auto allocation = this->allocate( data );
 	union {
 		uint8_t* from;
 		T* to;
-	} static kludge;
+	} kludge;
+	kludge.from = (uint8_t*) allocation.pointer;
 	return *kludge.to;
 }
 template<typename T>
@@ -14,7 +17,7 @@ pod::Allocation uf::MemoryPool::allocate( const T& data ) {
 	union {
 		uint8_t* from;
 		T* to;
-	} static kludge;
+	} kludge;
 	kludge.from = (uint8_t*) allocation.pointer;
 	::new (kludge.to) T(data);
 	return allocation;

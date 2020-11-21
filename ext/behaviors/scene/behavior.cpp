@@ -118,10 +118,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		return "true";
 	});
 	/* store viewport size */ {
-		metadata["system"]["window"]["size"]["x"] = uf::renderer::settings::width;
-		metadata["system"]["window"]["size"]["y"] = uf::renderer::settings::height;
-		ext::gui::size.current.x = uf::renderer::settings::width;
-		ext::gui::size.current.y = uf::renderer::settings::height;
+//		metadata["system"]["window"]["size"]["x"] = uf::renderer::settings::width;
+//		metadata["system"]["window"]["size"]["y"] = uf::renderer::settings::height;
+//		ext::gui::size.current.x = uf::renderer::settings::width;
+//		ext::gui::size.current.y = uf::renderer::settings::height;
 		
 		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;

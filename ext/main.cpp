@@ -3,7 +3,6 @@
 #include <uf/ext/ext.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/oal/oal.h>
-#include <uf/ext/assimp/assimp.h>
 
 #include <uf/spec/terminal/terminal.h>
 
@@ -515,10 +514,12 @@ void EXT_API ext::tick() {
 		if ( !timer.running() ) timer.start();
 		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
-			if ( uf::MemoryPool::global.size() > 0 ) uf::iostream << "Global Memory Pool:\n" << uf::MemoryPool::global.stats() << "\n";
-			if ( uf::Entity::memoryPool.size() > 0 ) uf::iostream << "Entity Memory Pool:\n" << uf::Entity::memoryPool.stats() << "\n";
-			if ( uf::component::memoryPool.size() > 0 ) uf::iostream << "Components Memory Pool:\n" << uf::component::memoryPool.stats() << "\n";
-			if ( uf::userdata::memoryPool.size() > 0 ) uf::iostream << "Userdata Memory Pool:\n" << uf::userdata::memoryPool.stats() << "\n";
+			uf::iostream << "==== Memory Pool Information ====";
+			if ( uf::MemoryPool::global.size() > 0 ) uf::iostream << "\nGlobal Memory Pool: " << uf::MemoryPool::global.stats();
+			if ( uf::Entity::memoryPool.size() > 0 ) uf::iostream << "\nEntity Memory Pool: " << uf::Entity::memoryPool.stats();
+			if ( uf::component::memoryPool.size() > 0 ) uf::iostream << "\nComponents Memory Pool: " << uf::component::memoryPool.stats();
+			if ( uf::userdata::memoryPool.size() > 0 ) uf::iostream << "\nUserdata Memory Pool: " << uf::userdata::memoryPool.stats();
+			uf::iostream << "\n";
 		}
 	}
 	/* Attempt to reset VR position */  {

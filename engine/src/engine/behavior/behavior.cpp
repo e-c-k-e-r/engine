@@ -26,7 +26,9 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 
 #define FUNCTION_AS_VARIABLE(x) x
 
-#define UF_BEHAVIOR_POLYFILL(f)\
+#define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_SAFE
+
+#define UF_BEHAVIOR_POLYFILL_SAFE(f)\
 	uf::Object& self = *((uf::Object*) this);\
 	bool headLoopChildren = true;\
 	bool forwardIteration = true;\
@@ -75,6 +77,8 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	bool headLoopChildren = true;\
 	bool forwardIteration = true;\
 	bool multithreading = false;\
+	bool useWorkers = false;\
+	std::vector<std::function<int()>> jobs;\
 	if ( this->hasComponent<uf::Serializer>() ) {\
 		auto& metadata = this->getComponent<uf::Serializer>();\
 		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
@@ -83,6 +87,8 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
 		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
 			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
+		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["use workers"] ) )\
+			useWorkers = metadata["system"]["behavior"][#f]["use workers"].as<bool>();\
 	}\
 	if ( headLoopChildren ) {\
 		if ( forwardIteration ) {\
@@ -95,7 +101,9 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 					it->f(self);\
 					return 0;\
 				};\
-				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
+				if ( multithreading && useWorkers ) jobs.emplace_back(function);\
+				else if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true );\
+				else function();\
 			}\
 		} else {\
 			auto it = this->m_behaviors.rbegin();\
@@ -107,7 +115,9 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 					it->f(self);\
 					return 0;\
 				};\
-				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
+				if ( multithreading && useWorkers ) jobs.emplace_back(function);\
+				else if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true );\
+				else function();\
 			}\
 		}\
 	} else {\
@@ -118,7 +128,9 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 					it->f(self);\
 					return 0;\
 				};\
-				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
+				if ( multithreading && useWorkers ) jobs.emplace_back(function);\
+				else if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true );\
+				else function();\
 			}\
 			if ( (it = this->m_behaviors.begin()) != this->m_behaviors.end() ) {\
 				it->f(self);\
@@ -130,13 +142,16 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 					it->f(self);\
 					return 0;\
 				};\
-				if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true ); else function();\
+				if ( multithreading && useWorkers ) jobs.emplace_back(function);\
+				else if ( multithreading ) uf::thread::add( uf::thread::fetchWorker(), function, true );\
+				else function();\
 			}\
 			if ( (it = this->m_behaviors.rbegin()) != this->m_behaviors.rend() ) {\
 				it->f(self);\
 			}\
 		}\
-	}
+	}\
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 
 
 void uf::Behaviors::initialize() {

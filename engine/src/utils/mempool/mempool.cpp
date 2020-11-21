@@ -5,9 +5,11 @@
 #include <iostream>
 #include <sstream>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/utils/thread/perthread.h>
+#include <uf/utils/io/iostream.h>
 
 namespace {
-	bool IGNORE_GLOBAL_MEMORYPOOL = false;
+	uf::ThreadUnique<bool> globalOverrides;
 }
 
 #define DEBUG_PRINT 0
@@ -79,7 +81,7 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 	pod::Allocation allocation;
 	// pool not initialized
 	if ( len <= 0 ) {
-		if ( DEBUG_PRINT ) std::cout << "CANNOT MALLOC: " << size << ", POOL NOT INITIALIZED" << std::endl;
+		if ( DEBUG_PRINT ) uf::iostream << "CANNOT MALLOC: " << size << ", POOL NOT INITIALIZED" << "\n";
 		goto MANUAL_MALLOC;
 	}
 
@@ -116,10 +118,10 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 				else memset( allocation.pointer, 0, size );
 
 				// overrides if we're overloading global new/delete
-				IGNORE_GLOBAL_MEMORYPOOL = true;
+				globalOverrides.get() = true;
 				// register as allocated
 				this->m_allocations.insert(next, allocation);
-				IGNORE_GLOBAL_MEMORYPOOL = false;
+				globalOverrides.get() = false;
 
 				goto RETURN;
 			}
@@ -139,7 +141,9 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 		}
 		// no allocation found, OOM
 		if ( index + size > len ) {
-			std::cout << "MemoryPool: " << this << ": Out of Memory!" << std::endl;
+			uf::iostream << "MemoryPool: " << this << ": Out of Memory!\n";
+			uf::iostream << "Trying to request " << size << " bytes of memory\n";
+			uf::iostream << "Stats: " << this->stats() << "\n";
 			goto MANUAL_MALLOC;
 		}
 
@@ -153,10 +157,10 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 		else memset( allocation.pointer, 0, size );
 
 		// overrides if we're overloading global new/delete
-		IGNORE_GLOBAL_MEMORYPOOL = true;
+		globalOverrides.get() = true;
 		// register as allocated
 		this->m_allocations.insert(next, allocation);
-		IGNORE_GLOBAL_MEMORYPOOL = false;
+		globalOverrides.get() = false;
 	}
 	goto RETURN;
 MANUAL_MALLOC:
@@ -169,7 +173,7 @@ MANUAL_MALLOC:
 	}
 RETURN:
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.unlock();
-	if ( DEBUG_PRINT ) std::cout << "MALLOC'd: " << allocation.pointer << ", " << allocation.size << ", " << allocation.index << std::endl;
+	if ( DEBUG_PRINT ) uf::iostream << "MALLOC'd: " << allocation.pointer << ", " << allocation.size << ", " << allocation.index << "\n";
 	return allocation;
 }
 void* uf::MemoryPool::alloc( void* data, size_t size ) {
@@ -201,7 +205,7 @@ bool uf::MemoryPool::free( void* pointer, size_t size ) {
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.lock();
 	// fail if uninitialized or pointer is outside of our pool
 	if ( this->m_size <= 0 || pointer < &this->m_pool[0] || pointer >= &this->m_pool[0] + this->m_size ) {
-		if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", ERROR: " << (this->m_size <= 0) << " " << (pointer < &this->m_pool[0]) << " " << (pointer >= &this->m_pool[0] + this->m_size) << std::endl;
+		if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", ERROR: " << (this->m_size <= 0) << " " << (pointer < &this->m_pool[0]) << " " << (pointer >= &this->m_pool[0] + this->m_size) << "\n";
 		goto MANUAL_FREE;
 	}
 	{
@@ -218,15 +222,15 @@ bool uf::MemoryPool::free( void* pointer, size_t size ) {
 		}
 		// pointer isn't actually allocated
 		if ( allocation.index != index ) {
-			if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", NOT FOUND" << std::endl;
+			if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", NOT FOUND" << "\n";
 			goto MANUAL_FREE;
 		}
 		// size validation mismatch, do not free
 		if (size > 0 && allocation.size != size) {
-			if ( DEBUG_PRINT ) std::cout << "CANNOT FREE: " << pointer << ", MISMATCHED SIZES (" << size << " != " << allocation.size << ")" << std::endl;
+			if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", MISMATCHED SIZES (" << size << " != " << allocation.size << ")" << "\n";
 			goto MANUAL_FREE;
 		}
-		if ( DEBUG_PRINT ) std::cout << "FREE'D ALLOCATION: " << pointer << ", " << size << "\t" << allocation.pointer << ", " << allocation.size << ", " << allocation.index << std::endl;
+		if ( DEBUG_PRINT ) uf::iostream << "FREE'D ALLOCATION: " << pointer << ", " << size << "\t" << allocation.pointer << ", " << allocation.size << ", " << allocation.index << "\n";
 		// remove from our allocation table...
 		this->m_allocations.erase(it);
 		// ...but add it to our free'd allocation cache
@@ -247,7 +251,7 @@ const uf::MemoryPool::allocations_t& uf::MemoryPool::allocations() const {
 }
 #if UF_MEMORYPOOL_OVERRIDE_NEW_DELETE
 void* operator new( size_t size ) {
-	if ( !uf::MemoryPool::globalOverride || IGNORE_GLOBAL_MEMORYPOOL || uf::MemoryPool::global.size() <= 0 )
+	if ( !uf::MemoryPool::globalOverride || globalOverrides.get() || uf::MemoryPool::global.size() <= 0 )
 		return malloc(size);
 	return uf::MemoryPool::global.alloc( (void*) NULL, size );
 }

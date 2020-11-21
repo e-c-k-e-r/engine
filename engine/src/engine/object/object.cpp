@@ -60,7 +60,14 @@ std::string uf::Object::formatHookName( const std::string& n ) {
 	return name;
 }
 std::vector<std::string> uf::Object::callHook( const std::string& name, const std::string& payload ) {
-	return uf::hooks.call( this->formatHookName( name ), payload );
+	std::vector<std::string> strings;
+	auto results = uf::hooks.call( this->formatHookName( name ), payload );
+	for ( auto& result : results ) {
+		if ( result.is<std::string>() ) {
+			strings.emplace_back( result.as<std::string>() );
+		}
+	}
+	return strings;
 }
 std::size_t uf::Object::addHook( const std::string& name, const uf::HookHandler::Readable::function_t& callback ) {
 	std::string parsed = this->formatHookName( name );
@@ -116,6 +123,27 @@ bool uf::Object::reload( bool hard ) {
 bool uf::Object::load( const uf::Serializer& _json ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Serializer json = _json;
+	// import
+	if ( _json["import"].is<std::string>() || _json["include"].is<std::string>() ) {
+		uf::Serializer chain = _json;
+		std::string root = json["root"].as<std::string>();
+		do {
+			std::string filename = chain["import"].is<std::string>() ? chain["import"].as<std::string>() : chain["include"].as<std::string>();
+			filename = grabURI( filename, root );
+			chain.readFromFile( filename );
+			// set new root
+			root = uf::io::directory( filename );
+			// merge table
+			json.import( chain );
+		/*
+			json["import"] = Json::nullValue;
+			json["include"] = Json::nullValue;
+			chain.merge( json, true );
+			json = chain;
+		*/
+		} while ( chain["import"].is<std::string>() || chain["include"].is<std::string>() );
+		if ( !ext::json::isArray(_json["assets"]) || _json["assets"].size() == 0 ) json["root"] = root;
+	}
 	// copy system table to base
 	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
 		std::string key = it.key().as<std::string>();

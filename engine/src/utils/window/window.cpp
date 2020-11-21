@@ -135,7 +135,7 @@ void UF_API_CALL uf::Window::display() {
 	// Display the backbuffer on screen
 	if (this->m_context && this->setActive()) this->m_context->display();
 
-	/* FPS */ {
+	/* FPS */ if ( false ) {
 		static double limit = 1.0 / 60;
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
@@ -145,15 +145,6 @@ void UF_API_CALL uf::Window::display() {
 			timer.reset();
 		}
 	}
-
-/*
-	// Limit the framerate if needed
-	if (m_frameTimeLimit != Time::Zero)
-	{
-		sleep(m_frameTimeLimit - m_clock.getElapsedTime());
-		m_clock.restart();
-	}
-*/
 }
 
 #endif

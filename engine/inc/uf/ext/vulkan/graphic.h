@@ -44,14 +44,13 @@ namespace ext {
 			VkSpecializationInfo specializationInfo;
 
 			std::vector<uf::Userdata> pushConstants;
-		//	std::vector<uf::Userdata> specializationConstants;
-		//	uf::Userdata specializationConstants;
 			std::vector<uint8_t> specializationConstants;
 			std::vector<uf::Userdata> uniforms;
 
 		//	~Shader();
 			void initialize( Device& device, const std::string&, VkShaderStageFlagBits );
 			void destroy();
+			bool validate();
 		};
 		struct UF_API Pipeline {
 			bool aliased = false;

@@ -448,18 +448,24 @@ VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEn
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;
-			if ( commandPool.graphics.count(id) > 0 ) exists = true;
-			pool = &commandPool.graphics[id];
+		//	if ( commandPool.graphics.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.graphics[id];
+			exists = commandPool.graphics.has(id);
+			pool = &commandPool.graphics.get(id);
 		break;
 		case QueueEnum::COMPUTE:
 			index = device.queueFamilyIndices.compute;
-			if ( commandPool.compute.count(id) > 0 ) exists = true;
-			pool = &commandPool.compute[id];
+		//	if ( commandPool.compute.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.compute[id];
+			exists = commandPool.compute.has(id);
+			pool = &commandPool.compute.get(id);
 		break;
 		case QueueEnum::TRANSFER:
 			index = device.queueFamilyIndices.transfer;
-			if ( commandPool.transfer.count(id) > 0 ) exists = true;
-			pool = &commandPool.transfer[id];
+		//	if ( commandPool.transfer.count(id) > 0 ) exists = true;
+		//	pool = &commandPool.transfer[id];
+			exists = commandPool.transfer.has(id);
+			pool = &commandPool.transfer.get(id);
 		break;
 	}
 	if ( !exists ) {
@@ -480,23 +486,31 @@ VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;
-			if ( queues.graphics.count(id) > 0 ) exists = true;
-			queue = &queues.graphics[id];
+			exists = queues.graphics.has(id);
+			queue = &queues.graphics.get(id);
+		//	if ( queues.graphics.count(id) > 0 ) exists = true;
+		//	queue = &queues.graphics[id];
 		break;
 		case QueueEnum::PRESENT:
 			index = device.queueFamilyIndices.present;
-			if ( queues.present.count(id) > 0 ) exists = true;
-			queue = &queues.present[id];
+			exists = queues.present.has(id);
+			queue = &queues.present.get(id);
+		//	if ( queues.present.count(id) > 0 ) exists = true;
+		//	queue = &queues.present[id];
 		break;
 		case QueueEnum::COMPUTE:
 			index = device.queueFamilyIndices.compute;
-			if ( queues.compute.count(id) > 0 ) exists = true;
-			queue = &queues.compute[id];
+			exists = queues.compute.has(id);
+			queue = &queues.compute.get(id);
+		//	if ( queues.compute.count(id) > 0 ) exists = true;
+		//	queue = &queues.compute[id];
 		break;
 		case QueueEnum::TRANSFER:
 			index = device.queueFamilyIndices.transfer;
-			if ( queues.transfer.count(id) > 0 ) exists = true;
-			queue = &queues.transfer[id];
+			exists = queues.transfer.has(id);
+			queue = &queues.transfer.get(id);
+		//	if ( queues.transfer.count(id) > 0 ) exists = true;
+		//	queue = &queues.transfer[id];
 		break;
 	}
 	if ( !exists ) {
@@ -870,15 +884,15 @@ void ext::vulkan::Device::destroy() {
 		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
 		this->pipelineCache = nullptr;
 	}
-	for ( auto& pair : this->commandPool.graphics ) {
+	for ( auto& pair : this->commandPool.graphics.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
 		pair.second = VK_NULL_HANDLE;
 	}
-	for ( auto& pair : this->commandPool.compute ) {
+	for ( auto& pair : this->commandPool.compute.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
 		pair.second = VK_NULL_HANDLE;
 	}
-	for ( auto& pair : this->commandPool.transfer ) {
+	for ( auto& pair : this->commandPool.transfer.container() ) {
 		vkDestroyCommandPool( this->logicalDevice, pair.second, nullptr );
 		pair.second = VK_NULL_HANDLE;
 	}

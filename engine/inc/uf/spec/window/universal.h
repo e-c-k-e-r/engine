@@ -20,36 +20,35 @@ namespace spec {
 			typedef uf::String 								title_t;
 			typedef pod::Vector2i 							vector_t;
 
+		/*
 			struct Events {
 				template<typename Hook>
 				struct Type {
 					typedef typename Hook::argument_t 						Argument;
 					typedef typename Hook::return_t 						Return;
 					typedef typename Hook::name_t 							Name;
+
 					typedef Argument 										argument_t;
 					typedef Return 											return_t;
 					typedef Name 											name_t;
+
 					struct Event {
 						Name name;
 						Argument argument;
 					};
-					
 					typedef std::queue<Event> 								events_t;
 				};
 				Type<uf::ReadableHook>::events_t readable;
 				Type<uf::OptimalHook>::events_t optimal;
 			};
-		protected:
-			Window::Events m_events;
-	/*
+		*/
 			struct Event {
-				std::string name, argument;
+				std::string name;
+				uf::Userdata payload;
 			};
-			typedef Event 									event_t;
-			typedef std::queue<spec::uni::Window::event_t> 	events_t;
 		protected:
-			spec::uni::Window::events_t m_events;
-	*/
+		//	Window::Events m_events;
+			std::queue<Event> m_events;
 		public:
 		// 	C-tors
 			/*virtual*/ void UF_API_CALL create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window" ) {} ;// = 0;
@@ -75,10 +74,15 @@ namespace spec {
 			/*virtual*/ bool UF_API_CALL hasFocus() const;/* = 0;*/
 		// 	Update
 			/*virtual*/ void UF_API_CALL processEvents();/* = 0;*/
+		/*
 			void UF_API_CALL pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument );
 			void UF_API_CALL pushEvent( const uf::OptimalHook::name_t& name, const uf::OptimalHook::argument_t& argument );
 			void UF_API_CALL pushEvent( const uf::ReadableHook::argument_t& serialized );
 			void UF_API_CALL pushEvent( const uf::OptimalHook::argument_t& userdata );
+		*/
+			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const std::string& payload );
+			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
+			void UF_API_CALL pushEvent( const uf::Hooks::argument_t& payload );
 			bool UF_API_CALL pollEvents( bool block = false );
 			static bool UF_API_CALL isKeyPressed( const std::string& );
 		};

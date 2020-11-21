@@ -4,6 +4,7 @@
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/thread/thread.h>
+#include <uf/utils/thread/perthread.h>
 
 namespace ext {
 	namespace vulkan {
@@ -14,9 +15,12 @@ namespace ext {
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
 			struct {
-				std::unordered_map<std::thread::id, VkCommandPool> graphics;
-				std::unordered_map<std::thread::id, VkCommandPool> compute;
-				std::unordered_map<std::thread::id, VkCommandPool> transfer;
+			//	std::unordered_map<std::thread::id, VkCommandPool> graphics;
+			//	std::unordered_map<std::thread::id, VkCommandPool> compute;
+			//	std::unordered_map<std::thread::id, VkCommandPool> transfer;
+				uf::ThreadUnique<VkCommandPool> graphics;
+				uf::ThreadUnique<VkCommandPool> compute;
+				uf::ThreadUnique<VkCommandPool> transfer;
 			} commandPool;
 
 			VkPhysicalDeviceProperties properties;
@@ -43,10 +47,14 @@ namespace ext {
 			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			
 			struct {
-				std::unordered_map<std::thread::id,VkQueue> graphics;
-				std::unordered_map<std::thread::id,VkQueue> present;
-				std::unordered_map<std::thread::id,VkQueue> compute;
-				std::unordered_map<std::thread::id,VkQueue> transfer;
+			//	std::unordered_map<std::thread::id,VkQueue> graphics;
+			//	std::unordered_map<std::thread::id,VkQueue> present;
+			//	std::unordered_map<std::thread::id,VkQueue> compute;
+			//	std::unordered_map<std::thread::id,VkQueue> transfer;
+				uf::ThreadUnique<VkQueue> graphics;
+				uf::ThreadUnique<VkQueue> present;
+				uf::ThreadUnique<VkQueue> compute;
+				uf::ThreadUnique<VkQueue> transfer;
 			} queues;
 
 			uf::Window* window;

@@ -48,6 +48,7 @@ namespace uf {
 		std::size_t getBpp() const;
 		std::size_t& getChannels();
 		std::size_t getChannels() const;
+		std::string getHash() const;
 		Image::pixel_t at( const Image::vec2_t& at );
 	// 	Modifiers
 		void flip();
@@ -57,5 +58,7 @@ namespace uf {
 		Image overlay(const Image& top, const Image::vec2_t& corner = {} ) const; 	// Merges one image on top of another
 		Image replace(const Image::pixel_t& from, const Image::pixel_t& to ) const; 			// Changes all pixel from one color (from), to another (to)
 		Image subImage( const Image::vec2_t& start, const Image::vec2_t& end) const; 			// Crops an image
+	//	Operators
+		uf::Image& operator=(const uf::Image&);
 	};
 }

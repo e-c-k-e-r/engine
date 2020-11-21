@@ -140,7 +140,7 @@ std::string uf::Asset::load( const std::string& uri ) {
 		asset = ext::lua::script( filename );
 	} else if ( extension == "gltf" || extension == "glb" ) {
 		UF_ASSET_REGISTER(uf::Object*)
-		uint8_t LOAD_FLAGS = 0;
+		ext::gltf::load_mode_t LOAD_FLAGS = 0;
 
 		asset = &uf::instantiator::instantiate<uf::Object>();
 
@@ -158,6 +158,7 @@ std::string uf::Asset::load( const std::string& uri ) {
 		LOAD_FLAG(AABB); 				// 0x1 << 5;
 		LOAD_FLAG(DEFER_INIT); 			// 0x1 << 6;
 		LOAD_FLAG(USE_ATLAS); 			// 0x1 << 7;
+		LOAD_FLAG(SKINNED); 			// 0x1 << 8;
 
 		ext::gltf::load( *asset, filename, LOAD_FLAGS );
 	} else {

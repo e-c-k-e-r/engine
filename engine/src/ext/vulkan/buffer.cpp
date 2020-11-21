@@ -214,7 +214,7 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 
 	if ( buffer.allocationInfo.size != length ) {
 		if ( true ) {
-			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length);
+			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length << "; Userdata might've been corrupted, please try validating with shader.validate() before updating buffer");
 		} else {
 			length = buffer.allocationInfo.size;
 			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length << ", resetting for safety");

@@ -1,3 +1,5 @@
+#include <uf/utils/type/type.h>
+
 template<typename C>
 typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const std::string& name ) {
 	for ( auto pair : names ) if ( pair.second == name ) return pair.first;

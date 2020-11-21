@@ -42,9 +42,10 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			if ( !entity->hasComponent<uf::Graphic>() || !entity->hasComponent<ext::gltf::mesh_t>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
+		/*
 			graphic.initialize();
 			graphic.initializeGeometry( mesh );
-
+		*/
 			{
 				std::string filename = "/gltf.stereo.vert.spv";
 				if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
@@ -107,6 +108,8 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		if ( !graphic.initialized ) return;
 		auto& shader = graphic.material.shaders.back();
 		if ( shader.uniforms.empty() ) return;
+		shader.validate();
+
 		auto& userdata = shader.uniforms.front();
 		struct UniformDescriptor {
 		//	alignas(4) uint32_t mappings;

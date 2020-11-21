@@ -50,8 +50,8 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 	return getCommands( std::this_thread::get_id() );
 }
 ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( std::thread::id id ) {
-	bool exists = this->commands.count(id) > 0;
-	auto& commands = this->commands[id];
+	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
+	auto& commands = this->commands.get(id); //this->commands[id];
 	if ( !exists ) {
 		commands.resize( swapchain.buffers );
 
@@ -195,7 +195,7 @@ void ext::vulkan::RenderMode::destroy() {
 	}
 	commands.clear();
 */
-	for ( auto& pair : this->commands ) {
+	for ( auto& pair : this->commands.container() ) {
 		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		pair.second.clear();
 	}

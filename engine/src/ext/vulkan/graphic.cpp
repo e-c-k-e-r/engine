@@ -223,6 +223,27 @@ void ext::vulkan::Shader::destroy() {
 		module = VK_NULL_HANDLE;
 		descriptor = {};
 	}
+	for ( auto& userdata : uniforms ) userdata.destroy();
+	for ( auto& userdata : pushConstants ) userdata.destroy();
+	uniforms.clear();
+	pushConstants.clear();
+}
+
+bool ext::vulkan::Shader::validate() {
+	// check if uniforms match buffer size
+	{
+		auto it = uniforms.begin();
+		for ( auto& buffer : buffers ) {
+			if ( !(buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+			if ( it == uniforms.end() ) break;
+			auto& uniform = *(it++);
+			if ( uniform.data().len != buffer.allocationInfo.size ) {
+				VK_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
+				uniform.destroy();
+				uniform.create(buffer.allocationInfo.size);
+			}
+		}
+	}
 }
 
 void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {

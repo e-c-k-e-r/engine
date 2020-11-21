@@ -48,11 +48,7 @@ T* uf::Component::getComponentPointer() {
 	pod::Component::id_t id = this->getType<T>();
 	pod::Component& component = this->m_container[id];
 
-	try {
-		pointer = &uf::userdata::get<T>(component.userdata);
-	} catch ( std::exception& e ) {
-		return NULL;
-	}
+	pointer = &uf::userdata::get<T>(component.userdata);
 	return pointer;
 }
 template<typename T>
@@ -62,11 +58,7 @@ const T* uf::Component::getComponentPointer() const {
 	pod::Component::id_t id = this->getType<T>();
 	const pod::Component& component = this->m_container.at(id);
 
-	try {
-		pointer = &uf::userdata::get<T>(component.userdata);
-	} catch ( std::exception& e ) {
-		return NULL;
-	}
+	pointer = &uf::userdata::get<T>(component.userdata);
 	return pointer;
 }
 template<typename T>

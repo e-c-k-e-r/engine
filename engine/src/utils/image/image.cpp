@@ -1,5 +1,6 @@
 #include <uf/utils/image/image.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/string/hash.h>
 #include <uf/utils/io/iostream.h>
 #include <fstream> 					// std::fstream
 #include <iostream> 				// std::fstream
@@ -290,6 +291,7 @@ void uf::Image::copy( const Image::container_t& copy, const Image::vec2_t& size 
 }
 // 	D-tor
 uf::Image::~Image() {
+	this->clear();
 }
 // empties pixel container
 void uf::Image::clear() {
@@ -326,6 +328,9 @@ std::size_t& uf::Image::getChannels() {
 }
 std::size_t uf::Image::getChannels() const {
 	return this->m_channels;
+}
+std::string uf::Image::getHash() const {
+	return uf::string::sha256( this->m_pixels );
 }
 uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 	std::size_t i = at.x * this->m_channels + this->m_dimensions.x*this->m_channels*at.y;
@@ -456,4 +461,13 @@ uf::Image uf::Image::subImage( const Image::vec2_t& start, const Image::vec2_t& 
 	image.format = this->format;
 	return image;
 */
+}
+
+uf::Image& uf::Image::operator=( const uf::Image& copy ) {
+	this->m_pixels = copy.m_pixels;
+	this->m_dimensions = copy.m_dimensions;
+	this->m_bpp = copy.m_bpp;
+	this->m_channels = copy.m_channels;
+	this->m_filename = copy.m_filename;
+	return *this;
 }

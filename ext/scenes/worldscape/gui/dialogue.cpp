@@ -265,7 +265,7 @@ void ext::GuiDialogue::tick() {
 			uf::Serializer payload;
 			payload["action"] = "dialogue-select";
 			payload["index"] = stats.actions.index;
-			uf::Serializer result = uf::hooks.call("menu:Dialogue.Action." + std::to_string(dialogueManager->getUid()), payload)[0];
+			uf::Serializer result = dialogueManager->callHook("menu:Dialogue.Action.%UID%", payload)[0];
 			postParseResult(result);
 
 			// renderDialogueOptions(std::string(""));

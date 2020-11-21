@@ -131,6 +131,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		uf::Serializer json = event;
 
 		// discard events sent by os, only trust client now
+		if ( !ext::json::isObject(json) ) return "true";
 		if ( json["invoker"] != "client" ) return "true";
 
 		pod::Vector2i delta = { json["mouse"]["delta"]["x"].as<int>(), json["mouse"]["delta"]["y"].as<int>() };

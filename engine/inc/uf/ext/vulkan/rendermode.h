@@ -20,7 +20,8 @@ namespace ext {
 			
 			typedef std::vector<VkCommandBuffer> commands_container_t;
 			std::thread::id mostRecentCommandPoolId;
-			std::unordered_map<std::thread::id, commands_container_t> commands;
+		//	std::unordered_map<std::thread::id, commands_container_t> commands;
+			uf::ThreadUnique<commands_container_t> commands;
 
 			virtual ~RenderMode();
 			// RAII

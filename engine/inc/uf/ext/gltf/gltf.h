@@ -1,11 +1,14 @@
 #pragma once
 
+#include "mesh.h"
 #include <uf/engine/object/object.h>
-#include <uf/utils/graphic/mesh.h>
 
 namespace ext {
-	namespace gltf {
-		typedef uf::BaseMesh<pod::Vertex_3F2F3F1UI, uint32_t> mesh_t;
+	namespace gltf {		
+	//	typedef uf::BaseMesh<ext::gltf::mesh::ID, uint32_t> mesh_t;
+		typedef uf::BaseMesh<ext::gltf::mesh::Skinned, uint32_t> mesh_t;
+		typedef uf::BaseMesh<ext::gltf::mesh::Skinned, uint32_t> skinned_mesh_t;
+
 		enum LoadMode {
 			GENERATE_NORMALS 		= 0x1 << 0,
 			APPLY_TRANSFORMS 		= 0x1 << 1,
@@ -15,7 +18,10 @@ namespace ext {
 			AABB 					= 0x1 << 5,
 			DEFER_INIT 				= 0x1 << 6,
 			USE_ATLAS 				= 0x1 << 7,
+			SKINNED 				= 0x1 << 8,
 		};
-		bool UF_API load( uf::Object&, const std::string&, uint8_t = LoadMode::GENERATE_NORMALS | LoadMode::RENDER );
+		typedef uint16_t load_mode_t;
+
+		bool UF_API load( uf::Object&, const std::string&, ext::gltf::load_mode_t = LoadMode::GENERATE_NORMALS | LoadMode::RENDER );
 	}
 }

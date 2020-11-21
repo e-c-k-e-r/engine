@@ -2,6 +2,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/time/time.h>
+#include <uf/utils/audio/audio.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/graphic/graphic.h>
@@ -121,6 +122,14 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		}
 	}
 
+	if ( this->hasComponent<uf::Audio>() ) {
+		auto& audio = this->getComponent<uf::Audio>();
+		audio.destroy();
+	}
+	if ( this->hasComponent<uf::SoundEmitter>() ) {
+		auto& audio = this->getComponent<uf::SoundEmitter>();
+		audio.cleanup(true);
+	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();

@@ -24,10 +24,13 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some	}
 #endif
 	userdata->len = len;
+#if UF_USERDATA_RTTI
+	userdata->type = typeid(T).hash_code();
+#endif
 	union {
 		uint8_t* from;
 		T* to;
-	} static kludge;
+	} kludge;
 	kludge.from = userdata->data;
 	::new (kludge.to) T(data);
 	return userdata;
@@ -36,9 +39,7 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 #include <stdexcept>
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
-	if ( validate && userdata->len != sizeof(T) ) {
-		throw std::logic_error("Userdata size mismatch");
-	}
+	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
 	union {
 		uint8_t* original;
 		T* casted;
@@ -47,14 +48,25 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 	return *cast.casted;
 }
 template<typename T>
-const T& uf::userdata::get( const pod::Userdata* userdata ) {
+const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
+	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
 	union {
-		uint8_t* original;
+		const uint8_t* original;
 		const T* casted;
-	} static cast;
+	} cast;
 	cast.original = userdata->data;
 	return *cast.casted;
 }
+
+template<typename T>
+bool uf::userdata::is( const pod::Userdata* userdata ) {
+#if UF_USERDATA_RTTI
+	return userdata && userdata->type == typeid(T).hash_code();
+#else
+	return userdata && userdata->len == sizeof(T);
+#endif
+}
+
 // No need to cast data to a pointer AND get the data's size!
 template<typename T>
 pod::Userdata* uf::Userdata::create( const T& data ) {
@@ -67,17 +79,24 @@ T& uf::Userdata::get() {
 	union {
 		uint8_t* original;
 		T* casted;
-	} static cast;
+	} cast;
 	cast.original = this->m_pod->data;
 	return *cast.casted;
+//	return uf::userdata::get<T>( this->m_pod );
 }
 // Easy way to get the userdata as a const-reference
 template<typename T>
 const T& uf::Userdata::get() const {
 	union {
-		uint8_t* original;
+		const uint8_t* original;
 		const T* casted;
-	} static cast;
+	} cast;
 	cast.original = this->m_pod->data;
 	return *cast.casted;
+//	return uf::userdata::get<T>( this->m_pod );
+}
+
+template<typename T>
+bool uf::Userdata::is() const {
+	return this->m_pod && uf::userdata::is<T>( this->m_pod );
 }

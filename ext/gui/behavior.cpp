@@ -659,13 +659,13 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			return;
 		}
-		{
-			float delay = 0.0f;
-			float scale = metadata["text settings"]["scale"].as<float>();
-			auto& transform = this->getComponent<pod::Transform<>>();
-			transform.scale.x = scale;
-			transform.scale.y = scale;
 
+		if ( false ) {
+			uf::Serializer payload;
+			payload["first"] = true;
+			payload["string"] = metadata["text settings"]["string"];
+			this->callHook("gui:UpdateString.%UID%", payload);
+		} else {
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs();
 			
 			std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
@@ -678,46 +678,51 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				key += metadata["text settings"]["sdf"].as<std::string>();
 			}
 			auto& scene = uf::scene::getCurrentScene();
-			auto& atlas = this->getComponent<uf::Atlas>();
+			auto& atlas = this->getComponent<uf::HashAtlas>();
 			auto& images = atlas.getImages();
 			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
-
 			auto& graphic = this->getComponent<uf::Graphic>();
 			mesh.vertices.reserve( glyphs.size() * 6 );
+
+			std::unordered_map<std::string, std::string> glyphHashMap;
 			for ( auto& g : glyphs ) {
-				auto& glyph = ::glyphs.cache[font][std::to_string((uint64_t) g.code) + ";"+key];
-				// add bitmap to atlas
-				uf::Image& image = images.emplace_back();
-				const uint8_t* buffer = glyph.getBuffer();
-				uf::Image::container_t pixels;
-				std::size_t len = glyph.getSize().x * glyph.getSize().y;
-				pixels.insert( pixels.end(), buffer, buffer + len );
-				image.loadFromBuffer( pixels, glyph.getSize(), 8, 1, true );
-				// add vertices
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, pod::Vector2f{ 0.0f, 0.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y          , 0 }, pod::Vector2f{ 0.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, pod::Vector2f{ 1.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, pod::Vector2f{ 0.0f, 0.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, pod::Vector2f{ 1.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, pod::Vector2f{ 1.0f, 0.0f }, g.color});
+				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
+				auto& glyph = ::glyphs.cache[font][glyphKey];
+
+				glyphHashMap[glyphKey] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
 			}
 
 			atlas.generate();
-			
-			for ( size_t i = 0, k = 0; i < mesh.vertices.size(); ++k, i += 6 ) {
+
+			float scale = metadata["text settings"]["scale"].as<float>();
+			auto& transform = this->getComponent<pod::Transform<>>();
+			transform.scale.x = scale;
+			transform.scale.y = scale;
+
+			for ( auto& g : glyphs ) {
+				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
+				auto& glyph = ::glyphs.cache[font][glyphKey];
+				auto hash = glyphHashMap[glyphKey];
+				// add vertices
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), g.color});
+			}
+			for ( size_t i = 0; i < mesh.vertices.size(); i += 6 ) {
 				for ( size_t j = 0; j < 6; ++j ) {
 					auto& vertex = mesh.vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
 
-					vertex.uv = atlas.mapUv( vertex.uv, k );
 					vertex.uv.y = 1 - vertex.uv.y;
 				}
 			}
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
-
 			graphic.initialize( "Gui" );
 			graphic.initializeGeometry( mesh );
 
@@ -759,8 +764,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			std::string string = metadata["text settings"]["string"].as<std::string>();
 
-			float delay = 0.0f;
-			float scale = metadata["text settings"]["scale"].as<float>();
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs( string );
 			
 			std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
@@ -772,88 +775,85 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				key += metadata["text settings"]["font"].as<std::string>() + ";";
 				key += metadata["text settings"]["sdf"].as<std::string>();
 			}
-			auto& transform = this->getComponent<pod::Transform<>>();
 			auto& scene = uf::scene::getCurrentScene();
-			auto& atlas = this->getComponent<uf::Atlas>();
+			auto& atlas = this->getComponent<uf::HashAtlas>();
 			auto& images = atlas.getImages();
 			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
-
 			auto& graphic = this->getComponent<uf::Graphic>();
-
-			atlas.clear();
-			mesh.vertices.clear();
-			mesh.indices.clear();
+			if ( !json["first"].as<bool>() ) {
+				atlas.clear();
+				mesh.vertices.clear();
+				mesh.indices.clear();
+				
+				for ( auto& texture : graphic.material.textures ) texture.destroy();
+				graphic.material.textures.clear();
+			}
 			mesh.vertices.reserve( glyphs.size() * 6 );
+
+			std::unordered_map<std::string, std::string> glyphHashMap;
 			for ( auto& g : glyphs ) {
-				auto& glyph = ::glyphs.cache[font][std::to_string((uint64_t) g.code) + ";"+key];
-				// add bitmap to atlas
-				uf::Image& image = images.emplace_back();
-				const uint8_t* buffer = glyph.getBuffer();
-				uf::Image::container_t pixels;
-				std::size_t len = glyph.getSize().x * glyph.getSize().y;
-				pixels.insert( pixels.end(), buffer, buffer + len );
-				image.loadFromBuffer( pixels, glyph.getSize(), 8, 1, true );
-				// add vertices
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, pod::Vector2f{ 0.0f, 0.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y          , 0 }, pod::Vector2f{ 0.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, pod::Vector2f{ 1.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, pod::Vector2f{ 0.0f, 0.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, pod::Vector2f{ 1.0f, 1.0f }, g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, pod::Vector2f{ 1.0f, 0.0f }, g.color});
+				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
+				auto& glyph = ::glyphs.cache[font][glyphKey];
+
+				glyphHashMap[glyphKey] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
 			}
 
 			atlas.generate();
 
+			float scale = metadata["text settings"]["scale"].as<float>();
+			auto& transform = this->getComponent<pod::Transform<>>();
 			transform.scale.x = scale;
 			transform.scale.y = scale;
-			for ( size_t i = 0, k = 0; i < mesh.vertices.size(); ++k, i += 6 ) {
+
+			for ( auto& g : glyphs ) {
+				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
+				auto& glyph = ::glyphs.cache[font][glyphKey];
+				auto hash = glyphHashMap[glyphKey];
+				// add vertices
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), g.color});
+			}
+			for ( size_t i = 0; i < mesh.vertices.size(); i += 6 ) {
 				for ( size_t j = 0; j < 6; ++j ) {
 					auto& vertex = mesh.vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
 
-					vertex.uv = atlas.mapUv( vertex.uv, k );
 					vertex.uv.y = 1 - vertex.uv.y;
 				}
 			}
 
-			for ( auto& texture : graphic.material.textures ) texture.destroy();
-			graphic.material.textures.clear();
-
-			auto& texture = graphic.material.textures.emplace_back();
-			texture.loadFromImage( atlas.getAtlas() );
-			// graphic.descriptor.indices = 0;
-			graphic.initializeGeometry( mesh );
-			graphic.getPipeline().update( graphic );
-		//	graphic.updatePipelines();
-			// uf::renderer::rebuild = true;
-
-		/*
-			graphic.destroy();
-
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
 
-			graphic.initialize( "Gui" );
-			graphic.initializeGeometry( mesh );
+			if ( json["first"].as<bool>() ) {
+				graphic.initialize( "Gui" );
+				graphic.initializeGeometry( mesh );
 
-			std::string suffix = ""; {
-				std::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
-				if ( _ != "" ) suffix = _ + ".";
+				std::string suffix = ""; {
+					std::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
+					if ( _ != "" ) suffix = _ + ".";
+				}
+				struct {
+					std::string vertex = "./data/shaders/gui.text.vert.spv";
+					std::string fragment = "./data/shaders/gui.text.frag.spv";
+				} filenames;
+				if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
+				if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
+				else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
+
+				graphic.material.initializeShaders({
+					{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
+					{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+				});
+			} else {
+				graphic.initializeGeometry( mesh );
+				graphic.getPipeline().update( graphic );
 			}
-			struct {
-				std::string vertex = "./data/shaders/gui.text.vert.spv";
-				std::string fragment = "./data/shaders/gui.text.frag.spv";
-			} filenames;
-			if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-			if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
-
-			graphic.material.initializeShaders({
-				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
-			});
-		*/
 
 			return "true";
 		});
