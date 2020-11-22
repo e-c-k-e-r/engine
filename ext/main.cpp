@@ -42,6 +42,7 @@
 #include <uf/ext/discord/discord.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
+#include <uf/ext/ultralight/ultralight.h>
 
 bool ext::ready = false;
 std::vector<std::string> ext::arguments;
@@ -53,7 +54,7 @@ namespace {
 		std::ofstream output;
 
 		struct {
-			std::string output = "log/output.txt";
+			std::string output = "./data/logs/output.txt";
 		} filenames;
 	} io;
 
@@ -380,10 +381,19 @@ void EXT_API ext::initialize() {
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
 	}
 
-	/* Discord */ if ( ::config["engine"]["ex"]["discord"]["enabled"].as<bool>() ) {
+	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enabled"].as<bool>() ) {
 		ext::discord::initialize();
 	}
 
+	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
+		if ( ::config["engine"]["ext"]["ultralight"]["scale"].is<double>() ) {
+			ext::ultralight::scale = ::config["engine"]["ext"]["ultralight"]["scale"].as<double>();
+		}
+		if ( ::config["engine"]["ext"]["ultralight"]["log"].is<size_t>() ) {
+			ext::ultralight::log = ::config["engine"]["ext"]["ultralight"]["log"].as<size_t>();
+		}
+		ext::ultralight::initialize();
+	}
 
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](const std::string& event)->std::string{
@@ -557,20 +567,12 @@ void EXT_API ext::tick() {
 		}
 	}
 
-	/* Limit tickrate */ {
-	//	static uf::Timer<long long> timer(false);
-	//	if ( !timer.running() ) timer.start();
-	//	if ( timer.elapsed().asDouble() >= uf::thread::limiter ) { timer.reset();
-		{
-			/* Update physics timer */ {
-				uf::physics::tick();
-			}
-			/* Update entities */ {
-				uf::scene::tick();
-			}
-		}
+	/* Update physics timer */ {
+		uf::physics::tick();
 	}
-
+	/* Update entities */ {
+		uf::scene::tick();
+	}
 	/* Tick Main Thread Queue */ {
 		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 		uf::thread::process( thread );
@@ -588,6 +590,10 @@ void EXT_API ext::tick() {
 				uf::iostream << "GC collected " << (int) collected << " unused entities" << "\n";
 			}
 		}
+	}
+
+	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
+		ext::ultralight::tick();
 	}
 
 	/* Update vulkan */ {
@@ -628,9 +634,13 @@ void EXT_API ext::tick() {
 	}
 }
 void EXT_API ext::render() {
-	// uf::scene::render();
+	/* Render scene */ {
+		uf::renderer::render();
+	}
 
-	uf::renderer::render();
+	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
+		ext::ultralight::render();
+	}
 
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::submit();
@@ -639,6 +649,10 @@ void EXT_API ext::render() {
 void EXT_API ext::terminate() {
 	/* Kill threads */ {
 		uf::thread::terminate();
+	}
+
+	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
+		ext::ultralight::terminate();
 	}
 
 	/* OpenVR */ if ( ext::openvr::context ) {

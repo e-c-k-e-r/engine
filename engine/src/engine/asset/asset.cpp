@@ -139,13 +139,13 @@ std::string uf::Asset::load( const std::string& uri ) {
 		UF_ASSET_REGISTER(pod::LuaScript)
 		asset = ext::lua::script( filename );
 	} else if ( extension == "gltf" || extension == "glb" ) {
-		UF_ASSET_REGISTER(uf::Object*)
-		ext::gltf::load_mode_t LOAD_FLAGS = 0;
-
-		asset = &uf::instantiator::instantiate<uf::Object>();
-
+	//	UF_ASSET_REGISTER(uf::Object*)
+	//	asset = &uf::instantiator::instantiate<uf::Object>();
+	
+		UF_ASSET_REGISTER(pod::Graph)
 		auto& metadata = this->getComponent<uf::Serializer>();
 
+		ext::gltf::load_mode_t LOAD_FLAGS = 0;
 		#define LOAD_FLAG(name)\
 			if ( metadata[uri]["flags"][#name].as<bool>() )\
 				LOAD_FLAGS |= ext::gltf::LoadMode::name;
@@ -156,11 +156,14 @@ std::string uf::Asset::load( const std::string& uri ) {
 		LOAD_FLAG(RENDER); 				// 0x1 << 3;
 		LOAD_FLAG(COLLISION); 			// 0x1 << 4;
 		LOAD_FLAG(AABB); 				// 0x1 << 5;
-		LOAD_FLAG(DEFER_INIT); 			// 0x1 << 6;
+		LOAD_FLAG(DEFAULT_LOAD); 		// 0x1 << 6;
 		LOAD_FLAG(USE_ATLAS); 			// 0x1 << 7;
 		LOAD_FLAG(SKINNED); 			// 0x1 << 8;
+		LOAD_FLAG(FLIP_XY); 			// 0x1 << 9;
 
-		ext::gltf::load( *asset, filename, LOAD_FLAGS );
+	//	auto& graph = asset->getComponent<pod::Graph>();
+	//	graph = ext::gltf::load( filename, LOAD_FLAGS );
+		asset = ext::gltf::load( filename, LOAD_FLAGS );
 	} else {
 		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
 	}

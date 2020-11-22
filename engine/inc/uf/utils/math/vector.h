@@ -85,6 +85,14 @@ namespace pod {
 		bool operator<=( const Vector<T,N>& vector ) const; 		// 	Equality check between two vectors (less than or equals)
 		bool operator>( const Vector<T,N>& vector ) const; 			// 	Equality check between two vectors (greater than)
 		bool operator>=( const Vector<T,N>& vector ) const; 		// 	Equality check between two vectors (greater than or equals)
+
+		template<std::size_t M>
+		Vector<T,N>& operator=( const Vector<T,M>& vector ) {
+			for ( size_t i = 0; i < N && i < M; ++i ) {
+				components[i] = vector.components[i];
+			}
+			return *this;
+		}
 	};
 	template<typename T = float> using Vector1t = Vector<T,1>;
 	typedef Vector1t<pod::Math::num_t> Vector1;
@@ -162,6 +170,7 @@ namespace uf {
 		
 		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, double delta ); 				// 	Linearly interpolate between two vectors
 		template<typename T> T /*UF_API*/ slerp( const T& from, const T& to, double delta ); 				// 	Spherically interpolate between two vectors
+		template<typename T> T /*UF_API*/ mix( const T& from, const T& to, double delta ); 					// 	
 		
 		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); 		// 	Compute the distance between two vectors (doesn't sqrt)
 		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); 				// 	Compute the distance between two vectors
@@ -301,6 +310,15 @@ namespace uf {
 	typedef Vector4t<float> Vector4f;
 	typedef Vector4t<double> Vector4d;
 }
+
+#include <uf/utils/string/ext.h>
+namespace uf {
+	namespace string {
+		template<typename T, size_t N>
+		std::string toString( const pod::Vector<T,N>& v );
+	}
+}
+
 #include "vector/vector.inl"
 // Fallback version
 // #include "vector_dep.h"

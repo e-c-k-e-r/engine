@@ -27,15 +27,14 @@ VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
-LB_FLAGS 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)
-DEPS 					+= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api -lluajit-5.1
+DEPS 					+= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api -lluajit-5.1 -lUltralight -lUltralightCore -lWebCore -lAppCore
 #DEPS 					+= -lvulkan -lncursesw
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 #-Wl,-subsystem,windows
 
-LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)
+LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
 INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include -I/mingw64/include/luajit-2.1
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
 
 SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL))
@@ -49,9 +48,9 @@ EXT_DEPS 				+= -l$(LIB_NAME) $(DEPS)
 EXT_LINKS 				+= $(UF_LIBS) $(EXT_LIBS) $(EXT_DEPS)
 #-Wl,-subsystem,windows
 
-EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/
+EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)
 EXT_INCS 				+= -I$(ENGINE_INC_DIR) -I$(EXT_INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include
-EXT_LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(EXT_LIB_DIR) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
+EXT_LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(EXT_LIB_DIR) -L$(EXT_LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
 
 SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
 OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL))

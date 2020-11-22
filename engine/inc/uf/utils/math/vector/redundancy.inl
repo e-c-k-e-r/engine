@@ -34,6 +34,22 @@ namespace pod {
 		inline bool operator<=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
 		inline bool operator>( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than)
 		inline bool operator>=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
+
+		template<std::size_t N>
+		Vector<T,1>& operator=( const Vector<T,N>& vector ) {
+		/*
+			T* tc = (T*) this;
+			const T* vc = (const T*) &vector;
+			for ( size_t i = 0; i < N && i < 1; ++i ) {
+				tc[i] = vc[i];
+			}
+			return *this;
+		*/
+			for ( size_t i = 0; i < N && i < 1; ++i ) {
+				(*this)[i] = vector[i];
+			}
+			return *this;
+		}
 	};
 	template<typename T>
 	struct /*UF_API*/ Vector<T,2> {			
@@ -71,6 +87,22 @@ namespace pod {
 		inline bool operator<=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
 		inline bool operator>( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than)
 		inline bool operator>=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
+
+		template<std::size_t N>
+		Vector<T,2>& operator=( const Vector<T,N>& vector ) {
+		/*
+			T* tc = (T*) this;
+			const T* vc = (const T*) &vector;
+			for ( size_t i = 0; i < N && i < 2; ++i ) {
+				tc[i] = vc[i];
+			}
+			return *this;
+		*/
+			for ( size_t i = 0; i < N && i < 2; ++i ) {
+				(*this)[i] = vector[i];
+			}
+			return *this;
+		}
 	};
 	template<typename T>
 	struct /*UF_API*/ Vector<T,3> {
@@ -109,6 +141,22 @@ namespace pod {
 		inline bool operator<=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
 		inline bool operator>( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (greater than)
 		inline bool operator>=( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
+
+		template<std::size_t N>
+		Vector<T,3>& operator=( const Vector<T,N>& vector ) {
+		/*
+			T* tc = (T*) this;
+			const T* vc = (const T*) &vector;
+			for ( size_t i = 0; i < N && i < 3; ++i ) {
+				tc[i] = vc[i];
+			}
+			return *this;
+		*/
+			for ( size_t i = 0; i < N && i < 3; ++i ) {
+				(*this)[i] = vector[i];
+			}
+			return *this;
+		}
 	};
 	template<typename T>
 	struct /*UF_API*/ Vector<T,4> {
@@ -148,6 +196,22 @@ namespace pod {
 		inline bool operator<=( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (less than or equals)
 		inline bool operator>( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (greater than)
 		inline bool operator>=( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
+
+		template<std::size_t N>
+		Vector<T,4>& operator=( const Vector<T,N>& vector ) {
+		/*
+			T* tc = (T*) this;
+			const T* vc = (const T*) &vector;
+			for ( size_t i = 0; i < N && i < 4; ++i ) {
+				tc[i] = vc[i];
+			}
+			return *this;
+		*/
+			for ( size_t i = 0; i < N && i < 4; ++i ) {
+				(*this)[i] = vector[i];
+			}
+			return *this;
+		}
 	};
 }
 template<typename T>

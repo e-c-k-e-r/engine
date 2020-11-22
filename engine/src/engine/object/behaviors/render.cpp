@@ -35,6 +35,7 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 
 	auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
 	uniforms.matrices.model = uf::transform::model( transform );
+
 	for ( std::size_t i = 0; i < 2; ++i ) {
 		uniforms.matrices.view[i] = camera.getView( i );
 		uniforms.matrices.projection[i] = camera.getProjection( i );

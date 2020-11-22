@@ -26,7 +26,7 @@ namespace ext {
 
 		Gui();
 		std::vector<pod::GlyphBox> generateGlyphs( const std::string& = "" );
-		void load( uf::Image& );
+		void load( const uf::Image& );
 	};
 	namespace gui {
 		struct Size {

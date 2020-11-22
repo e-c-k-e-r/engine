@@ -533,6 +533,10 @@ pod::Vector3f ext::openvr::hmdPosition( vr::Hmd_Eye eye ) {
 	return hmdPosition() + hmdEyePosition( eye );
 }
 pod::Quaternion<> ext::openvr::hmdQuaternion() {
+	pod::Quaternion<> q = uf::quaternion::fromMatrix( hmdHeadPositionMatrix() );
+	q.w *= -1;
+	return q;
+/*
 	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
 	pod::Quaternion<> q;
 	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
@@ -543,12 +547,20 @@ pod::Quaternion<> ext::openvr::hmdQuaternion() {
 	q.x = copysign(q.x, mat[(4*1)+2] - mat[(4*2)+1]);
 	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
 	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
+
+	q.w *= -1;
 	return q; // * pod::Vector4f{ 1, 1, -1, -1 };
+*/
 }
-pod::Matrix4t<> ext::openvr::hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& mv ) {
-	return hmdEyePositionMatrix( eye ) * uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) * mv;
-//	return uf::matrix::translate( uf::matrix::identity(), hmdEyePosition( eye ) ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() ) ) * mv;
-//	return uf::matrix::scale(uf::matrix::identity(), pod::Vector3f{1,1,-1}) * hmdEyePositionMatrix( eye ) * hmdHeadPositionMatrix() * mv;
+pod::Matrix4t<> ext::openvr::hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& view ) {
+	return
+		hmdEyePositionMatrix( eye ) *
+		uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) *
+		uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) *
+		view;
+//	return hmdEyePositionMatrix( eye ) * uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) * view;
+//	return uf::matrix::translate( uf::matrix::identity(), hmdEyePosition( eye ) ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() ) ) * view;
+//	return uf::matrix::scale(uf::matrix::identity(), pod::Vector3f{1,1,-1}) * hmdEyePositionMatrix( eye ) * hmdHeadPositionMatrix() * view;
 }
 pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, float zFar ) {
 	struct {
@@ -638,6 +650,10 @@ pod::Vector3f ext::openvr::controllerPosition( vr::Controller_Hand hand, bool ti
 	};
 }
 pod::Quaternion<> ext::openvr::controllerQuaternion( vr::Controller_Hand hand, bool tip ) {
+	pod::Quaternion<> q = uf::quaternion::fromMatrix( controllerMatrix( hand, tip ) );
+	q.w *= -1;
+	return q;
+/*
 	pod::Matrix4t<> mat = controllerMatrix( hand, tip );
 	pod::Quaternion<> q;
 	q.w = sqrt(fmax(0, 1 + mat[(4*0)+0] + mat[(4*1)+1] + mat[(4*2)+2])) / 2;
@@ -649,6 +665,7 @@ pod::Quaternion<> ext::openvr::controllerQuaternion( vr::Controller_Hand hand, b
 	q.y = copysign(q.y, mat[(4*2)+0] - mat[(4*0)+2]);
 	q.z = copysign(q.z, mat[(4*0)+1] - mat[(4*1)+0]);
 	return q * pod::Vector4f{ 1, 1, -1, 1 };
+*/
 }
 pod::Matrix4t<> ext::openvr::controllerTranslationMatrix( vr::Controller_Hand hand, bool tip ) {
 	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) );
@@ -661,7 +678,9 @@ pod::Matrix4t<> ext::openvr::controllerRotationMatrix( vr::Controller_Hand hand,
 	return uf::matrix::inverse( mat );
 }
 pod::Matrix4t<> ext::openvr::controllerModelMatrix( vr::Controller_Hand hand, bool tip ) {
-	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) * uf::quaternion::matrix( controllerQuaternion( hand, tip ) );
+	return
+		uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) *
+		uf::quaternion::matrix( controllerQuaternion( hand, tip ) );
 //	return uf::matrix::translate( uf::matrix::identity(), controllerPosition( hand, tip ) ) * controllerRotationMatrix( hand, tip );
 //	return uf::matrix::scale( uf::matrix::identity(), pod::Vector3f{ 1, 1, -1 } ) * controllerMatrix( hand, tip );
 //	return uf::matrix::translate(  uf::quaternion::matrix( ext::openvr::controllerQuaternion( hand, tip ) ),  controllerPosition( hand, tip ) );

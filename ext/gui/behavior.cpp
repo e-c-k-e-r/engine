@@ -287,102 +287,28 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 	return gs;
 }
 
-void ext::Gui::load( uf::Image& image ) {
-	uf::Object& gui = *this;
-	uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
-	{
-	//	this->addAlias<uf::GuiMesh, uf::MeshBase>();
-	//	gui.addAlias<uf::GuiMesh, uf::Mesh>();
-	}
-	uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
-	uf::Graphic& graphic = gui.getComponent<uf::Graphic>();
-	/* get original image size (before padding) */ {
-		metadata["original size"]["x"] = image.getDimensions().x;
-		metadata["original size"]["y"] = image.getDimensions().y;
-
-		// image.padToPowerOfTwo();
-
-		metadata["current size"]["x"] = image.getDimensions().x;
-		metadata["current size"]["y"] = image.getDimensions().y;
-	}
-
-	std::string suffix = ""; {
-		std::string _ = gui.getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
-		if ( _ != "" ) suffix = _ + ".";
-	}
-	if ( gui.getName() == "Gui: Text" ) {
-		pod::GlyphBox g;
-		g.box.x = metadata["text settings"]["box"][0].as<float>();
-		g.box.y = metadata["text settings"]["box"][1].as<float>();
-		g.box.w = metadata["text settings"]["box"][2].as<float>();
-		g.box.h = metadata["text settings"]["box"][3].as<float>();
-
-		mesh.vertices = {
-			{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
-			{{ g.box.x,           g.box.y           }, { 0.0f, 1.0f }},
-			{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
-
-			{{ g.box.x,           g.box.y + g.box.h }, { 0.0f, 0.0f }},
-			{{ g.box.x + g.box.w, g.box.y           }, { 1.0f, 1.0f }},
-			{{ g.box.x + g.box.w, g.box.y + g.box.h }, { 1.0f, 0.0f }},
-		};
-		for ( auto& vertex : mesh.vertices ) {
-			vertex.position.x /= ext::gui::size.reference.x;
-			vertex.position.y /= ext::gui::size.reference.y;
-		}
-		graphic.initialize( "Gui" );
-		graphic.initializeGeometry( mesh );
-
-		struct {
-			std::string vertex = "./data/shaders/gui.text.vert.spv";
-			std::string fragment = "./data/shaders/gui.text.frag.spv";
-		} filenames;
-		if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-		if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-		else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
-
-		graphic.material.initializeShaders({
-			{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-			{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
-		});
-	} else {
-		mesh.vertices = {
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-
-			{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-			{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
-		};
-		graphic.initialize( "Gui" );
-		graphic.initializeGeometry( mesh );
-		struct {
-			std::string vertex = "./data/shaders/gui.vert.spv";
-			std::string fragment = "./data/shaders/gui.frag.spv";
-		} filenames;
-		if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-		if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-		else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
+void ext::Gui::load( const uf::Image& _image ) {
+	auto& scene = uf::scene::getCurrentScene();
 	
-		graphic.material.initializeShaders({
-			{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-			{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
-		});
-	}
+	auto& image = this->getComponent<uf::Image>();
+	// image = uf::Image( _image );
+	image.copy( _image );
+	auto& metadata = this->getComponent<uf::Serializer>();
+	metadata["size"][0] = image.getDimensions().x;
+	metadata["size"][1] = image.getDimensions().y;
 
-
+	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& texture = graphic.material.textures.emplace_back();
 	texture.loadFromImage( image );
-
+/*
 	{
 		pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
 		uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
 		auto& texture = graphic.material.textures.front();
 
 		pod::Vector2f textureSize = {
-			metadata["original size"]["x"].as<float>(),
-			metadata["original size"]["y"].as<float>()
+			metadata["size"][0].as<float>(),
+			metadata["size"][1].as<float>()
 		};
 
 		if ( metadata["scaling"].as<std::string>() == "fixed" ) {
@@ -391,6 +317,70 @@ void ext::Gui::load( uf::Image& image ) {
 			transform.scale = pod::Vector3{ (float) textureSize.x / 1920, (float) textureSize.y / 1080, 1 };
 		}
 	}
+*/
+
+	auto& mesh = this->getComponent<uf::GuiMesh>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+	mesh.vertices = {
+		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+		{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
+		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+
+		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
+		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
+		{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+	};
+
+	pod::Vector2f raidou = { 1, 1 };
+	bool modified = false;
+	if ( metadata["scaling"].is<std::string>() ) {
+		std::string mode = metadata["scaling"].as<std::string>();
+		if ( mode == "mesh" ) {
+		//	raidou.x = (float) image.getDimensions().x / image.getDimensions().y;
+			raidou.y = (float) image.getDimensions().y / image.getDimensions().x;
+			modified = true;
+		}
+	} else if ( ext::json::isArray(metadata["scaling"]) ) {
+		raidou.x = metadata["scaling"][0].as<float>();
+		raidou.y = metadata["scaling"][1].as<float>();
+		modified = true;
+	}
+	if ( modified ) {
+		transform.scale.x = raidou.x;
+		transform.scale.y = raidou.y;
+	}
+/*
+	for ( auto& vertex : mesh.vertices ) {
+		vertex.position.x *= raidou.x;
+		vertex.position.y *= raidou.y;
+	}
+
+	transform.scale.x = raidou.x;
+	transform.scale.y = raidou.y;
+*/
+
+	if ( metadata["world"].as<bool>() ) {
+		graphic.initialize();
+	} else {
+		graphic.initialize( "Gui" );
+	}
+	graphic.initializeGeometry( mesh );
+	struct {
+		std::string vertex = "./data/shaders/gui.vert.spv";
+		std::string fragment = "./data/shaders/gui.frag.spv";
+	} filenames;
+	std::string suffix = ""; {
+		std::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
+		if ( _ != "" ) suffix = _ + ".";
+	}
+	if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
+	if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
+	else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
+
+	graphic.material.initializeShaders({
+		{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
+		{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+	});
 }
 
 UF_OBJECT_REGISTER_BEGIN(ext::Gui)
@@ -453,20 +443,19 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			size.y = json["window"]["size"]["y"].as<size_t>();
 		}
 		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-	//	uf::Graphic& graphic = this->getComponent<uf::Graphic>();
-	//	auto& texture = graphic.material.textures.front();
-		pod::Vector2f textureSize = {
-			metadata["original size"]["x"].as<float>(),
-			metadata["original size"]["y"].as<float>()
-		};
 
+	/*
+		pod::Vector2f textureSize = {
+			metadata["size"][0].as<float>(),
+			metadata["size"][1].as<float>()
+		};
 		if ( ext::json::isObject( metadata["text settings"] ) ) {
 		} else if ( metadata["scaling"].as<std::string>() == "fixed" ) {
 			transform.scale = pod::Vector3{ (float) textureSize.x / size.x, (float) textureSize.y / size.y, 1 };
 		} else if ( metadata["scaling"].as<std::string>() == "fixed-1080p" ) {
 			transform.scale = pod::Vector3{ (float) textureSize.x / 1920, (float) textureSize.y / 1080, 1 };
 		}
-
+	*/
 		return "true";
 	} );
 		
@@ -499,7 +488,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		});
 		this->addHook( "window:Mouse.Click", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
-//			if ( !this->hasComponent<uf::GuiMesh>() ) return "false";
 			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 			if ( metadata["world"].as<bool>() ) return "true";
@@ -537,6 +525,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			metadata["clicked"] = clicked;
 			if ( clicked ) {
 				this->callHook("gui:Clicked.%UID%");
+			}
+			{
+				this->callHook("gui:Mouse.Clicked.%UID%", json);
 			}
 			return "true";
 		} );
@@ -600,6 +591,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				hoverTimer.reset();
 				this->callHook("gui:Hovered.%UID%");
 			}
+			{
+				this->callHook("gui:Mouse.Moved.%UID%", json);
+			}
 
 			return "true";
 		} );
@@ -613,51 +607,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( ext::json::isNull( metadata["text settings"][key] ) ) {
 				metadata["text settings"][key] = ::defaultSettings["metadata"]["text settings"][key];
 			}
-		}
-		if ( metadata["text settings"]["legacy"].as<bool>() ) {
-			float delay = 0.0f;
-			float scale = metadata["text settings"]["scale"].as<float>();
-			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs();
-			for ( auto& glyph : glyphs ) {
-				uf::Object& glyphElement = this->loadChild("/gui/text/letter.json", false);
-
-				uf::Serializer& pMetadata = glyphElement.getComponent<uf::Serializer>();
-			
-			//	pMetadata["events"] = metadata["events"];
-				pMetadata["system"]["hot reload"] = metadata["system"]["hot reload"];
-				pMetadata["text settings"] = metadata["text settings"];
-				pMetadata["text settings"].removeMember("string");
-				pMetadata["text settings"]["letter"] = (wchar_t) glyph.code;
-				
-				pMetadata["text settings"]["color"][0] = glyph.color[0];
-				pMetadata["text settings"]["color"][1] = glyph.color[1];
-				pMetadata["text settings"]["color"][2] = glyph.color[2];
-
-				pMetadata["text settings"]["box"][0] = glyph.box.x;
-				pMetadata["text settings"]["box"][1] = glyph.box.y;
-				pMetadata["text settings"]["box"][2] = glyph.box.w;
-				pMetadata["text settings"]["box"][3] = glyph.box.h;
-
-				pMetadata["system"]["hoverable"] = metadata["system"]["hoverable"];
-				pMetadata["system"]["clickable"] = metadata["system"]["clickable"];
-				
-				glyphElement.initialize();
-
-				pod::Transform<>& pTransform = glyphElement.getComponent<pod::Transform<>>();
-				pTransform.scale.x = scale;
-				pTransform.scale.y = scale;
-				pTransform.reference = this->getComponentPointer<pod::Transform<>>();
-			
-				uf::Serializer payload;
-				payload["glyph"] = (uint64_t) glyph.code;
-				if ( metadata["text settings"]["scroll speed"].is<double>() ) {
-					glyphElement.queueHook("glyph:Load.%UID%", payload, delay);
-					delay += metadata["text settings"]["scroll speed"].as<float>();
-				} else {
-					glyphElement.callHook("glyph:Load.%UID%", payload);
-				}
-			}
-			return;
 		}
 
 		if ( false ) {
@@ -875,6 +824,21 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			metadata["text settings"]["color"][3] = alpha + speed;
 		}
 	}
+/*
+	if ( this->hasComponent<uf::Graphic>() && metadata["experimental"].as<bool>() ) {
+		auto& image = this->getComponent<uf::Image>();
+		auto& pixels = image.getPixels();
+		size_t channels = image.getChannels();
+		size_t len = pixels.size();
+		uint8_t red = fmod( uf::physics::time::current * 64.0f, 255.0f );
+		for ( size_t i = 0; i < len; i += channels ) {
+			pixels[i] = red;
+		}
+		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& texture = graphic.material.textures.front();
+		texture.update( image );
+	}
+*/
 }
 
 void ext::GuiBehavior::render( uf::Object& self ){
@@ -887,15 +851,174 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 
-		pod::Vector4 offset = {
-			metadata["uv"][0].as<float>(),
-			metadata["uv"][1].as<float>(),
-			metadata["uv"][2].as<float>(),
-			metadata["uv"][3].as<float>()
+		struct UniformDescriptor {
+			struct {
+				alignas(16) pod::Matrix4f model[2];
+			} matrices;
+			struct {
+				alignas(16) pod::Vector4f offset;
+				alignas(16) pod::Vector4f color;
+				alignas(4) int32_t mode = 0;
+				alignas(4) float depth = 0.0f;
+				alignas(8) pod::Vector2f padding;
+			} gui;
 		};
-		int mode = 0;
-		if ( !ext::json::isNull( metadata["shader"] ) ) mode = metadata["shader"].as<int>();
+		struct GlyphUniformDescriptor {
+			struct {
+				alignas(16) pod::Matrix4f model[2];
+			} matrices;
+			struct {
+				alignas(16) pod::Vector4f offset;
+				alignas(16) pod::Vector4f color;
+				alignas(4) int32_t mode = 0;
+				alignas(4) float depth = 0.0f;
+				alignas(4) int32_t sdf = false;
+				alignas(4) int32_t shadowbox = false;
+				alignas(16) pod::Vector4f stroke;
+				alignas(4) float weight;
+				alignas(4) int32_t spread;
+				alignas(4) float scale;
+				alignas(4) float padding;
+			} gui;
+		};
+		auto& shader = graphic.material.shaders.front();
+		uf::renderer::Buffer* bufferPointer = NULL;
+		for ( auto& buffer : shader.buffers ) {
+			if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+				 bufferPointer = &buffer;
+				 break;
+			}
+		}
+		if ( !bufferPointer ) return;
+
+		auto& buffer = *bufferPointer;
+		size_t bufferLength = buffer.size;
+
+		auto& descriptor = shader.uniforms.front();
+		auto& uniforms = descriptor.get<UniformDescriptor>();
+	//	bool isGlyph = bufferLength > sizeof(UniformDescriptor); //metadata["text settings"]["string"].is<std::string>();
+		bool isGlyph = metadata["text settings"]["string"].is<std::string>();
+		std::vector<std::string> keys = {
+			"uv",
+			"shader",
+			"depth",
+			"color",
+			"world",
+			"sdf",
+			"shadowbox",
+			"stroke",
+			"weight",
+			"spread",
+			"scale",
+			"alpha",
+		};
+		for ( auto& key : keys ) {
+			if ( !ext::json::isNull( metadata[key] ) )
+				metadata["gui"][key] = metadata[key];
+			if ( !ext::json::isNull( metadata["text settings"][key] ) )
+				metadata["gui"][key] = metadata["text settings"][key];
+		}
+
+	//	std::cout << (isGlyph ? "[GLYPH] " : "[GUI] ") << uf::string::toString(*this) << ": " << metadata["gui"] << std::endl;
+
+		uniforms.gui.offset = {
+			metadata["gui"]["uv"][0].as<float>(),
+			metadata["gui"]["uv"][1].as<float>(),
+			metadata["gui"]["uv"][2].as<float>(),
+			metadata["gui"]["uv"][3].as<float>()
+		};
+		uniforms.gui.mode = metadata["gui"]["shader"].is<int>() ? metadata["gui"]["shader"].as<int>() : 0;
+		uniforms.gui.depth = metadata["gui"]["depth"].is<double>() ? metadata["gui"]["depth"].as<float>() : 0;
+		uniforms.gui.depth = 1 - uniforms.gui.depth;
+		if ( ext::json::isArray( metadata["gui"]["color"] ) ) {
+			uniforms.gui.color = {
+				metadata["gui"]["color"][0].as<float>(),
+				metadata["gui"]["color"][1].as<float>(),
+				metadata["gui"]["color"][2].as<float>(),
+				metadata["gui"]["color"][3].as<float>(),
+			};
+		} else {
+			uniforms.gui.color = { 1, 1, 1, 1 };
+		}
+		if ( metadata["gui"]["alpha"].is<double>() ) {
+			uniforms.gui.color[3] *= metadata["gui"]["alpha"].as<float>();
+		}
+		for ( std::size_t i = 0; i < 2; ++i ) {
+			if ( metadata["gui"]["world"].as<bool>() ) {
+				auto& scene = uf::scene::getCurrentScene();
+				auto& controller = scene.getController();
+				auto& camera = controller.getComponent<uf::Camera>();
+				uniforms.matrices.model[i] = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
+			} else {
+				pod::Transform<> flatten = uf::transform::flatten( transform );
+				uniforms.matrices.model[i] = 
+					uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+					uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+					uf::quaternion::matrix( flatten.orientation ) *
+					flatten.model;
+			}
+		}
+
+		// set glyph-based uniforms
+		if ( isGlyph ) {
+			auto& uniforms = descriptor.get<GlyphUniformDescriptor>();
+			uniforms.gui.sdf = metadata["gui"]["sdf"].as<bool>();
+			uniforms.gui.shadowbox = metadata["gui"]["shadowbox"].as<bool>();
+			if ( ext::json::isArray( metadata["gui"]["stroke"] ) ) {
+				uniforms.gui.stroke = {
+					metadata["gui"]["stroke"][0].as<float>(),
+					metadata["gui"]["stroke"][1].as<float>(),
+					metadata["gui"]["stroke"][2].as<float>(),
+					metadata["gui"]["stroke"][3].as<float>(),
+				};
+			} else {
+				uniforms.gui.stroke = { 1, 1, 1, 1 };
+			}
+			uniforms.gui.weight = metadata["gui"]["weight"].as<float>(); // float
+			uniforms.gui.spread = metadata["gui"]["spread"].as<int>(); // int
+			uniforms.gui.scale = metadata["gui"]["scale"].as<float>(); // float
+		}
+		shader.updateBuffer( (void*) descriptor, bufferLength, buffer, false );
+
+		// graphic.updateBuffer( uniforms, 0, false );
+		// graphic.material.shaders.front().updateBuffer( (void*) descriptor, descriptor.data().len, 0, false );
+
+		// calculate click box
+		auto& model = uniforms.matrices.model[0];
+		pod::Vector2f min = {  1,  1 };
+		pod::Vector2f max = { -1, -1 };
+
+		if ( this->hasComponent<uf::GuiMesh>() ) {
+			auto& mesh = this->getComponent<uf::GuiMesh>();
+			for ( auto& vertex : mesh.vertices ) {
+				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
+				// gcc10+ doesn't like implicit template arguments
+				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
+				min.x = std::min( min.x, translated.x );
+				max.x = std::max( max.x, translated.x );
+				
+				min.y = std::min( min.y, translated.y );
+				max.y = std::max( max.y, translated.y );
+			}
+		} else if ( this->hasComponent<ext::Gui::glyph_mesh_t>() ) {
+			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
+			for ( auto& vertex : mesh.vertices ) {
+				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
+				// gcc10+ doesn't like implicit template arguments
+				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
+				min.x = std::min( min.x, translated.x );
+				max.x = std::max( max.x, translated.x );
+				
+				min.y = std::min( min.y, translated.y );
+				max.y = std::max( max.y, translated.y );
+			}
+		}
 		
+		metadata["box"]["min"]["x"] = min.x;
+		metadata["box"]["min"]["y"] = min.y;
+		metadata["box"]["max"]["x"] = max.x;
+		metadata["box"]["max"]["y"] = max.y;
+	#if 0
 		if ( !ext::json::isNull( metadata["text settings"]["legacy"] ) && ((metadata["text settings"]["legacy"].as<bool>() && this->getName() == "Gui: Text") || (!metadata["text settings"]["legacy"].as<bool>() && metadata["text settings"]["string"].is<std::string>())) ) {
 			struct GlyphDescriptor {
 				struct {
@@ -959,6 +1082,17 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			else uniforms.gui.depth = 0.0f;
 
 			for ( std::size_t i = 0; i < 2; ++i ) {
+			//	uniforms.matrices.model[i] = uf::transform::model( transform );
+				if ( metadata["text settings"]["world"].as<bool>() ) {
+					auto& scene = uf::scene::getCurrentScene();
+					auto& controller = scene.getController();
+					auto& camera = controller.getComponent<uf::Camera>();
+					uniforms.matrices.model[i] = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
+				} else {
+					uniforms.matrices.model[i] = uf::transform::model( transform );
+				}
+			
+			/*
 				if ( metadata["text settings"]["world"].as<bool>() ) {
 					auto& scene = uf::scene::getCurrentScene();
 					auto& controller = scene.getController();
@@ -975,7 +1109,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 					// make our own flattened position, for some reason this causes z to be 6.6E+28
 					flatten.position = transform.position;
 					if ( transform.reference ) flatten.position += transform.reference->position;
-					flatten.orientation.w *= -1;
+				//	flatten.orientation.w *= -1;
 					rotation = uf::quaternion::matrix(flatten.orientation);
 				//	pod::Vector3f offsetSize = { ext::gui::size.current.x, ext::gui::size.current.y, 1 };
 				//	translation = uf::matrix::translate( uf::matrix::identity(), flatten.position * offsetSize );
@@ -984,6 +1118,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 				//	uniforms.matrices.model[i] = ::matrix * translation * rotation * scale;
 					uniforms.matrices.model[i] = translation * rotation * scale;
 				}
+			*/
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
 			// graphic.updateBuffer( uniforms, 0, false );
@@ -1021,18 +1156,6 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			metadata["box"]["min"]["y"] = min.y;
 			metadata["box"]["max"]["x"] = max.x;
 			metadata["box"]["max"]["y"] = max.y;
-		/*
-			int i = 0;
-			for ( auto& vertex : vertices ) {
-				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
-				// gcc10+ doesn't like implicit template arguments
-				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
-				// points.push_back( translated );
-				metadata["box"][i]["x"] = translated.x;
-				metadata["box"][i]["y"] = translated.y;
-				++i;
-			}
-		*/
 		} else {
 			if ( !ext::json::isArray( metadata["color"] ) ) {
 				metadata["color"][0] = 1.0f;
@@ -1072,11 +1195,15 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				if ( metadata["world"].as<bool>() ) {
-				/*
-					pod::Transform<> flatten = uf::transform::flatten(camera.getTransform(), true);
-					pod::Matrix4 rotation = uf::quaternion::matrix( uf::vector::multiply( { 1, 1, 1, -1 }, flatten.orientation) );
-					uniforms.matrices.model[i] = ::matrix * rotation;
-				*/
+					auto& scene = uf::scene::getCurrentScene();
+					auto& controller = scene.getController();
+					auto& camera = controller.getComponent<uf::Camera>();
+					uniforms.matrices.model[i] = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
+				} else {
+					uniforms.matrices.model[i] = uf::transform::model( transform );
+				}
+			/*
+				if ( metadata["world"].as<bool>() ) {
 					auto& scene = uf::scene::getCurrentScene();
 					auto& controller = scene.getController();
 					auto& camera = controller.getComponent<uf::Camera>();
@@ -1087,14 +1214,15 @@ void ext::GuiBehavior::render( uf::Object& self ){
 					auto projection = camera.getProjection(i);
 					uniforms.matrices.model[i] = projection * view * model;
 				} else {
-					uf::Matrix4 translation, rotation, scale;
+					pod::Matrix4f translation, rotation, scale;
 					pod::Transform<> flatten = uf::transform::flatten(transform, false);
-					flatten.orientation.w *= -1;
+				//	flatten.orientation.w *= -1;
+					translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
 					rotation = uf::quaternion::matrix( flatten.orientation );
 					scale = uf::matrix::scale( scale, transform.scale );
-					translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
 					uniforms.matrices.model[i] = translation * scale * rotation;
 				}
+			*/
 			}
 			uniforms.gui.depth = 1.0f - uniforms.gui.depth; 
 			// graphic.updateBuffer( uniforms, 0, false );
@@ -1120,20 +1248,9 @@ void ext::GuiBehavior::render( uf::Object& self ){
 				metadata["box"]["min"]["y"] = min.y;
 				metadata["box"]["max"]["x"] = max.x;
 				metadata["box"]["max"]["y"] = max.y;
-			/*
-				int i = 0;
-				for ( auto& vertex : vertices ) {
-					pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
-					// gcc10+ doesn't like implicit template arguments
-					pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
-					// points.push_back( translated );
-					metadata["box"][0][i]["x"] = translated.x;
-					metadata["box"][0][i]["y"] = translated.y;
-					++i;
-				}
-			*/
 			}
-		}	
+		}
+	#endif	
 	}
 }
 void ext::GuiBehavior::destroy( uf::Object& self ){}

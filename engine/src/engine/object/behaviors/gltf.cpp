@@ -27,38 +27,55 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		vector[vector.size()] = filename;
 		return "true";
 	});
+	this->addHook( "animation:Set.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		std::string name = json["name"].as<std::string>();
+
+		if ( !this->hasComponent<pod::Graph>() ) return "false";
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::graph::animate( graph, name );
+		return "true";
+	});
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
 		std::string filename = json["filename"].as<std::string>();
 
 		if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) return "false";
 		
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-		uf::Object* objectPointer = NULL;
-		try { objectPointer = assetLoader.get<uf::Object*>(filename); } catch ( ... ) {}
-		if ( !objectPointer ) return "false";
+		auto& scene = uf::scene::getCurrentScene();
+		auto& assetLoader = scene.getComponent<uf::Asset>();
+
+		{
+			pod::Graph* graphPointer = NULL;
+			try { graphPointer = &assetLoader.get<pod::Graph>(filename); } catch ( ... ) {}
+			if ( !graphPointer ) return "false";
+			auto& graph = this->getComponent<pod::Graph>();
+			graph = std::move( *graphPointer );
+			graphPointer = &graph;
+		}
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::Object* objectPointer = graph.entity;
 		objectPointer->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() || !entity->hasComponent<ext::gltf::mesh_t>() ) return;
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
-			auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
-		/*
-			graphic.initialize();
-			graphic.initializeGeometry( mesh );
-		*/
-			{
-				std::string filename = "/gltf.stereo.vert.spv";
-				if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
-					filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
-				filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-				graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
-			}
-			{
-				std::string filename = "/gltf.frag.spv";
-				if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
-					filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
-				filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-				graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+			if ( !(graph.mode & ext::gltf::LoadMode::DEFAULT_LOAD) ) {
+				{
+					std::string filename = "/gltf.stereo.vert.spv";
+					if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+						filename = "/gltf.stereo.skinned.vert.spv";
+					}
+					if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
+						filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
+					filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+					graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
+				}
+				{
+					std::string filename = "/gltf.frag.spv";
+					if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
+						filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
+					filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+					graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+				}
 			}
 
 			for ( int i = 0; i < metadata["textures"]["additional"].size(); ++i ) {
@@ -89,19 +106,54 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		});
 		this->addChild(objectPointer->as<uf::Entity>());
 		objectPointer->initialize();
+		auto& transform = this->getComponent<pod::Transform<>>();
 		objectPointer->process([&]( uf::Entity* entity ) {
+			{
+				entity->getComponent<pod::Transform<>>() = transform;
+			}
 			if ( !entity->hasComponent<uf::Graphic>() || !entity->hasComponent<ext::gltf::mesh_t>() ) return;
 			auto& eMetadata = entity->getComponent<uf::Serializer>();
 			eMetadata["textures"]["map"] = metadata["textures"]["map"];
 			uf::instantiator::bind( "GltfBehavior", *entity );
 		});
+
+		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+			if ( metadata["model"]["animation"].is<std::string>() ) {
+				uf::graph::animate( graph, metadata["model"]["animation"].as<std::string>() );
+			}
+			if ( metadata["model"]["print animations"].as<bool>() ) {
+				uf::Serializer json = Json::Value(Json::arrayValue);
+				for ( auto pair : graph.animations ) json.append( pair.first );
+				uf::iostream << "Animations found: " << json << "\n";
+			}
+		}
+
 		return "true";
 	});
 }
 void uf::GltfBehavior::destroy( uf::Object& self ) {
-
+	if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::graph::destroy( graph );
+	}
 }
 void uf::GltfBehavior::tick( uf::Object& self ) {
+	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+			uf::graph::update( graph );
+		}
+
+		auto& transform = this->getComponent<pod::Transform<>>();
+		auto& node = graph.node->children.size() == 1 ? *graph.node->children[0] : *graph.node;
+		pod::Matrix4f nodeMatrix = node.transform.model;
+		pod::Node*currentParent = node.parent;
+		while ( currentParent ) {
+			nodeMatrix = currentParent->transform.model * nodeMatrix;
+			currentParent = currentParent->parent;
+		}
+		transform.model = nodeMatrix;
+	}
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& metadata = this->getComponent<uf::Serializer>();
 		auto& graphic = this->getComponent<uf::Graphic>();	
@@ -146,7 +198,13 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			mappings[from].target = to;
 			mappings[from].blend = blend;
 		}
-		shader.updateBuffer( (void*) uniforms_buffer, uniforms_len, 0, false );
+		uf::renderer::Buffer* bufferPointer = NULL;
+		for ( auto& buffer : shader.buffers ) {
+			if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+				 bufferPointer = &buffer;
+			}
+		}
+		if ( bufferPointer ) shader.updateBuffer( (void*) uniforms_buffer, uniforms_len, *bufferPointer, false );
 	};
 }
 void uf::GltfBehavior::render( uf::Object& self ) {

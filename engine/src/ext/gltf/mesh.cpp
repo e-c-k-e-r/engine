@@ -36,7 +36,7 @@ std::vector<ext::vulkan::VertexDescriptor> ext::gltf::mesh::Skinned::descriptor 
 		offsetof(ext::gltf::mesh::Skinned, id)
 	},
 	{
-		VK_FORMAT_R32G32B32A32_UINT,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
 		offsetof(ext::gltf::mesh::Skinned, joints)
 	},
 	{

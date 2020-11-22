@@ -252,86 +252,52 @@ void uf::Camera::update(bool override) {
 	this->m_modified = true;
 }
 void uf::Camera::updateView() {
+	auto& transform = this->getTransform();
 	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
-		pod::Transform<>& transform = this->getTransform();
-		pod::Vector3t<> position = transform.position;
-		if ( transform.reference ) position += transform.reference->position;
 		transform.orientation = uf::quaternion::identity();
 
 		pod::Transform<> flatten = uf::transform::flatten( transform );
-		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), position );
-		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation * pod::Vector4f{1,1,1,-1} );
+		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
+		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
+		pod::Matrix4t<> scale = uf::matrix::scale( uf::matrix::identity(), flatten.scale );
+		pod::Matrix4t<> view = uf::matrix::inverse( translation * rotation * scale );
 
-		pod::Matrix4t<> view = uf::matrix::inverse( translation * rotation );
+		transform.orientation = ext::openvr::hmdQuaternion();
 
+		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
+		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );
+	} else {
+		pod::Transform<> flatten = uf::transform::flatten( transform );
+		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
+		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
+		pod::Matrix4t<> scale = uf::matrix::scale( uf::matrix::identity(), flatten.scale );
+		pod::Matrix4t<> view = uf::matrix::inverse( translation * rotation * scale );
+
+		this->setView( view );
+	}
+/*
+	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
+		transform.orientation = uf::quaternion::identity();
+	}
+	pod::Transform<> flatten = uf::transform::flatten( transform );
+	pod::Matrix4t<> view = uf::matrix::inverse(
+		uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+		uf::quaternion::matrix( flatten.orientation ) *
+		uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+		flatten.model
+	);
+	
+	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
 		transform.orientation = ext::openvr::hmdQuaternion();
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );
-
-	//	::eye.left = ext::openvr::hmdEyePositionMatrix(vr::Eye_Left) * ext::openvr::hmdHeadPositionMatrix() * this->m_matrices.view;
-	//	::eye.right = ext::openvr::hmdEyePositionMatrix(vr::Eye_Right) * ext::openvr::hmdHeadPositionMatrix() * this->m_matrices.view;
-		// transform.orientation = ext::openvr::hmdQuaternion() * pod::Vector4f{1, 1, 1, -1};
-	/*
-		pod::Transform<>& transform = this->getTransform();
-		transform.orientation = ext::openvr::hmdQuaternion() * pod::Vector4f{1, 1, 1, -1};
-		transform = uf::transform::reorient( transform ); // set our forwards and stuff
-		pod::Vector3f position = transform.position;
-		pod::Quaternion<> orientation = transform.orientation;
-		if ( transform.reference ) position += transform.reference->position;
-		if ( transform.reference ) orientation = uf::quaternion::multiply( orientation, transform.reference->orientation * pod::Vector4f{1, 1, 1, -1} );
-		{
-			pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), (position + ext::openvr::hmdPosition(vr::Eye_Left)) * -1 );
-			pod::Matrix4t<> rotation = uf::quaternion::matrix( orientation );
-			this->setView(rotation * translation);
-			::eye.left = this->m_matrices.view;
-		}
-		{
-			pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), (position + ext::openvr::hmdPosition(vr::Eye_Left)) * -1 );
-			pod::Matrix4t<> rotation = uf::quaternion::matrix( orientation );
-			this->setView(rotation * translation);
-			::eye.right = this->m_matrices.view;
-		}
-	*/
-	/*
-		pod::Matrix4t<> translationLeft = uf::matrix::translate( uf::matrix::identity(), (position + ext::openvr::hmdPosition(vr::Eye_Left)) * pod::Vector3f{-1, -1, -1} );
-		pod::Matrix4t<> translationRight = uf::matrix::translate( uf::matrix::identity(), (position + ext::openvr::hmdPosition(vr::Eye_Right)) * pod::Vector3f{-1, -1, -1} );
-		pod::Quaternion<> orientation = transform.reference ? transform.reference->orientation : transform.orientation;
-		orientation.w = -orientation.w;
-		pod::Matrix4t<> rotation = uf::quaternion::matrix( orientation );
-		
-		this->setView(rotation * translation);
-
-		::eye.left = rotation * translationLeft;// ext::openvr::hmdEyePositionMatrix(vr::Eye_Left) * ext::openvr::hmdHeadPositionMatrix(); //ext::openvr::hmdViewMatrix(vr::Eye_Left) * this->m_matrices.view;
-		::eye.right = rotation * translationRight;// ext::openvr::hmdEyePositionMatrix(vr::Eye_Right) * ext::openvr::hmdHeadPositionMatrix(); //ext::openvr::hmdViewMatrix(vr::Eye_Right) * this->m_matrices.view;
-	*/
 	} else {
-		pod::Transform<>& transform = this->getTransform();
-		pod::Vector3t<> position = transform.position;
-		if ( transform.reference ) position += transform.reference->position;
-		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), position * -1 );
-		pod::Transform<> flatten = uf::transform::flatten(transform, true);
-		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation );
-		pod::Matrix4t<> scale = uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity(), transform.scale ) );
-
-		// std::cout << transform.scale.x << ", " << transform.scale.y << ", " << transform.scale.z << std::endl;
-
-		this->setView(rotation * translation * scale);
-	/*
-		pod::Transform<> transform = this->getTransform();
-		if ( transform.reference ) transform.position += transform.reference->position;
-
-		pod::Transform<> flatten = uf::transform::flatten( transform );
-		pod::Matrix4t<> translation = uf::matrix::translate( uf::matrix::identity(), transform.position );
-		pod::Matrix4t<> rotation = uf::quaternion::matrix( flatten.orientation * pod::Vector4f{ 1, 1, 1, -1 } );
-
-		this->m_matrices.view = uf::matrix::inverse( translation * rotation );
-	*/
+		this->setView( view );
 	}
+*/
 }
 void uf::Camera::updateProjection() {
 	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
-	//	::projection.left = ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
-	//	::projection.right = ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y );
 		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 0 );
 		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 1 );
 		return;

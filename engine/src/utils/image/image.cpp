@@ -8,6 +8,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <gltf/stb_image.h>
+#include <gltf/stb_image_write.h>
 
 // 	C-tor
 // Default
@@ -289,6 +290,13 @@ void uf::Image::copy( const Image::container_t& copy, const Image::vec2_t& size 
 	this->m_pixels = copy;
 	this->m_dimensions = size;
 }
+void uf::Image::copy( const uf::Image& copy ) {
+	this->m_pixels = copy.m_pixels;
+	this->m_dimensions = copy.m_dimensions;
+	this->m_bpp = copy.m_bpp;
+	this->m_channels = copy.m_channels;
+	this->m_filename = copy.m_filename;
+}
 // 	D-tor
 uf::Image::~Image() {
 	this->clear();
@@ -347,66 +355,64 @@ bool uf::Image::save( const std::string& filename, bool flip ) {
 	uint w = this->m_dimensions.x;
 	uint h = this->m_dimensions.y;
 	uint8_t* pixels = &this->m_pixels[0];
-
-	if ( flip )
-		for (uint j = 0; j * 2 < h; ++j) {
-			uint x = j * w * this->m_bpp/8;
-			uint y = (h - 1 - j) * w * this->m_bpp/8;
-			for (uint i = w * this->m_bpp/8; i > 0; --i) {
-				std::swap( pixels[x], pixels[y] );
-				++x, ++y;
-			/*
-				uint8_t tmp = pixels[x];
-				pixels[x] = pixels[y];
-				pixels[y] = tmp;
-				++x;
-				++y;
-			*/
+	std::string extension = uf::io::extension(filename);
+	if ( extension == "png" ) {
+		if ( flip )
+			for (uint j = 0; j * 2 < h; ++j) {
+				uint x = j * w * this->m_bpp/8;
+				uint y = (h - 1 - j) * w * this->m_bpp/8;
+				for (uint i = w * this->m_bpp/8; i > 0; --i) {
+					std::swap( pixels[x], pixels[y] );
+					++x, ++y;
+				}
 			}
+	#if 0
+		png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+		if (!png)
+			return false;
+
+		png_infop info = png_create_info_struct(png);
+		if (!info) {
+			png_destroy_write_struct(&png, &info);
+			return false;
 		}
 
+		FILE *fp = fopen(filename.c_str(), "wb");
+		if (!fp) {
+			png_destroy_write_struct(&png, &info);
+			return false;
+		}
 
-	png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (!png)
-		return false;
+		png_init_io(png, fp);
+		png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		if ( this->m_channels == 4 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		if ( this->m_channels == 3 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+		png_colorp palette = (png_colorp)png_malloc(png, PNG_MAX_PALETTE_LENGTH * sizeof(png_color));
+		if (!palette) {
+			fclose(fp);
+			png_destroy_write_struct(&png, &info);
+			return false;
+		}
+		png_set_PLTE(png, info, palette, PNG_MAX_PALETTE_LENGTH);
+		png_write_info(png, info);
+		png_set_packing(png);
 
-	png_infop info = png_create_info_struct(png);
-	if (!info) {
+		png_bytepp rows = (png_bytepp)png_malloc(png, h * sizeof(png_bytep));
+		for (uint i = 0; i < h; ++i)
+			rows[i] = (png_bytep)(pixels + (h - i - 1) * w * this->m_bpp/8);
+
+		png_write_image(png, rows);
+		png_write_end(png, info);
+		png_free(png, palette);
 		png_destroy_write_struct(&png, &info);
-		return false;
-	}
 
-	FILE *fp = fopen(filename.c_str(), "wb");
-	if (!fp) {
-		png_destroy_write_struct(&png, &info);
-		return false;
-	}
-
-	png_init_io(png, fp);
-	png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	if ( this->m_channels == 4 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	if ( this->m_channels == 3 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-	png_colorp palette = (png_colorp)png_malloc(png, PNG_MAX_PALETTE_LENGTH * sizeof(png_color));
-	if (!palette) {
 		fclose(fp);
-		png_destroy_write_struct(&png, &info);
-		return false;
+		delete[] rows;
+	#endif
+		stbi_write_png(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
+	} else if ( extension == "jpg" || extension == "jpeg" ) {
+		stbi_write_jpg(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
 	}
-	png_set_PLTE(png, info, palette, PNG_MAX_PALETTE_LENGTH);
-	png_write_info(png, info);
-	png_set_packing(png);
-
-	png_bytepp rows = (png_bytepp)png_malloc(png, h * sizeof(png_bytep));
-	for (uint i = 0; i < h; ++i)
-		rows[i] = (png_bytep)(pixels + (h - i - 1) * w * this->m_bpp/8);
-
-	png_write_image(png, rows);
-	png_write_end(png, info);
-	png_free(png, palette);
-	png_destroy_write_struct(&png, &info);
-
-	fclose(fp);
-	delete[] rows;
 	return true;
 }
 // to stream

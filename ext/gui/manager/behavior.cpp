@@ -164,7 +164,7 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 				uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
 			} else {
 				auto translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
-				auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
+				auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
 
 				pod::Matrix4f model = translation * rotation * uf::transform::model( transform );
 				uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;

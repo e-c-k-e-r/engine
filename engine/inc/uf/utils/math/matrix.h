@@ -150,4 +150,12 @@ namespace uf {
 	typedef Matrix4t<float> Matrix4f;
 }
 
+#include <uf/utils/string/ext.h>
+namespace uf {
+	namespace string {
+		template<typename T, size_t R, size_t C>
+		std::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
+	}
+}
+
 #include "matrix/matrix.inl"

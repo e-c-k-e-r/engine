@@ -255,7 +255,7 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 			auto& lightCamera = light.getComponent<uf::Camera>();
 			pod::Matrix4f playerModel = uf::matrix::identity();
 			pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), controllerCameraTransform.position + controllerTransform.position );
-			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation * pod::Vector4f{1,1,1,-1} );
+			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation );
 			playerModel = translation * rotation;
 
 			pod::Matrix4f model = uf::matrix::inverse( playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true ) );
@@ -280,7 +280,7 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 			auto& lightCamera = light.getComponent<uf::Camera>();
 			pod::Matrix4f playerModel = uf::matrix::identity();
 			pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), controllerCameraTransform.position + controllerTransform.position );
-			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation * pod::Vector4f{1,1,1,-1} );
+			pod::Matrix4f rotation = uf::quaternion::matrix( controllerTransform.orientation );
 			playerModel = translation * rotation;
 
 			pod::Matrix4f model = uf::matrix::inverse( playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true ) );
@@ -373,10 +373,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		auto& controller = this->getParent();
 		auto& camera = controller.getComponent<uf::Camera>();
 		pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
-		pod::Matrix4f rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );
+		pod::Matrix4f rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
 		playerModel = translation * rotation;
 	}
-//	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation * pod::Vector4f{1,1,1,-1} );	
+//	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );	
 	if ( ::hands.left && ::hands.left->hasComponent<uf::Graphic>() ) {
 		auto& graphic = ::hands.left->getComponent<uf::Graphic>();
 		auto& transform = ::hands.left->getComponent<pod::Transform<>>();

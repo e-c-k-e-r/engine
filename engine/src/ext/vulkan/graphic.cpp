@@ -824,14 +824,23 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 
 	auto& pipeline = this->getPipeline( descriptor );
 	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) return;
+/*
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(0);
 	Buffer& indexBuffer = buffers.at(1);
+*/
+	Buffer* vertexBuffer = NULL;
+	Buffer* indexBuffer = NULL;
+	for ( auto& buffer : buffers ) {
+		if ( buffer.usageFlags & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT ) vertexBuffer = &buffer;
+		if ( buffer.usageFlags & VK_BUFFER_USAGE_INDEX_BUFFER_BIT ) indexBuffer = &buffer;
+	}
+	assert( vertexBuffer && indexBuffer );
 
 	pipeline.record(*this, commandBuffer);
 	// Bind triangle vertex buffer (contains position and colors)
 	VkDeviceSize offsets[1] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer.buffer, offsets);
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->buffer, offsets);
 	// Bind triangle index buffer
 	VkIndexType indicesType = VK_INDEX_TYPE_UINT32;
 	switch ( descriptor.geometry.sizes.indices * 8 ) {
@@ -842,7 +851,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 			throw std::runtime_error("invalid indices size of " + std::to_string((int) descriptor.geometry.sizes.indices));
 		break;
 	}
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer.buffer, 0, indicesType);
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer->buffer, 0, indicesType);
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, descriptor.indices, 1, 0, 0, 1);
 }

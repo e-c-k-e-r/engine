@@ -31,6 +31,7 @@ namespace uf {
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels
 		void copy( const Image::container_t& copy,  const Image::vec2_t& size );				// copy from vector of pixels
+		void copy( const uf::Image& );															// copy from image object
 	// 	D-tor
 		~Image();
 		void clear(); 																			// empties pixel container

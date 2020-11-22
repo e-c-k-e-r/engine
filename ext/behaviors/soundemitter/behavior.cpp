@@ -9,7 +9,7 @@
 #include <mutex>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::SoundEmitterBehavior)
-#define this ((uf::Scene*) &self)
+#define this ((uf::Object*) &self)
 
 void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& emitter = this->getComponent<uf::SoundEmitter>();

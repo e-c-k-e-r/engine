@@ -104,8 +104,39 @@ template<typename T> T uf::quaternion::lerp( const T& from, const T& to, double 
 	return uf::vector::lerp( from, to, delta );
 }
 // 	Spherically interpolate between two quaternions
-template<typename T> T uf::quaternion::slerp( const T& from, const T& to, double delta ) {
-	return uf::vector::slerp( from, to, delta );
+template<typename T> T uf::quaternion::slerp( const T& x, const T& y, double a ) {
+//	return uf::vector::slerp( from, to, delta );
+	T z = y;
+
+	auto cosTheta = uf::quaternion::dot( x, y );
+
+	// If cosTheta < 0, the interpolation will take the long way around the sphere.
+	// To fix this, one quat must be negated.
+	if( cosTheta < 0 ) {
+		z = -y;
+		cosTheta = -cosTheta;
+	}
+
+	// Perform a linear interpolation when cosTheta is close to 1 to avoid side effect of sin(angle) becoming a zero denominator
+	if( cosTheta > 1 - std::numeric_limits<typename T::type_t>::epsilon() ) return uf::vector::mix( x, z, a );
+	// Essential Mathematics, page 467
+	typename T::type_t angle = acos(cosTheta);
+/*
+	return uf::vector::divide( 
+		uf::vector::add(
+			uf::vector::multiply(
+				x,
+				sin((1 - a) * angle)
+			),
+			uf::vector::multiply(
+				z,
+				sin(a * angle)
+			)
+		), 
+		sin(angle)
+	);
+*/
+	return (x * sin((1 - a) * angle) + z * sin(a * angle)) / sin(angle);
 }
 
 // 	Compute the distance between two quaternions (doesn't sqrt)
@@ -130,19 +161,37 @@ template<typename T> T uf::quaternion::normalize( const T& quaternion ) {
 }
 
 // Quaternion ops
-template<typename T> pod::Matrix4t<typename T::type_t> uf::quaternion::matrix( const T& quaternion ) {
-	T normal = uf::quaternion::normalize(quaternion);
-#ifdef UF_USE_GLM
-	{
-		glm::quat glmq;
-		glmq.w = normal.w; glmq.x = normal.x; glmq.y = normal.y; glmq.z = normal.z;
-		glm::mat4 mat = glm::toMat4(glmq);
+template<typename T> pod::Matrix4t<typename T::type_t> uf::quaternion::matrix( const T& q ) {
+/*
+	pod::Matrix4f result;
 
-		pod::Matrix4t<typename T::type_t> matrix;
-		for ( int j = 0; j < 4; ++j ) for ( int i = 0; i < 4; ++i ) matrix[(j*4)+i] = mat[j][i];
-		return matrix;
-	}
-#endif
+	auto qxx = q.x * q.x;
+	auto qyy = q.y * q.y;
+	auto qzz = q.z * q.z;
+	auto qxz = q.x * q.z;
+	auto qxy = q.x * q.y;
+	auto qyz = q.y * q.z;
+	auto qwx = q.w * q.x;
+	auto qwy = q.w * q.y;
+	auto qwz = q.w * q.z;
+
+	result[0*4+0] = 1 - 2 * (qyy +  qzz);
+	result[0*4+1] = 2 * (qxy + qwz);
+	result[0*4+2] = 2 * (qxz - qwy);
+
+	result[1*4+0] = 2 * (qxy - qwz);
+	result[1*4+1] = 1 - 2 * (qxx +  qzz);
+	result[1*4+2] = 2 * (qyz + qwx);
+
+	result[2*4+0] = 2 * (qxz + qwy);
+	result[2*4+1] = 2 * (qyz - qwx);
+	result[2*4+2] = 1 - 2 * (qxx +  qyy);
+
+	return result;
+*/
+	T normal = uf::quaternion::normalize( q );
+	normal.w *= -1;
+
 	typename T::type_t x = normal.x;
 	typename T::type_t y = normal.y;
 	typename T::type_t z = normal.z;
@@ -166,13 +215,7 @@ template<typename T> pod::Matrix4t<typename T::type_t> uf::quaternion::matrix( c
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::axisAngle( const pod::Vector3t<T>& axis, T angle ) { 
 	pod::Quaternion<T> q;
-#ifdef UF_USE_GLM
-	{
-		glm::quat glmq = glm::angleAxis(glm::radians(angle), glm::vec3(axis.x, axis.y, axis.z));
-		q.w = glmq.w; q.x = glmq.x; q.y = glmq.y; q.z = glmq.z;
-		return q;
-	}
-#endif
+
 	T sinAngle = sin( angle * 0.5 );
 	T cosAngle = cos( angle * 0.5 );
 	q.x = axis.x * sinAngle;
@@ -209,73 +252,30 @@ template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vecto
 */
 }
 
-template<typename T> T uf::quaternion::conjugate( const T& quaternion ) {
+template<typename T> T uf::quaternion::conjugate( const T& q ) {
+	return uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
+}
+template<typename T> T& uf::quaternion::conjugate( T& q ) {
+	return q = {
+		.x = -q.x,	
+		.y = -q.y,	
+		.z = -q.z,	
+		.w =  q.w	
+	};
+}
+template<typename T> T uf::quaternion::inverse( const T& q ) {
 	return {
-		.x = -quaternion.x,	
-		.y = -quaternion.y,	
-		.z = -quaternion.z,	
-		.w =  quaternion.w	
+		.x = -q.x,	
+		.y = -q.y,	
+		.z = -q.z,	
+		.w =  q.w	
 	};
 }
-template<typename T> T uf::quaternion::inverse( const T& quaternion ) {
-	return {
-		.x = -quaternion.x,	
-		.y = -quaternion.y,	
-		.z = -quaternion.z,	
-		.w =  quaternion.w	
-	};
-}
-template<typename T> T& uf::quaternion::conjugate( T& quaternion ) {
-	return quaternion = {
-		.x = -quaternion.x,	
-		.y = -quaternion.y,	
-		.z = -quaternion.z,	
-		.w =  quaternion.w	
-	};
-}
-template<typename T> T& uf::quaternion::inverse( T& quaternion ) {
-	return quaternion = {
-		.x = -quaternion.x,	
-		.y = -quaternion.y,	
-		.z = -quaternion.z,	
-		.w =  quaternion.w	
-	};
+template<typename T> T& uf::quaternion::inverse( T& q ) {
+	return q = uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::fromMatrix( const pod::Matrix4t<T>& m ) {
 	pod::Quaternion<T> q;
-/*
-	T fourXSquaredMinus1 = m[(4*0)+0] - m[(4*1)+1] - m[(4*2)+2];
-	T fourYSquaredMinus1 = m[(4*1)+1] - m[(4*0)+0] - m[(4*2)+2];
-	T fourZSquaredMinus1 = m[(4*2)+2] - m[(4*0)+0] - m[(4*1)+1];
-	T fourWSquaredMinus1 = m[(4*0)+0] + m[(4*1)+1] + m[(4*2)+2];
-
-	int biggestIndex = 0;
-	T fourBiggestSquaredMinus1 = fourWSquaredMinus1;
-	if(fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
-		fourBiggestSquaredMinus1 = fourXSquaredMinus1;
-		biggestIndex = 1;
-	}
-	if(fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
-		fourBiggestSquaredMinus1 = fourYSquaredMinus1;
-		biggestIndex = 2;
-	}
-	if(fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
-		fourBiggestSquaredMinus1 = fourZSquaredMinus1;
-		biggestIndex = 3;
-	}
-
-	T biggestVal = sqrt(fourBiggestSquaredMinus1 + static_cast<T>(1)) * static_cast<T>(0.5);
-	T mult = static_cast<T>(0.25) / biggestVal;
-
-	switch(biggestIndex) {
-		case 0: return pod::Quaternion<T>{ biggestVal, (m[(4*1)+2] - m[(4*2)+1]) * mult, (m[(4*2)+0] - m[(4*0)+2]) * mult, (m[(4*0)+1] - m[(4*1)+0]) * mult };
-		case 1: return pod::Quaternion<T>{ (m[(4*1)+2] - m[(4*2)+1]) * mult, biggestVal, (m[(4*0)+1] + m[(4*1)+0]) * mult, (m[(4*2)+0] + m[(4*0)+2]) * mult };
-		case 2: return pod::Quaternion<T>{ (m[(4*2)+0] - m[(4*0)+2]) * mult, (m[(4*0)+1] + m[(4*1)+0]) * mult, biggestVal, (m[(4*1)+2] + m[(4*2)+1]) * mult };
-		case 3: return pod::Quaternion<T>{ (m[(4*0)+1] - m[(4*1)+0]) * mult, (m[(4*2)+0] + m[(4*0)+2]) * mult, (m[(4*1)+2] + m[(4*2)+1]) * mult, biggestVal };
-		default: // Silence a -Wswitch-default warning in GCC. Should never actually get here. Assert is just for sanity.
-			return pod::Quaternion<T>{ 1, 0, 0, 0 };
-	}
-*/
 
 	q.w = sqrt(fmax(0, 1 + m[(4*0)+0] + m[(4*1)+1] + m[(4*2)+2])) / 2;
 	q.x = sqrt(fmax(0, 1 + m[(4*0)+0] - m[(4*1)+1] - m[(4*2)+2])) / 2;

@@ -461,3 +461,11 @@ std::size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initializ
 std::string uf::Object::grabURI( const std::string& filename, const std::string& root  ) {
 	return uf::io::resolveURI( filename, root );
 }
+
+
+#include <uf/utils/string/ext.h>
+std::string uf::string::toString( const uf::Object& object ) {
+	std::stringstream ss;
+	ss << object.getName() << ": " << object.getUid();
+	return ss.str();
+}

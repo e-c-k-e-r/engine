@@ -409,11 +409,25 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( stats.floored ) {
 			pod::Transform<> translator = transform;
 			if ( ext::openvr::context ) {
+				bool useController = true;
+			//	translator.orientation = useController ? ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) : ext::openvr::hmdQuaternion();
+			//	translator.orientation = translator.orientation * transform.orientation;
+				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,1}) : ext::openvr::hmdQuaternion() );
+				translator = uf::transform::reorient( translator );
+				
+				translator.forward *= { 1, 0, 1 };
+				translator.right *= { 1, 0, 1 };
+				
+				translator.forward = uf::vector::normalize( translator.forward );
+				translator.right = uf::vector::normalize( translator.right );
+			}
+		/*
+			if ( ext::openvr::context ) {
 			//	translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,-1}, ext::openvr::hmdQuaternion() * pod::Vector4f{1,1,1,-1} );
 			//	translator.orientation = uf::quaternion::multiply( ext::openvr::hmdQuaternion(), transform.orientation );
 				//translator.orientation = ext::openvr::hmdQuaternion();
 				bool useController = false;
-				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,-1}) : ext::openvr::hmdQuaternion() );
+				translator.orientation = uf::quaternion::multiply( transform.orientation, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right )) : ext::openvr::hmdQuaternion() );
 				translator = uf::transform::reorient( translator );
 				{
 					translator.forward *= { 1, 0, 1 };
@@ -423,6 +437,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					translator.right = uf::vector::normalize( translator.right );
 				}
 			}
+		*/
 			if ( keys.forward || keys.backwards ) {
 				int polarity = keys.forward ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});

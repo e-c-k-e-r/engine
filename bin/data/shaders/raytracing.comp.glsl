@@ -49,7 +49,7 @@ struct Fog {
 	vec4 color;
 };
 
-layout (binding = 2) uniform UBO {
+layout (binding = 1) uniform UBO {
 	mat4 matrices[2];
 	vec4 ambient;
 	Fog fog;
@@ -61,7 +61,7 @@ struct Shape {
 	vec4 albedoSpecular;
 	int type;
 };
-layout (std140, binding = 3) buffer Shapes {
+layout (std140, binding = 2) buffer Shapes {
 	Shape shapes[];
 };
 

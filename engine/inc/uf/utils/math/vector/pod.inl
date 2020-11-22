@@ -140,9 +140,15 @@ T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta ) {
 	// from + ( ( to - from ) * delta )
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
 }
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::mix( const T& x, const T& y, double a ) {
+	// delta = fmax( 0, fmin(1,delta) );
+	// x * (1.0 - a) + y * a
+	return uf::vector::add( uf::vector::multiply( x, 1 - a ), uf::vector::multiply( y, a ) );
+}
 template<typename T> 														// Spherically interpolate between two vectors
 T /*UF_API*/ uf::vector::slerp( const T& from, const T& to, double delta ) {
-	delta = fmax( 0, fmin(1,delta) );
+	//delta = fmax( 0, fmin(1,delta) );
 	typename T::type_t dot = uf::vector::dot(from, to);
 	typename T::type_t theta = acos(dot);
 	typename T::type_t sTheta = sin(theta);

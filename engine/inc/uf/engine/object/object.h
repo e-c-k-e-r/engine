@@ -41,5 +41,11 @@ namespace uf {
 	};
 }
 
+namespace uf {
+	namespace string {
+		std::string UF_API toString( const uf::Object& object );
+	}
+}
+
 #include "object.inl"
 #include "behavior.h"
