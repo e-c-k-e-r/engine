@@ -23,6 +23,7 @@ namespace uf {
 		void addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
 		
 		void generate(float padding = 1);
+		void generate( const images_t&, float padding = 1);
 		void clear();
 		
 		pod::Vector2f mapUv( const pod::Vector2f&, size_t );
@@ -53,6 +54,7 @@ namespace uf {
 		hash_t addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
 		
 		void generate(float padding = 1);
+		void generate( const images_t&, float padding = 1);
 		void clear();
 		bool has( const uf::Image& ) const;
 		bool has( const std::string& ) const;

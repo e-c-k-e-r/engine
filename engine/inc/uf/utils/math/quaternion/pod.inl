@@ -98,6 +98,37 @@ template<typename T> pod::Angle uf::quaternion::angle( const T& a, const T& b ) 
 	T tmp = b * uf::quaternion::inverse(a);
 	return acosf(tmp.w) * 2.0;
 }
+template<typename T> pod::Vector3t<T> uf::quaternion::eulerAngles( const pod::Quaternion<T>& quaternion ) {
+	return pod::Vector3t<T>{
+		uf::quaternion::pitch( quaternion ),
+		uf::quaternion::yaw( quaternion ),
+		uf::quaternion::roll( quaternion ),
+	};
+}
+template<typename T> T uf::quaternion::pitch( const pod::Quaternion<T>& q ) {
+	//return T(atan(T(2) * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z));
+	T const y = static_cast<T>(2) * (q.y * q.z + q.w * q.x);
+	T const x = q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z;
+
+	T epsilon = std::numeric_limits<T>::epsilon();
+	if ( fabs(x) < epsilon && fabs(y) < epsilon  ) //avoid atan2(0,0) - handle singularity - Matiis
+		return static_cast<T>(static_cast<T>(2) * atan2(q.x, q.w));
+
+	return static_cast<T>(atan2(y, x));
+}
+template<typename T> T uf::quaternion::yaw( const pod::Quaternion<T>& q ) {
+	return asin(std::clamp(static_cast<T>(-2) * (q.x * q.z - q.w * q.y), static_cast<T>(-1), static_cast<T>(1)));
+}
+template<typename T> T uf::quaternion::roll( const pod::Quaternion<T>& q ) {
+	T const y = static_cast<T>(2) * (q.x * q.y + q.w * q.z);
+	T const x = q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z;
+
+	T epsilon = std::numeric_limits<T>::epsilon();
+	if ( fabs(x) < epsilon && fabs(y) < epsilon  ) //avoid atan2(0,0) - handle singularity - Matiis
+		return static_cast<T>(0);
+
+	return static_cast<T>(atan2(y, x));
+}
 
 // 	Linearly interpolate between two quaternions
 template<typename T> T uf::quaternion::lerp( const T& from, const T& to, double delta ) {

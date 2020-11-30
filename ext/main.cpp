@@ -147,13 +147,8 @@ void EXT_API ext::initialize() {
 				if ( std::regex_search( arg, match, regex ) ) {
 					std::string keyString = match[1].str();
 					std::string valueString = match[2].str();
-					auto keys = uf::string::split(keyString, ".");
 					uf::Serializer value; value.deserialize(valueString);
-					Json::Value* traversal = &::config;
-					for ( auto& key : keys ) {
-						traversal = &((*traversal)[key]);
-					}
-					*traversal = value;
+					::config.path(keyString) = value;
 					modified = true;
 				}
 			}
@@ -182,16 +177,16 @@ void EXT_API ext::initialize() {
 	/* Lua */ {
 		ext::lua::main = ::config["engine"]["ext"]["lua"]["main"].as<std::string>();
 		for ( auto it  = ::config["engine"]["ext"]["lua"]["modules"].begin(); it != ::config["engine"]["ext"]["lua"]["modules"].end(); ++it ) {
-			std::string key = it.key().as<std::string>();
+			std::string key = it.key();
 			ext::lua::modules[key] = ::config["engine"]["ext"]["lua"]["modules"][key].as<std::string>();
 		}
 		ext::lua::initialize();
 	}
-	
+
 	/* Parse config */ {
 		/* Set memory pool sizes */ {
-			auto deduceSize = []( const Json::Value& value )->size_t{
-				if ( value.is<double>() ) return value.as<size_t>();
+			auto deduceSize = []( const ext::json::Value& value )->size_t{
+				if ( value.is<size_t>() ) return value.as<size_t>();
 				if ( value.is<std::string>() ) {
 					std::string str = value.as<std::string>();
 					std::regex regex("^(\\d+) ?((?:K|M|G)?(?:i?B)?)$");
@@ -212,7 +207,7 @@ void EXT_API ext::initialize() {
 			{
 				size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
 				uf::MemoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].as<bool>();
-				uf::iostream << "Requesting " << (int) size << " bytes for global memory pool: " << &uf::MemoryPool::global << "\n";
+				uf::iostream << "Requesting " << (size_t) size << " bytes for global memory pool: " << &uf::MemoryPool::global << "\n";
 				uf::MemoryPool::global.initialize( size );
 				uf::MemoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].as<bool>();
 				if ( size <= 0 || uf::MemoryPool::subPool ) {
@@ -275,6 +270,7 @@ void EXT_API ext::initialize() {
 			::config["engine"]["threads"]["workers"] = threads;
 			uf::iostream << "Using " << threads << " worker threads" << "\n";
 		}
+		
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 		// Enable valiation layer
 		uf::renderer::settings::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].as<bool>();
@@ -293,7 +289,7 @@ void EXT_API ext::initialize() {
 			if ( uf::string::lowercase( filter )  == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_NEAREST;
 			else if ( uf::string::lowercase( filter )  == "linear" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 		}
-
+		
 		if ( ::config["engine"]["debug"]["entity"]["delete children on destroy"].is<bool>() ) uf::Entity::deleteChildrenOnDestroy = ::config["engine"]["debug"]["entity"]["delete children on destroy"].as<bool>();
 		if ( ::config["engine"]["debug"]["entity"]["delete components on destroy"].is<bool>() ) uf::Entity::deleteComponentsOnDestroy = ::config["engine"]["debug"]["entity"]["delete components on destroy"].as<bool>();
 		
@@ -316,26 +312,35 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::deferredReconstructPosition = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred reconstruct position"].as<bool>();
 		uf::renderer::settings::experimental::deferredAliasOutputToSwapchain = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred alias output to swapchain"].as<bool>();
 
+		
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].as<bool>();
+		
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].as<bool>();
-		if ( ::config["engine"]["ext"]["vr"]["dominatEye"].is<double>() )
-			ext::openvr::dominantEye = ::config["engine"]["ext"]["vr"]["dominatEye"].as<size_t>();
-		else if ( ::config["engine"]["ext"]["vr"]["dominatEye"].as<std::string>() == "left" ) ext::openvr::dominantEye = 0;
-		else if ( ::config["engine"]["ext"]["vr"]["dominatEye"].as<std::string>() == "right" ) ext::openvr::dominantEye = 1;
+		
+		
+		if ( ::config["engine"]["ext"]["vr"]["dominant eye"].is<int>() ) {
+			ext::openvr::dominantEye = ::config["engine"]["ext"]["vr"]["dominant eye"].as<int>();
+		} else if ( ::config["engine"]["ext"]["vr"]["dominant eye"].as<std::string>() == "left" ) ext::openvr::dominantEye = 0;
+		else if ( ::config["engine"]["ext"]["vr"]["dominant eye"].as<std::string>() == "right" ) ext::openvr::dominantEye = 1;
+
+		
 		ext::openvr::driver.manifest = ::config["engine"]["ext"]["vr"]["manifest"].as<std::string>();
+		
 		if ( ext::openvr::enabled ) {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
 		}
 	}
 
-
+	
 	/* Create initial scene (kludge) */ {
 		uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
 		uf::scene::scenes.push_back(&scene);
 		auto& metadata = scene.getComponent<uf::Serializer>();
 		metadata["system"]["config"] = ::config;
 	}
+	
 
+	
 	/* Initialize Vulkan */ {
 		// uf::renderer::width = ::config["window"]["size"]["x"].as<int>();
 		// uf::renderer::height = ::config["window"]["size"]["y"].as<int>();
@@ -376,15 +381,16 @@ void EXT_API ext::initialize() {
 
 		uf::renderer::initialize();
 	}
+	
 	/* */ {
 		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false );
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
 	}
-
+	
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enabled"].as<bool>() ) {
 		ext::discord::initialize();
 	}
-
+	
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		if ( ::config["engine"]["ext"]["ultralight"]["scale"].is<double>() ) {
 			ext::ultralight::scale = ::config["engine"]["ext"]["ultralight"]["scale"].as<double>();
@@ -394,7 +400,7 @@ void EXT_API ext::initialize() {
 		}
 		ext::ultralight::initialize();
 	}
-
+	
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](const std::string& event)->std::string{
 			auto function = [event]() -> int {
@@ -441,13 +447,14 @@ void EXT_API ext::initialize() {
 			return "true";
 		});
 	}
+	
 	/* Initialize root scene*/ {
 		uf::Serializer payload;
 		payload["scene"] = ::config["engine"]["scenes"]["start"];
 		payload["immediate"] = true;
 		uf::hooks.call("game:Scene.Load", payload);
 	}
-
+	
 	ext::ready = true;
 	uf::iostream << "EXT took " << times.sys.elapsed().asDouble() << " seconds to initialize!" << "\n";
 
@@ -466,16 +473,18 @@ void EXT_API ext::tick() {
 		times.deltaTime = times.curTime - times.prevTime;
 	}
 
+	/* OpenVR */ if ( ext::openvr::context ) {
+		ext::openvr::tick();
+	}
+
 	/* Print World Tree */ {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		TIMER(1, uf::Window::isKeyPressed("U") && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
-				uf::iostream << entity->getName() << ": " << entity->getUid();
+				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
 				if ( entity->hasComponent<pod::Transform<>>() ) {
 					pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
-					uf::iostream << " (" << t.position.x << ", " << t.position.y << ", " << t.position.z << ") (" << t.orientation.x << ", " << t.orientation.y << ", " << t.orientation.z << ", " << t.orientation.w << ")";
+					uf::iostream << uf::string::toString(t.position) << " " << uf::string::toString(t.orientation);
 				}
 				uf::iostream << "\n";
 			};
@@ -487,12 +496,10 @@ void EXT_API ext::tick() {
 		}
 	}
 	/* Print World Tree */ {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		TIMER(1, uf::Window::isKeyPressed("U") && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
-				uf::iostream << entity->getName() << ": " << entity->getUid() << " [";
+				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
 				for ( auto& behavior : entity->getBehaviors() ) {
 					uf::iostream << uf::instantiator::behaviors->names[behavior.type] << ", ";
 				}
@@ -520,9 +527,7 @@ void EXT_API ext::tick() {
 		}
 	}
 	/* Print Entity Information */  {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("P") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		TIMER(1, uf::Window::isKeyPressed("P") && ) {
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
 			uf::iostream << "==== Memory Pool Information ====";
 			if ( uf::MemoryPool::global.size() > 0 ) uf::iostream << "\nGlobal Memory Pool: " << uf::MemoryPool::global.stats();
@@ -533,16 +538,12 @@ void EXT_API ext::tick() {
 		}
 	}
 	/* Attempt to reset VR position */  {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("Z") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		TIMER(1, uf::Window::isKeyPressed("Z") && ) {
 	    	uf::hooks.call("VR:Seat.Reset");
 		}
 	}
 	/* Print controller position */ if ( false ) {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("Z") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
+		TIMER(1, uf::Window::isKeyPressed("Z") && ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
@@ -579,12 +580,10 @@ void EXT_API ext::tick() {
 	}
 
 	/* Garbage collection */ if ( ::config["engine"]["debug"]["garbage collection"]["enabled"].as<bool>() ) {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
 		double every = ::config["engine"]["debug"]["garbage collection"]["every"].as<double>();
 		uint8_t mode = ::config["engine"]["debug"]["garbage collection"]["mode"].as<uint64_t>();
 		bool announce = ::config["engine"]["debug"]["garbage collection"]["announce"].as<bool>();
-		if ( timer.elapsed().asDouble() >= every ) { timer.reset();
+		TIMER( every ) {
 			size_t collected = uf::instantiator::collect( mode );
 			if ( announce && collected > 0 ) {
 				uf::iostream << "GC collected " << (int) collected << " unused entities" << "\n";
@@ -602,24 +601,18 @@ void EXT_API ext::tick() {
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enable"].as<bool>() ) {
 		ext::discord::tick();
 	}
-	/* OpenVR */ if ( ext::openvr::context ) {
-		ext::openvr::tick();
-	}
 
 	/* FPS Print */ if ( ::config["engine"]["debug"]["framerate"]["print"].as<bool>() ) {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
 		++::times.frames;
 		double every = ::config["engine"]["debug"]["framerate"]["every"].as<double>();
-		double time = 0;
-		if ( (time = timer.elapsed().asDouble()) >= every ) { timer.reset();
+		TIMER( every ) {
 //			uf::iostream << "Framerate: " << (1.0/times.deltaTime) << " FPS | Frametime: " << (times.deltaTime * 1000) << "ms" << "\n";
 			uf::iostream << "System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time << "\n";
 			::times.frames = 0;
 		}
 	}
 	
-	/* Frame limiter of sorts I guess */ if ( ::times.limiter > 0 ) {
+	/* Frame limiter of sorts I guess */ if ( false ) if ( ::times.limiter > 0 ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		auto elapsed = timer.elapsed().asMilliseconds();
@@ -634,15 +627,20 @@ void EXT_API ext::tick() {
 	}
 }
 void EXT_API ext::render() {
-	/* Render scene */ {
-		uf::renderer::render();
-	}
 
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::render();
 	}
+	if ( ext::openvr::context ) {
+		vr::VRCompositor()->SubmitExplicitTimingData();
+	}
 
-	/* OpenVR */ if ( ext::openvr::context ) {
+	/* Render scene */ {
+		uf::renderer::render();
+	}
+
+	if ( ext::openvr::context ) {
+		ext::openvr::synchronize();
 		ext::openvr::submit();
 	}
 }

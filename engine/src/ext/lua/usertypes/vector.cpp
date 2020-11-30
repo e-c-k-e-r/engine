@@ -23,10 +23,11 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, []( const pod::Vector3f& start, const pod::Vector3f& end, double delta ) {
 		return uf::vector::lerp( start, end, delta );
 	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( normalize, []( const pod::Vector3f& self ) {
+		return uf::vector::normalize( self );
+	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, []( pod::Vector3f& self ) {
-		std::stringstream ss;
-		ss << "Vector(" << self.x << ", " << self.y << ", " << self.z << ")";
-		return ss.str();
+		return uf::string::toString( self );
 	})
 )
 UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
@@ -51,9 +52,13 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, []( const pod::Vector4f& start, const pod::Vector4f& end, double delta ) {
 		return uf::vector::lerp( start, end, delta );
 	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( slerp, []( const pod::Vector4f& start, const pod::Vector4f& end, double delta ) {
+		return uf::vector::slerp( start, end, delta );
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( normalize, []( const pod::Vector3f& self ) {
+		return uf::vector::normalize( self );
+	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, []( pod::Vector4f& self ) {
-		std::stringstream ss;
-		ss << "Vector(" << self.x << ", " << self.y << ", " << self.z << ", " << self.w << ")";
-		return ss.str();
+		return uf::string::toString( self );
 	})
 )

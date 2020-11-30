@@ -46,7 +46,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 	{
 		bool loaded = true;
 		for ( auto it = metadata["hands"].begin(); it != metadata["hands"].end(); ++it ) {
-			std::string key = it.key().as<std::string>();
+			std::string key = it.key();
 			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].as<std::string>()) ) loaded = false;
 		}
 		if ( !loaded ) {

@@ -238,12 +238,13 @@ void ext::DialogueManager::initialize() {
 			this->queueHook( "asset:Voice.Load.%UID%", pload );
 		}
 		if ( ext::json::isObject( part["hook"] ) ) {
-			part["hooks"].append( part["hook"] );
+			part["hooks"].emplace_back( part["hook"] );
 		}
-		for ( auto hook : part["hooks"] ) {
+	//	for ( auto hook : part["hooks"] ) {
+		ext::json::forEach(part["hooks"], [&](ext::json::Value& hook){
 			hook["payload"]["uid"] = metadata["uid"];
 			this->queueHook( hook["name"].as<std::string>(), uf::Serializer{hook["payload"]}, hook["timeout"].as<float>() );
-		}
+		});
 		return payload;
 	});
 	this->addHook( "menu:Dialogue.End.%UID%", [&](const std::string& event)->std::string{	

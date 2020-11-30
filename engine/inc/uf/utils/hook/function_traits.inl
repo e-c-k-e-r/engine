@@ -1,19 +1,13 @@
-/*
-template<typename T> 
-struct function_traits;  
+#pragma once
 
-template<typename R, typename ...Args> 
-struct function_traits<std::function<R(Args...)>> {
-	static const size_t nargs = sizeof...(Args);
+template <typename ... Args> constexpr bool return_void(void(Args ...)) { return true; }
+template <typename R, typename ... Args> constexpr bool return_void(R(Args ...)) { return false; }
 
-	typedef R result_type;
+template <typename Signature> struct count_args;
 
-	template <size_t i>
-	struct arg {
-		typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
-	};
+template <typename Ret, typename... Args> struct count_args<std::function<Ret(Args...)>> {
+    static constexpr size_t value = sizeof...(Args);
 };
-*/
 
 // For generic types that are functors, delegate to its 'operator()'
 template <typename T>

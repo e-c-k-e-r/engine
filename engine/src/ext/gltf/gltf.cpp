@@ -1,9 +1,10 @@
+#include <uf/config.h>
+
 #define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 
-#include <gltf/tiny_gltf.h>
-
-#include <uf/ext/gltf/gltf.h>
+#if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
+	#define TINYGLTF_NO_INCLUDE_JSON
+#endif
 
 #include <uf/utils/string/ext.h>
 
@@ -11,6 +12,9 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/image/atlas.h>
 #include <uf/utils/string/hash.h>
+
+#include <gltf/tiny_gltf.h>
+#include <uf/ext/gltf/gltf.h>
 
 namespace {
 	VkSamplerAddressMode getVkWrapMode(int32_t wrapMode) {
@@ -52,6 +56,8 @@ namespace {
 		newNode.index = nodeIndex;
 		newNode.skin = node.skin;
 
+		newNode.name = node.name;
+
 		auto& transform = newNode.transform;
 		if ( node.translation.size() == 3 ) {
 			transform.position.x = node.translation[0];
@@ -88,7 +94,7 @@ namespace {
 		auto& mesh = newNode.mesh;
 		auto& collider = newNode.collider;
 		if ( node.mesh > -1 ) {
-			size_t id = 0;
+		//	size_t id = 0;
 			for ( auto& primitive : model.meshes[node.mesh].primitives ) {
 				size_t verticesStart = mesh.vertices.size();
 				size_t indicesStart = mesh.indices.size();
@@ -104,6 +110,7 @@ namespace {
 					{"POSITION", {}},
 					{"TEXCOORD_0", {}},
 					{"NORMAL", {}},
+					{"TANGENT", {}},
 					{"JOINTS_0", {}},
 					{"WEIGHTS_0", {}},
 				};
@@ -160,17 +167,19 @@ namespace {
 					ITERATE_ATTRIBUTE("POSITION", position);
 					ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
 					ITERATE_ATTRIBUTE("NORMAL", normal);
+					ITERATE_ATTRIBUTE("TANGENT", tangent);
 					ITERATE_ATTRIBUTE("JOINTS_0", joints);
 					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
 
 					#undef ITERATE_ATTRIBUTE
 					if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES) && (graph.mode & ext::gltf::LoadMode::USE_ATLAS) ) {
-						vertex.uv = graph.atlas->mapUv( vertex.uv, id );
+						vertex.uv = graph.atlas->mapUv( vertex.uv, primitive.material );
 					}
+					// graph.materials[primitive.material]
 					if ( graph.mode & ext::gltf::LoadMode::FLIP_XY ) {
 						std::swap( vertex.position.x, vertex.position.y );
 					}
-					vertex.id = id;
+					vertex.id = primitive.material;
 				}
 
 				if ( primitive.indices > -1 ) {
@@ -243,16 +252,17 @@ namespace {
 						vertex.position = uf::matrix::multiply<float>( model, vertex.position );
 					}
 				}
-				++id;
+			//	++id;
 			}
 			// setup collision
 			if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && !(graph.mode & ext::gltf::LoadMode::AABB) ) {
-				auto* c = new uf::MeshCollider( transform );
+			//	auto* c = new uf::MeshCollider( transform );
+				auto* c = new uf::MeshCollider();
 				c->setPositions( mesh );
 				collider.add(c);
 			}
 		}
-		transform = uf::transform::initialize( transform );
+		// transform = uf::transform::initialize( transform );
 		return newNode;
 	}
 }
@@ -274,16 +284,23 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		return graph;
 	}
 
+	// load samplers
+	for ( auto& s : model.samplers ) {
+		auto& sampler = graph.samplers.emplace_back();
+		sampler.descriptor.filter.min = getVkFilterMode( s.minFilter );
+		sampler.descriptor.filter.mag = getVkFilterMode( s.magFilter );
+		sampler.descriptor.addressMode.u = getVkWrapMode( s.wrapS );
+		sampler.descriptor.addressMode.v = getVkWrapMode( s.wrapT );
+		sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
+	}
 	// load images
 	{
-		for ( auto& s : model.samplers ) {
-			auto& sampler = graph.samplers.emplace_back();
-			sampler.descriptor.filter.min = getVkFilterMode( s.minFilter );
-			sampler.descriptor.filter.mag = getVkFilterMode( s.magFilter );
-			sampler.descriptor.addressMode.u = getVkWrapMode( s.wrapS );
-			sampler.descriptor.addressMode.v = getVkWrapMode( s.wrapT );
-			sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
+		for ( auto& i : model.images ) {
+			auto& image = graph.images.emplace_back();
+			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
 		}
+	}
+	/*
 		if ( !graph.atlas ) graph.atlas = new uf::Atlas;
 		auto& images = graph.atlas->getImages();
 		for ( auto& t : model.textures ) {
@@ -300,6 +317,48 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			image.loadFromBuffer( &pixels[0], {2, 2}, 8, 4, true );
 		}
 		if ( !images.empty() ) graph.atlas->generate();
+	*/
+	// generate atlas
+	if ( mode & ext::gltf::LoadMode::USE_ATLAS ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
+		auto& atlas = *graph.atlas;
+		atlas.generate( graph.images );
+	}
+	// load textures
+	{
+		for ( auto& t : model.textures ) {
+			auto& texture = graph.textures.emplace_back();
+			texture.name = t.name;
+			texture.index = t.source;
+			texture.sampler = t.sampler;
+		}
+	}
+	// load materials
+	{
+		for ( auto& m : model.materials ) {
+		//	std::cout << "Material: " << m.name << ": " << .index << " " << m.siveTexture.index << std::endl;
+			auto& material = graph.materials.emplace_back();
+			material.name = m.name;
+			material.storage.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
+			material.storage.indexNormal = m.normalTexture.index;
+			material.storage.indexEmissive = m.emissiveTexture.index;
+			material.storage.indexOcclusion = m.occlusionTexture.index;
+			material.storage.indexMetallicRoughness = m.pbrMetallicRoughness.metallicRoughnessTexture.index;
+			material.storage.colorBase = {
+				m.pbrMetallicRoughness.baseColorFactor[0],
+				m.pbrMetallicRoughness.baseColorFactor[1],
+				m.pbrMetallicRoughness.baseColorFactor[2],
+				m.pbrMetallicRoughness.baseColorFactor[3],
+			};
+			material.storage.colorEmissive = {
+				m.emissiveFactor[0],
+				m.emissiveFactor[1],
+				m.emissiveFactor[2],
+				0
+			};
+			material.storage.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
+			material.storage.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
+			material.storage.factorOcclusion = m.occlusionTexture.strength;
+		}
 	}
 	// load node information/meshes
 	{
@@ -312,9 +371,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		graph.skins.reserve( model.skins.size() );
 		for ( auto& s : model.skins ) {
 			auto& skin = graph.skins.emplace_back();
-			skin.name = s.name;
-		//	skin.root = uf::graph::find( graph, s.skeleton );
-			
+			skin.name = s.name;			
 			if ( s.inverseBindMatrices > -1 ) {
 				const tinygltf::Accessor& accessor = model.accessors[s.inverseBindMatrices];
 				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
@@ -325,9 +382,6 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 				skin.inverseBindMatrices.reserve(accessor.count);
 				for ( size_t i = 0; i < accessor.count; ++i )
 					skin.inverseBindMatrices.emplace_back( buf[i] );
-
-			//	skin.inverseBindMatrices.resize(accessor.count);
-			//	memcpy(skin.inverseBindMatrices.data(), &buffer.data[accessor.byteOffset + view.byteOffset], accessor.count * sizeof(pod::Matrix4f));
 			}
 
 			for ( auto& joint : s.joints ) {
@@ -340,10 +394,8 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	{
 		graph.animations.reserve( model.animations.size() );
 		for ( auto& a : model.animations ) {
-		//	auto& animation = graph.animations.emplace_back();
 			auto& animation = graph.animations[a.name];
 			animation.name = a.name;
-		//	if ( graph.animation == "" ) graph.animation = a.name;
 
 			// load samplers
 			animation.samplers.reserve( a.samplers.size() );

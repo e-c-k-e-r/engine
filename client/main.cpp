@@ -5,6 +5,8 @@
 
 #include <uf/utils/mempool/mempool.h>
 
+#define HANDLE_EXCEPTIONS 0
+
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -32,7 +34,9 @@ int main(int argc, char** argv){
 		}
 	}
 	while ( client::ready && ext::ready ) {
+	#if defined(HANDLE_EXCEPTIONS)
 		try {	
+	#endif
 			static bool first = false; if ( !first ) { first = true;
 				uf::Serializer json;
 				std::string hook = "window:Resized";
@@ -47,6 +51,7 @@ int main(int argc, char** argv){
 			ext::tick();
 			client::render();
 			ext::render();
+	#if defined(HANDLE_EXCEPTIONS)
 		} catch ( std::runtime_error& e ) {
 			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";
 			break;
@@ -58,6 +63,7 @@ int main(int argc, char** argv){
 		} catch ( ... ) {
 			uf::iostream << "UNKNOWN ERROR: " << "???" << "\n";
 		}
+	#endif
 	}
 
 	if ( !client::terminated ) {

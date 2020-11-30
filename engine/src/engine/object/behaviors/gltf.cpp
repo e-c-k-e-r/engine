@@ -17,7 +17,7 @@ UF_BEHAVIOR_REGISTER_CPP(uf::GltfBehavior)
 #define this (&self)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["textures"]["additional"] = Json::Value(Json::arrayValue);
+	metadata["textures"]["additional"] = ext::json::array(); //Json::Value(Json::arrayValue);
 	// Default load: GLTF model
 	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
@@ -92,7 +92,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 
 			graphic.process = true;
 
-			auto& shader = graphic.material.shaders.back();
+			auto& shader = graphic.material.getShader("fragment");
 			struct SpecializationConstant {
 				uint32_t textures = 1;
 			};
@@ -102,6 +102,19 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
 					binding.descriptorCount = specializationConstants->textures;
+			}
+			{
+				auto& definition = shader.metadata["definitions"]["uniforms"]["UBO"];
+				size_t size = definition["size"].as<size_t>();
+				size_t elements = definition["value"].size();
+				if ( elements > 0 ) {
+					definition["size"] = size / elements * specializationConstants->textures;
+					ext::json::Value value = definition["value"][0];
+					definition["value"] = ext::json::array();
+					for ( size_t i = 0; i < specializationConstants->textures; ++i ) {
+						definition["value"].emplace_back(value);
+					}
+				}
 			}
 		});
 		this->addChild(objectPointer->as<uf::Entity>());
@@ -122,8 +135,8 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				uf::graph::animate( graph, metadata["model"]["animation"].as<std::string>() );
 			}
 			if ( metadata["model"]["print animations"].as<bool>() ) {
-				uf::Serializer json = Json::Value(Json::arrayValue);
-				for ( auto pair : graph.animations ) json.append( pair.first );
+				uf::Serializer json = ext::json::array(); //Json::Value(Json::arrayValue);
+				for ( auto pair : graph.animations ) json.emplace_back( pair.first );
 				uf::iostream << "Animations found: " << json << "\n";
 			}
 		}
@@ -138,6 +151,39 @@ void uf::GltfBehavior::destroy( uf::Object& self ) {
 	}
 }
 void uf::GltfBehavior::tick( uf::Object& self ) {
+	/* Animation change test */ 
+	if ( this->hasComponent<pod::Graph>() ) {
+		std::vector<std::string> animations = { "wank","walk","sit_wank","run","idle_wank","sit","idle" };
+		bool anyNumber =
+			uf::Window::isKeyPressed("1") ||
+			uf::Window::isKeyPressed("2") ||
+			uf::Window::isKeyPressed("3") ||
+			uf::Window::isKeyPressed("4") ||
+			uf::Window::isKeyPressed("5") ||
+			uf::Window::isKeyPressed("6") ||
+			uf::Window::isKeyPressed("7") ||
+			uf::Window::isKeyPressed("8") ||
+			uf::Window::isKeyPressed("9") ||
+			uf::Window::isKeyPressed("0");
+		TIMER(1, anyNumber && ) {
+			auto& graph = this->getComponent<pod::Graph>();
+			std::string target = "";
+			if ( uf::Window::isKeyPressed("1") && animations.size() >= 1 ) target = animations[0];
+			else if ( uf::Window::isKeyPressed("2") && animations.size() >= 2 ) target = animations[1];
+			else if ( uf::Window::isKeyPressed("3") && animations.size() >= 3 ) target = animations[2];
+			else if ( uf::Window::isKeyPressed("4") && animations.size() >= 4 ) target = animations[3];
+			else if ( uf::Window::isKeyPressed("5") && animations.size() >= 5 ) target = animations[4];
+			else if ( uf::Window::isKeyPressed("6") && animations.size() >= 6 ) target = animations[5];
+			else if ( uf::Window::isKeyPressed("7") && animations.size() >= 7 ) target = animations[6];
+			else if ( uf::Window::isKeyPressed("8") && animations.size() >= 8 ) target = animations[7];
+			else if ( uf::Window::isKeyPressed("9") && animations.size() >= 9 ) target = animations[8];
+			else if ( uf::Window::isKeyPressed("0") && animations.size() >= 10 ) target = animations[9];
+			std::cout << "CHANGING ANIMATION TO " << target << std::endl;
+			// graph.animationSettings.loop = false;
+			uf::graph::animate( graph, target, 1 / 0.125f );
+		}
+	}
+
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -155,35 +201,71 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		transform.model = nodeMatrix;
 	}
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
+		auto& scene = uf::scene::getCurrentScene();
 		auto& metadata = this->getComponent<uf::Serializer>();
-		auto& graphic = this->getComponent<uf::Graphic>();	
-		if ( !graphic.initialized ) return;
-		auto& shader = graphic.material.shaders.back();
-		if ( shader.uniforms.empty() ) return;
-		shader.validate();
+		auto& graphic = this->getComponent<uf::Graphic>();
 
-		auto& userdata = shader.uniforms.front();
+		if ( !graphic.initialized ) return;
+		if ( !graphic.material.hasShader("fragment") ) return;
+		if ( !graphic.hasStorage("Materials") ) return;
+		if ( !ext::json::isObject(metadata["textures"]["map"]) ) return;
+
+		auto* objectWithGraph = this;
+		while ( objectWithGraph != &scene ) {
+			if ( objectWithGraph->hasComponent<pod::Graph>() ) break;
+			objectWithGraph = &objectWithGraph->getParent().as<uf::Object>();
+		}
+		if ( !objectWithGraph->hasComponent<pod::Graph>() ) return;
+		auto& graph = objectWithGraph->getComponent<pod::Graph>();
+		if ( graph.materials.empty() ) return;
+		
+
+		auto& shader = graphic.material.getShader("fragment");
+		std::vector<pod::Material::Storage> materials( graph.materials.size() );
+		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
+			materials[i] = graph.materials[i].storage;
+			materials[i].indexMappedTarget = i;
+			materials[i].factorMappedBlend = 0.0f;
+		}
+		size_t texturesLen = graphic.material.textures.size();
+		ext::json::forEach(metadata["textures"]["map"], [&]( const std::string& key, const ext::json::Value& mapping ){
+			uint32_t from = std::stoi(key);
+			uint32_t to = mapping[0].as<size_t>();
+			float blend = 1.0f;
+			if ( mapping[1].as<std::string>() == "sin(time)" ) {
+				blend = sin(uf::physics::time::current)*0.5f+0.5f;
+			} else if ( mapping[1].as<std::string>() == "cos(time)" ) {
+				blend = cos(uf::physics::time::current)*0.5f+0.5f;
+			} else if ( mapping[1].is<float>() ) {
+				blend = mapping[1].as<float>();
+			}
+			if ( from >= texturesLen || to >= texturesLen ) return;
+			materials[from].indexMappedTarget = to;
+			materials[from].factorMappedBlend = blend;
+		});
+		auto& storageBuffer = *graphic.getStorageBuffer("Materials");
+		graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), storageBuffer, false );
+	/*
 		struct UniformDescriptor {
-		//	alignas(4) uint32_t mappings;
 			struct Mapping {
 				alignas(4) uint32_t target;
 				alignas(4) float blend;
 				uint32_t padding[2];
 			} map;
 		};
-		size_t uniforms_len = userdata.data().len;
-		uint8_t* uniforms_buffer = (uint8_t*) (void*) userdata;
-		UniformDescriptor* uniforms = (UniformDescriptor*) uniforms_buffer;
-		UniformDescriptor::Mapping* mappings = (UniformDescriptor::Mapping*) &uniforms_buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Mapping)];
+		auto& uniform = shader.getUniform("UBO");
+
+		uint8_t* uniformBuffer = (uint8_t*) (void*) uniform;
+		UniformDescriptor* uniforms = (UniformDescriptor*) uniformBuffer;
+		UniformDescriptor::Mapping* mappings = (UniformDescriptor::Mapping*) &(uniformBuffer)[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Mapping)];
 
 		size_t textures = graphic.material.textures.size();
-		// uniforms->mappings = textures;
 		for ( size_t i = 0; i < textures; ++i ) {
 			mappings[i].target = i;
 			mappings[i].blend = 0.0f;
 		}
 		for ( auto it = metadata["textures"]["map"].begin(); it != metadata["textures"]["map"].end(); ++it ) {
-			std::string key = it.key().as<std::string>();
+			std::string key = it.key();
 			uint32_t from = std::stoi(key);
 			uint32_t to = metadata["textures"]["map"][key][0].as<size_t>();
 			float blend = 1.0f;
@@ -198,14 +280,9 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			mappings[from].target = to;
 			mappings[from].blend = blend;
 		}
-		uf::renderer::Buffer* bufferPointer = NULL;
-		for ( auto& buffer : shader.buffers ) {
-			if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
-				 bufferPointer = &buffer;
-			}
-		}
-		if ( bufferPointer ) shader.updateBuffer( (void*) uniforms_buffer, uniforms_len, *bufferPointer, false );
-	};
+		shader.updateUniform( "UBO" );
+	*/
+	}
 }
 void uf::GltfBehavior::render( uf::Object& self ) {
 

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <stdint.h>
 
+#include <uf/ext/json/json.h>
 #include <uf/utils/math/angle.h>
 #ifdef UF_USE_GLM
 	#include "glm.h"
@@ -177,7 +178,10 @@ namespace uf {
 		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); 						// 	Compute the norm of the vector
 		template<typename T> T /*UF_API*/ normalize( const T& vector ); 									// 	Normalizes a vector
-		template<typename T> std::string /*UF_API*/ toString( const T& vector ); 							// 	Normalizes a vector
+		
+		template<typename T> std::string /*UF_API*/ toString( const T& vector ); 							// 	Parses a vector as a string
+		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v ); 				// 	Parses a vector into a JSON value
+		template<typename T, size_t N> pod::Vector<T,N> decode( const ext::json::Value& v ); 				// 	Parses a JSON value into a vector
 	}
 }
 
@@ -311,11 +315,20 @@ namespace uf {
 	typedef Vector4t<double> Vector4d;
 }
 
-#include <uf/utils/string/ext.h>
+//#include <uf/utils/string/ext.h>
+#include <sstream>
 namespace uf {
 	namespace string {
 		template<typename T, size_t N>
 		std::string toString( const pod::Vector<T,N>& v );
+	}
+}
+namespace ext {
+	namespace json {
+		template<typename T, size_t N>
+		ext::json::Value encode( const pod::Vector<T,N>& v );
+		template<typename T, size_t N>
+		pod::Vector<T,N> decode( const ext::json::Value& v );
 	}
 }
 

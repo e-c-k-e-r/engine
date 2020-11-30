@@ -217,11 +217,18 @@ bool ext::openvr::initialize( int stage ) {
 		return "true";
 	});
 
+	vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+	vr::VRCompositor()->SetExplicitTimingMode(vr::EVRCompositorTimingMode::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+
 	return true;
 }
 void ext::openvr::terminate() {
-	::devices.controllers.left.graphic.destroy();
-	::devices.controllers.right.graphic.destroy();
+//	::devices.controllers.left.graphic.destroy();
+//	::devices.controllers.right.graphic.destroy();
+	for ( auto pair : ::renderModels ) {
+		pair.second.destroy();
+	}
+
 	vr::VR_Shutdown();
 	ext::openvr::context = NULL;
 }
@@ -312,30 +319,7 @@ void ext::openvr::tick() {
 	// 
 
 	// Obtain tracking device poses
-	float predictedDisplayTime = 0.0f;
-	{
-		float displayFrequency = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
-		float frameDuration = 1.f / displayFrequency;
-		float vsyncToPhotons = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SecondsFromVsyncToPhotons_Float);
-		predictedDisplayTime = frameDuration + vsyncToPhotons;
-		ext::openvr::context->GetDeviceToAbsoluteTrackingPose(
-			vr::ETrackingUniverseOrigin::TrackingUniverseStanding,
-			predictedDisplayTime,
-			ext::openvr::driver.poses,
-			vr::k_unMaxTrackedDeviceCount
-		);
-		vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
-		if ( ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bDeviceIsConnected && ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid ) {
-			vr::HmdMatrix34_t mat = ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
-			::devices.hmd.matrix = {
-				mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0,
-				mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0,
-				mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0,
-				mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
-			};
-			::devices.hmd.matrix = uf::matrix::invert(::devices.hmd.matrix);
-		}
-	}
+	float fPredictedSecondsFromNow = ext::openvr::predictedTimeToDisplay();
 	// Parse actions
 	{
 		{
@@ -407,7 +391,7 @@ void ext::openvr::tick() {
 			// pose data
 			{
 				vr::InputPoseActionData_t data;
-				if ( vr::VRInputError_None == vr::VRInput()->GetPoseActionDataRelativeToNow(handle, vr::TrackingUniverseStanding,  predictedDisplayTime, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
+				if ( vr::VRInputError_None == vr::VRInput()->GetPoseActionDataRelativeToNow(handle, vr::TrackingUniverseStanding,  fPredictedSecondsFromNow, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
 					std::vector<std::string> split = uf::string::split( name, "/" );
 					std::string shortname = split.back();
 					split = uf::string::split( shortname, "." );
@@ -445,7 +429,6 @@ bool ext::openvr::requestRenderModel( const std::string& name ) {
 	return false;	
 }
 void ext::openvr::submit() { bool invert = swapEyes;
-	
 	ext::vulkan::StereoscopicDeferredRenderMode* renderMode = (ext::vulkan::StereoscopicDeferredRenderMode*) &ext::vulkan::getRenderMode("");
 	
 	float width = renderMode->width > 0 ? renderMode->width : uf::renderer::settings::width;
@@ -484,6 +467,47 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds );
 
 	vr::VRCompositor()->PostPresentHandoff();
+}
+void ext::openvr::synchronize( bool async ) {
+	if ( async ) uf::thread::add( uf::thread::fetchWorker(), [](){ vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0); return true; }, true );
+	else vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
+	
+	ext::openvr::updateTracking(1);
+}
+float ext::openvr::predictedTimeToDisplay( float additional ) {
+	float displayFrequency = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
+	float fFrameDuration = 1.f / displayFrequency;
+	
+	float fSecondsSinceLastVsync = 0.0f;
+	ext::openvr::context->GetTimeSinceLastVsync( &fSecondsSinceLastVsync, NULL );
+	
+	float fSecondsFromVSyncToPhotons = ext::openvr::context->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SecondsFromVsyncToPhotons_Float);
+	float fPredictedSecondsFromNow = additional * fFrameDuration - fSecondsSinceLastVsync + fSecondsFromVSyncToPhotons;
+// 	fFrameDuration - fSecondsSinceLastVsync + fFrameDuration + fSecondsFromVSyncToPhotons;
+//	frameDuration + vsyncToPhotons;
+	return fPredictedSecondsFromNow;
+}
+float ext::openvr::updateTracking(float additional) {
+	float fPredictedSecondsFromNow = ext::openvr::predictedTimeToDisplay(additional);
+	ext::openvr::context->GetDeviceToAbsoluteTrackingPose(
+		vr::ETrackingUniverseOrigin::TrackingUniverseStanding,
+		fPredictedSecondsFromNow,
+		ext::openvr::driver.poses,
+		vr::k_unMaxTrackedDeviceCount
+	);
+
+//	vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+	if ( ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bDeviceIsConnected && ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid ) {
+		vr::HmdMatrix34_t mat = ext::openvr::driver.poses[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+		::devices.hmd.matrix = {
+			mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0,
+			mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0,
+			mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0,
+			mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0f
+		};
+		::devices.hmd.matrix = uf::matrix::invert(::devices.hmd.matrix);
+	}
+	return fPredictedSecondsFromNow;
 }
 
 void ext::openvr::recommendedResolution( uint32_t& width, uint32_t& height ) {

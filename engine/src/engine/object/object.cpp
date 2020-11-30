@@ -27,7 +27,7 @@ void uf::Object::queueHook( const std::string& name, const std::string& payload,
 	queue["payload"] = uf::Serializer{payload};
 	queue["timeout"] = start + timeout;
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["queue"].append(queue);
+	metadata["system"]["hooks"]["queue"].emplace_back(queue);
 }
 std::string uf::Object::formatHookName( const std::string& n, size_t uid, bool fetch ) {
 	if ( fetch ) {
@@ -73,7 +73,7 @@ std::size_t uf::Object::addHook( const std::string& name, const uf::HookHandler:
 	std::string parsed = this->formatHookName( name );
 	std::size_t id = uf::hooks.addHook( parsed, callback );
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["alloc"][parsed].append(id);
+	metadata["system"]["hooks"]["alloc"][parsed].emplace_back(id);
 	return id;
 }
 
@@ -87,7 +87,7 @@ bool uf::Object::load( const std::string& f, bool inheritRoot ) {
 	}
 	std::string filename = grabURI( f, root );
 	if ( !json.readFromFile( filename ) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+	//	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 		return false;
 	}
 	json["root"] = uf::io::directory(filename);
@@ -103,15 +103,15 @@ bool uf::Object::reload( bool hard ) {
 	uf::Serializer payload;
 	std::string filename = metadata["system"]["source"].as<std::string>(); //grabURI( metadata["system"]["source"].as<std::string>(), metadata["system"]["root"].as<std::string>() ); // uf::io::sanitize(metadata["system"]["source"].as<std::string>(), metadata["system"]["root"].as<std::string>());
 	if ( !json.readFromFile( filename ) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
-		uf::iostream << this << ": " << this->getName() << ": " << this->getUid() << ": " << metadata << "\n";
+	////	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+	//	uf::iostream << this << ": " << this->getName() << ": " << this->getUid() << ": " << metadata << "\n";
 		return false;
 	}
 	if ( hard ) return this->load(filename);
 
 	payload["old"] = metadata;
 	for ( auto it = json["metadata"].begin(); it != json["metadata"].end(); ++it ) {
-		metadata[it.key().as<std::string>()] = json["metadata"][it.key().as<std::string>()];
+		metadata[it.key()] = json["metadata"][it.key()];
 	}
 	payload["new"] = metadata;
 	std::cout << "Updated metadata for " << this->getName() << ": " << this->getUid() << std::endl;
@@ -124,8 +124,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Serializer json = _json;
 	// import
-	if ( _json["import"].is<std::string>() || _json["include"].is<std::string>() ) {
-		uf::Serializer chain = _json;
+	if ( json["import"].is<std::string>() || json["include"].is<std::string>() ) {
+		uf::Serializer chain = json;
 		std::string root = json["root"].as<std::string>();
 		do {
 			std::string filename = chain["import"].is<std::string>() ? chain["import"].as<std::string>() : chain["include"].as<std::string>();
@@ -146,7 +146,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	}
 	// copy system table to base
 	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
-		std::string key = it.key().as<std::string>();
+		std::string key = it.key();
 		if ( ext::json::isNull( json[key] ) )
 			json[key] = json["system"][key];
 	}
@@ -208,6 +208,10 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				transform.scale = uf::vector::create( json["transform"]["scale"][0].as<float>(),json["transform"]["scale"][1].as<float>(),json["transform"]["scale"][2].as<float>() );
 			}
 			transform = uf::transform::reorient( transform );
+			if ( json["transform"]["reference"].as<std::string>() == "parent" ) {
+				auto& parent = this->getParent().as<uf::Object>();
+				transform.reference = &parent.getComponent<pod::Transform<>>();
+			}
 		}
 	}
 	// Set movement
@@ -301,13 +305,13 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 
 	uf::Serializer hooks = metadata["system"]["hooks"];
 	// Metadata
-	if ( json["metadata"] != Json::nullValue ) {
+	if ( !ext::json::isNull( json["metadata"] ) ) {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		if ( json["metadata"].type() == Json::stringValue ) {
+		if ( json["metadata"].is<std::string>() ) {
 			std::string f = json["metadata"].as<std::string>();
 			std::string filename = grabURI( json["metadata"].as<std::string>(), json["root"].as<std::string>() );
 			if ( !metadata.readFromFile(filename) ) {
-				uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+			//	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 				return false;
 			}
 		} else {
@@ -315,12 +319,12 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		}
 	}
 	metadata["system"] = json;
-	metadata["system"].removeMember("metadata");
+	metadata["system"].erase("metadata");
 	metadata["system"]["hooks"] = hooks;
 /*
 	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
-		if ( ext::json::isNull( metadata["system"][it.key().as<std::string>()] ) )
-			metadata["system"][it.key().as<std::string>()] = json["system"][it.key().as<std::string>()];
+		if ( ext::json::isNull( metadata["system"][it.key()] ) )
+			metadata["system"][it.key()] = json["system"][it.key()];
 	}
 */
 
@@ -343,7 +347,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			{
 				uf::Serializer json;
 				if ( !json.readFromFile(filename) ) {
-					uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+				//	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 					continue;
 				}
 				json["root"] = uf::io::directory(filename);
@@ -418,7 +422,7 @@ uf::Object& uf::Object::loadChild( const std::string& f, bool initialize ) {
 	uf::Serializer json;
 	std::string filename = grabURI( f, metadata["system"]["root"].as<std::string>() );
 	if ( !json.readFromFile(filename) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
+	//	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
 		return ::null;
 	}
 	json["root"] = uf::io::directory(filename);
@@ -426,15 +430,17 @@ uf::Object& uf::Object::loadChild( const std::string& f, bool initialize ) {
 	json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
 	return this->loadChild(json, initialize);
 }
-uf::Object& uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
+uf::Object& uf::Object::loadChild( const uf::Serializer& _json, bool initialize ) {
+	uf::Serializer json = _json;
 	std::string type = json["type"].as<std::string>();
+	if ( type == "" ) type = "Object";
 	if ( json["ignore"].as<bool>() ) return ::null;
 
 	uf::Entity& entity = uf::instantiator::instantiate(type);
 	uf::Object& object = entity.as<uf::Object>();
 	this->addChild(entity);
 	if ( !object.load(json) ) {
-		uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << " loading `" << json << "!" << "\n";
+	//	uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << " loading `" << json << "!" << "\n";
 		this->removeChild(entity);
 		return ::null;
 	}

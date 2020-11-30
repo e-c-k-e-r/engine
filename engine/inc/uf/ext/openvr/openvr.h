@@ -41,6 +41,9 @@ namespace ext {
 		void UF_API tick();
 		void UF_API terminate();
 		void UF_API submit();
+		void UF_API synchronize( bool async = true );
+		float UF_API predictedTimeToDisplay( float additional = 1 );
+		float UF_API updateTracking( float additional = 1 );
 		void UF_API recommendedResolution( uint32_t& width, uint32_t& height );
 
 		pod::Matrix4t<> UF_API hmdHeadPositionMatrix();

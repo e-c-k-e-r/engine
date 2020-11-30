@@ -2,8 +2,8 @@
 
 layout (constant_id = 0) const uint LIGHTS = 32;
 
-layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedo;
-layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormal;
+layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedoMetallic;
+layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormalRoughness;
 layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerDepth;
 layout (binding = 5) uniform sampler2D samplerShadows[LIGHTS];
 /*
@@ -100,13 +100,13 @@ void fog( inout vec3 i, float scale ) {
 	i = mix(i.rgb, color, factor);
 }
 
-void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
+void phong( Light light, vec4 albedoMetallic, inout vec3 i ) {
 	vec3 Ls = vec3(1.0, 1.0, 1.0); 		// light specular
 	vec3 Ld = light.color; 				// light color
 	vec3 La = vec3(1.0, 1.0, 1.0);
 
-	vec3 Ks = vec3(albedoSpecular.a); 	// material specular
-	vec3 Kd = albedoSpecular.rgb;		// material diffuse
+	vec3 Ks = vec3(albedoMetallic.a); 	// material specular
+	vec3 Kd = albedoMetallic.rgb;		// material diffuse
 	vec3 Ka = vec3(1.0, 1.0, 1.0); 
 
 	float Kexp = ubo.kexp;
@@ -133,6 +133,81 @@ void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
 	vec3 Is = Ls * Ks * s_factor * attenuation;
 	
 	i += Id * light.power + Is;
+}
+
+const float PI = 3.14159265359;
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a      = roughness*roughness;
+    float a2     = a*a;
+    float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+	
+    float num   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+	
+    return num / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
+    float num   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+	
+    return num / denom;
+}
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+	
+    return ggx1 * ggx2;
+}
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+void pbr( Light light, vec3 albedo, float metallic, float roughness, inout vec3 i ) {
+	vec3 F0 = vec3(0.04); 
+    F0 = mix(F0, albedo, metallic); 
+
+	vec3 N = normalize(normal.eye);
+	vec3 L = light.position.xyz - position.eye;
+	float dist = length(L);
+	if ( light.radius > 0.001 && light.radius < dist ) return;
+
+	vec3 D = normalize(L);
+	vec3 V = normalize(position.eye);
+	vec3 H = normalize(V + D);
+
+	float NdotD = max(dot(N, D), 0.0);
+	float NdotV = max(dot(N, V), 0.0);
+
+	vec3 radiance = light.color.rgb * light.power;
+	if ( light.radius > 0.0001 ) {
+		radiance *= clamp( light.radius / (pow(dist, 2.0) + 1.0), 0.0, 1.0 );
+	} else if ( false ) {
+		radiance = light.color.rgb * 1.0 / (dist * dist);
+	}
+
+	// cook-torrance brdf
+	float NDF = DistributionGGX(N, H, roughness);        
+	float G   = GeometrySmith(N, V, D, roughness);      
+	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
+
+	vec3 kS = F;
+	vec3 kD = vec3(1.0) - kS;
+	kD *= 1.0 - metallic;	  
+
+	vec3 numerator    = NDF * G * F;
+	float denominator = 4.0 * NdotV * NdotD;
+	vec3 specular     = numerator / max(denominator, 0.001);  
+
+	// add to outgoing radiance Lo
+	i += (kD * albedo / PI + specular) * radiance * NdotD;
 }
 
 float random(vec3 seed, int i){
@@ -370,10 +445,10 @@ void whitenoise(inout vec3 color) {
 }
 
 void main() {
-	vec4 albedoSpecular = subpassLoad(samplerAlbedo);
-	vec3 fragColor = albedoSpecular.rgb * ubo.ambient.rgb;
+	vec4 albedoMetallic = subpassLoad(samplerAlbedoMetallic);
+	vec4 normalRoughness = subpassLoad(samplerNormalRoughness);
 
-	normal.eye = subpassLoad(samplerNormal).rgb;
+	normal.eye = normalRoughness.rgb;
 	{
 		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
@@ -387,7 +462,12 @@ void main() {
 		vec4 positionWorld = iView * positionEye;
 		position.world = positionWorld.xyz;
 	}
+
+	float ao = 1;
+	vec3 fragColor = albedoMetallic.rgb * ubo.ambient.rgb * ao;
 	float litFactor = 1.0;
+	bool usePbr = true;
+	bool gammaCorrect = false;
 	for ( uint i = 0, shadowMap = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
@@ -400,8 +480,16 @@ void main() {
 			light.power *= shadowFactor;
 			litFactor += light.power;
 		}
-		phong( light, albedoSpecular, fragColor );
+		if ( usePbr ) 
+			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, fragColor );
+		else
+			phong( light, albedoMetallic, fragColor );
 	}
+
+	if ( gammaCorrect ) {
+		fragColor = fragColor / (fragColor + vec3(1.0));
+ 		fragColor = pow(fragColor, vec3(1.0/2.2));  
+ 	}
 	
 	fog(fragColor, litFactor);
 

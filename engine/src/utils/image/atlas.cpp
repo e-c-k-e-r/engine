@@ -16,7 +16,10 @@ void uf::Atlas::addImage( const uint8_t* pointer, const pod::Vector2ui& size, st
 
 }
 void uf::Atlas::generate( float padding ) {
-	if ( this->m_images.empty() ) return;
+	return generate( this->m_images, padding );
+}
+void uf::Atlas::generate( const uf::Atlas::images_t& images, float padding ) {
+	if ( images.empty() ) return;
 	// destroy atlas
 	this->m_image.clear();
 
@@ -25,7 +28,7 @@ void uf::Atlas::generate( float padding ) {
 	pod::Vector3ui largest = {0,0,0};
 	size_t index = 0;
 	size_t area = 0;
-	for ( auto& image : this->m_images ) {
+	for ( auto& image : images ) {
 		auto& dim = image.getDimensions();
 		queue += BinPack2D::Content<uf::Atlas::identifier_t>({index++}, BinPack2D::Coord(), BinPack2D::Size(dim.x, dim.y), false );
 		size += dim;
@@ -39,7 +42,7 @@ void uf::Atlas::generate( float padding ) {
 	BinPack2D::ContentAccumulator<uf::Atlas::identifier_t> stored, remainder;
 	do {
 		{
-		//	size_t area = largest.x * largest.y * this->m_images.size();
+		//	size_t area = largest.x * largest.y * images.size();
 			size_t side = std::sqrt( area ) * padding;
 			size = { side, side };
 			{
@@ -80,7 +83,7 @@ void uf::Atlas::generate( float padding ) {
 
 	for ( auto& it : stored.Get() ) {
 		size_t index = it.content.index;
-		auto& image = this->m_images[index];
+		auto& image = images[index];
 		auto& dim = image.getDimensions();
 		auto channels = image.getChannels();
 		auto& srcBuffer = image.getPixels();
@@ -107,8 +110,8 @@ pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
 	auto& size = this->m_image.getDimensions();
 	for ( auto& it : stored.Get() ) {
 		if ( it.content.index != index ) continue;
-		auto& image = this->m_images[index];
-		auto& dim = image.getDimensions();
+	//	auto& image = this->m_images[index];
+		pod::Vector2ui dim = { it.size.w, it.size.h }; //image.getDimensions();
 		pod::Vector2f nuv = uv;
 		if ( nuv.x > 1.0f ) nuv.x = std::fmod( nuv.x, 1.0f );
 		if ( nuv.y > 1.0f ) nuv.y = std::fmod( nuv.y, 1.0f );
@@ -182,7 +185,10 @@ bool uf::HashAtlas::has( const std::string& hash ) const {
 	return this->m_images.count(hash) > 0;
 }
 void uf::HashAtlas::generate( float padding ) {
-	if ( this->m_images.empty() ) return;
+	return generate( this->m_images, padding );
+}
+void uf::HashAtlas::generate( const uf::HashAtlas::images_t& images, float padding ) {
+	if ( images.empty() ) return;
 	// destroy atlas
 	this->m_image.clear();
 
@@ -191,7 +197,7 @@ void uf::HashAtlas::generate( float padding ) {
 	pod::Vector3ui largest = {0,0,0};
 	size_t index = 0;
 	size_t area = 0;
-	for ( auto& pair : this->m_images ) {
+	for ( auto& pair : images ) {
 		auto hash = pair.first;
 		auto& dim = pair.second.getDimensions();
 		queue += BinPack2D::Content<uf::HashAtlas::identifier_t>({hash}, BinPack2D::Coord(), BinPack2D::Size(dim.x, dim.y), false );
@@ -206,7 +212,7 @@ void uf::HashAtlas::generate( float padding ) {
 	BinPack2D::ContentAccumulator<uf::HashAtlas::identifier_t> stored, remainder;
 	do {
 		{
-		//	size_t area = largest.x * largest.y * this->m_images.size();
+		//	size_t area = largest.x * largest.y * images.size();
 			size_t side = std::sqrt( area ) * padding;
 			size = { side, side };
 			{
@@ -247,7 +253,7 @@ void uf::HashAtlas::generate( float padding ) {
 
 	for ( auto& it : stored.Get() ) {
 		auto& hash = it.content.hash;
-		auto& image = this->m_images[hash];
+		auto& image = images.at(hash);
 		auto& dim = image.getDimensions();
 		auto channels = image.getChannels();
 		auto& srcBuffer = image.getPixels();
@@ -274,8 +280,8 @@ pod::Vector2f uf::HashAtlas::mapUv( const pod::Vector2f& uv, const uf::HashAtlas
 	auto& size = this->m_image.getDimensions();
 	for ( auto& it : stored.Get() ) {
 		if ( it.content.hash != hash ) continue;
-		auto& image = this->m_images[hash];
-		auto& dim = image.getDimensions();
+	//	auto& image = this->m_images[hash];
+		pod::Vector2ui dim = { it.size.w, it.size.h }; //image.getDimensions();
 		pod::Vector2f nuv = uv;
 		if ( nuv.x > 1.0f ) nuv.x = std::fmod( nuv.x, 1.0f );
 		if ( nuv.y > 1.0f ) nuv.y = std::fmod( nuv.y, 1.0f );

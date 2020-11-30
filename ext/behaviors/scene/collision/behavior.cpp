@@ -58,7 +58,7 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 				auto& metadata = entity->getComponent<uf::Serializer>();
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				auto& physics = entity->getComponent<pod::Physics>();
-				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+				if ( ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
 					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
 					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
 					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
@@ -180,7 +180,7 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 				auto& metadata = entity->getComponent<uf::Serializer>();
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				auto& physics = entity->getComponent<pod::Physics>();
-				if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+				if ( ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
 					physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
 					physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
 					physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();

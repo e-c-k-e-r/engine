@@ -153,18 +153,11 @@ namespace uf {
 		return_t call( const name_t& name, const uf::Serializer& );
 
 		size_t addHook( const name_t& name, const std::function<void()>& callback );
-	/*
-		size_t addHook( const name_t& name, const std::function<void(const std::string&)>& callback );
-		size_t addHook( const name_t& name, const std::function<std::string(const std::string&)>& callback );
-	*/
+
 		template<typename Arg>
 		size_t addHook( const uf::Hooks::name_t& name, const std::function<void(Arg)>& callback );
 		template<typename R, typename Arg>
 		size_t addHook( const uf::Hooks::name_t& name, const std::function<R(Arg)>& callback );
-	/*
-		template<typename R, typename ...Args>
-		size_t addHook( const uf::Hooks::name_t& name, const std::function<R(Args...)>& callback );
-	*/
 		template<typename Function>
 		size_t addHook( const uf::Hooks::name_t& name, const Function& lambda );
 

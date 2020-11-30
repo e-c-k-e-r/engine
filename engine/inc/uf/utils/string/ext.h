@@ -16,6 +16,9 @@ namespace uf {
 		std::vector<std::string> UF_API split( const std::string&, const std::string& );
 		std::string UF_API si( double value, const std::string& unit, size_t precision = 3 );
 		
+
+		template<typename T>
+		std::string /*UF_API*/ join( const T&, const std::string& = "\n", bool = false );
 		template<typename T>
 		std::string /*UF_API*/ toString( const T& );
 	}

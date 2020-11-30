@@ -22,22 +22,7 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(
 		return ret;
 	}, typeid(callback).hash_code());
 }
-/*
-template<typename R, typename ...Args>
-size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(Args...)>& callback ) {
-	typedef function_traits<decltype(callback)> Traits;
-	typedef typename std::remove_reference<typename Traits::template Arg<0>::type>::type Argument;
-	return addHook(name, [=]( const uf::Userdata& userdata ){
-		uf::Userdata ret;
-		const Argument& payload = userdata.is<Argument>() ? userdata.get<Argument>() : Argument{};
 
-		R res = callback( payload );
-		ret.create<R>(res);
-
-		return ret;
-	}, typeid(callback).hash_code());
-}
-*/
 template<typename Function>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const Function& lambda ) {
 	typedef function_traits<Function> Traits;

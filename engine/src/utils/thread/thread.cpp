@@ -120,12 +120,20 @@ void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(u
 	size_t consts = 0;
 	while ( !thread.temps.empty() ) {
 		auto& function = thread.temps.front();
-		if ( function ) function();
+		if ( function ) try {
+			function();
+		} catch ( std::exception& e ) {
+			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
+		}
 		thread.temps.pop();
 		++temps;
 	}
 	for ( auto function : thread.consts ) {
-		function();
+		if ( function ) try {
+			function();
+		} catch ( std::exception& e ) {
+			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
+		}
 		++consts;
 	}
 	thread.condition.notify_one();

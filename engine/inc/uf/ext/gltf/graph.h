@@ -10,17 +10,68 @@
 
 #include "mesh.h"
 
+#include <queue>
+
 namespace pod {
+	struct UF_API Texture {
+		std::string name = "";
+		int32_t index = -1;
+		int32_t sampler = -1;
+	};
+	struct UF_API Material {
+		std::string name = "";
+		// 
+		struct Storage {
+			alignas(16) pod::Vector4f colorBase = { 1, 0, 1, 1 };
+
+			alignas(16) pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
+			
+			alignas(4) float factorMetallic = 0.0f;
+			alignas(4) float factorRoughness = 0.0f;
+			alignas(4) float factorOcclusion = 0.0f;
+			alignas(4) float factorMappedBlend = 0.0f;
+
+			alignas(4) int indexAlbedo = -1;
+			alignas(4) int indexNormal = -1;
+			alignas(4) int indexEmissive = -1;
+			alignas(4) int indexOcclusion = -1;
+			
+			alignas(4) int indexMetallicRoughness = -1;
+			alignas(4) int indexMappedTarget = -1;
+		} storage;
+	/*
+		alignas(16) struct {
+			alignas(4) int32_t albedo = -1;
+			alignas(4) int32_t normal = -1;
+			alignas(4) int32_t emissive = -1;
+			alignas(4) int32_t occlusion = -1;
+			alignas(4) int32_t metallicRoughness = -1;
+			alignas(4) int32_t _padding1 = -1;
+			alignas(4) int32_t _padding2 = -1;
+			alignas(4) int32_t mappedTarget = -1;
+		} id;
+		alignas(16) struct {
+			alignas(16) pod::Vector4f diffuse = { 1, 0, 1, 1 };
+			pod::Vector3f emissive = { 0, 0, 0 };
+			alignas(4) float _padding1 = 0.0f;
+			alignas(4) float metallic = 0.0f;
+			alignas(4) float roughness = 0.0f;
+			alignas(4) float occlusion = 0.0f;
+			alignas(4) float mappedBlend = 0.0f;
+		} color;
+	*/
+	};
 	struct UF_API Node {
 		typedef ext::gltf::skinned_mesh_t Mesh;
 
+		std::string name = "";
 		int32_t index = -1;
 
 		Node* parent = NULL;
 		std::vector<Node*> children;
 		uf::Object* entity = NULL;
-		uf::renderer::Buffer* buffer = NULL;
-		size_t bufferIndex = -1;
+		size_t jointBufferIndex = -1;
+		size_t materialBufferIndex = -1;
 
 		int32_t skin = -1;
 		Mesh mesh;
@@ -30,7 +81,7 @@ namespace pod {
 	};
 
 	struct UF_API Skin {
-		std::string name;
+		std::string name = "";
 		std::vector<Node*> joints;
 		std::vector<pod::Matrix4f> inverseBindMatrices;
 	};
@@ -46,7 +97,7 @@ namespace pod {
 			uint32_t sampler;
 		};
 
-		std::string name;
+		std::string name = "";
 		std::vector<Sampler> samplers;
 		std::vector<Channel> channels;
 		float start = std::numeric_limits<float>::max();
@@ -57,15 +108,29 @@ namespace pod {
 		Node* node = NULL;
 		uf::Object* entity = NULL;
 
+		std::string name = "";
 		ext::gltf::load_mode_t mode;
-	//	uint32_t animation = 0;
-		std::string animation = "";
+
+		uf::Atlas* atlas = NULL;
+		std::vector<uf::Image> images;
+		std::vector<ext::vulkan::Sampler> samplers;
+		std::vector<pod::Texture> textures;
+		std::vector<pod::Material> materials;
 
 		std::vector<Skin> skins;
-	//	std::vector<Animation> animations;
 		std::unordered_map<std::string, Animation> animations;
-		uf::Atlas* atlas = NULL;
-		std::vector<ext::vulkan::Sampler> samplers;
+		std::queue<std::string> sequence;
+		struct {
+			struct {
+				bool loop = true;
+				struct {
+					float a = -std::numeric_limits<float>::max();
+					float speed = 1;
+					float stashedSpeed = 1;
+					std::unordered_map<pod::Node*, std::pair<pod::Transform<>, pod::Transform<>>> map;
+				} override;
+			} animations;
+		} settings;
 	};
 }
 
@@ -82,7 +147,8 @@ namespace uf {
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, pod::Node& node, uf::Object& parent );
 
-		void UF_API animate( pod::Graph&, const std::string& );
+		void UF_API override( pod::Graph& );
+		void UF_API animate( pod::Graph&, const std::string&, float = 1 / 0.125f, bool = true );
 		void UF_API update( pod::Graph& );
 		void UF_API update( pod::Graph&, float );
 		void UF_API update( pod::Graph&, pod::Node& );

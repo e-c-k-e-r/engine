@@ -4,6 +4,7 @@ template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::initialize( po
 	transform.forward = {0, 0, 1};
 	transform.orientation = {0, 0, 0, 1};
 	transform.model = uf::matrix::identity();
+	transform.reference = NULL;
 	return transform;
 }
 template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::initialize() {
@@ -60,84 +61,87 @@ template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::scale( pod::Tr
 	transform.scale = factor;
 	return transform;
 }
-template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::flatten( const pod::Transform<T>& transform, bool invert) {
+template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::flatten( const pod::Transform<T>& transform, size_t depth ) {
 	if ( !transform.reference ) return transform;
-	pod::Transform<T> combined;
-	const pod::Transform<T>* pointer = &transform;
-	while ( pointer ) {
-		combined.position = combined.position + pointer->position;
-	//	combined.orientation = invert ? uf::quaternion::multiply( pointer->orientation, combined.orientation ) : uf::quaternion::multiply( combined.orientation, pointer->orientation );
-		combined.orientation = uf::quaternion::multiply( pointer->orientation, combined.orientation );
-		combined.scale = combined.scale * pointer->scale;
+	pod::Transform<T> combined = transform;
+	combined.reference = NULL;
+	const pod::Transform<T>* pointer = transform.reference;
+	while ( pointer && depth-- > 0 ) {
+		// for some reason I can't just += for the camera
+		combined.position = {
+			combined.position.x + pointer->position.x,
+			combined.position.y + pointer->position.y,
+			combined.position.z + pointer->position.z,
+		};
+		pod::Quaternion<T> orientation = pointer->orientation;
+		combined.orientation = uf::quaternion::multiply( orientation, combined.orientation );
+		combined.scale = {
+			combined.scale.x * pointer->scale.x,
+			combined.scale.y * pointer->scale.y,
+			combined.scale.z * pointer->scale.z,
+		};
 		combined.model = pointer->model * combined.model;
 		pointer = pointer->reference;
 	}
 	return combined = uf::transform::reorient(combined);
 }
-template<typename T> pod::Matrix4t<T> /*UF_API*/ uf::transform::model( const pod::Transform<T>& transform, bool flatten ) {
+template<typename T> pod::Matrix4t<T> /*UF_API*/ uf::transform::model( const pod::Transform<T>& transform, bool flatten, size_t depth ) {
 	if ( flatten ) {
-		pod::Transform<T> flatten = uf::transform::flatten(transform);
+		pod::Transform<T> flatten = uf::transform::flatten(transform, depth);
 		return uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 			uf::quaternion::matrix( flatten.orientation ) *
 			uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
 			flatten.model;
-	/*
-		// flatten.orientation.w *= -1;
-		uf::Matrix4t<T> translation, rotation, scale;
-		scale = uf::matrix::scale( scale, transform.scale );
-		rotation = uf::quaternion::matrix(flatten.orientation);
-		translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
-		pod::Matrix4f model = translation * rotation * scale;
-		return transform.model * model;
-	*/
 	}
 
 	pod::Matrix4t<T> matrix = uf::matrix::identity();
 	const pod::Transform<T>* pointer = &transform;
-	while ( pointer ) {
-		pod::Matrix4t<T> model = uf::matrix::translate( uf::matrix::identity(),  pointer->position ) *
+	do {
+		pod::Matrix4t<T> model = uf::matrix::translate( uf::matrix::identity(), pointer->position ) *
 			uf::quaternion::matrix( pointer->orientation ) *
 			uf::matrix::scale( uf::matrix::identity(), pointer->scale ) *
-			pointer->model;			
+			pointer->model;
 		matrix = model * matrix;
 		pointer = pointer->reference;
-	}
+	} while ( pointer && --depth >= 0 );
 	return matrix;
-
-
-/*
-	if ( flatten ) {
-		uf::Matrix4t<T> translation, rotation, scale;
-		pod::Transform<T> flatten = uf::transform::flatten(transform, false);
-		// flatten.orientation.w *= -1;
-		scale = uf::matrix::scale( scale, transform.scale );
-		rotation = uf::quaternion::matrix(flatten.orientation);
-		translation = uf::matrix::translate( uf::matrix::identity(), flatten.position );
-		pod::Matrix4f model = translation * rotation * scale;
-		return transform.model * model;
-	}
-	{
-		std::vector<pod::Matrix4t<T>> models;
-		pod::Matrix4t<T> translation, rotation, scale;
-		const pod::Transform<T>* pointer = &transform;
-		while ( pointer ) {					
-			rotation = uf::quaternion::matrix( pointer->orientation);
-			scale = uf::matrix::scale( scale, pointer->scale );
-			translation = uf::matrix::translate( uf::matrix::identity(),  pointer->position );
-
-			models.insert(models.begin(), translation * rotation * scale);
-
-			pointer = pointer->reference;
-		}
-		pod::Matrix4t<T> model;
-		for ( auto& matrix : models ) model = matrix * model;
-		return transform.model * model;
-	}
-*/
 }
 template<typename T> pod::Transform<T> uf::transform::fromMatrix( const pod::Matrix4t<T>& matrix ) {
 	pod::Transform<T> transform;
 	transform.position = uf::matrix::multiply<float>( matrix, pod::Vector3f{ 0, 0, 0 } );
 	transform.orientation = uf::quaternion::fromMatrix( matrix );
 	return transform = reorient( transform );
+}
+
+template<typename T> 														// Normalizes a vector
+std::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool flatten ) {
+	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;
+	std::stringstream ss;
+	ss << "Transform(" << uf::string::toString(transform.position) << "; " << uf::string::toString(transform.orientation) << ")";
+	return ss.str();
+}
+
+template<typename T, size_t N>
+ext::json::Value /*UF_API*/ uf::transform::encode( const pod::Transform<T>& t, bool flatten ) {
+	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;
+	ext::json::Value json;
+	json["position"] = uf::vector::encode(transform.position);
+	json["orientation"] = uf::vector::encode(transform.orientation);
+	json["scale"] = uf::vector::encode(transform.scale);
+	json["model"] = uf::matrix::encode(transform.model);
+	return json;
+}
+template<typename T, size_t N>
+pod::Transform<T> /*UF_API*/ uf::transform::decode( const ext::json::Value& json ) {
+	pod::Transform<T> transform;
+	if ( ext::json::isArray(json["position"]) || ext::json::isObject(json["position"]) ) transform.position = uf::vector::decode<T, 3>(json["position"]);
+	if ( ext::json::isArray(json["scale"]) || ext::json::isObject(json["position"]) ) transform.scale = uf::vector::decode<T, 3>(json["scale"]);
+	if ( ext::json::isArray(json["orientation"]) || ext::json::isObject(json["position"]) ) transform.orientation = uf::vector::decode<T, 4>(json["orientation"]);
+	else if ( ext::json::isObject(json["rotation"]) ) {
+		pod::Vector3t<T> axis = uf::vector::decode<T, 3>(json["rotation"]["axis"]);
+		T angle = json["rotation"]["angle"].as<T>();
+		transform.orientation = uf::quaternion::axisAngle( axis, angle );
+	}
+	if ( ext::json::isArray(json["model"]) ) transform.model = uf::matrix::decode<T, 4, 4>(json["model"]);
+	return transform;
 }

@@ -384,3 +384,30 @@ template<typename T> T& uf::matrix::copy( T& destination, typename T::type_t* co
 		destination[i] = source[i];
 	return destination;
 }
+
+template<typename T, size_t R, size_t C = R>
+ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m ) {
+	ext::json::Value json;
+	for ( size_t i = 0; i < R*C; ++i ) json[i] = m[i];
+	return json;
+}
+template<typename T, size_t R, size_t C = R>
+pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json ) {
+	pod::Matrix<T,R,C> m;
+	for ( size_t i = 0; i < R*C; ++i ) m[i] = json[i].as<T>();
+	return m;
+}
+
+template<typename T, size_t R, size_t C = R>
+std::string /*UF_API*/ uf::matrix::toString( const pod::Matrix<T,R,C>& m ) {
+	std::stringstream ss;
+	ss << "Matrix(\n\t";
+	for ( size_t c = 0; c < C; ++c ) {
+		for ( size_t r = 0; r < R; ++r ) {
+			ss << m[r+c*C] << ", ";
+		}
+		if ( c + 1 < C ) ss << "\n\t";
+	}
+	ss << "\n)";
+	return ss.str();
+}

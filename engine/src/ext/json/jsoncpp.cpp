@@ -1,3 +1,5 @@
+#if defined(UF_USE_JSONCPP)
+
 /// Json-cpp amalgamated source (http://jsoncpp.sourceforge.net/).
 /// It is intended to be used with #include "json/json.h"
 
@@ -5321,7 +5323,4 @@ OStream& operator<<(OStream& sout, Value const& root) {
 // End of content of file: src/lib_json/json_writer.cpp
 // //////////////////////////////////////////////////////////////////////
 
-
-
-
-
+#endif

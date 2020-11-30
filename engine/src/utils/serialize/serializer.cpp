@@ -8,54 +8,26 @@
 #include <fstream>
 #include <functional>
 
-namespace {
-	std::string encode( const Json::Value& json, bool pretty = true ) {
-/*
-		std::stringstream ss;
-		if ( pretty ) {
-			ss << json;
-		} else {
-			Json::StreamWriterBuilder builder;
-			builder["commentStyle"] = "None";
-			builder["indentation"] = "";
-			std::unique_ptr<Json::StreamWriter> writer( builder.newStreamWriter() );
-			writer->write(json, &ss);
-		}
-		return ss.str();
-*/
-		Json::FastWriter fast;
-		Json::StyledWriter styled;
-		std::string output = pretty ? styled.write(json) : fast.write(json);
-		if ( output.back() == '\n' ) output.pop_back();
-		return output;
-	}
-	std::string encode( const sol::table& table ) {
-		return ext::lua::state["json"]["encode"]( table );
-	}
-
-	void decode( Json::Value& json, const std::string& str ) {
-		Json::Reader reader;
-		if ( !reader.parse(str, json) ) {
-			uf::iostream << "JSON Error: " << reader.getFormattedErrorMessages() << "\n";
-		}
-	}
-}
-
 uf::Serializer::Serializer( const std::string& str ) { //: sol::table(ext::lua::state, sol::create) {
 	this->deserialize(str);
 }
 uf::Serializer::Serializer( const sol::table& table ) { //: sol::table(ext::lua::state, sol::create) {
-	this->deserialize( encode( table ) );
+	this->deserialize( ext::json::encode( table ) );
 }
-uf::Serializer::Serializer( const Json::Value& json ) { //: sol::table(ext::lua::state, sol::create) {
-	this->deserialize( encode( json ) );
+uf::Serializer::Serializer( const ext::json::Value& json ) { //: sol::table(ext::lua::state, sol::create) {
+//	this->deserialize( ext::json::encode( json ) );
+	*this = json;
+}
+uf::Serializer::Serializer( const ext::json::base_value& json ) { //: sol::table(ext::lua::state, sol::create) {
+//	this->deserialize( ext::json::encode( json ) );
+	*this = json;
 }
 uf::Serializer::output_t uf::Serializer::serialize( bool pretty ) const {
-	return encode( *this, pretty );
+	return ext::json::encode( *this, pretty );
 }
 void uf::Serializer::deserialize( const std::string& str ) {
 	if ( str == "" ) return;
-	decode( *this, str );
+	ext::json::decode( *this, str );
 }
 
 bool uf::Serializer::readFromFile( const std::string& from ) {
@@ -94,15 +66,11 @@ bool uf::Serializer::writeToFile( const std::string& to ) const {
 void uf::Serializer::merge( const uf::Serializer& other, bool priority ) {
 	if ( !ext::json::isObject( *this ) || !ext::json::isObject( other ) ) return;
 
-	std::function<void(Json::Value&, const Json::Value&)> update = [&]( Json::Value& a, const Json::Value& b ) {
+	std::function<void(ext::json::Value&, const ext::json::Value&)> update = [&]( ext::json::Value& a, const ext::json::Value& b ) {
 		if ( !ext::json::isObject( b ) ) return;
-		for ( const auto& key : b.getMemberNames() ) {
-		/*
-			if ( !ext::json::isObject( a ) || !priority )
-				a[key] = b[key];
-			update(a[key], b[key]);
-		*/
-			if( a[key].type() == Json::objectValue && b[key].type() == Json::objectValue ) {
+		auto keys = ext::json::keys( b );
+			for ( auto key : keys ) {
+			if( ext::json::isObject(a[key]) && ext::json::isObject(b[key]) ) {
 				update(a[key], b[key]);
 			}
 			if ( !priority )
@@ -113,20 +81,38 @@ void uf::Serializer::merge( const uf::Serializer& other, bool priority ) {
 	update(*this, other);
 }
 void uf::Serializer::import( const uf::Serializer& other ) {
-	if ( !ext::json::isObject( *this ) || !ext::json::isObject( other ) ) return;
+/*
+	uf::Serializer diff = nlohmann::json::diff(*this, other);
+	uf::Serializer filtered;
+	for ( size_t i = 0; i < diff.size(); ++i ) {
+		if ( diff[i]["op"].as<std::string>() != "remove" )
+			filtered.emplace_back(diff[i]);
+	}
+	patch( filtered );
+	std::cout << this->dump(1, '\t') << std::endl;
+*/
 
-	std::function<void(Json::Value&, const Json::Value&)> update = [&]( Json::Value& a, const Json::Value& b ) {
+	if ( !ext::json::isObject( *this ) || !ext::json::isObject( other ) ) return;
+	std::function<void(ext::json::Value&, const ext::json::Value&)> update = [&]( ext::json::Value& a, const ext::json::Value& b ) {
 		// doesn't exist, just copy it
 		if ( ext::json::isNull( a ) && !ext::json::isNull( b ) ) {
 			a = b;
 		// exists, iterate through children
 		} else if ( ext::json::isObject( a ) && ext::json::isObject( b ) ) {
-			for ( const auto& key : b.getMemberNames() )
+			auto keys = ext::json::keys( b );
+			for ( auto key : keys )
 				update(a[key], b[key]);
 		}
 	};
-
 	update(*this, other);
+}
+ext::json::Value& uf::Serializer::path( const std::string& path ) {
+	auto keys = uf::string::split(path, ".");
+	ext::json::Value* traversal = this;
+	for ( auto& key : keys ) {
+		traversal = &((*traversal)[key]);
+	}
+	return *traversal;
 }
 
 uf::Serializer::operator Serializer::output_t() {
@@ -141,11 +127,17 @@ uf::Serializer& uf::Serializer::operator=( const std::string& str ) {
 	return *this;
 }
 uf::Serializer& uf::Serializer::operator=( const sol::table& table ) {
-	this->deserialize( encode( table ) );
+	this->deserialize( ext::json::encode( table ) );
 	return *this;
 }
-uf::Serializer& uf::Serializer::operator=( const Json::Value& json ) {
-	this->deserialize( encode( json ) );
+uf::Serializer& uf::Serializer::operator=( const ext::json::Value& json ) {
+	// this->deserialize( ext::json::encode( json ) );
+	ext::json::Value::operator=(json);
+	return *this;
+}
+uf::Serializer& uf::Serializer::operator=( const ext::json::base_value& json ) {
+	// this->deserialize( ext::json::encode( json ) );
+	ext::json::Value::operator=(json);
 	return *this;
 }
 uf::Serializer& uf::Serializer::operator<<( const std::string& str ) {

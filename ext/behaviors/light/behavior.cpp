@@ -128,7 +128,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 			metadata["light"]["flicker"]["timer"] = metadata["light"]["flicker"]["timer"].as<float>() + uf::physics::time::delta;
 			if ( metadata["light"]["flicker"]["timer"].as<float>() >= metadata["light"]["flicker"]["timeout"].as<float>() ) {
 				metadata["light"]["flicker"]["timer"] = 0;
-				metadata["light"]["power"] = (r > rate) ? metadata["light"]["flicker"]["power"].as<float>() : metadata["light"]["backup"]["power"];
+				metadata["light"]["power"] = (r > rate) ? metadata["light"]["flicker"]["power"].as<float>() : metadata["light"]["backup"]["power"].as<float>();
 			}
 		}
 	}

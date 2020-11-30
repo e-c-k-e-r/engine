@@ -6,6 +6,7 @@
 
 #define UF_TYPE_REGISTER 1
 
+#include <string>
 namespace pod {
 	struct UF_API TypeInfo {
 		size_t hash;
@@ -24,6 +25,7 @@ namespace std {
 	};
 }
 
+
 namespace uf {
 	namespace typeInfo {
 		typedef std::type_index index_t;
@@ -35,9 +37,17 @@ namespace uf {
 		const pod::TypeInfo& UF_API getType( size_t );
 		const pod::TypeInfo& UF_API getType( const index_t& );
 
+		template<typename T>
+		const std::type_index getIndex();
+		template<typename T>
+		void registerType( const std::string& pretty = "" );
+		template<typename T>
+		const pod::TypeInfo& getType();
+	/*
 		template<typename T> const index_t getIndex();
 		template<typename T> void registerType( const std::string& = "" );
 		template<typename T> const pod::TypeInfo& getType();
+	*/
 	}
 }
 

@@ -3,14 +3,15 @@
 
 template<typename T, size_t R, size_t C>
 std::string /*UF_API*/ uf::string::toString( const pod::Matrix<T,R,C>& m ) {
-	std::stringstream ss;
-	ss << "Matrix(\n\t";
-	for ( size_t c = 0; c < C; ++c ) {
-		for ( size_t r = 0; r < R; ++r ) {
-			ss << m[r+c*C] << ", ";
-		}
-		if ( c + 1 < C ) ss << "\n\t";
-	}
-	ss << "\n)";
-	return ss.str();
+	return uf::matrix::toString(m);
+}
+
+template<typename T, size_t R, size_t C>
+ext::json::Value /*UF_API*/ ext::json::encode( const pod::Matrix<T,R,C>& v ) {
+	return uf::matrix::encode(v);
+}
+
+template<typename T, size_t R, size_t C>
+pod::Matrix<T,R,C> /*UF_API*/ ext::json::decode( const ext::json::Value& json ) {
+	return uf::matrix::decode<T,R,C>(json);
 }

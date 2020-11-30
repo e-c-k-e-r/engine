@@ -111,7 +111,7 @@ namespace {
 		uint64_t i = 0;
 		std::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
-			if ( i++ == index ) key = it.key().as<std::string>();
+			if ( i++ == index ) key = it.key();
 		}
 		return key;
 	}
@@ -350,7 +350,7 @@ void ext::GuiBattle::initialize() {
 
 			uf::Serializer cardData = masterDataGet("Card", json["id"].as<std::string>());
 			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].as<std::string>() +".png";
-			if ( !uf::io::exists( pMetadata["system"]["assets"][0].as<std::string>() ) ) pMetadata["system"]["assets"][0] = Json::nullValue;
+			if ( !uf::io::exists( pMetadata["system"]["assets"][0].as<std::string>() ) ) pMetadata["system"]["assets"][0] = ext::json::null();
 			critCutIn->as<uf::Object>().load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
@@ -421,11 +421,15 @@ void ext::GuiBattle::initialize() {
 		
 		int i = 0;
 
-		for ( auto& member : json["battle"]["transients"] ) {
-			if ( ext::json::isNull( member["uid"] ) ) continue;
-			if ( member["type"] == "enemy" ) continue;
-			if ( member["hp"].as<float>() <= 0 ) continue;
-			if ( i >= 4 ) break;
+	//	for ( auto& member : json["battle"]["transients"] ) {
+		ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member, bool breaks){
+			if ( ext::json::isNull( member["uid"] ) ) return;
+			if ( member["type"] == "enemy" ) return;
+			if ( member["hp"].as<float>() <= 0 ) return;
+			if ( i >= 4 ) {
+				breaks = true;
+				return;
+			}
 			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
 			std::string name = cardData["filename"].as<std::string>();
 			if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
@@ -600,7 +604,7 @@ void ext::GuiBattle::initialize() {
 				}
 			}
 			++i;
-		};
+		});
 		for ( ; i < 4; ++i ) {
 			if ( partyMemberButtons[i] != NULL ) {
 				ext::Gui*& partyMemberButton = partyMemberButtons[i];
@@ -670,13 +674,13 @@ void ext::GuiBattle::tick() {
 		std::size_t counter = 0;
 		std::size_t start = stats.skill.selection;
 		stats.actions.invalids.clear();
-		stats.currentMember["skills"] = Json::arrayValue;
+		stats.currentMember["skills"] = ext::json::array();
 		for ( int i = 0; i < member["skills"].size(); ++i ) {
 			std::string id = member["skills"][i].as<std::string>();
 			uf::Serializer skillData = masterDataGet("Skill", id);
 			bool add = false;
 			if ( skillData["type"].as<int>() > 0 && skillData["type"].as<int>() < 16 ) add = true;
-			if ( add ) stats.currentMember["skills"].append(id);
+			if ( add ) stats.currentMember["skills"].emplace_back(id);
 		}
 
 		std::string skillDescription = "";
@@ -767,7 +771,7 @@ void ext::GuiBattle::tick() {
 		std::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.actions.selection;
-		auto keys = actions.getMemberNames();
+		auto keys = ext::json::keys( actions );
 		for ( int i = start; i < keys.size(); ++i ) {
 			std::string key = getKeyFromIndex( actions, i );
 			std::string text = actions[key].as<std::string>();
@@ -1232,8 +1236,8 @@ void ext::GuiBattle::tick() {
 			uf::Serializer payload;
 			payload["action"] = "member-attack";
 			payload["uid"] = stats.currentMember["uid"];
-			payload["target"] = Json::arrayValue;
-			payload["target"].append(stats.targets.current[stats.targets.selection]["uid"]);
+			payload["target"] = ext::json::array();
+			payload["target"].emplace_back(stats.targets.current[stats.targets.selection]["uid"]);
 			payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
 
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];

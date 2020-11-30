@@ -191,17 +191,67 @@ T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
 	};
 }
 template<typename T> 														// Normalizes a vector
-std::string /*UF_API*/ uf::vector::toString( const T& vector ) {
-	std::stringstream str;
-	str << "Vector(";
-	for ( std::size_t i = 0; i < vector.size; ++i ) {
-		str << vector[i] << ( i + 1 < vector.size ? ", " : "" );
+std::string /*UF_API*/ uf::vector::toString( const T& v ) {
+	size_t size = T::size;
+	std::stringstream ss;
+	ss << "Vector(";
+	for ( size_t i = 0; i < size; ++i ) {
+		ss << v[i];
+		if ( i + 1 < size ) ss << ", ";
 	}
-	str << ")";
-	return str.str();
+	ss << ")";
+	return ss.str();
 }
 
-
+template<typename T, size_t N>
+ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v ) {
+	ext::json::Value json;
+	for ( size_t i = 0; i < N; ++i ) json[i] = v[i];
+	return json;
+}
+template<typename T, size_t N>
+pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json ) {
+	pod::Vector<T,N> v;
+	if ( ext::json::isArray(json) ) for ( size_t i = 0; i < N; ++i ) v[i] = json[i].as<T>();
+	else if ( ext::json::isObject(json) ) {
+		// we want xyzw
+		switch ( N == 1 ) {
+			case 1:
+				v = {
+					json["x"].as<T>(),
+				};
+			break;
+			case 2:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+				};
+			break;
+			case 3:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+					json["z"].as<T>(),
+				};
+			break;
+			case 4:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+					json["z"].as<T>(),
+					json["w"].as<T>(),
+				};
+			break;
+			default:
+				size_t i = 0;
+				ext::json::forEach(json, [&](ext::json::Value& c){
+					v[i++] = c.as<T>();
+				});
+			break;
+		}
+	}
+	return v;
+}
 
 
 

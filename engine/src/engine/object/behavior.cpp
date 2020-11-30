@@ -32,9 +32,29 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	}
 
+	this->addHook( "object:TransformReferenceController.%UID%", [&](const std::string& event)->std::string{	
+		uf::Serializer json = event;
+		auto& transform = this->getComponent<pod::Transform<>>();
+		auto& controller = scene.getController();
+		if ( json["target"].as<std::string>() == "camera" ) {
+			auto& camera = controller.getComponent<uf::Camera>();
+			transform.reference = &camera.getTransform();
+		} else {
+			transform.reference = &controller.getComponent<pod::Transform<>>();
+		}
+		return "true";
+	});
 	this->addHook( "object:UpdateMetadata.%UID%", [&](const std::string& event)->std::string{	
 		uf::Serializer json = event;
-		metadata.merge(json, true);
+		if ( json["type"].as<std::string>() == "merge" ) {
+			metadata.merge(json["value"], true);
+		} else if ( json["type"].as<std::string>() == "import" ) {
+			metadata.import(json["value"]);
+		} else if ( json["path"].is<std::string>() ) {
+			metadata.path(json["path"].as<std::string>()) = json["value"];
+		} else {
+			metadata.merge(json, true);
+		}
 		return "true";
 	/*
 		std::string keyString = match[1].str();
@@ -114,8 +134,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	for( Json::Value::iterator it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
-	 	std::string name = it.key().as<std::string>();
+	for( auto it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
+	 	std::string name = it.key();
 		for ( size_t i = 0; i < metadata["system"]["hooks"]["alloc"][name].size(); ++i ) {
 			size_t id = metadata["system"]["hooks"]["alloc"][name][(int) i].as<size_t>();
 			uf::hooks.removeHook(name, id);
@@ -153,17 +173,33 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	{
 		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 		float curTime = uf::Object::timer.elapsed().asDouble();
-		uf::Serializer newQueue = Json::Value(Json::arrayValue);
+		uf::Serializer newQueue = ext::json::array(); //Json::Value(Json::arrayValue);
+		if ( !ext::json::isNull( metadata["system"]["hooks"]["queue"] ) ) {
+		//	std::cout << "QUEUE: " << metadata["system"]["hooks"]["queue"] << std::endl;
+			ext::json::forEach(metadata["system"]["hooks"]["queue"], [&](ext::json::Value& member){
+				if ( !ext::json::isObject(member) ) return;
+				uf::Serializer payload = member["payload"];
+				std::string name = member["name"].as<std::string>();
+				float timeout = member["timeout"].as<float>();
+				if ( timeout < curTime ) {
+					this->callHook( name, payload );
+				} else {
+					newQueue.emplace_back(member);
+				}
+			});
+		}
+	/*
 		for ( auto& member : metadata["system"]["hooks"]["queue"] ) {
-			uf::Serializer payload = member["payload"];
+			uf::Serializer payload = (ext::json::Value&) member["payload"];
 			std::string name = member["name"].as<std::string>();
 			float timeout = member["timeout"].as<float>();
 			if ( timeout < curTime ) {
 				this->callHook( name, payload );
 			} else {
-				newQueue.append(member);
+				newQueue.emplace_back(member);
 			}
 		}
+	*/
 		if ( ext::json::isObject( metadata ) ) metadata["system"]["hooks"]["queue"] = newQueue;
 	}
 }

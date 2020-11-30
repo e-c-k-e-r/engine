@@ -92,7 +92,7 @@ namespace {
 		uint64_t i = 0;
 		std::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
-			if ( i++ == index ) key = it.key().as<std::string>();
+			if ( i++ == index ) key = it.key();
 		}
 		return key;
 	}
@@ -225,7 +225,7 @@ void ext::GuiDialogue::tick() {
 		std::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.actions.selection;
-		auto keys = actions.getMemberNames();
+		auto keys = ext::json::keys( actions );
 		for ( int i = start; i < keys.size(); ++i ) {
 			std::string key = getKeyFromIndex( actions, i );
 			std::string text = actions[key].as<std::string>();

@@ -10,14 +10,14 @@
 #include <type_traits>
 
 namespace uf {
-//	class UF_API Serializer : public sol::table {
-	class UF_API Serializer : public Json::Value {
+	class UF_API Serializer : public ext::json::Document {
 	public:
 		typedef std::string output_t;
 		typedef std::string  input_t;
 	
-		Serializer( const std::string& str = "" );
-		Serializer( const Json::Value& );
+		Serializer( const std::string& str = "{}" );
+		Serializer( const ext::json::base_value& );
+		Serializer( const ext::json::Value& );
 		Serializer( const sol::table& );
 		
 		Serializer::output_t serialize( bool pretty = false ) const;
@@ -62,11 +62,13 @@ namespace uf {
 		
 		void merge( const uf::Serializer& other, bool priority = true );
 		void import( const uf::Serializer& other );
+		ext::json::Value& path( const std::string& );
 
 		operator Serializer::output_t();
 		operator Serializer::output_t() const;
 		uf::Serializer& operator=( const std::string& str );
-		uf::Serializer& operator=( const Json::Value& json );
+		uf::Serializer& operator=( const ext::json::base_value& json );
+		uf::Serializer& operator=( const ext::json::Value& json );
 		uf::Serializer& operator=( const sol::table& json );
 		uf::Serializer& operator<<( const std::string& str );
 		uf::Serializer& operator>>( std::string& str );

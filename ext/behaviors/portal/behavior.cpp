@@ -28,8 +28,8 @@ void ext::PortalsBehavior::initialize( uf::Object& self ) {
 	metadata["portals"][0]["name"] = "Portal";
 	metadata["portals"][1]["name"] = "Portal";
 
-	red.load( metadata["portals"][0] );
-	blue.load( metadata["portals"][1] );
+	red.load( (uf::Serializer) metadata["portals"][0] );
+	blue.load( (uf::Serializer) metadata["portals"][1] );
 
 	red.initialize();
 	blue.initialize();

@@ -193,7 +193,8 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		// spawn transients accordingly
-		for ( auto& id : metadata["battle"]["player"]["party"] ) {
+	//	for ( auto& id : metadata["battle"]["player"]["party"] ) {
+		ext::json::forEach(metadata["battle"]["player"]["party"], [&](ext::json::Value& id){
 			uint64_t uid = transients.size();
 			auto& member = metadata["battle"]["player"]["transients"][id.as<std::string>()];
 			member["uid"] = uid;
@@ -209,8 +210,9 @@ void ext::HousamoBattle::initialize() {
 			pMetadata[""]["initialized"] = false;
 			transient->initialize();
 			metadata["battle"]["transients"][std::to_string(uid)] = pMetadata[""];
-		}
-		for ( auto& id : metadata["battle"]["enemy"]["party"] ) {
+		});
+	//	for ( auto& id : metadata["battle"]["enemy"]["party"] ) {
+		ext::json::forEach(metadata["battle"]["enemy"]["party"], [&](ext::json::Value& id){
 			uint64_t uid = transients.size();
 			auto& member = metadata["battle"]["enemy"]["transients"][id.as<std::string>()];
 			member["uid"] = uid;
@@ -226,16 +228,19 @@ void ext::HousamoBattle::initialize() {
 			pMetadata[""]["initialized"] = false;
 			transient->initialize();
 			metadata["battle"]["transients"][std::to_string(uid)] = pMetadata[""];
-		}
+		});
 
 		this->queueHook("world:Battle.Gui.%UID%");
 
 		uf::Serializer payload;
-		for ( auto& member : metadata["battle"]["transients"] ) {
-			for ( auto& skillId : member["skills"]  ) {
+	//	for ( auto& member : metadata["battle"]["transients"] ) {
+		ext::json::forEach(metadata["skills"], [&](ext::json::Value& member){
+		//	for ( auto& skillId : member["skills"]  ) {
+			ext::json::forEach(member["skills"], [&](ext::json::Value& skillId){
 				uf::Serializer skillData = masterDataGet("Skill", skillId.as<std::string>());
-				if ( skillData["type"].as<int>() != 16 ) continue;
-				for ( auto& status : skillData["statuses"] ) {
+				if ( skillData["type"].as<int>() != 16 ) return;
+			//	for ( auto& status : skillData["statuses"] ) {
+				ext::json::forEach(skillData["status"], [&](ext::json::Value& status){
 					std::string target = status["target"].as<std::string>();
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
@@ -250,34 +255,37 @@ void ext::HousamoBattle::initialize() {
 					// apply status
 					uf::Serializer targets;								
 					if ( target == "self" ) {
-						targets.append(member["uid"].as<std::string>());
+						targets.emplace_back(member["uid"].as<std::string>());
 					} else if ( target == "enemy" ) {
-						for ( auto& tmember :  metadata["battle"]["transients"] ) {
-							if ( tmember["type"] == member["type"] ) continue;
-							targets.append(tmember["uid"].as<std::string>());
-						}
+					//	for ( auto& tmember :  metadata["battle"]["transients"] ) {
+						ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& tmember){
+							if ( tmember["type"] == member["type"] ) return;
+							targets.emplace_back(tmember["uid"].as<std::string>());
+						});
 					} else if ( target == "ally" ) {
-						for ( auto& tmember :  metadata["battle"]["transients"] ) {
-							if ( tmember["type"] != member["type"] ) continue;
-							targets.append(tmember["uid"].as<std::string>());
-						}
+					//	for ( auto& tmember :  metadata["battle"]["transients"] ) {
+						ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& tmember){
+							if ( tmember["type"] != member["type"] ) return;
+							targets.emplace_back(tmember["uid"].as<std::string>());
+						});
 					}
-					for ( auto& target : targets ) {
+				//	for ( auto& target : targets ) {
+					ext::json::forEach(targets, [&](ext::json::Value& target){
 						uf::Serializer statusPayload;
 						statusPayload["id"] = statusId;
 						statusPayload["modifier"] = status["modifier"];
 
 						statusPayload["turns"] = status["turns"].is<double>() ? status["turns"] : statusData["turns"];
-						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].append(statusPayload);
+						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].emplace_back(statusPayload);
 
 						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<std::string>()]["id"].as<std::string>() );
 						uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 
 						payload["message"] = payload["message"].as<std::string>() + "\nApplied "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + " to " + charaData["name"].as<std::string>();
-					}
-				}
-			}
-		}
+					});
+				});
+			});
+		});
 		
 		payload["battle"] = metadata["battle"];
 		return payload;
@@ -313,7 +321,8 @@ void ext::HousamoBattle::initialize() {
 				int total = 0;
 			} player, enemy;
 		} counts;
-		for ( auto& member : metadata["battle"]["transients"] ) {
+	//	for ( auto& member : metadata["battle"]["transients"] ) {
+		ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member){
 			bool dead = member["hp"].as<int>() <= 0;
 			if ( member["type"] == "player" ) {
 				++counts.player.total;
@@ -322,7 +331,7 @@ void ext::HousamoBattle::initialize() {
 				++counts.enemy.total;
 				if ( dead ) ++counts.enemy.dead;
 			}
-		}
+		});
 		
 		if ( counts.player.total > 0 && counts.player.total == counts.player.dead ) {
 			hookName = "world:Battle.End.%UID%";
@@ -388,18 +397,20 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		{
-			for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-				std::string key = it.key().as<std::string>();
-				if ( key == "" || ext::json::isNull( (*it)["type"] ) ) metadata["battle"].removeMember(key);
-			}
+		//	for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
+		//		std::string key = it.key();
+			ext::json::forEach(metadata["battle"]["transients"], [&](const std::string& key, ext::json::Value& member){
+				if ( key == "" || ext::json::isNull( member["type"] ) ) metadata["battle"].erase(key);
+			});
 		}
 
 		/* remove dead */ if ( false ) {
-			for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-				std::string key = it.key().as<std::string>();
-				if ( metadata["battle"]["transients"][key]["hp"].as<int>() > 0 ) continue;
-			//	metadata["battle"]["transients"].removeMember(key);
-			}
+		//	for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
+		//		std::string key = it.key();
+			ext::json::forEach(metadata["battle"]["transients"], [&](const std::string& key, ext::json::Value& member){
+				if ( metadata["battle"]["transients"][key]["hp"].as<int>() > 0 ) return;
+			//	metadata["battle"]["transients"].erase(key);
+			});
 			// std::cout << metadata["battle"]["transients"] << std::endl;
 		}
 
@@ -431,51 +442,54 @@ void ext::HousamoBattle::initialize() {
 			int ndas = 0;
 			float factor = 0.0f;
 		} stats;
-		for ( auto& status : member["statuses"] ) {
+	//	for ( auto& status : member["statuses"] ) {
+		ext::json::forEach(metadata["statuses"], [&](ext::json::Value& status){
 			std::string id = status["id"].as<std::string>();
-			if ( id == "0" ) continue;
+			if ( id == "0" ) return;
 			stats.ailments.push_back(id);
 			if ( id == "6" ) ++stats.ndas;
-		}
+		});
 
 		uf::Serializer possibilities;
-		possibilities = Json::arrayValue;
-		for ( auto& skillId : member["skills"] ) {
+		possibilities = ext::json::array();
+	//	for ( auto& skillId : member["skills"] ) {
+		ext::json::forEach(metadata["skills"], [&](ext::json::Value& skillId, bool breaks){
 			uf::Serializer skillData = masterDataGet("Skill", skillId.as<std::string>());
 			// not recarms
 			std::cout << skillData["name"] << ": ";
 			if ( skillId == "81" || skillId == "82" ) {
 				std::cout << "\tBad skill ID" << std::endl;
-				continue;
+				return;
 			}
 			// invalid skill type
 			if ( skillData["type"].as<int>() < 1 || skillData["type"].as<int>() > 15 ) {
 				std::cout << "\tBad skill type" << std::endl;
-				continue;
+				return;
 			}
 			// no MP
 			if ( skillData["mp"].as<float>() > member["mp"].as<float>() ) {
 				std::cout << "\tNot enough MP" << std::endl;
-				continue;
+				return;
 			}
 			// no HP
 			if ( skillData["hp%"].as<float>() / 100.0f * member["max hp"].as<float>() >= member["hp"].as<float>() ) {
 				std::cout << "\tNot enough HP" << std::endl;
-				continue;
+				return;
 			}
 			// do not use same skills
 			if ( std::find(member["used skills"].begin(), member["used skills"].end(), skillId.as<std::string>()) != member["used skills"].end() ) {
 				std::cout << "\tRecently Used" << std::endl;
-				continue;
+				return;
 			}
 			// grants additional turns
 			if ( skillData["turns+"].is<double>() ) {
 				queuedSkillId = skillId.as<std::string>();
 				std::cout << "\tCan gain turns" << std::endl;
-				break;
+				breaks = true;
+				return;
 			// try and heal if under 30%
 			} else if ( member["hp"].as<float>() / member["max hp"].as<float>() < 0.3f ) {
-				if ( skillData["type"] != "14" ) continue;
+				if ( skillData["type"] != "14" ) return;
 				if ( stats.factor < skillData["power"].as<float>() ) {
 					queuedSkillId = skillId.as<std::string>();
 					stats.factor = skillData["power"].as<float>();
@@ -488,14 +502,15 @@ void ext::HousamoBattle::initialize() {
 					stats.factor = stats.ndas * 75.0f;
 					std::cout << "\tCan Dekunda" << std::endl;
 				}
-				continue;
+				return;
 			} else {
 				// remove negative ailment (fear, etc)
-				for ( auto& status : skillData["statuses"] ) {
+			//	for ( auto& status : skillData["statuses"] ) {
+				ext::json::forEach(skillData["statuses"], [&](ext::json::Value& status){
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
 					// remove statuses
 					if ( statusData["type"] == "remove" && std::find( stats.ailments.begin(), stats.ailments.end(), statusId ) != stats.ailments.end() ) {
@@ -503,18 +518,18 @@ void ext::HousamoBattle::initialize() {
 						stats.factor = 150.0f;
 						std::cout << "\tCan remove status " << statusData["name"] << std::endl;
 					}
-				}
+				});
 				std::cout << "\tRandom" << std::endl;
 				// no heal spells
-				if ( skillData["type"] == "14" ) continue;
+				if ( skillData["type"] == "14" ) return;
 				// let RNG pick
-				possibilities.append(skillId);
+				possibilities.emplace_back(skillId);
 			}
-		}
+		});
 		// let RNG pick
 		std::cout << queuedSkillId << ": " << possibilities << std::endl;
 		if ( queuedSkillId == "0" && possibilities.size() > 0 ) {
-			possibilities.append("0");
+			possibilities.emplace_back("0");
 			int ri = floor(rand() % possibilities.size());
 			queuedSkillId = possibilities[ri].as<std::string>();
 			auto queuedSkillData = masterDataGet( "Skill", queuedSkillId );
@@ -527,20 +542,21 @@ void ext::HousamoBattle::initialize() {
 		uf::Serializer json = event;
 		uf::Serializer payload;
 
-		payload["targets"] = Json::arrayValue;
+		payload["targets"] = ext::json::array();
 		auto& member = metadata["battle"]["transients"][json["uid"].as<std::string>()];
 		if ( json["skill"].is<std::string>() ) {
 			std::string skillId = json["skill"].as<std::string>();
 			if ( json["skill"] == "0" ) {
-				for ( auto& status : member["statuses"] ) {
+			//	for ( auto& status : member["statuses"] ) {
+				ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
-					if ( statusData["skill"] != skillId ) continue;
+					if ( statusData["skill"] != skillId ) return;
 					if ( statusData["range"].is<double>() ) json["range"] = statusData["range"];
-				}
+				});
 			} else if ( !json["type"].is<std::string>() ) {
 				uf::Serializer skillData = masterDataGet( "Skill", skillId );
 				json["type"] = skillData["target"].as<std::string>();
@@ -552,12 +568,12 @@ void ext::HousamoBattle::initialize() {
 
 		if ( json["type"].is<std::string>() ) {
 			if ( json["type"] == "self" ) {
-				payload["targets"].append( metadata["battle"]["transients"][json["uid"].as<std::string>()] );
+				payload["targets"].emplace_back( metadata["battle"]["transients"][json["uid"].as<std::string>()] );
 			} else {
 				for ( auto& m : metadata["battle"]["transients"] ) {
 					if ( json["type"] == "ally" && m["type"] != member["type"] ) continue;
 					if ( json["type"] == "enemy" && m["type"] == member["type"] ) continue;
-					payload["targets"].append( m );
+					payload["targets"].emplace_back( m );
 				}
 			}
 		}
@@ -587,15 +603,16 @@ void ext::HousamoBattle::initialize() {
 		uf::Serializer target;
 		std::string name;
 
-		for ( auto& member : metadata["battle"]["transients"] ) {
-			if ( member["type"] != "enemy" ) continue;
-			target = member;
+	//	for ( auto& member : metadata["battle"]["transients"] ) {
+		ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member, bool breaks){
+			if ( member["type"] != "enemy" ) return;
+			target = (ext::json::Value&) member;
 			size_t uid = member["uid"].as<size_t>();
 			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
 			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 			name = charaData["name"].as<std::string>();
-			break;
-		}
+			breaks = true;
+		});
 		if ( target ) {
 			playSound(*this, target["id"].as<std::string>(), r > 0.5 ? "turn" : "battlestart");
 			payload["message"] = ""+colorString("FF0000") + "" + name + ""+colorString("FFFFFF") + " speaks.";
@@ -637,23 +654,25 @@ void ext::HousamoBattle::initialize() {
 				if ( turnState["phase"] == "player" ) turnState["phase"] = "enemy";
 				else turnState["phase"] = "player";
 				int counter = 0;
-				for ( auto& member : metadata["battle"]["transients"] ) {
-					if ( member["type"] != turnState["phase"] ) continue;
+			//	for ( auto& member : metadata["battle"]["transients"] ) {
+				ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member){
+					if ( member["type"] != turnState["phase"] ) return;
 
 					bool locked = false;
-					for ( auto& status : member["statuses"] ) {
+				//	for ( auto& status : member["statuses"] ) {
+					ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 						std::string statusId = status["id"].as<std::string>();
 						uf::Serializer statusData = masterDataGet("Status", statusId);
 						for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-							statusData[it.key().as<std::string>()] = *it;
+							statusData[it.key()] = *it;
 						}
 
 						if ( statusData["lock"].as<bool>() ) locked = true;
-					}
-					if ( locked ) continue;
+					});
+					if ( locked ) return;
 
 					++counter;
-				}
+				});
 				turnState["counter"] = counter;
 				turnState["start of turn"] = true;
 
@@ -668,27 +687,31 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		std::function<bool()> getTurnPlayer = [&]()->bool{
-			for ( auto& member : metadata["battle"]["transients"] ) {
-				if ( member["hp"].as<int>() <= 0 ) continue;
+		//	for ( auto& member : metadata["battle"]["transients"] ) {
+			bool found = false;
+			ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member, bool breaks){
+				if ( member["hp"].as<int>() <= 0 ) return;
 			
 				bool locked = false;
-				for ( auto& status : member["statuses"] ) {
+			//	for ( auto& status : member["statuses"] ) {
+				ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
 
 					if ( statusData["lock"].as<bool>() ) locked = true;
-				}
-				if ( locked ) continue;
+				});
+				if ( locked ) return;
 			
-				if ( turnPlayer > member["uid"].as<size_t>() ) continue;
-				if ( member["type"] != turnState["phase"] ) continue;
+				if ( turnPlayer > member["uid"].as<size_t>() ) return;
+				if ( member["type"] != turnState["phase"] ) return;
 				turnPlayer = member["uid"].as<size_t>();
-				return true;
-			}
-			return false;
+				breaks = true;
+				found = true;
+			});
+			return found;
 		};
 
 		uf::Serializer payload;
@@ -721,23 +744,24 @@ void ext::HousamoBattle::initialize() {
 		if ( turnState["start of turn"].as<bool>() ) {
 			/* remove dead */ if ( false ) {
 				for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-					std::string key = it.key().as<std::string>();
+					std::string key = it.key();
 					if ( metadata["battle"]["transients"][key]["hp"].as<int>() > 0 ) continue;
-				//	metadata["battle"]["transients"].removeMember(key);
+				//	metadata["battle"]["transients"].erase(key);
 				}
 			//	std::cout << metadata["battle"]["transients"] << std::endl;
 			}
-			for ( auto& member : metadata["battle"]["transients"] ) {
+		//	for ( auto& member : metadata["battle"]["transients"] ) {
+			ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member){
 				// clear OPT used skills
-				member["used skills"] = Json::arrayValue;
-				if ( member["type"] != turnState["phase"] ) continue;
+				member["used skills"] = ext::json::array();
+				if ( member["type"] != turnState["phase"] ) return;
 				auto& statuses = member["statuses"];
 //				std::cout << "Before: " << member["uid"].as<std::string>() << ": " << statuses << std::endl;
-				for ( int i = 0; i < statuses.size(); ++i ) {
-					auto& status = statuses[i];
+			//	for ( int i = 0; i < statuses.size(); ++i ) {
+				ext::json::forEach(statuses, [&](size_t i, ext::json::Value& status){
 					uf::Serializer statusData = masterDataGet("Status", status["id"].as<std::string>());
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
 					
 					uf::Serializer cardData = masterDataGet( "Card", member["id"].as<std::string>() );
@@ -763,7 +787,7 @@ void ext::HousamoBattle::initialize() {
 					if ( statusData["lock"].is<double>() ) {
 						skipped = true;
 					}
-				}
+				});
 				uf::Serializer newStatuses;
 				for ( int i = statuses.size() - 1; i >= 0; --i ) {
 					auto& status = statuses[i];
@@ -773,21 +797,21 @@ void ext::HousamoBattle::initialize() {
 						if ( status["turns"].as<int>() < 0 ) {
 							if ( statusData["id"] != "0" ) payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + " wore off.";
 						} else {
-							newStatuses.append(status);
+							newStatuses.emplace_back(status);
 						}
 					} else {
-						newStatuses.append(status);
+						newStatuses.emplace_back(status);
 					}
 				}
 				statuses = newStatuses;
 //				std::cout << "After: " << member["uid"].as<std::string>() << ": " << statuses << std::endl;
-			}
+			});
 		}
 
 		{
 			for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-				std::string key = it.key().as<std::string>();
-				if ( key == "" || ext::json::isNull( (*it)["type"] ) ) metadata["battle"].removeMember(key);
+				std::string key = it.key();
+				if ( key == "" || ext::json::isNull( (*it)["type"] ) ) metadata["battle"].erase(key);
 			}
 		}
 
@@ -809,7 +833,7 @@ void ext::HousamoBattle::initialize() {
 			"pass",
 			"analyze",
 		};
-		payload["actions"]["list"] = Json::arrayValue;
+		payload["actions"]["list"] = ext::json::array();
 		payload["actions"]["names"]["member-attack"] = "攻撃";
 		payload["actions"]["names"]["member-skill"] = "スキル";
 		payload["actions"]["names"]["inventory"] = "アイテム";
@@ -818,7 +842,7 @@ void ext::HousamoBattle::initialize() {
 		payload["actions"]["names"]["escape"] = "脱走";
 		payload["actions"]["names"]["analyze"] = "Analyze";
 		payload["actions"]["names"]["pass"] = "Pass";
-		for ( auto& x : list ) payload["actions"]["list"].append(x);
+		for ( auto& x : list ) payload["actions"]["list"].emplace_back(x);
 	*/
 		payload["actions"] = metadata["actions"];
 		payload[""] = member;
@@ -836,37 +860,40 @@ void ext::HousamoBattle::initialize() {
 		uf::Serializer payload;
 		payload["message"] = "";
 		// modify skill data based on statuses
-		for ( auto& status : member["statuses"] ) {
+	//	for ( auto& status : member["statuses"] ) {
+		ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 			std::string statusId = status["id"].as<std::string>();
 			uf::Serializer statusData = masterDataGet("Status", statusId);
 			for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-				statusData[it.key().as<std::string>()] = *it;
+				statusData[it.key()] = *it;
 			}
-			if ( statusData["skill"] != skillId ) continue;
+			if ( statusData["skill"] != skillId ) return;
 			if ( statusData["range"].is<double>() ) skillData["range"] = statusData["range"];
-		}
+		});
 		// select random target
 		if ( ext::json::isNull(  json["target"] ) ) {
 			if ( ext::json::isNull(  skillData["target"] ) ) skillData["target"] = "enemy";
 			if ( skillData["target"] == "self" ) {
-				json["target"].append( member["uid"].as<size_t>() );
+				json["target"].emplace_back( member["uid"].as<size_t>() );
 			} else if ( skillData["range"].is<double>() && skillData["range"].as<int>() > 1 ) {
-				json["target"] = Json::arrayValue;
-				for ( auto& m : metadata["battle"]["transients"] ) {
-					if ( skillData["target"] == "ally" && m["type"] != member["type"] ) continue;
-					if ( skillData["target"] != "ally" && m["type"] == member["type"] ) continue;
-					json["target"].append( m["uid"].as<size_t>() );
-				}
+				json["target"] = ext::json::array();
+			//	for ( auto& m : metadata["battle"]["transients"] ) {
+				ext::json::forEach(member["battle"]["transients"], [&](ext::json::Value& m){
+					if ( skillData["target"] == "ally" && m["type"] != member["type"] ) return;
+					if ( skillData["target"] != "ally" && m["type"] == member["type"] ) return;
+					json["target"].emplace_back( m["uid"].as<size_t>() );
+				});
 			} else {
 				std::vector<uint64_t> targets;
-				for ( auto& m : metadata["battle"]["transients"] ) {
-					if ( skillData["target"] == "ally" && m["type"] != member["type"] ) continue;
-					if ( skillData["target"] != "ally" && m["type"] == member["type"] ) continue;
+			//	for ( auto& m : metadata["battle"]["transients"] ) {
+				ext::json::forEach(member["battle"]["transients"], [&](ext::json::Value& m){
+					if ( skillData["target"] == "ally" && m["type"] != member["type"] ) return;
+					if ( skillData["target"] != "ally" && m["type"] == member["type"] ) return;
 					targets.push_back( m["uid"].as<size_t>() );
-				}
+				});
 				int ri = floor(rand() % targets.size());
-				json["target"] = Json::arrayValue;
-				json["target"].append(targets.at(ri));
+				json["target"] = ext::json::array();
+				json["target"].emplace_back(targets.at(ri));
 			}
 		}
 
@@ -916,26 +943,27 @@ void ext::HousamoBattle::initialize() {
 			int64_t mpCost = skillData["mp"].as<int>();
 			int64_t hpCost = skillData["hp%"].as<int>();
 
-			for ( auto& status : member["statuses"] ) {
+		//	for ( auto& status : member["statuses"] ) {
+			ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 				std::string statusId = status["id"].as<std::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-					statusData[it.key().as<std::string>()] = *it;
+					statusData[it.key()] = *it;
 				}
 
-				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 				if ( !ext::json::isNull( statusData["attributes"] ) ) {
 					bool found = false;
 					for ( auto& value : statusData["attributes"] ) {
 						if ( value == elementData["id"] ) found = true;
 					}
-					if ( !found ) continue;
+					if ( !found ) return;
 				}
 
 				if ( hpCost > 0 && statusData["cost"].is<double>() ) {
 					hpCost -= statusData["cost"].as<int>();
 				}
-			}
+			});
 
 			hpCost = member["max hp"].as<float>() * ( hpCost / 100.0f );
 
@@ -972,32 +1000,34 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		if ( skillData["turns+"].is<double>() ) {
-			member["used skills"].append(skillId);
+			member["used skills"].emplace_back(skillId);
 			payload["message"] = payload["message"].as<std::string>() + "\nGained "+colorString("FF0000") + ""+skillData["turns+"].as<std::string>()+""+colorString("FFFFFF") + " additional turns!";
 			metadata["battle"]["turn"]["counter"] = metadata["battle"]["turn"]["counter"].as<float>() + skillData["turns+"].as<float>();
 		}
 
-		for ( auto& targetId : json["target"] ) {
+	//	for ( auto& targetId : json["target"] ) {
+		ext::json::forEach(json["target"], [&](ext::json::Value& targetId){
 			uf::Serializer target = metadata["battle"]["transients"][targetId.as<std::string>()];
 
 			float power = basePower;
 			float morePower = 0;
 			float probability = skillData["proc"].is<double>() ? skillData["proc"].as<int>() / 100.0f : 1.0f;
 			// modify probability from statuses
-			for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
+		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
 				std::string statusId = status["id"].as<std::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-					statusData[it.key().as<std::string>()] = *it;
+					statusData[it.key()] = *it;
 				}
 
-				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 				if ( !ext::json::isNull( statusData["attributes"] ) ) {
 					bool found = false;
 					for ( auto& value : statusData["attributes"] ) {
 						if ( value == elementData["id"] ) found = true;
 					}
-					if ( !found ) continue;
+					if ( !found ) return;
 				}
 
 				if ( statusData["proc+"].is<double>() ) {
@@ -1005,24 +1035,25 @@ void ext::HousamoBattle::initialize() {
 					probability += moreProb;
 					payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(moreProb*100)) + "%"+colorString("FF0000") + " more probability"+colorString("FFFFFF") + "";
 				}
-			}
+			});
 			// find attack modifying statuses on attacker
-			for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
+		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
 				std::string statusId = status["id"].as<std::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-					statusData[it.key().as<std::string>()] = *it;
+					statusData[it.key()] = *it;
 				}
 
-				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 				if ( !ext::json::isNull( statusData["attributes"] ) ) {
 					bool found = false;
 					for ( auto& value : statusData["attributes"] ) {
 						if ( value == elementData["id"] ) found = true;
 					}
-					if ( !found ) continue;
+					if ( !found ) return;
 				}
-				if ( !ext::json::isNull( statusData["ailments"] ) ) continue;
+				if ( !ext::json::isNull( statusData["ailments"] ) ) return;
 
 
 				if ( statusData["power"].is<double>() ) {
@@ -1030,22 +1061,23 @@ void ext::HousamoBattle::initialize() {
 					morePower += adjust;
 				//	payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more power"+colorString("FFFFFF") + "";
 				}
-			}
+			});
 			// find defense modifying statuses on target
-			for ( auto& status : metadata["battle"]["transients"][targetId.as<std::string>()]["statuses"] ) {
+		//	for ( auto& status : metadata["battle"]["transients"][targetId.as<std::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][targetId.as<std::string>()]["statuses"], [&](ext::json::Value& status){
 				std::string statusId = status["id"].as<std::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-					statusData[it.key().as<std::string>()] = *it;
+					statusData[it.key()] = *it;
 				}
 
-				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+				if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 				if ( !ext::json::isNull( statusData["attributes"] ) ) {
 					bool found = false;
 					for ( auto& value : statusData["attributes"] ) {
 						if ( value == elementData["id"] ) found = true;
 					}
-					if ( !found ) continue;
+					if ( !found ) return;
 				}
 
 				if ( statusData["defense"].is<double>() ) {
@@ -1053,7 +1085,7 @@ void ext::HousamoBattle::initialize() {
 					morePower -= adjust;
 				//	payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more defense"+colorString("FFFFFF") + "";
 				}
-			}
+			});
 		//	if ( morePower != 0 ) payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(morePower*100)) + "%"+colorString("FF0000") + " power modifier"+colorString("FFFFFF") + "";
 
 			float r = (rand() % 100) / 100.0;
@@ -1063,7 +1095,7 @@ void ext::HousamoBattle::initialize() {
 				payload["target"]["uid"] = target["uid"];
 				payload["target"]["damage"] = "Miss";
 				::gui->queueHook("world:Battle.Damage.%UID%", payload);
-				continue;
+				return;
 			}
 
 			bool repel = false;
@@ -1072,27 +1104,28 @@ void ext::HousamoBattle::initialize() {
 				uf::Serializer cardData = masterDataGet("Card", target["id"].as<std::string>());
 				uf::Serializer affinity = cardData["affinity"][elementId];
 				// affinity change check
-				for ( auto& status : target["statuses"] ) {
+			//	for ( auto& status : target["statuses"] ) {
+				ext::json::forEach(target["statuses"], [&](ext::json::Value& status){
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
 
-					if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+					if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 					if ( !ext::json::isNull( statusData["attributes"] ) ) {
 						bool found = false;
 						for ( auto& value : statusData["attributes"] ) {
 							if ( value == elementData["id"] ) found = true;
 						}
-						if ( !found ) continue;
+						if ( !found ) return;
 					}
 
 					if ( !ext::json::isNull( statusData["affinity"] ) ) {
 						if ( !ext::json::isNull( statusData["affinity"][elementId] ) ) affinity = statusData["affinity"][elementId];
 					//	payload["message"] = payload["message"].as<std::string>() + "\naffinity modifier."+colorString("FFFFFF") + "";
 					}
-				}
+				});
 				if ( !ext::json::isNull( affinity ) ) {
 					std::string affinityStr = affinity.as<std::string>();
 					if ( repel && affinityStr == "repel" ) affinityStr = "null";
@@ -1222,27 +1255,28 @@ void ext::HousamoBattle::initialize() {
 
 					uf::Serializer statusPayload;
 					statusPayload["id"] = "21";
-					target["statuses"] = Json::arrayValue;
-					target["statuses"].append(statusPayload);
+					target["statuses"] = ext::json::array();
+					target["statuses"].emplace_back(statusPayload);
 				}
 			}; applyDamage(repel ? json["uid"].as<std::string>() : target["uid"].as<std::string>());
 			// counter statuses
 			if ( !repel ) {
-				for ( auto& status : metadata["battle"]["transients"][target["uid"].as<std::string>()]["statuses"] ) {
+			//	for ( auto& status : metadata["battle"]["transients"][target["uid"].as<std::string>()]["statuses"] ) {
+				ext::json::forEach(metadata["battle"]["transients"][target["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
 					std::string statusId = status["id"].as<std::string>();
-					if ( statusId != "19" ) continue;
+					if ( statusId != "19" ) return;
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-						statusData[it.key().as<std::string>()] = *it;
+						statusData[it.key()] = *it;
 					}
 
-					if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) continue;
+					if ( !ext::json::isNull( statusData["type"] ) && elementData["type"] != statusData["type"] ) return;
 					if ( !ext::json::isNull( statusData["attributes"] ) ) {
 						bool found = false;
 						for ( auto& value : statusData["attributes"] ) {
 							if ( value == elementData["id"] ) found = true;
 						}
-						if ( !found ) continue;
+						if ( !found ) return;
 					}
 					if ( statusData["proc"].is<double>() ) {
 						float r = (rand() % 100) / 100.0;
@@ -1251,15 +1285,16 @@ void ext::HousamoBattle::initialize() {
 							payload["message"] = payload["message"].as<std::string>() + "\nCountered!";
 						}
 					}
-				}
+				});
 			}
 			// apply status
 			{
-				for ( auto& status : skillData["statuses"] ) {
+			//	for ( auto& status : skillData["statuses"] ) {
+				ext::json::forEach(skillData["statuses"], [&](ext::json::Value& status){
 					std::string target = status["target"].as<std::string>();
 					std::string statusId = status["id"].as<std::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
-					if ( skillData["type"].as<int>() == 16 ) continue;
+					if ( skillData["type"].as<int>() == 16 ) return;
 					float r = (rand() % 100) / 100.0;
 					if ( repel ) {
 						if ( target == "enemy" ) target = "self";
@@ -1274,22 +1309,23 @@ void ext::HousamoBattle::initialize() {
 
 					uf::Serializer targets;
 					if ( target == "self" ) {
-						targets.append(json["uid"].as<std::string>());
+						targets.emplace_back(json["uid"].as<std::string>());
 				//	} else if ( target == "enemy" || target == "ally" ) {
 					} else {
-						targets.append(targetId.as<std::string>());
+						targets.emplace_back(targetId.as<std::string>());
 					}
-					for ( auto& target : targets ) {
+				//	for ( auto& target : targets ) {
+					ext::json::forEach(targets, [&](ext::json::Value& target){
 						// remove status(es)
 						if ( status["type"] == "remove" ) {
 							for ( auto& statusC : metadata["battle"]["transients"][target.as<std::string>()]["statuses"] ) {
 								if ( statusC["id"] == statusId ) {
-									statusC = Json::nullValue;
+									statusC = ext::json::null();
 									statusC["id"] = 0;
 									statusC["turns"] = -1;
 								}
 							}
-							continue;
+							return;
 						}
 
 						uf::Serializer statusPayload;
@@ -1297,10 +1333,10 @@ void ext::HousamoBattle::initialize() {
 						statusPayload["modifier"] = status["modifier"];
 
 						statusPayload["turns"] = status["turns"].is<double>() ? status["turns"] : statusData["turns"];
-						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].append(statusPayload);
+						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].emplace_back(statusPayload);
 
 						for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-							statusData[it.key().as<std::string>()] = *it;
+							statusData[it.key()] = *it;
 						}
 
 						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<std::string>()]["id"].as<std::string>() );
@@ -1314,8 +1350,8 @@ void ext::HousamoBattle::initialize() {
 							payload["color"] = "9900FF";
 							showMessage( payload );
 						}
-					}
-				}
+					});
+				});
 			}
 
 			if ( damage > 0 ) {
@@ -1339,7 +1375,7 @@ void ext::HousamoBattle::initialize() {
 				payload["id"] = member["id"];
 				::gui->queueHook("world:Battle.OnCrit.%UID%", payload, 0.1f);
 			}
-		}
+		});
 
 		/* heal self */
 		if ( skillData["add hp"].is<double>() ) {
@@ -1397,28 +1433,30 @@ void ext::HousamoBattle::initialize() {
 
 
 		message += "\n" + colorString("9900FF") + "Ailments" + colorString("FFFFFF") + ":";
-		for ( auto& status : member["statuses"] ) {
+	//	for ( auto& status : member["statuses"] ) {
+		ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
 			std::string statusId = status["id"].as<std::string>();
 			uf::Serializer statusData = masterDataGet("Status", statusId);
 			for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
-				statusData[it.key().as<std::string>()] = *it;
+				statusData[it.key()] = *it;
 			}
-			if ( statusId == "0" ) continue;
+			if ( statusId == "0" ) return;
 			// affinity change check
 			for ( auto it = statusData["affinity"].begin(); it != statusData["affinity"].end(); ++it ) {
-				affinity[it.key().as<std::string>()] = *it;
+				affinity[it.key()] = *it;
 			}
 			message += "\n\t" + statusData["name"].as<std::string>() + (ext::json::isNull( status["turns"] ) ? "" : " (Turns: " + status["turns"].as<std::string>() + ")" );
-		}
+		});
 
 		message += "\n" + colorString("9900FF") + "Affinities" + colorString("FFFFFF") + ":";
 
-		for ( auto it = affinity.begin(); it != affinity.end(); ++it ) {
-			std::string elementId = it.key().as<std::string>();
-			std::string value = it->asString();
+	//	for ( auto it = affinity.begin(); it != affinity.end(); ++it ) {
+	//		std::string elementId = it.key();
+	//		std::string value = it->as<std::string>();
+		ext::json::forEach(affinity, [&](const std::string& elementId, ext::json::Value& value){
 			uf::Serializer elementData = masterDataGet("Element", elementId);
-			message += "\n\t" + elementData["name"].as<std::string>() + ": " + value;
-		}
+			message += "\n\t" + elementData["name"].as<std::string>() + ": " + value.as<std::string>();
+		});
 
 		uf::Serializer payload;
 		payload[""] = member;
@@ -1494,7 +1532,7 @@ void ext::HousamoBattle::initialize() {
 			uf::Entity*  = scene.findByUid(uid);
 			if (  ) {
 				uf::Serializer& pMetadata = ->getComponent<uf::Serializer>();
-				pMetadata["system"].removeMember("battle");
+				pMetadata["system"].erase("battle");
 			}
 		}
 

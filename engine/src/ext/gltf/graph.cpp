@@ -1,28 +1,6 @@
 #include <uf/ext/gltf/graph.h>
 #include <uf/utils/math/physics.h>
 
-namespace {
-	std::string toString( const pod::Vector3f& vector ) {
-		std::stringstream ss;
-		ss << vector.x << ", " << vector.y << ", " << vector.z;
-		return ss.str();
-	}
-	std::string toString( const pod::Vector4f& vector ) {
-		std::stringstream ss;
-		ss << vector.x << ", " << vector.y << ", " << vector.z << ", " << vector.w;
-		return ss.str();
-	}
-	std::string toString( const pod::Matrix4f& matrix, size_t indent = 0 ) {
-		std::stringstream ss;
-		for ( size_t i = 0; i < 16; ++i ) {
-			for ( size_t _ = 0; _ < indent; ++_ ) ss << "\t";
-			ss << matrix[i] << ", ";
-			if ( (i+1)%4 == 0 )  ss << std::endl;
-		}
-		return ss.str();
-	}
-}
-
 pod::Node& uf::graph::node() {
 	pod::Node* pointer = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global.alloc<pod::Node>() : new pod::Node;
 	return *pointer;
@@ -31,7 +9,6 @@ pod::Matrix4f uf::graph::local( const pod::Node& node ) {
 	return
 		uf::matrix::translate( uf::matrix::identity(), node.transform.position ) *
 		uf::quaternion::matrix(node.transform.orientation) *
-	//	uf::matrix::inverse(uf::quaternion::matrix(node.transform.orientation)) *
 		uf::matrix::scale( uf::matrix::identity(), node.transform.scale ) *
 		node.transform.model;
 }
@@ -129,14 +106,12 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 			auto& graphic = entity.getComponent<uf::Graphic>();
 			uf::instantiator::bind("RenderBehavior", entity);
 			if ( graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES ) {
-				auto& images = graph.atlas->getImages();
-				if ( !images.empty() ) {
-					auto& image = images.front();
+				if ( !graph.images.empty() ) {
+					auto& image = graph.images.front();
 					auto& texture = graphic.material.textures.emplace_back();
 					texture.loadFromImage( image );
-					images.erase( images.begin() );
+					graph.images.erase( graph.images.begin() );
 				}
-
 				if ( !graph.samplers.empty() ) {
 					auto& sampler = graph.samplers.front();
 					graphic.material.samplers.emplace_back( sampler );
@@ -146,13 +121,13 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 				graphic.initialize();
 				graphic.initializeGeometry( mesh );
 			} else {
-				for ( auto& image : graph.atlas->getImages() ) {
+				for ( auto& image : graph.images ) {
 					auto& texture = graphic.material.textures.emplace_back();
 					texture.loadFromImage( image );
 				}
-
-				for ( auto& sampler : graph.samplers )
+				for ( auto& sampler : graph.samplers ) {
 					graphic.material.samplers.emplace_back( sampler );
+				}
 			}
 
 			if ( graph.mode & ext::gltf::LoadMode::DEFAULT_LOAD ) {
@@ -177,17 +152,32 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 				graphic.process = false;
 			}
 
+			graphic.device = &uf::renderer::device;
 			if ( graph.mode & ext::gltf::LoadMode::SKINNED && node.skin >= 0 ) {
-				graphic.device = &uf::renderer::device;
 				auto& skin = graph.skins[node.skin];
-				size_t index = graphic.initializeBuffer(
+				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
 					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
 					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 					true
 				);
-				node.bufferIndex = index;
+			}
+			{
+				// update mappings
+				std::vector<pod::Material::Storage> materials( graph.materials.size() );
+				for ( size_t i = 0; i < graph.materials.size(); ++i ) {
+					materials[i] = graph.materials[i].storage;
+					materials[i].indexMappedTarget = i;
+				//	graph.materials[i].id.mappedTarget = i;
+				}
+				node.materialBufferIndex = graphic.initializeBuffer(
+					(void*) materials.data(),
+					materials.size() * sizeof(pod::Material::Storage),
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+					true
+				);
 			}
 		}
 	}
@@ -195,42 +185,117 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 	for ( auto* child : node.children ) uf::graph::process( graph, *child, entity );
 }
 
-void uf::graph::animate( pod::Graph& graph, const std::string& name ) {
-	graph.animation = name;
+void uf::graph::override( pod::Graph& graph ) {
+	graph.settings.animations.override.a = 0;
+	graph.settings.animations.override.stashedSpeed = graph.settings.animations.override.speed;
+	graph.settings.animations.override.map.clear();
+	bool toNeutralPose = graph.sequence.empty();
+	// store every node's current transform
+	{
+		std::function<void(pod::Node&)> process = [&]( pod::Node& node ){
+			graph.settings.animations.override.map[&node].first = node.transform;
+			graph.settings.animations.override.map[&node].second = node.transform;
+			if ( toNeutralPose ) {
+				graph.settings.animations.override.map[&node].second.position = { 0, 0, 0 };
+				graph.settings.animations.override.map[&node].second.orientation = { 0, 0, 0, 1 };
+				graph.settings.animations.override.map[&node].second.scale = { 1, 1, 1 };
+			}
+			for ( auto* child : node.children ) process( *child );
+		};
+		process( *graph.node );
+	}
+	// set our destination transform per node
+	if ( !toNeutralPose ) {
+		std::string name = graph.sequence.front();
+		pod::Animation& animation = graph.animations[name];
+		for ( auto& channel : animation.channels ) {
+			auto& override = graph.settings.animations.override.map[channel.node];
+			auto& sampler = animation.samplers[channel.sampler];
+			if ( sampler.interpolator != "LINEAR" ) continue;
+			for ( size_t i = 0; i < sampler.inputs.size() - 1; ++i ) {
+				if ( !(animation.start >= sampler.inputs[i] && animation.start <= sampler.inputs[i+1]) ) continue;
+				if ( channel.path == "translation" ) {
+					override.second.position = sampler.outputs[i];
+				} else if ( channel.path == "rotation" ) {
+					override.second.orientation = uf::quaternion::normalize( sampler.outputs[i] );
+				} else if ( channel.path == "scale" ) {
+					override.second.scale = sampler.outputs[i];
+				}
+			}
+		}
+	}
+}
+
+void uf::graph::animate( pod::Graph& graph, const std::string& name, float speed, bool immediate ) {
+	if ( graph.animations.count( name ) > 0 ) {
+		if ( immediate ) {
+		//	graph.sequence.clear();
+			while ( !graph.sequence.empty() ) graph.sequence.pop();
+		}
+		bool empty = graph.sequence.empty();
+		graph.sequence.emplace(name);
+		if ( empty ) uf::graph::override( graph );
+		graph.settings.animations.override.speed = speed;
+	}
 	update( graph, 0 );
 }
 void uf::graph::update( pod::Graph& graph ) {
 	return update( graph, uf::physics::time::delta );
 }
 void uf::graph::update( pod::Graph& graph, float delta ) {
-	if ( graph.animations.count( graph.animation ) > 0 ) {
-		auto& animation = graph.animations[graph.animation];
-		animation.cur += delta;
-		if ( animation.cur > animation.end ) animation.cur -= animation.end;
-		for ( auto& channel : animation.channels ) {
-			auto& sampler = animation.samplers[channel.sampler];
+	// no override
+	if ( graph.sequence.empty() ) goto UPDATE;
+	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
+	{
+		std::string name = graph.sequence.front();
+		pod::Animation* animation = &graph.animations[name];
+	//	std::cout << "ANIMATION: " << name << "\t" << animation->cur << std::endl;
+		animation->cur += delta * graph.settings.animations.override.speed;
+		if ( animation->end < animation->cur ) {
+			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
+			// go-to next animation
+			if ( !graph.settings.animations.loop ) {
+				graph.sequence.pop();
+				// out of animations, set to neutral pose
+				if ( graph.sequence.empty() ) {
+					uf::graph::override( graph );
+					goto OVERRIDE;
+				}
+				name = graph.sequence.front();
+				animation = &graph.animations[name];
+			}
+		}
+		for ( auto& channel : animation->channels ) {
+			auto& sampler = animation->samplers[channel.sampler];
 			if ( sampler.interpolator != "LINEAR" ) continue;
 			for ( size_t i = 0; i < sampler.inputs.size() - 1; ++i ) {
-				auto samplerInputCurrent = sampler.inputs[i];
-				auto samplerInputNext = sampler.inputs[i+1];
-				auto samplerOutputCurrent = sampler.outputs[i];
-				auto samplerOutputNext = sampler.outputs[i+1];
-
-				if ( !(animation.cur >= samplerInputCurrent && animation.cur <= samplerInputNext) ) continue;
-
-				float a = (animation.cur - samplerInputCurrent) / (samplerInputNext - samplerInputCurrent);
+				if ( !(animation->cur >= sampler.inputs[i] && animation->cur <= sampler.inputs[i+1]) ) continue;
+				float a = (animation->cur - sampler.inputs[i]) / (sampler.inputs[i+1] - sampler.inputs[i]);
 				if ( channel.path == "translation" ) {
-					channel.node->transform.position = uf::vector::mix( samplerOutputCurrent, samplerOutputNext, a );
+					channel.node->transform.position = uf::vector::mix( sampler.outputs[i], sampler.outputs[i+1], a );
 				} else if ( channel.path == "rotation" ) {
-				//	channel.node->transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(samplerOutputCurrent, samplerOutputNext, a) );
-					channel.node->transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(samplerOutputCurrent, samplerOutputNext, a) );
-				//	channel.node->transform.orientation.w *= -1;
+					channel.node->transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(sampler.outputs[i], sampler.outputs[i+1], a) );
 				} else if ( channel.path == "scale" ) {
-					channel.node->transform.scale = uf::vector::mix( samplerOutputCurrent, samplerOutputNext, a );
+					channel.node->transform.scale = uf::vector::mix( sampler.outputs[i], sampler.outputs[i+1], a );
 				}
 			}
 		}
+		goto UPDATE;
 	}
+OVERRIDE:
+	// std::cout << "OVERRIDED: " << graph.settings.animations.override.a << "\t" << -std::numeric_limits<float>::max() << std::endl;
+	for ( auto pair : graph.settings.animations.override.map ) {
+		pair.first->transform.position = uf::vector::mix( pair.second.first.position, pair.second.second.position, graph.settings.animations.override.a );
+		pair.first->transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(pair.second.first.orientation, pair.second.second.orientation, graph.settings.animations.override.a) );
+		pair.first->transform.scale = uf::vector::mix( pair.second.first.scale, pair.second.second.scale, graph.settings.animations.override.a );
+	}
+	// finished our overrided interpolation, clear it
+	if ( (graph.settings.animations.override.a += delta * graph.settings.animations.override.speed) >= 1 ) {
+		graph.settings.animations.override.a = -std::numeric_limits<float>::max();
+		graph.settings.animations.override.speed = graph.settings.animations.override.stashedSpeed;
+		graph.settings.animations.override.map.clear();
+	}
+UPDATE:
 	// update joint matrices
 	update( graph, *graph.node );
 }
@@ -244,7 +309,7 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 		for ( size_t i = 0; i < skin.joints.size(); ++i ) {
 			joints.emplace_back( uf::matrix::identity() );
 		}
-		if ( graph.animations.count( graph.animation ) > 0 ) {
+		if ( graph.settings.animations.override.a >= 0 || !graph.sequence.empty() ) {
 			for ( size_t i = 0; i < skin.joints.size(); ++i ) {
 				joints[i] = inverseTransform * (matrix(*skin.joints[i]) * skin.inverseBindMatrices[i]);
 			}
@@ -252,7 +317,7 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 		if ( node.entity && node.entity->hasComponent<uf::Graphic>() ) {
 			auto& graphic = node.entity->getComponent<uf::Graphic>();
 
-			auto& buffer = graphic.buffers.at(node.bufferIndex);
+			auto& buffer = graphic.buffers.at(node.jointBufferIndex);
 			graphic.updateBuffer( (void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer, false );
 		}
 	}

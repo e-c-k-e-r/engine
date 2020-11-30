@@ -468,7 +468,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			if ( ext::json::isObject( metadata["events"]["click"] ) ) {
 				uf::Serializer event = metadata["events"]["click"];
-				metadata["events"]["click"] = Json::arrayValue;
+				metadata["events"]["click"] = ext::json::array(); //Json::arrayValue;
 				metadata["events"]["click"][0] = event;
 			} else if ( !ext::json::isArray( metadata["events"]["click"] ) ) {
 				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", event);
@@ -491,7 +491,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 			if ( metadata["world"].as<bool>() ) return "true";
-			if ( metadata["box"] == Json::nullValue ) return "true";
+			if ( ext::json::isNull( metadata["box"] ) ) return "true";
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
@@ -540,7 +540,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			if ( ext::json::isObject( metadata["events"]["hover"] ) ) {
 				uf::Serializer event = metadata["events"]["hover"];
-				metadata["events"]["hover"] = Json::arrayValue;
+				metadata["events"]["hover"] = ext::json::array(); //Json::arrayValue;
 				metadata["events"]["hover"][0] = event;
 			} else if ( !ext::json::isArray( metadata["events"]["hover"] ) ) {
 				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", event);
@@ -564,7 +564,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( !this->hasComponent<uf::GuiMesh>() ) return "false";
 			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 			if ( metadata["world"].as<bool>() ) return "true";
-			if ( metadata["box"] == Json::nullValue ) return "true";
+			if ( ext::json::isNull( metadata["box"] ) ) return "true";
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
@@ -603,7 +603,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			::defaultSettings.readFromFile("./data/entities/gui/text/string.json");
 		}
 		for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
-			std::string key = it.key().as<std::string>();
+			std::string key = it.key();
 			if ( ext::json::isNull( metadata["text settings"][key] ) ) {
 				metadata["text settings"][key] = ::defaultSettings["metadata"]["text settings"][key];
 			}
@@ -703,7 +703,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		this->addHook( "gui:UpdateString.%UID%", [&](const std::string& event)->std::string{
 			uf::Serializer json = event;
 			for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
-				std::string key = it.key().as<std::string>();
+				std::string key = it.key();
 				if ( ext::json::isNull( metadata["text settings"][key] ) ) {
 					metadata["text settings"][key] = ::defaultSettings["metadata"]["text settings"][key];
 				}
@@ -919,7 +919,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 				metadata["gui"][key] = metadata["text settings"][key];
 		}
 
-	//	std::cout << (isGlyph ? "[GLYPH] " : "[GUI] ") << uf::string::toString(*this) << ": " << metadata["gui"] << std::endl;
+		// std::cout << (isGlyph ? "[GLYPH] " : "[GUI] ") << uf::string::toString(*this) << ": " << metadata["gui"] << std::endl;
 
 		uniforms.gui.offset = {
 			metadata["gui"]["uv"][0].as<float>(),

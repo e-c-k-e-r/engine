@@ -15,19 +15,73 @@ CLIENT_SRC_DIR 			+= ./client
 
 UF_LIBS 				+= 
 EXT_LIBS 				+=
-FLAGS 				  	+= -Wno-unknown-pragmas -std=c++17 -g -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN -DGLM_ENABLE_EXPERIMENTAL -DUF_USE_JSON -DUF_USE_NCURSES -DUF_USE_OPENAL -DUF_USE_VORBIS -DUF_USE_FREETYPE -DUSE_OPENVR_MINGW
+FLAGS 				  	+= -Wno-unknown-pragmas -std=c++17 -g
 LIB_NAME 				+= uf
 EXT_LIB_NAME 			+= ext
 
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.101.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.108.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.1.114.0/
-#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.141.2/
 VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
-DEPS 					+= -lgdi32 -lvulkan -lspirv-cross -lpng -lz -ljsoncpp -lopenal -lalut -lvorbis -lvorbisfile -logg -lfreetype -lncursesw -lcurl -ldiscord_game_sdk -lopenvr_api -lluajit-5.1 -lUltralight -lUltralightCore -lWebCore -lAppCore
+DEPS 					+=
+REQ_DEPS 				+= win32 vulkan json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux # discord
+	
+ifneq (,$(findstring win32,$(REQ_DEPS)))
+	FLAGS 				+= 
+	DEPS 				+= -lgdi32
+endif
+ifneq (,$(findstring vulkan,$(REQ_DEPS)))
+	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
+	DEPS 				+= -lvulkan -lspirv-cross
+endif
+ifneq (,$(findstring json,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_JSON
+	DEPS 				+=
+ifneq (,$(findstring nlohmann,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_JSON_USE_NLOHMANN
+endif
+endif
+ifneq (,$(findstring png,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_PNG
+	DEPS 				+= -lpng -lz
+endif
+ifneq (,$(findstring openal,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_OPENAL
+	DEPS 				+= -lopenal -lalut
+endif
+ifneq (,$(findstring ogg,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_VORBIS
+	DEPS 				+= -lvorbis -lvorbisfile -logg
+endif
+ifneq (,$(findstring freetype,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_FREETYPE 
+	DEPS 				+= -lfreetype
+endif
+ifneq (,$(findstring ncurses,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_NCURSES
+	DEPS 				+= -lncursesw
+endif
+ifneq (,$(findstring curl,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_CURL
+	DEPS 				+= -lcurl
+endif
+ifneq (,$(findstring discord,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_DISCORD
+	DEPS 				+= -ldiscord_game_sdk
+endif
+ifneq (,$(findstring openvr,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_OPENVR -DUSE_OPENVR_MINGW
+	DEPS 				+= -lopenvr_api 
+endif
+ifneq (,$(findstring luajit,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_LUA -DUF_USE_LUAJIT
+	DEPS 				+= -lluajit-5.1
+endif
+ifneq (,$(findstring ultralight-ux,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_ULTRALIGHT_UX
+	DEPS 				+= -lUltralight -lUltralightCore -lWebCore -lAppCore
+endif
+
 #DEPS 					+= -lvulkan -lncursesw
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 #-Wl,-subsystem,windows

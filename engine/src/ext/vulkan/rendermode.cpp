@@ -9,6 +9,8 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/engine/scene/scene.h>
 
+#include <uf/ext/openvr/openvr.h>
+
 ext::vulkan::RenderMode::~RenderMode() {
 	this->destroy();
 }
@@ -102,6 +104,11 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 }
 
 void ext::vulkan::RenderMode::render() {
+/*
+	if ( ext::openvr::context ) {
+		ext::openvr::submit();
+	}
+*/
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Get next image in the swap chain (back/front buffer)
 	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));

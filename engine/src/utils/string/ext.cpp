@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include <cmath>
+#include <iostream>
 
 std::string UF_API uf::string::lowercase( const std::string& str ) {
 	std::string lower = str;
@@ -15,7 +16,6 @@ std::string UF_API uf::string::uppercase( const std::string& str ) {
 	std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
 	return upper;
 }
-#include <iostream>
 std::vector<std::string> UF_API uf::string::split( const std::string& str, const std::string& delim ) {
 	std::vector<std::string> tokens;
 	size_t prev = 0, pos = 0;
@@ -39,6 +39,17 @@ std::vector<std::string> UF_API uf::string::split( const std::string& str, const
 	return cont;
 */
 }
+/*
+std::string UF_API uf::string::join( const std::vector<std::string>& strings, const std::string& delim, bool trailing ) {
+	std::stringstream ss;
+	size_t len = strings.size();
+	for ( size_t i = 0; i < len; ++i ) {
+		ss << strings[i];
+		if ( trailing || i + 1 < len ) ss << delim;
+	}
+	return ss.str();
+}
+*/
 std::string UF_API uf::string::replace( const std::string& string, const std::string& search, const std::string& replace ) {
 	std::string result = string;
 	size_t start_pos = string.find(search);

@@ -177,10 +177,18 @@ std::string uf::Asset::getOriginal( const std::string& uri ) {
 	auto& map = this->getComponent<uf::Serializer>();
 	if ( ext::json::isNull( map[extension][uri] ) ) return uri;
 	std::size_t index = map[extension][uri].as<size_t>();
+
+	std::string key = uri;
+	ext::json::forEach( map[extension], [&]( const std::string& k, ext::json::Value& v ) {
+		std::size_t i = v.as<size_t>();
+		if ( index == i && key != uri ) key = k;
+	});
+/*
 	for ( auto it = map[extension].begin(); it != map[extension].end(); ++it ) {
-		std::string key = it.key().as<std::string>();
-		std::size_t i = it->as<size_t>();
+		std::string key = it.key();
+		std::size_t i = *it; //it->as<size_t>();
 		if ( index == i && key != uri ) return key;
 	}
-	return uri;
+*/
+	return key;
 }

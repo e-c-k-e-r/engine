@@ -1,9 +1,5 @@
 #pragma once
 
-#define TOKEN__PASTE(x, y) x ## y
-#define TOKEN_PASTE(x, y) TOKEN__PASTE(x, y)
-#define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
-
 #define UF_OBJECT_REGISTER_CPP( OBJ ) \
 namespace {\
 	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\

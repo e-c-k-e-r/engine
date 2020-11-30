@@ -59,6 +59,11 @@ namespace uf {
 		template<typename T> T inverse( const T& quaternion );
 		template<typename T> T& conjugate( T& quaternion );
 		template<typename T> T& inverse( T& quaternion );
+
+		template<typename T> pod::Vector3t<T> eulerAngles( const pod::Quaternion<T>& quaternion );
+		template<typename T> T pitch( const pod::Quaternion<T>& quaternion );
+		template<typename T> T yaw( const pod::Quaternion<T>& quaternion );
+		template<typename T> T roll( const pod::Quaternion<T>& quaternion );
 		
 		template<typename T> pod::Quaternion<T> fromMatrix( const pod::Matrix4t<T>& matrix );
 	}

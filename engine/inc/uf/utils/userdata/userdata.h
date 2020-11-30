@@ -89,7 +89,7 @@ namespace uf {
 
 		template<typename T> bool is() const;
 		template<typename T> inline T& as() { return get<T>(); }
-		template<typename T> inline T& as() const { return get<T>(); }
+		template<typename T> inline const T& as() const { return get<T>(); }
 	// 	Overloaded ops
 		operator void*();
 		operator void*() const;

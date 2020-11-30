@@ -5,6 +5,8 @@
 #include <uf/ext/vulkan/rendermode.h>
 #include <uf/utils/graphic/graphic.h>
 
+#include <uf/ext/openvr/openvr.h>
+
 #include <ostream>
 #include <fstream>
 #include <atomic>
@@ -358,6 +360,11 @@ void ext::vulkan::render() {
 	if ( ext::vulkan::settings::experimental::waitOnRenderEnd ) {
 		synchronize();
 	}
+/*
+	if ( ext::openvr::context ) {
+		ext::openvr::postSubmit();
+	}
+*/
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {

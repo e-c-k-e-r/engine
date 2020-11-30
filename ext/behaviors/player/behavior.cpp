@@ -147,20 +147,20 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		pod::Transform<>& cameraTransform = camera.getTransform();
 		if ( delta.x != 0 ) {
 			double current, minima, maxima; {
-				current = metadata["camera"]["limit"]["current"][0] != Json::nullValue ? metadata["camera"]["limit"]["current"][0].as<double>() : NAN;
-				minima = metadata["camera"]["limit"]["minima"][0] != Json::nullValue ? metadata["camera"]["limit"]["minima"][0].as<double>() : NAN;
-				maxima = metadata["camera"]["limit"]["maxima"][0] != Json::nullValue ? metadata["camera"]["limit"]["maxima"][0].as<double>() : NAN;
+				current = !ext::json::isNull( metadata["camera"]["limit"]["current"][0] ) ? metadata["camera"]["limit"]["current"][0].as<double>() : NAN;
+				minima = !ext::json::isNull( metadata["camera"]["limit"]["minima"][0] ) ? metadata["camera"]["limit"]["minima"][0].as<double>() : NAN;
+				maxima = !ext::json::isNull( metadata["camera"]["limit"]["maxima"][0] ) ? metadata["camera"]["limit"]["maxima"][0].as<double>() : NAN;
 			}
 			if ( metadata["camera"]["invert"][0].as<bool>() ) relta.x *= -1;
 			current += relta.x;
 			if ( current != current || ( current < maxima && current > minima ) ) uf::transform::rotate( transform, transform.up, relta.x ), updateCamera = true; else current -= relta.x;
-			if ( metadata["camera"]["limit"]["current"][0] != Json::nullValue ) metadata["camera"]["limit"]["current"][0] = current;
+			if ( !ext::json::isNull( metadata["camera"]["limit"]["current"][0] ) ) metadata["camera"]["limit"]["current"][0] = current;
 		}
 		if ( delta.y != 0 ) {
 			double current, minima, maxima; {
-				current = metadata["camera"]["limit"]["current"][1] != Json::nullValue ? metadata["camera"]["limit"]["current"][1].as<double>() : NAN;
-				minima = metadata["camera"]["limit"]["minima"][1] != Json::nullValue ? metadata["camera"]["limit"]["minima"][1].as<double>() : NAN;
-				maxima = metadata["camera"]["limit"]["maxima"][1] != Json::nullValue ? metadata["camera"]["limit"]["maxima"][1].as<double>() : NAN;
+				current = !ext::json::isNull( metadata["camera"]["limit"]["current"][1] ) ? metadata["camera"]["limit"]["current"][1].as<double>() : NAN;
+				minima = !ext::json::isNull( metadata["camera"]["limit"]["minima"][1] ) ? metadata["camera"]["limit"]["minima"][1].as<double>() : NAN;
+				maxima = !ext::json::isNull( metadata["camera"]["limit"]["maxima"][1] ) ? metadata["camera"]["limit"]["maxima"][1].as<double>() : NAN;
 			}
 			if ( metadata["camera"]["invert"][1].as<bool>() ) relta.y *= -1;
 			current += relta.y;
@@ -169,7 +169,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			//	uf::transform::rotate( this->m_animation.transforms[metadata["animation"]["names"]["head"].as<std::string>()], {0, 0, 0}, -relta.y );
 				updateCamera = true;
 			} else current -= relta.y;
-			if ( metadata["camera"]["limit"]["current"][1] != Json::nullValue ) metadata["camera"]["limit"]["current"][1] = current;
+			if ( !ext::json::isNull( metadata["camera"]["limit"]["current"][1] ) ) metadata["camera"]["limit"]["current"][1] = current;
 		}
 		if ( updateCamera ) {
 			camera.updateView();
@@ -180,12 +180,13 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	this->addHook( ":Update.%UID%", [&](const std::string& event)->std::string{
 		uf::Serializer json = event;
 		
-		for ( auto& member : json[""]["transients"] ) {
-			if ( member["type"] != "player" ) continue;
+	//	for ( auto& member : json[""]["transients"] ) {
+		ext::json::forEach(metadata[""]["transients"], [&](ext::json::Value& member){
+			if ( member["type"] != "player" ) return;
 			std::string id = member["id"].as<std::string>();
 			metadata[""]["transients"][id]["hp"] = member["hp"];
 			metadata[""]["transients"][id]["mp"] = member["mp"];
-		}
+		});
 		
 		return "true";
 	});
@@ -201,7 +202,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			this->callHook( ":Update.%UID%", payload );
 		}
 		
-		metadata["system"].removeMember("battle");
+		metadata["system"].erase("battle");
 		metadata["system"]["cooldown"] = uf::physics::time::current + 5;
 
 		return "true";
@@ -335,6 +336,18 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool impulse = true;
 		std::string menu = "";
 	} stats;
+
+	if ( false ) {
+		TIMER(1) {
+			std::cout << " ==== ==== DEBUG ==== ==== " << "\n";
+			std::cout << metadata["system"]["control"] << std::endl;
+			std::cout << metadata["system"]["physics"] << std::endl;
+			std::cout << "Acceleration: " << uf::string::toString( physics.linear.acceleration ) << std::endl;
+			std::cout << "Velocity: " << uf::string::toString( physics.linear.velocity ) << std::endl;
+			std::cout << " ==== =============== ==== " << std::endl;
+		}
+	}
+
 	stats.floored = physics.linear.velocity.y == 0;
 	stats.menu = metadata["system"]["menu"].as<std::string>();
 	stats.impulse = metadata["system"]["physics"]["impulse"].as<bool>();
@@ -354,11 +367,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		stats.impulse = true;
 	}
 
-	static uf::Timer<long long> timer(false);
-	if ( !timer.running() ) timer.start();
-	if ( keys.vee ) {
-		if ( timer.elapsed().asDouble() >= 0.25 ) {
-			timer.reset();
+	{
+		TIMER(0.25, keys.vee && ) {
 			if ( ext::json::isNull( metadata["system"]["physics"]["backup"]["collision"] ) )
 				metadata["system"]["physics"]["backup"]["collision"] = metadata["system"]["physics"]["collision"];
 			if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
@@ -366,7 +376,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			} else {
 				metadata["system"]["physics"]["collision"] = 0;
 			}
+			
 			std::cout << "Toggling noclip: " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
+			std::cout << metadata.dump(1, '\t') << std::endl;
+
 		//	metadata["system"]["physics"]["collision"] = !metadata["system"]["physics"]["collision"].as<bool>();
 			physics.linear.velocity = {0,0,0};
 		}
@@ -398,11 +411,56 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			transform.position.x = std::clamp( transform.position.x, metadata["system"]["physics"]["clamp"]["x"][0].as<float>(), metadata["system"]["physics"]["clamp"]["x"][1].as<float>() );
 		}
 		if ( ext::json::isArray( metadata["system"]["physics"]["clamp"]["y"] ) ) {
+			auto previous = transform.position.y;
 			transform.position.y = std::clamp( transform.position.y, metadata["system"]["physics"]["clamp"]["y"][0].as<float>(), metadata["system"]["physics"]["clamp"]["y"][1].as<float>() );
+			if ( transform.position.y > previous ) {
+				physics.linear.velocity.y = 0;
+				stats.floored = true;
+			}
 		}
 		if ( ext::json::isArray( metadata["system"]["physics"]["clamp"]["z"] ) ) {
 			transform.position.z = std::clamp( transform.position.z, metadata["system"]["physics"]["clamp"]["z"][0].as<float>(), metadata["system"]["physics"]["clamp"]["z"][1].as<float>() );
 		}
+	}
+	
+	// translate movement in HUD to deltas
+	if ( ext::openvr::context ) {
+		static pod::Quaternion<> prevCameraOrientation = ext::openvr::hmdQuaternion();
+		pod::Quaternion<> curCameraOrientation = ext::openvr::hmdQuaternion();
+
+		const pod::Vector3f prevEulerAngle = uf::quaternion::eulerAngles( prevCameraOrientation );
+		const pod::Vector3f curEulerAngle = uf::quaternion::eulerAngles( curCameraOrientation );
+		const pod::Vector3f deltaAngles = uf::vector::subtract( curEulerAngle, prevEulerAngle );
+		float magnitude = uf::vector::magnitude( deltaAngles );
+		if ( magnitude > 0.0001f ) {
+			uf::Serializer payload;
+			payload["previous"] = uf::vector::encode( prevCameraOrientation );
+			payload["current"] = uf::vector::encode( curCameraOrientation );
+			payload["euler"] = uf::vector::encode( deltaAngles );
+			payload["angle"]["pitch"] = deltaAngles.x;
+			payload["angle"]["yaw"] = deltaAngles.y;
+			payload["angle"]["roll"] = deltaAngles.z;
+			payload["magnitude"] = magnitude;
+			this->callHook("controller:Camera.Rotated", payload);
+		/*
+			std::cout << "Previous Angles: " << uf::string::toString( prevEulerAngle ) << "\n"
+					  << "Current Angles:  " << uf::string::toString( curEulerAngle ) << "\n" 
+					  << "Difference:      " << uf::string::toString( deltaAngles ) << "\n" 
+					  << "Magnitude:       " << magnitude << std::endl;
+		*/
+		}
+	/*
+		pod::Vector3f prevForward = uf::quaternion::rotate( prevCameraOrientation * pod::Vector4f{1,1,1,1}, pod::Vector3f{0,0,1} );
+		pod::Vector3f curForward = uf::quaternion::rotate( curCameraOrientation * pod::Vector4f{1,1,1,1}, pod::Vector3f{0,0,1} );
+		pod::Vector3f direction = uf::vector::subtract( curForward, prevForward );
+		float mag = uf::vector::magnitude( direction );
+		direction = uf::vector::normalize( direction );
+		std::cout 
+			<< "Previous Forward: " << uf::string::toString(prevForward) << "\n" 
+			<< "Current Forward:  " << uf::string::toString(curForward) << "\n" 
+			<< "Delta:            " << uf::string::toString(direction) << " * " << mag << "\n" << std::endl;
+	*/
+		prevCameraOrientation = curCameraOrientation;
 	}
 	
 	if ( metadata["system"]["control"].as<bool>() ) {	
@@ -410,8 +468,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			pod::Transform<> translator = transform;
 			if ( ext::openvr::context ) {
 				bool useController = true;
-			//	translator.orientation = useController ? ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) : ext::openvr::hmdQuaternion();
-			//	translator.orientation = translator.orientation * transform.orientation;
 				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,1}) : ext::openvr::hmdQuaternion() );
 				translator = uf::transform::reorient( translator );
 				
@@ -421,23 +477,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				translator.forward = uf::vector::normalize( translator.forward );
 				translator.right = uf::vector::normalize( translator.right );
 			}
-		/*
-			if ( ext::openvr::context ) {
-			//	translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,-1}, ext::openvr::hmdQuaternion() * pod::Vector4f{1,1,1,-1} );
-			//	translator.orientation = uf::quaternion::multiply( ext::openvr::hmdQuaternion(), transform.orientation );
-				//translator.orientation = ext::openvr::hmdQuaternion();
-				bool useController = false;
-				translator.orientation = uf::quaternion::multiply( transform.orientation, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right )) : ext::openvr::hmdQuaternion() );
-				translator = uf::transform::reorient( translator );
-				{
-					translator.forward *= { 1, 0, 1 };
-					translator.right *= { 1, 0, 1 };
-					
-					translator.forward = uf::vector::normalize( translator.forward );
-					translator.right = uf::vector::normalize( translator.right );
-				}
-			}
-		*/
 			if ( keys.forward || keys.backwards ) {
 				int polarity = keys.forward ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
@@ -548,7 +587,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 
-	if ( stats.updateCamera ) camera.updateView();
+	if ( stats.updateCamera )
+		camera.updateView();
 }
 
 void ext::PlayerBehavior::render( uf::Object& self ){}

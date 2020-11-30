@@ -3,13 +3,15 @@
 
 template<typename T, size_t N>
 std::string /*UF_API*/ uf::string::toString( const pod::Vector<T,N>& v ) {
-	std::stringstream ss;
-	ss << "Vector(";
-	for ( size_t i = 0; i < N; ++i ) {
-		ss << v[i];
-		if ( i + 1 < N )
-			ss << ", ";
-	}
-	ss << ")";
-	return ss.str();
+	return uf::vector::toString(v);
+}
+
+template<typename T, size_t N>
+ext::json::Value /*UF_API*/ ext::json::encode( const pod::Vector<T,N>& v ) {
+	return uf::vector::encode(v);
+}
+
+template<typename T, size_t N>
+pod::Vector<T,N> /*UF_API*/ ext::json::decode( const ext::json::Value& json ) {
+	return uf::vector::decode<T,N>(json);
 }

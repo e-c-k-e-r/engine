@@ -1319,7 +1319,8 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 	regions.back = terrain.at( { location.x, location.y, location.z - 1 } );
 
 	ext::TerrainVoxel::light_t ambientLight = AMBIENT_LIGHT; {
-		const uf::Serializer& tMetadata = region.getComponent<uf::Serializer>();
+	//	const uf::Serializer& tMetadata = region.getComponent<uf::Serializer>();
+		uf::Serializer tMetadata = region.getComponent<uf::Serializer>();
 		COLOR color = uint16ToColor( ambientLight );
 		color.r *= tMetadata["region"]["light"]["ambient"][0].as<float>();
 		color.g *= tMetadata["region"]["light"]["ambient"][1].as<float>();

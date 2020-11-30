@@ -127,8 +127,8 @@ void ext::Housamo::initialize() {
 	
 
 	// convert back
-	metadata[""].removeMember("level");
-	metadata[""].removeMember("skill level");
+	metadata[""].erase("level");
+	metadata[""].erase("skill level");
 	metadata[""]["lv"] = lv;
 	metadata[""]["sl"] = sl;
 	metadata[""]["jingi"] = jingi;
@@ -141,11 +141,11 @@ void ext::Housamo::initialize() {
 	metadata[""]["mag"] = mag;
 	metadata[""]["vit"] = vit;
 	metadata[""]["agi"] = agi;
-	metadata[""]["skills"] = Json::arrayValue;
+	metadata[""]["skills"] = ext::json::array();
 
 //	std::cout << metadata[""] << std::endl;
 
-	for ( auto& id : skills ) metadata[""]["skills"].append(id);
+	for ( auto& id : skills ) metadata[""]["skills"].emplace_back(id);
 }
 void ext::Housamo::tick() {
 	uf::Object::tick();

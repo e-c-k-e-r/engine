@@ -7,6 +7,7 @@
 #include <png/png.h> 				// libpng
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <gltf/stb_image.h>
 #include <gltf/stb_image_write.h>
 

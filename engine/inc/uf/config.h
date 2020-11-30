@@ -87,6 +87,13 @@
 	#define alignas(X)
 #endif
 
+#include "macros.h"
+
+//#define UF_USE_NLOHMANN 	1 // wrapper works, please use this
+//#define UF_USE_JSONCPP 	0 // originally implemented JSON with JSONCPP, internal wrapper broke things
+//#define UF_USE_RAPIDJSON 	0 // wrapper for rapidjson is incomplete
+//#define UF_USE_LUA 		0 // wrapper for SOL2 Lua tables is incomplete
+
 /*
 // External libraries
 #ifndef UF_USE_GLEW

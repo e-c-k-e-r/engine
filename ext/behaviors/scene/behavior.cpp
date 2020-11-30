@@ -387,7 +387,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						light.view = camera.getView();
 						light.projection = camera.getProjection();
 
-						if ( entity == &controller ) light.position.y += 2;
+						if ( entity == &controller ) {
+							light.position.x += metadata["light"]["position"][0].as<float>();
+							light.position.y += metadata["light"]["position"][1].as<float>();
+							light.position.z += metadata["light"]["position"][2].as<float>();
+						}
 
 						light.position.w = metadata["light"]["radius"][1].as<float>();
 

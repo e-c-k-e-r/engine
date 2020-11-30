@@ -22,6 +22,8 @@ void uf::RenderBehavior::destroy( uf::Object& self ) {
 void uf::RenderBehavior::tick( uf::Object& self ) {
 
 }
+#define UF_UNIFORMS_UPDATE_WITH_JSON 0
+
 void uf::RenderBehavior::render( uf::Object& self ) {
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -29,23 +31,36 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();		
+	auto& camera = controller.getComponent<uf::Camera>();
 	
 	if ( !graphic.initialized ) return;
+	if ( !graphic.material.hasShader("vertex") ) return;
 
-	auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+	auto& shader = graphic.material.getShader("vertex");
+	auto& uniform = shader.getUniform("UBO");
+#if UF_UNIFORMS_UPDATE_WITH_JSON
+//	auto uniforms = shader.getUniformJson("UBO");
+	ext::json::Value uniforms;
+	uniforms["matrices"]["model"] = uf::matrix::encode( uf::transform::model( transform ) );
+	for ( std::size_t i = 0; i < 2; ++i ) {
+		uniforms["matrices"]["view"][i] = uf::matrix::encode( camera.getView( i ) );
+		uniforms["matrices"]["projection"][i] = uf::matrix::encode( camera.getProjection( i ) );
+	}
+	uniforms["color"][0] = 1.0f;
+	uniforms["color"][1] = 1.0f;
+	uniforms["color"][2] = 1.0f;
+	uniforms["color"][3] = 1.0f;
+	shader.updateUniform("UBO", uniforms );
+#else
+	auto& uniforms = uniform.get<uf::StereoMeshDescriptor>();
 	uniforms.matrices.model = uf::transform::model( transform );
-
 	for ( std::size_t i = 0; i < 2; ++i ) {
 		uniforms.matrices.view[i] = camera.getView( i );
 		uniforms.matrices.projection[i] = camera.getProjection( i );
 	}
+	uniforms.color = { 1, 1, 1, 1 };
+	shader.updateUniform( "UBO", uniform );
+#endif
 
-	uniforms.color[0] = 1;
-	uniforms.color[1] = 1;
-	uniforms.color[2] = 1;
-	uniforms.color[3] = 1;
-
-	graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 }
 #undef this

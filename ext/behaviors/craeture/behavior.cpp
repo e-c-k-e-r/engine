@@ -35,7 +35,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
 	/* Gravity */ {
-		if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+		if ( !ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
 			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
 			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
 			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();
@@ -85,10 +85,10 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 
 		transform.position -= correction;
 
-
 		if ( normal.x == 1 || normal.x == -1 ) physics.linear.velocity.x = 0;
 		if ( normal.y == 1 || normal.y == -1 ) physics.linear.velocity.y = 0;
 		if ( normal.z == 1 || normal.z == -1 ) physics.linear.velocity.z = 0;
+
 		return "true";
 	});
 	this->addHook( "asset:Cache.Sound.%UID%", [&](const std::string& event)->std::string{	
@@ -168,7 +168,7 @@ void ext::CraetureBehavior::tick( uf::Object& self ) {
 	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	/* Gravity */ {
-		if ( metadata["system"]["physics"]["gravity"] != Json::nullValue ) {
+		if ( !ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
 			physics.linear.acceleration.x = metadata["system"]["physics"]["gravity"][0].as<float>();
 			physics.linear.acceleration.y = metadata["system"]["physics"]["gravity"][1].as<float>();
 			physics.linear.acceleration.z = metadata["system"]["physics"]["gravity"][2].as<float>();

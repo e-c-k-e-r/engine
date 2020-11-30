@@ -1204,6 +1204,7 @@ template <> inline bool Value::is<String>() const { return isString(); }
 /// These `as` specializations are type conversions, and do not have a
 /// corresponding `is`.
 template <> inline float Value::as<float>() const { return asFloat(); }
+template <> inline bool Value::is<float>() const { return isDouble(); }
 template <> inline const char* Value::as<const char*>() const {
   return asCString();
 }

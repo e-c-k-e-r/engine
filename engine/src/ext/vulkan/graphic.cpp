@@ -6,9 +6,279 @@
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
 #include <fstream>
+#include <regex>
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
+}
+ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& definition ) {
+	ext::json::Value member;
+	// is object
+	if ( !ext::json::isNull(definition["members"]) ) {
+		ext::json::forEach(definition["members"], [&](/*const*/ ext::json::Value& value){
+			std::string key = uf::string::split(value["name"].as<std::string>(), " ").back();
+			member[key] = ext::vulkan::definitionToJson(value);
+		});
+	// is primitive
+	} else if ( !ext::json::isNull(definition["value"]) ) {
+		// is array of structs
+		if ( definition["struct"].as<bool>() ) {
+			ext::json::forEach(definition["value"], [&](/*const*/ ext::json::Value& value){
+				ext::json::Value parsed;
+				parsed["name"] = definition["name"];
+				parsed["size"] = definition["size"];
+				parsed["struct"] = definition["struct"];
+				parsed["members"] = value;
+				parsed = ext::vulkan::definitionToJson(parsed);
+				member.emplace_back(parsed);
+			});
+		} else {
+			member = definition["value"];
+		}
+	}
+	return member;
+}
+uf::Userdata ext::vulkan::jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition ) {
+	size_t bufferLen = definition["size"].as<size_t>();
+	
+	uf::Userdata userdata;
+	userdata.create(bufferLen);
+
+	uint8_t* byteBuffer = (uint8_t*) (void*) userdata;
+	uint8_t* byteBufferStart = byteBuffer;
+	uint8_t* byteBufferEnd = byteBuffer + bufferLen;
+
+#if UF_JSON_NLOHMANN_ORDERED
+	// JSON is ordered, we can just push directly
+#define UF_SHADER_TRACK_NAMES 0
+#if UF_SHADER_TRACK_NAMES
+	std::vector<std::string> variableName;	
+#endif
+	std::function<void(const ext::json::Value&)> parse = [&]( const ext::json::Value& value ){
+		// is array or object
+	#if UF_SHADER_TRACK_NAMES
+		if ( ext::json::isObject(value) ) {
+			ext::json::forEach(value, [&]( const std::string& name, const ext::json::Value& member ){
+			#if UF_SHADER_TRACK_NAMES
+				variableName.emplace_back(name);
+			#endif
+				parse(member);
+			});
+			#if UF_SHADER_TRACK_NAMES
+				if ( !variableName.empty() ) variableName.pop_back();
+			#endif
+			return;
+		}
+		if ( ext::json::isArray(value) ) {
+			ext::json::forEach(value, [&]( size_t i, const ext::json::Value& element ){
+				variableName.emplace_back("["+std::to_string(i)+"]");
+				parse(element);
+			});
+			#if UF_SHADER_TRACK_NAMES
+				if ( !variableName.empty() ) variableName.pop_back();
+			#endif
+			return;
+		}
+	#else
+		if ( ext::json::isArray(value) || ext::json::isObject(value) ) {
+			ext::json::forEach(value, parse);
+			return;
+		}
+	#endif
+	#if UF_SHADER_TRACK_NAMES
+		std::string path = uf::string::join(variableName, ".");
+		path = uf::string::replace( path, ".[", "[" );
+		VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = " << value.dump());
+	#endif
+		// is strictly an int
+		if ( value.is<int>(true) ) {
+			size_t size = sizeof(int32_t);
+			auto get = value.as<int32_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		// is strictly an unsigned int
+		} else if ( value.is<size_t>(true) ) {
+			size_t size = sizeof(uint32_t);
+			auto get = value.as<uint32_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		// is strictly a float
+		} else if ( value.is<float>(true) ) {
+			size_t size = sizeof(float);
+			auto get = value.as<float>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		}
+	#if UF_SHADER_TRACK_NAMES
+		if ( !variableName.empty() ) variableName.pop_back();
+	#endif
+	};
+#if UF_SHADER_TRACK_NAMES
+	VK_VALIDATION_MESSAGE("Updating " << name << " in " << filename);
+	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+#endif
+	parse(payload);
+#if UF_SHADER_TRACK_NAMES
+	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+#endif
+#else
+	auto pushValue = [&]( const std::string& primitive, const ext::json::Value& input ){
+		if ( primitive == "bool" ) {
+			size_t size = sizeof(bool); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<bool>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "int8_t" ) {
+			size_t size = sizeof(int8_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+	
+		//	auto get = input.as<int8_t>();
+		//	memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "uint8_t" ) {
+			size_t size = sizeof(uint8_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+		//	auto get = input.as<uint8_t>();
+		//	memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "int16_t" ) {
+			size_t size = sizeof(int16_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+		//	auto get = input.as<int16_t>();
+		//	memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "uint16_t" ) {
+			size_t size = sizeof(uint16_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+		//	auto get = input.as<uint16_t>();
+		//	memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "int32_t" ) {
+			size_t size = sizeof(int32_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<int32_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		}
+ else if ( primitive == "uint32_t" ) {
+			size_t size = sizeof(uint32_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<int32_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "int64_t" ) {
+			size_t size = sizeof(int64_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<uint64_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "uint64_t" ) {
+			size_t size = sizeof(uint64_t); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<uint64_t>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "half" ) {
+			size_t size = sizeof(float); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+		//	auto get = input.as<float>();
+		//	memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "float" ) {
+			size_t size = sizeof(float); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			auto get = input.as<float>();
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		} else if ( primitive == "double" ) {
+			auto get = input.as<double>();
+			size_t size = sizeof(double); // v["size"].as<size_t>();
+			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
+			memcpy( byteBuffer, &get, size );
+			byteBuffer += size;
+		}
+		return true;
+	};
+	#define UF_SHADER_TRACK_NAMES 0
+	#if UF_SHADER_TRACK_NAMES
+		bool SKIP_ADD = false;
+		std::vector<std::string> variableName;
+	#endif
+	std::function<void(const ext::json::Value&, const ext::json::Value&)> parseDefinition = [&](const ext::json::Value& input, const ext::json::Value& definition ){
+	#if UF_SHADER_TRACK_NAMES
+		if ( SKIP_ADD ) {
+			SKIP_ADD = false;
+		} else {
+			auto split = uf::string::split(definition["name"].as<std::string>(), " ");
+			std::string type = split.front();
+			std::string name = split.back();
+			variableName.emplace_back(name);
+		}
+	#endif
+		// is object
+		if ( !ext::json::isNull(definition["members"]) ) {
+			ext::json::forEach(definition["members"], [&](const ext::json::Value& member){
+				std::string key = uf::string::split(member["name"].as<std::string>(), " ").back();
+				parseDefinition(input[key], member);
+			});
+		// is array or primitive
+		} else if ( !ext::json::isNull(definition["value"]) ) {
+			// is object
+			auto split = uf::string::split(definition["name"].as<std::string>(), " ");
+			std::string type = split.front();
+			std::string name = split.back();
+			std::regex regex("^(?:(.+?)\\<)?(.+?)(?:\\>)?(?:\\[(\\d+)\\])?$");
+			std::smatch match;
+			if ( !std::regex_search( type, match, regex ) ) {
+				std::cout << "Ill formatted typename: " << definition["name"].as<std::string>() << std::endl;
+				return;
+			}
+			std::string vectorMatrix = match[1].str();
+			std::string primitive = match[2].str();
+			std::string arraySize = match[3].str();	
+			if ( ext::json::isObject(input) ) {
+				ext::json::Value cloned;
+				cloned["name"] = definition["name"];
+				cloned["size"] = definition["size"].as<size_t>() / definition["value"].size();
+				cloned["members"] = definition["value"][0];
+				parseDefinition( input, cloned );
+			}
+			// is array
+			else if ( ext::json::isArray(input) ) {
+				ext::json::forEach( input, [&]( size_t i, const ext::json::Value& value){
+				#if UF_SHADER_TRACK_NAMES
+					variableName.emplace_back("["+std::to_string(i)+"]");
+					SKIP_ADD = true;
+				#endif
+					parseDefinition(input[i], definition);
+				});
+			}
+			// is primitive
+			else {
+			#if UF_SHADER_TRACK_NAMES
+				std::string path = uf::string::join(variableName, ".");
+				path = uf::string::replace( path, ".[", "[" );
+				VK_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = (" << primitive << ") " << input.dump());
+			#endif
+				pushValue( primitive, input );
+			}
+		}
+	#if UF_SHADER_TRACK_NAMES
+		if ( !variableName.empty() ) variableName.pop_back();
+	#endif
+	};
+	auto& definitions = metadata["definitions"]["uniforms"][name];
+#if UF_SHADER_TRACK_NAMES
+	VK_VALIDATION_MESSAGE("Updating " << name << " in " << filename);
+	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+#endif
+	parseDefinition(payload, definitions);
+#if UF_SHADER_TRACK_NAMES
+	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+#endif
+#endif
+	return userdata;
 }
 /*
 ext::vulkan::Shader::~Shader() {
@@ -52,15 +322,128 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 		assert(descriptor.module != VK_NULL_HANDLE);
 	}
-	
+	// set up metadata
+	{
+		metadata["filename"] = filename;
+		metadata["type"] = "";
+	}
 	// do reflection
 	{
 		spirv_cross::Compiler comp( (uint32_t*) &spirv[0], spirv.size() / 4 );
 		spirv_cross::ShaderResources res = comp.get_shader_resources();
 
-		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType ) {			
+		std::function<ext::json::Value(spirv_cross::TypeID)> parseMembers = [&]( spirv_cross::TypeID type_id ) {
+			auto parseMember = [&]( auto type_id ){
+				uf::Serializer payload;
+				
+				auto type = comp.get_type(type_id);
+
+				std::string name = "";
+				size_t size = 1;
+				ext::json::Value value;
+				switch ( type.basetype ) {
+					case spirv_cross::SPIRType::BaseType::Boolean: 		name = "bool"; 		size = sizeof(bool); 		value = (bool) 0; 		break;
+					case spirv_cross::SPIRType::BaseType::SByte: 		name = "int8_t"; 	size = sizeof(int8_t); 		value = (int8_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::UByte: 		name = "uint8_t"; 	size = sizeof(uint8_t); 	value = (uint8_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::Short: 		name = "int16_t"; 	size = sizeof(int16_t); 	value = (int16_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::UShort: 		name = "uint16_t";	size = sizeof(uint16_t); 	value = (uint16_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::Int: 			name = "int32_t"; 	size = sizeof(int32_t); 	value = (int32_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::UInt: 		name = "uint32_t";	size = sizeof(uint32_t); 	value = (uint32_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::Int64: 		name = "int64_t"; 	size = sizeof(int64_t); 	value = (int64_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::UInt64: 		name = "uint64_t";	size = sizeof(uint64_t); 	value = (uint64_t) 0; 	break;
+					case spirv_cross::SPIRType::BaseType::Half: 		name = "half"; 		size = sizeof(float)/2; 	value = (float) 0; 		break;
+					case spirv_cross::SPIRType::BaseType::Float: 		name = "float"; 	size = sizeof(float); 		value = (float) 0; 		break;
+					case spirv_cross::SPIRType::BaseType::Double: 		name = "double"; 	size = sizeof(double); 		value = (double) 0; 		break;
+					case spirv_cross::SPIRType::BaseType::Image: 		name = "image2D"; 	break;
+					case spirv_cross::SPIRType::BaseType::SampledImage: name = "sampler2D"; break;
+					case spirv_cross::SPIRType::BaseType::Sampler: 		name = "sampler"; 	break;
+					default:
+						name = comp.get_name(type_id);
+						size = comp.get_declared_struct_size(type);
+					break;
+				}
+				if ( name == "" ) name = comp.get_name(type.type_alias);
+				if ( name == "" ) name = comp.get_name(type.type_alias);
+				if ( name == "" ) name = comp.get_name(type.parent_type);
+				if ( name == "" ) name = comp.get_fallback_name(type_id);
+				if ( type.vecsize > 1 ) {
+					name = "<"+name+">";
+					if ( type.columns > 1 ) {
+						name = "Matrix"+std::to_string(type.vecsize)+"x"+std::to_string(type.columns)+name;
+					} else {
+						name = "Vector"+std::to_string(type.vecsize)+name;
+					}
+				}
+				{
+					ext::json::Value source = value;
+					value = ext::json::array();
+					for ( size_t i = 0; i < type.vecsize * type.columns; ++i ) {
+						value.emplace_back(source);
+					}
+					size *= type.columns * type.vecsize;
+				}
+				for ( auto arraySize : type.array ) {
+					if ( arraySize > 1 ) {
+						ext::json::Value source = value;
+						value = ext::json::array();
+						for ( size_t i = 0; i < arraySize; ++i ) {
+							value.emplace_back(source);
+						}
+						name += "[" + std::to_string(arraySize) + "]";
+						size *= arraySize;
+					}
+				}
+				if ( ext::json::isArray(value) && value.size() == 1 ) {
+					value = value[0];
+				}
+				payload["name"] = name;
+				payload["size"] = size;
+				payload["value"] = value;
+				return payload;
+			};
+			uf::Serializer payload = ext::json::array();
+			const auto& type = comp.get_type(type_id);
+			for ( auto& member_type_id : type.member_types ) {
+				const auto& member_type = comp.get_type(member_type_id);
+				std::string name = comp.get_member_name(type.type_alias, payload.size());
+				if ( name == "" ) name = comp.get_member_name(type.parent_type, payload.size());
+				if ( name == "" ) name = comp.get_member_name(type_id, payload.size());
+				
+				auto& entry = payload.emplace_back();
+				auto parsed = parseMember(member_type_id);
+				std::string type_name = parsed["name"];
+				entry["name"] = type_name + " " + name; 
+				if ( member_type.basetype == spirv_cross::SPIRType::BaseType::Struct ) {
+					entry["struct"] = true;
+					auto parsed = parseMembers(member_type_id);
+					if ( !member_type.array.empty() && member_type.array[0] > 1 ) {
+						size_t size = comp.get_declared_struct_size(member_type);
+						for ( auto arraySize : member_type.array ) {
+							ext::json::Value source = parsed;
+							parsed = ext::json::array();
+							for ( size_t i = 0; i < arraySize; ++i ) {
+								parsed.emplace_back(source);
+							}
+							size = size * arraySize;
+						}
+						entry["size"] = size;
+						entry["value"] = parsed;
+					} else {
+						entry["size"] = comp.get_declared_struct_size(member_type);
+						entry["members"] = parsed;
+					}
+				} else {
+					entry["size"] = parsed["size"];
+					entry["value"] = parsed["value"];
+				}
+			}
+			return payload;
+		};
+
+		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType, size_t index ) {			
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
+			std::string name = resource.name;
 			
 			switch ( descriptorType ) {
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
@@ -75,57 +458,72 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 						VK_VALIDATION_MESSAGE("Invalid uniform buffer alignmnet of " << misalignment << " for shader " << filename << ", correcting...");
 						size += misalignment;
 					}
-    				auto& uniform = uniforms.emplace_back();
-    				uniform.create( size );
+					{
+						VK_VALIDATION_MESSAGE("Uniform size of " << size << " for shader " << filename);
+						auto& uniform = uniforms.emplace_back();
+						uniform.create( size );
+					}		
+					// generate definition to JSON
+					{
+						metadata["definitions"]["uniforms"][name]["name"] = name;
+						metadata["definitions"]["uniforms"][name]["index"] = index;
+						metadata["definitions"]["uniforms"][name]["size"] = size;
+						metadata["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
+					}
+					// test
+					{
+					//	updateUniform(name, getUniform(name));
+					}
 				} break;
-			/*
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-    				auto& uniform = uniforms.emplace_back();
-					// const auto& base_type = comp.get_type(resource.base_type_id);
-    				// uniform.create( comp.get_declared_struct_size(base_type) );
+					// generate definition to JSON
+					{
+						metadata["definitions"]["storage"][name]["name"] = name;
+						metadata["definitions"]["storage"][name]["index"] = index;
+						metadata["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
+					}
+					// test
+					{
+					//	updateUniform(name, getUniform(name));
+					}
 				} break;
-			*/
 			}
 
 			size_t size = 1;
 			if ( !type.array.empty() ) {
 				size = type.array[0];
-			/*
-				uf::iostream << "ARRAY: " << filename << ":\t";
-				for ( auto v : type.array ) 
-					uf::iostream << v << " ";
-				uf::iostream << "\n";
-				uf::iostream << "ARRAY: " << filename << ":\t";
-				for ( auto v : type.array_size_literal ) 
-					uf::iostream << v << " ";
-				uf::iostream << "\n";
-			*/
 			}
 			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, comp.get_decoration(resource.id, spv::DecorationBinding), size ) );
 		};
 		
-		//	uf::iostream << "["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding) << "\n";\
 
-		#define LOOP_RESOURCES( key, type ) for ( const auto& resource : res.key ) {\
-			parseResource( resource, type );\
+		//for ( const auto& resource : res.key ) {
+		#define LOOP_RESOURCES( key, type ) for ( size_t i = 0; i < res.key.size(); ++i ) {\
+			const auto& resource = res.key[i];\
+			VK_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
+			parseResource( resource, type, i );\
 		}
 		LOOP_RESOURCES( sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 		LOOP_RESOURCES( separate_images, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE );
 		LOOP_RESOURCES( storage_images, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE );
 		LOOP_RESOURCES( separate_samplers, VK_DESCRIPTOR_TYPE_SAMPLER );
-		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( subpass_inputs, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
+		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 		#undef LOOP_RESOURCES
+
+	//	if ( filename == "./data/shaders/display.subpass.stereo.frag.spv" )
+	//		std::cout << filename << ": " << ext::json::encode(metadata, true) << std::endl;
 		
 		for ( const auto& resource : res.push_constant_buffers ) {
 			const auto& type = comp.get_type(resource.base_type_id);
-    		size_t size = comp.get_declared_struct_size(type);
-    		if ( size <= 0 ) continue;
-    		if ( size > device.properties.limits.maxPushConstantsSize ) {
+			size_t size = comp.get_declared_struct_size(type);
+			if ( size <= 0 ) continue;
+			if ( size > device.properties.limits.maxPushConstantsSize ) {
 				VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
 				size = device.properties.limits.maxPushConstantsSize;
 			}
+			VK_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
 			auto& pushConstant = pushConstants.emplace_back();
 			pushConstant.create( size );
 		}
@@ -231,6 +629,7 @@ void ext::vulkan::Shader::destroy() {
 
 bool ext::vulkan::Shader::validate() {
 	// check if uniforms match buffer size
+	bool valid = true;
 	{
 		auto it = uniforms.begin();
 		for ( auto& buffer : buffers ) {
@@ -241,9 +640,96 @@ bool ext::vulkan::Shader::validate() {
 				VK_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
 				uniform.destroy();
 				uniform.create(buffer.allocationInfo.size);
+				valid = false;
 			}
 		}
 	}
+	return valid;
+}
+bool ext::vulkan::Shader::hasUniform( const std::string& name ) {
+	return !ext::json::isNull(metadata["definitions"]["uniforms"][name]);
+}
+ext::vulkan::Buffer* ext::vulkan::Shader::getUniformBuffer( const std::string& name ) {
+	if ( !hasUniform(name) ) return NULL;
+	size_t uniformIndex = metadata["definitions"]["uniforms"][name]["index"].as<size_t>();
+	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers[bufferIndex].usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( uniformCounter++ != uniformIndex ) continue;
+		return &buffers[bufferIndex];
+	}
+	return NULL;
+}
+uf::Userdata& ext::vulkan::Shader::getUniform( const std::string& name ) {
+	if ( !hasUniform(name) ) {
+		static uf::Userdata null;
+		return null;
+	}
+	auto& definition = metadata["definitions"]["uniforms"][name];
+	size_t uniformSize = definition["size"].as<size_t>();
+	size_t uniformIndex = definition["index"].as<size_t>();
+	auto& userdata = uniforms[uniformIndex];
+	return userdata;
+}
+bool ext::vulkan::Shader::updateUniform( const std::string& name ) {
+	if ( !hasUniform(name) ) return false;
+	auto& uniform = getUniform(name);
+	return updateUniform(name, uniform);
+}
+bool ext::vulkan::Shader::updateUniform( const std::string& name, const uf::Userdata& userdata ) {
+	if ( !hasUniform(name) ) return false;
+	auto* bufferObject = getUniformBuffer(name);
+	if ( !bufferObject ) return false;
+	size_t size = std::max(metadata["definitions"]["uniforms"][name]["size"].as<size_t>(), bufferObject->allocationInfo.size);
+	updateBuffer( (void*) userdata, size, *bufferObject );
+	return true;
+}
+
+uf::Serializer ext::vulkan::Shader::getUniformJson( const std::string& name, bool cache ) {
+	if ( !hasUniform(name) ) return ext::json::null();
+	if ( cache && !ext::json::isNull(metadata["uniforms"][name]) ) return metadata["uniforms"][name];
+	auto& definition = metadata["definitions"]["uniforms"][name];
+	if ( cache ) return metadata["uniforms"][name] = definitionToJson(definition);
+	return definitionToJson(definition);
+}
+uf::Userdata ext::vulkan::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
+	if ( !hasUniform(name) ) return false;
+	return jsonToUserdata(payload, metadata["definitions"]["uniforms"][name]);
+}
+bool ext::vulkan::Shader::updateUniform( const std::string& name, const ext::json::Value& payload ) {
+	if ( !hasUniform(name) ) return false;
+
+	auto* bufferObject = getUniformBuffer(name);
+	if ( !bufferObject ) return false;
+
+	auto uniform = getUniformUserdata( name, payload );	
+	updateBuffer( (void*) uniform, uniform.data().len, *bufferObject );
+	return true;
+}
+
+bool ext::vulkan::Shader::hasStorage( const std::string& name ) {
+	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
+}
+
+ext::vulkan::Buffer* ext::vulkan::Shader::getStorageBuffer( const std::string& name ) {
+	if ( !hasStorage(name) ) return NULL;
+	size_t storageIndex = metadata["definitions"]["storage"][name]["index"].as<size_t>();
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers[bufferIndex].usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return &buffers[bufferIndex];
+	}
+	return NULL;
+}
+uf::Serializer ext::vulkan::Shader::getStorageJson( const std::string& name, bool cache ) {
+	if ( !hasStorage(name) ) return ext::json::null();
+	if ( cache && !ext::json::isNull(metadata["storage"][name]) ) return metadata["storage"][name];
+	auto& definition = metadata["definitions"]["storage"][name];
+	if ( cache ) return metadata["storage"][name] = definitionToJson(definition);
+	return definitionToJson(definition);
+}
+uf::Userdata ext::vulkan::Shader::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+	if ( !hasStorage(name) ) return false;
+	return jsonToUserdata(payload, metadata["definitions"]["storage"][name]);
 }
 
 void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
@@ -271,7 +757,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			for ( auto& pushConstant : shader.pushConstants ) {
 				size_t len = pushConstant.data().len;
 				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
-					VK_VALIDATION_MESSAGE("Invalid push constent length of " << len << " for shader " << shader.filename);
+					VK_VALIDATION_MESSAGE("Invalid push constant length of " << len << " for shader " << shader.filename);
 				//	goto PIPELINE_INITIALIZATION_INVALID;
 					len = device.properties.limits.maxPushConstantsSize;
 				}
@@ -604,16 +1090,20 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	auto inputInfo = infos.input.begin();
 
 	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
-
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	for ( auto& shader : graphic.material.shaders ) {
+	//	std::cout << shader.filename << ": " << std::endl;
+	//	std::cout << "\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size() << std::endl;
+	//	std::cout << "\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size() << std::endl;
+	//	std::cout << "\tCONSUMING : " << shader.descriptorSetLayoutBindings.size() << std::endl;
 		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-		//	VK_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
+	//		VK_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
 			switch ( layout.descriptorType ) {
 				// consume an texture image info
 				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
+				//	std::cout << "\tINSERTING IMAGE" << std::endl;
 					BREAK_ASSERT( imageInfo == infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -625,6 +1115,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					imageInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
+				//	std::cout << "\tINSERTING INPUT_ATTACHMENT" << std::endl;
 					BREAK_ASSERT( inputInfo == infos.input.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -636,6 +1127,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					inputInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_SAMPLER: {
+				//	std::cout << "\tINSERTING SAMPLER" << std::endl;
 					BREAK_ASSERT( samplerInfo == infos.sampler.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -647,6 +1139,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					samplerInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
+				//	std::cout << "\tINSERTING UNIFORM_BUFFER" << std::endl;
 					BREAK_ASSERT( uniformBufferInfo == infos.uniform.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -658,6 +1151,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+				//	std::cout << "\tINSERTING STORAGE_BUFFER" << std::endl;
 					BREAK_ASSERT( storageBufferInfo == infos.storage.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -760,12 +1254,50 @@ void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderS
 		Sampler& sampler = samplers.emplace_back();
 		sampler.initialize( *device );
 	}
+	
+	std::string type = "unknown";
+	switch ( stage ) {
+		case VK_SHADER_STAGE_VERTEX_BIT: type = "vertex"; break;
+		case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT: type = "tessellation_control"; break;
+		case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: type = "tessellation_evaluation"; break;
+		case VK_SHADER_STAGE_GEOMETRY_BIT: type = "geometry"; break;
+		case VK_SHADER_STAGE_FRAGMENT_BIT: type = "fragment"; break;
+		case VK_SHADER_STAGE_COMPUTE_BIT: type = "compute"; break;
+		case VK_SHADER_STAGE_ALL_GRAPHICS: type = "all_graphics"; break;
+		case VK_SHADER_STAGE_ALL: type = "all"; break;
+		case VK_SHADER_STAGE_RAYGEN_BIT_KHR: type = "raygen"; break;
+		case VK_SHADER_STAGE_ANY_HIT_BIT_KHR: type = "any_hit"; break;
+		case VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR: type = "closest_hit"; break;
+		case VK_SHADER_STAGE_MISS_BIT_KHR: type = "miss"; break;
+		case VK_SHADER_STAGE_INTERSECTION_BIT_KHR: type = "intersection"; break;
+		case VK_SHADER_STAGE_CALLABLE_BIT_KHR: type = "callable"; break;
+	}
+	metadata["shaders"][type]["index"] = shaders.size() - 1;
+	metadata["shaders"][type]["filename"] = filename;
 }
 void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout ) {
 	shaders.clear(); shaders.reserve( layout.size() );
 	for ( auto& request : layout ) {
 		attachShader( request.first, request.second );
 	}
+}
+bool ext::vulkan::Material::hasShader( const std::string& type ) {
+	return !ext::json::isNull( metadata["shaders"][type] );
+}
+ext::vulkan::Shader& ext::vulkan::Material::getShader( const std::string& type ) {
+	if ( !hasShader(type) ) {
+		static ext::vulkan::Shader null;
+		return null;
+	}
+	size_t index = metadata["shaders"][type]["index"].as<size_t>();
+	return shaders.at(index);
+}
+bool ext::vulkan::Material::validate() {
+	bool was = true;
+	for ( auto& shader : shaders ) {
+		if ( !shader.validate() ) was = false;
+	}
+	return was;
 }
 ext::vulkan::Graphic::~Graphic() {
 	this->destroy();
@@ -794,6 +1326,7 @@ ext::vulkan::Pipeline& ext::vulkan::Graphic::initializePipeline( GraphicDescript
 //	if ( !update ) this->descriptor = previous;
 
 	initialized = true;
+	material.validate();
 
 	return pipeline;
 }
@@ -864,6 +1397,41 @@ void ext::vulkan::Graphic::destroy() {
 	ext::vulkan::Buffers::destroy();
 
 	ext::vulkan::states::rebuild = true;
+}
+
+bool ext::vulkan::Graphic::hasStorage( const std::string& name ) {
+	for ( auto& shader : material.shaders ) {
+		if ( shader.hasStorage(name) ) return true;
+	}
+	return false;
+}
+ext::vulkan::Buffer* ext::vulkan::Graphic::getStorageBuffer( const std::string& name ) {
+	size_t storageIndex = -1;
+	for ( auto& shader : material.shaders ) {
+		if ( !shader.hasStorage(name) ) continue;
+		storageIndex = shader.metadata["definitions"]["storage"][name]["index"].as<size_t>();
+		break;
+	}
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers[bufferIndex].usageFlags & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return &buffers[bufferIndex];
+	}
+	return NULL;
+}
+uf::Serializer ext::vulkan::Graphic::getStorageJson( const std::string& name, bool cache ) {
+	for ( auto& shader : material.shaders ) {
+		if ( !shader.hasStorage(name) ) continue;
+		return shader.getStorageJson(name, cache);
+	}
+	return ext::json::null();
+}
+uf::Userdata ext::vulkan::Graphic::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+	for ( auto& shader : material.shaders ) {
+		if ( !shader.hasStorage(name) ) continue;
+		return shader.getStorageUserdata(name, payload);
+	}
+	return uf::Userdata();
 }
 
 #include <uf/utils/string/hash.h>
