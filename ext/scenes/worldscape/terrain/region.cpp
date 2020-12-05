@@ -60,12 +60,10 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		});
 	}
 
-	this->addHook( "region:Generate.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-
+	this->addHook( "region:Generate.%UID%", [&](ext::json::Value& json){
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		if ( !metadata["region"]["initialized"].as<bool>() ) return "false";
-		if ( metadata["region"]["generated"].as<bool>() ) return "false";
+		if ( !metadata["region"]["initialized"].as<bool>() ) return;
+		if ( metadata["region"]["generated"].as<bool>() ) return;
 
 		pod::Vector3ui size; {
 			size.x = metadata["region"]["size"][0].as<size_t>();
@@ -109,11 +107,8 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 			}
 		}
 		metadata["region"]["generated"] = true;
-		return "true";
 	});
-	this->addHook( "region:Rasterize.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-
+	this->addHook( "region:Rasterize.%UID%", [&](ext::json::Value& json){
 		ext::TerrainGenerator& generator = this->getComponent<ext::TerrainGenerator>();
 		ext::TerrainGenerator::mesh_t& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
 		auto& graphic = this->getComponent<uf::Graphic>();
@@ -121,25 +116,19 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		generator.rasterize(mesh.vertices, *this);
 		graphic.initializeGeometry( mesh );
 
-		this->queueHook("region:Finalize.%UID%", "");
-		this->queueHook("region:Populate.%UID%", "");
-		return "true";
+		this->queueHook("region:Finalize.%UID%");
+		this->queueHook("region:Populate.%UID%");
 	});
-	this->addHook( "region:Finalize.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-
+	this->addHook( "region:Finalize.%UID%", [&](ext::json::Value& json){
 		if ( this->hasComponent<uf::Graphic>() ) {
 			auto& graphic = this->getComponent<uf::Graphic>();
 			graphic.process = true;
 		}
 		metadata["region"]["rasterized"] = true;
 
-		return "true";
 	});
-	this->addHook( "region:Populate.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-
-		if ( metadata["region"][""]["initialized"].as<bool>() ) return "false";
+	this->addHook( "region:Populate.%UID%", [&](ext::json::Value& json){
+		if ( metadata["region"][""]["initialized"].as<bool>() ) return;
 
 		metadata["region"][""]["initialized"] = true;
 		bool first = false;
@@ -237,7 +226,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 				first = true;
 				should = true;
 			}
-			if ( !should ) return "false";
+			if ( !should ) return;
 
 			if ( first ) {
 				// shiro
@@ -256,7 +245,7 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 					pod::Transform<>& pTransform = .getComponent<pod::Transform<>>();
 					pTransform.position += transform.position + pod::Vector3f{ -2, 0, 0 };
 				}
-				return "true";
+				return;
 			}
 
 			for ( uint i = 0; i < metadata["region"][""]["amount"].as<size_t>(); ++i ) {
@@ -287,7 +276,6 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 				pTransform.orientation = uf::quaternion::axisAngle( { 0.0f, 1.0f, 0.0f }, r * 2 * 3.1415926f );
 			}
 		}
-		return "true";
 	});
 }
 void ext::RegionBehavior::tick( uf::Object& self ) {

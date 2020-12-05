@@ -30,16 +30,14 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
-	this->addHook( "system:Quit.%UID%", [&](const std::string& event)->std::string{
-		std::cout << event << std::endl;
+	this->addHook( "system:Quit.%UID%", [&](ext::json::Value& json){
+		std::cout << json << std::endl;
 		ext::ready = false;
-		return "true";
 	});
 
-	this->addHook( "world:Music.LoadPrevious.%UID%", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
+	this->addHook( "world:Music.LoadPrevious.%UID%", [&](ext::json::Value& json){
 
-		if ( metadata["previous bgm"]["filename"] == "" ) return "false";
+		if ( metadata["previous bgm"]["filename"] == "" ) return;
 
 		std::string filename = metadata["previous bgm"]["filename"].as<std::string>();
 		float timestamp = metadata["previous bgm"]["timestamp"].as<float>();
@@ -56,17 +54,14 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		audio.setVolume(metadata["volumes"]["bgm"].as<float>());
 		audio.setTime(timestamp);
 		audio.play();
-
-		return "true";
 	});
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
-		if ( uf::io::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return;
 		const uf::Audio* audioPointer = NULL;
 		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
-		if ( !audioPointer ) return "false";
+		if ( !audioPointer ) return;
 
 		uf::Audio& audio = this->getComponent<uf::Audio>();
 		if ( audio.playing() ) audio.stop();
@@ -74,19 +69,16 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		audio.load(filename);
 		audio.setVolume(metadata["volumes"]["bgm"].as<float>());
 		audio.play();
-
-		return "true";
 	});
 
-	this->addHook( "menu:Pause", [&](const std::string& event)->std::string{
+	this->addHook( "menu:Pause", [&](ext::json::Value& json){
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start( uf::Time<>(-1000000) );
-		if ( timer.elapsed().asDouble() < 1 ) return "false";
+		if ( timer.elapsed().asDouble() < 1 ) return;
 		timer.reset();
 
-		uf::Serializer json = event;
 		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
-		if ( !manager ) return "false";
+		if ( !manager ) return;
 		uf::Serializer payload;
 		std::string config = metadata["menus"]["pause"].is<std::string>() ? metadata["menus"]["pause"].as<std::string>() : "/scenes/worldscape/gui/pause/menu.json";
 		uf::Object& gui = manager->loadChild(config, false);
@@ -96,26 +88,19 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadata["menu"] = json["menu"];
 		
 		gui.initialize();
-		return payload;
+	//	return payload;
 	});
-	this->addHook( "world:Entity.LoadAsset", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-
+	this->addHook( "world:Entity.LoadAsset", [&](ext::json::Value& json){
 		std::string asset = json["asset"].as<std::string>();
 		std::string uid = json["uid"].as<std::string>();
 
 		assetLoader.load(asset, "asset:Load." + uid);
-
-		return "true";
 	});
-	this->addHook( "shader:Update.%UID%", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-
+	this->addHook( "shader:Update.%UID%", [&](ext::json::Value& _json){
+		uf::Serializer json = _json;
 		json["mode"] = json["mode"].as<size_t>() | metadata["system"]["renderer"]["shader"]["mode"].as<size_t>();
 		metadata["system"]["renderer"]["shader"]["mode"] = json["mode"];
 		metadata["system"]["renderer"]["shader"]["parameters"] = json["parameters"];
-
-		return "true";
 	});
 	/* store viewport size */ {
 //		metadata["system"]["window"]["size"]["x"] = uf::renderer::settings::width;
@@ -123,9 +108,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 //		ext::gui::size.current.x = uf::renderer::settings::width;
 //		ext::gui::size.current.y = uf::renderer::settings::height;
 		
-		this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
+		this->addHook( "window:Resized", [&](ext::json::Value& json){
 			pod::Vector2ui size; {
 				size.x = json["window"]["size"]["x"].as<size_t>();
 				size.y = json["window"]["size"]["y"].as<size_t>();
@@ -133,8 +116,6 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 			metadata["system"]["window"] = json["system"]["window"];
 			ext::gui::size.current = size;
-
-			return "true";
 		});
 	}
 
@@ -151,7 +132,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
 	/* check if audio needs to loop */ {
-	/*
 		auto& bgm = this->getComponent<uf::Audio>();
 		float current = bgm.getTime();
 		float end = bgm.getDuration();
@@ -168,7 +148,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				if ( !bgm.playing() ) bgm.play();
 			}
 		}
-	*/
 	}
 
 	/* Regain control if nothing requests it */ {

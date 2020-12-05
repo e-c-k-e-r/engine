@@ -61,8 +61,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = this->getComponent<uf::Asset>();
 
-	this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
+	this->addHook( "window:Resized", [&](ext::json::Value& json){
 
 		pod::Vector2ui size; {
 			size.x = json["window"]["size"]["x"].as<size_t>();
@@ -70,11 +69,8 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 		}
 		ext::gui::size.current = size;
 	//	ext::gui::size.reference = size;
-
-		return "true";
 	} );
-	this->addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
+	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
 
 		bool down = json["mouse"]["state"].as<std::string>() == "Down";
 		bool clicked = false;
@@ -101,9 +97,6 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 				metadata["overlay"]["cursor"]["position"][1] = click.y;
 			}
 		}
-
-
-		return "true";
 	});
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
@@ -173,19 +166,21 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 			pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
 			uniforms.matrices.models[i] = model;
 		}
-	//	uniforms.alpha.x = metadata["overlay"]["alpha"].as<float>();
-	//	uniforms.alpha.y = 0;
 
-		uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].as<float>() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
-		uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].as<float>() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
 
-		pod::Vector3f cursorSize;
-		cursorSize.x = metadata["overlay"]["cursor"]["radius"].as<float>();
-		cursorSize.y = metadata["overlay"]["cursor"]["radius"].as<float>();
-		cursorSize = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , transform.scale) ), cursorSize );
+		pod::Vector3f cursorSize = { 0, 0 };
+		if ( metadata["overlay"]["cursor"]["enabled"].as<bool>() ) {
+			uniforms.cursor.position.x = (metadata["overlay"]["cursor"]["position"][0].as<float>() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
+			uniforms.cursor.position.y = (metadata["overlay"]["cursor"]["position"][1].as<float>() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
+
+			cursorSize.x = metadata["overlay"]["cursor"]["radius"].as<float>();
+			cursorSize.y = metadata["overlay"]["cursor"]["radius"].as<float>();
+			
+			cursorSize = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , transform.scale) ), cursorSize );
 		
-		uniforms.cursor.radius.x = cursorSize.x;
-		uniforms.cursor.radius.y = cursorSize.y;
+			uniforms.cursor.radius.x = cursorSize.x;
+			uniforms.cursor.radius.y = cursorSize.y;
+		}
 		
 		uniforms.cursor.color.x = metadata["overlay"]["cursor"]["color"][0].as<float>();
 		uniforms.cursor.color.y = metadata["overlay"]["cursor"]["color"][1].as<float>();

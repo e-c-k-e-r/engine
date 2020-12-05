@@ -19,28 +19,23 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["textures"]["additional"] = ext::json::array(); //Json::Value(Json::arrayValue);
 	// Default load: GLTF model
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
-		if ( uf::io::extension(filename) != "png" ) return "false";
+		if ( uf::io::extension(filename) != "png" ) return;
 		auto& vector = metadata["textures"]["additional"];
 		vector[vector.size()] = filename;
-		return "true";
 	});
-	this->addHook( "animation:Set.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "animation:Set.%UID%", [&](ext::json::Value& json){
 		std::string name = json["name"].as<std::string>();
 
-		if ( !this->hasComponent<pod::Graph>() ) return "false";
+		if ( !this->hasComponent<pod::Graph>() ) return;
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::animate( graph, name );
-		return "true";
 	});
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
-		if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) return "false";
+		if ( uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" ) return;
 		
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
@@ -48,7 +43,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		{
 			pod::Graph* graphPointer = NULL;
 			try { graphPointer = &assetLoader.get<pod::Graph>(filename); } catch ( ... ) {}
-			if ( !graphPointer ) return "false";
+			if ( !graphPointer ) return;
 			auto& graph = this->getComponent<pod::Graph>();
 			graph = std::move( *graphPointer );
 			graphPointer = &graph;
@@ -58,7 +53,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		objectPointer->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
-			if ( !(graph.mode & ext::gltf::LoadMode::DEFAULT_LOAD) ) {
+			if ( !(graph.mode & ext::gltf::LoadMode::LOAD) ) {
 				{
 					std::string filename = "/gltf.stereo.vert.spv";
 					if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -121,13 +116,16 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		objectPointer->initialize();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		objectPointer->process([&]( uf::Entity* entity ) {
-			{
-				entity->getComponent<pod::Transform<>>() = transform;
+			// entity->getComponent<pod::Transform<>>() = transform;
+			if ( !entity->hasComponent<uf::Graphic>() ) {
+				if ( entity->getUid() == 0 ) entity->initialize();
+				return;
 			}
-			if ( !entity->hasComponent<uf::Graphic>() || !entity->hasComponent<ext::gltf::mesh_t>() ) return;
 			auto& eMetadata = entity->getComponent<uf::Serializer>();
 			eMetadata["textures"]["map"] = metadata["textures"]["map"];
+			uf::instantiator::bind( "RenderBehavior", *entity );
 			uf::instantiator::bind( "GltfBehavior", *entity );
+			if ( entity->getUid() == 0 ) entity->initialize();
 		});
 
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -140,8 +138,6 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				uf::iostream << "Animations found: " << json << "\n";
 			}
 		}
-
-		return "true";
 	});
 }
 void uf::GltfBehavior::destroy( uf::Object& self ) {
@@ -224,8 +220,8 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		std::vector<pod::Material::Storage> materials( graph.materials.size() );
 		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 			materials[i] = graph.materials[i].storage;
-			materials[i].indexMappedTarget = i;
-			materials[i].factorMappedBlend = 0.0f;
+			materials[i].indexMappedTarget = graph.mode & ext::gltf::LoadMode::ATLAS ? 0 : i;
+			materials[i].factorMappedBlend = graph.mode & ext::gltf::LoadMode::ATLAS ? 1.0f : 0.0f;
 		}
 		size_t texturesLen = graphic.material.textures.size();
 		ext::json::forEach(metadata["textures"]["map"], [&]( const std::string& key, const ext::json::Value& mapping ){

@@ -43,6 +43,7 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/ultralight/ultralight.h>
+#include <uf/ext/bullet/bullet.h>
 
 bool ext::ready = false;
 std::vector<std::string> ext::arguments;
@@ -182,6 +183,9 @@ void EXT_API ext::initialize() {
 		}
 		ext::lua::initialize();
 	}
+	/* Bullet */ {
+		ext::bullet::initialize();
+	}
 
 	/* Parse config */ {
 		/* Set memory pool sizes */ {
@@ -270,6 +274,16 @@ void EXT_API ext::initialize() {
 			::config["engine"]["threads"]["workers"] = threads;
 			uf::iostream << "Using " << threads << " worker threads" << "\n";
 		}
+
+		// set bullet parameters
+		ext::bullet::debugDrawEnabled = ::config["engine"]["ext"]["bullet"]["debug draw"]["enabled"].as<bool>();
+		ext::bullet::debugDrawRate = ::config["engine"]["ext"]["bullet"]["debug draw"]["rate"].as<float>();
+		if ( ::config["engine"]["ext"]["bullet"]["iterations"].is<size_t>() ) {
+			ext::bullet::iterations = ::config["engine"]["ext"]["bullet"]["iterations"].as<size_t>();
+		}
+		if ( ::config["engine"]["ext"]["bullet"]["substeps"].is<size_t>() ) {
+			ext::bullet::substeps = ::config["engine"]["ext"]["bullet"]["substeps"].as<size_t>();
+		}
 		
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 		// Enable valiation layer
@@ -311,6 +325,18 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::multithreadedCommandRecording = ::config["engine"]["ext"]["vulkan"]["experimental"]["multithreaded command recording"].as<bool>();
 		uf::renderer::settings::experimental::deferredReconstructPosition = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred reconstruct position"].as<bool>();
 		uf::renderer::settings::experimental::deferredAliasOutputToSwapchain = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred alias output to swapchain"].as<bool>();
+		uf::renderer::settings::experimental::hdr = ::config["engine"]["ext"]["vulkan"]["experimental"]["hdr"].as<bool>();
+
+	#define JSON_TO_VKFORMAT( key ) if ( ::config["engine"]["ext"]["vulkan"]["formats"][#key].is<std::string>() ) {\
+			std::string format = ::config["engine"]["ext"]["vulkan"]["formats"][#key].as<std::string>();\
+			format = uf::string::replace( uf::string::uppercase(format), " ", "_" );\
+			uf::renderer::settings::formats::key = uf::renderer::formatFromString( format );\
+		}
+
+		JSON_TO_VKFORMAT(color);
+		JSON_TO_VKFORMAT(depth);
+		JSON_TO_VKFORMAT(normal);
+		JSON_TO_VKFORMAT(position);
 
 		
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].as<bool>();
@@ -338,8 +364,6 @@ void EXT_API ext::initialize() {
 		auto& metadata = scene.getComponent<uf::Serializer>();
 		metadata["system"]["config"] = ::config;
 	}
-	
-
 	
 	/* Initialize Vulkan */ {
 		// uf::renderer::width = ::config["window"]["size"]["x"].as<int>();
@@ -379,6 +403,42 @@ void EXT_API ext::initialize() {
 			}
 		}
 
+		/* Callbacks for 2KHR stuffs */ if ( false ) {
+			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
+			//	std::cout << "vulkan:Instance.ExtensionsEnabled: " << json << std::endl;
+			});
+			uf::hooks.addHook("vulkan:Device.ExtensionsEnabled", []( const ext::json::Value& json ) {
+			//	std::cout << "vulkan:Device.ExtensionsEnabled: " << json << std::endl;
+			});
+			uf::hooks.addHook("vulkan:Device.FeaturesEnabled", []( const ext::json::Value& json ) {
+			//	std::cout << "vulkan:Device.FeaturesEnabled: " << json << std::endl;
+
+				VkPhysicalDeviceFeatures2KHR deviceFeatures2{};
+				VkPhysicalDeviceMultiviewFeaturesKHR extFeatures{};
+				extFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+				deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR;
+				deviceFeatures2.pNext = &extFeatures;
+				PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2KHR>(vkGetInstanceProcAddr(ext::vulkan::device.instance, "vkGetPhysicalDeviceFeatures2KHR"));
+				vkGetPhysicalDeviceFeatures2KHR(ext::vulkan::device.physicalDevice, &deviceFeatures2);
+				std::cout << "Multiview features:" << std::endl;
+				std::cout << "\tmultiview = " << extFeatures.multiview << std::endl;
+				std::cout << "\tmultiviewGeometryShader = " << extFeatures.multiviewGeometryShader << std::endl;
+				std::cout << "\tmultiviewTessellationShader = " << extFeatures.multiviewTessellationShader << std::endl;
+				std::cout << std::endl;
+
+				VkPhysicalDeviceProperties2KHR deviceProps2{};
+				VkPhysicalDeviceMultiviewPropertiesKHR extProps{};
+				extProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHR;
+				deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+				deviceProps2.pNext = &extProps;
+				PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vkGetInstanceProcAddr(ext::vulkan::device.instance, "vkGetPhysicalDeviceProperties2KHR"));
+				vkGetPhysicalDeviceProperties2KHR(ext::vulkan::device.physicalDevice, &deviceProps2);
+				std::cout << "Multiview properties:" << std::endl;
+				std::cout << "\tmaxMultiviewViewCount = " << extProps.maxMultiviewViewCount << std::endl;
+				std::cout << "\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex << std::endl;
+			});
+		}
+
 		uf::renderer::initialize();
 	}
 	
@@ -402,9 +462,8 @@ void EXT_API ext::initialize() {
 	}
 	
 	/* Add hooks */ {
-		uf::hooks.addHook( "game:Scene.Load", [&](const std::string& event)->std::string{
-			auto function = [event]() -> int {
-				uf::Serializer json = event;
+		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
+			auto function = [json]() -> int {
 				uf::renderer::synchronize();
 
 				uf::hooks.call("game:Scene.Cleanup");
@@ -417,34 +476,20 @@ void EXT_API ext::initialize() {
 				return 0;
 			};
 			
-			uf::Serializer json = event;
-			if ( json["immediate"].as<bool>() )
-				function();
-			else
-				uf::thread::add( uf::thread::get("Main"), function, true );
-			return "true";
+			if ( json["immediate"].as<bool>() ) function(); else uf::thread::add( uf::thread::get("Main"), function, true );
 		});
 
-		uf::hooks.addHook( "game:Scene.Cleanup", [&](const std::string& event)->std::string{
+		uf::hooks.addHook( "game:Scene.Cleanup", [&](ext::json::Value& json){
 			for ( auto* scene : uf::scene::scenes ) {
 				if ( scene->hasComponent<uf::Audio>() ) {
 					scene->getComponent<uf::Audio>().destroy();
 				}
 			}
 			uf::scene::unloadScene();
-		/*
-			for ( auto* scene : uf::scene::scenes ) {
-				scene->destroy();
-				delete scene;
-			}
-			uf::scene::scenes.clear();
-		*/
-			return "true";
 		});
-		uf::hooks.addHook( "system:Quit", [&](const std::string& event)->std::string{
+		uf::hooks.addHook( "system:Quit", [&](ext::json::Value& json){
 		//	uf::iostream << "system:Quit: " << event << "\n";
 			ext::ready = false;
-			return "true";
 		});
 	}
 	
@@ -478,7 +523,7 @@ void EXT_API ext::tick() {
 	}
 
 	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && ) {
+		TIMER(1, uf::Window::isKeyPressed("U") && true && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
@@ -496,7 +541,7 @@ void EXT_API ext::tick() {
 		}
 	}
 	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && ) {
+		TIMER(1, uf::Window::isKeyPressed("U") && true && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
@@ -591,6 +636,13 @@ void EXT_API ext::tick() {
 		}
 	}
 
+	auto& bulletThread = uf::thread::fetchWorker();
+	/* Update bullet */ {
+		uf::thread::add( bulletThread, [&]() -> int {
+			ext::bullet::tick();
+		return 0;}, true );
+	}
+
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::tick();
 	}
@@ -625,6 +677,8 @@ void EXT_API ext::tick() {
 		}
 		timer.reset();
 	}
+
+	uf::thread::wait( bulletThread );
 }
 void EXT_API ext::render() {
 
@@ -647,6 +701,10 @@ void EXT_API ext::render() {
 void EXT_API ext::terminate() {
 	/* Kill threads */ {
 		uf::thread::terminate();
+	}
+
+	/* Kill bullet */ {
+		ext::bullet::terminate();
 	}
 
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {

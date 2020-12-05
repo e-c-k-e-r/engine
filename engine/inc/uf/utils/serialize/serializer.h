@@ -57,7 +57,7 @@ namespace uf {
 			return res;
 		}
 	
-		bool readFromFile( const std::string& from );
+		bool readFromFile( const std::string& from, const std::string& hash = "" );
 		bool writeToFile( const std::string& to ) const;
 		
 		void merge( const uf::Serializer& other, bool priority = true );

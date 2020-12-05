@@ -356,7 +356,7 @@ void ext::GuiBattle::initialize() {
 		}
 
 		playSound(*this, "crit");
-		this->queueHook("world:Battle.RemoveOnCrit.%UID%", "", 1.0);
+		this->queueHook("world:Battle.RemoveOnCrit.%UID%", ext::json::null(), 1.0);
 
 		return "true";
 	});
@@ -859,7 +859,7 @@ void ext::GuiBattle::tick() {
 			payload["uid"] = stats.targets.current[stats.targets.selection]["uid"].as<std::string>();
 		//	if ( payload["uid"].as<std::string>() == "")
 			payload["action"] = "analyze";
-			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
 			targetDescription = result["message"].as<std::string>();
 		}
@@ -884,7 +884,7 @@ void ext::GuiBattle::tick() {
 				metadata["system"]["closing"] = true;
 				return "false";
 			}
-			uf::Serializer result = hookCall[0];
+			uf::Serializer result = hookCall[0].as<uf::Serializer>();
 
 			if ( result["end"].as<bool>() ) {
 				if ( ext::json::isObject( metadata ) ) metadata["system"]["closing"] = true;
@@ -910,12 +910,12 @@ void ext::GuiBattle::tick() {
 				renderCommandOptions(result["actions"]);
 				return "true";
 			}
-			result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 			postParseResult(result);
 			stats.previousMember = uf::Serializer{};
 			timer.reset();
 			stats.state = "waiting";
-			this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+			this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			return "true";
 		});
 		this->queueHook("world:Battle.Turn.%UID%");
@@ -1240,7 +1240,7 @@ void ext::GuiBattle::tick() {
 			payload["target"].emplace_back(stats.targets.current[stats.targets.selection]["uid"]);
 			payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
 
-			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 			postParseResult(result);
 
 			renderTargetOptions(std::string(""));
@@ -1252,9 +1252,9 @@ void ext::GuiBattle::tick() {
 			if ( result["invalid"].as<bool>() ) {
 			//	stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
-			//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+			//	this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else {
-				this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			}
 		}
 	} else if ( battleOptions ) {
@@ -1312,7 +1312,7 @@ void ext::GuiBattle::tick() {
 			payload["action"] = "member-targets";
 			payload["uid"] = stats.currentMember["uid"];
 			payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
-			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
 			std::string skillId = stats.currentMember["skills"][stats.skill.selection].as<std::string>();
 			uf::Serializer skillData = masterDataGet("Skill", skillId);
@@ -1322,16 +1322,16 @@ void ext::GuiBattle::tick() {
 				payload["action"] = "member-attack";
 				payload["uid"] = stats.currentMember["uid"];
 				payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
-				uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+				uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 				postParseResult(result);
 				timer.reset();
 				stats.state = "waiting";
 				if ( result["invalid"].as<bool>() ) {
 				//	stats.actions.invalids.push_back(action);
 					renderCommandOptions(stats.actions.current);
-				//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				//	this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 				} else {
-					this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+					this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 				}
 			} else {
 				postParseResult(result);
@@ -1392,7 +1392,7 @@ void ext::GuiBattle::tick() {
 				payload["uid"] = stats.currentMember["uid"];
 				payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
 			}
-			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
 			postParseResult(result);
 			timer.reset();
@@ -1403,16 +1403,16 @@ void ext::GuiBattle::tick() {
 			if ( result["invalid"].as<bool>() ) {
 				stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
-			//	this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+			//	this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-attack" ) {
 				renderSkillOptions(std::string(""));
 				stats.state = "waiting";
-				this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-skill" ) {
 				renderSkillOptions(stats.currentMember);
 			} else if ( payload["action"] == "pass" ) {
 				stats.previousMember = stats.currentMember;
-				this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			}
 		}
 	}
@@ -1477,7 +1477,7 @@ void ext::GuiBattle::tick() {
 			if ( payload["action"] == "analyze" ) {
 				payload["action"] = "member-targets";
 			}
-			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0];
+			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
 		//	std::cout << payload << ": " << result << std::endl;
 
@@ -1494,14 +1494,14 @@ void ext::GuiBattle::tick() {
 			} else if ( payload["action"] == "member-attack" ) {
 				renderSkillOptions(std::string(""));
 				stats.state = "waiting";
-				this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-skill" ) {
 				renderSkillOptions(stats.currentMember);
 			} else if ( payload["action"] == "member-targets" ) {
 				renderTargetOptions(result["targets"]);
 			} else if ( payload["action"] == "pass" ) {
 				stats.previousMember = stats.currentMember;
-				this->queueHook("world:Battle.Turn.%UID%", "", timeout);
+				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else {
 				renderCommandOptions(stats.actions.current);
 			}

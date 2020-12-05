@@ -5,6 +5,16 @@
 namespace ext {
 	namespace gltf {
 		enum LoadMode {
+			RENDER 					= 0x1 << 0,
+			COLLISION 				= 0x1 << 1,
+			SEPARATE 				= 0x1 << 2,
+			NORMALS 				= 0x1 << 3,
+			LOAD 					= 0x1 << 4,
+			ATLAS 					= 0x1 << 5,
+			SKINNED 				= 0x1 << 6,
+			INVERT 					= 0x1 << 7,
+			TRANSFORM 				= 0x1 << 8,
+		/*
 			GENERATE_NORMALS 		= 0x1 << 0,
 			APPLY_TRANSFORMS 		= 0x1 << 1,
 			SEPARATE_MESHES 		= 0x1 << 2,
@@ -12,9 +22,11 @@ namespace ext {
 			COLLISION 				= 0x1 << 4,
 			AABB 					= 0x1 << 5,
 			DEFAULT_LOAD 			= 0x1 << 6,
-			USE_ATLAS 				= 0x1 << 7,
+			ATLASED 				= 0x1 << 7,
 			SKINNED 				= 0x1 << 8,
-			FLIP_XY 				= 0x1 << 9,
+			INVERT_X 				= 0x1 << 9,
+			INVERT_CULL 			= 0x1 << 10,
+		*/
 		};
 		typedef uint16_t load_mode_t;
 

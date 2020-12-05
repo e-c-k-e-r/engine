@@ -265,7 +265,7 @@ void ext::GuiDialogue::tick() {
 			uf::Serializer payload;
 			payload["action"] = "dialogue-select";
 			payload["index"] = stats.actions.index;
-			uf::Serializer result = dialogueManager->callHook("menu:Dialogue.Action.%UID%", payload)[0];
+			uf::Serializer result = dialogueManager->callHook("menu:Dialogue.Action.%UID%", payload)[0].as<uf::Serializer>();
 			postParseResult(result);
 
 			// renderDialogueOptions(std::string(""));
@@ -380,7 +380,7 @@ void ext::GuiDialogue::tick() {
 
 			stats.state = "waiting";
 			stats.actions.invalids.clear();
-			this->queueHook("menu:Dialogue.Turn.%UID%", "", timeout);
+			this->queueHook("menu:Dialogue.Turn.%UID%", ext::json::null(), timeout);
 		}
 	}
 }

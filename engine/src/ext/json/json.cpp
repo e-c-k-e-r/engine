@@ -9,26 +9,26 @@ ext::json::Value& ext::json::Value::operator=( const ext::json::Value& json ) {
 }
 
 void ext::json::forEach( ext::json::Value& json, const std::function<void(ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
 //	for ( auto it = json.begin(); it != json.end(); ++it ) { auto& v = *it;
 	for ( auto& v : json ) {
 		function( (ext::json::Value&) v );
 	}
 }
 void ext::json::forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) );
 	for ( size_t i = 0; i < json.size(); ++i ) {
 		function( i, (ext::json::Value&) json[i] );
 	}
 }
 void ext::json::forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		function( it.key(), (ext::json::Value&) *it );
 	}
 }
 void ext::json::forEach( ext::json::Value& json, const std::function<void(ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
 //	for ( auto it = json.begin(); it != json.end(); ++it ) { auto& v = *it;
 	for ( auto& v : json ) {
 		bool breaks = false;
@@ -37,7 +37,7 @@ void ext::json::forEach( ext::json::Value& json, const std::function<void(ext::j
 	}
 }
 void ext::json::forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) );
 	for ( size_t i = 0; i < json.size(); ++i ) {
 		bool breaks = false;
 		function( i, (ext::json::Value&) json[i], breaks );
@@ -45,7 +45,7 @@ void ext::json::forEach( ext::json::Value& json, const std::function<void(size_t
 	}
 }
 void ext::json::forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		bool breaks = false;
 		function( it.key(), (ext::json::Value&) *it, breaks );
@@ -54,19 +54,19 @@ void ext::json::forEach( ext::json::Value& json, const std::function<void(const 
 }
 
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) );
 	for ( size_t i = 0; i < json.size(); ++i ) {
 		function( i, (const ext::json::Value&) json[i] );
 	}
 }
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		function( it.key(), (const ext::json::Value&) *it );
 	}
 }
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) );
 	for ( size_t i = 0; i < json.size(); ++i ) {
 		bool breaks = false;
 		function( i, (const ext::json::Value&) json[i], breaks );
@@ -74,7 +74,7 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 	}
 }
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		bool breaks = false;
 		function( it.key(), (const ext::json::Value&) *it, breaks );
@@ -82,14 +82,14 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 	}
 }
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(const ext::json::Value&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
 //	for ( auto it = json.begin(); it != json.end(); ++it ) { auto& v = *it;
 	for ( auto& v : json ) {
 		function( (const ext::json::Value&) v );
 	}
 }
 void ext::json::forEach( const ext::json::Value& json, const std::function<void(const ext::json::Value&, bool&)>& function ) {
-	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
+//	SAFE_ASSERT( ext::json::isArray(json) || ext::json::isObject(json) );
 //	for ( auto it = json.begin(); it != json.end(); ++it ) { auto& v = *it;
 	for ( auto& v : json ) {
 		bool breaks = false;

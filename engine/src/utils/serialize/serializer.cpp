@@ -30,7 +30,27 @@ void uf::Serializer::deserialize( const std::string& str ) {
 	ext::json::decode( *this, str );
 }
 
-bool uf::Serializer::readFromFile( const std::string& from ) {
+bool uf::Serializer::readFromFile( const std::string& from, const std::string& hash ) {
+	uf::String string;
+	bool exists = uf::io::exists(from);
+	if ( !exists ) {
+		uf::iostream << "Failed to read JSON file `" << from << "`: does not exist" << "\n";
+		return false;
+	}
+	auto buffer = uf::io::readAsBuffer( from, hash );
+	if ( buffer.empty() ) {
+		uf::iostream << "Failed to read JSON file `" << from << "`: empty file or hash mismatch" << "\n";
+		return false;
+	}
+
+	auto& str = string.getString();
+	str.reserve(buffer.size());
+	str.assign(buffer.begin(), buffer.end());
+
+
+	this->deserialize(string);
+	return true;
+/*	
 	struct {
 		std::ifstream input;
 		uf::String buffer;
@@ -42,8 +62,7 @@ bool uf::Serializer::readFromFile( const std::string& from ) {
 	}
 
 	if ( !file.exists ) return false;
-	auto& str = file.buffer.getString();
-	
+
 	file.input.open(file.filename, std::ios::binary );
 	file.input.seekg(0, std::ios::end);
 	str.reserve(file.input.tellg());
@@ -53,6 +72,7 @@ bool uf::Serializer::readFromFile( const std::string& from ) {
 
 	this->deserialize(file.buffer);
 	return true;
+*/
 }
 bool uf::Serializer::writeToFile( const std::string& to ) const {
 	std::string buffer = this->serialize();

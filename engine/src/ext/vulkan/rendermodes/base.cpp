@@ -122,7 +122,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VkImageViewCreateInfo colorAttachmentView = {};
 		colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		colorAttachmentView.pNext = NULL;
-		colorAttachmentView.format = device.formats.color;
+		colorAttachmentView.format = ext::vulkan::settings::formats::color;
 		colorAttachmentView.components = {
 			VK_COMPONENT_SWIZZLE_R,
 			VK_COMPONENT_SWIZZLE_G,
@@ -141,7 +141,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
 
 		renderTarget.attachments[i].image = images[i];
-		renderTarget.attachments[i].format = device.formats.color;
+		renderTarget.attachments[i].format = ext::vulkan::settings::formats::color;
 		renderTarget.attachments[i].layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		renderTarget.attachments[i].usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		renderTarget.attachments[i].aliased = true;
@@ -154,7 +154,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VkImageCreateInfo imageCreateInfo = {};
 		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageCreateInfo.format = device.formats.depth;
+		imageCreateInfo.format = ext::vulkan::settings::formats::depth;
 		// Use example's height and width
 		imageCreateInfo.extent = { width, height, 1 };
 		imageCreateInfo.mipLevels = 1;
@@ -188,7 +188,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VkImageViewCreateInfo depthStencilView = {};
 		depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		depthStencilView.format = device.formats.depth;
+		depthStencilView.format = ext::vulkan::settings::formats::depth;
 		depthStencilView.subresourceRange = {};
 		depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		depthStencilView.subresourceRange.baseMipLevel = 0;
@@ -208,7 +208,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		std::array<VkAttachmentDescription, 2> attachments = {};
 
 		// Color attachment
-		attachments[0].format = device.formats.color;									// Use the color format selected by the swapchain
+		attachments[0].format = ext::vulkan::settings::formats::color;									// Use the color format selected by the swapchain
 		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;									// We don't use multi sampling in this example
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear this attachment at the start of the render pass
 		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;							// Keep it's contents after the render pass is finished (for displaying it)
@@ -218,7 +218,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;					// Layout to which the attachment is transitioned when the render pass is finished
 																						// As we want to present the color buffer to the swapchain, we transition to PRESENT_KHR	
 		// Depth attachment
-		attachments[1].format = device.formats.depth;											// A proper depth format is selected in the example base
+		attachments[1].format = ext::vulkan::settings::formats::depth;											// A proper depth format is selected in the example base
 		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;						
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;							// Clear depth at start of first subpass
 		attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;						// We don't need depth after render pass has finished (DONT_CARE may result in better performance)
@@ -323,7 +323,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		attachments.color = 0; {
 
 		}
-		attachments.depth = renderTarget.attach( device.formats.depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
+		attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ); // depth
 
 		// First pass: fill the G-Buffer
 		{

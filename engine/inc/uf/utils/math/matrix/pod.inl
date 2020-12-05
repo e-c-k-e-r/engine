@@ -385,15 +385,32 @@ template<typename T> T& uf::matrix::copy( T& destination, typename T::type_t* co
 	return destination;
 }
 
+template<typename T> pod::Vector3t<typename T::type_t> /*UF_API*/ uf::matrix::eulerAngles( const T& M ) {
+	typename T::type_t T1 = atan2(M[2*4+1], M[2*4+2]);
+	typename T::type_t C2 = sqrt(M[0*4+0]*M[0*4+0] + M[1*4+0]*M[1*4+0]);
+	typename T::type_t T2 = atan2(-M[2*4+0], C2);
+	typename T::type_t S1 = sin(T1);
+	typename T::type_t C1 = cos(T1);
+	typename T::type_t T3 = atan2(S1*M[0*4+2] - C1*M[0*4+1], C1*M[1*4+1] - S1*M[1*4+2  ]);
+	return pod::Vector3t<typename T::type_t>{-T1, -T2, -T3};
+}
+
+
 template<typename T, size_t R, size_t C = R>
 ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m ) {
 	ext::json::Value json;
 	for ( size_t i = 0; i < R*C; ++i ) json[i] = m[i];
 	return json;
 }
-template<typename T, size_t R, size_t C = R>
-pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json ) {
-	pod::Matrix<T,R,C> m;
+template<typename T, size_t R, size_t C>
+pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, pod::Matrix<T,R,C>& m ) {
+	for ( size_t i = 0; i < R*C; ++i ) m[i] = json[i].as<T>();
+	return m;
+}
+
+template<typename T, size_t R, size_t C>
+pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, const pod::Matrix<T,R,C>& _m ) {
+	pod::Matrix<T,R,C> m = _m;
 	for ( size_t i = 0; i < R*C; ++i ) m[i] = json[i].as<T>();
 	return m;
 }

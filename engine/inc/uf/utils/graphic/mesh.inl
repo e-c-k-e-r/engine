@@ -28,6 +28,17 @@ void uf::BaseMesh<T, U>::initialize( bool compress ) {
 	}
 }	
 template<typename T, typename U>
+void uf::BaseMesh<T, U>::expand() {
+	if ( this->indices.empty() ) return;
+	std::vector<vertex_t> _vertices = std::move( this->vertices );
+	this->vertices.clear();
+	this->vertices.reserve( this->indices.size() );
+	for ( auto& index : this->indices ) {
+		this->vertices.emplace_back( _vertices[index] );
+	}
+	this->indices.clear();
+}
+template<typename T, typename U>
 void uf::BaseMesh<T, U>::updateDescriptor() {
 	sizes.vertex = sizeof(vertex_t);
 	sizes.indices = sizeof(indices_t);

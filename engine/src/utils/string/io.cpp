@@ -1,5 +1,6 @@
 #include <uf/utils/string/io.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/string/hash.h>
 
 #include <sys/stat.h>
 #include <algorithm>
@@ -51,7 +52,7 @@ std::string UF_API uf::io::sanitize( const std::string& str, const std::string& 
 	}
 	return path;
 }
-std::string UF_API uf::io::readAsString( const std::string& filename ) {
+std::string UF_API uf::io::readAsString( const std::string& filename, const std::string& hash ) {
 	std::string buffer;
 	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 	if ( !is.is_open() ) {
@@ -60,9 +61,14 @@ std::string UF_API uf::io::readAsString( const std::string& filename ) {
 	}
 	is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 	buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+	std::string expected = "";
+	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
+		uf::iostream << "Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected << "\n";
+		return "";
+	}
 	return buffer;
 }
-std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& filename ) {
+std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& filename, const std::string& hash ) {
 	std::vector<uint8_t> buffer;
 	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 	if ( !is.is_open() ) {
@@ -71,7 +77,15 @@ std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& filename ) 
 	}
 	is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 	buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
+	std::string expected = "";
+	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
+		uf::iostream << "Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected << "\n";
+		return std::vector<uint8_t>();
+	}
 	return buffer;
+}
+std::string UF_API uf::io::hash( const std::string& filename ) {
+	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
 }
 bool UF_API uf::io::exists( const std::string& filename ) {
 	static struct stat buffer;

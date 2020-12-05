@@ -110,18 +110,18 @@ pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
 	auto& size = this->m_image.getDimensions();
 	for ( auto& it : stored.Get() ) {
 		if ( it.content.index != index ) continue;
-	//	auto& image = this->m_images[index];
-		pod::Vector2ui dim = { it.size.w, it.size.h }; //image.getDimensions();
+		pod::Vector2ui dim = { it.size.w, it.size.h };
 		pod::Vector2f nuv = uv;
 		if ( nuv.x > 1.0f ) nuv.x = std::fmod( nuv.x, 1.0f );
 		if ( nuv.y > 1.0f ) nuv.y = std::fmod( nuv.y, 1.0f );
-	//	while ( nuv.x > 1.0f ) nuv.x -= 1.0f;
-	//	while ( nuv.y > 1.0f ) nuv.y -= 1.0f;
 
 		pod::Vector2ui coord = { uv.x * dim.x + it.coord.x, uv.y * dim.y + it.coord.y };
 		nuv = { (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };
 		nuv.y = 1.0f - nuv.y;
 		return nuv;
+	}
+	{
+	//	std::cout << "Could not find requested index of " << index << std::endl;
 	}
 	return uv;
 }
@@ -280,13 +280,10 @@ pod::Vector2f uf::HashAtlas::mapUv( const pod::Vector2f& uv, const uf::HashAtlas
 	auto& size = this->m_image.getDimensions();
 	for ( auto& it : stored.Get() ) {
 		if ( it.content.hash != hash ) continue;
-	//	auto& image = this->m_images[hash];
-		pod::Vector2ui dim = { it.size.w, it.size.h }; //image.getDimensions();
+		pod::Vector2ui dim = { it.size.w, it.size.h };
 		pod::Vector2f nuv = uv;
 		if ( nuv.x > 1.0f ) nuv.x = std::fmod( nuv.x, 1.0f );
 		if ( nuv.y > 1.0f ) nuv.y = std::fmod( nuv.y, 1.0f );
-	//	while ( nuv.x > 1.0f ) nuv.x -= 1.0f;
-	//	while ( nuv.y > 1.0f ) nuv.y -= 1.0f;
 
 		pod::Vector2ui coord = { uv.x * dim.x + it.coord.x, uv.y * dim.y + it.coord.y };
 		nuv = { (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };

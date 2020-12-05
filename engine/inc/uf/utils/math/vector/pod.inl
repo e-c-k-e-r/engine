@@ -183,6 +183,26 @@ T /*UF_API*/ uf::vector::normalize( const T& vector ) {
 	return uf::vector::divide(vector, norm);
 }
 template<typename T> 														// Normalizes a vector
+void /*UF_API*/ uf::vector::orthonormalize( T& normal, T& tangent ) {
+/*
+	normal->Normalize();
+	Vector norm = *normal;
+	Vector tan = tangent->Normalized();
+	
+	*tangent = tan - (norm * Vector::Dot(norm, tan));
+	tangent->Normalize();
+*/
+	normal = uf::vector::normalize( normal );
+	T norm = normal;
+	T tan = uf::vector::normalize( tangent );
+	tangent = uf::vector::subtract( tan, uf::vector::multiply( norm, uf::vector::dot( norm, tan ) ) );
+	tangent = uf::vector::normalize( tangent );
+}
+template<typename T> 														// Normalizes a vector
+T /*UF_API*/ uf::vector::orthonormalize( const T& x, const T& y ) {
+	return uf::vector::normalize( uf::vector::subtract( x, uf::vector::multiply( y, uf::vector::dot( y, x ) ) ) );
+}
+template<typename T> 														// Normalizes a vector
 T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
 	return {
 		a.y * b.z - b.y * a.z,
@@ -210,10 +230,14 @@ ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v ) {
 	return json;
 }
 template<typename T, size_t N>
-pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json ) {
-	pod::Vector<T,N> v;
+pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, pod::Vector<T,N>& v ) {
 	if ( ext::json::isArray(json) ) for ( size_t i = 0; i < N; ++i ) v[i] = json[i].as<T>();
 	else if ( ext::json::isObject(json) ) {
+		size_t i = 0;
+		ext::json::forEach(json, [&](const ext::json::Value& c){
+			if ( i < N ) v[i++] = c.as<T>();
+		});
+	/*
 		// we want xyzw
 		switch ( N == 1 ) {
 			case 1:
@@ -249,6 +273,56 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json ) {
 				});
 			break;
 		}
+	*/
+	}
+	return v;
+}
+template<typename T, size_t N>
+pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, const pod::Vector<T,N>& _v ) {
+	pod::Vector<T,N> v = _v;
+	if ( ext::json::isArray(json) ) for ( size_t i = 0; i < N; ++i ) v[i] = json[i].as<T>();
+	else if ( ext::json::isObject(json) ) {
+		size_t i = 0;
+		ext::json::forEach(json, [&](const ext::json::Value& c){
+			if ( i < N ) v[i++] = c.as<T>();
+		});
+	/*
+		// we want xyzw
+		switch ( N == 1 ) {
+			case 1:
+				v = {
+					json["x"].as<T>(),
+				};
+			break;
+			case 2:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+				};
+			break;
+			case 3:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+					json["z"].as<T>(),
+				};
+			break;
+			case 4:
+				v = {
+					json["x"].as<T>(),
+					json["y"].as<T>(),
+					json["z"].as<T>(),
+					json["w"].as<T>(),
+				};
+			break;
+			default:
+				size_t i = 0;
+				ext::json::forEach(json, [&](ext::json::Value& c){
+					v[i++] = c.as<T>();
+				});
+			break;
+		}
+	*/
 	}
 	return v;
 }

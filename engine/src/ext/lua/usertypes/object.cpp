@@ -134,26 +134,26 @@ namespace {
 					return self.getParent().as<uf::Object>();
 				},
 				"addHook", []( uf::Object& self, const std::string& name, const sol::function& function ) {
-					self.addHook( name, [function]( const std::string& payload )->std::string{
+					self.addHook( name, [function](ext::json::Value& json){
+						std::string payload = json.dump();
 						auto decoded = ext::lua::decode( payload );
-						if ( !decoded ) return "false";
+						if ( !decoded ) return;
 						sol::table table = decoded.value();
 						auto result = function( table );
 						if ( !result.valid() ) {
 							sol::error err = result;
 							uf::iostream << err.what() << "\n";
-							return "false";
+							return;
 						}
-						return "true";
 					});
 				},
 				"callHook", []( uf::Object& self, const std::string& name, sol::table table = ext::lua::createTable() ) {
 					uf::Serializer payload = table;
-					self.callHook( name, payload );
+					self.callHook( name, (ext::json::Value&) payload );
 				},
 				"queueHook", []( uf::Object& self, const std::string& name, sol::table table, float delay = 0.0f ) {
 					uf::Serializer payload = table;
-					self.queueHook( name, payload, delay );
+					self.queueHook( name, (ext::json::Value&) payload, delay );
 				},
 				"__tostring", []( uf::Object& self ) {
 					return self.getName() + ": " + std::to_string( self.getUid() );
@@ -162,157 +162,3 @@ namespace {
 		});
 	});
 }
-
-/*
-UF_LUA_REGISTER_USERTYPE(uf::Object,
-	sol::call_constructor, sol::initializers( []( uf::Object& self, sol::object arg, bool init = true ){
-		if ( arg.is<std::string>() ) {
-			self.load( arg.as<std::string>() );
-		} else if ( arg.is<sol::table>() ) {
-			auto encoded = ext::lua::encode( arg.as<sol::table>() );
-			if ( encoded ) {
-				uf::Serializer json = encoded.value();
-				self.load(json);
-			}
-		}
-		if ( init ) {
-			self.initialize();
-		}
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( uid, &uf::Object::getUid ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( name, &uf::Object::getName ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( formatHookName, [](uf::Object& self, const std::string n ){
-		return self.formatHookName(n);
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, [](uf::Object& self, const std::string& type )->sol::object{
-		#define UF_LUA_RETRIEVE_COMPONENT( T )\
-			if ( type == UF_NS_GET_LAST(T) ) return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
-
-		if ( type == "Metadata" ) {
-			auto& metadata = self.getComponent<uf::Serializer>();
-			auto decoded = ext::lua::decode( metadata );
-			if ( decoded ) {
-				sol::table table = decoded.value();
-				return sol::make_object( ext::lua::state, table );
-			}
-		}
-		UF_LUA_RETRIEVE_COMPONENT(pod::Transform<>)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Audio)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Asset)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Camera)
-		return sol::make_object( ext::lua::state, sol::lua_nil );
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setComponent, [](uf::Object& self, const std::string& type, sol::object value ) {
-		#define UF_LUA_UPDATE_COMPONENT( T )\
-			else if ( type == UF_NS_GET_LAST(T) ) self.getComponent<T>() = std::move(value.as<T>());
-
-		if ( type == "Metadata" ) {
-			auto encoded = ext::lua::encode( value.as<sol::table>() );
-			if ( encoded ) {
-				auto& metadata = self.getComponent<uf::Serializer>();
-				std::string str = encoded.value();
-				uf::Serializer hooks = metadata["system"]["hooks"];
-				metadata.merge( str, false );
-				metadata["system"]["hooks"] = hooks;
-			}
-		}
-		UF_LUA_UPDATE_COMPONENT(pod::Transform<>)
-		UF_LUA_UPDATE_COMPONENT(uf::Audio)
-		UF_LUA_UPDATE_COMPONENT(uf::Asset)
-		UF_LUA_UPDATE_COMPONENT(uf::Camera)
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( bind, [](uf::Object& self, const std::string& type, sol::protected_function fun ) {
-		if ( !self.hasBehavior<uf::LuaBehavior>() ) uf::instantiator::bind( "LuaBehavior", self );
-		pod::Behavior* behaviorPointer = NULL;
-		auto& behaviors = self.getBehaviors();
-		for ( auto& b : behaviors ) {
-			if ( b.type != self.getType<uf::LuaBehavior>() ) continue;
-			behaviorPointer = &b;
-			break;
-		}
-		if ( !behaviorPointer ) return false;
-		pod::Behavior& behavior = *behaviorPointer;
-
-		pod::Behavior::function_t* functionPointer = NULL;
-		if ( type == "initialize" ) functionPointer = &behavior.initialize;
-		else if ( type == "tick" ) functionPointer = &behavior.tick;
-		else if ( type == "render" ) functionPointer = &behavior.render;
-		else if ( type == "destroy" ) functionPointer = &behavior.destroy;
-		
-		if ( !functionPointer ) return false;
-		pod::Behavior::function_t& function = *functionPointer;
-
-		function = [fun]( uf::Object& s ) {
-			auto result = fun(s);
-			if ( !result.valid() ) {
-				sol::error err = result;
-				uf::iostream << err.what() << "\n";
-			}
-		};
-		return true;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( findByUid, []( uf::Object& self, const size_t& index )->uf::Object&{
-		auto* pointer = self.findByUid( index );
-		if ( pointer ) return pointer->as<uf::Object>();
-		static uf::Object null;
-		return null;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( findByName, []( uf::Object& self, const std::string& index )->uf::Object&{
-		auto* pointer = self.findByName( index );
-		if ( pointer ) return pointer->as<uf::Object>();
-		static uf::Object null;
-		return null;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( addChild, []( uf::Object& self, uf::Object& child )->uf::Object&{
-		self.addChild( child );
-		return self;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( removeChild, []( uf::Object& self, uf::Object& child )->uf::Object&{
-		self.removeChild( child );
-		return self;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( loadChild, []( uf::Object& self, const std::string& filename, bool init = true )->uf::Object&{
-		auto* pointer = self.loadChildPointer( filename, init );
-		if ( pointer ) return pointer->as<uf::Object>();
-		static uf::Object null;
-		return null;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getChildren, []( uf::Object& self )->sol::table{
-		sol::table table = ext::lua::createTable();
-		for ( auto* child : self.getChildren() ) {
-			table.add(&child->as<uf::Object>());
-		}
-		return table;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getParent, []( uf::Object& self )->uf::Object&{
-		return self.getParent().as<uf::Object>();
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( addHook, []( uf::Object& self, const std::string& name, const sol::function& function ) {
-		self.addHook( name, [function]( const std::string& payload )->std::string{
-			auto decoded = ext::lua::decode( payload );
-			if ( decoded ) {
-				sol::table table = decoded.value();
-				auto result = function( table );
-				if ( !result.valid() ) {
-					sol::error err = result;
-					uf::iostream << err.what() << "\n";
-					return "false";
-				}
-				return "true";
-			}
-			return "false";
-		});
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( callHook, []( uf::Object& self, const std::string& name, sol::table table = ext::lua::createTable() ) {
-		uf::Serializer payload = table;
-		self.callHook( name, payload );
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( queueHook, []( uf::Object& self, const std::string& name, sol::table table, float delay = 0.0f ) {
-		uf::Serializer payload = table;
-		self.queueHook( name, payload, delay );
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, []( uf::Object& self ) {
-		return self.getName() + ": " + std::to_string( self.getUid() );
-	})
-)
-*/

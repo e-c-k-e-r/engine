@@ -86,6 +86,9 @@ namespace {
 		} else {
 			transform.model = uf::matrix::identity();
 		}
+		if ( newNode.parent != &newNode ) {
+			transform.reference = &newNode.parent->transform;
+		}
 
 		if ( node.children.size() > 0 ) {
 			loadNodes( model, graph, node.children, newNode );
@@ -131,11 +134,12 @@ namespace {
 
 						pod::Vector3f origin = (maxCorner + minCorner) * 0.5f;
 						pod::Vector3f size = (maxCorner - minCorner) * 0.5f;
-
+					/*
 						if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && (graph.mode & ext::gltf::LoadMode::AABB) ) {
 							auto* box = new uf::BoundingBox( origin, size );
 							collider.add(box);
 						}
+					*/
 					}
 					if ( attribute.name == "JOINTS_0" ) {
 						auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
@@ -152,6 +156,7 @@ namespace {
 					}
 				}
 
+				auto modelMatrix = uf::transform::model( transform );
 				mesh.vertices.reserve( vertices + verticesStart );
 				for ( size_t i = 0; i < vertices; ++i ) {
 					#define ITERATE_ATTRIBUTE( name, member )\
@@ -172,12 +177,20 @@ namespace {
 					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
 
 					#undef ITERATE_ATTRIBUTE
-					if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES) && (graph.mode & ext::gltf::LoadMode::USE_ATLAS) ) {
-						vertex.uv = graph.atlas->mapUv( vertex.uv, primitive.material );
+					if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) && (graph.mode & ext::gltf::LoadMode::ATLAS) ) {
+						auto& material = graph.materials[primitive.material];
+						auto& texture = graph.textures[material.storage.indexAlbedo];
+						vertex.uv = graph.atlas->mapUv( vertex.uv, texture.index );
 					}
-					// graph.materials[primitive.material]
-					if ( graph.mode & ext::gltf::LoadMode::FLIP_XY ) {
-						std::swap( vertex.position.x, vertex.position.y );
+					// required due to reverse-Z projection matrix flipping the X axis as well
+					// default is to proceed with this
+					if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ){
+						vertex.position.x *= -1;
+						vertex.normal.x *= -1;
+						vertex.tangent.x *= -1;
+					}
+					if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
+						vertex.position = uf::matrix::multiply<float>( modelMatrix, vertex.position );
 					}
 					vertex.id = primitive.material;
 				}
@@ -215,7 +228,7 @@ namespace {
 					#undef COPY_INDICES
 				}
 				// recalc normals
-				if ( graph.mode & ext::gltf::LoadMode::GENERATE_NORMALS ) {
+				if ( graph.mode & ext::gltf::LoadMode::NORMALS ) {
 					// bool invert = false;
 					if ( !mesh.indices.empty() ) {
 						for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
@@ -246,23 +259,26 @@ namespace {
 						}
 					}
 				}
-				if ( graph.mode & ext::gltf::LoadMode::APPLY_TRANSFORMS ) {
-					pod::Matrix4f model = uf::transform::model( transform );
+			/*
+				if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
+					auto model = uf::transform::model( transform );
 					for ( auto& vertex : mesh.vertices ) {
 						vertex.position = uf::matrix::multiply<float>( model, vertex.position );
 					}
 				}
+			*/
 			//	++id;
 			}
 			// setup collision
+		/*
 			if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && !(graph.mode & ext::gltf::LoadMode::AABB) ) {
 			//	auto* c = new uf::MeshCollider( transform );
 				auto* c = new uf::MeshCollider();
 				c->setPositions( mesh );
 				collider.add(c);
 			}
+		*/
 		}
-		// transform = uf::transform::initialize( transform );
 		return newNode;
 	}
 }
@@ -278,9 +294,9 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	pod::Graph graph;
 	graph.mode = mode;
 
-	if ( !warn.empty() ) std::cout << "glTF warning: " << warn << std::endl;
-	if ( !err.empty() ) std::cout << "glTF error: " << err << std::endl;
-	if ( !ret ) { std::cout << "glTF error: failed to parse file: " << filename << std::endl;
+	if ( !warn.empty() ) uf::iostream << "glTF warning: " << warn << "\n";
+	if ( !err.empty() ) uf::iostream << "glTF error: " << err << "\n";
+	if ( !ret ) { uf::iostream << "glTF error: failed to parse file: " << filename << "\n";
 		return graph;
 	}
 
@@ -293,6 +309,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		sampler.descriptor.addressMode.v = getVkWrapMode( s.wrapT );
 		sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
 	}
+
 	// load images
 	{
 		for ( auto& i : model.images ) {
@@ -300,26 +317,8 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
 		}
 	}
-	/*
-		if ( !graph.atlas ) graph.atlas = new uf::Atlas;
-		auto& images = graph.atlas->getImages();
-		for ( auto& t : model.textures ) {
-			auto& im = model.images[t.source];
-			auto& image = images.emplace_back();
-			image.loadFromBuffer( &im.image[0], {im.width, im.height}, 8, im.component, true );
-		}
-		if ( graph.mode & ext::gltf::LoadMode::RENDER && images.empty() ) {
-			std::vector<uint8_t> pixels = { 
-				255,   0, 255, 255,      0,   0,   0, 255,
-				  0,   0,   0, 255,    255,   0, 255, 255,
-			};
-			auto& image = images.emplace_back();
-			image.loadFromBuffer( &pixels[0], {2, 2}, 8, 4, true );
-		}
-		if ( !images.empty() ) graph.atlas->generate();
-	*/
 	// generate atlas
-	if ( mode & ext::gltf::LoadMode::USE_ATLAS ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
+	if ( mode & ext::gltf::LoadMode::ATLAS ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
 		auto& atlas = *graph.atlas;
 		atlas.generate( graph.images );
 	}
@@ -335,7 +334,6 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	// load materials
 	{
 		for ( auto& m : model.materials ) {
-		//	std::cout << "Material: " << m.name << ": " << .index << " " << m.siveTexture.index << std::endl;
 			auto& material = graph.materials.emplace_back();
 			material.name = m.name;
 			material.storage.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
@@ -358,6 +356,22 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			material.storage.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
 			material.storage.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
 			material.storage.factorOcclusion = m.occlusionTexture.strength;
+
+			if ( 0 <= material.storage.indexAlbedo && material.storage.indexAlbedo < graph.textures.size() ) {
+				material.storage.indexAlbedo = graph.textures[material.storage.indexAlbedo].index;
+			}
+			if ( 0 <= material.storage.indexNormal && material.storage.indexNormal < graph.textures.size() ) {
+				material.storage.indexNormal = graph.textures[material.storage.indexNormal].index;
+			}
+			if ( 0 <= material.storage.indexEmissive && material.storage.indexEmissive < graph.textures.size() ) {
+				material.storage.indexEmissive = graph.textures[material.storage.indexEmissive].index;
+			}
+			if ( 0 <= material.storage.indexOcclusion && material.storage.indexOcclusion < graph.textures.size() ) {
+				material.storage.indexOcclusion = graph.textures[material.storage.indexOcclusion].index;
+			}
+			if ( 0 <= material.storage.indexMetallicRoughness && material.storage.indexMetallicRoughness < graph.textures.size() ) {
+				material.storage.indexMetallicRoughness = graph.textures[material.storage.indexMetallicRoughness].index;
+			}
 		}
 	}
 	// load node information/meshes
@@ -365,6 +379,23 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
 		auto& node = uf::graph::node();
 		graph.node = &loadNodes( model, graph, scene.nodes, node );
+	}
+	// load lights
+	{
+		for ( auto& l : model.lights ) {
+			auto* node = uf::graph::find( graph, l.name );
+			if ( !node ) continue;
+			auto& light = graph.lights.emplace_back();
+			light.name = l.name;
+			light.transform = node->transform;
+			light.color = {
+				l.color[0],
+				l.color[1],
+				l.color[2],
+			};
+			light.intensity = l.intensity;
+			light.range = l.range;
+		}
 	}
 	// load skins
 	{
@@ -432,6 +463,9 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 						auto& output = sampler.outputs.emplace_back(pod::Vector4f{0, 0, 0, 0});
 						for ( size_t j = 0; j < components; ++j ) {
 							output[j] = buf[i * components + j];
+						}
+						if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ){
+						//	output.x *= -1;
 						}
 					}
 				}

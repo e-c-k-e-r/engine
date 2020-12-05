@@ -18,6 +18,13 @@ namespace pod {
 		int32_t index = -1;
 		int32_t sampler = -1;
 	};
+	struct UF_API Light {
+		std::string name = "";
+		pod::Transform<> transform = {};
+		pod::Vector3f color = { 1, 1, 1 };
+		float intensity = 1.0f;
+		float range = 0.0f;
+	};
 	struct UF_API Material {
 		std::string name = "";
 		// 
@@ -116,6 +123,7 @@ namespace pod {
 		std::vector<ext::vulkan::Sampler> samplers;
 		std::vector<pod::Texture> textures;
 		std::vector<pod::Material> materials;
+		std::vector<pod::Light> lights;
 
 		std::vector<Skin> skins;
 		std::unordered_map<std::string, Animation> animations;
@@ -123,10 +131,10 @@ namespace pod {
 		struct {
 			struct {
 				bool loop = true;
+				float speed = 1;
 				struct {
 					float a = -std::numeric_limits<float>::max();
-					float speed = 1;
-					float stashedSpeed = 1;
+					float speed = 1 / 0.125f;
 					std::unordered_map<pod::Node*, std::pair<pod::Transform<>, pod::Transform<>>> map;
 				} override;
 			} animations;
@@ -140,6 +148,11 @@ namespace uf {
 		pod::Node* UF_API find( const pod::Node& node, int32_t index );
 		pod::Node* UF_API find( pod::Node* node, int32_t index );
 		pod::Node* UF_API find( const pod::Graph& graph, int32_t index );
+
+		pod::Node* UF_API find( const pod::Node& node, const std::string& name );
+		pod::Node* UF_API find( pod::Node* node, const std::string& name );
+		pod::Node* UF_API find( const pod::Graph& graph, const std::string& name );
+
 		pod::Matrix4f UF_API local( const pod::Node& node );
 		pod::Matrix4f UF_API matrix( const pod::Node& node );
 
@@ -148,7 +161,7 @@ namespace uf {
 		void UF_API process( pod::Graph& graph, pod::Node& node, uf::Object& parent );
 
 		void UF_API override( pod::Graph& );
-		void UF_API animate( pod::Graph&, const std::string&, float = 1 / 0.125f, bool = true );
+		void UF_API animate( pod::Graph&, const std::string&, float = 1, bool = true );
 		void UF_API update( pod::Graph& );
 		void UF_API update( pod::Graph&, float );
 		void UF_API update( pod::Graph&, pod::Node& );

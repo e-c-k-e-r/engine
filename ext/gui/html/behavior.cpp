@@ -53,19 +53,17 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 	std::string onLoad = this->formatHookName("html:Load.%UID%");
 	if ( metadata["wait for load"].as<bool>() ) {	
 		ext::ultralight::on(page, "load", onLoad);
-		this->addHook( onLoad, [&](const std::string& event)->std::string{
+		this->addHook( onLoad, [&](ext::json::Value& json){
 			auto image = ext::ultralight::capture( page );
 			this->as<ext::Gui>().load( image );
-			return "true";
 		});
 	} else {
 		auto image = ext::ultralight::capture( page );
 		this->as<ext::Gui>().load( image );
 	}
 
-	this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-		if ( !this->hasComponent<uf::GuiMesh>() ) return "false";
+	this->addHook( "window:Resized", [&](ext::json::Value& json){
+		if ( !this->hasComponent<uf::GuiMesh>() ) return;
 
 		pod::Vector2ui size; {
 			size.x = json["window"]["size"]["x"].as<size_t>();
@@ -76,36 +74,28 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 		metadata["size"][1] = size.y;
 
 		ext::ultralight::resize( page, size );
-
-		return "true";
 	});
 	
-	this->addHook( "window:Key", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-		if ( json["type"].as<std::string>() == "window:Text.Entered" ) return "false";
-		if ( metadata["ignore inputs"].as<bool>() ) return "false";
-		ext::ultralight::input( page, event );
-		return "true";
+	this->addHook( "window:Key", [&](ext::json::Value& json){
+		if ( json["type"].as<std::string>() == "window:Text.Entered" ) return;
+		if ( metadata["ignore inputs"].as<bool>() ) return;
+		ext::ultralight::input( page, json );
 	});
-	this->addHook( "window:Text.Entered", [&](const std::string& event)->std::string{
-		if ( metadata["ignore inputs"].as<bool>() ) return "false";
-		ext::ultralight::input( page, event );
-		return "true";
+	this->addHook( "window:Text.Entered", [&](ext::json::Value& json){
+		if ( metadata["ignore inputs"].as<bool>() ) return;
+		ext::ultralight::input( page, json );
 	});
-	this->addHook( "window:Mouse.Wheel", [&](const std::string& event)->std::string{
-		if ( metadata["ignore inputs"].as<bool>() ) return "false";
-		ext::ultralight::input( page, event );
-		return "true";
+	this->addHook( "window:Mouse.Wheel", [&](ext::json::Value& json){
+		if ( metadata["ignore inputs"].as<bool>() ) return;
+		ext::ultralight::input( page, json );
 	});
-	this->addHook( "gui:Mouse.Clicked.%UID%", [&](const std::string& event)->std::string{
-		if ( metadata["ignore inputs"].as<bool>() ) return "false";
-		ext::ultralight::input( page, event );
-		return "true";
+	this->addHook( "gui:Mouse.Clicked.%UID%", [&](ext::json::Value& json){
+		if ( metadata["ignore inputs"].as<bool>() ) return;
+		ext::ultralight::input( page, json );
 	});
-	this->addHook( "gui:Mouse.Moved.%UID%", [&](const std::string& event)->std::string{
-		if ( metadata["ignore inputs"].as<bool>() ) return "false";
-		ext::ultralight::input( page, event );
-		return "true";
+	this->addHook( "gui:Mouse.Moved.%UID%", [&](ext::json::Value& json){
+		if ( metadata["ignore inputs"].as<bool>() ) return;
+		ext::ultralight::input( page, json );
 	});
 }
 void ext::GuiHtmlBehavior::tick( uf::Object& self ) {

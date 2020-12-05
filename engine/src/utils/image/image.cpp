@@ -181,12 +181,26 @@ bool uf::Image::open( const std::string& filename ) {
 				&channels,
 				STBI_rgb_alpha
 			);
+			channels = 4;
 			uint len = width * height * channels;
 			this->m_dimensions.x = width;
 			this->m_dimensions.y = height;
 			this->m_bpp = bit_depth * channels;
 			this->m_channels = channels;
 			this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+		/*
+			if ( this->m_channels != 4 ) {
+				std::string from = "";
+				switch ( this->m_channels ) {
+					case 1: from = "r"; break;
+					case 2: from = "ra"; break;
+					case 3: from = "rgb"; break;
+				}
+				this->convert(from);
+			}
+			std::cout << "Hash of " << filename << ": " << uf::string::sha256( uf::io::readAsBuffer(filename) ) << std::endl;
+		*/
+
 			stbi_image_free(buffer);
 		#endif
 		return true;
@@ -419,6 +433,38 @@ bool uf::Image::save( const std::string& filename, bool flip ) {
 // to stream
 void uf::Image::save( std::ostream& stream ) {
 
+}
+#include <uf/utils/string/ext.h>
+void uf::Image::convert( const std::string& from, const std::string& to ) {
+	uf::Image::container_t pixels = std::move(this->m_pixels);
+	if ( uf::string::lowercase(to) != "rgba" ) {
+	} else {
+		this->m_pixels.reserve(this->m_dimensions.x * this->m_dimensions.y * 4);
+		for ( size_t i = 0; i < this->m_dimensions.x * this->m_dimensions.y * this->m_channels; i += this->m_channels ) {
+			if ( uf::string::lowercase(from) == "r" ) {
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( pixels[i] );
+				this->m_pixels.emplace_back( 0xFF );
+			} else if ( uf::string::lowercase(from) == "ra" ) {
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+1] );
+			} else if ( uf::string::lowercase(from) == "rgba" ) {
+				this->m_pixels.emplace_back( pixels[i+0] );
+				this->m_pixels.emplace_back( pixels[i+1] );
+				this->m_pixels.emplace_back( pixels[i+2] );
+				this->m_pixels.emplace_back( 0xFF );
+			}
+		}
+	}
+	if ( !this->m_pixels.empty() ) {
+		this->m_channels = 4;
+		this->m_bpp = 8 * this->m_channels;
+	} else {
+		this->m_pixels = std::move(pixels);
+	}
 }
 // Merges one image on top of another
 uf::Image uf::Image::overlay(const Image& top, const Image::vec2_t& corner) const {

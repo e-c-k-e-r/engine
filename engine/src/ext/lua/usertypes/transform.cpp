@@ -31,5 +31,18 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 			double delta = *it++;
 			self = uf::transform::rotate( self, axis, delta );
 		}
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(flatten, []( const pod::Transform<>& t ) {
+		return uf::transform::flatten(t);
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, []( const pod::Transform<>& t ) {
+		return uf::transform::reorient( t );
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, []( const pod::Transform<>& t, pod::Vector3f& at ) {
+		auto transform = t;
+		return uf::transform::lookAt( transform, at );
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, []( const pod::Transform<>& t ) {
+		return uf::transform::model( t );
 	})
 )

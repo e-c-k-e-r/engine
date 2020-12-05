@@ -16,22 +16,21 @@
 UF_BEHAVIOR_REGISTER_CPP(uf::LuaBehavior)
 #define this (&self)
 void uf::LuaBehavior::initialize( uf::Object& self ) {	
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 		
-		if ( uf::io::extension(filename) != "lua" ) return "false";
+		if ( uf::io::extension(filename) != "lua" ) return;
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const pod::LuaScript* assetPointer = NULL;
 		try { assetPointer = &assetLoader.get<pod::LuaScript>(filename); } catch ( ... ) {}
-		if ( !assetPointer ) return "false";
+		if ( !assetPointer ) return;
 		pod::LuaScript script = *assetPointer;
 	//	script.header = "local ent = entities.get("+ std::to_string((uint) this->getUid()) +")";
 		script.env["ent"] = &this->as<uf::Object>();
 		ext::lua::run( script );
 
-		return "true";
+		return;
 	});
 }
 void uf::LuaBehavior::destroy( uf::Object& self ) {

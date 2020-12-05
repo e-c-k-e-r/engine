@@ -49,7 +49,6 @@ void main() {
 	float M = 1;
 	float R = 1;
 	float AO = 1;
-
 	if ( 0 <= materialId && materialId < materials.length() ) {
 		Material material = materials[materialId];
 
@@ -60,6 +59,8 @@ void main() {
 			if ( material.indexAlbedo != material.indexMappedTarget && validIndex( material.indexMappedTarget ) ) {
 				C = mix( C, sampleTexture( material.indexMappedTarget ), material.factorMappedBlend );
 			}
+		} else if ( validIndex( material.indexMappedTarget ) ) {
+			C = sampleTexture( material.indexMappedTarget );
 		}
 		// sample normal
 		if ( validIndex( material.indexNormal ) ) {
@@ -78,6 +79,7 @@ void main() {
 			AO = sampleTexture( material.indexOcclusion ).r;
 		}
 	}
+
 	if ( C.a < 0.001 ) discard;
 	C.rgb *= inColor.rgb;
 	

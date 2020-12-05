@@ -191,12 +191,11 @@ void UF_API ext::discord::initialize(){
 
 
 
-	uf::hooks.addHook( "discord:Activity.Update", [&](const std::string& event)->std::string{
+	uf::hooks.addHook( "discord:Activity.Update", [&](ext::json::Value& json){
 		static uf::Serializer canonical; if ( ext::json::isNull( canonical["details"] ) ) {
 			canonical["large image"] = "icon";
 			canonical["large text"] = "Playing";
 		}
-		uf::Serializer json = event;
 
 		{
 			if ( json["details"].is<std::string>() ) canonical["details"] = json["details"];
@@ -218,8 +217,6 @@ void UF_API ext::discord::initialize(){
 		state.core->ActivityManager().UpdateActivity(activity, [](::discord::Result result) {
 			std::cout << ((result == ::discord::Result::Ok) ? "Succeeded" : "Failed") << " updating activity!\n";
 		});
-
-		return "true";
 	});
 
 

@@ -491,15 +491,24 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
 		if ( event.payload.is<std::string>() ) {
-			std::string payload = event.payload.as<std::string>();
+			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
+		//	std::cout << event.name << " (string)\t" << payload << std::endl;
+			uf::hooks.call( "window:Event", payload );
+			uf::hooks.call( event.name, payload );
+		} else if ( event.payload.is<uf::Serializer>() ) {
+			uf::Serializer& payload = event.payload.as<uf::Serializer>();
+		//	std::cout << event.name << " (serializer)\t" << payload << std::endl;
+			uf::hooks.call( "window:Event", payload );
+			uf::hooks.call( event.name, payload );
+		} else if ( event.payload.is<ext::json::Value>() ) {
+			ext::json::Value& payload = event.payload.as<ext::json::Value>();
+		//	std::cout << event.name << " (json)\t" << payload << std::endl;
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else {
-			uf::Userdata payload;
-			payload.copy(event.payload);
-			
-			uf::hooks.call( "window:Event", payload );
-			uf::hooks.call( event.name, payload );
+		//	std::cout << event.name << "(???)" << std::endl;		
+			uf::hooks.call( "window:Event", event.payload );
+			uf::hooks.call( event.name, event.payload );
 		}
 	/*
 		try {

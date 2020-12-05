@@ -14,11 +14,14 @@ namespace uf {
 	public:
 		// URL or file path
 		void processQueue();
-		std::string cache( const std::string& );
-		std::string load( const std::string& );
+
+		void cache( const std::string&, const std::string&, const std::string& );
+		void load( const std::string&, const std::string&, const std::string& );
+
+		std::string cache( const std::string&, const std::string& = "" );
+		std::string load( const std::string&, const std::string& = "" );
+
 		std::string getOriginal( const std::string& );
-		void cache( const std::string&, const std::string& );
-		void load( const std::string&, const std::string& );
 
 		template<typename T>
 		std::vector<T>& getContainer() {
@@ -41,7 +44,6 @@ namespace uf {
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 		
 			std::size_t index = map[extension][url].as<size_t>();
-		//	std::size_t index = map[extension][url];
 		
 			return this->get<T>(index);
 		}
@@ -53,9 +55,6 @@ namespace uf {
 			auto& container = this->getContainer<T>();
 			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
 			
-		//	sol::optional<std::string> value = map[extension][url];
-		//	if ( !value ) return this->get<T>(url);
-
 			container.push_back( copy );
 			return container.back();
 		}
@@ -66,9 +65,6 @@ namespace uf {
 			auto& container = this->getContainer<T>();
 
 			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
-		
-		//	sol::optional<std::string> value = map[extension][url];
-		//	if ( !value ) return this->get<T>(url);
 		
 			container.push_back( move );
 			return container.back();

@@ -33,6 +33,7 @@ namespace uf {
 		// identifiers
 		const std::string& getName() const;
 		std::size_t getUid() const;
+		void setName( const std::string& );
 		// cast to other Entity classes, avoid nasty shit like *((uf::Object*) &entity)
 		template<typename T=uf::Object> T& as();
 		template<typename T=uf::Object> const T& as() const;

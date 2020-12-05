@@ -22,17 +22,16 @@
 
 #include <mutex>
 
+#include <unordered_set>
+
 UF_BEHAVIOR_REGISTER_CPP(ext::SceneCollisionBehavior)
 #define this ((uf::Scene*) &self)
 
 void ext::SceneCollisionBehavior::initialize( uf::Object& self ) {
-	if ( false ) {
-		auto& mutexPointer = this->getComponent<std::mutex*>();
-		mutexPointer = new std::mutex;
-	}
+	uf::instantiator::bind( "RenderBehavior", *this );
 }
 void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
-
+#if 0
 	auto& metadata = this->getComponent<uf::Serializer>();
 
 	if ( !metadata["system"]["physics"]["collision"].as<bool>() ) return;
@@ -169,6 +168,7 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 	if ( this->hasComponent<std::mutex*>() ) {
 		this->getComponent<std::mutex*>()->lock();
 	}
+#endif
 /*
 	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	auto function = [&]() -> int {
@@ -286,10 +286,37 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 
 void ext::SceneCollisionBehavior::render( uf::Object& self ){}
 void ext::SceneCollisionBehavior::destroy( uf::Object& self ){
+/*
+	{
+		for ( int i = ext::bullet::dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--) {
+			btCollisionObject* obj = ext::bullet::dynamicsWorld->getCollisionObjectArray()[i];
+			btRigidBody* body = btRigidBody::upcast(obj);
+			if (body && body->getMotionState()) {
+				delete body->getMotionState();
+			}
+			ext::bullet::dynamicsWorld->removeCollisionObject(obj);
+			delete obj;
+		}
+		for ( size_t i = 0; i < ext::bullet::collisionShapes.size(); ++i ) {
+			btCollisionShape* shape = ext::bullet::collisionShapes[i];
+			ext::bullet::collisionShapes[i] = NULL;
+			delete shape;
+		}
+
+		delete ext::bullet::dynamicsWorld;
+		delete ext::bullet::solver;
+		delete ext::bullet::overlappingPairCache;
+		delete ext::bullet::dispatcher;
+		delete ext::bullet::collisionConfiguration;
+		ext::bullet::collisionShapes.clear();
+	}
+*/
+#if 0
 	{
 		auto& mutexPointer = this->getComponent<std::mutex*>();
 		delete mutexPointer;
 		mutexPointer = NULL;
 	}
+#endif
 }
 #undef this

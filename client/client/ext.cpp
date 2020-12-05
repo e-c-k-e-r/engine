@@ -102,37 +102,29 @@ void client::initialize() {
 	
 	/* Initialize hooks */ {
 	//	if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
-			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
+			uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const ext::json::Value& json){
 				client::window.setCursorVisible(json["state"].as<bool>());
 				client::window.setMouseGrabbed(!json["state"].as<bool>());
 				client::config["mouse"]["visible"] = json["state"].as<bool>();
 				client::config["window"]["mouse"]["center"] = !json["state"].as<bool>();
-				return "true";
 			});
-			uf::hooks.addHook( "window:Mouse.Lock", [&](const std::string& event)->std::string{
+			uf::hooks.addHook( "window:Mouse.Lock", [&](const ext::json::Value& json){
 				if ( client::window.hasFocus() ) {
 					client::window.setMousePosition(client::window.getSize()/2);
 				}
-				return "true";
 			});
-			uf::hooks.addHook( "window:Closed", [&](const std::string& event)->std::string{
-				std::cout << "Window closed" << std::endl;
+			uf::hooks.addHook( "window:Closed", [&](const ext::json::Value& json){
 				client::ready = false;
 			//	std::exit(EXIT_SUCCESS);
-				return "true";
 			} );
-			uf::hooks.addHook( "window:Title.Changed", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
+			uf::hooks.addHook( "window:Title.Changed", [&](const ext::json::Value& json){
 				if ( json["invoker"] != "os" ) {
-					if ( !ext::json::isObject( json["window"] ) ) return "false";
+					if ( !ext::json::isObject( json["window"] ) ) return;
 					uf::String title = json["window"]["title"].as<std::string>();
 					client::window.setTitle(title);
 				}
-				return "true";
 			} );
-			uf::hooks.addHook( "window:Resized", [&](const std::string& event)->std::string{
-				uf::Serializer json = event;
+			uf::hooks.addHook( "window:Resized", [&](const ext::json::Value& json){
 				pod::Vector2i size; {
 					size.x = json["window"]["size"]["x"].as<size_t>();
 					size.y = json["window"]["size"]["y"].as<size_t>();
@@ -148,7 +140,6 @@ void client::initialize() {
 				}
 
 				uf::renderer::states::resized = true;
-				return "true";
 			} );
 	/*
 		}

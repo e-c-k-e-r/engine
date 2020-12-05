@@ -5,7 +5,8 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<vo
 		uf::Userdata ret;
 		
 		const Argument& payload = userdata.is<Argument>() ? userdata.get<Argument>() : Argument{};
-		callback( payload );
+		Argument& unconst_payload = const_cast<Argument&>(payload);
+		callback( unconst_payload );
 		
 		return ret;
 	}, typeid(callback).hash_code());
@@ -16,8 +17,8 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(
 	return addHook(name, [=]( const uf::Userdata& userdata ){
 		uf::Userdata ret;
 		const Argument& payload = userdata.is<Argument>() ? userdata.get<Argument>() : Argument{};
-
-		R res = callback( payload );
+		Argument& unconst_payload = const_cast<Argument&>(payload);
+		R res = callback( unconst_payload );
 		ret.create<R>(res);
 		return ret;
 	}, typeid(callback).hash_code());

@@ -1,5 +1,24 @@
 #include <uf/utils/graphic/mesh.h>
 
+// Used for per-vertex colors
+std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F4F::descriptor = {
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F4F, position)
+	},
+	{
+		VK_FORMAT_R32G32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F4F, uv)
+	},
+	{
+		VK_FORMAT_R32G32B32_SFLOAT,
+		offsetof(pod::Vertex_3F2F3F4F, normal)
+	},
+	{
+		VK_FORMAT_R32_UINT,
+		offsetof(pod::Vertex_3F2F3F4F, color)
+	}
+};
 // Used for terrain
 std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
 	{

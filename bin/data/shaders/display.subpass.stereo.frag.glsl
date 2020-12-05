@@ -395,7 +395,7 @@ void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightP
 	if ( light.radius > 0.001 && light.radius < dist ) return;
 
 	vec3 D = normalize(L);
-	vec3 V = normalize(position.eye);
+	vec3 V = normalize(-position.eye);
 	vec3 H = normalize(V + D);
 
 	float NdotD = max(dot(N, D), 0.0);

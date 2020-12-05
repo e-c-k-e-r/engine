@@ -73,13 +73,11 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	metadata["system"]["state"] = "preinit";
 	metadata["system"]["modified"] = true;
 
-	this->addHook( "system:TickRate.Restore", [&](const std::string& event)->std::string{	
+	this->addHook( "system:TickRate.Restore", [&](ext::json::Value& json){
 		std::cout << "Returning limiter from " << uf::thread::limiter << " to " << metadata["system"]["limiter"].as<float>() << std::endl;
 		uf::thread::limiter = metadata["system"]["limiter"].as<float>();
-		return "true";
 	});
-	this->addHook( "terrain:GenerateMesh.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "terrain:GenerateMesh.%UID%", [&](ext::json::Value& json){
 
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& mesh = this->getComponent<ext::TerrainGenerator::mesh_t>();
@@ -89,10 +87,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	//	graphic.updatePipelines();
 		graphic.process = true;
 		uf::renderer::states::rebuild = true;
-
-		return "true";
 	});
-	this->addHook( "terrain:Post-Initialize.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "terrain:Post-Initialize.%UID%", [&](ext::json::Value& json){
 		if ( metadata["terrain"]["unified"].as<bool>() ) {
 			std::string textureFilename = ""; {
 				uf::Asset assetLoader;
@@ -129,7 +125,6 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		auto& metadata = parent.getComponent<uf::Serializer>();
 		parent.queueHook("system:Load.Finished.%UID%");
 	*/
-		return "true";
 	});
 }
 void ext::TerrainBehavior::tick( uf::Object& self ) {
@@ -237,10 +232,10 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 				for ( uf::Object* region : regions ) {
 					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
 					if ( !metadata["region"]["initialized"].as<bool>() ) region->initialize();
-					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%", "");
+					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%");
 					if ( !metadata["region"]["rasterized"].as<bool>() ) {
-						region->queueHook("region:Finalize.%UID%", "");
-						region->queueHook("region:Populate.%UID%", "");
+						region->queueHook("region:Finalize.%UID%");
+						region->queueHook("region:Populate.%UID%");
 					}
 					auto& generator = region->getComponent<ext::TerrainGenerator>();
 					generator.rasterize(mesh.vertices, *region, false);
@@ -252,8 +247,8 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 				//	uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
 					uf::Serializer& metadata = region->getComponent<uf::Serializer>();
 					if ( !metadata["region"]["initialized"].as<bool>() ) region->initialize();
-					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%", "");
-					if ( !metadata["region"]["rasterized"].as<bool>() ) region->callHook("region:Rasterize.%UID%", "");
+					if ( !metadata["region"]["generated"].as<bool>() ) region->callHook("region:Generate.%UID%");
+					if ( !metadata["region"]["rasterized"].as<bool>() ) region->callHook("region:Rasterize.%UID%");
 				//	return 0;}, true );
 				}
 			}

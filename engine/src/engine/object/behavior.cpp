@@ -32,8 +32,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	}
 
-	this->addHook( "object:TransformReferenceController.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "object:TransformReferenceController.%UID%", [&](ext::json::Value& json){
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& controller = scene.getController();
 		if ( json["target"].as<std::string>() == "camera" ) {
@@ -42,10 +41,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		} else {
 			transform.reference = &controller.getComponent<pod::Transform<>>();
 		}
-		return "true";
 	});
-	this->addHook( "object:UpdateMetadata.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		if ( json["type"].as<std::string>() == "merge" ) {
 			metadata.merge(json["value"], true);
 		} else if ( json["type"].as<std::string>() == "import" ) {
@@ -55,58 +52,39 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		} else {
 			metadata.merge(json, true);
 		}
-		return "true";
-	/*
-		std::string keyString = match[1].str();
-		std::string valueString = match[2].str();
-		auto keys = uf::string::split(keyString, ".");
-		uf::Serializer value; value.deserialize(valueString);
-		Json::Value* traversal = &::config;
-		for ( auto& key : keys ) {
-			traversal = &((*traversal)[key]);
-		}
-		*traversal = value;
-	*/
 	});
-	this->addHook( "asset:QueueLoad.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:QueueLoad.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
+		std::string hash = json["hash"].as<std::string>();
 		std::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
 		if ( json["single threaded"].as<bool>() ) {
-			assetLoader.load( filename );
-			this->queueHook( callback, event );
+			assetLoader.load( filename, hash );
+			this->queueHook( callback, json );
 		} else {
-			assetLoader.load( filename, callback );
+			assetLoader.load( filename, callback, hash );
 		}
-
-		return "true";
 	});
-	this->addHook( "asset:FinishedLoad.%UID%", [&](const std::string& event)->std::string{
-		this->queueHook("asset:Load.%UID%", event);
-		this->queueHook("asset:Parsed.%UID%", event);
-		return "true";
+	this->addHook( "asset:FinishedLoad.%UID%", [&](ext::json::Value& json){
+		this->queueHook("asset:Load.%UID%", json);
+		this->queueHook("asset:Parsed.%UID%", json);
 	});	
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 		bool initialize = ext::json::isNull( json["initialize"] ) ? true : json["initialize"].as<bool>();
 		
-		if ( uf::io::extension(filename) != "json" ) return "false";
+		if ( uf::io::extension(filename) != "json" ) return;
+		{
+			uf::Serializer json;
+			if ( !json.readFromFile(filename) ) return;
 
-		if ( !json.readFromFile(filename) ) {
-			uf::iostream << "Error @ " << __FILE__ << ":" << __LINE__ << ": failed to open `" + filename + "`" << "\n";
-			return "false";
+			json["root"] = uf::io::directory(filename);
+			json["source"] = filename;
+			json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+
+			if ( this->loadChildUid(json, initialize) == -1 ) return;
 		}
-		json["root"] = uf::io::directory(filename);
-		json["source"] = filename; // uf::io::filename(filename)
-		json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
-
-		if ( this->loadChildUid(json, initialize) == -1 ) return "false";
-
-		return "true";
 	});
-	this->addHook( "asset:Parsed.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Parsed.%UID%", [&](ext::json::Value& json){	
 		int portion = 1;
 		auto& total = metadata["system"]["load"]["total"];
 		auto& progress = metadata["system"]["load"]["progress"];
@@ -118,18 +96,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			payload["uid"] = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
-	/*
-		float portion = 1.0f / metadata["system"]["load"]["total"].as<float>();
-		auto& progress = metadata["system"]["load"]["progress"];
-		progress = progress.as<float>() + portion;
-	*/
-	/*
-		if ( metadata["system"]["loaded"].as<bool>() ) return "false";
-		if ( progress.as<float>() >= 1.0f ) {
-			this->queueHook("system:Load.Finished.%UID%");
-		}
-	*/
-		return "true";
 	});
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {

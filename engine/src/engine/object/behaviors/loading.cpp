@@ -16,45 +16,10 @@ UF_BEHAVIOR_REGISTER_CPP(uf::LoadingBehavior)
 #define this (&self)
 void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
-/*
-	this->addHook( "asset:Parsed.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
-		int portion = 1;
-		auto& total = metadata["system"]["load"]["total"];
-		auto& progress = metadata["system"]["load"]["progress"];
-		if ( ext::json::isNull( json["uid"] ) ) return "false";
-		// progress = progress.as<int>() + portion;
-		if ( progress.as<int>() == total.as<int>() ) {
-			auto& parent = this->getParent().as<uf::Object>();
-			parent.callHook("asset:Parsed.%UID%");
-		}
-		return "true";
-	});
-*/
-/*
-	this->addHook( "system:Load.Finished.%UID%", [&](const std::string& event)->std::string{
-		std::cout << "FINISHED LOADING" << std::endl;
-		uf::Serializer json = event;
-		auto& parent = this->getParent();
-		// unbind all children
-		for ( auto* child : this->getChildren() ) {
-			this->removeChild(*child);
-			parent.addChild(*child);
-		}
-		auto& scene = uf::scene::getCurrentScene();
-		uf::Serializer payload;
-		payload["uid"] = this->getUid();
-		parent.removeChild(*this);
-		scene.queueHook("system:Destroy", payload);
-		return "true";
-	});
-*/
-	this->addHook( "system:Load.Finished.%UID%", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-
+	this->addHook( "system:Load.Finished.%UID%", [&](ext::json::Value& json){
 		metadata["system"]["loaded"] = true;
 		this->removeBehavior<uf::LoadingBehavior>();
-		// uf::instantiator::unbind("LoadingBehavior", *this);
+
 		auto& parent = this->getParent();
 		auto& scene = uf::scene::getCurrentScene();
 		if ( parent.getUid() != scene.getUid() ) {
@@ -73,7 +38,7 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 			
 			scene.queueHook("system:Destroy", payload);
 		}
-		return "true";
+		return;
 	});
 }
 void uf::LoadingBehavior::destroy( uf::Object& self ) {

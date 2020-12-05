@@ -121,8 +121,8 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		swapchainCI.pNext = NULL;
 		swapchainCI.surface = device.surface;
 		swapchainCI.minImageCount = desiredNumberOfSwapchainImages;
-		swapchainCI.imageFormat = device.formats.color;
-		swapchainCI.imageColorSpace = device.formats.space;
+		swapchainCI.imageFormat = ext::vulkan::settings::formats::color; // device.formats.color;
+		swapchainCI.imageColorSpace = ext::vulkan::settings::formats::colorSpace; // device.formats.space;
 		swapchainCI.imageExtent = { swapchainExtent.width, swapchainExtent.height };
 		swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		swapchainCI.preTransform = (VkSurfaceTransformFlagBitsKHR)preTransform;

@@ -33,9 +33,19 @@ namespace uf {
 
 		std::string formatHookName( const std::string& name );
 		static std::string formatHookName( const std::string& name, size_t uid, bool fetch = true );
-		void queueHook( const std::string&, const std::string& = "", double = 0 );
-		std::vector<std::string> callHook( const std::string&, const std::string& = "" );
-		std::size_t addHook( const std::string&, const uf::HookHandler::Readable::function_t& );
+	//	void queueHook( const std::string&, const std::string& = "", double = 0 );
+	//	std::vector<std::string> callHook( const std::string&, const std::string& = "" );
+	//	std::size_t addHook( const std::string&, const uf::HookHandler::Readable::function_t& );
+
+		void queueHook( const std::string&, const ext::json::Value& = ext::json::null(), double = 0 );
+	//	std::vector<ext::json::Value> callHook( const std::string&, const ext::json::Value& = ext::json::null() );
+		uf::Hooks::return_t callHook( const std::string& );
+		uf::Hooks::return_t callHook( const std::string&, const ext::json::Value& );
+		uf::Hooks::return_t callHook( const std::string&, const uf::Serializer& );
+		
+		template<typename T> size_t addHook( const std::string& name, T function );
+	//	template<typename T> uf::Hooks::return_t queueHook( const std::string& name, const T& payload, double = 0 );
+		template<typename T> uf::Hooks::return_t callHook( const std::string& name, const T& payload );
 
 		std::string grabURI( const std::string& filename, const std::string& root = "" );
 	};

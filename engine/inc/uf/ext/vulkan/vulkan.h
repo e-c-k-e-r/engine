@@ -57,6 +57,15 @@ namespace ext {
 				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
 				extern UF_API bool multiview;
+				extern UF_API bool hdr;
+			}
+
+			namespace formats {
+				extern UF_API VkColorSpaceKHR colorSpace;
+				extern UF_API VkFormat color;
+				extern UF_API VkFormat depth;
+				extern UF_API VkFormat normal;
+				extern UF_API VkFormat position;
 			}
 		}
 		namespace states {
@@ -87,5 +96,6 @@ namespace ext {
 		void UF_API destroy();
 		void UF_API synchronize( uint8_t = 0b11 );
 		std::string UF_API allocatorStats();
+		VkFormat UF_API formatFromString( const std::string& );
 	}
 }

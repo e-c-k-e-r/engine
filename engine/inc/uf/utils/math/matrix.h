@@ -70,13 +70,15 @@ namespace uf {
 		template<typename T=pod::Matrix4> T& /*UF_API*/ translate( T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ rotate( T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ scale( T& matrix, const pod::Vector3t<typename T::type_t>& vector );
+		template<typename T=pod::Matrix4> pod::Vector3t<typename T::type_t> /*UF_API*/ eulerAngles( const T& matrix );
 	// 	Setting
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, const T& source );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, typename T::type_t* const source );
 
-		template<typename T, size_t R, size_t C> std::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
-		template<typename T, size_t R, size_t C> ext::json::Value /*UF_API*/ encode( const pod::Matrix<T,R,C>& v );
-		template<typename T, size_t R, size_t C> pod::Matrix<T,R,C> /*UF_API*/ decode( const ext::json::Value& v );
+		template<typename T=pod::Matrix4> std::string /*UF_API*/ toString( const T& v );
+		template<typename T=pod::Matrix4> ext::json::Value /*UF_API*/ encode( const T& v );
+		template<typename T, size_t R, size_t C> pod::Matrix<T,R,C>& /*UF_API*/ decode( const ext::json::Value& v, pod::Matrix<T,R,C>& );
+		template<typename T, size_t R, size_t C> pod::Matrix<T,R,C> /*UF_API*/ decode( const ext::json::Value& v, const pod::Matrix<T,R,C>& = uf::matrix::identity() );
 	}
 }
 
@@ -163,10 +165,9 @@ namespace uf {
 }
 namespace ext {
 	namespace json {
-		template<typename T, size_t R, size_t C = R>
-		ext::json::Value /*UF_API*/ encode( const pod::Matrix<T,R,C>& v );
-		template<typename T, size_t R, size_t C = R>
-		pod::Matrix<T,R,C> /*UF_API*/ decode( const ext::json::Value& v );
+		template<typename T, size_t R, size_t C = R> ext::json::Value /*UF_API*/ encode( const pod::Matrix<T,R,C>& v );
+		template<typename T, size_t R, size_t C = R> pod::Matrix<T,R,C>& /*UF_API*/ decode( const ext::json::Value& v, pod::Matrix<T,R,C>& );
+		template<typename T, size_t R, size_t C = R> pod::Matrix<T,R,C> /*UF_API*/ decode( const ext::json::Value& v, const pod::Matrix<T,R,C>& = uf::matrix::identity() );
 	}
 }
 

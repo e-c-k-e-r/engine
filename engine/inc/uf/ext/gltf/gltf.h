@@ -6,6 +6,6 @@
 
 namespace ext {
 	namespace gltf {		
-		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t = LoadMode::GENERATE_NORMALS | LoadMode::RENDER );
+		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t );
 	}
 }

@@ -25,23 +25,43 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Us
 	auto& container = this->m_container[name];
 	std::vector<uf::Userdata> results;
 	results.reserve( container.size() );
+/*
+	if ( name[0] == 'w' ) {
+		std::cout << "Calling hook: " << name;
+		if ( payload.is<std::string>() ) std::cout << " (string) " << payload.get<std::string>();
+		else if ( payload.is<ext::json::Value>() ) std::cout << " (json) " << payload.get<ext::json::Value>();
+		else if ( payload.is<uf::Serializer>() ) std::cout << " (serializer) " << payload.get<uf::Serializer>();
+		std::cout << std::endl;
+	}
+*/
 	for ( auto& hook : container ) {
-		uf::Userdata hookResult = hook.callback(payload);
+		uf::Userdata& unconst_payload = const_cast<uf::Userdata&>(payload);
+		uf::Userdata hookResult = hook.callback(unconst_payload);
 		auto& returnResult = results.emplace_back();
 		returnResult.move( hookResult );
-
-	//	results.emplace_back(std::move());
 	}
+	
+
 	return results;
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::string& s ) {
 	uf::Userdata payload;
-	payload.create<std::string>( s );
+	payload.create<ext::json::Value>();
+	auto& value = payload.get<ext::json::Value>();
+	value = uf::Serializer(s);
+//	payload.create<std::string>( s );
+	return call(name, payload);
+}
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const ext::json::Value& s ) {
+	uf::Userdata payload;
+	payload.create<ext::json::Value>( s );
+//	payload.create<std::string>( ext::json::encode( s ) );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
 	uf::Userdata payload;
-	payload.create<std::string>( s.serialize() );
+	payload.create<ext::json::Value>( (const ext::json::Value&) s );
+//	payload.create<std::string>( s.serialize() );
 	return call(name, payload);
 }
 // specialization: void function

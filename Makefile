@@ -24,7 +24,7 @@ GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
 DEPS 					+=
-REQ_DEPS 				+= win32 vulkan json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux # discord
+REQ_DEPS 				+= win32 vulkan json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux bullet # discord
 	
 ifneq (,$(findstring win32,$(REQ_DEPS)))
 	FLAGS 				+= 
@@ -81,14 +81,19 @@ ifneq (,$(findstring ultralight-ux,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_ULTRALIGHT_UX
 	DEPS 				+= -lUltralight -lUltralightCore -lWebCore -lAppCore
 endif
+ifneq (,$(findstring bullet,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_BULLET
+	DEPS 				+= -lBulletDynamics -lBulletCollision -lLinearMath
+	# -lBullet3Collision -lLinearMath -lBullet3Common -lBullet3Dynamics -lGIMPACTUtils
+endif
 
 #DEPS 					+= -lvulkan -lncursesw
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 #-Wl,-subsystem,windows
 
 LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
-INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include -I/mingw64/include/luajit-2.1
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib -L/mingw64/lib
+INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include -I/mingw64/include/luajit-2.1 -I$(ENGINE_INC_DIR)/bullet/
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 
 SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL))

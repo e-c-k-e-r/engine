@@ -45,6 +45,7 @@ namespace uf {
 		template<typename T> pod::Transform<T>& /*UF_API*/ move( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ move( pod::Transform<T>& transform, const pod::Vector3t<T>& delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ reorient( pod::Transform<T>& transform );
+		template<typename T> pod::Transform<T> /*UF_API*/ reorient( const pod::Transform<T>& transform );
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Quaternion<T>& quat );
 		template<typename T> pod::Transform<T>& /*UF_API*/ scale( pod::Transform<T>& transform, const pod::Vector3t<T>& factor );
@@ -54,7 +55,8 @@ namespace uf {
 		
 		template<typename T> std::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );
 		template<typename T> ext::json::Value /*UF_API*/ encode( const pod::Transform<T>&, bool flatten = true );
-		template<typename T> pod::Transform<T> /*UF_API*/ decode( const ext::json::Value& );
+		template<typename T> pod::Transform<T>& /*UF_API*/ decode( const ext::json::Value&, pod::Transform<T>& );
+		template<typename T> pod::Transform<T> /*UF_API*/ decode( const ext::json::Value&, const pod::Transform<T>& = {} );
 	}
 }
 

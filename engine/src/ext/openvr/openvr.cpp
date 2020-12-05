@@ -186,11 +186,10 @@ bool ext::openvr::initialize( int stage ) {
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "hapticVibration" ) {
 						if ( DEBUG_MARKER ) std::cout << "Registered hook for haptic: " << ("VR:Haptics."+split.back()) << std::endl;
-						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](const std::string& event)->std::string{
-							uf::Serializer json = event;
+						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](ext::json::Value& json){
 							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].as<float>(), json["duration"].as<float>(), json["frequency"].as<float>(), json["amplitude"].as<float>(), vr::k_ulInvalidInputValueHandle ) )
-								return "false";
-							return "true";
+								return;
+							return;
 						});
 					}
 				}
@@ -211,10 +210,8 @@ bool ext::openvr::initialize( int stage ) {
 		}
 	}
 
-	uf::hooks.addHook( "VR:Seat.Reset", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
+	uf::hooks.addHook( "VR:Seat.Reset", [&](ext::json::Value& json){
 		ext::openvr::resetPosition();
-		return "true";
 	});
 
 	vr::VRCompositor()->WaitGetPoses(&driver.poses[0], vr::k_unMaxTrackedDeviceCount, nullptr, 0);

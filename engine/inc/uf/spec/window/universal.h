@@ -81,6 +81,8 @@ namespace spec {
 			void UF_API_CALL pushEvent( const uf::OptimalHook::argument_t& userdata );
 		*/
 			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const std::string& payload );
+			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
+			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
 			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
 			void UF_API_CALL pushEvent( const uf::Hooks::argument_t& payload );
 			bool UF_API_CALL pollEvents( bool block = false );

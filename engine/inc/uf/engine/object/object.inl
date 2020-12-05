@@ -16,3 +16,17 @@ T uf::Object::loadChild( const std::string& filename, bool initialize ) {
 	// T is reference
 	return this->loadChild(filename, initialize);
 }
+template<typename T>
+size_t uf::Object::addHook( const std::string& name, T callback ) {
+	std::string parsed = this->formatHookName( name );
+	std::size_t id = uf::hooks.addHook( parsed, callback );
+	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	metadata["system"]["hooks"]["alloc"][parsed].emplace_back(id);
+	return id;
+}
+template<typename T>
+uf::Hooks::return_t uf::Object::callHook( const std::string& name, const T& p ) {
+	uf::Userdata payload;
+	payload.create<T>(p);
+	return uf::hooks.call( this->formatHookName( name ), payload );
+}

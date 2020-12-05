@@ -19,14 +19,13 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& sMetadata = scene.getComponent<uf::Serializer>();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
 
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
-		if ( uf::io::extension(filename) != "ogg" ) return "false";
+		if ( uf::io::extension(filename) != "ogg" ) return;
 		const uf::Audio* audioPointer = NULL;
 		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
-		if ( !audioPointer ) return "false";
+		if ( !audioPointer ) return;
 
 		uf::Audio& audio = this->getComponent<uf::Audio>(); //emitter.add(filename);
 		audio.load(filename);
@@ -55,8 +54,6 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 			audio.setMaxDistance(metadata["audio"]["maxDistance"].as<float>());
 		}
 		audio.play();
-
-		return "true";
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {

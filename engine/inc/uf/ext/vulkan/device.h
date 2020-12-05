@@ -59,11 +59,13 @@ namespace ext {
 
 			uf::Window* window;
 
+		/*
 			struct {
 				VkFormat depth;
 				VkFormat color;
 				VkColorSpaceKHR space;
 			} formats;
+		*/
 
 			struct QueueFamilyIndices {
 				uint32_t graphics;

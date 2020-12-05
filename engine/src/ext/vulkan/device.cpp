@@ -593,6 +593,14 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		VK_CHECK_RESULT( vkCreateInstance( &createInfo, nullptr, &this->instance ));
+
+		{
+			ext::json::Value payload = ext::json::array();
+			for ( auto* c_str : instanceExtensions ) {
+				payload.emplace_back( std::string(c_str) );
+			}
+			uf::hooks.call("vulkan:Instance.ExtensionsEnabled", payload);
+		}
 	}
 	// Setup debug
 	if ( ext::vulkan::settings::validation ) {
@@ -772,8 +780,20 @@ void ext::vulkan::Device::initialize() {
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS )
 			throw std::runtime_error("failed to create logical device!"); 
 
-		if ( ext::vulkan::settings::validation )
-			uf::iostream << retrieveDeviceFeatures( *this ) << "\n";
+		
+
+		{
+			uf::Serializer payload = ext::json::array();
+			for ( auto* c_str : deviceExtensions ) {
+				payload.emplace_back( std::string(c_str) );
+			}
+			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
+		}
+		{
+			uf::Serializer payload = retrieveDeviceFeatures( *this );
+			if ( ext::vulkan::settings::validation ) uf::iostream << payload.dump() << "\n";
+			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
+		}
 	}
 	// Create command pool
 	getCommandPool( QueueEnum::GRAPHICS );
@@ -828,25 +848,35 @@ void ext::vulkan::Device::initialize() {
 		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
 		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_UNORM
 		if ( (formatCount == 1) && (formats[0].format == VK_FORMAT_UNDEFINED) ) {
-			this->formats.color = VK_FORMAT_B8G8R8A8_UNORM;
-			this->formats.space = formats[0].colorSpace;
+			ext::vulkan::settings::formats::color = VK_FORMAT_B8G8R8A8_UNORM;
+			ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
 		} else {
 			// iterate over the list of available surface format and
 			// check for the presence of VK_FORMAT_B8G8R8A8_UNORM
-			bool found_B8G8R8A8_UNORM = false;
+			bool found = false;
 			for ( auto&& surfaceFormat : formats ) {
-				if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
-					this->formats.color = surfaceFormat.format;
-					this->formats.space = surfaceFormat.colorSpace;
-					found_B8G8R8A8_UNORM = true;
+				if ( surfaceFormat.format == ext::vulkan::settings::formats::color ) {
+					ext::vulkan::settings::formats::color = surfaceFormat.format;
+					ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
+					found = true;
 					break;
 				}
 			}
-			// in case VK_FORMAT_B8G8R8A8_UNORM is not available
-			// select the first available color format
-			if ( !found_B8G8R8A8_UNORM ) {
-				this->formats.color = formats[0].format;
-				this->formats.space = formats[0].colorSpace;
+			if ( !found ) {
+				for ( auto&& surfaceFormat : formats ) {
+					if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
+						ext::vulkan::settings::formats::color = surfaceFormat.format;
+						ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
+						found = true;
+						break;
+					}
+				}
+				// in case VK_FORMAT_B8G8R8A8_UNORM is not available
+				// select the first available color format
+				if ( !found ) {
+					ext::vulkan::settings::formats::color = formats[0].format;
+					ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
+				}
 			}
 		}
 	}
@@ -859,7 +889,8 @@ void ext::vulkan::Device::initialize() {
 			VK_FORMAT_D32_SFLOAT,
 			VK_FORMAT_D24_UNORM_S8_UINT,
 			VK_FORMAT_D16_UNORM_S8_UINT,
-			VK_FORMAT_D16_UNORM
+			VK_FORMAT_D16_UNORM,
+			ext::vulkan::settings::formats::depth
 		};
 
 		for ( auto& format : depthFormats ) {
@@ -867,7 +898,7 @@ void ext::vulkan::Device::initialize() {
 			vkGetPhysicalDeviceFormatProperties( this->physicalDevice, format, &formatProps );
 			// Format must support depth stencil attachment for optimal tiling
 			if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-				this->formats.depth = format;
+				ext::vulkan::settings::formats::depth = format;
 			}
 		}
 	}

@@ -268,24 +268,35 @@ template<typename T> pod::Quaternion<T> uf::quaternion::unitVectors( const pod::
 		.w = mag * 0.5
 	};
 }
-template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vector3t<T>& source, const pod::Vector3t<T>& destination ) { 
+template<typename T> pod::Quaternion<T> uf::quaternion::lookAt( const pod::Vector3t<T>& at, const pod::Vector3t<T>& _up ) { 
+/*
 	pod::Vector3 forward = uf::vector::normalize(destination - source);
 	return uf::quaternion::unitVectors({0,0,1}, forward);
-/*	
+*/	
+/*
 	pod::Vector3t<T> forward = uf::vector::normalize(uf::vector::subtract( destination, source ));
 	T dot = uf::vector::dot( {0, 0, -1}, forward );
 	T eps = 0.000001f;
-	if ( fabs(dot + 1) < eps ) return uf::quaternion::axisAngle( {0, 1, 0}, 3.1415926 );
+	if ( fabs(dot + 1) < eps ) return uf::quaternion::axisAngle( {0, 1, 0}, 3.1415926f );
 	if ( fabs(dot - 1) < eps ) return uf::quaternion::identity<T>();
 	T angle = acos(dot);
 	pod::Vector3t<T> axis = uf::vector::normalize(uf::vector::cross( {0, 0, 1}, forward ));
 	return uf::quaternion::axisAngle(axis, angle);
 */
+	pod::Vector3t<T> up = _up;
+	pod::Vector3t<T> forward = uf::vector::normalize( at ) ;
+	uf::vector::orthonormalize( up, forward );
+	pod::Vector3t<T> right = uf::vector::cross( up, forward );
+	pod::Quaternion<T> q;
+	q.w = sqrtf(1.0f + right.x + up.y + forward.z) * 0.5f;
+	float w4_recip = 1.0f / (4.0f * q.w);
+	q.x = (forward.y - up.z) * w4_recip;
+	q.y = (right.z - forward.x) * w4_recip;
+	q.z = (up.x - right.y) * w4_recip;
+	return uf::quaternion::inverse( uf::quaternion::normalize( q ) );
+//	return q;
 }
 
-template<typename T> T uf::quaternion::conjugate( const T& q ) {
-	return uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
-}
 template<typename T> T& uf::quaternion::conjugate( T& q ) {
 	return q = {
 		.x = -q.x,	
@@ -294,7 +305,7 @@ template<typename T> T& uf::quaternion::conjugate( T& q ) {
 		.w =  q.w	
 	};
 }
-template<typename T> T uf::quaternion::inverse( const T& q ) {
+template<typename T> T uf::quaternion::conjugate( const T& q ) {
 	return {
 		.x = -q.x,	
 		.y = -q.y,	
@@ -303,7 +314,10 @@ template<typename T> T uf::quaternion::inverse( const T& q ) {
 	};
 }
 template<typename T> T& uf::quaternion::inverse( T& q ) {
-	return q = uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
+	return q = uf::quaternion::conjugate( (const T&) q ) / uf::quaternion::dot( q, q );
+}
+template<typename T> T uf::quaternion::inverse( const T& q ) {
+	return uf::quaternion::conjugate( q ) / uf::quaternion::dot( q, q );
 }
 template<typename T> pod::Quaternion<T> uf::quaternion::fromMatrix( const pod::Matrix4t<T>& m ) {
 	pod::Quaternion<T> q;

@@ -41,18 +41,17 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 	uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 	uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 
-	this->addHook( "graphics:Assign.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "graphics:Assign.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 		metadata["system"]["control"] = false;
 
-		if ( uf::io::extension(filename) != "png" ) return "false";
+		if ( uf::io::extension(filename) != "png" ) return;
 
 		uf::Scene& scene = this->getRootParent<uf::Scene>();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
-		if ( !imagePointer ) return "false";
+		if ( !imagePointer ) return;
 
 		uf::Image image = *imagePointer;
 		uf::Mesh& mesh = this->getComponent<uf::Mesh>();
@@ -84,11 +83,9 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
-		return "true";
 	});
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{
-		this->queueHook("graphics:Assign.%UID%", event, 0.0f);
-		return "true";
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
+		this->queueHook("graphics:Assign.%UID%", json, 0.0f);
 	});
 
 	{

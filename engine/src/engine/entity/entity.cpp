@@ -50,6 +50,9 @@ const uf::Entity::container_t& uf::Entity::getChildren() const {
 const std::string& uf::Entity::getName() const {
 	return this->m_name;
 }
+void uf::Entity::setName( const std::string& name ) {
+	this->m_name = name;
+}
 std::size_t uf::Entity::getUid() const {
 	return this->m_uid;
 }

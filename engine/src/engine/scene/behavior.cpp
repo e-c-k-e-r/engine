@@ -9,22 +9,18 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 //	uf::renderer::scenes.push_back(this);
 	uf::renderer::states::rebuild = true;
 
-	this->addHook( "system:Renderer.QueueRebuild", [&](const std::string& event)->std::string{	
+	this->addHook( "system:Renderer.QueueRebuild", [&](ext::json::Value& json){
 		uf::renderer::states::rebuild = true;
-		return "true";
 	});
-	this->addHook( "system:Destroy", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "system:Destroy", [&](ext::json::Value& json){
 		size_t uid = json["uid"].as<size_t>();
-		if ( uid <= 0 ) return "false";
+		if ( uid <= 0 ) return;
 		auto* target = this->findByUid(uid);
-		if ( !target ) return "false";
+		if ( !target ) return;
 		target->destroy();
 		delete target;
 
 		this->queueHook("system:Renderer.QueueRebuild");
-
-		return "true";
 	});
 }
 void uf::SceneBehavior::tick( uf::Object& self ) {
@@ -32,10 +28,6 @@ void uf::SceneBehavior::tick( uf::Object& self ) {
 void uf::SceneBehavior::render( uf::Object& self ) {
 }
 void uf::SceneBehavior::destroy( uf::Object& self ) {
-/*
-	auto it = std::find(uf::renderer::scenes.begin(), uf::renderer::scenes.end(), this);
-	if ( it != uf::renderer::scenes.end() ) uf::renderer::scenes.erase(it);
-*/
 	uf::renderer::states::rebuild = true;
 }
 #undef self

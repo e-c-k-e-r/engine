@@ -3,17 +3,27 @@
 #include <uf/engine/asset/asset.h>
 
 UF_LUA_REGISTER_USERTYPE(uf::Asset,
-	UF_LUA_REGISTER_USERTYPE_DEFINE( load, []( uf::Asset& asset, const std::string& uri, const std::string& callback = "" ) {
+	UF_LUA_REGISTER_USERTYPE_DEFINE( load, []( uf::Asset& asset, const std::string& uri, sol::variadic_args va ) {
+		auto it = va.begin();
+		std::string callback = "";
+		std::string hash = "";
+		if ( it != va.end() ) callback = *(it++);
+		if ( it != va.end() ) hash = *(it++);
 		if ( callback == "" )
-			asset.load( uri );
+			asset.load( uri, hash );
 		else
-			asset.load( uri, callback );
+			asset.load( uri, callback, hash );
 	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( cache, []( uf::Asset& asset, const std::string& uri, const std::string& callback = "" ) {
+	UF_LUA_REGISTER_USERTYPE_DEFINE( cache, []( uf::Asset& asset, const std::string& uri, sol::variadic_args va ) {
+		auto it = va.begin();
+		std::string callback = "";
+		std::string hash = "";
+		if ( it != va.end() ) callback = *(it++);
+		if ( it != va.end() ) hash = *(it++);
 		if ( callback == "" )
-			asset.cache( uri );
+			asset.cache( uri, hash );
 		else
-			asset.cache( uri, callback );
+			asset.cache( uri, callback, hash );
 	}),
 	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Asset::getOriginal )
 )

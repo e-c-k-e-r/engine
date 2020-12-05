@@ -1,4 +1,5 @@
 #include <uf/ext/gltf/graph.h>
+#include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 
 pod::Node& uf::graph::node() {
@@ -42,6 +43,22 @@ pod::Node* uf::graph::find( const pod::Node& node, int32_t index ) {
 	return target;
 }
 
+pod::Node* uf::graph::find( pod::Node* node, const std::string& name ) {
+	return node ? find( *node, name ) : NULL;
+}
+pod::Node* uf::graph::find( const pod::Graph& graph, const std::string& name ) {
+	return find( graph.node, name );
+}
+pod::Node* uf::graph::find( const pod::Node& node, const std::string& name ) {
+	if ( node.parent && node.parent->name == name ) return node.parent;
+	if ( node.name == name ) return const_cast<pod::Node*>(&node);
+
+	pod::Node* target = NULL;
+	for ( auto& child : node.children )
+		if ( (target = uf::graph::find(*child, name)) ) break;
+	return target;
+}
+
 void uf::graph::process( uf::Object& entity ) {
 	auto& graph = entity.getComponent<pod::Graph>();
 	return process( graph, *graph.node, entity );
@@ -50,41 +67,82 @@ void uf::graph::process( pod::Graph& graph ) {
 	if ( !graph.entity ) graph.entity = new uf::Object;
 	process( graph, *graph.node, *graph.entity );
 
-	if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES) ) {
-		graph.entity->process([&]( uf::Entity* entity ) {
-			if ( entity->hasComponent<uf::Graphic>() ) {
-				auto& graphic = entity->getComponent<uf::Graphic>();
-				auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
-				graphic.initialize();
-				graphic.initializeGeometry( mesh );
-			}
-		});
+	// add lights
+	for ( auto& l : graph.lights ) {
+	//	std::cout << l.name << ": " << uf::string::toString( l.transform.position ) << " " << uf::string::toString( l.color ) << "\t" << l.intensity << "\t" << l.range << std::endl;
+		auto& light = graph.entity->loadChild("/light.json", false);
+		auto& metadata = light.getComponent<uf::Serializer>();
+		metadata["light"]["radius"][0] = 0.001;
+		metadata["light"]["radius"][1] = l.range <= 0.001f ? 128.0f : l.range;
+		metadata["light"]["power"] = l.intensity / 100.0f;
+		metadata["light"]["color"][0] = l.color.x;
+		metadata["light"]["color"][1] = l.color.y;
+		metadata["light"]["color"][2] = l.color.z;
+		metadata["light"]["shadows"]["enabled"] = false;
+		light.initialize();
+
+		auto& transform = light.getComponent<pod::Transform<>>();
+		transform = l.transform;
 	}
+
+	graph.entity->process([&]( uf::Entity* entity ) {
+		if ( !entity->hasComponent<ext::gltf::mesh_t>() ) return;
+		
+		auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
+		if ( entity->hasComponent<uf::Graphic>() ) {
+			auto& graphic = entity->getComponent<uf::Graphic>();
+			graphic.initialize();
+			graphic.initializeGeometry( mesh );
+		}
+		if ( graph.mode & ext::gltf::LoadMode::COLLISION ) {
+			bool applyTransform = false; //!(graph.mode & ext::gltf::LoadMode::TRANSFORM);
+			auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, applyTransform, 1 );
+			if ( !applyTransform ) {
+				btBvhTriangleMeshShape* triangleMeshShape = (btBvhTriangleMeshShape*) collider.shape;
+				btTriangleInfoMap* triangleInfoMap = new btTriangleInfoMap();
+				triangleInfoMap->m_edgeDistanceThreshold = 0.01f;
+			    triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
+				if ( applyTransform ) {
+					btGenerateInternalEdgeInfo(triangleMeshShape, triangleInfoMap);
+				}
+				collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+			}
+		}
+	});
 }
 void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent ) {
 	// create child if requested
 
 	uf::Object* pointer = &parent;
-	if ( graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES ) {
+	if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
 		pointer = new uf::Object;
 		parent.addChild(*pointer);
 	}
 	uf::Object& entity = *pointer;
 	node.entity = &entity;
 
-	// copy transform
-#if 0
-	{
+	// reference transform to parent
+	if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
 		auto& transform = entity.getComponent<pod::Transform<>>();
 		transform = node.transform;
+		// is a child
+		if ( node.parent != &node ) {
+			auto& parent = entity.getParent().getComponent<pod::Transform<>>();
+			transform.reference = &parent;
+		}
 	}
-#endif
+	// set name
+	if ( entity.getName() != "Entity" ) {
+		entity.setName( node.name );
+	}
 	// move colliders
+/*
 	if ( !node.collider.getContainer().empty() ) {
 		auto& collider = entity.getComponent<uf::Collider>();
 		collider.getContainer().insert( collider.getContainer().end(), node.collider.getContainer().begin(), node.collider.getContainer().end() );
 		node.collider.getContainer().clear();
 	}
+*/
 	// copy mesh
 	if ( !node.mesh.vertices.empty() ) {
 		auto& mesh = entity.getComponent<ext::gltf::mesh_t>();
@@ -97,40 +155,67 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 		};
 		mesh.vertices.reserve( node.mesh.vertices.size() + start.vertices );
 		mesh.indices.reserve( node.mesh.indices.size() + start.indices );
-		for ( auto& v : node.mesh.vertices ) {
-			auto& vertex = mesh.vertices.emplace_back( v );
-		}
+		for ( auto& v : node.mesh.vertices ) mesh.vertices.emplace_back( v );
 		for ( auto& i : node.mesh.indices ) mesh.indices.emplace_back( i + start.indices );
+		// attach collider if requested
+	//	if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && !(graph.mode & ext::gltf::LoadMode::AABB) ) {
 		// copy image + sampler
 		if ( graph.mode & ext::gltf::LoadMode::RENDER ) {
 			auto& graphic = entity.getComponent<uf::Graphic>();
+			graphic.device = &uf::renderer::device;
+			graphic.material.device = &uf::renderer::device;
+			graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		
+			if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ){
+				graphic.descriptor.cullMode = VK_CULL_MODE_BACK_BIT;
+			} else {
+				graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_BIT;
+			}
+		//	graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
 			uf::instantiator::bind("RenderBehavior", entity);
-			if ( graph.mode & ext::gltf::LoadMode::SEPARATE_MESHES ) {
-				if ( !graph.images.empty() ) {
-					auto& image = graph.images.front();
+		/*
+			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
+				if ( graph.mode & ext::gltf::LoadMode::ATLAS ) {
+					auto& atlas = *graph.atlas;
 					auto& texture = graphic.material.textures.emplace_back();
-					texture.loadFromImage( image );
-					graph.images.erase( graph.images.begin() );
+					texture.loadFromImage( atlas.getAtlas() );
+				} else {	
+					if ( !graph.images.empty() ) {
+						auto& image = graph.images.front();
+						auto& texture = graphic.material.textures.emplace_back();
+						texture.loadFromImage( image );
+						graph.images.erase( graph.images.begin() );
+					}
+					if ( !graph.samplers.empty() ) {
+						auto& sampler = graph.samplers.front();
+						graphic.material.samplers.emplace_back( sampler );
+						graph.samplers.erase( graph.samplers.begin() );
+					}
 				}
-				if ( !graph.samplers.empty() ) {
-					auto& sampler = graph.samplers.front();
-					graphic.material.samplers.emplace_back( sampler );
-					graph.samplers.erase( graph.samplers.begin() );
-				}
-
 				graphic.initialize();
 				graphic.initializeGeometry( mesh );
-			} else {
-				for ( auto& image : graph.images ) {
-					auto& texture = graphic.material.textures.emplace_back();
-					texture.loadFromImage( image );
+
+				if ( graph.mode & ext::gltf::LoadMode::COLLISION ) {
+					auto& collider = ext::bullet::create( entity, mesh, 0 );
 				}
-				for ( auto& sampler : graph.samplers ) {
-					graphic.material.samplers.emplace_back( sampler );
+			} else 
+		*/
+			{
+				if ( graph.mode & ext::gltf::LoadMode::ATLAS ) {
+					auto& atlas = *graph.atlas;
+					auto& texture = graphic.material.textures.emplace_back();
+					texture.loadFromImage( atlas.getAtlas() );
+				} else {
+					for ( auto& image : graph.images ) {
+						auto& texture = graphic.material.textures.emplace_back();
+						texture.loadFromImage( image );
+					}
+					for ( auto& sampler : graph.samplers ) {
+						graphic.material.samplers.emplace_back( sampler );
+					}
 				}
 			}
-
-			if ( graph.mode & ext::gltf::LoadMode::DEFAULT_LOAD ) {
+			if ( graph.mode & ext::gltf::LoadMode::LOAD ) {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
 					graphic.material.attachShader("./data/shaders/gltf.stereo.skinned.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 				} else {
@@ -152,7 +237,6 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 				graphic.process = false;
 			}
 
-			graphic.device = &uf::renderer::device;
 			if ( graph.mode & ext::gltf::LoadMode::SKINNED && node.skin >= 0 ) {
 				auto& skin = graph.skins[node.skin];
 				node.jointBufferIndex = graphic.initializeBuffer(
@@ -187,7 +271,6 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 
 void uf::graph::override( pod::Graph& graph ) {
 	graph.settings.animations.override.a = 0;
-	graph.settings.animations.override.stashedSpeed = graph.settings.animations.override.speed;
 	graph.settings.animations.override.map.clear();
 	bool toNeutralPose = graph.sequence.empty();
 	// store every node's current transform
@@ -228,14 +311,15 @@ void uf::graph::override( pod::Graph& graph ) {
 
 void uf::graph::animate( pod::Graph& graph, const std::string& name, float speed, bool immediate ) {
 	if ( graph.animations.count( name ) > 0 ) {
+		// if already playing, ignore it
+		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
 		if ( immediate ) {
-		//	graph.sequence.clear();
 			while ( !graph.sequence.empty() ) graph.sequence.pop();
 		}
 		bool empty = graph.sequence.empty();
 		graph.sequence.emplace(name);
 		if ( empty ) uf::graph::override( graph );
-		graph.settings.animations.override.speed = speed;
+		graph.settings.animations.speed = speed;
 	}
 	update( graph, 0 );
 }
@@ -250,7 +334,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 		std::string name = graph.sequence.front();
 		pod::Animation* animation = &graph.animations[name];
 	//	std::cout << "ANIMATION: " << name << "\t" << animation->cur << std::endl;
-		animation->cur += delta * graph.settings.animations.override.speed;
+		animation->cur += delta * graph.settings.animations.speed; // * graph.settings.animations.override.speed;
 		if ( animation->end < animation->cur ) {
 			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
 			// go-to next animation
@@ -292,7 +376,6 @@ OVERRIDE:
 	// finished our overrided interpolation, clear it
 	if ( (graph.settings.animations.override.a += delta * graph.settings.animations.override.speed) >= 1 ) {
 		graph.settings.animations.override.a = -std::numeric_limits<float>::max();
-		graph.settings.animations.override.speed = graph.settings.animations.override.stashedSpeed;
 		graph.settings.animations.override.map.clear();
 	}
 UPDATE:

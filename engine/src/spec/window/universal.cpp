@@ -45,12 +45,23 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 }
 */
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const std::string& payload ) {
-	uf::Userdata userdata;
-	userdata.create<std::string>( payload );
-	this->m_events.push({ name, std::move(userdata) });
+	auto& event = this->m_events.emplace();
+	event.name = name;
+	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
+}
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload ) {
+	auto& event = this->m_events.emplace();
+	event.name = name;
+	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
+}
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload ) {
+	auto& event = this->m_events.emplace();
+	event.name = name;
+	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload ) {
-	this->m_events.push({ name, std::move(payload) });
+	auto& event = this->m_events.emplace();
+	event.name = name;
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payload ) {
 	struct Header {
@@ -71,10 +82,25 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 			this->processEvents();
 		} while ( block && this->m_events.empty() );
 	}
-
+	// doesnt get used
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-		uf::hooks.call( event.name, event.payload );
+		if ( event.payload.is<std::string>() ) {
+			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
+			uf::hooks.call( "window:Event", payload );
+			uf::hooks.call( event.name, payload );
+		} else if ( event.payload.is<uf::Serializer>() ) {
+			uf::Serializer& payload = event.payload.as<uf::Serializer>();
+			uf::hooks.call( "window:Event", payload );
+			uf::hooks.call( event.name, payload );
+		} else if ( event.payload.is<ext::json::Value>() ) {
+			ext::json::Value& payload = event.payload.as<ext::json::Value>();
+			uf::hooks.call( "window:Event", payload );
+			uf::hooks.call( event.name, payload );
+		} else {			
+			uf::hooks.call( "window:Event", event.payload );
+			uf::hooks.call( event.name, event.payload );
+		}
 		this->m_events.pop();
 	}
 	return true;

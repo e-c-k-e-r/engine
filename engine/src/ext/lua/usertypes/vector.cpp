@@ -4,11 +4,14 @@
 
 UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	sol::call_constructor, sol::initializers( 
-		[]( pod::Vector3f& self, const pod::Vector3f& copy = {} ) {
-			self = copy;
+		[]( pod::Vector3f& self ) {
+			return self = pod::Vector3f{};
+		},
+		[]( pod::Vector3f& self, const pod::Vector3f& copy ) {
+			return self = copy;
 		},
 		[]( pod::Vector3f& self, float x, float y, float z ) {
-			self = uf::vector::create(x, y, z);
+			return self = uf::vector::create(x, y, z);
 		}
 	),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Vector3f::x),
@@ -20,6 +23,24 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( distance, []( pod::Vector3f& self, const pod::Vector3f& other ) {
 		return uf::vector::distance( self, other );
 	}),
+	sol::meta_function::addition, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::add( left, right );
+	},
+	sol::meta_function::subtraction, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::subtract( left, right );
+	},
+	sol::meta_function::multiplication, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::multiply( left, right );
+	},
+	sol::meta_function::multiplication, []( const pod::Vector3f& left, double right ) {
+		return uf::vector::multiply( left, right );
+	},
+	sol::meta_function::division, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::divide( left, right );
+	},
+	sol::meta_function::division, []( const pod::Vector3f& left, double right ) {
+		return uf::vector::divide( left, right );
+	},
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, []( const pod::Vector3f& start, const pod::Vector3f& end, double delta ) {
 		return uf::vector::lerp( start, end, delta );
 	}),
@@ -32,11 +53,14 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 )
 UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	sol::call_constructor, sol::initializers( 
-		[]( pod::Vector4f& self, const pod::Vector4f& copy = {} ) {
-			self = copy;
+		[]( pod::Vector4f& self ) {
+			return self = pod::Vector4f{};
+		},
+		[]( pod::Vector4f& self, const pod::Vector4f& copy ) {
+			return self = copy;
 		},
 		[]( pod::Vector4f& self, float x, float y, float z, float w ) {
-			self = uf::vector::create(x, y, z, w);
+			return self = uf::vector::create(x, y, z, w);
 		}
 	),
 	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Vector4f::x),
@@ -49,6 +73,24 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( distance, []( pod::Vector4f& self, const pod::Vector4f& other ) {
 		return uf::vector::distance( self, other );
 	}),
+	sol::meta_function::addition, []( const pod::Vector4f& left, const pod::Vector4f& right ) {
+		return uf::vector::add( left, right );
+	},
+	sol::meta_function::subtraction, []( const pod::Vector4f& left, const pod::Vector4f& right ) {
+		return uf::vector::subtract( left, right );
+	},
+	sol::meta_function::multiplication, []( const pod::Vector4f& left, const pod::Vector4f& right ) {
+		return uf::vector::multiply( left, right );
+	},
+	sol::meta_function::multiplication, []( const pod::Vector4f& left, double right ) {
+		return uf::vector::multiply( left, right );
+	},
+	sol::meta_function::division, []( const pod::Vector4f& left, const pod::Vector4f& right ) {
+		return uf::vector::divide( left, right );
+	},
+	sol::meta_function::division, []( const pod::Vector4f& left, double right ) {
+		return uf::vector::divide( left, right );
+	},
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, []( const pod::Vector4f& start, const pod::Vector4f& end, double delta ) {
 		return uf::vector::lerp( start, end, delta );
 	}),

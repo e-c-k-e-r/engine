@@ -322,6 +322,14 @@ void ext::Gui::load( const uf::Image& _image ) {
 	auto& mesh = this->getComponent<uf::GuiMesh>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	mesh.vertices = {
+		{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+		{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
+		{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+	
+		{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+		{ {1.0f, 1.0f}, {1.0f, 1.0f}, },
+		{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+	/*
 		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
 		{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
 		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
@@ -329,10 +337,45 @@ void ext::Gui::load( const uf::Image& _image ) {
 		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
 		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
 		{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
+	*/
 	};
 
 	pod::Vector2f raidou = { 1, 1 };
 	bool modified = false;
+
+	if ( metadata["mode"].as<std::string>() == "flat" ) {
+		if ( ext::json::isNull(metadata["projection"]) ) metadata["projection"] = false;
+		if ( ext::json::isNull(metadata["flip uv"]) ) metadata["flip uv"] = true;
+		if ( ext::json::isNull(metadata["front face"]) ) metadata["front face"] = "ccw";
+	} else {
+		if ( ext::json::isNull(metadata["projection"]) ) metadata["projection"] = true;
+		if ( ext::json::isNull(metadata["flip uv"]) ) metadata["flip uv"] = false;
+		if ( ext::json::isNull(metadata["front face"]) ) metadata["front face"] = "cw";
+	}
+
+	if ( metadata["front face"].is<std::string>() ) {
+		if ( metadata["front face"].as<std::string>() == "ccw" ) {
+			graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		} else if ( metadata["front face"].as<std::string>() == "cw" ) {
+			graphic.descriptor.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		}
+	}
+	if ( metadata["cull mode"].is<std::string>() ) {
+		if ( metadata["cull mode"].as<std::string>() == "back" ) {
+			graphic.descriptor.cullMode = VK_CULL_MODE_BACK_BIT;
+		} else if ( metadata["cull mode"].as<std::string>() == "front" ) {
+			graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_BIT;
+		} else if ( metadata["cull mode"].as<std::string>() == "none" ) {
+			graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
+		} else if ( metadata["cull mode"].as<std::string>() == "both" ) {
+			graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_AND_BACK;
+		}
+	}
+	if ( metadata["flip uv"].as<bool>() ) {
+		for ( auto& v : mesh.vertices ) {
+			v.uv.y = 1 - v.uv.y;
+		}
+	}
 	if ( metadata["scaling"].is<std::string>() ) {
 		std::string mode = metadata["scaling"].as<std::string>();
 		if ( mode == "mesh" ) {
@@ -358,9 +401,19 @@ void ext::Gui::load( const uf::Image& _image ) {
 	transform.scale.x = raidou.x;
 	transform.scale.y = raidou.y;
 */
-
-	if ( metadata["world"].as<bool>() ) {
+/*
+	if ( !metadata["gui layer"].as<bool>() ) {
+		graphic.initialize( "Gui" );
+	} else {
 		graphic.initialize();
+	}
+*/
+	if ( metadata["layer"].is<std::string>() ) {
+		graphic.initialize( metadata["layer"].as<std::string>() );
+	} else if ( !ext::json::isNull( metadata["gui layer"] ) && !metadata["gui layer"].as<bool>() ) {
+		graphic.initialize();
+	} else if ( metadata["gui layer"].is<std::string>() ) {
+		graphic.initialize( metadata["gui layer"].as<std::string>() );
 	} else {
 		graphic.initialize( "Gui" );
 	}
@@ -392,8 +445,7 @@ UF_OBJECT_REGISTER_END()
 void ext::GuiBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
 
-	this->addHook( "glyph:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "glyph:Load.%UID%", [&](ext::json::Value& json){
 		unsigned long c = json["glyph"].as<size_t>();
 		std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
 		std::string key = ""; {
@@ -415,28 +467,24 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			image.loadFromBuffer( pixels, glyph.getSize(), 8, 1, true );
 		}
 		this->as<ext::Gui>().load( image );
-		return "true";
 	});
-	this->addHook( "asset:Load.%UID%", [&](const std::string& event)->std::string{	
-		uf::Serializer json = event;
+	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
-		if ( uf::io::extension(filename) != "png" ) return "false";
+		if ( uf::io::extension(filename) != "png" ) return;
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
-		if ( !imagePointer ) return "false";
+		if ( !imagePointer ) return;
 		
-		uf::Image image = *imagePointer;
+	//	uf::Image image = *imagePointer;
 
-		this->as<ext::Gui>().load( image );
-		return "true";
+		this->as<ext::Gui>().load( *imagePointer );
 	});
-	this->addHook( "window:Resized", [&](const std::string& event)->std::string{
-		uf::Serializer json = event;
-		if ( !this->hasComponent<uf::GuiMesh>() ) return "false";
+	this->addHook( "window:Resized", [&](ext::json::Value& json){
+		if ( !this->hasComponent<uf::GuiMesh>() ) return;
 
 		pod::Vector2ui size; {
 			size.x = json["window"]["size"]["x"].as<size_t>();
@@ -456,42 +504,36 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			transform.scale = pod::Vector3{ (float) textureSize.x / 1920, (float) textureSize.y / 1080, 1 };
 		}
 	*/
-		return "true";
 	} );
 		
 	if ( metadata["system"]["clickable"].as<bool>() ) {
 		uf::Timer<long long> clickTimer(false);
 	//	clickTimer.start( uf::Time<>(-1000000) );
 		if ( !clickTimer.running() ) clickTimer.start();
-		this->addHook( "gui:Clicked.%UID%", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
+		this->addHook( "gui:Clicked.%UID%", [&](ext::json::Value& json){
 			if ( ext::json::isObject( metadata["events"]["click"] ) ) {
 				uf::Serializer event = metadata["events"]["click"];
 				metadata["events"]["click"] = ext::json::array(); //Json::arrayValue;
 				metadata["events"]["click"][0] = event;
 			} else if ( !ext::json::isArray( metadata["events"]["click"] ) ) {
-				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", event);
-				return "false";
+				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
+				return;
 			}
 			for ( int i = 0; i < metadata["events"]["click"].size(); ++i ) {
 				uf::Serializer event = metadata["events"]["click"][i];
 				uf::Serializer payload = event["payload"];
-				float delay = event["delay"].as<float>();
-				if ( event["delay"].is<double>() ) {
+				if ( event["delay"].is<float>() ) {
 					this->queueHook(event["name"].as<std::string>(), payload, event["delay"].as<float>());
 				} else {
 					this->callHook(event["name"].as<std::string>(), payload );
 				}
 			}
-			return "true";
 		});
-		this->addHook( "window:Mouse.Click", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
+		this->addHook( "window:Mouse.Click", [&](ext::json::Value& json){
 			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 
-			if ( metadata["world"].as<bool>() ) return "true";
-			if ( ext::json::isNull( metadata["box"] ) ) return "true";
+			if ( metadata["world"].as<bool>() ) return;
+			if ( ext::json::isNull( metadata["box"] ) ) return;
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
@@ -524,27 +566,22 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			metadata["clicked"] = clicked;
 			if ( clicked ) {
-				this->callHook("gui:Clicked.%UID%");
+				this->callHook("gui:Clicked.%UID%", json);
 			}
-			{
-				this->callHook("gui:Mouse.Clicked.%UID%", json);
-			}
-			return "true";
+			this->callHook("gui:Mouse.Clicked.%UID%", json);
 		} );
 	}
 	if ( metadata["system"]["hoverable"].as<bool>() ) {
 		uf::Timer<long long> hoverTimer(false);
 		hoverTimer.start( uf::Time<>(-1000000) );
-		this->addHook( "gui:Hovered.%UID%", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-
+		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
 			if ( ext::json::isObject( metadata["events"]["hover"] ) ) {
 				uf::Serializer event = metadata["events"]["hover"];
 				metadata["events"]["hover"] = ext::json::array(); //Json::arrayValue;
 				metadata["events"]["hover"][0] = event;
 			} else if ( !ext::json::isArray( metadata["events"]["hover"] ) ) {
-				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", event);
-				return "false";
+				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
+				return;
 			}
 			for ( int i = 0; i < metadata["events"]["hover"].size(); ++i ) {
 				uf::Serializer event = metadata["events"]["hover"][i];
@@ -556,15 +593,14 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					this->callHook(event["name"].as<std::string>(), payload );
 				}
 			}
-			return "true";
+			return;
 		});
-		this->addHook( "window:Mouse.Moved", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
-			if ( this->getUid() == 0 ) return "false";
-			if ( !this->hasComponent<uf::GuiMesh>() ) return "false";
+		this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
+			if ( this->getUid() == 0 ) return;
+			if ( !this->hasComponent<uf::GuiMesh>() ) return;
 			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-			if ( metadata["world"].as<bool>() ) return "true";
-			if ( ext::json::isNull( metadata["box"] ) ) return "true";
+			if ( metadata["world"].as<bool>() ) return;
+			if ( ext::json::isNull( metadata["box"] ) ) return;
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
@@ -589,13 +625,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			if ( clicked && hoverTimer.elapsed().asDouble() >= 1 ) {
 				hoverTimer.reset();
-				this->callHook("gui:Hovered.%UID%");
+				this->callHook("gui:Hovered.%UID%", json);
 			}
-			{
-				this->callHook("gui:Mouse.Moved.%UID%", json);
-			}
-
-			return "true";
+			this->callHook("gui:Mouse.Moved.%UID%", json);
 		} );
 	}
 	if ( metadata["text settings"]["string"].is<std::string>() ) {
@@ -693,15 +725,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			});
 		}
 
-		this->addHook( "object:Reload.%UID%", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
+		this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
 
-			if ( json["old"]["text settings"]["string"] == json["new"]["text settings"]["string"] ) return "false";
+			if ( json["old"]["text settings"]["string"] == json["new"]["text settings"]["string"] ) return;
 			this->queueHook( "gui:UpdateString.%UID%");
-			return "true";
 		});
-		this->addHook( "gui:UpdateString.%UID%", [&](const std::string& event)->std::string{
-			uf::Serializer json = event;
+		this->addHook( "gui:UpdateString.%UID%", [&](ext::json::Value& json){
 			for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
 				std::string key = it.key();
 				if ( ext::json::isNull( metadata["text settings"][key] ) ) {
@@ -803,8 +832,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				graphic.initializeGeometry( mesh );
 				graphic.getPipeline().update( graphic );
 			}
-
-			return "true";
 		});
 	}
 }
@@ -904,6 +931,8 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			"depth",
 			"color",
 			"world",
+			"projection",
+			"only model",
 			"sdf",
 			"shadowbox",
 			"stroke",
@@ -944,11 +973,21 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			uniforms.gui.color[3] *= metadata["gui"]["alpha"].as<float>();
 		}
 		for ( std::size_t i = 0; i < 2; ++i ) {
-			if ( metadata["gui"]["world"].as<bool>() ) {
+			if ( metadata["gui"]["only model"].as<bool>() ) {
+				uniforms.matrices.model[i] = transform.model; 
+			} else if ( metadata["gui"]["world"].as<bool>() ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& controller = scene.getController();
 				auto& camera = controller.getComponent<uf::Camera>();
 				uniforms.matrices.model[i] = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
+			} else if ( metadata["gui"]["projection"].as<bool>() ) {
+				pod::Transform<> flatten = uf::transform::flatten( transform );
+				uniforms.matrices.model[i] = 
+					camera.getProjection(i) *
+					uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+					uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+					uf::quaternion::matrix( flatten.orientation ) *
+					flatten.model;
 			} else {
 				pod::Transform<> flatten = uf::transform::flatten( transform );
 				uniforms.matrices.model[i] = 

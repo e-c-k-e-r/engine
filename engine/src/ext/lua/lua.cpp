@@ -80,8 +80,8 @@ void ext::lua::initialize() {
 
 		auto hooks = state["hooks"].get_or_create<sol::table>();
 		hooks["add"] = []( const std::string& name, const sol::function& function ) {
-			uf::hooks.addHook( name, [function]( const std::string& payload ) {
-				sol::table table = ext::lua::state["json"]["decode"]( payload );
+			uf::hooks.addHook( name, [function](ext::json::Value& json){
+				sol::table table = ext::lua::state["json"]["decode"]( json.dump() );
 				auto result = function( table );
 				if ( !result.valid() ) {
 					sol::error err = result;
@@ -91,7 +91,7 @@ void ext::lua::initialize() {
 		};
 		hooks["call"] = []( const std::string& name, sol::table table = createTable() ) {
 			uf::Serializer payload = table;
-			return uf::hooks.call( name, payload );
+			return uf::hooks.call( name, (ext::json::Value&) payload );
 		};
 	}
 	// `entities` table

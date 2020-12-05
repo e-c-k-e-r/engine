@@ -209,7 +209,7 @@ void ext::DialogueManager::initialize() {
 		}
 
 		uf::Serializer result;
-		if ( hookName != "" ) result = this->callHook(hookName, payload)[0];
+		if ( hookName != "" ) result = this->callHook(hookName, payload)[0].as<uf::Serializer>();
 		return result;
 	});
 
@@ -219,7 +219,7 @@ void ext::DialogueManager::initialize() {
 		uf::Serializer payload;
 		std::string index = json["index"].as<std::string>();
 		uf::Serializer part = metadata["dialogue"][index];
-		if ( part["quit"].as<bool>() ) return this->callHook("menu:Dialogue.End.%UID%")[0];
+		if ( part["quit"].as<bool>() ) return this->callHook("menu:Dialogue.End.%UID%")[0].as<uf::Serializer>();
 		payload["message"] = part["message"];
 		payload["actions"] = part["actions"];
 		if ( part["music"].is<std::string>() ) {

@@ -357,7 +357,7 @@ void ext::HousamoBattle::initialize() {
 			payload = json;
 			hookName = "world:Battle.GetTargets.%UID%";
 		} else if ( action == "enemy-attack" ) {
-			payload = this->callHook("world:Battle.AI.%UID%", json)[0];
+			payload = this->callHook("world:Battle.AI.%UID%", json)[0].as<uf::Serializer>();
 			hookName = "world:Battle.Attack.%UID%";
 			metadata["battle"]["turn"]["decrement"] = 1.0f;
 		} else if ( action == "escape" ) {
@@ -423,7 +423,7 @@ void ext::HousamoBattle::initialize() {
 		if ( hookName == "" ) return payload;
 
 		uf::Serializer result;
-		result = this->callHook(hookName, payload)[0];
+		result = this->callHook(hookName, payload)[0].as<uf::Serializer>();
 		return result;
 	});
 
