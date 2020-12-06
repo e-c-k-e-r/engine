@@ -58,6 +58,7 @@ bool ext::bullet::debugDrawEnabled = false;
 float ext::bullet::debugDrawRate = 1.0f;
 size_t ext::bullet::iterations = 1;
 size_t ext::bullet::substeps = 12;
+float ext::bullet::timescale = 1.0f;
 
 namespace ext {
 	namespace bullet {
@@ -222,7 +223,7 @@ void ext::bullet::initialize() {
 }
 void ext::bullet::tick( float delta ) { if ( delta == 0.0f ) delta = uf::physics::time::delta;
 	ext::bullet::syncToBullet();
-	delta /= ext::bullet::iterations;
+	delta = delta * ext::bullet::timescale / ext::bullet::iterations;
 	for ( size_t i = 0; i < ext::bullet::iterations; ++i ) {
 		ext::bullet::dynamicsWorld->stepSimulation(delta, ext::bullet::substeps);
 	}

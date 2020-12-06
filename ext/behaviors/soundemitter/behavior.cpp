@@ -59,7 +59,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 	auto& emitter = this->getComponent<uf::SoundEmitter>();
 	auto& metadata = this->getComponent<uf::Serializer>();
-	auto& transform = this->getComponent<pod::Transform<>>();
+	auto transform = this->getComponent<pod::Transform<>>();
 
 //	for ( auto pair : emitter.get() ) {
 //		uf::Audio& audio = pair.second;

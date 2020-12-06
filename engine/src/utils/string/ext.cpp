@@ -57,6 +57,9 @@ std::string UF_API uf::string::replace( const std::string& string, const std::st
 	result.replace(start_pos, search.length(), replace);
 	return result;
 }
+bool UF_API uf::string::contains( const std::string& string, const std::string& search ) {
+	return string.find(search) != std::string::npos;
+}
 std::string UF_API uf::string::si( double value, const std::string& unit, size_t precision ) {
 	int power = floor(std::log10( value ));
 	double base = value / std::pow( 10, power );

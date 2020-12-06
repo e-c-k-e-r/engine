@@ -138,6 +138,22 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				uf::iostream << "Animations found: " << json << "\n";
 			}
 		}
+	/*
+		auto& controller = scene.getController();
+		ext::json::forEach(metadata["model"]["tags"], [&]( const std::string& key, const ext::json::Value& v ){
+			if ( !ext::json::isObject( v )  ) return;
+			if ( v["action"].as<std::string>() != "spawn" ) return;
+			auto* node = uf::graph::find( graph, key );
+			if ( !node ) return;
+			std::cout << "Found: " << key << "\t" << v << std::endl;
+			auto flatten = uf::transform::flatten( node->transform );
+			auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+			std::cout << "Set transform from: " << uf::string::toString( controllerTransform.position ) << std::endl;
+			controllerTransform.position = flatten.position;
+			controllerTransform.orientation = flatten.orientation;
+			std::cout << "Set transform to: " << uf::string::toString( controllerTransform.position ) << std::endl;
+		});
+	*/
 	});
 }
 void uf::GltfBehavior::destroy( uf::Object& self ) {

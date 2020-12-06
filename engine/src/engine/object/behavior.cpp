@@ -10,6 +10,7 @@
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/gltf/gltf.h>
+#include <uf/ext/bullet/bullet.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 #define this (&self)
@@ -29,6 +30,29 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::Serializer payload;
 			payload["uid"] = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
+		}
+	}
+
+	if ( ext::json::isObject(metadata["system"]["physics"]) ) {
+		float mass = metadata["system"]["physics"]["mass"].as<float>();
+		if ( metadata["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
+			pod::Vector3f corner = uf::vector::decode( metadata["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
+			ext::bullet::create( *this, corner, mass );
+		} else if ( metadata["system"]["physics"]["type"].as<std::string>() == "Capsule" ) {
+			float radius = metadata["system"]["physics"]["radius"].as<float>();
+			float height = metadata["system"]["physics"]["height"].as<float>();
+			ext::bullet::create( *this, radius, height, mass );
+		} else {
+			return;
+		}
+
+		auto& collider = this->getComponent<pod::Bullet>();
+		if ( !ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
+			collider.body->setGravity( btVector3(
+				metadata["system"]["physics"]["gravity"][0].as<float>(),
+				metadata["system"]["physics"]["gravity"][1].as<float>(),
+				metadata["system"]["physics"]["gravity"][2].as<float>()
+			) );
 		}
 	}
 

@@ -46,27 +46,6 @@ namespace pod {
 			alignas(4) int indexMetallicRoughness = -1;
 			alignas(4) int indexMappedTarget = -1;
 		} storage;
-	/*
-		alignas(16) struct {
-			alignas(4) int32_t albedo = -1;
-			alignas(4) int32_t normal = -1;
-			alignas(4) int32_t emissive = -1;
-			alignas(4) int32_t occlusion = -1;
-			alignas(4) int32_t metallicRoughness = -1;
-			alignas(4) int32_t _padding1 = -1;
-			alignas(4) int32_t _padding2 = -1;
-			alignas(4) int32_t mappedTarget = -1;
-		} id;
-		alignas(16) struct {
-			alignas(16) pod::Vector4f diffuse = { 1, 0, 1, 1 };
-			pod::Vector3f emissive = { 0, 0, 0 };
-			alignas(4) float _padding1 = 0.0f;
-			alignas(4) float metallic = 0.0f;
-			alignas(4) float roughness = 0.0f;
-			alignas(4) float occlusion = 0.0f;
-			alignas(4) float mappedBlend = 0.0f;
-		} color;
-	*/
 	};
 	struct UF_API Node {
 		typedef ext::gltf::skinned_mesh_t Mesh;
@@ -76,6 +55,9 @@ namespace pod {
 
 		Node* parent = NULL;
 		std::vector<Node*> children;
+	//	int32_t parent = -1;
+	//	std::vector<int32_t children>;
+
 		uf::Object* entity = NULL;
 		size_t jointBufferIndex = -1;
 		size_t materialBufferIndex = -1;
@@ -90,6 +72,7 @@ namespace pod {
 	struct UF_API Skin {
 		std::string name = "";
 		std::vector<Node*> joints;
+	//	std::vector<int32_t> joints;
 		std::vector<pod::Matrix4f> inverseBindMatrices;
 	};
 	struct UF_API Animation {
@@ -113,10 +96,14 @@ namespace pod {
 	};
 	struct UF_API Graph {
 		Node* node = NULL;
+	//	int32_t node = -1;
+	//	std::vector<pod::Node> nodes;
+
 		uf::Object* entity = NULL;
 
 		std::string name = "";
 		ext::gltf::load_mode_t mode;
+		uf::Serializer metadata;
 
 		uf::Atlas* atlas = NULL;
 		std::vector<uf::Image> images;

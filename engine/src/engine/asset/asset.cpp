@@ -180,7 +180,7 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash ) {
 		LOAD_FLAG(INVERT) 				// = 0x1 << 7,
 		LOAD_FLAG(TRANSFORM) 			// = 0x1 << 8,
 
-		asset = ext::gltf::load( filename, LOAD_FLAGS );
+		asset = ext::gltf::load( filename, LOAD_FLAGS, metadata[uri] );
 	} else {
 		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
 	}

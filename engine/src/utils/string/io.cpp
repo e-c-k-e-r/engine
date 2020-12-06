@@ -100,6 +100,10 @@ std::string UF_API uf::io::resolveURI( const std::string& filename, const std::s
 	std::string root = _root;
 	if ( filename.substr(0,8) == "https://" ) return filename;
 	std::string extension = uf::io::extension(filename);
+	// just sanitize
+	if ( filename.find("./data/") == 0 )
+		return uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) );
+	// if the filename contains an absolute path or if no root is provided
 	if ( filename[0] == '/' || root == "" ) {
 		if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
 		else if ( extension == "json" ) root = "./data/entities/";

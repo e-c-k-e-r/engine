@@ -67,33 +67,72 @@ void uf::graph::process( pod::Graph& graph ) {
 	if ( !graph.entity ) graph.entity = new uf::Object;
 	process( graph, *graph.node, *graph.entity );
 
-	// add lights
-	for ( auto& l : graph.lights ) {
-	//	std::cout << l.name << ": " << uf::string::toString( l.transform.position ) << " " << uf::string::toString( l.color ) << "\t" << l.intensity << "\t" << l.range << std::endl;
-		auto& light = graph.entity->loadChild("/light.json", false);
-		auto& metadata = light.getComponent<uf::Serializer>();
-		metadata["light"]["radius"][0] = 0.001;
-		metadata["light"]["radius"][1] = l.range <= 0.001f ? 128.0f : l.range;
-		metadata["light"]["power"] = l.intensity / 100.0f;
-		metadata["light"]["color"][0] = l.color.x;
-		metadata["light"]["color"][1] = l.color.y;
-		metadata["light"]["color"][2] = l.color.z;
-		metadata["light"]["shadows"]["enabled"] = false;
-		light.initialize();
-
-		auto& transform = light.getComponent<pod::Transform<>>();
-		transform = l.transform;
-	}
-
 	graph.entity->process([&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<ext::gltf::mesh_t>() ) return;
 		
 		auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
+		if ( graph.mode & ext::gltf::LoadMode::NORMALS ) {
+			// bool invert = false;
+			bool INVERTED = graph.mode & ext::gltf::LoadMode::INVERT;
+			if ( !mesh.indices.empty() ) {
+				for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
+					auto& a = mesh.vertices[i+(INVERTED ? 0 : 0)].position;
+					auto& b = mesh.vertices[i+(INVERTED ? 1 : 2)].position;
+					auto& c = mesh.vertices[i+(INVERTED ? 2 : 1)].position;
+
+					pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
+					mesh.vertices[i+0].normal = normal;
+					mesh.vertices[i+1].normal = normal;
+					mesh.vertices[i+2].normal = normal;
+				}
+			} else {
+				for ( size_t i = 0; i < mesh.indices.size(); i+=3 ) {
+					auto& A = mesh.vertices[mesh.indices[i+(INVERTED ? 0 : 0)]];
+					auto& B = mesh.vertices[mesh.indices[i+(INVERTED ? 1 : 2)]];
+					auto& C = mesh.vertices[mesh.indices[i+(INVERTED ? 2 : 1)]];
+
+					auto& a = A.position;
+					auto& b = B.position;
+					auto& c = C.position;
+
+					pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
+					
+					A.normal = normal;
+					B.normal = normal;
+					C.normal = normal;
+				}
+			}
+		}
 		if ( entity->hasComponent<uf::Graphic>() ) {
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			graphic.initialize();
 			graphic.initializeGeometry( mesh );
 		}
+		auto& metadata = entity->getComponent<uf::Serializer>();
+		std::string nodeName = metadata["system"]["graph"]["name"].as<std::string>();
+		if ( !ext::json::isNull( graph.metadata["tags"][nodeName] ) ) {
+			auto& info = graph.metadata["tags"][nodeName];
+			if ( info["collision"].is<std::string>() ) {
+				std::string type = info["collision"].as<std::string>();
+				if ( type == "static mesh" ) {
+					bool applyTransform = false; //!(graph.mode & ext::gltf::LoadMode::TRANSFORM);
+					auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, applyTransform, 1 );
+					if ( !applyTransform ) {
+						btBvhTriangleMeshShape* triangleMeshShape = (btBvhTriangleMeshShape*) collider.shape;
+						btTriangleInfoMap* triangleInfoMap = new btTriangleInfoMap();
+						triangleInfoMap->m_edgeDistanceThreshold = 0.01f;
+					    triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
+						if ( applyTransform ) {
+							btGenerateInternalEdgeInfo(triangleMeshShape, triangleInfoMap);
+						}
+						collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+					}
+				} else if ( type == "bounding box" ) {
+
+				}
+			}
+		}
+	/*
 		if ( graph.mode & ext::gltf::LoadMode::COLLISION ) {
 			bool applyTransform = false; //!(graph.mode & ext::gltf::LoadMode::TRANSFORM);
 			auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, applyTransform, 1 );
@@ -108,6 +147,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
 			}
 		}
+	*/
 	});
 }
 void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent ) {
@@ -120,6 +160,50 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 	}
 	uf::Object& entity = *pointer;
 	node.entity = &entity;
+	
+	bool setName = entity.getName() == "Entity";
+	auto& metadata = entity.getComponent<uf::Serializer>();
+	metadata["system"]["graph"]["name"] = node.name;
+	// tie to tag
+	if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
+		auto& info = graph.metadata["tags"][node.name];
+		if ( info["action"].as<std::string>() == "load" ) {
+			if ( info["filename"].is<std::string>() ) {
+				std::string filename = uf::io::resolveURI( info["filename"].as<std::string>(), graph.metadata["root"].as<std::string>() );
+				entity.load(filename);
+			} else if ( ext::json::isObject( info["payload"] ) ) {
+				uf::Serializer json = info["payload"];
+				json["root"] = graph.metadata["root"];
+				entity.load(json);
+			}
+		} else if ( info["action"].as<std::string>() == "attach" ) {
+			std::string filename = uf::io::resolveURI( info["filename"].as<std::string>(), graph.metadata["root"].as<std::string>() );
+			auto& child = entity.loadChild( filename, false );
+			auto& childTransform = child.getComponent<pod::Transform<>>();
+			auto flatten = uf::transform::flatten( node.transform );
+			childTransform.position = flatten.position;
+			childTransform.orientation = flatten.orientation;
+		}
+	}
+	// create as light
+	for ( auto& l : graph.lights ) {
+		if ( l.name != node.name ) continue;
+		entity.load("/light.json");
+		auto& metadata = entity.getComponent<uf::Serializer>();		
+		metadata["light"]["radius"][0] = 0.001;
+		metadata["light"]["radius"][1] = l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
+		metadata["light"]["power"] = l.intensity * graph.metadata["lights"]["power scale"].as<float>();
+		metadata["light"]["color"][0] = l.color.x;
+		metadata["light"]["color"][1] = l.color.y;
+		metadata["light"]["color"][2] = l.color.z;
+		metadata["light"]["shadows"]["enabled"] = false;
+		break;
+	}
+
+	// set name
+	if ( setName ) {
+		entity.setName( node.name );
+	}
 
 	// reference transform to parent
 	if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
@@ -130,10 +214,6 @@ void uf::graph::process( pod::Graph& graph, pod::Node& node, uf::Object& parent 
 			auto& parent = entity.getParent().getComponent<pod::Transform<>>();
 			transform.reference = &parent;
 		}
-	}
-	// set name
-	if ( entity.getName() != "Entity" ) {
-		entity.setName( node.name );
 	}
 	// move colliders
 /*

@@ -164,23 +164,53 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		}
 	}
 
-	/* Print Entity Information */  {
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		if ( uf::Window::isKeyPressed("U") && timer.elapsed().asDouble() >= 1 ) { timer.reset();
-			uint orphans = 0;
-			uint empty = 0;
-			auto& allocations = uf::Entity::memoryPool.allocations();
-			uf::iostream << "Current size: " << allocations.size() << "\n"; //" | UIDs: " << uf::Entity::uids << "\n";
-			for ( auto& allocation : allocations ) {
-				uf::Entity* e = (uf::Entity*) allocation.pointer;
-				if ( !e->hasParent() && e != this ) {
-					++orphans;
-					uf::iostream << "Orphan: " << e->getName() << ": " << e->getUid() << ": " << e << "\n";
+	/* Print World Tree */ {
+		TIMER(1, uf::Window::isKeyPressed("U") && ) {
+			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
+				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
+				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
+				if ( entity->hasComponent<pod::Transform<>>() ) {
+					pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
+					uf::iostream << uf::string::toString(t.position) << " " << uf::string::toString(t.orientation);
+				}
+				uf::iostream << "\n";
+			};
+			for ( uf::Scene* scene : uf::scene::scenes ) {
+				if ( !scene ) continue;
+				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
+				scene->process(filter, 1);
+			}
+		}
+	}
+	/* Print World Tree */ {
+		TIMER(1, uf::Window::isKeyPressed("U") && false && ) {
+			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
+				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
+				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
+				for ( auto& behavior : entity->getBehaviors() ) {
+					uf::iostream << uf::instantiator::behaviors->names[behavior.type] << ", ";
+				}
+				uf::iostream << "]\n";
+			};
+			for ( uf::Scene* scene : uf::scene::scenes ) {
+				if ( !scene ) continue;
+				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
+				scene->process(filter, 1);
+			}
+			uf::Serializer instantiator;
+			{
+				int i = 0;
+				for ( auto& pair : uf::instantiator::objects->names ) {
+					instantiator["objects"][i++] = pair.second;
 				}
 			}
-			uf::iostream << "Orphans: " << orphans << "\n";
-			uf::iostream << "Empty: " << empty << "\n";
+			{
+				int i = 0;
+				for ( auto& pair : uf::instantiator::behaviors->names ) {
+					instantiator["behaviors"][i++] = pair.second;
+				}
+			}
+			uf::iostream << instantiator << "\n";
 		}
 	}
 	
@@ -265,7 +295,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			std::vector<uf::Entity*> entities;
 			{
 				std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-					if ( !entity || entity->getName() != "Light" ) return;
+					if ( !entity ) return;
+					bool isLight = entity->getName() == "Light";
+					auto& metadata = entity->getComponent<uf::Serializer>();
+					if ( ext::json::isObject( metadata["light"] ) ) isLight = true;
+					if ( !isLight ) return;
 					entities.push_back(entity);
 				};
 				for ( uf::Scene* scene : uf::scene::scenes ) { if ( !scene ) continue;

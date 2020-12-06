@@ -28,6 +28,7 @@ namespace ext {
 		extern UF_API float debugDrawRate;
 		extern UF_API size_t iterations;
 		extern UF_API size_t substeps;
+		extern UF_API float timescale;
 
 		void UF_API initialize();
 		void UF_API tick( float = 0 );

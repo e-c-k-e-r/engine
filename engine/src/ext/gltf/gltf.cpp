@@ -66,6 +66,9 @@ namespace {
 		} else {
 			transform.position = { 0, 0, 0 };
 		}
+		if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ) {
+			transform.position.x *= -1;
+		}
 		if ( node.rotation.size() == 4 ) {
 			transform.orientation.x = node.rotation[0];
 			transform.orientation.y = node.rotation[1];
@@ -227,38 +230,6 @@ namespace {
 					}
 					#undef COPY_INDICES
 				}
-				// recalc normals
-				if ( graph.mode & ext::gltf::LoadMode::NORMALS ) {
-					// bool invert = false;
-					if ( !mesh.indices.empty() ) {
-						for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
-							auto& a = mesh.vertices[i+0].position;
-							auto& b = mesh.vertices[i+1].position;
-							auto& c = mesh.vertices[i+2].position;
-
-							pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
-							mesh.vertices[i+0].normal = normal;
-							mesh.vertices[i+1].normal = normal;
-							mesh.vertices[i+2].normal = normal;
-						}
-					} else {
-						for ( size_t i = 0; i < mesh.indices.size(); i+=3 ) {
-							auto& A = mesh.vertices[mesh.indices[i+0]];
-							auto& B = mesh.vertices[mesh.indices[i+1]];
-							auto& C = mesh.vertices[mesh.indices[i+2]];
-
-							auto& a = A.position;
-							auto& b = B.position;
-							auto& c = C.position;
-
-							pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
-							
-							A.normal = normal;
-							B.normal = normal;
-							C.normal = normal;
-						}
-					}
-				}
 			/*
 				if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
 					auto model = uf::transform::model( transform );
@@ -283,7 +254,7 @@ namespace {
 	}
 }
 
-pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t mode ) {
+pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t mode, const uf::Serializer& metadata ) {
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
 
@@ -293,6 +264,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 
 	pod::Graph graph;
 	graph.mode = mode;
+	graph.metadata = metadata;
 
 	if ( !warn.empty() ) uf::iostream << "glTF warning: " << warn << "\n";
 	if ( !err.empty() ) uf::iostream << "glTF error: " << err << "\n";

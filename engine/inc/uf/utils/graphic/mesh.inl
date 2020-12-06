@@ -28,13 +28,38 @@ void uf::BaseMesh<T, U>::initialize( bool compress ) {
 	}
 }	
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::expand() {
+void uf::BaseMesh<T, U>::expand( bool check ) {
 	if ( this->indices.empty() ) return;
 	std::vector<vertex_t> _vertices = std::move( this->vertices );
 	this->vertices.clear();
 	this->vertices.reserve( this->indices.size() );
-	for ( auto& index : this->indices ) {
-		this->vertices.emplace_back( _vertices[index] );
+	if ( !check ) {
+		for ( auto& index : this->indices ) this->vertices.emplace_back( _vertices[index] );
+	} else {
+		std::vector<vertex_t> cache;
+		bool valid = true;
+		cache.reserve(3);
+		for ( auto& index : this->indices ) {
+			// flush cache
+			if ( cache.size() == 3 ) {
+				if ( valid ) {
+					this->vertices.emplace_back(cache[0]);
+					this->vertices.emplace_back(cache[1]);
+					this->vertices.emplace_back(cache[2]);
+				}
+				cache.clear();
+				valid = true;
+			}
+			// invalid index, mark cache as invalid
+			if ( index >= _vertices.size() ) {
+				std::cout << "Invalid index: Max: " << _vertices.size() << "\tGot: " << index << std::endl;
+				valid = false;
+				cache.emplace_back( cache.empty() ? vertex_t{} : cache.back() );
+				continue;
+			}
+			// fill cache
+			cache.emplace_back( _vertices[index] );
+		}
 	}
 	this->indices.clear();
 }

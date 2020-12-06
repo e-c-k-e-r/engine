@@ -225,7 +225,7 @@ namespace uf {
 		~BaseMesh();
 		void initialize( bool compress = true );
 		void updateDescriptor();
-		void expand();
+		void expand( bool = true );
 		void destroy();
 	};
 }

@@ -159,6 +159,9 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	if ( json["import"].is<std::string>() || json["include"].is<std::string>() ) {
 		uf::Serializer chain = json;
 		std::string root = json["root"].as<std::string>();
+		uf::Serializer separated;
+		separated["assets"] = json["assets"];
+		separated["behaviors"] = json["behaviors"];
 		do {
 			std::string filename = chain["import"].is<std::string>() ? chain["import"].as<std::string>() : chain["include"].as<std::string>();
 			filename = grabURI( filename, root );
@@ -166,23 +169,29 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			chain.readFromFile( filename );
 			// set new root
 			root = uf::io::directory( filename );
+			// get real path for assets to merge separately
+			ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
+				if ( ext::json::isObject( value ) ) value["filename"] = grabURI( value["filename"].as<std::string>(), root );
+				else value = grabURI( value.as<std::string>(), root );
+				separated["assets"].emplace_back( value );
+			});
+			ext::json::forEach(chain["behaviors"], [&](ext::json::Value& value){
+				separated["behaviors"].emplace_back(value);
+			});
+			chain["assets"] = ext::json::null();
+			chain["behaviors"] = ext::json::null();
 			// merge table
 			json.import( chain );
 		} while ( chain["import"].is<std::string>() || chain["include"].is<std::string>() );
-		if ( !ext::json::isArray(_json["assets"]) || _json["assets"].size() == 0 ) json["root"] = root;
+		json["import"] = ext::json::null();
+		json["assets"] = separated["assets"];
+		json["behaviors"] = separated["behaviors"];
 	}
 	// copy system table to base
 	ext::json::forEach( json["system"], [&](const std::string& key, const ext::json::Value& value){
 		if ( ext::json::isNull( json[key] ) )
 			json[key] = value;
 	});
-/*
-	for ( auto it = json["system"].begin(); it != json["system"].end(); ++it ) {
-		std::string key = it.key();
-		if ( ext::json::isNull( json[key] ) )
-			json[key] = json["system"][key];
-	}
-*/
 	json["hot reload"]["enabled"] = json["system"]["hot reload"]["enabled"];
 	// Basic entity information
 	{
@@ -224,34 +233,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				auto& parent = this->getParent().as<uf::Object>();
 				transform.reference = &parent.getComponent<pod::Transform<>>();
 			}
-		/*
-			transform.position.x = json["transform"]["position"][0].as<float>();
-			transform.position.y = json["transform"]["position"][1].as<float>();
-			transform.position.z = json["transform"]["position"][2].as<float>();
-			transform.orientation = uf::quaternion::identity();
-			if ( ext::json::isArray( json["transform"]["orientation"] ) ) {
-				transform.orientation.x = json["transform"]["orientation"][0].as<float>();
-				transform.orientation.y = json["transform"]["orientation"][1].as<float>();
-				transform.orientation.z = json["transform"]["orientation"][2].as<float>();
-				transform.orientation.w = json["transform"]["orientation"][3].as<float>();
-			} else if ( json["transform"]["rotation"]["angle"].as<float>() != 0 ) {
-				transform.orientation = uf::quaternion::axisAngle( {
-					json["transform"]["rotation"]["axis"][0].as<float>(),
-					json["transform"]["rotation"]["axis"][1].as<float>(),
-					json["transform"]["rotation"]["axis"][2].as<float>()
-				}, 
-					json["transform"]["rotation"]["angle"].as<float>()
-				);
-			}
-			if ( ext::json::isArray( json["transform"]["scale"] ) ) {
-				transform.scale = uf::vector::create( json["transform"]["scale"][0].as<float>(),json["transform"]["scale"][1].as<float>(),json["transform"]["scale"][2].as<float>() );
-			}
-			transform = uf::transform::reorient( transform );
-			if ( json["transform"]["reference"].as<std::string>() == "parent" ) {
-				auto& parent = this->getParent().as<uf::Object>();
-				transform.reference = &parent.getComponent<pod::Transform<>>();
-			}
-		*/
 		}
 	}
 	// Set movement
@@ -339,6 +320,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			
 			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
 			aMetadata[filename] = json["metadata"]["model"];
+			aMetadata[filename]["root"] = json["root"];
 		}
 		if ( addBehavior ) uf::instantiator::bind( "GltfBehavior", *this );
 	}
@@ -443,6 +425,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				if ( ext::json::isArray( json["transform"]["position"] ) ) {
 					for ( uint j = 0; j < 3; ++j )
 						transform.position[j] = json["transform"]["position"][j].as<float>();
+				} else if ( json["transform"]["reference"].as<bool>() ) {
+					transform.reference = &pTransform;
 				} else {
 					transform.position = pTransform.position;
 				}

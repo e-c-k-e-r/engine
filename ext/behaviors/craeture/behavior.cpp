@@ -17,7 +17,6 @@
 #include "../../scenes/worldscape/terrain/generator.h"
 
 #include <uf/engine/asset/asset.h>
-#include <uf/ext/bullet/bullet.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::CraetureBehavior)
 #define this (&self)
@@ -27,31 +26,6 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	camera.getTransform().reference = &transform;
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-
-	if ( ext::json::isObject(metadata["system"]["physics"]) ) {
-		float mass = metadata["system"]["physics"]["mass"].as<float>();
-		if ( metadata["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
-			pod::Vector3f corner = uf::vector::decode( metadata["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
-			ext::bullet::create( *this, corner, mass );
-		} else if ( metadata["system"]["physics"]["type"].as<std::string>() == "Capsule" ) {
-			float radius = metadata["system"]["physics"]["radius"].as<float>();
-			float height = metadata["system"]["physics"]["height"].as<float>();
-			ext::bullet::create( *this, radius, height, mass );
-		} else {
-			return;
-		}
-
-		auto& collider = this->getComponent<pod::Bullet>();
-		if ( !ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
-			collider.body->setGravity( btVector3(
-				metadata["system"]["physics"]["gravity"][0].as<float>(),
-				metadata["system"]["physics"]["gravity"][1].as<float>(),
-				metadata["system"]["physics"]["gravity"][2].as<float>()
-			) );
-		}
-	}
-
-
 #if 0
 	pod::Physics& physics = this->getComponent<pod::Physics>();
 	physics.linear.velocity = {0,0,0};

@@ -284,6 +284,9 @@ void EXT_API ext::initialize() {
 		if ( ::config["engine"]["ext"]["bullet"]["substeps"].is<size_t>() ) {
 			ext::bullet::substeps = ::config["engine"]["ext"]["bullet"]["substeps"].as<size_t>();
 		}
+		if ( ::config["engine"]["ext"]["bullet"]["timescale"].as<float>() ) {
+			ext::bullet::timescale = ::config["engine"]["ext"]["bullet"]["timescale"].as<float>();
+		}
 		
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 		// Enable valiation layer
@@ -522,55 +525,6 @@ void EXT_API ext::tick() {
 		ext::openvr::tick();
 	}
 
-	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && true && ) {
-			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
-				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
-				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
-				if ( entity->hasComponent<pod::Transform<>>() ) {
-					pod::Transform<> t = uf::transform::flatten(entity->getComponent<pod::Transform<>>());
-					uf::iostream << uf::string::toString(t.position) << " " << uf::string::toString(t.orientation);
-				}
-				uf::iostream << "\n";
-			};
-			for ( uf::Scene* scene : uf::scene::scenes ) {
-				if ( !scene ) continue;
-				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
-				scene->process(filter, 1);
-			}
-		}
-	}
-	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && true && ) {
-			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
-				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
-				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
-				for ( auto& behavior : entity->getBehaviors() ) {
-					uf::iostream << uf::instantiator::behaviors->names[behavior.type] << ", ";
-				}
-				uf::iostream << "]\n";
-			};
-			for ( uf::Scene* scene : uf::scene::scenes ) {
-				if ( !scene ) continue;
-				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
-				scene->process(filter, 1);
-			}
-			uf::Serializer instantiator;
-			{
-				int i = 0;
-				for ( auto& pair : uf::instantiator::objects->names ) {
-					instantiator["objects"][i++] = pair.second;
-				}
-			}
-			{
-				int i = 0;
-				for ( auto& pair : uf::instantiator::behaviors->names ) {
-					instantiator["behaviors"][i++] = pair.second;
-				}
-			}
-			uf::iostream << instantiator << "\n";
-		}
-	}
 	/* Print Entity Information */  {
 		TIMER(1, uf::Window::isKeyPressed("P") && ) {
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
