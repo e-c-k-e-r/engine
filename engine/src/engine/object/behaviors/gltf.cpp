@@ -49,27 +49,47 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			graphPointer = &graph;
 		}
 		auto& graph = this->getComponent<pod::Graph>();
-		uf::Object* objectPointer = graph.entity;
+		uf::Object* objectPointer = graph.root.entity;
 		objectPointer->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			if ( !(graph.mode & ext::gltf::LoadMode::LOAD) ) {
-				{
-					std::string filename = "/gltf.stereo.vert.spv";
-					if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-						filename = "/gltf.stereo.skinned.vert.spv";
+				if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
+					{
+						std::string filename = "/gltf.stereo.vert.spv";
+						if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+							filename = "/gltf.stereo.skinned.vert.spv";
+						}
+						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
+							filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
+						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+						graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
 					}
-					if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
-						filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
-					filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-					graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
-				}
-				{
-					std::string filename = "/gltf.frag.spv";
-					if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
-						filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
-					filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-					graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+					{
+						std::string filename = "/gltf.frag.spv";
+						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
+							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
+						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+						graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+					}
+				} else {
+					{
+						std::string filename = "/gltf.stereo.instanced.vert.spv";
+						if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+							filename = "/gltf.stereo.skinned.instanced.vert.spv";
+						}
+						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
+							filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
+						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+						graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
+					}
+					{
+						std::string filename = "/gltf.frag.spv";
+						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
+							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
+						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
+						graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+					}
 				}
 			}
 
@@ -123,7 +143,9 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			}
 			auto& eMetadata = entity->getComponent<uf::Serializer>();
 			eMetadata["textures"]["map"] = metadata["textures"]["map"];
-			uf::instantiator::bind( "RenderBehavior", *entity );
+			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
+				uf::instantiator::bind( "RenderBehavior", *entity );
+			}
 			uf::instantiator::bind( "GltfBehavior", *entity );
 			if ( entity->getUid() == 0 ) entity->initialize();
 		});
@@ -138,22 +160,6 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				uf::iostream << "Animations found: " << json << "\n";
 			}
 		}
-	/*
-		auto& controller = scene.getController();
-		ext::json::forEach(metadata["model"]["tags"], [&]( const std::string& key, const ext::json::Value& v ){
-			if ( !ext::json::isObject( v )  ) return;
-			if ( v["action"].as<std::string>() != "spawn" ) return;
-			auto* node = uf::graph::find( graph, key );
-			if ( !node ) return;
-			std::cout << "Found: " << key << "\t" << v << std::endl;
-			auto flatten = uf::transform::flatten( node->transform );
-			auto& controllerTransform = controller.getComponent<pod::Transform<>>();
-			std::cout << "Set transform from: " << uf::string::toString( controllerTransform.position ) << std::endl;
-			controllerTransform.position = flatten.position;
-			controllerTransform.orientation = flatten.orientation;
-			std::cout << "Set transform to: " << uf::string::toString( controllerTransform.position ) << std::endl;
-		});
-	*/
 	});
 }
 void uf::GltfBehavior::destroy( uf::Object& self ) {
@@ -201,21 +207,86 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
 			uf::graph::update( graph );
 		}
-
+	/*
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& node = graph.node->children.size() == 1 ? *graph.node->children[0] : *graph.node;
 		pod::Matrix4f nodeMatrix = node.transform.model;
-		pod::Node*currentParent = node.parent;
+		pod::Node* currentParent = uf::graph::find(graph, node.parent);
 		while ( currentParent ) {
 			nodeMatrix = currentParent->transform.model * nodeMatrix;
-			currentParent = currentParent->parent;
+			currentParent = uf::graph::find(graph, currentParent->parent);
 		}
 		transform.model = nodeMatrix;
+	*/
 	}
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& metadata = this->getComponent<uf::Serializer>();
 		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+
+		if ( !graphic.initialized ) return;
+		if ( !graphic.material.hasShader("fragment") ) return;
+		if ( !graphic.hasStorage("Materials") ) return;
+		if ( !ext::json::isObject(metadata["textures"]["map"]) ) return;
+
+		auto* objectWithGraph = this;
+		while ( objectWithGraph != &scene ) {
+			if ( objectWithGraph->hasComponent<pod::Graph>() ) break;
+			objectWithGraph = &objectWithGraph->getParent().as<uf::Object>();
+		}
+		if ( !objectWithGraph->hasComponent<pod::Graph>() ) return;
+		auto& graph = objectWithGraph->getComponent<pod::Graph>();
+		if ( graph.materials.empty() ) return;
+
+		{
+			auto& shader = graphic.material.getShader("fragment");
+			std::vector<pod::Material::Storage> materials( graph.materials.size() );
+			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
+				materials[i] = graph.materials[i].storage;
+				materials[i].indexMappedTarget = graph.mode & ext::gltf::LoadMode::ATLAS ? 0 : i;
+				materials[i].factorMappedBlend = graph.mode & ext::gltf::LoadMode::ATLAS ? 1.0f : 0.0f;
+			}
+			size_t texturesLen = graphic.material.textures.size();
+			ext::json::forEach(metadata["textures"]["map"], [&]( const std::string& key, const ext::json::Value& mapping ){
+				uint32_t from = std::stoi(key);
+				uint32_t to = mapping[0].as<size_t>();
+				float blend = 1.0f;
+				if ( mapping[1].as<std::string>() == "sin(time)" ) {
+					blend = sin(uf::physics::time::current)*0.5f+0.5f;
+				} else if ( mapping[1].as<std::string>() == "cos(time)" ) {
+					blend = cos(uf::physics::time::current)*0.5f+0.5f;
+				} else if ( mapping[1].is<float>() ) {
+					blend = mapping[1].as<float>();
+				}
+				if ( from >= texturesLen || to >= texturesLen ) return;
+				materials[from].indexMappedTarget = to;
+				materials[from].factorMappedBlend = blend;
+			});
+			auto& storageBuffer = *graphic.getStorageBuffer("Materials");
+			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /*storageBuffer*/, false );
+		}
+		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+			auto& shader = graphic.material.getShader("vertex");
+			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
+				auto& node = graph.nodes[i];
+				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
+			}
+			auto& storageBuffer = *graphic.getStorageBuffer("Models");
+			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/, false );
+
+		}
+	}
+}
+void uf::GltfBehavior::render( uf::Object& self ) {
+	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& metadata = this->getComponent<uf::Serializer>();
+		auto& graphic = this->getComponent<uf::Graphic>();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
 
 		if ( !graphic.initialized ) return;
 		if ( !graphic.material.hasShader("fragment") ) return;
@@ -231,72 +302,33 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& graph = objectWithGraph->getComponent<pod::Graph>();
 		if ( graph.materials.empty() ) return;
 		
-
-		auto& shader = graphic.material.getShader("fragment");
-		std::vector<pod::Material::Storage> materials( graph.materials.size() );
-		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
-			materials[i] = graph.materials[i].storage;
-			materials[i].indexMappedTarget = graph.mode & ext::gltf::LoadMode::ATLAS ? 0 : i;
-			materials[i].factorMappedBlend = graph.mode & ext::gltf::LoadMode::ATLAS ? 1.0f : 0.0f;
-		}
-		size_t texturesLen = graphic.material.textures.size();
-		ext::json::forEach(metadata["textures"]["map"], [&]( const std::string& key, const ext::json::Value& mapping ){
-			uint32_t from = std::stoi(key);
-			uint32_t to = mapping[0].as<size_t>();
-			float blend = 1.0f;
-			if ( mapping[1].as<std::string>() == "sin(time)" ) {
-				blend = sin(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( mapping[1].as<std::string>() == "cos(time)" ) {
-				blend = cos(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( mapping[1].is<float>() ) {
-				blend = mapping[1].as<float>();
+		// std::cout << "START" << std::endl;
+		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+			auto& shader = graphic.material.getShader("vertex");
+			auto& uniform = shader.getUniform("UBO");
+		#if UF_UNIFORMS_UPDATE_WITH_JSON
+		//	auto uniforms = shader.getUniformJson("UBO");
+			ext::json::Value uniforms;
+			for ( std::size_t i = 0; i < 2; ++i ) {
+				uniforms["view"][i] = uf::matrix::encode( camera.getView( i ) );
+				uniforms["projection"][i] = uf::matrix::encode( camera.getProjection( i ) );
 			}
-			if ( from >= texturesLen || to >= texturesLen ) return;
-			materials[from].indexMappedTarget = to;
-			materials[from].factorMappedBlend = blend;
-		});
-		auto& storageBuffer = *graphic.getStorageBuffer("Materials");
-		graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), storageBuffer, false );
-	/*
-		struct UniformDescriptor {
-			struct Mapping {
-				alignas(4) uint32_t target;
-				alignas(4) float blend;
-				uint32_t padding[2];
-			} map;
-		};
-		auto& uniform = shader.getUniform("UBO");
-
-		uint8_t* uniformBuffer = (uint8_t*) (void*) uniform;
-		UniformDescriptor* uniforms = (UniformDescriptor*) uniformBuffer;
-		UniformDescriptor::Mapping* mappings = (UniformDescriptor::Mapping*) &(uniformBuffer)[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Mapping)];
-
-		size_t textures = graphic.material.textures.size();
-		for ( size_t i = 0; i < textures; ++i ) {
-			mappings[i].target = i;
-			mappings[i].blend = 0.0f;
-		}
-		for ( auto it = metadata["textures"]["map"].begin(); it != metadata["textures"]["map"].end(); ++it ) {
-			std::string key = it.key();
-			uint32_t from = std::stoi(key);
-			uint32_t to = metadata["textures"]["map"][key][0].as<size_t>();
-			float blend = 1.0f;
-			if ( metadata["textures"]["map"][key][1].as<std::string>() == "sin(time)" ) {
-				blend = sin(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( metadata["textures"]["map"][key][1].as<std::string>() == "cos(time)" ) {
-				blend = cos(uf::physics::time::current)*0.5f+0.5f;
-			} else if ( metadata["textures"]["map"][key][1].is<double>() ) {
-				blend = metadata["textures"]["map"][key][1].as<float>();
+			// std::cout << "UNIFORM BUFFER UBO: " << &uniforms << std::endl;
+			shader.updateUniform("UBO", uniforms );
+		#else
+			struct UniformDescriptor {
+				alignas(16) pod::Matrix4f view[2];
+				alignas(16) pod::Matrix4f projection[2];
+			};
+			auto& uniforms = uniform.get<UniformDescriptor>();
+			for ( std::size_t i = 0; i < 2; ++i ) {
+				uniforms.view[i] = camera.getView( i );
+				uniforms.projection[i] = camera.getProjection( i );
 			}
-			if ( from >= textures || to >= textures ) continue;
-			mappings[from].target = to;
-			mappings[from].blend = blend;
+			// std::cout << "UNIFORM BUFFER UBO: " << &uniforms << std::endl;
+			shader.updateUniform( "UBO", uniform );
+		#endif
 		}
-		shader.updateUniform( "UBO" );
-	*/
 	}
-}
-void uf::GltfBehavior::render( uf::Object& self ) {
-
 }
 #undef this

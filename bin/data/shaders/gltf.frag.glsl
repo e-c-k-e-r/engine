@@ -1,7 +1,7 @@
 #version 450
 
 layout (constant_id = 0) const uint TEXTURES = 1;
-layout (binding = 2) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
 
 struct Material {
 	vec4 colorBase;
@@ -17,7 +17,7 @@ struct Material {
 	int indexMetallicRoughness;
 	int indexMappedTarget;
 };
-layout (std140, binding = 3) buffer Materials {
+layout (std140, binding = 1) buffer Materials {
 	Material materials[];
 };
 

@@ -18,7 +18,7 @@ std::vector<ext::vulkan::VertexDescriptor> ext::gltf::mesh::ID::descriptor = {
 		offsetof(ext::gltf::mesh::ID, tangent)
 	},
 	{
-		VK_FORMAT_R32_UINT,
+		VK_FORMAT_R32G32_SINT,
 		offsetof(ext::gltf::mesh::ID, id)
 	}
 };
@@ -40,7 +40,7 @@ std::vector<ext::vulkan::VertexDescriptor> ext::gltf::mesh::Skinned::descriptor 
 		offsetof(ext::gltf::mesh::Skinned, tangent)
 	},
 	{
-		VK_FORMAT_R32_UINT,
+		VK_FORMAT_R32G32_SINT,
 		offsetof(ext::gltf::mesh::Skinned, id)
 	},
 	{

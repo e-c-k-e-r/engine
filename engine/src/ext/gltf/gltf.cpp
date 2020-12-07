@@ -40,25 +40,31 @@ namespace {
 }
 
 namespace {
-	pod::Node& loadNode( const tinygltf::Model& model, pod::Graph& graph, int32_t nodeIndex, pod::Node& parentNode );
+	int32_t loadNode( const tinygltf::Model& model, pod::Graph& graph, int32_t nodeIndex, int32_t parentIndex );
 
-	pod::Node& loadNodes( const tinygltf::Model& model, pod::Graph& graph, const std::vector<int>& nodes, pod::Node& node ) {
+	int32_t loadNodes( const tinygltf::Model& model, pod::Graph& graph, const std::vector<int>& nodes, int32_t nodeIndex ) {
+		graph.nodes[nodeIndex].children.reserve( nodes.size() );
 		for ( auto i : nodes ) {
-			node.children.emplace_back(&loadNode( model, graph, i, node ));
+			int32_t childIndex = loadNode( model, graph, i, nodeIndex );
+			if ( 0 <= childIndex && childIndex < graph.nodes.size() && childIndex != nodeIndex &&
+				std::find( graph.nodes[nodeIndex].children.begin(), graph.nodes[nodeIndex].children.end(), childIndex ) == graph.nodes[nodeIndex].children.end()
+			 ) {
+				graph.nodes[nodeIndex].children.emplace_back(childIndex);
+			}
 		}
-		return node;
+		return nodeIndex;
 	}
-	pod::Node& loadNode( const tinygltf::Model& model, pod::Graph& graph, int32_t nodeIndex, pod::Node& parentNode ) {
-		auto& newNode = uf::graph::node();
-		if ( nodeIndex < 0 ) return newNode;
+	int32_t loadNode( const tinygltf::Model& model, pod::Graph& graph, int32_t nodeIndex, int32_t parentIndex ) {
+		if ( nodeIndex < 0 ) return nodeIndex;
 		auto& node = model.nodes[nodeIndex];
-		newNode.parent = &parentNode;
-		newNode.index = nodeIndex;
-		newNode.skin = node.skin;
 
-		newNode.name = node.name;
+		graph.nodes[nodeIndex].parent = parentIndex;
+		graph.nodes[nodeIndex].index = nodeIndex;
+		graph.nodes[nodeIndex].skin = node.skin;
 
-		auto& transform = newNode.transform;
+		graph.nodes[nodeIndex].name = node.name;
+
+		auto& transform = graph.nodes[nodeIndex].transform;
 		if ( node.translation.size() == 3 ) {
 			transform.position.x = node.translation[0];
 			transform.position.y = node.translation[1];
@@ -89,18 +95,16 @@ namespace {
 		} else {
 			transform.model = uf::matrix::identity();
 		}
-		if ( newNode.parent != &newNode ) {
-			transform.reference = &newNode.parent->transform;
+		if ( 0 <= parentIndex && parentIndex < graph.nodes.size() && nodeIndex != parentIndex ) {
+			transform.reference = &graph.nodes[parentIndex].transform;
 		}
-
 		if ( node.children.size() > 0 ) {
-			loadNodes( model, graph, node.children, newNode );
+			loadNodes( model, graph, node.children, nodeIndex );
 		}
 
-		auto& mesh = newNode.mesh;
-		auto& collider = newNode.collider;
+		auto& mesh = graph.nodes[nodeIndex].mesh;
+		auto& collider = graph.nodes[nodeIndex].collider;
 		if ( node.mesh > -1 ) {
-		//	size_t id = 0;
 			for ( auto& primitive : model.meshes[node.mesh].primitives ) {
 				size_t verticesStart = mesh.vertices.size();
 				size_t indicesStart = mesh.indices.size();
@@ -137,12 +141,6 @@ namespace {
 
 						pod::Vector3f origin = (maxCorner + minCorner) * 0.5f;
 						pod::Vector3f size = (maxCorner - minCorner) * 0.5f;
-					/*
-						if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && (graph.mode & ext::gltf::LoadMode::AABB) ) {
-							auto* box = new uf::BoundingBox( origin, size );
-							collider.add(box);
-						}
-					*/
 					}
 					if ( attribute.name == "JOINTS_0" ) {
 						auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
@@ -195,7 +193,8 @@ namespace {
 					if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
 						vertex.position = uf::matrix::multiply<float>( modelMatrix, vertex.position );
 					}
-					vertex.id = primitive.material;
+					vertex.id.x = nodeIndex;
+					vertex.id.y = primitive.material;
 				}
 
 				if ( primitive.indices > -1 ) {
@@ -238,19 +237,9 @@ namespace {
 					}
 				}
 			*/
-			//	++id;
 			}
-			// setup collision
-		/*
-			if ( (graph.mode & ext::gltf::LoadMode::COLLISION) && !(graph.mode & ext::gltf::LoadMode::AABB) ) {
-			//	auto* c = new uf::MeshCollider( transform );
-				auto* c = new uf::MeshCollider();
-				c->setPositions( mesh );
-				collider.add(c);
-			}
-		*/
 		}
-		return newNode;
+		return nodeIndex;
 	}
 }
 
@@ -348,18 +337,21 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	}
 	// load node information/meshes
 	{
-		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
-		auto& node = uf::graph::node();
-		graph.node = &loadNodes( model, graph, scene.nodes, node );
+		size_t rootIndex = model.defaultScene > -1 ? model.defaultScene : 0;
+		const auto& scene = model.scenes[rootIndex];
+		graph.nodes.resize( model.nodes.size() );
+		graph.root.index = -1;
+		graph.root.children.reserve( scene.nodes.size() );
+		for ( auto i : scene.nodes ) {
+			size_t childIndex = loadNode( model, graph, i, -1 );
+			graph.root.children.emplace_back(childIndex);
+		}
 	}
 	// load lights
 	{
 		for ( auto& l : model.lights ) {
-			auto* node = uf::graph::find( graph, l.name );
-			if ( !node ) continue;
 			auto& light = graph.lights.emplace_back();
 			light.name = l.name;
-			light.transform = node->transform;
 			light.color = {
 				l.color[0],
 				l.color[1],
@@ -388,8 +380,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			}
 
 			for ( auto& joint : s.joints ) {
-				auto* node = uf::graph::find( graph, joint );
-				if ( node ) skin.joints.emplace_back( node );
+				skin.joints.emplace_back( joint );
 			}
 		}
 	}
@@ -449,7 +440,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 				auto& channel = animation.channels.emplace_back();
 				channel.path = c.target_path;
 				channel.sampler = c.sampler;
-				channel.node = uf::graph::find(graph, c.target_node);
+				channel.node = c.target_node;
 			}
 		}
 	}
@@ -459,14 +450,16 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	// print node
 /*
 	std::cout << "Tree for " << filename << " (Mode: " << std::bitset<16>( graph.mode ) << "): " << std::endl;
-	std::function<void(pod::Node&,size_t)> print = [&]( pod::Node& node, size_t indent ) {
+	std::function<void(pod::Node&, size_t)> print = [&]( pod::Node& node, size_t indent ) {
 		for ( size_t i = 0; i < indent; ++i ) std::cout << "\t";
-		std::cout << "Node " << &node << " (" << node.index << "):" << std::endl;
-		for ( auto* child : node.children ) print( *child, indent + 1 );
+		std::cout << "Node " << node.name << " (" << node.index << ": " << &node << "):" << std::endl;
+		for ( auto index : node.children ) {
+			print( graph.nodes[index], indent + 1 );
+		}
 	};
-	print( *graph.node, 1 );
+	print( graph.root, 1 );
 	std::cout << std::endl;
 */
-	return graph;
 
+	return graph;
 }

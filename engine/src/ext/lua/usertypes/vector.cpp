@@ -50,6 +50,9 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( magnitude, []( const pod::Vector3f& self ) {
 		return uf::vector::magnitude( self );
 	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::dot( left, right );
+	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, []( pod::Vector3f& self ) {
 		return uf::string::toString( self );
 	})
@@ -105,6 +108,9 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( magnitude, []( const pod::Vector3f& self ) {
 		return uf::vector::magnitude( self );
+	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, []( const pod::Vector3f& left, const pod::Vector3f& right ) {
+		return uf::vector::dot( left, right );
 	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, []( pod::Vector4f& self ) {
 		return uf::string::toString( self );

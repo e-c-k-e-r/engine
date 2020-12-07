@@ -36,7 +36,7 @@ namespace ext {
 				alignas(8) pod::Vector2f uv;
 				alignas(16) pod::Vector3f normal;
 				alignas(16) pod::Vector4f tangent;
-				alignas(4) uint32_t id;
+				alignas(8) pod::Vector2ui id;
 
 				static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 
@@ -54,7 +54,7 @@ namespace ext {
 				alignas(8) pod::Vector2f uv;
 				alignas(16) pod::Vector3f normal;
 				alignas(16) pod::Vector4f tangent;
-				alignas(4) uint32_t id;
+				alignas(8) pod::Vector2ui id;
 				alignas(16) pod::Vector4f joints;
 				alignas(16) pod::Vector4f weights;
 
@@ -80,27 +80,27 @@ namespace ext {
 namespace std {
 	template<> struct hash<ext::gltf::mesh::ID> {
 		size_t operator()(ext::gltf::mesh::ID const& vertex) const {
-			std::size_t seed = 3 + 2 + 3 + 4 + 1;
+			std::size_t seed = 3 + 2 + 3 + 4 + 2;
 			std::hash<float> hasher;
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.normal[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 4; ++i ) seed ^= hasher( vertex.tangent[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-			seed ^= hasher( (float) vertex.id ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( (float) vertex.id[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			return seed;
 		}
 	};
 	template<> struct hash<ext::gltf::mesh::Skinned> {
 		size_t operator()(ext::gltf::mesh::Skinned const& vertex) const {
-			std::size_t seed = 3 + 2 + 3 + 4 + 4 + 4 + 1;
+			std::size_t seed = 3 + 2 + 3 + 4 + 4 + 4 + 2;
 			std::hash<float> hasher;
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.position[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( vertex.uv[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 3; ++i ) seed ^= hasher( vertex.normal[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 4; ++i ) seed ^= hasher( vertex.tangent[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			for ( size_t i = 0; i < 2; ++i ) seed ^= hasher( (float) vertex.id[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 4; ++i ) seed ^= hasher( (float) vertex.joints[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			for ( size_t i = 0; i < 4; ++i ) seed ^= hasher( vertex.weights[i] ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-			seed ^= hasher( (float) vertex.id ) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 			return seed;
 		}
 	};

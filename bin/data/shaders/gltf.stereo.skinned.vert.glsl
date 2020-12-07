@@ -4,7 +4,7 @@ layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec3 inNormal;
 layout (location = 3) in vec4 inTangent;
-layout (location = 4) in uint inId;
+layout (location = 4) in ivec2 inId;
 layout (location = 5) in vec4 inJoints;
 layout (location = 6) in vec4 inWeights;
 
@@ -17,12 +17,12 @@ struct Matrices {
 	mat4 view[2];
 	mat4 projection[2];
 };
-layout (binding = 0) uniform UBO {
+layout (binding = 2) uniform UBO {
 	Matrices matrices;
 	vec4 color;
 } ubo;
 
-layout (std140, binding = 1) buffer Joints {
+layout (std140, binding = 3) buffer Joints {
 	mat4 joints[];
 };
 
@@ -61,7 +61,7 @@ void main() {
 	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
 
-	outId = inId;
+	outId = inId.y;
 
 	{
 		vec3 T = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inTangent.xyz, 0.0));

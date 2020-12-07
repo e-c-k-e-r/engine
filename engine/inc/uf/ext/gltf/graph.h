@@ -25,6 +25,12 @@ namespace pod {
 		float intensity = 1.0f;
 		float range = 0.0f;
 	};
+/*
+	struct UF_API Instance {
+		alignas(16) pod::Matrix4f model = uf::matrix::identity();
+		alignas(4) int32_t materialId = -1;
+	};
+*/
 	struct UF_API Material {
 		std::string name = "";
 		// 
@@ -53,10 +59,10 @@ namespace pod {
 		std::string name = "";
 		int32_t index = -1;
 
-		Node* parent = NULL;
-		std::vector<Node*> children;
-	//	int32_t parent = -1;
-	//	std::vector<int32_t children>;
+	//	Node* parent = NULL;
+	//	std::vector<Node*> children;
+		int32_t parent = -1;
+		std::vector<int32_t> children;
 
 		uf::Object* entity = NULL;
 		size_t jointBufferIndex = -1;
@@ -71,8 +77,8 @@ namespace pod {
 
 	struct UF_API Skin {
 		std::string name = "";
-		std::vector<Node*> joints;
-	//	std::vector<int32_t> joints;
+	//	std::vector<Node*> joints;
+		std::vector<int32_t> joints;
 		std::vector<pod::Matrix4f> inverseBindMatrices;
 	};
 	struct UF_API Animation {
@@ -83,7 +89,8 @@ namespace pod {
 		};
 		struct Channel {
 			std::string path;
-			Node* node;
+		//	Node* node;
+			int32_t node;
 			uint32_t sampler;
 		};
 
@@ -95,11 +102,12 @@ namespace pod {
 		float cur = 0;
 	};
 	struct UF_API Graph {
-		Node* node = NULL;
-	//	int32_t node = -1;
-	//	std::vector<pod::Node> nodes;
+	//	Node* node = NULL;
+		pod::Node root;
+		std::vector<pod::Node> nodes;
 
 		uf::Object* entity = NULL;
+		size_t instanceBufferIndex = -1;
 
 		std::string name = "";
 		ext::gltf::load_mode_t mode;
@@ -122,7 +130,7 @@ namespace pod {
 				struct {
 					float a = -std::numeric_limits<float>::max();
 					float speed = 1 / 0.125f;
-					std::unordered_map<pod::Node*, std::pair<pod::Transform<>, pod::Transform<>>> map;
+					std::unordered_map<int32_t, std::pair<pod::Transform<>, pod::Transform<>>> map;
 				} override;
 			} animations;
 		} settings;
@@ -131,6 +139,7 @@ namespace pod {
 
 namespace uf {
 	namespace graph {
+	/*
 		pod::Node& UF_API node();
 		pod::Node* UF_API find( const pod::Node& node, int32_t index );
 		pod::Node* UF_API find( pod::Node* node, int32_t index );
@@ -142,10 +151,19 @@ namespace uf {
 
 		pod::Matrix4f UF_API local( const pod::Node& node );
 		pod::Matrix4f UF_API matrix( const pod::Node& node );
+	*/
+		pod::Node* UF_API find( pod::Graph& graph, int32_t index );
+		pod::Node* UF_API find( pod::Graph& graph, const std::string& name );
+
+	//	pod::Matrix4f UF_API local( const pod::Node& node );
+	//	pod::Matrix4f UF_API matrix( pod::Graph&, const pod::Node& node );
+		
+		pod::Matrix4f UF_API local( pod::Graph&, int32_t );
+		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
 
 		void UF_API process( uf::Object& entity );
 		void UF_API process( pod::Graph& graph );
-		void UF_API process( pod::Graph& graph, pod::Node& node, uf::Object& parent );
+		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 
 		void UF_API override( pod::Graph& );
 		void UF_API animate( pod::Graph&, const std::string&, float = 1, bool = true );

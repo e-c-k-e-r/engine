@@ -121,8 +121,10 @@ void ext::lua::initialize() {
 		string["extension"] = []( const std::string& filename ) {
 			return uf::io::extension( filename );
 		};
-		string["resolveURI"] = []( const std::string& filename ) {
-			return uf::io::resolveURI( filename );
+		string["resolveURI"] = []( const std::string& filename, sol::variadic_args va ) {
+			auto it = va.begin();
+			std::string root = it != va.end() ? *(it++) : std::string("");
+			return uf::io::resolveURI( filename, root );
 		};
 		string["si"] = []( sol::variadic_args va ) {
 			auto it = va.begin();

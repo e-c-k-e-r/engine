@@ -19,6 +19,39 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& sMetadata = scene.getComponent<uf::Serializer>();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
 
+	if ( !metadata["audio"]["epsilon"].is<float>() )
+		metadata["audio"]["epsilon"] = 0.001f;
+
+	auto& sounds = this->getComponent<std::vector<uf::Audio>>();
+	this->addHook( "sound:Emit.%UID%", [&](ext::json::Value& json){
+		metadata["sounds"][sounds.size() ] = json;
+		uf::Audio& audio = sounds.emplace_back();
+		audio.load(json["filename"].as<std::string>());
+		if ( ext::json::isNull(json["volume"]) ) json["volume"] = metadata["audio"]["volume"];
+		if ( ext::json::isNull(json["pitch"]) ) json["pitch"] = metadata["audio"]["pitch"];
+		if ( ext::json::isNull(json["gain"]) ) json["gain"] = metadata["audio"]["gain"];
+		if ( ext::json::isNull(json["rolloffFactor"]) ) json["rolloffFactor"] = metadata["audio"]["rolloffFactor"];
+		if ( ext::json::isNull(json["maxDistance"]) ) json["maxDistance"] = metadata["audio"]["maxDistance"];
+		if ( ext::json::isNull(json["epsilon"]) ) json["epsilon"] = metadata["audio"]["epsilon"];
+		{
+			float volume = 1.0f; 
+			if ( json["volume"].is<double>() ) {
+				volume = json["volume"].as<float>();
+			} else if ( json["volume"].is<std::string>() ) {
+				std::string key = json["volume"].as<std::string>();
+				if ( sMetadata["volumes"][key].is<double>() ) {
+					volume = sMetadata["volumes"][key].as<float>();
+				}
+			}
+			audio.setVolume(volume);
+		}
+		if ( json["pitch"].is<double>() ) audio.setPitch(json["pitch"].as<float>());
+		if ( json["gain"].is<double>() ) audio.setGain(json["gain"].as<float>());
+		if ( json["rolloffFactor"].is<double>() ) audio.setRolloffFactor(json["rolloffFactor"].as<float>());
+		if ( json["maxDistance"].is<double>() ) audio.setMaxDistance(json["maxDistance"].as<float>());
+
+		audio.play();
+	});
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
@@ -27,53 +60,31 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
 		if ( !audioPointer ) return;
 
-		uf::Audio& audio = this->getComponent<uf::Audio>(); //emitter.add(filename);
-		audio.load(filename);
-		{
-			float volume = 1.0f; 
-			if ( metadata["audio"]["volume"].is<double>() ) {
-				volume = metadata["audio"]["volume"].as<float>();
-			} else if ( metadata["audio"]["volume"].is<std::string>() ) {
-				std::string key = metadata["audio"]["volume"].as<std::string>();
-				if ( sMetadata["volumes"][key].is<double>() ) {
-					volume = sMetadata["volumes"][key].as<float>();
-				}
-			}
-			audio.setVolume(volume);
-		}
-		if ( metadata["audio"]["pitch"].is<double>() ) {
-			audio.setPitch(metadata["audio"]["pitch"].as<float>());
-		}
-		if ( metadata["audio"]["gain"].is<double>() ) {
-			audio.setGain(metadata["audio"]["gain"].as<float>());
-		}
-		if ( metadata["audio"]["rolloffFactor"].is<double>() ) {
-			audio.setRolloffFactor(metadata["audio"]["rolloffFactor"].as<float>());
-		}
-		if ( metadata["audio"]["maxDistance"].is<double>() ) {
-			audio.setMaxDistance(metadata["audio"]["maxDistance"].as<float>());
-		}
-		audio.play();
+		uf::Serializer payload = metadata["audio"];
+		payload["filename"] = filename;
+		this->callHook("sound:Emit.%UID%", payload);
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 	auto& emitter = this->getComponent<uf::SoundEmitter>();
 	auto& metadata = this->getComponent<uf::Serializer>();
 	auto transform = this->getComponent<pod::Transform<>>();
-
+	auto& sounds = this->getComponent<std::vector<uf::Audio>>();
+	auto flatten = uf::transform::flatten( transform );
 //	for ( auto pair : emitter.get() ) {
 //		uf::Audio& audio = pair.second;
-	{
-		uf::Audio& audio = this->getComponent<uf::Audio>();
-		if ( metadata["audio"]["spatial"].as<bool>() ) {
-			audio.setPosition( transform.position );
-			audio.setOrientation( transform.orientation );
+	for ( size_t i = 0; i < sounds.size(); ++i ) {
+		auto& audio = sounds[i];
+		auto& json = metadata["sounds"][i];
+		if ( json["spatial"].as<bool>() && audio.playing() ) {
+			audio.setPosition( flatten.position );
+			audio.setOrientation( flatten.orientation );
 		}
 
-		if ( metadata["audio"]["loop"].as<bool>() ) {
+		if ( json["loop"].as<bool>() ) {
 			float current = audio.getTime();
 			float end = audio.getDuration();
-			float epsilon = 0.005f;
+			float epsilon = json["epsilon"].is<float>() ? json["epsilon"].as<float>() : 0.005f;
 			if ( current + epsilon >= end || !audio.playing() ) {
 				audio.setTime(0);
 				if ( !audio.playing() ) audio.play();

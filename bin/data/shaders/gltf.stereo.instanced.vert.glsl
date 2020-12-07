@@ -10,16 +10,14 @@ layout( push_constant ) uniform PushBlock {
   uint pass;
 } PushConstant;
 
-struct Matrices {
-	mat4 model;
+layout (binding = 2) uniform UBO {
 	mat4 view[2];
 	mat4 projection[2];
-};
-
-layout (binding = 2) uniform UBO {
-	Matrices matrices;
-	vec4 color;
 } ubo;
+
+layout (std140, binding = 3) buffer Models {
+	mat4 models[];
+};
 
 layout (location = 0) noperspective out vec2 outUv;
 layout (location = 1) out vec4 outColor;
@@ -43,22 +41,23 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 
 void main() {
 	outUv = inUv;
-	outColor = ubo.color;
+	outColor = vec4(1.0);
 
-	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
-	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
+	mat4 model = models.length() <= 0 ? mat4(1.0) : models[int(inId.x)];
+	outPosition = vec3(ubo.view[PushConstant.pass] * model * vec4(inPos.xyz, 1.0));
+	outNormal = vec3(ubo.view[PushConstant.pass] * model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
 
 	outId = inId.y;
 
 	{
-		vec3 T = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inTangent.xyz, 0.0));
+		vec3 T = vec3(ubo.view[PushConstant.pass] * model * vec4(inTangent.xyz, 0.0));
 		vec3 N = outNormal;
 		vec3 B = cross(N, T) * inTangent.w;
 		outTBN = mat3( T, B, N );
 	}
 
-	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
+	gl_Position = ubo.projection[PushConstant.pass] * ubo.view[PushConstant.pass] * model * vec4(inPos.xyz, 1.0);
 
 //	gl_Position = snap( gl_Position, vec2(320.0, 240.0) );
 
