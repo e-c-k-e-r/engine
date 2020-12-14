@@ -20,7 +20,6 @@ namespace ext {
 			
 			typedef std::vector<VkCommandBuffer> commands_container_t;
 			std::thread::id mostRecentCommandPoolId;
-		//	std::unordered_map<std::thread::id, commands_container_t> commands;
 			uf::ThreadUnique<commands_container_t> commands;
 
 			virtual ~RenderMode();
@@ -29,6 +28,10 @@ namespace ext {
 			const std::string& getName( bool = false ) const;
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
+
+			virtual const size_t blitters() const;
+			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
+			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
 
 			virtual commands_container_t& getCommands();
 			virtual commands_container_t& getCommands( std::thread::id );

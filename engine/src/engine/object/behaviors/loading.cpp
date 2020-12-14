@@ -29,7 +29,7 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 			parent.getParent().removeChild(parent);
 			
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-				if ( !entity || entity->getUid() == 0 || !entity->hasComponent<pod::Transform<>>() ) return;
+				if ( !entity || !entity->isValid() || !entity->hasComponent<pod::Transform<>>() ) return;
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				transform.scale = { 0, 0, 0 };
 				entity->render();
@@ -50,7 +50,7 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 	size_t loading = 0;
 	size_t loaded = 1;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
+		if ( !entity || !entity->isValid() || !entity->hasComponent<uf::Serializer>() ) return;
 		auto& metadata = entity->getComponent<uf::Serializer>();
 		if ( metadata["system"]["load"]["ignore"].is<bool>() ) return;
 		if ( ext::json::isNull( metadata["system"]["load"] ) ) return;
@@ -69,7 +69,7 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 		size_t loading = 0;
 		size_t loaded = 0;
 		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-			if ( !entity || entity->getUid() == 0 || !entity->hasComponent<uf::Serializer>() ) return;
+			if ( !entity || !entity->isValid() || !entity->hasComponent<uf::Serializer>() ) return;
 			auto& metadata = entity->getComponent<uf::Serializer>();
 			if ( ext::json::isNull( metadata["system"]["load"] ) ) return;
 			++loading;

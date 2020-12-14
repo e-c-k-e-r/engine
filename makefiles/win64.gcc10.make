@@ -1,4 +1,5 @@
 ARCH 	= win64
 PREFIX 	= gcc10
 CC 		= g++
-FLAGS 	= -DUF_DISABLE_ALIGNAS -fdiagnostics-color=always -Wall -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder -Wno-sign-compare -Wno-unused-but-set-variable -Wno-ignored-attributes -Wno-narrowing -Wno-misleading-indentation
+FLAGS 	= -fdiagnostics-color=always -Wall -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder -Wno-sign-compare -Wno-unused-but-set-variable -Wno-ignored-attributes -Wno-narrowing -Wno-misleading-indentation
+#-DUF_DISABLE_ALIGNAS -O2

@@ -12,8 +12,9 @@ UF_BEHAVIOR_REGISTER_CPP(ext::SoundEmitterBehavior)
 #define this ((uf::Object*) &self)
 
 void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
-	auto& emitter = this->getComponent<uf::SoundEmitter>();
 	auto& metadata = this->getComponent<uf::Serializer>();
+	auto& emitter = this->getComponent<uf::SoundEmitter>();
+	auto& sounds = emitter.get();
 	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sMetadata = scene.getComponent<uf::Serializer>();
@@ -22,17 +23,28 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	if ( !metadata["audio"]["epsilon"].is<float>() )
 		metadata["audio"]["epsilon"] = 0.001f;
 
-	auto& sounds = this->getComponent<std::vector<uf::Audio>>();
+	// auto& sounds = this->getComponent<std::vector<uf::Audio*>>();
+	this->addHook( "sound:Stop.%UID%", [&](ext::json::Value& json){
+		std::string filename = json["filename"].as<std::string>();
+		for ( size_t i = 0; i < sounds.size(); ++i ) {
+			if ( sounds[i]->getFilename() != filename ) continue;
+			sounds[i]->destroy();
+			delete sounds[i];
+			sounds.erase(sounds.begin() + i);
+			metadata["sounds"].erase(i);
+		}
+	});
 	this->addHook( "sound:Emit.%UID%", [&](ext::json::Value& json){
-		metadata["sounds"][sounds.size() ] = json;
-		uf::Audio& audio = sounds.emplace_back();
-		audio.load(json["filename"].as<std::string>());
 		if ( ext::json::isNull(json["volume"]) ) json["volume"] = metadata["audio"]["volume"];
 		if ( ext::json::isNull(json["pitch"]) ) json["pitch"] = metadata["audio"]["pitch"];
 		if ( ext::json::isNull(json["gain"]) ) json["gain"] = metadata["audio"]["gain"];
 		if ( ext::json::isNull(json["rolloffFactor"]) ) json["rolloffFactor"] = metadata["audio"]["rolloffFactor"];
 		if ( ext::json::isNull(json["maxDistance"]) ) json["maxDistance"] = metadata["audio"]["maxDistance"];
 		if ( ext::json::isNull(json["epsilon"]) ) json["epsilon"] = metadata["audio"]["epsilon"];
+
+		metadata["sounds"].emplace_back(json);
+		uf::Audio& audio = emitter.add( json["filename"].as<std::string>(), json["unique"].as<bool>() );
+
 		{
 			float volume = 1.0f; 
 			if ( json["volume"].is<double>() ) {
@@ -66,16 +78,17 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
-	auto& emitter = this->getComponent<uf::SoundEmitter>();
-	auto& metadata = this->getComponent<uf::Serializer>();
-	auto transform = this->getComponent<pod::Transform<>>();
-	auto& sounds = this->getComponent<std::vector<uf::Audio>>();
+	auto& transform = this->getComponent<pod::Transform<>>();
 	auto flatten = uf::transform::flatten( transform );
-//	for ( auto pair : emitter.get() ) {
-//		uf::Audio& audio = pair.second;
+
+	auto& metadata = this->getComponent<uf::Serializer>();
+	auto& emitter = this->getComponent<uf::SoundEmitter>();
+	auto& sounds = emitter.get();
+
 	for ( size_t i = 0; i < sounds.size(); ++i ) {
-		auto& audio = sounds[i];
+		auto& audio = *sounds[i];
 		auto& json = metadata["sounds"][i];
+
 		if ( json["spatial"].as<bool>() && audio.playing() ) {
 			audio.setPosition( flatten.position );
 			audio.setOrientation( flatten.orientation );
@@ -89,6 +102,11 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 				audio.setTime(0);
 				if ( !audio.playing() ) audio.play();
 			}
+		} else if ( !audio.playing() ) {
+			audio.destroy();
+			delete sounds[i];
+			sounds.erase(sounds.begin() + i);
+			metadata["sounds"].erase(i);
 		}
 	}
 }

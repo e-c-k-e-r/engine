@@ -14,6 +14,15 @@
 std::string ext::vulkan::MultiviewStereoscopicDeferredRenderMode::getType() const {
 	return "Deferred (Stereoscopic, Multiview)";
 }
+const size_t ext::vulkan::MultiviewStereoscopicDeferredRenderMode::blitters() const {
+	return 1;
+}
+ext::vulkan::Graphic* ext::vulkan::MultiviewStereoscopicDeferredRenderMode::getBlitter( size_t i ) {
+	return &this->blitter;
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::MultiviewStereoscopicDeferredRenderMode::getBlitters() {
+	return { &this->blitter };
+}
 
 void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -81,7 +90,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 	}
 	renderTarget.initialize( device );
 	{
-		uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
+		uf::BaseMesh<pod::Vertex_2F2F> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
@@ -120,7 +129,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 				uint32_t maxLights = 16;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )

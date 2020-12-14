@@ -11,8 +11,17 @@
 
 #include <uf/ext/vulkan/graphic.h>
 
-std::string ext::vulkan::DeferredRenderMode::getType(  ) const {
+std::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
+}
+const size_t ext::vulkan::DeferredRenderMode::blitters() const {
+	return 1;
+}
+ext::vulkan::Graphic* ext::vulkan::DeferredRenderMode::getBlitter( size_t i ) {
+	return &this->blitter;
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters() {
+	return { &this->blitter };
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
@@ -108,7 +117,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 
 	{
-		uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
+		uf::BaseMesh<pod::Vertex_2F2F> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
@@ -144,7 +153,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				uint32_t maxLights = 16;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
 					binding.descriptorCount = specializationConstants->maxLights;
@@ -288,7 +297,9 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				for ( auto graphic : graphics ) {
 					// only draw graphics that are assigned to this type of render mode
 					if ( graphic->descriptor.renderMode != this->getName() ) continue;
-					graphic->record( commands[i] );
+					ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor;
+					descriptor.renderMode = this->name;
+					graphic->record( commands[i], descriptor );
 				}
 				// blit any RT's
 				{

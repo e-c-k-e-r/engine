@@ -11,7 +11,7 @@ namespace pod {
 	struct UF_API Component {
 		typedef std::size_t id_t;
 		typedef std::unordered_map<pod::Component::id_t, pod::Component> container_t;
-		typedef std::unordered_map<pod::Component::id_t, pod::Component::id_t> alias_t;
+	//	typedef std::unordered_map<pod::Component::id_t, pod::Component::id_t> alias_t;
 
 		pod::Component::id_t id;
 		pod::Userdata* userdata;
@@ -28,12 +28,13 @@ namespace uf {
 	protected:
 		static const bool m_addOn404 = true;
 		pod::Component::container_t m_container;
-		pod::Component::alias_t m_aliases;
+	//	pod::Component::alias_t m_aliases;
 	public:
 		~Component();
-
+	/*
 		template<typename T> bool hasAlias() const;
 		template<typename T, typename U> bool addAlias();
+	*/
 		template<typename T> pod::Component::id_t getType() const;
 		template<typename T> bool hasComponent() const;
 

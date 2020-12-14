@@ -22,7 +22,7 @@ namespace pod {
 			pod::Vector3 operator-( const pod::Vector3& r ) const {
 				return v - r;
 			}
-			float dot( const pod::Vector3& r ) const {
+			pod::Math::num_t dot( const pod::Vector3& r ) const {
 				return uf::vector::dot(v, r);
 			}
 			pod::Vector3 cross( const pod::Simplex::SupportPoint& r ) const {

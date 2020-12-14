@@ -43,10 +43,12 @@ void ext::vulkan::Sampler::destroy() {
 	}
 }
 
-void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t height ) {
+void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t height, size_t depth, size_t layers ) {
 	this->device = &device;
 	this->width = width;
 	this->height = height;
+	this->depth = depth;
+	this->layers = layers;
 }
 void ext::vulkan::Texture::updateDescriptors() {
 	descriptor.sampler = sampler.sampler;
@@ -359,34 +361,50 @@ void ext::vulkan::Texture2D::loadFromImage(
 		format,
 		image.getDimensions()[0],
 		image.getDimensions()[1],
+		1,
+		1,
 		device,
 		imageUsageFlags,
 		imageLayout
 	);
 }
+
 void ext::vulkan::Texture2D::fromBuffers(
 	void* data,
 	VkDeviceSize bufferSize,
 	VkFormat format,
 	uint32_t texWidth,
 	uint32_t texHeight,
+	uint32_t texDepth,
+	uint32_t layers,
 	Device& device,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
 ) {
-	this->initialize(device, texWidth, texHeight);
+	this->initialize(device, texWidth, texHeight, texDepth, layers);
+
+	if ( this->depth > 1 ) this->mips = 1; else
+	{
+		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+		VkFormatProperties formatProperties;
+		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
+		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+			this->mips = 1;
+			VK_VALIDATION_MESSAGE("Texture image format does not support linear blitting!");
+		}
+	}
 
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.imageType = this->depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
 	imageCreateInfo.format = this->format = format;
-	imageCreateInfo.mipLevels = this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.mipLevels = this->mips;
+	imageCreateInfo.arrayLayers = this->layers;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageCreateInfo.extent = { width, height, 1 };
+	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.usage = imageUsageFlags;
 	// Ensure that the TRANSFER_SRC bit is set for mip creation
 	if ( this->mips > 1 && !(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
@@ -412,12 +430,12 @@ void ext::vulkan::Texture2D::fromBuffers(
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subresourceRange.baseMipLevel = 0;
 	subresourceRange.levelCount = this->mips;
-	subresourceRange.layerCount = 1;
+	subresourceRange.layerCount = this->layers;
 	
 	VkImageViewCreateInfo viewCreateInfo = {};
 	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewCreateInfo.pNext = NULL;
-	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.viewType = this->depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
 	viewCreateInfo.format = format;
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
@@ -425,7 +443,15 @@ void ext::vulkan::Texture2D::fromBuffers(
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
-	this->update( data, bufferSize, imageLayout );
+	if ( data ) {
+		void* layerPointer = data;
+		VkDeviceSize layerSize = bufferSize / this->layers;
+		for ( size_t layer = 1; layer <= this->layers; ++layer ) {
+			this->update( layerPointer, layerSize, imageLayout, layer );
+			layerPointer += layerSize;
+		}
+	}
+	
 	this->updateDescriptors();
 }
 
@@ -442,7 +468,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageCreateInfo.format = format;
-	imageCreateInfo.extent = { width, height, 1 };
+	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.mipLevels = this->mips = 1;
 	imageCreateInfo.arrayLayers = 1;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -489,6 +515,15 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	// Initialize a descriptor for later use
 	this->updateDescriptors();
 }
+void ext::vulkan::Texture2D::aliasTexture( const Texture2D& texture ) {
+	image = texture.image;
+	view = texture.view;
+	imageLayout = texture.imageLayout;
+	deviceMemory = texture.deviceMemory;
+	sampler = texture.sampler;
+	
+	this->updateDescriptors();
+}
 void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
 	image = attachment.image;
 	view = attachment.view;
@@ -501,12 +536,12 @@ void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& at
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::update( uf::Image& image, VkImageLayout targetImageLayout ) {
+void ext::vulkan::Texture2D::update( uf::Image& image, VkImageLayout targetImageLayout, uint32_t layer ) {
 	if ( width != image.getDimensions()[0] || height != image.getDimensions()[1] )
 		return;
-	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size() );
+	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size(), layer );
 }
-void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImageLayout targetImageLayout ) {
+void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImageLayout targetImageLayout, uint32_t layer ) {
 	// Update descriptor image info member that can be used for setting up descriptor sets
 
 	auto& device = *this->device;
@@ -525,11 +560,11 @@ void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImag
 	VkBufferImageCopy bufferCopyRegion = {};
 	bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	bufferCopyRegion.imageSubresource.mipLevel = 0;
-	bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+	bufferCopyRegion.imageSubresource.baseArrayLayer = layer - 1;
 	bufferCopyRegion.imageSubresource.layerCount = 1;
 	bufferCopyRegion.imageExtent.width = width;
 	bufferCopyRegion.imageExtent.height = height;
-	bufferCopyRegion.imageExtent.depth = 1;
+	bufferCopyRegion.imageExtent.depth = depth;
 	bufferCopyRegion.bufferOffset = 0;
 	//
 	Buffer staging;
@@ -564,7 +599,7 @@ void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImag
 		&bufferCopyRegion
 	);
 
-	this->generateMipmaps(commandBuffer);
+	if ( this->mips > 1 ) this->generateMipmaps(commandBuffer, layer);
 	
 	setImageLayout(
 		commandBuffer,
@@ -582,8 +617,10 @@ void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImag
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer ) {
+void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer, uint32_t layer ) {
 	auto& device = *this->device;
+
+	if ( this->mips <= 1 ) return;
 
 	VkFormatProperties formatProperties;
 	vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
@@ -591,20 +628,19 @@ void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer ) {
 		throw std::runtime_error("texture image format does not support linear blitting!");
 	}
 
-
 	// base layer barrier
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.image = image;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.baseArrayLayer = layer - 1;
 	barrier.subresourceRange.layerCount = 1;
 	barrier.subresourceRange.levelCount = 1;
 
 	int32_t mipWidth = width;
 	int32_t mipHeight = height;
+	int32_t mipDepth = depth;
 	for ( size_t i = 1; i < this->mips; ++i ) {
-
 		// transition previous layer to read from it
 		barrier.subresourceRange.baseMipLevel = i - 1;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -621,16 +657,16 @@ void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer ) {
 		// blit to current mip layer
 		VkImageBlit blit{};
 		blit.srcOffsets[0] = { 0, 0, 0 };
-		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+		blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.mipLevel = i - 1;
-		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.baseArrayLayer = layer - 1;
 		blit.srcSubresource.layerCount = 1;
 		blit.dstOffsets[0] = { 0, 0, 0 };
-		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1 };
 		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.dstSubresource.mipLevel = i;
-		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.baseArrayLayer = layer - 1;
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(
@@ -654,22 +690,8 @@ void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer ) {
 			1, &barrier
 		);
 
-
 		if (mipWidth > 1) mipWidth /= 2;
     	if (mipHeight > 1) mipHeight /= 2;
+    	if (mipDepth > 1) mipDepth /= 2;
 	}
-/*
-	barrier.subresourceRange.baseMipLevel = this->mips - 1;
-	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	vkCmdPipelineBarrier(commandBuffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-		0, nullptr,
-		0, nullptr,
-		1, &barrier
-	);
-*/
 }

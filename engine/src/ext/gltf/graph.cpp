@@ -16,6 +16,16 @@ namespace {
 		} else {
 			for ( auto& image : graph.images ) {
 				auto& texture = graphic.material.textures.emplace_back();
+				if ( graph.metadata["filter"].is<std::string>() ) {
+					std::string filter = graph.metadata["filter"].as<std::string>();
+					if ( filter == "NEAREST" ) {
+						texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+						texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+					} else if ( filter == "LINEAR" ) {
+						texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
+						texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+					}
+				}
 				texture.loadFromImage( image );
 			}
 			for ( auto& sampler : graph.samplers ) {
@@ -243,12 +253,28 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		entity.load("/light.json");
 		auto& metadata = entity.getComponent<uf::Serializer>();		
 		metadata["light"]["radius"][0] = 0.001;
-		metadata["light"]["radius"][1] = l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
-		metadata["light"]["power"] = l.intensity * graph.metadata["lights"]["power scale"].as<float>();
+		metadata["light"]["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
+		metadata["light"]["power"] = l.intensity; //  * graph.metadata["lights"]["power scale"].as<float>();
 		metadata["light"]["color"][0] = l.color.x;
 		metadata["light"]["color"][1] = l.color.y;
 		metadata["light"]["color"][2] = l.color.z;
-		metadata["light"]["shadows"]["enabled"] = false;
+		metadata["light"]["shadows"] = graph.metadata["lights"]["shadows"].as<bool>();
+		if ( metadata["light"]["shadows"].as<bool>() ) {
+			metadata["light"]["radius"][1] = 0;
+		}
+		if ( ext::json::isArray( graph.metadata["lights"]["radius"] ) ) {
+			metadata["light"]["radius"] = graph.metadata["lights"]["radius"];
+		}
+		if ( graph.metadata["lights"]["bias"].is<float>() ) {
+			metadata["light"]["bias"] = graph.metadata["lights"]["bias"].as<float>();
+		}
+		// copy from tag information
+		ext::json::forEach( graph.metadata["tags"][node.name]["light"], [&]( const std::string& key, ext::json::Value& value ){
+			if ( key == "transform" ) return;
+			metadata["light"][key] = value;
+		});
+	//	auto& transform = entity.getComponent<pod::Transform<>>();
+	//	transform.orientation = uf::quaternion::inverse( transform.orientation );
 		break;
 	}
 
@@ -262,6 +288,27 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		// is a child
 		if ( node.index != -1 )
 			transform.reference = &entity.getParent().getComponent<pod::Transform<>>();
+		// override transform
+		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
+			auto& info = graph.metadata["tags"][node.name];
+			transform = uf::transform::decode( info["transform"], transform );
+
+			if ( info["transform"]["parent"].is<std::string>() ) {
+				auto* parentPointer = uf::graph::find( graph, info["transform"]["parent"].as<std::string>() );
+				if ( parentPointer ) {
+					auto& parentNode = *parentPointer;
+					// entity already exists, bind to its transform
+					if ( parentNode.entity && parentNode.entity->hasComponent<pod::Transform<>>() ) {
+						auto& parentTransform = parentNode.entity->getComponent<pod::Transform<>>();
+						transform = uf::transform::reference( transform, parentTransform, info["transform"]["reorient"].as<bool>() );
+						transform.position = -transform.position;
+					// doesnt exist, bind to the node transform
+					} else {
+						transform = uf::transform::reference( transform, parentNode.transform, info["transform"]["reorient"].as<bool>() );
+					}
+				}
+			}
+		}
 	}
 	// copy mesh
 	if ( !node.mesh.vertices.empty() ) {
@@ -355,6 +402,7 @@ void uf::graph::override( pod::Graph& graph ) {
 }
 
 void uf::graph::animate( pod::Graph& graph, const std::string& name, float speed, bool immediate ) {
+	if ( !(graph.mode & ext::gltf::LoadMode::SKINNED) ) return;
 	if ( graph.animations.count( name ) > 0 ) {
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
@@ -373,6 +421,7 @@ void uf::graph::update( pod::Graph& graph ) {
 }
 void uf::graph::update( pod::Graph& graph, float delta ) {
 	// no override
+	if ( !(graph.mode & ext::gltf::LoadMode::SKINNED) ) return;
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
 	{

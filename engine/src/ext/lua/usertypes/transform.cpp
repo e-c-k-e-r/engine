@@ -38,6 +38,9 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, []( const pod::Transform<>& t ) {
 		return uf::transform::reorient( t );
 	}),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(getReference, []( pod::Transform<>& t ) {
+		return t.reference ? *t.reference : t;
+	}),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, []( const pod::Transform<>& t, pod::Vector3f& at ) {
 		auto transform = t;
 		return uf::transform::lookAt( transform, at );

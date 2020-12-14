@@ -13,7 +13,7 @@
 namespace {
 	void VRInstanceExtensions( std::vector<std::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
-		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
+		int32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
 		if ( nBufferSize < 0 ) return;
 		char pExtensionStr[nBufferSize];
 		pExtensionStr[0] = 0;
@@ -27,7 +27,7 @@ namespace {
 	}
 	void VRDeviceExtensions( VkPhysicalDevice_T* physicalDevice, std::vector<std::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
-		uint32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice, nullptr, 0 );
+		int32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice, nullptr, 0 );
 		if ( nBufferSize < 0 ) return;
 		char pExtensionStr[nBufferSize];
 		pExtensionStr[0] = 0;

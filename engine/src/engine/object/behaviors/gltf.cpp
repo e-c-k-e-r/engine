@@ -133,10 +133,12 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			}
 		});
 		this->addChild(objectPointer->as<uf::Entity>());
-		objectPointer->initialize();
+
 		auto& transform = this->getComponent<pod::Transform<>>();
+		objectPointer->getComponent<pod::Transform<>>().reference = &transform;
+		
+		objectPointer->initialize();
 		objectPointer->process([&]( uf::Entity* entity ) {
-			// entity->getComponent<pod::Transform<>>() = transform;
 			if ( !entity->hasComponent<uf::Graphic>() ) {
 				if ( entity->getUid() == 0 ) entity->initialize();
 				return;

@@ -16,6 +16,15 @@
 std::string ext::vulkan::ComputeRenderMode::getType() const {
 	return "Compute";
 }
+const size_t ext::vulkan::ComputeRenderMode::blitters() const {
+	return 1;
+}
+ext::vulkan::Graphic* ext::vulkan::ComputeRenderMode::getBlitter( size_t i ) {
+	return &this->blitter;
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::ComputeRenderMode::getBlitters() {
+	return { &this->blitter };
+}
 
 void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -50,7 +59,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 				uint32_t eyes = 2;
 			};
 			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
+			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 			specializationConstants->eyes = ext::openvr::context ? 2 : 1;
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 ) {

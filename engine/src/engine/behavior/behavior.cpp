@@ -27,21 +27,21 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 #define FUNCTION_AS_VARIABLE(x) x
 
 #define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_SAFE
-
+/*
+//	if ( this->hasComponent<uf::Serializer>() ) {\
+//		auto& metadata = this->getComponent<uf::Serializer>();\
+//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
+//			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].as<bool>();\
+//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["forward iteration"] ) )\
+//			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
+//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
+//			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
+//	}\
+*/
 #define UF_BEHAVIOR_POLYFILL_SAFE(f)\
-	uf::Object& self = *((uf::Object*) this);\
 	bool headLoopChildren = true;\
 	bool forwardIteration = true;\
 	bool multithreading = false;\
-	if ( this->hasComponent<uf::Serializer>() ) {\
-		auto& metadata = this->getComponent<uf::Serializer>();\
-		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
-			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].as<bool>();\
-		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["forward iteration"] ) )\
-			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
-		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
-			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
-	}\
 	auto function = [&]() -> int {\
 		if ( headLoopChildren ) {\
 			if ( forwardIteration )\
@@ -155,14 +155,22 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 
 
 void uf::Behaviors::initialize() {
+	uf::Object& self = *((uf::Object*) this);
+//	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(initialize)
 }
 void uf::Behaviors::tick() {
+	uf::Object& self = *((uf::Object*) this);
+	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(tick)
 }
 void uf::Behaviors::render() {
+	uf::Object& self = *((uf::Object*) this);
+	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(render)
 }
 void uf::Behaviors::destroy() {
+	uf::Object& self = *((uf::Object*) this);
+	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(destroy)
 }

@@ -10,6 +10,11 @@ bool uf::Entity::deleteComponentsOnDestroy = false;
 uf::Entity::~Entity(){
 	this->destroy();
 }
+bool uf::Entity::isValid() const {
+//	if ( uf::Entity::memoryPool.size() == 0 ) return false;
+	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
+	return 0 < this->m_uid && this->m_uid <= uf::Entity::uids;
+}
 bool uf::Entity::hasParent() const {
 	return this->m_parent;
 }
@@ -122,7 +127,7 @@ uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
 	for ( auto& allocation : uf::Entity::memoryPool.allocations() ) {
 		uf::Entity* entity = (uf::Entity*) allocation.pointer;
-		if ( entity->getUid() == 0 ) continue;
+		if ( !entity->isValid() ) continue;
 		if ( entity->getName() == name ) return entity;
 	}
 	return NULL;

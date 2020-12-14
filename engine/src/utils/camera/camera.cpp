@@ -2,12 +2,7 @@
 
 #include <uf/ext/openvr/openvr.h>
 
-namespace {
-	struct {
-		pod::Matrix4 left, right;
-	} projection, eye;
-	pod::Matrix4 head;
-}
+bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = true;
 
 uf::Camera::Camera() : 
 	m_modified(false)
@@ -25,31 +20,6 @@ uf::Camera::Camera() :
 	this->m_transform = uf::transform::initialize(this->m_transform);
 	this->m_transform.position = {0, 0, 0};
 }
-/*
-uf::Camera::Camera( const pod::Math::num_t& fov, const pod::Vector2& size, const pod::Vector2& bounds, const pod::Vector3& offset, const pod::Vector2& tops ) : 
-	m_modified(false),
-	m_settings({.fov=fov, .size=size, .bounds=bounds, .offset=offset, .tops=tops})
-{
-	this->m_matrices.view = uf::matrix::identity();
-	this->m_matrices.projection = uf::matrix::identity();
-}
-uf::Camera::Camera( Camera&& move ) : 
-	m_modified(std::move(move.m_modified)),
-	m_settings(std::move(move.m_settings)),
-	m_matrices(std::move(move.m_matrices)),
-	m_transform(std::move(move.m_transform))
-{
-
-}
-uf::Camera::Camera( const Camera& copy ) :
-	m_modified(copy.m_modified),
-	m_settings(copy.m_settings),
-	m_matrices(copy.m_matrices),
-	m_transform(copy.m_transform)
-{
-
-}
-*/
 
 bool uf::Camera::modified() const {
 	return !this->m_modified;
@@ -62,7 +32,6 @@ const pod::Transform<>& uf::Camera::getTransform() const {
 }
 
 pod::Matrix4& uf::Camera::getView( size_t eye ) {
-	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -74,15 +43,8 @@ pod::Matrix4& uf::Camera::getView( size_t eye ) {
 			return this->m_matrices.left.view;
 		break;
 	}
-/*
-	if ( ext::openvr::context ) {
-		return eye == 0 ? ::eye.left : ::eye.right;
-	}
-	return this->m_matrices.view;
-*/
 }
 pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
-	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -94,19 +56,12 @@ pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
 			return this->m_matrices.left.projection;
 		break;
 	}
-/*
-	if ( ext::openvr::context ) {
-		return eye == 0 ? ::projection.left : ::projection.right;
-	}
-	return this->m_matrices.projection;
-*/
 }
 pod::Matrix4& uf::Camera::getModel() {
 	return this->m_matrices.model;
 }
 
 const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
-	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -118,15 +73,8 @@ const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
 			return this->m_matrices.left.view;
 		break;
 	}
-/*
-	if ( ext::openvr::context ) {
-		return eye == 0 ? ::eye.left : ::eye.right;
-	}
-	return this->m_matrices.view;
-*/
 }
 const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
-	// if ( !this->m_settings.stereoscopic ) eye = 0;
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -138,12 +86,6 @@ const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
 			return this->m_matrices.left.projection;
 		break;
 	}
-/*
-	if ( ext::openvr::context ) {
-		return eye == 0 ? ::projection.left : ::projection.right;
-	}
-	return this->m_matrices.projection;
-*/
 }
 const pod::Matrix4& uf::Camera::getModel() const {
 	return this->m_matrices.model;
@@ -182,7 +124,6 @@ void uf::Camera::setTransform( const pod::Transform<>& transform ) {
 	this->update(true);
 }
 void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
-	// if ( !this->m_settings.stereoscopic ) i = 2;
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.view = mat;
@@ -197,7 +138,6 @@ void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
 	}
 }
 void uf::Camera::setProjection( const pod::Matrix4& mat, size_t i ) {
-	// if ( !this->m_settings.stereoscopic ) i = 2;
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.projection = mat;
@@ -295,6 +235,7 @@ void uf::Camera::updateProjection() {
 	float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);
 	float raidou = (float) this->m_settings.perspective.size.x / (float) this->m_settings.perspective.size.y;
 	float f = 1.0f / tan( 0.5f * fov );
+	
 	this->setProjection({
 		f / raidou, 	0.0f, 	 0.0f, 	0.0f,
 		0.0f, 			-f, 	 0.0f, 	0.0f,

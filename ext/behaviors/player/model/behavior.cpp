@@ -16,21 +16,26 @@ UF_BEHAVIOR_REGISTER_CPP(ext::PlayerModelBehavior)
 #define this ((uf::Scene*) &self)
 
 void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+	auto& metadata = this->getComponent<uf::Serializer>();
+	transform.reference = &controllerTransform;
 }
 void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	if ( this->getChildren().size() != 1 ) return;
 	auto& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["track player"].as<bool>() ) return;
-	auto& player = this->getParent().as<uf::Object>();
-	auto& model = this->getChildren().front()->as<uf::Object>();
-
-	auto& transform = model.getComponent<pod::Transform<>>();
-
-	transform = player.getComponent<pod::Transform<>>();
-	transform.scale = this->getComponent<pod::Transform<>>().scale;
-//	transform.scale.x = metadata["system"]["transform"]["scale"][0].as<float>();
-//	transform.scale.y = metadata["system"]["transform"]["scale"][1].as<float>();
-//	transform.scale.z = metadata["system"]["transform"]["scale"][2].as<float>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+	if ( metadata["track via reference"].as<bool>() )
+		transform.reference = metadata["track player"].as<bool>() ? &controllerTransform : NULL;
+	else if ( metadata["track player"].as<bool>() ) {
+		transform.position = controllerTransform.position;
+		transform.orientation = controllerTransform.orientation;
+	}
 }
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){
@@ -42,15 +47,12 @@ void ext::PlayerModelBehavior::render( uf::Object& self ){
 	auto& controller = scene.getController();
 	auto& player = this->getParent().as<uf::Object>();
 	auto& model = this->getChildren().front()->as<uf::Object>();
-	auto& transform = model.getComponent<pod::Transform<>>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+
 	if ( player.getUid() == controller.getUid() ) {
 		transform.scale = { 0, 0, 0 };
 	} else {
-		transform.scale = this->getComponent<pod::Transform<>>().scale;
-	//	transform.scale = { 0.07, 0.07, 0.07 };
-	//	transform.scale.x = metadata["system"]["transform"]["scale"][0].as<float>();
-	//	transform.scale.y = metadata["system"]["transform"]["scale"][1].as<float>();
-	//	transform.scale.z = metadata["system"]["transform"]["scale"][2].as<float>();
+		transform.scale = uf::vector::decode( metadata["system"]["transform"]["scale"], pod::Vector3f{1,1,1} );
 	}
 }
 void ext::PlayerModelBehavior::destroy( uf::Object& self ){

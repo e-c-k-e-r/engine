@@ -5,7 +5,6 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/utils/graphic/mesh.h>
-#include <uf/utils/graphic/material.h>
 
 namespace ext {
 	namespace vulkan {

@@ -88,6 +88,7 @@
 #endif
 
 #include "macros.h"
+#include "simd.h"
 
 //#define UF_USE_NLOHMANN 	1 // wrapper works, please use this
 //#define UF_USE_JSONCPP 	0 // originally implemented JSON with JSONCPP, internal wrapper broke things

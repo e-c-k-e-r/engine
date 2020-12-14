@@ -142,9 +142,21 @@ bool uf::Object::reload( bool hard ) {
 	if ( hard ) return this->load(filename);
 
 	payload["old"] = metadata;
+	ext::json::forEach( json["metadata"], [&]( const std::string& key, const ext::json::Value& value ){
+		metadata[key] = value;
+	});
+	// update transform if requested
+	if ( ext::json::isObject(json["transform"]) ) {
+		auto& transform = this->getComponent<pod::Transform<>>();
+		auto* reference = transform.reference;
+		transform = uf::transform::decode( json["transform"], transform );
+		transform.reference = reference;
+	}
+/*
 	for ( auto it = json["metadata"].begin(); it != json["metadata"].end(); ++it ) {
 		metadata[it.key()] = json["metadata"][it.key()];
 	}
+*/
 	payload["new"] = metadata;
 	uf::iostream << "Updated metadata for " << uf::string::toString( this ) << "\n";
 
@@ -392,9 +404,20 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	if ( ext::json::isArray( metadata["system"]["lights"] ) ) {
 		uf::Serializer target = metadata["system"]["lights"];
 		auto& pTransform = this->getComponent<pod::Transform<>>();
-		for ( uint i = 0; i < target.size(); ++i ) {
-			uf::Serializer json = target[i];
-			std::vector<pod::Vector4f> orientations;
+		for ( size_t i = 0; i < target.size(); ++i ) {
+			uf::Serializer json = target[i];			
+
+			auto* light = this->loadChildPointer("/light.json", false);
+			if ( !light ) continue;
+			auto& lightTransform = light->getComponent<pod::Transform<>>();
+			auto& lightMetadata = light->getComponent<uf::Serializer>();
+			lightTransform = uf::transform::decode( json["transform"], lightTransform );
+			ext::json::forEach( json, [&]( const std::string& key, ext::json::Value& value ){
+				if ( key == "transform" ) return;
+				lightMetadata["light"][key] = value;
+			});
+			light->initialize();
+		/*
 			if ( json["ignore"].as<bool>() ) continue;
 			if ( ext::json::isNull( json["transform"]["orientation"] ) && json["shadows"]["fov"].as<float>() == 0.0f ) {
 				orientations.reserve(6);
@@ -406,12 +429,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				orientations.push_back({0.707107,  0, 0, -0.707107});
 				json["shadows"]["fov"] = 90.0f;
 			} else {
-				pod::Vector4f orientation;
-				if ( ext::json::isArray( json["transform"]["orientation"] ) ) {
-					orientation = pTransform.orientation;
-				} else {
-					for ( uint j = 0; j < 4; ++j ) orientation[j] = json["transform"]["orientation"][j].as<float>();
-				}
+				pod::Vector4f orientation = uf::vector::decode( json["transform"]["orientation"], {0,0,0,1} );
 				orientations.push_back(orientation);
 			}
 			uf::Object* target = this;
@@ -444,6 +462,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 
 				light->initialize();
 			}
+		*/
 		}
 	}
 

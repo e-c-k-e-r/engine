@@ -32,6 +32,19 @@ const ext::vulkan::RenderTarget& ext::vulkan::StereoscopicDeferredRenderMode::ge
 		default: return renderTarget;
 	}
 }
+const size_t ext::vulkan::StereoscopicDeferredRenderMode::blitters() const {
+	return 2;
+}
+ext::vulkan::Graphic* ext::vulkan::StereoscopicDeferredRenderMode::getBlitter( size_t i ) {
+	switch ( i ) {
+		case 0: return &this->renderBlitters.left;
+		case 1: return &this->renderBlitters.right;
+		default: return &this->renderBlitters.left;
+	}
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::StereoscopicDeferredRenderMode::getBlitters() {
+	return { &this->renderBlitters.left, &this->renderBlitters.right };
+}
 
 void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
@@ -41,8 +54,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		Graphic* blitter;
 	};
 	std::vector<EYES> eyes = {
-		{ &renderTargets.left, &blitters.left },
-		{ &renderTargets.right, &blitters.right },
+		{ &renderTargets.left, &renderBlitters.left },
+		{ &renderTargets.right, &renderBlitters.right },
 	};
 	std::size_t i = 0;
 	for ( auto& eye : eyes ) {
@@ -110,7 +123,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 		}
 		renderTarget.initialize( device );
 		{
-			uf::BaseMesh<pod::Vertex_2F2F, uint16_t> mesh;
+			uf::BaseMesh<pod::Vertex_2F2F> mesh;
 			mesh.vertices = {
 				{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 				{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
@@ -162,13 +175,13 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 					int32_t maxLights = 16;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
+				specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 			*/
 				struct SpecializationConstant {
 					uint32_t maxLights = 16;
 				};
 				auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-				specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["max lights"].as<size_t>();
+				specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 					if ( binding.descriptorCount > 1 )
@@ -187,8 +200,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 			Graphic* blitter;
 		};
 		std::vector<EYES> eyes = {
-			{ &renderTargets.left, &blitters.left },
-			{ &renderTargets.right, &blitters.right },
+			{ &renderTargets.left, &renderBlitters.left },
+			{ &renderTargets.right, &renderBlitters.right },
 		};
 		for ( auto& eye : eyes ) {
 			auto& renderTarget = *eye.renderTarget;
@@ -205,8 +218,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::tick() {
 void ext::vulkan::StereoscopicDeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
 	renderTargets.right.destroy();
-	blitters.left.destroy();
-	blitters.right.destroy();
+	renderBlitters.left.destroy();
+	renderBlitters.right.destroy();
 //	blitter.destroy();
 }
 void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
@@ -240,8 +253,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 			Graphic* blitter;
 		};
 		std::vector<EYES> eyes = {
-			{ &renderTargets.left, &blitters.left },
-			{ &renderTargets.right, &blitters.right },
+			{ &renderTargets.left, &renderBlitters.left },
+			{ &renderTargets.right, &renderBlitters.right },
 		};
 		for ( ext::openvr::renderPass = 0; ext::openvr::renderPass < eyes.size(); ++ext::openvr::renderPass ) {
 			auto& renderTarget = *eyes[ext::openvr::renderPass].renderTarget;

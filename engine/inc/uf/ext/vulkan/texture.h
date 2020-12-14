@@ -54,11 +54,10 @@ namespace ext {
 			VmaAllocation allocation;
 			VmaAllocationInfo allocationInfo;
 
-			uint32_t width, height;
+			uint32_t width, height, depth, layers;
 			uint32_t mips;
-			uint32_t layers;
 			// RAII
-			void initialize( Device& device, size_t width, size_t height );
+			void initialize( Device& device, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
 			void updateDescriptors();
 			void destroy();
 			bool generated() const;
@@ -112,18 +111,31 @@ namespace ext {
 				VkFormat format,
 				uint32_t texWidth,
 				uint32_t texHeight,
+				uint32_t texDepth,
+				uint32_t layers,
 				Device& device,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM );
+			void aliasTexture( const Texture2D& );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
-			void update( uf::Image& image, VkImageLayout );
-			void update( void*, VkDeviceSize, VkImageLayout );
-			inline void update( uf::Image& image ) { return this->update(image, this->imageLayout) ; }
-			inline void update( void* data, VkDeviceSize size ) { return this->update(data, size, this->imageLayout) ; }
+			void update( uf::Image& image, VkImageLayout, uint32_t layer = 1 );
+			void update( void*, VkDeviceSize, VkImageLayout, uint32_t layer = 1 );
+			inline void fromBuffers(
+				void* buffer,
+				VkDeviceSize bufferSize,
+				VkFormat format,
+				uint32_t texWidth,
+				uint32_t texHeight,
+				Device& device,
+				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			) { return this->fromBuffers(buffer, bufferSize, format, texWidth, texHeight, 1, 1, device, imageUsageFlags, imageLayout); }
+			inline void update( uf::Image& image, uint32_t layer = 1 ) { return this->update(image, this->imageLayout, layer); }
+			inline void update( void* data, VkDeviceSize size, uint32_t layer = 1 ) { return this->update(data, size, this->imageLayout, layer); }
 			
-			void generateMipmaps(VkCommandBuffer commandBuffer);
+			void generateMipmaps(VkCommandBuffer commandBuffer, uint32_t layer = 1);
 		};
 	}
 }

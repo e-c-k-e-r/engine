@@ -37,11 +37,10 @@ namespace {
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
-	this->addComponent<uf::Camera>(); {
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		transform = uf::transform::initialize(transform);
-		this->getComponent<uf::Camera>().getTransform().reference = this->getComponentPointer<pod::Transform<>>();
-	}
+	auto& transform = this->getComponent<pod::Transform<>>();
+	auto& camera = this->getComponent<uf::Camera>();
+	camera.getTransform().reference = &transform;
+
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	/* Load Config */ {
 		struct {
@@ -541,7 +540,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 	if ( stats.floored ) {
 		if ( stats.walking ) {
-			uf::SoundEmitter& emitter = this->getComponent<uf::SoundEmitter>();
+			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 			int cycle = rand() % metadata["audio"]["footstep"]["list"].size();
 			std::string filename = metadata["audio"]["footstep"]["list"][cycle].as<std::string>();
 			uf::Audio& footstep = emitter.add(filename);

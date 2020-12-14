@@ -31,6 +31,7 @@ namespace uf {
 		Entity();
 		~Entity();
 		// identifiers
+		bool isValid() const;
 		const std::string& getName() const;
 		std::size_t getUid() const;
 		void setName( const std::string& );

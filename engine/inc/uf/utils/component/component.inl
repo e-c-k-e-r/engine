@@ -6,7 +6,7 @@ template<typename T> bool uf::component::is( const pod::Component& component ) {
 }
 //
 //
-// GuiMesh -> MeshBase
+/*
 template<typename T>
 bool uf::Component::hasAlias() const {
 	return this->m_aliases.count(uf::component::type<T>()) != 0;
@@ -17,15 +17,16 @@ bool uf::Component::addAlias() {
 	this->m_aliases[uf::component::type<T>()] = this->getType<U>();
 	return true;
 }
+*/
 template<typename T>
 pod::Component::id_t uf::Component::getType() const {
-	if ( this->hasAlias<T>() ) return this->m_aliases.at(uf::component::type<T>());
+//	if ( this->hasAlias<T>() ) return this->m_aliases.at(uf::component::type<T>());
 	return uf::component::type<T>();
 }
 
 template<typename T>
 bool uf::Component::hasComponent() const {
-	return this->m_container.count(this->getType<T>()) != 0;
+	return !this->m_container.empty() && this->m_container.count(this->getType<T>()) != 0;
 }
 template<typename T>
 pod::Component* uf::Component::getRawComponentPointer() {

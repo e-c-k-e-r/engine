@@ -44,7 +44,8 @@ template<typename T> void uf::instantiator::registerObject( const std::string& n
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
 	auto& container = *uf::instantiator::objects;
 	container.add<T>(name, {
-		.function = _instantiate<T>
+		.function = _instantiate<T>,
+		.behaviors = {}
 	});
 
 	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered instantiation for " << name << std::endl;

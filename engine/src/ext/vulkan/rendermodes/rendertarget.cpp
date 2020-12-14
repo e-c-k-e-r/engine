@@ -11,16 +11,38 @@ std::string ext::vulkan::RenderTargetRenderMode::getType() const {
 const std::string& ext::vulkan::RenderTargetRenderMode::getName( bool wantsTarget ) const {
 	return wantsTarget ? this->target : this->name;
 }
+const size_t ext::vulkan::RenderTargetRenderMode::blitters() const {
+	return 1;
+}
+ext::vulkan::Graphic* ext::vulkan::RenderTargetRenderMode::getBlitter( size_t i ) {
+	return &this->blitter;
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitters() {
+	return { &this->blitter };
+}
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
 
 	this->target = this->name;
-
-	{
+	std::string type = metadata["type"].as<std::string>();
+	if ( type == "depth" ) {
 		renderTarget.device = &device;
 		struct {
-			size_t albedo, normals, position, depth, output;
+			size_t depth;
+		} attachments;
+
+		attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+		renderTarget.addPass(
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			{},
+			{},
+			attachments.depth
+		);
+	} else {
+		renderTarget.device = &device;
+		struct {
+			size_t albedo, normals, position, depth;
 		} attachments;
 
 		attachments.albedo = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
@@ -28,35 +50,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		if ( !settings::experimental::deferredReconstructPosition )
 			attachments.position = renderTarget.attach( ext::vulkan::settings::formats::position, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
 		attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
-		// Attach swapchain's image as output
-		if ( !false ) {
-			attachments.output = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, true ); // output
-		} else {
-			attachments.output = renderTarget.attachments.size();
-			RenderTarget::Attachment swapchainAttachment;
-			swapchainAttachment.format = ext::vulkan::settings::formats::color;
-			swapchainAttachment.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-			swapchainAttachment.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			swapchainAttachment.aliased = true;
-			{
-				VkBool32 blendEnabled = VK_TRUE;
-				VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-				VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
-					writeMask,
-					blendEnabled
-				);
-				if ( blendEnabled == VK_TRUE ) {
-					blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
-					blendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-					blendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-					blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
-				}
-				swapchainAttachment.blendState = blendAttachmentState;
-			}
-			renderTarget.attachments.push_back(swapchainAttachment);
-		}
 
 		// First pass: write to target
 		if ( settings::experimental::deferredReconstructPosition ) {
@@ -74,23 +67,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				attachments.depth
 			);
 		}
-		// NOP
-		if ( settings::experimental::deferredReconstructPosition ) {
-			renderTarget.addPass(
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-				{ attachments.output },
-				{ attachments.albedo, attachments.normals, attachments.depth },
-				attachments.depth
-			);
-		} else {
-			renderTarget.addPass(
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-				{ attachments.output },
-				{ attachments.albedo, attachments.normals, attachments.position },
-				attachments.depth
-			);
-		}
 	}
+
 	renderTarget.initialize( device );
 
 	if ( blitter.process ) {
@@ -118,7 +96,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			Texture2D& texture = blitter.material.textures.emplace_back();
 			texture.aliasAttachment(attachment);
 		}
-	// 	blitter.initializePipeline();
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::tick() {
@@ -284,10 +261,10 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->target ) continue;
 					ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor;
-				//	descriptor.renderMode = this->name;
+					descriptor.renderMode = this->name;
 					graphic->record(commands[i], descriptor );
 				}
-			if ( !false ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+		//	if ( !false ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);
 		}
 

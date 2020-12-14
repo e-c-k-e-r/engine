@@ -225,7 +225,7 @@ void ext::bullet::tick( float delta ) { if ( delta == 0.0f ) delta = uf::physics
 	ext::bullet::syncToBullet();
 	delta = delta * ext::bullet::timescale / ext::bullet::iterations;
 	for ( size_t i = 0; i < ext::bullet::iterations; ++i ) {
-		ext::bullet::dynamicsWorld->stepSimulation(delta, ext::bullet::substeps);
+		ext::bullet::dynamicsWorld->stepSimulation(delta, ext::bullet::substeps, delta / ext::bullet::substeps);
 	}
 	ext::bullet::syncFromBullet();
 	TIMER(ext::bullet::debugDrawRate, ext::bullet::debugDrawEnabled && ) {

@@ -105,7 +105,7 @@ namespace {
 			config.fallback["window"]["keyboard"]["repeat"] 			= true;
 			
 			config.fallback["engine"]["scenes"]["start"]				= "StartMenu";
-			config.fallback["engine"]["scenes"]["max lights"] 			= 32;
+			config.fallback["engine"]["scenes"]["lights"]["max"] 			= 32;
 			config.fallback["engine"]["hook"]["mode"] 					= "Readable";
 			config.fallback["engine"]["limiters"]["framerate"] 			= 60;
 			config.fallback["engine"]["limiters"]["deltaTime"] 			= 120;
@@ -567,14 +567,11 @@ void EXT_API ext::tick() {
 		}
 	}
 
-	/* Update physics timer */ {
-		uf::physics::tick();
-	}
 	/* Update entities */ {
 		uf::scene::tick();
 	}
 	/* Tick Main Thread Queue */ {
-		pod::Thread& thread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
+		pod::Thread& thread = uf::thread::get("Main");
 		uf::thread::process( thread );
 	}
 
@@ -590,11 +587,16 @@ void EXT_API ext::tick() {
 		}
 	}
 
-	auto& bulletThread = uf::thread::fetchWorker();
+	/* Update physics timer */ {
+		uf::physics::tick();
+	}
+	auto& bulletThread = uf::thread::get("Physics");
 	/* Update bullet */ {
-		uf::thread::add( bulletThread, [&]() -> int {
+		if ( ::config["engine"]["ext"]["bullet"]["multithreaded"].as<bool>() ) {
+			uf::thread::add( bulletThread, [&]() -> int { ext::bullet::tick(); return 0;}, true );
+		} else {
 			ext::bullet::tick();
-		return 0;}, true );
+		}
 	}
 
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
@@ -632,7 +634,9 @@ void EXT_API ext::tick() {
 		timer.reset();
 	}
 
-	uf::thread::wait( bulletThread );
+	if ( ::config["engine"]["ext"]["bullet"]["multithreaded"].as<bool>() ) {
+		uf::thread::wait( bulletThread );
+	}
 }
 void EXT_API ext::render() {
 
@@ -731,7 +735,7 @@ std::string EXT_API ext::getConfig() {
 		config.fallback["window"]["keyboard"]["repeat"] 			= true;
 		
 		config.fallback["engine"]["scenes"]["start"]				= "StartMenu";
-		config.fallback["engine"]["scenes"]["max lights"] 			= 32;
+		config.fallback["engine"]["scenes"]["lights"]["max"] 			= 32;
 		config.fallback["engine"]["hook"]["mode"] 					= "Readable";
 		config.fallback["engine"]["limiters"]["framerate"] 			= 60;
 		config.fallback["engine"]["limiters"]["deltaTime"] 			= 120;

@@ -27,6 +27,16 @@ const ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_
 	return renderTarget;
 }
 
+const size_t ext::vulkan::RenderMode::blitters() const {
+	return 0;
+}
+ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
+	return NULL;
+}
+std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
+	return {};
+}
+
 void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
@@ -93,7 +103,7 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
 		// copy descriptor
-		if ( graphic.descriptor.renderMode == this->getName() ) continue;
+	//	if ( graphic.descriptor.renderMode == this->getName() ) continue;
 		ext::vulkan::GraphicDescriptor descriptor = graphic.descriptor;
 		// bind to this render mode
 		descriptor.renderMode = this->getName();

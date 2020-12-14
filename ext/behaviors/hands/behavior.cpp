@@ -76,7 +76,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					hand.initialize();
 				}
 				if ( metadata["hands"][side]["pointer"]["length"].as<float>() > 0 ) {
-					line.addAlias<uf::LineMesh, uf::Mesh>();
+				//	line.addAlias<uf::LineMesh, uf::Mesh>();
 
 					pod::Transform<>& transform = line.getComponent<pod::Transform<>>();
 					transform.orientation = uf::quaternion::axisAngle( 

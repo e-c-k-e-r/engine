@@ -555,7 +555,7 @@ pod::Vector3f ext::openvr::hmdPosition( vr::Hmd_Eye eye ) {
 }
 pod::Quaternion<> ext::openvr::hmdQuaternion() {
 	pod::Quaternion<> q = uf::quaternion::fromMatrix( hmdHeadPositionMatrix() );
-	q.w *= -1;
+//	q.w *= -1;
 	return q;
 /*
 	pod::Matrix4t<> mat = hmdHeadPositionMatrix();
@@ -577,7 +577,8 @@ pod::Matrix4t<> ext::openvr::hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f
 	return
 		hmdEyePositionMatrix( eye ) *
 		uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) *
-		uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) *
+		uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, 1 } ) ) *
+	//	uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) *
 		view;
 //	return hmdEyePositionMatrix( eye ) * uf::matrix::translate( uf::matrix::identity(), hmdPosition() ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() * pod::Vector4f{ 1, 1, -1, -1 } ) ) * view;
 //	return uf::matrix::translate( uf::matrix::identity(), hmdEyePosition( eye ) ) * uf::matrix::inverse( uf::quaternion::matrix( ext::openvr::hmdQuaternion() ) ) * view;

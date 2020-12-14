@@ -34,7 +34,7 @@ int main(int argc, char** argv){
 		}
 	}
 	while ( client::ready && ext::ready ) {
-	#if defined(HANDLE_EXCEPTIONS)
+	#if HANDLE_EXCEPTIONS
 		try {	
 	#endif
 			static bool first = false; if ( !first ) { first = true;
@@ -51,7 +51,7 @@ int main(int argc, char** argv){
 			ext::tick();
 			client::render();
 			ext::render();
-	#if defined(HANDLE_EXCEPTIONS)
+	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";
 			break;

@@ -34,7 +34,7 @@ bool ext::vulkan::settings::experimental::hdr = true;
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 VkFormat ext::vulkan::settings::formats::color = VK_FORMAT_R8G8B8A8_UNORM;
-VkFormat ext::vulkan::settings::formats::depth = VK_FORMAT_D16_UNORM_S8_UINT;
+VkFormat ext::vulkan::settings::formats::depth = VK_FORMAT_D32_SFLOAT;
 VkFormat ext::vulkan::settings::formats::normal = VK_FORMAT_R16G16B16A16_SFLOAT;
 VkFormat ext::vulkan::settings::formats::position = VK_FORMAT_R16G16B16A16_SFLOAT;
 

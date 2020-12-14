@@ -32,6 +32,8 @@ namespace uf {
 		} m_matrices;
 		pod::Transform<> m_transform;
 	public:
+		static bool USE_REVERSE_INFINITE_PROJECTION;
+
 		Camera();
 /*
 		Camera( const pod::Math::num_t& fov, const pod::Vector2& size, const pod::Vector2& bounds, const pod::Vector3& offset = {0, 0, 0}, const pod::Vector2& tops = {0, 0} );

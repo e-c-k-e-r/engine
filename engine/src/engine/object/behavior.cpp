@@ -53,6 +53,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 				metadata["system"]["physics"]["gravity"][1].as<float>(),
 				metadata["system"]["physics"]["gravity"][2].as<float>()
 			) );
+			if ( metadata["system"]["physics"]["shared"].is<bool>() ) {
+				collider.shared = metadata["system"]["physics"]["shared"].as<bool>();
+			}
 		}
 	}
 

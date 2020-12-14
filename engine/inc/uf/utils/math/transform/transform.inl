@@ -74,8 +74,12 @@ template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::scale( pod::Tr
 	transform.scale = factor;
 	return transform;
 }
+template<typename T> inline pod::Transform<T> /*UF_API*/ uf::transform::condense( const pod::Transform<T>& transform ) {
+	return uf::transform::fromMatrix( uf::transform::model( transform, false ) );
+}
 template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::flatten( const pod::Transform<T>& transform, size_t depth ) {
 	if ( !transform.reference ) return transform;
+//	if ( depth == SIZE_MAX ) return uf::transform::condense( transform );
 	pod::Transform<T> combined = transform;
 	combined.reference = NULL;
 	const pod::Transform<T>* pointer = transform.reference;
@@ -121,9 +125,22 @@ template<typename T> pod::Matrix4t<T> /*UF_API*/ uf::transform::model( const pod
 }
 template<typename T> pod::Transform<T> uf::transform::fromMatrix( const pod::Matrix4t<T>& matrix ) {
 	pod::Transform<T> transform;
-	transform.position = uf::matrix::multiply<float>( matrix, pod::Vector3f{ 0, 0, 0 } );
+	transform.position = uf::matrix::multiply<float>( matrix, pod::Vector4f{ 0, 0, 0, 1 } );
 	transform.orientation = uf::quaternion::fromMatrix( matrix );
+	transform.model = matrix;
 	return transform = reorient( transform );
+}
+
+template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient ) {
+	if ( !reorient ) {
+		transform.reference = const_cast<pod::Transform<T>*>(&parent);
+		return transform;
+	}
+
+	transform.position = parent.position - transform.position;
+	// reorient orientation here too
+	transform.reference = const_cast<pod::Transform<T>*>(&parent);
+	return transform;
 }
 
 template<typename T> 														// Normalizes a vector

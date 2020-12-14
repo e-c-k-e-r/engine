@@ -49,9 +49,11 @@ namespace uf {
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Vector3t<T>& axis, pod::Math::num_t delta );
 		template<typename T> pod::Transform<T>& /*UF_API*/ rotate( pod::Transform<T>& transform, const pod::Quaternion<T>& quat );
 		template<typename T> pod::Transform<T>& /*UF_API*/ scale( pod::Transform<T>& transform, const pod::Vector3t<T>& factor );
+		template<typename T> inline pod::Transform<T> /*UF_API*/ condense( const pod::Transform<T>& transform );
 		template<typename T> pod::Transform<T> /*UF_API*/ flatten( const pod::Transform<T>& transform, size_t depth = SIZE_MAX );
-		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform, bool flatten = true, size_t depth = SIZE_MAX );
-		template<typename T> pod::Transform<T> fromMatrix( const pod::Matrix4t<T>& matrix );
+		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform, bool flatten = false, size_t depth = SIZE_MAX );
+		template<typename T> pod::Transform<T> /*UF_API*/ fromMatrix( const pod::Matrix4t<T>& matrix );
+		template<typename T> pod::Transform<T>& /*UF_API*/ reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient = true );
 		
 		template<typename T> std::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );
 		template<typename T> ext::json::Value /*UF_API*/ encode( const pod::Transform<T>&, bool flatten = true );

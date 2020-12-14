@@ -1356,7 +1356,10 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 	}
 
 	auto& pipeline = this->getPipeline( descriptor );
-	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) return;
+	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) {
+		VK_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
+		return;
+	}
 /*
 	assert( buffers.size() >= 2 );
 	Buffer& vertexBuffer = buffers.at(0);
@@ -1462,5 +1465,6 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 	serializer["depthTest"]["operation"] = depthTest.operation;
 
 //	if ( renderMode != "Gui" ) uf::iostream << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << "\n";
-	return uf::string::sha256( serializer.serialize() );
+//	return uf::string::sha256( serializer.serialize() );
+	return serializer.dump();
 }

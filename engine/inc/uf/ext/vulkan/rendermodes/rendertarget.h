@@ -8,10 +8,14 @@ namespace ext {
 		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
 			ext::vulkan::Graphic blitter;		
 			std::string target;
+			uf::Serializer metadata;
 
 			// RAII
 			virtual std::string getType() const;
 			virtual const std::string& getName( bool ) const;
+			virtual const size_t blitters() const;
+			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
+			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
 			
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );

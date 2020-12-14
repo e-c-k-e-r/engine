@@ -37,7 +37,7 @@ bool validIndex( int index ) {
 	return 0 <= index && index <= TEXTURES;
 }
 vec4 sampleTexture( int index ) {
-	return texture(samplerTextures[index], inUv.xy / inAffine);
+	return texture(samplerTextures[index], inUv.xy);
 }
 
 void main() {
@@ -80,8 +80,8 @@ void main() {
 		}
 	}
 
-	if ( C.a < 0.001 ) discard;
-	C.rgb *= inColor.rgb;
+	if ( C.a < 0.5 ) discard;
+	C.rgb *= inColor.rgb * C.a;
 	
 	outAlbedoMetallic = vec4(C.rgb,M);
 	outNormalRoughness = vec4(N,R);
