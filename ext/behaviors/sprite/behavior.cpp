@@ -78,7 +78,7 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
 
-		graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		graphic.material.attachShader("./data/shaders/base.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 		graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		metadata["system"]["control"] = true;
@@ -105,30 +105,6 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 	}
 }
 void ext::HousamoSpriteBehavior::tick( uf::Object& self ) {}
-void ext::HousamoSpriteBehavior::render( uf::Object& self ){
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["system"]["loaded"].as<bool>() ) return;
-
-	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
-		auto& mesh = this->getComponent<uf::Mesh>();
-		auto& scene = uf::scene::getCurrentScene();
-		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& transform = this->getComponent<pod::Transform<>>();
-		auto& camera = scene.getController().getComponent<uf::Camera>();		
-		if ( !graphic.initialized ) return;
-		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
-		uniforms.matrices.model = uf::transform::model( transform );
-		for ( std::size_t i = 0; i < 2; ++i ) {
-			uniforms.matrices.view[i] = camera.getView( i );
-			uniforms.matrices.projection[i] = camera.getProjection( i );
-		}
-	
-		uniforms.color[0] = metadata["color"][0].as<float>();
-		uniforms.color[1] = metadata["color"][1].as<float>();
-		uniforms.color[2] = metadata["color"][2].as<float>();
-		uniforms.color[3] = metadata["color"][3].as<float>();
-		graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
-	};
-}
+void ext::HousamoSpriteBehavior::render( uf::Object& self ){}
 void ext::HousamoSpriteBehavior::destroy( uf::Object& self ){}
 #undef this

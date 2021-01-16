@@ -1,18 +1,15 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
 
-layout (constant_id = 0) const uint LIGHTS = 32;
+layout (constant_id = 0) const uint LIGHTS = 256;
 
 layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedoMetallic;
 layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormalRoughness;
 layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerDepth;
+
 layout (binding = 5) uniform sampler3D samplerNoise;
 layout (binding = 6) uniform sampler2D samplerShadows[LIGHTS];
-/*
-layout (std140, binding = 7) buffer Palette {
-	vec4 palette[];
-};
-*/
+
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
@@ -48,11 +45,15 @@ vec2 poissonDisk[16] = vec2[](
 struct Light {
 	vec3 position;
 	float radius;
+	
 	vec3 color;
 	float power;
+	
 	int type;
 	float depthBias;
-	vec2 padding;
+	float padding1;
+	float padding2;
+
 	mat4 view;
 	mat4 projection;
 };
@@ -68,9 +69,20 @@ struct Space {
 } position, normal, view;
 
 struct Fog {
-	vec4 color;
+	vec3 color;
+	float stepScale;
+
+	vec3 offset;
+	float densityScale;
+
+	float densityThreshold;
+	float densityMultiplier;
+	float absorbtion;
+	float padding1;
+
 	vec2 range;
-	vec2 padding;
+	float padding2;
+	float padding3;
 };
 
 struct Mode {
@@ -89,87 +101,28 @@ layout (binding = 0) uniform UBO {
 	Light lights[LIGHTS];
 } ubo;
 
-vec3 boundsMin = vec3(1,1,1);
-vec3 boundsMax = vec3(10,10,10);
-int numSteps = 8;
-int numStepsLight = 8;
-float lightAbsorptionThroughFog = 0.85;
-float lightAbsorptionTowardSun = 0.94;
-float darknessThreshold = 0.07;
-float phaseVal = 0.74;
-
-
-vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 rayDir ) {
-	vec3 t0 = (boundsMin - rayOrigin) / rayDir;
-	vec3 t1 = (boundsMax - rayOrigin) / rayDir;
-	vec3 tmin = min(t0, t1);
-	vec3 tmax = max(t0, t1);
-	float dstA = max( max(tmin.x, tmin.y), tmin.z );
-	float dstB = min( tmax.x, min(tmax.y, tmax.z) );
-	float dstToBox = max(0, dstA);
-	float dstInsideBox = max(0, dstB - dstToBox);
-	return vec2(dstToBox, dstInsideBox);
-}
-
-float sampleDensity( vec3 position ) {
-	float densityThreshold = 0.5;
-	float densityMultiplier = 5;
-	float scale = 50;
-	vec3 offset = vec3(ubo.mode.parameters.w);
-
-	vec3 uvw = position * scale * 0.001 + offset * 0.01;
-	return max(0, texture(samplerNoise, uvw).r - densityThreshold) * densityMultiplier;
-}
-
-float lightMarch( Light light, vec3 position ) {
-	vec3 dirToLight = light.position.xyz - position;
-	float dstInsideBox = rayBoxDst(boundsMin, boundsMax, position, 1 / dirToLight).y;
-
-	float stepSize = dstInsideBox / numStepsLight;
-	float totalDensity = 0;
-
-	for ( int step = 0; step < numStepsLight; ++step ) {
-		position += dirToLight * stepSize;
-		totalDensity += max(0, sampleDensity(position) * stepSize);
-	}
-	float transmittance = exp(-totalDensity * lightAbsorptionTowardSun);
-	return darknessThreshold + transmittance * ( 1 - darknessThreshold );
-}
-
-void fog( inout vec3 i, float scale ) {
-	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
-
-	vec3 color = ubo.fog.color.rgb;
-	float inner = ubo.fog.range.x;
-	float outer = ubo.fog.range.y * scale;
-	float distance = length(-position.eye);
-	float factor = (distance - inner) / (outer - inner);
-	factor = clamp( factor, 0.0, 1.0 );
-
-	i = mix(i.rgb, color, factor);
-}
-
-void phong( Light light, vec4 albedoMetallic, inout vec3 i ) {
+void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
 	vec3 Ls = vec3(1.0, 1.0, 1.0); 		// light specular
 	vec3 Ld = light.color; 				// light color
 	vec3 La = vec3(1.0, 1.0, 1.0);
 
-	vec3 Ks = vec3(albedoMetallic.a); 	// material specular
-	vec3 Kd = albedoMetallic.rgb;		// material diffuse
+	vec3 Ks = vec3(albedoSpecular.a); 	// material specular
+	vec3 Kd = albedoSpecular.rgb;		// material diffuse
 	vec3 Ka = vec3(1.0, 1.0, 1.0); 
 
 	float Kexp = ubo.kexp;
 
-	vec3 L = light.position.xyz - position.eye;
+	vec3 V = position.eye;
+	vec3 N = normal.eye;
+	vec3 L = light.position.xyz - V;
 	float dist = length(L);
-	
-	if ( light.radius > 0.001 && light.radius < dist ) return;
+//	if ( light.radius > 0.001 && light.radius < dist ) return;
 
 	vec3 D = normalize(L);
-	float d_dot = max(dot( D, normal.eye ), 0.0);
+	float d_dot = max(dot( D, N ), 0.0);
 
-	vec3 R = reflect( -D, normal.eye );
-	vec3 S = normalize(-position.eye);
+	vec3 R = reflect( -D, N );
+	vec3 S = normalize(-V);
 	float s_factor = pow( max(dot( R, S ), 0.0), Kexp );
 	if ( Kexp < 0.0001 ) s_factor = 0;
 	
@@ -217,48 +170,6 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-void pbr( Light light, vec3 albedo, float metallic, float roughness, inout vec3 i ) {
-	vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic); 
-
-	vec3 N = normalize(normal.eye);
-	vec3 L = light.position.xyz - position.eye;
-	float dist = length(L);
-//	if ( light.radius > 0.001 && light.radius < dist ) return;
-
-	vec3 D = normalize(L);
-	vec3 V = normalize(-position.eye);
-	vec3 H = normalize(V + D);
-
-	float NdotD = max(dot(N, D), 0.0);
-	float NdotV = max(dot(N, V), 0.0);
-
-	vec3 radiance = light.color.rgb * light.power / (dist * dist);
-/*
-	if ( light.radius > 0.0001 ) {
-		radiance *= clamp( light.radius / (pow(dist, 2.0) + 1.0), 0.0, 1.0 );
-	} else if ( false ) {
-		radiance /= dist * dist;
-	}
-*/
-
-	// cook-torrance brdf
-	float NDF = DistributionGGX(N, H, roughness);        
-	float G   = GeometrySmith(N, V, D, roughness);      
-	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
-
-	vec3 kS = F;
-	vec3 kD = vec3(1.0) - kS;
-	kD *= 1.0 - metallic;	  
-
-	vec3 numerator    = NDF * G * F;
-	float denominator = 4.0 * NdotV * NdotD;
-	vec3 specular     = numerator / max(denominator, 0.001);  
-
-	// add to outgoing radiance Lo
-	i += (kD * albedo / PI + specular) * radiance * NdotD;
-}
-
 float random(vec3 seed, int i){
 	vec4 seed4 = vec4(seed,i);
 	float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
@@ -276,12 +187,12 @@ float shadowFactor( Light light, uint shadowMap ) {
 	float factor = 1.0;
 
 	// spot light
-	if ( light.type == 2 || light.type == 3 ) {
+	if ( light.type == -2 || light.type == -3 ) {
 		float dist = length( positionClip.xy );
 		if ( dist > 0.5 ) return 0.0;
 		
 		// spot light with attenuation
-		if ( light.type == 3 ) {
+		if ( light.type == -3 ) {
 			factor = 1.0 - (pow(dist * 2,2.0));
 		}
 	}
@@ -338,9 +249,9 @@ float hueDistance(float h1, float h2) {
 	float diff = abs((h1 - h2));
 	return min(abs((1.0 - diff)), diff);
 }
-const float lightnessSteps = 16.0;
+const float lightnessSteps = 4.0;
 float lightnessStep(float l) {
-	return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
+    return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
 }
 const int indexMatrix16x16[256] = int[](0,192, 48,240, 12,204, 60,252,  3,195, 51,243, 15,207, 63,255,
 									 128, 64,176,112,140, 76,188,124,131, 67,179,115,143, 79,191,127,
@@ -412,13 +323,12 @@ float dither(float color) {
 	float closestColor = (color < 0.5) ? 0 : 1;
 	float secondClosestColor = 1 - closestColor;
 	float d = 1; // -0.5 - fract(ubo.mode.parameters.w / 8.0);
-	float scale = 1;
 	if ( ubo.mode.scalar == 16 ) {
-	 	d = indexValue16x16(scale);
+	 	d = indexValue16x16(1);
 	} else if ( ubo.mode.scalar == 8 ) {
-	 	d = indexValue8x8(scale);
+	 	d = indexValue8x8(1);
 	} else if ( ubo.mode.scalar == 4 ) {
-	 	d = indexValue4x4(scale);
+	 	d = indexValue4x4(1);
 	}
 	float distance = abs(closestColor - color);
 	return (distance < d) ? closestColor : secondClosestColor;
@@ -441,45 +351,26 @@ void dither1(inout vec3 color) {
 	} else if ( ubo.mode.scalar == 4 ) {
 	 	d = indexValue4x4(scale);
 	}
-	float hueDiff = hueDistance(hsl.x, cs[0].x) / hueDistance(cs[1].x, cs[0].x);
-	float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
-	float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
-	float lightnessDiff = (hsl.z - l1) / (l2 - l1);
+    float hueDiff = hueDistance(hsl.x, cs[0].x) / hueDistance(cs[1].x, cs[0].x);
+    float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
+    float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
+    float lightnessDiff = (hsl.z - l1) / (l2 - l1);
 
-	vec3 resultColor = (hueDiff < d) ? cs[0] : cs[1];
-	resultColor.z = (lightnessDiff < d) ? l1 : l2;
-	color = hslToRgb(resultColor);
+    vec3 resultColor = (hueDiff < d) ? cs[0] : cs[1];
+    resultColor.z = (lightnessDiff < d) ? l1 : l2;
+    color = hslToRgb(resultColor);
 }
-void dither2(inout vec3 color) { 
-	vec3 hsl = rgbToHsl(color);
-	float d = 1;
-	float scale = 1;
-	if ( ubo.mode.scalar == 16 ) {
-	 	d = indexValue16x16(scale);
-	} else if ( ubo.mode.scalar == 8 ) {
-	 	d = indexValue8x8(scale);
-	} else if ( ubo.mode.scalar == 4 ) {
-	 	d = indexValue4x4(scale);
-	}
-	hsl.z *= d;
-/*
-	float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
-	float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
-	float lightnessDiff = (hsl.z - l1) / (l2 - l1);
-	hsl.z = (lightnessDiff < d) ? l1 : l2;
-*/
-	color = hslToRgb(hsl);
+vec3 dither2() {
+	vec3 vDither = dot( vec2( 171.0, 231.0 ), inUv.xy + ubo.mode.parameters.w ).xxx;
+	vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) ) - vec3( 0.5, 0.5, 0.5 );
+	return ( vDither.rgb / 255.0 ) * 0.375;
 }
-vec3 dither3() {
-    vec3 vDither = dot( vec2( 171.0, 231.0 ), inUv.xy + ubo.mode.parameters.w ).xxx;
-    vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) ) - vec3( 0.5, 0.5, 0.5 );
-    return ( vDither.rgb / 255.0 ) * 0.375;
-}
+
 float rand2(vec2 co){
-	return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
 }
 float rand3(vec3 co){
-	return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453);
+    return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453);
 }
 void whitenoise(inout vec3 color) {
 	float flicker = ubo.mode.parameters.x;
@@ -493,10 +384,123 @@ void whitenoise(inout vec3 color) {
 	color = mix( color, vec3(whiteNoise), blend );
 }
 
+void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightPositionWorld, inout vec3 i ) {
+	vec3 F0 = vec3(0.04); 
+    F0 = mix(F0, albedo, metallic); 
+
+	vec3 N = normalize(normal.eye);
+	vec3 L = light.position.xyz - position.eye;
+	float dist = length(L);
+//	if ( light.radius > 0.001 && light.radius < dist ) return;
+
+	vec3 D = normalize(L);
+	vec3 V = normalize(-position.eye);
+	vec3 H = normalize(V + D);
+
+	float NdotD = max(dot(N, D), 0.0);
+	float NdotV = max(dot(N, V), 0.0);
+
+	vec3 radiance = light.color.rgb * light.power / (dist * dist);
+/*
+	if ( light.radius > 0.0001 ) {
+		radiance *= clamp( light.radius / (pow(dist, 2.0) + 1.0), 0.0, 1.0 );
+	} else if ( false ) {
+		radiance /= dist * dist;
+	}
+*/
+
+	// cook-torrance brdf
+	float NDF = DistributionGGX(N, H, roughness);        
+	float G   = GeometrySmith(N, V, D, roughness);      
+	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
+
+	vec3 kS = F;
+	vec3 kD = vec3(1.0) - kS;
+	kD *= 1.0 - metallic;	  
+
+	vec3 numerator    = NDF * G * F;
+	float denominator = 4.0 * NdotV * NdotD;
+	vec3 specular     = numerator / max(denominator, 0.001);  
+
+	// add to outgoing radiance Lo
+	i += (kD * albedo / PI + specular) * radiance * NdotD;
+}
+
+vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 rayDir ) {
+	vec3 t0 = (boundsMin - rayOrigin) / rayDir;
+	vec3 t1 = (boundsMax - rayOrigin) / rayDir;
+	vec3 tmin = min(t0, t1);
+	vec3 tmax = max(t0, t1);
+	float dstA = max( max(tmin.x, tmin.y), tmin.z );
+	float dstB = min( tmax.x, min(tmax.y, tmax.z) );
+	float dstToBox = max(0, dstA);
+	float dstInsideBox = max(0, dstB - dstToBox);
+	return vec2(dstToBox, dstInsideBox);
+}
+
+float sampleDensity( vec3 position ) {
+	vec3 uvw = position * ubo.fog.densityScale * 0.001 + ubo.fog.offset * 0.01;
+	return max(0, texture(samplerNoise, uvw).r - ubo.fog.densityThreshold) * ubo.fog.densityMultiplier;
+}
+
+void fog( inout vec3 i, float scale ) {
+	if ( ubo.fog.stepScale <= 0 ) return;
+	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
+
+	mat4 iProjView = inverse( ubo.matrices.projection[inPushConstantPass] * ubo.matrices.view[inPushConstantPass] );
+	vec4 near4 = iProjView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+	vec4 far4 = iProjView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+	vec3 near3 = near4.xyz / near4.w;
+	vec3 far3 = far4.xyz / far4.w;
+
+	vec3 rayOrigin = near3;
+	vec3 rayDir = normalize( far3 - near3 );
+
+	float range = ubo.fog.range.y;
+	vec3 boundsMin = vec3(-range,-range,-range) + rayOrigin;
+	vec3 boundsMax = vec3(range,range,range) + rayOrigin;
+	int numSteps = int(length(boundsMax - boundsMin) * ubo.fog.stepScale );
+
+	vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayOrigin, rayDir );
+	float dstToBox = rayBoxInfo.x;
+	float dstInsideBox = rayBoxInfo.y;
+	float depth = position.eye.z;
+
+	float lightEnergy = 0;
+	// march
+	if ( 0 <= dstInsideBox && dstToBox <= depth ) {
+		float dstTravelled = 0;
+		float stepSize = dstInsideBox / numSteps;
+		float dstLimit = min( depth - dstToBox, dstInsideBox );
+		float totalDensity = 0;
+		float transmittance = 1;
+		while ( dstTravelled < dstLimit ) {
+			vec3 rayPos = rayOrigin + rayDir * (dstToBox + dstTravelled);
+			float density = sampleDensity(rayPos);
+			if ( density > 0 ) {
+				transmittance *= exp(-density * stepSize * ubo.fog.absorbtion);
+				if ( transmittance < 0.01 ) break;
+			}
+			dstTravelled += stepSize;
+		}
+		i.rgb = mix(ubo.fog.color.rgb, i.rgb, transmittance);
+	}
+
+	vec3 color = ubo.fog.color.rgb;
+	float inner = ubo.fog.range.x;
+	float outer = ubo.fog.range.y * scale;
+	float distance = length(-position.eye);
+	float factor = (distance - inner) / (outer - inner);
+	factor = clamp( factor, 0.0, 1.0 );
+
+	i.rgb = mix(i.rgb, color, factor);
+}
+
 void main() {
 	vec4 albedoMetallic = subpassLoad(samplerAlbedoMetallic);
 	vec4 normalRoughness = subpassLoad(samplerNormalRoughness);
-
+//	vec4 positionAO = subpassLoad(samplerPositionAO);
+	
 	normal.eye = normalRoughness.rgb;
 	{
 		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
@@ -512,27 +516,26 @@ void main() {
 		position.world = positionWorld.xyz;
 	}
 
-	float ao = 1;
-	vec3 fragColor = albedoMetallic.rgb * ubo.ambient.rgb * ao;
-	float litFactor = 1.0;
 	bool usePbr = true;
 	bool gammaCorrect = false;
-	for ( uint i = 0, shadowMap = 0; i < LIGHTS; ++i ) {
+	float litFactor = 1.0;
+	float ao = 1; // positionAO.a;
+	vec3 fragColor = albedoMetallic.rgb * ubo.ambient.rgb * ao;
+	for ( uint i = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
 		if ( light.power <= 0.001 ) continue;
-		
+		vec3 lightPositionWorld = light.position.xyz;
 		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 		if ( light.type < 0 ) {
-			light.type = -light.type;
-			float shadowFactor = shadowFactor( light, shadowMap++ );
-			if ( shadowFactor <= 0.0001 ) continue;
-			light.power *= shadowFactor;
+			float factor = shadowFactor( light, i );
+			if ( factor <= 0.0001 ) continue;
+			light.power *= factor;
 			litFactor += light.power;
 		}
-		if ( usePbr ) 
-			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, fragColor );
-		else
+		if ( usePbr ) {
+			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, lightPositionWorld, fragColor );
+		} else
 			phong( light, albedoMetallic, fragColor );
 	}
 
@@ -541,79 +544,16 @@ void main() {
  		fragColor = pow(fragColor, vec3(1.0/2.2));  
  	}
 
- 	// nasty little ray tracing
- 	{
- 		mat4 iProjView = inverse( ubo.matrices.projection[inPushConstantPass] * ubo.matrices.view[inPushConstantPass] );
- 		vec4 near4 = iProjView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-		vec4 far4 = iProjView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
-		vec3 near3 = near4.xyz / near4.w;
-		vec3 far3 = far4.xyz / far4.w;
-
-		vec3 rayOrigin = near3;
-		vec3 rayDir = normalize( far3 - near3 );
-
-		vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayOrigin, rayDir );
-		float dstToBox = rayBoxInfo.x;
-		float dstInsideBox = rayBoxInfo.y;
-		float lightEnergy = 0;
-	
-		float depth = position.eye.z;
-
-		// march
-		if ( 0 < dstInsideBox && dstToBox < depth ) {
-			float dstTravelled = 0;
-			float stepSize = dstInsideBox / numSteps;
-			float dstLimit = min( depth - dstToBox, dstInsideBox );
-			float totalDensity = 0;
-			float transmittance = 1;
-			while ( dstTravelled < dstLimit ) {
-				vec3 rayPos = rayOrigin + rayDir * (dstToBox + dstTravelled);
-				float density = sampleDensity(rayPos);
-				if ( density > 0 ) {
-					transmittance *= exp(-density * stepSize * lightAbsorptionThroughFog);
-					if ( transmittance < 0.01 ) break;
-				}
-				dstTravelled += stepSize;
-			}
-			fragColor.rgb *= transmittance;
-		/*
-			while ( dstTravelled < dstLimit ) {
-				vec3 rayPos = rayOrigin + rayDir * (dstToBox + dstTravelled);
-				float density = sampleDensity(rayPos);
-				if ( density > 0 ) {
-					float lightTransmittance = 0;
-					for ( uint i = 0, shadowMap = 0; i < LIGHTS; ++i ) {
-						Light light = ubo.lights[i];
-						
-						if ( light.power <= 0.001 ) continue;
-						vec3 lightPositionWorld = light.position.xyz;
-						light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-					 	lightTransmittance += lightMarch(light, rayPos);
-					}
-					lightEnergy += density * stepSize * transmittance * lightTransmittance * phaseVal;
-					transmittance *= exp(-density * stepSize * lightAbsorptionThroughFog);
-					if ( transmittance < 0.01 ) break;
-
-				}
-				dstTravelled += stepSize;
-			}
-			vec3 fogColor = lightEnergy * ubo.fog.color.rgb;
-			fragColor.rgb *= transmittance + fogColor;
-		*/
-		}
- 	}
-/*
 	fog(fragColor, litFactor);
 
+/*
 	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-	//	dither2(fragColor);
-        fragColor += dither3();
+		//dither1(fragColor);
+		fragColor += dither2();
 	}
-	
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);
 	}
 */
-
 	outFragColor = vec4(fragColor,1);
 }

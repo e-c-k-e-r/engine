@@ -314,9 +314,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			struct Light {
 				alignas(16) pod::Vector4f position;
 				alignas(16) pod::Vector4f color;
-				alignas(4) int32_t type;
-				alignas(4) float depthBias;
-				alignas(8) pod::Vector2f padding;
+
+				alignas(4) int32_t type = 0;
+				alignas(4) float depthBias = 0;
+				alignas(4) float padding1 = 0;
+				alignas(4) float padding2 = 0;
+				
 				alignas(16) pod::Matrix4f view;
 				alignas(16) pod::Matrix4f projection;
 			} lights;
@@ -337,41 +340,44 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		this->process([&]( uf::Entity* entity ) { if ( !entity ) return;
 			auto& metadata = entity->getComponent<uf::Serializer>();
 			if ( entity == &controller ) return;
+			if ( entity == this ) return;
 			if ( entity->getName() != "Light" && !ext::json::isObject( metadata["light"] ) ) return;
+			//
+			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+				metadata["system"]["renderer"]["rendered"] = false;
+				if ( metadata["system"]["renderer"]["mode"].as<std::string>() == "in-range" ) {
+					renderMode.execute = false;
+				}
+			}
+			// is a component of an shadowing point light
+			if ( metadata["light"]["bound"].as<bool>() ) return;
 			LightInfo& info = entities.emplace_back();
 			auto& transform = entity->getComponent<pod::Transform<>>();
 			auto flatten = uf::transform::flatten( transform );
 			info.entity = entity;
 			info.position = flatten.position;
 			info.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) );
-			if ( metadata["light"]["shadows"].as<bool>() && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				metadata["system"]["renderer"]["rendered"] = false;
-				if ( metadata["system"]["renderer"]["mode"].as<std::string>() == "in-range" ) {
-					renderMode.execute = false;
-				}
-				info.shadows = true;
-			}
+			info.shadows = metadata["light"]["shadows"].as<bool>();
 		});
 		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
 			return l.distance < r.distance;
 		});
+	
 		int shadowThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
-		if ( shadowThreshold > 0 ) for ( size_t i = 0; i < entities.size(); ++i ) {
-			auto& info = entities[i];
-			if ( !info.shadows ) continue;
-			if ( --shadowThreshold >= 0 ) continue;
-			// revert omni-shadow light to a simple point-light if we're out of threshold
-			auto& metadata = info.entity->getComponent<uf::Serializer>();
-			info.shadows = false;
-			bool remove = metadata["light"]["bound"].as<bool>();
-
-			auto& parent = info.entity->getParent().as<uf::Object>();
-			auto& parentMetadata = parent.getComponent<uf::Serializer>();
-			if ( parent.getChildren().size() == 5 ) remove = true;
-			if ( parentMetadata["light"]["shadows"].as<bool>() ) remove = true;
-			if ( remove ) entities.erase(entities.begin() + i);
+		if ( shadowThreshold <= 0 ) shadowThreshold = std::numeric_limits<int>::max();
+		{
+			std::vector<LightInfo> scratch;
+			scratch.reserve(entities.size());
+			for ( size_t i = 0; i < entities.size(); ++i ) {
+				auto& info = entities[i];
+				auto& metadata = info.entity->getComponent<uf::Serializer>();
+				if ( info.shadows && --shadowThreshold <= 0 ) info.shadows = false;
+				scratch.emplace_back(info);
+			}
+			entities = scratch;
 		}
+	
 		if ( controllerMetadata["light"]["should"].as<bool>() ) {
 			auto& info = entities.emplace_back();
 			info.entity = &controller;
@@ -425,6 +431,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			for ( size_t i = 0; i < specializationConstants.maxLights; ++i ) {
 				UniformDescriptor::Light& light = lights[i];
+				light = {};
 				light.position = { 0, 0, 0, 0 };
 				light.color = { 0, 0, 0, 0 };
 				light.type = 0;
@@ -434,11 +441,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			std::vector<VkImage> previousTextures;
 			for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
 			graphic.material.textures.clear();
+			// add noise texture
 			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture2D>());
 
 			int updateThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
-			for ( size_t i = 0; i < specializationConstants.maxLights && i < entities.size(); ++i ) {
-				UniformDescriptor::Light& light = lights[i];
+			std::vector<UniformDescriptor::Light> lightPool;
+			lightPool.reserve( entities.size() );
+
+			for ( size_t i = 0; i < entities.size() && lightPool.size() < specializationConstants.maxLights; ++i ) {
 				auto& info = entities[i];
 				uf::Entity* entity = info.entity;
 
@@ -447,11 +457,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				auto& camera = entity->getComponent<uf::Camera>();
 				metadata["system"]["renderer"]["rendered"] = true;
 
+				UniformDescriptor::Light light;
 				light.position = info.position;
-			//	light.position.w = metadata["light"]["radius"][1].as<float>();
-
-				light.view = camera.getView();
-				light.projection = camera.getProjection();
 
 				light.color = uf::vector::decode( metadata["light"]["color"], light.color );
 				light.color.w = metadata["light"]["power"].as<float>();
@@ -463,34 +470,49 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					if ( lightType == "point" ) light.type = 1;
 					else if ( lightType == "spot" ) light.type = 2;
 				}
-				light.depthBias = metadata["light"]["bias"].as<float>();
+				light.depthBias = metadata["light"]["bias"]["shader"].as<float>();
 
 				if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-					light.type = -light.type;
-
 					auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
 					if ( metadata["system"]["renderer"]["mode"].as<std::string>() == "in-range" && --updateThreshold > 0 ) {
 						renderMode.execute = true;
 					}
-
+					light.type = -abs(light.type);
+					size_t shadows = 0;
 					for ( auto& attachment : renderMode.renderTarget.attachments ) {
 						if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 						if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+
 						auto& texture = graphic.material.textures.emplace_back();
 						texture.aliasAttachment(attachment);
-						break;
+						++shadows;
 					}
+					for ( size_t j = 0; j < shadows; ++j ) {
+						light.view = camera.getView(j);
+						light.projection = camera.getProjection(j);
+						lightPool.push_back(light);
+					}
+				} else {
+					lightPool.emplace_back(light);
+					auto& texture = graphic.material.textures.emplace_back();
+					texture.aliasTexture(uf::renderer::Texture2D::empty);
 				}
 			}
-			size_t i = 0;
-			bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();
-			while ( !shouldUpdate && i < graphic.material.textures.size() ) {
-				auto& texture = graphic.material.textures[i];
-				auto& previousTexture = previousTextures[i];
-				if ( texture.image != previousTexture ) shouldUpdate = true;
-				++i;
+
+			for ( size_t i = 0; i < specializationConstants.maxLights && i < lightPool.size(); ++i )
+				lights[i] = lightPool[i];
+
+			{
+				size_t i = 0;
+				bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();
+				while ( !shouldUpdate && i < graphic.material.textures.size() ) {
+					auto& texture = graphic.material.textures[i];
+					auto& previousTexture = previousTextures[i];
+					if ( texture.image != previousTexture ) shouldUpdate = true;
+					++i;
+				}
+				if ( shouldUpdate ) graphic.updatePipelines();
 			}
-			if ( shouldUpdate ) graphic.updatePipelines();
 			shader.updateUniform( "UBO", uniform );	
 		}
 	}

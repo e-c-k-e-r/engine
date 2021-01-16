@@ -1,5 +1,6 @@
 #version 450
 
+layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec3 inNormal;
@@ -11,8 +12,8 @@ layout( push_constant ) uniform PushBlock {
 
 struct Matrices {
 	mat4 model;
-	mat4 view[2];
-	mat4 projection[2];
+	mat4 view[PASSES];
+	mat4 projection[PASSES];
 };
 
 layout (binding = 0) uniform UBO {

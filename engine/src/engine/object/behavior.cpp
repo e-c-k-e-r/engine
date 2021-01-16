@@ -166,9 +166,8 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	{
 		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 		float curTime = uf::Object::timer.elapsed().asDouble();
-		uf::Serializer newQueue = ext::json::array(); //Json::Value(Json::arrayValue);
+		uf::Serializer newQueue = ext::json::array();
 		if ( !ext::json::isNull( metadata["system"]["hooks"]["queue"] ) ) {
-		//	std::cout << "QUEUE: " << metadata["system"]["hooks"]["queue"] << std::endl;
 			ext::json::forEach(metadata["system"]["hooks"]["queue"], [&](ext::json::Value& member){
 				if ( !ext::json::isObject(member) ) return;
 				uf::Serializer payload = member["payload"];
@@ -181,50 +180,9 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 				}
 			});
 		}
-	/*
-		for ( auto& member : metadata["system"]["hooks"]["queue"] ) {
-			uf::Serializer payload = (ext::json::Value&) member["payload"];
-			std::string name = member["name"].as<std::string>();
-			float timeout = member["timeout"].as<float>();
-			if ( timeout < curTime ) {
-				this->callHook( name, payload );
-			} else {
-				newQueue.emplace_back(member);
-			}
-		}
-	*/
 		if ( ext::json::isObject( metadata ) ) metadata["system"]["hooks"]["queue"] = newQueue;
 	}
 }
-void uf::ObjectBehavior::render( uf::Object& self ) {
-	auto& metadata = this->getComponent<uf::Serializer>();
-/*
-	if ( ext::json::isNull( metadata["system"]["type"] ) || metadata["system"]["defaults"]["render"].as<bool>() ) {
-		if ( this->hasComponent<uf::Graphic>() ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& graphic = this->getComponent<uf::Graphic>();
-			auto& transform = this->getComponent<pod::Transform<>>();
-			auto& controller = scene.getController();
-			auto& camera = controller.getComponent<uf::Camera>();		
-			
-			if ( !graphic.initialized ) return;
-
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
-			uniforms.matrices.model = uf::transform::model( transform );
-			for ( std::size_t i = 0; i < 2; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-
-			uniforms.color[0] = 1;
-			uniforms.color[1] = 1;
-			uniforms.color[2] = 1;
-			uniforms.color[3] = 1;
-
-			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
-		};
-	}
-*/
-}
+void uf::ObjectBehavior::render( uf::Object& self ) {}
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Object)

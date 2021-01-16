@@ -352,25 +352,8 @@ void ext::Gui::load( const uf::Image& _image ) {
 		if ( ext::json::isNull(metadata["flip uv"]) ) metadata["flip uv"] = false;
 		if ( ext::json::isNull(metadata["front face"]) ) metadata["front face"] = "cw";
 	}
-
-	if ( metadata["front face"].is<std::string>() ) {
-		if ( metadata["front face"].as<std::string>() == "ccw" ) {
-			graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		} else if ( metadata["front face"].as<std::string>() == "cw" ) {
-			graphic.descriptor.frontFace = VK_FRONT_FACE_CLOCKWISE;
-		}
-	}
-	if ( metadata["cull mode"].is<std::string>() ) {
-		if ( metadata["cull mode"].as<std::string>() == "back" ) {
-			graphic.descriptor.cullMode = VK_CULL_MODE_BACK_BIT;
-		} else if ( metadata["cull mode"].as<std::string>() == "front" ) {
-			graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_BIT;
-		} else if ( metadata["cull mode"].as<std::string>() == "none" ) {
-			graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
-		} else if ( metadata["cull mode"].as<std::string>() == "both" ) {
-			graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_AND_BACK;
-		}
-	}
+	graphic.descriptor.parse( metadata );
+	
 	if ( metadata["flip uv"].as<bool>() ) {
 		for ( auto& v : mesh.vertices ) {
 			v.uv.y = 1 - v.uv.y;
@@ -434,6 +417,15 @@ void ext::Gui::load( const uf::Image& _image ) {
 		{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
 		{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
 	});
+
+	{
+		auto& shader = graphic.material.getShader("vertex");
+		struct SpecializationConstant {
+			uint32_t passes = 6;
+		};
+		auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+		specializationConstants.passes = uf::renderer::settings::maxViews;
+	}
 }
 
 UF_OBJECT_REGISTER_BEGIN(ext::Gui)
@@ -867,7 +859,38 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 	}
 */
 }
-
+template<size_t N = ext::vulkan::settings::maxViews>
+struct UniformDescriptor {
+	struct {
+		alignas(16) pod::Matrix4f model[N];
+	} matrices;
+	struct {
+		alignas(16) pod::Vector4f offset;
+		alignas(16) pod::Vector4f color;
+		alignas(4) int32_t mode = 0;
+		alignas(4) float depth = 0.0f;
+		alignas(8) pod::Vector2f padding;
+	} gui;
+};
+template<size_t N = ext::vulkan::settings::maxViews>
+struct GlyphUniformDescriptor {
+	struct {
+		alignas(16) pod::Matrix4f model[N];
+	} matrices;
+	struct {
+		alignas(16) pod::Vector4f offset;
+		alignas(16) pod::Vector4f color;
+		alignas(4) int32_t mode = 0;
+		alignas(4) float depth = 0.0f;
+		alignas(4) int32_t sdf = false;
+		alignas(4) int32_t shadowbox = false;
+		alignas(16) pod::Vector4f stroke;
+		alignas(4) float weight;
+		alignas(4) int32_t spread;
+		alignas(4) float scale;
+		alignas(4) float padding;
+	} gui;
+};
 void ext::GuiBehavior::render( uf::Object& self ){
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
@@ -878,36 +901,6 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 
-		struct UniformDescriptor {
-			struct {
-				alignas(16) pod::Matrix4f model[2];
-			} matrices;
-			struct {
-				alignas(16) pod::Vector4f offset;
-				alignas(16) pod::Vector4f color;
-				alignas(4) int32_t mode = 0;
-				alignas(4) float depth = 0.0f;
-				alignas(8) pod::Vector2f padding;
-			} gui;
-		};
-		struct GlyphUniformDescriptor {
-			struct {
-				alignas(16) pod::Matrix4f model[2];
-			} matrices;
-			struct {
-				alignas(16) pod::Vector4f offset;
-				alignas(16) pod::Vector4f color;
-				alignas(4) int32_t mode = 0;
-				alignas(4) float depth = 0.0f;
-				alignas(4) int32_t sdf = false;
-				alignas(4) int32_t shadowbox = false;
-				alignas(16) pod::Vector4f stroke;
-				alignas(4) float weight;
-				alignas(4) int32_t spread;
-				alignas(4) float scale;
-				alignas(4) float padding;
-			} gui;
-		};
 		auto& shader = graphic.material.shaders.front();
 		uf::renderer::Buffer* bufferPointer = NULL;
 		for ( auto& buffer : shader.buffers ) {
@@ -922,8 +915,8 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		size_t bufferLength = buffer.size;
 
 		auto& descriptor = shader.uniforms.front();
-		auto& uniforms = descriptor.get<UniformDescriptor>();
-	//	bool isGlyph = bufferLength > sizeof(UniformDescriptor); //metadata["text settings"]["string"].is<std::string>();
+		auto& uniforms = descriptor.get<UniformDescriptor<>>();
+	//	bool isGlyph = bufferLength > sizeof(UniformDescriptor<>); //metadata["text settings"]["string"].is<std::string>();
 		bool isGlyph = metadata["text settings"]["string"].is<std::string>();
 		std::vector<std::string> keys = {
 			"uv",
@@ -1000,7 +993,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 
 		// set glyph-based uniforms
 		if ( isGlyph ) {
-			auto& uniforms = descriptor.get<GlyphUniformDescriptor>();
+			auto& uniforms = descriptor.get<GlyphUniformDescriptor<>>();
 			uniforms.gui.sdf = metadata["gui"]["sdf"].as<bool>();
 			uniforms.gui.shadowbox = metadata["gui"]["shadowbox"].as<bool>();
 			if ( ext::json::isArray( metadata["gui"]["stroke"] ) ) {

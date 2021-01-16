@@ -1,7 +1,7 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
 
-layout (constant_id = 0) const uint LIGHTS = 64;
+layout (constant_id = 0) const uint LIGHTS = 256;
 
 layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedoMetallic;
 layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormalRoughness;
@@ -9,11 +9,7 @@ layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerPos
 
 layout (binding = 5) uniform sampler3D samplerNoise;
 layout (binding = 6) uniform sampler2D samplerShadows[LIGHTS];
-/*
-layout (std140, binding = 7) buffer Palette {
-	vec4 palette[];
-};
-*/
+
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
@@ -49,11 +45,15 @@ vec2 poissonDisk[16] = vec2[](
 struct Light {
 	vec3 position;
 	float radius;
+	
 	vec3 color;
 	float power;
+	
 	int type;
 	float depthBias;
-	vec2 padding;
+	float padding1;
+	float padding2;
+
 	mat4 view;
 	mat4 projection;
 };
@@ -177,7 +177,10 @@ float random(vec3 seed, int i){
 }
 
 float shadowFactor( Light light, uint shadowMap ) {
-	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
+	vec3 point = position.world;
+//	point += normalize(normal.world) * light.depthBias;
+
+	vec4 positionClip = light.projection * light.view * vec4(point, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
@@ -187,24 +190,26 @@ float shadowFactor( Light light, uint shadowMap ) {
 	float factor = 1.0;
 
 	// spot light
-	if ( light.type == 2 || light.type == 3 ) {
+	if ( light.type == -2 || light.type == -3 ) {
 		float dist = length( positionClip.xy );
 		if ( dist > 0.5 ) return 0.0;
 		
 		// spot light with attenuation
-		if ( light.type == 3 ) {
+		if ( light.type == -3 ) {
 			factor = 1.0 - (pow(dist * 2,2.0));
 		}
 	}
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-	if ( !true ) {
+/*
+	if ( true ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
 	} else if ( true ) {
-        bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
-    }
+		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+	}
+*/
 
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
@@ -513,19 +518,19 @@ void main() {
 	float litFactor = 1.0;
 	float ao = 1; // positionAO.a;
 	vec3 fragColor = albedoMetallic.rgb * ubo.ambient.rgb * ao;
-	for ( uint i = 0, shadowMap = 0; i < LIGHTS; ++i ) {
+	for ( uint i = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
 		if ( light.power <= 0.001 ) continue;
 		vec3 lightPositionWorld = light.position.xyz;
 		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 		if ( light.type < 0 ) {
-			light.type = -light.type;
-			float shadowFactor = shadowFactor( light, shadowMap++ );
-			if ( shadowFactor <= 0.0001 ) continue;
-			light.power *= shadowFactor;
+			float factor = shadowFactor( light, i );
+			if ( factor <= 0.0001 ) continue;
+			light.power *= factor;
 			litFactor += light.power;
 		}
+		if ( light.power <= 0.0001 ) continue;
 		if ( usePbr ) {
 			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, lightPositionWorld, fragColor );
 		} else

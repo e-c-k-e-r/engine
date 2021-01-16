@@ -9,7 +9,7 @@ namespace ext {
 			ext::vulkan::Graphic blitter;
 
 			// RAII
-			virtual std::string getType() const;
+			virtual const std::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
 			virtual std::vector<ext::vulkan::Graphic*> getBlitters();

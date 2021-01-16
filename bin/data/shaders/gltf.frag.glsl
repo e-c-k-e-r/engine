@@ -10,6 +10,8 @@ struct Material {
 	float factorRoughness;
 	float factorOcclusion;
 	float factorMappedBlend;
+	float factorAlphaCutoff;
+	float factorPadding;
 	int indexAlbedo;
 	int indexNormal;
 	int indexEmissive;
@@ -17,7 +19,7 @@ struct Material {
 	int indexMetallicRoughness;
 	int indexMappedTarget;
 };
-layout (std140, binding = 1) buffer Materials {
+layout (std140, binding = 1) readonly buffer Materials {
 	Material materials[];
 };
 
@@ -26,22 +28,21 @@ layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec3 inNormal;
 layout (location = 3) in mat3 inTBN;
 layout (location = 6) in vec3 inPosition;
-layout (location = 7) flat in uint inId;
-layout (location = 8) in float inAffine;
+layout (location = 7) flat in ivec2 inId;
 
 layout (location = 0) out vec4 outAlbedoMetallic;
 layout (location = 1) out vec4 outNormalRoughness;
 layout (location = 2) out vec4 outPositionAO;
 
 bool validIndex( int index ) {
-	return 0 <= index && index <= TEXTURES;
+	return 0 <= index && index < TEXTURES;
 }
 vec4 sampleTexture( int index ) {
 	return texture(samplerTextures[index], inUv.xy);
 }
 
 void main() {
-	int materialId = int(inId);
+	int materialId = int(inId.y);
 	
 	vec4 C = vec4(1, 0, 1, 1);
 	vec3 N = inNormal;
@@ -62,6 +63,19 @@ void main() {
 		} else if ( validIndex( material.indexMappedTarget ) ) {
 			C = sampleTexture( material.indexMappedTarget );
 		}
+		// debug
+		if ( material.factorAlphaCutoff < 0 ) {
+			float percent = float(material.indexAlbedo) / float(TEXTURES);
+			if ( percent < 0.33 ) {
+				C.rgb = vec3( percent * 3, 0, 0 );
+			} else if ( percent < 0.66 ) {
+				C.rgb = vec3( 0, percent * 3, 0 );
+			} else {
+				C.rgb = vec3( 0, 0, percent * 3 );
+			}
+		}
+		if ( C.a < abs(material.factorAlphaCutoff) ) discard;
+
 		// sample normal
 		if ( validIndex( material.indexNormal ) ) {
 			N = inTBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
@@ -80,7 +94,6 @@ void main() {
 		}
 	}
 
-	if ( C.a < 0.5 ) discard;
 	C.rgb *= inColor.rgb * C.a;
 	
 	outAlbedoMetallic = vec4(C.rgb,M);

@@ -73,7 +73,7 @@ void ext::PortalBehavior::initialize( uf::Object& self ) {
 }
 void ext::PortalBehavior::tick( uf::Object& self ) {
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-	renderMode.target = "";
+	renderMode.setTarget("");
 	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();

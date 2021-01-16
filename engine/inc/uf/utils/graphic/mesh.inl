@@ -1,10 +1,10 @@
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::initialize( bool optimize ) {
+void uf::BaseMesh<T, U>::initialize( size_t o ) {
 	// this->destroy(false);
 	this->updateDescriptor();
 
-	if ( optimize ) {
-		this->optimize();
+	if ( o > 0 ) {
+		this->optimize(o);
 	} else {
 		this->indices.clear();
 		this->indices.reserve(vertices.size());
@@ -77,7 +77,7 @@ uf::BaseMesh<T,U> uf::BaseMesh<T,U>::simplify( float threshold ) {
 	return lod;
 }
 template<typename T, typename U>
-void uf::BaseMesh<T,U>::optimize() {
+void uf::BaseMesh<T,U>::optimize( size_t o ) {
 	// generate indices
 	auto vertices = std::move( this->vertices );
 	U indices = vertices.size();
@@ -87,16 +87,21 @@ void uf::BaseMesh<T,U>::optimize() {
 	
 	this->indices.resize(indices);
 	meshopt_remapIndexBuffer(&this->indices[0], NULL, indices, &remap[0]);
-	
 	this->vertices.resize(verticesCount);
 	meshopt_remapVertexBuffer(&this->vertices[0], &vertices[0], indices, sizeof(T), &remap[0]);
 	// optimize for cache
-	meshopt_optimizeVertexCache(&this->indices[0], &this->indices[0], this->indices.size(), this->vertices.size());
+	if ( o >= 1 ) {
+		meshopt_optimizeVertexCache(&this->indices[0], &this->indices[0], this->indices.size(), this->vertices.size());
+	}
 	// optimize for overdraw
-	const float kOverdrawThreshold = 3.f;
-	meshopt_optimizeOverdraw(&this->indices[0], &this->indices[0], this->indices.size(), (float*) &this->vertices[0].position, this->vertices.size(), sizeof(T), kOverdrawThreshold);
+	if ( o >= 2 ) {
+		const float kOverdrawThreshold = 3.f;
+		meshopt_optimizeOverdraw(&this->indices[0], &this->indices[0], this->indices.size(), (float*) &this->vertices[0].position, this->vertices.size(), sizeof(T), kOverdrawThreshold);
+	}
 	// optimize for fetch
-	meshopt_optimizeVertexFetch(&this->vertices[0], &this->indices[0], this->indices.size(), &this->vertices[0], this->vertices.size(), sizeof(T));
+	if ( o >= 3 ) {
+		meshopt_optimizeVertexFetch(&this->vertices[0], &this->indices[0], this->indices.size(), &this->vertices[0], this->vertices.size(), sizeof(T));
+	}
 /*
 	old nasty way
 

@@ -19,7 +19,8 @@ FLAGS 				  	+= -Wno-unknown-pragmas -std=c++17 -g
 LIB_NAME 				+= uf
 EXT_LIB_NAME 			+= ext
 
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)

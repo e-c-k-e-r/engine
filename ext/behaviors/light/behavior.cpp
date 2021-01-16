@@ -30,23 +30,16 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		});
 	}
 
-	if ( !metadata["light"]["bias"].is<float>() ) {
-		metadata["light"]["bias"] = 0.00005f;
+	if ( !metadata["light"]["bias"]["constant"].is<float>() ) {
+		metadata["light"]["bias"]["constant"] = 0.00005f;
 	}
 	if ( !ext::json::isArray( metadata["light"]["color"] ) ) {
 		metadata["light"]["color"][0] = 1; //metadata["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 		metadata["light"]["color"][1] = 1; //metadata["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 		metadata["light"]["color"][2] = 1; //metadata["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 	}
+	// metadata["light"]["shadows"] = false;
 	if ( metadata["light"]["shadows"].as<bool>() ) {
-		::roundRobin.lights.emplace_back(this);
-
-		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		renderMode.metadata["type"] = "depth";
-		std::string name = "RT:" + std::to_string((int) this->getUid());
-		uf::renderer::addRenderMode( &renderMode, name );
-		renderMode.blitter.process = false;
-
 		auto& cameraTransform = camera.getTransform();
 		cameraTransform.reference = &transform;
 		camera.setStereoscopic(false);
@@ -57,52 +50,37 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			camera.setBounds(bounds);
 		}
 		if ( ext::json::isArray( metadata["light"]["resolution"] ) ) {
-			renderMode.width = metadata["light"]["resolution"][0].as<size_t>();
-			renderMode.height = metadata["light"]["resolution"][1].as<size_t>();
-			auto size = camera.getSize();
-			size.x = renderMode.width;
-			size.y = renderMode.height;
-			camera.setSize(size);
+			camera.setSize( uf::vector::decode( metadata["light"]["resolution"], pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } ) );
+		} else if ( metadata["light"]["resolution"].is<float>() ) {
+			size_t size = metadata["light"]["resolution"].as<size_t>();
+			camera.setSize( {size, size} );
 		} else {
-			renderMode.width = metadata["light"]["resolution"].as<size_t>();
-			renderMode.height = metadata["light"]["resolution"].as<size_t>();
-			auto size = camera.getSize();
-			size.x = renderMode.width;
-			size.y = renderMode.height;
-			camera.setSize(size);
+			camera.setSize( pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } );
 		}
-		// spawn children to fake a point light with shadows
-		if ( metadata["light"]["type"].as<std::string>() == "point" && !metadata["light"]["bound"].as<bool>() ) {
-			metadata["light"]["fov"] = 90.0f;
-			std::vector<pod::Quaternion<>> rotations = {
-				{0, 0.707107, 0, -0.707107},
-				{0, 1, 0, 0},
-				{0, 0.707107, 0, 0.707107},
-				{-0.707107, 0, 0, -0.707107},
-				{0.707107,  0, 0, -0.707107},
-			};
-			for ( auto& orientation : rotations ) {
-				auto* light = this->loadChildPointer("/light.json", false);
-				if ( !light ) continue;
-				auto& lightTransform = light->getComponent<pod::Transform<>>();
-				auto& lightMetadata = light->getComponent<uf::Serializer>();
-				lightMetadata["light"] = metadata["light"];
-				lightMetadata["light"]["bound"] = true;
-				if ( metadata["light"]["static"].as<bool>() ) {
-					lightTransform = transform;
-					lightTransform.orientation = orientation;
+		
+		::roundRobin.lights.emplace_back(this);
 
-				} else {
-					lightTransform.orientation = orientation;
-					lightTransform.reference = &transform;
-				}
-				light->initialize();
-			}
+		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+		renderMode.metadata["type"] = "depth";
+		renderMode.metadata["depth bias"] = metadata["light"]["bias"];
+
+		if ( metadata["light"]["type"].as<std::string>() == "point" ) {
+			metadata["light"]["fov"] = 90.0f;
+			renderMode.metadata["subpasses"] = 6;
 		}
 		if ( metadata["light"]["fov"].is<float>() ) {
 			camera.setFov( metadata["light"]["fov"].as<float>() );
-			camera.updateProjection();
 		}
+		camera.updateView();
+		camera.updateProjection();
+		
+		std::string name = "RT:" + std::to_string((int) this->getUid());
+		uf::renderer::addRenderMode( &renderMode, name );
+		renderMode.blitter.process = false;
+		auto& cameraSize = camera.getSize();
+		renderMode.width = cameraSize.x;
+		renderMode.height = cameraSize.y;
+
 	}
 
 }
@@ -110,25 +88,21 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		renderMode.target = "";
+		renderMode.setTarget("");
 	}
 	
 	auto& transform = this->getComponent<pod::Transform<>>();
-/*
-	if (  this->hasComponent<pod::Physics>() ) {
-		pod::Physics& physics = this->getComponent<pod::Physics>();
-		transform = uf::physics::update( transform, physics );
-	}
-*/
-
 	auto& parent = this->getParent();
 	auto& parentMetadata = parent.getComponent<uf::Serializer>();
 	auto& parentTransform = parent.getComponent<pod::Transform<>>();
 	// copy from our parent
-	if ( parentMetadata["system"]["name"] == "Light" ) {
+//	if ( parentMetadata["system"]["name"] == "Light" ) {
+	if ( metadata["light"]["bound"].as<bool>() ) {
 		metadata["light"] = parentMetadata["light"];
+		metadata["light"]["bound"] = true;
 		if ( metadata["light"]["static"].as<bool>() ) {
-			transform.position = parentTransform.position;
+			auto flatten = uf::transform::flatten( parentTransform );
+			transform.position = flatten.position;
 		}
 	} else {
 		// light fade action
@@ -192,7 +166,53 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	// skip if we're handling the camera view matrix position ourselves
 	if ( !metadata["light"]["external update"].as<bool>() ) {
 		auto& camera = this->getComponent<uf::Camera>();
-		camera.updateView();
+		// omni light
+		if ( metadata["light"]["shadows"].as<bool>() && metadata["light"]["type"].as<std::string>() == "point" ) {
+			auto transform = camera.getTransform();
+		/*
+			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 0 );
+			
+			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 1 );
+			
+			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 2 );
+			
+			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 3 );
+			
+			transform.orientation = uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 4 );
+
+			transform.orientation = uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633 );
+			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 5 );
+		*/
+			std::vector<pod::Quaternion<>> rotations = {
+				{0, 0, 0, 1},
+				{0, 0.707107, 0, -0.707107},
+				{0, 1, 0, 0},
+				{0, 0.707107, 0, 0.707107},
+				{-0.707107, 0, 0, -0.707107},
+				{0.707107,  0, 0, -0.707107},
+
+		/*
+				uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 ),
+				uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633 ),
+				uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633 ),
+				uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633 ),
+				uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633 ),
+				uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633 ),
+		*/
+			};
+			for ( size_t i = 0; i < rotations.size(); ++i ) {
+				auto transform = camera.getTransform();
+				transform.orientation = rotations[i];
+				camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), i );
+			}
+		} else {
+			camera.updateView();
+		}
 	//	for ( std::size_t i = 0; i < 2; ++i ) camera.setView( uf::matrix::inverse( uf::transform::model( transform ) ), i );
 	}
 

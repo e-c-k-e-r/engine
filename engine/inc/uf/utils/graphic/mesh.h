@@ -3,6 +3,7 @@
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
 #include <uf/ext/vulkan/vulkan.h>
+#include <uf/utils/graphic/descriptor.h>
 
 #include <functional>
 #include <unordered_map>
@@ -10,10 +11,10 @@
 
 namespace pod {
 	struct /*UF_API*/ Vertex_3F2F3F4F {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(8)*/ pod::Vector2f uv;
-		/*alignas(16)*/ pod::Vector3f normal;
-		/*alignas(16)*/ pod::Vector4f color;
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
+		alignas(16) pod::Vector3f normal;
+		alignas(16) pod::Vector4f color;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -27,10 +28,10 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F2F3F32B {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(8)*/ pod::Vector2f uv;
-		/*alignas(16)*/ pod::Vector3f normal;
-		/*alignas(16)*/ pod::Vector4t<uint8_t> color;
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
+		alignas(16) pod::Vector3f normal;
+		alignas(16) pod::Vector4t<uint8_t> color;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -44,9 +45,9 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F3F3F {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(16)*/ pod::Vector3f uv;
-		/*alignas(16)*/ pod::Vector3f normal;
+		alignas(16) pod::Vector3f position;
+		alignas(16) pod::Vector3f uv;
+		alignas(16) pod::Vector3f normal;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -59,10 +60,10 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F2F3F1UI {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(8)*/ pod::Vector2f uv;
-		/*alignas(16)*/ pod::Vector3f normal;
-		/*alignas(4)*/ uint32_t id;
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
+		alignas(16) pod::Vector3f normal;
+		alignas(4) uint32_t id;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -76,9 +77,9 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F2F3F {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(8)*/ pod::Vector2f uv;
-		/*alignas(16)*/ pod::Vector3f normal;
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
+		alignas(16) pod::Vector3f normal;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -91,8 +92,8 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F2F {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(8)*/ pod::Vector2f uv;
+		alignas(16) pod::Vector3f position;
+		alignas(8) pod::Vector2f uv;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -104,8 +105,8 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_2F2F {
-		/*alignas(8)*/ pod::Vector2f position;
-		/*alignas(8)*/ pod::Vector2f uv;
+		alignas(8) pod::Vector2f position;
+		alignas(8) pod::Vector2f uv;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -117,7 +118,7 @@ namespace pod {
 	*/
 	};
 	struct /*UF_API*/ Vertex_3F {
-		/*alignas(16)*/ pod::Vector3f position;
+		alignas(16) pod::Vector3f position;
 
 		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 	/*
@@ -130,14 +131,6 @@ namespace pod {
 }
 
 namespace uf {
-	struct /*UF_API*/ BaseGeometry {
-	public:
-		struct {
-			size_t vertex;
-			size_t indices;
-		} sizes;
-		std::vector<ext::vulkan::VertexDescriptor> attributes;
-	};
 	template<typename T, typename U = uint32_t>
 	class /*UF_API*/ BaseMesh : public BaseGeometry {
 	public:
@@ -148,12 +141,12 @@ namespace uf {
 
 		~BaseMesh();
 		void updateDescriptor();
-		void initialize( bool = true );
+		void initialize( size_t = SIZE_MAX );
 		void expand( bool = true );
 		void destroy();
 
 		uf::BaseMesh<T,U> simplify( float = 0.2f );
-		void optimize();
+		void optimize( size_t = SIZE_MAX );
 	};
 }
 
@@ -163,14 +156,16 @@ namespace uf {
 	typedef BaseMesh<pod::Vertex_3F2F> GuiMesh;
 	typedef BaseMesh<pod::Vertex_3F> LineMesh;
 
+	template<size_t N = ext::vulkan::settings::maxViews>
 	struct MeshDescriptor {
 		struct {
 			alignas(16) pod::Matrix4f model;
-			alignas(16) pod::Matrix4f view;
-			alignas(16) pod::Matrix4f projection;
+			alignas(16) pod::Matrix4f view[N];
+			alignas(16) pod::Matrix4f projection[N];
 		} matrices;
 		alignas(16) pod::Vector4f color = { 1, 1, 1, 0 };
 	};
+/*
 	struct StereoMeshDescriptor {
 		struct {
 			alignas(16) pod::Matrix4f model;
@@ -179,6 +174,7 @@ namespace uf {
 		} matrices;
 		alignas(16) pod::Vector4f color = { 1, 1, 1, 0 };
 	};
+*/
 }
 
 #include "mesh.inl"

@@ -11,7 +11,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 
-std::string ext::vulkan::DeferredRenderMode::getType() const {
+const std::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
 const size_t ext::vulkan::DeferredRenderMode::blitters() const {
@@ -128,8 +128,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			0, 1, 2, 0, 2, 3
 		};
 		blitter.descriptor.subpass = 1;
-		blitter.descriptor.depthTest.test = false;
-		blitter.descriptor.depthTest.write = false;
+		blitter.descriptor.depth.test = false;
+		blitter.descriptor.depth.write = false;
 
 		blitter.initialize( this->getName() );
 		blitter.initializeGeometry( mesh );
@@ -152,46 +152,36 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			struct SpecializationConstant {
 				uint32_t maxLights = 16;
 			};
-			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants->maxLights;
+					binding.descriptorCount = specializationConstants.maxLights;
 			}
+
 		/*
-			std::vector<pod::Vector4f> palette;
-			// size of palette
-			if ( metadata["system"]["config"]["engine"]["scenes"]["palette"].is<double>() ) {
-				size_t size = metadata["system"]["config"]["engine"]["scenes"]["palette"].as<size_t>();
-				for ( size_t x = 0; x < size; ++x ) {
-					palette.push_back(pod::Vector4f{
-						(128.0f + 128.0f * sin(3.1415f * x / 16.0f)) / 256.0f,
-						(128.0f + 128.0f * sin(3.1415f * x / 32.0f)) / 256.0f,
-						(128.0f + 128.0f * sin(3.1415f * x / 64.0f)) / 256.0f,
-						1.0f,
-					});
-				}
-			// palette array
-			} else if ( ext::json::isArray( metadata["system"]["config"]["engine"]["scenes"]["palette"] ) ) {
-				for ( int i = 0; i < metadata["system"]["config"]["engine"]["scenes"]["palette"].size(); ++i ) {
-					auto& color = palette.emplace_back();
-					palette.push_back(pod::Vector4f{
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][0].as<float>(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][1].as<float>(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][2].as<float>(),
-						metadata["system"]["config"]["engine"]["scenes"]["palette"][i][3].as<float>(),
-					});
-				}
-			}
-			if ( !palette.empty() ) {
-				shader.initializeBuffer(
-					(void*) palette.data(),
-					palette.size() * sizeof(pod::Vector4f),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					true
-				);
-			}
+			struct Light {
+				alignas(16) pod::Vector4f position;
+				alignas(16) pod::Vector4f color;
+
+				alignas(4) int32_t type = 0;
+				alignas(4) float depthBias = 0;
+				alignas(4) float padding1 = 0;
+				alignas(4) float padding2 = 0;
+				
+				alignas(16) pod::Matrix4f view;
+				alignas(16) pod::Matrix4f projection;
+			};
+			std::vector<Light> lights;
+			lights.resize(specializationConstants.maxLights);
+
+			blitter.initializeBuffer(
+				(void*) lights.data(),
+				lights.size() * sizeof(Light),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				true
+			);
 		*/
 		}
 		blitter.initializePipeline();
@@ -291,127 +281,41 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				layer->pipelineBarrier( commands[i], 0 );
 			}
 
+			size_t currentPass = 0;
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				// render to geometry buffers
 				for ( auto graphic : graphics ) {
 					// only draw graphics that are assigned to this type of render mode
 					if ( graphic->descriptor.renderMode != this->getName() ) continue;
-					ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor;
-					descriptor.renderMode = this->name;
-					graphic->record( commands[i], descriptor );
+					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor);
+					graphic->record( commands[i], descriptor, currentPass );
 				}
-				// blit any RT's
+				// blit any RT's that request this subpass
 				{
 					for ( auto _ : layers ) {
 						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 						auto& blitter = layer->blitter;
-						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
+						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 						blitter.record(commands[i]);
 					}
 				}
-			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+			vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass;
+				// deferred post-processing lighting pass
 				{
 					blitter.record(commands[i]);
 				}
-				// blit any RT's
+				// blit any RT's that request this subpass
 				{
 					for ( auto _ : layers ) {
 						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 						auto& blitter = layer->blitter;
-						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
+						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 						blitter.record(commands[i]);
 					}
 				}
 			vkCmdEndRenderPass(commands[i]);
-		/*
-			bool matching = !settings::experimental::deferredAliasOutputToSwapchain ? true : swapchainRender.renderTarget.width == width && swapchainRender.renderTarget.height == height;
-			std::cout << (matching ? "framebuffer matches swapchain" : "framebuffer mismatches swapchain") << std::endl;
-			if ( true || matching ) {
-				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-					vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
-					for ( auto graphic : graphics ) {
-						// only draw graphics that are assigned to this type of render mode
-						if ( graphic->descriptor.renderMode != this->getName() ) continue;
-						graphic->record( commands[i] );
-					}
-					// blit any RT's
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
-							blitter.record(commands[i]);
-						}
-					}
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-					viewport.width = (float) swapchainRender.renderTarget.width;
-					viewport.height = (float) swapchainRender.renderTarget.height;
-					scissor.extent.width = swapchainRender.renderTarget.width;
-					scissor.extent.height = swapchainRender.renderTarget.height;
-				//	vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
-					{
-						blitter.record(commands[i]);
-					}
-					// blit any RT's
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
-							blitter.record(commands[i]);
-						}
-					}
-				vkCmdEndRenderPass(commands[i]);
-			} else {
-				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-					vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
-					for ( auto graphic : graphics ) {
-						// only draw graphics that are assigned to this type of render mode
-						if ( graphic->descriptor.renderMode != this->getName() ) continue;
-						graphic->record( commands[i] );
-					}
-					// blit any RT's
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
-							blitter.record(commands[i]);
-						}
-					}
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdEndRenderPass(commands[i]);
-
-				renderPassBeginInfo.renderArea.extent.width = swapchainRender.renderTarget.width;
-				renderPassBeginInfo.renderArea.extent.height = swapchainRender.renderTarget.height;
-				viewport.width = (float) swapchainRender.renderTarget.width;
-				viewport.height = (float) swapchainRender.renderTarget.height;
-				scissor.extent.width = swapchainRender.renderTarget.width;
-				scissor.extent.height = swapchainRender.renderTarget.height;
-
-				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-					vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
-					{
-						blitter.record(commands[i]);
-					}
-					// blit any RT's
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
-							blitter.record(commands[i]);
-						}
-					}
-				vkCmdEndRenderPass(commands[i]);
-			}
-		*/
 
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 1 );

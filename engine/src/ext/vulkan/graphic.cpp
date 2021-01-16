@@ -38,10 +38,10 @@ ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& defin
 	}
 	return member;
 }
-uf::Userdata ext::vulkan::jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition ) {
+ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition ) {
 	size_t bufferLen = definition["size"].as<size_t>();
 	
-	uf::Userdata userdata;
+	ext::vulkan::userdata_t userdata;
 	userdata.create(bufferLen);
 
 	uint8_t* byteBuffer = (uint8_t*) (void*) userdata;
@@ -455,7 +455,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 					}
 					size_t misalignment = size % device.properties.limits.minStorageBufferOffsetAlignment;
 					if ( misalignment != 0 ) {
-						VK_VALIDATION_MESSAGE("Invalid uniform buffer alignmnet of " << misalignment << " for shader " << filename << ", correcting...");
+						VK_VALIDATION_MESSAGE("Invalid uniform buffer alignment of " << misalignment << " for shader " << filename << ", correcting...");
 						size += misalignment;
 					}
 					{
@@ -469,10 +469,6 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 						metadata["definitions"]["uniforms"][name]["index"] = index;
 						metadata["definitions"]["uniforms"][name]["size"] = size;
 						metadata["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
-					}
-					// test
-					{
-					//	updateUniform(name, getUniform(name));
 					}
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
@@ -516,16 +512,34 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 	//		std::cout << filename << ": " << ext::json::encode(metadata, true) << std::endl;
 		
 		for ( const auto& resource : res.push_constant_buffers ) {
-			const auto& type = comp.get_type(resource.base_type_id);
+			const auto& type = comp.get_type(resource.type_id);
+			const auto& base_type = comp.get_type(resource.base_type_id);
+			std::string name = resource.name;
 			size_t size = comp.get_declared_struct_size(type);
 			if ( size <= 0 ) continue;
+			// not a multiple of 4, for some reason
+			if ( size % 4 != 0 ) {
+				VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename << ", must be multiple of 4, correcting...");
+				size /= 4;
+				++size; 
+				size *= 4;
+			}
 			if ( size > device.properties.limits.maxPushConstantsSize ) {
 				VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
 				size = device.properties.limits.maxPushConstantsSize;
 			}
 			VK_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
-			auto& pushConstant = pushConstants.emplace_back();
-			pushConstant.create( size );
+			{
+				auto& pushConstant = pushConstants.emplace_back();
+				pushConstant.create( size );
+			}
+			// generate definition to JSON
+			{
+				metadata["definitions"]["pushConstants"][name]["name"] = name;
+				metadata["definitions"]["pushConstants"][name]["size"] = size;
+				metadata["definitions"]["pushConstants"][name]["index"] = pushConstants.size() - 1;
+				metadata["definitions"]["pushConstants"][name]["members"] = parseMembers(resource.type_id);
+			}
 		}
 		
 		size_t specializationSize = 0;
@@ -541,48 +555,72 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			specializationMapEntries.push_back(specializationMapEntry);
 			specializationSize += size;
 		}
-		if ( specializationSize > 0 ) {
-		//	specializationConstants.create( specializationSize );
-			specializationConstants.resize( specializationSize, 0 );
+		if ( specializationSize > 0 ) {			
+			specializationConstants.create( specializationSize );
+			VK_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
 
-			uint8_t* s = (uint8_t*) &specializationConstants[0];
+			uint8_t* s = (uint8_t*) (void*) specializationConstants;
 			size_t offset = 0;
+
+			metadata["specializationConstants"] = ext::json::array();
 			for ( const auto& constant : comp.get_specialization_constants() ) {
 				const auto& value = comp.get_constant(constant.id);
 				const auto& type = comp.get_type(value.constant_type);
+				std::string name = comp.get_name (constant.id);
+
+				ext::json::Value member;
+
 				size_t size = 4;
 				uint8_t buffer[size];
 				switch ( type.basetype ) {
 					case spirv_cross::SPIRType::UInt: {
 						auto v = value.scalar();
+						member["type"] = "uint32_t";
+						member["value"] = v;
+						member["validate"] = true;
 						memcpy( &buffer[0], &v, sizeof(v) );
 					} break;
 					case spirv_cross::SPIRType::Int: {
 						auto v = value.scalar_i32();
+						member["type"] = "int32_t";
+						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
 					} break;
 					case spirv_cross::SPIRType::Float: {
 						auto v = value.scalar_f32();
+						member["type"] = "float";
+						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
 					} break;
 					case spirv_cross::SPIRType::Boolean: {
 						auto v = value.scalar()!=0;
+						member["type"] = "bool";
+						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
 					} break;
+					default: {
+						VK_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
+					} break;
 				}
+				member["name"] = name;
+				member["size"] = size;
+				member["default"] = member["value"];
+				VK_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<std::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
+				metadata["specializationConstants"].emplace_back(member);
 
 				memcpy( &s[offset], &buffer, size );
 				offset += size;
 			}
-
+		/*
 			{
 				specializationInfo = {};
 				specializationInfo.dataSize = specializationSize;
 				specializationInfo.mapEntryCount = specializationMapEntries.size();
 				specializationInfo.pMapEntries = specializationMapEntries.data();
-				specializationInfo.pData = s;
+				specializationInfo.pData = (void*) specializationConstants;
 				descriptor.pSpecializationInfo = &specializationInfo;
 			}
+		*/
 		}
 	/*
 	*/
@@ -599,7 +637,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 
 	// update uniform buffers
 	for ( auto& uniform : uniforms ) {
-		pod::Userdata& userdata = uniform.data();
+		auto& userdata = uniform.data();
 		initializeBuffer(
 			(void*) userdata.data,
 			userdata.len,
@@ -659,9 +697,9 @@ ext::vulkan::Buffer* ext::vulkan::Shader::getUniformBuffer( const std::string& n
 	}
 	return NULL;
 }
-uf::Userdata& ext::vulkan::Shader::getUniform( const std::string& name ) {
+ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const std::string& name ) {
 	if ( !hasUniform(name) ) {
-		static uf::Userdata null;
+		static ext::vulkan::userdata_t null;
 		return null;
 	}
 	auto& definition = metadata["definitions"]["uniforms"][name];
@@ -675,7 +713,7 @@ bool ext::vulkan::Shader::updateUniform( const std::string& name ) {
 	auto& uniform = getUniform(name);
 	return updateUniform(name, uniform);
 }
-bool ext::vulkan::Shader::updateUniform( const std::string& name, const uf::Userdata& userdata ) {
+bool ext::vulkan::Shader::updateUniform( const std::string& name, const ext::vulkan::userdata_t& userdata ) {
 	if ( !hasUniform(name) ) return false;
 	auto* bufferObject = getUniformBuffer(name);
 	if ( !bufferObject ) return false;
@@ -691,7 +729,7 @@ uf::Serializer ext::vulkan::Shader::getUniformJson( const std::string& name, boo
 	if ( cache ) return metadata["uniforms"][name] = definitionToJson(definition);
 	return definitionToJson(definition);
 }
-uf::Userdata ext::vulkan::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::vulkan::userdata_t ext::vulkan::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
 	if ( !hasUniform(name) ) return false;
 	return jsonToUserdata(payload, metadata["definitions"]["uniforms"][name]);
 }
@@ -727,7 +765,7 @@ uf::Serializer ext::vulkan::Shader::getStorageJson( const std::string& name, boo
 	if ( cache ) return metadata["storage"][name] = definitionToJson(definition);
 	return definitionToJson(definition);
 }
-uf::Userdata ext::vulkan::Shader::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::vulkan::userdata_t ext::vulkan::Shader::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
 	if ( !hasStorage(name) ) return false;
 	return jsonToUserdata(payload, metadata["definitions"]["storage"][name]);
 }
@@ -836,6 +874,10 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			0
 		);
 		rasterizationState.lineWidth = graphic.descriptor.lineWidth;
+		rasterizationState.depthBiasEnable = graphic.descriptor.depth.bias.enable;
+		rasterizationState.depthBiasConstantFactor = graphic.descriptor.depth.bias.constant;
+		rasterizationState.depthBiasSlopeFactor = graphic.descriptor.depth.bias.slope;
+		rasterizationState.depthBiasClamp = graphic.descriptor.depth.bias.clamp;
 
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
 
@@ -881,9 +923,9 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			blendAttachmentStates.data()
 		);
 		VkPipelineDepthStencilStateCreateInfo depthStencilState = ext::vulkan::initializers::pipelineDepthStencilStateCreateInfo(
-			descriptor.depthTest.test,
-			descriptor.depthTest.write,
-			descriptor.depthTest.operation //VK_COMPARE_OP_LESS_OR_EQUAL
+			descriptor.depth.test,
+			descriptor.depth.write,
+			descriptor.depth.operation //VK_COMPARE_OP_LESS_OR_EQUAL
 		);
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
@@ -941,6 +983,48 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 
 		std::vector<VkPipelineShaderStageCreateInfo> shaderDescriptors;
 		for ( auto& shader : graphic.material.shaders ) {
+			void* s = (void*) shader.specializationConstants;
+			size_t len = shader.specializationConstants.data().len;
+			for ( size_t i = 0; i < len / 4; ++i ) {
+				auto& payload = shader.metadata["specializationConstants"][i];
+				std::string type = payload["type"].as<std::string>();
+				if ( type == "int32_t" ) {
+					int32_t& v = ((int32_t*) s)[i];
+					// failsafe, because for some reason things break
+					if ( payload["validate"].as<bool>() && v == 0 ) {
+						VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						v = payload["value"].is<int32_t>() ? payload["value"].as<int32_t>() : payload["default"].as<int32_t>();
+					}
+					payload["value"] = v;
+				} else if ( type == "uint32_t" ) {
+					uint32_t& v = ((uint32_t*) s)[i];
+					// failsafe, because for some reason things break
+					if ( payload["validate"].as<bool>() && v == 0 ) {
+						VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						v = payload["value"].is<uint32_t>() ? payload["value"].as<uint32_t>() : payload["default"].as<uint32_t>();
+					}
+					payload["value"] = v;
+				} else if ( type == "float" ) {
+					float& v = ((float*) s)[i];
+					// failsafe, because for some reason things break
+					if ( payload["validate"].as<bool>() && v == 0 ) {
+						VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						v = payload["value"].is<float>() ? payload["value"].as<float>() : payload["default"].as<float>();
+					}
+					payload["value"] = v;
+				}
+			}
+			VK_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
+
+
+			{
+				shader.specializationInfo = {};
+				shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
+				shader.specializationInfo.pMapEntries = shader.specializationMapEntries.data();
+				shader.specializationInfo.pData = (void*) shader.specializationConstants;
+				shader.specializationInfo.dataSize = shader.specializationConstants.data().len;
+				shader.descriptor.pSpecializationInfo = &shader.specializationInfo;
+			}
 			shaderDescriptors.push_back(shader.descriptor);
 		}
 
@@ -962,6 +1046,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		pipelineCreateInfo.subpass = descriptor.subpass;
 
 		VK_CHECK_RESULT(vkCreateGraphicsPipelines( device, device.pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
+		VK_VALIDATION_MESSAGE("Created graphics pipeline");
 	}
 
 	graphic.process = true;
@@ -974,7 +1059,7 @@ PIPELINE_INITIALIZATION_INVALID:
 	return 0;}, true );
 	return;
 }
-void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuffer ) {
+void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass ) {
 	auto bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	for ( auto& shader : graphic.material.shaders ) {
 		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) {
@@ -982,23 +1067,20 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		}
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
-			size_t len = 0;
-			void* pointer = NULL;
-			if ( bindPoint == VK_PIPELINE_BIND_POINT_COMPUTE ) {
-				len = pushConstant.data().len;
-				pointer = pushConstant.data().data;
+			// 
+			if ( ext::json::isObject( shader.metadata["definitions"]["pushConstants"]["PushConstant"] ) ) {
+				if ( shader.descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT ) {
+					struct PushConstant {
+						uint32_t pass;
+					} pushConstant = { pass };
+					vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(pushConstant), &pushConstant );
+				}
 			} else {
-				struct Stereo {
-					uint32_t pass;
-				};
-				static Stereo stereo;
-				stereo.pass = ext::openvr::renderPass;
-
-				len = sizeof(stereo);
-				pointer = &stereo;
-			}
-			if ( len > 0 && pointer ) {
-				vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
+				size_t len = pushConstant.data().len;
+				void* pointer = pushConstant.data().data;
+				if ( len > 0 && pointer ) {
+					vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
+				}
 			}
 		}
 	}
@@ -1345,10 +1427,10 @@ void ext::vulkan::Graphic::updatePipelines() {
 		pair.second.update( *this );
 	}
 }
-void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer ) {
-	return this->record( commandBuffer, descriptor );
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass ) {
+	return this->record( commandBuffer, descriptor, pass );
 }
-void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor ) {
+void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor, size_t pass ) {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
 		VK_VALIDATION_MESSAGE(this << ": has no valid pipeline");
@@ -1360,11 +1442,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 		VK_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
 		return;
 	}
-/*
-	assert( buffers.size() >= 2 );
-	Buffer& vertexBuffer = buffers.at(0);
-	Buffer& indexBuffer = buffers.at(1);
-*/
+
 	Buffer* vertexBuffer = NULL;
 	Buffer* indexBuffer = NULL;
 	for ( auto& buffer : buffers ) {
@@ -1373,7 +1451,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 	}
 	assert( vertexBuffer && indexBuffer );
 
-	pipeline.record(*this, commandBuffer);
+	pipeline.record(*this, commandBuffer, pass);
 	// Bind triangle vertex buffer (contains position and colors)
 	VkDeviceSize offsets[1] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->buffer, offsets);
@@ -1429,15 +1507,41 @@ uf::Serializer ext::vulkan::Graphic::getStorageJson( const std::string& name, bo
 	}
 	return ext::json::null();
 }
-uf::Userdata ext::vulkan::Graphic::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::vulkan::userdata_t ext::vulkan::Graphic::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
 		return shader.getStorageUserdata(name, payload);
 	}
-	return uf::Userdata();
+	return ext::vulkan::userdata_t();
 }
 
 #include <uf/utils/string/hash.h>
+void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
+	if ( metadata["front face"].is<std::string>() ) {
+		if ( metadata["front face"].as<std::string>() == "ccw" ) {
+			frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		} else if ( metadata["front face"].as<std::string>() == "cw" ) {
+			frontFace = VK_FRONT_FACE_CLOCKWISE;
+		}
+	}
+	if ( metadata["cull mode"].is<std::string>() ) {
+		if ( metadata["cull mode"].as<std::string>() == "back" ) {
+			cullMode = VK_CULL_MODE_BACK_BIT;
+		} else if ( metadata["cull mode"].as<std::string>() == "front" ) {
+			cullMode = VK_CULL_MODE_FRONT_BIT;
+		} else if ( metadata["cull mode"].as<std::string>() == "none" ) {
+			cullMode = VK_CULL_MODE_NONE;
+		} else if ( metadata["cull mode"].as<std::string>() == "both" ) {
+			cullMode = VK_CULL_MODE_FRONT_AND_BACK;
+		}
+	}
+	if ( ext::json::isObject(metadata["depth bias"]) ) {
+		depth.bias.enable = VK_TRUE;
+		depth.bias.constant = metadata["depth bias"]["constant"].as<float>();
+		depth.bias.slope = metadata["depth bias"]["slope"].as<float>();
+		depth.bias.clamp = metadata["depth bias"]["clamp"].as<float>();
+	}
+}
 std::string ext::vulkan::GraphicDescriptor::hash() const {
 	uf::Serializer serializer;
 
@@ -1460,9 +1564,13 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 	serializer["fill"] = fill;
 	serializer["lineWidth"] = lineWidth;
 	serializer["frontFace"] = frontFace;
-	serializer["depthTest"]["test"] = depthTest.test;
-	serializer["depthTest"]["write"] = depthTest.write;
-	serializer["depthTest"]["operation"] = depthTest.operation;
+	serializer["depth"]["test"] = depth.test;
+	serializer["depth"]["write"] = depth.write;
+	serializer["depth"]["operation"] = depth.operation;
+	serializer["depth"]["bias"]["enable"] = depth.bias.enable;
+	serializer["depth"]["bias"]["constant"] = depth.bias.constant;
+	serializer["depth"]["bias"]["slope"] = depth.bias.slope;
+	serializer["depth"]["bias"]["clamp"] = depth.bias.clamp;
 
 //	if ( renderMode != "Gui" ) uf::iostream << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << "\n";
 //	return uf::string::sha256( serializer.serialize() );

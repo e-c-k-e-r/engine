@@ -21,7 +21,7 @@ uf::Entity& uf::Scene::getController() {
 		}
 		cachedController = NULL;
 		cachedRenderMode = &renderMode;
-		auto split = uf::string::split( renderMode.name, ":" );
+		auto split = uf::string::split( renderMode.getName(), ":" );
 		if ( split.front() == "RT" ) {
 			uint64_t uid = std::stoi( split.back() );
 			uf::Entity* ent = this->findByUid( uid );

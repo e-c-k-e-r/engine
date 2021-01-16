@@ -30,10 +30,6 @@ namespace ext {
 		);
 		uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties);
 
-		struct VertexDescriptor {
-			VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
-			std::size_t offset; // offsetof(Vertex, position)
-		};
 		typedef VmaAllocator Allocator;
 
 		namespace settings {
@@ -41,6 +37,8 @@ namespace ext {
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
 			extern UF_API bool validation;
+			extern UF_API size_t viewCount;
+			constexpr size_t maxViews = 6;
 
 			extern UF_API std::vector<std::string> validationFilters;
 			extern UF_API std::vector<std::string> requestedDeviceFeatures;

@@ -7,8 +7,7 @@ namespace ext {
 		struct UF_API BaseRenderMode : RenderMode {
 			// virtual ~RenderMode();
 			// RAII
-			virtual std::string getType() const;
-			const std::string& getName() const;
+			virtual const std::string getType() const;
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );

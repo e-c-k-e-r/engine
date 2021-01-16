@@ -10,6 +10,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/renderer/renderer.h>
 #include <mutex>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::RegionBehavior)
@@ -51,11 +52,11 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 			if ( _ != "" ) suffix = _ + ".";
 		}
 	/*
-		graphic.material.attachShader("./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+		graphic.material.attachShader("./data/shaders/terrain.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 		graphic.material.attachShader("./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 	*/
 		graphic.material.initializeShaders({
-			{"./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{"./data/shaders/terrain.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 	}
@@ -638,9 +639,9 @@ void ext::RegionBehavior::render( uf::Object& self ){
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& camera = scene.getController().getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
-		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 		uniforms.matrices.model = uf::matrix::identity();
-		for ( std::size_t i = 0; i < 2; ++i ) {
+		for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}

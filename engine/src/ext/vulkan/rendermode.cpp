@@ -14,11 +14,11 @@
 ext::vulkan::RenderMode::~RenderMode() {
 	this->destroy();
 }
-std::string ext::vulkan::RenderMode::getType() const {
+const std::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }
-const std::string& ext::vulkan::RenderMode::getName( bool ) const {
-	return this->name;
+const std::string ext::vulkan::RenderMode::getName() const {
+	return this->metadata["name"].as<std::string>();
 }
 ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;
@@ -35,6 +35,34 @@ ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
 }
 std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
+}
+
+ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
+	ext::vulkan::GraphicDescriptor descriptor = reference;
+	descriptor.renderMode = this->getName();
+	descriptor.subpass = pass;
+	descriptor.parse( metadata );
+	return descriptor;
+}
+void ext::vulkan::RenderMode::bindGraphicPushConstants( ext::vulkan::Graphic* pointer, size_t pass ) {
+	auto& graphic = *pointer;
+	// bind vertex shader push constants
+	{
+		auto& shader = graphic.material.getShader("vertex");
+		auto& metadata = shader.metadata["definitions"]["pushConstants"]["PushConstant"];
+		struct PushConstant {
+			uint32_t pass = 0;
+		};
+		if ( ext::json::isObject( metadata ) ) {
+			auto& pushConstant = shader.pushConstants.at( metadata["index"].as<size_t>() ).get<PushConstant>();
+			pushConstant.pass = pass;
+		}
+	}
+	// bind fragment shader push constants
+	{
+		auto& shader = graphic.material.getShader("fragment");
+		auto& metadata = shader.metadata["definitions"]["pushConstants"]["PushConstant"];
+	}
 }
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
@@ -100,16 +128,16 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->bindPipelines( graphics );
 }
 void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+	size_t subpasses = metadata["subpasses"].as<size_t>();
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
-		// copy descriptor
-	//	if ( graphic.descriptor.renderMode == this->getName() ) continue;
-		ext::vulkan::GraphicDescriptor descriptor = graphic.descriptor;
-		// bind to this render mode
-		descriptor.renderMode = this->getName();
-		// ignore if pipeline exists for this render mode
-		if ( graphic.hasPipeline( descriptor ) ) continue;
-		graphic.initializePipeline( descriptor );
+		for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+			// bind to this render mode
+			ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
+			// ignore if pipeline exists for this render mode
+			if ( graphic.hasPipeline( descriptor ) ) continue;
+			graphic.initializePipeline( descriptor );
+		}
 	}
 }
 
@@ -137,7 +165,7 @@ void ext::vulkan::RenderMode::render() {
 	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
 	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
 	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];							// Command buffers(s) to execute in this batch (submission)
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence

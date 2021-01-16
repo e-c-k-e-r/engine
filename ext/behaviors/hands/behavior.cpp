@@ -68,7 +68,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.process = true;
 
 					graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-					graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/base.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 					graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
 					uf::instantiator::bind( "EntityBehavior", hand );
@@ -103,7 +103,7 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.initialize();
 					graphic.initializeGeometry(mesh);
 					
-					graphic.material.attachShader("./data/shaders/line.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/line.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 					graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 					graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
 					graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
@@ -373,10 +373,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
 		if ( graphic.initialized ) {	
-			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+			// auto& uniforms = graphic.uniforms<uf::MeshDescriptor<>>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < 2; ++i ) {
+			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
@@ -388,7 +388,7 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 
 			if ( uf::renderer::currentRenderMode ) {
 				auto& renderMode = *uf::renderer::currentRenderMode;
-				if ( renderMode.name == "" )
+				if ( renderMode.getName() == "" )
 					uniforms.matrices.model = pod::Matrix4f{};
 			} else {
 				uniforms.matrices.model = pod::Matrix4f{};
@@ -403,10 +403,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
 		if ( graphic.initialized ) {	
-			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+			// auto& uniforms = graphic.uniforms<uf::MeshDescriptor<>>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < 2; ++i ) {
+			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
@@ -418,7 +418,7 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 
 			if ( uf::renderer::currentRenderMode ) {
 				auto& renderMode = *uf::renderer::currentRenderMode;
-				if ( renderMode.name == "" )
+				if ( renderMode.getName() == "" )
 					uniforms.matrices.model = pod::Matrix4f{};
 			} else {
 				uniforms.matrices.model = pod::Matrix4f{};
@@ -433,10 +433,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
 		if ( graphic.initialized ) {	
-			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+			// auto& uniforms = graphic.uniforms<uf::MeshDescriptor<>>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < 2; ++i ) {
+			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
@@ -454,10 +454,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
 		if ( graphic.initialized ) {	
-			// auto& uniforms = graphic.uniforms<uf::StereoMeshDescriptor>();
-			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+			// auto& uniforms = graphic.uniforms<uf::MeshDescriptor<>>();
+			auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < 2; ++i ) {
+			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}

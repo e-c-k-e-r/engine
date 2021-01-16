@@ -99,8 +99,8 @@ namespace uf {
 		Userdata& operator=( pod::Userdata* pointer );
 		Userdata& operator=( Userdata&& move );
 		Userdata& operator=( const Userdata& copy );
-	
 	};
 }
 
 #include "userdata.inl"
+#include "pointered.inl"

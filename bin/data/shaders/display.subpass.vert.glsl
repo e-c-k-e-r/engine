@@ -17,6 +17,7 @@ out gl_PerVertex {
 
 void main() {
 	outUv = inUv;
-
+	outPushConstantPass = PushConstant.pass;
+	
 	gl_Position = vec4(inPos.xy, 0.0, 1.0);
 }

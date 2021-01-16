@@ -79,7 +79,7 @@ void ext::NoiseBehavior::initialize( uf::Object& self ) {
 
 	this->callHook("entity:TextureUpdate.%UID%");
 
-	graphic.material.attachShader("./data/shaders/base.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	graphic.material.attachShader("./data/shaders/base.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 	graphic.material.attachShader("./data/shaders/noise.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 }
 void ext::NoiseBehavior::tick( uf::Object& self ) {

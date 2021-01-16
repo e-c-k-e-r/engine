@@ -13,7 +13,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 
-std::string ext::vulkan::ComputeRenderMode::getType() const {
+const std::string ext::vulkan::ComputeRenderMode::getType() const {
 	return "Compute";
 }
 const size_t ext::vulkan::ComputeRenderMode::blitters() const {
@@ -38,7 +38,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 
 		compute.device = &device;
 		compute.material.device = &device;
-		compute.descriptor.renderMode = this->name;
+		compute.descriptor.renderMode = this->getName();
 		compute.material.initializeShaders({
 			{"./data/shaders/raytracing.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT},
 		});
@@ -58,12 +58,12 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 				uint32_t maxLights = 16;
 				uint32_t eyes = 2;
 			};
-			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-			specializationConstants->eyes = ext::openvr::context ? 2 : 1;
+			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			specializationConstants.eyes = ext::openvr::context ? 2 : 1;
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 ) {
-					binding.descriptorCount = specializationConstants->eyes;
+					binding.descriptorCount = specializationConstants.eyes;
 				}
 			}
 		}
@@ -89,8 +89,8 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 		blitter.material.device = &device;
 		blitter.descriptor.subpass = 1;
 
-		blitter.descriptor.depthTest.test = false;
-		blitter.descriptor.depthTest.write = false;
+		blitter.descriptor.depth.test = false;
+		blitter.descriptor.depth.write = false;
 
 		blitter.initializeGeometry( mesh );
 		blitter.material.initializeShaders({

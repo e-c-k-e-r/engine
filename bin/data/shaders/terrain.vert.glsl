@@ -1,8 +1,10 @@
 #version 450
 
+layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec3 inNormal;
+layout (location = 3) in uint inColor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -10,8 +12,8 @@ layout( push_constant ) uniform PushBlock {
 
 struct Matrices {
 	mat4 model;
-	mat4 view[2];
-	mat4 projection[2];
+	mat4 view[PASSES];
+	mat4 projection[PASSES];
 };
 
 layout (binding = 0) uniform UBO {
@@ -31,11 +33,18 @@ out gl_PerVertex {
 
 void main() {
 	outUv = inUv;
-	outColor = ubo.color;
+//	outColor = ubo.color;
 
 	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
+
+	outColor.a = (inColor >>  24u) & 0xFF;
+	outColor.b = (inColor >>  16u) & 0xFF;
+	outColor.g = (inColor >>   8u) & 0xFF;
+	outColor.r = (inColor        ) & 0xFF;
+	outColor.rgb /= 256.0;
+	outColor.a = 0.5;
 
 	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
 }

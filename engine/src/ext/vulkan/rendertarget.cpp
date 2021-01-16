@@ -207,7 +207,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 		// dependency: transition from final
 		VkSubpassDependency dependency;
-		dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependency.dependencyFlags = 0; //VK_DEPENDENCY_BY_REGION_BIT;
 
 		dependency.dstSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -291,7 +291,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			
 			dependencies.push_back(dependency);
 		}
-
 	/*
 		for ( auto& dependency : dependencies  ) {
 			std::cout << "Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass << std::endl;
@@ -300,6 +299,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		}
 		std::cout << std::endl;
 	*/
+	
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.flags = 0;
@@ -310,7 +310,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 		renderPassInfo.pDependencies = &dependencies[0];
 
-		
+/*
 		uint32_t mask = 0;
 		std::vector<uint32_t> masks;
 		for ( size_t i = 0; i < this->multiviews; ++i ) {
@@ -329,7 +329,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		if ( this->multiviews > 1 ) {
 			renderPassInfo.pNext = &renderPassMultiviewInfo;
 		}
-
+*/
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
 	//	std::cout << renderPass << ": " << attachments.size() << std::endl;

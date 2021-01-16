@@ -11,7 +11,7 @@
 #include <uf/utils/math/transform.h>
 #include <uf/ext/openvr/openvr.h>
 
-std::string ext::vulkan::MultiviewStereoscopicDeferredRenderMode::getType() const {
+const std::string ext::vulkan::MultiviewStereoscopicDeferredRenderMode::getType() const {
 	return "Deferred (Stereoscopic, Multiview)";
 }
 const size_t ext::vulkan::MultiviewStereoscopicDeferredRenderMode::blitters() const {
@@ -102,8 +102,8 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 		};
 		blitter.descriptor.subpass = 1;
 		blitter.descriptor.renderTarget = 0;
-		blitter.descriptor.depthTest.test = false;
-		blitter.descriptor.depthTest.write = false;
+		blitter.descriptor.depth.test = false;
+		blitter.descriptor.depth.write = false;
 
 		blitter.initialize( this->getName() );
 		blitter.initializeGeometry( mesh );
@@ -128,12 +128,12 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 			struct SpecializationConstant {
 				uint32_t maxLights = 16;
 			};
-			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants->maxLights;
+					binding.descriptorCount = specializationConstants.maxLights;
 			}
 		}
 		blitter.initializePipeline();

@@ -15,7 +15,7 @@ ext::vulkan::BaseRenderMode::~BaseRenderMode() {
 	this->destroy();
 }
 */
-std::string ext::vulkan::BaseRenderMode::getType() const {
+const std::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
@@ -95,7 +95,7 @@ void ext::vulkan::BaseRenderMode::render() {
 }
 
 void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
-	this->name = "Swapchain";
+	this->metadata["name"] = "Swapchain";
 	auto windowSize = device.window->getSize();
 	this->width = windowSize.x;
 	this->height = windowSize.y;

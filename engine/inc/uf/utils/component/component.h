@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <typeinfo>
 
+#define UF_COMPONENT_POINTERED_USERDATA 0
+
 namespace pod {
 	struct UF_API Component {
 		typedef std::size_t id_t;
@@ -14,7 +16,11 @@ namespace pod {
 	//	typedef std::unordered_map<pod::Component::id_t, pod::Component::id_t> alias_t;
 
 		pod::Component::id_t id;
+	#if UF_COMPONENT_POINTERED_USERDATA
+		pod::PointeredUserdata userdata;
+	#else
 		pod::Userdata* userdata;
+	#endif
 	};
 }
 namespace uf {

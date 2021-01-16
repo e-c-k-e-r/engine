@@ -18,7 +18,7 @@ namespace ext {
 
 			StereoscopicDeferredRenderMode();
 			// RAII
-			virtual std::string getType() const;
+			virtual const std::string getType() const;
 			virtual ext::vulkan::RenderTarget& getRenderTarget(size_t = 0);
 			virtual const ext::vulkan::RenderTarget& getRenderTarget(size_t = 0) const;
 			virtual const size_t blitters() const;

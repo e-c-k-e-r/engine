@@ -113,7 +113,7 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
-				{"./data/shaders/terrain.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+				{"./data/shaders/terrain.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 				{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 			// uf::renderer::rebuildOnTickStart = false;
@@ -270,9 +270,9 @@ void ext::TerrainBehavior::render( uf::Object& self ){
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& camera = scene.getController().getComponent<uf::Camera>();		
 		if ( !graphic.initialized ) return;
-		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::StereoMeshDescriptor>();
+		auto& uniforms = graphic.material.shaders.front().uniforms.front().get<uf::MeshDescriptor<>>();
 		uniforms.matrices.model = uf::matrix::identity();
-		for ( std::size_t i = 0; i < 2; ++i ) {
+		for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 			uniforms.matrices.view[i] = camera.getView( i );
 			uniforms.matrices.projection[i] = camera.getProjection( i );
 		}

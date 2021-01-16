@@ -463,7 +463,8 @@ void EXT_API ext::initialize() {
 		}
 		ext::ultralight::initialize();
 	}
-	
+
+//	#define DEBUG_PRINT() std::cout << __FILE__ << ":" __FUNCTION__ << "@" << __LINE__ << std::endl;	
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			auto function = [json]() -> int {
@@ -567,9 +568,22 @@ void EXT_API ext::tick() {
 		}
 	}
 
+	auto& bulletThread = uf::thread::get("Physics");
+	/* Update physics timer */ {
+		uf::physics::tick();
+	}
+	/* Update bullet */ {
+		if ( ::config["engine"]["ext"]["bullet"]["multithreaded"].as<bool>() ) {
+			uf::thread::add( bulletThread, [&]() -> int { ext::bullet::tick(); return 0;}, true );
+		} else {
+			ext::bullet::tick();
+		}
+	}
+
 	/* Update entities */ {
 		uf::scene::tick();
 	}
+	
 	/* Tick Main Thread Queue */ {
 		pod::Thread& thread = uf::thread::get("Main");
 		uf::thread::process( thread );
@@ -584,18 +598,6 @@ void EXT_API ext::tick() {
 			if ( announce && collected > 0 ) {
 				uf::iostream << "GC collected " << (int) collected << " unused entities" << "\n";
 			}
-		}
-	}
-
-	/* Update physics timer */ {
-		uf::physics::tick();
-	}
-	auto& bulletThread = uf::thread::get("Physics");
-	/* Update bullet */ {
-		if ( ::config["engine"]["ext"]["bullet"]["multithreaded"].as<bool>() ) {
-			uf::thread::add( bulletThread, [&]() -> int { ext::bullet::tick(); return 0;}, true );
-		} else {
-			ext::bullet::tick();
 		}
 	}
 

@@ -47,16 +47,25 @@ namespace {
 				}
 			}
 			graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-
-			auto& shader = graphic.material.shaders.back();
-			struct SpecializationConstant {
-				uint32_t textures = 1;
-			};
-			auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-			specializationConstants->textures = graphic.material.textures.size();
-			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants->textures;
+			{
+				auto& shader = graphic.material.getShader("vertex");
+				struct SpecializationConstant {
+					uint32_t passes = 6;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.passes = uf::renderer::settings::maxViews;
+			}
+			{
+				auto& shader = graphic.material.getShader("fragment");
+				struct SpecializationConstant {
+					uint32_t textures = 1;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.textures = graphic.material.textures.size();
+				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+					if ( binding.descriptorCount > 1 )
+						binding.descriptorCount = specializationConstants.textures;
+				}
 			}
 		} else {
 			graphic.process = false;
@@ -136,6 +145,8 @@ void uf::graph::process( pod::Graph& graph ) {
 		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 			materials[i] = graph.materials[i].storage;
 			materials[i].indexMappedTarget = i;
+			if ( graph.metadata["alpha cutoff"].is<float>() )
+				materials[i].factorAlphaCutoff = graph.metadata["alpha cutoff"].as<float>();
 		}
 		graph.root.materialBufferIndex = graphic.initializeBuffer(
 			(void*) materials.data(),
@@ -185,9 +196,10 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 		if ( entity->hasComponent<uf::Graphic>() ) {
+			size_t o = graph.metadata["mesh optimization"].is<size_t>() ? graph.metadata["mesh optimization"].as<size_t>() : SIZE_MAX;
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			graphic.initialize();
-			graphic.initializeGeometry( mesh );
+			graphic.initializeGeometry( mesh, o );
 		}
 		
 		if ( !ext::json::isNull( graph.metadata["tags"][nodeName] ) ) {
@@ -291,20 +303,25 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		// override transform
 		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
 			auto& info = graph.metadata["tags"][node.name];
-			transform = uf::transform::decode( info["transform"], transform );
-
-			if ( info["transform"]["parent"].is<std::string>() ) {
-				auto* parentPointer = uf::graph::find( graph, info["transform"]["parent"].as<std::string>() );
-				if ( parentPointer ) {
-					auto& parentNode = *parentPointer;
-					// entity already exists, bind to its transform
-					if ( parentNode.entity && parentNode.entity->hasComponent<pod::Transform<>>() ) {
-						auto& parentTransform = parentNode.entity->getComponent<pod::Transform<>>();
-						transform = uf::transform::reference( transform, parentTransform, info["transform"]["reorient"].as<bool>() );
-						transform.position = -transform.position;
-					// doesnt exist, bind to the node transform
-					} else {
-						transform = uf::transform::reference( transform, parentNode.transform, info["transform"]["reorient"].as<bool>() );
+			if ( info["transform"]["offset"].as<bool>() ) {
+				auto parsed = uf::transform::decode( info["transform"], pod::Transform<>{} );
+				transform.position += parsed.position;
+				transform.orientation = uf::quaternion::multiply( transform.orientation, parsed.orientation );
+			} else {
+				transform = uf::transform::decode( info["transform"], transform );
+				if ( info["transform"]["parent"].is<std::string>() ) {
+					auto* parentPointer = uf::graph::find( graph, info["transform"]["parent"].as<std::string>() );
+					if ( parentPointer ) {
+						auto& parentNode = *parentPointer;
+						// entity already exists, bind to its transform
+						if ( parentNode.entity && parentNode.entity->hasComponent<pod::Transform<>>() ) {
+							auto& parentTransform = parentNode.entity->getComponent<pod::Transform<>>();
+							transform = uf::transform::reference( transform, parentTransform, info["transform"]["reorient"].as<bool>() );
+							transform.position = -transform.position;
+						// doesnt exist, bind to the node transform
+						} else {
+							transform = uf::transform::reference( transform, parentNode.transform, info["transform"]["reorient"].as<bool>() );
+						}
 					}
 				}
 			}
@@ -351,6 +368,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 				materials[i] = graph.materials[i].storage;
 				materials[i].indexMappedTarget = i;
+			}
+			if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
+				auto& info = graph.metadata["tags"][node.name];
+				for ( size_t i = 0; i < graph.materials.size(); ++i ) {
+					materials[i].factorAlphaCutoff = info["alpha cutoff"].as<float>();
+				}
 			}
 			node.materialBufferIndex = graphic.initializeBuffer(
 				(void*) materials.data(),

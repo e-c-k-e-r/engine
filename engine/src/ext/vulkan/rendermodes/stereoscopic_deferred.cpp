@@ -15,7 +15,7 @@
 ext::vulkan::StereoscopicDeferredRenderMode::StereoscopicDeferredRenderMode() : renderTargets({ renderTarget }) {
 }
 
-std::string ext::vulkan::StereoscopicDeferredRenderMode::getType() const {
+const std::string ext::vulkan::StereoscopicDeferredRenderMode::getType() const {
 	return "Deferred (Stereoscopic)";
 }
 ext::vulkan::RenderTarget& ext::vulkan::StereoscopicDeferredRenderMode::getRenderTarget( size_t i ) {
@@ -135,8 +135,8 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 			};
 			blitter.descriptor.subpass = 1;
 			blitter.descriptor.renderTarget = i++;
-			blitter.descriptor.depthTest.test = false;
-			blitter.descriptor.depthTest.write = false;
+			blitter.descriptor.depth.test = false;
+			blitter.descriptor.depth.write = false;
 
 			blitter.initialize( this->getName() );
 			blitter.initializeGeometry( mesh );
@@ -170,22 +170,16 @@ void ext::vulkan::StereoscopicDeferredRenderMode::initialize( Device& device ) {
 				auto& metadata = scene.getComponent<uf::Serializer>();
 
 				auto& shader = blitter.material.shaders.back();
-			/*
-				struct SpecializationConstant {
-					int32_t maxLights = 16;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-			*/
+
 				struct SpecializationConstant {
 					uint32_t maxLights = 16;
 				};
-				auto* specializationConstants = (SpecializationConstant*) &shader.specializationConstants[0];
-				specializationConstants->maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 					if ( binding.descriptorCount > 1 )
-						binding.descriptorCount = specializationConstants->maxLights;
+						binding.descriptorCount = specializationConstants.maxLights;
 				}
 			}
 			blitter.initializePipeline();
@@ -313,24 +307,26 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 					layer->pipelineBarrier( commands[i], 0 );
 				}
 			
+				size_t currentPass = 0;
 				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 					vkCmdSetViewport(commands[i], 0, 1, &viewport);
 					vkCmdSetScissor(commands[i], 0, 1, &scissor);
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
-						graphic->record(commands[i] );
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor);
+						graphic->record( commands[i], descriptor, currentPass );
 					}
 					// render gui layer
 					{
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 0 ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 							blitter.record(commands[i]);
 						}
 					}
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass;
 					{
 						blitter.record(commands[i]);
 					}
@@ -339,7 +335,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != 1 ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 							blitter.record(commands[i]);
 						}
 					}

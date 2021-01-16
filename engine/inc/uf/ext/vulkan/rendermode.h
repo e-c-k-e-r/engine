@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/ext/vulkan/device.h>
+#include <uf/utils/graphic/descriptor.h>
 
 namespace ext {
 	namespace vulkan {
@@ -9,8 +10,9 @@ namespace ext {
 		struct UF_API RenderMode {
 			bool execute = false;
 			bool rebuild = false;
-			uint32_t width = 0, height = 0;
-			std::string name = "";
+			uint32_t width = 0;
+			uint32_t height = 0;
+			uf::Serializer metadata;
 			
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;
@@ -24,8 +26,8 @@ namespace ext {
 
 			virtual ~RenderMode();
 			// RAII
-			virtual std::string getType() const;
-			const std::string& getName( bool = false ) const;
+			virtual const std::string getName() const;
+			virtual const std::string getType() const;
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
 
@@ -35,6 +37,9 @@ namespace ext {
 
 			virtual commands_container_t& getCommands();
 			virtual commands_container_t& getCommands( std::thread::id );
+
+			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
+			virtual void bindGraphicPushConstants( ext::vulkan::Graphic*, size_t = 0 );
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();

@@ -5,11 +5,15 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/vulkan/graphic.h>
 
-std::string ext::vulkan::RenderTargetRenderMode::getType() const {
-	return "RenderTarget";
+const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
+	return this->metadata["target"].as<std::string>();
 }
-const std::string& ext::vulkan::RenderTargetRenderMode::getName( bool wantsTarget ) const {
-	return wantsTarget ? this->target : this->name;
+void ext::vulkan::RenderTargetRenderMode::setTarget( const std::string& target ) {
+	this->metadata["target"] = target;
+}
+
+const std::string ext::vulkan::RenderTargetRenderMode::getType() const {
+	return "RenderTarget";
 }
 const size_t ext::vulkan::RenderTargetRenderMode::blitters() const {
 	return 1;
@@ -21,51 +25,63 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitt
 	return { &this->blitter };
 }
 
+ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
+	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+	std::string type = metadata["type"].as<std::string>();
+	if ( type == "depth" ) {
+		descriptor.cullMode = VK_CULL_MODE_NONE;
+	}
+	return descriptor;
+}
+
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
 
-	this->target = this->name;
+	this->setTarget( this->getName() );
 	std::string type = metadata["type"].as<std::string>();
-	if ( type == "depth" ) {
-		renderTarget.device = &device;
-		struct {
-			size_t depth;
-		} attachments;
+	size_t subpasses = metadata["subpasses"].as<size_t>();
+	if ( subpasses == 0 ) subpasses = 1;
+	renderTarget.device = &device;
+	for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+		if ( type == "depth" ) {
+			struct {
+				size_t depth;
+			} attachments;
 
-		attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
-		renderTarget.addPass(
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			{},
-			{},
-			attachments.depth
-		);
-	} else {
-		renderTarget.device = &device;
-		struct {
-			size_t albedo, normals, position, depth;
-		} attachments;
-
-		attachments.albedo = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
-		attachments.normals = renderTarget.attach( ext::vulkan::settings::formats::normal, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
-		if ( !settings::experimental::deferredReconstructPosition )
-			attachments.position = renderTarget.attach( ext::vulkan::settings::formats::position, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
-		attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
-
-		// First pass: write to target
-		if ( settings::experimental::deferredReconstructPosition ) {
+			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.albedo, attachments.normals },
+				{},
 				{},
 				attachments.depth
 			);
 		} else {
-			renderTarget.addPass(
-				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				{ attachments.albedo, attachments.normals, attachments.position },
-				{},
-				attachments.depth
-			);
+			struct {
+				size_t albedo, normals, position, depth;
+			} attachments;
+
+			attachments.albedo = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
+			attachments.normals = renderTarget.attach( ext::vulkan::settings::formats::normal, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
+			if ( !settings::experimental::deferredReconstructPosition )
+				attachments.position = renderTarget.attach( ext::vulkan::settings::formats::position, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
+			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+
+			// First pass: write to target
+			if ( settings::experimental::deferredReconstructPosition ) {
+				renderTarget.addPass(
+					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					{ attachments.albedo, attachments.normals },
+					{},
+					attachments.depth
+				);
+			} else {
+				renderTarget.addPass(
+					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					{ attachments.albedo, attachments.normals, attachments.position },
+					{},
+					attachments.depth
+				);
+			}
 		}
 	}
 
@@ -98,6 +114,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 	}
 }
+
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 	if ( ext::vulkan::states::resized ) {
@@ -110,7 +127,6 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 		}
 		if ( blitter.process ) {
 			blitter.getPipeline().update( blitter );
-		//	blitter.updatePipelines();
 		}
 	}
 }
@@ -130,13 +146,13 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	// The submit info structure specifices a command buffer queue submission batch
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-/*
-	submitInfo.pWaitSemaphores = NULL;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 0;												// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;				// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-*/
+	submitInfo.pWaitDstStageMask = &waitStageMask;						// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
+//	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;			// Semaphore(s) to be signaled when command buffers have completed
+//	submitInfo.signalSemaphoreCount = 1;								// One signal semaphore
+	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
@@ -255,16 +271,19 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 
+			size_t subpasses = metadata["subpasses"].as<size_t>();
+			if ( subpasses == 0 ) subpasses = 1;
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				for ( auto graphic : graphics ) {
-					if ( graphic->descriptor.renderMode != this->target ) continue;
-					ext::vulkan::GraphicDescriptor descriptor = graphic->descriptor;
-					descriptor.renderMode = this->name;
-					graphic->record(commands[i], descriptor );
+				for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+					for ( auto graphic : graphics ) {
+						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
+						graphic->record( commands[i], descriptor, currentPass );
+					}
+					if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 				}
-		//	if ( !false ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 			vkCmdEndRenderPass(commands[i]);
 		}
 

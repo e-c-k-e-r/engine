@@ -444,10 +444,10 @@ void ext::vulkan::Texture2D::fromBuffers(
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
 	if ( data ) {
-		void* layerPointer = data;
+		uint8_t* layerPointer = (uint8_t*) data;
 		VkDeviceSize layerSize = bufferSize / this->layers;
 		for ( size_t layer = 1; layer <= this->layers; ++layer ) {
-			this->update( layerPointer, layerSize, imageLayout, layer );
+			this->update( (void*) layerPointer, layerSize, imageLayout, layer );
 			layerPointer += layerSize;
 		}
 	}

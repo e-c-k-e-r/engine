@@ -1,21 +1,22 @@
 #include <uf/utils/camera/camera.h>
 
+#include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
-bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = true;
+bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = true;\
 
-uf::Camera::Camera() : 
-	m_modified(false)
-{
+uf::Camera::Camera() : m_modified(false) {
 	this->m_settings.perspective.fov = 100;
 	this->m_settings.perspective.size = {1280, 720};
 	this->m_settings.perspective.bounds = {0.001, 32};
 	this->m_settings.offset = {0, 0, 0};
 	this->m_settings.mode = 1;
 	
-	this->setModel(uf::matrix::identity());
-	this->setView(uf::matrix::identity());
-	this->setProjection(uf::matrix::identity());
+//	this->setModel(uf::matrix::identity());
+//	this->setView(uf::matrix::identity());
+//	this->setProjection(uf::matrix::identity());
+	this->m_matrices.views.resize(6, uf::matrix::identity());
+	this->m_matrices.projections.resize(6, uf::matrix::identity());
 	
 	this->m_transform = uf::transform::initialize(this->m_transform);
 	this->m_transform.position = {0, 0, 0};
@@ -32,6 +33,11 @@ const pod::Transform<>& uf::Camera::getTransform() const {
 }
 
 pod::Matrix4& uf::Camera::getView( size_t eye ) {
+	if ( eye >= this->m_matrices.views.size() ) eye = 0;
+	return this->m_matrices.views[eye];
+//	if ( eye >= this->m_matrices.views.size() ) return uf::matrix::identity();
+//	if ( eye >= this->m_matrices.views.size() ) this->m_matrices.views.resize( uf::matrix::identity() );
+/*
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -43,8 +49,14 @@ pod::Matrix4& uf::Camera::getView( size_t eye ) {
 			return this->m_matrices.left.view;
 		break;
 	}
+*/
 }
 pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
+	if ( eye >= this->m_matrices.projections.size() ) eye = 0;
+	return this->m_matrices.projections[eye];
+//	if ( eye >= this->m_matrices.projections.size() ) return uf::matrix::identity();
+//	if ( eye >= this->m_matrices.projections.size() ) this->m_matrices.projections.resize( eye, uf::matrix::identity() );
+/*
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -56,12 +68,19 @@ pod::Matrix4& uf::Camera::getProjection( size_t eye ) {
 			return this->m_matrices.left.projection;
 		break;
 	}
+*/
 }
+/*
 pod::Matrix4& uf::Camera::getModel() {
 	return this->m_matrices.model;
 }
-
+*/
 const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
+	if ( eye >= this->m_matrices.views.size() ) eye = 0;
+	return this->m_matrices.views[eye];
+//	if ( eye >= this->m_matrices.views.size() ) return uf::matrix::identity();
+//	if ( eye >= this->m_matrices.views.size() ) this->m_matrices.views.resize( eye, uf::matrix::identity() );
+/*
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.view;
@@ -73,8 +92,14 @@ const pod::Matrix4& uf::Camera::getView( size_t eye ) const {
 			return this->m_matrices.left.view;
 		break;
 	}
+*/
 }
 const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
+	if ( eye >= this->m_matrices.projections.size() ) eye = 0;
+	return this->m_matrices.projections[eye];
+//	if ( eye >= this->m_matrices.projections.size() ) return uf::matrix::identity();
+//	if ( eye >= this->m_matrices.projections.size() ) this->m_matrices.projections.resize( eye, uf::matrix::identity() );
+/*
 	switch ( eye ) {
 		case 0:
 			return this->m_matrices.left.projection;
@@ -86,11 +111,13 @@ const pod::Matrix4& uf::Camera::getProjection( size_t eye ) const {
 			return this->m_matrices.left.projection;
 		break;
 	}
+*/
 }
+/*
 const pod::Matrix4& uf::Camera::getModel() const {
 	return this->m_matrices.model;
 }
-
+*/
 pod::Math::num_t& uf::Camera::getFov() {
 	return this->m_settings.perspective.fov;
 }
@@ -124,6 +151,14 @@ void uf::Camera::setTransform( const pod::Transform<>& transform ) {
 	this->update(true);
 }
 void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
+	if ( i >= uf::renderer::settings::maxViews ) {
+		for ( i = 0; i < this->m_matrices.views.size(); ++i )
+			this->m_matrices.views[i] = mat;
+		return;
+	}
+	if ( i >= this->m_matrices.views.size() ) this->m_matrices.views.resize( i, uf::matrix::identity() );
+	this->m_matrices.views[i] = mat;
+/*
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.view = mat;
@@ -136,8 +171,17 @@ void uf::Camera::setView( const pod::Matrix4& mat, size_t i ) {
 			this->setView( mat, 1 );
 		break;
 	}
+*/
 }
 void uf::Camera::setProjection( const pod::Matrix4& mat, size_t i ) {
+	if ( i >= uf::renderer::settings::maxViews ) {
+		for ( i = 0; i < this->m_matrices.projections.size(); ++i )
+			this->m_matrices.projections[i] = mat;
+		return;
+	}
+	if ( i >= this->m_matrices.projections.size() ) this->m_matrices.projections.resize( i, uf::matrix::identity() );
+	this->m_matrices.projections[i] = mat;
+/*
 	switch ( i ) {
 		case 0:
 			this->m_matrices.left.projection = mat;
@@ -150,11 +194,13 @@ void uf::Camera::setProjection( const pod::Matrix4& mat, size_t i ) {
 			this->setProjection( mat, 1 );
 		break;
 	}
+*/
 }
+/*
 void uf::Camera::setModel( const pod::Matrix4& mat ) {
 	this->m_matrices.model = mat;
 }
-
+*/
 void uf::Camera::setFov( pod::Math::num_t fov ) {
 	this->m_settings.mode = 1;
 	this->m_settings.perspective.fov = fov;

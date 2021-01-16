@@ -15,6 +15,8 @@ uint32_t ext::vulkan::settings::width = 1280;
 uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
 bool ext::vulkan::settings::validation = true;
+// constexpr size_t ext::vulkan::settings::maxViews = 6;
+size_t ext::vulkan::settings::viewCount = 2;
 
 std::vector<std::string> ext::vulkan::settings::validationFilters;
 std::vector<std::string> ext::vulkan::settings::requestedDeviceFeatures;
@@ -156,7 +158,7 @@ bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
 }
 
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
-	mode->name = name;
+	mode->metadata["name"] = name;
 	renderModes.push_back(mode);
 	if ( ext::vulkan::settings::validation ) uf::iostream << "Adding RenderMode: " << name << ": " << mode->getType() << "\n";
 	// reorder

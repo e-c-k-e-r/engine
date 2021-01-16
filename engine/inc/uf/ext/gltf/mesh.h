@@ -19,11 +19,11 @@ namespace ext {
 
 		namespace mesh {
 			struct ID {
-				/*alignas(16)*/ pod::Vector3f position;
-				/*alignas(8)*/ pod::Vector2f uv;
-				/*alignas(16)*/ pod::Vector3f normal;
-				/*alignas(16)*/ pod::Vector4f tangent;
-				/*alignas(8)*/ pod::Vector2ui id;
+				alignas(16) pod::Vector3f position;
+				alignas(8) pod::Vector2f uv;
+				alignas(16) pod::Vector3f normal;
+				alignas(16) pod::Vector4f tangent;
+				alignas(8) pod::Vector2ui id;
 
 				static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 			/*
@@ -38,13 +38,13 @@ namespace ext {
 			*/
 			};
 			struct Skinned {
-				/*alignas(16)*/ pod::Vector3f position;
-				/*alignas(8)*/ pod::Vector2f uv;
-				/*alignas(16)*/ pod::Vector3f normal;
-				/*alignas(16)*/ pod::Vector4f tangent;
-				/*alignas(8)*/ pod::Vector2ui id;
-				/*alignas(16)*/ pod::Vector4f joints;
-				/*alignas(16)*/ pod::Vector4f weights;
+				alignas(16) pod::Vector3f position;
+				alignas(8) pod::Vector2f uv;
+				alignas(16) pod::Vector3f normal;
+				alignas(16) pod::Vector4f tangent;
+				alignas(8) pod::Vector2ui id;
+				alignas(16) pod::Vector4f joints;
+				alignas(16) pod::Vector4f weights;
 
 				static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
 			/*

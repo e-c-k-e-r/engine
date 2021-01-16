@@ -8,7 +8,11 @@ uf::Component::~Component() {
 void uf::Component::destroyComponents() {
 	for ( auto& kv : this->m_container ) {
 		pod::Component& component = kv.second;
+	#if UF_COMPONENT_POINTERED_USERDATA
+		uf::pointeredUserdata::destroy(uf::component::memoryPool, component.userdata);
+	#else
 		uf::userdata::destroy(uf::component::memoryPool, component.userdata);
+	#endif
 	}
 	this->m_container.clear();
 }

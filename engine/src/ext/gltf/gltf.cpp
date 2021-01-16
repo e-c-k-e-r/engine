@@ -178,6 +178,9 @@ namespace {
 					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
 
 					#undef ITERATE_ATTRIBUTE
+					vertex.id.x = nodeIndex;
+					vertex.id.y = primitive.material;
+
 					if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) && (graph.mode & ext::gltf::LoadMode::ATLAS) ) {
 						auto& material = graph.materials[primitive.material];
 						auto& texture = graph.textures[material.storage.indexAlbedo];
@@ -193,8 +196,6 @@ namespace {
 					if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
 						vertex.position = uf::matrix::multiply<float>( modelMatrix, vertex.position );
 					}
-					vertex.id.x = nodeIndex;
-					vertex.id.y = primitive.material;
 				}
 
 				if ( primitive.indices > -1 ) {
@@ -273,9 +274,15 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 
 	// load images
 	{
+		size_t _i = 0;
 		for ( auto& i : model.images ) {
 			auto& image = graph.images.emplace_back();
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
+
+			if ( graph.metadata["dump images"].as<bool>() ) {
+				std::string target = "./data/dump/" + uf::string::sha256(filename) + "." + std::to_string(_i++) + ".png";
+				image.save( target );
+			}
 		}
 	}
 	// generate atlas

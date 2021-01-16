@@ -1,5 +1,6 @@
 #version 450
 
+layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec2 inPos;
 layout (location = 1) in vec2 inUv;
 
@@ -8,7 +9,7 @@ layout( push_constant ) uniform PushBlock {
 } PushConstant;
 
 struct Matrices {
-	mat4 model[2];
+	mat4 model[PASSES];
 };
 struct Gui {
 	vec4 offset;

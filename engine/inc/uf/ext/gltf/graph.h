@@ -44,11 +44,13 @@ namespace pod {
 			alignas(4) float factorOcclusion = 0.0f;
 			alignas(4) float factorMappedBlend = 0.0f;
 
+			alignas(4) float factorAlphaCutoff = 1.0f;
+			alignas(4) float factorPadding = 0.0f;
 			alignas(4) int indexAlbedo = -1;
 			alignas(4) int indexNormal = -1;
+
 			alignas(4) int indexEmissive = -1;
 			alignas(4) int indexOcclusion = -1;
-			
 			alignas(4) int indexMetallicRoughness = -1;
 			alignas(4) int indexMappedTarget = -1;
 		} storage;
