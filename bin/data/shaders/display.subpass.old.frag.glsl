@@ -5,7 +5,7 @@ layout (constant_id = 0) const uint LIGHTS = 256;
 
 layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedoMetallic;
 layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormalRoughness;
-layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerPositionAO;
+layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerDepth;
 
 layout (binding = 5) uniform sampler3D samplerNoise;
 layout (binding = 6) uniform sampler2D samplerShadows[LIGHTS];
@@ -177,10 +177,7 @@ float random(vec3 seed, int i){
 }
 
 float shadowFactor( Light light, uint shadowMap ) {
-	vec3 point = position.world;
-//	point += normalize(normal.world) * light.depthBias;
-
-	vec4 positionClip = light.projection * light.view * vec4(point, 1.0);
+	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
@@ -202,14 +199,12 @@ float shadowFactor( Light light, uint shadowMap ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-/*
-	if ( true ) {
+	if ( !true ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
 	} else if ( true ) {
-		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
-	}
-*/
+        bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+    }
 
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
@@ -504,12 +499,20 @@ void fog( inout vec3 i, float scale ) {
 void main() {
 	vec4 albedoMetallic = subpassLoad(samplerAlbedoMetallic);
 	vec4 normalRoughness = subpassLoad(samplerNormalRoughness);
-	vec4 positionAO = subpassLoad(samplerPositionAO);
+//	vec4 positionAO = subpassLoad(samplerPositionAO);
 	
 	normal.eye = normalRoughness.rgb;
-	position.eye = positionAO.rgb; {
+	{
+		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
-		vec4 positionWorld = iView * vec4(position.eye, 1);
+		float depth = subpassLoad(samplerDepth).r;		
+
+		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
+		vec4 positionEye = iProj * positionClip;
+		positionEye /= positionEye.w;
+		position.eye = positionEye.xyz;
+
+		vec4 positionWorld = iView * positionEye;
 		position.world = positionWorld.xyz;
 	}
 
@@ -530,7 +533,6 @@ void main() {
 			light.power *= factor;
 			litFactor += light.power;
 		}
-		if ( light.power <= 0.0001 ) continue;
 		if ( usePbr ) {
 			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, lightPositionWorld, fragColor );
 		} else

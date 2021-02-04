@@ -11,6 +11,7 @@ layout (location = 6) in vec4 inWeights;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 struct Matrices {
@@ -18,12 +19,12 @@ struct Matrices {
 	mat4 view[PASSES];
 	mat4 projection[PASSES];
 };
-layout (binding = 2) uniform UBO {
+layout (binding = 3) uniform UBO {
 	Matrices matrices;
 	vec4 color;
 } ubo;
 
-layout (std140, binding = 3) readonly buffer Joints {
+layout (std140, binding = 4) readonly buffer Joints {
 	mat4 joints[];
 };
 
@@ -33,7 +34,7 @@ layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec3 outNormal;
 layout (location = 3) out mat3 outTBN;
 layout (location = 6) out vec3 outPosition;
-layout (location = 7) out ivec2 outId;
+layout (location = 7) out ivec4 outId;
 
 out gl_PerVertex {
     vec4 gl_Position;   
@@ -50,7 +51,7 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 void main() {
 	outUv = inUv;
 	outColor = ubo.color;
-	outId = inId;
+	outId = ivec4(inId, PushConstant.pass, PushConstant.draw);
 
 	mat4 skinnedMatrix = joints.length() <= 0 ? mat4(1.0) : 
 		inWeights.x * joints[int(inJoints.x)] +

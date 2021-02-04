@@ -6,6 +6,7 @@ layout (location = 1) in vec2 inUv;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 struct Matrices {

@@ -165,6 +165,7 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash ) {
 		UF_ASSET_REGISTER(pod::Graph)
 		auto& metadata = this->getComponent<uf::Serializer>();
 
+		metadata[uri]["flags"]["ATLAS"] = true;
 		ext::gltf::load_mode_t LOAD_FLAGS = 0;
 		#define LOAD_FLAG(name)\
 			if ( metadata[uri]["flags"][#name].as<bool>() )\

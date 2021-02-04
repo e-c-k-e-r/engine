@@ -3,10 +3,6 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
 
-namespace {
-	bool USEVR = false;
-}
-
 void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFlags access, const std::vector<size_t>& colors, const std::vector<size_t>& inputs, size_t depth ) {
 	Subpass pass;
 	pass.stage = stage;
@@ -24,6 +20,19 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	if ( !attachment ) {
 		attachments.resize(attachments.size()+1);
 		attachment = &attachments.back();
+		// no MSAA for depth
+		if ( false && usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+		} else {
+			switch ( samples ) {
+				case 64: attachment->samples = VK_SAMPLE_COUNT_64_BIT; break;
+				case 32: attachment->samples = VK_SAMPLE_COUNT_32_BIT; break;
+				case 16: attachment->samples = VK_SAMPLE_COUNT_16_BIT; break;
+				case  8: attachment->samples =  VK_SAMPLE_COUNT_8_BIT; break;
+				case  4: attachment->samples =  VK_SAMPLE_COUNT_4_BIT; break;
+				case  2: attachment->samples =  VK_SAMPLE_COUNT_2_BIT; break;
+				default: attachment->samples =  VK_SAMPLE_COUNT_1_BIT; break;
+			}
+		}
 	} else {
 		if ( attachment->view ) {
 			vkDestroyImageView(*device, attachment->view, nullptr);
@@ -47,22 +56,9 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	} else {
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
-
-	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-	switch ( ext::vulkan::settings::msaa ) {
-		case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
-		case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
-		case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
-		case  8: samples =  VK_SAMPLE_COUNT_8_BIT; break;
-		case  4: samples =  VK_SAMPLE_COUNT_4_BIT; break;
-		case  2: samples =  VK_SAMPLE_COUNT_2_BIT; break;
-		default: samples =  VK_SAMPLE_COUNT_1_BIT; break;
-	}
-
 	attachment->layout = layout;
 	attachment->format = format;
 	attachment->usage = usage;
-	attachment->samples = samples;
 
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -71,7 +67,7 @@ size_t ext::vulkan::RenderTarget::attach( VkFormat format, VkImageUsageFlags usa
 	imageCreateInfo.extent = { width, height, 1 };
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = this->multiviews;
-	imageCreateInfo.samples = samples;
+	imageCreateInfo.samples = attachment->samples;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = usage;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;

@@ -13,10 +13,23 @@
 #include <queue>
 
 namespace pod {
+	struct UF_API DrawCall {
+		alignas(4) int32_t materialIndex = -1;
+		alignas(4) uint32_t materials = 0;
+		alignas(4) int32_t textureIndex = -1;
+		alignas(4) uint32_t textures = 0;
+	};
 	struct UF_API Texture {
 		std::string name = "";
-		int32_t index = -1;
-		int32_t sampler = -1;
+		struct Storage {
+			alignas(4) int32_t index = -1;
+			alignas(4) int32_t sampler = -1;
+			alignas(4) int32_t remap = -1;
+			alignas(4) float blend = 0;
+
+			alignas(16) pod::Vector4f lerp = {0, 0, 1, 1};
+		} storage;
+		uf::renderer::Texture2D texture;
 	};
 	struct UF_API Light {
 		std::string name = "";
@@ -35,24 +48,23 @@ namespace pod {
 		std::string name = "";
 		// 
 		struct Storage {
-			alignas(16) pod::Vector4f colorBase = { 1, 0, 1, 1 };
-
+			alignas(16) pod::Vector4f colorBase = { 0, 0, 0, 0 };
 			alignas(16) pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
 			
 			alignas(4) float factorMetallic = 0.0f;
 			alignas(4) float factorRoughness = 0.0f;
 			alignas(4) float factorOcclusion = 0.0f;
-			alignas(4) float factorMappedBlend = 0.0f;
-
 			alignas(4) float factorAlphaCutoff = 1.0f;
-			alignas(4) float factorPadding = 0.0f;
+
 			alignas(4) int indexAlbedo = -1;
 			alignas(4) int indexNormal = -1;
-
 			alignas(4) int indexEmissive = -1;
 			alignas(4) int indexOcclusion = -1;
+
 			alignas(4) int indexMetallicRoughness = -1;
-			alignas(4) int indexMappedTarget = -1;
+			alignas(4) int padding1 = -1;
+			alignas(4) int padding2 = -1;
+			alignas(4) int padding3 = -1;
 		} storage;
 	};
 	struct UF_API Node {
@@ -69,6 +81,7 @@ namespace pod {
 		uf::Object* entity = NULL;
 		size_t jointBufferIndex = -1;
 		size_t materialBufferIndex = -1;
+		size_t textureBufferIndex = -1;
 
 		int32_t skin = -1;
 		Mesh mesh;

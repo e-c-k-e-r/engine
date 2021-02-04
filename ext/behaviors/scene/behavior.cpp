@@ -325,9 +325,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			} lights;
 		};
 		struct SpecializationConstant {
-			uint32_t maxLights = 32;
+			uint32_t maxLights = 256;
+			uint32_t maxTextures = 256;
 		} specializationConstants;
 		specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+		specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
 
 		struct LightInfo {
 			uf::Entity* entity = NULL;
@@ -336,11 +338,16 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			bool shadows = false;
 		};
 		std::vector<LightInfo> entities;
+		std::vector<pod::Graph*> graphs;
+	//	std::vector<uf::Entity*> graphs;
 
 		this->process([&]( uf::Entity* entity ) { if ( !entity ) return;
 			auto& metadata = entity->getComponent<uf::Serializer>();
 			if ( entity == &controller ) return;
 			if ( entity == this ) return;
+			if ( entity->hasComponent<pod::Graph>() ) graphs.emplace_back(&entity->getComponent<pod::Graph>());
+		//	if ( entity->hasComponent<pod::Graph>() && entity->hasComponent<uf::Graphic>() ) graphs.emplace_back(entity);
+			//
 			if ( entity->getName() != "Light" && !ext::json::isObject( metadata["light"] ) ) return;
 			//
 			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
@@ -443,7 +450,66 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			graphic.material.textures.clear();
 			// add noise texture
 			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture2D>());
+			// add materials
+			{
+				size_t attachedTextures = 0;
+				std::vector<pod::Material::Storage> materials;
+				materials.reserve(specializationConstants.maxTextures);
 
+				std::vector<pod::Texture::Storage> textures;
+				textures.reserve(specializationConstants.maxTextures);
+				
+				std::vector<pod::DrawCall> drawCalls;
+				drawCalls.reserve(specializationConstants.maxTextures);
+
+				materials.emplace_back().colorBase = {0,0,0,0};
+
+				for ( auto* entity : graphs ) {
+					auto& graph = *entity;
+					
+					size_t startMaterial = materials.size() - 1;
+					size_t startTexture = textures.size();
+
+					{
+						auto& drawCall = drawCalls.emplace_back();
+						drawCall.materialIndex = startMaterial;
+						drawCall.textureIndex = startTexture;
+
+						drawCall.materials = graph.materials.size() - 1;
+						drawCall.textures = graph.textures.size();
+					}
+					for ( auto& material : graph.materials ) {
+						auto& m = materials.emplace_back( material.storage );
+					//	m.indexAlbedo += startMaterial;
+					//	m.indexNormal += startMaterial;
+					//	m.indexEmissive += startMaterial;
+					//	m.indexOcclusion += startMaterial;
+					//	m.indexMetallicRoughness += startMaterial;
+					}
+					for ( auto& texture : graph.textures ) {
+						auto& t = textures.emplace_back( texture.storage );
+					//	t.index += startTexture;
+					//	t.remap += startTexture;
+					}
+					for ( auto& texture : graph.textures ) {
+						if ( !texture.texture.device ) continue;
+						++attachedTextures;
+						graphic.material.textures.emplace_back().aliasTexture(texture.texture);
+						if ( graph.atlas ) break;
+					}
+				}
+				while ( attachedTextures++ < specializationConstants.maxTextures ) {
+					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+				}
+				
+				size_t materialBufferIndex = renderMode.metadata["materialBufferIndex"].as<size_t>();
+				size_t textureBufferIndex = renderMode.metadata["textureBufferIndex"].as<size_t>();
+				size_t drawCallBufferIndex = renderMode.metadata["drawCallBufferIndex"].as<size_t>();
+				graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), materialBufferIndex, false );
+				graphic.updateBuffer( (void*) textures.data(), textures.size() * sizeof(pod::Texture::Storage), textureBufferIndex, false );
+				graphic.updateBuffer( (void*) drawCalls.data(), drawCalls.size() * sizeof(pod::DrawCall), drawCallBufferIndex, false );
+			}
+			// add lighting
 			int updateThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
 			std::vector<UniformDescriptor::Light> lightPool;
 			lightPool.reserve( entities.size() );
@@ -494,13 +560,18 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					}
 				} else {
 					lightPool.emplace_back(light);
-					auto& texture = graphic.material.textures.emplace_back();
-					texture.aliasTexture(uf::renderer::Texture2D::empty);
+					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
 				}
 			}
-
-			for ( size_t i = 0; i < specializationConstants.maxLights && i < lightPool.size(); ++i )
-				lights[i] = lightPool[i];
+			{
+				size_t lightsAdded = 0;
+				for ( size_t i = 0; i < specializationConstants.maxLights && i < lightPool.size(); ++i, ++lightsAdded ) lights[i] = lightPool[i];
+			//	std::cout << "Shadowmaps added: " << lightsAdded << "\t";
+				while ( lightsAdded++ < specializationConstants.maxLights ) {
+					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+				}
+			//	std::cout << "Total shadowmaps: " << lightsAdded << std::endl;
+			}
 
 			{
 				size_t i = 0;

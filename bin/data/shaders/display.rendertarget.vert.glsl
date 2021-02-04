@@ -15,6 +15,7 @@ layout (location = 2) out flat Cursor outCursor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 out gl_PerVertex {

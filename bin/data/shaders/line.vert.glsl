@@ -5,6 +5,7 @@ layout (location = 0) in vec3 inPos;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 struct Matrices {

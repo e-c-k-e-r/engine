@@ -8,6 +8,7 @@ layout (location = 1) out flat uint outPushConstantPass;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 out gl_PerVertex {

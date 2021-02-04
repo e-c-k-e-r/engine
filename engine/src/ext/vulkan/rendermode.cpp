@@ -18,7 +18,8 @@ const std::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }
 const std::string ext::vulkan::RenderMode::getName() const {
-	return this->metadata["name"].as<std::string>();
+	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+	return metadata["name"].as<std::string>();
 }
 ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;

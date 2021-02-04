@@ -326,6 +326,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::waitOnRenderEnd = ::config["engine"]["ext"]["vulkan"]["experimental"]["wait on render end"].as<bool>();
 		uf::renderer::settings::experimental::individualPipelines = ::config["engine"]["ext"]["vulkan"]["experimental"]["individual pipelines"].as<bool>();
 		uf::renderer::settings::experimental::multithreadedCommandRecording = ::config["engine"]["ext"]["vulkan"]["experimental"]["multithreaded command recording"].as<bool>();
+		uf::renderer::settings::experimental::deferredMode = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred mode"].as<std::string>();
 		uf::renderer::settings::experimental::deferredReconstructPosition = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred reconstruct position"].as<bool>();
 		uf::renderer::settings::experimental::deferredAliasOutputToSwapchain = ::config["engine"]["ext"]["vulkan"]["experimental"]["deferred alias output to swapchain"].as<bool>();
 		uf::renderer::settings::experimental::hdr = ::config["engine"]["ext"]["vulkan"]["experimental"]["hdr"].as<bool>();

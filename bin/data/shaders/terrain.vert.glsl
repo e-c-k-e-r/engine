@@ -8,6 +8,7 @@ layout (location = 3) in uint inColor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
 struct Matrices {

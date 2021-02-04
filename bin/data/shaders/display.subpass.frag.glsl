@@ -1,14 +1,70 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
 
-layout (constant_id = 0) const uint LIGHTS = 256;
+#define UF_DEFERRED_SAMPLING 0
 
-layout (input_attachment_index = 0, binding = 1) uniform subpassInput samplerAlbedoMetallic;
-layout (input_attachment_index = 0, binding = 2) uniform subpassInput samplerNormalRoughness;
-layout (input_attachment_index = 0, binding = 3) uniform subpassInput samplerDepth;
+layout (constant_id = 0) const uint LIGHTS = 256;
+layout (constant_id = 1) const uint TEXTURES = 256;
+
+struct Material {
+	vec4 colorBase;
+	vec4 colorEmissive;
+
+	float factorMetallic;
+	float factorRoughness;
+	float factorOcclusion;
+	float factorAlphaCutoff;
+
+	int indexAlbedo;
+	int indexNormal;
+	int indexEmissive;
+	int indexOcclusion;
+	
+	int indexMetallicRoughness;
+	
+	int padding1;
+	int padding2;
+	int padding3;
+};
+struct Texture {
+	int index;
+	int samp;
+	int remap;
+	float blend;
+
+	vec4 lerp;
+};
+struct DrawCall {
+	int materialIndex;
+	uint materials;
+	int textureIndex;
+	uint textures;
+};
+
+layout (input_attachment_index = 0, binding = 1) uniform usubpassInput samplerId;
+layout (input_attachment_index = 1, binding = 2) uniform subpassInput samplerNormal;
+
+#if UF_DEFERRED_SAMPLING
+	layout (input_attachment_index = 2, binding = 3) uniform subpassInput samplerUv;
+#else
+	layout (input_attachment_index = 2, binding = 3) uniform subpassInput samplerAlbedo;
+#endif
+
+layout (input_attachment_index = 3, binding = 4) uniform subpassInput samplerDepth;
 
 layout (binding = 5) uniform sampler3D samplerNoise;
-layout (binding = 6) uniform sampler2D samplerShadows[LIGHTS];
+layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 7) uniform sampler2D samplerShadows[LIGHTS];
+layout (std140, binding = 8) readonly buffer Materials {
+	Material materials[];
+};
+layout (std140, binding = 9) readonly buffer Textures {
+	Texture textures[];
+};
+layout (std140, binding = 10) readonly buffer DrawCalls {
+	DrawCall drawCalls[];
+};
+
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
@@ -177,7 +233,9 @@ float random(vec3 seed, int i){
 }
 
 float shadowFactor( Light light, uint shadowMap ) {
-	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
+	vec3 point = position.world;
+
+	vec4 positionClip = light.projection * light.view * vec4(point, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
@@ -199,12 +257,14 @@ float shadowFactor( Light light, uint shadowMap ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-	if ( !true ) {
+/*
+	if ( true ) {
 		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
 		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
 	} else if ( true ) {
-        bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
-    }
+		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+	}
+*/
 
 	float eyeDepth = positionClip.z;
 	int samples = poissonDisk.length();
@@ -391,39 +451,30 @@ void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightP
 	vec3 N = normalize(normal.eye);
 	vec3 L = light.position.xyz - position.eye;
 	float dist = length(L);
-//	if ( light.radius > 0.001 && light.radius < dist ) return;
 
-	vec3 D = normalize(L);
+	L = normalize(L);
 	vec3 V = normalize(-position.eye);
-	vec3 H = normalize(V + D);
+	vec3 H = normalize(V + L);
 
-	float NdotD = max(dot(N, D), 0.0);
+	float NdotL = max(dot(N, L), 0.0);
 	float NdotV = max(dot(N, V), 0.0);
-
-	vec3 radiance = light.color.rgb * light.power / (dist * dist);
-/*
-	if ( light.radius > 0.0001 ) {
-		radiance *= clamp( light.radius / (pow(dist, 2.0) + 1.0), 0.0, 1.0 );
-	} else if ( false ) {
-		radiance /= dist * dist;
-	}
-*/
+	float attenuation = light.power / (dist * dist);
+	vec3 radiance = light.color.rgb * attenuation;
 
 	// cook-torrance brdf
 	float NDF = DistributionGGX(N, H, roughness);        
-	float G   = GeometrySmith(N, V, D, roughness);      
+	float G   = GeometrySmith(N, V, L, roughness);      
 	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
 
-	vec3 kS = F;
-	vec3 kD = vec3(1.0) - kS;
-	kD *= 1.0 - metallic;	  
+	vec3 kD = vec3(1.0) - F;
+	kD *= 1.0 - metallic;
 
 	vec3 numerator    = NDF * G * F;
-	float denominator = 4.0 * NdotV * NdotD;
+	float denominator = 4.0 * NdotV * NdotL;
 	vec3 specular     = numerator / max(denominator, 0.001);  
 
 	// add to outgoing radiance Lo
-	i += (kD * albedo / PI + specular) * radiance * NdotD;
+	i += (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 rayDir ) {
@@ -496,12 +547,34 @@ void fog( inout vec3 i, float scale ) {
 	i.rgb = mix(i.rgb, color, factor);
 }
 
+vec3 decodeNormals( vec2 enc ) {
+	vec2 fenc = enc*4-2;
+	float f = dot(fenc,fenc);
+	float g = sqrt(1-f/4);
+	vec3 n;
+	n.xy = fenc*g;
+	n.z = 1-f/2;
+	return normalize(n);
+}
+/*
+vec4 sampleTexture( uint drawId, int textureIndex, vec2 uv, vec4 base ) {
+	if ( TEXTURES <= textureIndex || textureIndex < 0 ) return base;
+	Texture t = textures[textureIndex+1];
+ 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, uv ) );
+}
+*/
+
+bool validTextureIndex( int textureIndex ) {
+	return 0 <= textureIndex && textureIndex < TEXTURES;
+}
+vec4 sampleTexture( uint drawId, int textureIndex, vec2 uv, vec4 base ) {
+	if  ( !validTextureIndex( textureIndex ) ) return base;
+	Texture t = textures[textureIndex+1];
+//	if ( 0 <= t.remap && t.remap <= TEXTURES && t.remap != textureIndex  ) t = textures[t.remap+1];
+ 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, uv ) );
+}
+
 void main() {
-	vec4 albedoMetallic = subpassLoad(samplerAlbedoMetallic);
-	vec4 normalRoughness = subpassLoad(samplerNormalRoughness);
-//	vec4 positionAO = subpassLoad(samplerPositionAO);
-	
-	normal.eye = normalRoughness.rgb;
 	{
 		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
 		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
@@ -515,12 +588,34 @@ void main() {
 		vec4 positionWorld = iView * positionEye;
 		position.world = positionWorld.xyz;
 	}
+	
+	normal.eye = decodeNormals( subpassLoad(samplerNormal).xy );
+
+	uvec2 ID = subpassLoad(samplerId).xy;
+	uint drawId = ID.x;
+
+	DrawCall drawCall = drawCalls[drawId];
+	uint materialId = ID.y + 1;
+	materialId += drawCall.materialIndex;
+
+	Material material = materials[materialId];
+	vec4 C = material.colorBase;
+
+#if UF_DEFERRED_SAMPLING
+	vec2 uv = subpassLoad(samplerUv).xy;
+	C = sampleTexture( drawId, drawCall.textureIndex + material.indexAlbedo, uv, C );
+#else
+	C = subpassLoad(samplerAlbedo);
+#endif
+
+	float M = material.factorMetallic;
+	float R = 0.5; //material.factorRoughness;
+	float AO = material.factorOcclusion;
 
 	bool usePbr = true;
 	bool gammaCorrect = false;
 	float litFactor = 1.0;
-	float ao = 1; // positionAO.a;
-	vec3 fragColor = albedoMetallic.rgb * ubo.ambient.rgb * ao;
+	vec3 fragColor = C.rgb * ubo.ambient.rgb * AO;
 	for ( uint i = 0; i < LIGHTS; ++i ) {
 		Light light = ubo.lights[i];
 		
@@ -533,12 +628,12 @@ void main() {
 			light.power *= factor;
 			litFactor += light.power;
 		}
+		if ( light.power <= 0.0001 ) continue;
 		if ( usePbr ) {
-			pbr( light, albedoMetallic.rgb, albedoMetallic.a, normalRoughness.a, lightPositionWorld, fragColor );
+			pbr( light, C.rgb, M, R, lightPositionWorld, fragColor );
 		} else
-			phong( light, albedoMetallic, fragColor );
+			phong( light, C, fragColor );
 	}
-
 	if ( gammaCorrect ) {
 		fragColor = fragColor / (fragColor + vec3(1.0));
  		fragColor = pow(fragColor, vec3(1.0/2.2));  
@@ -551,9 +646,9 @@ void main() {
 		//dither1(fragColor);
 		fragColor += dither2();
 	}
+*/
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);
 	}
-*/
 	outFragColor = vec4(fragColor,1);
 }

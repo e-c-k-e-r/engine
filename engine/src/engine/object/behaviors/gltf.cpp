@@ -274,7 +274,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			auto& storageBuffer = *graphic.getStorageBuffer("Models");
 			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/, false );
 		}
-
+	/*
 		if ( graph.materials.empty() && graphic.hasStorage("Materials") ) {
 			auto& shader = graphic.material.getShader("fragment");
 			std::vector<pod::Material::Storage> materials( graph.materials.size() );
@@ -307,8 +307,9 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 				});
 			}
 			auto& storageBuffer = *graphic.getStorageBuffer("Materials");
-			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /*storageBuffer*/, false );
+			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /*storageBuffer/, false );
 		}
+	*/
 	}
 }
 

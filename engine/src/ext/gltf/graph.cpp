@@ -2,6 +2,8 @@
 #include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 
+#define UF_VK_TESTING 1
+
 namespace {
 	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		auto& graphic = entity.getComponent<uf::Graphic>();
@@ -9,25 +11,35 @@ namespace {
 		graphic.material.device = &uf::renderer::device;
 		graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		graphic.descriptor.cullMode = !(graph.mode & ext::gltf::LoadMode::INVERT) ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_FRONT_BIT; // VK_CULL_MODE_NONE
-		if ( graph.mode & ext::gltf::LoadMode::ATLAS ) {
-			auto& atlas = *graph.atlas;
-			auto& texture = graphic.material.textures.emplace_back();
-			texture.loadFromImage( atlas.getAtlas() );
-		} else {
-			for ( auto& image : graph.images ) {
-				auto& texture = graphic.material.textures.emplace_back();
-				if ( graph.metadata["filter"].is<std::string>() ) {
-					std::string filter = graph.metadata["filter"].as<std::string>();
-					if ( filter == "NEAREST" ) {
-						texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-						texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-					} else if ( filter == "LINEAR" ) {
-						texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
-						texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
-					}
-				}
-				texture.loadFromImage( image );
+		{
+		#if UF_VK_TESTING
+			for ( auto& texture : graph.textures ) {
+				graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 			}
+		#else
+			if ( graph.mode & ext::gltf::LoadMode::ATLAS ) {
+				auto& atlas = *graph.atlas;
+				auto& texture = graphic.material.textures.emplace_back();
+				texture.loadFromImage( atlas.getAtlas() );
+			} else {
+				graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+				for ( auto& image : graph.images ) {
+					auto& texture = graphic.material.textures.emplace_back();
+
+					if ( graph.metadata["filter"].is<std::string>() ) {
+						std::string filter = graph.metadata["filter"].as<std::string>();
+						if ( filter == "NEAREST" ) {
+							texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+							texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+						} else if ( filter == "LINEAR" ) {
+							texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
+							texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+						}
+					}
+					texture.loadFromImage( image );
+				}
+			}
+		#endif
 			for ( auto& sampler : graph.samplers ) {
 				graphic.material.samplers.emplace_back( sampler );
 			}
@@ -104,6 +116,51 @@ void uf::graph::process( uf::Object& entity ) {
 	for ( auto index : graph.root.children ) process( graph, index, entity );
 }
 void uf::graph::process( pod::Graph& graph ) {
+	if ( graph.atlas ) {
+		auto& texture = *graph.textures.emplace(graph.textures.begin());
+		texture.name = "atlas";
+		texture.storage.index = 0;
+		texture.storage.sampler = 0;
+		texture.storage.remap = 0;
+		texture.storage.blend = 0;
+		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas->getAtlas());
+	}
+#if UF_VK_TESTING
+	if ( graph.atlas ) {
+		auto& image = graph.images[0];
+		auto& texture = graph.textures[0].texture;
+
+		if ( graph.metadata["filter"].is<std::string>() ) {
+			std::string filter = graph.metadata["filter"].as<std::string>();
+			if ( filter == "NEAREST" ) {
+				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+			} else if ( filter == "LINEAR" ) {
+				texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
+				texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+			}
+		}
+		texture.loadFromImage( image );
+	} else {
+		for ( size_t i = 0; i < graph.textures.size() && i < graph.images.size(); ++i ) {
+			auto& image = graph.images[i];
+			auto& texture = graph.textures[i].texture;
+
+			if ( graph.metadata["filter"].is<std::string>() ) {
+				std::string filter = graph.metadata["filter"].as<std::string>();
+				if ( filter == "NEAREST" ) {
+					texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+					texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+				} else if ( filter == "LINEAR" ) {
+					texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
+					texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+				}
+			}
+			texture.loadFromImage( image );
+		}
+	}
+#endif
+
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
 
@@ -122,8 +179,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			(void*) instances.data(),
 			instances.size() * sizeof(pod::Matrix4f),
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			true
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 		// Joints storage buffer
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -134,8 +190,7 @@ void uf::graph::process( pod::Graph& graph ) {
 					(void*) skin.inverseBindMatrices.data(),
 					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
 					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					true
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 				);
 				break;
 			}
@@ -144,7 +199,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		std::vector<pod::Material::Storage> materials( graph.materials.size() );
 		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 			materials[i] = graph.materials[i].storage;
-			materials[i].indexMappedTarget = i;
 			if ( graph.metadata["alpha cutoff"].is<float>() )
 				materials[i].factorAlphaCutoff = graph.metadata["alpha cutoff"].as<float>();
 		}
@@ -152,8 +206,19 @@ void uf::graph::process( pod::Graph& graph ) {
 			(void*) materials.data(),
 			materials.size() * sizeof(pod::Material::Storage),
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			true
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		);
+		// Texture storage buffer
+		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
+		for ( size_t i = 0; i < graph.textures.size(); ++i ) {
+			textures[i] = graph.textures[i].storage;
+			textures[i].remap = i;
+		}
+		graph.root.textureBufferIndex = graphic.initializeBuffer(
+			(void*) textures.data(),
+			textures.size() * sizeof(pod::Texture::Storage),
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 		);
 	}
 
@@ -367,7 +432,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			std::vector<pod::Material::Storage> materials( graph.materials.size() );
 			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 				materials[i] = graph.materials[i].storage;
-				materials[i].indexMappedTarget = i;
 			}
 			if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
 				auto& info = graph.metadata["tags"][node.name];
@@ -381,6 +445,18 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 				true
+			);
+			// Texture storage buffer
+			std::vector<pod::Texture::Storage> textures( graph.textures.size() );
+			for ( size_t i = 0; i < graph.textures.size(); ++i ) {
+				textures[i] = graph.textures[i].storage;
+				textures[i].remap = i;
+			}
+			graph.root.textureBufferIndex = graphic.initializeBuffer(
+				(void*) textures.data(),
+				textures.size() * sizeof(pod::Texture::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 			);
 		}
 	}

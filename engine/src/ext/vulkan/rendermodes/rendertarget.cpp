@@ -6,7 +6,8 @@
 #include <uf/ext/vulkan/graphic.h>
 
 const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
-	return this->metadata["target"].as<std::string>();
+	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+	return metadata["target"].as<std::string>();
 }
 void ext::vulkan::RenderTargetRenderMode::setTarget( const std::string& target ) {
 	this->metadata["target"] = target;
@@ -56,6 +57,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				attachments.depth
 			);
 		} else {
+		#if 1
 			struct {
 				size_t albedo, normals, position, depth;
 			} attachments;
@@ -82,6 +84,35 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					attachments.depth
 				);
 			}
+		#else
+			struct {
+				size_t normals, uvs, id, depth;
+			} attachments;
+			//VK_FORMAT_R16G16B16A16_SFLOAT
+			attachments.normals = renderTarget.attach( VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
+			attachments.uvs = renderTarget.attach( VK_FORMAT_R16G16_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // uvs
+			attachments.id = renderTarget.attach( VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // ID
+			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+
+			// First pass: fill the G-Buffer
+			{
+				renderTarget.addPass(
+					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					{ attachments.normals, attachments.uvs, attachments.id },
+					{},
+					attachments.depth
+				);
+			}
+			// Second pass: write to output
+			{
+				renderTarget.addPass(
+					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+					{ attachments.output },
+					{ attachments.normals, attachments.uvs, attachments.id, attachments.depth },
+					attachments.depth
+				);
+			}
+		#endif
 		}
 	}
 
@@ -277,10 +308,11 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+					size_t currentDraw = 0;
 					for ( auto graphic : graphics ) {
 						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-						graphic->record( commands[i], descriptor, currentPass );
+						graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
 					}
 					if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 				}

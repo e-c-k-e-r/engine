@@ -9,7 +9,7 @@
 class BulletDebugDrawer : public btIDebugDraw {
 protected:
 	int m;
-	uf::BaseMesh<pod::Vertex_3F2F3F32B> mesh;
+	uf::BaseMesh<pod::Vertex_3F2F3F4F> mesh;
 public:
 	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& color ) {
 		drawLine( from, to, color, color );
@@ -51,7 +51,8 @@ public:
 	}
 	int getDebugMode(void) const { return m; }
 
-	const uf::BaseMesh<pod::Vertex_3F2F3F32B>& getMesh() const { return mesh; }
+	uf::BaseMesh<pod::Vertex_3F2F3F4F>& getMesh() { return mesh; }
+	const uf::BaseMesh<pod::Vertex_3F2F3F4F>& getMesh() const { return mesh; }
 };
 
 bool ext::bullet::debugDrawEnabled = false;
@@ -476,9 +477,11 @@ void UF_API ext::bullet::activateCollision( pod::Bullet& collider, bool enabled 
 }
 
 void UF_API ext::bullet::debugDraw( uf::Object& object ) {
+	auto& mesh = ext::bullet::debugDrawer.getMesh();
+	if ( mesh.vertices.empty() ) return;
 	bool create = !object.hasComponent<uf::Graphic>();
 	auto& graphic = object.getComponent<uf::Graphic>();
-	auto mesh = ext::bullet::debugDrawer.getMesh();
+	graphic.process = false;
 	if ( create ) {
 		graphic.process = true;
 
@@ -488,16 +491,16 @@ void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 
 		graphic.material.attachShader("./data/shaders/base.colored.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 		graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-		
+
 		graphic.initialize();
-		graphic.initializeGeometry( mesh );
+		graphic.initializeGeometry( mesh, 0 );
 		graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 		graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
 		graphic.descriptor.lineWidth = 8.0f;
 	} else {
 		graphic.process = true;
 
-		graphic.initializeGeometry( mesh );
+		graphic.initializeGeometry( mesh, 0 );
 		graphic.getPipeline().update( graphic );
 	}
 }

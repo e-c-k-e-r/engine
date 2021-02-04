@@ -29,6 +29,7 @@ bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::waitOnRenderEnd = false;
 bool ext::vulkan::settings::experimental::individualPipelines = false;
 bool ext::vulkan::settings::experimental::multithreadedCommandRecording = false;
+std::string ext::vulkan::settings::experimental::deferredMode = "";
 bool ext::vulkan::settings::experimental::deferredReconstructPosition = false;
 bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::vulkan::settings::experimental::multiview = true;

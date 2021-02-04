@@ -78,7 +78,7 @@ namespace ext {
 			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
 			void update( Graphic& graphic );
 			void update( Graphic& graphic, GraphicDescriptor& descriptor );
-			void record( Graphic& graphic, VkCommandBuffer, size_t = 0 );
+			void record( Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0 );
 			void destroy();
 		};
 		struct UF_API Material {
@@ -123,8 +123,8 @@ namespace ext {
 			Pipeline& getPipeline( GraphicDescriptor& descriptor );
 			void updatePipelines();
 			
-			void record( VkCommandBuffer commandBuffer, size_t pass = 0 );
-			void record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor, size_t pass = 0 );
+			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0 );
+			void record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 );
 
 			bool hasStorage( const std::string& name );
 			Buffer* getStorageBuffer( const std::string& name );

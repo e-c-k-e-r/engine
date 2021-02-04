@@ -1,26 +1,43 @@
 #version 450
 
+#define UF_DEFERRED_SAMPLING 0
+
 layout (constant_id = 0) const uint TEXTURES = 1;
 layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
 
 struct Material {
 	vec4 colorBase;
 	vec4 colorEmissive;
+
 	float factorMetallic;
 	float factorRoughness;
 	float factorOcclusion;
-	float factorMappedBlend;
 	float factorAlphaCutoff;
-	float factorPadding;
+
 	int indexAlbedo;
 	int indexNormal;
 	int indexEmissive;
 	int indexOcclusion;
+	
 	int indexMetallicRoughness;
-	int indexMappedTarget;
+	
+	int padding1;
+	int padding2;
+	int padding3;
+};
+struct Texture {
+	int index;
+	int samp;
+	int remap;
+	float blend;
+
+	vec4 lerp;
 };
 layout (std140, binding = 1) readonly buffer Materials {
 	Material materials[];
+};
+layout (std140, binding = 2) readonly buffer Textures {
+	Texture textures[];
 };
 
 layout (location = 0) in vec2 inUv;
@@ -28,8 +45,94 @@ layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec3 inNormal;
 layout (location = 3) in mat3 inTBN;
 layout (location = 6) in vec3 inPosition;
-layout (location = 7) flat in ivec2 inId;
+layout (location = 7) flat in ivec4 inId;
 
+layout (location = 0) out uvec2 outId;
+layout (location = 1) out vec2 outNormals;
+
+#if UF_DEFERRED_SAMPLING
+	layout (location = 2) out vec2 outUvs;
+#else
+	layout (location = 2) out vec4 outAlbedo;
+#endif
+
+vec2 encodeNormals( vec3 n ) {
+	float p = sqrt(n.z*8+8);
+	return n.xy/p + 0.5;
+}
+
+bool validTextureIndex( int textureIndex ) {
+	return 0 <= textureIndex && textureIndex < TEXTURES;
+}
+vec4 sampleTexture( int textureIndex, vec2 uv, vec4 base ) {
+	if  ( !validTextureIndex( textureIndex ) ) return base;
+	Texture t = textures[textureIndex+1];
+//	if ( 0 <= t.remap && t.remap <= TEXTURES && t.remap != textureIndex  ) t = textures[t.remap+1];
+ 	return texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) );
+}
+
+void main() {
+#if UF_DEFERRED_SAMPLING
+	vec3 N = inNormal;
+	outUvs = fract(inUv);
+#else
+	int materialId = int(inId.y);
+	Material material = materials[materialId];
+	
+	vec2 uv = fract(inUv.xy);
+
+	vec4 C = vec4(0, 0, 0, 0);
+	vec3 N = inNormal;
+	vec3 P = inPosition;
+	float M = material.factorMetallic;
+	float R = material.factorRoughness;
+	float AO = material.factorOcclusion;
+
+	// sample albedo
+	// C = sampleTexture( material.indexAlbedo, uv, material.colorBase );
+	if ( !validTextureIndex( material.indexAlbedo ) ) {
+		discard;
+	}
+	{
+		Texture t = textures[material.indexAlbedo + 1];
+		C = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) );
+	}
+
+	// sample normal
+	if ( validTextureIndex( material.indexNormal ) ) {
+		Texture t = textures[material.indexNormal + 1];
+		N = inTBN * normalize( texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) ).xyz * 2.0 - vec3(1.0));
+	}
+
+#if 0
+	// sample metallic/roughness
+	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
+		Texture t = textures[material.indexMetallicRoughness + 1];
+		vec4 sampled = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) );
+		M = sampled.b;
+		R = sampled.g;
+	}
+	// sample ao
+	AO = material.factorOcclusion;
+	if ( validTextureIndex( material.indexOcclusion ) ) {
+		Texture t = textures[material.indexMetallicRoughness + 1];
+		AO = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) ).r;
+	}
+#endif
+
+	if ( C.a < abs(material.factorAlphaCutoff) ) {
+	//	outTransparency = C;
+		discard;
+	} else {
+		C.rgb *= inColor.rgb * C.a;
+		outAlbedo = vec4(C.rgb,1);
+	}
+#endif
+	outNormals = encodeNormals( N );
+	outId = ivec2(inId.w, inId.y);
+}
+
+/*
 layout (location = 0) out vec4 outAlbedoMetallic;
 layout (location = 1) out vec4 outNormalRoughness;
 layout (location = 2) out vec4 outPositionAO;
@@ -100,3 +203,4 @@ void main() {
 	outNormalRoughness = vec4(N,R);
 	outPositionAO = vec4(P,AO);
 }
+*/

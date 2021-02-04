@@ -181,11 +181,13 @@ namespace {
 					vertex.id.x = nodeIndex;
 					vertex.id.y = primitive.material;
 
+				/*
 					if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) && (graph.mode & ext::gltf::LoadMode::ATLAS) ) {
 						auto& material = graph.materials[primitive.material];
 						auto& texture = graph.textures[material.storage.indexAlbedo];
 						vertex.uv = graph.atlas->mapUv( vertex.uv, texture.index );
 					}
+				*/
 					// required due to reverse-Z projection matrix flipping the X axis as well
 					// default is to proceed with this
 					if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ){
@@ -256,6 +258,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	graph.mode = mode;
 	graph.metadata = metadata;
 
+
 	if ( !warn.empty() ) uf::iostream << "glTF warning: " << warn << "\n";
 	if ( !err.empty() ) uf::iostream << "glTF error: " << err << "\n";
 	if ( !ret ) { uf::iostream << "glTF error: failed to parse file: " << filename << "\n";
@@ -295,12 +298,28 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		for ( auto& t : model.textures ) {
 			auto& texture = graph.textures.emplace_back();
 			texture.name = t.name;
-			texture.index = t.source;
-			texture.sampler = t.sampler;
+
+			texture.storage.index = t.source;
+			texture.storage.sampler = t.sampler;
+			if ( graph.atlas ) {
+				auto& atlas = *graph.atlas;
+				auto atlasMin = atlas.mapUv( {0, 0}, t.source );
+				auto atlasMax = atlas.mapUv( {1, 1}, t.source );
+
+				texture.storage.lerp = {
+					atlasMin.x,
+					atlasMin.y,
+
+					atlasMax.x,
+					atlasMax.y,
+				};
+			}
 		}
 	}
 	// load materials
 	{
+		// null material
+		// graph.materials.emplace_back();
 		for ( auto& m : model.materials ) {
 			auto& material = graph.materials.emplace_back();
 			material.name = m.name;
@@ -321,25 +340,33 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 				m.emissiveFactor[2],
 				0
 			};
+
 			material.storage.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
 			material.storage.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
 			material.storage.factorOcclusion = m.occlusionTexture.strength;
-
+			
+		/*
 			if ( 0 <= material.storage.indexAlbedo && material.storage.indexAlbedo < graph.textures.size() ) {
-				material.storage.indexAlbedo = graph.textures[material.storage.indexAlbedo].index;
+				auto& texture = graph.textures[material.storage.indexAlbedo];
+				material.storage.indexAlbedo = texture.storage.index;
 			}
 			if ( 0 <= material.storage.indexNormal && material.storage.indexNormal < graph.textures.size() ) {
-				material.storage.indexNormal = graph.textures[material.storage.indexNormal].index;
+				auto& texture = graph.textures[material.storage.indexNormal];
+				material.storage.indexNormal = texture.storage.index;
 			}
 			if ( 0 <= material.storage.indexEmissive && material.storage.indexEmissive < graph.textures.size() ) {
-				material.storage.indexEmissive = graph.textures[material.storage.indexEmissive].index;
+				auto& texture = graph.textures[material.storage.indexEmissive];
+				material.storage.indexEmissive = texture.storage.index;
 			}
 			if ( 0 <= material.storage.indexOcclusion && material.storage.indexOcclusion < graph.textures.size() ) {
-				material.storage.indexOcclusion = graph.textures[material.storage.indexOcclusion].index;
+				auto& texture = graph.textures[material.storage.indexOcclusion];
+				material.storage.indexOcclusion = texture.storage.index;
 			}
 			if ( 0 <= material.storage.indexMetallicRoughness && material.storage.indexMetallicRoughness < graph.textures.size() ) {
-				material.storage.indexMetallicRoughness = graph.textures[material.storage.indexMetallicRoughness].index;
+				auto& texture = graph.textures[material.storage.indexMetallicRoughness];
+				material.storage.indexMetallicRoughness = texture.storage.index;
 			}
+		*/
 		}
 	}
 	// load node information/meshes

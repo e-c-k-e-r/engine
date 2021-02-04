@@ -52,6 +52,7 @@ namespace ext {
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
 				extern UF_API bool multithreadedCommandRecording;
+				extern UF_API std::string deferredMode;
 				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
 				extern UF_API bool multiview;

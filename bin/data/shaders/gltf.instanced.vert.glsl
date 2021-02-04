@@ -9,14 +9,15 @@ layout (location = 4) in ivec2 inId;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
+  uint draw;
 } PushConstant;
 
-layout (binding = 2) uniform UBO {
+layout (binding = 3) uniform UBO {
 	mat4 view[PASSES];
 	mat4 projection[PASSES];
 } ubo;
 
-layout (std140, binding = 3) readonly buffer Models {
+layout (std140, binding = 4) readonly buffer Models {
 	mat4 models[];
 };
 
@@ -25,10 +26,10 @@ layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec3 outNormal;
 layout (location = 3) out mat3 outTBN;
 layout (location = 6) out vec3 outPosition;
-layout (location = 7) out ivec2 outId;
+layout (location = 7) out ivec4 outId;
 
 out gl_PerVertex {
-    vec4 gl_Position;   
+    vec4 gl_Position;
 };
 
 vec4 snap(vec4 vertex, vec2 resolution) {
@@ -42,7 +43,7 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 void main() {
 	outUv = inUv;
 	outColor = vec4(1.0);
-	outId = inId;
+	outId = ivec4(inId, PushConstant.pass, PushConstant.draw);
 
 	mat4 model = models.length() <= 0 ? mat4(1.0) : models[int(inId.x)];
 	outPosition = vec3(ubo.view[PushConstant.pass] * model * vec4(inPos.xyz, 1.0));
@@ -57,5 +58,5 @@ void main() {
 	}
 
 	gl_Position = ubo.projection[PushConstant.pass] * ubo.view[PushConstant.pass] * model * vec4(inPos.xyz, 1.0);
-//	gl_Position = snap( gl_Position, vec2(320.0, 240.0) );
+//	gl_Position = snap( gl_Position, vec2(256.0, 224.0) );
 }

@@ -117,12 +117,10 @@ pod::Vector2f uf::Atlas::mapUv( const pod::Vector2f& uv, size_t index ) {
 
 		pod::Vector2ui coord = { uv.x * dim.x + it.coord.x, uv.y * dim.y + it.coord.y };
 		nuv = { (float) coord.x / (float) size.x, (float) coord.y / (float) size.y };
-		nuv.y = 1.0f - nuv.y;
+		// nuv.y = 1.0f - nuv.y;
 		return nuv;
 	}
-	{
 	//	std::cout << "Could not find requested index of " << index << std::endl;
-	}
 	return uv;
 }
 pod::Vector3f uf::Atlas::mapUv( const pod::Vector3f& uv ) {

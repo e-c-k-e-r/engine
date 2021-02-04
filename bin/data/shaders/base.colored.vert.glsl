@@ -4,6 +4,7 @@ layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec3 inNormal;
+layout (location = 3) in vec4 inColor;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -33,7 +34,7 @@ out gl_PerVertex {
 
 void main() {
 	outUv = inUv;
-	outColor = ubo.color;
+	outColor = inColor.rgba;
 
 	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));

@@ -250,7 +250,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 			{ &renderTargets.left, &renderBlitters.left },
 			{ &renderTargets.right, &renderBlitters.right },
 		};
-		for ( ext::openvr::renderPass = 0; ext::openvr::renderPass < eyes.size(); ++ext::openvr::renderPass ) {
+		for ( size_t eyePass = 0; eyePass < eyes.size(); ++eyePass ) {
 			auto& renderTarget = *eyes[ext::openvr::renderPass].renderTarget;
 			auto& blitter = *eyes[ext::openvr::renderPass].blitter;
 			// Fill GBuffer
@@ -315,7 +315,7 @@ void ext::vulkan::StereoscopicDeferredRenderMode::createCommandBuffers( const st
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor);
-						graphic->record( commands[i], descriptor, currentPass );
+						graphic->record( commands[i], descriptor, eyePass );
 					}
 					// render gui layer
 					{
