@@ -1,6 +1,7 @@
 #version 450
 
-#define UF_DEFERRED_SAMPLING 0
+#define UF_DEFERRED_SAMPLING 1
+#define UF_CAN_DISCARD 1
 
 layout (constant_id = 0) const uint TEXTURES = 1;
 layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
@@ -72,18 +73,19 @@ vec4 sampleTexture( int textureIndex, vec2 uv, vec4 base ) {
 }
 
 void main() {
-#if UF_DEFERRED_SAMPLING
+	vec4 C = vec4(0, 0, 0, 0);
+	vec3 P = inPosition;
 	vec3 N = inNormal;
+#if UF_DEFERRED_SAMPLING
 	outUvs = fract(inUv);
-#else
+	vec4 outAlbedo = vec4(0,0,0,0);
+#endif
+#if !UF_DEFERRED_SAMPLING || UF_CAN_DISCARD
 	int materialId = int(inId.y);
 	Material material = materials[materialId];
 	
 	vec2 uv = fract(inUv.xy);
 
-	vec4 C = vec4(0, 0, 0, 0);
-	vec3 N = inNormal;
-	vec3 P = inPosition;
 	float M = material.factorMetallic;
 	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
@@ -96,8 +98,11 @@ void main() {
 	{
 		Texture t = textures[material.indexAlbedo + 1];
 		C = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) );
+		if ( C.a < abs(material.factorAlphaCutoff) ) discard;
 	}
+#endif
 
+#if !UF_DEFERRED_SAMPLING
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
 		Texture t = textures[material.indexNormal + 1];
@@ -120,14 +125,10 @@ void main() {
 	}
 #endif
 
-	if ( C.a < abs(material.factorAlphaCutoff) ) {
-	//	outTransparency = C;
-		discard;
-	} else {
-		C.rgb *= inColor.rgb * C.a;
-		outAlbedo = vec4(C.rgb,1);
-	}
+	C.rgb *= inColor.rgb * C.a;
+	outAlbedo = vec4(C.rgb,1);
 #endif
+
 	outNormals = encodeNormals( N );
 	outId = ivec2(inId.w, inId.y);
 }

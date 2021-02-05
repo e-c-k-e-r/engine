@@ -8,6 +8,9 @@
 #include <fstream>
 #include <regex>
 
+#define VK_DEBUG_VALIDATION_MESSAGE(x)\
+	//VK_VALIDATION_MESSAGE(x);
+
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
 }
@@ -450,16 +453,16 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 					size_t size = comp.get_declared_struct_size(base_type);
 					if ( size <= 0 ) break;
 					if ( size > device.properties.limits.maxUniformBufferRange ) {
-						//VK_VALIDATION_MESSAGE("Invalid uniform buffer length of " << size << " for shader " << filename);
+						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer length of " << size << " for shader " << filename);
 						size = device.properties.limits.maxUniformBufferRange;
 					}
 					size_t misalignment = size % device.properties.limits.minStorageBufferOffsetAlignment;
 					if ( misalignment != 0 ) {
-						//VK_VALIDATION_MESSAGE("Invalid uniform buffer alignment of " << misalignment << " for shader " << filename << ", correcting...");
+						VK_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer alignment of " << misalignment << " for shader " << filename << ", correcting...");
 						size += misalignment;
 					}
 					{
-						//VK_VALIDATION_MESSAGE("Uniform size of " << size << " for shader " << filename);
+						VK_DEBUG_VALIDATION_MESSAGE("Uniform size of " << size << " for shader " << filename);
 						auto& uniform = uniforms.emplace_back();
 						uniform.create( size );
 					}		
@@ -519,16 +522,16 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			if ( size <= 0 ) continue;
 			// not a multiple of 4, for some reason
 			if ( size % 4 != 0 ) {
-				//VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename << ", must be multiple of 4, correcting...");
+				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename << ", must be multiple of 4, correcting...");
 				size /= 4;
 				++size; 
 				size *= 4;
 			}
 			if ( size > device.properties.limits.maxPushConstantsSize ) {
-				//VK_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
+				VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
 				size = device.properties.limits.maxPushConstantsSize;
 			}
-			//VK_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
+			VK_DEBUG_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
 			{
 				auto& pushConstant = pushConstants.emplace_back();
 				pushConstant.create( size );
@@ -557,7 +560,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		}
 		if ( specializationSize > 0 ) {			
 			specializationConstants.create( specializationSize );
-			//VK_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
+			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
 
 			uint8_t* s = (uint8_t*) (void*) specializationConstants;
 			size_t offset = 0;
@@ -599,13 +602,13 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 						memcpy( &buffer[0], &v, sizeof(v) );
 					} break;
 					default: {
-						//VK_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
+						VK_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
 					} break;
 				}
 				member["name"] = name;
 				member["size"] = size;
 				member["default"] = member["value"];
-				//VK_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<std::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
+				VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<std::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
 				metadata["specializationConstants"].emplace_back(member);
 
 				memcpy( &s[offset], &buffer, size );
@@ -675,7 +678,7 @@ bool ext::vulkan::Shader::validate() {
 			if ( it == uniforms.end() ) break;
 			auto& uniform = *(it++);
 			if ( uniform.data().len != buffer.allocationInfo.size ) {
-				//VK_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
+				VK_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
 				uniform.destroy();
 				uniform.create(buffer.allocationInfo.size);
 				valid = false;
@@ -795,7 +798,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			for ( auto& pushConstant : shader.pushConstants ) {
 				size_t len = pushConstant.data().len;
 				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
-					//VK_VALIDATION_MESSAGE("Invalid push constant length of " << len << " for shader " << shader.filename);
+					VK_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << len << " for shader " << shader.filename);
 				//	goto PIPELINE_INITIALIZATION_INVALID;
 					len = device.properties.limits.maxPushConstantsSize;
 				}
@@ -993,7 +996,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					int32_t& v = ((int32_t*) s)[i];
 					// failsafe, because for some reason things break
 					if ( payload["validate"].as<bool>() && v == 0 ) {
-						//VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<int32_t>() ? payload["value"].as<int32_t>() : payload["default"].as<int32_t>();
 					}
 					payload["value"] = v;
@@ -1001,7 +1004,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					uint32_t& v = ((uint32_t*) s)[i];
 					// failsafe, because for some reason things break
 					if ( payload["validate"].as<bool>() && v == 0 ) {
-						//VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<uint32_t>() ? payload["value"].as<uint32_t>() : payload["default"].as<uint32_t>();
 					}
 					payload["value"] = v;
@@ -1009,13 +1012,13 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					float& v = ((float*) s)[i];
 					// failsafe, because for some reason things break
 					if ( payload["validate"].as<bool>() && v == 0 ) {
-						//VK_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
+						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<float>() ? payload["value"].as<float>() : payload["default"].as<float>();
 					}
 					payload["value"] = v;
 				}
 			}
-			//VK_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
+			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
 
 
 			{
@@ -1047,14 +1050,14 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		pipelineCreateInfo.subpass = descriptor.subpass;
 
 		VK_CHECK_RESULT(vkCreateGraphicsPipelines( device, device.pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
-		//VK_VALIDATION_MESSAGE("Created graphics pipeline");
+		VK_DEBUG_VALIDATION_MESSAGE("Created graphics pipeline");
 	}
 
 	graphic.process = true;
 	return;
 PIPELINE_INITIALIZATION_INVALID:
 	graphic.process = false;
-	//VK_VALIDATION_MESSAGE("Pipeline initialization invalid, updating next tick...");
+	VK_DEBUG_VALIDATION_MESSAGE("Pipeline initialization invalid, updating next tick...");
 	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
 		this->initialize( graphic, descriptor );
 	return 0;}, true );
@@ -1255,18 +1258,23 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
 			if ( descriptor.pBufferInfo ) {
 				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-					//VK_VALIDATION_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
+					VK_DEBUG_VALIDATION_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
 					goto PIPELINE_UPDATE_INVALID;
 				}
 			}
 			if ( descriptor.pImageInfo ) {
+				if ( descriptor.pImageInfo[i].imageView == 0x0 ) {
+					VK_DEBUG_VALIDATION_MESSAGE("Null image view, replacing with fallback texture...");
+					auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
+					*pointer = emptyTexture.descriptor;
+				}
 				if ( descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
-					//VK_VALIDATION_MESSAGE("Image layout is VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
+					VK_DEBUG_VALIDATION_MESSAGE("Image layout is VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
 					auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 					pointer->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 				}
 				if ( descriptor.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && !descriptor.pImageInfo[i].sampler ) {
-					//VK_VALIDATION_MESSAGE("Image descriptor type is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, yet lacks a sampler, adding default sampler...");
+					VK_DEBUG_VALIDATION_MESSAGE("Image descriptor type is VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, yet lacks a sampler, adding default sampler...");
 					auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 					pointer->sampler = emptyTexture.sampler.sampler;
 				}
@@ -1287,7 +1295,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 
 PIPELINE_UPDATE_INVALID:
 	graphic.process = false;
-	//VK_VALIDATION_MESSAGE("Pipeline update invalid, updating next tick...");
+	VK_DEBUG_VALIDATION_MESSAGE("Pipeline update invalid, updating next tick...");
 	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
 		this->update( graphic, descriptor );
 	return 0;}, true );
@@ -1435,13 +1443,13 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, s
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescriptor& descriptor, size_t pass, size_t draw ) {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
-		//VK_VALIDATION_MESSAGE(this << ": has no valid pipeline");
+		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline");
 		return;
 	}
 
 	auto& pipeline = this->getPipeline( descriptor );
 	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) {
-		//VK_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
+		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
 		return;
 	}
 

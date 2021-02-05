@@ -32,6 +32,18 @@ namespace pod {
 		uf::renderer::Texture2D texture;
 	};
 	struct UF_API Light {
+		struct UF_API Storage {
+			alignas(16) pod::Vector4f position;
+			alignas(16) pod::Vector4f color;
+
+			alignas(4) int32_t type = 0;
+			alignas(4) int32_t mapIndex = -1;
+			alignas(4) float depthBias = 0;
+			alignas(4) float padding = 0;
+			
+			alignas(16) pod::Matrix4f view;
+			alignas(16) pod::Matrix4f projection;
+		};
 		std::string name = "";
 		pod::Transform<> transform = {};
 		pod::Vector3f color = { 1, 1, 1 };

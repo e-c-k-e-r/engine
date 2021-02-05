@@ -1,11 +1,27 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
 
-#define UF_DEFERRED_SAMPLING 0
+#define POISSON_DISK 4
+#define RAY_MARCH_FOG 0
+#define UF_DEFERRED_SAMPLING 1
 
-layout (constant_id = 0) const uint LIGHTS = 256;
-layout (constant_id = 1) const uint TEXTURES = 256;
+layout (constant_id = 0) const uint TEXTURES = 256;
 
+struct Light {
+	vec3 position;
+	float radius;
+	
+	vec3 color;
+	float power;
+	
+	int type;
+	int mapIndex;
+	float depthBias;
+	float padding;
+
+	mat4 view;
+	mat4 projection;
+};
 struct Material {
 	vec4 colorBase;
 	vec4 colorEmissive;
@@ -54,7 +70,9 @@ layout (input_attachment_index = 3, binding = 4) uniform subpassInput samplerDep
 
 layout (binding = 5) uniform sampler3D samplerNoise;
 layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 7) uniform sampler2D samplerShadows[LIGHTS];
+layout (std140, binding = 7) readonly buffer Lights {
+	Light lights[];
+};
 layout (std140, binding = 8) readonly buffer Materials {
 	Material materials[];
 };
@@ -71,14 +89,6 @@ layout (location = 1) in flat uint inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
 
-/*
-const vec2 poissonDisk[4] = vec2[](
-	vec2( -0.94201624, -0.39906216 ),
-	vec2( 0.94558609, -0.76890725 ),
-	vec2( -0.094184101, -0.92938870 ),
-	vec2( 0.34495938, 0.29387760 )
-);
-*/
 vec2 poissonDisk[16] = vec2[]( 
    vec2( -0.94201624, -0.39906216 ), 
    vec2( 0.94558609, -0.76890725 ), 
@@ -97,22 +107,6 @@ vec2 poissonDisk[16] = vec2[](
    vec2( 0.19984126, 0.78641367 ), 
    vec2( 0.14383161, -0.14100790 ) 
 );
-
-struct Light {
-	vec3 position;
-	float radius;
-	
-	vec3 color;
-	float power;
-	
-	int type;
-	float depthBias;
-	float padding1;
-	float padding2;
-
-	mat4 view;
-	mat4 projection;
-};
 
 struct Matrices {
 	mat4 view[2];
@@ -150,11 +144,17 @@ struct Mode {
 
 layout (binding = 0) uniform UBO {
 	Matrices matrices;
-	vec3 ambient;
-	float kexp;
+	
 	Mode mode;
 	Fog fog;
-	Light lights[LIGHTS];
+
+	uint lights;
+	uint materials;
+	uint textures;
+	uint drawCalls;
+	
+	vec3 ambient;
+	float kexp;
 } ubo;
 
 void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
@@ -233,9 +233,7 @@ float random(vec3 seed, int i){
 }
 
 float shadowFactor( Light light, uint shadowMap ) {
-	vec3 point = position.world;
-
-	vec4 positionClip = light.projection * light.view * vec4(point, 1.0);
+	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
@@ -245,12 +243,12 @@ float shadowFactor( Light light, uint shadowMap ) {
 	float factor = 1.0;
 
 	// spot light
-	if ( light.type == -2 || light.type == -3 ) {
+	if ( light.type == 2 || light.type == 3 ) {
 		float dist = length( positionClip.xy );
 		if ( dist > 0.5 ) return 0.0;
 		
 		// spot light with attenuation
-		if ( light.type == -3 ) {
+		if ( light.type == 3 ) {
 			factor = 1.0 - (pow(dist * 2,2.0));
 		}
 	}
@@ -267,15 +265,16 @@ float shadowFactor( Light light, uint shadowMap ) {
 */
 
 	float eyeDepth = positionClip.z;
-	int samples = poissonDisk.length();
+
+	int samples = POISSON_DISK;
 	if ( samples <= 1 ) {
-		return eyeDepth < texture(samplerShadows[shadowMap], uv).r - bias ? 0.0 : factor;
+		return eyeDepth < texture(samplerTextures[shadowMap], uv).r - bias ? 0.0 : factor;
 	}
 	for ( int i = 0; i < samples; ++i ) {
 	//	int index = i;
 	//	int index = int( float(samples) * random(gl_FragCoord.xyy, i) ) % samples;
 		int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
-		float lightDepth = texture(samplerShadows[shadowMap], uv + poissonDisk[index] / 700.0 ).r;
+		float lightDepth = texture(samplerTextures[shadowMap], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
@@ -498,6 +497,7 @@ void fog( inout vec3 i, float scale ) {
 	if ( ubo.fog.stepScale <= 0 ) return;
 	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
 
+#if RAY_MARCH_FOG
 	mat4 iProjView = inverse( ubo.matrices.projection[inPushConstantPass] * ubo.matrices.view[inPushConstantPass] );
 	vec4 near4 = iProjView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 	vec4 far4 = iProjView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
@@ -536,6 +536,7 @@ void fog( inout vec3 i, float scale ) {
 		}
 		i.rgb = mix(ubo.fog.color.rgb, i.rgb, transmittance);
 	}
+#endif
 
 	vec3 color = ubo.fog.color.rgb;
 	float inner = ubo.fog.range.x;
@@ -556,21 +557,14 @@ vec3 decodeNormals( vec2 enc ) {
 	n.z = 1-f/2;
 	return normalize(n);
 }
-/*
-vec4 sampleTexture( uint drawId, int textureIndex, vec2 uv, vec4 base ) {
-	if ( TEXTURES <= textureIndex || textureIndex < 0 ) return base;
-	Texture t = textures[textureIndex+1];
- 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, uv ) );
-}
-*/
 
 bool validTextureIndex( int textureIndex ) {
-	return 0 <= textureIndex && textureIndex < TEXTURES;
+	return 0 <= textureIndex && textureIndex < ubo.textures;
 }
 vec4 sampleTexture( uint drawId, int textureIndex, vec2 uv, vec4 base ) {
 	if  ( !validTextureIndex( textureIndex ) ) return base;
 	Texture t = textures[textureIndex+1];
-//	if ( 0 <= t.remap && t.remap <= TEXTURES && t.remap != textureIndex  ) t = textures[t.remap+1];
+//	if ( t.remap != textureIndex && validTextureIndex(t.remap)  ) t = textures[t.remap+1];
  	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, uv ) );
 }
 
@@ -595,7 +589,7 @@ void main() {
 	uint drawId = ID.x;
 
 	DrawCall drawCall = drawCalls[drawId];
-	uint materialId = ID.y + 1;
+	uint materialId = ID.y;
 	materialId += drawCall.materialIndex;
 
 	Material material = materials[materialId];
@@ -609,26 +603,29 @@ void main() {
 #endif
 
 	float M = material.factorMetallic;
-	float R = 0.5; //material.factorRoughness;
+	float R = material.factorRoughness * 4.0;
 	float AO = material.factorOcclusion;
 
 	bool usePbr = true;
 	bool gammaCorrect = false;
 	float litFactor = 1.0;
 	vec3 fragColor = C.rgb * ubo.ambient.rgb * AO;
-	for ( uint i = 0; i < LIGHTS; ++i ) {
-		Light light = ubo.lights[i];
+	for ( uint i = 0; i < ubo.lights; ++i ) {
+		Light light = lights[i];
 		
 		if ( light.power <= 0.001 ) continue;
+		
 		vec3 lightPositionWorld = light.position.xyz;
 		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-		if ( light.type < 0 ) {
-			float factor = shadowFactor( light, i );
-			if ( factor <= 0.0001 ) continue;
+		
+		if ( 0 <= light.mapIndex && light.mapIndex < TEXTURES  ) {
+			float factor = shadowFactor( light, light.mapIndex );
+		//	if ( factor <= 0.0001 ) continue;
 			light.power *= factor;
 			litFactor += light.power;
 		}
 		if ( light.power <= 0.0001 ) continue;
+
 		if ( usePbr ) {
 			pbr( light, C.rgb, M, R, lightPositionWorld, fragColor );
 		} else

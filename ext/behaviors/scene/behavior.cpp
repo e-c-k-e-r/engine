@@ -168,6 +168,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			float n = perlins[i];
 			n = n - floor(n);
 			float normalized = (n - low) / (high - low);
+			if ( normalized >= 1.0f ) normalized = 1.0f;
 			pixels[i] = static_cast<uint8_t>(floor(normalized * 255));
 		}
 		texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8_UNORM, size.x, size.y, size.z, 1, ext::vulkan::device );
@@ -286,13 +287,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		std::vector<uf::Graphic*> blitters = renderMode.getBlitters();
+		
+		size_t maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
 
 		struct UniformDescriptor {
 			struct Matrices {
 				alignas(16) pod::Matrix4f view[2];
 				alignas(16) pod::Matrix4f projection[2];
 			} matrices;
-			alignas(16) pod::Vector4f ambient;
 			struct Mode {
 				alignas(8) pod::Vector2ui type;
 				alignas(8) pod::Vector2ui padding;
@@ -311,25 +313,18 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				alignas(4) float padding2;
 				alignas(4) float padding3;
 			} fog;
-			struct Light {
-				alignas(16) pod::Vector4f position;
-				alignas(16) pod::Vector4f color;
-
-				alignas(4) int32_t type = 0;
-				alignas(4) float depthBias = 0;
-				alignas(4) float padding1 = 0;
-				alignas(4) float padding2 = 0;
-				
-				alignas(16) pod::Matrix4f view;
-				alignas(16) pod::Matrix4f projection;
-			} lights;
+			struct {
+				alignas(4) uint32_t lights = 0;
+				alignas(4) uint32_t materials = 0;
+				alignas(4) uint32_t textures = 0;
+				alignas(4) uint32_t drawCalls = 0;
+			} lengths;
+			alignas(16) pod::Vector4f ambient;
 		};
 		struct SpecializationConstant {
-			uint32_t maxLights = 256;
-			uint32_t maxTextures = 256;
+			uint32_t maxTextures = 512;
 		} specializationConstants;
-		specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-		specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
+		specializationConstants.maxTextures = maxTextures;
 
 		struct LightInfo {
 			uf::Entity* entity = NULL;
@@ -406,7 +401,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			uint8_t* buffer = (uint8_t*) (void*) uniform;
 
 			UniformDescriptor* uniforms = (UniformDescriptor*) buffer;
-			UniformDescriptor::Light* lights = (UniformDescriptor::Light*) &buffer[sizeof(UniformDescriptor) - sizeof(UniformDescriptor::Light)];
 
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms->matrices.view[i] = camera.getView( i );
@@ -436,85 +430,61 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				uniforms->mode.parameters.w = uf::physics::time::current;
 			}
 
-			for ( size_t i = 0; i < specializationConstants.maxLights; ++i ) {
-				UniformDescriptor::Light& light = lights[i];
-				light = {};
-				light.position = { 0, 0, 0, 0 };
-				light.color = { 0, 0, 0, 0 };
-				light.type = 0;
-				light.depthBias = 0;
-			}
-
 			std::vector<VkImage> previousTextures;
 			for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
+
 			graphic.material.textures.clear();
 			// add noise texture
 			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture2D>());
+
+			size_t updateThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
+			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			size_t textureSlot = 0;
+
+			std::vector<pod::Light::Storage> lights;
+			lights.reserve( maxLights );
+
+			std::vector<pod::Material::Storage> materials;
+			materials.reserve(maxTextures);
+			materials.emplace_back().colorBase = {0,0,0,0};
+
+			std::vector<pod::Texture::Storage> textures;
+			textures.reserve(maxTextures);
+			
+			std::vector<pod::DrawCall> drawCalls;
+			drawCalls.reserve(maxTextures);
+
 			// add materials
 			{
-				size_t attachedTextures = 0;
-				std::vector<pod::Material::Storage> materials;
-				materials.reserve(specializationConstants.maxTextures);
-
-				std::vector<pod::Texture::Storage> textures;
-				textures.reserve(specializationConstants.maxTextures);
-				
-				std::vector<pod::DrawCall> drawCalls;
-				drawCalls.reserve(specializationConstants.maxTextures);
-
-				materials.emplace_back().colorBase = {0,0,0,0};
-
 				for ( auto* entity : graphs ) {
 					auto& graph = *entity;
+
+					drawCalls.emplace_back(pod::DrawCall{
+						materials.size(),
+						graph.materials.size(),
+						textures.size(),
+						graph.textures.size()
+					});
 					
-					size_t startMaterial = materials.size() - 1;
-					size_t startTexture = textures.size();
+					for ( auto& material : graph.materials ) materials.emplace_back( material.storage );
+					for ( auto& texture : graph.textures ) textures.emplace_back( texture.storage );
 
-					{
-						auto& drawCall = drawCalls.emplace_back();
-						drawCall.materialIndex = startMaterial;
-						drawCall.textureIndex = startTexture;
-
-						drawCall.materials = graph.materials.size() - 1;
-						drawCall.textures = graph.textures.size();
-					}
-					for ( auto& material : graph.materials ) {
-						auto& m = materials.emplace_back( material.storage );
-					//	m.indexAlbedo += startMaterial;
-					//	m.indexNormal += startMaterial;
-					//	m.indexEmissive += startMaterial;
-					//	m.indexOcclusion += startMaterial;
-					//	m.indexMetallicRoughness += startMaterial;
-					}
-					for ( auto& texture : graph.textures ) {
-						auto& t = textures.emplace_back( texture.storage );
-					//	t.index += startTexture;
-					//	t.remap += startTexture;
-					}
 					for ( auto& texture : graph.textures ) {
 						if ( !texture.texture.device ) continue;
-						++attachedTextures;
+
 						graphic.material.textures.emplace_back().aliasTexture(texture.texture);
+						++textureSlot;
+
 						if ( graph.atlas ) break;
 					}
 				}
-				while ( attachedTextures++ < specializationConstants.maxTextures ) {
-					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
-				}
-				
-				size_t materialBufferIndex = renderMode.metadata["materialBufferIndex"].as<size_t>();
-				size_t textureBufferIndex = renderMode.metadata["textureBufferIndex"].as<size_t>();
-				size_t drawCallBufferIndex = renderMode.metadata["drawCallBufferIndex"].as<size_t>();
-				graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), materialBufferIndex, false );
-				graphic.updateBuffer( (void*) textures.data(), textures.size() * sizeof(pod::Texture::Storage), textureBufferIndex, false );
-				graphic.updateBuffer( (void*) drawCalls.data(), drawCalls.size() * sizeof(pod::DrawCall), drawCallBufferIndex, false );
+
+				uniforms->lengths.materials = std::min( materials.size(), maxTextures );
+				uniforms->lengths.textures = std::min( textures.size(), maxTextures );
+				uniforms->lengths.drawCalls = std::min( drawCalls.size(), maxTextures );
 			}
 			// add lighting
-			int updateThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
-			std::vector<UniformDescriptor::Light> lightPool;
-			lightPool.reserve( entities.size() );
-
-			for ( size_t i = 0; i < entities.size() && lightPool.size() < specializationConstants.maxLights; ++i ) {
+			for ( size_t i = 0; i < entities.size() && lights.size() < maxLights; ++i ) {
 				auto& info = entities[i];
 				uf::Entity* entity = info.entity;
 
@@ -523,7 +493,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				auto& camera = entity->getComponent<uf::Camera>();
 				metadata["system"]["renderer"]["rendered"] = true;
 
-				UniformDescriptor::Light light;
+				pod::Light::Storage light;
 				light.position = info.position;
 
 				light.color = uf::vector::decode( metadata["light"]["color"], light.color );
@@ -536,6 +506,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					if ( lightType == "point" ) light.type = 1;
 					else if ( lightType == "spot" ) light.type = 2;
 				}
+
+				light.mapIndex = -1;
+
 				light.depthBias = metadata["light"]["bias"]["shader"].as<float>();
 
 				if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
@@ -543,48 +516,48 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					if ( metadata["system"]["renderer"]["mode"].as<std::string>() == "in-range" && --updateThreshold > 0 ) {
 						renderMode.execute = true;
 					}
-					light.type = -abs(light.type);
-					size_t shadows = 0;
+					size_t view = 0;
 					for ( auto& attachment : renderMode.renderTarget.attachments ) {
 						if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 						if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 
-						auto& texture = graphic.material.textures.emplace_back();
-						texture.aliasAttachment(attachment);
-						++shadows;
+						graphic.material.textures.emplace_back().aliasAttachment(attachment);
+
+						light.mapIndex = textureSlot++;
+						light.view = camera.getView(view);
+						light.projection = camera.getProjection(view);
+						lights.emplace_back(light);
+
+						++view;
 					}
-					for ( size_t j = 0; j < shadows; ++j ) {
-						light.view = camera.getView(j);
-						light.projection = camera.getProjection(j);
-						lightPool.push_back(light);
-					}
+					light.mapIndex = -1;
 				} else {
-					lightPool.emplace_back(light);
-					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+					lights.emplace_back(light);
 				}
-			}
-			{
-				size_t lightsAdded = 0;
-				for ( size_t i = 0; i < specializationConstants.maxLights && i < lightPool.size(); ++i, ++lightsAdded ) lights[i] = lightPool[i];
-			//	std::cout << "Shadowmaps added: " << lightsAdded << "\t";
-				while ( lightsAdded++ < specializationConstants.maxLights ) {
-					graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
-				}
-			//	std::cout << "Total shadowmaps: " << lightsAdded << std::endl;
+				uniforms->lengths.lights = std::min( lights.size(), maxLights );
 			}
 
 			{
-				size_t i = 0;
 				bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();
-				while ( !shouldUpdate && i < graphic.material.textures.size() ) {
-					auto& texture = graphic.material.textures[i];
-					auto& previousTexture = previousTextures[i];
-					if ( texture.image != previousTexture ) shouldUpdate = true;
-					++i;
+				for ( size_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
+					if ( previousTextures[i] != graphic.material.textures[i].image )
+						shouldUpdate = true;
 				}
-				if ( shouldUpdate ) graphic.updatePipelines();
+				if ( shouldUpdate ) {
+					size_t lightBufferIndex = renderMode.metadata["lightBufferIndex"].as<size_t>();
+					size_t materialBufferIndex = renderMode.metadata["materialBufferIndex"].as<size_t>();
+					size_t textureBufferIndex = renderMode.metadata["textureBufferIndex"].as<size_t>();
+					size_t drawCallBufferIndex = renderMode.metadata["drawCallBufferIndex"].as<size_t>();
+
+					graphic.updateBuffer( (void*) lights.data(), uniforms->lengths.lights * sizeof(pod::Light::Storage), lightBufferIndex, false );
+					graphic.updateBuffer( (void*) materials.data(), uniforms->lengths.materials * sizeof(pod::Material::Storage), materialBufferIndex, false );
+					graphic.updateBuffer( (void*) textures.data(), uniforms->lengths.textures * sizeof(pod::Texture::Storage), textureBufferIndex, false );
+					graphic.updateBuffer( (void*) drawCalls.data(), uniforms->lengths.drawCalls * sizeof(pod::DrawCall), drawCallBufferIndex, false );
+
+					graphic.updatePipelines();
+				}
+				shader.updateUniform( "UBO", uniform );	
 			}
-			shader.updateUniform( "UBO", uniform );	
 		}
 	}
 }

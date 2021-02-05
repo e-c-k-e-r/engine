@@ -283,24 +283,31 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.shaders.back();
 			struct SpecializationConstant {
-				uint32_t maxLights = 256;
-				uint32_t maxTextures = 256;
+				uint32_t maxTextures = 512;
 			};
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
 			auto& metadata = scene.getComponent<uf::Serializer>();
-			specializationConstants.maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
 			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
 			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
 				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants.maxLights;
+					binding.descriptorCount = specializationConstants.maxTextures;
 			}
 
+			std::vector<pod::Light::Storage> lights(maxLights);
 			std::vector<pod::Material::Storage> materials(specializationConstants.maxTextures);
 			std::vector<pod::Texture::Storage> textures(specializationConstants.maxTextures);
 			std::vector<pod::DrawCall> drawCalls(specializationConstants.maxTextures);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
+
+			this->metadata["lightBufferIndex"] = blitter.initializeBuffer(
+				(void*) lights.data(),
+				lights.size() * sizeof(pod::Light::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			);
 			this->metadata["materialBufferIndex"] = blitter.initializeBuffer(
 				(void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),

@@ -169,41 +169,22 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		// omni light
 		if ( metadata["light"]["shadows"].as<bool>() && metadata["light"]["type"].as<std::string>() == "point" ) {
 			auto transform = camera.getTransform();
-		/*
-			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 0 );
-			
-			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 1 );
-			
-			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 2 );
-			
-			transform.orientation = uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 3 );
-			
-			transform.orientation = uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 4 );
-
-			transform.orientation = uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633 );
-			camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), 5 );
-		*/
 			std::vector<pod::Quaternion<>> rotations = {
+			/*
 				{0, 0, 0, 1},
 				{0, 0.707107, 0, -0.707107},
 				{0, 1, 0, 0},
 				{0, 0.707107, 0, 0.707107},
 				{-0.707107, 0, 0, -0.707107},
 				{0.707107,  0, 0, -0.707107},
-
-		/*
+			*/
 				uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 ),
 				uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633 ),
 				uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633 ),
 				uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633 ),
+				
 				uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633 ),
 				uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633 ),
-		*/
 			};
 			for ( size_t i = 0; i < rotations.size(); ++i ) {
 				auto transform = camera.getTransform();

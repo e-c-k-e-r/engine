@@ -47,15 +47,15 @@ namespace {
 		if ( graph.mode & ext::gltf::LoadMode::LOAD ) {
 			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.stereo.skinned.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.skinned.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.stereo.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 				}
 			} else {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.stereo.skinned.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.skinned.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.stereo.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
 				}
 			}
 			graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
