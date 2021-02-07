@@ -37,13 +37,6 @@
 
 #define VK_FLAGS_NONE 0
 #define DEFAULT_FENCE_TIMEOUT 100000000000
-
-namespace ext {
-	namespace vulkan {
-		std::string errorString( VkResult result );
-		void* alignedAlloc( size_t size, size_t alignment );
-		void alignedFree(void* data);
-	}
-}
+#define VK_DEFAULT_STAGE_BUFFERS 1
 
 #include <vk_mem_alloc.h>

@@ -113,20 +113,18 @@ std::string ext::vulkan::errorString( VkResult result ) {
 		return "UNKNOWN_ERROR";
 	}
 }
-
-uint32_t ext::vulkan::getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties) {
-	// Iterate over all memory types available for the device used in this example
-	for (uint32_t i = 0; i < ext::vulkan::device.memoryProperties.memoryTypeCount; i++) {
-		if ((typeBits & 1) == 1) {
-			if ((ext::vulkan::device.memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {						
-				return i;
-			}
-		}
-		typeBits >>= 1;
-	}
-	throw std::runtime_error("Could not find a suitable memory type!");
+VkSampleCountFlagBits ext::vulkan::sampleCount( uint8_t count ) {
+	VkSampleCountFlags counts = std::min(ext::vulkan::device.properties.limits.framebufferColorSampleCounts, ext::vulkan::device.properties.limits.framebufferDepthSampleCounts);
+	if ( count < counts ) counts = count;
+	
+	if ( counts & VK_SAMPLE_COUNT_64_BIT ) return VK_SAMPLE_COUNT_64_BIT;
+	if ( counts & VK_SAMPLE_COUNT_32_BIT ) return VK_SAMPLE_COUNT_32_BIT;
+	if ( counts & VK_SAMPLE_COUNT_16_BIT ) return VK_SAMPLE_COUNT_16_BIT;
+	if ( counts & VK_SAMPLE_COUNT_8_BIT  ) return VK_SAMPLE_COUNT_8_BIT;
+	if ( counts & VK_SAMPLE_COUNT_4_BIT  ) return VK_SAMPLE_COUNT_4_BIT;
+	if ( counts & VK_SAMPLE_COUNT_2_BIT  ) return VK_SAMPLE_COUNT_2_BIT;
+	return VK_SAMPLE_COUNT_1_BIT;
 }
-
 void* ext::vulkan::alignedAlloc( size_t size, size_t alignment ) {
 	void *data = nullptr;
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -211,21 +209,6 @@ void ext::vulkan::initialize( uint8_t stage ) {
 		case 0: {
 			device.initialize();
 			swapchain.initialize( device );
-			{
-				VmaAllocatorCreateInfo allocatorInfo = {};
-				allocatorInfo.physicalDevice = device.physicalDevice;
-				allocatorInfo.device = device.logicalDevice;
-				vmaCreateAllocator(&allocatorInfo, &allocator);
-			}
-			{
-				std::vector<uint8_t> pixels = { 
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-				};
-				Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
-			}
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
 				renderMode->initialize(device);
@@ -246,12 +229,15 @@ void ext::vulkan::initialize( uint8_t stage ) {
 			if ( !jobs.empty() ) {
 				uf::thread::batchWorkers( jobs );
 			}
-		/*
-			for ( auto& renderMode : renderModes ) {
-				if ( !renderMode ) continue;
-				renderMode->createCommandBuffers();
+			{
+				std::vector<uint8_t> pixels = { 
+					255,   0, 255, 255,      0,   0,   0, 255,
+					  0,   0,   0, 255,    255,   0, 255, 255,
+				};
+				Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
 			}
-		*/
 		} break;
 		case 1: {
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -399,8 +385,6 @@ void ext::vulkan::destroy() {
 	//	delete renderMode;
 		renderMode = NULL;
 	}
-
-	vmaDestroyAllocator( allocator );
 
 	swapchain.destroy();
 	device.destroy();

@@ -140,11 +140,11 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
 
+		renderTarget.attachments[i].descriptor.format = ext::vulkan::settings::formats::color;
+		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		renderTarget.attachments[i].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		renderTarget.attachments[i].descriptor.aliased = true;
 		renderTarget.attachments[i].image = images[i];
-		renderTarget.attachments[i].format = ext::vulkan::settings::formats::color;
-		renderTarget.attachments[i].layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		renderTarget.attachments[i].usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		renderTarget.attachments[i].aliased = true;
 		renderTarget.attachments[i].mem = VK_NULL_HANDLE;
 	}
 	// Create depth
@@ -366,7 +366,7 @@ void ext::vulkan::BaseRenderMode::destroy() {
 			vkDestroyImageView( *device, attachment.view, nullptr);
 			attachment.view = VK_NULL_HANDLE;
 		}
-		if ( attachment.aliased ) continue;
+		if ( attachment.descriptor.aliased ) continue;
 		if ( attachment.image != VK_NULL_HANDLE ) {
 		//	vkDestroyImage( *device, attachment.image, nullptr );
 			vmaDestroyImage( allocator, attachment.image, attachment.allocation );

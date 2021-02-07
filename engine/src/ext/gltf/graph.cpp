@@ -178,8 +178,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.instanceBufferIndex = graphic.initializeBuffer(
 			(void*) instances.data(),
 			instances.size() * sizeof(pod::Matrix4f),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 		);
 		// Joints storage buffer
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -188,9 +187,8 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& skin = graph.skins[node.skin];
 				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
-					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+					(1 + skin.inverseBindMatrices.size()) * sizeof(pod::Matrix4f),
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 				);
 				break;
 			}
@@ -205,8 +203,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.root.materialBufferIndex = graphic.initializeBuffer(
 			(void*) materials.data(),
 			materials.size() * sizeof(pod::Material::Storage),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 		);
 		// Texture storage buffer
 		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
@@ -217,8 +214,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.root.textureBufferIndex = graphic.initializeBuffer(
 			(void*) textures.data(),
 			textures.size() * sizeof(pod::Texture::Storage),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 		);
 	}
 
@@ -328,7 +324,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	for ( auto& l : graph.lights ) {
 		if ( l.name != node.name ) continue;
 		entity.load("/light.json");
-		auto& metadata = entity.getComponent<uf::Serializer>();		
+		auto& metadata = entity.getComponent<uf::Serializer>();
+
 		metadata["light"]["radius"][0] = 0.001;
 		metadata["light"]["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
 		metadata["light"]["power"] = l.intensity; //  * graph.metadata["lights"]["power scale"].as<float>();
@@ -350,6 +347,26 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( key == "transform" ) return;
 			metadata["light"][key] = value;
 		});
+
+		if ( metadata["light"]["shadows"].as<bool>() ) {
+			ext::json::Value m;
+			if ( ext::json::isObject( graph.metadata["tags"][node.name]["renderMode"] ) ) {
+				m = graph.metadata["tags"][node.name]["renderMode"];
+			} else if ( ext::json::isObject( graph.metadata["lights"]["renderMode"] ) ) {
+				m = graph.metadata["lights"]["renderMode"];
+			}
+			if ( m["target"].is<std::string>() ) {
+				std::string targetNode = m["target"].as<std::string>();
+				auto* node = uf::graph::find( graph, targetNode );
+				if ( node ) {
+					auto& drawCall = node->drawCall;
+					size_t targetIndices = graph.drawCall.indices;
+					metadata["renderMode"]["target"][std::to_string(targetIndices)]["size"] = drawCall.indices;
+					metadata["renderMode"]["target"][std::to_string(targetIndices)]["offset"] = drawCall.indicesIndex;
+				//	std::cout << "Found " << targetNode << ", Replacing " << targetNode << " with " << drawCall.indicesIndex << " + " << drawCall.indices << std::endl;
+				}
+			}
+		}
 	//	auto& transform = entity.getComponent<pod::Transform<>>();
 	//	transform.orientation = uf::quaternion::inverse( transform.orientation );
 		break;
@@ -423,9 +440,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
 					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-					true
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 				);
 			}
 			// Materials storage buffer
@@ -433,18 +448,18 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 				materials[i] = graph.materials[i].storage;
 			}
+		/*
 			if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
 				auto& info = graph.metadata["tags"][node.name];
 				for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 					materials[i].factorAlphaCutoff = info["alpha cutoff"].as<float>();
 				}
 			}
+		*/
 			node.materialBufferIndex = graphic.initializeBuffer(
 				(void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				true
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 			// Texture storage buffer
 			std::vector<pod::Texture::Storage> textures( graph.textures.size() );
@@ -455,8 +470,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			graph.root.textureBufferIndex = graphic.initializeBuffer(
 				(void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 		}
 	}
@@ -598,5 +612,8 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 	}
 }
 void uf::graph::destroy( pod::Graph& graph ) {
+	for ( auto& t : graph.textures ) {
+		t.texture.destroy();
+	}
 	delete graph.atlas;
 }

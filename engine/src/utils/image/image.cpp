@@ -70,14 +70,14 @@ std::string uf::Image::getFilename() const {
 }
 
 // from file
-bool uf::Image::open( const std::string& filename ) {
+bool uf::Image::open( const std::string& filename, bool flip ) {
 	if ( !uf::io::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	std::string extension = uf::io::extension(filename);
+#if 0
 	if ( extension == "png" ) {
 		uint mode = 2;
-		#if 0
 			png_byte header[8];
 			FILE* file = fopen(filename.c_str(), "rb");
 
@@ -170,42 +170,43 @@ bool uf::Image::open( const std::string& filename ) {
 		//		this->convert(uf::Image::Format::RGBA, 32);
 			}
 		*/
-		#else
-			int width, height, channels, bit_depth;
-			bit_depth = 8;
-			stbi_set_flip_vertically_on_load(true);
-			unsigned char* buffer = stbi_load(
-				filename.c_str(),
-				&width,
-				&height,
-				&channels,
-				STBI_rgb_alpha
-			);
-			channels = 4;
-			uint len = width * height * channels;
-			this->m_dimensions.x = width;
-			this->m_dimensions.y = height;
-			this->m_bpp = bit_depth * channels;
-			this->m_channels = channels;
-			this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
-		/*
-			if ( this->m_channels != 4 ) {
-				std::string from = "";
-				switch ( this->m_channels ) {
-					case 1: from = "r"; break;
-					case 2: from = "ra"; break;
-					case 3: from = "rgb"; break;
-				}
-				this->convert(from);
-			}
-			std::cout << "Hash of " << filename << ": " << uf::string::sha256( uf::io::readAsBuffer(filename) ) << std::endl;
-		*/
-
-			stbi_image_free(buffer);
-		#endif
 		return true;
 	}
 	return true;
+#else
+	int width, height, channels, bit_depth;
+	bit_depth = 8;
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* buffer = stbi_load(
+		filename.c_str(),
+		&width,
+		&height,
+		&channels,
+		STBI_rgb_alpha
+	);
+	channels = 4;
+	uint len = width * height * channels;
+	this->m_dimensions.x = width;
+	this->m_dimensions.y = height;
+	this->m_bpp = bit_depth * channels;
+	this->m_channels = channels;
+	this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+/*
+	if ( this->m_channels != 4 ) {
+		std::string from = "";
+		switch ( this->m_channels ) {
+			case 1: from = "r"; break;
+			case 2: from = "ra"; break;
+			case 3: from = "rgb"; break;
+		}
+		this->convert(from);
+	}
+	std::cout << "Hash of " << filename << ": " << uf::string::sha256( uf::io::readAsBuffer(filename) ) << std::endl;
+*/
+
+	stbi_image_free(buffer);
+	return true;
+#endif
 }
 void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
 	this->m_dimensions = size;

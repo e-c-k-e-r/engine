@@ -105,11 +105,17 @@ namespace {
 		auto& mesh = graph.nodes[nodeIndex].mesh;
 		auto& collider = graph.nodes[nodeIndex].collider;
 		if ( node.mesh > -1 ) {
+			auto& drawCall = graph.nodes[nodeIndex].drawCall;
+			drawCall.name = node.name;
+			drawCall.verticesIndex = mesh.vertices.size();
+			drawCall.indicesIndex = mesh.indices.size();
+			drawCall.vertices = 0;
+			drawCall.indices = 0;
 			for ( auto& primitive : model.meshes[node.mesh].primitives ) {
-				size_t verticesStart = mesh.vertices.size();
-				size_t indicesStart = mesh.indices.size();
+				auto& dc = graph.nodes[nodeIndex].primitives.emplace_back();
+				dc.verticesIndex = mesh.vertices.size();
+				dc.indicesIndex = mesh.indices.size();
 
-				size_t vertices = 0;
 				struct Attribute {
 					std::string name = "";
 					size_t components = 1;
@@ -135,7 +141,7 @@ namespace {
 					auto& view = model.bufferViews[accessor.bufferView];
 					
 					if ( attribute.name == "POSITION" ) {
-						vertices = accessor.count;
+						dc.vertices = accessor.count;
 						pod::Vector3f minCorner = { accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
 						pod::Vector3f maxCorner = { accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
@@ -158,8 +164,8 @@ namespace {
 				}
 
 				auto modelMatrix = uf::transform::model( transform );
-				mesh.vertices.reserve( vertices + verticesStart );
-				for ( size_t i = 0; i < vertices; ++i ) {
+				mesh.vertices.reserve( dc.vertices + dc.verticesIndex );
+				for ( size_t i = 0; i < dc.vertices; ++i ) {
 					#define ITERATE_ATTRIBUTE( name, member )\
 						if ( !attributes[name].indices.empty() ) { \
 							for ( size_t j = 0; j < attributes[name].components; ++j )\
@@ -205,13 +211,13 @@ namespace {
 					auto& view = model.bufferViews[accessor.bufferView];
 					auto& buffer = model.buffers[view.buffer];
 
-					auto indices = static_cast<uint32_t>(accessor.count);
-					mesh.indices.reserve( indices + indicesStart );
+					dc.indices = static_cast<uint32_t>(accessor.count);
+					mesh.indices.reserve( dc.indices + dc.indicesIndex );
 					const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 
 					#define COPY_INDICES()\
-						for (size_t index = 0; index < indices; index++)\
-								mesh.indices.emplace_back(buf[index] + verticesStart);
+						for (size_t index = 0; index < dc.indices; index++)\
+								mesh.indices.emplace_back(buf[index] + dc.verticesIndex);
 
 					switch (accessor.componentType) {
 						case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
@@ -232,6 +238,12 @@ namespace {
 					}
 					#undef COPY_INDICES
 				}
+
+				drawCall.vertices += dc.vertices;
+				drawCall.indices += dc.indices;
+
+				graph.drawCall.vertices += dc.vertices;
+				graph.drawCall.indices += dc.indices;
 			/*
 				if ( graph.mode & ext::gltf::LoadMode::TRANSFORM ) {
 					auto model = uf::transform::model( transform );
@@ -344,29 +356,18 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			material.storage.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
 			material.storage.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
 			material.storage.factorOcclusion = m.occlusionTexture.strength;
-			
-		/*
-			if ( 0 <= material.storage.indexAlbedo && material.storage.indexAlbedo < graph.textures.size() ) {
-				auto& texture = graph.textures[material.storage.indexAlbedo];
-				material.storage.indexAlbedo = texture.storage.index;
+			material.storage.factorAlphaCutoff = m.alphaCutoff;
+
+			material.alphaMode = m.alphaMode;
+			if ( material.alphaMode == "OPAQUE" ) {
+				material.storage.modeAlpha = 0;
+			} else if ( material.alphaMode == "BLEND" ) {
+				material.storage.modeAlpha = 1;
+			} else if ( material.alphaMode == "MASK" ) {
+				material.storage.modeAlpha = 2;
+			} else {
+				std::cout << "Unhandled alpha mode: " << material.alphaMode << std::endl;
 			}
-			if ( 0 <= material.storage.indexNormal && material.storage.indexNormal < graph.textures.size() ) {
-				auto& texture = graph.textures[material.storage.indexNormal];
-				material.storage.indexNormal = texture.storage.index;
-			}
-			if ( 0 <= material.storage.indexEmissive && material.storage.indexEmissive < graph.textures.size() ) {
-				auto& texture = graph.textures[material.storage.indexEmissive];
-				material.storage.indexEmissive = texture.storage.index;
-			}
-			if ( 0 <= material.storage.indexOcclusion && material.storage.indexOcclusion < graph.textures.size() ) {
-				auto& texture = graph.textures[material.storage.indexOcclusion];
-				material.storage.indexOcclusion = texture.storage.index;
-			}
-			if ( 0 <= material.storage.indexMetallicRoughness && material.storage.indexMetallicRoughness < graph.textures.size() ) {
-				auto& texture = graph.textures[material.storage.indexMetallicRoughness];
-				material.storage.indexMetallicRoughness = texture.storage.index;
-			}
-		*/
 		}
 	}
 	// load node information/meshes

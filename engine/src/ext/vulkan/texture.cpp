@@ -49,6 +49,38 @@ void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t heig
 	this->height = height;
 	this->depth = depth;
 	this->layers = layers;
+	// implicitly set type
+	if ( width > 1 && height > 1 && depth > 1 ) {
+		this->type = VK_IMAGE_TYPE_3D;
+	} else if ( (width == 1 && height > 1 && depth > 1) || (width > 1 && height == 1 && depth > 1) || (width > 1 && height > 1 && depth == 1) ) {
+		this->type = VK_IMAGE_TYPE_2D;
+	} else if ( (width > 1 && height == 1 && depth == 1) || (width == 1 && height > 1 && depth == 1) || (width == 1 && height == 1 && depth > 1) ) {
+		this->type = VK_IMAGE_TYPE_1D;
+	}
+	if ( depth > 1 ) {
+		if ( viewType == VK_IMAGE_VIEW_TYPE_1D ) viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+		if ( viewType == VK_IMAGE_VIEW_TYPE_2D ) viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+		if ( viewType == VK_IMAGE_VIEW_TYPE_CUBE ) viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+	}
+}
+void ext::vulkan::Texture::initialize( Device& device, VkImageViewType viewType, size_t width, size_t height, size_t depth, size_t layers ) {
+	this->initialize( device, width, height, depth, layers );
+	this->viewType = viewType;
+	switch ( viewType ) {
+		case VK_IMAGE_VIEW_TYPE_1D:
+		case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+			type = VK_IMAGE_TYPE_1D;
+		break;
+		case VK_IMAGE_VIEW_TYPE_2D:
+		case VK_IMAGE_VIEW_TYPE_CUBE:
+		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY: 
+			type = VK_IMAGE_TYPE_2D;
+		break;
+		case VK_IMAGE_VIEW_TYPE_3D:
+			type = VK_IMAGE_TYPE_3D;
+		break;
+	}
 }
 void ext::vulkan::Texture::updateDescriptors() {
 	descriptor.sampler = sampler.sampler;
@@ -70,11 +102,11 @@ void ext::vulkan::Texture::destroy() {
 		vmaDestroyImage( allocator, image, allocation );
 		image = VK_NULL_HANDLE;
 	}
-	sampler.destroy();
 	if ( deviceMemory != VK_NULL_HANDLE ) {
 //		vkFreeMemory(device->logicalDevice, deviceMemory, nullptr);
 		deviceMemory = VK_NULL_HANDLE;
 	}
+	sampler.destroy();
 }
 void ext::vulkan::Texture::setImageLayout(
 	VkCommandBuffer cmdbuffer,
@@ -188,7 +220,6 @@ void ext::vulkan::Texture::setImageLayout(
 		srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
-
 	// Put barrier inside setup command buffer
 	vkCmdPipelineBarrier(
 		cmdbuffer,
@@ -214,7 +245,7 @@ void ext::vulkan::Texture::setImageLayout(
 	subresourceRange.layerCount = 1;
 	setImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange);
 }
-void ext::vulkan::Texture2D::loadFromFile(
+void ext::vulkan::Texture::loadFromFile(
 	std::string filename, 
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
@@ -222,7 +253,7 @@ void ext::vulkan::Texture2D::loadFromFile(
 ) {
 	return loadFromFile( filename, ext::vulkan::device, format, imageUsageFlags, imageLayout );
 }
-void ext::vulkan::Texture2D::loadFromFile(
+void ext::vulkan::Texture::loadFromFile(
 	std::string filename, 
 	Device& device,
 	VkFormat format,
@@ -298,7 +329,7 @@ void ext::vulkan::Texture2D::loadFromFile(
 		imageLayout
 	);
 }
-void ext::vulkan::Texture2D::loadFromImage(
+void ext::vulkan::Texture::loadFromImage(
 	uf::Image& image,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
@@ -306,7 +337,7 @@ void ext::vulkan::Texture2D::loadFromImage(
 ) {
 	return loadFromImage( image, ext::vulkan::device, format, imageUsageFlags, imageLayout );
 }
-void ext::vulkan::Texture2D::loadFromImage(
+void ext::vulkan::Texture::loadFromImage(
 	uf::Image& image, 
 	Device& device,
 	VkFormat format,
@@ -369,7 +400,7 @@ void ext::vulkan::Texture2D::loadFromImage(
 	);
 }
 
-void ext::vulkan::Texture2D::fromBuffers(
+void ext::vulkan::Texture::fromBuffers(
 	void* data,
 	VkDeviceSize bufferSize,
 	VkFormat format,
@@ -383,8 +414,9 @@ void ext::vulkan::Texture2D::fromBuffers(
 ) {
 	this->initialize(device, texWidth, texHeight, texDepth, layers);
 
-	if ( this->depth > 1 ) this->mips = 1; else
-	{
+	if ( this->mips == 0 ) {
+		this->mips = 1;
+	} else if ( this->depth == 1 ) {
 		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
@@ -396,7 +428,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
-	imageCreateInfo.imageType = this->depth > 1 ? VK_IMAGE_TYPE_3D : VK_IMAGE_TYPE_2D;
+	imageCreateInfo.imageType = this->type;
 	imageCreateInfo.format = this->format = format;
 	imageCreateInfo.mipLevels = this->mips;
 	imageCreateInfo.arrayLayers = this->layers;
@@ -414,6 +446,10 @@ void ext::vulkan::Texture2D::fromBuffers(
 	if (!(imageCreateInfo.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT)) {
 		imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
+	// Ensure cube maps get the compat flag bit
+	if ( this->viewType == VK_IMAGE_VIEW_TYPE_CUBE || this->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY ) {
+		imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+	}
 
 	VmaAllocationCreateInfo allocInfo = {};
 	allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -425,21 +461,17 @@ void ext::vulkan::Texture2D::fromBuffers(
 	sampler.descriptor.mip.max = static_cast<float>(this->mips);
 	sampler.initialize( device );
 
-	// Create image view
-	VkImageSubresourceRange subresourceRange = {};
-	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	subresourceRange.baseMipLevel = 0;
-	subresourceRange.levelCount = this->mips;
-	subresourceRange.layerCount = this->layers;
-	
+	// Create image view	
 	VkImageViewCreateInfo viewCreateInfo = {};
 	viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	viewCreateInfo.pNext = NULL;
-	viewCreateInfo.viewType = this->depth > 1 ? VK_IMAGE_VIEW_TYPE_3D : VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.viewType = viewType;
 	viewCreateInfo.format = format;
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCreateInfo.subresourceRange.baseMipLevel = 0;
+	viewCreateInfo.subresourceRange.layerCount = this->layers;
+	viewCreateInfo.subresourceRange.levelCount = this->mips;
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
@@ -455,7 +487,7 @@ void ext::vulkan::Texture2D::fromBuffers(
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uint32_t height, VkFormat format ) {
+void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint32_t height, VkFormat format ) {
 	// Prepare blit target texture
 	this->initialize( device, width, height );
 	
@@ -466,7 +498,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	assert(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT);
 
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
-	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.imageType = type;
 	imageCreateInfo.format = format;
 	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.mipLevels = this->mips = 1;
@@ -505,7 +537,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = ext::vulkan::initializers::imageViewCreateInfo();
-	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCreateInfo.viewType = viewType;
 	viewCreateInfo.format = format;
 	viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 	viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
@@ -515,7 +547,7 @@ void ext::vulkan::Texture2D::asRenderTarget( Device& device, uint32_t width, uin
 	// Initialize a descriptor for later use
 	this->updateDescriptors();
 }
-void ext::vulkan::Texture2D::aliasTexture( const Texture2D& texture ) {
+void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 	image = texture.image;
 	view = texture.view;
 	imageLayout = texture.imageLayout;
@@ -524,10 +556,10 @@ void ext::vulkan::Texture2D::aliasTexture( const Texture2D& texture ) {
 	
 	this->updateDescriptors();
 }
-void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
+void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
 	image = attachment.image;
 	view = attachment.view;
-	imageLayout = attachment.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.layout;
+	imageLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
 	deviceMemory = attachment.mem;
 
 	// Create sampler
@@ -536,13 +568,12 @@ void ext::vulkan::Texture2D::aliasAttachment( const RenderTarget::Attachment& at
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::update( uf::Image& image, VkImageLayout targetImageLayout, uint32_t layer ) {
-	if ( width != image.getDimensions()[0] || height != image.getDimensions()[1] )
-		return;
+void ext::vulkan::Texture::update( uf::Image& image, VkImageLayout targetImageLayout, uint32_t layer ) {
+	if ( width != image.getDimensions()[0] || height != image.getDimensions()[1] ) return;
 	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size(), layer );
 }
-void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImageLayout targetImageLayout, uint32_t layer ) {
-	// Update descriptor image info member that can be used for setting up descriptor sets
+void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageLayout targetImageLayout, uint32_t layer ) {
+		// Update descriptor image info member that can be used for setting up descriptor sets
 
 	auto& device = *this->device;
 
@@ -617,7 +648,7 @@ void ext::vulkan::Texture2D::update( void* data, VkDeviceSize bufferSize, VkImag
 	this->updateDescriptors();
 }
 
-void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer, uint32_t layer ) {
+void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint32_t layer ) {
 	auto& device = *this->device;
 
 	if ( this->mips <= 1 ) return;
@@ -694,4 +725,17 @@ void ext::vulkan::Texture2D::generateMipmaps( VkCommandBuffer commandBuffer, uin
     	if (mipHeight > 1) mipHeight /= 2;
     	if (mipDepth > 1) mipDepth /= 2;
 	}
+}
+
+ext::vulkan::Texture2D::Texture2D() {
+	type = VK_IMAGE_TYPE_2D;
+	viewType = VK_IMAGE_VIEW_TYPE_2D;
+}
+ext::vulkan::Texture3D::Texture3D() {
+	type = VK_IMAGE_TYPE_3D;
+	viewType = VK_IMAGE_VIEW_TYPE_3D;
+}
+ext::vulkan::TextureCube::TextureCube() {
+	type = VK_IMAGE_TYPE_2D;
+	viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 }

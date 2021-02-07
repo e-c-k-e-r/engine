@@ -1,116 +1,19 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
 
+#define SAMPLES 16
 #define POISSON_DISK 4
 #define RAY_MARCH_FOG 0
-#define UF_DEFERRED_SAMPLING 1
+#define UF_DEFERRED_SAMPLING 0
 
 layout (constant_id = 0) const uint TEXTURES = 256;
-
-struct Light {
-	vec3 position;
-	float radius;
-	
-	vec3 color;
-	float power;
-	
-	int type;
-	int mapIndex;
-	float depthBias;
-	float padding;
-
-	mat4 view;
-	mat4 projection;
-};
-struct Material {
-	vec4 colorBase;
-	vec4 colorEmissive;
-
-	float factorMetallic;
-	float factorRoughness;
-	float factorOcclusion;
-	float factorAlphaCutoff;
-
-	int indexAlbedo;
-	int indexNormal;
-	int indexEmissive;
-	int indexOcclusion;
-	
-	int indexMetallicRoughness;
-	
-	int padding1;
-	int padding2;
-	int padding3;
-};
-struct Texture {
-	int index;
-	int samp;
-	int remap;
-	float blend;
-
-	vec4 lerp;
-};
-struct DrawCall {
-	int materialIndex;
-	uint materials;
-	int textureIndex;
-	uint textures;
-};
-
-layout (input_attachment_index = 0, binding = 1) uniform usubpassInput samplerId;
-layout (input_attachment_index = 1, binding = 2) uniform subpassInput samplerNormal;
-
-#if UF_DEFERRED_SAMPLING
-	layout (input_attachment_index = 2, binding = 3) uniform subpassInput samplerUv;
-#else
-	layout (input_attachment_index = 2, binding = 3) uniform subpassInput samplerAlbedo;
-#endif
-
-layout (input_attachment_index = 3, binding = 4) uniform subpassInput samplerDepth;
-
-layout (binding = 5) uniform sampler3D samplerNoise;
-layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 7) readonly buffer Lights {
-	Light lights[];
-};
-layout (std140, binding = 8) readonly buffer Materials {
-	Material materials[];
-};
-layout (std140, binding = 9) readonly buffer Textures {
-	Texture textures[];
-};
-layout (std140, binding = 10) readonly buffer DrawCalls {
-	DrawCall drawCalls[];
-};
-
-
-layout (location = 0) in vec2 inUv;
-layout (location = 1) in flat uint inPushConstantPass;
-
-layout (location = 0) out vec4 outFragColor;
-
-vec2 poissonDisk[16] = vec2[]( 
-   vec2( -0.94201624, -0.39906216 ), 
-   vec2( 0.94558609, -0.76890725 ), 
-   vec2( -0.094184101, -0.92938870 ), 
-   vec2( 0.34495938, 0.29387760 ), 
-   vec2( -0.91588581, 0.45771432 ), 
-   vec2( -0.81544232, -0.87912464 ), 
-   vec2( -0.38277543, 0.27676845 ), 
-   vec2( 0.97484398, 0.75648379 ), 
-   vec2( 0.44323325, -0.97511554 ), 
-   vec2( 0.53742981, -0.47373420 ), 
-   vec2( -0.26496911, -0.41893023 ), 
-   vec2( 0.79197514, 0.19090188 ), 
-   vec2( -0.24188840, 0.99706507 ), 
-   vec2( -0.81409955, 0.91437590 ), 
-   vec2( 0.19984126, 0.78641367 ), 
-   vec2( 0.14383161, -0.14100790 ) 
-);
 
 struct Matrices {
 	mat4 view[2];
 	mat4 projection[2];
+	mat4 iView[2];
+	mat4 iProjection[2];
+	mat4 iProjectionView[2];
 };
 
 struct Space {
@@ -142,7 +45,72 @@ struct Mode {
 	vec4 parameters;
 };
 
-layout (binding = 0) uniform UBO {
+struct Light {
+	vec3 position;
+	float radius;
+	
+	vec3 color;
+	float power;
+	
+	int type;
+	int mapIndex;
+	float depthBias;
+	float padding;
+
+	mat4 view;
+	mat4 projection;
+};
+
+struct Material {
+	vec4 colorBase;
+	vec4 colorEmissive;
+
+	float factorMetallic;
+	float factorRoughness;
+	float factorOcclusion;
+	float factorAlphaCutoff;
+
+	int indexAlbedo;
+	int indexNormal;
+	int indexEmissive;
+	int indexOcclusion;
+	
+	int indexMetallicRoughness;
+	int modeAlpha;
+	int padding1;
+	int padding2;
+};
+struct Texture {
+	int index;
+	int samp;
+	int remap;
+	float blend;
+
+	vec4 lerp;
+};
+struct DrawCall {
+	int materialIndex;
+	uint materials;
+	int textureIndex;
+	uint textures;
+};
+
+layout (input_attachment_index = 0, binding = 0) uniform usubpassInputMS samplerId;
+layout (input_attachment_index = 1, binding = 1) uniform subpassInputMS samplerNormal;
+
+#if UF_DEFERRED_SAMPLING
+	layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerUv;
+#else
+	layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerAlbedo;
+#endif
+
+layout (input_attachment_index = 3, binding = 3) uniform subpassInputMS samplerDepth;
+
+layout (binding = 4) uniform sampler3D samplerNoise;
+layout (binding = 5) uniform samplerCube samplerSkybox;
+layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
+
+layout (binding = 7) uniform UBO {
 	Matrices matrices;
 	
 	Mode mode;
@@ -156,6 +124,44 @@ layout (binding = 0) uniform UBO {
 	vec3 ambient;
 	float kexp;
 } ubo;
+
+layout (std140, binding = 8) readonly buffer Lights {
+	Light lights[];
+};
+layout (std140, binding = 9) readonly buffer Materials {
+	Material materials[];
+};
+layout (std140, binding = 10) readonly buffer Textures {
+	Texture textures[];
+};
+layout (std140, binding = 11) readonly buffer DrawCalls {
+	DrawCall drawCalls[];
+};
+
+
+layout (location = 0) in vec2 inUv;
+layout (location = 1) in flat uint inPushConstantPass;
+
+layout (location = 0) out vec4 outFragColor;
+
+vec2 poissonDisk[16] = vec2[]( 
+   vec2( -0.94201624, -0.39906216 ), 
+   vec2( 0.94558609, -0.76890725 ), 
+   vec2( -0.094184101, -0.92938870 ), 
+   vec2( 0.34495938, 0.29387760 ), 
+   vec2( -0.91588581, 0.45771432 ), 
+   vec2( -0.81544232, -0.87912464 ), 
+   vec2( -0.38277543, 0.27676845 ), 
+   vec2( 0.97484398, 0.75648379 ), 
+   vec2( 0.44323325, -0.97511554 ), 
+   vec2( 0.53742981, -0.47373420 ), 
+   vec2( -0.26496911, -0.41893023 ), 
+   vec2( 0.79197514, 0.19090188 ), 
+   vec2( -0.24188840, 0.99706507 ), 
+   vec2( -0.81409955, 0.91437590 ), 
+   vec2( 0.19984126, 0.78641367 ), 
+   vec2( 0.14383161, -0.14100790 ) 
+);
 
 void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
 	vec3 Ls = vec3(1.0, 1.0, 1.0); 		// light specular
@@ -476,9 +482,9 @@ void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightP
 	i += (kD * albedo / PI + specular) * radiance * NdotL;
 }
 
-vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 rayDir ) {
-	vec3 t0 = (boundsMin - rayOrigin) / rayDir;
-	vec3 t1 = (boundsMax - rayOrigin) / rayDir;
+vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayO, vec3 rayD ) {
+	vec3 t0 = (boundsMin - rayO) / rayD;
+	vec3 t1 = (boundsMax - rayO) / rayD;
 	vec3 tmin = min(t0, t1);
 	vec3 tmax = max(t0, t1);
 	float dstA = max( max(tmin.x, tmin.y), tmin.z );
@@ -493,26 +499,17 @@ float sampleDensity( vec3 position ) {
 	return max(0, texture(samplerNoise, uvw).r - ubo.fog.densityThreshold) * ubo.fog.densityMultiplier;
 }
 
-void fog( inout vec3 i, float scale ) {
+void fog( vec3 rayO, vec3 rayD, inout vec3 i, float scale ) {
 	if ( ubo.fog.stepScale <= 0 ) return;
 	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
 
 #if RAY_MARCH_FOG
-	mat4 iProjView = inverse( ubo.matrices.projection[inPushConstantPass] * ubo.matrices.view[inPushConstantPass] );
-	vec4 near4 = iProjView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-	vec4 far4 = iProjView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
-	vec3 near3 = near4.xyz / near4.w;
-	vec3 far3 = far4.xyz / far4.w;
-
-	vec3 rayOrigin = near3;
-	vec3 rayDir = normalize( far3 - near3 );
-
 	float range = ubo.fog.range.y;
-	vec3 boundsMin = vec3(-range,-range,-range) + rayOrigin;
-	vec3 boundsMax = vec3(range,range,range) + rayOrigin;
+	vec3 boundsMin = vec3(-range,-range,-range) + rayO;
+	vec3 boundsMax = vec3(range,range,range) + rayO;
 	int numSteps = int(length(boundsMax - boundsMin) * ubo.fog.stepScale );
 
-	vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayOrigin, rayDir );
+	vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayO, rayD );
 	float dstToBox = rayBoxInfo.x;
 	float dstInsideBox = rayBoxInfo.y;
 	float depth = position.eye.z;
@@ -526,7 +523,7 @@ void fog( inout vec3 i, float scale ) {
 		float totalDensity = 0;
 		float transmittance = 1;
 		while ( dstTravelled < dstLimit ) {
-			vec3 rayPos = rayOrigin + rayDir * (dstToBox + dstTravelled);
+			vec3 rayPos = rayO + rayD * (dstToBox + dstTravelled);
 			float density = sampleDensity(rayPos);
 			if ( density > 0 ) {
 				transmittance *= exp(-density * stepSize * ubo.fog.absorbtion);
@@ -557,49 +554,93 @@ vec3 decodeNormals( vec2 enc ) {
 	n.z = 1-f/2;
 	return normalize(n);
 }
-
+float wrap( float i ) {
+	return fract(i);
+}
+vec2 wrap( vec2 uv ) {
+	return vec2( wrap( uv.x ), wrap( uv.y ) );
+}
+float mipLevel( in vec2 uv ) {
+	vec2 dx_vtc = dFdx(uv);
+	vec2 dy_vtc = dFdy(uv);
+	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
+}
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < ubo.textures;
 }
-vec4 sampleTexture( uint drawId, int textureIndex, vec2 uv, vec4 base ) {
-	if  ( !validTextureIndex( textureIndex ) ) return base;
+vec4 sampleTexture( uint drawId, int textureIndex, in vec2 uv, vec4 base ) {
+	if ( !validTextureIndex( textureIndex ) ) return base;
 	Texture t = textures[textureIndex+1];
-//	if ( t.remap != textureIndex && validTextureIndex(t.remap)  ) t = textures[t.remap+1];
- 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, uv ) );
+	float mip = mipLevel( uv );
+ 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, wrap( uv ) ), mip );
 }
 
 void main() {
+	vec3 rayO = vec3(0);
+	vec3 rayD = vec3(0);
+	vec3 fragColor = vec3(0);
+
 	{
-		mat4 iProj = inverse( ubo.matrices.projection[inPushConstantPass] );
-		mat4 iView = inverse( ubo.matrices.view[inPushConstantPass] );
-		float depth = subpassLoad(samplerDepth).r;		
+		float depth = subpassLoad(samplerDepth, SAMPLES).r;		
 
 		vec4 positionClip = vec4(inUv * 2.0 - 1.0, depth, 1.0);
-		vec4 positionEye = iProj * positionClip;
+		vec4 positionEye = ubo.matrices.iProjection[inPushConstantPass] * positionClip;
 		positionEye /= positionEye.w;
 		position.eye = positionEye.xyz;
 
-		vec4 positionWorld = iView * positionEye;
+		vec4 positionWorld = ubo.matrices.iView[inPushConstantPass] * positionEye;
 		position.world = positionWorld.xyz;
 	}
-	
-	normal.eye = decodeNormals( subpassLoad(samplerNormal).xy );
+	{
+		vec4 near4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		vec4 far4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		vec3 near3 = near4.xyz / near4.w;
+		vec3 far3 = far4.xyz / far4.w;
 
-	uvec2 ID = subpassLoad(samplerId).xy;
+		rayO = near3;
+	}
+	{
+		mat4 iProjectionView = inverse( ubo.matrices.projection[inPushConstantPass] * mat4(mat3(ubo.matrices.view[inPushConstantPass])) );
+		vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		vec3 near3 = near4.xyz / near4.w;
+		vec3 far3 = far4.xyz / far4.w;
+
+		rayD = normalize( far3 - near3 );
+	}
+	
+	normal.eye = decodeNormals( subpassLoad(samplerNormal, SAMPLES).xy );
+
+	uvec2 ID = subpassLoad(samplerId, SAMPLES).xy;
 	uint drawId = ID.x;
+	uint materialId = ID.y;
+	if ( drawId == 0 || materialId == 0 ) {
+		fragColor.rgb = texture( samplerSkybox, rayD ).rgb;
+		fog(rayO, rayD, fragColor, 0.0);
+		outFragColor = vec4(fragColor,1);
+		return;
+	}
+	--drawId;
+	--materialId;
 
 	DrawCall drawCall = drawCalls[drawId];
-	uint materialId = ID.y;
 	materialId += drawCall.materialIndex;
 
 	Material material = materials[materialId];
 	vec4 C = material.colorBase;
 
 #if UF_DEFERRED_SAMPLING
-	vec2 uv = subpassLoad(samplerUv).xy;
+	vec2 uv = subpassLoad(samplerUv, SAMPLES).xy;
 	C = sampleTexture( drawId, drawCall.textureIndex + material.indexAlbedo, uv, C );
+	// OPAQUE
+ 	if ( material.modeAlpha == 0 ) C.a = 1;
+ 	// BLEND
+ 	else if ( material.modeAlpha == 1 ) {
+ 	// MASK
+ 	} else if ( material.modeAlpha == 2 ) {
+ 	}
 #else
-	C = subpassLoad(samplerAlbedo);
+	C = subpassLoad(samplerAlbedo, SAMPLES);
 #endif
 
 	float M = material.factorMetallic;
@@ -609,7 +650,7 @@ void main() {
 	bool usePbr = true;
 	bool gammaCorrect = false;
 	float litFactor = 1.0;
-	vec3 fragColor = C.rgb * ubo.ambient.rgb * AO;
+	fragColor = C.rgb * ubo.ambient.rgb * AO;
 	for ( uint i = 0; i < ubo.lights; ++i ) {
 		Light light = lights[i];
 		
@@ -636,7 +677,7 @@ void main() {
  		fragColor = pow(fragColor, vec3(1.0/2.2));  
  	}
 
-	fog(fragColor, litFactor);
+	fog(rayO, rayD, fragColor, litFactor);
 
 /*
 	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {

@@ -79,6 +79,19 @@ void uf::instantiator::free( uf::Entity* pointer ) {
 	else ::free( pointer );
 #endif
 }
+bool uf::instantiator::valid( uf::Entity* pointer ) {
+#if UF_MEMORYPOOL_INVALID_FREE
+	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
+	return memoryPool.exists( pointer );
+#else
+	uf::MemoryPool* memoryPool = NULL;
+	if ( uf::Entity::memoryPool.size() > 0 )
+		memoryPool = &uf::Entity::memoryPool;
+	else if ( uf::MemoryPool::global.size() > 0 )
+		memoryPool = &uf::MemoryPool::global;
+	return memoryPool ? memoryPool->exists( pointer ) : pointer && pointer->isValid();
+#endif
+}
 
 void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;

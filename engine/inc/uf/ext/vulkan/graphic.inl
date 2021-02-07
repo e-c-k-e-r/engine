@@ -1,5 +1,5 @@
 template<typename T, typename U>
-void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t o, bool stage ) {
+void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t o ) {
 	if ( mesh.indices.empty() ) mesh.initialize( o );
 	mesh.updateDescriptor();
 
@@ -9,19 +9,26 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 			// too lazy to check if this equals, only matters in pipeline creation anyways
 			descriptor.geometry = mesh;
 
-			updateBuffer(
-				(void*) mesh.vertices.data(),
-				mesh.vertices.size() * mesh.sizes.vertex,
-				0,
-				stage
-			);
-			updateBuffer(
-				(void*) mesh.indices.data(),
-				mesh.indices.size() * mesh.sizes.indices,
-				1,
-				stage
-			);
-			return;
+			int32_t vertexBuffer = -1;
+			int32_t indexBuffer = -1;
+			for ( size_t i = 0; i < buffers.size(); ++i ) {
+				if ( buffers[i].usageFlags & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT ) vertexBuffer = i;
+				if ( buffers[i].usageFlags & VK_BUFFER_USAGE_INDEX_BUFFER_BIT ) indexBuffer = i;
+			}
+
+			if ( vertexBuffer > 0 && indexBuffer > 0 ) {
+				updateBuffer(
+					(void*) mesh.vertices.data(),
+					mesh.vertices.size() * mesh.sizes.vertex,
+					vertexBuffer
+				);
+				updateBuffer(
+					(void*) mesh.indices.data(),
+					mesh.indices.size() * mesh.sizes.indices,
+					indexBuffer
+				);
+				return;
+			}
 		}
 		// can't reuse buffers, re-create buffers
 		{
@@ -36,15 +43,11 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 	initializeBuffer(
 		(void*) mesh.vertices.data(),
 		mesh.vertices.size() * mesh.sizes.vertex,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		stage
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
 	);
 	initializeBuffer(
 		(void*) mesh.indices.data(),
 		mesh.indices.size() * mesh.sizes.indices,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		stage
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT
 	);
 }

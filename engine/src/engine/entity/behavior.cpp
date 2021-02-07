@@ -1,11 +1,20 @@
 #include <uf/engine/entity/entity.h>
+#include <uf/engine/instantiator/instantiator.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Entity)
 uf::Entity::Entity() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Entity)
 #define this ((uf::Entity*) &self)
 void uf::EntityBehavior::initialize( uf::Object& self ) {
-	if ( !this->isValid() )
-		this->m_uid = ++uf::Entity::uids;
+	if ( !this->isValid() ) this->m_uid = ++uf::Entity::uids;
+	// sanitize children
+/*
+	for ( auto& kv : this->m_children ) {
+		if ( !uf::instantiator::valid(kv) ) {
+			std::cout << "FOUND INVALID CHILD IN " << this->getName() << ": " << this->getUid() << ": " << kv << std::endl;
+			kv = NULL;
+		}
+	}
+*/
 }
 void uf::EntityBehavior::tick( uf::Object& self ) {
 	for ( uf::Entity* kv : this->m_children ) {

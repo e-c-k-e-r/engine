@@ -73,6 +73,7 @@ namespace ext {
 			VkDescriptorSetLayout descriptorSetLayout;
 			VkDescriptorPool descriptorPool;
 			VkDescriptorSet descriptorSet;
+			GraphicDescriptor descriptor;
 
 			void initialize( Graphic& graphic );
 			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
@@ -114,7 +115,7 @@ namespace ext {
 			void destroy();
 			
 			template<typename T, typename U>
-			void initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t = SIZE_MAX, bool stage = VK_DEFAULT_STAGE_BUFFERS );
+			void initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t = SIZE_MAX );
 
 			bool hasPipeline( GraphicDescriptor& descriptor );
 			void initializePipeline();

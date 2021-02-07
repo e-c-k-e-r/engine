@@ -644,9 +644,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		initializeBuffer(
 			(void*) userdata.data,
 			userdata.len,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			false
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 		);
 	}
 }
@@ -778,6 +776,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 }
 void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& descriptor ) {
 	this->device = graphic.device;
+	//this->descriptor = descriptor;
 	Device& device = *graphic.device;
 
 	// VK_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
@@ -884,10 +883,13 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 
 		std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates;
 
+		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
 		if ( renderMode.getType() != "Swapchain" ) {
 			auto& subpass = renderTarget.passes[descriptor.subpass];
 			for ( auto& color : subpass.colors ) {
-				blendAttachmentStates.push_back(renderTarget.attachments[color.attachment].blendState);
+				auto& attachment = renderTarget.attachments[color.attachment];
+				blendAttachmentStates.push_back(attachment.blendState);
+				samples = std::max(samples, ext::vulkan::sampleCount( attachment.descriptor.samples ));
 			}
 			// require blending if independentBlend is not an enabled feature
 			if ( device.enabledFeatures.independentBlend == VK_FALSE ) {
@@ -933,21 +935,16 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		VkPipelineViewportStateCreateInfo viewportState = ext::vulkan::initializers::pipelineViewportStateCreateInfo(
 			1, 1, 0
 		);
-		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-	//	switch ( ext::vulkan::settings::msaa ) {
-		switch ( renderTarget.samples ) {
-			case 64: samples = VK_SAMPLE_COUNT_64_BIT; break;
-			case 32: samples = VK_SAMPLE_COUNT_32_BIT; break;
-			case 16: samples = VK_SAMPLE_COUNT_16_BIT; break;
-			case  8: samples =  VK_SAMPLE_COUNT_8_BIT; break;
-			case  4: samples =  VK_SAMPLE_COUNT_4_BIT; break;
-			case  2: samples =  VK_SAMPLE_COUNT_2_BIT; break;
-			default: samples =  VK_SAMPLE_COUNT_1_BIT; break;
-		}
 		VkPipelineMultisampleStateCreateInfo multisampleState = ext::vulkan::initializers::pipelineMultisampleStateCreateInfo(
 			samples,
 			0
 		);
+		if ( device.features.sampleRateShading ) {
+			multisampleState.sampleShadingEnable = VK_TRUE;
+			multisampleState.minSampleShading = 0.25f;
+		}
+
+
 		std::vector<VkDynamicState> dynamicStateEnables = {
 			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR
@@ -1101,6 +1098,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic ) {
 void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descriptor ) {
 	//
 	if ( descriptorSet == VK_NULL_HANDLE ) return;
+	//descriptor = d;
 	// generate fallback empty texture
 	auto& emptyTexture = Texture2D::empty;
 
@@ -1463,7 +1461,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 
 	pipeline.record(*this, commandBuffer, pass, draw);
 	// Bind triangle vertex buffer (contains position and colors)
-	VkDeviceSize offsets[1] = { 0 };
+	VkDeviceSize offsets[1] = { descriptor.offsets.vertex };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->buffer, offsets);
 	// Bind triangle index buffer
 	VkIndexType indicesType = VK_INDEX_TYPE_UINT32;
@@ -1475,9 +1473,10 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 			throw std::runtime_error("invalid indices size of " + std::to_string((int) descriptor.geometry.sizes.indices));
 		break;
 	}
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer->buffer, 0, indicesType);
+	vkCmdBindIndexBuffer(commandBuffer, indexBuffer->buffer, descriptor.offsets.index, indicesType);
 	// Draw indexed triangle
 	vkCmdDrawIndexed(commandBuffer, descriptor.indices, 1, 0, 0, 1);
+	//std::cout << (int) descriptor.indices << "\t" << (int) descriptor.offsets.index << std::endl;
 }
 void ext::vulkan::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();
@@ -1545,6 +1544,13 @@ void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 			cullMode = VK_CULL_MODE_FRONT_AND_BACK;
 		}
 	}
+	if ( metadata["indices"].is<size_t>() ) {
+		indices = metadata["indices"].as<size_t>();
+	}
+	if ( ext::json::isObject( metadata["offsets"] ) ) {
+		offsets.vertex = metadata["offsets"]["vertex"].as<size_t>();
+		offsets.index = metadata["offsets"]["index"].as<size_t>();
+	}
 	if ( ext::json::isObject(metadata["depth bias"]) ) {
 		depth.bias.enable = VK_TRUE;
 		depth.bias.constant = metadata["depth bias"]["constant"].as<float>();
@@ -1557,9 +1563,13 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 
 	serializer["subpass"] = subpass;
 	if ( settings::experimental::individualPipelines ) serializer["renderMode"] = renderMode;
+
 	serializer["renderTarget"] = renderTarget;
 	serializer["geometry"]["sizes"]["vertex"] = geometry.sizes.vertex;
 	serializer["geometry"]["sizes"]["indices"] = geometry.sizes.indices;
+	serializer["indices"] = indices;
+	serializer["offsets"]["vertex"] = offsets.vertex;
+	serializer["offsets"]["index"] = offsets.index;
 
 	{
 		int i = 0;

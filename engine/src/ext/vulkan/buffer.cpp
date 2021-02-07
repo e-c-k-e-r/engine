@@ -171,12 +171,12 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 			length
 		));
 		this->updateBuffer( data, length, buffer, stage );
-	//	size_t index = buffers.size();
-	//	buffers.push_back( std::move(buffer) );
 		return index;
 	}
 
-	// VkQueue queue = device->queues.transfer;
+	// implicitly set properties
+	usageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
 	Buffer staging;
 	VkDeviceSize storageBufferSize = length;
 	device->createBuffer(

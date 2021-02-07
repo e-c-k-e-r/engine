@@ -44,6 +44,8 @@ namespace ext {
 
 			VkImage image;
 			VkImageView view;
+			VkImageType type;
+			VkImageViewType viewType;
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			VkDeviceMemory deviceMemory;
 			VkDescriptorImageInfo descriptor;
@@ -55,9 +57,10 @@ namespace ext {
 			VmaAllocationInfo allocationInfo;
 
 			uint32_t width, height, depth, layers;
-			uint32_t mips;
+			uint32_t mips = 1;
 			// RAII
 			void initialize( Device& device, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
+			void initialize( Device& device, VkImageViewType, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );
 			void updateDescriptors();
 			void destroy();
 			bool generated() const;
@@ -76,9 +79,6 @@ namespace ext {
 				VkImageLayout newImageLayout,
 				uint32_t mipLevels
 			);
-		};
-		struct UF_API Texture2D : public Texture {
-			static Texture2D empty;
 			void loadFromFile(
 				std::string filename, 
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
@@ -118,10 +118,12 @@ namespace ext {
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM );
-			void aliasTexture( const Texture2D& );
+			void aliasTexture( const Texture& );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
+			
 			void update( uf::Image& image, VkImageLayout, uint32_t layer = 1 );
 			void update( void*, VkDeviceSize, VkImageLayout, uint32_t layer = 1 );
+
 			inline void fromBuffers(
 				void* buffer,
 				VkDeviceSize bufferSize,
@@ -136,6 +138,19 @@ namespace ext {
 			inline void update( void* data, VkDeviceSize size, uint32_t layer = 1 ) { return this->update(data, size, this->imageLayout, layer); }
 			
 			void generateMipmaps(VkCommandBuffer commandBuffer, uint32_t layer = 1);
+		};
+		class UF_API Texture2D : public Texture {
+		public:
+			Texture2D();
+			static Texture2D empty;
+		};
+		class UF_API Texture3D : public Texture {
+		public:
+			Texture3D();
+		};
+		class UF_API TextureCube : public Texture {
+		public:
+			TextureCube();
 		};
 	}
 }

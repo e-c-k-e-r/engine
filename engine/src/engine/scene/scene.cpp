@@ -71,7 +71,7 @@ void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 	current->destroy();
 	uf::scene::scenes.pop_back();
-	delete current;
+	//delete current;
 }
 uf::Scene& uf::scene::getCurrentScene() {
 	return *uf::scene::scenes.back();

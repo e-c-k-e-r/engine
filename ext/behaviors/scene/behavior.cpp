@@ -130,7 +130,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 	// initialize perlin noise
 	{
-		auto& texture = this->getComponent<uf::renderer::Texture2D>();
+		auto& texture = this->getComponent<uf::renderer::Texture3D>();
 		texture.sampler.descriptor.addressMode = {
 			VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
 			VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
@@ -172,6 +172,41 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			pixels[i] = static_cast<uint8_t>(floor(normalized * 255));
 		}
 		texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8_UNORM, size.x, size.y, size.z, 1, ext::vulkan::device );
+	}
+
+	// initialize cubemap
+	{
+		std::vector<std::string> filenames = {
+			"./data/textures/skybox/front.png",
+			"./data/textures/skybox/back.png",
+			"./data/textures/skybox/up.png",
+			"./data/textures/skybox/down.png",
+			"./data/textures/skybox/right.png",
+			"./data/textures/skybox/left.png",
+		};
+		uf::Image::container_t pixels;
+		std::vector<uf::Image> images(filenames.size());
+
+		pod::Vector2ui size = {0,0};
+		auto& texture = this->getComponent<uf::renderer::TextureCube>();
+		for ( size_t i = 0; i < filenames.size(); ++i ) {
+			auto& filename = filenames[i];
+			auto& image = images[i];
+			image.open(filename);
+			image.flip();
+
+			if ( size.x == 0 && size.y == 0 ) {
+				size = image.getDimensions();
+			} else if ( size != image.getDimensions() ) {
+				std::cout << "ERROR: MISMATCH CUBEMAP FACE SIZE" << std::endl;
+			}
+
+			auto& p = image.getPixels();
+			pixels.reserve( pixels.size() + p.size() );
+			pixels.insert( pixels.end(), p.begin(), p.end() );
+		}
+		texture.mips = 0;
+		texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size(), ext::vulkan::device );
 	}
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
@@ -294,6 +329,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			struct Matrices {
 				alignas(16) pod::Matrix4f view[2];
 				alignas(16) pod::Matrix4f projection[2];
+				alignas(16) pod::Matrix4f iView[2];
+				alignas(16) pod::Matrix4f iProjection[2];
+				alignas(16) pod::Matrix4f iProjectionView[2];
 			} matrices;
 			struct Mode {
 				alignas(8) pod::Vector2ui type;
@@ -320,6 +358,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				alignas(4) uint32_t drawCalls = 0;
 			} lengths;
 			alignas(16) pod::Vector4f ambient;
+		//	alignas(16) pod::Vector4f position;
 		};
 		struct SpecializationConstant {
 			uint32_t maxTextures = 512;
@@ -334,7 +373,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		};
 		std::vector<LightInfo> entities;
 		std::vector<pod::Graph*> graphs;
-	//	std::vector<uf::Entity*> graphs;
 
 		this->process([&]( uf::Entity* entity ) { if ( !entity ) return;
 			auto& metadata = entity->getComponent<uf::Serializer>();
@@ -405,9 +443,21 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			for ( std::size_t i = 0; i < 2; ++i ) {
 				uniforms->matrices.view[i] = camera.getView( i );
 				uniforms->matrices.projection[i] = camera.getProjection( i );
+				uniforms->matrices.iView[i] = uf::matrix::inverse( uniforms->matrices.view[i] );
+				uniforms->matrices.iProjection[i] = uf::matrix::inverse( uniforms->matrices.projection[i] );
+				uniforms->matrices.iProjectionView[i] = uf::matrix::inverse( uniforms->matrices.projection[i] * uniforms->matrices.view[i] );
 			}
 
 			uniforms->ambient = uf::vector::decode( metadata["light"]["ambient"], uniforms->ambient );
+		/*
+			pod::Transform<> transform = controller.getComponent<pod::Transform<>>();
+			if ( controller.hasComponent<uf::Camera>() ) {
+				auto& camera = controller.getComponent<uf::Camera>();
+				transform.position += camera.getTransform().position;
+				transform = uf::transform::reorient( transform );
+			}
+			uniforms->position = transform.position;
+		*/
 
 			uniforms->fog.color = uf::vector::decode( metadata["light"]["fog"]["color"], uniforms->fog.color );
 			uniforms->fog.color.w = metadata["light"]["fog"]["step scale"].as<float>();
@@ -435,7 +485,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 			graphic.material.textures.clear();
 			// add noise texture
-			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture2D>());
+			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture3D>());
+			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::TextureCube>());
 
 			size_t updateThreshold = metadata["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
 			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
@@ -451,7 +502,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			std::vector<pod::Texture::Storage> textures;
 			textures.reserve(maxTextures);
 			
-			std::vector<pod::DrawCall> drawCalls;
+			std::vector<pod::DrawCall::Storage> drawCalls;
 			drawCalls.reserve(maxTextures);
 
 			// add materials
@@ -459,7 +510,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				for ( auto* entity : graphs ) {
 					auto& graph = *entity;
 
-					drawCalls.emplace_back(pod::DrawCall{
+					drawCalls.emplace_back(pod::DrawCall::Storage{
 						materials.size(),
 						graph.materials.size(),
 						textures.size(),
@@ -518,8 +569,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					}
 					size_t view = 0;
 					for ( auto& attachment : renderMode.renderTarget.attachments ) {
-						if ( !(attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						if ( attachment.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 
 						graphic.material.textures.emplace_back().aliasAttachment(attachment);
 
@@ -552,7 +603,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					graphic.updateBuffer( (void*) lights.data(), uniforms->lengths.lights * sizeof(pod::Light::Storage), lightBufferIndex, false );
 					graphic.updateBuffer( (void*) materials.data(), uniforms->lengths.materials * sizeof(pod::Material::Storage), materialBufferIndex, false );
 					graphic.updateBuffer( (void*) textures.data(), uniforms->lengths.textures * sizeof(pod::Texture::Storage), textureBufferIndex, false );
-					graphic.updateBuffer( (void*) drawCalls.data(), uniforms->lengths.drawCalls * sizeof(pod::DrawCall), drawCallBufferIndex, false );
+					graphic.updateBuffer( (void*) drawCalls.data(), uniforms->lengths.drawCalls * sizeof(pod::DrawCall::Storage), drawCallBufferIndex, false );
 
 					graphic.updatePipelines();
 				}

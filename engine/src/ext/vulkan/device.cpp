@@ -250,7 +250,7 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 		*memTypeFound = false;
 		return 0;
 	}
-		throw std::runtime_error("Could not find a matching memory type");
+	// throw std::runtime_error("Could not find a matching memory type");
 }
 
 int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
@@ -381,7 +381,6 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usageFlags, VkMem
 
 	// Attach the memory to the buffer object
 	VK_CHECK_RESULT(vkBindBufferMemory(logicalDevice, *buffer, *memory, 0));
-
 	return VK_SUCCESS;
 }
 
@@ -573,10 +572,10 @@ void ext::vulkan::Device::initialize() {
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Program";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
 		appInfo.pEngineName = "Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
+		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 		VkInstanceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -908,6 +907,15 @@ void ext::vulkan::Device::initialize() {
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
 	}
+	// setup allocator
+	{
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+		allocatorInfo.physicalDevice = physicalDevice;
+		allocatorInfo.instance = instance;
+		allocatorInfo.device = logicalDevice;
+		vmaCreateAllocator(&allocatorInfo, &allocator);
+	}
 }
 
 void ext::vulkan::Device::destroy() {
@@ -943,4 +951,5 @@ void ext::vulkan::Device::destroy() {
 		vkDestroyInstance( this->instance, nullptr );
 		this->instance = nullptr;
 	}
+	vmaDestroyAllocator( allocator );
 }

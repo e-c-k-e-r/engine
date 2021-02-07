@@ -14,10 +14,17 @@
 
 namespace pod {
 	struct UF_API DrawCall {
-		alignas(4) int32_t materialIndex = -1;
-		alignas(4) uint32_t materials = 0;
-		alignas(4) int32_t textureIndex = -1;
-		alignas(4) uint32_t textures = 0;
+		std::string name = "";
+		struct Storage {
+			alignas(4) int32_t materialIndex = -1;
+			alignas(4) uint32_t materials = 0;
+			alignas(4) int32_t textureIndex = -1;
+			alignas(4) uint32_t textures = 0;
+		} storage;
+		size_t verticesIndex = 0;
+		size_t vertices = 0;
+		size_t indicesIndex = 0;
+		size_t indices = 0;
 	};
 	struct UF_API Texture {
 		std::string name = "";
@@ -58,6 +65,7 @@ namespace pod {
 */
 	struct UF_API Material {
 		std::string name = "";
+		std::string alphaMode = "";
 		// 
 		struct Storage {
 			alignas(16) pod::Vector4f colorBase = { 0, 0, 0, 0 };
@@ -68,15 +76,15 @@ namespace pod {
 			alignas(4) float factorOcclusion = 0.0f;
 			alignas(4) float factorAlphaCutoff = 1.0f;
 
-			alignas(4) int indexAlbedo = -1;
-			alignas(4) int indexNormal = -1;
-			alignas(4) int indexEmissive = -1;
-			alignas(4) int indexOcclusion = -1;
+			alignas(4) int32_t indexAlbedo = -1;
+			alignas(4) int32_t indexNormal = -1;
+			alignas(4) int32_t indexEmissive = -1;
+			alignas(4) int32_t indexOcclusion = -1;
 
-			alignas(4) int indexMetallicRoughness = -1;
-			alignas(4) int padding1 = -1;
-			alignas(4) int padding2 = -1;
-			alignas(4) int padding3 = -1;
+			alignas(4) int32_t indexMetallicRoughness = -1;
+			alignas(4) int32_t modeAlpha = -1;
+			alignas(4) int32_t padding1 = -1;
+			alignas(4) int32_t padding2 = -1;
 		} storage;
 	};
 	struct UF_API Node {
@@ -84,22 +92,21 @@ namespace pod {
 
 		std::string name = "";
 		int32_t index = -1;
-
-	//	Node* parent = NULL;
-	//	std::vector<Node*> children;
 		int32_t parent = -1;
 		std::vector<int32_t> children;
 
 		uf::Object* entity = NULL;
-		size_t jointBufferIndex = -1;
-		size_t materialBufferIndex = -1;
-		size_t textureBufferIndex = -1;
+		int32_t jointBufferIndex = -1;
+		int32_t materialBufferIndex = -1;
+		int32_t textureBufferIndex = -1;
 
 		int32_t skin = -1;
 		Mesh mesh;
 		uf::Collider collider;
-
 		pod::Transform<> transform;
+
+		std::vector<pod::DrawCall> primitives;
+		pod::DrawCall drawCall;
 	};
 
 	struct UF_API Skin {
@@ -146,6 +153,7 @@ namespace pod {
 		std::vector<pod::Texture> textures;
 		std::vector<pod::Material> materials;
 		std::vector<pod::Light> lights;
+		pod::DrawCall drawCall;
 
 		std::vector<Skin> skins;
 		std::unordered_map<std::string, Animation> animations;

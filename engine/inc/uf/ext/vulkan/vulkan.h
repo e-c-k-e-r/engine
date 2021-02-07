@@ -28,7 +28,11 @@ namespace ext {
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData
 		);
-		uint32_t getMemoryTypeIndex(uint32_t typeBits, VkMemoryPropertyFlags properties);
+
+		std::string errorString( VkResult result );
+		VkSampleCountFlagBits sampleCount( uint8_t );
+		void* alignedAlloc( size_t size, size_t alignment );
+		void alignedFree(void* data);
 
 		typedef VmaAllocator Allocator;
 

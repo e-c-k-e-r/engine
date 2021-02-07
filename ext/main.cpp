@@ -379,20 +379,28 @@ void EXT_API ext::initialize() {
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
 		}
+	/*
 		if ( ::config["engine"]["render modes"]["multiview stereo deferred"].as<bool>() )
 			uf::renderer::addRenderMode( new uf::renderer::MultiviewStereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() )
 			uf::renderer::addRenderMode( new uf::renderer::StereoscopicDeferredRenderMode, "" );
 		else if ( ::config["engine"]["render modes"]["deferred"].as<bool>() )
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
-
+	*/
+		if ( ::config["engine"]["render modes"]["deferred"].as<bool>() ) {
+			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
+			if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
+				auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
+				renderMode.metadata["eyes"] = 2;
+			}
+		}
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
 		
 			uint32_t width, height;
 			ext::openvr::recommendedResolution( width, height );
 
-			auto& renderMode = uf::renderer::getRenderMode("Stereoscopic Deferred", true);
+			auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
 			renderMode.width = width;
 			renderMode.height = height;
 
@@ -677,6 +685,15 @@ void EXT_API ext::terminate() {
 	}
 	
 	uf::scene::destroy();
+
+	/* Garbage collection */ if ( false ) {
+		uint8_t mode = ::config["engine"]["debug"]["garbage collection"]["mode"].as<uint64_t>();
+		bool announce = ::config["engine"]["debug"]["garbage collection"]["announce"].as<bool>();
+		size_t collected = uf::instantiator::collect( mode );
+		if ( announce && collected > 0 ) {
+			uf::iostream << "GC collected " << (int) collected << " unused entities" << "\n";
+		}
+	}
 
 	/* Close vulkan */ {
 		uf::renderer::destroy();

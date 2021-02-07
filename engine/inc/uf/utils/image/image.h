@@ -27,7 +27,7 @@ namespace uf {
 		Image( Image::container_t&& move, const Image::vec2_t& size ); 							// Move from vector of pixels
 		Image( const Image::container_t& copy, const Image::vec2_t& size ); 					// Copy from vector of pixels
 
-		bool open( const std::string& filename ); 												// from file
+		bool open( const std::string& filename, bool = true ); 									// from file
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels
 		void copy( const Image::container_t& copy,  const Image::vec2_t& size );				// copy from vector of pixels

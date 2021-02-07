@@ -5,12 +5,15 @@
 namespace ext {
 	namespace vulkan {
 		struct UF_API RenderTarget {
-			typedef struct {
-				VkFormat format;
-				VkImageLayout layout;
-				VkImageUsageFlags usage;
-				VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-				bool aliased = false;
+			struct Attachment {
+				struct Descriptor {
+					VkFormat format;
+					VkImageLayout layout;
+					VkImageUsageFlags usage;
+					bool blend = false;
+					uint8_t samples = 1;
+					bool aliased = false;
+				} descriptor;
 
 				VkImage image;
 				VkDeviceMemory mem;
@@ -18,17 +21,18 @@ namespace ext {
 				VmaAllocation allocation;
 				VmaAllocationInfo allocationInfo;
 				VkPipelineColorBlendAttachmentState blendState;
-			} Attachment;
+			};
 			std::vector<Attachment> attachments;
 
-			typedef struct {
+			struct Subpass {
 				VkPipelineStageFlags stage;
 				VkAccessFlags access;
 
 				std::vector<VkAttachmentReference> colors;
 				std::vector<VkAttachmentReference> inputs;
+				std::vector<VkAttachmentReference> resolves;
 				VkAttachmentReference depth;
-			} Subpass;
+			};
 			std::vector<Subpass> passes;
 
 			bool initialized = false;
@@ -37,13 +41,12 @@ namespace ext {
 			std::vector<VkFramebuffer> framebuffers;
 			uint32_t width = 0;
 			uint32_t height = 0;
-			uint8_t multiviews = 1;
-			uint8_t samples = 1;
+			uint8_t views = 1;
 			// RAII
 			void initialize( Device& device );
 			void destroy();
-			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, size_t );
-			size_t attach( VkFormat format, VkImageUsageFlags usage, VkImageLayout layout, bool blend = false, Attachment* attachment = NULL );
+			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t );
+			size_t attach( const Attachment::Descriptor& descriptor, Attachment* attachment = NULL );
 		};
 	}
 }

@@ -3,8 +3,6 @@
 #include <uf/ext/vulkan.h>
 #include <vector>
 
-#define VK_DEFAULT_STAGE_BUFFERS 1
-
 namespace ext {
 	namespace vulkan {
 		struct Device;
@@ -68,9 +66,9 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 			//
-			size_t initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = VK_DEFAULT_STAGE_BUFFERS );
-			template<typename T> inline size_t initializeBuffer( T data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, length, usageFlags, memoryPropertyFlags, stage ); }
-			template<typename T> inline size_t initializeBuffer( T data, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), usageFlags, memoryPropertyFlags, stage ); }
+			size_t initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS );
+			template<typename T> inline size_t initializeBuffer( T data, VkDeviceSize length, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, length, usageFlags, memoryPropertyFlags, stage ); }
+			template<typename T> inline size_t initializeBuffer( T data, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (void*) &data, static_cast<VkDeviceSize>(sizeof(T)), usageFlags, memoryPropertyFlags, stage ); }
 
 			void updateBuffer( void* data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS );
 			void updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS );

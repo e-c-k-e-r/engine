@@ -28,9 +28,18 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitt
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
 	if ( type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
+	}
+	// allows for "easy" remapping for indices ranges
+	if ( ext::json::isObject( metadata["renderMode"]["target"][std::to_string(descriptor.indices)] ) ) {
+		auto& map = metadata["renderMode"]["target"][std::to_string(descriptor.indices)];
+		std::cout << "Replacing " << descriptor.indices;
+		descriptor.indices = map["size"].as<size_t>();
+		descriptor.offsets.index = map["offset"].as<size_t>();
+		std::cout << " with " << descriptor.offsets.index << " + " << descriptor.indices << std::endl;
 	}
 	return descriptor;
 }
@@ -49,9 +58,16 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				size_t depth;
 			} attachments;
 
-			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::depth,
+				/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ false,
+				/*.samples = */ 1,
+			});
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{},
 				{},
 				{},
 				attachments.depth
@@ -62,11 +78,37 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				size_t albedo, normals, position, depth;
 			} attachments;
 
-			attachments.albedo = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true ); // albedo
-			attachments.normals = renderTarget.attach( ext::vulkan::settings::formats::normal, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
+			attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::color,
+				/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ true,
+				/*.samples = */ 1,
+			});
+			attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::normal,
+				/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ false,
+				/*.samples = */ 1,
+			});
+
 			if ( !settings::experimental::deferredReconstructPosition )
-				attachments.position = renderTarget.attach( ext::vulkan::settings::formats::position, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // position
-			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+				attachments.position = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+					/*.format = */ ext::vulkan::settings::formats::position,
+					/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					/*.blend = */ false,
+					/*.samples = */ 1,
+				});
+
+			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::depth,
+				/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ false,
+				/*.samples = */ 1,
+			});
 
 			// First pass: write to target
 			if ( settings::experimental::deferredReconstructPosition ) {
@@ -74,12 +116,14 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 					{ attachments.albedo, attachments.normals },
 					{},
+					{},
 					attachments.depth
 				);
 			} else {
 				renderTarget.addPass(
 					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 					{ attachments.albedo, attachments.normals, attachments.position },
+					{},
 					{},
 					attachments.depth
 				);
@@ -138,7 +182,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		});
 		
 		for ( auto& attachment : renderTarget.attachments ) {
-			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
 			Texture2D& texture = blitter.material.textures.emplace_back();
 			texture.aliasAttachment(attachment);
@@ -152,7 +196,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 		renderTarget.initialize( *renderTarget.device );
 		blitter.material.textures.clear();
 		for ( auto& attachment : renderTarget.attachments ) {
-			if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 			Texture2D& texture = blitter.material.textures.emplace_back();
 			texture.aliasAttachment(attachment);
 		}
@@ -210,13 +254,13 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 	for ( auto& attachment : renderTarget.attachments ) {
-		if ( !(attachment.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-		if (  (attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+		if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+		if (  (attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 		
 		VkPipelineStageFlags srcStageMask, dstStageMask;
 		imageMemoryBarrier.image = attachment.image;
-		imageMemoryBarrier.oldLayout = attachment.layout;
-		imageMemoryBarrier.newLayout = attachment.layout;
+		imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
+		imageMemoryBarrier.newLayout = attachment.descriptor.layout;
 	
 		switch ( state ) {
 			case 0: {
@@ -229,7 +273,7 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 			case 1: {
 				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.newLayout = attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				imageMemoryBarrier.newLayout = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			} break;
@@ -250,7 +294,7 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 			1, &imageMemoryBarrier
 		);
 
-		attachment.layout = imageMemoryBarrier.newLayout;
+		attachment.descriptor.layout = imageMemoryBarrier.newLayout;
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
@@ -268,9 +312,9 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 			std::vector<VkClearValue> clearValues;
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
-				if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
 					clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-				} else if ( attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+				} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
 					clearValue.depthStencil = { 0.0f, 0 };
 				}
 				clearValues.push_back(clearValue);

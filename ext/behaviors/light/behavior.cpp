@@ -63,6 +63,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		renderMode.metadata["type"] = "depth";
 		renderMode.metadata["depth bias"] = metadata["light"]["bias"];
+		renderMode.metadata["renderMode"] = metadata["renderMode"];
+		// std::cout << this->getName() << ": " << renderMode.metadata["renderMode"] << std::endl;
 
 		if ( metadata["light"]["type"].as<std::string>() == "point" ) {
 			metadata["light"]["fov"] = 90.0f;

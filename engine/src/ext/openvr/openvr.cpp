@@ -426,12 +426,12 @@ bool ext::openvr::requestRenderModel( const std::string& name ) {
 	return false;	
 }
 void ext::openvr::submit() { bool invert = swapEyes;
-	ext::vulkan::StereoscopicDeferredRenderMode* renderMode = (ext::vulkan::StereoscopicDeferredRenderMode*) &ext::vulkan::getRenderMode("");
+	auto& renderMode = ext::vulkan::getRenderMode("");
 	
-	float width = renderMode->width > 0 ? renderMode->width : uf::renderer::settings::width;
-	float height = renderMode->height > 0 ? renderMode->height : uf::renderer::settings::height;
-	auto& leftOutputAttachment = renderMode->renderTargets.left.attachments[renderMode->renderTargets.left.attachments.size()-1];
-	auto& rightOutputAttachment = renderMode->renderTargets.right.attachments[renderMode->renderTargets.right.attachments.size()-1];
+	float width = renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width;
+	float height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
+	auto& leftOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata["outputs"][0].as<size_t>()];
+	auto& rightOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata["outputs"][1].as<size_t>()];
 
 	// Submit to SteamVR
 	vr::VRTextureBounds_t bounds;
@@ -453,12 +453,12 @@ void ext::openvr::submit() { bool invert = swapEyes;
 
 	vr::Texture_t texture = { &vulkanData, vr::TextureType_Vulkan, vr::ColorSpace_Auto };
 	
-	vulkanData.m_nFormat = leftOutputAttachment.format;
+	vulkanData.m_nFormat = leftOutputAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) leftOutputAttachment.image;
 	// if ( DEBUG_MARKER ) std::cout << leftOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds );
 
-	vulkanData.m_nFormat = rightOutputAttachment.format;
+	vulkanData.m_nFormat = rightOutputAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) rightOutputAttachment.image;
 	// if ( DEBUG_MARKER ) std::cout << rightOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds );

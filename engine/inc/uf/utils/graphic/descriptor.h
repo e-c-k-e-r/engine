@@ -37,11 +37,17 @@ namespace ext {
 			uf::BaseGeometry geometry;
 			size_t indices = 0;
 
+			struct {
+				size_t vertex = 0;
+				size_t index = 0;
+			} offsets;
+
 			VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 			VkPolygonMode fill = VK_POLYGON_MODE_FILL;
 			VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
 			float lineWidth = 1.0f;
 			VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
+
 			struct {
 				VkBool32 test = true;
 				VkBool32 write = true;

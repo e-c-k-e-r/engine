@@ -30,12 +30,12 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 	renderTarget.device = &device;
 	renderTarget.width = this->width;
 	renderTarget.height = this->height;
-	renderTarget.multiviews = 2;
+	renderTarget.views = 2;
 	// attach targets
 	struct {
 		size_t albedo, normals, position, depth, output;
 	} attachments;
-
+#if 0
 	attachments.albedo = renderTarget.attach( ext::vulkan::settings::formats::color, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // albedo
 	attachments.normals = renderTarget.attach( ext::vulkan::settings::formats::normal, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
 	if ( !settings::experimental::deferredReconstructPosition )
@@ -88,6 +88,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::initialize( Device& d
 			attachments.depth
 		);
 	}
+#endif
 	renderTarget.initialize( device );
 	{
 		uf::BaseMesh<pod::Vertex_2F2F> mesh;
@@ -187,7 +188,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::createCommandBuffers(
 			std::vector<VkClearValue> clearValues;
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
-				if ( attachment.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
 					if ( !ext::json::isNull( metadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
 						auto& v = metadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
 						clearValue.color = { {
@@ -199,7 +200,7 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::createCommandBuffers(
 					} else {
 						clearValue.color = { { 0, 0, 0, 0 } };
 					}
-				} else if ( attachment.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+				} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
 					clearValue.depthStencil = { 0.0f, 0 };
 				}
 				clearValues.push_back(clearValue);
@@ -322,19 +323,19 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::createCommandBuffers(
 					imageMemoryBarrier.image = outputAttachment.image;
 					imageMemoryBarrier.srcAccessMask = 0;
 					imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = outputAttachment.layout;
+					imageMemoryBarrier.oldLayout = outputAttachment.descriptor.layout;
 					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					outputAttachment.layout = imageMemoryBarrier.newLayout;
+					outputAttachment.descriptor.layout = imageMemoryBarrier.newLayout;
 				}
 				{
 					imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
 					imageMemoryBarrier.srcAccessMask = 0;
 					imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
+					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].descriptor.layout;
 					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					swapchainRender.renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
 				}
 
 				vkCmdBlitImage(
@@ -352,19 +353,19 @@ void ext::vulkan::MultiviewStereoscopicDeferredRenderMode::createCommandBuffers(
 					imageMemoryBarrier.image = outputAttachment.image;
 					imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = outputAttachment.layout;
+					imageMemoryBarrier.oldLayout = outputAttachment.descriptor.layout;
 					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					outputAttachment.layout = imageMemoryBarrier.newLayout;
+					outputAttachment.descriptor.layout = imageMemoryBarrier.newLayout;
 				}
 				{
 					imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
 					imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 					imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].layout;
+					imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].descriptor.layout;
 					imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					swapchainRender.renderTarget.attachments[i].layout = imageMemoryBarrier.newLayout;
+					swapchainRender.renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
 				}
 			}
 		}

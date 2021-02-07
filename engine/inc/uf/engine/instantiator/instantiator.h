@@ -48,6 +48,7 @@ namespace uf {
 		uf::Entity* UF_API alloc( size_t );
 		template<typename T> T* alloc();
 		void UF_API free( uf::Entity* );
+		bool UF_API valid( uf::Entity* );
 
 		uf::Entity* UF_API reuse( size_t );
 		size_t UF_API collect( uint8_t = 0 );
