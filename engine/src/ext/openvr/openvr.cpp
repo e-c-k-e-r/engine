@@ -230,7 +230,7 @@ void ext::openvr::terminate() {
 	ext::openvr::context = NULL;
 }
 void ext::openvr::resetPosition() {
-	ext::openvr::context->ResetSeatedZeroPose();
+//	ext::openvr::context->ResetSeatedZeroPose();
 }
 void ext::openvr::tick() {
 	if ( !ext::openvr::context ) return;

@@ -70,10 +70,11 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{},
 				{},
 				{},
-				attachments.depth
+				attachments.depth,
+				true
 			);
 		} else {
-		#if 1
+		#if 0
 			struct {
 				size_t albedo, normals, position, depth;
 			} attachments;
@@ -130,32 +131,103 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			}
 		#else
 			struct {
-				size_t normals, uvs, id, depth;
+				size_t id, normals, uvs, albedo, depth, output;
 			} attachments;
-			//VK_FORMAT_R16G16B16A16_SFLOAT
-			attachments.normals = renderTarget.attach( VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // normals
-			attachments.uvs = renderTarget.attach( VK_FORMAT_R16G16_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // uvs
-			attachments.id = renderTarget.attach( VK_FORMAT_R16G16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false ); // ID
-			attachments.depth = renderTarget.attach( ext::vulkan::settings::formats::depth, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false ); // depth
+			size_t msaa = ext::vulkan::settings::msaa;
 
-			// First pass: fill the G-Buffer
-			{
-				renderTarget.addPass(
-					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					{ attachments.normals, attachments.uvs, attachments.id },
-					{},
-					attachments.depth
-				);
+			attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */VK_FORMAT_R16G16_UINT,
+				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+				/*.blend = */false,
+				/*.samples = */msaa,
+			});
+			attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */VK_FORMAT_R16G16_SFLOAT,
+				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+				/*.blend = */false,
+				/*.samples = */msaa,
+			});
+			if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+				attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+					/*.format = */VK_FORMAT_R16G16_UNORM,
+					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+					/*.blend = */false,
+					/*.samples = */msaa,
+				});
+			} else {
+				attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+					/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
+					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+					/*.blend = */true,
+					/*.samples = */msaa,
+				});
 			}
-			// Second pass: write to output
-			{
-				renderTarget.addPass(
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					{ attachments.output },
-					{ attachments.normals, attachments.uvs, attachments.id, attachments.depth },
-					attachments.depth
-				);
+			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ext::vulkan::settings::formats::depth,
+				/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+				/*.blend = */false,
+				/*.samples = */msaa,
+			});
+			attachments.output = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format =*/ VK_FORMAT_R8G8B8A8_UNORM,
+				/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				/*.blend =*/ true,
+				/*.samples =*/ 1,
+			});
+			if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+				// First pass: fill the G-Buffer
+				{
+					renderTarget.addPass(
+						VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						{ attachments.id, attachments.normals, attachments.uvs },
+						{},
+						{},
+						attachments.depth,
+						true
+					);
+				}
+				// Second pass: write to output
+				{
+					renderTarget.addPass(
+						VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+						{ attachments.output },
+						{ attachments.id, attachments.normals, attachments.uvs, attachments.depth },
+						{},
+						attachments.depth,
+						false
+					);
+				}
+			} else {
+				// First pass: fill the G-Buffer
+				{
+					renderTarget.addPass(
+						VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+						{ attachments.id, attachments.normals, attachments.albedo },
+						{},
+						{},
+						attachments.depth,
+						true
+					);
+				}
+				// Second pass: write to output
+				{
+					renderTarget.addPass(
+						VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+						{ attachments.output },
+						{ attachments.id, attachments.normals, attachments.albedo, attachments.depth },
+						{},
+						attachments.depth,
+						false
+					);
+				}
 			}
+			metadata["outputs"][0] = attachments.output;
 		#endif
 		}
 	}
@@ -346,12 +418,12 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 
-			size_t subpasses = metadata["subpasses"].as<size_t>();
-			if ( subpasses == 0 ) subpasses = 1;
+			size_t subpasses = renderTarget.passes.size();
+			size_t currentPass = 0;
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+				for ( ; currentPass < subpasses; ++currentPass ) {
 					size_t currentDraw = 0;
 					for ( auto graphic : graphics ) {
 						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;

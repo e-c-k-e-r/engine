@@ -2,7 +2,7 @@
 #extension GL_EXT_samplerless_texture_functions : require
 
 #define SAMPLES 16
-#define POISSON_DISK 4
+#define POISSON_DISK 16
 #define RAY_MARCH_FOG 0
 #define UF_DEFERRED_SAMPLING 0
 
@@ -97,20 +97,18 @@ struct DrawCall {
 
 layout (input_attachment_index = 0, binding = 0) uniform usubpassInputMS samplerId;
 layout (input_attachment_index = 1, binding = 1) uniform subpassInputMS samplerNormal;
-
 #if UF_DEFERRED_SAMPLING
 	layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerUv;
 #else
 	layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerAlbedo;
 #endif
+layout (input_attachment_index = 3, binding = 4) uniform subpassInputMS samplerDepth;
 
-layout (input_attachment_index = 3, binding = 3) uniform subpassInputMS samplerDepth;
+layout (binding = 5) uniform sampler3D samplerNoise;
+layout (binding = 6) uniform samplerCube samplerSkybox;
+layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
 
-layout (binding = 4) uniform sampler3D samplerNoise;
-layout (binding = 5) uniform samplerCube samplerSkybox;
-layout (binding = 6) uniform sampler2D samplerTextures[TEXTURES];
-
-layout (binding = 7) uniform UBO {
+layout (binding = 8) uniform UBO {
 	Matrices matrices;
 	
 	Mode mode;
@@ -125,16 +123,16 @@ layout (binding = 7) uniform UBO {
 	float kexp;
 } ubo;
 
-layout (std140, binding = 8) readonly buffer Lights {
+layout (std140, binding = 9) readonly buffer Lights {
 	Light lights[];
 };
-layout (std140, binding = 9) readonly buffer Materials {
+layout (std140, binding = 10) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 10) readonly buffer Textures {
+layout (std140, binding = 11) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 11) readonly buffer DrawCalls {
+layout (std140, binding = 12) readonly buffer DrawCalls {
 	DrawCall drawCalls[];
 };
 
@@ -633,11 +631,14 @@ void main() {
 	vec2 uv = subpassLoad(samplerUv, SAMPLES).xy;
 	C = sampleTexture( drawId, drawCall.textureIndex + material.indexAlbedo, uv, C );
 	// OPAQUE
- 	if ( material.modeAlpha == 0 ) C.a = 1;
+ 	if ( material.modeAlpha == 0 ) {
+ 		C.a = 1;
  	// BLEND
- 	else if ( material.modeAlpha == 1 ) {
+ 	} else if ( material.modeAlpha == 1 ) {
+ 	
  	// MASK
  	} else if ( material.modeAlpha == 2 ) {
+
  	}
 #else
 	C = subpassLoad(samplerAlbedo, SAMPLES);

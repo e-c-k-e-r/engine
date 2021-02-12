@@ -218,6 +218,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		uf::instantiator::bind( "RenderBehavior", *this );
 	}
 	if ( json["defaults"]["asset load"].as<bool>() ) {
+		std::cout << "Binding GltfBehavior to " << this->getName() << std::endl;
 		uf::instantiator::bind( "GltfBehavior", *this );
 	}
 	{

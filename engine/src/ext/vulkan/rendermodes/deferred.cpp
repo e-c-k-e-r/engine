@@ -26,6 +26,8 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters(
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
+	if ( !metadata["eyes"].is<size_t>() ) metadata["eyes"] = 1;
+	metadata["outputs"] = ext::json::array();
 	{
 		float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 		float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
@@ -37,7 +39,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	ext::vulkan::RenderMode::initialize( device );
 	renderTarget.device = &device;
-	if ( !metadata["eyes"].is<size_t>() ) metadata["eyes"] = 1;
 	size_t eyes = metadata["eyes"].as<size_t>();
 	for ( size_t eye = 0; eye < eyes; ++eye ) {
 		struct {
@@ -72,7 +73,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
 				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-				/*.blend = */false,
+				/*.blend = */true,
 				/*.samples = */msaa,
 			});
 		}
@@ -118,48 +119,51 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				/*.samples =*/ 1,
 			});
 		}
-		metadata["outputs"][eye] = attachments.output;
-
+		metadata["outputs"].emplace_back(attachments.output);
 		if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
 			// First pass: fill the G-Buffer
 			{
 				renderTarget.addPass(
-					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					{ attachments.id, attachments.normals, attachments.uvs },
-					{},
-					{},
-					attachments.depth
+					/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					/*.colors =*/ { attachments.id, attachments.normals, attachments.uvs },
+					/*.inputs =*/ {},
+					/*.resolve =*/ {},
+					/*.depth = */ attachments.depth,
+					/*.autoBuildPipeline =*/ true
 				);
 			}
 			// Second pass: write to output
 			{
 				renderTarget.addPass(
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					{ attachments.output },
-					{ attachments.id, attachments.normals, attachments.uvs, attachments.depth },
-					{},
-					attachments.depth
+					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+					/*.colors =*/ { attachments.output },
+					/*.inputs =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.depth },
+					/*.resolve =*/ {},
+					/*.depth = */ attachments.depth,
+					/*.autoBuildPipeline =*/ false
 				);
 			}
 		} else {
 			// First pass: fill the G-Buffer
 			{
 				renderTarget.addPass(
-					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					{ attachments.id, attachments.normals, attachments.albedo },
-					{},
-					{},
-					attachments.depth
+					/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					/*.colors =*/ { attachments.id, attachments.normals, attachments.albedo },
+					/*.inputs =*/ {},
+					/*.resolve =*/ {},
+					/*.depth = */ attachments.depth,
+					/*.autoBuildPipeline =*/ true
 				);
 			}
 			// Second pass: write to output
 			{
 				renderTarget.addPass(
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					{ attachments.output },
-					{ attachments.id, attachments.normals, attachments.albedo, attachments.depth },
-					{},
-					attachments.depth
+					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+					/*.colors =*/ { attachments.output },
+					/*.inputs =*/ { attachments.id, attachments.normals, attachments.albedo, attachments.depth },
+					/*.resolve =*/ {},
+					/*.depth = */ attachments.depth,
+					/*.autoBuildPipeline =*/ false
 				);
 			}
 		}
@@ -263,6 +267,7 @@ void ext::vulkan::DeferredRenderMode::destroy() {
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+
 	if ( !metadata["eyes"].is<size_t>() ) metadata["eyes"] = 1;
 	size_t eyes = metadata["eyes"].as<size_t>();
 
@@ -281,7 +286,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 
 	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
 	auto& scene = uf::scene::getCurrentScene();
-	auto& metadata = scene.getComponent<uf::Serializer>();
+	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
 	auto& commands = getCommands();
 	auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
 	for (size_t i = 0; i < commands.size(); ++i) {
@@ -292,8 +297,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
 				if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-					if ( !ext::json::isNull( metadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
-						auto& v = metadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
+					if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
+						auto& v = sceneMetadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
 						clearValue.color = { {
 							v[0].as<float>(),
 							v[1].as<float>(),
@@ -340,6 +345,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				layer->pipelineBarrier( commands[i], 0 );
 			}
 
+			size_t currentSubpass = 0;
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
@@ -350,7 +356,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 					for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
-						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor);
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						graphic->record( commands[i], descriptor, eye, currentDraw++ );
 					}
 					// blit any RT's that request this subpass
@@ -359,13 +365,15 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
 							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
-							blitter.record(commands[i]);
+							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+							blitter.record(commands[i], descriptor);
 						}
 					}
-				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass;
+				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass; ++currentSubpass;
 					// deferred post-processing lighting pass
 					{
-						blitter.record(commands[i]);
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+						blitter.record(commands[i], descriptor, eye, currentDraw++);
 					}
 					// blit any RT's that request this subpass
 					{
@@ -373,10 +381,11 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
 							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
-							blitter.record(commands[i]);
+							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+							blitter.record(commands[i], descriptor, eye, currentDraw++);
 						}
 					}
-					if ( eye + 1 < eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+					if ( eye + 1 < eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
 				}
 			vkCmdEndRenderPass(commands[i]);
 
@@ -422,8 +431,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::settings::height,
 						1
 					};
-
-					auto& outputAttachment = renderTarget.attachments[renderTarget.attachments.size()-1];
+					auto& outputAttachment = renderTarget.attachments[metadata["outputs"][0].as<size_t>()];
 					// Transition to KHR
 					{
 						imageMemoryBarrier.image = outputAttachment.image;

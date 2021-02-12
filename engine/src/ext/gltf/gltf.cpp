@@ -368,6 +368,9 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			} else {
 				std::cout << "Unhandled alpha mode: " << material.alphaMode << std::endl;
 			}
+			if ( m.doubleSided && graph.metadata["cull mode"].as<std::string>() == "auto" ) {
+				graph.metadata["cull mode"] = "none";
+			}
 		}
 	}
 	// load node information/meshes

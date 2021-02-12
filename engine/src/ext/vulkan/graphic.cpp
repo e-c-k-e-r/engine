@@ -499,7 +499,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		//for ( const auto& resource : res.key ) {
 		#define LOOP_RESOURCES( key, type ) for ( size_t i = 0; i < res.key.size(); ++i ) {\
 			const auto& resource = res.key[i];\
-			if ( false ) VK_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
+			VK_DEBUG_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
 			parseResource( resource, type, i );\
 		}
 		LOOP_RESOURCES( sampled_images, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
@@ -829,7 +829,6 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			descriptorSetLayoutBindings.data(),
 			descriptorSetLayoutBindings.size()
 		);
-
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout( device, &descriptorLayout, nullptr, &descriptorSetLayout ));
 
 		VkDescriptorSetAllocateInfo allocInfo = ext::vulkan::initializers::descriptorSetAllocateInfo(

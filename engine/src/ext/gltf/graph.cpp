@@ -11,6 +11,17 @@ namespace {
 		graphic.material.device = &uf::renderer::device;
 		graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		graphic.descriptor.cullMode = !(graph.mode & ext::gltf::LoadMode::INVERT) ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_FRONT_BIT; // VK_CULL_MODE_NONE
+		if ( graph.metadata["cull mode"].is<std::string>() ) {
+			if ( graph.metadata["cull mode"].as<std::string>() == "back" ) {
+				graphic.descriptor.cullMode = VK_CULL_MODE_BACK_BIT;
+			} else if ( graph.metadata["cull mode"].as<std::string>() == "front" ) {
+				graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_BIT;
+			} else if ( graph.metadata["cull mode"].as<std::string>() == "none" ) {
+				graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
+			} else if ( graph.metadata["cull mode"].as<std::string>() == "both" ) {
+				graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_AND_BACK;
+			}
+		}
 		{
 		#if UF_VK_TESTING
 			for ( auto& texture : graph.textures ) {

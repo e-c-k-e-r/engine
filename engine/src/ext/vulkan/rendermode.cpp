@@ -129,6 +129,19 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->bindPipelines( graphics );
 }
 void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+	for ( auto* pointer : graphics ) {
+		auto& graphic = *pointer;
+		for ( size_t currentPass = 0; currentPass < renderTarget.passes.size(); ++currentPass ) {
+			auto& subpass = renderTarget.passes[currentPass];
+			if ( !subpass.autoBuildPipeline ) continue;
+			// bind to this render mode
+			ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
+			// ignore if pipeline exists for this render mode
+			if ( graphic.hasPipeline( descriptor ) ) continue;
+			graphic.initializePipeline( descriptor );
+		}
+	}
+/*
 	size_t subpasses = metadata["subpasses"].as<size_t>();
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
@@ -140,6 +153,7 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 			graphic.initializePipeline( descriptor );
 		}
 	}
+*/
 }
 
 void ext::vulkan::RenderMode::render() {

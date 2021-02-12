@@ -49,7 +49,6 @@ layout (location = 7) flat in ivec4 inId;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
-
 #if UF_DEFERRED_SAMPLING
 	layout (location = 2) out vec2 outUvs;
 #else
@@ -97,10 +96,17 @@ void main() {
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 		Texture t = textures[material.indexAlbedo + 1];
 		C = textureLod( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-		// alpha mode MASK
-		if ( material.modeAlpha == 0 ) C.a = 1;
-		else if ( material.modeAlpha == 2 && C.a < abs(material.factorAlphaCutoff) ) discard;
 		// alpha mode OPAQUE
+		if ( material.modeAlpha == 0 ) {
+			C.a = 1;
+		// alpha mode BLEND
+		} else if ( material.modeAlpha == 1 ) {
+
+		// alpha mode MASK
+		} else if ( material.modeAlpha == 2 ) {
+			if ( C.a < abs(material.factorAlphaCutoff) ) discard;
+			C.a = 1;
+		}
 	}
 #endif
 
@@ -128,7 +134,6 @@ void main() {
 #endif
 	outAlbedo = C * inColor;
 #endif
-
 	outNormals = encodeNormals( N );
 	outId = ivec2(inId.w+1, inId.y+1);
 }

@@ -27,6 +27,7 @@ namespace ext {
 			struct Subpass {
 				VkPipelineStageFlags stage;
 				VkAccessFlags access;
+				bool autoBuildPipeline;
 
 				std::vector<VkAttachmentReference> colors;
 				std::vector<VkAttachmentReference> inputs;
@@ -45,7 +46,7 @@ namespace ext {
 			// RAII
 			void initialize( Device& device );
 			void destroy();
-			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t );
+			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t, bool = true  );
 			size_t attach( const Attachment::Descriptor& descriptor, Attachment* attachment = NULL );
 		};
 	}

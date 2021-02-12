@@ -6,7 +6,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
 #ifdef USE_OPENVR_MINGW
-	#include <openvr/openvr_mingw.h>
+	#include <openvr/openvr_mingw.hpp>
 #else
 	#include <openvr/openvr.h>
 #endif

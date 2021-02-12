@@ -478,7 +478,7 @@ void ext::vulkan::Texture::fromBuffers(
 	if ( data ) {
 		uint8_t* layerPointer = (uint8_t*) data;
 		VkDeviceSize layerSize = bufferSize / this->layers;
-		for ( size_t layer = 1; layer <= this->layers; ++layer ) {
+		for ( size_t layer = 0; layer < this->layers; ++layer ) {
 			this->update( (void*) layerPointer, layerSize, imageLayout, layer );
 			layerPointer += layerSize;
 		}
@@ -585,13 +585,14 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 	VkImageSubresourceRange subresourceRange = {};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subresourceRange.baseMipLevel = 0;
+	subresourceRange.baseArrayLayer = layer;
 	subresourceRange.levelCount = this->mips;
 	subresourceRange.layerCount = 1;
 
 	VkBufferImageCopy bufferCopyRegion = {};
 	bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	bufferCopyRegion.imageSubresource.mipLevel = 0;
-	bufferCopyRegion.imageSubresource.baseArrayLayer = layer - 1;
+	bufferCopyRegion.imageSubresource.baseArrayLayer = layer;
 	bufferCopyRegion.imageSubresource.layerCount = 1;
 	bufferCopyRegion.imageExtent.width = width;
 	bufferCopyRegion.imageExtent.height = height;
@@ -664,7 +665,7 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.image = image;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseArrayLayer = layer - 1;
+	barrier.subresourceRange.baseArrayLayer = layer;
 	barrier.subresourceRange.layerCount = 1;
 	barrier.subresourceRange.levelCount = 1;
 
@@ -691,13 +692,13 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 		blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.mipLevel = i - 1;
-		blit.srcSubresource.baseArrayLayer = layer - 1;
+		blit.srcSubresource.baseArrayLayer = layer;
 		blit.srcSubresource.layerCount = 1;
 		blit.dstOffsets[0] = { 0, 0, 0 };
 		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1 };
 		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.dstSubresource.mipLevel = i;
-		blit.dstSubresource.baseArrayLayer = layer - 1;
+		blit.dstSubresource.baseArrayLayer = layer;
 		blit.dstSubresource.layerCount = 1;
 
 		vkCmdBlitImage(
