@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/compute.h>
 #include <uf/ext/vulkan/rendermodes/deferred.h>
@@ -230,3 +232,5 @@ void ext::vulkan::ComputeRenderMode::createCommandBuffers( ) {
 void ext::vulkan::ComputeRenderMode::bindPipelines() {
 	
 }
+
+#endif

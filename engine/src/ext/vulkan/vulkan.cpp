@@ -1,4 +1,5 @@
-#include <uf/ext/glfw/glfw.h>
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/graphic.h>
@@ -204,9 +205,11 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	ext::vulkan::states::rebuild = true;
 }
 
-void ext::vulkan::initialize( uint8_t stage ) {
+void ext::vulkan::initialize( /*uint8_t stage*/ ) {
+/*
 	switch ( stage ) {
 		case 0: {
+*/
 			device.initialize();
 			swapchain.initialize( device );
 			for ( auto& renderMode : renderModes ) {
@@ -238,6 +241,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
 			}
+/*
 		} break;
 		case 1: {
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -254,12 +258,6 @@ void ext::vulkan::initialize( uint8_t stage ) {
 			}
 		}
 		case 2: {
-		/*
-			for ( auto& renderMode : renderModes ) {
-				if ( !renderMode ) continue;
-				renderMode->createCommandBuffers();
-			}
-		*/
 			std::vector<std::function<int()>> jobs;
 			for ( auto& renderMode : renderModes ) {
 				if ( !renderMode ) continue;
@@ -281,6 +279,7 @@ void ext::vulkan::initialize( uint8_t stage ) {
 			throw std::runtime_error("invalid stage id");
 		} break;
 	}
+*/
 }
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
@@ -692,3 +691,5 @@ VkFormat ext::vulkan::formatFromString( const std::string& string ) {
 	};
 	return table[string];
 }
+
+#endif

@@ -18,8 +18,10 @@ UF_API_CALL uf::Window::Window( const spec::uni::Window::vector_t& size, const s
 void UF_API_CALL uf::Window::create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title, const spec::Context::Settings& settings ) {
 	this->m_window = new uf::Window::window_t;
 	this->m_window->create( size, title );
-
-//	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+#else
+	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
+#endif
 }
 // 	D-tors
 uf::Window::~Window() {
@@ -109,11 +111,14 @@ bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
 	return uf::Window::focused && uf::Window::window_t::isKeyPressed(key);
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
+#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+#else
 	if (this->m_context) {
-	//	if (this->m_context->setActive(active)) return true;
+		if (this->m_context->setActive(active)) return true;
 		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to activate the window's context" << "\n";
 		return false;
 	}
+#endif
 	return false;
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1

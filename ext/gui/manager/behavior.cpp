@@ -108,6 +108,7 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 	auto& camera = controller.getComponent<uf::Camera>();
 	auto& metadata = controller.getComponent<uf::Serializer>();
 
+
 	uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
@@ -116,6 +117,10 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 	}
 	auto& renderMode = *renderModePointer;
 	auto& blitter = renderMode.blitter;
+
+	if ( !blitter.initialized ) return;
+	if ( !blitter.material.hasShader("fragment") ) return;
+	
 	struct UniformDescriptor {
 		struct {
 			alignas(16) pod::Matrix4f models[2];

@@ -2,24 +2,12 @@
 
 #include <uf/config.h>
 #include <vulkan/vulkan.h>
-
+#include <vk_mem_alloc.h>
 
 #include <iostream>
 #include <cassert>
 #include <mutex>
 
-/*
-#include <stdexcept>
-#include <functional>
-#include <cstdlib>
-#include <cstring>
-#include <optional>
-#include <map>
-#include <set>
-#include <algorithm>
-#include <fstream>
-#include <chrono>
-*/
 #define VK_DEBUG_MESSAGE(...)\
 	uf::iostream << "[" << __FUNCTION__ << "@" << __FILE__ ":" << __LINE__ << "] " << __VA_ARGS__ << "\n"
 
@@ -38,5 +26,3 @@
 #define VK_FLAGS_NONE 0
 #define DEFAULT_FENCE_TIMEOUT 100000000000
 #define VK_DEFAULT_STAGE_BUFFERS 1
-
-#include <vk_mem_alloc.h>

@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -165,3 +167,5 @@ void ext::vulkan::Swapchain::destroy() {
 	swapChain = VK_NULL_HANDLE;
 	device = VK_NULL_HANDLE;
 }
+
+#endif

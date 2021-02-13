@@ -25,7 +25,7 @@ GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
 DEPS 					+=
-REQ_DEPS 				+= win32 vulkan json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux bullet meshoptimizer # discord
+REQ_DEPS 				+= win32 opengl json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux bullet meshoptimizer # discord
 	
 ifneq (,$(findstring win32,$(REQ_DEPS)))
 	FLAGS 				+= 
@@ -34,6 +34,10 @@ endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
 	DEPS 				+= -lvulkan -lspirv-cross
+endif
+ifneq (,$(findstring opengl,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_OPENGL -DUF_USE_GLEW
+	DEPS 				+= -lglew32 -lopengl32 -lglu32
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_JSON

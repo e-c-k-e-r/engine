@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermode.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -276,3 +278,5 @@ void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 }
 void ext::vulkan::RenderMode::pipelineBarrier( VkCommandBuffer command, uint8_t stage ) {
 }
+
+#endif

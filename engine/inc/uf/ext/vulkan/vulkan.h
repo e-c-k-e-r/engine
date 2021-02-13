@@ -1,6 +1,7 @@
 #pragma once
 
-#include <uf/ext/vulkan.h>
+#include <uf/ext/vulkan/vk.h>
+#include <uf/ext/vulkan/enums.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/rendermodes/base.h>
@@ -93,7 +94,7 @@ namespace ext {
 		std::vector<RenderMode*> UF_API getRenderModes( const std::vector<std::string>&, bool = true );
 		void UF_API removeRenderMode( RenderMode*, bool = true );
 
-		void UF_API initialize( uint8_t = 0 );
+		void UF_API initialize( /*uint8_t = 0*/ );
 		void UF_API tick();
 		void UF_API render();
 		void UF_API destroy();

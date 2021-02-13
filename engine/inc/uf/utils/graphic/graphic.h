@@ -1,7 +1,7 @@
 #pragma once
 
-#include <uf/ext/vulkan/graphic.h>
+#include <uf/spec/renderer/universal.h>
 
 namespace uf {
-	typedef ext::vulkan::Graphic Graphic;
+	typedef uf::renderer::Graphic Graphic;
 }

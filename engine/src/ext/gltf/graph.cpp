@@ -9,17 +9,17 @@ namespace {
 		auto& graphic = entity.getComponent<uf::Graphic>();
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
-		graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		graphic.descriptor.cullMode = !(graph.mode & ext::gltf::LoadMode::INVERT) ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_FRONT_BIT; // VK_CULL_MODE_NONE
+		graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
+		graphic.descriptor.cullMode = !(graph.mode & ext::gltf::LoadMode::INVERT) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
 		if ( graph.metadata["cull mode"].is<std::string>() ) {
 			if ( graph.metadata["cull mode"].as<std::string>() == "back" ) {
-				graphic.descriptor.cullMode = VK_CULL_MODE_BACK_BIT;
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
 			} else if ( graph.metadata["cull mode"].as<std::string>() == "front" ) {
-				graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_BIT;
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
 			} else if ( graph.metadata["cull mode"].as<std::string>() == "none" ) {
-				graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 			} else if ( graph.metadata["cull mode"].as<std::string>() == "both" ) {
-				graphic.descriptor.cullMode = VK_CULL_MODE_FRONT_AND_BACK;
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
 			}
 		}
 		{
@@ -40,11 +40,11 @@ namespace {
 					if ( graph.metadata["filter"].is<std::string>() ) {
 						std::string filter = graph.metadata["filter"].as<std::string>();
 						if ( filter == "NEAREST" ) {
-							texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-							texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+							texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+							texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 						} else if ( filter == "LINEAR" ) {
-							texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
-							texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+							texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+							texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 						}
 					}
 					texture.loadFromImage( image );
@@ -58,18 +58,18 @@ namespace {
 		if ( graph.mode & ext::gltf::LoadMode::LOAD ) {
 			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.skinned.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.skinned.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			} else {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.skinned.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.skinned.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.instanced.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+					graphic.material.attachShader("./data/shaders/gltf.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			}
-			graphic.material.attachShader("./data/shaders/gltf.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+			graphic.material.attachShader("./data/shaders/gltf.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 			{
 				auto& shader = graphic.material.getShader("vertex");
 				struct SpecializationConstant {
@@ -144,11 +144,11 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( graph.metadata["filter"].is<std::string>() ) {
 			std::string filter = graph.metadata["filter"].as<std::string>();
 			if ( filter == "NEAREST" ) {
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			} else if ( filter == "LINEAR" ) {
-				texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 			}
 		}
 		texture.loadFromImage( image );
@@ -160,11 +160,11 @@ void uf::graph::process( pod::Graph& graph ) {
 			if ( graph.metadata["filter"].is<std::string>() ) {
 				std::string filter = graph.metadata["filter"].as<std::string>();
 				if ( filter == "NEAREST" ) {
-					texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-					texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+					texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+					texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 				} else if ( filter == "LINEAR" ) {
-					texture.sampler.descriptor.filter.min = VK_FILTER_LINEAR;
-					texture.sampler.descriptor.filter.mag = VK_FILTER_LINEAR;
+					texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+					texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 				}
 			}
 			texture.loadFromImage( image );
@@ -189,7 +189,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.instanceBufferIndex = graphic.initializeBuffer(
 			(void*) instances.data(),
 			instances.size() * sizeof(pod::Matrix4f),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			uf::renderer::enums::Buffer::STORAGE
 		);
 		// Joints storage buffer
 		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
@@ -199,7 +199,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
 					(1 + skin.inverseBindMatrices.size()) * sizeof(pod::Matrix4f),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+					uf::renderer::enums::Buffer::STORAGE
 				);
 				break;
 			}
@@ -214,7 +214,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.root.materialBufferIndex = graphic.initializeBuffer(
 			(void*) materials.data(),
 			materials.size() * sizeof(pod::Material::Storage),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			uf::renderer::enums::Buffer::STORAGE
 		);
 		// Texture storage buffer
 		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
@@ -225,7 +225,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.root.textureBufferIndex = graphic.initializeBuffer(
 			(void*) textures.data(),
 			textures.size() * sizeof(pod::Texture::Storage),
-			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			uf::renderer::enums::Buffer::STORAGE
 		);
 	}
 
@@ -451,7 +451,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
 					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
-					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+					uf::renderer::enums::Buffer::STORAGE
 				);
 			}
 			// Materials storage buffer
@@ -470,7 +470,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			node.materialBufferIndex = graphic.initializeBuffer(
 				(void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+				uf::renderer::enums::Buffer::STORAGE
 			);
 			// Texture storage buffer
 			std::vector<pod::Texture::Storage> textures( graph.textures.size() );
@@ -481,7 +481,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			graph.root.textureBufferIndex = graphic.initializeBuffer(
 				(void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+				uf::renderer::enums::Buffer::STORAGE
 			);
 		}
 	}
@@ -617,8 +617,10 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 		}
 		if ( node.entity && node.entity->hasComponent<uf::Graphic>() ) {
 			auto& graphic = node.entity->getComponent<uf::Graphic>();
-			auto& buffer = graphic.buffers.at(node.jointBufferIndex);
-			graphic.updateBuffer( (void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer, false );
+			if ( node.jointBufferIndex < graphic.buffers.size() ) {
+				auto& buffer = graphic.buffers.at(node.jointBufferIndex);
+				graphic.updateBuffer( (void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer, false );
+			}
 		}
 	}
 }

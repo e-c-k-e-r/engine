@@ -57,7 +57,7 @@ void ext::NoiseBehavior::initialize( uf::Object& self ) {
 		float normalized = (n - low) / (high - low);
 		pixels[i] = static_cast<uint8_t>(floor(normalized * 255));
 	}
-	texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8_UNORM, size.x, size.y, size.z, 1, ext::vulkan::device );
+	texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8_UNORM, size.x, size.y, size.z, 1 );
 
 	mesh.vertices = {
 		{{-1*-0.5f, 0.0f, 0.0f}, {1.0f, 0.0f}, { 0.0f, 0.0f, -1.0f } },
@@ -79,8 +79,8 @@ void ext::NoiseBehavior::initialize( uf::Object& self ) {
 
 	this->callHook("entity:TextureUpdate.%UID%");
 
-	graphic.material.attachShader("./data/shaders/base.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-	graphic.material.attachShader("./data/shaders/noise.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+	graphic.material.attachShader("./data/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+	graphic.material.attachShader("./data/shaders/noise.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 }
 void ext::NoiseBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();

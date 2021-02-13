@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/base.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -384,3 +386,5 @@ void ext::vulkan::BaseRenderMode::destroy() {
 		vkDestroySemaphore( *device, swapchain.presentCompleteSemaphore, nullptr);
 	}
 }
+
+#endif

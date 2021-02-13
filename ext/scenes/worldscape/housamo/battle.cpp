@@ -12,7 +12,6 @@
 
 #include <uf/utils/renderer/renderer.h>
 
-
 #include <uf/utils/image/image.h>
 #include <uf/utils/audio/audio.h>
 

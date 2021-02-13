@@ -17,24 +17,24 @@
 #include <uf/ext/gltf/gltf.h>
 
 namespace {
-	VkSamplerAddressMode getVkWrapMode(int32_t wrapMode) {
+	decltype(auto) getWrapMode(int32_t wrapMode) {
 		switch (wrapMode) {
-			case 10497: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-			case 33071: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-			case 33648: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-			default: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+			case 10497: return uf::renderer::enums::AddressMode::REPEAT;
+			case 33071: return uf::renderer::enums::AddressMode::CLAMP_TO_EDGE;
+			case 33648: return uf::renderer::enums::AddressMode::MIRRORED_REPEAT;
+			default: return uf::renderer::enums::AddressMode::REPEAT;
 		}
 	}
 
-	VkFilter getVkFilterMode(int32_t filterMode) {
+	decltype(auto) getFilterMode(int32_t filterMode) {
 		switch (filterMode) {
-			case 9728: return VK_FILTER_NEAREST;
-			case 9729: return VK_FILTER_LINEAR;
-			case 9984: return VK_FILTER_NEAREST;
-			case 9985: return VK_FILTER_NEAREST;
-			case 9986: return VK_FILTER_LINEAR;
-			case 9987: return VK_FILTER_LINEAR;
-			default: return VK_FILTER_LINEAR;
+			case 9728: return uf::renderer::enums::Filter::NEAREST;
+			case 9729: return uf::renderer::enums::Filter::LINEAR;
+			case 9984: return uf::renderer::enums::Filter::NEAREST;
+			case 9985: return uf::renderer::enums::Filter::NEAREST;
+			case 9986: return uf::renderer::enums::Filter::LINEAR;
+			case 9987: return uf::renderer::enums::Filter::LINEAR;
+			default: return uf::renderer::enums::Filter::LINEAR;
 		}
 	}
 }
@@ -280,10 +280,10 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	// load samplers
 	for ( auto& s : model.samplers ) {
 		auto& sampler = graph.samplers.emplace_back();
-		sampler.descriptor.filter.min = getVkFilterMode( s.minFilter );
-		sampler.descriptor.filter.mag = getVkFilterMode( s.magFilter );
-		sampler.descriptor.addressMode.u = getVkWrapMode( s.wrapS );
-		sampler.descriptor.addressMode.v = getVkWrapMode( s.wrapT );
+		sampler.descriptor.filter.min = getFilterMode( s.minFilter );
+		sampler.descriptor.filter.mag = getFilterMode( s.magFilter );
+		sampler.descriptor.addressMode.u = getWrapMode( s.wrapS );
+		sampler.descriptor.addressMode.v = getWrapMode( s.wrapT );
 		sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
 	}
 

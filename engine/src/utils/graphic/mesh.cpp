@@ -1,116 +1,116 @@
 #include <uf/utils/graphic/mesh.h>
 
 // Used for per-vertex colors
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F4F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F2F3F4F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F4F, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F4F, uv)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F4F, normal)
 	},
 	{
-		VK_FORMAT_R32_UINT,
+		uf::renderer::enums::Format::R32_UINT,
 		offsetof(pod::Vertex_3F2F3F4F, color)
 	}
 };
 // Used for terrain
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F2F3F32B::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F32B, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F32B, uv)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F32B, normal)
 	},
 	{
-		VK_FORMAT_R32_UINT,
+		uf::renderer::enums::Format::R32_UINT,
 		offsetof(pod::Vertex_3F2F3F32B, color)
 	}
 };
 // Used for normal meshses
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F2F3F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F, uv)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F, normal)
 	}
 };
 // (Typically) used for displaying textures
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F2F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F, uv)
 	}
 };
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_2F2F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_2F2F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_2F2F, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_2F2F, uv)
 	}
 };
 // used for texture arrays
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F3F3F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F3F3F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F3F3F, position)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F3F3F, uv)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F3F3F, normal)
 	}
 };
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F2F3F1UI::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F2F3F1UI::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F1UI, position)
 	},
 	{
-		VK_FORMAT_R32G32_SFLOAT,
+		uf::renderer::enums::Format::R32G32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F1UI, uv)
 	},
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F2F3F1UI, normal)
 	},
 	{
-		VK_FORMAT_R32_UINT,
+		uf::renderer::enums::Format::R32_UINT,
 		offsetof(pod::Vertex_3F2F3F1UI, id)
 	}
 };
 // Basic
-std::vector<ext::vulkan::VertexDescriptor> pod::Vertex_3F::descriptor = {
+std::vector<uf::renderer::VertexDescriptor> pod::Vertex_3F::descriptor = {
 	{
-		VK_FORMAT_R32G32B32_SFLOAT,
+		uf::renderer::enums::Format::R32G32B32_SFLOAT,
 		offsetof(pod::Vertex_3F, position)
 	}
 };
@@ -147,10 +147,10 @@ void uf::Mesh::initialize( bool compress ) {
 		}
 	}
 
-	ext::vulkan::MeshGraphic* graphic = new ext::vulkan::BaseGraphic;
+	uf::renderer::MeshGraphic* graphic = new uf::renderer::BaseGraphic;
 	this->graphic = (void*) graphic;
 
-	graphic->device = &ext::vulkan::device;
+	graphic->device = &uf::renderer::device;
 	// graphic->describe
 
 	graphic->initializeBuffer(
@@ -172,7 +172,7 @@ void uf::Mesh::initialize( bool compress ) {
 }
 void uf::Mesh::destroy( bool clear ) {
 	if ( this->graphic ) {
-		ext::vulkan::MeshGraphic* graphic = (ext::vulkan::MeshGraphic*) this->graphic;
+		uf::renderer::MeshGraphic* graphic = (uf::renderer::MeshGraphic*) this->graphic;
 		if ( graphic ) {
 			graphic->destroy();
 			delete graphic;
@@ -216,10 +216,10 @@ void uf::GuiMesh::initialize( bool compress ) {
 		}
 	}
 
-	ext::vulkan::GuiGraphic* graphic = new ext::vulkan::GuiGraphic;
+	uf::renderer::GuiGraphic* graphic = new uf::renderer::GuiGraphic;
 	this->graphic = (void*) graphic;
 
-	graphic->device = &ext::vulkan::device;
+	graphic->device = &uf::renderer::device;
 	graphic->initializeBuffer(
 		(void*) vertices.data(),
 		vertices.size() * sizeof(pod::Vertex2f2f),
@@ -239,7 +239,7 @@ void uf::GuiMesh::initialize( bool compress ) {
 }
 void uf::GuiMesh::destroy( bool clear ) {
 	if ( this->graphic ) {
-		ext::vulkan::GuiGraphic* graphic = (ext::vulkan::GuiGraphic*) this->graphic;
+		uf::renderer::GuiGraphic* graphic = (uf::renderer::GuiGraphic*) this->graphic;
 		if ( graphic ) {
 			graphic->destroy();
 			delete graphic;

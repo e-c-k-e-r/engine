@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #define VMA_IMPLEMENTATION
 
 #include <uf/ext/vulkan/buffer.h>
@@ -247,3 +249,5 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 	device->flushCommandBuffer(copyCmd, true);
 	staging.destroy();
 }
+
+#endif

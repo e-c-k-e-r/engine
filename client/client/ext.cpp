@@ -8,7 +8,6 @@
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/renderer/renderer.h>
-#include <uf/ext/vulkan/vulkan.h>
 
 bool client::ready = false;
 bool client::terminated = false;

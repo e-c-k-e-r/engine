@@ -25,7 +25,7 @@ namespace ext {
 				alignas(16) pod::Vector4f tangent;
 				alignas(8) pod::Vector2ui id;
 
-				static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+				static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 			/*
 				bool operator==( const ID& that ) const {
 					return 	this->position 	== that.position 	&&
@@ -46,7 +46,7 @@ namespace ext {
 				alignas(16) pod::Vector4f joints;
 				alignas(16) pod::Vector4f weights;
 
-				static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+				static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 			/*
 				bool operator==( const Skinned& that ) const {
 					return 	this->position 	== that.position 	&&

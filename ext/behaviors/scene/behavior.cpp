@@ -132,9 +132,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	{
 		auto& texture = this->getComponent<uf::renderer::Texture3D>();
 		texture.sampler.descriptor.addressMode = {
-			VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-			VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-			VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT
+			uf::renderer::enums::AddressMode::MIRRORED_REPEAT,
+			uf::renderer::enums::AddressMode::MIRRORED_REPEAT,
+			uf::renderer::enums::AddressMode::MIRRORED_REPEAT
 		};
 
 		auto& noiseGenerator = this->getComponent<uf::PerlinNoise>();
@@ -171,7 +171,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			if ( normalized >= 1.0f ) normalized = 1.0f;
 			pixels[i] = static_cast<uint8_t>(floor(normalized * 255));
 		}
-		texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8_UNORM, size.x, size.y, size.z, 1, ext::vulkan::device );
+		texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8_UNORM, size.x, size.y, size.z, 1 );
 	}
 
 	// initialize cubemap
@@ -206,7 +206,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			pixels.insert( pixels.end(), p.begin(), p.end() );
 		}
 		texture.mips = 0;
-		texture.fromBuffers( (void*) pixels.data(), pixels.size(), VK_FORMAT_R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size(), ext::vulkan::device );
+		texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size() );
 	}
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
@@ -315,6 +315,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	/* Update lights */ if ( metadata["light"]["should"].as<bool>() ) {
+#if UF_USE_VULKAN
 		auto& scene = uf::scene::getCurrentScene();
 		auto& controller = scene.getController();
 		auto& camera = controller.getComponent<uf::Camera>();
@@ -561,7 +562,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				light.mapIndex = -1;
 
 				light.depthBias = metadata["light"]["bias"]["shader"].as<float>();
-
 				if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 					auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
 					if ( metadata["system"]["renderer"]["mode"].as<std::string>() == "in-range" && --updateThreshold > 0 ) {
@@ -610,6 +610,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				shader.updateUniform( "UBO", uniform );	
 			}
 		}
+#endif
 	}
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}

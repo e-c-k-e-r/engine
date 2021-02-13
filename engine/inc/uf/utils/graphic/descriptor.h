@@ -1,17 +1,18 @@
 #pragma once 	
 
-#include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/device.h>
-#include <uf/ext/vulkan/swapchain.h>
-#include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/texture.h>
-#include <uf/utils/graphic/descriptor.h>
+#if UF_USE_VULKAN
+#include <uf/ext/vulkan/enums.h>
+#define RENDERER vulkan
+#elif UF_USE_OPENGL
+#include <uf/ext/opengl/enums.h>
+#define RENDERER opengl
+#endif
 
 namespace ext {
-	namespace vulkan {
+	namespace RENDERER {
 		struct /*UF_API*/ VertexDescriptor {
-			VkFormat format; // VK_FORMAT_R32G32B32_SFLOAT
-			std::size_t offset; // offsetof(Vertex, position)
+			ext::RENDERER::enums::Format::type_t format; // VK_FORMAT_R32G32B32_SFLOAT
+			size_t offset; // offsetof(Vertex, position)
 		};
 	}
 }
@@ -23,12 +24,12 @@ namespace uf {
 			size_t vertex;
 			size_t indices;
 		} sizes;
-		std::vector<ext::vulkan::VertexDescriptor> attributes;
+		std::vector<ext::RENDERER::VertexDescriptor> attributes;
 	};
 }
 
 namespace ext {
-	namespace vulkan {
+	namespace RENDERER {
 		struct UF_API GraphicDescriptor {
 			std::string renderMode = "";
 			uint32_t renderTarget = 0;
@@ -42,18 +43,18 @@ namespace ext {
 				size_t index = 0;
 			} offsets;
 
-			VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-			VkPolygonMode fill = VK_POLYGON_MODE_FILL;
-			VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+			ext::RENDERER::enums::PrimitiveTopology::type_t topology = ext::RENDERER::enums::PrimitiveTopology::TRIANGLE_LIST;
+			ext::RENDERER::enums::PolygonMode::type_t fill = ext::RENDERER::enums::PolygonMode::FILL;
+			ext::RENDERER::enums::CullMode::type_t cullMode = ext::RENDERER::enums::CullMode::BACK;
+			ext::RENDERER::enums::Face::type_t frontFace = ext::RENDERER::enums::Face::CW;
 			float lineWidth = 1.0f;
-			VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
 
 			struct {
-				VkBool32 test = true;
-				VkBool32 write = true;
-				VkCompareOp operation = VK_COMPARE_OP_GREATER_OR_EQUAL;
+				bool test = true;
+				bool write = true;
+				ext::RENDERER::enums::Compare::type_t operation = ext::RENDERER::enums::Compare::GREATER_OR_EQUAL;
 				struct {
-					VkBool32 enable = false;
+					bool enable = false;
 					float constant = 0;
 					float slope = 0;
 					float clamp = 0;
@@ -66,3 +67,5 @@ namespace ext {
 		};
 	}
 }
+
+#undef UF_RENDERER

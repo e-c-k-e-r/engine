@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -953,3 +955,5 @@ void ext::vulkan::Device::destroy() {
 	}
 	vmaDestroyAllocator( allocator );
 }
+
+#endif

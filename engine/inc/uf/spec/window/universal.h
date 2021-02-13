@@ -8,10 +8,6 @@
 #include <string>
 #include <queue>
 
-#ifndef UF_USE_SFML
-	#define UF_USE_SFML 0
-#endif
-
 namespace spec {
 	namespace uni {
 		class UF_API Window {
@@ -20,28 +16,6 @@ namespace spec {
 			typedef uf::String 								title_t;
 			typedef pod::Vector2i 							vector_t;
 
-		/*
-			struct Events {
-				template<typename Hook>
-				struct Type {
-					typedef typename Hook::argument_t 						Argument;
-					typedef typename Hook::return_t 						Return;
-					typedef typename Hook::name_t 							Name;
-
-					typedef Argument 										argument_t;
-					typedef Return 											return_t;
-					typedef Name 											name_t;
-
-					struct Event {
-						Name name;
-						Argument argument;
-					};
-					typedef std::queue<Event> 								events_t;
-				};
-				Type<uf::ReadableHook>::events_t readable;
-				Type<uf::OptimalHook>::events_t optimal;
-			};
-		*/
 			struct Event {
 				std::string name;
 				uf::Userdata payload;

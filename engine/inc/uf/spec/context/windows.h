@@ -2,7 +2,7 @@
 
 #include "universal.h"
 
-#if !defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0)
+#if !UF_USE_SFML
 namespace spec {
 	namespace win32 {
 		class UF_API_VAR Context : public spec::uni::Context {

@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendertarget.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -341,3 +343,5 @@ void ext::vulkan::RenderTarget::destroy() {
 	renderPass = VK_NULL_HANDLE;
 	device = VK_NULL_HANDLE;
 }
+
+#endif

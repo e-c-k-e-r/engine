@@ -5,3 +5,7 @@
 #elif defined(UF_USE_OPENGL) && UF_USE_OPENGL == 1
 	#include "opengl.h"
 #endif
+
+namespace uf {
+	namespace renderer = spec::renderer;
+}

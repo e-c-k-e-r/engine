@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uf/ext/vulkan.h>
+#include <uf/ext/vulkan/vk.h>
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/thread/thread.h>

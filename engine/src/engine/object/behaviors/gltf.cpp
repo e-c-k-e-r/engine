@@ -63,14 +63,14 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
 							filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-						graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
+						graphic.material.attachShader(filename, uf::renderer::enums::Shader::VERTEX);
 					}
 					{
 						std::string filename = "/gltf.frag.spv";
 						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
 							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-						graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+						graphic.material.attachShader(filename, uf::renderer::enums::Shader::FRAGMENT);
 					}
 				} else {
 					{
@@ -81,14 +81,14 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
 							filename = metadata["system"]["renderer"]["shaders"]["vertex"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-						graphic.material.attachShader(filename, VK_SHADER_STAGE_VERTEX_BIT);
+						graphic.material.attachShader(filename, uf::renderer::enums::Shader::VERTEX);
 					}
 					{
 						std::string filename = "/gltf.frag.spv";
 						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
 							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
-						graphic.material.attachShader(filename, VK_SHADER_STAGE_FRAGMENT_BIT);
+						graphic.material.attachShader(filename, uf::renderer::enums::Shader::FRAGMENT);
 					}
 				}
 			}
@@ -104,7 +104,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				auto& texture = graphic.material.textures.emplace_back();
 				texture.loadFromImage( image );
 			}
-
+		#if UF_USE_VULKAN
 			graphic.process = true;
 
 			{
@@ -157,6 +157,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 					}
 				}
 			}
+		#endif
 		});
 		this->addChild(objectPointer->as<uf::Entity>());
 
@@ -307,7 +308,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 				});
 			}
 			auto& storageBuffer = *graphic.getStorageBuffer("Materials");
-			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /*storageBuffer/, false );
+			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /storageBuffer/, false );
 		}
 	*/
 	}

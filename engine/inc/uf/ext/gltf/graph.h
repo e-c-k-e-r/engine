@@ -149,7 +149,7 @@ namespace pod {
 
 		uf::Atlas* atlas = NULL;
 		std::vector<uf::Image> images;
-		std::vector<ext::vulkan::Sampler> samplers;
+		std::vector<uf::renderer::Sampler> samplers;
 		std::vector<pod::Texture> textures;
 		std::vector<pod::Material> materials;
 		std::vector<pod::Light> lights;

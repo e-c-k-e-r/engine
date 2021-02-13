@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/image/image.h>
@@ -401,6 +403,21 @@ void ext::vulkan::Texture::loadFromImage(
 }
 
 void ext::vulkan::Texture::fromBuffers(
+	void* buffer,
+	VkDeviceSize bufferSize,
+	VkFormat format,
+	uint32_t texWidth,
+	uint32_t texHeight,
+	uint32_t texDepth,
+	uint32_t layers,
+	VkImageUsageFlags imageUsageFlags,
+	VkImageLayout imageLayout
+) {
+	return this->fromBuffers( buffer, bufferSize, format, texWidth, texHeight, texDepth, layers, ext::vulkan::device, imageUsageFlags, imageLayout );
+}
+
+
+void ext::vulkan::Texture::fromBuffers(
 	void* data,
 	VkDeviceSize bufferSize,
 	VkFormat format,
@@ -740,3 +757,5 @@ ext::vulkan::TextureCube::TextureCube() {
 	type = VK_IMAGE_TYPE_2D;
 	viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 }
+
+#endif

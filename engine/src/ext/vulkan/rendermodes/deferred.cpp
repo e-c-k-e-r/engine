@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/deferred.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
@@ -488,3 +490,5 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
 }
+
+#endif

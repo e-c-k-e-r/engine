@@ -2,12 +2,21 @@
 
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
-#include <uf/ext/vulkan/vulkan.h>
 #include <uf/utils/graphic/descriptor.h>
 
 #include <functional>
 #include <unordered_map>
 #include <meshoptimizer.h>
+
+#if UF_USE_VULKAN
+	namespace uf {
+		namespace renderer = ext::vulkan;
+	}
+#elif UF_USE_OPENGL
+	namespace uf {
+		namespace renderer = ext::opengl;
+	}
+#endif
 
 namespace pod {
 	struct /*UF_API*/ Vertex_3F2F3F4F {
@@ -16,7 +25,7 @@ namespace pod {
 		alignas(16) pod::Vector3f normal;
 		alignas(16) pod::Vector4f color;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F2F3F4F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -33,7 +42,7 @@ namespace pod {
 		alignas(16) pod::Vector3f normal;
 		alignas(16) pod::Vector4t<uint8_t> color;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F2F3F32B& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -49,7 +58,7 @@ namespace pod {
 		alignas(16) pod::Vector3f uv;
 		alignas(16) pod::Vector3f normal;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F3F3F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -65,7 +74,7 @@ namespace pod {
 		alignas(16) pod::Vector3f normal;
 		alignas(4) uint32_t id;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F2F3F1UI& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -81,7 +90,7 @@ namespace pod {
 		alignas(8) pod::Vector2f uv;
 		alignas(16) pod::Vector3f normal;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F2F3F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -95,7 +104,7 @@ namespace pod {
 		alignas(16) pod::Vector3f position;
 		alignas(8) pod::Vector2f uv;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F2F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -108,7 +117,7 @@ namespace pod {
 		alignas(8) pod::Vector2f position;
 		alignas(8) pod::Vector2f uv;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_2F2F& that ) const {
 			return 	this->position 	== that.position 	&&
@@ -120,7 +129,7 @@ namespace pod {
 	struct /*UF_API*/ Vertex_3F {
 		alignas(16) pod::Vector3f position;
 
-		static UF_API std::vector<ext::vulkan::VertexDescriptor> descriptor;
+		static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
 	/*
 		bool operator==( const Vertex_3F& that ) const {
 			return 	this->position 	== that.position;
@@ -156,7 +165,7 @@ namespace uf {
 	typedef BaseMesh<pod::Vertex_3F2F> GuiMesh;
 	typedef BaseMesh<pod::Vertex_3F> LineMesh;
 
-	template<size_t N = ext::vulkan::settings::maxViews>
+	template<size_t N = 6>
 	struct MeshDescriptor {
 		struct {
 			alignas(16) pod::Matrix4f model;

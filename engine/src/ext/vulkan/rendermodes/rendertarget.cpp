@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/vulkan/initializers.h>
@@ -438,3 +440,5 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
 }
+
+#endif

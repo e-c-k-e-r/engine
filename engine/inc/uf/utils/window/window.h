@@ -4,7 +4,7 @@
 #include <uf/spec/window/window.h>
 #include <uf/spec/context/context.h>
 
-#if !defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0)
+#if !UF_USE_SFML
 namespace uf {
 	class UF_API Window : public spec::uni::Window {
 	public:
@@ -55,13 +55,12 @@ namespace uf {
 		/*virtual*/ void UF_API_CALL display();
 	};
 }
-#elif defined(UF_USE_SFML) && UF_USE_SFML == 1
+#elif UF_USE_SFML
 namespace uf {
 	typedef ext::sfml::Window Window;	
 }
-#elif defined(UF_USE_GLFW) && UF_USE_GLFW == 1
+#elif UF_USE_GLFW
 #include <uf/ext/glfw/glfw.h>
-
 namespace uf {
 	typedef ext::glfw::Window Window;
 }

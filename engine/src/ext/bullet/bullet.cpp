@@ -39,13 +39,9 @@ public:
 		m = p;
 	}
 	virtual void clearLines() {
-	//	std::cout << "EMPTIED: " << mesh.vertices.size() << std::endl;
 		mesh.destroy();
-	//	mesh.indices.clear();
-	//	mesh.vertices.clear();
 	}
 	virtual void flushLines() {
-	//	std::cout << "FLUSHED: " << mesh.vertices.size() << std::endl;
 		auto& scene = uf::scene::getCurrentScene();
 		ext::bullet::debugDraw( scene );
 	}
@@ -487,15 +483,15 @@ void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
-		graphic.descriptor.cullMode = VK_CULL_MODE_NONE;
+		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
-		graphic.material.attachShader("./data/shaders/base.colored.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-		graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+		graphic.material.attachShader("./data/shaders/base.colored.vert.spv", uf::renderer::enums::Shader::VERTEX);
+		graphic.material.attachShader("./data/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 		graphic.initialize();
 		graphic.initializeGeometry( mesh, 0 );
-		graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-		graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
+		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
+		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 		graphic.descriptor.lineWidth = 8.0f;
 	} else {
 		graphic.process = true;

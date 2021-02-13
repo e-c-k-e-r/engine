@@ -3,9 +3,9 @@
 #include <uf/config.h>
 #include "universal.h"
 
-#if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-	#include <uf/ext/vulkan.h>
+#if UF_ENV_WINDOWS && !UF_USE_SFML
+#if UF_USE_VULKAN
+	#include <uf/ext/vulkan/vk.h>
 #endif
 namespace spec {
 	namespace win32 {
@@ -80,7 +80,7 @@ namespace spec {
 	}
 	typedef spec::win32::Window Window;
 }
-#elif defined(UF_USE_SFML) && UF_USE_SFML == 1
+#elif UF_USE_SFML
 #include <uf/ext/sfml/window.h>
 namespace spec {
 	typedef ext::sfml::Window Window;

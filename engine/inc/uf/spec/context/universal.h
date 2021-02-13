@@ -2,10 +2,11 @@
 
 #include <uf/config.h>
 
-#if defined(UF_USE_OPENGL) && UF_USE_OPENGL == 1
-	#include <uf/ext/ogl/ogl.h>
+#if UF_USE_OPENGL
+	#include <uf/ext/opengl/ogl.h>
 #endif
-#if defined(UF_USE_SFML) && UF_USE_SFML == 1
+
+#if UF_USE_SFML
 	#include <uf/spec/window/universal.h>
 #else
 	#include <uf/spec/window/window.h>
@@ -15,7 +16,7 @@ namespace spec {
 	namespace uni {
 		class UF_API_VAR Context {
 		public:
-			#if defined(UF_USE_SFML) && UF_USE_SFML == 1
+			#if UF_USE_SFML
 				typedef spec::uni::Window window_t;
 			#else
 				typedef spec::Window window_t;

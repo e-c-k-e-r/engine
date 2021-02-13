@@ -68,7 +68,7 @@ void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 			renderMode.compute.initializeBuffer(
 				(void*) shapes.data(),
 				shapes.size() * sizeof(Shape),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+				uf::renderer::enums::Buffer::STORAGE
 			);
 		}
 	}

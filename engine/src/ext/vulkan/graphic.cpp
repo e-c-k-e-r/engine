@@ -1,3 +1,5 @@
+#if UF_USE_VULKAN
+
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/vulkan.h>
@@ -1595,3 +1597,5 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 //	return uf::string::sha256( serializer.serialize() );
 	return serializer.dump();
 }
+
+#endif

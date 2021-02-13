@@ -67,9 +67,9 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					
 					graphic.process = true;
 
-					graphic.descriptor.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-					graphic.material.attachShader("./data/shaders/base.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-					graphic.material.attachShader("./data/shaders/base.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+					graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
+					graphic.material.attachShader("./data/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader("./data/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 					uf::instantiator::bind( "EntityBehavior", hand );
 					uf::instantiator::bind( "ObjectBehavior", hand );
@@ -103,10 +103,10 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.initialize();
 					graphic.initializeGeometry(mesh);
 					
-					graphic.material.attachShader("./data/shaders/line.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-					graphic.material.attachShader("./data/shaders/line.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-					graphic.descriptor.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-					graphic.descriptor.fill = VK_POLYGON_MODE_LINE;
+					graphic.material.attachShader("./data/shaders/line.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader("./data/shaders/line.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+					graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_STRIP;
+					graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].as<float>();
 
 					line.initialize();

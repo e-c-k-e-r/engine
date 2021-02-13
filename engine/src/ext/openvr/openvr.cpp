@@ -3,8 +3,7 @@
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/io.h>
 #include <uf/utils/renderer/renderer.h>
-#include <uf/ext/vulkan/vulkan.h>
-#include <uf/ext/vulkan/rendermodes/stereoscopic_deferred.h>
+
 #include <stdlib.h>
 #define DEBUG_MARKER 0
 
@@ -293,7 +292,7 @@ void ext::openvr::tick() {
 			graphic.initializeGeometry(mesh);
 		
 			auto& texture = graphic.material.textures.emplace_back();
-			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, VK_FORMAT_R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight, ext::vulkan::device );
+			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, uf::renderer::enums::Format::R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight );
 		}
 		// call hook
 		uf::Serializer payload;
@@ -426,7 +425,8 @@ bool ext::openvr::requestRenderModel( const std::string& name ) {
 	return false;	
 }
 void ext::openvr::submit() { bool invert = swapEyes;
-	auto& renderMode = ext::vulkan::getRenderMode("");
+#if UF_USE_VULKAN
+	auto& renderMode = uf::renderer::getRenderMode("");
 	
 	float width = renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width;
 	float height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
@@ -441,11 +441,11 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	bounds.vMax = 1.0f;
 
 	vr::VRVulkanTextureData_t vulkanData;
-	vulkanData.m_pDevice = ( VkDevice_T * ) ext::vulkan::device;
-	vulkanData.m_pPhysicalDevice = ( VkPhysicalDevice_T * ) ext::vulkan::device.physicalDevice;
-	vulkanData.m_pInstance = ( VkInstance_T *) ext::vulkan::device.instance;
-	vulkanData.m_pQueue = ( VkQueue_T * ) ext::vulkan::device.getQueue( ext::vulkan::Device::QueueEnum::PRESENT );
-	vulkanData.m_nQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
+	vulkanData.m_pDevice = ( VkDevice_T * ) uf::renderer::device;
+	vulkanData.m_pPhysicalDevice = ( VkPhysicalDevice_T * ) uf::renderer::device.physicalDevice;
+	vulkanData.m_pInstance = ( VkInstance_T *) uf::renderer::device.instance;
+	vulkanData.m_pQueue = ( VkQueue_T * ) uf::renderer::device.getQueue( uf::renderer::Device::QueueEnum::PRESENT );
+	vulkanData.m_nQueueFamilyIndex = uf::renderer::device.queueFamilyIndices.present;
 
 	vulkanData.m_nWidth = width;
 	vulkanData.m_nHeight = height;
@@ -455,15 +455,14 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	
 	vulkanData.m_nFormat = leftOutputAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) leftOutputAttachment.image;
-	// if ( DEBUG_MARKER ) std::cout << leftOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Right : vr::Eye_Left, &texture, &bounds );
 
 	vulkanData.m_nFormat = rightOutputAttachment.descriptor.format;
 	vulkanData.m_nImage = (uint64_t) (VkImage) rightOutputAttachment.image;
-	// if ( DEBUG_MARKER ) std::cout << rightOutputAttachment.image << std::endl;
 	vr::VRCompositor()->Submit( invert ? vr::Eye_Left : vr::Eye_Right, &texture, &bounds );
 
 	vr::VRCompositor()->PostPresentHandoff();
+#endif
 }
 void ext::openvr::synchronize( bool async ) {
 	if ( async ) uf::thread::add( uf::thread::fetchWorker(), [](){ vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0); return true; }, true );

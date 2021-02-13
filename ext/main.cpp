@@ -1,7 +1,6 @@
 #include "main.h"
 
 #include <uf/ext/ext.h>
-#include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/oal/oal.h>
 
 #include <uf/spec/terminal/terminal.h>
@@ -303,8 +302,8 @@ void EXT_API ext::initialize() {
 			uf::renderer::settings::width = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][0].as<float>();
 			uf::renderer::settings::height = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][1].as<float>();
 			std::string filter = ::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"][2].as<std::string>();
-			if ( uf::string::lowercase( filter )  == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_NEAREST;
-			else if ( uf::string::lowercase( filter )  == "linear" ) uf::renderer::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
+			if ( uf::string::lowercase( filter )  == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = uf::renderer::enums::Filter::NEAREST;
+			else if ( uf::string::lowercase( filter )  == "linear" ) uf::renderer::settings::swapchainUpscaleFilter = uf::renderer::enums::Filter::LINEAR;
 		}
 		
 		if ( ::config["engine"]["debug"]["entity"]["delete children on destroy"].is<bool>() ) uf::Entity::deleteChildrenOnDestroy = ::config["engine"]["debug"]["entity"]["delete children on destroy"].as<bool>();
@@ -415,6 +414,7 @@ void EXT_API ext::initialize() {
 			}
 		}
 
+	#if UF_USE_VULKAN
 		/* Callbacks for 2KHR stuffs */ if ( false ) {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
 			//	std::cout << "vulkan:Instance.ExtensionsEnabled: " << json << std::endl;
@@ -430,8 +430,8 @@ void EXT_API ext::initialize() {
 				extFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
 				deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR;
 				deviceFeatures2.pNext = &extFeatures;
-				PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2KHR>(vkGetInstanceProcAddr(ext::vulkan::device.instance, "vkGetPhysicalDeviceFeatures2KHR"));
-				vkGetPhysicalDeviceFeatures2KHR(ext::vulkan::device.physicalDevice, &deviceFeatures2);
+				PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceFeatures2KHR"));
+				vkGetPhysicalDeviceFeatures2KHR(uf::renderer::device.physicalDevice, &deviceFeatures2);
 				std::cout << "Multiview features:" << std::endl;
 				std::cout << "\tmultiview = " << extFeatures.multiview << std::endl;
 				std::cout << "\tmultiviewGeometryShader = " << extFeatures.multiviewGeometryShader << std::endl;
@@ -443,13 +443,14 @@ void EXT_API ext::initialize() {
 				extProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_PROPERTIES_KHR;
 				deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
 				deviceProps2.pNext = &extProps;
-				PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vkGetInstanceProcAddr(ext::vulkan::device.instance, "vkGetPhysicalDeviceProperties2KHR"));
-				vkGetPhysicalDeviceProperties2KHR(ext::vulkan::device.physicalDevice, &deviceProps2);
+				PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceProperties2KHR"));
+				vkGetPhysicalDeviceProperties2KHR(uf::renderer::device.physicalDevice, &deviceProps2);
 				std::cout << "Multiview properties:" << std::endl;
 				std::cout << "\tmaxMultiviewViewCount = " << extProps.maxMultiviewViewCount << std::endl;
 				std::cout << "\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex << std::endl;
 			});
 		}
+	#endif
 
 		uf::renderer::initialize();
 	}

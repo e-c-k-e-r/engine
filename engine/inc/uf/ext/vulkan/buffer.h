@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uf/ext/vulkan.h>
+#include <uf/ext/vulkan/vk.h>
 #include <vector>
 
 namespace ext {

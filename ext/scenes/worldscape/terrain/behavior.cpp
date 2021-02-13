@@ -104,8 +104,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 			graphic.process = false;
 
 			auto& texture = graphic.material.textures.emplace_back();
-			texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-			texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			texture.loadFromFile( textureFilename );
 
 			std::string suffix = ""; {
@@ -113,8 +113,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
-				{"./data/shaders/terrain.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{"./data/shaders/terrain."+suffix+"frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				{"./data/shaders/terrain.vert.spv", uf::renderer::enums::Shader::VERTEX},
+				{"./data/shaders/terrain.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
 			});
 			// uf::renderer::rebuildOnTickStart = false;
 		}

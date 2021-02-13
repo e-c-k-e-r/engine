@@ -8,6 +8,6 @@
 // defines which implementation to use
 #include UF_ENV_HEADER
 
-#if defined(UF_USE_SFML) && UF_USE_SFML == 1
+#if UF_USE_SFML
 	#include "unknown.h"
 #endif

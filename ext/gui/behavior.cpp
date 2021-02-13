@@ -414,10 +414,10 @@ void ext::Gui::load( const uf::Image& _image ) {
 	else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
 
 	graphic.material.initializeShaders({
-		{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-		{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+		{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
+		{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 	});
-
+#if UF_USE_VULKAN
 	{
 		auto& shader = graphic.material.getShader("vertex");
 		struct SpecializationConstant {
@@ -426,6 +426,7 @@ void ext::Gui::load( const uf::Image& _image ) {
 		auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 		specializationConstants.passes = uf::renderer::settings::maxViews;
 	}
+#endif
 }
 
 UF_OBJECT_REGISTER_BEGIN(ext::Gui)
@@ -712,8 +713,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
 
 			graphic.material.initializeShaders({
-				{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-				{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+				{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
+				{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 			});
 		}
 
@@ -817,8 +818,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
 
 				graphic.material.initializeShaders({
-					{filenames.vertex, VK_SHADER_STAGE_VERTEX_BIT},
-					{filenames.fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+					{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
+					{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 				});
 			} else {
 				graphic.initializeGeometry( mesh );
@@ -859,7 +860,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 	}
 */
 }
-template<size_t N = ext::vulkan::settings::maxViews>
+template<size_t N = uf::renderer::settings::maxViews>
 struct UniformDescriptor {
 	struct {
 		alignas(16) pod::Matrix4f model[N];
@@ -872,7 +873,7 @@ struct UniformDescriptor {
 		alignas(8) pod::Vector2f padding;
 	} gui;
 };
-template<size_t N = ext::vulkan::settings::maxViews>
+template<size_t N = uf::renderer::settings::maxViews>
 struct GlyphUniformDescriptor {
 	struct {
 		alignas(16) pod::Matrix4f model[N];
@@ -904,7 +905,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		auto& shader = graphic.material.shaders.front();
 		uf::renderer::Buffer* bufferPointer = NULL;
 		for ( auto& buffer : shader.buffers ) {
-			if ( buffer.usageFlags & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {
+			if ( buffer.usageFlags & uf::renderer::enums::Buffer::UNIFORM ) {
 				 bufferPointer = &buffer;
 				 break;
 			}
