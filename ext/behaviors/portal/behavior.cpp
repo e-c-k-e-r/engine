@@ -60,6 +60,7 @@ void ext::PortalBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		std::string name = "RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
 		
@@ -69,6 +70,7 @@ void ext::PortalBehavior::initialize( uf::Object& self ) {
 			renderMode.width = width;
 			renderMode.height = height;
 		}
+	#endif
 	}
 }
 void ext::PortalBehavior::tick( uf::Object& self ) {

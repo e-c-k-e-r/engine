@@ -149,7 +149,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			current += relta.x;
 			if ( current != current || ( current < maxima && current > minima ) ) {
 				if ( collider.body && !collider.shared ) {
+				#if UF_USE_BULLET
 					ext::bullet::applyRotation( collider, transform.up, relta.x );
+				#endif
 				} else {
 					uf::transform::rotate( transform, transform.up, relta.x ), updateCamera = true;
 				}
@@ -293,6 +295,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool walk = uf::Window::isKeyPressed("LAlt");
 	} keys;
 
+#if UF_USE_OPENVR
 	if ( ext::openvr::context ) {
 		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadUp" )["state"].as<bool>() ) keys.forward = true;
 		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadDown" )["state"].as<bool>() ) keys.backwards = true;
@@ -308,7 +311,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "thumbclick" )["state"].as<bool>() ) keys.crouch = true, keys.walk = true;
 		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "a" )["state"].as<bool>() ) keys.paused = true;
 	}
-	
+#endif
+
 	struct {
 		bool updateCamera = true;
 		bool deltaCrouch = false;
@@ -359,9 +363,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		metadata["system"]["control"] = false;
 	}
 	metadata["system"]["menu"] = stats.menu;
-
 	auto& collider = this->getComponent<pod::Bullet>();
-
 	if ( metadata["system"]["control"].as<bool>() ) {	
 		{
 			TIMER(0.25, keys.vee && ) {
@@ -371,18 +373,22 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				std::cout << "Toggling noclip: " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
 				if ( state ) {
 					std::cout << "Enabled noclip" << std::endl;
+				#if UF_USE_BULLET
 					if ( collider.body ) {
 						collider.body->setGravity(btVector3(0,0.0,0));
 						collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
 						collider.body->setActivationState(DISABLE_SIMULATION);
 					}
+				#endif
 				} else {
 					std::cout << "Disabled noclip" << std::endl;
+				#if UF_USE_BULLET
 					if ( collider.body ) {
 						collider.body->setGravity(btVector3(0,-9.81,0));
 						collider.body->setCollisionFlags(collider.body->getCollisionFlags() & ~btCollisionObject::CF_NO_CONTACT_RESPONSE);
 						collider.body->setActivationState(DISABLE_DEACTIVATION);
 					}
+				#endif
 				}
 				stats.noclipped = state;
 			}
@@ -390,6 +396,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		if ( stats.floored ) {
 			pod::Transform<> translator = transform;
+		#if UF_USE_OPENVR
 			if ( ext::openvr::context ) {
 				bool useController = true;
 				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,1}) : ext::openvr::hmdQuaternion() );
@@ -401,6 +408,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				translator.forward = uf::vector::normalize( translator.forward );
 				translator.right = uf::vector::normalize( translator.right );
 			}
+		#endif
 			pod::Vector3f queued = {};
 			if ( keys.forward || keys.backwards ) {
 				int polarity = keys.forward ? 1 : -1;
@@ -460,14 +468,18 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( collider.body && !collider.shared ) {
 					physics.linear.velocity.x = queued.x;
 					physics.linear.velocity.z = queued.z;
+				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
+				#endif
 				}
 			}
 			if ( !keys.forward && !keys.backwards && !keys.left && !keys.right ) {
 				if ( collider.body && !collider.shared ) {
 					physics.linear.velocity.x = 0;
 					physics.linear.velocity.z = 0;
+				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
+				#endif
 				}
 			}
 			if ( keys.jump ) {
@@ -476,7 +488,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					if ( fabs(yump.x) > 0.001f ) physics.linear.velocity.x = yump.x;
 					if ( fabs(yump.y) > 0.001f ) physics.linear.velocity.y = yump.y;
 					if ( fabs(yump.z) > 0.001f ) physics.linear.velocity.z = yump.z;
+				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
+				#endif
 				} else {
 					if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) transform.position.x += metadata["system"]["physics"]["jump"][0].as<float>() * uf::physics::time::delta;
 					if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) transform.position.y += metadata["system"]["physics"]["jump"][1].as<float>() * uf::physics::time::delta;
@@ -487,7 +501,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		if ( keys.lookLeft ) {
 			if ( collider.body && !collider.shared ) {
+			#if UF_USE_BULLET
 				ext::bullet::applyRotation( collider, transform.up, -speed.rotate );
+			#endif
 			} else {
 				uf::transform::rotate( transform, transform.up, -speed.rotate ), stats.updateCamera = true;
 			}
@@ -495,7 +511,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		if ( keys.lookRight ) {
 			if ( collider.body && !collider.shared ) {
+			#if UF_USE_BULLET
 				ext::bullet::applyRotation( collider, transform.up, speed.rotate );
+			#endif
 			} else {
 				uf::transform::rotate( transform, transform.up, speed.rotate ), stats.updateCamera = true;
 			}
@@ -508,7 +526,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					if ( fabs(yump.x) > 0.001f ) physics.linear.velocity.x = -yump.x;
 					if ( fabs(yump.y) > 0.001f ) physics.linear.velocity.y = -yump.y;
 					if ( fabs(yump.z) > 0.001f ) physics.linear.velocity.z = -yump.z;
+				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
+				#endif
 				}
 			} else {
 				if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
@@ -528,7 +548,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( stats.noclipped && !keys.forward && !keys.backwards && !keys.left && !keys.right && !keys.jump && !keys.crouch ) {
 		if ( collider.body && !collider.shared ) {
 			physics.linear.velocity = {};
+		#if UF_USE_BULLET
 			ext::bullet::move( collider, physics.linear.velocity );
+		#endif
 		}
 	}
 	if ( stats.deltaCrouch ) {

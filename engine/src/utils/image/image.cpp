@@ -71,7 +71,12 @@ std::string uf::Image::getFilename() const {
 
 // from file
 bool uf::Image::open( const std::string& filename, bool flip ) {
-	if ( !uf::io::exists(filename) ) throw std::runtime_error("does not exist: " + filename);
+	if ( !uf::io::exists(filename) ) {
+	#if UF_NO_EXCEPTIONS
+	#else
+		throw std::runtime_error("does not exist: " + filename);
+	#endif
+	}
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	std::string extension = uf::io::extension(filename);

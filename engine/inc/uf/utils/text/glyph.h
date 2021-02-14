@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-
+#if UF_USE_FREETYPE
 #include <vector>
 
 #include <uf/utils/math/vector.h>
@@ -48,3 +48,4 @@ namespace uf {
 		void setSpread( int );
 	};
 }
+#endif

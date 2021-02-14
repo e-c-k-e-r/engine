@@ -55,7 +55,7 @@ namespace {
 
 		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].as<bool>() ) {
-			url = "./data/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
+			url = uf::io::root+"/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
@@ -77,7 +77,7 @@ namespace {
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = "./data/audio/ui/" + key + ".ogg";
+		std::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
@@ -178,7 +178,7 @@ void ext::HousamoBattle::initialize() {
 		
 		// generate battle data
 	
-		uf::Serializer actions; actions.readFromFile("./data/entities/gui/battle/actions.json");
+		uf::Serializer actions; actions.readFromFile(uf::io::root+"/entities/gui/battle/actions.json");
 		metadata["actions"] = actions;
 		if ( ext::json::isNull( metadata["actions"] ) ) {
 			metadata["actions"]["00.member-attack"] = "攻撃";

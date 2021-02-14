@@ -4,7 +4,7 @@
 
 namespace ext {
 	namespace opengl {
-		struct UF_API BaseRenderMode : RenderMode {
+		struct UF_API BaseRenderMode : public RenderMode {
 			// virtual ~RenderMode();
 			// RAII
 			virtual const std::string getType() const;

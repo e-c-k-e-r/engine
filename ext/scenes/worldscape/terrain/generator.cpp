@@ -95,7 +95,7 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 	}
 */
 	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].as<std::string>();
-	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
+	std::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
 	if ( uf::io::exists( filename ) ) {
 		uf::Serializer save; save.readFromFile(filename);
@@ -330,7 +330,7 @@ void ext::TerrainGenerator::writeToFile() {
 
 	uf::Serializer serializer;
 	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].as<std::string>() : "UNKNOWN";
-	std::string filename = "./data/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
+	std::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
 	{
 		// encode as base64, json safe
 		serializer["voxels"]["id"]["base64"] = uf::base64::encode( this->m_voxels.id.rle );

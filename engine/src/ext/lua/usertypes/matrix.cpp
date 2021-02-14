@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/math/matrix.h>
 
 UF_LUA_REGISTER_USERTYPE(pod::Matrix4f,
@@ -33,3 +33,4 @@ UF_LUA_REGISTER_USERTYPE(pod::Matrix4f,
 		return uf::matrix::identity();
 	})
 )
+#endif

@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/math/transform.h>
 
 UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
@@ -49,3 +49,4 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 		return uf::transform::model( t );
 	})
 )
+#endif

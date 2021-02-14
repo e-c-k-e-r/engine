@@ -58,18 +58,18 @@ namespace {
 		if ( graph.mode & ext::gltf::LoadMode::LOAD ) {
 			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.skinned.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root + "/shaders/gltf.skinned.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root + "/shaders/gltf.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			} else {
 				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-					graphic.material.attachShader("./data/shaders/gltf.skinned.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root + "/shaders/gltf.skinned.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
-					graphic.material.attachShader("./data/shaders/gltf.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root + "/shaders/gltf.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			}
-			graphic.material.attachShader("./data/shaders/gltf.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+			graphic.material.attachShader(uf::io::root + "/shaders/gltf.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 			{
 				auto& shader = graphic.material.getShader("vertex");
 				struct SpecializationConstant {
@@ -278,6 +278,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto& info = graph.metadata["tags"][nodeName];
 			if ( info["collision"].is<std::string>() ) {
 				std::string type = info["collision"].as<std::string>();
+			#if UF_USE_BULLET
 				if ( type == "static mesh" ) {
 					bool applyTransform = false; //!(graph.mode & ext::gltf::LoadMode::TRANSFORM);
 					auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, applyTransform, 1 );
@@ -294,6 +295,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				} else if ( type == "bounding box" ) {
 
 				}
+			#endif
 			}
 		}
 	});

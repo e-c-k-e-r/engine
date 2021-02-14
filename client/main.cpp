@@ -1,11 +1,16 @@
 #include "main.h"
 
+#if !UF_ENV_DREAMCAST
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
 
 #include <uf/utils/mempool/mempool.h>
 
-#define HANDLE_EXCEPTIONS 0
+#if UF_NO_EXCEPTIONS
+	#define HANDLE_EXCEPTIONS 0
+#else
+	#define HANDLE_EXCEPTIONS 1
+#endif
 
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
@@ -73,3 +78,4 @@ int main(int argc, char** argv){
 	client::terminate();
 	return 0;
 }
+#endif

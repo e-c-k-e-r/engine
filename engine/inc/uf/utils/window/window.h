@@ -53,6 +53,8 @@ namespace uf {
 		/*virtual*/ bool UF_API_CALL pollEvents(bool block = false);
 		/*virtual*/ bool UF_API_CALL setActive( bool active = true );
 		/*virtual*/ void UF_API_CALL display();
+		/*virtual*/ Window::window_t* UF_API_CALL getHandle();
+		/*virtual*/ const Window::window_t* UF_API_CALL getHandle() const;
 	};
 }
 #elif UF_USE_SFML

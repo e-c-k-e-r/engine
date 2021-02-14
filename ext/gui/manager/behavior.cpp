@@ -156,6 +156,7 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 				metadata["overlay"]["orientation"][2].as<float>(),
 				metadata["overlay"]["orientation"][3].as<float>(),
 			};
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled && (metadata["overlay"]["enabled"].as<bool>() || uf::renderer::getRenderMode("Stereoscopic Deferred", true).getType() == "Stereoscopic Deferred" )) {
 			if ( metadata["overlay"]["floating"].as<bool>() ) {
 				pod::Matrix4f model = uf::transform::model( transform );
@@ -168,6 +169,9 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 				uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
 			}
 		} else {
+	#else
+		{
+	#endif
 			pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
 			uniforms.matrices.models[i] = model;
 		}

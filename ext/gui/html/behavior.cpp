@@ -34,6 +34,7 @@
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiHtmlBehavior)
 #define this ((uf::Object*) &self)
 void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
+#if UF_USE_ULTRALIGHT
 	auto& page = this->getComponent<pod::HTML>();
 	auto& metadata = this->getComponent<uf::Serializer>();
 	pod::Vector2ui size = { 1, 1 };
@@ -97,8 +98,10 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 		if ( metadata["ignore inputs"].as<bool>() ) return;
 		ext::ultralight::input( page, json );
 	});
+#endif
 }
 void ext::GuiHtmlBehavior::tick( uf::Object& self ) {
+#if UF_USE_ULTRALIGHT
 	auto& metadata = this->getComponent<uf::Serializer>();
 	auto& page = this->getComponent<pod::HTML>();
 
@@ -109,6 +112,7 @@ void ext::GuiHtmlBehavior::tick( uf::Object& self ) {
 	auto image = ext::ultralight::capture( page );
 	texture.update( image );
 //	page.pending = false;
+#endif
 }
 void ext::GuiHtmlBehavior::render( uf::Object& self ){
 }

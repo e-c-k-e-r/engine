@@ -12,10 +12,10 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/ext/lua/lua.h>
 
-
 UF_BEHAVIOR_REGISTER_CPP(uf::LuaBehavior)
 #define this (&self)
 void uf::LuaBehavior::initialize( uf::Object& self ) {	
+#if UF_USE_LUA
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 		
@@ -32,6 +32,7 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 
 		return;
 	});
+#endif
 }
 void uf::LuaBehavior::destroy( uf::Object& self ) {
 

@@ -39,7 +39,11 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 #include <stdexcept>
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
+#if !UF_NO_EXCEPTIONS
+	if ( validate && !uf::userdata::is<T>( userdata ) ) {
+		throw std::logic_error("Userdata size|type mismatch");
+	}
+#endif
 	union {
 		uint8_t* original;
 		T* casted;
@@ -49,7 +53,11 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 }
 template<typename T>
 const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) )  throw std::logic_error("Userdata size|type mismatch");
+#if !UF_NO_EXCEPTIONS
+	if ( validate && !uf::userdata::is<T>( userdata ) ) {
+		throw std::logic_error("Userdata size|type mismatch");
+	}
+#endif
 	union {
 		const uint8_t* original;
 		const T* casted;

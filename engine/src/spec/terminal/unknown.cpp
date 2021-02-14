@@ -1,6 +1,6 @@
 #include <uf/spec/terminal/terminal.h>
 
-#ifdef UF_ENV_UNKNOWN
+#if UF_ENV_UNKNOWN
 
 void UF_API_CALL spec::Terminal::clear() {
 	spec::uni::Terminal::clear();

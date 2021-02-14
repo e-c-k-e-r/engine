@@ -53,8 +53,8 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		}
 
 		graphic.material.initializeShaders({
-			{"./data/shaders/terrain.vert.spv", uf::renderer::enums::Shader::VERTEX},
-			{"./data/shaders/terrain.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
+			{uf::io::root+"/shaders/terrain.vert.spv", uf::renderer::enums::Shader::VERTEX},
+			{uf::io::root+"/shaders/terrain.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
 		});
 	}
 

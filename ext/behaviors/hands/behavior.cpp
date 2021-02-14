@@ -28,8 +28,8 @@ namespace {
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerHandBehavior)
 #define this (&self)
 void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
+#if UF_USE_OPENVR
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-
 	{
 		::hands.left = (uf::Object*) &uf::instantiator::instantiate("Object");
 		::hands.right = (uf::Object*) &uf::instantiator::instantiate("Object");
@@ -68,8 +68,8 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.process = true;
 
 					graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
-					graphic.material.attachShader("./data/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
-					graphic.material.attachShader("./data/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+					graphic.material.attachShader(uf::io::root+"/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root+"/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 					uf::instantiator::bind( "EntityBehavior", hand );
 					uf::instantiator::bind( "ObjectBehavior", hand );
@@ -103,8 +103,8 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.initialize();
 					graphic.initializeGeometry(mesh);
 					
-					graphic.material.attachShader("./data/shaders/line.vert.spv", uf::renderer::enums::Shader::VERTEX);
-					graphic.material.attachShader("./data/shaders/line.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+					graphic.material.attachShader(uf::io::root+"/shaders/line.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root+"/shaders/line.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 					graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_STRIP;
 					graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].as<float>();
@@ -196,8 +196,10 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 		//	collider.add(box);
 		}
 	}
+#endif
 }
 void ext::PlayerHandBehavior::tick( uf::Object& self ) {
+#if UF_USE_OPENVR
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& controllerCamera = controller.getComponent<uf::Camera>();
@@ -351,9 +353,11 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
+#endif
 }
 
 void ext::PlayerHandBehavior::render( uf::Object& self ){
+#if UF_USE_OPENVR
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
@@ -469,6 +473,7 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 			graphic.material.shaders.front().updateBuffer( uniforms, 0, false );
 		}
 	}
+#endif
 }
 void ext::PlayerHandBehavior::destroy( uf::Object& self ){
 

@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/math/vector.h>
 
 UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
@@ -116,3 +116,4 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 		return uf::string::toString( self );
 	})
 )
+#endif

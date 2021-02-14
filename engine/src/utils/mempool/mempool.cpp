@@ -169,7 +169,10 @@ MANUAL_MALLOC:
 		allocation.size = size;
 		allocation.pointer = malloc(size);
 	} else {
+	#if UF_NO_EXCEPTIONS
+	#else
 		throw;
+	#endif
 	}
 RETURN:
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.unlock();

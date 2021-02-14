@@ -6,7 +6,10 @@
 
 #include <functional>
 #include <unordered_map>
+
+#if UF_USE_MESHOPTIMIZER
 #include <meshoptimizer.h>
+#endif
 
 #if UF_USE_VULKAN
 	namespace uf {

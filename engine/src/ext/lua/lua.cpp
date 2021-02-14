@@ -1,7 +1,7 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 sol::state ext::lua::state;
-std::string ext::lua::main = "./data/scripts/main.lua";
+std::string ext::lua::main = uf::io::root + "/scripts/main.lua";
 std::unordered_map<std::string, std::string> ext::lua::modules;
 
 #include <uf/utils/math/transform.h>
@@ -263,3 +263,4 @@ void ext::lua::terminate() {
 		ext::lua::onInitializationFunctions = NULL;
 	}
 }
+#endif

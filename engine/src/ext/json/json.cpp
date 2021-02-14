@@ -124,17 +124,22 @@ std::string ext::json::encode( const ext::json::Value& json, bool pretty ) {
 	return ext::lua::state["json"]["encode"]( table );
 #endif
 }
+#if UF_USE_LUA
 std::string ext::json::encode( const sol::table& table ) {
 	return ext::lua::state["json"]["encode"]( table );
 }
-
+#endif
 void ext::json::decode( ext::json::Value& json, const std::string& str ) {
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
+#if UF_NO_EXCEPTIONS
+	json = nlohmann::json::parse(str, nullptr, true, true);
+#else
 	try {
 		json = nlohmann::json::parse(str, nullptr, true, true);
 	} catch ( nlohmann::json::parse_error& e ) {
 		uf::iostream << "[JSON] " << e.what() << "\n";
 	}
+#endif
 #elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP 
 	Json::Reader reader;
 	if ( !reader.parse(str, json) ) {

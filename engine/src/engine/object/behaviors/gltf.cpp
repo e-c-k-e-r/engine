@@ -42,7 +42,11 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 
 		{
 			pod::Graph* graphPointer = NULL;
+		#if UF_NO_EXCEPTIONS
+			graphPointer = &assetLoader.get<pod::Graph>(filename);
+		#else
 			try { graphPointer = &assetLoader.get<pod::Graph>(filename); } catch ( ... ) {}
+		#endif
 			if ( !graphPointer ) return;
 			auto& graph = this->getComponent<pod::Graph>();
 			graph = std::move( *graphPointer );
@@ -98,15 +102,19 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& assetLoader = scene.getComponent<uf::Asset>();
 				const uf::Image* imagePointer = NULL;
+			#if UF_NO_EXCEPTIONS
+				imagePointer = &assetLoader.get<uf::Image>(filename);
+			#else
 				try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
+			#endif
 				if ( !imagePointer ) continue;
 				uf::Image image = *imagePointer;
 				auto& texture = graphic.material.textures.emplace_back();
 				texture.loadFromImage( image );
 			}
-		#if UF_USE_VULKAN
 			graphic.process = true;
 
+		#if UF_USE_VULKAN
 			{
 				auto& shader = graphic.material.getShader("vertex");
 				struct SpecializationConstant {

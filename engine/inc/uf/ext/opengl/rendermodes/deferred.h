@@ -5,7 +5,7 @@
 
 namespace ext {
 	namespace opengl {
-		struct UF_API DeferredRenderMode : RenderMode {
+		struct UF_API DeferredRenderMode : public RenderMode {
 			ext::opengl::Graphic blitter;
 
 			// RAII

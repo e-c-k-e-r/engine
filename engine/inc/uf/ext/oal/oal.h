@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#if defined(UF_USE_OPENAL)
+#if UF_USE_OPENAL
 
 #include <AL/al.h>
 #include <AL/alc.h>

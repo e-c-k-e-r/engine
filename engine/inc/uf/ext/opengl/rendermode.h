@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/ext/opengl/device.h>
+#include <uf/ext/opengl/commands.h>
 #include <uf/utils/graphic/descriptor.h>
 
 namespace ext {
@@ -20,7 +21,7 @@ namespace ext {
 			GLhandle(VkSemaphore) renderCompleteSemaphore;
 			std::vector<GLhandle(VkFence)> fences;
 			
-			typedef std::vector<GLhandle(VkCommandBuffer)> commands_container_t;
+			typedef CommandBuffer commands_container_t;
 			std::thread::id mostRecentCommandPoolId;
 			uf::ThreadUnique<commands_container_t> commands;
 

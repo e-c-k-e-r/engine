@@ -1,4 +1,6 @@
 #include <uf/ext/openvr/openvr.h>
+
+#if UF_USE_OPENVR
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/string/io.h>
@@ -724,3 +726,4 @@ uf::Graphic& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return renderModels["{indexcontroller}valve_controller_knu_1_0_right"]; //return ::devices.controllers.right.mesh;
 	throw false; //std::exception("error");
 }
+#endif

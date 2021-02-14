@@ -94,7 +94,7 @@ namespace {
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = "./data/audio/ui/" + key + ".ogg";
+		std::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
@@ -925,7 +925,7 @@ void ext::GuiBattle::tick() {
 		if ( metadata["system"]["closing"].as<bool>() ) {
 			if ( alpha >= 1.0f ) {
 				uf::Asset assetLoader;
-				std::string canonical = assetLoader.load("./data/audio/ui/menu close.ogg");
+				std::string canonical = assetLoader.load(uf::io::root+"/audio/ui/menu close.ogg");
 				uf::Audio& sfx = assetLoader.get<uf::Audio>(canonical);
 				sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 				sfx.play();
@@ -1095,7 +1095,10 @@ void ext::GuiBattle::tick() {
 		// state 1
 	//	std::cout << particle << ": " <<  metadata["system"]["percent"] << ": " << metadata["text settings"]["string"] <<  std::endl;
 	//	std::cout << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
-		try {
+	#if !UF_NO_EXCEPTIONS
+		try
+	#endif
+		{
 			if ( !ext::json::isObject( metadata["system"] ) ) {
 				this->removeChild(*particle);
 				particle->destroy();
@@ -1116,7 +1119,9 @@ void ext::GuiBattle::tick() {
 				continue;
 			}
 			metadata["system"]["percent"] = metadata["system"]["percent"].as<float>() + uf::physics::time::delta;
-		} catch ( ... ) {
+		}
+	#if !UF_NO_EXCEPTIONS
+		catch ( ... ) {
 			if ( particle ) {
 				this->removeChild(*particle);
 				particle->destroy();
@@ -1124,6 +1129,7 @@ void ext::GuiBattle::tick() {
 				*it = NULL;
 			}
 		}
+	#endif
 	}
 
 	for ( auto* pointer : partyMemberButtons ) {

@@ -18,7 +18,9 @@ namespace uf {
 		Serializer( const std::string& str = "{}" );
 		Serializer( const ext::json::base_value& );
 		Serializer( const ext::json::Value& );
+	#if UF_USE_LUA
 		Serializer( const sol::table& );
+	#endif
 		
 		Serializer::output_t serialize( bool pretty = false ) const;
 		void deserialize( const std::string& );
@@ -69,7 +71,9 @@ namespace uf {
 		uf::Serializer& operator=( const std::string& str );
 		uf::Serializer& operator=( const ext::json::base_value& json );
 		uf::Serializer& operator=( const ext::json::Value& json );
+	#if UF_USE_LUA
 		uf::Serializer& operator=( const sol::table& json );
+	#endif
 		uf::Serializer& operator<<( const std::string& str );
 		uf::Serializer& operator>>( std::string& str );
 		const uf::Serializer& operator>>( std::string& str ) const;

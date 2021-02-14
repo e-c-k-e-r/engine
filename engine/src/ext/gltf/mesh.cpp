@@ -1,55 +1,19 @@
 #include <uf/ext/gltf/mesh.h>
 #include <uf/utils/graphic/descriptor.h>
 
-std::vector<uf::renderer::VertexDescriptor> ext::gltf::mesh::ID::descriptor = {
-	{
-		uf::renderer::enums::Format::R32G32B32_SFLOAT,
-		offsetof(ext::gltf::mesh::ID, position)
-	},
-	{
-		uf::renderer::enums::Format::R32G32_SFLOAT,
-		offsetof(ext::gltf::mesh::ID, uv)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32_SFLOAT,
-		offsetof(ext::gltf::mesh::ID, normal)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32A32_SFLOAT,
-		offsetof(ext::gltf::mesh::ID, tangent)
-	},
-	{
-		uf::renderer::enums::Format::R32G32_SINT,
-		offsetof(ext::gltf::mesh::ID, id)
-	}
-};
-std::vector<uf::renderer::VertexDescriptor> ext::gltf::mesh::Skinned::descriptor = {
-	{
-		uf::renderer::enums::Format::R32G32B32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, position)
-	},
-	{
-		uf::renderer::enums::Format::R32G32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, uv)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, normal)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32A32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, tangent)
-	},
-	{
-		uf::renderer::enums::Format::R32G32_SINT,
-		offsetof(ext::gltf::mesh::Skinned, id)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32A32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, joints)
-	},
-	{
-		uf::renderer::enums::Format::R32G32B32A32_SFLOAT,
-		offsetof(ext::gltf::mesh::Skinned, weights)
-	},
-};
+UF_VERTEX_DESCRIPTOR(ext::gltf::mesh::ID,
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::ID, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::ID, R32G32_SFLOAT, uv)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::ID, R32G32B32_SFLOAT, normal)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::ID, R32G32B32A32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::ID, R32G32_SINT, id)
+);
+UF_VERTEX_DESCRIPTOR(ext::gltf::mesh::Skinned,
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32_SFLOAT, uv)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32B32_SFLOAT, normal)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32B32A32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32_SINT, id)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32B32A32_SFLOAT, joints)
+	UF_VERTEX_DESCRIPTION(ext::gltf::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
+);

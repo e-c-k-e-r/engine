@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/math/physics.h>
 
 UF_LUA_REGISTER_USERTYPE(uf::Timer<>,
@@ -12,3 +12,4 @@ UF_LUA_REGISTER_USERTYPE(uf::Timer<>,
 	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Timer<>::update ),
 	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Timer<>::running )
 )
+#endif

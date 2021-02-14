@@ -69,7 +69,11 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 
 		if ( uf::io::extension(filename) != "ogg" ) return;
 		const uf::Audio* audioPointer = NULL;
+	#if UF_NO_EXCEPTIONS
+		audioPointer = &assetLoader.get<uf::Audio>(filename);
+	#else
 		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
+	#endif
 		if ( !audioPointer ) return;
 
 		uf::Serializer payload = metadata["audio"];

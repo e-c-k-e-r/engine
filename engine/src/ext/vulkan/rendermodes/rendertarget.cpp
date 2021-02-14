@@ -251,8 +251,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		blitter.material.device = &device;
 		blitter.initializeGeometry( mesh );
 		blitter.material.initializeShaders({
-			{"./data/shaders/display.renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/display.renderTarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			{uf::io::root+"/shaders/display.renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{uf::io::root+"/shaders/display.renderTarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 		
 		for ( auto& attachment : renderTarget.attachments ) {

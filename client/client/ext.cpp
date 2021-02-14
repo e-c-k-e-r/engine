@@ -1,4 +1,5 @@
 #include "../main.h"
+#if !UF_ENV_DREAMCAST
 
 #include <uf/utils/window/window.h>
 #include <uf/utils/io/iostream.h>
@@ -91,6 +92,7 @@ void client::initialize() {
 	*/
 	}
 
+	#if UF_USE_OPENAL
 	/* Initialize OpenAL */ {
 		if ( !ext::oal.initialize() ) {
 			std::cerr << "[ERROR] AL failed to initialize!" << std::endl;
@@ -98,6 +100,7 @@ void client::initialize() {
 			return;
 		}
 	}
+	#endif
 	
 	/* Initialize hooks */ {
 	//	if ( client::config["engine"]["hook"]["mode"] == "Both" || client::config["engine"]["hook"]["mode"] == "Readable" ) {
@@ -250,9 +253,12 @@ void client::terminate() {
 
 	client::window.terminate();
 
+	#if UF_USE_BULLET
 	if ( !ext::oal.terminate() ) {
 		std::cerr << "[ERROR] AL failed to terminate!" << std::endl;
 		std::exit(EXIT_SUCCESS);
 		return;
 	}
+	#endif
 }
+#endif

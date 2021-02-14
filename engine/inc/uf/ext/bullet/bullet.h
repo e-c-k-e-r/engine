@@ -1,14 +1,14 @@
 #pragma once
 
 #include <uf/config.h>
-
 #include <uf/engine/object/object.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/math/collision.h>
 
+#if UF_USE_BULLET
 #include "btBulletDynamicsCommon.h"
-
+#endif
 namespace pod {
 	struct UF_API Bullet {
 		size_t uid = 0;
@@ -17,11 +17,16 @@ namespace pod {
 		pod::Transform<>* transform = NULL;
 
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
+	#if UF_USE_BULLET
 		btRigidBody* body = NULL;
 		btCollisionShape* shape = NULL;
+	#else
+		void* body = NULL;
+		void* shape = NULL;
+	#endif
 	};
 }
-
+#if UF_USE_BULLET
 namespace ext {
 	namespace bullet {
 		extern UF_API bool debugDrawEnabled;
@@ -75,3 +80,4 @@ namespace ext {
 }
 
 #include "bullet.inl"
+#endif

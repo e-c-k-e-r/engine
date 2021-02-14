@@ -61,7 +61,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 
 		if ( uf::io::extension(filename) != "ogg" ) return;
 		const uf::Audio* audioPointer = NULL;
+	#if UF_NO_EXCEPTIONS
+		audioPointer = &assetLoader.get<uf::Audio>(filename);
+	#else
 		try { audioPointer = &assetLoader.get<uf::Audio>(filename); } catch ( ... ) {}
+	#endif
 		if ( !audioPointer ) return;
 
 		uf::Audio& audio = this->getComponent<uf::Audio>();
@@ -177,12 +181,12 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	// initialize cubemap
 	{
 		std::vector<std::string> filenames = {
-			"./data/textures/skybox/front.png",
-			"./data/textures/skybox/back.png",
-			"./data/textures/skybox/up.png",
-			"./data/textures/skybox/down.png",
-			"./data/textures/skybox/right.png",
-			"./data/textures/skybox/left.png",
+			uf::io::root+"/textures/skybox/front.png",
+			uf::io::root+"/textures/skybox/back.png",
+			uf::io::root+"/textures/skybox/up.png",
+			uf::io::root+"/textures/skybox/down.png",
+			uf::io::root+"/textures/skybox/right.png",
+			uf::io::root+"/textures/skybox/left.png",
 		};
 		uf::Image::container_t pixels;
 		std::vector<uf::Image> images(filenames.size());
@@ -309,9 +313,11 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			transform = uf::transform::reorient( transform );
 		}
 		transform.forward *= -1;
+	#if UF_USE_OPENAL
 		ext::oal.listener( "POSITION", { transform.position.x, transform.position.y, transform.position.z } );
 		ext::oal.listener( "VELOCITY", { 0, 0, 0 } );
 		ext::oal.listener( "ORIENTATION", { transform.forward.x, transform.forward.y, transform.forward.z, transform.up.x, transform.up.y, transform.up.z } );
+	#endif
 	}
 
 	/* Update lights */ if ( metadata["light"]["should"].as<bool>() ) {

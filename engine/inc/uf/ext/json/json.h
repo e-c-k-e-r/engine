@@ -14,7 +14,9 @@
 	#error "JSON implementation not defined"
 #endif
 
-#include <uf/ext/lua/lua.h>
+#if UF_USE_LUA
+	#include <uf/ext/lua/lua.h>
+#endif
 
 namespace ext {
 	namespace json {
@@ -36,10 +38,10 @@ namespace ext {
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&, bool&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&, bool&)>& function );
 
-		std::string UF_API encode( const sol::table& table );
 		std::string UF_API encode( const ext::json::Value& json, bool pretty = true );
 		void UF_API decode( ext::json::Value& json, const std::string& str );
+	#if UF_USE_LUA
+		std::string UF_API encode( const sol::table& table );
+	#endif
 	}
 }
-
-#include "json.inl"

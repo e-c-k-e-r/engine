@@ -46,19 +46,20 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		modifiers["region"]["modulus"] = metadata["region"]["modulus"];
 		std::string input = modifiers;
 		metadata["system"]["hash"] = uf::string::sha256( input );
-
+	#if !UF_ENV_DREAMCAST
 		try {
-			std::string save = "./data/save/" + metadata["system"]["hash"].as<std::string>() + "/";
+			std::string save = uf::io::root+"/save/" + metadata["system"]["hash"].as<std::string>() + "/";
 			int status = mkdir(save.c_str());
 		} catch ( ... ) {
 
 		}
 		try {
-			std::string save = "./data/save/" + metadata["system"]["hash"].as<std::string>() + "/regions/";
+			std::string save = uf::io::root+"/save/" + metadata["system"]["hash"].as<std::string>() + "/regions/";
 			int status = mkdir(save.c_str());
 		} catch ( ... ) {
 
 		}
+	#endif
 	}
 
 	// setup maze
@@ -113,8 +114,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
-				{"./data/shaders/terrain.vert.spv", uf::renderer::enums::Shader::VERTEX},
-				{"./data/shaders/terrain.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
+				{uf::io::root+"/shaders/terrain.vert.spv", uf::renderer::enums::Shader::VERTEX},
+				{uf::io::root+"/shaders/terrain.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
 			});
 			// uf::renderer::rebuildOnTickStart = false;
 		}

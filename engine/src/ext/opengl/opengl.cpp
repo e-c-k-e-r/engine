@@ -55,51 +55,15 @@ std::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
 	new ext::opengl::BaseRenderMode,
 };
 
-void UF_API ext::opengl::initialize() {
-	glewExperimental = GL_TRUE;
-	if ( glewInit() != GLEW_OK ) {
-		return;
-	}
-/*
-	device.initialize();
-	swapchain.initialize( device );
-*/
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		renderMode->initialize(device);
-	}
-	std::vector<std::function<int()>> jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-		if ( settings::experimental::multithreadedCommandRecording ) {
-			jobs.emplace_back([&]{
-				renderMode->createCommandBuffers();
-				return 0;
-			});
-		} else {
-			renderMode->createCommandBuffers();
-		}
-	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
-	{
-		std::vector<uint8_t> pixels = { 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
-		};
-		Texture2D::empty.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-		Texture2D::empty.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, 2, 2 );
-	}
-}
 std::string UF_API ext::opengl::errorString() {
+#if UF_ENV_DREAMCAST
+#else
 	GLenum error;
 	const GLubyte* bytes = NULL;
 	if ((error = glGetError()) != GL_NO_ERROR) bytes = gluErrorString(error);
 	std::string str = (const char*) bytes;
 	return str;
+#endif
 }
 
 /////
@@ -160,6 +124,40 @@ void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool f
 	mode->destroy();
 	if ( free ) delete mode;
 	ext::opengl::states::rebuild = true;
+}
+void UF_API ext::opengl::initialize() {
+	device.initialize();
+	// swapchain.initialize( device );
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		renderMode->initialize(device);
+	}
+	
+	std::vector<std::function<int()>> jobs;
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
+		if ( settings::experimental::multithreadedCommandRecording ) {
+			jobs.emplace_back([&]{
+				renderMode->createCommandBuffers();
+				return 0;
+			});
+		} else {
+			renderMode->createCommandBuffers();
+		}
+	}
+	if ( !jobs.empty() ) {
+		uf::thread::batchWorkers( jobs );
+	}
+	{
+		std::vector<uint8_t> pixels = { 
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+		};
+		Texture2D::empty.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+		Texture2D::empty.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, 2, 2 );
+	}
 }
 void UF_API ext::opengl::tick(){
 	ext::opengl::mutex.lock();
@@ -235,11 +233,13 @@ void UF_API ext::opengl::render(){
 	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) {
 		synchronize();
 	}
+#if UF_USE_OPENVR
 /*
 	if ( ext::openvr::context ) {
 		ext::openvr::postSubmit();
 	}
 */
+#endif
 	ext::opengl::mutex.unlock();
 }
 void UF_API ext::opengl::destroy() {
@@ -263,11 +263,9 @@ void UF_API ext::opengl::destroy() {
 		renderMode->destroy();
 		renderMode = NULL;
 	}
-/*
-	swapchain.destroy();
+//	swapchain.destroy();
 	device.destroy();
-*/
-	ext::opengl::mutex.unlock();	
+	ext::opengl::mutex.unlock();
 }
 void UF_API ext::opengl::synchronize( uint8_t flag ) {
 	if ( flag & 0b01 ) {

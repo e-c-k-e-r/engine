@@ -2,9 +2,17 @@
 
 #include <uf/config.h>
 
-#if defined(UF_USE_OPENAL)
-
+#if UF_USE_OPENAL
 #include <uf/ext/oal/oal.h>
+#else
+	namespace ext {
+		namespace al {
+			typedef size_t Source;
+			typedef size_t Buffer;
+		}
+	}
+	typedef float ALfloat;
+#endif
 
 #include <vector>
 #include <unordered_map>
@@ -100,5 +108,3 @@ namespace uf {
 		void cleanup( bool = false );
 	};
 }
-
-#endif

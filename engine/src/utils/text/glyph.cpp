@@ -1,6 +1,6 @@
 #include <uf/utils/text/glyph.h>
 #include <iostream>
-
+#if UF_USE_FREETYPE
 uf::Glyph::~Glyph() {
 	delete[] this->m_buffer;
 }
@@ -238,3 +238,4 @@ void uf::Glyph::setSpread( int spread ) {
 void uf::Glyph::useSdf( bool b ) {
 	this->m_sdf = b;
 }
+#endif

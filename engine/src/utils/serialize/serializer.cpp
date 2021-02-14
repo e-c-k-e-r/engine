@@ -11,9 +11,11 @@
 uf::Serializer::Serializer( const std::string& str ) { //: sol::table(ext::lua::state, sol::create) {
 	this->deserialize(str);
 }
+#if UF_USE_LUA
 uf::Serializer::Serializer( const sol::table& table ) { //: sol::table(ext::lua::state, sol::create) {
 	this->deserialize( ext::json::encode( table ) );
 }
+#endif
 uf::Serializer::Serializer( const ext::json::Value& json ) { //: sol::table(ext::lua::state, sol::create) {
 //	this->deserialize( ext::json::encode( json ) );
 	*this = json;
@@ -146,10 +148,12 @@ uf::Serializer& uf::Serializer::operator=( const std::string& str ) {
 	this->deserialize(str);
 	return *this;
 }
+#if UF_USE_LUA
 uf::Serializer& uf::Serializer::operator=( const sol::table& table ) {
 	this->deserialize( ext::json::encode( table ) );
 	return *this;
 }
+#endif
 uf::Serializer& uf::Serializer::operator=( const ext::json::Value& json ) {
 	// this->deserialize( ext::json::encode( json ) );
 	ext::json::Value::operator=(json);

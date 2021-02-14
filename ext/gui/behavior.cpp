@@ -32,10 +32,12 @@
 #include <regex>
 
 namespace {
+#if UF_USE_FREETYPE
 	struct {
 		ext::freetype::Glyph glyph;
 		std::unordered_map<std::string, std::unordered_map<std::string, uf::Glyph>> cache;
 	} glyphs;
+#endif
 
 	uf::Serializer defaultSettings;
 }
@@ -45,10 +47,12 @@ ext::Gui::Gui(){
 }
 
 std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string ) {
+	std::vector<pod::GlyphBox> gs;
+#if UF_USE_FREETYPE
 	uf::Object& gui = *this;
 	std::string string = _string;
 	uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
-	std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
+	std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
 	if ( ::glyphs.cache[font].empty() ) {
 		ext::freetype::initialize( ::glyphs.glyph, font );
 	}
@@ -56,7 +60,6 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 		string = metadata["text settings"]["string"].as<std::string>();
 	}
 	pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
-	std::vector<pod::GlyphBox> gs;
 	struct {
 		struct {
 			float x = 0;
@@ -271,6 +274,9 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 
 		stat.cursor.x += (glyph.getAdvance().x);
 
+	#if UF_NO_EXCEPTIONS
+		g.color = stat.colors.container.at(stat.colors.index);
+	#else
 		try {
 			g.color = stat.colors.container.at(stat.colors.index);
 		} catch ( ... ) {
@@ -281,9 +287,11 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 				metadata["text settings"]["color"][2].as<float>(),
 			};
 		}
+	#endif
 
 		gs.push_back(g);
 	}
+#endif
 	return gs;
 }
 
@@ -402,8 +410,8 @@ void ext::Gui::load( const uf::Image& _image ) {
 	}
 	graphic.initializeGeometry( mesh );
 	struct {
-		std::string vertex = "./data/shaders/gui.vert.spv";
-		std::string fragment = "./data/shaders/gui.frag.spv";
+		std::string vertex = uf::io::root+"/shaders/gui.vert.spv";
+		std::string fragment = uf::io::root+"/shaders/gui.frag.spv";
 	} filenames;
 	std::string suffix = ""; {
 		std::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
@@ -411,7 +419,7 @@ void ext::Gui::load( const uf::Image& _image ) {
 	}
 	if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
 	if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-	else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui."+suffix+"frag.spv";
+	else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui."+suffix+"frag.spv";
 
 	graphic.material.initializeShaders({
 		{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
@@ -437,10 +445,10 @@ UF_OBJECT_REGISTER_END()
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
-
+#if UF_USE_FREETYPE
 	this->addHook( "glyph:Load.%UID%", [&](ext::json::Value& json){
 		unsigned long c = json["glyph"].as<size_t>();
-		std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
+		std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
 		std::string key = ""; {
 			key += std::to_string(c) + ";";
 			key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
@@ -461,6 +469,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		}
 		this->as<ext::Gui>().load( image );
 	});
+#endif
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 
@@ -469,7 +478,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
+	#if UF_NO_EXCEPTIONS
+		imagePointer = &assetLoader.get<uf::Image>(filename);
+	#else
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
+	#endif
 		if ( !imagePointer ) return;
 		
 	//	uf::Image image = *imagePointer;
@@ -625,7 +638,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	}
 	if ( metadata["text settings"]["string"].is<std::string>() ) {
 		if ( ext::json::isNull( ::defaultSettings["metadata"] ) ) {
-			::defaultSettings.readFromFile("./data/entities/gui/text/string.json");
+			::defaultSettings.readFromFile(uf::io::root+"/entities/gui/text/string.json");
 		}
 		for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
 			std::string key = it.key();
@@ -634,6 +647,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 		}
 
+		#if UF_USE_FREETYPE
 		if ( false ) {
 			uf::Serializer payload;
 			payload["first"] = true;
@@ -642,7 +656,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		} else {
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs();
 			
-			std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
+			std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
 			std::string key = ""; {
 				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
 				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
@@ -705,24 +719,26 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			struct {
-				std::string vertex = "./data/shaders/gui.text.vert.spv";
-				std::string fragment = "./data/shaders/gui.text.frag.spv";
+				std::string vertex = uf::io::root+"/shaders/gui.text.vert.spv";
+				std::string fragment = uf::io::root+"/shaders/gui.text.frag.spv";
 			} filenames;
 			if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
 			if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-			else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
+			else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui.text."+suffix+"frag.spv";
 
 			graphic.material.initializeShaders({
 				{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
 				{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 			});
 		}
+		#endif
 
 		this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
 
 			if ( json["old"]["text settings"]["string"] == json["new"]["text settings"]["string"] ) return;
 			this->queueHook( "gui:UpdateString.%UID%");
 		});
+		#if UF_USE_FREETYPE
 		this->addHook( "gui:UpdateString.%UID%", [&](ext::json::Value& json){
 			for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
 				std::string key = it.key();
@@ -737,7 +753,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs( string );
 			
-			std::string font = "./data/fonts/" + metadata["text settings"]["font"].as<std::string>();
+			std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
 			std::string key = ""; {
 				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
 				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
@@ -810,12 +826,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					if ( _ != "" ) suffix = _ + ".";
 				}
 				struct {
-					std::string vertex = "./data/shaders/gui.text.vert.spv";
-					std::string fragment = "./data/shaders/gui.text.frag.spv";
+					std::string vertex = uf::io::root+"/shaders/gui.text.vert.spv";
+					std::string fragment = uf::io::root+"/shaders/gui.text.frag.spv";
 				} filenames;
 				if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
 				if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-				else if ( suffix != "" ) filenames.fragment = "./data/shaders/gui.text."+suffix+"frag.spv";
+				else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui.text."+suffix+"frag.spv";
 
 				graphic.material.initializeShaders({
 					{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
@@ -826,6 +842,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				graphic.getPipeline().update( graphic );
 			}
 		});
+		#endif
 	}
 }
 void ext::GuiBehavior::tick( uf::Object& self ) {

@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/audio/audio.h>
 
 UF_LUA_REGISTER_USERTYPE(uf::Audio,
@@ -31,3 +31,4 @@ UF_LUA_REGISTER_USERTYPE(uf::Audio,
 	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Audio::getVolume ),
 	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Audio::getFilename )
 )
+#endif

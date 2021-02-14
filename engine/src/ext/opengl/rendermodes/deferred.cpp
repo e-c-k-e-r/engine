@@ -28,6 +28,11 @@ std::vector<ext::opengl::Graphic*> ext::opengl::DeferredRenderMode::getBlitters(
 }
 
 void ext::opengl::DeferredRenderMode::initialize( Device& device ) {
+	auto windowSize = device.window->getSize();
+	this->width = windowSize.x;
+	this->height = windowSize.y;
+
+	ext::opengl::RenderMode::initialize( device );
 }
 void ext::opengl::DeferredRenderMode::tick() {
 	ext::opengl::RenderMode::tick();

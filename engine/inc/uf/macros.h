@@ -16,4 +16,5 @@
 	if ( __VA_ARGS__ (time = TOKEN_PASTE(TIMER, __LINE__)(x)) >= x )
 
 #define UF_DEBUG 1
-#define UF_DEBUG_PRINT() if ( UF_DEBUG ) uf::iostream << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << "\n";
+//#define UF_DEBUG_PRINT() if ( UF_DEBUG ) uf::iostream << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << "\n";
+#define UF_DEBUG_PRINT() if ( UF_DEBUG ) std::cout << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << std::endl;

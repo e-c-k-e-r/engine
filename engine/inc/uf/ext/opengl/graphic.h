@@ -4,6 +4,7 @@
 #include <uf/ext/opengl/swapchain.h>
 #include <uf/ext/opengl/initializers.h>
 #include <uf/ext/opengl/texture.h>
+#include <uf/ext/opengl/commands.h>
 #include <uf/utils/graphic/mesh.h>
 #include <uf/utils/graphic/descriptor.h>
 
@@ -82,7 +83,7 @@ namespace ext {
 			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
 			void update( Graphic& graphic );
 			void update( Graphic& graphic, GraphicDescriptor& descriptor );
-			void record( Graphic& graphic, GLhandle(VkCommandBuffer), size_t = 0, size_t = 0 );
+			void record( Graphic& graphic, CommandBuffer&, size_t = 0, size_t = 0 );
 			void destroy();
 		};
 		struct UF_API Material {
@@ -127,8 +128,8 @@ namespace ext {
 			Pipeline& getPipeline( GraphicDescriptor& descriptor );
 			void updatePipelines();
 			
-			void record( GLhandle(VkCommandBuffer) commandBuffer, size_t pass = 0, size_t draw = 0 );
-			void record( GLhandle(VkCommandBuffer) commandBuffer, GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 );
+			void record( CommandBuffer& commandBuffer, size_t pass = 0, size_t draw = 0 );
+			void record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 );
 
 			bool hasStorage( const std::string& name );
 			Buffer* getStorageBuffer( const std::string& name );

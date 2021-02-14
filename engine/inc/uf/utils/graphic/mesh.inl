@@ -78,6 +78,7 @@ uf::BaseMesh<T,U> uf::BaseMesh<T,U>::simplify( float threshold ) {
 }
 template<typename T, typename U>
 void uf::BaseMesh<T,U>::optimize( size_t o ) {
+#if UF_USE_MESHOPTIMIZER
 	// generate indices
 	auto vertices = std::move( this->vertices );
 	U indices = vertices.size();
@@ -102,6 +103,11 @@ void uf::BaseMesh<T,U>::optimize( size_t o ) {
 	if ( o >= 3 ) {
 		meshopt_optimizeVertexFetch(&this->vertices[0], &this->indices[0], this->indices.size(), &this->vertices[0], this->vertices.size(), sizeof(T));
 	}
+#else
+	this->indices.clear();
+	this->indices.reserve(vertices.size());
+	for ( size_t i = 0; i < vertices.size(); ++i )
+		this->indices.emplace_back(i);
 /*
 	old nasty way
 
@@ -119,4 +125,5 @@ void uf::BaseMesh<T,U>::optimize( size_t o ) {
 		mesh.indices.push_back( unique[vertex] );
 	}
 */
+#endif
 }

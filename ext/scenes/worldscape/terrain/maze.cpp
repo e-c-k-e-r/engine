@@ -28,7 +28,9 @@ void ext::Maze::initialize(int columns, int rows, int floors, double horizontal_
      */
     if (rows < 1 || columns < 1 || floors < 1){
         std::cout << "A maze must have dimensions greater than zero.\n";
+    #if !UF_NO_EXCEPTIONS
         throw std::invalid_argument("A maze must have dimensions greater than zero.\n");
+    #endif
     }
     LENGTH = columns;
     WIDTH  = rows;
@@ -36,7 +38,9 @@ void ext::Maze::initialize(int columns, int rows, int floors, double horizontal_
 
     if (horizontal_bias <= 0 || horizontal_bias >= 1 || vertical_bias <= 0 || vertical_bias >= 1){
         std::cout << "Biases must be between 0 and 1 exclusive.\n";
+    #if !UF_NO_EXCEPTIONS
         throw std::invalid_argument("Biases must be between 0 and 1 exclusive.\n");
+    #endif
     }
     EAST_WALL_THRESHOLD = horizontal_bias;
     SOUTH_WALL_THRESHOLD = vertical_bias;

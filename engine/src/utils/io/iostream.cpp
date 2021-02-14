@@ -1,8 +1,10 @@
 #define _X_OPEN_SOURCE_EXTENDED
-
 #include <uf/utils/io/iostream.h>
+
+#if UF_USE_NCURSES
 #include <uf/ext/ncurses/ncurses.h>
 #include <ncursesw/ncurses.h>
+#endif
 #include <uf/spec/terminal/terminal.h>
 
 #include <sstream>
@@ -64,6 +66,7 @@ uf::IoStream::~IoStream() {
 }
 
 void UF_API_CALL uf::IoStream::initialize() {
+#if UF_USE_NCURSES
 	if ( !uf::IoStream::ncurses ) return;
 	ext::ncurses.initialize();
 	if ( ext::ncurses.hasColors() ) {
@@ -88,17 +91,23 @@ void UF_API_CALL uf::IoStream::initialize() {
 		this->readChar();
 		this->terminate();
 	}
+#endif
 }
 void UF_API_CALL uf::IoStream::terminate() {
+#if UF_USE_NCURSES
 	if (uf::IoStream::ncurses) ext::ncurses.terminate();
+#endif
 }
 void UF_API_CALL uf::IoStream::clear(bool all) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
+#endif
 	if ( !uf::IoStream::ncurses ) {
 		if ( all ) {
 			spec::terminal.clear();
 		}
 	}
+#if UF_USE_NCURSES
 	if ( all ) {
 		ext::ncurses.move(0,0);
 		ext::ncurses.clear(true);
@@ -108,6 +117,7 @@ void UF_API_CALL uf::IoStream::clear(bool all) {
 	ext::ncurses.getYX(::info.cursor.row, ::info.cursor.column);
 	ext::ncurses.move(::info.cursor.row, 0);
 	ext::ncurses.clear();
+#endif
 }
 std::string uf::IoStream::getBuffer() {
 	return ::info.output.buffer;
@@ -116,6 +126,7 @@ std::vector<std::string> uf::IoStream::getHistory() {
 	return ::info.output.history;
 }
 void UF_API_CALL uf::IoStream::back() {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) return;
 	if ( !uf::IoStream::ncurses ) return;
 /*
@@ -141,28 +152,35 @@ void UF_API_CALL uf::IoStream::back() {
 		ext::ncurses.move(::info.cursor.row - 1, ::info.output.buffer.size(), ::info.cursor.row, ::info.cursor.column);
 	}
 	ext::ncurses.refresh();
+#endif
 }
 char UF_API_CALL uf::IoStream::readChar(const bool& loop) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
+#endif
 	if ( !uf::IoStream::ncurses ) {
 		return std::cin.get();
 	}
+#if UF_USE_NCURSES
 	while ( loop ) {
 		::info.character = ext::ncurses.getCh();
 		if ( ::info.character == ERR ) continue;
 		if ( ::info.character > 0 && ::info.character < 128 ) return ::info.character;
 	}
 	return 0;
+#endif
 }
 std::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
 	// static std::vector<std::string> history;
-
+#endif
 	if ( !uf::IoStream::ncurses ) {
 		std::string in;
 		std::getline(std::cin, in);
 		return in;
 	}
+#if UF_USE_NCURSES
 	/*std::string ::info.input.buffer;
 	int ch;
 	struct {
@@ -242,16 +260,19 @@ std::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
 	uf::iostream << "\n";
 	::info.input.history.push_back(::info.input.buffer);
 	return ::info.input.buffer;
+#endif
 }
 uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
 	// static std::vector<std::string> history;
-
+#endif
 	if ( !uf::IoStream::ncurses ) {
 		std::string in;
 		std::getline(std::cin, in);
 		return in;
 	}
+#if UF_USE_NCURSES
 	/*std::string ::info.input.buffer;
 	int ch;
 	struct {
@@ -357,9 +378,12 @@ uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
 	uf::iostream << "\n";
 	::info.input.history.push_back(::info.input.buffer);
 	return ::info.input.buffer;
+#endif
 }
 char UF_API_CALL uf::IoStream::writeChar( char ch ) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
+#endif
 	addCh(ch);
 /*
 	if ( ch == '\r' ) ch = '\n';
@@ -376,12 +400,16 @@ char UF_API_CALL uf::IoStream::writeChar( char ch ) {
 		else std::cout << ch;
 		return ch;
 	}
+#if UF_USE_NCURSES
 	ext::ncurses.addChar(ch);
 	ext::ncurses.refresh();
 	return ch;
+#endif
 }
 const std::string& UF_API_CALL uf::IoStream::writeString( const std::string& str ) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
+#endif
 	addStr(str);
 /*
 	std::size_t needle;
@@ -399,12 +427,16 @@ const std::string& UF_API_CALL uf::IoStream::writeString( const std::string& str
 		else std::cout << str;
 		return str;
 	}
+#if UF_USE_NCURSES
 	ext::ncurses.addStr(str.c_str());
 	ext::ncurses.refresh();
 	return str;
+#endif
 }
 const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str ) {
+#if UF_USE_NCURSES
 	if ( !ext::ncurses.initialized() ) this->initialize();
+#endif
 	addUStr(str);
 /*
 	std::size_t needle;
@@ -420,9 +452,11 @@ const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str 
 		std::cout << (const char*) str.getString().c_str();
 		return str;
 	}
+#if UF_USE_NCURSES
 	ext::ncurses.addStr((const char*) str.getString().c_str());
 	ext::ncurses.refresh();
 	return str;
+#endif
 }
 
 void UF_API_CALL uf::IoStream::operator>> (bool& val) {
@@ -628,6 +662,7 @@ std::string uf::IoStream::getColor() {
 	return this->m_currentColor;
 }
 void UF_API_CALL uf::IoStream::setColor( const std::string& str ) {
+#if UF_USE_NCURSES
 	if ( !uf::IoStream::ncurses ) return;
 	if ( !ext::ncurses.initialized() ) this->initialize();
 
@@ -639,6 +674,7 @@ void UF_API_CALL uf::IoStream::setColor( const std::string& str ) {
 	::info.color.last = id;
 
 	this->m_currentColor = str;
+#endif
 }
 
 // manip via stream manipulator

@@ -1,5 +1,6 @@
-#include <uf/ext/freetype/freetype.h>
 #include <iostream>
+#if UF_USE_FREETYPE
+#include <uf/ext/freetype/freetype.h>
 
 ext::freetype::Library ext::freetype::library;
 
@@ -104,3 +105,4 @@ UF_API std::string ext::freetype::getError( int error ) {
 
 	return ft_errors[0].err_msg;
 }
+#endif

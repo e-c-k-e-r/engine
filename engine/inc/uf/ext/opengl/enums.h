@@ -7,26 +7,26 @@ namespace ext {
 		namespace enums {
 			namespace Compare {
 				typedef GLenum type_t;
-				static const GLenum NEVER = GLenumerator(VK_COMPARE_OP_NEVER);
-				static const GLenum LESS = GLenumerator(VK_COMPARE_OP_LESS);
-				static const GLenum EQUAL = GLenumerator(VK_COMPARE_OP_EQUAL);
-				static const GLenum LESS_OR_EQUAL = GLenumerator(VK_COMPARE_OP_LESS_OR_EQUAL);
-				static const GLenum GREATER = GLenumerator(VK_COMPARE_OP_GREATER);
-				static const GLenum NOT_EQUAL = GLenumerator(VK_COMPARE_OP_NOT_EQUAL);
-				static const GLenum GREATER_OR_EQUAL = GLenumerator(VK_COMPARE_OP_GREATER_OR_EQUAL);
-				static const GLenum ALWAYS = GLenumerator(VK_COMPARE_OP_ALWAYS);
+				static const GLenum NEVER = GL_NEVER;
+				static const GLenum LESS = GL_LESS;
+				static const GLenum EQUAL = GL_EQUAL;
+				static const GLenum LESS_OR_EQUAL = GL_LEQUAL;
+				static const GLenum GREATER = GL_GREATER;
+				static const GLenum NOT_EQUAL = GL_NOTEQUAL;
+				static const GLenum GREATER_OR_EQUAL = GL_GEQUAL;
+				static const GLenum ALWAYS = GL_ALWAYS;
 			}
 			namespace Format {
 				typedef GLenum type_t;
-				static const GLenum D32_SFLOAT = GLenumerator(VK_FORMAT_D32_SFLOAT);
-				static const GLenum R16G16B16A16_SFLOAT = GLenumerator(VK_FORMAT_R16G16B16A16_SFLOAT);
-				static const GLenum R8_UNORM = GLenumerator(VK_FORMAT_R8_UNORM);
-				static const GLenum R32_UINT = GLenumerator(VK_FORMAT_R32_UINT);
-				static const GLenum R32G32_SINT = GLenumerator(VK_FORMAT_R32G32_SINT);
-				static const GLenum R32G32_SFLOAT = GLenumerator(VK_FORMAT_R32G32_SFLOAT);
-				static const GLenum R32G32B32_SFLOAT = GLenumerator(VK_FORMAT_R32G32B32_SFLOAT);
-				static const GLenum R32G32B32A32_SFLOAT = GLenumerator(VK_FORMAT_R32G32B32A32_SFLOAT);
-				static const GLenum R8G8B8A8_UNORM = GLenumerator(VK_FORMAT_R8G8B8A8_UNORM);
+				static const GLenum D32_SFLOAT = 0x00000001; //GLenumerator(VK_FORMAT_D32_SFLOAT);
+				static const GLenum R16G16B16A16_SFLOAT = 0x00000002; //GLenumerator(VK_FORMAT_R16G16B16A16_SFLOAT);
+				static const GLenum R8_UNORM = 0x00000004; //GLenumerator(VK_FORMAT_R8_UNORM);
+				static const GLenum R32_UINT = 0x00000008; //GLenumerator(VK_FORMAT_R32_UINT);
+				static const GLenum R32G32_SINT = 0x00000010; //GLenumerator(VK_FORMAT_R32G32_SINT);
+				static const GLenum R32G32_SFLOAT = 0x00000020; //GLenumerator(VK_FORMAT_R32G32_SFLOAT);
+				static const GLenum R32G32B32_SFLOAT = 0x00000040; //GLenumerator(VK_FORMAT_R32G32B32_SFLOAT);
+				static const GLenum R32G32B32A32_SFLOAT = 0x00000080; //GLenumerator(VK_FORMAT_R32G32B32A32_SFLOAT);
+				static const GLenum R8G8B8A8_UNORM = 0x00000100; //GLenumerator(VK_FORMAT_R8G8B8A8_UNORM);
 			}
 			namespace Face {
 				typedef GLenum type_t;
@@ -35,21 +35,32 @@ namespace ext {
 			}
 			namespace CullMode {
 				typedef GLenum type_t;
-				static const GLenum NONE = GL_NONE;
+				static const GLenum NONE = 0;
 				static const GLenum FRONT = GL_FRONT;
 				static const GLenum BACK = GL_BACK;
 				static const GLenum BOTH = GL_FRONT_AND_BACK;
 			}
 			namespace Shader {
 				typedef GLenum type_t;
-				static const GLenum VERTEX = GLenumerator(VK_SHADER_STAGE_VERTEX_BIT);
-				static const GLenum TESSELLATION_CONTROL = GLenumerator(VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
-				static const GLenum TESSELLATION_EVALUATION = GLenumerator(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
-				static const GLenum GEOMETRY = GLenumerator(VK_SHADER_STAGE_GEOMETRY_BIT);
-				static const GLenum FRAGMENT = GLenumerator(VK_SHADER_STAGE_FRAGMENT_BIT);
-				static const GLenum COMPUTE = GLenumerator(VK_SHADER_STAGE_COMPUTE_BIT);
+			#if UF_ENV_DREAMCAST
+				static const GLenum VERTEX = 0x00000001;
+				static const GLenum TESSELLATION_CONTROL = 0x00000002;
+				static const GLenum TESSELLATION_EVALUATION = 0x00000003;
+				static const GLenum GEOMETRY = 0x00000004;
+				static const GLenum FRAGMENT = 0x00000005;
+				static const GLenum COMPUTE = 0x00000006;
+				static const GLenum ALL_GRAPHICS = 0x00000007;
+				static const GLenum ALL = 0x00000008;
+			#else
+				static const GLenum VERTEX = GL_VERTEX_SHADER;
+				static const GLenum TESSELLATION_CONTROL = GL_TESS_CONTROL_SHADER;
+				static const GLenum TESSELLATION_EVALUATION = GL_TESS_EVALUATION_SHADER;
+				static const GLenum GEOMETRY = GL_GEOMETRY_SHADER;
+				static const GLenum FRAGMENT = GL_FRAGMENT_SHADER;
+				static const GLenum COMPUTE = GL_COMPUTE_SHADER;
 				static const GLenum ALL_GRAPHICS = GLenumerator(VK_SHADER_STAGE_ALL_GRAPHICS);
 				static const GLenum ALL = GLenumerator(VK_SHADER_STAGE_ALL);
+			#endif
 			}
 			namespace PrimitiveTopology {
 				typedef GLenum type_t;
@@ -85,15 +96,15 @@ namespace ext {
 			}
 			namespace Buffer {
 				typedef GLenum type_t;
-				static const GLenum TRANSFER_SRC = GLenumerator(VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-				static const GLenum TRANSFER_DST = GLenumerator(VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-				static const GLenum UNIFORM_TEXEL = GLenumerator(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT);
-				static const GLenum STORAGE_TEXEL = GLenumerator(VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
-				static const GLenum UNIFORM = GLenumerator(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-				static const GLenum STORAGE = GLenumerator(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-				static const GLenum INDEX = GLenumerator(VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-				static const GLenum VERTEX = GLenumerator(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-				static const GLenum INDIRECT = GLenumerator(VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+				static const GLenum TRANSFER_SRC = 0x00000001;
+				static const GLenum TRANSFER_DST = 0x00000002;
+				static const GLenum UNIFORM_TEXEL = 0x00000004;
+				static const GLenum STORAGE_TEXEL = 0x00000008;
+				static const GLenum UNIFORM = 0x00000010;
+				static const GLenum STORAGE = 0x00000020;
+				static const GLenum INDEX = 0x00000040;
+				static const GLenum VERTEX = 0x00000080;
+				static const GLenum INDIRECT = 0x00000100;
 			}
 		}
 	}

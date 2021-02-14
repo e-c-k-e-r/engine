@@ -10,6 +10,8 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/engine/scene/scene.h>
+#include <uf/utils/math/transform.h>
+#include <uf/utils/camera/camera.h>
 
 #include <uf/ext/openvr/openvr.h>
 
@@ -51,23 +53,144 @@ void ext::opengl::RenderMode::bindGraphicPushConstants( ext::opengl::Graphic* po
 }
 
 void ext::opengl::RenderMode::createCommandBuffers() {
+	if ( this->getName() != "" ) return;
 	this->execute = true;
 
-	std::vector<ext::opengl::Graphic*> graphics;
+	this->synchronize();
+
+	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
+	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
+	
+#if 0
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glViewport(0, 0, ext::opengl::settings::width, ext::opengl::settings::height);	
+
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		gluPerspective(90.0f,(GLfloat) ext::opengl::settings::width / (GLfloat) ext::opengl::settings::height, 0.1f, 100.0f);
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glTranslatef(-1.5f,0.0f,-6.0f);
+		glBegin(GL_POLYGON);
+			glColor3f(1.0f,0.0f,0.0f);
+			glVertex3f( 0.0f, 1.0f, 0.0f);
+			glColor3f(0.0f,1.0f,0.0f);
+			glVertex3f( 1.0f,-1.0f, 0.0f);
+			glColor3f(0.0f,0.0f,1.0f);
+			glVertex3f(-1.0f,-1.0f, 0.0f);
+		glEnd();
+		glTranslatef(3.0f,0.0f,0.0f);
+		glBegin(GL_QUADS);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f(-1.0f, 1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f( 1.0f, 1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f( 1.0f,-1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f(-1.0f,-1.0f, 0.0f);
+		glEnd();
+#endif
+#if 1
+	auto& commands = getCommands();
+	commands.flush();
+	commands.record([]{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	});
+	commands.record([]{
+		glViewport(0, 0, ext::opengl::settings::width, ext::opengl::settings::height);	
+
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		gluPerspective(90.0f,(GLfloat) ext::opengl::settings::width / (GLfloat) ext::opengl::settings::height, 0.1f, 100.0f);
+
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+	});
+	commands.record([]{
+		glTranslatef(-1.5f,0.0f,-6.0f);
+		glBegin(GL_POLYGON);
+			glColor3f(1.0f,0.0f,0.0f);
+			glVertex3f( 0.0f, 1.0f, 0.0f);
+			glColor3f(0.0f,1.0f,0.0f);
+			glVertex3f( 1.0f,-1.0f, 0.0f);
+			glColor3f(0.0f,0.0f,1.0f);
+			glVertex3f(-1.0f,-1.0f, 0.0f);
+		glEnd();
+	});
+	commands.record([]{
+		glTranslatef(3.0f,0.0f,0.0f);
+		glBegin(GL_QUADS);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f(-1.0f, 1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f( 1.0f, 1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f( 1.0f,-1.0f, 0.0f);
+			glColor3f(0.5f,0.5f,1.0f);
+			glVertex3f(-1.0f,-1.0f, 0.0f);
+		glEnd();
+	});
+#endif
+#if 0
+	auto& commands = getCommands();
+	commands.flush();
+	std::vector<uf::Entity*> entities;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized || !graphic.process ) return;
-		graphics.push_back(&graphic);
+		if ( !graphic.initialized || !graphic.process || graphic.descriptor.renderMode != this->getName() ) return;
+		entities.emplace_back(entity);
 	};
+	size_t currentDraw = 0;
+	size_t currentPass = 0;
+	size_t currentSubpass = 0;
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process(filter);
-	}
+		
+		auto& controller = scene->getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+		auto& sceneMetadata = scene->getComponent<uf::Serializer>();
+		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
+			auto& v = sceneMetadata["system"]["renderer"]["clear values"][0];
+			commands.record([=](){
+				glClearColor(v[0].as<float>(), v[1].as<float>(), v[2].as<float>(), v[3].as<float>());
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			});
+		}
 
-	this->synchronize();
+		auto& view = camera.getView();
+		auto& projection = camera.getProjection();
+		
+		commands.record([=](){
+			glMatrixMode(GL_PROJECTION);
+			glLoadIdentity();
+			glLoadMatrixf( &projection[0] );
+		});
+
+		for ( auto* pointer : entities ) {
+			uf::Object& entity = pointer->as<uf::Object>();
+			auto& graphic = entity.getComponent<uf::Graphic>();
+
+			auto& transform = entity.getComponent<pod::Transform<>>();
+			auto model = view * uf::transform::model( transform );
+			commands.record([=](){
+				glMatrixMode(GL_MODELVIEW);
+				glLoadIdentity();
+				glLoadMatrixf( &model[0] );
+			});
+
+			auto descriptor = bindGraphicDescriptor(graphic.descriptor, currentSubpass);
+			graphic.record( commands, descriptor, currentPass, currentDraw++ );
+		}
+		entities.clear();
+	}
+#endif
+//	std::cout << "Recording | " << this->getName() << ": " << this->getType() << " | Commands: " << commands.size() << std::endl;
 //	bindPipelines( graphics );
-	createCommandBuffers( graphics );
+//	createCommandBuffers( graphics );
 	this->mostRecentCommandPoolId = std::this_thread::get_id();
 	this->rebuild = false;
 }
@@ -117,6 +240,15 @@ void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Grap
 }
 
 void ext::opengl::RenderMode::render() {
+#if UF_ENV_DREAMCAST
+	glKosSwapBuffers();
+#else
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	commands.submit();
+	if (device && device->context && device->context->setActive(true)) {
+		device->context->display();
+	}
+#endif
 }
 
 void ext::opengl::RenderMode::initialize( Device& device ) {
@@ -136,7 +268,9 @@ void ext::opengl::RenderMode::tick() {
 
 void ext::opengl::RenderMode::destroy() {
 	this->synchronize();
-
+	for ( auto& pair : this->commands.container() ) {
+		pair.second.flush();
+	}
 	renderTarget.destroy();
 }
 void ext::opengl::RenderMode::synchronize( uint64_t timeout ) {

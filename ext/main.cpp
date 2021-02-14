@@ -54,7 +54,7 @@ namespace {
 		std::ofstream output;
 
 		struct {
-			std::string output = "./data/logs/output.txt";
+			std::string output = uf::io::root+"/logs/output.txt";
 		} filenames;
 	} io;
 
@@ -84,7 +84,7 @@ namespace {
 
 		struct {
 			bool exists = false;
-			std::string filename = "./data/config.json";
+			std::string filename = uf::io::root+"/config.json";
 		} file;
 		/* Read from file */  {
 			file.exists = config.file.readFromFile(file.filename);
@@ -174,6 +174,7 @@ void EXT_API ext::initialize() {
 	/* Read persistent data */ {
 		// #include "./inits/persistence.inl"
 	}
+#if UF_USE_LUA
 	/* Lua */ {
 		ext::lua::main = ::config["engine"]["ext"]["lua"]["main"].as<std::string>();
 		for ( auto it  = ::config["engine"]["ext"]["lua"]["modules"].begin(); it != ::config["engine"]["ext"]["lua"]["modules"].end(); ++it ) {
@@ -182,10 +183,12 @@ void EXT_API ext::initialize() {
 		}
 		ext::lua::initialize();
 	}
+#endif
+#if UF_USE_BULLET
 	/* Bullet */ {
 		ext::bullet::initialize();
 	}
-
+#endif
 	/* Parse config */ {
 		/* Set memory pool sizes */ {
 			auto deduceSize = []( const ext::json::Value& value )->size_t{
@@ -273,7 +276,7 @@ void EXT_API ext::initialize() {
 			::config["engine"]["threads"]["workers"] = threads;
 			uf::iostream << "Using " << threads << " worker threads" << "\n";
 		}
-
+#if UF_USE_BULLET
 		// set bullet parameters
 		ext::bullet::debugDrawEnabled = ::config["engine"]["ext"]["bullet"]["debug draw"]["enabled"].as<bool>();
 		ext::bullet::debugDrawRate = ::config["engine"]["ext"]["bullet"]["debug draw"]["rate"].as<float>();
@@ -286,7 +289,7 @@ void EXT_API ext::initialize() {
 		if ( ::config["engine"]["ext"]["bullet"]["timescale"].as<float>() ) {
 			ext::bullet::timescale = ::config["engine"]["ext"]["bullet"]["timescale"].as<float>();
 		}
-		
+#endif
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 		// Enable valiation layer
 		uf::renderer::settings::validation = ::config["engine"]["ext"]["vulkan"]["validation"]["enabled"].as<bool>();
@@ -341,9 +344,8 @@ void EXT_API ext::initialize() {
 		JSON_TO_VKFORMAT(normal);
 		JSON_TO_VKFORMAT(position);
 
-		
+	#if UF_USE_OPENVR
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].as<bool>();
-		
 		ext::openvr::swapEyes = ::config["engine"]["ext"]["vr"]["swap eyes"].as<bool>();
 		
 		
@@ -358,6 +360,7 @@ void EXT_API ext::initialize() {
 		if ( ext::openvr::enabled ) {
 			::config["engine"]["render modes"]["stereo deferred"] = true;
 		}
+	#endif
 	}
 
 	
@@ -393,6 +396,7 @@ void EXT_API ext::initialize() {
 				renderMode.metadata["eyes"] = 2;
 			}
 		}
+	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled ) {
 			ext::openvr::initialize();
 		
@@ -413,7 +417,7 @@ void EXT_API ext::initialize() {
 				uf::iostream << "VR Resolution: " << renderMode.width << ", " << renderMode.height << "\n";
 			}
 		}
-
+	#endif
 	#if UF_USE_VULKAN
 		/* Callbacks for 2KHR stuffs */ if ( false ) {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
@@ -460,10 +464,12 @@ void EXT_API ext::initialize() {
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
 	}
 	
+#if UF_USE_DISCORD
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enabled"].as<bool>() ) {
 		ext::discord::initialize();
 	}
-	
+#endif
+#if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		if ( ::config["engine"]["ext"]["ultralight"]["scale"].is<double>() ) {
 			ext::ultralight::scale = ::config["engine"]["ext"]["ultralight"]["scale"].as<double>();
@@ -473,7 +479,7 @@ void EXT_API ext::initialize() {
 		}
 		ext::ultralight::initialize();
 	}
-
+#endif
 //	#define DEBUG_PRINT() std::cout << __FILE__ << ":" __FUNCTION__ << "@" << __LINE__ << std::endl;	
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
@@ -532,10 +538,11 @@ void EXT_API ext::tick() {
 		times.deltaTime = times.curTime - times.prevTime;
 	}
 
+#if UF_USE_OPENVR
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::tick();
 	}
-
+#endif
 	/* Print Entity Information */  {
 		TIMER(1, uf::Window::isKeyPressed("P") && ) {
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
@@ -582,6 +589,8 @@ void EXT_API ext::tick() {
 	/* Update physics timer */ {
 		uf::physics::tick();
 	}
+
+#if UF_USE_BULLET
 	/* Update bullet */ {
 		if ( ::config["engine"]["ext"]["bullet"]["multithreaded"].as<bool>() ) {
 			uf::thread::add( bulletThread, [&]() -> int { ext::bullet::tick(); return 0;}, true );
@@ -589,7 +598,7 @@ void EXT_API ext::tick() {
 			ext::bullet::tick();
 		}
 	}
-
+#endif
 	/* Update entities */ {
 		uf::scene::tick();
 	}
@@ -610,18 +619,19 @@ void EXT_API ext::tick() {
 			}
 		}
 	}
-
+#if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::tick();
 	}
-
+#endif
 	/* Update vulkan */ {
 		uf::renderer::tick();
 	}
+#if UF_USE_DISCORD
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enable"].as<bool>() ) {
 		ext::discord::tick();
 	}
-
+#endif
 	/* FPS Print */ if ( ::config["engine"]["debug"]["framerate"]["print"].as<bool>() ) {
 		++::times.frames;
 		double every = ::config["engine"]["debug"]["framerate"]["every"].as<double>();
@@ -652,39 +662,45 @@ void EXT_API ext::tick() {
 }
 void EXT_API ext::render() {
 
+#if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::render();
 	}
+#endif
+#if UF_USE_OPENVR
 	if ( ext::openvr::context ) {
 		vr::VRCompositor()->SubmitExplicitTimingData();
 	}
-
+#endif
 	/* Render scene */ {
 		uf::renderer::render();
 	}
-
+#if UF_USE_OPENVR
 	if ( ext::openvr::context ) {
 		ext::openvr::synchronize();
 		ext::openvr::submit();
 	}
+#endif
 }
 void EXT_API ext::terminate() {
 	/* Kill threads */ {
 		uf::thread::terminate();
 	}
-
+#if UF_USE_BULLET
 	/* Kill bullet */ {
 		ext::bullet::terminate();
 	}
-
+#endif
+#if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::terminate();
 	}
-
+#endif
+#if UF_USE_OPENVR
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::terminate();
 	}
-	
+#endif
 	uf::scene::destroy();
 
 	/* Garbage collection */ if ( false ) {
@@ -710,7 +726,7 @@ void EXT_API ext::terminate() {
 	/* Write persistent data */ if ( false ) {
 		struct {
 			bool exists = false;
-			std::string filename = "./data/persistent.json";
+			std::string filename = uf::io::root+"/persistent.json";
 		} file;
 		struct {
 			uf::Serializer file;
@@ -736,7 +752,7 @@ std::string EXT_API ext::getConfig() {
 
 	struct {
 		bool exists = false;
-		std::string filename = "./data/config.json";
+		std::string filename = uf::io::root+"/config.json";
 	} file;
 	/* Read from file */  {
 		file.exists = config.file.readFromFile(file.filename);

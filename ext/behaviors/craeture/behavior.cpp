@@ -125,7 +125,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 			metadata["timers"]["hurt"] = timer.elapsed().asDouble() + 1.0f;
 			uf::Scene& scene = uf::scene::getCurrentScene();
 			uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-			assetLoader.cache("./data/audio/battle/hurt.ogg", "asset:Cache.Sound." + std::to_string(this->getUid()));
+			assetLoader.cache(uf::io::root+"/audio/battle/hurt.ogg", "asset:Cache.Sound." + std::to_string(this->getUid()));
 		}
 	});
 	this->addHook( "world:Craeture.Hurt.%UID%", [&](ext::json::Value& json){

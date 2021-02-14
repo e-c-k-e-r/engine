@@ -13,6 +13,7 @@ namespace ext {
 		struct /*UF_API*/ VertexDescriptor {
 			ext::RENDERER::enums::Format::type_t format; // VK_FORMAT_R32G32B32_SFLOAT
 			size_t offset; // offsetof(Vertex, position)
+			std::string name;
 		};
 	}
 }
@@ -69,3 +70,12 @@ namespace ext {
 }
 
 #undef UF_RENDERER
+#define UF_VERTEX_DESCRIPTION( TYPE, FORMAT, ATTRIBUTE ) {\
+		uf::renderer::enums::Format::FORMAT,\
+		offsetof(TYPE, ATTRIBUTE),\
+		#ATTRIBUTE\
+	},
+
+#define UF_VERTEX_DESCRIPTOR( TYPE, ... )\
+	std::vector<uf::renderer::VertexDescriptor> TYPE::descriptor = { __VA_ARGS__ };
+	

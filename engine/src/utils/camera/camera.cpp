@@ -3,7 +3,11 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
-bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = true;\
+#if UF_USE_VULKAN
+	bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = true;
+#else
+	bool uf::Camera::USE_REVERSE_INFINITE_PROJECTION = false;
+#endif
 
 uf::Camera::Camera() : m_modified(false) {
 	this->m_settings.perspective.fov = 100;
@@ -239,6 +243,7 @@ void uf::Camera::update(bool override) {
 }
 void uf::Camera::updateView() {
 	auto& transform = this->getTransform();
+#if UF_USE_OPENVR
 	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
 		transform.orientation = uf::quaternion::identity();
 		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( transform, false, 1 ) );
@@ -247,17 +252,21 @@ void uf::Camera::updateView() {
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Left, view ), 0 );
 		this->setView( ext::openvr::hmdViewMatrix(vr::Eye_Right, view ), 1 );
 	} else {
+#else
+	{
+#endif
 		pod::Matrix4t<> view = uf::matrix::inverse( uf::transform::model( transform, false, 1 ) );
 		this->setView( view );
 	}
 }
 void uf::Camera::updateProjection() {
+#if UF_USE_OPENVR
 	if ( this->m_settings.stereoscopic && ext::openvr::context ) {
 		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Left, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 0 );
 		this->setProjection( ext::openvr::hmdProjectionMatrix( vr::Eye_Right, this->m_settings.perspective.bounds.x, this->m_settings.perspective.bounds.y ), 1 );
 		return;
 	}
-
+#endif
 	if ( this->m_settings.mode < 0 ) {
 		// Maintain aspect ratio
 		if ( this->m_settings.ortho.lr.x == this->m_settings.ortho.bt.x && this->m_settings.ortho.lr.y == this->m_settings.ortho.bt.y && this->m_settings.ortho.bt.x == -this->m_settings.ortho.bt.y ) {
@@ -280,12 +289,34 @@ void uf::Camera::updateProjection() {
 	}
 	float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);
 	float raidou = (float) this->m_settings.perspective.size.x / (float) this->m_settings.perspective.size.y;
-	float f = 1.0f / tan( 0.5f * fov );
-	
-	this->setProjection({
-		f / raidou, 	0.0f, 	 0.0f, 	0.0f,
-		0.0f, 			-f, 	 0.0f, 	0.0f,
-		0.0f,       	0.0f,    0.0f, 	1.0f,
-		0.0f,       	0.0f,   this->m_settings.perspective.bounds.x, 	0.0f
-	});
+	if ( USE_REVERSE_INFINITE_PROJECTION ) {
+		float f = 1.0f / tan( 0.5f * fov );
+		
+		this->setProjection({
+			f / raidou, 	0.0f, 	 0.0f, 	0.0f,
+			0.0f, 			-f, 	 0.0f, 	0.0f,
+			0.0f,       	0.0f,    0.0f, 	1.0f,
+			0.0f,       	0.0f,   this->m_settings.perspective.bounds.x, 	0.0f
+		});
+	} else {
+		pod::Vector2& size = this->m_settings.perspective.size;
+		float lower = this->m_settings.perspective.bounds.x;
+		float upper = this->m_settings.perspective.bounds.y;
+		float raidou = (float) size.x / (float) size.y;
+		float fov = this->m_settings.perspective.fov * (3.14159265358 / 180.0);
+		float range = lower - upper;
+		float f = tanf( fov / 2.0 );
+
+		float Sx = 1.0 / (f * raidou);
+		float Sy = 1.0 / f;
+		float Sz = (-lower - upper) / range;
+		float Pz = 2.0 * upper * lower / range;
+
+		this->setProjection({
+			Sx, 	 0, 	 0, 	  0,
+			 0, 	Sy, 	 0, 	  0,
+			 0, 	 0, 	Sz, 	  1,
+			 0, 	 0, 	Pz, 	  0
+		});
+	}
 }

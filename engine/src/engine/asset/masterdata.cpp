@@ -2,7 +2,7 @@
 #include <iostream>
 
 //std::string uf::MasterData::root = "https://el..xyz/mastertable/get/%TABLE%/%KEY%?.json";
-std::string uf::MasterData::root = "./data/master/%TABLE%.json";
+std::string uf::MasterData::root = uf::io::root + "/master/%TABLE%.json";
 uf::Asset uf::MasterData::assetLoader;
 
 uf::Serializer uf::MasterData::load( const std::string& table, size_t key ) {

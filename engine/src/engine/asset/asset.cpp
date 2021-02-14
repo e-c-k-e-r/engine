@@ -99,7 +99,7 @@ std::string uf::Asset::cache( const std::string& uri, const std::string& hash ) 
 	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
-		std::string cached = "./data/cache/" + hash + "." + extension;
+		std::string cached = uf::io::root + "/cache/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			uf::iostream << "Failed to preload `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";
@@ -122,7 +122,7 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash ) {
 	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
-		std::string cached = "./data/cache/" + hash + "." + extension;
+		std::string cached = uf::io::root + "/cache/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			uf::iostream << "Failed to load `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";
@@ -158,9 +158,11 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash ) {
 	} else if ( extension == "json" ) {
 		UF_ASSET_REGISTER(uf::Serializer)
 		asset.readFromFile(filename);
+	#if UF_USE_LUA
 	} else if ( extension == "lua" ) {
 		UF_ASSET_REGISTER(pod::LuaScript)
 		asset = ext::lua::script( filename );
+	#endif
 	} else if ( extension == "gltf" || extension == "glb" ) {
 		UF_ASSET_REGISTER(pod::Graph)
 		auto& metadata = this->getComponent<uf::Serializer>();

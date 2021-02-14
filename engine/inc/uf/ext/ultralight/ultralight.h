@@ -1,11 +1,13 @@
 #pragma once
 
 #include <uf/config.h>
+#if UF_USE_ULTRALIGHT
 
 #include <string>
 #include <vector>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/image/image.h>
+#include <uf/utils/string/io.h>
 
 #include <Ultralight/CAPI.h>
 
@@ -42,3 +44,4 @@ namespace ext {
 		uf::Image UF_API capture( pod::HTML& );
 	}
 }
+#endif

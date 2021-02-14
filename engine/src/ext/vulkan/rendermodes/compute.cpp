@@ -42,7 +42,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 		compute.material.device = &device;
 		compute.descriptor.renderMode = this->getName();
 		compute.material.initializeShaders({
-			{"./data/shaders/raytracing.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT},
+			{uf::io::root+"/shaders/raytracing.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT},
 		});
 
 		for ( size_t i = 0; i < (ext::openvr::context ? 2 : 1); ++i ) {
@@ -96,8 +96,8 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 
 		blitter.initializeGeometry( mesh );
 		blitter.material.initializeShaders({
-			{"./data/shaders/display.blit.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/display.blit.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			{uf::io::root+"/shaders/display.blit.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{uf::io::root+"/shaders/display.blit.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 		for ( auto& computeTexture : compute.material.textures ) {
 			Texture2D& texture = blitter.material.textures.emplace_back();

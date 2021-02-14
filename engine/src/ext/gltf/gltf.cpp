@@ -295,7 +295,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
 
 			if ( graph.metadata["dump images"].as<bool>() ) {
-				std::string target = "./data/dump/" + uf::string::sha256(filename) + "." + std::to_string(_i++) + ".png";
+				std::string target = uf::io::root + "/dump/" + uf::string::sha256(filename) + "." + std::to_string(_i++) + ".png";
 				image.save( target );
 			}
 		}

@@ -6,7 +6,8 @@ uf::thread::container_t uf::thread::threads;
 double uf::thread::limiter = 1.0f / 120.0f;
 uint uf::thread::workers = 1;
 
-#define UF_THREAD_ANNOUNCE 0
+#define UF_THREAD_ANNOUNCE(x)\
+	//uf::iostream << x << "\n";
 
 void UF_API uf::thread::start( pod::Thread& thread ) { if ( thread.running ) return;
 	thread.thread = std::thread( uf::thread::tick, std::ref(thread) );
@@ -23,13 +24,14 @@ void UF_API uf::thread::quit( pod::Thread& thread ) { // if ( !thread.running ) 
 void UF_API uf::thread::tick( pod::Thread& thread ) {
 /*
 	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
-	if ( !res ) if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")" << "\n";
+	if ( !res ) UF_THREAD_ANNOUNCE("Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")");
 	if ( !thread.timer.running() ) thread.timer.start();
 */
+#if !UF_ENV_DREAMCAST
 	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
-	if ( !res ) if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")" << "\n";
-	if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Starting Thread #" << thread.uid << " (" << thread.name << " on ID " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)" << "\n";
-
+	if ( !res ) UF_THREAD_ANNOUNCE("Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")");
+#endif
+	UF_THREAD_ANNOUNCE("Starting Thread #" << thread.uid << " (" << thread.name << " on ID " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)");
 	thread.timer.start();
 	
 	while ( thread.running ) {
@@ -91,7 +93,7 @@ void UF_API uf::thread::add( pod::Thread& thread, const pod::Thread::function_t&
 	temporary ? thread.temps.push( function ) : thread.consts.push_back( function );
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
-void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Bad Thread: " << thread.uid << " " << thread.name << "\n"; return; } //ops
+void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { UF_THREAD_ANNOUNCE("Bad Thread: " << thread.uid << " " << thread.name); return; } //ops
 /*
 	std::function<int()> temps = [&] {
 		int i = 0;
@@ -120,20 +122,28 @@ void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(u
 	size_t consts = 0;
 	while ( !thread.temps.empty() ) {
 		auto& function = thread.temps.front();
+	#if UF_NO_EXCEPTIONS
+		if ( function ) function();
+	#else
 		if ( function ) try {
 			function();
 		} catch ( std::exception& e ) {
 			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
 		}
+	#endif
 		thread.temps.pop();
 		++temps;
 	}
 	for ( auto function : thread.consts ) {
+	#if UF_NO_EXCEPTIONS
+		if ( function ) function();
+	#else
 		if ( function ) try {
 			function();
 		} catch ( std::exception& e ) {
 			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
 		}
+	#endif
 		++consts;
 	}
 	thread.condition.notify_one();
@@ -188,7 +198,7 @@ pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, boo
 	thread.limiter = uf::thread::limiter;
 	thread.affinity = (thread.uid % limit) + 1;
 
-	if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Creating Thread #" << thread.uid << " (" << name << ") " << &thread << " (Affinity: " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)"<< "\n";
+	UF_THREAD_ANNOUNCE("Creating Thread #" << thread.uid << " (" << name << ") " << &thread << " (Affinity: " << thread.affinity << ") (Limiter: " << (1.0f / thread.limiter) << " FPS)");
 
 	if ( start ) uf::thread::start( thread );
 
@@ -197,9 +207,9 @@ pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, boo
 void UF_API uf::thread::destroy( pod::Thread& thread ) {
 	if ( !uf::thread::has( uf::thread::uid(thread) ) ) return; // oops
 
-	if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Quitting Thread #" << thread.uid << " (" << thread.name << ")" << "\n";
+	UF_THREAD_ANNOUNCE("Quitting Thread #" << thread.uid << " (" << thread.name << ")");
 	uf::thread::quit( thread );
-	if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Quitted Thread #" << thread.uid << " (" << thread.name << ")" << "\n";
+	UF_THREAD_ANNOUNCE("Quitted Thread #" << thread.uid << " (" << thread.name << ")");
 
 	if ( thread.mutex != NULL ) delete thread.mutex;
 
@@ -220,9 +230,13 @@ bool UF_API uf::thread::has( const std::string& name ) {
 }
 pod::Thread& UF_API uf::thread::get( uint uid ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::uid(*thread) == uid ) return *thread;
+#if !UF_NO_EXCEPTIONS
 	throw std::string("invalid call to uf::thread::get");
+#endif
 }
 pod::Thread& UF_API uf::thread::get( const std::string& name ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return *thread;
+#if !UF_NO_EXCEPTIONS
 	throw std::string("invalid call to uf::thread::get");
+#endif
 }

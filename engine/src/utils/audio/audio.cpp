@@ -28,20 +28,31 @@ uf::Audio::~Audio() {
 }
 
 bool UF_API uf::Audio::initialized() {
+#if UF_USE_OPENAL
 	if ( !this->m_source.getIndex() ) return false;
 	if ( !this->m_buffer.getIndex() ) return false;
 	return true;
+#else
+	return false;
+#endif
 }
 void UF_API uf::Audio::destroy() {
+#if UF_USE_OPENAL
 	this->m_source.destroy();
 	this->m_buffer.destroy();
+#endif
 }
 bool UF_API uf::Audio::playing() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return false;
 	if ( !this->m_source.playing() ) return false;
 	return true;
+#else
+	return false;
+#endif
 }
 void UF_API uf::Audio::load( const std::string& filename ) {
+#if UF_USE_OPENAL
 	if ( uf::Audio::mute ) return;
 	if ( this->initialized() ) this->destroy();
 	if ( filename != "" ) this->m_filename = filename;
@@ -69,15 +80,20 @@ void UF_API uf::Audio::load( const std::string& filename ) {
 	AL_CHECK_ERROR(this->m_source.source( "PITCH", std::vector<ALfloat>{ 1 } ));
 	AL_CHECK_ERROR(this->m_source.source( "GAIN", std::vector<ALfloat>{ 1 } ));
 	AL_CHECK_ERROR(this->m_source.source( "LOOPING", std::vector<ALint>{ AL_FALSE } ));
+#endif
 }
 
 void UF_API uf::Audio::play() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
 	this->m_source.play();
+#endif
 }
 void UF_API uf::Audio::stop() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
 	this->m_source.stop();
+#endif
 }
 const std::string& UF_API uf::Audio::getFilename() const {
 	return this->m_filename;
@@ -93,75 +109,111 @@ float uf::Audio::getDuration() const {
 }
 
 ALfloat UF_API uf::Audio::getTime() {
+#if UF_USE_OPENAL
 	if ( !this->playing() ) return 0;
 	ALfloat pos; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_SEC_OFFSET,  &pos ));
 	return pos;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setTime( ALfloat pos ) { 
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
-    this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
+	this->m_source.source("SEC_OFFSET", std::vector<ALfloat>{ pos } ); 
+#endif
 }
 
 ALfloat UF_API uf::Audio::getPitch() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return 0;
 	ALfloat pitch; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_PITCH,  &pitch ));
 	return pitch;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setPitch( ALfloat pitch ) { 
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
-    this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
+	this->m_source.source("PITCH", std::vector<ALfloat>{ pitch } ); 
+#endif
 }
 
 ALfloat UF_API uf::Audio::getGain() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return 0;
 	ALfloat gain; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &gain ));
 	return gain;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setGain( ALfloat gain ) { 
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
-    this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
+	this->m_source.source("GAIN", std::vector<ALfloat>{ gain } ); 
+#endif
 }
 
 ALfloat UF_API uf::Audio::getRolloffFactor() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return 0;
 	ALfloat rolloffFactor; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_ROLLOFF_FACTOR,  &rolloffFactor ));
 	return rolloffFactor;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setRolloffFactor( ALfloat rolloffFactor ) { 
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
-    this->m_source.source("ROLLOFF_FACTOR", std::vector<ALfloat>{ rolloffFactor } ); 
+	this->m_source.source("ROLLOFF_FACTOR", std::vector<ALfloat>{ rolloffFactor } ); 
+#endif
 }
 
 ALfloat UF_API uf::Audio::getMaxDistance() {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return 0;
 	ALfloat maxDistance; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_MAX_DISTANCE,  &maxDistance ));
 	return maxDistance;
+#else
+	return 0;
+#endif
 }
 void UF_API uf::Audio::setMaxDistance( ALfloat maxDistance ) { 
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
-    this->m_source.source("MAX_DISTANCE", std::vector<ALfloat>{ maxDistance } ); 
+	this->m_source.source("MAX_DISTANCE", std::vector<ALfloat>{ maxDistance } ); 
+#endif
 }
 
 void UF_API uf::Audio::setPosition( const pod::Vector3& position ) {
+#if UF_USE_OPENAL
 	if ( !this->initialized() ) return;
 	this->m_source.source("POSITION", std::vector<ALfloat>{position.x, position.y, position.z} );
+#endif
 }
 void UF_API uf::Audio::setOrientation( const pod::Quaternion<>& orientation ) {
 
 }
 
 void UF_API uf::Audio::setVolume( float volume ) {
+#if UF_USE_OPENAL
 	this->m_source.source("GAIN", std::vector<ALfloat>{volume} );
+#endif
 }
 float UF_API uf::Audio::getVolume() const {
+#if UF_USE_OPENAL
 	ALfloat pos; 
 	AL_CHECK_ERROR(alGetSourcef(this->m_source.getIndex(), AL_GAIN,  &pos ));	
 	return pos;
+#endif
 }
 //
 

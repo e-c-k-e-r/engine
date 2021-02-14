@@ -1,5 +1,5 @@
 #include <uf/ext/lua/lua.h>
-
+#if UF_USE_LUA
 #include <uf/utils/math/transform.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/camera/camera.h>
@@ -162,3 +162,4 @@ namespace {
 		});
 	});
 }
+#endif

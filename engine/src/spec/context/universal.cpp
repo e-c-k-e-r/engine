@@ -4,7 +4,6 @@
 #include <cmath>
 #include <set>
 
-#if defined(UF_USE_OPENGL) && UF_USE_OPENGL == 1
 namespace {
 	// This per-thread variable holds the current context for each thread
 	// sf::ThreadLocalPtr<spec::Context> currentContext(NULL);
@@ -139,5 +138,3 @@ int UF_API_CALL spec::uni::Context::evaluateFormat( const spec::uni::Context::Se
 		   std::abs(int(settings.stencilBits	   - stencilBits)) +
 		   std::abs(int(settings.antialiasingLevel - antialiasing));
 }
-#else
-#endif

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#if defined(UF_USE_VORBIS)
+#if UF_USE_VORBIS
 
 #include <vorbis/vorbisfile.h>
 

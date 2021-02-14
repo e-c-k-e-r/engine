@@ -16,6 +16,8 @@
 	#define GetCurrentDir getcwd
 #endif
 
+const std::string uf::io::root = UF_IO_ROOT;
+
 std::string UF_API uf::io::absolute( const std::string& path ) {
 	char buff[FILENAME_MAX];
 	GetCurrentDir( buff, FILENAME_MAX );
@@ -101,18 +103,18 @@ std::string UF_API uf::io::resolveURI( const std::string& filename, const std::s
 	if ( filename.substr(0,8) == "https://" ) return filename;
 	std::string extension = uf::io::extension(filename);
 	// just sanitize
-	if ( filename.find("./data/") == 0 )
+	if ( filename.find(uf::io::root) == 0 )
 		return uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) );
 	// if the filename contains an absolute path or if no root is provided
 	if ( filename[0] == '/' || root == "" ) {
-		if ( filename.substr(0,9) == "/smtsamo/" ) root = "./data/";
-		else if ( extension == "json" ) root = "./data/entities/";
-		else if ( extension == "png" ) root = "./data/textures/";
-		else if ( extension == "glb" ) root = "./data/models/";
-		else if ( extension == "gltf" ) root = "./data/models/";
-		else if ( extension == "ogg" ) root = "./data/audio/";
-		else if ( extension == "spv" ) root = "./data/shaders/";
-		else if ( extension == "lua" ) root = "./data/scripts/";
+		if ( filename.substr(0,9) == "/smtsamo/" ) root = uf::io::root;
+		else if ( extension == "json" ) root = uf::io::root + "/entities/";
+		else if ( extension == "png" ) root = uf::io::root + "/textures/";
+		else if ( extension == "glb" ) root = uf::io::root + "/models/";
+		else if ( extension == "gltf" ) root = uf::io::root + "/models/";
+		else if ( extension == "ogg" ) root = uf::io::root + "/audio/";
+		else if ( extension == "spv" ) root = uf::io::root + "/shaders/";
+		else if ( extension == "lua" ) root = uf::io::root + "/scripts/";
 	}
 	return uf::io::sanitize(filename, root);
 }

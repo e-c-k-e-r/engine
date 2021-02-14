@@ -1,10 +1,13 @@
 #pragma once
 
 #include <uf/config.h>
+
+#if UF_USE_OPENVR
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/math/quaternion.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
+
 #ifdef USE_OPENVR_MINGW
 	#include <openvr/openvr_mingw.hpp>
 #else
@@ -78,3 +81,4 @@ namespace ext {
 	*/
 	}
 }
+#endif

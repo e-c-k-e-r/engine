@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-
+#if UF_USE_LUA
 #define SOL_LUAJIT 1
 #define SOL_USING_CXX_LUA_JIT 1
 #define SOL_NO_EXCEPTIONS 1
@@ -43,3 +43,4 @@ namespace ext {
 }
 
 #include "lua.inl"
+#endif

@@ -3,7 +3,7 @@
 /* Read persistent data */ if ( false ) {
 	struct {
 		bool exists = false;
-		std::string filename = "./data/persistent.json";
+		std::string filename = uf::io::root+"/persistent.json";
 	} file;
 	struct {
 		uf::Serializer file;

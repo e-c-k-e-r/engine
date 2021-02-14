@@ -5,7 +5,7 @@
 
 namespace ext {
 	namespace opengl {
-		struct UF_API RenderTargetRenderMode : RenderMode {
+		struct UF_API RenderTargetRenderMode : public RenderMode {
 			ext::opengl::Graphic blitter;		
 			//
 			const std::string getTarget() const;

@@ -5,7 +5,7 @@
 
 namespace ext {
 	namespace opengl {
-		struct UF_API ComputeRenderMode : RenderMode {
+		struct UF_API ComputeRenderMode : public RenderMode {
 			ext::opengl::Graphic blitter, compute;
 			pod::Vector2ui dispatchSize = { 32, 32 };
 

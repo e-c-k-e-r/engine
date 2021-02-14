@@ -12,8 +12,8 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 			int32_t vertexBuffer = -1;
 			int32_t indexBuffer = -1;
 			for ( size_t i = 0; i < buffers.size(); ++i ) {
-				if ( buffers[i].usageFlags & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT ) vertexBuffer = i;
-				if ( buffers[i].usageFlags & VK_BUFFER_USAGE_INDEX_BUFFER_BIT ) indexBuffer = i;
+				if ( buffers[i].usageFlags & uf::renderer::enums::Buffer::VERTEX ) vertexBuffer = i;
+				if ( buffers[i].usageFlags & uf::renderer::enums::Buffer::INDEX ) indexBuffer = i;
 			}
 
 			if ( vertexBuffer > 0 && indexBuffer > 0 ) {
@@ -31,10 +31,12 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 			}
 		}
 		// can't reuse buffers, re-create buffers
+	/*
 		{
 			for ( auto& buffer : buffers ) buffer.destroy();
 			buffers.clear();
 		}
+	*/
 	}
 
 	descriptor.geometry = mesh;
@@ -43,11 +45,11 @@ void ext::vulkan::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 	initializeBuffer(
 		(void*) mesh.vertices.data(),
 		mesh.vertices.size() * mesh.sizes.vertex,
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+		uf::renderer::enums::Buffer::VERTEX
 	);
 	initializeBuffer(
 		(void*) mesh.indices.data(),
 		mesh.indices.size() * mesh.sizes.indices,
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+		uf::renderer::enums::Buffer::INDEX
 	);
 }

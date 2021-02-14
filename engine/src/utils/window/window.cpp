@@ -1,6 +1,6 @@
 #include <uf/config.h>
-#if !defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0)
-
+#if !UF_USE_SFML
+#define UF_OPENGL_CONTEXT_IN_WINDOW 0
 #include <uf/utils/window/window.h>
 #include <uf/utils/io/iostream.h>
 bool uf::Window::focused = false;
@@ -18,8 +18,7 @@ UF_API_CALL uf::Window::Window( const spec::uni::Window::vector_t& size, const s
 void UF_API_CALL uf::Window::create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title, const spec::Context::Settings& settings ) {
 	this->m_window = new uf::Window::window_t;
 	this->m_window->create( size, title );
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-#else
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	this->m_context = (spec::Context*) spec::uni::Context::create( settings, *this->m_window );
 #endif
 }
@@ -28,11 +27,13 @@ uf::Window::~Window() {
 	this->terminate();
 }
 void UF_API_CALL uf::Window::terminate() {
+#if UF_OPENGL_CONTEXT_IN_WINDOW
 	if ( this->m_context ) {
 		this->m_context->terminate();
 		delete this->m_context;
 		this->m_context = NULL;
 	}
+#endif
 	if ( this->m_window ) {
 		this->m_window->terminate();
 		delete this->m_window;
@@ -111,8 +112,7 @@ bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
 	return uf::Window::focused && uf::Window::window_t::isKeyPressed(key);
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-#else
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW 
 	if (this->m_context) {
 		if (this->m_context->setActive(active)) return true;
 		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to activate the window's context" << "\n";
@@ -121,7 +121,7 @@ bool UF_API_CALL uf::Window::setActive(bool active) {
 #endif
 	return false;
 }
-#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
+#if UF_USE_VULKAN
 std::vector<std::string> UF_API_CALL uf::Window::getExtensions( bool x ) {
 	return this->m_window->getExtensions( x );
 }
@@ -129,6 +129,13 @@ void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& s
 	this->m_window->createSurface( instance, surface );
 }
 #endif
+
+/*virtual*/ uf::Window::window_t* UF_API_CALL uf::Window::getHandle() {
+	return this->m_window;
+}
+/*virtual*/ const uf::Window::window_t* UF_API_CALL uf::Window::getHandle() const {
+	return this->m_window;
+}
 
 
 ////////////////////////////////////////////////////////////
@@ -138,8 +145,9 @@ void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& s
 #include <uf/utils/time/time.h>
 void UF_API_CALL uf::Window::display() {
 	// Display the backbuffer on screen
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	if (this->m_context && this->setActive()) this->m_context->display();
-
+#endif
 	/* FPS */ if ( false ) {
 		static double limit = 1.0 / 60;
 		static uf::Timer<long long> timer(false);

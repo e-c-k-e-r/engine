@@ -33,6 +33,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	}
 
+#if UF_USE_BULLET
 	if ( ext::json::isObject(metadata["system"]["physics"]) ) {
 		float mass = metadata["system"]["physics"]["mass"].as<float>();
 		if ( metadata["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
@@ -58,6 +59,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			}
 		}
 	}
+#endif
 
 	this->addHook( "object:TransformReferenceController.%UID%", [&](ext::json::Value& json){
 		auto& transform = this->getComponent<pod::Transform<>>();

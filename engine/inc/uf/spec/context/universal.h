@@ -22,23 +22,12 @@ namespace spec {
 				typedef spec::Window window_t;
 			#endif
 			struct Settings {
-				unsigned int depthBits;
-				unsigned int stencilBits;
-				unsigned int bitsPerPixel;
-				unsigned int antialiasingLevel;
-				unsigned int majorVersion;
-				unsigned int minorVersion;
-
-				explicit Settings(unsigned int depth = 24, unsigned int stencil = 4, unsigned int antialiasing = 0, unsigned int bitsPerPixel = 8, unsigned int major = 2, unsigned int minor = 0) :
-					depthBits 			(depth),
-					stencilBits 		(stencil),
-					bitsPerPixel 		(bitsPerPixel),
-					antialiasingLevel 	(antialiasing),
-					majorVersion 		(major),
-					minorVersion 		(minor)
-				{
-
-				}
+				uint32_t depthBits = 24;
+				uint32_t stencilBits = 4;
+				uint32_t bitsPerPixel = 8;
+				uint32_t antialiasingLevel = 0;
+				uint32_t majorVersion = 2;
+				uint32_t minorVersion = 0;
 			};
 		protected:
 			Context::window_t::handle_t 	m_window;

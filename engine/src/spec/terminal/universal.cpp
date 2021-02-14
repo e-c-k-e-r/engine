@@ -18,6 +18,8 @@ void UF_API_CALL spec::uni::Terminal::hide() {
 void UF_API_CALL spec::uni::Terminal::show() {
 }
 void UF_API_CALL spec::uni::Terminal::setLocale() {
+#if UF_ENV_DREAMCAST
+#else
 	const char* locales[4] = {
 		"", "C.utf8", "C", "POSIX"
 	};
@@ -33,4 +35,5 @@ void UF_API_CALL spec::uni::Terminal::setLocale() {
 			continue;
 		}
 	}
+#endif
 }

@@ -1,10 +1,10 @@
 #include <uf/ext/ultralight/ultralight.h>
-
+#if UF_USE_ULTRALIGHT
 #include <AppCore/CAPI.h>
 
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/hook/hook.h>
-// std::string ext::ultralight::resourcesDir = "./data/resources/";
+// std::string ext::ultralight::resourcesDir = uf::io::root + "/resources/";
 
 namespace {
 	size_t uids = 0;
@@ -181,11 +181,11 @@ void ext::ultralight::initialize() {
 	ulConfigSetDeviceScale(config, ext::ultralight::scale);
 
 	ulConfigSetFontFamilyStandard(config, UL::String("Arial"));
-	ulConfigSetResourcePath(config, UL::String("./data/html/resources/"));
+	ulConfigSetResourcePath(config, UL::String(uf::io::root + "/html/resources/"));
 	ulConfigSetUseGPURenderer(config, false);
 	ulEnablePlatformFontLoader();
-	ulEnablePlatformFileSystem(UL::String("./data/html/assets/"));
-	ulEnableDefaultLogger(UL::String("./data/logs/ultralight.log"));
+	ulEnablePlatformFileSystem(UL::String(uf::io::root + "/html/assets/"));
+	ulEnableDefaultLogger(UL::String(uf::io::root + "/logs/ultralight.log"));
 
 
 	::renderer = ulCreateRenderer(config);
@@ -267,3 +267,4 @@ uf::Image ext::ultralight::capture( pod::HTML& container ) {
 	ulBitmapSwapRedBlueChannels(bitmap);
 	return image;
 }
+#endif

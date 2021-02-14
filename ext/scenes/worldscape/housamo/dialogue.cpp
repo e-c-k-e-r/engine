@@ -48,7 +48,7 @@ namespace {
 		std::cout << url << std::endl;
 
 		if ( charaData["internal"].as<bool>() ) {
-			url = "./data/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
+			url = uf::io::root+"/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();

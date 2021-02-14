@@ -50,7 +50,11 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 		uf::Scene& scene = this->getRootParent<uf::Scene>();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		const uf::Image* imagePointer = NULL;
+	#if UF_NO_EXCEPTIONS
+		imagePointer = &assetLoader.get<uf::Image>(filename);
+	#else
 		try { imagePointer = &assetLoader.get<uf::Image>(filename); } catch ( ... ) {}
+	#endif
 		if ( !imagePointer ) return;
 
 		uf::Image image = *imagePointer;
@@ -78,8 +82,8 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
 
-		graphic.material.attachShader("./data/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader("./data/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.attachShader(uf::io::root+"/shaders/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+		graphic.material.attachShader(uf::io::root+"/shaders/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;
@@ -96,7 +100,7 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 		if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
 		std::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
 		if ( cardData["internal"].as<bool>() ) {
-			filename = "./data/smtsamo/fg/fg_" + name + ".png";
+			filename = uf::io::root+"/smtsamo/fg/fg_" + name + ".png";
 		}
 		
 		metadata["orientation"] = cardData["orientation"].as<std::string>() == "" ? "portrait" : "landscape";

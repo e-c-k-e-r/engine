@@ -191,8 +191,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		blitter.initializeGeometry( mesh );
 
 		blitter.material.initializeShaders({
-			{"./data/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{"./data/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+			{uf::io::root+"/shaders/display.subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{uf::io::root+"/shaders/display.subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 		{
 			auto& scene = uf::scene::getCurrentScene();
