@@ -26,10 +26,10 @@ std::vector<std::string> ext::opengl::settings::requestedInstanceExtensions;
 
 ext::opengl::enums::Filter::type_t ext::opengl::settings::swapchainUpscaleFilter = ext::opengl::enums::Filter::LINEAR;
 
-bool ext::opengl::settings::experimental::rebuildOnTickBegin = false;
+bool ext::opengl::settings::experimental::rebuildOnTickBegin = true;
 bool ext::opengl::settings::experimental::waitOnRenderEnd = false;
-bool ext::opengl::settings::experimental::individualPipelines = false;
-bool ext::opengl::settings::experimental::multithreadedCommandRecording = false;
+bool ext::opengl::settings::experimental::individualPipelines = true;
+bool ext::opengl::settings::experimental::multithreadedCommandRecording = true;
 std::string ext::opengl::settings::experimental::deferredMode = "";
 bool ext::opengl::settings::experimental::deferredReconstructPosition = false;
 bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;

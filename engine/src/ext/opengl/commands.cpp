@@ -6,6 +6,9 @@
 void ext::opengl::CommandBuffer::record( const CommandBuffer::function_t& command ) {
 	commands.emplace_back( command );
 }
+void ext::opengl::CommandBuffer::record( const CommandBuffer& commandBuffer ) {
+	commands.insert( commands.end(), commandBuffer.commands.begin(), commandBuffer.commands.end() );
+}
 void ext::opengl::CommandBuffer::submit() {
 	for ( auto& command : commands ) {
 		command();

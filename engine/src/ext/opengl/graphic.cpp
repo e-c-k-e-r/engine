@@ -1457,6 +1457,8 @@ void ext::opengl::Graphic::updatePipelines() {
 void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, size_t draw ) {
 	return this->record( commandBuffer, descriptor, pass, draw );
 }
+
+#include <uf/ext/gltf/mesh.h>
 void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass, size_t draw ) {
 	if ( !process ) return;
 /*
@@ -1471,7 +1473,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	}
 	pipeline.record(*this, commandBuffer, pass, draw);
 */
-
 	Buffer* vertexBuffer = NULL;
 	Buffer* indexBuffer = NULL;
 	for ( auto& buffer : buffers ) {
@@ -1480,23 +1481,128 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	}
 	if ( !vertexBuffer || !indexBuffer ) return;
 
-	size_t vertexStride = this->descriptor.geometry.sizes.vertex;
-
-	size_t vertices = vertexBuffer->size / vertexStride;
 	size_t indices = this->descriptor.indices; //indexBuffer->size / this->descriptor.geometry.sizes.indices;
-
-	uint32_t* indicesPointer = (uint32_t*) indexBuffer->buffer;
-	uint32_t* indicesPointerEnd = indicesPointer + indices;
+	
+	size_t vertexStride = this->descriptor.geometry.sizes.vertex;
+	size_t vertices = vertexBuffer->size / vertexStride;
+	
 	uint8_t* vertexPointer = (uint8_t*) vertexBuffer->buffer;
+	uint32_t* indicesPointer = (uint32_t*) indexBuffer->buffer;
+	
+	std::cout << "Stride: " << vertexStride << "  ";
+	for ( auto& attribute : descriptor.geometry.attributes ) {
+		std::cout << attribute.name << ": " << attribute.offset << "  ";
+	}
+	std::cout << std::endl;
 
 	uf::renderer::VertexDescriptor vertexAttributePosition, vertexAttributeNormal, vertexAttributeColor, vertexAttributeUv;
-	for ( auto& attribute : descriptor.geometry.attributes ) {
+	for ( auto& attribute : this->descriptor.geometry.attributes ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
 		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 	}
 
+	if ( vertexAttributePosition.name == "" ) return;
+#if 1
+	ext::gltf::mesh_t mesh;
+	{
+		auto& vertex = mesh.vertices.emplace_back();
+		vertex.position = pod::Vector3f{ 0.0f, 1.0f, 0.0f};
+		vertex.uv = pod::Vector2f{0, 0};
+		vertex.normal = pod::Vector3f{0, 0, 0};
+		// vertex.color = pod::Vector4f{1.0f,0.0f,0.0f,1.0f};
+	};
+	{
+		auto& vertex = mesh.vertices.emplace_back();
+		vertex.position = pod::Vector3f{ 1.0f,-1.0f, 0.0f};
+		vertex.uv = pod::Vector2f{0, 0};
+		vertex.normal = pod::Vector3f{0, 0, 0};
+		// vertex.color = pod::Vector4f{0.0f,1.0f,0.0f,1.0f};
+	};
+	{
+		auto& vertex = mesh.vertices.emplace_back();
+		vertex.position = pod::Vector3f{-1.0f,-1.0f, 0.0f};
+		vertex.uv = pod::Vector2f{0, 0};
+		vertex.normal = pod::Vector3f{0, 0, 0};
+		// vertex.color = pod::Vector4f{0.0f,0.0f,1.0f,1.0f};
+	};
+	mesh.indices = { 0, 1, 2 };
+	mesh.updateDescriptor();
+
+	for ( auto& attribute : mesh.attributes ) {
+		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
+		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
+		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
+		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
+	}
+	vertices = mesh.vertices.size();
+	indices = mesh.indices.size();
+	vertexStride = mesh.sizes.vertex;
+	vertexPointer = (uint8_t*) mesh.vertices.data();
+	indicesPointer = (uint32_t*) mesh.indices.data();
+/*
+	std::cout << "Strides: " << vertexStride << "  ";
+	for ( auto& attribute : mesh.attributes ) {
+		std::cout << attribute.name << ": " << attribute.offset << "  ";
+	}
+	std::cout << std::endl;
+
+	std::cout << "Real:   ";
+	for ( auto& index : mesh.indices ) {
+		auto& vertex = mesh.vertices[index];
+		std::cout << uf::vector::toString(vertex.position) << "  ";
+	}
+	std::cout << std::endl;
+	commandBuffer.record([=]{
+		glBegin(GL_POLYGON);
+		for ( auto& glVertex : mesh.vertices ) {
+			glColor3f(glVertex.color[0], glVertex.color[1], glVertex.color[2]);
+		//	glTexCoord2f(glVertex.uv[0], glVertex.uv[1]);
+		//	glNormal3f(glVertex.normal[0], glVertex.normal[1], glVertex.normal[2]);
+			glVertex3f(glVertex.position[0], glVertex.position[1], glVertex.position[2]);
+		}
+		glEnd();
+	});
+*/
+#endif
+#if 1
+	commandBuffer.record([=]{
+		glBegin(GL_POLYGON);
+
+		size_t currentIndex = 0;
+		size_t vertexColorState = 0;
+		while ( currentIndex < indices ) {
+			uint32_t index = indicesPointer[currentIndex++];
+			uint8_t* vertex = vertexPointer + (index * vertexStride);
+		
+			if ( vertexAttributeNormal.name != "" ) {
+				float* normal = (float*) (vertex + vertexAttributeNormal.offset);
+			//	glNormal3f(normal[0], normal[1], normal[2]);
+			}
+			if ( vertexAttributeColor.name != "" ) {
+				float* color = (float*) (vertex + vertexAttributeColor.offset);
+				glColor3f(color[0], color[1], color[2]);
+			} else {
+				switch ( vertexColorState ) {
+					case 0: glColor3f(1.0f, 0.0f, 0.0f); break;
+					case 1: glColor3f(0.0f, 1.0f, 0.0f); break;
+					case 2: glColor3f(0.0f, 0.0f, 1.0f); break;
+				}
+				if ( ++vertexColorState > 2 ) vertexColorState = 0;
+			}
+			if ( vertexAttributeUv.name != "" ) {
+				float* uv = (float*) (vertex + vertexAttributeUv.offset);
+			//	glTexCoord2f(uv[0], uv[1]);
+			}
+			{
+				float* position = (float*) (vertex + vertexAttributePosition.offset);
+				glVertex3f(position[0], position[1], position[2]);
+			}
+		}
+		glEnd();
+	});
+#if 0
 	struct GLvertex {
 		pod::Vector3f position = {};
 		pod::Vector3f normal = {};
@@ -1504,7 +1610,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		pod::Vector2f uv = {};
 	};
 	std::vector<GLvertex> glMesh;
-
 	size_t vertexColorState = 0;
 	while ( indicesPointer < indicesPointerEnd ) {
 		auto& glVertex = glMesh.emplace_back();
@@ -1512,20 +1617,25 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		uint32_t index = *(indicesPointer++);
 		uint8_t* vertex = vertexPointer + (index * vertexStride);
 
+	//	std::cout << index << "  ";
+	
 		if ( vertexAttributePosition.name != "" ) {
-			/*float positionX*/ glVertex.position[0]= *((float*) (vertex + vertexAttributePosition.offset + sizeof(float) * 0));
-			/*float positionY*/ glVertex.position[1]= *((float*) (vertex + vertexAttributePosition.offset + sizeof(float) * 1));
-			/*float positionZ*/ glVertex.position[2]= *((float*) (vertex + vertexAttributePosition.offset + sizeof(float) * 2));
+			float* position = (float*) (vertex + vertexAttributePosition.offset);
+			glVertex.position[0]= *(position++);
+			glVertex.position[1]= *(position++);
+			glVertex.position[2]= *(position++);
 		}
 		if ( vertexAttributeNormal.name != "" ) {
-			/*float normalX*/ glVertex.normal[0]= *((float*) (vertex + vertexAttributeNormal.offset + sizeof(float) * 0));
-			/*float normalY*/ glVertex.normal[1]= *((float*) (vertex + vertexAttributeNormal.offset + sizeof(float) * 1));
-			/*float normalZ*/ glVertex.normal[2]= *((float*) (vertex + vertexAttributeNormal.offset + sizeof(float) * 2));
+			float* normal = (float*) (vertex + vertexAttributeNormal.offset);
+			glVertex.normal[0]= *(normal++);
+			glVertex.normal[1]= *(normal++);
+			glVertex.normal[2]= *(normal++);
 		}
 		if ( vertexAttributeColor.name != "" ) {
-			/*float colorR*/ glVertex.color[0] = *((float*) (vertex + vertexAttributeColor.offset + sizeof(float) * 0));
-			/*float colorG*/ glVertex.color[1] = *((float*) (vertex + vertexAttributeColor.offset + sizeof(float) * 1));
-			/*float colorB*/ glVertex.color[2] = *((float*) (vertex + vertexAttributeColor.offset + sizeof(float) * 2));
+			float* color = (float*) (vertex + vertexAttributeColor.offset);
+			glVertex.color[0] = *(color++);
+			glVertex.color[1] = *(color++);
+			glVertex.color[2] = *(color++);
 		} else {
 			switch ( vertexColorState ) {
 				case 0: glVertex.color = {1, 0, 0}; break;
@@ -1535,32 +1645,30 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 			if ( ++vertexColorState > 2 ) vertexColorState = 0;
 		}
 		if ( vertexAttributeUv.name != "" ) {
-			/*float uvU*/ glVertex.uv[0] = *((float*) (vertex + vertexAttributeUv.offset + sizeof(float) * 0));
-			/*float uvV*/ glVertex.uv[1] = *((float*) (vertex + vertexAttributeUv.offset + sizeof(float) * 1));
+			float* uv = (float*) (vertex + vertexAttributeUv.offset);
+			glVertex.uv[0] = *(uv++);
+			glVertex.uv[1] = *(uv++);
 		}
 	}
-#if 0
 	commandBuffer.record([=]{
 		glBegin(GL_POLYGON);
 		for ( auto& glVertex : glMesh ) {
-			glVertex3f(glVertex.position[0], glVertex.position[1], glVertex.position[2]);
-			glNormal3f(glVertex.normal[0], glVertex.normal[1], glVertex.normal[2]);
 			glColor3f(glVertex.color[0], glVertex.color[1], glVertex.color[2]);
-			glTexCoord2f(glVertex.uv[0], glVertex.uv[1]);
+		//	glTexCoord2f(glVertex.uv[0], glVertex.uv[1]);
+		//	glNormal3f(glVertex.normal[0], glVertex.normal[1], glVertex.normal[2]);
+			glVertex3f(glVertex.position[0], glVertex.position[1], glVertex.position[2]);
 		}
 		glEnd();
 	});
-#else
-	commandBuffer.record([=]{
-		glBegin(GL_POLYGON);
-			glColor3f(1.0f,0.0f,0.0f);
-			glVertex3f( 0.0f, 1.0f, 0.0f);
-			glColor3f(0.0f,1.0f,0.0f);
-			glVertex3f( 1.0f,-1.0f, 0.0f);
-			glColor3f(0.0f,0.0f,1.0f);
-			glVertex3f(-1.0f,-1.0f, 0.0f);
-		glEnd();
-	});
+/*
+	std::cout << std::endl;
+	std::cout << "Parsed: ";
+	for ( auto& glVertex : glMesh ) {
+		std::cout << uf::vector::toString(glVertex.position) << "  ";
+	}
+	std::cout << std::endl;
+*/
+#endif
 #endif
 #if 0
 	// Bind triangle vertex buffer (contains position and colors)

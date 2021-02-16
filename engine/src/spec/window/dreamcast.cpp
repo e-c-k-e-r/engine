@@ -69,7 +69,7 @@ UF_API_CALL spec::dreamcast::Window::Window( const spec::dreamcast::Window::vect
 	this->create(size, title);
 }
 void UF_API_CALL spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
-	dbglog_set_level(DBG_WARNING);
+	//dbglog_set_level(DBG_WARNING);
 	::controller.device = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
 	::keyboard.device = maple_enum_type(0, MAPLE_FUNC_KEYBOARD);
 }
@@ -86,7 +86,7 @@ spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getPositi
 	return { 0, 0 };
 }
 spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getSize() const {
-	return { 0, 0 };
+	return { 640, 480 };
 }
 size_t UF_API_CALL spec::dreamcast::Window::getRefreshRate() const {
 	return 60;
@@ -99,7 +99,7 @@ void UF_API_CALL spec::dreamcast::Window::setPosition( const spec::dreamcast::Wi
 void UF_API_CALL spec::dreamcast::Window::setMousePosition( const spec::dreamcast::Window::vector_t& position ) {
 }
 spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getMousePosition( ) {
-	return { 0, 0 };
+	return { 320, 240 };
 }
 void UF_API_CALL spec::dreamcast::Window::setSize( const spec::dreamcast::Window::vector_t& size ) {
 }
@@ -193,7 +193,7 @@ void UF_API_CALL spec::dreamcast::Window::setMouseGrabbed(bool state) {
 void UF_API_CALL spec::dreamcast::Window::grabMouse(bool state) {
 }
 pod::Vector2ui UF_API_CALL spec::dreamcast::Window::getResolution() {
-	return { 0, 0 };
+	return { 640, 480 };
 }
 void UF_API_CALL spec::dreamcast::Window::switchToFullscreen( bool borderless ) {
 }

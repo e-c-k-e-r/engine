@@ -74,6 +74,9 @@ namespace {
 
 namespace {
 	std::string getConfig() {
+	#if 1
+		return uf::io::readAsString(uf::io::root+"/config.json");
+	#else
 		struct {
 			bool initialized = false;
 			uf::Serializer file;
@@ -104,13 +107,17 @@ namespace {
 			config.fallback["window"]["keyboard"]["repeat"] 			= true;
 			
 			config.fallback["engine"]["scenes"]["start"]				= "StartMenu";
-			config.fallback["engine"]["scenes"]["lights"]["max"] 			= 32;
+			config.fallback["engine"]["scenes"]["lights"]["max"] 		= 32;
 			config.fallback["engine"]["hook"]["mode"] 					= "Readable";
 			config.fallback["engine"]["limiters"]["framerate"] 			= 60;
 			config.fallback["engine"]["limiters"]["deltaTime"] 			= 120;
 			config.fallback["engine"]["threads"]["workers"] 			= "auto";
 			config.fallback["engine"]["threads"]["frame limiter"] 		= 144;
+		#if UF_ENV_DREAMCAST
+			config.fallback["engine"]["memory pool"]["size"] 			= "1 MiB";
+		#else
 			config.fallback["engine"]["memory pool"]["size"] 			= "512 MiB";
+		#endif
 			config.fallback["engine"]["memory pool"]["globalOverride"] 	= false;
 			config.fallback["engine"]["memory pool"]["subPools"] 		= true;
 		}
@@ -126,6 +133,7 @@ namespace {
 
 		config.initialized = true;
 		return config.merged;
+	#endif
 	}
 }
 
@@ -156,7 +164,6 @@ void EXT_API ext::initialize() {
 		uf::iostream << "Arguments: " << uf::Serializer(arguments) << "\n";
 		if ( modified ) uf::iostream << "New config: " << ::config << "\n";
 	}
-
 	/* Seed */ {
 		srand(time(NULL));
 	}
@@ -463,7 +470,6 @@ void EXT_API ext::initialize() {
 		pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false );
 		pod::Thread& threadPhysics = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true );
 	}
-	
 #if UF_USE_DISCORD
 	/* Discord */ if ( ::config["engine"]["ext"]["discord"]["enabled"].as<bool>() ) {
 		ext::discord::initialize();

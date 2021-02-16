@@ -11,9 +11,9 @@
 namespace ext {
 	namespace RENDERER {
 		struct /*UF_API*/ VertexDescriptor {
-			ext::RENDERER::enums::Format::type_t format; // VK_FORMAT_R32G32B32_SFLOAT
-			size_t offset; // offsetof(Vertex, position)
-			std::string name;
+			ext::RENDERER::enums::Format::type_t format = 0; // VK_FORMAT_R32G32B32_SFLOAT
+			size_t offset = 0; // offsetof(Vertex, position)
+			std::string name = "";
 		};
 	}
 }
@@ -22,8 +22,8 @@ namespace uf {
 	struct /*UF_API*/ BaseGeometry {
 	public:
 		struct {
-			size_t vertex;
-			size_t indices;
+			size_t vertex = 0;
+			size_t indices = 0;
 		} sizes;
 		std::vector<ext::RENDERER::VertexDescriptor> attributes;
 	};

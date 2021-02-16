@@ -12,6 +12,7 @@ namespace ext {
 			std::vector<CommandBuffer::function_t> commands;
 			
 			void record( const CommandBuffer::function_t& );
+			void record( const CommandBuffer& );
 			void submit();
 			void flush();
 			size_t size() const;

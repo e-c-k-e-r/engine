@@ -3,6 +3,9 @@ void ext::opengl::Graphic::initializeGeometry( uf::BaseMesh<T, U>& mesh, size_t 
 	if ( mesh.indices.empty() ) mesh.initialize( o );
 	mesh.updateDescriptor();
 
+	descriptor.geometry = mesh;
+	descriptor.indices = mesh.indices.size();
+
 	// already generated, check if we can just update
 	if ( descriptor.indices > 0 ) {
 		if ( descriptor.geometry.sizes.vertex == mesh.sizes.vertex && descriptor.geometry.sizes.indices == mesh.sizes.indices && descriptor.indices == mesh.indices.size() ) {

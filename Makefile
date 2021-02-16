@@ -31,7 +31,7 @@ INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
 DEPS 					+=
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux bullet meshoptimizer # discord
+	REQ_DEPS 			+= opengl json:nlohmann png openal ogg freetype ncurses curl openvr luajit ultralight-ux bullet meshoptimizer # discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -166,10 +166,10 @@ SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl)
 TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
 ifneq (,$(findstring dreamcast,$(ARCH)))
-#$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
-$(ARCH): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
-#OBJS = $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
-OBJS = $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
+$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
+#$(ARCH): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
+OBJS = $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
+
 DEPS 					+= -lkallisti -lc -lm -lgcc -lstdc++ -lGLdc -lAL # -l$(LIB_NAME) -l$(EXT_LIB_NAME)
 
 %.$(ARCH).$(PREFIX).o: %.cpp

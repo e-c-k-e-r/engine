@@ -54,7 +54,7 @@
 
 	#define _arch_dreamcast
 
-	#define UF_IO_ROOT "/rc/data/"
+	#define UF_IO_ROOT "/rd/"
 #else
 	// Unsupported system
 	#define UF_ENV "Unknown"

@@ -53,16 +53,21 @@ void ext::opengl::RenderMode::bindGraphicPushConstants( ext::opengl::Graphic* po
 }
 
 void ext::opengl::RenderMode::createCommandBuffers() {
-	if ( this->getName() != "" ) return;
+	// if ( this->getName() != "" ) return;
 	this->execute = true;
 
 	this->synchronize();
 
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
-	
-#if 0
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	auto& commands = getCommands();
+	commands.flush();
+#if 1
+	commands.record([]{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	});
+	commands.record([]{
 		glViewport(0, 0, ext::opengl::settings::width, ext::opengl::settings::height);	
 
 		glMatrixMode(GL_PROJECTION);
@@ -71,30 +76,9 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-		glTranslatef(-1.5f,0.0f,-6.0f);
-		glBegin(GL_POLYGON);
-			glColor3f(1.0f,0.0f,0.0f);
-			glVertex3f( 0.0f, 1.0f, 0.0f);
-			glColor3f(0.0f,1.0f,0.0f);
-			glVertex3f( 1.0f,-1.0f, 0.0f);
-			glColor3f(0.0f,0.0f,1.0f);
-			glVertex3f(-1.0f,-1.0f, 0.0f);
-		glEnd();
-		glTranslatef(3.0f,0.0f,0.0f);
-		glBegin(GL_QUADS);
-			glColor3f(0.5f,0.5f,1.0f);
-			glVertex3f(-1.0f, 1.0f, 0.0f);
-			glColor3f(0.5f,0.5f,1.0f);
-			glVertex3f( 1.0f, 1.0f, 0.0f);
-			glColor3f(0.5f,0.5f,1.0f);
-			glVertex3f( 1.0f,-1.0f, 0.0f);
-			glColor3f(0.5f,0.5f,1.0f);
-			glVertex3f(-1.0f,-1.0f, 0.0f);
-		glEnd();
+	});
 #endif
-#if 1
-	auto& commands = getCommands();
-	commands.flush();
+#if 0
 	commands.record([]{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	});
@@ -118,8 +102,7 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 			glColor3f(0.0f,0.0f,1.0f);
 			glVertex3f(-1.0f,-1.0f, 0.0f);
 		glEnd();
-	});
-	commands.record([]{
+
 		glTranslatef(3.0f,0.0f,0.0f);
 		glBegin(GL_QUADS);
 			glColor3f(0.5f,0.5f,1.0f);
@@ -134,8 +117,46 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	});
 #endif
 #if 0
-	auto& commands = getCommands();
-	commands.flush();
+	{
+		struct GLvertex {
+			pod::Vector3f position = {};
+			pod::Vector3f normal = {};
+			pod::Vector3f color = {};
+			pod::Vector2f uv = {};
+		};
+		std::vector<GLvertex> glMesh;
+		glMesh.push_back({
+			.position = pod::Vector3f{ 0.0f, 1.0f, 0.0f},
+			.normal = pod::Vector3f{0, 0, 0},
+			.color = pod::Vector3f{1.0f,0.0f,0.0f},
+			.uv = pod::Vector2f{0, 0},
+		});
+		glMesh.push_back({
+			.position = pod::Vector3f{ 1.0f,-1.0f, 0.0f},
+			.normal = pod::Vector3f{0, 0, 0},
+			.color = pod::Vector3f{0.0f,1.0f,0.0f},
+			.uv = pod::Vector2f{0, 0},
+		});
+		glMesh.push_back({
+			.position = pod::Vector3f{-1.0f,-1.0f, 0.0f},
+			.normal = pod::Vector3f{0, 0, 0},
+			.color = pod::Vector3f{0.0f,0.0f,1.0f},
+			.uv = pod::Vector2f{0, 0},
+		});
+		commands.record([=]{
+			glTranslatef(-1.5f,0.0f,-6.0f);
+			glBegin(GL_POLYGON);
+			for ( auto& glVertex : glMesh ) {
+				glColor3f(glVertex.color[0], glVertex.color[1], glVertex.color[2]);
+			//	glTexCoord2f(glVertex.uv[0], glVertex.uv[1]);
+			//	glNormal3f(glVertex.normal[0], glVertex.normal[1], glVertex.normal[2]);
+				glVertex3f(glVertex.position[0], glVertex.position[1], glVertex.position[2]);
+			}
+			glEnd();
+		});
+	}
+#endif
+#if 1
 	std::vector<uf::Entity*> entities;
 	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
@@ -152,36 +173,58 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 		
 		auto& controller = scene->getController();
 		auto& camera = controller.getComponent<uf::Camera>();
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& sceneMetadata = scene->getComponent<uf::Serializer>();
+	/*
 		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
 			auto& v = sceneMetadata["system"]["renderer"]["clear values"][0];
-			commands.record([=](){
+			commands.record([&](){
 				glClearColor(v[0].as<float>(), v[1].as<float>(), v[2].as<float>(), v[3].as<float>());
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			});
 		}
+	*/
 
 		auto& view = camera.getView();
 		auto& projection = camera.getProjection();
-		
-		commands.record([=](){
+		auto rotation = uf::matrix::inverse( uf::quaternion::matrix( controllerTransform.orientation ) );
+	/*	
+		commands.record([&](){
 			glMatrixMode(GL_PROJECTION);
-			glLoadIdentity();
 			glLoadMatrixf( &projection[0] );
 		});
-
+	*/
 		for ( auto* pointer : entities ) {
 			uf::Object& entity = pointer->as<uf::Object>();
 			auto& graphic = entity.getComponent<uf::Graphic>();
-
+		/*
 			auto& transform = entity.getComponent<pod::Transform<>>();
 			auto model = view * uf::transform::model( transform );
-			commands.record([=](){
+			commands.record([&](){
 				glMatrixMode(GL_MODELVIEW);
-				glLoadIdentity();
 				glLoadMatrixf( &model[0] );
 			});
-
+		*/
+		/*
+			auto transform = uf::transform::flatten( entity.getComponent<pod::Transform<>>() );
+			commands.record([&](){
+				glMatrixMode(GL_MODELVIEW);
+				glLoadIdentity();
+				glTranslatef( transform.position.x, transform.position.y, transform.position.z );				
+			});
+		*/
+		/*
+			commands.record([&](){
+				glMatrixMode(GL_MODELVIEW);
+				glLoadIdentity();
+			//	glTranslatef(-1.5f,0.0f,-6.0f);
+			});
+		*/
+			commands.record([&](){
+				glMatrixMode(GL_MODELVIEW);
+				glLoadMatrixf( &rotation[0] );
+				glTranslatef(-1.5f,0.0f,-6.0f);
+			});
 			auto descriptor = bindGraphicDescriptor(graphic.descriptor, currentSubpass);
 			graphic.record( commands, descriptor, currentPass, currentDraw++ );
 		}
@@ -240,11 +283,11 @@ void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Grap
 }
 
 void ext::opengl::RenderMode::render() {
+	auto& commands = getCommands(this->mostRecentCommandPoolId);
+	commands.submit();
 #if UF_ENV_DREAMCAST
 	glKosSwapBuffers();
 #else
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
-	commands.submit();
 	if (device && device->context && device->context->setActive(true)) {
 		device->context->display();
 	}

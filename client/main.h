@@ -1,6 +1,6 @@
 #pragma once
 #include <uf/ext/ext.h>
-#if !UF_ENV_DREAMCAST
+
 #include <uf/utils/window/window.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/thread/thread.h>
@@ -16,4 +16,3 @@ namespace client {
 	void render();
 	void terminate();
 }
-#endif

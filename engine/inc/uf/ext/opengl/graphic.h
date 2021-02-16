@@ -113,6 +113,7 @@ namespace ext {
 			bool process = true;
 			Material material;
 			std::unordered_map<std::string, Pipeline> pipelines;
+			CommandBuffer commands;
 
 			~Graphic();
 			void initialize( const std::string& = "" );

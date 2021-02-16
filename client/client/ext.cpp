@@ -1,5 +1,4 @@
 #include "../main.h"
-#if !UF_ENV_DREAMCAST
 
 #include <uf/utils/window/window.h>
 #include <uf/utils/io/iostream.h>
@@ -20,7 +19,9 @@ void client::initialize() {
 	uf::renderer::device.window = &client::window;
 
 	ext::load();
-
+#if 1
+	client::config = ext::config;
+#else
 	/* Initialize config */ {
 		struct {
 			uf::Serializer ext;
@@ -34,6 +35,7 @@ void client::initialize() {
 			client::config.merge( config.fallback, true );
 		}
 	}
+#endif
 	/* Initialize window */ {
 		// Window size
 		pod::Vector2i size; {
@@ -54,15 +56,13 @@ void client::initialize() {
 		spec::terminal.setVisible( client::config["window"]["terminal"]["visible"].as<bool>() );
 		// Ncurses
 		uf::IoStream::ncurses = client::config["window"]["terminal"]["ncurses"].as<bool>();
-
 		// Window's context settings
 		uf::renderer::settings::width = size.x;
 		uf::renderer::settings::height = size.y;
 		client::window.create( size, title );
-
+	#if !UF_ENV_DREAMCAST
 		// Set refresh rate
 		ext::config["window"]["refresh rate"] = client::window.getRefreshRate();
-
 		// Miscellaneous
 		client::window.setVisible(client::config["window"]["visible"].as<bool>());
 		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].as<bool>());
@@ -84,6 +84,7 @@ void client::initialize() {
 			json["window"]["title"] = std::string(title);
 			uf::hooks.call( hook, json );
 		}
+	#endif
 	/*
 		uf::hooks.shouldPreferReadable();
 		if ( client::config["engine"]["hook"]["mode"] == "Readable" ) {
@@ -188,8 +189,10 @@ void client::initialize() {
 		}
 	*/
 	}
+#if !UF_ENV_DREAMCAST
 	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
 	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
+#endif
 	client::ready = true;
 }
 void client::tick() {
@@ -261,4 +264,3 @@ void client::terminate() {
 	}
 	#endif
 }
-#endif

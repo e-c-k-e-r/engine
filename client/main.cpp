@@ -1,6 +1,5 @@
 #include "main.h"
 
-#if !UF_ENV_DREAMCAST
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
 
@@ -78,4 +77,3 @@ int main(int argc, char** argv){
 	client::terminate();
 	return 0;
 }
-#endif
