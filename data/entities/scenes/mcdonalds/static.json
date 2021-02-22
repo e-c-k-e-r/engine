@@ -1,0 +1,47 @@
+{
+	"type": "Object",
+	"name": "Static Emitter",
+	"ignore": true,
+	"assets": [
+		"/overworld/static.ogg",
+		"./scripts/static.lua"
+	],
+	"behaviors": [
+		"SoundEmitterBehavior"
+	],
+	"transform": {
+		"position": [ -10.5331, -0.956335, 10.2349 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"defaults": {
+			"render": true,
+			"asset load": true
+		},
+		"load": {
+			"ignore": true
+		}
+	},
+	"metadata": {
+		"audio": {
+			"spatial": true,
+			"loop": true,
+			"volume": 1.6,
+			"rolloffFactor": 2
+		},
+		"static": {
+			"range": [ 0.0025, 1 ],
+			"flicker": 0.5,
+			"pieces": 16,
+			"scale": 0.4
+		},
+		"distance": false
+	}
+}

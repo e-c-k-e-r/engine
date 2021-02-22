@@ -1,0 +1,261 @@
+{
+	"controller_type" : "generic",
+	"description" : "Default bindings",
+	"name" : "Generic Bindings",
+	"bindings": {
+		"/actions/global": {
+			"sources": [
+				{
+					"path": "/user/hand/right/input/a",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/leftA"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/a",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/rightA"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/b",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/leftB"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/b",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/rightB"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/trackpad",
+					"mode": "trackpad",
+					"inputs": {
+						"position": {
+							"output": "/actions/global/in/leftTrackpad"
+						},
+						"touch": {
+							"output": "/actions/global/in/leftTouchpad"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/trackpad",
+					"mode": "trackpad",
+					"inputs": {
+						"position": {
+							"output": "/actions/global/in/rightTrackpad"
+						},
+						"touch": {
+							"output": "/actions/global/in/rightTouchpad"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/trackpad",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/leftClickpad"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/trackpad",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/right_Clickpad"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/grip",
+					"mode": "force_sensor",
+					"inputs": {
+						"force": {
+							"output": "/actions/global/in/leftGrip"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/grip",
+					"mode": "force_sensor",
+					"inputs": {
+						"force": {
+							"output": "/actions/global/in/rightGrip"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/grip",
+					"mode": "grab",
+					"inputs": {
+						"grab": {
+							"output": "/actions/global/in/leftGrab"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/grip",
+					"mode": "grab",
+					"inputs": {
+						"grab": {
+							"output": "/actions/global/in/rightGrab"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/trigger",
+					"mode": "button",
+					"parameters": {
+						"haptic_amplitude": "0"
+					},
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/leftClick"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/trigger",
+					"mode": "button",
+					"parameters": {
+						"haptic_amplitude": "0"
+					},
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/rightClick"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/trigger",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/leftTrigger"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/trigger",
+					"mode": "button",
+					"inputs": {
+						"click": {
+							"output": "/actions/global/in/rightTrigger"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/thumbstick",
+					"mode": "dpad_touch",
+					"parameters": {
+						"deadzone_pct": "85",
+						"overlap_pct": "0",
+						"sticky": "true"
+					},
+					"inputs": {
+						"north": {
+							"output": "/actions/global/in/leftDPadUp"
+						},
+						"south": {
+							"output": "/actions/global/in/leftDPadDown"
+						},
+						"east": {
+							"output": "/actions/global/in/leftDPadRight"
+						},
+						"west": {
+							"output": "/actions/global/in/leftDPadLeft"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/thumbstick",
+					"mode": "dpad_touch",
+					"parameters": {
+						"deadzone_pct": "85",
+						"overlap_pct": "0",
+						"sticky": "true"
+					},
+					"inputs": {
+						"north": {
+							"output": "/actions/global/in/rightDPadUp"
+						},
+						"south": {
+							"output": "/actions/global/in/rightDPadDown"
+						},
+						"east": {
+							"output": "/actions/global/in/rightDPadRight"
+						},
+						"west": {
+							"output": "/actions/global/in/rightDPadLeft"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/left/input/thumbstick",
+					"mode": "joystick",
+					"inputs": {
+						"position": {
+							"output": "/actions/global/in/leftThumbstick"
+						}
+					}
+				},
+				{
+					"path": "/user/hand/right/input/thumbstick",
+					"mode": "joystick",
+					"inputs": {
+						"position": {
+							"output": "/actions/global/in/rightThumbstick"
+						}
+					}
+				}
+			],
+			"poses": [
+				{
+					"output": "/actions/global/in/leftHandPose",
+					"path": "/user/hand/left/pose/raw"
+				},
+				{
+					"output": "/actions/global/in/rightHandPose",
+					"path": "/user/hand/right/pose/raw"
+				}
+			],
+			"haptics": [
+				{
+					"output": "/actions/global/out/leftHapticVibration",
+					"path": "/user/hand/left/output/haptic"
+				},
+				{
+					"output": "/actions/global/out/rightHapticVibration",
+					"path": "/user/hand/right/output/haptic"
+				}
+			],
+			"skeleton": [
+				{
+					"output": "/actions/global/in/leftHandSkeleton",
+					"path": "/user/hand/left/input/skeleton/left"
+				},
+				{
+					"output": "/actions/global/in/rightHandSkeleton",
+					"path": "/user/hand/right/input/skeleton/right"
+				}
+			]
+		}
+	}
+}

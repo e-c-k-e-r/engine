@@ -1,0 +1,30 @@
+{
+	"name": "Gui: Menu",
+	"type": "Gui",
+	"ignore": false,
+	"assets": [
+		"./textures/menu.png",
+		"./scripts/menu.lua"
+	],
+	"system": {
+		"clickable": true,
+		"hoverable": true
+	},
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"experimental": true,
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 1, 1, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"depth": 0.2,
+		"mode": "flat"
+	}
+}

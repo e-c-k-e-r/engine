@@ -1,0 +1,50 @@
+{
+	"import": "/scene.json",
+	"assets": [
+		"./audio/soundscape/ambience.ogg",
+		"./loading.json"
+	],
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"renderer": {
+			"shader": {
+				"mode": 1,
+				"scalar": 16,
+				"parameters": [ 0, 0, 0, 0 ]
+			},
+			"clear values": [
+				[ 1, 1, 1, 0 ]
+			]
+		}
+	},
+	"metadata": {
+		"menus": {
+			"pause": "/gui/pause/menu.json"
+		},
+		"volumes": {
+			"sfx": 0.25,
+			"bgm": 0.75,
+			"voice": 1.0
+		},
+		"light": {
+			"ambient": [ 0.025, 0.025, 0.025 ],
+			"kexp": 0,
+			"fog": {
+				"color": [ 0.25, 0.25, 0.25 ],
+				"range": [ 32, 64 ],
+				"step scale": 4,
+				"absorbtion": 0.07,
+				"density": {
+					"threshold": 0.35,
+					"multiplier": 5.0,
+					"scale": 25.0,
+					"offset": [0, -1, 1],
+					"timescale": 8
+				}
+			},
+			"should": true
+		}
+	}
+}

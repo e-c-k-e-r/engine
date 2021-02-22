@@ -1,0 +1,49 @@
+{
+	"type": "Object",
+	"name": "Player: Model",
+	"ignore": false,
+	"assets": [
+		"/player/bear.glb"
+	//	"/player/s.glb"
+	],
+	"behaviors": [
+		"PlayerModelBehavior"
+	],
+	"transform": {
+		"position": [ 0, -2.0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.16, 0.16, 0.16 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"defaults": {
+		//	"render": true,
+			"asset load": true
+		}
+	},
+	"metadata": {
+		"track via reference": true,
+		"track player": true,
+		"hide player model": true,
+		"model": {
+			"animation": "wank",
+			"print animations": true,
+		//	"mesh optimization": 1,
+			"flags": {
+				"RENDER": true,
+				"COLLISION": false,
+				"SEPARATE": true,
+				"NORMALS": false,
+				"LOAD": false,
+				"ATLAS": false,
+				"SKINNED": true,
+				"INVERT": true
+			}
+		}
+	}
+}

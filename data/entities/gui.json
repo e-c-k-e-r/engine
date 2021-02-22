@@ -1,0 +1,8 @@
+{
+	"name": "Gui Manager",
+	"type": "Object",
+	"behaviors": [
+		"GuiManagerBehavior"
+	],
+	"ignore": false
+}
