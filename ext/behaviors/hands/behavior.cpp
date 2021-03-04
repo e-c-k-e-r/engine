@@ -1,3 +1,4 @@
+#if UF_USE_OPENVR
 #include "behavior.h"
 
 #include <uf/utils/hook/hook.h>
@@ -485,3 +486,4 @@ void ext::PlayerHandBehavior::destroy( uf::Object& self ){
 
 }
 #undef this
+#endif

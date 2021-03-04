@@ -11,29 +11,18 @@
 #include <uf/ext/gltf/graph.h>
 #include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
+#include <uf/spec/controller/controller.h>
 
 #include <sstream>
-
+#if 0
 namespace {
-	uf::Serializer masterTableGet( const std::string& table ) {
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
-		return mastertable["system"]["mastertable"][table];
-	}
 	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
-		return atoi(str.c_str());
-	}
-
-	inline std::string colorString( const std::string& hex ) {
-		return "%#" + hex + "%";
-	}
 }
-
+#endif
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
@@ -114,13 +103,10 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			} );
 		}
 	}
-
 	metadata["system"]["control"] = true;
-	
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
 		metadata["system"]["control"] = !json["state"].as<bool>();	
 	});
-
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
 		// discard events sent by os, only trust client now
@@ -181,7 +167,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			camera.updateView();
 		}
 	});
-
+#if 0
 	this->addHook( ":Update.%UID%", [&](ext::json::Value& json){
 	//	for ( auto& member : json[""]["transients"] ) {
 		ext::json::forEach(metadata[""]["transients"], [&](ext::json::Value& member){
@@ -257,7 +243,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		metadata["system"]["menu"] = "";
 		metadata["system"]["cooldown"] = uf::physics::time::current + 1;
 	});
-
+#endif
+#if 0
+#if UF_USE_DISCORD
 	// Discord Integration
 	this->addHook( "discord.Activity.Update.%UID%", [&](ext::json::Value& json){
 		std::string leaderId = metadata[""]["party"][0].as<std::string>();
@@ -270,13 +258,38 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		uf::hooks.call( "discord:Activity.Update", payload );
 	});
 	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
+#endif
+#endif
+#if !UF_ENTITY_METADATA_USE_JSON
+	{
+		auto& metadataBehavior = this->getComponent<ext::PlayerBehavior::Metadata>();
+		auto& metadataSystem = metadata["system"];
+		metadataBehavior.system.menu = metadataSystem["menu"].as<std::string>();
+		metadataBehavior.system.control = metadataSystem["control"].as<bool>();
+		metadataBehavior.system.crouching = metadataSystem["crouching"].as<bool>();
+		metadataBehavior.system.noclipped = metadataSystem["noclipped"].as<bool>();
+		auto& metadataSystemPhysics = metadataSystem["physics"];
+		metadataBehavior.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
+		metadataBehavior.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
+		metadataBehavior.system.physics.move = metadataSystemPhysics["move"].as<float>();
+		metadataBehavior.system.physics.run = metadataSystemPhysics["run"].as<float>();
+		metadataBehavior.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
+		metadataBehavior.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
+		metadataBehavior.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
+		metadataBehavior.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
+		auto& metadataAudioFootstep = metadata["audio"]["footstep"];
+		ext::json::forEach( metadataAudioFootstep["list"], [&]( const ext::json::Value& value ){
+			metadataBehavior.audio.footstep.list.emplace_back(value);
+		});
+		metadataBehavior.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
+	}
+#endif
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
-	uf::Camera& camera = this->getComponent<uf::Camera>();
-	pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-	pod::Physics& physics = this->getComponent<pod::Physics>();
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	uf::Scene& scene = uf::scene::getCurrentScene();
+	auto& camera = this->getComponent<uf::Camera>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+	auto& physics = this->getComponent<pod::Physics>();
+	auto& scene = uf::scene::getCurrentScene();
 
 	struct {
 		bool forward;
@@ -293,20 +306,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool paused;
 		bool vee;
 	} keys = {
-	#if UF_ENV_DREAMCAST
-		.forward = uf::Window::isKeyPressed("Up"),
-		.backwards = uf::Window::isKeyPressed("Down"),
-		.left = uf::Window::isKeyPressed("Left"),
-		.right = uf::Window::isKeyPressed("Right"),
-		.lookLeft = uf::Window::isKeyPressed("C"),
-		.lookRight = uf::Window::isKeyPressed("X"),
-		.running = uf::Window::isKeyPressed("Y"),
-		.walk = uf::Window::isKeyPressed("_"),
-		.jump = uf::Window::isKeyPressed("A"),
-		.crouch = uf::Window::isKeyPressed("X"),
-		.paused = uf::Window::isKeyPressed("Start"),
-		.vee = uf::Window::isKeyPressed("B"),
-	#else
 		.forward = uf::Window::isKeyPressed("W"),
 		.backwards = uf::Window::isKeyPressed("S"),
 		.left = uf::Window::isKeyPressed("A"),
@@ -319,26 +318,38 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		.crouch = uf::Window::isKeyPressed("LControl"),
 		.paused = uf::Window::isKeyPressed("Escape"),
 		.vee = uf::Window::isKeyPressed("V"),
-	#endif
 	};
 
-#if UF_USE_OPENVR
-	if ( ext::openvr::context ) {
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadUp" )["state"].as<bool>() ) keys.forward = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadDown" )["state"].as<bool>() ) keys.backwards = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadLeft" )["state"].as<bool>() ) keys.lookLeft = true; // keys.left = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "dpadRight" )["state"].as<bool>() ) keys.lookRight = true; // keys.right = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "thumbclick" )["state"].as<bool>() ) keys.running = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Right, "a" )["state"].as<bool>() ) keys.jump = true;
+	if ( spec::controller::connected() ) {
+	#if UF_USE_OPENVR
+		if ( spec::controller::pressed( "R_DPAD_UP" ) ) keys.forward = true;
+		if ( spec::controller::pressed( "R_DPAD_DOWN" ) ) keys.backwards = true;
+		if ( spec::controller::pressed( "R_DPAD_LEFT" ) ) keys.lookLeft = true; // keys.left = true;
+		if ( spec::controller::pressed( "R_DPAD_RIGHT" ) ) keys.lookRight = true; // keys.right = true;
+		if ( spec::controller::pressed( "R_JOYSTICK" ) ) keys.running = true;
+		if ( spec::controller::pressed( "R_A" ) ) keys.jump = true;
 
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "dpadUp" )["state"].as<bool>() ) keys.forward = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "dpadDown" )["state"].as<bool>() ) keys.backwards = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "dpadLeft" )["state"].as<bool>() ) keys.lookLeft = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "dpadRight" )["state"].as<bool>() ) keys.lookRight = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "thumbclick" )["state"].as<bool>() ) keys.crouch = true, keys.walk = true;
-		if ( ext::openvr::controllerState( vr::Controller_Hand::Hand_Left, "a" )["state"].as<bool>() ) keys.paused = true;
+		if ( spec::controller::pressed( "L_DPAD_UP" ) ) keys.forward = true;
+		if ( spec::controller::pressed( "L_DPAD_DOWN" ) ) keys.backwards = true;
+		if ( spec::controller::pressed( "L_DPAD_LEFT" ) ) keys.lookLeft = true;
+		if ( spec::controller::pressed( "L_DPAD_RIGHT" ) ) keys.lookRight = true;
+		if ( spec::controller::pressed( "L_JOYSTICK" ) ) keys.crouch = true, keys.walk = true;
+		if ( spec::controller::pressed( "L_A" ) ) keys.paused = true;
+	#else
+		if ( spec::controller::pressed( "DPAD_UP" ) ) keys.forward = true;
+		if ( spec::controller::pressed( "DPAD_DOWN" ) ) keys.backwards = true;
+		if ( spec::controller::pressed( "DPAD_LEFT" ) ) keys.lookLeft = true;
+		if ( spec::controller::pressed( "DPAD_RIGHT" ) ) keys.lookRight = true;
+		if ( spec::controller::pressed( "A" ) ) keys.jump = true;
+		if ( spec::controller::pressed( "B" ) ) keys.running = true;
+		if ( spec::controller::pressed( "X" ) ) keys.crouch = true, keys.walk = true;
+		if ( spec::controller::pressed( "Y" ) ) keys.vee = true;
+		if ( spec::controller::pressed( "L_TRIGGER" ) ) keys.left = true;
+		if ( spec::controller::pressed( "R_TRIGGER" ) ) keys.right = true;
+		if ( spec::controller::pressed( "START" ) ) keys.paused = true;
+	#endif
 	}
-#endif
+
 	struct {
 		bool updateCamera = true;
 		bool deltaCrouch = false;
@@ -350,10 +361,33 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		std::string targetAnimation = "";
 	} stats;
 
+	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
+#if UF_ENTITY_METADATA_USE_JSON
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& metadataSystem = metadataJson["system"];
+	metadata.system.menu = metadataSystem["menu"].as<std::string>();
+	metadata.system.control = metadataSystem["control"].as<bool>();
+	metadata.system.crouching = metadataSystem["crouching"].as<bool>();
+	metadata.system.noclipped = metadataSystem["noclipped"].as<bool>();
+	auto& metadataSystemPhysics = metadataSystem["physics"];
+	metadata.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
+	metadata.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
+	metadata.system.physics.move = metadataSystemPhysics["move"].as<float>();
+	metadata.system.physics.run = metadataSystemPhysics["run"].as<float>();
+	metadata.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
+	metadata.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
+	metadata.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
+	metadata.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
+	auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
+	ext::json::forEach( metadataAudioFootstep["list"], [&]( const ext::json::Value& value ){
+		metadata.audio.footstep.list.emplace_back(value);
+	});
+	metadata.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
+#endif
 	stats.floored = fabs(physics.linear.velocity.y) < 0.01f;
-	stats.menu = metadata["system"]["menu"].as<std::string>();
-	stats.impulse = metadata["system"]["physics"]["impulse"].as<bool>();
-	stats.noclipped = metadata["system"]["noclipped"].as<bool>();
+	stats.menu = metadata.system.menu;
+	stats.impulse = metadata.system.physics.impulse;
+	stats.noclipped = metadata.system.noclipped;
 	struct {
 		float move = 4;
 		float walk = 1;
@@ -361,12 +395,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		float rotate = uf::physics::time::delta;
 		float limitSquared = 4*4;
 	} speed; {
-		speed.rotate *= metadata["system"]["physics"]["rotate"].as<float>();
-		speed.move = metadata["system"]["physics"]["move"].as<float>();
-		speed.run = metadata["system"]["physics"]["run"].as<float>() / metadata["system"]["physics"]["move"].as<float>();
-		speed.walk = metadata["system"]["physics"]["walk"].as<float>() / metadata["system"]["physics"]["move"].as<float>();
+		speed.rotate *= metadata.system.physics.rotate;
+		speed.move = metadata.system.physics.move;
+		speed.run = metadata.system.physics.run / speed.move;
+		speed.walk = metadata.system.physics.walk / speed.move;
 	}
-	if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
+	if ( !metadata.system.physics.collision ) {
 		stats.impulse = true;
 	}
 	if ( keys.running ) speed.move *= speed.run;
@@ -378,27 +412,26 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	// make assumptions
 	if ( stats.menu == "" && keys.paused ) {
 		stats.menu = "paused";
-		metadata["system"]["control"] = false;
+		metadata.system.control = false;
 		uf::hooks.call("menu:Pause");
 	}
-	else if ( !metadata["system"]["control"].as<bool>() ) {
+	else if ( !metadata.system.control ) {
 		stats.menu = "menu";
 	} else if ( stats.menu == "" ) {
-		metadata["system"]["control"] = true;
+		metadata.system.control = true;
 	} else {
-		metadata["system"]["control"] = false;
+		metadata.system.control = false;
 	}
-	metadata["system"]["menu"] = stats.menu;
+	metadata.system.menu = stats.menu;
 	auto& collider = this->getComponent<pod::Bullet>();
-	if ( metadata["system"]["control"].as<bool>() ) {	
+	if ( metadata.system.control ) {	
 		{
 			TIMER(0.25, keys.vee && ) {
-				bool state = !metadata["system"]["noclipped"].as<bool>();
-				metadata["system"]["noclipped"] = state;
+				bool state = !stats.noclipped;
+				metadata.system.noclipped = state;
 				
-				std::cout << "Toggling noclip: " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
+				UF_DEBUG_MSG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
 				if ( state ) {
-					std::cout << "Enabled noclip" << std::endl;
 				#if UF_USE_BULLET
 					if ( collider.body ) {
 						collider.body->setGravity(btVector3(0,0.0,0));
@@ -407,7 +440,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					}
 				#endif
 				} else {
-					std::cout << "Disabled noclip" << std::endl;
 				#if UF_USE_BULLET
 					if ( collider.body ) {
 						collider.body->setGravity(btVector3(0,-9.81,0));
@@ -440,16 +472,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				int polarity = keys.forward ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
-				//	physics.linear.velocity += translator.forward * speed.move * polarity;
-				//	mag = uf::vector::magnitude(physics.linear.velocity);
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.forward * speed.move * polarity);
 				} else mag = speed.limitSquared;
-				pod::Vector3 correction = translator.forward * sqrt(mag) * polarity;
+				pod::Vector3 correction = translator.forward * ::sqrt(mag) * polarity;
 				
 				if ( collider.body && !collider.shared ) {
-				//	physics.linear.velocity.x += correction.x;
-				//	physics.linear.velocity.z += correction.z;
-				//	ext::bullet::move( collider, physics.linear.velocity );
 					queued += correction;
 				} else {
 					if ( stats.impulse && stats.noclipped ) {
@@ -467,16 +494,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				int polarity = keys.right ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
-				//	physics.linear.velocity += translator.right * speed.move * polarity;
-				//	mag = uf::vector::magnitude(physics.linear.velocity);
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.right * speed.move * polarity);
 				} else mag = speed.limitSquared;
-				pod::Vector3 correction = translator.right * sqrt(mag) * polarity;
+				pod::Vector3 correction = translator.right * ::sqrt(mag) * polarity;
 				
 				if ( collider.body && !collider.shared ) {
-				//	physics.linear.velocity.x += correction.x;
-				//	physics.linear.velocity.z += correction.z;
-				//	ext::bullet::move( collider, physics.linear.velocity );
 					queued += correction;
 				} else {
 					if ( stats.impulse && stats.noclipped ) {
@@ -509,8 +531,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				}
 			}
 			if ( keys.jump ) {
+				pod::Vector3f yump = metadata.system.physics.jump;
 				if ( collider.body && !collider.shared ) {
-					pod::Vector3f yump = uf::vector::decode(metadata["system"]["physics"]["jump"], pod::Vector3f{});
 					if ( fabs(yump.x) > 0.001f ) physics.linear.velocity.x = yump.x;
 					if ( fabs(yump.y) > 0.001f ) physics.linear.velocity.y = yump.y;
 					if ( fabs(yump.z) > 0.001f ) physics.linear.velocity.z = yump.z;
@@ -518,9 +540,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					ext::bullet::move( collider, physics.linear.velocity );
 				#endif
 				} else {
-					if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) transform.position.x += metadata["system"]["physics"]["jump"][0].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) transform.position.y += metadata["system"]["physics"]["jump"][1].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][2].as<float>() != 0 ) transform.position.z += metadata["system"]["physics"]["jump"][2].as<float>() * uf::physics::time::delta;
+					transform.position += yump * uf::physics::time::delta;
 				}
 			}
 		}
@@ -531,7 +551,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				ext::bullet::applyRotation( collider, transform.up, -speed.rotate );
 			#endif
 			} else {
-				uf::transform::rotate( transform, transform.up, -speed.rotate ), stats.updateCamera = true;
+				uf::transform::rotate( transform, transform.up, -speed.rotate );
 			}
 			stats.updateCamera = true;
 		}
@@ -541,14 +561,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				ext::bullet::applyRotation( collider, transform.up, speed.rotate );
 			#endif
 			} else {
-				uf::transform::rotate( transform, transform.up, speed.rotate ), stats.updateCamera = true;
+				uf::transform::rotate( transform, transform.up, speed.rotate );
 			}
 			stats.updateCamera = true;
 		}
 		if ( keys.crouch ) {
+			pod::Vector3f yump = metadata.system.physics.jump;
 			if ( stats.noclipped ) {
 				if ( collider.body && !collider.shared ) {
-					pod::Vector3f yump = uf::vector::decode(metadata["system"]["physics"]["jump"], pod::Vector3f{});
 					if ( fabs(yump.x) > 0.001f ) physics.linear.velocity.x = -yump.x;
 					if ( fabs(yump.y) > 0.001f ) physics.linear.velocity.y = -yump.y;
 					if ( fabs(yump.z) > 0.001f ) physics.linear.velocity.z = -yump.z;
@@ -557,18 +577,16 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				#endif
 				}
 			} else {
-				if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
-					if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) transform.position.x -= metadata["system"]["physics"]["jump"][0].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) transform.position.y -= metadata["system"]["physics"]["jump"][1].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][2].as<float>() != 0 ) transform.position.z -= metadata["system"]["physics"]["jump"][2].as<float>() * uf::physics::time::delta;
+				if ( !metadata.system.physics.collision ) {
+					transform.position -= yump * uf::physics::time::delta;
 				} else {
-					if ( !metadata["system"]["crouching"].as<bool>() )  stats.deltaCrouch = true;
-					metadata["system"]["crouching"] = true;
+					if ( !metadata.system.crouching )  stats.deltaCrouch = true;
+					metadata.system.crouching = true;
 				}
 			}
 		} else {
-			if ( metadata["system"]["crouching"].as<bool>() ) stats.deltaCrouch = true;
-			metadata["system"]["crouching"] = false;
+			if ( metadata.system.crouching ) stats.deltaCrouch = true;
+			metadata.system.crouching = false;
 		}
 	}
 	if ( stats.noclipped && !keys.forward && !keys.backwards && !keys.left && !keys.right && !keys.jump && !keys.crouch ) {
@@ -580,27 +598,27 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 	if ( stats.deltaCrouch ) {
-		float delta = metadata["system"]["physics"]["crouch"].as<float>();
-		if ( metadata["system"]["crouching"].as<bool>() ) camera.getTransform().position.y -= delta;
+		float delta = metadata.system.physics.crouch;
+		if ( metadata.system.crouching ) camera.getTransform().position.y -= delta;
 		else camera.getTransform().position.y += delta;
 		stats.updateCamera = true;
 	}
-
+#if UF_USE_OPENAL
 	if ( stats.floored ) {
 		if ( stats.walking ) {
 			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
-			int cycle = rand() % metadata["audio"]["footstep"]["list"].size();
-			std::string filename = metadata["audio"]["footstep"]["list"][cycle].as<std::string>();
+			int cycle = rand() % metadata.audio.footstep.list.size();
+			std::string filename = metadata.audio.footstep.list[cycle];
 			uf::Audio& footstep = emitter.add(filename);
 
 			bool playing = false;
-			for ( uint i = 0; i < metadata["audio"]["footstep"]["list"].size(); ++i ) {
-				uf::Audio& audio = emitter.add(metadata["audio"]["footstep"]["list"][i].as<std::string>());
+			for ( uint i = 0; i < metadata.audio.footstep.list.size(); ++i ) {
+				uf::Audio& audio = emitter.add(metadata.audio.footstep.list[i]);
 				if ( audio.playing() ) playing = true;
 			}
 			if ( !playing ) {
 				footstep.play();
-				footstep.setVolume(metadata["audio"]["footstep"]["volume"].as<float>());
+				footstep.setVolume(metadata.audio.footstep.volume);
 				footstep.setPosition( transform.position );
 
 				// [0, 1]
@@ -615,174 +633,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			// set animation to walk
 			stats.targetAnimation = "walk";
 		} else if ( !keys.jump ) {
-			stats.targetAnimation = "idle_wank";
-		}
-	}
-#if 0
-	{
-		TIMER(0.25, keys.vee && ) {
-			if ( ext::json::isNull( metadata["system"]["physics"]["backup"]["collision"] ) )
-				metadata["system"]["physics"]["backup"]["collision"] = metadata["system"]["physics"]["collision"];
-			if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
-				metadata["system"]["physics"]["collision"] = metadata["system"]["physics"]["backup"]["collision"];
-			} else {
-				metadata["system"]["physics"]["collision"] = 0;
-			}
-			
-			std::cout << "Toggling noclip: " << transform.position.x << ", " << transform.position.y << ", " << transform.position.z << std::endl;
-			std::cout << metadata.dump(1, '\t') << std::endl;
-
-		//	metadata["system"]["physics"]["collision"] = !metadata["system"]["physics"]["collision"].as<bool>();
-			physics.linear.velocity = {0,0,0};
-		}
-	}
-	
-
-	if ( ext::json::isObject( metadata["system"]["physics"]["clamp"] ) ) {
-		if ( ext::json::isArray( metadata["system"]["physics"]["clamp"]["x"] ) ) {
-			transform.position.x = std::clamp( transform.position.x, metadata["system"]["physics"]["clamp"]["x"][0].as<float>(), metadata["system"]["physics"]["clamp"]["x"][1].as<float>() );
-		}
-		if ( ext::json::isArray( metadata["system"]["physics"]["clamp"]["y"] ) ) {
-			auto previous = transform.position.y;
-			transform.position.y = std::clamp( transform.position.y, metadata["system"]["physics"]["clamp"]["y"][0].as<float>(), metadata["system"]["physics"]["clamp"]["y"][1].as<float>() );
-			if ( transform.position.y > previous ) {
-				physics.linear.velocity.y = 0;
-				stats.floored = true;
-			}
-		}
-		if ( ext::json::isArray( metadata["system"]["physics"]["clamp"]["z"] ) ) {
-			transform.position.z = std::clamp( transform.position.z, metadata["system"]["physics"]["clamp"]["z"][0].as<float>(), metadata["system"]["physics"]["clamp"]["z"][1].as<float>() );
-		}
-	}
-	
-	if ( metadata["system"]["control"].as<bool>() ) {	
-		if ( stats.floored ) {
-			pod::Transform<> translator = transform;
-			if ( ext::openvr::context ) {
-				bool useController = true;
-				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,1}) : ext::openvr::hmdQuaternion() );
-				translator = uf::transform::reorient( translator );
-				
-				translator.forward *= { 1, 0, 1 };
-				translator.right *= { 1, 0, 1 };
-				
-				translator.forward = uf::vector::normalize( translator.forward );
-				translator.right = uf::vector::normalize( translator.right );
-			}
-			if ( keys.forward || keys.backwards ) {
-				int polarity = keys.forward ? 1 : -1;
-				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
-				if ( mag < speed.limitSquared ) {
-					physics.linear.velocity += translator.forward * speed.move * polarity;
-					mag = uf::vector::magnitude(physics.linear.velocity);
-				} else mag = speed.limitSquared;
-				pod::Vector3 correction = translator.forward * sqrt(mag) * polarity;
-				if ( stats.impulse ) {
-					physics.linear.velocity.x = correction.x;
-					physics.linear.velocity.z = correction.z;
-				} else {
-					correction *= uf::physics::time::delta;
-					transform.position.x += correction.x;
-					transform.position.z += correction.z;
-				}
-				stats.updateCamera = (stats.walking = true);
-			}
-			if ( keys.left || keys.right ) {
-				int polarity = keys.right ? 1 : -1;
-				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
-				if ( mag < speed.limitSquared ) {
-					physics.linear.velocity += translator.right * speed.move * polarity;
-					mag = uf::vector::magnitude(physics.linear.velocity);
-				} else mag = speed.limitSquared;
-				pod::Vector3 correction = translator.right * sqrt(mag) * polarity;
-				if ( stats.impulse ) {
-					physics.linear.velocity.x = correction.x;
-					physics.linear.velocity.z = correction.z;
-				} else {
-					correction *= uf::physics::time::delta;
-					transform.position.x += correction.x;
-					transform.position.z += correction.z;
-				}
-				stats.updateCamera = (stats.walking = true);
-			}
-			if ( keys.jump ) {
-				if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
-					if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) transform.position.x += metadata["system"]["physics"]["jump"][0].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) transform.position.y += metadata["system"]["physics"]["jump"][1].as<float>() * uf::physics::time::delta;
-					if ( metadata["system"]["physics"]["jump"][2].as<float>() != 0 ) transform.position.z += metadata["system"]["physics"]["jump"][2].as<float>() * uf::physics::time::delta;
-				} else {
-					if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) physics.linear.velocity.x = metadata["system"]["physics"]["jump"][0].as<float>();
-					if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) physics.linear.velocity.y = metadata["system"]["physics"]["jump"][1].as<float>();
-					if ( metadata["system"]["physics"]["jump"][2].as<float>() != 0 ) physics.linear.velocity.z = metadata["system"]["physics"]["jump"][2].as<float>();
-				}
-			}
-		}
-
-		if ( keys.lookLeft ) {
-			uf::transform::rotate( transform, transform.up, -speed.rotate ), stats.updateCamera = true;
-		}
-		if ( keys.lookRight ) {
-			uf::transform::rotate( transform, transform.up, speed.rotate ), stats.updateCamera = true;
-		}
-		
-		if ( keys.crouch ) {
-			if ( !metadata["system"]["physics"]["collision"].as<bool>() ) {
-				if ( metadata["system"]["physics"]["jump"][0].as<float>() != 0 ) transform.position.x -= metadata["system"]["physics"]["jump"][0].as<float>() * uf::physics::time::delta;
-				if ( metadata["system"]["physics"]["jump"][1].as<float>() != 0 ) transform.position.y -= metadata["system"]["physics"]["jump"][1].as<float>() * uf::physics::time::delta;
-				if ( metadata["system"]["physics"]["jump"][2].as<float>() != 0 ) transform.position.z -= metadata["system"]["physics"]["jump"][2].as<float>() * uf::physics::time::delta;
-			} else {
-				if ( !metadata["system"]["crouching"].as<bool>() )  stats.deltaCrouch = true;
-				metadata["system"]["crouching"] = true;
-			}
-		} else {
-			if ( metadata["system"]["crouching"].as<bool>() ) stats.deltaCrouch = true;
-			metadata["system"]["crouching"] = false;
-		}	
-	}
-	if ( stats.deltaCrouch ) {
-		float delta = metadata["system"]["physics"]["crouch"].as<float>();
-		if ( metadata["system"]["crouching"].as<bool>() ) camera.getTransform().position.y -= delta;
-		else camera.getTransform().position.y += delta;
-		stats.updateCamera = true;
-	}
-
-	if ( stats.floored ) {
-		if ( stats.walking ) {
-			uf::SoundEmitter& emitter = this->getComponent<uf::SoundEmitter>();
-			int cycle = rand() % metadata["audio"]["footstep"]["list"].size();
-			std::string filename = metadata["audio"]["footstep"]["list"][cycle].as<std::string>();
-			uf::Audio& footstep = emitter.add(filename);
-
-			bool playing = false;
-			for ( uint i = 0; i < metadata["audio"]["footstep"]["list"].size(); ++i ) {
-				uf::Audio& audio = emitter.add(metadata["audio"]["footstep"]["list"][i].as<std::string>());
-				if ( audio.playing() ) playing = true;
-			}
-			if ( !playing ) {
-				footstep.play();
-				footstep.setVolume(metadata["audio"]["footstep"]["volume"].as<float>());
-				footstep.setPosition( transform.position );
-
-				// [0, 1]
-				float modulation = (rand() % 100) / 100.0;
-				// [0, 0.1]
-				modulation *= 0.1f;
-				// [-0.05, 0.05]
-				modulation -= 0.05f;
-				if ( keys.running ) modulation += 0.5f;
-				footstep.setPitch(1 + modulation);
-			}
-			// set animation to walk
-			stats.targetAnimation = "walk";
-		} else if ( !keys.jump ) {
-			physics.linear.velocity.x = 0;
-			physics.linear.velocity.y = 0;
-			physics.linear.velocity.z = 0;
 			stats.targetAnimation = "idle_wank";
 		}
 	}
 #endif
-	
+#if !UF_ENV_DREAMCAST
 	// set animation to idle
 	if ( stats.targetAnimation != "" ) {
 		auto* playerModel = this->findByName("Player: Model");
@@ -796,54 +651,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
-/*
-	{
-		auto flatten = uf::transform::flatten( transform );
-		static pod::Quaternion<> storedCameraOrientation = transform.orientation;
-
-		const pod::Quaternion<> prevCameraOrientation = storedCameraOrientation;
-		const pod::Quaternion<> curCameraOrientation = transform.orientation;
-		const pod::Quaternion<> deltaOrientation = uf::quaternion::multiply( curCameraOrientation, uf::quaternion::inverse( prevCameraOrientation ) ) ;
-		const pod::Vector3f deltaAngles = uf::quaternion::eulerAngles( deltaOrientation );
-		float magnitude = uf::vector::magnitude( deltaOrientation );
-		if ( magnitude > 0.0001f ) {
-			uf::Serializer payload;
-			payload["previous"] = uf::vector::encode( prevCameraOrientation );
-			payload["current"] = uf::vector::encode( curCameraOrientation );
-			payload["delta"] = uf::vector::encode( deltaOrientation );
-			payload["euler"] = uf::vector::encode( deltaAngles );
-			payload["angle"]["pitch"] = deltaAngles.x;
-			payload["angle"]["yaw"] = deltaAngles.y;
-			payload["angle"]["roll"] = deltaAngles.z;
-			payload["magnitude"] = magnitude;
-			this->callHook("controller:Camera.Rotated", payload);
-		}
-		storedCameraOrientation = transform.orientation;
-	}
-*/
-/*
-	// translate movement in HMD to give HUD feedback
-	if ( ext::openvr::context ) {
-		static pod::Quaternion<> prevCameraOrientation = ext::openvr::hmdQuaternion();
-		const pod::Quaternion<> curCameraOrientation = ext::openvr::hmdQuaternion();
-		const pod::Vector3f prevEulerAngle = uf::quaternion::eulerAngles( prevCameraOrientation );
-		const pod::Vector3f curEulerAngle = uf::quaternion::eulerAngles( curCameraOrientation );
-		const pod::Vector3f deltaAngles = uf::vector::subtract( curEulerAngle, prevEulerAngle );
-		float magnitude = uf::vector::magnitude( deltaAngles );
-		if ( magnitude > 0.0001f ) {
-			uf::Serializer payload;
-			payload["previous"] = uf::vector::encode( prevCameraOrientation );
-			payload["current"] = uf::vector::encode( curCameraOrientation );
-			payload["euler"] = uf::vector::encode( deltaAngles );
-			payload["angle"]["pitch"] = deltaAngles.x;
-			payload["angle"]["yaw"] = deltaAngles.y;
-			payload["angle"]["roll"] = deltaAngles.z;
-			payload["magnitude"] = magnitude;
-			this->callHook("controller:Camera.Rotated", payload);
-		}
-		prevCameraOrientation = curCameraOrientation;
-	}
-*/
+#endif
+#if UF_USE_LUA
 	#define TRACK_ORIENTATION(ORIENTATION) {\
 		static pod::Quaternion<> storedCameraOrientation = ORIENTATION;\
 		const pod::Quaternion<> prevCameraOrientation = storedCameraOrientation;\
@@ -854,7 +663,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		combinedDeltaOrientation = uf::quaternion::multiply( deltaOrientation, combinedDeltaOrientation );\
 		storedCameraOrientation = ORIENTATION;\
 	}
-
 	{
 		pod::Quaternion<> combinedDeltaOrientation = {0,0,0,1};
 		pod::Vector3f combinedDeltaAngles = {};
@@ -871,10 +679,29 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			this->callHook("controller:Camera.Rotated", payload);
 		}
 	}
+#endif
+	if ( stats.updateCamera ) camera.updateView();
 
-
-	if ( stats.updateCamera )
-		camera.updateView();
+#if UF_ENTITY_METADATA_USE_JSON
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& metadataSystem = metadataJson["system"]
+	metadataSystem["menu"] = metadata.system.menu;
+	metadataSystem["control"] = metadata.system.control;
+	metadataSystem["crouching"] = metadata.system.crouching;
+	metadataSystem["noclipped"] = metadata.system.noclipped;
+	auto& metadataSystemPhysics = metadataSystem["physics"]
+	metadataSystemPhysics["impulse"] = metadata.system.physics.impulse;
+	metadataSystemPhysics["rotate"] = metadata.system.physics.rotate;
+	metadataSystemPhysics["move"] = metadata.system.physics.move;
+	metadataSystemPhysics["run"] = metadata.system.physics.run;
+	metadataSystemPhysics["walk"] = metadata.system.physics.walk;
+	metadataSystemPhysics["collision"] = metadata.system.physics.collision;
+	metadataSystemPhysics["jump"] = uf::vector::encode(metadata.system.physics.jump);
+	metadataSystemPhysics["crouch"] = metadata.system.physics.crouch;
+	auto& metadataAudioFootstep = metadata["audio"]["footstep"];
+	metadataAudioFootstep["list"] = metadata.audio.footstep.list;
+	metadataAudioFootstep["volume"] = metadata.audio.footstep.volume
+#endif
 }
 
 void ext::PlayerBehavior::render( uf::Object& self ){}

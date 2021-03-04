@@ -64,7 +64,6 @@ namespace spec {
 			void UF_API setTracking(bool state);
 			static pod::Vector2ui UF_API getResolution();
 			void UF_API switchToFullscreen( bool borderless = false );
-			static std::string UF_API getKey(/*WPARAM key, LPARAM flags*/);
 		};
 	}
 	typedef spec::dreamcast::Window Window;

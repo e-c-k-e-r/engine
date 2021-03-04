@@ -1,3 +1,4 @@
+#if 0
 #include <uf/config.h>
 
 #include "Maze.h"
@@ -436,3 +437,4 @@ void ext::Maze::print(){
         std::cout << std::endl;
     }
 }
+#endif

@@ -22,10 +22,12 @@
 		#include <GLdc/gl.h>
 		#include <GLdc/glu.h>
 		#include <GLdc/glkos.h>
+		#include <GLdc/glext.h>
 	#else
 		#include <GLkos/gl.h>
 		#include <GLkos/glu.h>
 		#include <GLkos/glut.h>
+		#include <GLkos/glext.h>
 
 		#define glIsTexture(x) ( x != 0 )
 	#endif

@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 #include "terrain.h"
 #include "generator.h"
@@ -277,3 +278,4 @@ void ext::TerrainBehavior::render( uf::Object& self ){
 void ext::TerrainBehavior::destroy( uf::Object& self ){}
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Terrain)
+#endif

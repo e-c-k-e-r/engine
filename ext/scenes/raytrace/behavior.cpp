@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/time/time.h>
@@ -209,3 +210,4 @@ void ext::RayTracingSceneBehavior::destroy( uf::Object& self ) {
 	}
 }
 #undef this
+#endif

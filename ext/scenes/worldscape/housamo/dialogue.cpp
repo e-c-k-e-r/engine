@@ -1,3 +1,4 @@
+#if 0
 #include "dialogue.h"
 
 #include ".h"
@@ -270,3 +271,4 @@ void ext::DialogueManager::destroy() {
 void ext::DialogueManager::render() {	
 	uf::Object::render();
 }
+#endif

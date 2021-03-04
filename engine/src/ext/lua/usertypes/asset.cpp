@@ -1,7 +1,6 @@
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 #include <uf/engine/asset/asset.h>
-
 UF_LUA_REGISTER_USERTYPE(uf::Asset,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( load, []( uf::Asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();

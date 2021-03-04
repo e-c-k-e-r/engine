@@ -37,21 +37,21 @@ const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
 	return scene.getController();
 }
-std::vector<uf::Scene*> uf::scene::scenes;
-uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
-	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 
-//	uf::scene::scenes.insert(uf::scene::scenes.begin(), scene);
-	uf::scene::scenes.emplace_back( scene );
-	
+std::vector<uf::Scene*> uf::scene::scenes;
+std::vector<uf::Entity*> uf::scene::graph;
+bool uf::scene::queuedInvalidation = false;
+bool uf::scene::useGraph = true;
+
+uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
 	std::string target = name;
-	
+	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
+	uf::scene::scenes.emplace_back( scene );
+/*
 	std::regex regex("^(TestScene_?)?(.+?)(_?Scene)?$");
 	std::smatch match;
-	
-	if ( std::regex_search( target, match, regex ) ) {
-		target = match[2];
-	}
+	if ( std::regex_search( target, match, regex ) ) target = match[2];
+*/
 	target = uf::string::lowercase( target );
 	scene->load(filename != "" ? filename : "./scenes/" + target + "/scene.json");
 	scene->initialize();
@@ -59,10 +59,7 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& fil
 }
 uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& data ) {
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
-
-//	uf::scene::scenes.insert(uf::scene::scenes.begin(), scene);
 	uf::scene::scenes.emplace_back( scene );
-
 	if ( data != "" ) scene->load(data);
 	scene->initialize();
 	return *scene;
@@ -71,33 +68,57 @@ void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 	current->destroy();
 	uf::scene::scenes.pop_back();
-	//delete current;
 }
 uf::Scene& uf::scene::getCurrentScene() {
 	return *uf::scene::scenes.back();
 }
+void uf::scene::invalidateGraph() {
+	uf::scene::queuedInvalidation = true;
+}
+std::vector<uf::Entity*> uf::scene::generateGraph() {
+	// invalidate it by clearing the graph
+	if ( uf::scene::queuedInvalidation ) {
+		uf::scene::graph.clear();
+		uf::scene::queuedInvalidation = false;
+	}
+
+	if ( !uf::scene::graph.empty() ) return uf::scene::graph;
+
+	for ( uf::Scene* scene : uf::scene::scenes ) {
+		if ( !scene ) continue;
+		scene->process([&]( uf::Entity* entity ) {
+			auto& metadata = entity->getComponent<uf::ObjectBehavior::Metadata>();
+			if ( !metadata.system.ignoreGraph ) uf::scene::graph.emplace_back(entity);
+		});
+	}
+	uf::renderer::states::rebuild = true;
+	return uf::scene::graph;
+}
+
 void uf::scene::tick() {
-	// uf::scene::getCurrentScene().tick();
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	uf::Timer<long long> TIMER_TRACE;
+//	UF_DEBUG_MSG("==== START TICK ====");
+	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
+		(*it)->tick();
+//		UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMicroseconds() << " us\t" << (*it)->getName() << ": " << (*it)->getUid());
+	}
+//	UF_DEBUG_MSG("==== END TICK ====");
+} else {
 	for ( auto scene : scenes ) scene->tick();
 }
+}
 void uf::scene::render() {
-	// uf::scene::getCurrentScene().render();
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
+		(*it)->render();
+	}
+} else {
 	for ( auto scene : scenes ) scene->render();
 }
+}
 void uf::scene::destroy() {
-	while ( !scenes.empty() ) {
-		unloadScene();
-	}
+	while ( !scenes.empty() ) unloadScene();
 }
-/*
-uf::Camera& uf::Scene::getCamera() {
-	if ( !::camera ) ::camera = this->getPlayer().getComponentPointer<uf::Camera>();
-	return *::camera;
-}
-uf::Player& uf::Scene::getPlayer() {
-	return *((uf::Player*) this->findByName("Player"));
-}
-const uf::Player& uf::Scene::getPlayer() const {
-	return *((const uf::Player*) this->findByName("Player"));
-}
-*/

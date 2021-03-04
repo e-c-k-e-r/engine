@@ -254,6 +254,7 @@ void ext::opengl::CommandBuffer::submit() {
 				GL_ERROR_CHECK(glClearColor(info->color[0], info->color[1], info->color[2], info->color[3]));
 				GL_ERROR_CHECK(glClearDepth(info->depth));
 				GL_ERROR_CHECK(glClear(info->bits));
+				GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
 			} break;
 			case ext::opengl::enums::Command::VIEWPORT: {
 				InfoViewport* info = (InfoViewport*) header;
@@ -330,6 +331,7 @@ void ext::opengl::CommandBuffer::submit() {
 				vertexBufferInfo = NULL;
 				indexBufferInfo = NULL;
 			} break;
+		/*
 			case ext::opengl::enums::Command::GENERATE_TEXTURE: {
 				InfoGenerateTexture* info = (InfoGenerateTexture*) header;
 				if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "["<<info<<"] GENERATING TEXTURE | " << info->descriptor.image << " | " << info->data << "\n";
@@ -353,6 +355,7 @@ void ext::opengl::CommandBuffer::submit() {
 				}
 				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
 			} break;
+		*/
 			default: {
 				if ( state == 2 && VERBOSE_SUBMIT ) {
 					std::cout << "["<<header<<"] UNKNOWN COMMAND TYPE: " << header->type << ": " << info.data().len << std::endl;;

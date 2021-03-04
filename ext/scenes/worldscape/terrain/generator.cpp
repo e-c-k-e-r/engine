@@ -1,3 +1,4 @@
+#if 0
 #include "generator.h"
 
 #include "../../../ext.h"
@@ -1437,3 +1438,4 @@ void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t
 		}
 	}
 }
+#endif

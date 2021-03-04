@@ -37,13 +37,16 @@ namespace pod {
 
 		C& get( const std::string& name );
 		template<typename T> C& get();
+
+		C& operator[]( const std::string& name );
 	};
 }
 
 namespace uf {
 	namespace instantiator {
 		extern UF_API pod::NamedTypes<pod::Instantiator>* objects;
-		extern UF_API pod::NamedTypes<pod::Behavior>* behaviors;
+	//	extern UF_API pod::NamedTypes<pod::Behavior>* behaviors;
+		extern UF_API std::unordered_map<std::string, pod::Behavior>* behaviors;
 
 		uf::Entity* UF_API alloc( size_t );
 		template<typename T> T* alloc();
@@ -54,8 +57,9 @@ namespace uf {
 		size_t UF_API collect( uint8_t = 0 );
 
 		template<typename T> void registerObject( const std::string& name );
-		template<typename T> void registerBehavior( const std::string& name );
+	//	template<typename T> void registerBehavior( const std::string& name );
 		template<typename T> void registerBinding( const std::string& name );
+		void UF_API registerBehavior( const std::string& name, const pod::Behavior& );
 		void UF_API registerBinding( const std::string& object, const std::string& behavior );
 
 		uf::Entity& UF_API instantiate( const std::string& );
@@ -64,6 +68,7 @@ namespace uf {
 
 		void UF_API bind( const std::string&, uf::Entity& );
 		template<typename T> void bind( uf::Entity& );
+
 		void UF_API unbind( const std::string&, uf::Entity& );
 		template<typename T> void unbind( uf::Entity& );
 	};

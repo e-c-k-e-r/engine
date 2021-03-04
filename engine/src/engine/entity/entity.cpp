@@ -1,4 +1,5 @@
 #include <uf/engine/entity/entity.h>
+#include <uf/engine/scene/scene.h>
 #include <uf/engine/instantiator/instantiator.h>
 #include <uf/utils/io/iostream.h>
 
@@ -11,9 +12,16 @@ uf::Entity::~Entity(){
 	this->destroy();
 }
 bool uf::Entity::isValid() const {
-//	if ( uf::Entity::memoryPool.size() == 0 ) return false;
 	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
-	return 0 < this->m_uid && this->m_uid <= uf::Entity::uids;
+	return this && 0 < this->m_uid && this->m_uid <= uf::Entity::uids;
+}
+void uf::Entity::setUid() {
+	uf::scene::invalidateGraph();
+	this->m_uid = ++uf::Entity::uids;
+}
+void uf::Entity::unsetUid() {
+	uf::scene::invalidateGraph();
+	this->m_uid = 0;
 }
 bool uf::Entity::hasParent() const {
 	return this->m_parent;

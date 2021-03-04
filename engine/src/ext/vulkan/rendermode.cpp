@@ -72,16 +72,25 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized || !graphic.process ) return;
+		if ( !graphic.initialized || !graphic.process ) continue;
 		graphics.push_back(&graphic);
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+		scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( !graphic.initialized || !graphic.process ) return;
+			graphics.push_back(&graphic);
+		});
 	}
+}
 
 	this->synchronize();
 //	bindPipelines( graphics );
@@ -115,18 +124,26 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( !graphic.initialized ) return;
-		if ( !graphic.process ) return;
+		if ( !graphic.initialized || !graphic.process ) continue;
 		graphics.push_back(&graphic);
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+		scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( !graphic.initialized ) return;
+			if ( !graphic.process ) return;
+			graphics.push_back(&graphic);
+		});
 	}
-
+}
 	this->synchronize();
 	this->bindPipelines( graphics );
 }

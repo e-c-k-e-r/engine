@@ -18,7 +18,7 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	this->addHook( "system:Load.Finished.%UID%", [&](ext::json::Value& json){
 		metadata["system"]["loaded"] = true;
-		this->removeBehavior<uf::LoadingBehavior>();
+		this->removeBehavior(pod::Behavior{.type = uf::LoadingBehavior::type});
 
 		auto& parent = this->getParent();
 		auto& scene = uf::scene::getCurrentScene();
@@ -27,29 +27,23 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 			uf::Serializer payload;
 			payload["uid"] = parent.getUid();
 			parent.getParent().removeChild(parent);
-			
-			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+			parent.process([&]( uf::Entity* entity ) {
 				if ( !entity || !entity->isValid() || !entity->hasComponent<pod::Transform<>>() ) return;
 				auto& transform = entity->getComponent<pod::Transform<>>();
 				transform.scale = { 0, 0, 0 };
 				entity->render();
-			};
-			parent.process(filter);
-			
+			});	
 			scene.queueHook("system:Destroy", payload);
 		}
 		return;
 	});
-}
-void uf::LoadingBehavior::destroy( uf::Object& self ) {
-
 }
 void uf::LoadingBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	if ( metadata["system"]["loaded"].as<bool>() ) return;
 	size_t loading = 0;
 	size_t loaded = 1;
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
+	this->process([&]( uf::Entity* entity ) {
 		if ( !entity || !entity->isValid() || !entity->hasComponent<uf::Serializer>() ) return;
 		auto& metadata = entity->getComponent<uf::Serializer>();
 		if ( metadata["system"]["load"]["ignore"].is<bool>() ) return;
@@ -57,38 +51,12 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 		++loading;
 		if ( metadata["system"]["load"]["progress"].as<int>() < metadata["system"]["load"]["total"].as<int>() ) return;
 		++loaded;
-	};
-	this->process(filter);
+	});
 	if ( loading == loaded ) {
 		metadata["system"]["loaded"] = true;
 		this->callHook("system:Load.Finished.%UID%");
 	}
-/*
-	auto& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["system"]["loaded"].as<bool>() ) {
-		size_t loading = 0;
-		size_t loaded = 0;
-		std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-			if ( !entity || !entity->isValid() || !entity->hasComponent<uf::Serializer>() ) return;
-			auto& metadata = entity->getComponent<uf::Serializer>();
-			if ( ext::json::isNull( metadata["system"]["load"] ) ) return;
-			++loading;
-			if ( metadata["system"]["load"]["progress"].as<float>() < 1.0f ) return;
-			++loaded;
-		};
-		this->process(filter);
-
-		if ( loading == loaded ) {
-			this->callHook("system:Load.Finished.%UID%");
-		}
-		auto& metadata = this->getComponent<uf::Serializer>();
-		if ( metadata["system"]["load"]["progress"].as<float>() >= 1.0f ) {
-			this->callHook("system:Load.Finished.%UID%");
-		}
-	}
-*/
 }
-void uf::LoadingBehavior::render( uf::Object& self ) {
-
-}
+void uf::LoadingBehavior::render( uf::Object& self ) {}
+void uf::LoadingBehavior::destroy( uf::Object& self ) {}
 #undef this

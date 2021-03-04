@@ -29,3 +29,16 @@
 #else
 	#define UF_EXCEPTION(X) throw std::runtime_error(X)
 #endif
+
+#define UF_TIMER_TRACE_INIT() uf::Timer<long long> TIMER_TRACE;
+
+#define UF_TIMER_TRACE(X) {\
+	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
+	if ( elapsed > 0 ) UF_DEBUG_MSG(X << " | " << TIMER_TRACE.elapsed().asMilliseconds() << "ms");\
+}
+
+#define UF_TIMER_TRACE_RESET(X) {\
+	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
+	if ( elapsed > 0 ) UF_DEBUG_MSG(X << " | " << TIMER_TRACE.elapsed().asMilliseconds() << "ms");\
+	TIMER_TRACE.reset();\
+}

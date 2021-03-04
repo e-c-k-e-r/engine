@@ -10,19 +10,22 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <gltf/stb_image.h>
 #include <gltf/stb_image_write.h>
+#include <uf/utils/renderer/renderer.h>
 
 // 	C-tor
 // Default
 uf::Image::Image() :
 	m_bpp(8),
-	m_channels(4) {
+	m_channels(4),
+	m_format(0) {
 
 }
 // Just Size
 uf::Image::Image( const Image::vec2_t& size ) :
 	m_dimensions(size),
 	m_bpp(8),
-	m_channels(4)
+	m_channels(4),
+	m_format(0)
 {
 	this->m_pixels.reserve(size.x*size.y*this->m_channels);
 }
@@ -32,7 +35,8 @@ uf::Image::Image( Image&& move ) :
 	m_dimensions(std::move(move.m_dimensions)),
 	m_bpp(move.m_bpp),
 	m_channels(move.m_channels),
-	m_filename(move.m_filename)
+	m_filename(move.m_filename),
+	m_format(move.m_format)
 {
 
 }
@@ -42,7 +46,8 @@ uf::Image::Image( const Image& copy ) :
 	m_dimensions(copy.m_dimensions),
 	m_bpp(copy.m_bpp),
 	m_channels(copy.m_channels),
-	m_filename(copy.m_filename)
+	m_filename(copy.m_filename),
+	m_format(copy.m_format)
 {
 
 }
@@ -51,7 +56,8 @@ uf::Image::Image( Image::container_t&& move, const Image::vec2_t& size ) :
 	m_pixels(std::move(move)),
 	m_dimensions(size),
 	m_bpp(8),
-	m_channels(4)
+	m_channels(4),
+	m_format(0)
 {
 
 }
@@ -60,7 +66,8 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 	m_pixels(copy),
 	m_dimensions(size),
 	m_bpp(8),
-	m_channels(4)
+	m_channels(4),
+	m_format(0)
 {
 
 }
@@ -69,25 +76,81 @@ std::string uf::Image::getFilename() const {
 	return this->m_filename;
 }
 
+#define _PACK4(v) ((v * 0xF) / 0xFF)
+#define PACK_ARGB4444(a,r,g,b) (_PACK4(a) << 12) | (_PACK4(r) << 8) | (_PACK4(g) << 4) | (_PACK4(b))
+#define PACK_ARGB8888(a,r,g,b) ( ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF) )
+#define PACK_ARGB1555(a,r,g,b) \
+	(((uint16_t)(a > 0) << 15) | (((uint16_t) r >> 3) << 10) | (((uint16_t)g >> 3) << 5) | ((uint16_t)b >> 3))
+
+#define PACK_RGB565(r,g,b) \
+	((((uint16_t)r & 0xf8) << 8) | (((uint16_t) g & 0xfc) << 3) | ((uint16_t) b >> 3))
+
 // from file
 bool uf::Image::open( const std::string& filename, bool flip ) {
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("does not exist: " + filename);
 	std::string extension = uf::io::extension(filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
-	int width, height, channels, bit_depth;
-	bit_depth = 8;
-	stbi_set_flip_vertically_on_load(flip);
-	uint8_t* buffer = stbi_load( filename.c_str(), &width, &height, &channels, STBI_rgb_alpha );
-	
-	channels = 4;
-	uint len = width * height * channels;
+	int width = 0, height = 0, channelsDud = 0, bit_depth = 8, channels = 4;
+#if UF_ENV_DREAMCAST
+	if ( extension == "dtex" ) {
+		struct {
+			char		id[4]; // 'DTEX'
+			uint16_t 	width;
+			uint16_t 	height;
+			uint32_t 	type;
+			uint32_t 	size;
+		} header;
+
+		FILE* file = NULL;
+		file = fopen(filename.c_str(), "rb");
+		fread(&header, sizeof(header), 1, file);
+		this->m_pixels.resize(header.size);
+		fread(this->m_pixels.data(), header.size, 1, file);
+		fclose(file);
+
+		bool twiddled = (header.type & (1 << 26)) < 1;
+		bool compressed = (header.type & (1 << 30)) > 0;
+		bool mipmapped = (header.type & (1 << 31)) > 0;
+		bool strided = (header.type & (1 << 25)) > 0;
+		uint32_t format = (header.type >> 27) & 0b111;
+		width = header.width;
+		height = header.height;
+
+		uint32_t expected = 2 * header.width * header.height;
+		uint32_t ratio = (uint32_t) (((float) expected) / ((float) header.size));
+		bit_depth = 4;
+		if ( compressed ) {
+			if ( twiddled ) {
+				switch ( format ) {
+					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
+					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_RGB_565_VQ_TWID_KOS; channels = 3; break;
+					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS; break;
+					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
+				}
+			} else {
+				switch ( format ) {
+					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
+					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS : GL_COMPRESSED_RGB_565_VQ_KOS; channels = 3; break;
+					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_4444_VQ_KOS; break;
+					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
+				}
+			}
+		} else { UF_EXCEPTION(filename << ": not a compressed texture"); return false; }
+	} else 
+#endif
+	{
+		stbi_set_flip_vertically_on_load(flip);
+		uint8_t* buffer = stbi_load( filename.c_str(), &width, &height, &channelsDud, STBI_rgb_alpha );
+		size_t len = width * height * channels;
+		this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+		stbi_image_free(buffer);
+	}
+
 	this->m_dimensions.x = width;
 	this->m_dimensions.y = height;
 	this->m_bpp = bit_depth * channels;
 	this->m_channels = channels;
-	this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
-	stbi_image_free(buffer);
 	return true;
 }
 void uf::Image::loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bit_depth, std::size_t channels, bool flip ) {
@@ -232,6 +295,9 @@ std::size_t& uf::Image::getChannels() {
 std::size_t uf::Image::getChannels() const {
 	return this->m_channels;
 }
+std::size_t uf::Image::getFormat() const {
+	return this->m_format;
+}
 std::string uf::Image::getHash() const {
 	return uf::string::sha256( this->m_pixels );
 }
@@ -253,60 +319,6 @@ bool uf::Image::save( const std::string& filename, bool flip ) const {
 	std::string extension = uf::io::extension(filename);
 	stbi_flip_vertically_on_write(flip);
 	if ( extension == "png" ) {
-	#if 0
-		if ( flip )
-			for (uint j = 0; j * 2 < h; ++j) {
-				uint x = j * w * this->m_bpp/8;
-				uint y = (h - 1 - j) * w * this->m_bpp/8;
-				for (uint i = w * this->m_bpp/8; i > 0; --i) {
-					std::swap( pixels[x], pixels[y] );
-					++x, ++y;
-				}
-			}
-	#endif
-	#if 0
-		png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-		if (!png)
-			return false;
-
-		png_infop info = png_create_info_struct(png);
-		if (!info) {
-			png_destroy_write_struct(&png, &info);
-			return false;
-		}
-
-		FILE *fp = fopen(filename.c_str(), "wb");
-		if (!fp) {
-			png_destroy_write_struct(&png, &info);
-			return false;
-		}
-
-		png_init_io(png, fp);
-		png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-		if ( this->m_channels == 4 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-		if ( this->m_channels == 3 ) png_set_IHDR(png, info, w, h, 8 /* depth */, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-		png_colorp palette = (png_colorp)png_malloc(png, PNG_MAX_PALETTE_LENGTH * sizeof(png_color));
-		if (!palette) {
-			fclose(fp);
-			png_destroy_write_struct(&png, &info);
-			return false;
-		}
-		png_set_PLTE(png, info, palette, PNG_MAX_PALETTE_LENGTH);
-		png_write_info(png, info);
-		png_set_packing(png);
-
-		png_bytepp rows = (png_bytepp)png_malloc(png, h * sizeof(png_bytep));
-		for (uint i = 0; i < h; ++i)
-			rows[i] = (png_bytep)(pixels + (h - i - 1) * w * this->m_bpp/8);
-
-		png_write_image(png, rows);
-		png_write_end(png, info);
-		png_free(png, palette);
-		png_destroy_write_struct(&png, &info);
-
-		fclose(fp);
-		delete[] rows;
-	#endif
 		stbi_write_png(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
 	} else if ( extension == "jpg" || extension == "jpeg" ) {
 		stbi_write_jpg(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);

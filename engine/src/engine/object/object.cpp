@@ -1,4 +1,5 @@
 #include <uf/engine/object/object.h>
+#include <uf/engine/object/behavior.h>
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/time/time.h>
@@ -19,27 +20,24 @@ UF_OBJECT_REGISTER_BEGIN(uf::Object)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 UF_OBJECT_REGISTER_END()
 uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
-/*
-void uf::Object::queueHook( const std::string& name, const std::string& payload, double timeout ) {
-	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	float start = uf::Object::timer.elapsed().asDouble();
-	uf::Serializer queue;
-	queue["name"] = name;
-	queue["payload"] = uf::Serializer{payload};
-	queue["timeout"] = start + timeout;
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["queue"].emplace_back(queue);
-}
-*/
 void uf::Object::queueHook( const std::string& name, const ext::json::Value& payload, double timeout ) {
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	float start = uf::Object::timer.elapsed().asDouble();
+	double start = uf::Object::timer.elapsed().asDouble();
+#if UF_ENTITY_METADATA_USE_JSON
 	uf::Serializer queue;
 	queue["name"] = name;
 	queue["payload"] = payload;
 	queue["timeout"] = start + timeout;
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["system"]["hooks"]["queue"].emplace_back(queue);
+#else
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
+		.name = name,
+		.payload = payload,
+		.timeout = start + timeout,
+	});
+#endif
 }
 std::string uf::Object::formatHookName( const std::string& n, size_t uid, bool fetch ) {
 	if ( fetch ) {
@@ -81,39 +79,6 @@ uf::Hooks::return_t uf::Object::callHook( const std::string& name, const ext::js
 uf::Hooks::return_t uf::Object::callHook( const std::string& name, const uf::Serializer& serializer ) {
 	return uf::hooks.call( this->formatHookName( name ), (const ext::json::Value&) serializer );
 }
-/*
-std::vector<ext::json::Value> uf::Object::callHook( const std::string& name, const ext::json::Value& payload ) {
-	std::vector<ext::json::Value> jsons;
-	auto results = uf::hooks.call( this->formatHookName( name ), payload );
-	for ( auto& result : results ) {
-		if ( result.is<std::string>() ) jsons.emplace_back( uf::Serializer(result.as<std::string>()) );
-		else if ( result.is<ext::json::Value>() ) jsons.emplace_back( result.as<ext::json::Value>() );
-		else if ( result.is<uf::Serializer>() ) jsons.emplace_back( result.as<uf::Serializer>() );
-	}
-	return jsons;
-}
-*/
-/*
-std::vector<std::string> uf::Object::callHook( const std::string& name, const std::string& payload ) {
-	std::vector<std::string> strings;
-	auto results = uf::hooks.call( this->formatHookName( name ), payload );
-	for ( auto& result : results ) {
-		if ( result.is<std::string>() ) {
-			strings.emplace_back( result.as<std::string>() );
-		}
-	}
-	return strings;
-}
-*/
-/*
-std::size_t uf::Object::addHook( const std::string& name, const uf::HookHandler::Readable::function_t& callback ) {
-	std::string parsed = this->formatHookName( name );
-	std::size_t id = uf::hooks.addHook( parsed, callback );
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["alloc"][parsed].emplace_back(id);
-	return id;
-}
-*/
 bool uf::Object::load( const std::string& f, bool inheritRoot ) {
 	uf::Serializer json;
 	std::string root = "";
@@ -152,14 +117,8 @@ bool uf::Object::reload( bool hard ) {
 		transform = uf::transform::decode( json["transform"], transform );
 		transform.reference = reference;
 	}
-/*
-	for ( auto it = json["metadata"].begin(); it != json["metadata"].end(); ++it ) {
-		metadata[it.key()] = json["metadata"][it.key()];
-	}
-*/
 	payload["new"] = metadata;
-	uf::iostream << "Updated metadata for " << uf::string::toString( this ) << "\n";
-
+	UF_DEBUG_MSG("Updated metadata for " << uf::string::toString( this ));
 	this->queueHook("object:Reload.%UID%", payload);
 	return true;
 }
@@ -177,11 +136,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		do {
 			std::string filename = chain["import"].is<std::string>() ? chain["import"].as<std::string>() : chain["include"].as<std::string>();
 			filename = grabURI( filename, root );
-		//	std::cout << "Importing: " << filename << std::endl;
 			chain.readFromFile( filename );
-			// set new root
 			root = uf::io::directory( filename );
-			// get real path for assets to merge separately
 			ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
 				if ( ext::json::isObject( value ) ) value["filename"] = grabURI( value["filename"].as<std::string>(), root );
 				else value = grabURI( value.as<std::string>(), root );

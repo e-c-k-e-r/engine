@@ -1,3 +1,4 @@
+#if 0
 #include "battle.h"
 
 #include <uf/utils/hook/hook.h>
@@ -1521,3 +1522,4 @@ void ext::GuiBattle::render() {
 void ext::GuiBattle::destroy() {
 	ext::Gui::destroy();
 }
+#endif

@@ -5,12 +5,12 @@
 #include <uf/engine/scene/scene.h>
 
 namespace uf {
-	class UF_API RenderBehavior {
-	public:
-		static void attach( uf::Object& );
-		static void initialize( uf::Object& );
-		static void tick( uf::Object& );
-		static void render( uf::Object& );
-		static void destroy( uf::Object& );
-	};
+	namespace RenderBehavior {
+		UF_BEHAVIOR_DEFINE_TYPE;
+		void UF_API attach( uf::Object& );
+		void UF_API initialize( uf::Object& );
+		void UF_API tick( uf::Object& );
+		void UF_API render( uf::Object& );
+		void UF_API destroy( uf::Object& );
+	}
 }

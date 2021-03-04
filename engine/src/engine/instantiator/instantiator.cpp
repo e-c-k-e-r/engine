@@ -4,7 +4,8 @@
 #include <assert.h>
 
 pod::NamedTypes<pod::Instantiator>* uf::instantiator::objects = NULL;
-pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
+//pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
+std::unordered_map<std::string, pod::Behavior>* uf::instantiator::behaviors = NULL;
 
 uf::Entity* uf::instantiator::reuse( size_t size ) {
 	uf::Entity* laxed = NULL;
@@ -93,17 +94,18 @@ bool uf::instantiator::valid( uf::Entity* pointer ) {
 #endif
 }
 
+void uf::instantiator::registerBehavior( const std::string& name, const pod::Behavior& behavior ) {
+	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new std::unordered_map<std::string, pod::Behavior>;\
+	(*uf::instantiator::behaviors)[name] = behavior;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered behavior for " << name << " | " << behavior.type);
+}
 void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
-/*
-	if ( !uf::instantiator::objects->has( object ) ) {
-	//	uf::instantiator::registerObject<uf::Object>( object );
-	}
-*/
+	if ( !behaviors ) behaviors = new std::unordered_map<std::string, pod::Behavior>;
 	auto& instantiator = uf::instantiator::objects->get( object );
 	instantiator.behaviors.emplace_back( behavior );
 	
-	if ( UF_INSTANTIATOR_ANNOUNCE ) std::cout << "Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size() << std::endl;
+	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size());
 }
 
 uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
@@ -120,14 +122,16 @@ uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
 void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
 	// was actually a behavior name, single bind
 	if ( !uf::instantiator::objects->has( name, false ) ) {
-		if ( !uf::instantiator::behaviors->has( name, false ) ) return;
-		auto& behavior = uf::instantiator::behaviors->get( name );
+		if ( uf::instantiator::behaviors->count( name ) == 0 ) return;
+		auto& behavior = (*uf::instantiator::behaviors)[name];
+		if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
 		entity.addBehavior(behavior);
 		return;
 	}
 	auto& instantiator = uf::instantiator::objects->get( name );
 	for ( auto& name : instantiator.behaviors ) {
-		auto& behavior = uf::instantiator::behaviors->get( name );
+		auto& behavior = (*uf::instantiator::behaviors)[name];
+		if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
 		entity.addBehavior(behavior);
 	}
 }
@@ -135,14 +139,14 @@ void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
 void uf::instantiator::unbind( const std::string& name, uf::Entity& entity ) {
 	// was actually a behavior name, single bind
 	if ( !uf::instantiator::objects->has( name, false ) ) {
-		if ( !uf::instantiator::behaviors->has( name, false ) ) return;
-		auto& behavior = uf::instantiator::behaviors->get( name );
+		if ( !uf::instantiator::behaviors->count( name ) == 0 ) return;
+		auto& behavior = (*uf::instantiator::behaviors)[name];
 		entity.removeBehavior(behavior);
 		return;
 	}
 	auto& instantiator = uf::instantiator::objects->get( name );
 	for ( auto& name : instantiator.behaviors ) {
-		auto& behavior = uf::instantiator::behaviors->get( name );
+		auto& behavior = (*uf::instantiator::behaviors)[name];
 		entity.removeBehavior(behavior);
 	}
 }

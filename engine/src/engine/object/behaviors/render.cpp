@@ -16,7 +16,6 @@
 UF_BEHAVIOR_REGISTER_CPP(uf::RenderBehavior)
 #define this (&self)
 void uf::RenderBehavior::initialize( uf::Object& self ) {}
-void uf::RenderBehavior::destroy( uf::Object& self ) {}
 void uf::RenderBehavior::tick( uf::Object& self ) {}
 void uf::RenderBehavior::render( uf::Object& self ) {
 	if ( !this->hasComponent<uf::Graphic>() ) return;
@@ -80,4 +79,5 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 #endif
 #endif
 }
+void uf::RenderBehavior::destroy( uf::Object& self ) {}
 #undef this

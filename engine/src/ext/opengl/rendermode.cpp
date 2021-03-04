@@ -56,6 +56,15 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
 	std::vector<ext::opengl::Graphic*> graphics;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
+		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized || !graphic.process ) continue;
+		graphics.push_back(&graphic);
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process([&]( uf::Entity* entity ) {
@@ -65,6 +74,7 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 			graphics.push_back(&graphic);
 		});
 	}
+}
 
 	this->synchronize();
 //	bindPipelines( graphics );
@@ -90,6 +100,15 @@ void ext::opengl::RenderMode::bindPipelines() {
 	this->execute = true;
 
 	std::vector<ext::opengl::Graphic*> graphics;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
+		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( !graphic.initialized || !graphic.process ) continue;
+		graphics.push_back(&graphic);
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
 		scene->process([&]( uf::Entity* entity ) {
@@ -100,6 +119,7 @@ void ext::opengl::RenderMode::bindPipelines() {
 			graphics.push_back(&graphic);
 		});
 	}
+}
 
 	this->synchronize();
 	this->bindPipelines( graphics );

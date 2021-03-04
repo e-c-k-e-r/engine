@@ -46,11 +46,11 @@ namespace {
 #endif
 	uf::Serializer defaultSettings;
 }
-
+/*
 ext::Gui::Gui(){
 	this->addBehavior<ext::GuiBehavior>();
 }
-
+*/
 std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string ) {
 	std::vector<pod::GlyphBox> gs;
 #if UF_USE_FREETYPE
@@ -844,6 +844,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 }
 void ext::GuiBehavior::tick( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+#if 0
 	if ( metadata["text settings"]["fade in speed"].is<double>() && !metadata["system"]["faded in"].as<bool>() ) {
 		float speed = metadata["text settings"]["fade in speed"].as<float>();
 		float alpha = metadata["text settings"]["color"][3].as<float>();
@@ -858,21 +859,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			metadata["text settings"]["color"][3] = alpha + speed;
 		}
 	}
-/*
-	if ( this->hasComponent<uf::Graphic>() && metadata["experimental"].as<bool>() ) {
-		auto& image = this->getComponent<uf::Image>();
-		auto& pixels = image.getPixels();
-		size_t channels = image.getChannels();
-		size_t len = pixels.size();
-		uint8_t red = fmod( uf::physics::time::current * 64.0f, 255.0f );
-		for ( size_t i = 0; i < len; i += channels ) {
-			pixels[i] = red;
-		}
-		auto& graphic = this->getComponent<uf::Graphic>();
-		auto& texture = graphic.material.textures.front();
-		texture.update( image );
-	}
-*/
+#endif
 }
 template<size_t N = uf::renderer::settings::maxViews>
 struct UniformDescriptor {

@@ -51,10 +51,10 @@ int main(int argc, char** argv){
 				json["window"]["size"]["y"] = client::config["window"]["size"]["y"];
 				uf::hooks.call(hook, json);
 			}
-			client::tick();
-			ext::tick();
 			client::render();
 			ext::render();
+			client::tick();
+			ext::tick();
 	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";

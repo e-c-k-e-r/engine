@@ -65,10 +65,22 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 		GL_ERROR_CHECK(glDepthFunc(GL_LESS));
 	}
 	GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
-	GL_ERROR_CHECK(glShadeModel(GL_SMOOTH));
 	GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+
+	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
+//	GL_ERROR_CHECK(glEnable(GL_NORMALIZE));
+	GL_ERROR_CHECK(glEnable(GL_COLOR_MATERIAL));
+	GL_ERROR_CHECK(glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE));
+	GL_ERROR_CHECK(glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR));
+#if UF_USE_DREAMCAST
+	GL_ERROR_CHECK(glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0));
+	GL_ERROR_CHECK(glShadeModel(GL_SMOOTH));
+#else
+	GL_ERROR_CHECK(glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1));
+	GL_ERROR_CHECK(glShadeModel(GL_SMOOTH));
+#endif
 
 	ext::opengl::RenderMode::initialize( device );
 }

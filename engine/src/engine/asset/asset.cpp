@@ -174,6 +174,8 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 	#if UF_USE_OPENGL_FIXED_FUNCTION
 		// force disable use of a texture atlas, for now
 		metadata[uri]["flags"]["ATLAS"] = false;
+		metadata[uri]["flags"]["SEPARATE"] = true;
+		metadata[uri]["flags"]["NORMALS"] = true;
 	#else
 		metadata[uri]["flags"]["ATLAS"] = true;
 	#endif

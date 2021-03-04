@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 #include "terrain.h"
 #include "generator.h"
@@ -225,3 +226,4 @@ void ext::Terrain::degenerate( const pod::Vector3i& position ) {
 	delete region;
 	::region_table.erase( position );
 }
+#endif

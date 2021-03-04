@@ -1,3 +1,4 @@
+#if 0
 #include "voxel.h"
 
 #include "../../../ext.h"
@@ -500,3 +501,4 @@ ext::TerrainVoxel ext::TerrainVoxel::atlas( ext::TerrainVoxel::uid_t uid ) {
 	}
 	return base;
 }
+#endif

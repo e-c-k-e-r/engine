@@ -130,14 +130,28 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	for( auto it = metadata["system"]["hooks"]["alloc"].begin() ; it != metadata["system"]["hooks"]["alloc"].end() ; ++it ) {
+#if UF_ENTITY_METADATA_USE_JSON
+	auto& metadata = this->getComponent<uf::Serializer>();
+	ext::json::forEach( metadata["system"]["hooks"]["bound"], [&]( const std::string& key, ext::json::Value& value ){
+		ext::json::forEach( value, [&]( ext::json::Value& id ){
+			uf::hooks.removeHook(key, id.as<size_t>());
+		});
+	});
+/*
+	for( auto it = metadata["system"]["hooks"]["bound"].begin() ; it != metadata["system"]["hooks"]["bound"].end() ; ++it ) {
 	 	std::string name = it.key();
-		for ( size_t i = 0; i < metadata["system"]["hooks"]["alloc"][name].size(); ++i ) {
-			size_t id = metadata["system"]["hooks"]["alloc"][name][(int) i].as<size_t>();
+		for ( size_t i = 0; i < metadata["system"]["hooks"]["bound"][name].size(); ++i ) {
+			size_t id = metadata["system"]["hooks"]["bound"][name][(int) i].as<size_t>();
 			uf::hooks.removeHook(name, id);
 		}
 	}
+*/
+#else
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	for ( auto pair : metadata.hooks.bound ) {
+		for ( auto id : pair.second ) uf::hooks.removeHook(pair.first, id);
+	}
+#endif
 
 	if ( this->hasComponent<uf::Audio>() ) {
 		auto& audio = this->getComponent<uf::Audio>();
@@ -155,37 +169,49 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// listen for metadata file changes
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+#if UF_ENTITY_METADATA_USE_JSON
+	auto& metadata = this->getComponent<uf::Serializer>();
+#if !UF_ENV_DREAMCAST
 	if ( metadata["system"]["hot reload"]["enabled"].as<bool>() ) {
 		size_t mtime = uf::io::mtime( metadata["system"]["source"].as<std::string>() );
 		if ( metadata["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
 			std::cout << "File reload detected: " << ": " << metadata["system"]["source"].as<std::string>() << ", " << metadata["system"]["hot reload"]["mtime"] << " -> " << mtime << std::endl;
 			metadata["system"]["hot reload"]["mtime"] = mtime;
 			this->reload();
-			//this->queueHook("metadata:Reload.%UID%");
 		}
 	}
-
+#endif
 	// Call queued hooks
 	{
+		auto& queue = metadata["system"]["hooks"]["queue"];
 		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 		float curTime = uf::Object::timer.elapsed().asDouble();
 		uf::Serializer newQueue = ext::json::array();
-		if ( !ext::json::isNull( metadata["system"]["hooks"]["queue"] ) ) {
-			ext::json::forEach(metadata["system"]["hooks"]["queue"], [&](ext::json::Value& member){
+		if ( !ext::json::isNull( queue ) ) {
+			ext::json::forEach(queue, [&](ext::json::Value& member){
 				if ( !ext::json::isObject(member) ) return;
 				uf::Serializer payload = member["payload"];
 				std::string name = member["name"].as<std::string>();
 				float timeout = member["timeout"].as<float>();
-				if ( timeout < curTime ) {
-					this->callHook( name, payload );
-				} else {
-					newQueue.emplace_back(member);
-				}
+				if ( timeout < curTime ) this->callHook( name, payload );
+				else newQueue.emplace_back(member);
 			});
 		}
-		if ( ext::json::isObject( metadata ) ) metadata["system"]["hooks"]["queue"] = newQueue;
+		if ( ext::json::isObject( metadata ) ) queue = newQueue;
 	}
+#else
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	{
+		auto& queue = metadata.hooks.queue;
+		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+		float curTime = uf::Object::timer.elapsed().asDouble();
+		for ( auto it = queue.begin(); it != queue.end(); ) {
+			auto& q = *it;
+			if ( q.timeout < curTime ) { this->callHook( q.name, q.payload ); it = queue.erase( it ); }
+			else ++it;
+		}
+	}
+#endif
 }
 void uf::ObjectBehavior::render( uf::Object& self ) {}
 #undef this

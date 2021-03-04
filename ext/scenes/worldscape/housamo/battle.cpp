@@ -1,3 +1,4 @@
+#if 0
 #include "battle.h"
 
 #include ".h"
@@ -1553,3 +1554,4 @@ void ext::HousamoBattle::destroy() {
 void ext::HousamoBattle::render() {	
 	uf::Object::render();
 }
+#endif

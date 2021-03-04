@@ -20,8 +20,13 @@ template<typename T>
 size_t uf::Object::addHook( const std::string& name, T callback ) {
 	std::string parsed = this->formatHookName( name );
 	std::size_t id = uf::hooks.addHook( parsed, callback );
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["alloc"][parsed].emplace_back(id);
+#if UF_ENTITY_METADATA_USE_JSON
+	auto& metadata = this->getComponent<uf::Serializer>();
+	metadata["system"]["hooks"]["bound"][parsed].emplace_back(id);
+#else
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	metadata.hooks.bound[parsed].emplace_back(id);
+#endif
 	return id;
 }
 template<typename T>

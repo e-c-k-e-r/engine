@@ -6,12 +6,11 @@
 #include <uf/engine/scene/scene.h>
 
 namespace ext {
-	class EXT_API TerrainBehavior {
-	public:
-		static void attach( uf::Entity& );
-		static void initialize( uf::Object& );
-		static void tick( uf::Object& );
-		static void render( uf::Object& );
-		static void destroy( uf::Object& );
-	};
+	namespace TerrainBehavior {
+		void attach( uf::Entity& );
+		void initialize( uf::Object& );
+		void tick( uf::Object& );
+		void render( uf::Object& );
+		void destroy( uf::Object& );
+	}
 }

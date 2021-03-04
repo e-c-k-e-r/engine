@@ -206,135 +206,101 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	ext::vulkan::states::rebuild = true;
 }
 
-void ext::vulkan::initialize( /*uint8_t stage*/ ) {
-/*
-	switch ( stage ) {
-		case 0: {
-*/
-			device.initialize();
-			swapchain.initialize( device );
-			{
-				std::vector<uint8_t> pixels = { 
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-				};
-				Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
-			}
-			{
-				std::vector<uint8_t> pixels = { 
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-
-					 255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-				};
-				Texture3D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				Texture3D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				Texture3D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 2, 1, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
-			}
-			{
-				std::vector<uint8_t> pixels = { 
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-					
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-					
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-					
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-					
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-
-					255,   0, 255, 255,      0,   0,   0, 255,
-					  0,   0,   0, 255,    255,   0, 255, 255,
-				};
-				TextureCube::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
-			}
-			for ( auto& renderMode : renderModes ) {
-				if ( !renderMode ) continue;
-				renderMode->initialize(device);
-			}
-			std::vector<std::function<int()>> jobs;
-			for ( auto& renderMode : renderModes ) {
-				if ( !renderMode ) continue;
-				if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-				if ( settings::experimental::multithreadedCommandRecording ) {
-					jobs.emplace_back([&]{
-						renderMode->createCommandBuffers();
-						return 0;
-					});
-				} else {
-					renderMode->createCommandBuffers();
-				}
-			}
-			if ( !jobs.empty() ) {
-				uf::thread::batchWorkers( jobs );
-			}
-/*
-		} break;
-		case 1: {
-			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-				if ( !entity->hasComponent<uf::Graphic>() ) return;
-				ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-				if ( graphic.initialized ) return;
-
-				graphic.initializePipeline();
-				ext::vulkan::states::rebuild = true;
-			};
-			for ( uf::Scene* scene : uf::scene::scenes ) {
-				if ( !scene ) continue;
-				scene->process(filter);
-			}
-		}
-		case 2: {
-			std::vector<std::function<int()>> jobs;
-			for ( auto& renderMode : renderModes ) {
-				if ( !renderMode ) continue;
-				if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-				if ( settings::experimental::multithreadedCommandRecording ) {
-					jobs.emplace_back([&]{
-						renderMode->createCommandBuffers();
-						return 0;
-					});
-				} else {
-					renderMode->createCommandBuffers();
-				}
-			}
-			if ( !jobs.empty() ) {
-				uf::thread::batchWorkers( jobs );
-			}
-		} break;
-		default: {
-			UF_EXCEPTION("invalid stage id");
-		} break;
+void ext::vulkan::initialize() {
+	device.initialize();
+	swapchain.initialize( device );
+	{
+		std::vector<uint8_t> pixels = { 
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+		};
+		Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
 	}
-*/
+	{
+		std::vector<uint8_t> pixels = { 
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+
+			 255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+		};
+		Texture3D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		Texture3D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		Texture3D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 2, 1, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
+	}
+	{
+		std::vector<uint8_t> pixels = { 
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+			
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+			
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+			
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+			
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+
+			255,   0, 255, 255,      0,   0,   0, 255,
+			  0,   0,   0, 255,    255,   0, 255, 255,
+		};
+		TextureCube::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
+	}
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		renderMode->initialize(device);
+	}
+	std::vector<std::function<int()>> jobs;
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
+		if ( settings::experimental::multithreadedCommandRecording ) {
+			jobs.emplace_back([&]{
+				renderMode->createCommandBuffers();
+				return 0;
+			});
+		} else {
+			renderMode->createCommandBuffers();
+		}
+	}
+	if ( !jobs.empty() ) {
+		uf::thread::batchWorkers( jobs );
+	}
 }
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
 		ext::vulkan::states::rebuild = true;
 	}
-
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
+		if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
 		graphic.initializePipeline();
 		ext::vulkan::states::rebuild = true;
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+			scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
+			graphic.initializePipeline();
+			ext::vulkan::states::rebuild = true;
+		});
 	}
+}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( !renderMode->device ) {
@@ -388,7 +354,7 @@ void ext::vulkan::render() {
 		if ( !renderMode ) continue;
 		if ( !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
-		for ( uf::Scene* scene : uf::scene::scenes ) scene->render();
+		uf::scene::render();
 		renderMode->render();
 	}
 
@@ -410,17 +376,23 @@ void ext::vulkan::destroy() {
 	Texture2D::empty.destroy();
 	Texture3D::empty.destroy();
 	TextureCube::empty.destroy();
-
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+		scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			graphic.destroy();
+		});
 	}
-
+}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();

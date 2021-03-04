@@ -1,3 +1,4 @@
+#if 0
 #include "dialogue.h"
 
 #include <uf/utils/hook/hook.h>
@@ -391,3 +392,4 @@ void ext::GuiDialogue::render() {
 void ext::GuiDialogue::destroy() {
 	ext::Gui::destroy();
 }
+#endif

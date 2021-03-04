@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/time/time.h>
@@ -320,3 +321,4 @@ void ext::SceneCollisionBehavior::destroy( uf::Object& self ){
 #endif
 }
 #undef this
+#endif

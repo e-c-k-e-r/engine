@@ -16,17 +16,7 @@
 UF_BEHAVIOR_REGISTER_CPP(uf::GltfBehavior)
 #define this (&self)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["textures"]["additional"] = ext::json::array(); //Json::Value(Json::arrayValue);
-	// Default load: GLTF model
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
-		if ( category != "" && category != "images" ) return;
-		if ( category == "" && uf::io::extension(filename) != "png" ) return;
-		auto& vector = metadata["textures"]["additional"];
-		vector[vector.size()] = filename;
-	});
+	auto& metadata = this->getComponent<uf::Serializer>();
 	this->addHook( "animation:Set.%UID%", [&](ext::json::Value& json){
 		std::string name = json["name"].as<std::string>();
 
@@ -55,7 +45,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		}
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::Object* objectPointer = graph.root.entity;
-		objectPointer->process([&]( uf::Entity* entity ) {
+		graph.root.entity->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			if ( !(graph.mode & ext::gltf::LoadMode::LOAD) ) {
@@ -97,21 +87,6 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 					}
 				}
 			}
-
-			for ( int i = 0; i < metadata["textures"]["additional"].size(); ++i ) {
-				std::string filename = metadata["textures"]["additional"][i].as<std::string>();
-				auto& scene = uf::scene::getCurrentScene();
-				auto& assetLoader = scene.getComponent<uf::Asset>();
-				const uf::Image* imagePointer = NULL;
-				if ( !assetLoader.has<uf::Image>(filename) ) return;
-				imagePointer = &assetLoader.get<uf::Image>(filename);
-				if ( !imagePointer ) continue;
-				uf::Image image = *imagePointer;
-				auto& texture = graphic.material.textures.emplace_back();
-				texture.loadFromImage( image );
-			}
-			graphic.process = true;
-
 		#if UF_USE_VULKAN
 			{
 				auto& shader = graphic.material.getShader("vertex");
@@ -164,21 +139,19 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				}
 			}
 		#endif
+			graphic.process = true;
 		});
-		this->addChild(objectPointer->as<uf::Entity>());
+		this->addChild(graph.root.entity->as<uf::Entity>());
 
 		auto& transform = this->getComponent<pod::Transform<>>();
-		objectPointer->getComponent<pod::Transform<>>().reference = &transform;
+		graph.root.entity->getComponent<pod::Transform<>>().reference = &transform;
 		
-		objectPointer->initialize();
-		objectPointer->process([&]( uf::Entity* entity ) {
+		graph.root.entity->initialize();
+		graph.root.entity->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) {
 				if ( entity->getUid() == 0 ) entity->initialize();
 				return;
 			}
-			auto& eMetadata = entity->getComponent<uf::Serializer>();
-			eMetadata["textures"]["map"] = metadata["textures"]["map"];
-		//	if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) uf::instantiator::bind( "RenderBehavior", *entity );
 			uf::instantiator::bind( "GltfBehavior", *entity );
 			uf::instantiator::unbind( "RenderBehavior", *entity );
 			if ( entity->getUid() == 0 ) entity->initialize();
@@ -189,9 +162,8 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				uf::graph::animate( graph, metadata["model"]["animation"].as<std::string>() );
 			}
 			if ( metadata["model"]["print animations"].as<bool>() ) {
-				uf::Serializer json = ext::json::array(); //Json::Value(Json::arrayValue);
+				uf::Serializer json = ext::json::array();
 				for ( auto pair : graph.animations ) json.emplace_back( pair.first );
-				uf::iostream << "Animations found: " << json << "\n";
 			}
 		}
 	});
@@ -204,54 +176,9 @@ void uf::GltfBehavior::destroy( uf::Object& self ) {
 }
 void uf::GltfBehavior::tick( uf::Object& self ) {
 	/* Animation change test */ 
-	if ( this->hasComponent<pod::Graph>() ) {
-		std::vector<std::string> animations = { "wank","walk","sit_wank","run","idle_wank","sit","idle" };
-		bool anyNumber =
-			uf::Window::isKeyPressed("1") ||
-			uf::Window::isKeyPressed("2") ||
-			uf::Window::isKeyPressed("3") ||
-			uf::Window::isKeyPressed("4") ||
-			uf::Window::isKeyPressed("5") ||
-			uf::Window::isKeyPressed("6") ||
-			uf::Window::isKeyPressed("7") ||
-			uf::Window::isKeyPressed("8") ||
-			uf::Window::isKeyPressed("9") ||
-			uf::Window::isKeyPressed("0");
-		TIMER(1, anyNumber && ) {
-			auto& graph = this->getComponent<pod::Graph>();
-			std::string target = "";
-			if ( uf::Window::isKeyPressed("1") && animations.size() >= 1 ) target = animations[0];
-			else if ( uf::Window::isKeyPressed("2") && animations.size() >= 2 ) target = animations[1];
-			else if ( uf::Window::isKeyPressed("3") && animations.size() >= 3 ) target = animations[2];
-			else if ( uf::Window::isKeyPressed("4") && animations.size() >= 4 ) target = animations[3];
-			else if ( uf::Window::isKeyPressed("5") && animations.size() >= 5 ) target = animations[4];
-			else if ( uf::Window::isKeyPressed("6") && animations.size() >= 6 ) target = animations[5];
-			else if ( uf::Window::isKeyPressed("7") && animations.size() >= 7 ) target = animations[6];
-			else if ( uf::Window::isKeyPressed("8") && animations.size() >= 8 ) target = animations[7];
-			else if ( uf::Window::isKeyPressed("9") && animations.size() >= 9 ) target = animations[8];
-			else if ( uf::Window::isKeyPressed("0") && animations.size() >= 10 ) target = animations[9];
-			std::cout << "CHANGING ANIMATION TO " << target << std::endl;
-			// graph.animationSettings.loop = false;
-			uf::graph::animate( graph, target, 1 / 0.125f );
-		}
-	}
-
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
-		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
-			uf::graph::update( graph );
-		}
-	/*
-		auto& transform = this->getComponent<pod::Transform<>>();
-		auto& node = graph.node->children.size() == 1 ? *graph.node->children[0] : *graph.node;
-		pod::Matrix4f nodeMatrix = node.transform.model;
-		pod::Node* currentParent = uf::graph::find(graph, node.parent);
-		while ( currentParent ) {
-			nodeMatrix = currentParent->transform.model * nodeMatrix;
-			currentParent = uf::graph::find(graph, currentParent->parent);
-		}
-		transform.model = nodeMatrix;
-	*/
+		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) uf::graph::update( graph );
 	}
 #if UF_USE_OPENGL
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
@@ -317,42 +244,6 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			auto& storageBuffer = *graphic.getStorageBuffer("Models");
 			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/ );
 		}
-	/*
-		if ( graph.materials.empty() && graphic.hasStorage("Materials") ) {
-			auto& shader = graphic.material.getShader("fragment");
-			std::vector<pod::Material::Storage> materials( graph.materials.size() );
-			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
-				materials[i] = graph.materials[i].storage;
-				materials[i].indexMappedTarget = graph.mode & ext::gltf::LoadMode::ATLAS ? 0 : i;
-				materials[i].factorMappedBlend = graph.mode & ext::gltf::LoadMode::ATLAS ? 1.0f : 0.0f;
-			}
-			{
-				size_t texturesLen = graphic.material.textures.size();
-				ext::json::forEach(metadata["textures"]["map"], [&]( const std::string& key, const ext::json::Value& mapping ){
-					uint32_t from = std::stoi(key);
-					if ( mapping["alpha cutoff"].is<float>() ) {
-						materials[from].factorAlphaCutoff = mapping["alpha cutoff"].as<float>();
-					}
-					if ( mapping["to"].is<size_t>() ) {
-						uint32_t to = mapping["to"].as<size_t>();
-						float blend = 1.0f;
-						if ( mapping["factor"].as<std::string>() == "sin(time)" ) {
-							blend = sin(uf::physics::time::current)*0.5f+0.5f;
-						} else if ( mapping["factor"].as<std::string>() == "cos(time)" ) {
-							blend = cos(uf::physics::time::current)*0.5f+0.5f;
-						} else if ( mapping["factor"].is<float>() ) {
-							blend = mapping["factor"].as<float>();
-						}
-						if ( from >= texturesLen || to >= texturesLen ) return;
-						materials[from].indexMappedTarget = to;
-						materials[from].factorMappedBlend = blend;
-					}
-				});
-			}
-			auto& storageBuffer = *graphic.getStorageBuffer("Materials");
-			graphic.updateBuffer( (void*) materials.data(), materials.size() * sizeof(pod::Material::Storage), graph.root.materialBufferIndex /storageBuffer/ );
-		}
-	*/
 	}
 #endif
 }

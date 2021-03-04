@@ -7,10 +7,17 @@ namespace {\
 	});\
 }
 
+// uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );
 #define UF_BEHAVIOR_REGISTER_CPP( BEHAVIOR ) \
 namespace {\
 	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
-		uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );\
+		uf::instantiator::registerBehavior(UF_NS_GET_LAST(BEHAVIOR), pod::Behavior{\
+			.type = BEHAVIOR::type,\
+			.initialize = BEHAVIOR::initialize,\
+			.tick = BEHAVIOR::tick,\
+			.render = BEHAVIOR::render,\
+			.destroy = BEHAVIOR::destroy,\
+		});\
 	});\
 }
 
@@ -30,8 +37,16 @@ namespace {\
 #define UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
 		uf::instantiator::registerBinding( name, UF_NS_GET_LAST(BEHAVIOR) );
 
+// uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );
 #define UF_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
-		uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );\
+		if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new std::unordered_map<std::string, pod::Behavior>;\
+		uf::instantiator::registerBehavior(UF_NS_GET_LAST(BEHAVIOR), pod::Behavior{\
+			.type = BEHAVIOR::type,\
+			.initialize = BEHAVIOR::initialize,\
+			.tick = BEHAVIOR::tick,\
+			.render = BEHAVIOR::render,\
+			.destroy = BEHAVIOR::destroy,\
+		});\
 		UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )
 
 #define UF_OBJECT_REGISTER_END()\

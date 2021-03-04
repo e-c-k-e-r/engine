@@ -1,10 +1,11 @@
 #include <uf/spec/window/window.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/utf.h>
+#include <uf/utils/serialize/serializer.h>
 
 #define USE_OPTIMAL 0
 
-#if defined(UF_ENV_WINDOWS) && (!defined(UF_USE_SFML) || (defined(UF_USE_SFML) && UF_USE_SFML == 0))
+#if UF_ENV_WINDOWS && (!UF_USE_SFML || (UF_USE_SFML && UF_USE_SFML == 0))
 namespace {
 	int windowCount 		= 0;
 	std::wstring className 	= L"uf::Window::Class";
@@ -54,6 +55,467 @@ namespace {
 		if (message == WM_CLOSE) return 0;
 		if ((message == WM_SYSCOMMAND) && (wParam == SC_KEYMENU)) return 0;
 		return DefWindowProcW(handle, message, wParam, lParam);
+	}
+
+	std::vector<WPARAM> GetKeys() {
+		std::vector<WPARAM> keys;
+		keys.reserve(8);
+
+		if ( GetAsyncKeyState('A') & 0x8000 ) keys.push_back('A');
+		if ( GetAsyncKeyState('B') & 0x8000 ) keys.push_back('B');
+		if ( GetAsyncKeyState('C') & 0x8000 ) keys.push_back('C');
+		if ( GetAsyncKeyState('D') & 0x8000 ) keys.push_back('D');
+		if ( GetAsyncKeyState('E') & 0x8000 ) keys.push_back('E');
+		if ( GetAsyncKeyState('F') & 0x8000 ) keys.push_back('F');
+		if ( GetAsyncKeyState('G') & 0x8000 ) keys.push_back('G');
+		if ( GetAsyncKeyState('H') & 0x8000 ) keys.push_back('H');
+		if ( GetAsyncKeyState('I') & 0x8000 ) keys.push_back('I');
+		if ( GetAsyncKeyState('J') & 0x8000 ) keys.push_back('J');
+		if ( GetAsyncKeyState('K') & 0x8000 ) keys.push_back('K');
+		if ( GetAsyncKeyState('L') & 0x8000 ) keys.push_back('L');
+		if ( GetAsyncKeyState('M') & 0x8000 ) keys.push_back('M');
+		if ( GetAsyncKeyState('N') & 0x8000 ) keys.push_back('N');
+		if ( GetAsyncKeyState('O') & 0x8000 ) keys.push_back('O');
+		if ( GetAsyncKeyState('P') & 0x8000 ) keys.push_back('P');
+		if ( GetAsyncKeyState('Q') & 0x8000 ) keys.push_back('Q');
+		if ( GetAsyncKeyState('R') & 0x8000 ) keys.push_back('R');
+		if ( GetAsyncKeyState('S') & 0x8000 ) keys.push_back('S');
+		if ( GetAsyncKeyState('T') & 0x8000 ) keys.push_back('T');
+		if ( GetAsyncKeyState('U') & 0x8000 ) keys.push_back('U');
+		if ( GetAsyncKeyState('V') & 0x8000 ) keys.push_back('V');
+		if ( GetAsyncKeyState('W') & 0x8000 ) keys.push_back('W');
+		if ( GetAsyncKeyState('X') & 0x8000 ) keys.push_back('X');
+		if ( GetAsyncKeyState('Y') & 0x8000 ) keys.push_back('Y');
+		if ( GetAsyncKeyState('Z') & 0x8000 ) keys.push_back('Z');
+		if ( GetAsyncKeyState('0') & 0x8000 ) keys.push_back('0');
+		if ( GetAsyncKeyState('1') & 0x8000 ) keys.push_back('1');
+		if ( GetAsyncKeyState('2') & 0x8000 ) keys.push_back('2');
+		if ( GetAsyncKeyState('3') & 0x8000 ) keys.push_back('3');
+		if ( GetAsyncKeyState('4') & 0x8000 ) keys.push_back('4');
+		if ( GetAsyncKeyState('5') & 0x8000 ) keys.push_back('5');
+		if ( GetAsyncKeyState('6') & 0x8000 ) keys.push_back('6');
+		if ( GetAsyncKeyState('7') & 0x8000 ) keys.push_back('7');
+		if ( GetAsyncKeyState('8') & 0x8000 ) keys.push_back('8');
+		if ( GetAsyncKeyState('9') & 0x8000 ) keys.push_back('9');
+		if ( GetAsyncKeyState(VK_ESCAPE) & 0x8000 ) keys.push_back(VK_ESCAPE);
+		if ( GetAsyncKeyState(VK_LCONTROL) & 0x8000 ) keys.push_back(VK_LCONTROL);
+		if ( GetAsyncKeyState(VK_LSHIFT) & 0x8000 ) keys.push_back(VK_LSHIFT);
+		if ( GetAsyncKeyState(VK_LMENU) & 0x8000 ) keys.push_back(VK_LMENU);
+		if ( GetAsyncKeyState(VK_LWIN) & 0x8000 ) keys.push_back(VK_LWIN);
+		if ( GetAsyncKeyState(VK_RCONTROL) & 0x8000 ) keys.push_back(VK_RCONTROL);
+		if ( GetAsyncKeyState(VK_RSHIFT) & 0x8000 ) keys.push_back(VK_RSHIFT);
+		if ( GetAsyncKeyState(VK_RMENU) & 0x8000 ) keys.push_back(VK_RMENU);
+		if ( GetAsyncKeyState(VK_RWIN) & 0x8000 ) keys.push_back(VK_RWIN);
+		if ( GetAsyncKeyState(VK_APPS) & 0x8000 ) keys.push_back(VK_APPS);
+		if ( GetAsyncKeyState(VK_OEM_4) & 0x8000 ) keys.push_back(VK_OEM_4);
+		if ( GetAsyncKeyState(VK_OEM_6) & 0x8000 ) keys.push_back(VK_OEM_6);
+		if ( GetAsyncKeyState(VK_OEM_1) & 0x8000 ) keys.push_back(VK_OEM_1);
+		if ( GetAsyncKeyState(VK_OEM_COMMA) & 0x8000 ) keys.push_back(VK_OEM_COMMA);
+		if ( GetAsyncKeyState(VK_OEM_PERIOD) & 0x8000 ) keys.push_back(VK_OEM_PERIOD);
+		if ( GetAsyncKeyState(VK_OEM_7) & 0x8000 ) keys.push_back(VK_OEM_7);
+		if ( GetAsyncKeyState(VK_OEM_2) & 0x8000 ) keys.push_back(VK_OEM_2);
+		if ( GetAsyncKeyState(VK_OEM_5) & 0x8000 ) keys.push_back(VK_OEM_5);
+		if ( GetAsyncKeyState(VK_OEM_3) & 0x8000 ) keys.push_back(VK_OEM_3);
+		if ( GetAsyncKeyState(VK_OEM_PLUS) & 0x8000 ) keys.push_back(VK_OEM_PLUS);
+		if ( GetAsyncKeyState(VK_OEM_MINUS) & 0x8000 ) keys.push_back(VK_OEM_MINUS);
+		if ( GetAsyncKeyState(VK_SPACE) & 0x8000 ) keys.push_back(VK_SPACE);
+		if ( GetAsyncKeyState(VK_RETURN) & 0x8000 ) keys.push_back(VK_RETURN);
+		if ( GetAsyncKeyState(VK_BACK) & 0x8000 ) keys.push_back(VK_BACK);
+		if ( GetAsyncKeyState(VK_TAB) & 0x8000 ) keys.push_back(VK_TAB);
+		if ( GetAsyncKeyState(VK_PRIOR) & 0x8000 ) keys.push_back(VK_PRIOR);
+		if ( GetAsyncKeyState(VK_NEXT) & 0x8000 ) keys.push_back(VK_NEXT);
+		if ( GetAsyncKeyState(VK_END) & 0x8000 ) keys.push_back(VK_END);
+		if ( GetAsyncKeyState(VK_HOME) & 0x8000 ) keys.push_back(VK_HOME);
+		if ( GetAsyncKeyState(VK_INSERT) & 0x8000 ) keys.push_back(VK_INSERT);
+		if ( GetAsyncKeyState(VK_DELETE) & 0x8000 ) keys.push_back(VK_DELETE);
+		if ( GetAsyncKeyState(VK_ADD) & 0x8000 ) keys.push_back(VK_ADD);
+		if ( GetAsyncKeyState(VK_SUBTRACT) & 0x8000 ) keys.push_back(VK_SUBTRACT);
+		if ( GetAsyncKeyState(VK_MULTIPLY) & 0x8000 ) keys.push_back(VK_MULTIPLY);
+		if ( GetAsyncKeyState(VK_DIVIDE) & 0x8000 ) keys.push_back(VK_DIVIDE);
+		if ( GetAsyncKeyState(VK_LEFT) & 0x8000 ) keys.push_back(VK_LEFT);
+		if ( GetAsyncKeyState(VK_RIGHT) & 0x8000 ) keys.push_back(VK_RIGHT);
+		if ( GetAsyncKeyState(VK_UP) & 0x8000 ) keys.push_back(VK_UP);
+		if ( GetAsyncKeyState(VK_DOWN) & 0x8000 ) keys.push_back(VK_DOWN);
+		if ( GetAsyncKeyState(VK_NUMPAD0) & 0x8000 ) keys.push_back(VK_NUMPAD0);
+		if ( GetAsyncKeyState(VK_NUMPAD1) & 0x8000 ) keys.push_back(VK_NUMPAD1);
+		if ( GetAsyncKeyState(VK_NUMPAD2) & 0x8000 ) keys.push_back(VK_NUMPAD2);
+		if ( GetAsyncKeyState(VK_NUMPAD3) & 0x8000 ) keys.push_back(VK_NUMPAD3);
+		if ( GetAsyncKeyState(VK_NUMPAD4) & 0x8000 ) keys.push_back(VK_NUMPAD4);
+		if ( GetAsyncKeyState(VK_NUMPAD5) & 0x8000 ) keys.push_back(VK_NUMPAD5);
+		if ( GetAsyncKeyState(VK_NUMPAD6) & 0x8000 ) keys.push_back(VK_NUMPAD6);
+		if ( GetAsyncKeyState(VK_NUMPAD7) & 0x8000 ) keys.push_back(VK_NUMPAD7);
+		if ( GetAsyncKeyState(VK_NUMPAD8) & 0x8000 ) keys.push_back(VK_NUMPAD8);
+		if ( GetAsyncKeyState(VK_NUMPAD9) & 0x8000 ) keys.push_back(VK_NUMPAD9);
+		if ( GetAsyncKeyState(VK_F1) & 0x8000 ) keys.push_back(VK_F1);
+		if ( GetAsyncKeyState(VK_F2) & 0x8000 ) keys.push_back(VK_F2);
+		if ( GetAsyncKeyState(VK_F3) & 0x8000 ) keys.push_back(VK_F3);
+		if ( GetAsyncKeyState(VK_F4) & 0x8000 ) keys.push_back(VK_F4);
+		if ( GetAsyncKeyState(VK_F5) & 0x8000 ) keys.push_back(VK_F5);
+		if ( GetAsyncKeyState(VK_F6) & 0x8000 ) keys.push_back(VK_F6);
+		if ( GetAsyncKeyState(VK_F7) & 0x8000 ) keys.push_back(VK_F7);
+		if ( GetAsyncKeyState(VK_F8) & 0x8000 ) keys.push_back(VK_F8);
+		if ( GetAsyncKeyState(VK_F9) & 0x8000 ) keys.push_back(VK_F9);
+		if ( GetAsyncKeyState(VK_F10) & 0x8000 ) keys.push_back(VK_F10);
+		if ( GetAsyncKeyState(VK_F11) & 0x8000 ) keys.push_back(VK_F11);
+		if ( GetAsyncKeyState(VK_F12) & 0x8000 ) keys.push_back(VK_F12);
+		if ( GetAsyncKeyState(VK_F13) & 0x8000 ) keys.push_back(VK_F13);
+		if ( GetAsyncKeyState(VK_F14) & 0x8000 ) keys.push_back(VK_F14);
+		if ( GetAsyncKeyState(VK_F15) & 0x8000 ) keys.push_back(VK_F15);
+		if ( GetAsyncKeyState(VK_PAUSE) & 0x8000 ) keys.push_back(VK_PAUSE);
+
+   		if ( GetAsyncKeyState(VK_LBUTTON) & 0x8000 ) keys.push_back(VK_LBUTTON);
+		if ( GetAsyncKeyState(VK_RBUTTON) & 0x8000 ) keys.push_back(VK_RBUTTON);
+		if ( GetAsyncKeyState(VK_MBUTTON) & 0x8000 ) keys.push_back(VK_MBUTTON);
+		if ( GetAsyncKeyState(VK_XBUTTON1) & 0x8000 ) keys.push_back(VK_XBUTTON1);
+		if ( GetAsyncKeyState(VK_XBUTTON2) & 0x8000 ) keys.push_back(VK_XBUTTON2);
+		return keys;
+	}
+	std::string _GetKeyName( WPARAM key, LPARAM flags = 0 ) {
+	#if 1
+		switch ( key ) {
+			// Check the scancode to distinguish between left and right shift
+			case VK_SHIFT: {	
+				static UINT lShift = MapVirtualKeyW(VK_LSHIFT, MAPVK_VK_TO_VSC);
+				UINT scancode = static_cast<UINT>((flags & (0xFF << 16)) >> 16);
+				return scancode == lShift ? "LShift" : "RShift";
+			}
+			// Check the "extended" flag to distinguish between left and right alt
+			case VK_MENU : return (HIWORD(flags) & KF_EXTENDED) ? "RAlt" : "LAlt";
+			// Check the "extended" flag to distinguish between left and right control
+			case VK_CONTROL : return (HIWORD(flags) & KF_EXTENDED) ? "RControl" : "LControl";
+
+			// Other keys are reported properly
+			case VK_LWIN:			return "LSystem";
+			case VK_RWIN:			return "RSystem";
+			case VK_APPS:			return "Menu";
+			case VK_OEM_1:			return "SemiColon";
+			case VK_OEM_2:			return "Slash";
+			case VK_OEM_PLUS:		return "Equal";
+			case VK_OEM_MINUS:  	return "Dash";
+			case VK_OEM_4:			return "LBracket";
+			case VK_OEM_6:			return "RBracket";
+			case VK_OEM_COMMA:  	return "Comma";
+			case VK_OEM_PERIOD:		return "Period";
+			case VK_OEM_7:			return "Quote";
+			case VK_OEM_5:			return "BackSlash";
+			case VK_OEM_3:			return "Tilde";
+			
+			case VK_ESCAPE:			return "Escape";
+			case VK_SPACE:			return "Space";
+			case VK_RETURN:			return "Enter";
+			case VK_BACK:			return "BackSpace";
+			case VK_TAB:			return "Tab";
+			case VK_PRIOR:			return "PageUp";
+			case VK_NEXT:			return "PageDown";
+			case VK_END:			return "End";
+			case VK_HOME:			return "Home";
+			case VK_INSERT:			return "Insert";
+			case VK_DELETE:			return "Delete";
+			case VK_ADD:			return "Add";
+			case VK_SUBTRACT:		return "Subtract";
+			case VK_MULTIPLY:		return "Multiply";
+			case VK_DIVIDE:			return "Divide";
+			case VK_PAUSE:			return "Pause";
+			
+			case VK_F1:				return "F1";
+			case VK_F2:				return "F2";
+			case VK_F3:				return "F3";
+			case VK_F4:				return "F4";
+			case VK_F5:				return "F5";
+			case VK_F6:				return "F6";
+			case VK_F7:				return "F7";
+			case VK_F8:				return "F8";
+			case VK_F9:				return "F9";
+			case VK_F10:			return "F10";
+			case VK_F11:			return "F11";
+			case VK_F12:			return "F12";
+			case VK_F13:			return "F13";
+			case VK_F14:			return "F14";
+			case VK_F15:			return "F15";
+			
+			case VK_LEFT:			return "Left";
+			case VK_RIGHT:			return "Right";
+			case VK_UP:				return "Up";
+			case VK_DOWN:			return "Down";
+
+			case VK_NUMPAD0:		return "Numpad0";
+			case VK_NUMPAD1:		return "Numpad1";
+			case VK_NUMPAD2:		return "Numpad2";
+			case VK_NUMPAD3:		return "Numpad3";
+			case VK_NUMPAD4:		return "Numpad4";
+			case VK_NUMPAD5:		return "Numpad5";
+			case VK_NUMPAD6:		return "Numpad6";
+			case VK_NUMPAD7:		return "Numpad7";
+			case VK_NUMPAD8:		return "Numpad8";
+			case VK_NUMPAD9:		return "Numpad9";
+
+			case 'Q':				return "Q";
+			case 'W':				return "W";
+			case 'E':				return "E";
+			case 'R':				return "R";
+			case 'T':				return "T";
+			case 'Y':				return "Y";
+			case 'U':				return "U";
+			case 'I':				return "I";
+			case 'O':				return "O";
+			case 'P':				return "P";
+			
+			case 'A':				return "A";
+			case 'S':				return "S";
+			case 'D':				return "D";
+			case 'F':				return "F";
+			case 'G':				return "G";
+			case 'H':				return "H";
+			case 'J':				return "J";
+			case 'K':				return "K";
+			case 'L':				return "L";
+			
+			case 'Z':				return "Z";
+			case 'X':				return "X";
+			case 'C':				return "C";
+			case 'V':				return "V";
+			case 'B':				return "B";
+			case 'N':				return "N";
+			case 'M':				return "M";
+			
+			case '1':				return "Num1";
+			case '2':				return "Num2";
+			case '3':				return "Num3";
+			case '4':				return "Num4";
+			case '5':				return "Num5";
+			case '6':				return "Num6";
+			case '7':				return "Num7";
+			case '8':				return "Num8";
+			case '9':				return "Num9";
+			case '0':				return "Num0";
+		}
+	#else
+		switch ( key ) {
+			case 'A': return "A";
+			case 'B': return "B";
+			case 'C': return "C";
+			case 'D': return "D";
+			case 'E': return "E";
+			case 'F': return "F";
+			case 'G': return "G";
+			case 'H': return "H";
+			case 'I': return "I";
+			case 'J': return "J";
+			case 'K': return "K";
+			case 'L': return "L";
+			case 'M': return "M";
+			case 'N': return "N";
+			case 'O': return "O";
+			case 'P': return "P";
+			case 'Q': return "Q";
+			case 'R': return "R";
+			case 'S': return "S";
+			case 'T': return "T";
+			case 'U': return "U";
+			case 'V': return "V";
+			case 'W': return "W";
+			case 'X': return "X";
+			case 'Y': return "Y";
+			case 'Z': return "Z";
+			case '0': return "0";
+			case '1': return "1";
+			case '2': return "2";
+			case '3': return "3";
+			case '4': return "4";
+			case '5': return "5";
+			case '6': return "6";
+			case '7': return "7";
+			case '8': return "8";
+			case '9': return "9";
+			case VK_ESCAPE: return "Escape";
+			case VK_LCONTROL: return "LControl";
+			case VK_LSHIFT: return "LShift";
+			case VK_LMENU: return "LAlt";
+			case VK_LWIN: return "LSystem";
+			case VK_RCONTROL: return "RControl";
+			case VK_RSHIFT: return "RShift";
+			case VK_RMENU: return "RAlt";
+			case VK_RWIN: return "RSystem";
+			case VK_APPS: return "Apps";
+			case VK_OEM_4: return "OEM4";
+			case VK_OEM_6: return "OEM6";
+			case VK_OEM_1: return "OEM1";
+			case VK_OEM_COMMA: return "OEMComma";
+			case VK_OEM_PERIOD: return "OEMPeriod";
+			case VK_OEM_7: return "OEM7";
+			case VK_OEM_2: return "OEM2";
+			case VK_OEM_5: return "OEM5";
+			case VK_OEM_3: return "OEM3";
+			case VK_OEM_PLUS: return "OEM+";
+			case VK_OEM_MINUS: return "OEM-";
+			case VK_SPACE: return " ";
+			case VK_RETURN: return "Enter";
+			case VK_BACK: return "Back";
+			case VK_TAB: return "Tab";
+			case VK_PRIOR: return "Prior";
+			case VK_NEXT: return "Next";
+			case VK_END: return "End";
+			case VK_HOME: return "Home";
+			case VK_INSERT: return "Insert";
+			case VK_DELETE: return "Delete";
+			case VK_ADD: return "+";
+			case VK_SUBTRACT: return "-";
+			case VK_MULTIPLY: return "*";
+			case VK_DIVIDE: return "/";
+			case VK_LEFT: return "Left";
+			case VK_RIGHT: return "Right";
+			case VK_UP: return "Up";
+			case VK_DOWN: return "Down";
+			case VK_NUMPAD0: return "Num0";
+			case VK_NUMPAD1: return "Num1";
+			case VK_NUMPAD2: return "Num2";
+			case VK_NUMPAD3: return "Num3";
+			case VK_NUMPAD4: return "Num4";
+			case VK_NUMPAD5: return "Num5";
+			case VK_NUMPAD6: return "Num6";
+			case VK_NUMPAD7: return "Num7";
+			case VK_NUMPAD8: return "Num8";
+			case VK_NUMPAD9: return "Num9";
+			case VK_F1: return "F1";
+			case VK_F2: return "F2";
+			case VK_F3: return "F3";
+			case VK_F4: return "F4";
+			case VK_F5: return "F5";
+			case VK_F6: return "F6";
+			case VK_F7: return "F7";
+			case VK_F8: return "F8";
+			case VK_F9: return "F9";
+			case VK_F10: return "F10";
+			case VK_F11: return "F11";
+			case VK_F12: return "F12";
+			case VK_F13: return "F13";
+			case VK_F14: return "F14";
+			case VK_F15: return "F15";
+			case VK_PAUSE: return "Pause";
+
+			case VK_LBUTTON: return "LeftMouse";
+			case VK_RBUTTON: return "RightMouse";
+			case VK_MBUTTON: return "MiddleMouse";
+			case VK_XBUTTON1: return "XButton1";
+			case VK_XBUTTON2: return "XButton2";
+		}
+	#endif
+		return std::to_string((int) key);
+	}
+	std::string GetKeyName( WPARAM key, LPARAM flags = 0 ) {
+		return uf::string::uppercase( _GetKeyName( key, flags ) );
+	}
+
+	WPARAM GetKeyCode( const std::string& _name ) {
+		std::string name = uf::string::uppercase(_name);
+		if ( name == "A" ) return 'A';
+		else if ( name == "B" ) return 'B';
+		else if ( name == "C" ) return 'C';
+		else if ( name == "D" ) return 'D';
+		else if ( name == "E" ) return 'E';
+		else if ( name == "F" ) return 'F';
+		else if ( name == "G" ) return 'G';
+		else if ( name == "H" ) return 'H';
+		else if ( name == "I" ) return 'I';
+		else if ( name == "J" ) return 'J';
+		else if ( name == "K" ) return 'K';
+		else if ( name == "L" ) return 'L';
+		else if ( name == "M" ) return 'M';
+		else if ( name == "N" ) return 'N';
+		else if ( name == "O" ) return 'O';
+		else if ( name == "P" ) return 'P';
+		else if ( name == "Q" ) return 'Q';
+		else if ( name == "R" ) return 'R';
+		else if ( name == "S" ) return 'S';
+		else if ( name == "T" ) return 'T';
+		else if ( name == "U" ) return 'U';
+		else if ( name == "V" ) return 'V';
+		else if ( name == "W" ) return 'W';
+		else if ( name == "X" ) return 'X';
+		else if ( name == "Y" ) return 'Y';
+		else if ( name == "Z" ) return 'Z';
+		else if ( name == "0" ) return '0';
+		else if ( name == "1" ) return '1';
+		else if ( name == "2" ) return '2';
+		else if ( name == "3" ) return '3';
+		else if ( name == "4" ) return '4';
+		else if ( name == "5" ) return '5';
+		else if ( name == "6" ) return '6';
+		else if ( name == "7" ) return '7';
+		else if ( name == "8" ) return '8';
+		else if ( name == "9" ) return '9';
+		else if ( name == "ESCAPE" ) return VK_ESCAPE;
+		else if ( name == "LCONTROL" ) return VK_LCONTROL;
+		else if ( name == "LSHIFT" ) return VK_LSHIFT;
+		else if ( name == "LALT" ) return VK_LMENU;
+		else if ( name == "LSYSTEM" ) return VK_LWIN;
+		else if ( name == "RCONTROL" ) return VK_RCONTROL;
+		else if ( name == "RSHIFT" ) return VK_RSHIFT;
+		else if ( name == "RALT" ) return VK_RMENU;
+		else if ( name == "RSYSTEM" ) return VK_RWIN;
+		else if ( name == "APPS" ) return VK_APPS;
+		else if ( name == "OEM4" ) return VK_OEM_4;
+		else if ( name == "OEM6" ) return VK_OEM_6;
+		else if ( name == "OEM1" ) return VK_OEM_1;
+		else if ( name == "OEMCOMMA" ) return VK_OEM_COMMA;
+		else if ( name == "OEMPERIOD" ) return VK_OEM_PERIOD;
+		else if ( name == "OEM7" ) return VK_OEM_7;
+		else if ( name == "OEM2" ) return VK_OEM_2;
+		else if ( name == "OEM5" ) return VK_OEM_5;
+		else if ( name == "OEM3" ) return VK_OEM_3;
+		else if ( name == "OEM+" ) return VK_OEM_PLUS;
+		else if ( name == "OEM-" ) return VK_OEM_MINUS;
+		else if ( name == " " ) return VK_SPACE;
+		else if ( name == "ENTER" ) return VK_RETURN;
+		else if ( name == "BACK" ) return VK_BACK;
+		else if ( name == "TAB" ) return VK_TAB;
+		else if ( name == "PRIOR" ) return VK_PRIOR;
+		else if ( name == "NEXT" ) return VK_NEXT;
+		else if ( name == "END" ) return VK_END;
+		else if ( name == "HOME" ) return VK_HOME;
+		else if ( name == "INSERT" ) return VK_INSERT;
+		else if ( name == "DELETE" ) return VK_DELETE;
+		else if ( name == "+" ) return VK_ADD;
+		else if ( name == "-" ) return VK_SUBTRACT;
+		else if ( name == "*" ) return VK_MULTIPLY;
+		else if ( name == "/" ) return VK_DIVIDE;
+		else if ( name == "LEFT" ) return VK_LEFT;
+		else if ( name == "RIGHT" ) return VK_RIGHT;
+		else if ( name == "UP" ) return VK_UP;
+		else if ( name == "DOWN" ) return VK_DOWN;
+		else if ( name == "NUM0" ) return VK_NUMPAD0;
+		else if ( name == "NUM1" ) return VK_NUMPAD1;
+		else if ( name == "NUM2" ) return VK_NUMPAD2;
+		else if ( name == "NUM3" ) return VK_NUMPAD3;
+		else if ( name == "NUM4" ) return VK_NUMPAD4;
+		else if ( name == "NUM5" ) return VK_NUMPAD5;
+		else if ( name == "NUM6" ) return VK_NUMPAD6;
+		else if ( name == "NUM7" ) return VK_NUMPAD7;
+		else if ( name == "NUM8" ) return VK_NUMPAD8;
+		else if ( name == "NUM9" ) return VK_NUMPAD9;
+		else if ( name == "F1" ) return VK_F1;
+		else if ( name == "F2" ) return VK_F2;
+		else if ( name == "F3" ) return VK_F3;
+		else if ( name == "F4" ) return VK_F4;
+		else if ( name == "F5" ) return VK_F5;
+		else if ( name == "F6" ) return VK_F6;
+		else if ( name == "F7" ) return VK_F7;
+		else if ( name == "F8" ) return VK_F8;
+		else if ( name == "F9" ) return VK_F9;
+		else if ( name == "F10" ) return VK_F10;
+		else if ( name == "F11" ) return VK_F11;
+		else if ( name == "F12" ) return VK_F12;
+		else if ( name == "F13" ) return VK_F13;
+		else if ( name == "F14" ) return VK_F14;
+		else if ( name == "F15" ) return VK_F15;
+		else if ( name == "PAUSE" ) return VK_PAUSE;
+
+		else if ( name == "LEFTMOUSE" ) return VK_LBUTTON;
+		else if ( name == "RIGHTMOUSE" ) return VK_RBUTTON;
+		else if ( name == "MIDDLEMOUSE" ) return VK_MBUTTON;
+		else if ( name == "XBUTTON1" ) return VK_XBUTTON1;
+		else if ( name == "XBUTTON2" ) return VK_XBUTTON2;
+		return 0;
 	}
 }
 
@@ -300,8 +762,6 @@ bool UF_API_CALL spec::win32::Window::hasFocus() const {
 	return this->m_handle == GetForegroundWindow();
 }
 
-
-#include <uf/utils/serialize/serializer.h>
 void UF_API_CALL spec::win32::Window::processEvents() {
 	if ( !this->m_callback ) {
 		MSG message;
@@ -311,114 +771,7 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 		}
 	}
 	/* Key inputs */ if ( this->m_asyncParse ) {
-		std::vector<WPARAM> keys;
-		if ( GetAsyncKeyState('A') & 0x8000 ) keys.push_back('A'); // keys.push_back(this->getKey('A', 0));
-		if ( GetAsyncKeyState('B') & 0x8000 ) keys.push_back('B'); // keys.push_back(this->getKey('B', 0));
-		if ( GetAsyncKeyState('C') & 0x8000 ) keys.push_back('C'); // keys.push_back(this->getKey('C', 0));
-		if ( GetAsyncKeyState('D') & 0x8000 ) keys.push_back('D'); // keys.push_back(this->getKey('D', 0));
-		if ( GetAsyncKeyState('E') & 0x8000 ) keys.push_back('E'); // keys.push_back(this->getKey('E', 0));
-		if ( GetAsyncKeyState('F') & 0x8000 ) keys.push_back('F'); // keys.push_back(this->getKey('F', 0));
-		if ( GetAsyncKeyState('G') & 0x8000 ) keys.push_back('G'); // keys.push_back(this->getKey('G', 0));
-		if ( GetAsyncKeyState('H') & 0x8000 ) keys.push_back('H'); // keys.push_back(this->getKey('H', 0));
-		if ( GetAsyncKeyState('I') & 0x8000 ) keys.push_back('I'); // keys.push_back(this->getKey('I', 0));
-		if ( GetAsyncKeyState('J') & 0x8000 ) keys.push_back('J'); // keys.push_back(this->getKey('J', 0));
-		if ( GetAsyncKeyState('K') & 0x8000 ) keys.push_back('K'); // keys.push_back(this->getKey('K', 0));
-		if ( GetAsyncKeyState('L') & 0x8000 ) keys.push_back('L'); // keys.push_back(this->getKey('L', 0));
-		if ( GetAsyncKeyState('M') & 0x8000 ) keys.push_back('M'); // keys.push_back(this->getKey('M', 0));
-		if ( GetAsyncKeyState('N') & 0x8000 ) keys.push_back('N'); // keys.push_back(this->getKey('N', 0));
-		if ( GetAsyncKeyState('O') & 0x8000 ) keys.push_back('O'); // keys.push_back(this->getKey('O', 0));
-		if ( GetAsyncKeyState('P') & 0x8000 ) keys.push_back('P'); // keys.push_back(this->getKey('P', 0));
-		if ( GetAsyncKeyState('Q') & 0x8000 ) keys.push_back('Q'); // keys.push_back(this->getKey('Q', 0));
-		if ( GetAsyncKeyState('R') & 0x8000 ) keys.push_back('R'); // keys.push_back(this->getKey('R', 0));
-		if ( GetAsyncKeyState('S') & 0x8000 ) keys.push_back('S'); // keys.push_back(this->getKey('S', 0));
-		if ( GetAsyncKeyState('T') & 0x8000 ) keys.push_back('T'); // keys.push_back(this->getKey('T', 0));
-		if ( GetAsyncKeyState('U') & 0x8000 ) keys.push_back('U'); // keys.push_back(this->getKey('U', 0));
-		if ( GetAsyncKeyState('V') & 0x8000 ) keys.push_back('V'); // keys.push_back(this->getKey('V', 0));
-		if ( GetAsyncKeyState('W') & 0x8000 ) keys.push_back('W'); // keys.push_back(this->getKey('W', 0));
-		if ( GetAsyncKeyState('X') & 0x8000 ) keys.push_back('X'); // keys.push_back(this->getKey('X', 0));
-		if ( GetAsyncKeyState('Y') & 0x8000 ) keys.push_back('Y'); // keys.push_back(this->getKey('Y', 0));
-		if ( GetAsyncKeyState('Z') & 0x8000 ) keys.push_back('Z'); // keys.push_back(this->getKey('Z', 0));
-		if ( GetAsyncKeyState('0') & 0x8000 ) keys.push_back('0'); // keys.push_back(this->getKey('0', 0));
-		if ( GetAsyncKeyState('1') & 0x8000 ) keys.push_back('1'); // keys.push_back(this->getKey('1', 0));
-		if ( GetAsyncKeyState('2') & 0x8000 ) keys.push_back('2'); // keys.push_back(this->getKey('2', 0));
-		if ( GetAsyncKeyState('3') & 0x8000 ) keys.push_back('3'); // keys.push_back(this->getKey('3', 0));
-		if ( GetAsyncKeyState('4') & 0x8000 ) keys.push_back('4'); // keys.push_back(this->getKey('4', 0));
-		if ( GetAsyncKeyState('5') & 0x8000 ) keys.push_back('5'); // keys.push_back(this->getKey('5', 0));
-		if ( GetAsyncKeyState('6') & 0x8000 ) keys.push_back('6'); // keys.push_back(this->getKey('6', 0));
-		if ( GetAsyncKeyState('7') & 0x8000 ) keys.push_back('7'); // keys.push_back(this->getKey('7', 0));
-		if ( GetAsyncKeyState('8') & 0x8000 ) keys.push_back('8'); // keys.push_back(this->getKey('8', 0));
-		if ( GetAsyncKeyState('9') & 0x8000 ) keys.push_back('9'); // keys.push_back(this->getKey('9', 0));
-		if ( GetAsyncKeyState(VK_ESCAPE) & 0x8000 ) keys.push_back(VK_ESCAPE); // keys.push_back(this->getKey(VK_ESCAPE, 0));
-		if ( GetAsyncKeyState(VK_LCONTROL) & 0x8000 ) keys.push_back(VK_LCONTROL); // keys.push_back(this->getKey(VK_LCONTROL, 0));
-		if ( GetAsyncKeyState(VK_LSHIFT) & 0x8000 ) keys.push_back(VK_LSHIFT); // keys.push_back(this->getKey(VK_LSHIFT, 0));
-		if ( GetAsyncKeyState(VK_LMENU) & 0x8000 ) keys.push_back(VK_LMENU); // keys.push_back(this->getKey(VK_LMENU, 0));
-		if ( GetAsyncKeyState(VK_LWIN) & 0x8000 ) keys.push_back(VK_LWIN); // keys.push_back(this->getKey(VK_LWIN, 0));
-		if ( GetAsyncKeyState(VK_RCONTROL) & 0x8000 ) keys.push_back(VK_RCONTROL); // keys.push_back(this->getKey(VK_RCONTROL, 0));
-		if ( GetAsyncKeyState(VK_RSHIFT) & 0x8000 ) keys.push_back(VK_RSHIFT); // keys.push_back(this->getKey(VK_RSHIFT, 0));
-		if ( GetAsyncKeyState(VK_RMENU) & 0x8000 ) keys.push_back(VK_RMENU); // keys.push_back(this->getKey(VK_RMENU, 0));
-		if ( GetAsyncKeyState(VK_RWIN) & 0x8000 ) keys.push_back(VK_RWIN); // keys.push_back(this->getKey(VK_RWIN, 0));
-		if ( GetAsyncKeyState(VK_APPS) & 0x8000 ) keys.push_back(VK_APPS); // keys.push_back(this->getKey(VK_APPS, 0));
-		if ( GetAsyncKeyState(VK_OEM_4) & 0x8000 ) keys.push_back(VK_OEM_4); // keys.push_back(this->getKey(VK_OEM_4, 0));
-		if ( GetAsyncKeyState(VK_OEM_6) & 0x8000 ) keys.push_back(VK_OEM_6); // keys.push_back(this->getKey(VK_OEM_6, 0));
-		if ( GetAsyncKeyState(VK_OEM_1) & 0x8000 ) keys.push_back(VK_OEM_1); // keys.push_back(this->getKey(VK_OEM_1, 0));
-		if ( GetAsyncKeyState(VK_OEM_COMMA) & 0x8000 ) keys.push_back(VK_OEM_COMMA); // keys.push_back(this->getKey(VK_OEM_COMMA, 0));
-		if ( GetAsyncKeyState(VK_OEM_PERIOD) & 0x8000 ) keys.push_back(VK_OEM_PERIOD); // keys.push_back(this->getKey(VK_OEM_PERIOD, 0));
-		if ( GetAsyncKeyState(VK_OEM_7) & 0x8000 ) keys.push_back(VK_OEM_7); // keys.push_back(this->getKey(VK_OEM_7, 0));
-		if ( GetAsyncKeyState(VK_OEM_2) & 0x8000 ) keys.push_back(VK_OEM_2); // keys.push_back(this->getKey(VK_OEM_2, 0));
-		if ( GetAsyncKeyState(VK_OEM_5) & 0x8000 ) keys.push_back(VK_OEM_5); // keys.push_back(this->getKey(VK_OEM_5, 0));
-		if ( GetAsyncKeyState(VK_OEM_3) & 0x8000 ) keys.push_back(VK_OEM_3); // keys.push_back(this->getKey(VK_OEM_3, 0));
-		if ( GetAsyncKeyState(VK_OEM_PLUS) & 0x8000 ) keys.push_back(VK_OEM_PLUS); // keys.push_back(this->getKey(VK_OEM_PLUS, 0));
-		if ( GetAsyncKeyState(VK_OEM_MINUS) & 0x8000 ) keys.push_back(VK_OEM_MINUS); // keys.push_back(this->getKey(VK_OEM_MINUS, 0));
-		if ( GetAsyncKeyState(VK_SPACE) & 0x8000 ) keys.push_back(VK_SPACE); // keys.push_back(this->getKey(VK_SPACE, 0));
-		if ( GetAsyncKeyState(VK_RETURN) & 0x8000 ) keys.push_back(VK_RETURN); // keys.push_back(this->getKey(VK_RETURN, 0));
-		if ( GetAsyncKeyState(VK_BACK) & 0x8000 ) keys.push_back(VK_BACK); // keys.push_back(this->getKey(VK_BACK, 0));
-		if ( GetAsyncKeyState(VK_TAB) & 0x8000 ) keys.push_back(VK_TAB); // keys.push_back(this->getKey(VK_TAB, 0));
-		if ( GetAsyncKeyState(VK_PRIOR) & 0x8000 ) keys.push_back(VK_PRIOR); // keys.push_back(this->getKey(VK_PRIOR, 0));
-		if ( GetAsyncKeyState(VK_NEXT) & 0x8000 ) keys.push_back(VK_NEXT); // keys.push_back(this->getKey(VK_NEXT, 0));
-		if ( GetAsyncKeyState(VK_END) & 0x8000 ) keys.push_back(VK_END); // keys.push_back(this->getKey(VK_END, 0));
-		if ( GetAsyncKeyState(VK_HOME) & 0x8000 ) keys.push_back(VK_HOME); // keys.push_back(this->getKey(VK_HOME, 0));
-		if ( GetAsyncKeyState(VK_INSERT) & 0x8000 ) keys.push_back(VK_INSERT); // keys.push_back(this->getKey(VK_INSERT, 0));
-		if ( GetAsyncKeyState(VK_DELETE) & 0x8000 ) keys.push_back(VK_DELETE); // keys.push_back(this->getKey(VK_DELETE, 0));
-		if ( GetAsyncKeyState(VK_ADD) & 0x8000 ) keys.push_back(VK_ADD); // keys.push_back(this->getKey(VK_ADD, 0));
-		if ( GetAsyncKeyState(VK_SUBTRACT) & 0x8000 ) keys.push_back(VK_SUBTRACT); // keys.push_back(this->getKey(VK_SUBTRACT, 0));
-		if ( GetAsyncKeyState(VK_MULTIPLY) & 0x8000 ) keys.push_back(VK_MULTIPLY); // keys.push_back(this->getKey(VK_MULTIPLY, 0));
-		if ( GetAsyncKeyState(VK_DIVIDE) & 0x8000 ) keys.push_back(VK_DIVIDE); // keys.push_back(this->getKey(VK_DIVIDE, 0));
-		if ( GetAsyncKeyState(VK_LEFT) & 0x8000 ) keys.push_back(VK_LEFT); // keys.push_back(this->getKey(VK_LEFT, 0));
-		if ( GetAsyncKeyState(VK_RIGHT) & 0x8000 ) keys.push_back(VK_RIGHT); // keys.push_back(this->getKey(VK_RIGHT, 0));
-		if ( GetAsyncKeyState(VK_UP) & 0x8000 ) keys.push_back(VK_UP); // keys.push_back(this->getKey(VK_UP, 0));
-		if ( GetAsyncKeyState(VK_DOWN) & 0x8000 ) keys.push_back(VK_DOWN); // keys.push_back(this->getKey(VK_DOWN, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD0) & 0x8000 ) keys.push_back(VK_NUMPAD0); // keys.push_back(this->getKey(VK_NUMPAD0, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD1) & 0x8000 ) keys.push_back(VK_NUMPAD1); // keys.push_back(this->getKey(VK_NUMPAD1, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD2) & 0x8000 ) keys.push_back(VK_NUMPAD2); // keys.push_back(this->getKey(VK_NUMPAD2, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD3) & 0x8000 ) keys.push_back(VK_NUMPAD3); // keys.push_back(this->getKey(VK_NUMPAD3, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD4) & 0x8000 ) keys.push_back(VK_NUMPAD4); // keys.push_back(this->getKey(VK_NUMPAD4, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD5) & 0x8000 ) keys.push_back(VK_NUMPAD5); // keys.push_back(this->getKey(VK_NUMPAD5, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD6) & 0x8000 ) keys.push_back(VK_NUMPAD6); // keys.push_back(this->getKey(VK_NUMPAD6, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD7) & 0x8000 ) keys.push_back(VK_NUMPAD7); // keys.push_back(this->getKey(VK_NUMPAD7, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD8) & 0x8000 ) keys.push_back(VK_NUMPAD8); // keys.push_back(this->getKey(VK_NUMPAD8, 0));
-		if ( GetAsyncKeyState(VK_NUMPAD9) & 0x8000 ) keys.push_back(VK_NUMPAD9); // keys.push_back(this->getKey(VK_NUMPAD9, 0));
-		if ( GetAsyncKeyState(VK_F1) & 0x8000 ) keys.push_back(VK_F1); // keys.push_back(this->getKey(VK_F1, 0));
-		if ( GetAsyncKeyState(VK_F2) & 0x8000 ) keys.push_back(VK_F2); // keys.push_back(this->getKey(VK_F2, 0));
-		if ( GetAsyncKeyState(VK_F3) & 0x8000 ) keys.push_back(VK_F3); // keys.push_back(this->getKey(VK_F3, 0));
-		if ( GetAsyncKeyState(VK_F4) & 0x8000 ) keys.push_back(VK_F4); // keys.push_back(this->getKey(VK_F4, 0));
-		if ( GetAsyncKeyState(VK_F5) & 0x8000 ) keys.push_back(VK_F5); // keys.push_back(this->getKey(VK_F5, 0));
-		if ( GetAsyncKeyState(VK_F6) & 0x8000 ) keys.push_back(VK_F6); // keys.push_back(this->getKey(VK_F6, 0));
-		if ( GetAsyncKeyState(VK_F7) & 0x8000 ) keys.push_back(VK_F7); // keys.push_back(this->getKey(VK_F7, 0));
-		if ( GetAsyncKeyState(VK_F8) & 0x8000 ) keys.push_back(VK_F8); // keys.push_back(this->getKey(VK_F8, 0));
-		if ( GetAsyncKeyState(VK_F9) & 0x8000 ) keys.push_back(VK_F9); // keys.push_back(this->getKey(VK_F9, 0));
-		if ( GetAsyncKeyState(VK_F10) & 0x8000 ) keys.push_back(VK_F10); // keys.push_back(this->getKey(VK_F10, 0));
-		if ( GetAsyncKeyState(VK_F11) & 0x8000 ) keys.push_back(VK_F11); // keys.push_back(this->getKey(VK_F11, 0));
-		if ( GetAsyncKeyState(VK_F12) & 0x8000 ) keys.push_back(VK_F12); // keys.push_back(this->getKey(VK_F12, 0));
-		if ( GetAsyncKeyState(VK_F13) & 0x8000 ) keys.push_back(VK_F13); // keys.push_back(this->getKey(VK_F13, 0));
-		if ( GetAsyncKeyState(VK_F14) & 0x8000 ) keys.push_back(VK_F14); // keys.push_back(this->getKey(VK_F14, 0));
-		if ( GetAsyncKeyState(VK_F15) & 0x8000 ) keys.push_back(VK_F15); // keys.push_back(this->getKey(VK_F15, 0));
-		if ( GetAsyncKeyState(VK_PAUSE) & 0x8000 ) keys.push_back(VK_PAUSE); // keys.push_back(this->getKey(VK_PAUSE, 0));
-
-   		if ( GetAsyncKeyState(VK_LBUTTON) & 0x8000 ) keys.push_back(VK_LBUTTON); // keys.push_back( this->getKey(VK_LBUTTON, 0) );
-		if ( GetAsyncKeyState(VK_RBUTTON) & 0x8000 ) keys.push_back(VK_RBUTTON); // keys.push_back( this->getKey(VK_RBUTTON, 0) );
-		if ( GetAsyncKeyState(VK_MBUTTON) & 0x8000 ) keys.push_back(VK_MBUTTON); // keys.push_back( this->getKey(VK_MBUTTON, 0) );
-		if ( GetAsyncKeyState(VK_XBUTTON1) & 0x8000 ) keys.push_back(VK_XBUTTON1); // keys.push_back( this->getKey(VK_XBUTTON1, 0) );
-		if ( GetAsyncKeyState(VK_XBUTTON2) & 0x8000 ) keys.push_back(VK_XBUTTON2); // keys.push_back( this->getKey(VK_XBUTTON2, 0) );
+		std::vector<WPARAM> keys = GetKeys();
 
 		struct Event {
 			std::string type = "unknown";
@@ -466,11 +819,9 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 			}
 			/* Loop through key inputs */ {	
 				for ( auto& key : keys ) {
-					auto code = this->getKey(key, 0);
+					auto code = GetKeyName(key);
 					event.key.code 	= code;
 					event.key.raw  	= key;
-				//	if ( USE_OPTIMAL ) this->pushEvent(event.type + "." + code, uf::Userdata(uf::userdata::create(event)));
-				//	if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
 
 					json["key"]["code"] = code;
 					json["key"]["raw"] = key;
@@ -1127,235 +1478,10 @@ void UF_API_CALL spec::win32::Window::switchToFullscreen( bool borderless ) {
 }
 
 bool UF_API_CALL spec::win32::Window::isKeyPressed(const std::string& key) {
-	if ( (key == "A") && (GetAsyncKeyState('A') & 0x8000) ) return true;
-	if ( (key == "B") && (GetAsyncKeyState('B') & 0x8000) ) return true;
-	if ( (key == "C") && (GetAsyncKeyState('C') & 0x8000) ) return true;
-	if ( (key == "D") && (GetAsyncKeyState('D') & 0x8000) ) return true;
-	if ( (key == "E") && (GetAsyncKeyState('E') & 0x8000) ) return true;
-	if ( (key == "F") && (GetAsyncKeyState('F') & 0x8000) ) return true;
-	if ( (key == "G") && (GetAsyncKeyState('G') & 0x8000) ) return true;
-	if ( (key == "H") && (GetAsyncKeyState('H') & 0x8000) ) return true;
-	if ( (key == "I") && (GetAsyncKeyState('I') & 0x8000) ) return true;
-	if ( (key == "J") && (GetAsyncKeyState('J') & 0x8000) ) return true;
-	if ( (key == "K") && (GetAsyncKeyState('K') & 0x8000) ) return true;
-	if ( (key == "L") && (GetAsyncKeyState('L') & 0x8000) ) return true;
-	if ( (key == "M") && (GetAsyncKeyState('M') & 0x8000) ) return true;
-	if ( (key == "N") && (GetAsyncKeyState('N') & 0x8000) ) return true;
-	if ( (key == "O") && (GetAsyncKeyState('O') & 0x8000) ) return true;
-	if ( (key == "P") && (GetAsyncKeyState('P') & 0x8000) ) return true;
-	if ( (key == "Q") && (GetAsyncKeyState('Q') & 0x8000) ) return true;
-	if ( (key == "R") && (GetAsyncKeyState('R') & 0x8000) ) return true;
-	if ( (key == "S") && (GetAsyncKeyState('S') & 0x8000) ) return true;
-	if ( (key == "T") && (GetAsyncKeyState('T') & 0x8000) ) return true;
-	if ( (key == "U") && (GetAsyncKeyState('U') & 0x8000) ) return true;
-	if ( (key == "V") && (GetAsyncKeyState('V') & 0x8000) ) return true;
-	if ( (key == "W") && (GetAsyncKeyState('W') & 0x8000) ) return true;
-	if ( (key == "X") && (GetAsyncKeyState('X') & 0x8000) ) return true;
-	if ( (key == "Y") && (GetAsyncKeyState('Y') & 0x8000) ) return true;
-	if ( (key == "Z") && (GetAsyncKeyState('Z') & 0x8000) ) return true;
-	if ( (key == "0") && (GetAsyncKeyState('0') & 0x8000) ) return true;
-	if ( (key == "1") && (GetAsyncKeyState('1') & 0x8000) ) return true;
-	if ( (key == "2") && (GetAsyncKeyState('2') & 0x8000) ) return true;
-	if ( (key == "3") && (GetAsyncKeyState('3') & 0x8000) ) return true;
-	if ( (key == "4") && (GetAsyncKeyState('4') & 0x8000) ) return true;
-	if ( (key == "5") && (GetAsyncKeyState('5') & 0x8000) ) return true;
-	if ( (key == "6") && (GetAsyncKeyState('6') & 0x8000) ) return true;
-	if ( (key == "7") && (GetAsyncKeyState('7') & 0x8000) ) return true;
-	if ( (key == "8") && (GetAsyncKeyState('8') & 0x8000) ) return true;
-	if ( (key == "9") && (GetAsyncKeyState('9') & 0x8000) ) return true;
-	if ( (key == "Escape") && (GetAsyncKeyState(VK_ESCAPE) & 0x8000) ) return true;
-	if ( (key == "LControl") && (GetAsyncKeyState(VK_LCONTROL) & 0x8000) ) return true;
-	if ( (key == "LShift") && (GetAsyncKeyState(VK_LSHIFT) & 0x8000) ) return true;
-	if ( (key == "LAlt") && (GetAsyncKeyState(VK_LMENU) & 0x8000) ) return true;
-	if ( (key == "LSystem") && (GetAsyncKeyState(VK_LWIN) & 0x8000) ) return true;
-	if ( (key == "RControl") && (GetAsyncKeyState(VK_RCONTROL) & 0x8000) ) return true;
-	if ( (key == "RShift") && (GetAsyncKeyState(VK_RSHIFT) & 0x8000) ) return true;
-	if ( (key == "RAlt") && (GetAsyncKeyState(VK_RMENU) & 0x8000) ) return true;
-	if ( (key == "RSystem") && (GetAsyncKeyState(VK_RWIN) & 0x8000) ) return true;
-	if ( (key == "Apps") && (GetAsyncKeyState(VK_APPS) & 0x8000) ) return true;
-	if ( (key == "OEM4") && (GetAsyncKeyState(VK_OEM_4) & 0x8000) ) return true;
-	if ( (key == "OEM6") && (GetAsyncKeyState(VK_OEM_6) & 0x8000) ) return true;
-	if ( (key == "OEM1") && (GetAsyncKeyState(VK_OEM_1) & 0x8000) ) return true;
-	if ( (key == "OEMComma") && (GetAsyncKeyState(VK_OEM_COMMA) & 0x8000) ) return true;
-	if ( (key == "OEMPeriod") && (GetAsyncKeyState(VK_OEM_PERIOD) & 0x8000) ) return true;
-	if ( (key == "OEM7") && (GetAsyncKeyState(VK_OEM_7) & 0x8000) ) return true;
-	if ( (key == "OEM2") && (GetAsyncKeyState(VK_OEM_2) & 0x8000) ) return true;
-	if ( (key == "OEM5") && (GetAsyncKeyState(VK_OEM_5) & 0x8000) ) return true;
-	if ( (key == "OEM3") && (GetAsyncKeyState(VK_OEM_3) & 0x8000) ) return true;
-	if ( (key == "OEM+") && (GetAsyncKeyState(VK_OEM_PLUS) & 0x8000) ) return true;
-	if ( (key == "OEM-") && (GetAsyncKeyState(VK_OEM_MINUS) & 0x8000) ) return true;
-	if ( (key == " ") && (GetAsyncKeyState(VK_SPACE) & 0x8000) ) return true;
-	if ( (key == "Enter") && (GetAsyncKeyState(VK_RETURN) & 0x8000) ) return true;
-	if ( (key == "Back") && (GetAsyncKeyState(VK_BACK) & 0x8000) ) return true;
-	if ( (key == "Tab") && (GetAsyncKeyState(VK_TAB) & 0x8000) ) return true;
-	if ( (key == "Prior") && (GetAsyncKeyState(VK_PRIOR) & 0x8000) ) return true;
-	if ( (key == "Next") && (GetAsyncKeyState(VK_NEXT) & 0x8000) ) return true;
-	if ( (key == "End") && (GetAsyncKeyState(VK_END) & 0x8000) ) return true;
-	if ( (key == "Home") && (GetAsyncKeyState(VK_HOME) & 0x8000) ) return true;
-	if ( (key == "Insert") && (GetAsyncKeyState(VK_INSERT) & 0x8000) ) return true;
-	if ( (key == "Delete") && (GetAsyncKeyState(VK_DELETE) & 0x8000) ) return true;
-	if ( (key == "+") && (GetAsyncKeyState(VK_ADD) & 0x8000) ) return true;
-	if ( (key == "-") && (GetAsyncKeyState(VK_SUBTRACT) & 0x8000) ) return true;
-	if ( (key == "*") && (GetAsyncKeyState(VK_MULTIPLY) & 0x8000) ) return true;
-	if ( (key == "/") && (GetAsyncKeyState(VK_DIVIDE) & 0x8000) ) return true;
-	if ( (key == "Left") && (GetAsyncKeyState(VK_LEFT) & 0x8000) ) return true;
-	if ( (key == "Right") && (GetAsyncKeyState(VK_RIGHT) & 0x8000) ) return true;
-	if ( (key == "Up") && (GetAsyncKeyState(VK_UP) & 0x8000) ) return true;
-	if ( (key == "Down") && (GetAsyncKeyState(VK_DOWN) & 0x8000) ) return true;
-	if ( (key == "Num0") && (GetAsyncKeyState(VK_NUMPAD0) & 0x8000) ) return true;
-	if ( (key == "Num1") && (GetAsyncKeyState(VK_NUMPAD1) & 0x8000) ) return true;
-	if ( (key == "Num2") && (GetAsyncKeyState(VK_NUMPAD2) & 0x8000) ) return true;
-	if ( (key == "Num3") && (GetAsyncKeyState(VK_NUMPAD3) & 0x8000) ) return true;
-	if ( (key == "Num4") && (GetAsyncKeyState(VK_NUMPAD4) & 0x8000) ) return true;
-	if ( (key == "Num5") && (GetAsyncKeyState(VK_NUMPAD5) & 0x8000) ) return true;
-	if ( (key == "Num6") && (GetAsyncKeyState(VK_NUMPAD6) & 0x8000) ) return true;
-	if ( (key == "Num7") && (GetAsyncKeyState(VK_NUMPAD7) & 0x8000) ) return true;
-	if ( (key == "Num8") && (GetAsyncKeyState(VK_NUMPAD8) & 0x8000) ) return true;
-	if ( (key == "Num9") && (GetAsyncKeyState(VK_NUMPAD9) & 0x8000) ) return true;
-	if ( (key == "F1") && (GetAsyncKeyState(VK_F1) & 0x8000) ) return true;
-	if ( (key == "F2") && (GetAsyncKeyState(VK_F2) & 0x8000) ) return true;
-	if ( (key == "F3") && (GetAsyncKeyState(VK_F3) & 0x8000) ) return true;
-	if ( (key == "F4") && (GetAsyncKeyState(VK_F4) & 0x8000) ) return true;
-	if ( (key == "F5") && (GetAsyncKeyState(VK_F5) & 0x8000) ) return true;
-	if ( (key == "F6") && (GetAsyncKeyState(VK_F6) & 0x8000) ) return true;
-	if ( (key == "F7") && (GetAsyncKeyState(VK_F7) & 0x8000) ) return true;
-	if ( (key == "F8") && (GetAsyncKeyState(VK_F8) & 0x8000) ) return true;
-	if ( (key == "F9") && (GetAsyncKeyState(VK_F9) & 0x8000) ) return true;
-	if ( (key == "F10") && (GetAsyncKeyState(VK_F10) & 0x8000) ) return true;
-	if ( (key == "F11") && (GetAsyncKeyState(VK_F11) & 0x8000) ) return true;
-	if ( (key == "F12") && (GetAsyncKeyState(VK_F12) & 0x8000) ) return true;
-	if ( (key == "F13") && (GetAsyncKeyState(VK_F13) & 0x8000) ) return true;
-	if ( (key == "F14") && (GetAsyncKeyState(VK_F14) & 0x8000) ) return true;
-	if ( (key == "F15") && (GetAsyncKeyState(VK_F15) & 0x8000) ) return true;
-	if ( (key == "Pause") && (GetAsyncKeyState(VK_PAUSE) & 0x8000) ) return true;
-
-	if ( (key == "LeftMouse") && (GetAsyncKeyState(VK_LBUTTON) & 0x8000) ) return true;
-	if ( (key == "RightMouse") && (GetAsyncKeyState(VK_RBUTTON) & 0x8000) ) return true;
-	if ( (key == "MiddleMouse") && (GetAsyncKeyState(VK_MBUTTON) & 0x8000) ) return true;
-	if ( (key == "XButton1") && (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) ) return true;
-	if ( (key == "XButton2") && (GetAsyncKeyState(VK_XBUTTON2) & 0x8000) ) return true;
-	return false;
+	return GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000;
 }
 std::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
-	switch (key) {
-		// Check the scancode to distinguish between left and right shift
-		case VK_SHIFT: {	
-			static UINT lShift = MapVirtualKeyW(VK_LSHIFT, MAPVK_VK_TO_VSC);
-			UINT scancode = static_cast<UINT>((flags & (0xFF << 16)) >> 16);
-			return scancode == lShift ? "LShift" : "RShift";
-		}
-		// Check the "extended" flag to distinguish between left and right alt
-		case VK_MENU : return (HIWORD(flags) & KF_EXTENDED) ? "RAlt" : "LAlt";
-		// Check the "extended" flag to distinguish between left and right control
-		case VK_CONTROL : return (HIWORD(flags) & KF_EXTENDED) ? "RControl" : "LControl";
-
-		// Other keys are reported properly
-		case VK_LWIN:			return "LSystem";
-		case VK_RWIN:			return "RSystem";
-		case VK_APPS:			return "Menu";
-		case VK_OEM_1:			return "SemiColon";
-		case VK_OEM_2:			return "Slash";
-		case VK_OEM_PLUS:		return "Equal";
-		case VK_OEM_MINUS:  	return "Dash";
-		case VK_OEM_4:			return "LBracket";
-		case VK_OEM_6:			return "RBracket";
-		case VK_OEM_COMMA:  	return "Comma";
-		case VK_OEM_PERIOD:		return "Period";
-		case VK_OEM_7:			return "Quote";
-		case VK_OEM_5:			return "BackSlash";
-		case VK_OEM_3:			return "Tilde";
-		
-		case VK_ESCAPE:			return "Escape";
-		case VK_SPACE:			return "Space";
-		case VK_RETURN:			return "Enter";
-		case VK_BACK:			return "BackSpace";
-		case VK_TAB:			return "Tab";
-		case VK_PRIOR:			return "PageUp";
-		case VK_NEXT:			return "PageDown";
-		case VK_END:			return "End";
-		case VK_HOME:			return "Home";
-		case VK_INSERT:			return "Insert";
-		case VK_DELETE:			return "Delete";
-		case VK_ADD:			return "Add";
-		case VK_SUBTRACT:		return "Subtract";
-		case VK_MULTIPLY:		return "Multiply";
-		case VK_DIVIDE:			return "Divide";
-		case VK_PAUSE:			return "Pause";
-		
-		case VK_F1:				return "F1";
-		case VK_F2:				return "F2";
-		case VK_F3:				return "F3";
-		case VK_F4:				return "F4";
-		case VK_F5:				return "F5";
-		case VK_F6:				return "F6";
-		case VK_F7:				return "F7";
-		case VK_F8:				return "F8";
-		case VK_F9:				return "F9";
-		case VK_F10:			return "F10";
-		case VK_F11:			return "F11";
-		case VK_F12:			return "F12";
-		case VK_F13:			return "F13";
-		case VK_F14:			return "F14";
-		case VK_F15:			return "F15";
-		
-		case VK_LEFT:			return "Left";
-		case VK_RIGHT:			return "Right";
-		case VK_UP:				return "Up";
-		case VK_DOWN:			return "Down";
-
-		case VK_NUMPAD0:		return "Numpad0";
-		case VK_NUMPAD1:		return "Numpad1";
-		case VK_NUMPAD2:		return "Numpad2";
-		case VK_NUMPAD3:		return "Numpad3";
-		case VK_NUMPAD4:		return "Numpad4";
-		case VK_NUMPAD5:		return "Numpad5";
-		case VK_NUMPAD6:		return "Numpad6";
-		case VK_NUMPAD7:		return "Numpad7";
-		case VK_NUMPAD8:		return "Numpad8";
-		case VK_NUMPAD9:		return "Numpad9";
-
-		case 'Q':				return "Q";
-		case 'W':				return "W";
-		case 'E':				return "E";
-		case 'R':				return "R";
-		case 'T':				return "T";
-		case 'Y':				return "Y";
-		case 'U':				return "U";
-		case 'I':				return "I";
-		case 'O':				return "O";
-		case 'P':				return "P";
-		
-		case 'A':				return "A";
-		case 'S':				return "S";
-		case 'D':				return "D";
-		case 'F':				return "F";
-		case 'G':				return "G";
-		case 'H':				return "H";
-		case 'J':				return "J";
-		case 'K':				return "K";
-		case 'L':				return "L";
-		
-		case 'Z':				return "Z";
-		case 'X':				return "X";
-		case 'C':				return "C";
-		case 'V':				return "V";
-		case 'B':				return "B";
-		case 'N':				return "N";
-		case 'M':				return "M";
-		
-		case '1':				return "Num1";
-		case '2':				return "Num2";
-		case '3':				return "Num3";
-		case '4':				return "Num4";
-		case '5':				return "Num5";
-		case '6':				return "Num6";
-		case '7':				return "Num7";
-		case '8':				return "Num8";
-		case '9':				return "Num9";
-		case '0':				return "Num0";
-	}
-// 	return "Unknown";	
-	return std::to_string((int) key);
+	return GetKeyName( key, flags );
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 std::vector<std::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {

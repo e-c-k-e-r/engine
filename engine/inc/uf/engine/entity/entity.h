@@ -11,7 +11,7 @@
 namespace uf {
 	class UF_API Object;
 	class UF_API Entity : public uf::Behaviors {
-	friend class EntityBehavior;
+	//friend class EntityBehavior;
 	public:
 		typedef std::vector<uf::Entity*> container_t;
 		static uf::Entity null;
@@ -44,6 +44,9 @@ namespace uf {
 		template<typename T=uf::Entity> T& getRootParent();
 		template<typename T=uf::Entity> const T& getParent() const;
 		template<typename T=uf::Entity> const T& getRootParent() const;
+
+		void setUid();
+		void unsetUid();
 
 		void setParent();
 		void setParent( uf::Entity& parent );

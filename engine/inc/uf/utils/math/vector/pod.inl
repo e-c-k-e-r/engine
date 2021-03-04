@@ -71,19 +71,29 @@ template<typename T> 														// Divides two vectors of same type and size 
 T /*UF_API*/ uf::vector::divide( const T& left, const T& right ) {
 #if UF_USE_SIMD
 	return uf::simd::div( left, right );
-#endif
+#elif UF_ENV_DREAMCAST
+	T res;
+	for ( std::size_t i = 0; i < T::size; ++i ) res[i] = MATH_Fast_Divide(left[i], right[i]);
+	return res;
+#else
 	T res;
 	for ( std::size_t i = 0; i < T::size; ++i ) res[i] = left[i] / right[i];
 	return res;
+#endif
 }
 template<typename T> 														// Divides this vector by a scalar
 T /*UF_API*/ uf::vector::divide( const T& vector, const typename T::type_t& scalar ) {
 #if UF_USE_SIMD
 	return uf::simd::div( vector, scalar );
-#endif
+#elif UF_ENV_DREAMCAST
+	T res;
+	for ( std::size_t i = 0; i < T::size; ++i ) res[i] = MATH_Fast_Divide(vector[i], scalar);
+	return res;
+#else
 	T res;
 	for ( std::size_t i = 0; i < T::size; ++i ) res[i] = vector[i] / scalar;
 	return res;
+#endif
 }
 template<typename T> 														// Compute the sum of all components 
 typename T::type_t /*UF_API*/ uf::vector::sum( const T& vector ) {
@@ -172,7 +182,9 @@ T& /*UF_API*/ uf::vector::normalize( T& vector ) {
 // Complex arithmetic
 template<typename T> 														// Compute the dot product between two vectors
 typename T::type_t /*UF_API*/ uf::vector::dot( const T& left, const T& right ) {
-#if UF_USE_SIMD
+#if UF_ENV_DREAMCAST
+	return MATH_fipr( UF_EZ_VEC4(left, T::size), UF_EZ_VEC4(right, T::size) );
+#elif UF_USE_SIMD
 	return uf::simd::dot( left, right );
 #endif
 	return uf::vector::sum(uf::vector::multiply(left, right));
@@ -185,7 +197,11 @@ template<typename T> 														// Linearly interpolate between two vectors
 T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta, bool clamp ) {
 	delta = fmax( 0, fmin(1,delta) );
 	// from + ( ( to - from ) * delta )
-#if UF_USE_SIMD
+#if UF_ENV_DREAMCAST
+	T res;
+	for ( auto i = 0; i < T::size; ++i ) res[i] = MATH_Lerp( from[i], to[i], delta );
+	return res;
+#elif UF_USE_SIMD
 	return uf::simd::add(from, uf::simd::mul( uf::simd::sub(to, from), (float) delta) );
 #endif
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
@@ -194,7 +210,11 @@ template<typename T> 														// Linearly interpolate between two vectors
 T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, const T& delta, bool clamp ) {
 	//delta = fmax( 0, fmin(1,delta) );
 	// from + ( ( to - from ) * delta )
-#if UF_USE_SIMD
+#if UF_ENV_DREAMCAST
+	T res;
+	for ( auto i = 0; i < T::size; ++i ) res[i] = MATH_Lerp( from[i], to[i], delta[i] );
+	return res;
+#elif UF_USE_SIMD
 	return uf::simd::add(from, uf::simd::mul( uf::simd::sub(to, from), delta) );
 #endif
 	return uf::vector::add(from, uf::vector::multiply( uf::vector::subtract(to, from), delta ) );
@@ -224,7 +244,10 @@ T /*UF_API*/ uf::vector::mix( const T& x, const T& y, double a, bool clamp ) {
 }
 template<typename T> 														// Compute the distance between two vectors (doesn't sqrt)
 typename T::type_t /*UF_API*/ uf::vector::distanceSquared( const T& a, const T& b ) {
-#if UF_USE_SIMD
+#if UF_ENV_DREAMCAST
+	T delta = uf::vector::subtract(b, a);
+	return MATH_Sum_of_Squares( UF_EZ_VEC4( delta, T::size ) );
+#elif UF_USE_SIMD
 	uf::simd::value<typename T::type_t> delta = uf::simd::sub( b, a );
 	return uf::vector::sum( uf::simd::vector( uf::simd::mul( delta, delta ) ) );
 #else
@@ -235,6 +258,9 @@ typename T::type_t /*UF_API*/ uf::vector::distanceSquared( const T& a, const T& 
 }
 template<typename T> 														// Compute the distance between two vectors
 typename T::type_t /*UF_API*/ uf::vector::distance( const T& a, const T& b ) {
+#if UF_ENV_DREAMCAST
+	return MATH_Fast_Sqrt(uf::vector::distanceSquared(a,b));
+#endif
 	return sqrt(uf::vector::distanceSquared(a,b));
 }
 template<typename T> 														// Gets the magnitude of the vector
@@ -243,12 +269,18 @@ typename T::type_t /*UF_API*/ uf::vector::magnitude( const T& vector ) {
 }
 template<typename T> 														// Compute the norm of the vector
 typename T::type_t /*UF_API*/ uf::vector::norm( const T& vector ) {
+#if UF_ENV_DREAMCAST
+	return MATH_Fast_Sqrt( uf::vector::magnitude(vector) );
+#endif
 	return sqrt( uf::vector::magnitude(vector) );
 }
 template<typename T> 														// Normalizes a vector
 T /*UF_API*/ uf::vector::normalize( const T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
 	if ( norm == 0 ) return vector;	
+#if UF_ENV_DREAMCAST
+	return uf::vector::multiply(vector, MATH_fsrra(norm));
+#endif
 	return uf::vector::divide(vector, norm);
 }
 template<typename T> 														// Normalizes a vector
@@ -284,6 +316,9 @@ T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
 		uf::simd::value<typename T::type_t> res = _mm_shuffle_ps(tmp2,tmp2,_MM_SHUFFLE(3,0,2,1));
 		return res;
 	#endif
+#elif UF_ENV_DREAMCAST
+	auto res = MATH_Cross_Product( a.x, a.y, a.z, b.x, b.y, b.z );
+	return *((T*) &res);
 #endif
 	return T{
 		a.y * b.z - b.y * a.z,

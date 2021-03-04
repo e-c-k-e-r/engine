@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/graphic/mesh.h>
@@ -163,3 +164,4 @@ void ext::PortalBehavior::destroy( uf::Object& self ){
 	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 }
 #undef this
+#endif

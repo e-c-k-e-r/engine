@@ -6,12 +6,12 @@
 #include <uf/engine/scene/scene.h>
 
 namespace ext {
-	class EXT_API NoiseBehavior {
-	public:
-		static void attach( uf::Object& );
-		static void initialize( uf::Object& );
-		static void tick( uf::Object& );
-		static void render( uf::Object& );
-		static void destroy( uf::Object& );
-	};
+	namespace NoiseBehavior {
+		UF_BEHAVIOR_DEFINE_TYPE;
+		void attach( uf::Object& );
+		void initialize( uf::Object& );
+		void tick( uf::Object& );
+		void render( uf::Object& );
+		void destroy( uf::Object& );
+	}
 }

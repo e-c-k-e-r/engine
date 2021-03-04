@@ -35,10 +35,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann png meshoptimizer bullet freetype # lua ogg openal draco luajit ultralight-ux ncurses curl openvr discord
-	FLAGS 				+= $(KOS_CPPFLAGS) -frtti -DUF_NO_EXCEPTIONS
-	INCS 				+= $(KOS_INC_PATHS) -I/opt/dreamcast/sh-elf/sh-elf/include
-	LIBS 				+= $(KOS_LIB_PATHS) -L/opt/dreamcast/sh-elf/sh-elf/lib
+	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua # freetype png meshoptimizer ogg openal draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -66,7 +63,7 @@ ifneq (,$(findstring json,$(REQ_DEPS)))
 endif
 ifneq (,$(findstring png,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_PNG
-	DEPS 				+= -lpng -lz -lbz2
+	DEPS 				+= -lpng -lz
 endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENAL
@@ -87,7 +84,7 @@ ifneq (,$(findstring ogg,$(REQ_DEPS)))
 endif
 ifneq (,$(findstring freetype,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_FREETYPE 
-	DEPS 				+= -lfreetype
+	DEPS 				+= -lfreetype -lbz2
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		DEPS 			+= -lbrotlicommon-static -lbrotlidec-static
 	endif
@@ -185,8 +182,8 @@ SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shade
 TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
 ifneq (,$(findstring dreamcast,$(ARCH)))
-$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
-#$(ARCH): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
+#$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
+$(ARCH): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 OBJS = $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
 
 DEPS 					+= -lkallisti -lc -lm -lgcc -lstdc++ # -l$(LIB_NAME) -l$(EXT_LIB_NAME)
@@ -253,6 +250,9 @@ clean:
 	@-rm ./bin/dreamcast/build/*
 	@-rm ./bin/dreamcast/romdisk.*
 	@-rm ./bin/dreamcast/$(TARGET_NAME).*
+
+run:
+	 $(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
 else
 clean:
 	@-rm $(EX_DLL)
@@ -262,6 +262,9 @@ clean:
 	@-rm -f $(OBJS_DLL)
 	@-rm -f $(OBJS_EXT_DLL)
 	@-rm -f $(OBJS)
+
+run:
+	./program.sh
 endif
 clean-uf:
 	@-rm $(EX_DLL)

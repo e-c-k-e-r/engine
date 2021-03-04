@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/hook/hook.h>
@@ -111,3 +112,4 @@ void ext::HousamoSpriteBehavior::tick( uf::Object& self ) {}
 void ext::HousamoSpriteBehavior::render( uf::Object& self ){}
 void ext::HousamoSpriteBehavior::destroy( uf::Object& self ){}
 #undef this
+#endif

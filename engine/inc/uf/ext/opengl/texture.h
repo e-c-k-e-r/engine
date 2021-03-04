@@ -51,6 +51,7 @@ namespace ext {
 			enums::Image::type_t type = enums::Image::TYPE_2D;
 			enums::Image::viewType_t viewType = enums::Image::VIEW_TYPE_2D;
 			enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM;
+			size_t internalFormat = 0;
 
 			struct Descriptor {
 				GLuint image = GL_NULL_HANDLE;

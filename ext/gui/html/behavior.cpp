@@ -1,3 +1,4 @@
+#if UF_USE_ULTRALIGHT
 #include "behavior.h"
 #include "../gui.h"
 
@@ -119,3 +120,4 @@ void ext::GuiHtmlBehavior::render( uf::Object& self ){
 void ext::GuiHtmlBehavior::destroy( uf::Object& self ){
 }
 #undef this
+#endif

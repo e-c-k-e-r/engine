@@ -53,20 +53,17 @@ pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
 	static int current = 0;
 	static int limit = uf::thread::workers;
 	static uint threads = std::thread::hardware_concurrency();
-	if ( ++current >= limit ) current = 0;
-	std::string thread = name;
-	if ( current > 0 ) thread += " " + std::to_string(current);
-	bool exists = uf::thread::has(thread);
-	auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true );
-	if ( !exists ) {
-/*
-		pod.affinity = (current + 1) % threads;
-		std::cout << "Create: " << thread << ": " << pod.affinity << std::endl;
-		BOOL res = SetThreadAffinityMask((HANDLE) pod.thread.native_handle(), 1u << pod.affinity );
-		if ( res ) if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Bound worker thread #" << current << " to ID " << pod.affinity << "\n";
-		else if ( UF_THREAD_ANNOUNCE ) uf::iostream << "Failed to bind worker thread #" << current << " to ID " << pod.affinity << "\n";
-*/
+	int tries = 8;
+	while ( --tries >= 0 ) {
+		if ( ++current >= limit ) current = 0;
+		std::string thread = name;
+		if ( current > 0 ) thread += " " + std::to_string(current);
+		bool exists = uf::thread::has(thread);
+		auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true );
+		if ( std::this_thread::get_id() != pod.thread.get_id() ) return pod;
 	}
+	bool exists = uf::thread::has( "Main" );
+	auto& pod = exists ? uf::thread::get( "Main" ) : uf::thread::create(  "Main" , true );
 	return pod;
 }
 void UF_API uf::thread::batchWorkers( const std::vector<pod::Thread::function_t>& functions, bool wait, const std::string& name ) {

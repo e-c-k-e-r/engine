@@ -28,21 +28,12 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 		assetPointer = &assetLoader.get<pod::LuaScript>(filename);
 		if ( !assetPointer ) return;
 		pod::LuaScript script = *assetPointer;
-	//	script.header = "local ent = entities.get("+ std::to_string((uint) this->getUid()) +")";
 		script.env["ent"] = &this->as<uf::Object>();
 		ext::lua::run( script );
-
-		return;
 	});
 #endif
 }
-void uf::LuaBehavior::destroy( uf::Object& self ) {
-
-}
-void uf::LuaBehavior::tick( uf::Object& self ) {
-
-}
-void uf::LuaBehavior::render( uf::Object& self ) {
-
-}
+void uf::LuaBehavior::destroy( uf::Object& self ) {}
+void uf::LuaBehavior::tick( uf::Object& self ) {}
+void uf::LuaBehavior::render( uf::Object& self ) {}
 #undef this

@@ -18,6 +18,7 @@ namespace uf {
 		Image::vec2_t m_dimensions;
 		std::size_t m_bpp;
 		std::size_t m_channels;
+		std::size_t m_format;
 	public:
 	// 	C-tor
 		Image(); 																				// Default
@@ -38,18 +39,27 @@ namespace uf {
 	// 	Getters
 		void loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		void loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
+		
 		std::string getFilename() const;
+
 		Image::container_t& getPixels();
 		const Image::container_t& getPixels() const;
+
 		Image::pixel_t::type_t* getPixelsPtr();
 		const Image::pixel_t::type_t* getPixelsPtr() const;
+
 		Image::vec2_t& getDimensions();
 		const Image::vec2_t& getDimensions() const;
+
 		std::size_t& getBpp();
 		std::size_t getBpp() const;
+
 		std::size_t& getChannels();
 		std::size_t getChannels() const;
+
 		std::string getHash() const;
+		size_t getFormat() const;
+
 		Image::pixel_t at( const Image::vec2_t& at );
 	// 	Modifiers
 		void flip();

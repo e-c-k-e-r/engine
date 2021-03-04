@@ -1,7 +1,6 @@
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 #include <uf/utils/camera/camera.h>
-
 UF_LUA_REGISTER_USERTYPE(uf::Camera,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, []( uf::Camera& self ) {
 		return self.getTransform();

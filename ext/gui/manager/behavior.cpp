@@ -101,7 +101,6 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	});
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
-	
 }
 void ext::GuiManagerBehavior::render( uf::Object& self ){
 	auto& scene = uf::scene::getCurrentScene();

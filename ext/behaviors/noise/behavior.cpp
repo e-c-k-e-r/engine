@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/graphic/mesh.h>
@@ -121,3 +122,4 @@ void ext::NoiseBehavior::tick( uf::Object& self ) {
 void ext::NoiseBehavior::render( uf::Object& self ) {}
 void ext::NoiseBehavior::destroy( uf::Object& self ) {}
 #undef this
+#endif

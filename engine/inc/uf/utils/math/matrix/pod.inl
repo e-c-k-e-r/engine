@@ -170,6 +170,16 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 		uf::simd::store(row, &res[4*i]);
 	}
 	return res;
+#elif UF_ENV_DREAMCAST
+// 	kallistios has dedicated SH4 asm for these or something
+	mat_load( (matrix_t*) &left[0] );
+	mat_apply( (matrix_t*) &right[0] );
+	mat_store( (matrix_t*) &res[0]);
+
+// 	gives very wrong output, not sure why
+//	MATH_Load_Matrix_Product( (ALL_FLOATS_STRUCT*) &left[0], (ALL_FLOATS_STRUCT*) &right[0] );
+//	MATH_Store_XMTRX( (ALL_FLOATS_STRUCT*) &res[0]);
+	return res;
 #elif 1
 	// 
 	float* dstPtr = &res[0];
@@ -400,15 +410,15 @@ template<typename T> T uf::matrix::inverse( const T& matrix ) {
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( T& left, const T& right ) {
 	return left = uf::matrix::multiply((const T&) left, right);
 }
-template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector ) {
-	return {
-		vector[0] * mat[0] + vector[1] * mat[4] + vector[2] * mat[8] + vector[3] * mat[12],
-		vector[0] * mat[1] + vector[1] * mat[5] + vector[2] * mat[9] + vector[3] * mat[13],
-		vector[0] * mat[2] + vector[1] * mat[6] + vector[2] * mat[10] + vector[3] * mat[14]
-	//	vector[0] * mat[3] + vector[1] * mat[7] + vector[2] * mat[11] + vector[3] * mat[15]
-	};
+template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w ) {
+	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w } );
 }
 template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector ) {
+#if UF_ENV_DREAMCAST
+	MATH_Load_XMTRX( (ALL_FLOATS_STRUCT*) &mat[0] );
+	auto res = MATH_Matrix_Transform( vector[0], vector[1], vector[2], vector[3] );
+	return *((pod::Vector4t<T>*) &res);
+#endif
 	return {
 		vector[0] * mat[0] + vector[1] * mat[4] + vector[2] * mat[8] + vector[3] * mat[12],
 		vector[0] * mat[1] + vector[1] * mat[5] + vector[2] * mat[9] + vector[3] * mat[13],

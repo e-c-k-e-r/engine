@@ -1,3 +1,4 @@
+#if 0
 #include ".h"
 
 #include <uf/engine/scene/scene.h>
@@ -156,3 +157,4 @@ void ext::Housamo::render() {
 void ext::Housamo::destroy() {
 	uf::Object::destroy();
 }
+#endif

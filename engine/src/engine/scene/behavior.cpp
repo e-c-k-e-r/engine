@@ -6,7 +6,6 @@
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Scene)
 #define this ((uf::Scene*) &self)
 void uf::SceneBehavior::initialize( uf::Object& self ) {
-//	uf::renderer::scenes.push_back(this);
 	uf::renderer::states::rebuild = true;
 
 	this->addHook( "system:Renderer.QueueRebuild", [&](ext::json::Value& json){
@@ -23,10 +22,8 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 		this->queueHook("system:Renderer.QueueRebuild");
 	});
 }
-void uf::SceneBehavior::tick( uf::Object& self ) {
-}
-void uf::SceneBehavior::render( uf::Object& self ) {
-}
+void uf::SceneBehavior::tick( uf::Object& self ) {}
+void uf::SceneBehavior::render( uf::Object& self ) {}
 void uf::SceneBehavior::destroy( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;
 }

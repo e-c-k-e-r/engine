@@ -96,44 +96,61 @@ void ext::opengl::Texture::loadFromImage(
 	Device& device,
 	enums::Format::type_t format
 ) {
-	switch ( image.getChannels() ) {
-		// R
-		case 1:
-			switch ( image.getBpp() ) {
-				case 8:
-					format = enums::Format::R8_UNORM;
-				break;
-				default:
-				UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		// RGB
-		case 3:
-			switch ( image.getBpp() ) {
-				case 24:
-					format = enums::Format::R8G8B8_UNORM;
-				break;
-				default:
-				UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		// RGBA
-		case 4:
-			switch ( image.getBpp() ) {
-				case 32:
-					format = enums::Format::R8G8B8A8_UNORM;
-				break;
-				default:
-				UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		default:
-		UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
-		break;
-	}
+	if ( image.getFormat() > 0 ) {
+		internalFormat = image.getFormat();
+	} else
+		switch ( image.getChannels() ) {
+			// R
+			case 1:
+				switch ( image.getBpp() ) {
+					case 8:
+						format = enums::Format::R8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					break;
+				}
+			break;
+			// RB
+			case 2:
+				switch ( image.getBpp() ) {
+					case 16:
+						format = enums::Format::R8G8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					break;
+				}
+			break;
+			// RGB
+			case 3:
+				switch ( image.getBpp() ) {
+					case 24:
+						format = enums::Format::R8G8B8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					break;
+				}
+			break;
+			// RGBA
+			case 4:
+				switch ( image.getBpp() ) {
+					case 16:
+						format = enums::Format::R4G4B4A4_UNORM_PACK16;
+					break;
+					case 32:
+						format = enums::Format::R8G8B8A8_UNORM;
+					break;
+					default:
+					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					break;
+				}
+			break;
+			default:
+			UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
+			break;
+		}
 
 	// convert to power of two
 	//image.padToPowerOfTwo();
@@ -225,15 +242,37 @@ void ext::opengl::Texture::update( uf::Image& image, uint32_t layer ) {
 	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size(), layer );
 }
 void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer ) {
+#if UF_ENV_DREAMCAST
+	if ( internalFormat > 0 ) {
+		GL_ERROR_CHECK(glBindTexture(viewType, image));
+		GL_ERROR_CHECK(glCompressedTexImage2DARB( viewType, 0, internalFormat, width, height, 0, bufferSize, data));
+		GL_ERROR_CHECK(glBindTexture(viewType, 0));
+		return;
+	}
+#endif
 	GLenum format = GL_RGBA;
 	GLenum type = GL_UNSIGNED_BYTE;
 	switch ( this->format ) {
 	#if !UF_ENV_DREAMCAST
-		case enums::Format::R8_UNORM: format = GL_RED;; break;
-		case enums::Format::R8G8_UNORM: format = GL_RG;; break;
+		case enums::Format::R8_UNORM:
+			format = GL_RED;
+		break;
 	#endif
-		case enums::Format::R8G8B8_UNORM: format = GL_RGB;; break;
-		case enums::Format::R8G8B8A8_UNORM: format = GL_RGBA;; break;
+	#if !UF_ENV_DREAMCAST
+		case enums::Format::R8G8_UNORM:
+			format = GL_RG;
+		break;
+	#endif
+		case enums::Format::R8G8B8_UNORM:
+			format = GL_RGB;
+		break;
+		case enums::Format::R4G4B4A4_UNORM_PACK16:
+			format = GL_RGBA;
+			type = GL_UNSIGNED_SHORT_4_4_4_4;
+		break;
+		case enums::Format::R8G8B8A8_UNORM:
+			format = GL_RGBA;
+		break;
 	}
 	GL_ERROR_CHECK(glBindTexture(viewType, image));
 	switch ( viewType ) {

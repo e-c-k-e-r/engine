@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/hook/hook.h>
@@ -58,12 +59,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	}
 #endif
 	// Hooks
-/*
-	struct {
-		uf::Timer<long long> flash = uf::Timer<long long>(false);
-		uf::Timer<long long> sound = uf::Timer<long long>(false);
-	} timers;
-*/
+#if 0
 	static uf::Timer<long long> timer(true);
 	this->addHook( "world:Collision.%UID%", [&](ext::json::Value& json){
 		size_t uid = json["uid"].as<size_t>();
@@ -88,6 +84,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		if ( normal.z == 1 || normal.z == -1 ) physics.linear.velocity.z = 0;
 	#endif
 	});
+#endif
 	this->addHook( "asset:Cache.Sound.%UID%", [&](ext::json::Value& json){
 		uf::Scene& world = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
@@ -103,6 +100,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		sfx.setPosition( transform.position );
 		sfx.play();
 	});
+#if 0
 	this->addHook( "world:Craeture.OnHit.%UID%", [&](ext::json::Value& json){
 		uint64_t phase = json["phase"].as<size_t>();
 		// start color
@@ -142,14 +140,15 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 			}
 		}
 	});
+#endif
 }
 void ext::CraetureBehavior::tick( uf::Object& self ) {
+#if 0
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& sMetadata = scene.getComponent<uf::Serializer>();
 	uf::Serializer& pMetadata = scene.getController().getComponent<uf::Serializer>();
 
-#if 0
 	if ( !pMetadata["system"]["control"].as<bool>() ) return;
 	if ( !sMetadata["system"]["physics"]["optimizations"]["entity-local update"].as<bool>() ) return;
 
@@ -174,3 +173,4 @@ void ext::CraetureBehavior::tick( uf::Object& self ) {
 void ext::CraetureBehavior::render( uf::Object& self ){}
 void ext::CraetureBehavior::destroy( uf::Object& self ){}
 #undef this
+#endif

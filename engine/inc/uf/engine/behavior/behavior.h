@@ -13,10 +13,11 @@ namespace uf {
 
 namespace pod {
 	struct UF_API Behavior {
-		typedef std::type_index type_t;
+	//	typedef std::type_index type_t;
+		typedef std::string type_t;
 		typedef std::function<void(uf::Object&)> function_t;
 
-		type_t type = std::type_index(typeid(pod::Behavior));
+		type_t type = ""; //std::type_index(typeid(pod::Behavior));
 		function_t initialize = function_t();
 		function_t tick = function_t();
 		function_t render = function_t();
@@ -40,6 +41,10 @@ namespace uf {
 		}
 
 		bool hasBehavior( const pod::Behavior& );
+		void addBehavior( const pod::Behavior& );
+		void removeBehavior( const pod::Behavior& );
+		
+	#if 0
 		template<typename T>
 		bool hasBehavior() {
 			for ( auto& behavior : this->m_behaviors ) {
@@ -47,13 +52,9 @@ namespace uf {
 			}
 			return false;
 		}
-
-		void addBehavior( const pod::Behavior& );
-		void removeBehavior( const pod::Behavior& );
-		
 		template<typename T>
 		static pod::Behavior::type_t getType() {
-			return std::type_index(typeid(T));
+			return T::type; //std::type_index(typeid(T));
 		}
 		template<typename T>
 		void addBehavior() {
@@ -71,6 +72,7 @@ namespace uf {
 				.type = getType<T>()
 			});
 		}
+	#endif
 	};
 
 }

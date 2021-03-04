@@ -138,6 +138,7 @@ void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool f
 	if ( free ) delete mode;
 	ext::opengl::states::rebuild = true;
 }
+
 void UF_API ext::opengl::initialize() {
 	device.initialize();
 	// swapchain.initialize( device );
@@ -168,13 +169,10 @@ void UF_API ext::opengl::initialize() {
 			renderMode->createCommandBuffers();
 		}
 	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	// bind shaders
-#if !UF_ENV_DREAMCAST
 	{
-		ext::opengl::Shader::bind( "./data/shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
+		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 
 			ext::gltf::mesh_t::vertex_t* verticesSrc = (ext::gltf::mesh_t::vertex_t*) userdata;
@@ -195,10 +193,12 @@ void UF_API ext::opengl::initialize() {
 			
 			uf::renderer::VertexDescriptor 	vertexAttributePosition,
 											vertexAttributeUv,
+											vertexAttributeNormal,
 											vertexAttributeId;
 
 			for ( auto& attribute : graphic.descriptor.geometry.attributes.descriptor ) {
 				if ( attribute.name == "position" ) vertexAttributePosition = attribute;
+				else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 				else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 				else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 			}
@@ -223,19 +223,22 @@ void UF_API ext::opengl::initialize() {
 			
 				const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
 				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertexSrc + vertexAttributeId.offset));
+				const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
 				const pod::Vector2f& uv = *((pod::Vector2f*) (vertexSrc + vertexAttributeUv.offset));
 
 				pod::Vector3f& positionDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributePosition.offset));
+				pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
 				pod::Vector2f& uvDst 		= *((pod::Vector2f*) (vertexDst + vertexAttributeUv.offset));
 
 				auto& model = instances[id.x];
 				auto& material = materials[id.y];
 				auto& texture = textures[material.indexAlbedo];
 
-				positionDst = uf::matrix::multiply<float>( model, pod::Vector4f{ position[0], position[1], position[2], 1.0f } );
+				positionDst = uf::matrix::multiply<float>( model, position, 1.0f );
+				normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
 			}
 		});
-		ext::opengl::Shader::bind( "./data/shaders/gltf/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
+		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 
 			ext::gltf::mesh_t::vertex_t* verticesSrc = (ext::gltf::mesh_t::vertex_t*) userdata;
@@ -252,11 +255,13 @@ void UF_API ext::opengl::initialize() {
 			size_t vertices = vertexBuffer.range / vertexStride;
 			
 			uf::renderer::VertexDescriptor 	vertexAttributePosition,
+											vertexAttributeNormal,
 											vertexAttributeJoints,
 											vertexAttributeWeights;
 
 			for ( auto& attribute : graphic.descriptor.geometry.attributes.descriptor ) {
 				if ( attribute.name == "position" ) 		vertexAttributePosition = attribute;
+				else if ( attribute.name == "normal" ) 		vertexAttributeNormal = attribute;
 				else if ( attribute.name == "joints" ) 		vertexAttributeJoints = attribute;
 				else if ( attribute.name == "weights" ) 	vertexAttributeWeights = attribute;
 			}
@@ -275,34 +280,49 @@ void UF_API ext::opengl::initialize() {
 				uint8_t* vertexDst = vertexDstPointer + (currentIndex * vertexStride);
 			
 				const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
+				const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
 				const pod::Vector4ui& joints = *((pod::Vector4ui*) (vertexSrc + vertexAttributeJoints.offset));
 				const pod::Vector4f& weights = *((pod::Vector4f*) (vertexSrc + vertexAttributeWeights.offset));
 
 				pod::Vector3f& positionDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributePosition.offset));
+				pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
 				pod::Matrix4f model = jointMatrices[joints[0]] * weights[0] + jointMatrices[joints[1]] * weights[1] + jointMatrices[joints[2]] * weights[2] + jointMatrices[joints[3]] * weights[3];
-				positionDst = uf::matrix::multiply<float>( model, pod::Vector4f{ position[0], position[1], position[2], 1.0f } );
+				
+				positionDst = uf::matrix::multiply<float>( model, position, 1.0f );
+				normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
 			}
 		});
 	}
-#endif
 }
 void UF_API ext::opengl::tick(){
+	uf::Timer<long long> timer(false);
+	if ( !timer.running() ) timer.start();
+
 	ext::opengl::mutex.lock();
 	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
 	}
-
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
+		if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
 		graphic.initializePipeline();
 		ext::opengl::states::rebuild = true;
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+		scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
+			graphic.initializePipeline();
+			ext::opengl::states::rebuild = true;
+		});
 	}
+}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( !renderMode->device ) {
@@ -311,39 +331,30 @@ void UF_API ext::opengl::tick(){
 		}
 		renderMode->tick();
 	}
-
 	std::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( ext::opengl::states::rebuild || renderMode->rebuild ) {
 			if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-			if ( settings::experimental::multithreadedCommandRecording ) {
-				jobs.emplace_back([&]{
-					renderMode->createCommandBuffers();
-					return 0;
-				});
-			} else {
-				renderMode->createCommandBuffers();
-			}
+			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&]{ renderMode->createCommandBuffers(); return 0; });
+			else renderMode->createCommandBuffers();
 		}
 	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
-	
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );	
+/*
 	ext::opengl::device.activateContext();
-
 	ext::opengl::device.commandBuffer.end();
 	ext::opengl::device.commandBuffer.submit();
 	ext::opengl::device.commandBuffer.flush();
 	ext::opengl::device.commandBuffer.start();
-	
+*/	
 	ext::opengl::states::rebuild = false;
 	ext::opengl::states::resized = false;
 	ext::opengl::mutex.unlock();
 }
 void UF_API ext::opengl::render(){
 	ext::opengl::mutex.lock();
+#if !UF_ENV_DREAMCAST
 	if ( hasRenderMode("Gui", true) ) {
 		RenderMode& primary = getRenderMode("Gui", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
@@ -358,110 +369,19 @@ void UF_API ext::opengl::render(){
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
-
+#endif
 	ext::opengl::device.activateContext();
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( !renderMode->execute ) continue;
 		ext::opengl::currentRenderMode = renderMode;
-		for ( uf::Scene* scene : uf::scene::scenes ) scene->render();
+		uf::scene::render();
 		renderMode->render();
 	}
-/*
-	{
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);		// This Will Clear The Background Color To Black
-		glClearDepth(1.0);				// Enables Clearing Of The Depth Buffer
-		glDepthFunc(GL_LESS);				// The Type Of Depth Test To Do
-
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();				// Reset The Projection Matrix
-
-		gluPerspective(45.0f, (GLfloat) settings::width / (GLfloat) settings::height, 0.1f, 100.0f);	// Calculate The Aspect Ratio Of The Window
-		glMatrixMode(GL_MODELVIEW);
-		
-		glLoadIdentity();				// Reset The View
-		glTranslatef(-3.0f, 1.5f, -10.0f);		// Move Left 1.5 Units And Into The Screen 6.0
-
-		// draw a triangle
-		glBegin(GL_TRIANGLES);				// start drawing a polygon
-		    glVertex3f( 0.0f, 1.0f, 0.0f);		// Top
-		    glVertex3f( 1.0f,-1.0f, 0.0f);		// Bottom Right
-		    glVertex3f(-1.0f,-1.0f, 0.0f);		// Bottom Left
-		glEnd();					// we're done with the polygon
-
-		glTranslatef(3.0f, 0.0f, 0.0f);		        // Move Right 3 Units
-
-		// draw a square (quadrilateral)
-		glBegin(GL_QUADS);				// start drawing a polygon (4 sided)
-		    glVertex3f(-1.0f, 1.0f, 0.0f);		// Top Left
-		    glVertex3f( 1.0f, 1.0f, 0.0f);		// Top Right
-		    glVertex3f( 1.0f,-1.0f, 0.0f);		// Bottom Right
-		    glVertex3f(-1.0f,-1.0f, 0.0f);		// Bottom Left
-		glEnd();					// done with the polygon
-
-		glTranslatef(3.0f, 0.0f, 0.0f);
-
-		glBegin(GL_POLYGON);				// start drawing a polygon (4 sided)
-		    glVertex3f(-0.0f, 1.0f, 0.0f);		// Top Left
-		    glVertex3f(-0.75f, 0.75f, 0.0f);
-		    glVertex3f(-1.0f, 0.0f, 0.0f);		// Top Right
-		    glVertex3f(-0.75f,-0.75f, 0.0f);		// Bottom Right
-		    glVertex3f(-0.0f,-1.0f, 0.0f);		// Bottom Left
-		    glVertex3f( 0.75f,-0.75f, 0.0f);		// Bottom Right
-		    glVertex3f( 1.0f, 0.0f, 0.0f);		// Top Right
-		    glVertex3f( 0.75f, 0.75f, 0.0f);
-		glEnd();					// done with the polygon
-
-		glTranslatef(-6.0f, -3.0f, 0.0f);
-
-		// draw a triangle
-		glBegin(GL_POLYGON);				// start drawing a polygon
-		    glVertex3f( 0.0f, 1.0f, 0.0f);		// Top
-		    glVertex3f( 1.0f,-1.0f, 0.0f);		// Bottom Right
-		    glVertex3f(-1.0f,-1.0f, 0.0f);		// Bottom Left
-		glEnd();					// we're done with the polygon
-
-		glTranslatef(3.0f, 0.0f, 0.0f);		        // Move Right 3 Units
-
-		// draw a square (quadrilateral)
-		glBegin(GL_POLYGON);				// start drawing a polygon (4 sided)
-		    glVertex3f(-1.0f, 1.0f, 0.0f);		// Top Left
-		    glVertex3f( 1.0f, 1.0f, 0.0f);		// Top Right
-		    glVertex3f( 1.0f,-1.0f, 0.0f);		// Bottom Right
-		    glVertex3f(-1.0f,-1.0f, 0.0f);		// Bottom Left
-		glEnd();					// done with the polygon
-
-		glTranslatef(3.0f, 0.0f, 0.0f);
-
-		glBegin(GL_POLYGON);				// start drawing a polygon (4 sided)
-		    glVertex3f(-0.0f, 1.0f, 0.0f);		// Top Left
-		    glVertex3f(-0.75f, 0.75f, 0.0f);
-		    glVertex3f(-1.0f, 0.0f, 0.0f);		// Top Right
-		    glVertex3f(-0.75f,-0.75f, 0.0f);		// Bottom Right
-		    glVertex3f(-0.0f,-1.0f, 0.0f);		// Bottom Left
-		    glVertex3f( 0.75f,-0.75f, 0.0f);		// Bottom Right
-		    glVertex3f( 1.0f, 0.0f, 0.0f);		// Top Right
-		    glVertex3f( 0.75f, 0.75f, 0.0f);
-		glEnd();					// done with the polygon
-	#if UF_ENV_DREAMCAST
-		glKosSwapBuffers();
-	#else
-		device.activateContext().display();
-	#endif
-	}
-*/
 	ext::opengl::currentRenderMode = NULL;
-	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) {
-		synchronize();
-	}
+	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) synchronize();
 #if UF_USE_OPENVR
-/*
-	if ( ext::openvr::context ) {
-		ext::openvr::postSubmit();
-	}
-*/
+	// if ( ext::openvr::context ) ext::openvr::postSubmit();
 #endif
 	ext::opengl::mutex.unlock();
 }
@@ -470,17 +390,23 @@ void UF_API ext::opengl::destroy() {
 	synchronize();
 
 	Texture2D::empty.destroy();
-
-	std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+if ( uf::scene::useGraph ) {
+	auto graph = uf::scene::generateGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
-	};
+	}
+} else {
 	for ( uf::Scene* scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process(filter);
+		scene->process([&]( uf::Entity* entity ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) return;
+			uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			graphic.destroy();
+		});
 	}
-
+}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();

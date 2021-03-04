@@ -1,3 +1,4 @@
+#if 0
 #include "behavior.h"
 
 #include <uf/utils/time/time.h>
@@ -120,3 +121,4 @@ void ext::WorldScapeSceneBehavior::tick( uf::Object& self ) {
 void ext::WorldScapeSceneBehavior::render( uf::Object& self ){}
 void ext::WorldScapeSceneBehavior::destroy( uf::Object& self ){}
 #undef this
+#endif
