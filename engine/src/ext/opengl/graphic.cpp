@@ -1377,8 +1377,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	}
 	pipeline.record(*this, commandBuffer, pass, draw);
 #endif
-
-#if 1
+	int32_t vertexBufferIndex = -1;
+	int32_t uniformBufferIndex = -1;
+	int32_t storageBufferIndex = -1;
 	Buffer::Descriptor vertexBuffer = {};
 	Buffer::Descriptor indexBuffer = {};
 	Buffer::Descriptor uniformBuffer = {};
@@ -1390,9 +1391,94 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		if ( buffer.usage & uf::renderer::enums::Buffer::INDEX ) { indexBuffer = buffer.descriptor; indexBufferSize = buffer.size; }
 		if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffer = buffer.descriptor; uniformBufferSize = buffer.size; }
 	}
-	if ( !vertexBuffer.buffer ) return;
+	if ( !vertexBuffer.buffer || !indexBuffer.buffer ) return;
 
-	size_t length = vertexBufferSize / descriptor.geometry.attributes.vertex.size;
+	uf::renderer::VertexDescriptor 	vertexAttributePosition, 
+									vertexAttributeNormal,
+									vertexAttributeColor,
+									vertexAttributeUv,
+									vertexAttributeSt,
+									vertexAttributeId;
+
+	for ( auto& attribute : descriptor.geometry.attributes.descriptor ) {
+		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
+		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
+		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
+		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
+		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
+		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
+	}
+
+	if ( vertexAttributePosition.name == "" ) return;
+
+	size_t indices = descriptor.indices;
+	size_t indicesStride = descriptor.geometry.attributes.index.size;
+	size_t vertexStride = descriptor.geometry.attributes.vertex.size;
+	size_t vertices = vertexBuffer.range / vertexStride;
+	void* vertexPointer = (void*) ( device->getBuffer( vertexBuffer.buffer ) + vertexBuffer.offset );
+	uf::renderer::index_t* indicesPointer = (uf::renderer::index_t*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
+
+	CommandBuffer::InfoDraw drawCommandInfo = {};
+	drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
+	drawCommandInfo.descriptor = descriptor;
+	drawCommandInfo.vertexBuffer = vertexBuffer;
+	drawCommandInfo.indexBuffer = indexBuffer;
+	drawCommandInfo.uniformBuffer = uniformBuffer;
+
+	if ( vertexAttributePosition.name != "" ) drawCommandInfo.attributes.position = vertexAttributePosition.offset;
+	if ( vertexAttributeUv.name != "" ) drawCommandInfo.attributes.uv = vertexAttributeUv.offset;
+	if ( vertexAttributeSt.name != "" ) drawCommandInfo.attributes.st = vertexAttributeSt.offset;
+	if ( vertexAttributeNormal.name != "" ) drawCommandInfo.attributes.normal = vertexAttributeNormal.offset;
+	if ( vertexAttributeColor.name != "" ) drawCommandInfo.attributes.color = vertexAttributeColor.offset;
+
+	// split up our mesh by textures, if the right attribute exists
+	if ( vertexAttributeId.name != "" ) {
+		struct TextureMapping {
+			size_t texture = 0;
+			size_t offset = 0;
+			size_t range = 0;
+		};
+		std::vector<TextureMapping> mappings;
+		TextureMapping currentMapping;
+
+		bool useLightmap = false;
+		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
+			auto index = indicesPointer[currentIndex];
+			void* vertices = vertexPointer + (index * vertexStride);
+			const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
+			// check if we're using a lightmap, having a lightmap means we have provided ST attributes
+			if ( !useLightmap && vertexAttributeSt.name != "" ) {
+				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
+				if ( st > pod::Vector2f{0,0} ) useLightmap = true;
+			}
+
+			size_t textureId = id.y;
+			if ( currentMapping.texture != textureId ) {
+				if ( currentMapping.range > 0 ) mappings.emplace_back(currentMapping);
+				currentMapping.offset += currentMapping.range;
+				currentMapping.range = 0;
+			}
+			currentMapping.texture = textureId;
+			++currentMapping.range;
+		}
+		if ( currentMapping.range > 0 ) mappings.emplace_back(currentMapping);
+		// if we have ST values and an extra, unused texture, bind it
+		if ( useLightmap && currentMapping.texture < material.textures.size() - 1 ) {
+			drawCommandInfo.auxTexture = material.textures.back().descriptor;
+		}
+		for ( auto& mapping : mappings ) {
+			if ( mapping.range == 0 || mapping.texture >= material.textures.size() ) continue;
+			drawCommandInfo.texture = material.textures[mapping.texture].descriptor;
+			drawCommandInfo.descriptor.indices = mapping.range;
+			drawCommandInfo.indexBuffer.offset = indexBuffer.offset + sizeof(uf::renderer::index_t) * mapping.offset;
+			drawCommandInfo.indexBuffer.range = indexBuffer.range + sizeof(uf::renderer::index_t) * mapping.range;
+			commandBuffer.record(drawCommandInfo);
+		}
+	} else {
+		drawCommandInfo.texture = material.textures.front().descriptor;
+		commandBuffer.record(drawCommandInfo);
+	}
+#if 0
 	for ( auto& texture : material.textures ) {
 	//	if ( !glIsTexture(texture.image) ) continue;
 		if ( !texture.image ) continue;
@@ -1429,72 +1515,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	drawCommandInfo.length = length;
 	drawCommandInfo.descriptor = descriptor;
 	commandBuffer.record(drawCommandInfo);
-#else
-	size_t vertexBuffer = GL_WHOLE_SIZE;
-	size_t indexBuffer = GL_WHOLE_SIZE;
-	size_t uniformBuffer = GL_WHOLE_SIZE;
-	for ( size_t i = 0; i < buffers.size(); ++i ) {
-		if ( buffers[i].usage & uf::renderer::enums::Buffer::VERTEX ) vertexBuffer = i;
-		if ( buffers[i].usage & uf::renderer::enums::Buffer::INDEX ) indexBuffer = i;
-		if ( buffers[i].usage & uf::renderer::enums::Buffer::UNIFORM ) uniformBuffer = i;
-	}
-	if ( vertexBuffer >= buffers.size() ) return;
-
-	size_t length = buffers[vertexBuffer].size / descriptor.geometry.attributes.vertex.size;
-	for ( auto& texture : material.textures ) {
-		if ( !texture.generated() ) continue;
-		commandBuffer.record(CommandBuffer::InfoTexture{
-			/*.type =*/ ext::opengl::enums::Command::BIND_TEXTURE,
-			/*.descriptor =*/ texture.descriptor
-		});
-	}
-
-	commandBuffer.record(CommandBuffer::InfoGraphicBuffer{
-		/*.type =*/ ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER,
-		/*.graphic =*/ this,
-		/*.bufferIndex =*/ vertexBuffer
-	});
-
-	if ( 0 <= indexBuffer && indexBuffer < buffers.size() ) {
-		length = descriptor.indices;
-		commandBuffer.record(CommandBuffer::InfoGraphicBuffer{
-			/*.type =*/ ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER,
-			/*.graphic =*/ this,
-			/*.bufferIndex =*/ indexBuffer
-		});
-	}
-	if ( 0 <= uniformBuffer && uniformBuffer < buffers.size() ) {
-		commandBuffer.record(CommandBuffer::InfoGraphicBuffer{
-			/*.type =*/ ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER,
-			/*.graphic =*/ this,
-			/*.bufferIndex =*/ uniformBuffer
-		});
-	}
-	commandBuffer.record(CommandBuffer::InfoDraw{
-		/*.type =*/ ext::opengl::enums::Command::DRAW,
-		/*.length =*/ length,
-		/*.descriptor = */ descriptor
-	});
-#endif
-
-#if 0
-	// Bind triangle vertex buffer (contains position and colors)
-	GLhandle(VkDeviceSize) offsets[1] = { descriptor.offsets.vertex };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer->buffer, offsets);
-	// Bind triangle index buffer
-	GLhandle(VkIndexType) indicesType = GL_INDEX_TYPE_UINT32;
-	switch ( descriptor.geometry.attributes.index.size * 8 ) {
-		case  8: indicesType = GL_INDEX_TYPE_UINT8_EXT; break;
-		case 16: indicesType = GL_INDEX_TYPE_UINT16; break;
-		case 32: indicesType = GL_INDEX_TYPE_UINT32; break;
-		default:
-			UF_EXCEPTION("invalid indices size of " + std::to_string((int) descriptor.geometry.attributes.index.size));
-		break;
-	}
-	vkCmdBindIndexBuffer(commandBuffer, indexBuffer->buffer, descriptor.offsets.index, indicesType);
-	// Draw indexed triangle
-	vkCmdDrawIndexed(commandBuffer, descriptor.indices, 1, 0, 0, 1);
-	//std::cout << (int) descriptor.indices << "\t" << (int) descriptor.offsets.index << std::endl;
 #endif
 }
 void ext::opengl::Graphic::destroy() {

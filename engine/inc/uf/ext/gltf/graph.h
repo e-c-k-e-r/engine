@@ -25,6 +25,7 @@ namespace pod {
 		} storage;
 		std::string name = "";
 		uf::renderer::Texture2D texture;
+		bool bind = false;
 	};
 	struct UF_API Node {
 		std::string name = "";
@@ -120,8 +121,8 @@ namespace uf {
 		
 		void UF_API destroy( pod::Graph& );
 
-		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t, const uf::Serializer& );
-		void UF_API save( const std::string&, const pod::Graph& );
+		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t = 0, const uf::Serializer& = ext::json::null() );
+		void UF_API save( const pod::Graph&, const std::string& );
 
 		std::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );

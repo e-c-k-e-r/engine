@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/utils/graphic/descriptor.h>
+#include <uf/utils/image/image.h>
 #include <uf/ext/vulkan/device.h>
 
 namespace ext {
@@ -9,6 +10,7 @@ namespace ext {
 		
 		struct UF_API RenderMode {
 			bool execute = false;
+			bool executed = false;
 			bool rebuild = false;
 			uint32_t width = 0;
 			uint32_t height = 0;
@@ -34,6 +36,8 @@ namespace ext {
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
 			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
+			
+			virtual uf::Image screenshot(size_t = 0);
 
 			virtual commands_container_t& getCommands();
 			virtual commands_container_t& getCommands( std::thread::id );

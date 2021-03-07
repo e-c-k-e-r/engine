@@ -96,28 +96,22 @@ std::vector<uf::Entity*> uf::scene::generateGraph() {
 }
 
 void uf::scene::tick() {
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
-	uf::Timer<long long> TIMER_TRACE;
-//	UF_DEBUG_MSG("==== START TICK ====");
+//	UF_TIMER_MULTITRACE_START("==== START RENDER ====");
 	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
 		(*it)->tick();
-//		UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMicroseconds() << " us\t" << (*it)->getName() << ": " << (*it)->getUid());
+//		UF_TIMER_MULTITRACE_START((*it)->getName() << ": " << (*it)->getUid());
 	}
-//	UF_DEBUG_MSG("==== END TICK ====");
-} else {
-	for ( auto scene : scenes ) scene->tick();
-}
+//	UF_TIMER_MULTITRACE_END("==== END RENDER ====");
 }
 void uf::scene::render() {
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
+//	UF_TIMER_MULTITRACE_START("==== START RENDER ====");
 	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
 		(*it)->render();
+//		UF_TIMER_MULTITRACE_START((*it)->getName() << ": " << (*it)->getUid());
 	}
-} else {
-	for ( auto scene : scenes ) scene->render();
-}
+//	UF_TIMER_MULTITRACE_END("==== END RENDER ====");
 }
 void uf::scene::destroy() {
 	while ( !scenes.empty() ) unloadScene();

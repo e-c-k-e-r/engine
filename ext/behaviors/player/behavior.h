@@ -37,6 +37,9 @@ namespace ext {
 					float volume;
 				} footstep;
 			} audio;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
 		};
 	}
 }

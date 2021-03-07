@@ -33,6 +33,7 @@ namespace uf {
 		void expand( bool = true );
 		uf::BaseMesh<T,U> simplify( float = 0.2f );
 		void optimize( size_t = SIZE_MAX );
+		void insert( const uf::BaseMesh<T,U>& mesh );
 
 		virtual void updateDescriptor();
 		virtual void resizeVertices( size_t );

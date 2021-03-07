@@ -960,7 +960,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				event.type = "window:Closed";
 				event.invoker = "os";
 			};
-			if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+		#if USE_OPTIMAL
+			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#endif
+			{
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 				this->pushEvent(event.type, json);
@@ -983,7 +986,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					event.invoker = "os";
 					event.window.size = this->m_lastSize;
 				};
-				if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+			#if USE_OPTIMAL
+				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#endif
+				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 					json["window"]["size"]["x"] = event.window.size.x;
@@ -1016,7 +1022,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					event.invoker = "os";
 					event.window.size = this->m_lastSize;
 				};
-				if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+			#if USE_OPTIMAL
+				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#endif
+				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 					json["window"]["size"]["x"] = event.window.size.x;
@@ -1032,7 +1041,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					event.type = "window:Moved";
 					event.invoker = "os";
 				};
-				if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+			#if USE_OPTIMAL
+				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#endif
+				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 					this->pushEvent(event.type, json);
@@ -1072,7 +1084,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					case WM_KILLFOCUS: event.window.state 	= -1; break;
 				}
 			};
-			if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+		#if USE_OPTIMAL
+			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#endif
+			{
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 				switch ( message ) {
@@ -1123,7 +1138,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 						event.text.utf32 = character;
 						event.text.unicode = std::string(utf8.begin(), utf8.end());
 					};
-					if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); 
+				#if USE_OPTIMAL
+					this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+				#endif
+
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 
@@ -1176,7 +1194,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 						case WM_SYSKEYUP: event.key.state 		=  1; break;
 					}
 				}
-			//	if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		 	//	if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
 			//	if ( USE_OPTIMAL ) this->pushEvent(event.type + "." + event.key.code, uf::Userdata(uf::userdata::create(event)));
 				json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 				json["invoker"] 						= event.invoker;
@@ -1230,7 +1248,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				event.mouse.position.y = position.y;
 				event.mouse.delta = delta; // 120.0f;
 			};
-			if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+		#if USE_OPTIMAL
+			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#endif
+			{
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 
@@ -1298,8 +1319,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				}
 			};
 			if ( true || this->m_syncParse ){
-				if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-				json["type"] = event.type;
+			#if USE_OPTIMAL
+				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#endif
+								json["type"] = event.type;
 				json["invoker"] = event.invoker;
 
 				json["mouse"]["position"]["x"]		= event.mouse.position.x;
@@ -1341,7 +1364,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 
 					event.mouse.state = -1;
 				};
-				if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+			#if USE_OPTIMAL
+				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#endif
+				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 
@@ -1408,7 +1434,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				event.mouse.size = {area.right, area.bottom};
 				event.mouse.delta = event.mouse.position - lastPosition;
 			}
-			if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event))); {
+		#if USE_OPTIMAL
+			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#endif
+			{
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 

@@ -712,16 +712,18 @@ void EXT_API ext::tick() {
 			}
 		}
 	}
-#if 0
-	/* Frame limiter of sorts I guess */ if ( false ) if ( ::times.limiter > 0 ) {
+#if !UF_ENV_DREAMCAST
+	/* Frame limiter of sorts I guess */ if ( ::times.limiter > 0 ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		auto elapsed = timer.elapsed().asMilliseconds();
 		long long sleep = (::times.limiter * 1000) - elapsed;
 		if ( sleep > 0 ) {
+		/*
 			if ( ::config["engine"]["debug"]["framerate"]["print"].as<bool>() ) {
 				uf::iostream << "Frame limiting: " << elapsed << "ms exceeds limit, sleeping for " << elapsed << "ms" << "\n";
 			}
+		*/
 			std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
 		}
 		timer.reset();
@@ -732,10 +734,8 @@ void EXT_API ext::tick() {
 		uf::thread::wait( bulletThread );
 	}
 #endif
-	//UF_TIMER_TRACE("ticking");
 }
 void EXT_API ext::render() {
-	//UF_TIMER_TRACE_INIT();
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::render();
@@ -755,7 +755,6 @@ void EXT_API ext::render() {
 		ext::openvr::submit();
 	}
 #endif
-	//UF_TIMER_TRACE("[RENDER]");
 }
 void EXT_API ext::terminate() {
 	/* Kill threads */ {

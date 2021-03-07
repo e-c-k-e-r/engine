@@ -148,6 +148,7 @@ void UF_API_CALL uf::Window::display() {
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	if (this->m_context && this->setActive()) this->m_context->display();
 #endif
+#if 0
 	/* FPS */ if ( false ) {
 		static double limit = 1.0 / 60;
 		static uf::Timer<long long> timer(false);
@@ -158,6 +159,7 @@ void UF_API_CALL uf::Window::display() {
 			timer.reset();
 		}
 	}
+#endif
 }
 
 #endif

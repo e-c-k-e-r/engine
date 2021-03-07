@@ -16,6 +16,7 @@ namespace {
 UF_BEHAVIOR_REGISTER_CPP(ext::LightBehavior)
 #define this (&self)
 void ext::LightBehavior::initialize( uf::Object& self ) {
+	auto& metadata = this->getComponent<ext::LightBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& camera = this->getComponent<uf::Camera>();
@@ -41,6 +42,9 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
+	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["lights"]["shadows"].as<bool>() ) {
+		metadataJson["light"]["shadows"] = false;
+	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {
 		auto& cameraTransform = camera.getTransform();
 		cameraTransform.reference = &transform;
@@ -87,8 +91,21 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 
 	}
 
-	auto updateMetadata = [&](){
-		auto& metadata = this->getComponent<ext::LightBehavior::Metadata>();
+	metadata.serialize = [&](){
+		metadataJson["light"]["color"] = uf::vector::encode( metadata.color );
+		metadataJson["light"]["power"] = metadata.power;
+		metadataJson["light"]["bias"]["shader"] = metadata.bias;
+		metadataJson["light"]["shadows"] = metadata.shadows;
+		metadataJson["system"]["renderer"]["mode"] = metadata.renderer.mode;
+		metadataJson["light"]["external update"] = metadata.renderer.external;
+		metadataJson["system"]["renderer"]["timer"] = metadata.renderer.limiter;
+		switch ( metadata.type ) {
+			case 0: metadataJson["light"]["type"] = ""; break;
+			case 1: metadataJson["light"]["type"] = "point"; break;
+			case 2: metadataJson["light"]["type"] = "spot"; break;
+		}
+	};
+	metadata.deserialize = [&](){
 		metadata.color = uf::vector::decode( metadataJson["light"]["color"], pod::Vector3f{1,1,1} );
 		metadata.power = metadataJson["light"]["power"].as<float>();
 		metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
@@ -105,9 +122,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			else if ( lightType == "spot" ) metadata.type = 2;
 		}
 	};
-
-	this->addHook( "object:UpdateMetadata.%UID%", updateMetadata);
-	updateMetadata();
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
 }
 void ext::LightBehavior::tick( uf::Object& self ) {
 #if !UF_ENV_DREAMCAST
@@ -117,6 +133,26 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		renderMode.setTarget("");
 	}
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize();
+#else
+	if ( !metadata.color ) metadata.color = uf::vector::decode( metadataJson["light"]["color"], pod::Vector3f{1,1,1} );
+	if ( !metadata.power ) metadata.power = metadataJson["light"]["power"].as<float>();
+	if ( !metadata.bias ) metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
+	if ( !metadata.shadows ) metadata.shadows = metadataJson["light"]["shadows"].as<bool>();
+	if (  metadata.renderer.mode == "" ) metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<std::string>();
+	if ( !metadata.renderer.external ) metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
+	if ( !metadata.renderer.limiter ) metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
+	if ( !metadata.type ) {
+		if ( metadataJson["light"]["type"].is<size_t>() ) {
+			metadata.type = metadataJson["light"]["type"].as<size_t>();
+		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
+			std::string lightType = metadataJson["light"]["type"].as<std::string>();
+			if ( lightType == "point" ) metadata.type = 1;
+			else if ( lightType == "spot" ) metadata.type = 2;
+		}
+	}
+#endif
 #if 0
 	// light fade action
 	if ( ext::json::isObject( metadataJson["light"]["fade"] ) ) {
@@ -227,6 +263,9 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		renderMode.execute = execute;
 	}
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.serialize();
+#endif
 #endif
 }
 void ext::LightBehavior::render( uf::Object& self ){

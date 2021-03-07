@@ -204,39 +204,48 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
-	metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-	metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-	metadata.light.enabled = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
-	metadata.light.shadowSamples = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
-	metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
-	metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
-	metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
-	metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
-	metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
-	metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
-	metadata.fog.absorbtion = metadataJson["light"]["fog"]["absorbtion"].as<float>();
-	metadata.fog.range = uf::vector::decode( metadataJson["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
-	metadata.fog.density.offset = uf::vector::decode( metadataJson["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
-	metadata.fog.density.timescale = metadataJson["light"]["fog"]["density"]["timescale"].as<float>();
-	metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
-	metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
-	metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
+	metadata.serialize = [&]() {
+		metadataJson["light"]["should"] = metadata.light.enabled;
+		metadataJson["light"]["ambient"] = uf::vector::encode( metadata.light.ambient );
+		metadataJson["light"]["specular"] = uf::vector::encode( metadata.light.specular );
+		metadataJson["light"]["fog"]["color"] = uf::vector::encode( metadata.fog.color );
+		metadataJson["light"]["fog"]["step scale"] = metadata.fog.stepScale;
+		metadataJson["light"]["fog"]["absorbtion"] = metadata.fog.absorbtion;
+		metadataJson["light"]["fog"]["range"] = uf::vector::encode( metadata.fog.range );
+		metadataJson["light"]["fog"]["density"]["offset"] = uf::vector::encode( metadata.fog.density.offset );
+		metadataJson["light"]["fog"]["density"]["timescale"] = metadata.fog.density.timescale;
+		metadataJson["light"]["fog"]["density"]["threshold"] = metadata.fog.density.threshold;
+		metadataJson["light"]["fog"]["density"]["multiplier"] = metadata.fog.density.multiplier;
+		metadataJson["light"]["fog"]["density"]["scale"] = metadata.fog.density.scale;
+	};
+	metadata.deserialize = [&](){
+		metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
+		metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+		metadata.light.enabled = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
+		metadata.light.shadowSamples = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
+		metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
+		metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
+		metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
+		metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
+		metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
+		metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
+		metadata.fog.absorbtion = metadataJson["light"]["fog"]["absorbtion"].as<float>();
+		metadata.fog.range = uf::vector::decode( metadataJson["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
+		metadata.fog.density.offset = uf::vector::decode( metadataJson["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
+		metadata.fog.density.timescale = metadataJson["light"]["fog"]["density"]["timescale"].as<float>();
+		metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
+		metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
+		metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
+	#if UF_USE_OPENGL_FIXED_FUNCTION
+		uf::renderer::states::rebuild = true;
+	#endif
+	};
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
-	/* Regain control if nothing requests it */ {
-		if ( !this->globalFindByName("Gui: Menu") ) {
-			uf::Serializer payload;
-			payload["state"] = false;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-			uf::hooks.call("window:Mouse.Lock");
-		} else {
-			uf::Serializer payload;
-			payload["state"] = true;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-		}
-	}
 #if 0
 	uf::hooks.call("game:Frame.Start");
 
@@ -327,25 +336,22 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		ext::oal.listener( "ORIENTATION", { transform.forward.x, transform.forward.y, transform.forward.z, transform.up.x, transform.up.y, transform.up.z } );
 	}
 #endif
-
+#if !UF_ENV_DREAMCAST
+	/* Regain control if nothing requests it */ {
+		if ( !this->globalFindByName("Gui: Menu") ) {
+			uf::Serializer payload;
+			payload["state"] = false;
+			uf::hooks.call("window:Mouse.CursorVisibility", payload);
+			uf::hooks.call("window:Mouse.Lock");
+		} else {
+			uf::Serializer payload;
+			payload["state"] = true;
+			uf::hooks.call("window:Mouse.CursorVisibility", payload);
+		}
+	}
+#endif
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-	metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-	metadata.light.enabled = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
-	metadata.light.shadowSamples = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
-	metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
-	metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
-	metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
-	metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
-	metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
-	metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
-	metadata.fog.absorbtion = metadataJson["light"]["fog"]["absorbtion"].as<float>();
-	metadata.fog.range = uf::vector::decode( metadataJson["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
-	metadata.fog.density.offset = uf::vector::decode( metadataJson["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
-	metadata.fog.density.timescale = metadataJson["light"]["fog"]["density"]["timescale"].as<float>();
-	metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
-	metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
-	metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
+	metadata.deserialize();
 #else
 	if ( !metadata.max.textures ) metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
 	if ( !metadata.max.lights ) metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
@@ -354,7 +360,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	if ( !metadata.light.shadowThreshold ) metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
 	if ( !metadata.light.updateThreshold ) metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
 #endif
-
 	/* Update lights */ if ( metadata.light.enabled ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& controller = scene.getController();
@@ -373,11 +378,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			float power = 0;
 		};
 		std::vector<LightInfo> entities;
-	if ( uf::scene::useGraph ) {
 		auto graph = uf::scene::generateGraph();
 		for ( auto entity : graph ) {
 			if ( entity == &controller || entity == this ) continue;
-			if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+		//	if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+			if ( !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+		//	if ( !entity->hasBehavior(pod::Behavior{.type = ext::LightBehavior::type}) ) continue;
 			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
 			if ( metadata.power <= 0 ) continue;
 			LightInfo& info = entities.emplace_back();
@@ -391,24 +397,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			info.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) );
 			info.power = metadata.power;
 		}
-	} else {
-		this->process([&]( uf::Entity* entity ) { if ( !entity ) return;
-			if ( entity == &controller || entity == this ) return;
-			if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) return;
-			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-			if ( metadata.power <= 0 ) return;
-			LightInfo& info = entities.emplace_back();
-			auto& transform = entity->getComponent<pod::Transform<>>();
-			auto flatten = uf::transform::flatten( transform );
-			info.entity = entity;
-			info.position = flatten.position;
-			info.position.w = 1;
-			info.color = metadata.color;
-			info.color.w = 1;
-			info.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) );
-			info.power = metadata.power;
-		});
-	}
 		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
 			return l.distance < r.distance;
 		});
@@ -494,16 +482,17 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		};
 		std::vector<LightInfo> entities;
 		std::vector<pod::Graph*> graphs;
-	if ( uf::scene::useGraph ) {
 		auto graph = uf::scene::generateGraph();
 		for ( auto entity : graph ) {
 			if ( entity == &controller || entity == this ) continue;
 			if ( entity->hasComponent<pod::Graph>() ) graphs.emplace_back(&entity->getComponent<pod::Graph>());
-			if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+		//	if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+			if ( !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+		//	if ( !entity->hasBehavior(pod::Behavior{.type = ext::LightBehavior::type}) ) continue;
 			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
 			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				if ( metadata.renderer.mode == "in-range" ) renderMode.execute;
+				if ( metadata.renderer.mode == "in-range" ) renderMode.execute = false;
 			}
 			if ( metadata.power <= 0 ) continue;
 			LightInfo& info = entities.emplace_back();
@@ -518,36 +507,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			info.bias = metadata.bias;
 			info.type = metadata.type;
 		}
-	} else {
-		this->process([&]( uf::Entity* entity ) { if ( !entity ) return;
-			if ( entity == &controller || entity == this ) return;
-			if ( entity->hasComponent<pod::Graph>() ) graphs.emplace_back(&entity->getComponent<pod::Graph>());
-			if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) return;
-			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-			if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				if ( metadata.renderer.mode == "in-range" ) renderMode.execute;
-			}
-			if ( metadata.power <= 0 ) return;
-			LightInfo& info = entities.emplace_back();
-			auto& transform = entity->getComponent<pod::Transform<>>();
-			auto flatten = uf::transform::flatten( transform );
-			info.entity = entity;
-			info.position = flatten.position;
-			info.color = metadata.color;
-			info.color.w = metadata.power;
-			info.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) );
-			info.shadows = metadata.shadows;
-			info.bias = metadata.bias;
-			info.type = metadata.type;
-		});
-	}
 		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
 			return l.distance < r.distance;
 		});
 	
-		int& shadowSamples = metadata.light.shadowSamples;
-		int& shadowThreshold = metadata.light.shadowThreshold;
+		int shadowSamples = metadata.light.shadowSamples;
+		int shadowThreshold = metadata.light.shadowThreshold;
 		if ( shadowSamples <= 0 ) shadowSamples = 16;
 		if ( shadowThreshold <= 0 ) shadowThreshold = std::numeric_limits<int>::max();
 		{
@@ -608,7 +573,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::Texture3D>());
 			graphic.material.textures.emplace_back().aliasTexture(this->getComponent<uf::renderer::TextureCube>());
 
-			size_t& updateThreshold = metadata.light.updateThreshold;
+			size_t updateThreshold = metadata.light.updateThreshold;
 			size_t textureSlot = 0;
 
 			std::vector<pod::Light::Storage> lights;
@@ -639,12 +604,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				for ( auto& texture : graph.textures ) textures.emplace_back( texture.storage );
 
 				for ( auto& texture : graph.textures ) {
-					if ( !texture.texture.device ) continue;
-
+					if ( !texture.bind ) continue;
 					graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 					++textureSlot;
-
-					if ( graph.atlas ) break;
 				}
 			}
 
@@ -721,6 +683,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		}
 	#endif
 	}
+
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize();
+#endif
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}
 void ext::ExtSceneBehavior::destroy( uf::Object& self ) {}

@@ -53,9 +53,9 @@ namespace pod {
 			alignas(4) int32_t indexOcclusion = -1;
 
 			alignas(4) int32_t indexMetallicRoughness = -1;
+			alignas(4) int32_t indexAtlas = -1;
+			alignas(4) int32_t indexLightmap = -1;
 			alignas(4) int32_t modeAlpha = -1;
-			alignas(4) int32_t padding1 = -1;
-			alignas(4) int32_t padding2 = -1;
 		} storage;
 		std::string name = "";
 		std::string alphaMode = "";

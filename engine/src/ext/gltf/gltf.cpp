@@ -124,6 +124,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	bool ret = extension == "glb" ? loader.LoadBinaryFromFile(&model, &err, &warn, filename) : loader.LoadASCIIFromFile(&model, &err, &warn, filename);
 
 	pod::Graph graph;
+	graph.name = filename;
 	graph.mode = mode;
 	graph.metadata = metadata;
 
@@ -476,11 +477,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 			else
 				shouldExport = true;
 		}
-		if ( shouldExport ) uf::graph::save( filename, graph );
+		if ( shouldExport ) uf::graph::save( graph, filename );
 	}
-	uf::graph::process( graph );
-	if ( graph.metadata["debug"]["print stats"].as<bool>() ) UF_DEBUG_MSG(uf::graph::stats( graph ).dump(1,'\t'));
-	if ( graph.metadata["debug"]["print tree"].as<bool>() ) UF_DEBUG_MSG(uf::graph::print( graph ));
-	if ( !graph.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( graph );
 	return graph;
 }

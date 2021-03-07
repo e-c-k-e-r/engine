@@ -14,23 +14,15 @@
 #include <uf/spec/controller/controller.h>
 
 #include <sstream>
-#if 0
-namespace {
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
-		return mastertable["system"]["mastertable"][table][key];
-	}
-}
-#endif
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& camera = this->getComponent<uf::Camera>();
 	camera.getTransform().reference = &transform;
-
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	
+	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 	/* Load Config */ {
 		struct {
 			int mode = 0;
@@ -47,49 +39,49 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		} settings;
 
 		uf::Camera& camera = this->getComponent<uf::Camera>();
-		settings.mode = metadata["camera"]["ortho"].as<bool>() ? -1 : 1;
-		settings.perspective.size.x = metadata["camera"]["settings"]["size"]["x"].as<double>();
-		settings.perspective.size.y = metadata["camera"]["settings"]["size"]["y"].as<double>();
+		settings.mode = metadataJson["camera"]["ortho"].as<bool>() ? -1 : 1;
+		settings.perspective.size.x = metadataJson["camera"]["settings"]["size"]["x"].as<double>();
+		settings.perspective.size.y = metadataJson["camera"]["settings"]["size"]["y"].as<double>();
 		camera.setSize(settings.perspective.size);
 		if ( settings.mode < 0 ) {
-			settings.ortho.lr.x 	= metadata["camera"]["settings"]["left"].as<double>();
-			settings.ortho.lr.y 	= metadata["camera"]["settings"]["right"].as<double>();
-			settings.ortho.bt.x 	= metadata["camera"]["settings"]["bottom"].as<double>();
-			settings.ortho.bt.y 	= metadata["camera"]["settings"]["top"].as<double>();
-			settings.ortho.nf.x 	= metadata["camera"]["settings"]["near"].as<double>();
-			settings.ortho.nf.y 	= metadata["camera"]["settings"]["far"].as<double>();
+			settings.ortho.lr.x 	= metadataJson["camera"]["settings"]["left"].as<double>();
+			settings.ortho.lr.y 	= metadataJson["camera"]["settings"]["right"].as<double>();
+			settings.ortho.bt.x 	= metadataJson["camera"]["settings"]["bottom"].as<double>();
+			settings.ortho.bt.y 	= metadataJson["camera"]["settings"]["top"].as<double>();
+			settings.ortho.nf.x 	= metadataJson["camera"]["settings"]["near"].as<double>();
+			settings.ortho.nf.y 	= metadataJson["camera"]["settings"]["far"].as<double>();
 
 			camera.ortho( settings.ortho.lr, settings.ortho.bt, settings.ortho.nf );
 		} else {
-			settings.perspective.fov 		= metadata["camera"]["settings"]["fov"].as<double>();
-			settings.perspective.bounds.x 	= metadata["camera"]["settings"]["clip"]["near"].as<double>();
-			settings.perspective.bounds.y 	= metadata["camera"]["settings"]["clip"]["far"].as<double>();
+			settings.perspective.fov 		= metadataJson["camera"]["settings"]["fov"].as<double>();
+			settings.perspective.bounds.x 	= metadataJson["camera"]["settings"]["clip"]["near"].as<double>();
+			settings.perspective.bounds.y 	= metadataJson["camera"]["settings"]["clip"]["far"].as<double>();
 
 			camera.setFov(settings.perspective.fov);
 			camera.setBounds(settings.perspective.bounds);
 		}
 		camera.setStereoscopic(true);
 
-		settings.offset.x = metadata["camera"]["offset"][0].as<double>();
-		settings.offset.y = metadata["camera"]["offset"][1].as<double>();
-		settings.offset.z = metadata["camera"]["offset"][2].as<double>();
+		settings.offset.x = metadataJson["camera"]["offset"][0].as<double>();
+		settings.offset.y = metadataJson["camera"]["offset"][1].as<double>();
+		settings.offset.z = metadataJson["camera"]["offset"][2].as<double>();
 
 		pod::Transform<>& transform = camera.getTransform();
 		/* Transform initialization */ {
-			transform.position.x = metadata["camera"]["position"][0].as<double>();
-			transform.position.y = metadata["camera"]["position"][1].as<double>();
-			transform.position.z = metadata["camera"]["position"][2].as<double>();
+			transform.position.x = metadataJson["camera"]["position"][0].as<double>();
+			transform.position.y = metadataJson["camera"]["position"][1].as<double>();
+			transform.position.z = metadataJson["camera"]["position"][2].as<double>();
 
-			transform.scale.x = metadata["camera"]["scale"][0].as<double>();
-			transform.scale.y = metadata["camera"]["scale"][1].as<double>();
-			transform.scale.z = metadata["camera"]["scale"][2].as<double>();
+			transform.scale.x = metadataJson["camera"]["scale"][0].as<double>();
+			transform.scale.y = metadataJson["camera"]["scale"][1].as<double>();
+			transform.scale.z = metadataJson["camera"]["scale"][2].as<double>();
 		}
 
 		camera.setOffset(settings.offset);
 		camera.update(true);
 
 		// Update viewport
-		if ( metadata["camera"]["settings"]["size"]["auto"].as<bool>() )  {
+		if ( metadataJson["camera"]["settings"]["size"]["auto"].as<bool>() )  {
 			this->addHook( "window:Resized", [&](ext::json::Value& json){
 				// Update persistent window sized (size stored to JSON file)
 				pod::Vector2ui size; {
@@ -103,9 +95,10 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			} );
 		}
 	}
-	metadata["system"]["control"] = true;
+	metadataJson["system"]["control"] = true;
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
-		metadata["system"]["control"] = !json["state"].as<bool>();	
+	//	metadataJson["system"]["control"] = !json["state"].as<bool>();	
+		metadata.system.control = !json["state"].as<bool>();
 	});
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
@@ -118,7 +111,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		pod::Vector2 relta  = { (float) delta.x / size.x, (float) delta.y / size.y };
 		relta *= 2;
 		if ( delta.x == 0 && delta.y == 0 ) return;
-		if ( !metadata["system"]["control"].as<bool>() ) return;
+		if ( !metadata.system.control ) return;
 
 		bool updateCamera = false;
 		uf::Camera& camera = this->getComponent<uf::Camera>();
@@ -127,11 +120,11 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		auto& collider = this->getComponent<pod::Bullet>();
 		if ( delta.x != 0 ) {
 			double current, minima, maxima; {
-				current = !ext::json::isNull( metadata["camera"]["limit"]["current"][0] ) ? metadata["camera"]["limit"]["current"][0].as<double>() : NAN;
-				minima = !ext::json::isNull( metadata["camera"]["limit"]["minima"][0] ) ? metadata["camera"]["limit"]["minima"][0].as<double>() : NAN;
-				maxima = !ext::json::isNull( metadata["camera"]["limit"]["maxima"][0] ) ? metadata["camera"]["limit"]["maxima"][0].as<double>() : NAN;
+				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ? metadataJson["camera"]["limit"]["current"][0].as<double>() : NAN;
+				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][0] ) ? metadataJson["camera"]["limit"]["minima"][0].as<double>() : NAN;
+				maxima = !ext::json::isNull( metadataJson["camera"]["limit"]["maxima"][0] ) ? metadataJson["camera"]["limit"]["maxima"][0].as<double>() : NAN;
 			}
-			if ( metadata["camera"]["invert"][0].as<bool>() ) relta.x *= -1;
+			if ( metadataJson["camera"]["invert"][0].as<bool>() ) relta.x *= -1;
 			current += relta.x;
 			if ( current != current || ( current < maxima && current > minima ) ) {
 				if ( collider.body && !collider.shared ) {
@@ -143,15 +136,15 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 				}
 			} else current -= relta.x;
 
-			if ( !ext::json::isNull( metadata["camera"]["limit"]["current"][0] ) ) metadata["camera"]["limit"]["current"][0] = current;
+			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ) metadataJson["camera"]["limit"]["current"][0] = current;
 		}
 		if ( delta.y != 0 ) {
 			double current, minima, maxima; {
-				current = !ext::json::isNull( metadata["camera"]["limit"]["current"][1] ) ? metadata["camera"]["limit"]["current"][1].as<double>() : NAN;
-				minima = !ext::json::isNull( metadata["camera"]["limit"]["minima"][1] ) ? metadata["camera"]["limit"]["minima"][1].as<double>() : NAN;
-				maxima = !ext::json::isNull( metadata["camera"]["limit"]["maxima"][1] ) ? metadata["camera"]["limit"]["maxima"][1].as<double>() : NAN;
+				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ? metadataJson["camera"]["limit"]["current"][1].as<double>() : NAN;
+				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][1] ) ? metadataJson["camera"]["limit"]["minima"][1].as<double>() : NAN;
+				maxima = !ext::json::isNull( metadataJson["camera"]["limit"]["maxima"][1] ) ? metadataJson["camera"]["limit"]["maxima"][1].as<double>() : NAN;
 			}
-			if ( metadata["camera"]["invert"][1].as<bool>() ) relta.y *= -1;
+			if ( metadataJson["camera"]["invert"][1].as<bool>() ) relta.y *= -1;
 			current += relta.y;
 			if ( current != current || ( current < maxima && current > minima ) ) {
 			//	if ( collider.body && !collider.shared ) {
@@ -161,7 +154,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			//	}
 				updateCamera = true;
 			} else current -= relta.y;
-			if ( !ext::json::isNull( metadata["camera"]["limit"]["current"][1] ) ) metadata["camera"]["limit"]["current"][1] = current;
+			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ) metadataJson["camera"]["limit"]["current"][1] = current;
 		}
 		if ( updateCamera ) {
 			camera.updateView();
@@ -170,11 +163,11 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 #if 0
 	this->addHook( ":Update.%UID%", [&](ext::json::Value& json){
 	//	for ( auto& member : json[""]["transients"] ) {
-		ext::json::forEach(metadata[""]["transients"], [&](ext::json::Value& member){
+		ext::json::forEach(metadataJson[""]["transients"], [&](ext::json::Value& member){
 			if ( member["type"] != "player" ) return;
 			std::string id = member["id"].as<std::string>();
-			metadata[""]["transients"][id]["hp"] = member["hp"];
-			metadata[""]["transients"][id]["mp"] = member["mp"];
+			metadataJson[""]["transients"][id]["hp"] = member["hp"];
+			metadataJson[""]["transients"][id]["mp"] = member["mp"];
 		});
 	});
 
@@ -187,16 +180,16 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			this->callHook( ":Update.%UID%", payload );
 		}
 		
-		metadata["system"].erase("battle");
-		metadata["system"]["cooldown"] = uf::physics::time::current + 5;
+		metadataJson["system"].erase("battle");
+		metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
 	});
 	
 	// detect collision against transients, engage in battle
 	this->addHook( "world:Collision.%UID%", [&](ext::json::Value& json){
-		if ( metadata["system"]["cooldown"].as<float>() > uf::physics::time::current ) return;
-		if ( !metadata["system"]["control"].as<bool>() ) return;
+		if ( metadataJson["system"]["cooldown"].as<float>() > uf::physics::time::current ) return;
+		if ( !metadataJson["system"]["control"].as<bool>() ) return;
 		
-		std::string state = metadata["system"]["state"].as<std::string>();
+		std::string state = metadataJson["system"]["state"].as<std::string>();
 		if ( state != "" && state != "null" ) return;
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
@@ -212,7 +205,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			uf::Serializer payload;
 			payload["battle"]["enemy"] = pMetadata[""];
 			payload["battle"]["enemy"]["uid"] = json["entity"].as<size_t>();
-			payload["battle"]["player"] = metadata[""];
+			payload["battle"]["player"] = metadataJson[""];
 			payload["battle"]["player"]["uid"] = this->getUid();
 			payload["battle"]["music"] = pMetadata["music"];
 			
@@ -224,13 +217,13 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			payload["uid"] = json["entity"].as<size_t>();
 			this->callHook("menu:Dialogue.Start", payload);
 		}
-	//	metadata["system"]["cooldown"] = uf::physics::time::current + 5;
-		metadata["system"]["control"] = false;
-		metadata["system"]["menu"] = onCollision;
+	//	metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
+		metadataJson["system"]["control"] = false;
+		metadataJson["system"]["menu"] = onCollision;
 	});
 	this->addHook( "world:Battle.End", [&](ext::json::Value& json){
-		metadata["system"]["menu"] = "";
-		metadata["system"]["cooldown"] = uf::physics::time::current + 5;
+		metadataJson["system"]["menu"] = "";
+		metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
 
 		// update
 		{
@@ -240,15 +233,15 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		}
 	});
 	this->addHook( "menu:Dialogue.End", [&](ext::json::Value& json){
-		metadata["system"]["menu"] = "";
-		metadata["system"]["cooldown"] = uf::physics::time::current + 1;
+		metadataJson["system"]["menu"] = "";
+		metadataJson["system"]["cooldown"] = uf::physics::time::current + 1;
 	});
 #endif
 #if 0
 #if UF_USE_DISCORD
 	// Discord Integration
 	this->addHook( "discord.Activity.Update.%UID%", [&](ext::json::Value& json){
-		std::string leaderId = metadata[""]["party"][0].as<std::string>();
+		std::string leaderId = metadataJson[""]["party"][0].as<std::string>();
 		uf::Serializer cardData = masterDataGet("Card", leaderId);
 		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
 		std::string leader = charaData["name"].as<std::string>();
@@ -260,30 +253,50 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
 #endif
 #endif
-#if !UF_ENTITY_METADATA_USE_JSON
-	{
-		auto& metadataBehavior = this->getComponent<ext::PlayerBehavior::Metadata>();
-		auto& metadataSystem = metadata["system"];
-		metadataBehavior.system.menu = metadataSystem["menu"].as<std::string>();
-		metadataBehavior.system.control = metadataSystem["control"].as<bool>();
-		metadataBehavior.system.crouching = metadataSystem["crouching"].as<bool>();
-		metadataBehavior.system.noclipped = metadataSystem["noclipped"].as<bool>();
+	metadata.serialize = [&](){
+		auto& metadataSystem = metadataJson["system"];
 		auto& metadataSystemPhysics = metadataSystem["physics"];
-		metadataBehavior.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
-		metadataBehavior.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
-		metadataBehavior.system.physics.move = metadataSystemPhysics["move"].as<float>();
-		metadataBehavior.system.physics.run = metadataSystemPhysics["run"].as<float>();
-		metadataBehavior.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
-		metadataBehavior.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
-		metadataBehavior.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
-		metadataBehavior.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
-		auto& metadataAudioFootstep = metadata["audio"]["footstep"];
+		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
+		
+		metadataSystem["menu"] = metadata.system.menu;
+		metadataSystem["control"] = metadata.system.control;
+		metadataSystem["crouching"] = metadata.system.crouching;
+		metadataSystem["noclipped"] = metadata.system.noclipped;
+		metadataSystemPhysics["impulse"] = metadata.system.physics.impulse;
+		metadataSystemPhysics["rotate"] = metadata.system.physics.rotate;
+		metadataSystemPhysics["move"] = metadata.system.physics.move;
+		metadataSystemPhysics["run"] = metadata.system.physics.run;
+		metadataSystemPhysics["walk"] = metadata.system.physics.walk;
+		metadataSystemPhysics["collision"] = metadata.system.physics.collision;
+		metadataSystemPhysics["jump"] = uf::vector::encode(metadata.system.physics.jump);
+		metadataSystemPhysics["crouch"] = metadata.system.physics.crouch;
+		metadataAudioFootstep["list"] = metadata.audio.footstep.list;
+		metadataAudioFootstep["volume"] = metadata.audio.footstep.volume;
+	};
+	metadata.deserialize = [&](){
+		auto& metadataSystem = metadataJson["system"];
+		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
+		auto& metadataSystemPhysics = metadataSystem["physics"];
+
+		metadata.system.menu = metadataSystem["menu"].as<std::string>();
+		metadata.system.control = metadataSystem["control"].as<bool>();
+		metadata.system.crouching = metadataSystem["crouching"].as<bool>();
+		metadata.system.noclipped = metadataSystem["noclipped"].as<bool>();
+		metadata.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
+		metadata.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
+		metadata.system.physics.move = metadataSystemPhysics["move"].as<float>();
+		metadata.system.physics.run = metadataSystemPhysics["run"].as<float>();
+		metadata.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
+		metadata.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
+		metadata.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
+		metadata.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
 		ext::json::forEach( metadataAudioFootstep["list"], [&]( const ext::json::Value& value ){
-			metadataBehavior.audio.footstep.list.emplace_back(value);
+			metadata.audio.footstep.list.emplace_back(value);
 		});
-		metadataBehavior.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
-	}
-#endif
+		metadata.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
+	};
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& camera = this->getComponent<uf::Camera>();
@@ -362,27 +375,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	} stats;
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
-#if UF_ENTITY_METADATA_USE_JSON
 	auto& metadataJson = this->getComponent<uf::Serializer>();
-	auto& metadataSystem = metadataJson["system"];
-	metadata.system.menu = metadataSystem["menu"].as<std::string>();
-	metadata.system.control = metadataSystem["control"].as<bool>();
-	metadata.system.crouching = metadataSystem["crouching"].as<bool>();
-	metadata.system.noclipped = metadataSystem["noclipped"].as<bool>();
-	auto& metadataSystemPhysics = metadataSystem["physics"];
-	metadata.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
-	metadata.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
-	metadata.system.physics.move = metadataSystemPhysics["move"].as<float>();
-	metadata.system.physics.run = metadataSystemPhysics["run"].as<float>();
-	metadata.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
-	metadata.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
-	metadata.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
-	metadata.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
-	auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
-	ext::json::forEach( metadataAudioFootstep["list"], [&]( const ext::json::Value& value ){
-		metadata.audio.footstep.list.emplace_back(value);
-	});
-	metadata.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize();
 #endif
 	stats.floored = fabs(physics.linear.velocity.y) < 0.01f;
 	stats.menu = metadata.system.menu;
@@ -407,7 +402,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	else if ( keys.walk ) speed.move *= speed.walk;
 	speed.limitSquared = speed.move * speed.move;
 
-	uf::Object* menu = (uf::Object*) this->getRootParent().findByName("Gui: Menu");
+	uf::Object* menu = (uf::Object*) scene.globalFindByName("Gui: Menu");
 	if ( !menu ) stats.menu = "";
 	// make assumptions
 	if ( stats.menu == "" && keys.paused ) {
@@ -652,7 +647,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 #endif
-#if UF_USE_LUA
+#if UF_USE_LUA && !UF_ENV_DREAMCAST
 	#define TRACK_ORIENTATION(ORIENTATION) {\
 		static pod::Quaternion<> storedCameraOrientation = ORIENTATION;\
 		const pod::Quaternion<> prevCameraOrientation = storedCameraOrientation;\
@@ -683,24 +678,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( stats.updateCamera ) camera.updateView();
 
 #if UF_ENTITY_METADATA_USE_JSON
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-	auto& metadataSystem = metadataJson["system"]
-	metadataSystem["menu"] = metadata.system.menu;
-	metadataSystem["control"] = metadata.system.control;
-	metadataSystem["crouching"] = metadata.system.crouching;
-	metadataSystem["noclipped"] = metadata.system.noclipped;
-	auto& metadataSystemPhysics = metadataSystem["physics"]
-	metadataSystemPhysics["impulse"] = metadata.system.physics.impulse;
-	metadataSystemPhysics["rotate"] = metadata.system.physics.rotate;
-	metadataSystemPhysics["move"] = metadata.system.physics.move;
-	metadataSystemPhysics["run"] = metadata.system.physics.run;
-	metadataSystemPhysics["walk"] = metadata.system.physics.walk;
-	metadataSystemPhysics["collision"] = metadata.system.physics.collision;
-	metadataSystemPhysics["jump"] = uf::vector::encode(metadata.system.physics.jump);
-	metadataSystemPhysics["crouch"] = metadata.system.physics.crouch;
-	auto& metadataAudioFootstep = metadata["audio"]["footstep"];
-	metadataAudioFootstep["list"] = metadata.audio.footstep.list;
-	metadataAudioFootstep["volume"] = metadata.audio.footstep.volume
+	metadata.serialize();
 #endif
 }
 

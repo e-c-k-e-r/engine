@@ -86,7 +86,14 @@ std::string uf::Image::getFilename() const {
 	((((uint16_t)r & 0xf8) << 8) | (((uint16_t) g & 0xfc) << 3) | ((uint16_t) b >> 3))
 
 // from file
-bool uf::Image::open( const std::string& filename, bool flip ) {
+bool uf::Image::open( const std::string& _filename, bool flip ) {
+	std::string filename = _filename;
+#if UF_ENV_DREAMCAST
+	std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
+	if ( uf::io::exists(dtex) ) {
+		filename = dtex;
+	}
+#endif
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("does not exist: " + filename);
 	std::string extension = uf::io::extension(filename);
 	this->m_filename = filename;
@@ -313,6 +320,8 @@ uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 // 	Modifiers
 // to file
 bool uf::Image::save( const std::string& filename, bool flip ) const {
+	if ( this->m_pixels.empty() ) return false;
+	
 	uint w = this->m_dimensions.x;
 	uint h = this->m_dimensions.y;
 	auto* pixels = &this->m_pixels[0];

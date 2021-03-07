@@ -18,6 +18,7 @@
 #define UF_DEBUG 1
 #if UF_DEBUG
 	#include <iostream>
+	#include <iomanip>
 #endif
 #define UF_PRINT_MSG(X) std::cout << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << ": " << X << std::endl;
 #define UF_DEBUG_MSG(X) if ( UF_DEBUG ) UF_PRINT_MSG(X);
@@ -34,11 +35,24 @@
 
 #define UF_TIMER_TRACE(X) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
-	if ( elapsed > 0 ) UF_DEBUG_MSG(X << " | " << TIMER_TRACE.elapsed().asMilliseconds() << "ms");\
+	if ( elapsed > 0 ) UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
 }
 
 #define UF_TIMER_TRACE_RESET(X) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
-	if ( elapsed > 0 ) UF_DEBUG_MSG(X << " | " << TIMER_TRACE.elapsed().asMilliseconds() << "ms");\
+	if ( elapsed > 0 ) UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
 	TIMER_TRACE.reset();\
 }
+
+#define UF_TIMER_MULTITRACE_START(X)\
+	UF_TIMER_TRACE_INIT();\
+	long long TIMER_TRACE_PREV = 0, TIMER_TRACE_CUR = 0;\
+	UF_DEBUG_MSG(X);\
+
+#define UF_TIMER_MULTITRACE(X) {\
+	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
+	UF_DEBUG_MSG(std::setfill(' ') << std::setw(6) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(6) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
+	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
+}
+
+#define UF_TIMER_MULTITRACE_END(X) UF_DEBUG_MSG(X);

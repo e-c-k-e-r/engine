@@ -40,9 +40,127 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
 }
 
+uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
+	uf::Image image;
+	if ( !device || renderTarget.attachments.size() < i ) return image;
+	auto& attachment = renderTarget.attachments[i];
+	
+	bool blitting = true;
+	VkFormatProperties formatProperties;
+	vkGetPhysicalDeviceFormatProperties(device->physicalDevice, attachment.descriptor.format, &formatProperties);
+	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) blitting = false;
+	vkGetPhysicalDeviceFormatProperties(device->physicalDevice, VK_FORMAT_R8G8B8A8_UNORM, &formatProperties);
+	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) blitting = false;
+
+	VkImage temporary;
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageCreateInfo.extent = { renderTarget.width, renderTarget.height, 1 };
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+	imageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VmaAllocation allocation;
+	VmaAllocationInfo allocationInfo;
+	VmaAllocationCreateInfo allocationCreateInfo = {};
+	allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
+	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
+
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	
+	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+	imageMemoryBarrier.subresourceRange.layerCount = 1;
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageMemoryBarrier.srcAccessMask = 0;
+	imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	
+	imageMemoryBarrier.image = temporary;
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+
+	imageMemoryBarrier.image = attachment.image;
+	imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+
+	if ( attachment.descriptor.samples > 1 ) {
+		VkOffset3D blitSize;
+		blitSize.x = renderTarget.width;
+		blitSize.y = renderTarget.height;
+		blitSize.z = 1;
+
+		VkImageResolve imageResolveRegion{};
+		imageResolveRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageResolveRegion.srcSubresource.layerCount = 1;
+	//	imageResolveRegion.srcOffsets[1] = blitSize;
+		imageResolveRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageResolveRegion.dstSubresource.layerCount = 1;
+	//	imageResolveRegion.dstOffsets[1] = blitSize;
+		imageResolveRegion.extent = { renderTarget.width, renderTarget.height, 1 };
+
+		vkCmdResolveImage(  copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageResolveRegion );
+	} else if ( blitting ) {
+		VkOffset3D blitSize;
+		blitSize.x = renderTarget.width;
+		blitSize.y = renderTarget.height;
+		blitSize.z = 1;
+
+		VkImageBlit imageBlit{};
+		imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlit.srcSubresource.layerCount = 1;
+		imageBlit.srcOffsets[1] = blitSize;
+		imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlit.dstSubresource.layerCount = 1;
+		imageBlit.dstOffsets[1] = blitSize;
+
+		vkCmdBlitImage( copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_NEAREST);
+	} else {
+		VkImageCopy imageCopy{};
+		imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopy.srcSubresource.layerCount = 1;
+		imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopy.dstSubresource.layerCount = 1;
+		imageCopy.extent = { renderTarget.width, renderTarget.height, 1 };
+
+		vkCmdCopyImage( copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy );
+	}
+	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+	imageMemoryBarrier.image = temporary;
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+
+	imageMemoryBarrier.image = attachment.image;
+	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	imageMemoryBarrier.newLayout = attachment.descriptor.layout;
+	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+	device->flushCommandBuffer(copyCmd, true);
+
+	const uint8_t* data;
+	vmaMapMemory( allocator, allocation, (void**)&data );
+	image.loadFromBuffer( data, {renderTarget.width, renderTarget.height}, 8, 4, false );
+	vmaUnmapMemory( allocator, allocation );
+	vmaDestroyImage(allocator, temporary, allocation);
+	return image;
+}
+
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = reference;
-	descriptor.renderMode = this->getName();
+//	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
 	descriptor.parse( metadata );
 	return descriptor;
@@ -130,6 +248,7 @@ if ( uf::scene::useGraph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		if ( !graphic.initialized || !graphic.process ) continue;
+	//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) continue;
 		graphics.push_back(&graphic);
 	}
 } else {
@@ -140,6 +259,7 @@ if ( uf::scene::useGraph ) {
 			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 			if ( !graphic.initialized ) return;
 			if ( !graphic.process ) return;
+		//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) return;
 			graphics.push_back(&graphic);
 		});
 	}
@@ -155,6 +275,8 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 			if ( !subpass.autoBuildPipeline ) continue;
 			// bind to this render mode
 			ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
+			// ignore invalidated descriptors
+			if ( descriptor.invalidated ) continue;
 			// ignore if pipeline exists for this render mode
 			if ( graphic.hasPipeline( descriptor ) ) continue;
 			graphic.initializePipeline( descriptor );

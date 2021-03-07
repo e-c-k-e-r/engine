@@ -17,7 +17,7 @@ namespace {
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
 		graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
-		graphic.descriptor.cullMode = !(graph.mode & ext::gltf::LoadMode::INVERT) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
+		graphic.descriptor.cullMode = !(graph.metadata["flags"]["INVERT"].as<bool>()) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
 		if ( graph.metadata["cull mode"].is<std::string>() ) {
 			if ( graph.metadata["cull mode"].as<std::string>() == "back" ) {
 				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
@@ -30,55 +30,29 @@ namespace {
 			}
 		}
 		{
-		#if UF_VK_TESTING
 			for ( auto& texture : graph.textures ) {
+				if ( !texture.bind ) continue;
 				graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 			}
-		#else
-			if ( graph.mode & ext::gltf::LoadMode::ATLAS ) {
-				auto& atlas = *graph.atlas;
-				auto& texture = graphic.material.textures.emplace_back();
-				texture.loadFromImage( atlas.getAtlas() );
-				atlas.getAtlas().clear();
-			} else {
-				graphic.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
-				for ( auto& image : graph.images ) {
-					auto& texture = graphic.material.textures.emplace_back();
-
-					if ( graph.metadata["filter"].is<std::string>() ) {
-						std::string filter = graph.metadata["filter"].as<std::string>();
-						if ( filter == "NEAREST" ) {
-							texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-							texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-						} else if ( filter == "LINEAR" ) {
-							texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
-							texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
-						}
-					}
-					texture.loadFromImage( image );
-					image.clear();
-				}
-			}
-		#endif
 			for ( auto& sampler : graph.samplers ) {
 				graphic.material.samplers.emplace_back( sampler );
 			}
 		}
-		if ( graph.mode & ext::gltf::LoadMode::LOAD ) {
-			if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
-				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+		if ( graph.metadata["flags"]["LOAD"].as<bool>() ) {
+			if ( graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
+				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 					graphic.material.attachShader(uf::io::root + "/shaders/gltf/skinned.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
-					graphic.material.attachShader(uf::io::root + "/shaders/gltf/vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root + "/shaders/gltf/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			} else {
-				if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 					graphic.material.attachShader(uf::io::root + "/shaders/gltf/skinned.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				} else {
 					graphic.material.attachShader(uf::io::root + "/shaders/gltf/instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
 				}
 			}
-			graphic.material.attachShader(uf::io::root + "/shaders/gltf/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+			graphic.material.attachShader(uf::io::root + "/shaders/gltf/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 		#if UF_USE_VULKAN
 			{
 				auto& shader = graphic.material.getShader("vertex");
@@ -138,57 +112,114 @@ void uf::graph::process( uf::Object& entity ) {
 	for ( auto index : graph.root.children ) process( graph, index, entity );
 }
 void uf::graph::process( pod::Graph& graph ) {
+	// using an atlas texture will not bind other textures
+	// load lightmap, if requested
+	if ( graph.metadata["lightmap"].is<std::string>() ) {
+		// check if valid filename, if not it's a texture name
+		std::string f = uf::io::sanitize( graph.metadata["lightmap"].as<std::string>(), uf::io::directory( graph.name ) );
+		if ( uf::io::exists( f ) ) {
+			for ( auto& material : graph.materials ) {
+				material.storage.indexLightmap = graph.textures.size();
+			}
+			
+			auto& texture = graph.textures.emplace_back();
+			texture.name = "lightmap";
+			texture.bind = true;
+			texture.storage.index = graph.images.size();
+			texture.storage.sampler = -1;
+			texture.storage.remap = graph.images.size();
+			texture.storage.blend = 0;
+			auto& image = graph.images.emplace_back();
+		#if UF_USE_VULKAN
+			bool flip = false;
+		#elif UF_USE_OPENGL
+			bool flip = false;
+		#endif
+			image.open( f, flip );
+
+			graph.metadata["lightmap"] = texture.name;
+			graph.metadata["lightmapped"] = true;
+
+			texture.texture.loadFromImage( image );
+
+			texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+			texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		}
+	// invalidate our ST's if we're in OpenGL
+	} else {
+	#if UF_USE_OPENGL
+		for ( auto& mesh : graph.meshes ) {
+			for ( auto& v : mesh.vertices ) {
+				v.st = pod::Vector2f{0,0};
+			}
+		}
+	#endif
+	}
 	if ( graph.atlas ) {
+		for ( auto& texture : graph.textures ) {
+			++texture.storage.index;
+		}
+		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas->getAtlas());
 		auto& texture = *graph.textures.emplace(graph.textures.begin());
 		texture.name = "atlas";
+		texture.bind = true;
 		texture.storage.index = 0;
 		texture.storage.sampler = 0;
 		texture.storage.remap = 0;
 		texture.storage.blend = 0;
-		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas->getAtlas());
-	}
-#if UF_VK_TESTING
-	if ( graph.atlas ) {
-		auto& image = graph.images[0];
-		auto& texture = graph.textures[0].texture;
 
 		if ( graph.metadata["filter"].is<std::string>() ) {
 			std::string filter = graph.metadata["filter"].as<std::string>();
 			if ( filter == "NEAREST" ) {
-				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+				texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+				texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			} else if ( filter == "LINEAR" ) {
-				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
-				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
+				texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+				texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 			}
 		}
-		texture.loadFromImage( image );
-		image.clear();
+		for ( auto& material : graph.materials ) {
+			if ( 0 <= material.storage.indexAlbedo ) ++material.storage.indexAlbedo;
+			if ( 0 <= material.storage.indexNormal ) ++material.storage.indexNormal;
+			if ( 0 <= material.storage.indexEmissive ) ++material.storage.indexEmissive;
+			if ( 0 <= material.storage.indexOcclusion ) ++material.storage.indexOcclusion;
+			if ( 0 <= material.storage.indexMetallicRoughness ) ++material.storage.indexMetallicRoughness;
+			material.storage.indexAtlas = texture.storage.index;
+			if ( 0 <= material.storage.indexLightmap ) ++material.storage.indexLightmap;
+		}
+		texture.texture.loadFromImage( image );
 	} else {
 		for ( size_t i = 0; i < graph.textures.size() && i < graph.images.size(); ++i ) {
 			auto& image = graph.images[i];
-			auto& texture = graph.textures[i].texture;
-
+			auto& texture = graph.textures[i];
+			texture.bind = true;
+			texture.storage.index = i;
 			if ( graph.metadata["filter"].is<std::string>() ) {
 				std::string filter = graph.metadata["filter"].as<std::string>();
 				if ( filter == "NEAREST" ) {
-					texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-					texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+					texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+					texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 				} else if ( filter == "LINEAR" ) {
-					texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
-					texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
+					texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+					texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
 				}
 			}
-			texture.loadFromImage( image );
-			image.clear();
+			texture.texture.loadFromImage( image );
 		}
 	}
-#endif
+	{
+		size_t textureSlot = 0;
+		for ( auto& texture : graph.textures ) {
+			texture.storage.index = -1;
+			if ( !texture.bind ) continue;
+			texture.storage.index = textureSlot++;
+		}
+	}
 
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
 
-	if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 		initializeGraphics( graph, *graph.root.entity );
 
 		auto& graphic = graph.root.entity->getComponent<uf::Graphic>();
@@ -205,7 +236,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			uf::renderer::enums::Buffer::STORAGE
 		);
 		// Joints storage buffer
-		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 			for ( auto& node : graph.nodes ) {
 				if ( node.skin < 0 ) continue;
 				auto& skin = graph.skins[node.skin];
@@ -233,7 +264,8 @@ void uf::graph::process( pod::Graph& graph ) {
 		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
 		for ( size_t i = 0; i < graph.textures.size(); ++i ) {
 			textures[i] = graph.textures[i].storage;
-			textures[i].remap = i;
+		//	textures[i].index = i;
+		//	textures[i].remap = -1;
 		}
 		graph.root.textureBufferIndex = graphic.initializeBuffer(
 			(void*) textures.data(),
@@ -249,9 +281,9 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& metadata = entity->getComponent<uf::Serializer>();
 		std::string nodeName = metadata["system"]["graph"]["name"].as<std::string>();
 	#if 1
-		if ( graph.mode & ext::gltf::LoadMode::NORMALS ) {
+		if ( graph.metadata["flags"]["NORMALS"].as<bool>() ) {
 			// bool invert = false;
-			bool INVERTED = graph.mode & ext::gltf::LoadMode::INVERT;
+			bool INVERTED = graph.metadata["flags"]["INVERT"].as<bool>();
 			if ( mesh.indices.empty() ) {
 				for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
 					auto& a = mesh.vertices[i+(INVERTED ? 0 : 0)].position;
@@ -284,14 +316,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	#endif
 		if ( entity->hasComponent<uf::Graphic>() ) {
-		/*
-			size_t o = graph.metadata["mesh optimization"].is<size_t>() ? graph.metadata["mesh optimization"].as<size_t>() : SIZE_MAX;
-			auto& graphic = entity->getComponent<uf::Graphic>();
-			graphic.initialize();
-			if ( mesh.indices.empty() ) mesh.initialize( o );
-			else mesh.optimize( o );
-			graphic.initializeMesh( mesh, o );	
-		*/
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			graphic.initialize();
 			graphic.initializeMesh( mesh, 0 );
@@ -326,7 +350,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				std::string type = info["collision"].as<std::string>();
 			#if UF_USE_BULLET
 				if ( type == "static mesh" ) {
-					bool applyTransform = false; //!(graph.mode & ext::gltf::LoadMode::TRANSFORM);
+					bool applyTransform = false; //!(graph.metadata["flags"]["TRANSFORM"].as<bool>());
 					auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, applyTransform, 1 );
 					if ( !applyTransform ) {
 						btBvhTriangleMeshShape* triangleMeshShape = (btBvhTriangleMeshShape*) collider.shape;
@@ -347,17 +371,21 @@ void uf::graph::process( pod::Graph& graph ) {
 	});
 }
 void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) {
+	auto& node = graph.nodes[index];
+	// ignore pesky light_Orientation nodes
+	if ( uf::string::split( node.name, "_" ).back() == "Orientation" ) return;
 	// create child if requested
 	uf::Object* pointer = new uf::Object;
 	parent.addChild(*pointer);
 
 	uf::Object& entity = *pointer;
-	auto& node = graph.nodes[index];
 	node.entity = &entity;
 	
 	bool setName = entity.getName() == "Entity";
-	auto& metadata = entity.getComponent<uf::Serializer>();
-	metadata["system"]["graph"]["name"] = node.name;
+	auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = entity.getComponent<uf::Serializer>();
+	metadataJson["system"]["graph"]["name"] = node.name;
+	// on systems where frametime is very, very important, we can set all static nodes to not tick
 	// tie to tag
 	if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
 		auto& info = graph.metadata["tags"][node.name];
@@ -378,54 +406,45 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( !info["preserve position"].as<bool>() ) childTransform.position = flatten.position;
 			if ( !info["preserve orientation"].as<bool>() ) childTransform.orientation = flatten.orientation;
 		}
-		if ( info["ignore"].as<bool>() ) {
-			auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
-			metadata.system.ignoreGraph = true;
+		if ( info["static"].is<bool>() ) {
+			metadata.system.ignoreGraph = info["static"].as<bool>();
 		}
-	#if UF_ENV_DREAMCAST
-		if ( info["superfluous"].as<bool>() ) {
-			auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
-			metadata.system.ignoreGraph = true;
-		}
-	#endif
 	}
 	// create as light
-	for ( auto& l : graph.lights ) {
-		if ( l.name != node.name ) continue;
-		entity.load("/light.json");
-		auto& metadata = entity.getComponent<uf::Serializer>();
-
-		metadata["light"]["radius"][0] = 0.001;
-		metadata["light"]["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
-		metadata["light"]["power"] = l.intensity; //  * graph.metadata["lights"]["power scale"].as<float>();
-		metadata["light"]["color"][0] = l.color.x;
-		metadata["light"]["color"][1] = l.color.y;
-		metadata["light"]["color"][2] = l.color.z;
-		metadata["light"]["shadows"] = graph.metadata["lights"]["shadows"].as<bool>();
-		if ( metadata["light"]["shadows"].as<bool>() ) {
-			metadata["light"]["radius"][1] = 0;
-		}
-		if ( ext::json::isArray( graph.metadata["lights"]["radius"] ) ) {
-			metadata["light"]["radius"] = graph.metadata["lights"]["radius"];
-		}
-		if ( graph.metadata["lights"]["bias"].is<float>() ) {
-			metadata["light"]["bias"] = graph.metadata["lights"]["bias"].as<float>();
-		}
-		// copy from tag information
-		ext::json::forEach( graph.metadata["tags"][node.name]["light"], [&]( const std::string& key, ext::json::Value& value ){
-			if ( key == "transform" ) return;
-			metadata["light"][key] = value;
-		});
-
-		if ( metadata["light"]["shadows"].as<bool>() ) {
-			ext::json::Value m;
-			if ( ext::json::isObject( graph.metadata["tags"][node.name]["renderMode"] ) ) {
-				m = graph.metadata["tags"][node.name]["renderMode"];
-			} else if ( ext::json::isObject( graph.metadata["lights"]["renderMode"] ) ) {
-				m = graph.metadata["lights"]["renderMode"];
+	{
+		for ( auto& l : graph.lights ) {
+			if ( l.name != node.name ) continue;
+		#if UF_ENV_DREAMCAST
+			metadata.system.ignoreGraph = graph.metadata["debug"]["static"].as<bool>();
+		#endif
+			uf::Serializer metadataLight;
+			metadataLight["radius"][0] = 0.001;
+			metadataLight["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
+			metadataLight["power"] = l.intensity; //  * graph.metadata["lights"]["power scale"].as<float>();
+			metadataLight["color"][0] = l.color.x;
+			metadataLight["color"][1] = l.color.y;
+			metadataLight["color"][2] = l.color.z;
+			metadataLight["shadows"] = graph.metadata["lights"]["shadows"].as<bool>();
+			if ( metadataLight["shadows"].as<bool>() ) {
+				metadataLight["radius"][1] = 0;
 			}
+			if ( ext::json::isArray( graph.metadata["lights"]["radius"] ) ) {
+				metadataLight["radius"] = graph.metadata["lights"]["radius"];
+			}
+			if ( graph.metadata["lights"]["bias"].is<float>() ) {
+				metadataLight["bias"] = graph.metadata["lights"]["bias"].as<float>();
+			}
+			// copy from tag information
+			ext::json::forEach( graph.metadata["tags"][node.name]["light"], [&]( const std::string& key, ext::json::Value& value ){
+				if ( key == "transform" ) return;
+				metadataLight[key] = value;
+			});
+			if ( graph.metadata["lightmapped"].as<bool>() && !(metadataLight["shadows"].as<bool>() || metadataLight["dynamic"].as<bool>()) ) continue;
+			auto& metadataJson = entity.getComponent<uf::Serializer>();
+			entity.load("/light.json");
+			metadataJson["light"] = metadataLight;
+			break;
 		}
-		break;
 	}
 
 	// set name
@@ -468,76 +487,31 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// copy mesh
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		auto& nodeMesh = graph.meshes[node.mesh];
-		auto& mesh = entity.getComponent<ext::gltf::mesh_t>();
-		struct {
-			size_t vertices = 0;
-			size_t indices = 0;
-		} start = {
-			mesh.vertices.size(),
-			mesh.indices.size(),
-		};
-		mesh.vertices.reserve( nodeMesh.vertices.size() + start.vertices );
-		mesh.indices.reserve( nodeMesh.indices.size() + start.indices );
-		for ( auto& v : nodeMesh.vertices ) {
-			auto& vertex = mesh.vertices.emplace_back( v );
+		// preprocess mesh
+		for ( auto& vertex : nodeMesh.vertices ) {
 			vertex.id.x = node.index;
 		// in almost-software mode, material ID is actually its albedo ID, as we can't use any other forms of mapping
 		#if UF_USE_OPENGL_FIXED_FUNCTION
-			if ( !(graph.mode & ext::gltf::LoadMode::ATLAS) ) {
+			if ( !(graph.metadata["flags"]["ATLAS"].as<bool>()) ) {
 				auto& material = graph.materials[vertex.id.y];
 				auto& texture = graph.textures[material.storage.indexAlbedo];
 				vertex.id.y = texture.storage.index;
 			}
 		#endif
 		}
-		for ( auto& i : nodeMesh.indices ) mesh.indices.emplace_back( i + start.vertices );
 
-		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+		auto& mesh = entity.getComponent<ext::gltf::mesh_t>();
+		mesh.insert( nodeMesh );
+
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 			auto& mesh = graph.root.entity->getComponent<ext::gltf::mesh_t>();
-			struct {
-				size_t vertices = 0;
-				size_t indices = 0;
-			} start = {
-				mesh.vertices.size(),
-				mesh.indices.size(),
-			};
-			mesh.vertices.reserve( nodeMesh.vertices.size() + start.vertices );
-			mesh.indices.reserve( nodeMesh.indices.size() + start.indices );
-			for ( auto& v : nodeMesh.vertices ) {
-				auto& vertex = mesh.vertices.emplace_back( v );
-				vertex.id.x = node.index;
-			// in almost-software mode, material ID is actually its albedo ID, as we can't use any other forms of mapping
-			#if UF_USE_OPENGL_FIXED_FUNCTION
-				if ( !(graph.mode & ext::gltf::LoadMode::ATLAS) ) {
-					auto& material = graph.materials[vertex.id.y];
-					auto& texture = graph.textures[material.storage.indexAlbedo];
-					vertex.id.y = texture.storage.index;
-				}
-			#endif
-			}
-			for ( auto& i : nodeMesh.indices ) mesh.indices.emplace_back( i + start.vertices );
-		/*
-			ext::gltf::mesh_t expanded = nodeMesh;
-			expanded.expand();
-			mesh.vertices.reserve( mesh.vertices.size() + expanded.vertices.size() );
-			for ( auto& v : expanded.vertices ) {
-				auto& vertex = mesh.vertices.emplace_back( v );
-				vertex.id.x = node.index;
-			#if UF_USE_OPENGL_FIXED_FUNCTION
-				if ( !(graph.mode & ext::gltf::LoadMode::ATLAS) ) {
-					auto& material = graph.materials[vertex.id.y];
-					auto& texture = graph.textures[material.storage.indexAlbedo];
-					vertex.id.y = texture.storage.index;
-				}
-			#endif
-			}
-		*/
-		} else if ( graph.mode & ext::gltf::LoadMode::RENDER ) {
+			mesh.insert( nodeMesh );
+		} else if ( graph.metadata["flags"]["RENDER"].as<bool>() ) {
 			uf::instantiator::bind("RenderBehavior", entity);
 			initializeGraphics( graph, entity );
 			auto& graphic = entity.getComponent<uf::Graphic>();
 			// Joints storage buffer
-			if ( graph.mode & ext::gltf::LoadMode::SKINNED && node.skin >= 0 ) {
+			if ( graph.metadata["flags"]["SKINNED"].as<bool>() && node.skin >= 0 ) {
 				auto& skin = graph.skins[node.skin];
 				node.jointBufferIndex = graphic.initializeBuffer(
 					(void*) skin.inverseBindMatrices.data(),
@@ -559,7 +533,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			std::vector<pod::Texture::Storage> textures( graph.textures.size() );
 			for ( size_t i = 0; i < graph.textures.size(); ++i ) {
 				textures[i] = graph.textures[i].storage;
-				textures[i].remap = i;
+			//	textures[i].remap = -1;
 			}
 			graph.root.textureBufferIndex = graphic.initializeBuffer(
 				(void*) textures.data(),
@@ -574,6 +548,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 void uf::graph::cleanup( pod::Graph& graph ) {
 	graph.images.clear();
 	graph.meshes.clear();
+	if ( graph.atlas ) {
+		graph.atlas->getAtlas().clear();
+	}
 }
 void uf::graph::override( pod::Graph& graph ) {
 	graph.settings.animations.override.a = 0;
@@ -612,7 +589,7 @@ void uf::graph::override( pod::Graph& graph ) {
 }
 
 void uf::graph::animate( pod::Graph& graph, const std::string& name, float speed, bool immediate ) {
-	if ( !(graph.mode & ext::gltf::LoadMode::SKINNED) ) return;
+	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
 	if ( graph.animations.count( name ) > 0 ) {
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
@@ -631,7 +608,7 @@ void uf::graph::update( pod::Graph& graph ) {
 }
 void uf::graph::update( pod::Graph& graph, float delta ) {
 	// no override
-	if ( !(graph.mode & ext::gltf::LoadMode::SKINNED) ) return;
+	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
 	{
@@ -846,26 +823,6 @@ namespace {
 	pod::Skin& decode( ext::json::Value& json, pod::Skin& skin ) {
 		return skin = decodeSkin( json );
 	}
-/*
-	pod::DrawCall decodeDrawCall( ext::json::Value& json ) {
-		pod::DrawCall drawCall;
-		drawCall.name = json["name"].as<std::string>();
-
-		drawCall.storage.materialIndex = json["materialIndex"].as<int32_t>();
-		drawCall.storage.materials = json["materials"].as<uint32_t>();
-		drawCall.storage.textureIndex = json["textureIndex"].as<int32_t>();
-		drawCall.storage.textures = json["textures"].as<uint32_t>();
-
-		drawCall.verticesIndex = json["verticesIndex"].as<size_t>();
-		drawCall.vertices = json["vertices"].as<size_t>();
-		drawCall.indicesIndex = json["indicesIndex"].as<size_t>();
-		drawCall.indices = json["indices"].as<size_t>();
-		return drawCall;
-	}
-	pod::DrawCall& decode( ext::json::Value& json, pod::DrawCall& drawCall ) {
-		return drawCall = decodeDrawCall( json );
-	}
-*/
 	pod::Graph::Mesh decodeMesh( ext::json::Value& json ) {
 		pod::Graph::Mesh mesh;
 		mesh.vertices.reserve( json["vertices"].size() );
@@ -874,6 +831,7 @@ namespace {
 			size_t attr = 0;
 			vertex.position = uf::vector::decode( value[attr++], pod::Vector3f{} );
 			vertex.uv = uf::vector::decode( value[attr++], pod::Vector2f{} );
+			vertex.st = uf::vector::decode( value[attr++], pod::Vector2f{} );
 			vertex.normal = uf::vector::decode( value[attr++], pod::Vector3f{} );
 			vertex.tangent = uf::vector::decode( value[attr++], pod::Vector4f{} );
 			vertex.id = uf::vector::decode( value[attr++], pod::Vector2ui{} );
@@ -923,7 +881,7 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 	UF_DEBUG_TRACE_MSG("Reading " << filename);
 	serializer.readFromFile( filename );
 	// load metadata
-	graph.name = serializer["name"].as<std::string>();
+	graph.name = filename; //serializer["name"].as<std::string>();
 	graph.mode = mode; // serializer["mode"].as<size_t>();
 	graph.metadata = metadata; // serializer["metadata"];
 #if UF_GRAPH_LOAD_MULTITHREAD
@@ -954,10 +912,6 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 			auto& image = graph.images.emplace_back();
 			if ( value.is<std::string>() ) {
 				std::string filename = directory + "/" + value.as<std::string>();
-			#if UF_ENV_DREAMCAST
-				std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
-				if ( uf::io::exists(dtex) ) filename = dtex;
-			#endif
 				UF_DEBUG_TRACE_MSG("Reading image " << filename);
 				image.open(filename, false);
 			} else {
@@ -1062,10 +1016,6 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 		auto& image = graph.images.emplace_back();
 		if ( value.is<std::string>() ) {
 			std::string filename = directory + "/" + value.as<std::string>();
-		#if UF_ENV_DREAMCAST
-			std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
-			if ( uf::io::exists(dtex) ) filename = dtex;
-		#endif
 			UF_DEBUG_TRACE_MSG("Reading image " << filename);
 			image.open(filename, false);
 		} else {
@@ -1125,7 +1075,7 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 	decode(serializer["root"], graph.root);
 #endif
 	// generate atlas
-	if ( graph.mode & ext::gltf::LoadMode::ATLAS ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
+	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
 		UF_DEBUG_TRACE_MSG("Generating atlas...");
 		auto& atlas = *graph.atlas;
 		atlas.generate( graph.images );
@@ -1137,11 +1087,6 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 		}
 	}
 	UF_DEBUG_TRACE_MSG("Processing graph...");
-	uf::graph::process( graph );
-	UF_DEBUG_TRACE_MSG("Finished in " << timer.elapsed().asDouble() << " seconds");
-	if ( graph.metadata["debug"]["print stats"].as<bool>() ) UF_DEBUG_TRACE_MSG(stats( graph ).dump(1,'\t'));
-	if ( graph.metadata["debug"]["print tree"].as<bool>() ) UF_DEBUG_TRACE_MSG(print( graph ));
-	if ( !graph.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( graph );
 	return graph;
 }
 
@@ -1198,23 +1143,6 @@ namespace {
 		json["range"] = light.range;
 		return json;
 	}
-/*
-	uf::Serializer encode( const pod::DrawCall& drawCall, bool compress = false ) {
-		uf::Serializer json;
-		json["name"] = drawCall.name;
-
-		json["materialIndex"] = drawCall.storage.materialIndex;
-		json["materials"] = drawCall.storage.materials;
-		json["textureIndex"] = drawCall.storage.textureIndex;
-		json["textures"] = drawCall.storage.textures;
-
-		json["verticesIndex"] = drawCall.verticesIndex;
-		json["vertices"] = drawCall.vertices;
-		json["indicesIndex"] = drawCall.indicesIndex;
-		json["indices"] = drawCall.indices;
-		return json;
-	}
-*/
 	uf::Serializer encode( const pod::Animation& animation, bool compress = false ) {
 		uf::Serializer json;
 		json["name"] = animation.name;
@@ -1270,6 +1198,7 @@ namespace {
 			auto& v = json["vertices"].emplace_back();
 			v.emplace_back(!vertex.position ? ext::json::array() : uf::vector::encode(vertex.position, compress));
 			v.emplace_back(!vertex.uv ? ext::json::array() : uf::vector::encode(vertex.uv, compress));
+			v.emplace_back(!vertex.st ? ext::json::array() : uf::vector::encode(vertex.st, compress));
 			v.emplace_back(!vertex.normal ? ext::json::array() : uf::vector::encode(vertex.normal, compress));
 			v.emplace_back(!vertex.tangent ? ext::json::array() : uf::vector::encode(vertex.tangent, compress));
 			v.emplace_back(!vertex.id ? ext::json::array() : uf::vector::encode(vertex.id, compress));
@@ -1294,11 +1223,12 @@ namespace {
 		return json;
 	}
 }
-void uf::graph::save( const std::string& filename, const pod::Graph& graph ) {
+void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 	std::string directory = uf::io::directory( filename ) + "/" + uf::io::basename(filename) + "/";
 	std::string target = uf::io::directory( filename ) + "/" + uf::io::basename(filename) + ".graph";
 
 	uf::Serializer serializer;
+	uf::Serializer metadata;
 	// store metadata
 /*
 	serializer["name"] = graph.name;
@@ -1306,8 +1236,8 @@ void uf::graph::save( const std::string& filename, const pod::Graph& graph ) {
 	serializer["metadata"] = graph.metadata;
 	serializer["metadata"]["mesh optimization"] = 0;
 */
-	bool saveSeparately = graph.metadata["debug"]["export"]["split"].as<bool>();
-	bool compression = graph.metadata["debug"]["export"]["compression"].as<bool>();
+	bool saveSeparately = !metadata["debug"]["export"]["combined"].as<bool>();
+	bool compression = metadata["debug"]["export"]["compression"].as<bool>();
 	// store images
 	if ( saveSeparately ) uf::io::mkdir(directory);
 
@@ -1447,11 +1377,7 @@ void uf::graph::save( const std::string& filename, const pod::Graph& graph ) {
 #endif
 
 	if ( saveSeparately ) target = directory + "/graph.json";
-	if ( graph.metadata["debug"]["export"]["precision"].is<size_t>() ) {
-		serializer.writeToFile( target, graph.metadata["debug"]["export"]["precision"].as<size_t>() );
-	} else {
-		serializer.writeToFile( target );
-	}
+	serializer.writeToFile( target );
 }
 
 std::string uf::graph::print( const pod::Graph& graph ) {

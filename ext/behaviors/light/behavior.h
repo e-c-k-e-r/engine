@@ -27,6 +27,9 @@ namespace ext {
 				bool rendered = false;
 				bool external = false;
 			} renderer;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
 		};
 	}
 }

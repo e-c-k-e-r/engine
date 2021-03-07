@@ -99,7 +99,8 @@ void uf::MeshGrid::insert( uint32_t i1, uint32_t i2, uint32_t i3, const pod::Vec
 	pod::Collider::Manifold strongestManifold = {};	
 	for ( size_t i = 0; i < this->m_nodes.size(); ++i ) {
 		auto& node = this->m_nodes[i];
-		uf::MeshCollider cTriangle;
+		pod::Transform<> transform;
+		uf::MeshCollider cTriangle( transform );
 		cTriangle.setPositions({v1,v2,v3});
 
 		uf::BoundingBox cNode;

@@ -56,6 +56,9 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			attachment->descriptor.usage &= ~VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 		}
 	}
+	if ( attachment->descriptor.screenshottable ) {
+		attachment->descriptor.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
 
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;

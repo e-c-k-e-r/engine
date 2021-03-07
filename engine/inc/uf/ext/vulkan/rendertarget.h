@@ -12,6 +12,7 @@ namespace ext {
 					VkImageUsageFlags usage;
 					bool blend = false;
 					uint8_t samples = 1;
+					bool screenshottable = true;
 					bool aliased = false;
 				} descriptor;
 

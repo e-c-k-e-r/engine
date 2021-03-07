@@ -79,5 +79,18 @@ namespace uf {
 			container.push_back( move );
 			return container.back();
 		}
+
+		template<typename T>
+		void remove( const std::string& url ) {
+			if ( !this->has<T>( url ) ) return;
+			auto& container = this->getContainer<T>();
+
+			std::string extension = uf::io::extension( url );
+			uf::Serializer& map = this->getComponent<uf::Serializer>();
+			std::size_t index = map[extension][url].as<size_t>();
+			container.erase( container.begin() + index );
+			map[extension][url] = ext::json::null();
+			return;
+		}
 	};
 }

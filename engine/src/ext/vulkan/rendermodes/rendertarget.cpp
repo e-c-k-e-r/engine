@@ -35,6 +35,15 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	if ( type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
+	std::string target = metadata["target"].as<std::string>();
+	// invalidate
+// 	if ( ( target == "" && descriptor.renderMode != this->getName() ) || ( target != "" && descriptor.renderMode != target ) ) {
+	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
+		descriptor.invalidated = true;
+	} else {
+		descriptor.renderMode = this->getName();
+	}
+/*
 	// allows for "easy" remapping for indices ranges
 	if ( ext::json::isObject( metadata["renderMode"]["target"][std::to_string(descriptor.indices)] ) ) {
 		auto& map = metadata["renderMode"]["target"][std::to_string(descriptor.indices)];
@@ -43,6 +52,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.offsets.index = map["offset"].as<size_t>();
 		std::cout << " with " << descriptor.offsets.index << " + " << descriptor.indices << std::endl;
 	}
+*/
 	return descriptor;
 }
 
@@ -52,6 +62,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	this->setTarget( this->getName() );
 	std::string type = metadata["type"].as<std::string>();
 	size_t subpasses = metadata["subpasses"].as<size_t>();
+	size_t msaa =  metadata["samples"].is<size_t>() ? ext::vulkan::sampleCount(metadata["samples"].as<size_t>()) : ext::vulkan::settings::msaa;
 	if ( subpasses == 0 ) subpasses = 1;
 	renderTarget.device = &device;
 	for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
@@ -70,6 +81,33 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{},
+				{},
+				{},
+				attachments.depth,
+				true
+			);
+		} else if ( type == "single" ) {
+			struct {
+				size_t albedo, depth;
+			} attachments;
+
+			attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
+				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+				/*.blend = */true,
+				/*.samples = */msaa,
+			});
+			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::depth,
+				/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ false,
+				/*.samples = */ 1,
+			});
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{ attachments.albedo },
 				{},
 				{},
 				attachments.depth,
@@ -135,7 +173,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			struct {
 				size_t id, normals, uvs, albedo, depth, output;
 			} attachments;
-			size_t msaa = ext::vulkan::settings::msaa;
 
 			attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 				/*.format = */VK_FORMAT_R16G16_UINT,

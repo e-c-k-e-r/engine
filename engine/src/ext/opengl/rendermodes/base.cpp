@@ -26,15 +26,19 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const std::vector<ext::o
 	commands.start(); {
 		CommandBuffer::InfoClear clearCommandInfo = {};
 		clearCommandInfo.type = enums::Command::CLEAR;
-		clearCommandInfo.color = {1.0f, 0.0f, 1.0f, 0.0f};
+		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
 		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
-			clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{} );
+			clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );
 		}
+	
 		if ( !ext::json::isNull( sceneMetadata["light"]["ambient"] ) ) {
-			clearCommandInfo.color = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector3f{} );
+		//	clearCommandInfo.color = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector3f{} );
+		//	auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
+		//	GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
 		}
+	
 		commands.record(clearCommandInfo);
 
 		CommandBuffer::InfoViewport viewportCommandInfo = {};

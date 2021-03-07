@@ -79,7 +79,7 @@ namespace ext {
 					float clamp = 0;
 				} bias;
 			} depth;
-
+			bool invalidated = false;
 			std::string hash() const;
 			void parse( ext::json::Value& );
 			bool operator==( const GraphicDescriptor& right ) const { return this->hash() == right.hash(); }

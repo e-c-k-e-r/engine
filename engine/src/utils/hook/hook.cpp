@@ -21,9 +21,9 @@ void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
 		}
 	}
 }
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Userdata& payload ) {
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& container = this->m_container[name];
-	std::vector<uf::Userdata> results;
+	std::vector<pod::Hook::userdata_t> results;
 	results.reserve( container.size() );
 /*
 	if ( name[0] == 'w' ) {
@@ -35,8 +35,8 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Us
 	}
 */
 	for ( auto& hook : container ) {
-		uf::Userdata& unconst_payload = const_cast<uf::Userdata&>(payload);
-		uf::Userdata hookResult = hook.callback(unconst_payload);
+		pod::Hook::userdata_t& unconst_payload = const_cast<pod::Hook::userdata_t&>(payload);
+		pod::Hook::userdata_t hookResult = hook.callback(unconst_payload);
 		auto& returnResult = results.emplace_back();
 		returnResult.move( hookResult );
 	}
@@ -45,7 +45,7 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Us
 	return results;
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::string& s ) {
-	uf::Userdata payload;
+	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>();
 	auto& value = payload.get<ext::json::Value>();
 	value = uf::Serializer(s);
@@ -53,42 +53,42 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::s
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const ext::json::Value& s ) {
-	uf::Userdata payload;
+	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( s );
 //	payload.create<std::string>( ext::json::encode( s ) );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
-	uf::Userdata payload;
+	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( (const ext::json::Value&) s );
 //	payload.create<std::string>( s.serialize() );
 	return call(name, payload);
 }
 // specialization: void function
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void()>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
+	return addHook( name, [=]( const pod::Hook::userdata_t& userdata ){
 		callback();
-		uf::Userdata ret;
+		pod::Hook::userdata_t ret;
 		return ret;
 	});
 }
 /*
 // specialization: serialized JSON handling
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void(const std::string&)>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
+	return addHook( name, [=]( const pod::Hook::userdata_t& userdata ){
 		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
 		callback( payload );
-		uf::Userdata ret;
+		pod::Hook::userdata_t ret;
 		return ret;
 	});
 }
 // specialization: legacy callback handling
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<std::string(const std::string&)>& callback ) {
-	return addHook( name, [=]( const uf::Userdata& userdata ){
+	return addHook( name, [=]( const pod::Hook::userdata_t& userdata ){
 		std::string payload = userdata.is<std::string>() ? userdata.get<std::string>() : "";
 		std::string res = callback( payload );
 
-		uf::Userdata ret;
+		pod::Hook::userdata_t ret;
 		ret.create<std::string>(res);
 		return ret;
 	});

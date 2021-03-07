@@ -171,6 +171,7 @@ void UF_API ext::opengl::initialize() {
 	}
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	// bind shaders
+#if !UF_ENV_DREAMCAST
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
@@ -293,11 +294,9 @@ void UF_API ext::opengl::initialize() {
 			}
 		});
 	}
+#endif
 }
 void UF_API ext::opengl::tick(){
-	uf::Timer<long long> timer(false);
-	if ( !timer.running() ) timer.start();
-
 	ext::opengl::mutex.lock();
 	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
@@ -369,14 +368,16 @@ void UF_API ext::opengl::render(){
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
-#endif
 	ext::opengl::device.activateContext();
+#endif
 	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( !renderMode->execute ) continue;
+		if ( !renderMode || !renderMode->execute ) continue;
 		ext::opengl::currentRenderMode = renderMode;
 		uf::scene::render();
+	//	UF_TIMER_TRACE_INIT();
 		renderMode->render();
+		renderMode->executed = true;
+	//	UF_TIMER_TRACE("==== RENDER TIME ==== ");
 	}
 	ext::opengl::currentRenderMode = NULL;
 	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) synchronize();

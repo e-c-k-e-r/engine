@@ -80,6 +80,16 @@ void uf::BaseMesh<T,U>::optimize( size_t o ) {
 #endif
 	this->updateDescriptor();
 }
+template<typename T, typename U>
+void uf::BaseMesh<T,U>::insert( const uf::BaseMesh<T,U>& mesh ) {
+	size_t startVertices = this->vertices.size();
+	size_t startIndices = this->indices.size();
+
+	this->vertices.reserve( startVertices + mesh.vertices.size() );
+	this->indices.reserve( startIndices + mesh.indices.size() );
+	for ( auto& v : mesh.vertices ) this->vertices.emplace_back( v );
+	for ( auto& i : mesh.indices ) this->indices.emplace_back( i + startVertices );
+}
 
 template<typename T, typename U>
 void uf::BaseMesh<T,U>::resizeVertices( size_t n ) {

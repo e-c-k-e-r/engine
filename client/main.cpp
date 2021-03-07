@@ -51,10 +51,19 @@ int main(int argc, char** argv){
 				json["window"]["size"]["y"] = client::config["window"]["size"]["y"];
 				uf::hooks.call(hook, json);
 			}
+		#if UF_ENV_DREAMCAST
+		UF_TIMER_MULTITRACE_START("==== START FRAME ====");
+			ext::render();
+			UF_TIMER_MULTITRACE("RENDER");
+			ext::tick();
+			UF_TIMER_MULTITRACE("TICK");
+		UF_TIMER_MULTITRACE_END("==== END FRAME ====");
+		#else
 			client::render();
 			ext::render();
 			client::tick();
 			ext::tick();
+		#endif
 	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";

@@ -72,6 +72,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	});
 	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
+		if ( ext::json::isNull( json ) ) return;
 		if ( json["type"].as<std::string>() == "merge" ) {
 			metadata.merge(json["value"], true);
 		} else if ( json["type"].as<std::string>() == "import" ) {

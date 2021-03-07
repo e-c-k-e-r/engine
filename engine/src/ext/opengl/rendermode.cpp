@@ -143,11 +143,13 @@ void ext::opengl::RenderMode::render() {
 	auto& commands = getCommands(this->mostRecentCommandPoolId);
 	commands.submit();
 #if UF_ENV_DREAMCAST
+	//UF_TIMER_TRACE_INIT();
 	#if UF_USE_OPENGL_GLDC
 		glKosSwapBuffers();
 	#else
 		glutSwapBuffers();
 	#endif
+	//UF_TIMER_TRACE("==== SWAP BUFFER TIME ==== ");
 #else
 	if ( device ) {
 		device->activateContext().display();

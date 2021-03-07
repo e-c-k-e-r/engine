@@ -356,6 +356,7 @@ void ext::vulkan::render() {
 		ext::vulkan::currentRenderMode = renderMode;
 		uf::scene::render();
 		renderMode->render();
+		renderMode->executed = true;
 	}
 
 	ext::vulkan::currentRenderMode = NULL;

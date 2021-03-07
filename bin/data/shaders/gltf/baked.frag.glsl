@@ -41,11 +41,12 @@ layout (std140, binding = 2) readonly buffer Textures {
 };
 
 layout (location = 0) in vec2 inUv;
-layout (location = 1) in vec4 inColor;
-layout (location = 2) in vec3 inNormal;
-layout (location = 3) in mat3 inTBN;
-layout (location = 6) in vec3 inPosition;
-layout (location = 7) flat in ivec4 inId;
+layout (location = 1) in vec2 inSt;
+layout (location = 2) in vec4 inColor;
+layout (location = 3) in vec3 inNormal;
+layout (location = 4) in mat3 inTBN;
+layout (location = 7) in vec3 inPosition;
+layout (location = 8) flat in ivec4 inId;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
@@ -84,54 +85,8 @@ void main() {
 	outUvs = wrap(inUv.xy);
 	vec4 outAlbedo = vec4(0,0,0,0);
 #endif
-#if !UF_DEFERRED_SAMPLING || UF_CAN_DISCARD
-	int materialId = int(inId.y);
-	Material material = materials[materialId];
-	
-	float M = material.factorMetallic;
-	float R = material.factorRoughness;
-	float AO = material.factorOcclusion;
-
-	// sample albedo
-	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		Texture t = textures[material.indexAlbedo + 1];
-		C = textureLod( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-		// alpha mode OPAQUE
-		if ( material.modeAlpha == 0 ) {
-			C.a = 1;
-		// alpha mode BLEND
-		} else if ( material.modeAlpha == 1 ) {
-
-		// alpha mode MASK
-		} else if ( material.modeAlpha == 2 ) {
-			if ( C.a < abs(material.factorAlphaCutoff) ) discard;
-			C.a = 1;
-		}
-		if ( C.a == 0 ) discard;
-	}
-#endif
 #if !UF_DEFERRED_SAMPLING
-	// sample normal
-	if ( validTextureIndex( material.indexNormal ) ) {
-		Texture t = textures[material.indexNormal + 1];
-		N = inTBN * normalize( textureLod( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ), mip ).xyz * 2.0 - vec3(1.0));
-	}
-	#if 0
-		// sample metallic/roughness
-		if ( validTextureIndex( material.indexMetallicRoughness ) ) {
-			Texture t = textures[material.indexMetallicRoughness + 1];
-			vec4 sampled = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-			M = sampled.b;
-			R = sampled.g;
-		}
-		// sample ao
-		AO = material.factorOcclusion;
-		if ( validTextureIndex( material.indexOcclusion ) ) {
-			Texture t = textures[material.indexMetallicRoughness + 1];
-			AO = texture( samplerTextures[0], mix( t.lerp.xy, t.lerp.zw, uv ) ).r;
-		}
-	#endif
-	outAlbedo = C * inColor;
+	C = textureLod( samplerTextures[0], inSt, mip );
 #endif
 	outNormals = encodeNormals( N );
 	outId = ivec2(inId.w+1, inId.y+1);

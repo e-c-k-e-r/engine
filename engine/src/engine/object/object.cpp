@@ -218,6 +218,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		std::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<std::string>() : target[i].as<std::string>();\
 		float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : 0;\
 		std::string category = ext::json::isObject( target[i] ) ? target[i]["category"].as<std::string>() : "";\
+		bool bind = ext::json::isObject( target[i] ) && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
 		std::string filename = grabURI( f, json["root"].as<std::string>() );\
 		bool singleThreaded = ext::json::isObject( target[i] ) ? target[i]["single threaded"].as<bool>() : false;\
 		std::vector<std::string> allowedExtensions = {__VA_ARGS__};\
@@ -252,7 +253,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		UF_OBJECT_LOAD_ASSET_HEADER(models)
 		for ( uint i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("gltf", "glb", "graph")
-			uf::instantiator::bind("GltfBehavior", *this);
+			if ( bind ) uf::instantiator::bind("GltfBehavior", *this);
 			
 			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
 			aMetadata[filename] = json["metadata"]["model"];
@@ -264,7 +265,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		UF_OBJECT_LOAD_ASSET_HEADER(scripts)
 		for ( uint i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("lua")
-			uf::instantiator::bind("LuaBehavior", *this);
+			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 		}
 	}
 	// Bind behaviors

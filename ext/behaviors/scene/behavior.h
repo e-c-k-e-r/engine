@@ -40,6 +40,9 @@ namespace ext {
 					float scale = 50.0f;
 				} density;
 			} fog;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
 		};
 	}
 }

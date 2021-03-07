@@ -6,7 +6,7 @@
 
 namespace ext {
 	namespace gltf {		
-		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t, const uf::Serializer& );
+		pod::Graph UF_API load( const std::string&, ext::gltf::load_mode_t = 0, const uf::Serializer& = {} );
 		void UF_API save( const std::string&, const pod::Graph& );
 	}
 }

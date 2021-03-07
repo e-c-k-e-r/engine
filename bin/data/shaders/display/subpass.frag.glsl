@@ -75,9 +75,9 @@ struct Material {
 	int indexOcclusion;
 	
 	int indexMetallicRoughness;
+	int indexAtlas;
+	int indexLightmap;
 	int modeAlpha;
-	int padding1;
-	int padding2;
 };
 struct Texture {
 	int index;
@@ -250,20 +250,20 @@ float random(vec3 seed, int i){
 	return fract(sin(dot_product) * 43758.5453);
 }
 
-float shadowFactor( Light light, uint shadowMap ) {
+float shadowFactor( Light light, uint shadowMap, float def ) {
 	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
-	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
-	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
-	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def;
 
 	float factor = 1.0;
 
 	// spot light
 	if ( light.type == 2 || light.type == 3 ) {
 		float dist = length( positionClip.xy );
-		if ( dist > 0.5 ) return 0.0;
+		if ( dist > 0.5 ) return def;
 		
 		// spot light with attenuation
 		if ( light.type == 3 ) {
@@ -273,14 +273,6 @@ float shadowFactor( Light light, uint shadowMap ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-/*
-	if ( true ) {
-		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
-		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
-	} else if ( true ) {
-		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
-	}
-*/
 
 	float eyeDepth = positionClip.z;
 
@@ -289,14 +281,13 @@ float shadowFactor( Light light, uint shadowMap ) {
 		return eyeDepth < texture(samplerTextures[shadowMap], uv).r - bias ? 0.0 : factor;
 	}
 	for ( int i = 0; i < samples; ++i ) {
-	//	int index = i;
-	//	int index = int( float(samples) * random(gl_FragCoord.xyy, i) ) % samples;
 		int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
 		float lightDepth = texture(samplerTextures[shadowMap], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
 }
+
 vec3 hslToRgb(vec3 HSL) {
 	vec3 RGB; {
 		float H = HSL.x;
@@ -580,13 +571,6 @@ float mipLevel( in vec2 uv ) {
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < ubo.textures;
 }
-vec4 sampleTexture( uint drawId, int textureIndex, in vec2 uv, vec4 base ) {
-	if ( !validTextureIndex( textureIndex ) ) return base;
-	Texture t = textures[textureIndex+1];
-	float mip = mipLevel( uv );
- 	return texture( samplerTextures[drawId], mix( t.lerp.xy, t.lerp.zw, wrap( uv ) ), mip );
-}
-
 vec4 resolve( subpassInputMS t ) {
 	int samples = int(ubo.msaa);
 	vec4 resolved = vec4(0);
@@ -666,24 +650,28 @@ void main() {
 
 	Material material = materials[materialId];
 	vec4 C = material.colorBase;
-
 #if UF_DEFERRED_SAMPLING
 #if !MULTISAMPLING
 	vec2 uv = subpassLoad(samplerUv).xy;
 #else
 	vec2 uv = resolve(samplerUv).xy;
 #endif
-	C = sampleTexture( drawId, drawCall.textureIndex + material.indexAlbedo, uv, C );
+	bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
+	Texture textureAtlas = ( useAtlas ) ? textures[drawCall.textureIndex + material.indexAtlas] : textures[0];
+	if ( validTextureIndex( drawCall.textureIndex + material.indexAtlas ) ) {
+		Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
+		C = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+	}
 	// OPAQUE
- 	if ( material.modeAlpha == 0 ) {
- 		C.a = 1;
- 	// BLEND
- 	} else if ( material.modeAlpha == 1 ) {
- 	
- 	// MASK
- 	} else if ( material.modeAlpha == 2 ) {
+	if ( material.modeAlpha == 0 ) {
+		C.a = 1;
+	// BLEND
+	} else if ( material.modeAlpha == 1 ) {
 
- 	}
+	// MASK
+	} else if ( material.modeAlpha == 2 ) {
+
+	}
 #else
 #if !MULTISAMPLING
 	C = subpassLoad(samplerAlbedo);
@@ -691,7 +679,6 @@ void main() {
 	C = resolve(samplerAlbedo);
 #endif
 #endif
-
 	float M = material.factorMetallic;
 	float R = material.factorRoughness * 4.0;
 	float AO = material.factorOcclusion;
@@ -699,27 +686,49 @@ void main() {
 	bool usePbr = true;
 	bool gammaCorrect = false;
 	float litFactor = 1.0;
-	fragColor = C.rgb * ubo.ambient.rgb * AO;
-	for ( uint i = 0; i < ubo.lights; ++i ) {
-		Light light = lights[i];
-		
-		if ( light.power <= 0.001 ) continue;
-		
-		vec3 lightPositionWorld = light.position.xyz;
-		light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-		
-		if ( 0 <= light.mapIndex && light.mapIndex < TEXTURES  ) {
-			float factor = shadowFactor( light, light.mapIndex );
-		//	if ( factor <= 0.0001 ) continue;
-			light.power *= factor;
-			litFactor += light.power;
+	bool useLightmap = 0 <= material.indexLightmap;
+	if ( useLightmap ) {
+		fragColor = C.rgb + ubo.ambient.rgb;
+	} else {
+		fragColor = C.rgb * ubo.ambient.rgb * AO;
+	} {
+	/*
+		fragColor = C.rgb + ubo.ambient.rgb;
+		float factor = 0.0;
+		int total = 0;
+		for ( uint i = 0; i < ubo.lights; ++i ) {
+			Light light = lights[i];
+			if ( light.power <= 0.001 ) continue;
+			if ( !validTextureIndex(light.mapIndex) ) continue;
+			
+			vec3 lightPositionWorld = light.position.xyz;
+			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
+			factor += (1 - shadowFactor( light, light.mapIndex, 1.0 )) * 3;
+			++total;
 		}
-		if ( light.power <= 0.0001 ) continue;
-
-		if ( usePbr ) {
-			pbr( light, C.rgb, M, R, lightPositionWorld, fragColor );
-		} else
-			phong( light, C, fragColor );
+		if ( total > 0 ) {
+			float darken = 1 - factor / total;
+			fragColor *= darken;
+		}
+	} else {
+		fragColor = C.rgb * ubo.ambient.rgb * AO;
+	*/
+		for ( uint i = 0; i < ubo.lights; ++i ) {
+			Light light = lights[i];
+			
+			if ( light.power <= 0.001 ) continue;
+			
+			vec3 lightPositionWorld = light.position.xyz;
+			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
+			
+			if ( validTextureIndex(light.mapIndex) ) {
+				float factor = shadowFactor( light, light.mapIndex, 0.0 );
+				light.power *= factor;
+				litFactor += light.power;
+			}
+			if ( light.power <= 0.0001 ) continue;
+			if ( usePbr ) pbr( light, C.rgb, M, R, lightPositionWorld, fragColor ); else phong( light, C, fragColor );
+		}
 	}
 	if ( gammaCorrect ) {
 		fragColor = fragColor / (fragColor + vec3(1.0));

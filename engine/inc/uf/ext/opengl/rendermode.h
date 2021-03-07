@@ -10,6 +10,7 @@ namespace ext {
 		
 		struct UF_API RenderMode {
 			bool execute = false;
+			bool executed = false;
 			bool rebuild = false;
 			uint32_t width = 0;
 			uint32_t height = 0;

@@ -13,9 +13,16 @@
 #include <uf/utils/serialize/serializer.h>
 #include <type_traits>
 
+#define UF_HOOK_POINTERED_USERDATA 1
+
 namespace pod {
 	struct UF_API Hook {
-		typedef std::function<uf::Userdata(const uf::Userdata&)> function_t;
+	#if UF_HOOK_POINTERED_USERDATA
+		typedef uf::PointeredUserdata userdata_t;
+	#else
+		typedef uf::Userdata userdata_t;
+	#endif
+		typedef std::function<pod::Hook::userdata_t(const pod::Hook::userdata_t&)> function_t;
 
 		size_t uid;
 		size_t type;
@@ -30,8 +37,8 @@ namespace uf {
 		typedef std::unordered_map<std::string, hooks_t> container_t;
 
 		typedef std::string name_t;
-		typedef uf::Userdata argument_t;
-		typedef std::vector<uf::Userdata> return_t;
+		typedef pod::Hook::userdata_t argument_t;
+		typedef std::vector<pod::Hook::userdata_t> return_t;
 	protected:
 		static size_t uids;
 		uf::Hooks::container_t m_container;

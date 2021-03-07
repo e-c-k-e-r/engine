@@ -29,9 +29,17 @@ GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
 DEPS 					+=
+
+#DEPS 					+= -lvulkan -lncursesw
+LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
+#-Wl,-subsystem,windows
+
+LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
+INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer # draco discord
+	REQ_DEPS 			+= opengl json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas # draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -53,6 +61,7 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 	else
 		DEPS 			+= -lglew32 -lopengl32 -lglu32
 	endif
+
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_JSON
@@ -143,14 +152,9 @@ ifneq (,$(findstring draco,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_DRACO
 	DEPS 				+= -ldraco
 endif
-
-#DEPS 					+= -lvulkan -lncursesw
-LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
-#-Wl,-subsystem,windows
-
-LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
-INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
+ifneq (,$(findstring xatlas,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_XATLAS
+endif
 
 SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS_DLL))
@@ -178,7 +182,7 @@ SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/
 OBJS 					+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
 TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX).$(TARGET_EXTENSION)
 # Shaders
-SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shaders/*/*.glsl)
+SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shaders/*/*.glsl) $(wildcard bin/data/shaders/*/*/*.glsl)
 TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
 ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -236,7 +240,8 @@ $(TARGET): $(OBJS)
 endif
 
 %.spv: %.glsl
-	$(GLSL_VALIDATOR) -V $< -o $@
+	$(GLSL_VALIDATOR) -V -o $@ $<
+
 ifneq (,$(findstring dreamcast,$(ARCH)))
 clean:
 	@-rm $(EX_DLL)

@@ -64,6 +64,11 @@
 	if ( vertexAttributeNormal.name != "" ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + vertexAttributeNormal.offset));\
 	if ( vertexAttributeColor.name != "" ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeColor.offset));\
 	if ( vertexAttributeUv.name != "" ) GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeUv.offset));\
+	if ( vertexAttributeSt.name != "" ) {\
+		glClientActiveTexture(GL_TEXTURE1);\
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeSt.offset));\
+		glClientActiveTexture(GL_TEXTURE0);\
+	}\
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributePosition.offset));
 
 size_t ext::opengl::CommandBuffer::preallocate = 8;
@@ -112,15 +117,7 @@ void ext::opengl::CommandBuffer::end() {
 */
 }
 void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
-	if ( state != 1 ) {
-		std::cout << "ERROR: COMMAND BUFFER " << this << " NOT READY FOR RECORDING" << std::endl;
-		return;
-	}
-
-	if ( infos.empty() ) {
-		if ( VERBOSE ) std::cout << "==== ["<<this<<"] COMMAND BUFFER RECORDING START ==== " << std::endl;
-	}
-
+	if ( state != 1 ) return;
 	switch ( header.type ) {
 		case ext::opengl::enums::Command::CLEAR: {
 			InfoClear* info = (InfoClear*) &header;
@@ -130,7 +127,6 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			userdata.create<InfoClear>( *info );
 			info = &userdata.get<InfoClear>();
 			info->type = enums::Command::CLEAR;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | CLEAR: " << uf::vector::toString(info->color) << " | " << info->depth << "\n";
 		} break;
 		case ext::opengl::enums::Command::VIEWPORT: {
 			InfoViewport* info = (InfoViewport*) &header;
@@ -142,7 +138,6 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			userdata.create<InfoViewport>( *info );
 			info = &userdata.get<InfoViewport>();
 			info->type = enums::Command::VIEWPORT;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | VIEWPORT: " << uf::vector::toString(info->corner) << " | " << uf::vector::toString(info->size) << "\n";
 		} break;
 		case ext::opengl::enums::Command::VARIANT: {
 			InfoVariant* info = (InfoVariant*) &header;
@@ -152,47 +147,6 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			userdata.create<InfoVariant>( *info );
 			info = &userdata.get<InfoVariant>();
 			info->type = enums::Command::VARIANT;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | VARIANT: " << "\n";
-		} break;
-		case ext::opengl::enums::Command::BIND_BUFFER: {
-			InfoBuffer* info = (InfoBuffer*) &header;
-			info->next = NULL;
-			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
-			userdata.create<InfoBuffer>( *info );
-			info = &userdata.get<InfoBuffer>();
-			info->type = enums::Command::BIND_BUFFER;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | BIND_BUFFER: " << info->descriptor.buffer << "\n";
-		} break;
-		case ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER: {
-			InfoGraphicBuffer* info = (InfoGraphicBuffer*) &header;
-			info->next = NULL;
-			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
-			userdata.create<InfoGraphicBuffer>( *info );
-			info = &userdata.get<InfoGraphicBuffer>();
-			info->type = enums::Command::BIND_GRAPHIC_BUFFER;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | BIND_GRAPHIC_BUFFER: " << info->graphic << "[" << info->bufferIndex << "] = " << info->graphic->buffers[info->bufferIndex].descriptor.buffer << "\n";
-		} break;
-		case ext::opengl::enums::Command::BIND_TEXTURE: {
-			InfoTexture* info = (InfoTexture*) &header;
-			info->next = NULL;
-			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
-			userdata.create<InfoTexture>( *info );
-			info = &userdata.get<InfoTexture>();
-			info->type = enums::Command::BIND_TEXTURE;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | BIND_TEXTURE: " << info->descriptor.image << "\n";
-		} break;
-		case ext::opengl::enums::Command::BIND_PIPELINE: {
-			InfoPipeline* info = (InfoPipeline*) &header;
-			info->next = NULL;
-			auto& userdata = infos.emplace_back();
-			userdata.autoDestruct = false;
-			userdata.create<InfoPipeline>( *info );
-			info = &userdata.get<InfoPipeline>();
-			info->type = enums::Command::BIND_PIPELINE;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | BIND PIPELINE: " << info->descriptor.pipeline << " | " << info->descriptor.vertexArray << "\n";
 		} break;
 		case ext::opengl::enums::Command::DRAW: {
 			InfoDraw* info = (InfoDraw*) &header;
@@ -202,7 +156,52 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			userdata.create<InfoDraw>( *info );
 			info = &userdata.get<InfoDraw>();
 			info->type = enums::Command::DRAW;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | COUNT: " << info->length << "\n";
+		} break;
+	/*
+		case ext::opengl::enums::Command::BIND_BUFFER: {
+			InfoBuffer* info = (InfoBuffer*) &header;
+			info->next = NULL;
+			auto& userdata = infos.emplace_back();
+			userdata.autoDestruct = false;
+			userdata.create<InfoBuffer>( *info );
+			info = &userdata.get<InfoBuffer>();
+			info->type = enums::Command::BIND_BUFFER;
+		} break;
+		case ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER: {
+			InfoGraphicBuffer* info = (InfoGraphicBuffer*) &header;
+			info->next = NULL;
+			auto& userdata = infos.emplace_back();
+			userdata.autoDestruct = false;
+			userdata.create<InfoGraphicBuffer>( *info );
+			info = &userdata.get<InfoGraphicBuffer>();
+			info->type = enums::Command::BIND_GRAPHIC_BUFFER;
+		} break;
+		case ext::opengl::enums::Command::BIND_TEXTURE: {
+			InfoTexture* info = (InfoTexture*) &header;
+			info->next = NULL;
+			auto& userdata = infos.emplace_back();
+			userdata.autoDestruct = false;
+			userdata.create<InfoTexture>( *info );
+			info = &userdata.get<InfoTexture>();
+			info->type = enums::Command::BIND_TEXTURE;
+		} break;
+		case ext::opengl::enums::Command::BIND_PIPELINE: {
+			InfoPipeline* info = (InfoPipeline*) &header;
+			info->next = NULL;
+			auto& userdata = infos.emplace_back();
+			userdata.autoDestruct = false;
+			userdata.create<InfoPipeline>( *info );
+			info = &userdata.get<InfoPipeline>();
+			info->type = enums::Command::BIND_PIPELINE;
+		} break;
+		case ext::opengl::enums::Command::DRAW: {
+			InfoDraw* info = (InfoDraw*) &header;
+			info->next = NULL;
+			auto& userdata = infos.emplace_back();
+			userdata.autoDestruct = false;
+			userdata.create<InfoDraw>( *info );
+			info = &userdata.get<InfoDraw>();
+			info->type = enums::Command::DRAW;
 		} break;
 		case ext::opengl::enums::Command::GENERATE_TEXTURE: {
 			InfoGenerateTexture* info = (InfoGenerateTexture*) &header;
@@ -211,10 +210,9 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 			userdata.create( *info );
 			info = &userdata.get<InfoGenerateTexture>();
 			info->type = enums::Command::GENERATE_TEXTURE;
-			if ( VERBOSE ) std::cout << "[" << infos.size() << "] ["<<info<<"] COMMAND BUFFER " << this << " | GENERATE_TEXTURE: " << info->descriptor.image << " | " << info->data << "[" << info->size << "]" << "\n";
 		} break;
+	*/
 		default: {
-			if ( VERBOSE ) std::cout << "UNKNOWN COMMAND TYPE: " << header.type << std::endl;
 		} break;
 	}
 }
@@ -237,14 +235,43 @@ void ext::opengl::CommandBuffer::submit() {
 	static GLint maxTextures = 0;
 	if ( maxTextures <= 0 ) {
 		glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-		std::cout << "MAX COMBINED TEXTURE UNITS: " << maxTextures << std::endl;
 	}
 #endif
+	for ( auto& info : infos ) {
+		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
+		switch ( header->type ) {
+			case ext::opengl::enums::Command::CLEAR: {
+				InfoClear* info = (InfoClear*) header;
+				GL_ERROR_CHECK(glClearColor(info->color[0], info->color[1], info->color[2], info->color[3]));
+				GL_ERROR_CHECK(glClearDepth(info->depth));
+				GL_ERROR_CHECK(glClear(info->bits));
+				GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
+			} break;
+			case ext::opengl::enums::Command::VIEWPORT: {
+				InfoViewport* info = (InfoViewport*) header;
+				GL_ERROR_CHECK(glViewport(info->corner[0], info->corner[1], info->size[0], info->size[1]));
+			} break;
+			case ext::opengl::enums::Command::VARIANT: {
+				InfoVariant* info = (InfoVariant*) header;
+				if ( info->lambda ) info->lambda();
+			} break;
+			case ext::opengl::enums::Command::DRAW: {
+				InfoDraw* info = (InfoDraw*) header;
+				drawIndexed( *info );
+			//	if ( info->indexBuffer.buffer ) drawIndexed( *info );
+			//	else draw( *info );
+			} break;
+			default: {
+			} break;
+		}
+	}
+#if 0
 	CommandBuffer::Info* vertexBufferInfo = GL_NULL_HANDLE;
 	CommandBuffer::Info* indexBufferInfo = GL_NULL_HANDLE;
 	std::vector<CommandBuffer::InfoTexture*> textureInfos;
-
+	textureInfos.reserve(maxTextures);
 	if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "==== ["<<this<<"] COMMAND BUFFER SUBMIT START ====\n";
+	// 50us each process
 	for ( auto& info : infos ) {
 		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
 		switch ( header->type ) {
@@ -285,16 +312,6 @@ void ext::opengl::CommandBuffer::submit() {
 			case ext::opengl::enums::Command::BIND_TEXTURE: {
 				InfoTexture* info = (InfoTexture*) header;
 				if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "["<<info<<"] BINDING TEXTURE: " << info->descriptor.image << " | " << info->descriptor.viewType << "\n";
-			/*
-				if ( textureInfos.size() < maxTextures ) {
-				#if !UF_ENV_DREAMCAST
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0 + textureInfos.size()));
-				#endif
-					GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-					textureInfos.emplace_back(info);
-				}
-			*/
 				textureInfos.emplace_back(info);
 			} break;
 			case ext::opengl::enums::Command::BIND_PIPELINE: {
@@ -308,71 +325,22 @@ void ext::opengl::CommandBuffer::submit() {
 				InfoDraw* info = (InfoDraw*) header;
 				if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "["<<info<<"] DRAW CALL | COUNT: " << info->length << " | VERTEX INFO: " << vertexBufferInfo << " | INDEX INFO: " << indexBufferInfo << "\n";
 				if ( vertexBufferInfo ) {
-			/*
-				#if !UF_ENV_DREAMCAST
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-				#endif
-			*/
 					if ( indexBufferInfo ) drawIndexed( *info, *vertexBufferInfo, *indexBufferInfo, textureInfos );
 					else draw( *info, *vertexBufferInfo, textureInfos );
 				}
-			/*
-				while ( !textureInfos.empty() ) {
-					auto& info = textureInfos.back();
-				#if !UF_ENV_DREAMCAST
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0 + textureInfos.size() - 1));
-				#endif
-					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
-					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
-					textureInfos.pop_back();
-				}
-			*/
 				textureInfos.clear();
 				vertexBufferInfo = NULL;
 				indexBufferInfo = NULL;
 			} break;
-		/*
-			case ext::opengl::enums::Command::GENERATE_TEXTURE: {
-				InfoGenerateTexture* info = (InfoGenerateTexture*) header;
-				if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "["<<info<<"] GENERATING TEXTURE | " << info->descriptor.image << " | " << info->data << "\n";
-
-				GLenum format = GL_RGBA;
-				GLenum type = GL_UNSIGNED_BYTE;
-				switch ( info->descriptor.format ) {
-				#if !UF_ENV_DREAMCAST
-					case enums::Format::R8_UNORM: format = GL_RED; break;
-					case enums::Format::R8G8_UNORM: format = GL_RG; break;
-				#endif
-					case enums::Format::R8G8B8_UNORM: format = GL_RGB; break;
-					case enums::Format::R8G8B8A8_UNORM: format = GL_RGBA; break;
-				}
-				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-				switch ( info->descriptor.viewType ) {
-					case enums::Image::VIEW_TYPE_2D: GL_ERROR_CHECK(glTexImage2D(info->descriptor.viewType, 0, format, info->descriptor.width, info->descriptor.height, 0, format, type, info->data)); break;
-				#if !UF_ENV_DREAMCAST
-					case enums::Image::VIEW_TYPE_3D: GL_ERROR_CHECK(glTexImage3D(info->descriptor.viewType, 0, format, info->descriptor.width, info->descriptor.height, info->descriptor.depth, 0, format, type, info->data)); break;
-				#endif
-				}
-				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
-			} break;
-		*/
 			default: {
 				if ( state == 2 && VERBOSE_SUBMIT ) {
 					std::cout << "["<<header<<"] UNKNOWN COMMAND TYPE: " << header->type << ": " << info.data().len << std::endl;;
-				/*
-					// dump contents
-					std::cout << "["<<header<<"] UNKNOWN COMMAND TYPE: " << header->type << ": " << std::hex;
-					uint8_t* start = (uint8_t*) header;
-					for ( size_t i = 0; i < info.data().len; ++i ) {
-						std::cout << (int) start[i] << " ";
-					}
-					std::cout << std::dec << std::endl;
-				*/
 				}
 			} break;
 		}
 	}
 	if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "==== ["<<this<<"] COMMAND BUFFER SUBMIT END ==== " << std::endl;
+#endif
 	state = 3;
 	mutex->unlock();
 }
@@ -402,6 +370,7 @@ void ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer::Descrip
 	GL_ERROR_CHECK(glLoadMatrixf( &uniform->modelView[0] ));
 #endif
 }
+#if 0
 void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const std::vector<InfoTexture*>& textureInfos ) {
 	ext::opengl::Buffer::Descriptor vertexBuffer = {};
 
@@ -424,6 +393,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 									vertexAttributeNormal,
 									vertexAttributeColor,
 									vertexAttributeUv,
+									vertexAttributeSt,
 									vertexAttributeId;
 
 	for ( auto& attribute : drawInfo.descriptor.geometry.attributes.descriptor ) {
@@ -431,6 +401,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
 		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
+		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
 		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 	}
 	if ( vertexAttributePosition.name == "" ) return;
@@ -502,6 +473,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			}
 			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
 				auto& indices = sorted[textureId];
+				if ( indices.empty() ) continue;
 				InfoTexture* info = textureInfos[textureId];
 				GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
 				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
@@ -544,6 +516,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			}
 			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
 				auto& indices = sorted[textureId];
+				if ( indices.empty() ) continue;
 				InfoTexture* info = textureInfos[textureId];
 				GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
 				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
@@ -554,7 +527,95 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 #endif
 #endif
 }
+#endif
+void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
+	bindUniform( drawInfo.uniformBuffer );
+
+	size_t indices = drawInfo.descriptor.indices;
+	size_t indicesStride = drawInfo.descriptor.geometry.attributes.index.size;
+	size_t vertexStride = drawInfo.descriptor.geometry.attributes.vertex.size;
+	size_t vertices = drawInfo.vertexBuffer.range / vertexStride;
+
+	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
+		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
+	} else {
+		GL_ERROR_CHECK(glEnable(GL_CULL_FACE));
+		GL_ERROR_CHECK(glFrontFace(drawInfo.descriptor.frontFace));
+		GL_ERROR_CHECK(glCullFace(drawInfo.descriptor.cullMode));
+	}
+
+	// CPU-buffer based command dispatching
+	void* vertexPointer = (void*) ( device->getBuffer( drawInfo.vertexBuffer.buffer ) + drawInfo.vertexBuffer.offset );
+	uf::renderer::index_t* indicesPointer = (uf::renderer::index_t*) ( device->getBuffer( drawInfo.indexBuffer.buffer ) + drawInfo.indexBuffer.offset );
+
+	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
+	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.uv ) GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
+
+	GLenum indicesType = GL_UNSIGNED_INT;
+	switch ( indicesStride ) {
+		case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
+		case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
+		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
+	}
+
+	if ( drawInfo.texture.image && drawInfo.attributes.uv ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glEnable(drawInfo.texture.viewType));
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.texture.viewType, drawInfo.texture.image));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.uv));
+	}
+	if ( drawInfo.auxTexture.image && drawInfo.attributes.st ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glEnable(drawInfo.auxTexture.viewType));
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.auxTexture.viewType, drawInfo.auxTexture.image));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.st));
+	#if UF_ENV_DREAMCAST
+		GL_ERROR_CHECK(glDisable(GL_BLEND));
+	#endif
+	}
+	
+	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.normal));
+	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.color));
+	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.position));
+
+	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
+
+	if ( drawInfo.auxTexture.image ) {
+	#if UF_ENV_DREAMCAST
+		GL_ERROR_CHECK(glEnable(GL_BLEND));
+	#endif
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.auxTexture.viewType, 0));
+		GL_ERROR_CHECK(glDisable(drawInfo.auxTexture.viewType));
+	}
+	if ( drawInfo.texture.image ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.texture.viewType, 0));
+		GL_ERROR_CHECK(glDisable(drawInfo.texture.viewType));
+	}
+
+	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
+	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.uv ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
+}
+#if 0
 void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const ext::opengl::CommandBuffer::Info& indexBufferInfo, const std::vector<InfoTexture*>& textureInfos ) {
+	uf::Timer<long long> TIMER_TRACE;
+	long long prevTime = 0;
+	long long curTime = 0;
+	UF_DEBUG_MSG("==== START RENDER ====");
+
 	ext::opengl::Buffer::Descriptor vertexBuffer = {};
 	ext::opengl::Buffer::Descriptor indexBuffer = {};
 
@@ -590,6 +651,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 									vertexAttributeNormal,
 									vertexAttributeColor,
 									vertexAttributeUv,
+									vertexAttributeSt,
 									vertexAttributeId;
 
 	for ( auto& attribute : drawInfo.descriptor.geometry.attributes.descriptor ) {
@@ -597,6 +659,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
 		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
+		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
 		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 	}
 	if ( vertexAttributePosition.name == "" ) return;
@@ -652,12 +715,17 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_BIND_POINTERS();
 			GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
 		} else {
+			bool lightMapped = false;
 			std::vector<std::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
 			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
 				auto index = indicesPointer[currentIndex];
 				void* vertices = vertexPointer + (index * vertexStride);
 
+				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
 				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
+
+				if ( st > pod::Vector2f{0,0} ) lightMapped = true; 
+
 				size_t textureId = id.y;
 				if ( textureInfos.size() < textureId ) continue;
 				sorted[textureId].emplace_back(index);
@@ -668,13 +736,75 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 				case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
 				case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 			}
+			// assume if the last texture is unused, and we have ST's, it's lightmapped
+			InfoTexture* textureLightmapInfo = NULL;
+			if ( lightMapped && sorted.back().empty() ) {
+				textureLightmapInfo = textureInfos.back();
+				sorted.pop_back();
+			} else vertexAttributeSt.name = "";
 			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
 				auto& indices = sorted[textureId];
+				if ( indices.empty() ) continue;
 				InfoTexture* info = textureInfos[textureId];
-				GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-				GL_BIND_POINTERS();
-				GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), indicesType, &indices[0]));
+				if ( textureLightmapInfo ) {
+				#if UF_ENV_DREAMCAST
+					GL_ERROR_CHECK(glDisable(GL_BLEND));
+				#endif
+					if ( vertexAttributeUv.name != "" ) {
+						GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+						GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+						GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
+						GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+						GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
+						GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+						GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeUv.offset));
+					}
+
+					if ( vertexAttributeSt.name != "" ) {
+						GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+						GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+						GL_ERROR_CHECK(glEnable(textureLightmapInfo->descriptor.viewType));
+						GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+						GL_ERROR_CHECK(glBindTexture(textureLightmapInfo->descriptor.viewType, textureLightmapInfo->descriptor.image));
+						GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+						GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeSt.offset));
+					}
+					
+					GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+
+					if ( vertexAttributeNormal.name != "" ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + vertexAttributeNormal.offset));
+					if ( vertexAttributeColor.name != "" ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeColor.offset));
+					GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributePosition.offset));
+				
+					GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), indicesType, &indices[0]));
+
+					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+					GL_ERROR_CHECK(glBindTexture(textureLightmapInfo->descriptor.viewType, 0));
+					GL_ERROR_CHECK(glDisable(textureLightmapInfo->descriptor.viewType));
+
+					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
+					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
+				#if UF_ENV_DREAMCAST
+					GL_ERROR_CHECK(glEnable(GL_BLEND));
+				#endif
+				} else {
+					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+					GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
+					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
+					GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+				
+					GL_BIND_POINTERS();
+					
+					GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), indicesType, &indices[0]));
+
+					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
+					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
+				}
+				curTime = TIMER_TRACE.elapsed().asMicroseconds();
+				UF_DEBUG_MSG(curTime << " us\t" << (curTime - prevTime) << " us\t" << textureId);
+				prevTime = curTime;
 			}
 		}
 	}
@@ -713,6 +843,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			}
 			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
 				auto& indices = sorted[textureId];
+				if ( indices.empty() ) continue;
 				InfoTexture* info = textureInfos[textureId];
 				GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
 				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
@@ -747,5 +878,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 #endif
 #endif
 }
+#endif
 
 #endif

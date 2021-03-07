@@ -184,17 +184,15 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 			if ( metadata[uri]["flags"][#name].as<bool>() )\
 				LOAD_FLAGS |= ext::gltf::LoadMode::name;
 
-		LOAD_FLAG(RENDER) 				// = 0x1 << 0,
-		LOAD_FLAG(COLLISION) 			// = 0x1 << 1,
-		LOAD_FLAG(SEPARATE) 			// = 0x1 << 2,
-		LOAD_FLAG(NORMALS) 				// = 0x1 << 3,
-		LOAD_FLAG(LOAD) 				// = 0x1 << 4,
-		LOAD_FLAG(ATLAS) 				// = 0x1 << 5,
-		LOAD_FLAG(SKINNED) 				// = 0x1 << 6,
-		LOAD_FLAG(INVERT) 				// = 0x1 << 7,
-		LOAD_FLAG(TRANSFORM) 			// = 0x1 << 8,
+		LOAD_FLAG(ATLAS) 		//			= 0x1 << 1,
+		LOAD_FLAG(INVERT) 		//			= 0x1 << 2,
+		LOAD_FLAG(TRANSFORM) 	//			= 0x1 << 3,
 
 		asset = ext::gltf::load( filename, LOAD_FLAGS, metadata[uri] );
+		uf::graph::process( asset );
+		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_DEBUG_MSG(uf::graph::stats( asset ).dump(1,'\t'));
+		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_DEBUG_MSG(uf::graph::print( asset ));
+		if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		//uf::graph::process( asset );
 	} else {
 		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 

@@ -3,9 +3,10 @@
 layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
-layout (location = 2) in vec3 inNormal;
-layout (location = 3) in vec4 inTangent;
-layout (location = 4) in ivec2 inId;
+layout (location = 2) in vec2 inSt;
+layout (location = 3) in vec3 inNormal;
+layout (location = 4) in vec4 inTangent;
+layout (location = 5) in ivec2 inId;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -22,11 +23,12 @@ layout (std140, binding = 4) readonly buffer Models {
 };
 
 layout (location = 0) out vec2 outUv;
-layout (location = 1) out vec4 outColor;
-layout (location = 2) out vec3 outNormal;
-layout (location = 3) out mat3 outTBN;
-layout (location = 6) out vec3 outPosition;
-layout (location = 7) out ivec4 outId;
+layout (location = 1) out vec2 outSt;
+layout (location = 2) out vec4 outColor;
+layout (location = 3) out vec3 outNormal;
+layout (location = 4) out mat3 outTBN;
+layout (location = 7) out vec3 outPosition;
+layout (location = 8) out ivec4 outId;
 
 out gl_PerVertex {
     vec4 gl_Position;
@@ -42,6 +44,7 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 
 void main() {
 	outUv = inUv;
+	outSt = inSt;
 	outColor = vec4(1.0);
 	outId = ivec4(inId, PushConstant.pass, PushConstant.draw);
 

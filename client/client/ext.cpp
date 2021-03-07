@@ -194,6 +194,9 @@ void client::initialize() {
 	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
 #endif
 	client::ready = true;
+#if UF_ENV_DREAMCAST
+	client::window.pollEvents();
+#endif
 }
 void client::tick() {
 //	uf::hooks.call("system:Tick");

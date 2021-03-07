@@ -29,30 +29,37 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		std::string category = json["category"].as<std::string>();
 		if ( category != "" && category != "models" ) return;
 		if ( category == "" && uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" && uf::io::extension(filename) != "graph" ) return;
-		
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
-
-		{
-			pod::Graph* graphPointer = NULL;
-			if ( !assetLoader.has<pod::Graph>(filename) ) return;
-			graphPointer = &assetLoader.get<pod::Graph>(filename);
-
-			if ( !graphPointer ) return;
-			auto& graph = this->getComponent<pod::Graph>();
-			graph = std::move( *graphPointer );
-			graphPointer = &graph;
-		}
+		if ( !assetLoader.has<pod::Graph>(filename) ) return;
+		pod::Graph* graphPointer = &assetLoader.get<pod::Graph>(filename);
 		auto& graph = this->getComponent<pod::Graph>();
-		uf::Object* objectPointer = graph.root.entity;
+		graph = std::move( *graphPointer );
+		assetLoader.remove<pod::Graph>(filename);
+		{
+			bool shouldUpdate = false;	
+			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+			if ( !ext::json::isNull(graph.metadata["ambient"]) ) {
+				sceneMetadataJson["light"]["ambient"] = graph.metadata["ambient"];
+				shouldUpdate = true;	
+			}
+			if ( !ext::json::isNull(graph.metadata["fog"]) ) {
+				sceneMetadataJson["light"]["fog"] = graph.metadata["fog"];
+				shouldUpdate = true;	
+			}
+			if ( shouldUpdate ) {
+				scene.callHook("object:UpdateMetadata.%UID%");
+			}
+		}
+		// deferred shader loading
 		graph.root.entity->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
-			if ( !(graph.mode & ext::gltf::LoadMode::LOAD) ) {
-				if ( graph.mode & ext::gltf::LoadMode::SEPARATE ) {
+			if ( !(graph.metadata["flags"]["LOAD"].as<bool>()) ) {
+				if ( graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
 					{
-						std::string filename = "/gltf/vert.spv";
-						if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+						std::string filename = "/gltf/base.vert.spv";
+						if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 							filename = "/gltf/skinned.vert.spv";
 						}
 						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
@@ -61,7 +68,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 						graphic.material.attachShader(filename, uf::renderer::enums::Shader::VERTEX);
 					}
 					{
-						std::string filename = "/gltf/frag.spv";
+						std::string filename = "/gltf/base.frag.spv";
 						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
 							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
@@ -70,7 +77,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				} else {
 					{
 						std::string filename = "/gltf/instanced.vert.spv";
-						if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+						if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 							filename = "/gltf/skinned.instanced.vert.spv";
 						}
 						if ( metadata["system"]["renderer"]["shaders"]["vertex"].is<std::string>() )
@@ -79,7 +86,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 						graphic.material.attachShader(filename, uf::renderer::enums::Shader::VERTEX);
 					}
 					{
-						std::string filename = "/gltf/frag.spv";
+						std::string filename = "/gltf/base.frag.spv";
 						if ( metadata["system"]["renderer"]["shaders"]["fragment"].is<std::string>() ) 
 							filename = metadata["system"]["renderer"]["shaders"]["fragment"].as<std::string>();
 						filename = this->grabURI( filename, metadata["system"]["root"].as<std::string>() );
@@ -124,28 +131,13 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 					if ( binding.descriptorCount > 1 )
 						binding.descriptorCount = specializationConstants.textures;
 				}
-				{
-					auto& definition = shader.metadata["definitions"]["uniforms"]["UBO"];
-					size_t size = definition["size"].as<size_t>();
-					size_t elements = definition["value"].size();
-					if ( elements > 0 ) {
-						definition["size"] = size / elements * specializationConstants.textures;
-						ext::json::Value value = definition["value"][0];
-						definition["value"] = ext::json::array();
-						for ( size_t i = 0; i < specializationConstants.textures; ++i ) {
-							definition["value"].emplace_back(value);
-						}
-					}
-				}
 			}
 		#endif
 			graphic.process = true;
 		});
-		this->addChild(graph.root.entity->as<uf::Entity>());
 
 		auto& transform = this->getComponent<pod::Transform<>>();
 		graph.root.entity->getComponent<pod::Transform<>>().reference = &transform;
-		
 		graph.root.entity->initialize();
 		graph.root.entity->process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) {
@@ -157,7 +149,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			if ( entity->getUid() == 0 ) entity->initialize();
 		});
 
-		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 			if ( metadata["model"]["animation"].is<std::string>() ) {
 				uf::graph::animate( graph, metadata["model"]["animation"].as<std::string>() );
 			}
@@ -166,6 +158,8 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 				for ( auto pair : graph.animations ) json.emplace_back( pair.first );
 			}
 		}
+
+		this->addChild(graph.root.entity->as<uf::Entity>());
 	});
 }
 void uf::GltfBehavior::destroy( uf::Object& self ) {
@@ -178,7 +172,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 	/* Animation change test */ 
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
-		if ( graph.mode & ext::gltf::LoadMode::SKINNED ) uf::graph::update( graph );
+		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) uf::graph::update( graph );
 	}
 #if UF_USE_OPENGL
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
@@ -202,7 +196,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& graph = objectWithGraph->getComponent<pod::Graph>();
 		auto& mesh = this->getComponent<ext::gltf::mesh_t>();
 
-		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
@@ -211,7 +205,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 
 			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex );
 			shader.execute( graphic, &mesh.vertices[0] );
-		} else if ( graph.mode & ext::gltf::LoadMode::SKINNED ) {
+		} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 			shader.execute( graphic, &mesh.vertices[0] );
 		}
 	}
@@ -234,7 +228,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		if ( !objectWithGraph->hasComponent<pod::Graph>() ) return;
 
 		auto& graph = objectWithGraph->getComponent<pod::Graph>();
-		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 			auto& shader = graphic.material.getShader("vertex");
 			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
@@ -279,7 +273,7 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 		auto uniformBuffer = graphic.getUniform();
 		pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniformBuffer.buffer));
 		uniform.projection = camera.getProjection();
-		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 			uniform.modelView = camera.getView();
 		} else {
 			uniform.modelView = camera.getView() * uf::transform::model( transform );
@@ -292,7 +286,7 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 		// std::cout << "START" << std::endl;
 		auto& shader = graphic.material.getShader("vertex");
 		auto& uniform = shader.getUniform("UBO");
-		if ( !(graph.mode & ext::gltf::LoadMode::SEPARATE) ) {
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 		#if UF_UNIFORMS_UPDATE_WITH_JSON
 		//	auto uniforms = shader.getUniformJson("UBO");
 			ext::json::Value uniforms;

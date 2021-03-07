@@ -42,6 +42,24 @@ namespace ext {
 				typedef std::function<void()> function_t;
 				function_t lambda;
 			};
+			struct UF_API InfoDraw : public Info {
+				GraphicDescriptor descriptor = {};
+
+				ext::opengl::Buffer::Descriptor vertexBuffer = {};
+				ext::opengl::Buffer::Descriptor indexBuffer = {};
+				ext::opengl::Buffer::Descriptor uniformBuffer = {};
+				ext::opengl::Texture::Descriptor texture = {};
+				ext::opengl::Texture::Descriptor auxTexture = {};
+
+				struct {
+					uint8_t position = 0;
+					uint8_t uv = 0;
+					uint8_t st = 0;
+					uint8_t normal = 0;
+					uint8_t color = 0;
+				} attributes;
+			};
+		/*
 			struct UF_API InfoBuffer : public Info {
 			//	ext::opengl::enums::Command::type_t type = 0;
 				ext::opengl::Buffer::Descriptor descriptor = { GL_NULL_HANDLE, 0, 0 };
@@ -74,7 +92,7 @@ namespace ext {
 				void* data = NULL;
 				size_t size = 0;
 			};
-
+		*/
 			#if UF_COMMAND_BUFFER_POINTERED_USERDATA
 				typedef uf::PointeredUserdata userdata_t;
 			#else
@@ -102,8 +120,9 @@ namespace ext {
 			size_t size() const;
 		protected:
 			void bindUniform( const Buffer::Descriptor& descriptor );
-			void draw( const InfoDraw&, const Info&, const std::vector<InfoTexture*>& = {} );
-			void drawIndexed( const InfoDraw&, const Info&, const Info&, const std::vector<InfoTexture*>& = {} );
+			void drawIndexed( const InfoDraw& );
+		//	void draw( const InfoDraw&, const Info&, const std::vector<InfoTexture*>& = {} );
+		//	void drawIndexed( const InfoDraw&, const Info&, const Info&, const std::vector<InfoTexture*>& = {} );
 		};
 	}
 }
