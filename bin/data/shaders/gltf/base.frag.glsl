@@ -112,6 +112,7 @@ void main() {
 		}
 		if ( C.a == 0 ) discard;
 	}
+#if 0
 	if ( validTextureIndex( material.indexLightmap ) ) {
 	#if UF_DEFERRED_SAMPLING
 		outUvs = inSt;
@@ -120,6 +121,7 @@ void main() {
 		C *= textureLod( samplerTextures[t.index], inSt, mip );
 	#endif
 	}
+#endif
 #endif
 #if !UF_DEFERRED_SAMPLING
 	// sample normal

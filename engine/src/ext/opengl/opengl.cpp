@@ -142,10 +142,16 @@ void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool f
 void UF_API ext::opengl::initialize() {
 	device.initialize();
 	// swapchain.initialize( device );
-	if ( 0 ) {
+	{
 		std::vector<uint8_t> pixels = { 
-			255,   0, 255, 255,      0,   0,   0, 255,
-			  0,   0,   0, 255,    255,   0, 255, 255,
+			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
+			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
+			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
+			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
+			0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255,
+			0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255,
+			0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255,
+			0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255,
 		};
 		Texture2D::empty.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 		Texture2D::empty.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
@@ -301,7 +307,6 @@ void UF_API ext::opengl::tick(){
 	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
 	}
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -310,18 +315,6 @@ if ( uf::scene::useGraph ) {
 		graphic.initializePipeline();
 		ext::opengl::states::rebuild = true;
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
-			graphic.initializePipeline();
-			ext::opengl::states::rebuild = true;
-		});
-	}
-}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( !renderMode->device ) {
@@ -391,23 +384,12 @@ void UF_API ext::opengl::destroy() {
 	synchronize();
 
 	Texture2D::empty.destroy();
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			graphic.destroy();
-		});
-	}
-}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();

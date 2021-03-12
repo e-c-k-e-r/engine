@@ -39,7 +39,7 @@ INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mi
 LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= opengl json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas # draco discord
+	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas # draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))

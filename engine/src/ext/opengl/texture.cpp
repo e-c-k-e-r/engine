@@ -67,7 +67,11 @@ bool ext::opengl::Texture::generated() const {
 }
 void ext::opengl::Texture::destroy() {
 	if ( !device ) return;
-	if ( generated() ) GL_ERROR_CHECK(glDeleteTextures(1, &image));
+	if ( generated() ) {
+		GL_MUTEX_LOCK();
+		GL_ERROR_CHECK(glDeleteTextures(1, &image));
+		GL_MUTEX_UNLOCK();
+	}
 	image = GL_NULL_HANDLE;
 }
 void ext::opengl::Texture::loadFromFile(
@@ -210,11 +214,13 @@ void ext::opengl::Texture::fromBuffers(
 	this->updateDescriptors();
 	if ( data ) this->update( data, bufferSize, 0 );
 #else
+	GL_MUTEX_LOCK();
 	GL_ERROR_CHECK(glGenTextures(1, &image));
 	GL_ERROR_CHECK(glBindTexture(viewType, image));
 	GL_ERROR_CHECK(glTexParameteri(viewType, GL_TEXTURE_MIN_FILTER, sampler.descriptor.filter.min));
 	GL_ERROR_CHECK(glTexParameteri(viewType, GL_TEXTURE_MAG_FILTER, sampler.descriptor.filter.mag));
 	GL_ERROR_CHECK(glBindTexture(viewType, 0));
+	GL_MUTEX_UNLOCK();
 	if ( data ) this->update( data, bufferSize, 0 );
 	this->updateDescriptors();
 #endif
@@ -244,9 +250,11 @@ void ext::opengl::Texture::update( uf::Image& image, uint32_t layer ) {
 void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer ) {
 #if UF_ENV_DREAMCAST
 	if ( internalFormat > 0 ) {
+	GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glBindTexture(viewType, image));
 		GL_ERROR_CHECK(glCompressedTexImage2DARB( viewType, 0, internalFormat, width, height, 0, bufferSize, data));
 		GL_ERROR_CHECK(glBindTexture(viewType, 0));
+	GL_MUTEX_UNLOCK();
 		return;
 	}
 #endif
@@ -274,6 +282,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 			format = GL_RGBA;
 		break;
 	}
+	GL_MUTEX_LOCK();
 	GL_ERROR_CHECK(glBindTexture(viewType, image));
 	switch ( viewType ) {
 		case enums::Image::VIEW_TYPE_2D: { GL_ERROR_CHECK(glTexImage2D(viewType, 0, format, width, height, 0, format, type, data)); } break;
@@ -282,6 +291,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 	#endif
 	}
 	GL_ERROR_CHECK(glBindTexture(viewType, 0));
+	GL_MUTEX_UNLOCK();
 }
 
 void ext::opengl::Texture::generateMipmaps( uint32_t layer ) {

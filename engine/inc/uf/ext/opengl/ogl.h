@@ -56,3 +56,11 @@
 		GL_VALIDATION_MESSAGE("[Validation Error] " << #f << ": " << errorString); 	\
 	}																			\
 }
+
+#if 0
+	#define GL_MUTEX_LOCK() ext::opengl::mutex.lock();
+	#define GL_MUTEX_UNLOCK() ext::opengl::mutex.unlock();
+#else
+	#define GL_MUTEX_LOCK();
+	#define GL_MUTEX_UNLOCK();
+#endif

@@ -1,5 +1,6 @@
 #if UF_USE_OPENGL
 
+#include <uf/ext/opengl/ogl.h>
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/rendermode.h>
 #include <uf/ext/opengl/initializers.h>
@@ -146,6 +147,7 @@ void ext::opengl::RenderMode::render() {
 	//UF_TIMER_TRACE_INIT();
 	#if UF_USE_OPENGL_GLDC
 		glKosSwapBuffers();
+	//	profiler_print_stats();
 	#else
 		glutSwapBuffers();
 	#endif

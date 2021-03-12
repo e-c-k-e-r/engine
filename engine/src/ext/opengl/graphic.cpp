@@ -1402,7 +1402,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 
 	for ( auto& attribute : descriptor.geometry.attributes.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
+//		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
 		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;

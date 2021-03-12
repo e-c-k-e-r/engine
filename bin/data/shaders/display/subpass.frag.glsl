@@ -250,20 +250,20 @@ float random(vec3 seed, int i){
 	return fract(sin(dot_product) * 43758.5453);
 }
 
-float shadowFactor( Light light, uint shadowMap, float def ) {
+float shadowFactor( Light light, uint shadowMap ) {
 	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
-	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def;
-	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def;
-	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def;
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
 
 	float factor = 1.0;
 
 	// spot light
 	if ( light.type == 2 || light.type == 3 ) {
 		float dist = length( positionClip.xy );
-		if ( dist > 0.5 ) return def;
+		if ( dist > 0.5 ) return 0.0;
 		
 		// spot light with attenuation
 		if ( light.type == 3 ) {
@@ -273,6 +273,14 @@ float shadowFactor( Light light, uint shadowMap, float def ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
+/*
+	if ( true ) {
+		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
+		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
+	} else if ( true ) {
+		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+	}
+*/
 
 	float eyeDepth = positionClip.z;
 
@@ -281,13 +289,14 @@ float shadowFactor( Light light, uint shadowMap, float def ) {
 		return eyeDepth < texture(samplerTextures[shadowMap], uv).r - bias ? 0.0 : factor;
 	}
 	for ( int i = 0; i < samples; ++i ) {
+	//	int index = i;
+	//	int index = int( float(samples) * random(gl_FragCoord.xyy, i) ) % samples;
 		int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
 		float lightDepth = texture(samplerTextures[shadowMap], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
 }
-
 vec3 hslToRgb(vec3 HSL) {
 	vec3 RGB; {
 		float H = HSL.x;
@@ -722,7 +731,7 @@ void main() {
 			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 			
 			if ( validTextureIndex(light.mapIndex) ) {
-				float factor = shadowFactor( light, light.mapIndex, 0.0 );
+				float factor = shadowFactor( light, light.mapIndex );
 				light.power *= factor;
 				litFactor += light.power;
 			}

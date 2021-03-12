@@ -52,12 +52,12 @@ int main(int argc, char** argv){
 				uf::hooks.call(hook, json);
 			}
 		#if UF_ENV_DREAMCAST
-		UF_TIMER_MULTITRACE_START("==== START FRAME ====");
+	//	UF_TIMER_MULTITRACE_START("==== START FRAME ====");
 			ext::render();
-			UF_TIMER_MULTITRACE("RENDER");
+	//		UF_TIMER_MULTITRACE("RENDER");
 			ext::tick();
-			UF_TIMER_MULTITRACE("TICK");
-		UF_TIMER_MULTITRACE_END("==== END FRAME ====");
+	//		UF_TIMER_MULTITRACE("TICK");
+	//	UF_TIMER_MULTITRACE_END("==== END FRAME ====");
 		#else
 			client::render();
 			ext::render();
