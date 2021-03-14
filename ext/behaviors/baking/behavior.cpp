@@ -44,11 +44,11 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		graphic.process = false;
 		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
-		if ( graph.atlas ) {
+		if ( graph.atlas.generated() ) {
 			for ( auto& texture : graph.textures ) {
 				++texture.storage.index;
 			}
-			auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas->getAtlas());
+			auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas.getAtlas());
 			auto& texture = *graph.textures.emplace(graph.textures.begin());
 			texture.name = "atlas";
 			texture.bind = true;

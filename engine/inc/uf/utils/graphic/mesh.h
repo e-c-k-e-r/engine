@@ -63,7 +63,6 @@ namespace pod {
 namespace uf {
 	typedef BaseMesh<pod::Vertex_3F2F3F32B> ColoredMesh;
 	typedef BaseMesh<pod::Vertex_3F2F3F> Mesh;
-	typedef BaseMesh<pod::Vertex_3F2F> GuiMesh;
 	typedef BaseMesh<pod::Vertex_3F> LineMesh;
 
 	template<size_t N = 6>

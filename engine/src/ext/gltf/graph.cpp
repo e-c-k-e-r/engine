@@ -155,17 +155,16 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	#endif
 	}
-	if ( graph.atlas ) {
-		for ( auto& texture : graph.textures ) {
-			++texture.storage.index;
-		}
-		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas->getAtlas());
+	if ( graph.metadata["flags"]["ATLAS"].as<bool>() && graph.atlas.generated() ) {
+	//	for ( auto& texture : graph.textures ) if ( 0 <= texture.storage.index ) ++texture.storage.index;
+
+		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas.getAtlas());
 		auto& texture = *graph.textures.emplace(graph.textures.begin());
 		texture.name = "atlas";
 		texture.bind = true;
 		texture.storage.index = 0;
 		texture.storage.sampler = 0;
-		texture.storage.remap = 0;
+		texture.storage.remap = -1;
 		texture.storage.blend = 0;
 
 		if ( graph.metadata["filter"].is<std::string>() ) {
@@ -188,12 +187,19 @@ void uf::graph::process( pod::Graph& graph ) {
 			if ( 0 <= material.storage.indexLightmap ) ++material.storage.indexLightmap;
 		}
 		texture.texture.loadFromImage( image );
+
+		// remap texture slots
+		size_t textureSlot = 0;
+		for ( auto& texture : graph.textures ) {
+			texture.storage.index = -1;
+			if ( !texture.bind ) continue;
+			texture.storage.index = textureSlot++;
+		}
 	} else {
 		for ( size_t i = 0; i < graph.textures.size() && i < graph.images.size(); ++i ) {
 			auto& image = graph.images[i];
 			auto& texture = graph.textures[i];
 			texture.bind = true;
-			texture.storage.index = i;
 			if ( graph.metadata["filter"].is<std::string>() ) {
 				std::string filter = graph.metadata["filter"].as<std::string>();
 				if ( filter == "NEAREST" ) {
@@ -207,6 +213,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			texture.texture.loadFromImage( image );
 		}
 	}
+/*
 	{
 		size_t textureSlot = 0;
 		for ( auto& texture : graph.textures ) {
@@ -215,6 +222,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			texture.storage.index = textureSlot++;
 		}
 	}
+*/
 
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
@@ -318,8 +326,22 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( entity->hasComponent<uf::Graphic>() ) {
 			auto& graphic = entity->getComponent<uf::Graphic>();
 			graphic.initialize();
-			graphic.initializeMesh( mesh, 0 );
 		#if 1
+			if ( entity->getName() == "worldspawn_20" && ext::json::isObject( graph.metadata["grid"] ) ) {
+				auto sliced = mesh;
+				auto& grid = entity->getComponent<uf::MeshGrid>();
+				grid.initialize( sliced, uf::vector::decode( graph.metadata["grid"]["size"], pod::Vector3ui{1,1,1} ) );
+				grid.analyze();
+
+				auto center = uf::vector::decode( graph.metadata["grid"]["center"], grid.center() );
+				sliced.indices = grid.get<>( center );
+				graphic.initializeMesh( sliced );
+			} else {
+				graphic.initializeMesh( mesh );
+			}
+		#else
+			graphic.initialize();
+			graphic.initializeMesh( mesh, 0 );
 			if ( ext::json::isObject( graph.metadata["grid"] ) ) {
 				auto& grid = entity->getComponent<uf::MeshGrid>();
 				grid.initialize( mesh, uf::vector::decode( graph.metadata["grid"]["size"], pod::Vector3ui{1,1,1} ) );
@@ -442,7 +464,10 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( graph.metadata["lightmapped"].as<bool>() && !(metadataLight["shadows"].as<bool>() || metadataLight["dynamic"].as<bool>()) ) continue;
 			auto& metadataJson = entity.getComponent<uf::Serializer>();
 			entity.load("/light.json");
-			metadataJson["light"] = metadataLight;
+			// copy
+			ext::json::forEach( metadataLight, [&]( const std::string& key, ext::json::Value& value ) {
+				metadataJson["light"][key] = value;
+			});
 			break;
 		}
 	}
@@ -490,14 +515,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		// preprocess mesh
 		for ( auto& vertex : nodeMesh.vertices ) {
 			vertex.id.x = node.index;
-		// in almost-software mode, material ID is actually its albedo ID, as we can't use any other forms of mapping
-		#if UF_USE_OPENGL_FIXED_FUNCTION
-			if ( !(graph.metadata["flags"]["ATLAS"].as<bool>()) ) {
-				auto& material = graph.materials[vertex.id.y];
-				auto& texture = graph.textures[material.storage.indexAlbedo];
-				vertex.id.y = texture.storage.index;
-			}
-		#endif
 		}
 
 		auto& mesh = entity.getComponent<ext::gltf::mesh_t>();
@@ -548,9 +565,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 void uf::graph::cleanup( pod::Graph& graph ) {
 	graph.images.clear();
 	graph.meshes.clear();
-	if ( graph.atlas ) {
-		graph.atlas->getAtlas().clear();
-	}
+	graph.atlas.clear();
 }
 void uf::graph::override( pod::Graph& graph ) {
 	graph.settings.animations.override.a = 0;
@@ -691,7 +706,6 @@ void uf::graph::destroy( pod::Graph& graph ) {
 	for ( auto& t : graph.textures ) {
 		t.texture.destroy();
 	}
-	delete graph.atlas;
 }
 
 #include <uf/utils/string/base64.h>
@@ -905,6 +919,18 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 		return 0;
 	});
 	jobs.emplace_back([&]{
+		if ( !ext::json::isNull( serializer["atlas"] ) ) {
+			UF_DEBUG_TRACE_MSG("Reading atlas...");
+			auto& image = graph.atlas.getAtlas();
+			auto& value = serializer["atlas"];
+			if ( value.is<std::string>() ) {
+				std::string filename = directory + "/" + value.as<std::string>();
+				UF_DEBUG_TRACE_MSG("Reading atlas " << filename);
+				image.open(filename, false);
+			} else {
+				decode( value, image );
+			}
+		}
 		// load images
 		UF_DEBUG_TRACE_MSG("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
@@ -1010,6 +1036,18 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 		}
 	});
 	// load images
+	if ( !ext::json::isNull( serializer["atlas"] ) ) {
+		UF_DEBUG_TRACE_MSG("Reading atlas...");
+		auto& image = graph.atlas.getAtlas();
+		auto& value = serializer["atlas"];
+		if ( value.is<std::string>() ) {
+			std::string filename = directory + "/" + value.as<std::string>();
+			UF_DEBUG_TRACE_MSG("Reading atlas " << filename);
+			image.open(filename, false);
+		} else {
+			decode( value, image );
+		}
+	}
 	UF_DEBUG_TRACE_MSG("Reading images...");
 	graph.images.reserve( serializer["images"].size() );
 	ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
@@ -1074,12 +1112,14 @@ pod::Graph uf::graph::load( const std::string& filename, ext::gltf::load_mode_t 
 	});
 	decode(serializer["root"], graph.root);
 #endif
+#if 0
 	// generate atlas
-	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
+	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) {
 		UF_DEBUG_TRACE_MSG("Generating atlas...");
-		auto& atlas = *graph.atlas;
-		atlas.generate( graph.images );
+		graph.atlas.generate( graph.images );
+		graph.atlas.clear(false);
 	}
+#endif
 	// re-reference all transform parents
 	for ( auto& node : graph.nodes ) {
 		if ( 0 <= node.parent && node.parent < graph.nodes.size() && node.index != node.parent ) {
@@ -1244,6 +1284,17 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 #if UF_GRAPH_LOAD_MULTITHREAD
 	std::vector<std::function<int()>> jobs;
 	jobs.emplace_back([&]{
+		if ( graph.atlas.generated() ) {
+			auto& image = graph.atlas.getAtlas();
+			if ( saveSeparately ) {
+				std::string f = "atlas";
+				f += compression?".jpg":".png";
+				image.save(directory + "/" + f);
+				serializer["atlas"] = f;
+			} else {
+				serializer["atlas"] = encode(image, compression);
+			}
+		}
 		ext::json::reserve( serializer["images"], graph.images.size() );
 		if ( saveSeparately ) {
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
@@ -1323,6 +1374,16 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 	});
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 #else
+	if ( graph.atlas.generated() ) {
+		auto& image = graph.atlas.getAtlas();
+		if ( saveSeparately ) {
+			std::string f = "atlas"+(compression?".jpg":".png");
+			image.save(directory + "/" + f);
+			serializer["atlas"] = f;
+		} else {
+			serializer["atlas"] = encode(image, compression);
+		}
+	}
 	ext::json::reserve( serializer["images"], graph.images.size() );
 	if ( saveSeparately ) {
 		for ( size_t i = 0; i < graph.images.size(); ++i ) {

@@ -119,7 +119,7 @@ namespace ext {
 			void end();
 			size_t size() const;
 		protected:
-			void bindUniform( const Buffer::Descriptor& descriptor );
+			pod::Matrix4f bindUniform( const Buffer::Descriptor& descriptor );
 			void drawIndexed( const InfoDraw& );
 		//	void draw( const InfoDraw&, const Info&, const std::vector<InfoTexture*>& = {} );
 		//	void drawIndexed( const InfoDraw&, const Info&, const Info&, const std::vector<InfoTexture*>& = {} );

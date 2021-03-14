@@ -43,13 +43,14 @@ void ext::opengl::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 	
 	auto& commands = getCommands();	
 	commands.start(); {
+	#if 0
 		CommandBuffer::InfoClear clearCommandInfo = {};
 		clearCommandInfo.type = enums::Command::CLEAR;
 		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
 		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		commands.record(clearCommandInfo);
-
+	#endif
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};

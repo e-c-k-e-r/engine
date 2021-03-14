@@ -5,6 +5,7 @@
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/commands.h>
 #include <uf/ext/openvr/openvr.h>
+#include <uf/ext/gltf/gltf.h>
 
 #if 0
 #include <spirv_cross/spirv_cross.hpp>
@@ -1362,7 +1363,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, si
 	return this->record( commandBuffer, descriptor, pass, draw );
 }
 
-#include <uf/ext/gltf/mesh.h>
 void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass, size_t draw ) {
 	if ( !process ) return;
 #if 0
@@ -1376,20 +1376,17 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		return;
 	}
 	pipeline.record(*this, commandBuffer, pass, draw);
-#endif
-	int32_t vertexBufferIndex = -1;
-	int32_t uniformBufferIndex = -1;
-	int32_t storageBufferIndex = -1;
+#endif	
 	Buffer::Descriptor vertexBuffer = {};
 	Buffer::Descriptor indexBuffer = {};
 	Buffer::Descriptor uniformBuffer = {};
-	size_t vertexBufferSize = {};
-	size_t indexBufferSize = {};
-	size_t uniformBufferSize = {};
+	std::vector<Buffer::Descriptor> storageBuffers;
+
 	for ( auto& buffer : buffers ) {
-		if ( buffer.usage & uf::renderer::enums::Buffer::VERTEX ) { vertexBuffer = buffer.descriptor; vertexBufferSize = buffer.size; }
-		if ( buffer.usage & uf::renderer::enums::Buffer::INDEX ) { indexBuffer = buffer.descriptor; indexBufferSize = buffer.size; }
-		if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffer = buffer.descriptor; uniformBufferSize = buffer.size; }
+		if ( buffer.usage & uf::renderer::enums::Buffer::VERTEX ) { vertexBuffer = buffer.descriptor; }
+		if ( buffer.usage & uf::renderer::enums::Buffer::INDEX ) { indexBuffer = buffer.descriptor; }
+		if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffer = buffer.descriptor; }
+		if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) { storageBuffers.emplace_back(buffer.descriptor); }
 	}
 	if ( !vertexBuffer.buffer || !indexBuffer.buffer ) return;
 
@@ -1403,7 +1400,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	for ( auto& attribute : descriptor.geometry.attributes.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 //		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
+//		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
 		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
 		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
@@ -1431,6 +1428,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	if ( vertexAttributeNormal.name != "" ) drawCommandInfo.attributes.normal = vertexAttributeNormal.offset;
 	if ( vertexAttributeColor.name != "" ) drawCommandInfo.attributes.color = vertexAttributeColor.offset;
 
+
 	// split up our mesh by textures, if the right attribute exists
 	if ( vertexAttributeId.name != "" ) {
 		struct TextureMapping {
@@ -1440,6 +1438,22 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		};
 		std::vector<TextureMapping> mappings;
 		TextureMapping currentMapping;
+	
+		pod::Texture::Storage* storageBufferTextures = NULL;
+		pod::Material::Storage* storageBufferMaterials = NULL;
+		size_t storageBufferTexturesSize = 0;
+		size_t storageBufferMaterialsSize = 0;
+
+		if ( storageBuffers.size() >= 2 ) {
+			Buffer::Descriptor storageBufferTexturesDescriptor = storageBuffers[storageBuffers.size() - 1];
+			Buffer::Descriptor storageBufferMaterialsDescriptor = storageBuffers[storageBuffers.size() - 2];
+
+			storageBufferTextures = (pod::Texture::Storage*) ( device->getBuffer( storageBufferTexturesDescriptor.buffer ) + storageBufferTexturesDescriptor.offset );
+			storageBufferMaterials = (pod::Material::Storage*) ( device->getBuffer( storageBufferMaterialsDescriptor.buffer ) + storageBufferMaterialsDescriptor.offset );
+
+			storageBufferTexturesSize = storageBufferTexturesDescriptor.range / sizeof(pod::Texture::Storage);
+			storageBufferMaterialsSize = storageBufferMaterialsDescriptor.range / sizeof(pod::Material::Storage);
+		}
 
 		bool useLightmap = false;
 		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
@@ -1451,8 +1465,18 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
 				if ( st > pod::Vector2f{0,0} ) useLightmap = true;
 			}
-
+			size_t materialId = id.y;
 			size_t textureId = id.y;
+			if ( storageBufferMaterials && 0 <= materialId && materialId < storageBufferMaterialsSize ) {
+				auto& material = storageBufferMaterials[materialId];
+				size_t textureIndex = material.indexAlbedo;
+				if ( 0 <= textureIndex && textureIndex < storageBufferTexturesSize ) {
+					auto& texture = storageBufferTextures[textureIndex];
+					if ( 0 <= texture.index && texture.index < this->material.textures.size() ) {
+						textureId = texture.index;
+					}
+				}
+			}
 			if ( currentMapping.texture != textureId ) {
 				if ( currentMapping.range > 0 ) mappings.emplace_back(currentMapping);
 				currentMapping.offset += currentMapping.range;
@@ -1467,7 +1491,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 			drawCommandInfo.auxTexture = material.textures.back().descriptor;
 		}
 		for ( auto& mapping : mappings ) {
-			if ( mapping.range == 0 || mapping.texture >= material.textures.size() ) continue;
+			if ( mapping.range == 0 || !( 0 <= mapping.texture && mapping.texture < material.textures.size()) ) continue;
 			drawCommandInfo.texture = material.textures[mapping.texture].descriptor;
 			drawCommandInfo.descriptor.indices = mapping.range;
 			drawCommandInfo.indexBuffer.offset = indexBuffer.offset + sizeof(uf::renderer::index_t) * mapping.offset;
@@ -1621,6 +1645,12 @@ void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 			cullMode = uf::renderer::enums::CullMode::BOTH;
 		}
 	}
+
+	if ( ext::json::isObject(metadata["depth test"]) ) {
+		if ( metadata["depth test"]["test"].is<bool>() ) depth.test = metadata["depth test"]["test"].as<bool>();
+		if ( metadata["depth test"]["write"].is<bool>() ) depth.write = metadata["depth test"]["write"].as<bool>();
+	}
+
 	if ( metadata["indices"].is<size_t>() ) {
 		indices = metadata["indices"].as<size_t>();
 	}

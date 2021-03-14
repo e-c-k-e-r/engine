@@ -410,21 +410,25 @@ template<typename T> T uf::matrix::inverse( const T& matrix ) {
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( T& left, const T& right ) {
 	return left = uf::matrix::multiply((const T&) left, right);
 }
-template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w ) {
-	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w } );
+template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w, bool div ) {
+	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w }, div );
 }
-template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector ) {
+template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool div ) {
 #if UF_ENV_DREAMCAST
 	MATH_Load_XMTRX( (ALL_FLOATS_STRUCT*) &mat[0] );
-	auto res = MATH_Matrix_Transform( vector[0], vector[1], vector[2], vector[3] );
-	return *((pod::Vector4t<T>*) &res);
+	auto t = MATH_Matrix_Transform( vector[0], vector[1], vector[2], vector[3] );
+	auto res = *((pod::Vector4t<T>*) &t);
+	if ( div && res.w > 0 ) res /= res.w;
+	return res;
 #endif
-	return {
+	auto res = pod::Vector4t<T>{
 		vector[0] * mat[0] + vector[1] * mat[4] + vector[2] * mat[8] + vector[3] * mat[12],
 		vector[0] * mat[1] + vector[1] * mat[5] + vector[2] * mat[9] + vector[3] * mat[13],
 		vector[0] * mat[2] + vector[1] * mat[6] + vector[2] * mat[10] + vector[3] * mat[14],
 		vector[0] * mat[3] + vector[1] * mat[7] + vector[2] * mat[11] + vector[3] * mat[15]
 	};
+	if ( div && res.w > 0 ) res /= res.w;
+	return res;
 }
 // 	Flip sign of all components
 template<typename T> T& uf::matrix::invert( T& matrix ) {

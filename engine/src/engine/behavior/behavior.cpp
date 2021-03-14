@@ -88,8 +88,15 @@ void uf::Behaviors::tick() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
 //	UF_TIMER_TRACE_INIT();
-	UF_BEHAVIOR_POLYFILL(tick)
+//	UF_BEHAVIOR_POLYFILL(tick)
 //	UF_TIMER_TRACE(self.getName() << ": " << self.getUid());
+
+//	UF_TIMER_MULTITRACE_START("==== START TICKING BEHAVIORS ====");
+	for ( auto& behavior : this->m_behaviors ) {
+		behavior.tick(self);
+//		UF_TIMER_MULTITRACE(behavior.type);
+	}
+//	UF_TIMER_MULTITRACE_END("==== END TICKING BEHAVIORS ====");
 }
 void uf::Behaviors::render() {
 	uf::Object& self = *((uf::Object*) this);

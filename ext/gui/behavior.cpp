@@ -38,31 +38,48 @@ namespace {
 		std::unordered_map<std::string, std::unordered_map<std::string, uf::Glyph>> cache;
 	} glyphs;
 #endif
-
-#if UF_USE_OPENGL
-	std::string defaultRenderMode = "";
-#else
 	std::string defaultRenderMode = "Gui";
-#endif
 	uf::Serializer defaultSettings;
+
+	std::vector<std::string> metadataKeys = {
+		"alpha",
+		"color",
+		"depth",
+		"font",
+		"only model",
+		"projection",
+		"scale",
+		"sdf",
+		"shader",
+		"shadowbox",
+		"size",
+		"spread",
+		"string",
+		"stroke",
+		"uv",
+		"weight",
+		"world",
+	};
 }
-/*
-ext::Gui::Gui(){
-	this->addBehavior<ext::GuiBehavior>();
-}
-*/
 std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string ) {
 	std::vector<pod::GlyphBox> gs;
 #if UF_USE_FREETYPE
 	uf::Object& gui = *this;
 	std::string string = _string;
-	uf::Serializer& metadata = gui.getComponent<uf::Serializer>();
-	std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
+	auto& metadata = gui.getComponent<ext::GuiBehavior::Metadata>();
+	auto& metadataGlyph = gui.getComponent<ext::GuiBehavior::GlyphMetadata>();
+	auto& metadataJson = gui.getComponent<uf::Serializer>();
+
+	metadata.deserialize();
+	metadataGlyph.deserialize();
+
+//	std::string font = uf::io::root+"/fonts/" + metadataJson["text settings"]["font"].as<std::string>();
+	std::string font = uf::io::root+"/fonts/" + metadataGlyph.font;
 	if ( ::glyphs.cache[font].empty() ) {
 		ext::freetype::initialize( ::glyphs.glyph, font );
 	}
 	if ( string == "" ) {
-		string = metadata["text settings"]["string"].as<std::string>();
+		string = metadataGlyph.string;
 	}
 	pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
 	struct {
@@ -97,17 +114,9 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 		} colors;
 	} stat;
 
-	float scale = metadata["text settings"]["scale"].as<float>();
-
-	{
-		pod::Vector3f color = {
-			metadata["text settings"]["color"][0].as<float>(),
-			metadata["text settings"]["color"][1].as<float>(),
-			metadata["text settings"]["color"][2].as<float>(),
-		};
-		stat.colors.container.push_back(color);
-	}
-
+	float scale = metadataGlyph.scale;
+	pod::Vector3f color = metadata.color;
+	stat.colors.container.push_back(color);
 	unsigned long COLORCONTROL = 0x7F;
 
 	{
@@ -152,20 +161,22 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 			unsigned long c = *it; if ( c == '\n' ) continue; if ( c == '\t' ) continue; if ( c == 0x01 ) continue;
 			std::string key = ""; {
 				key += std::to_string(c) + ";";
-				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-				key += metadata["text settings"]["spread"].as<std::string>() + ";";
-				key += metadata["text settings"]["size"].as<std::string>() + ";";
-				key += metadata["text settings"]["font"].as<std::string>() + ";";
-				key += metadata["text settings"]["sdf"].as<std::string>();
+				key += std::to_string(metadataGlyph.padding[0]) + ",";
+				key += std::to_string(metadataGlyph.padding[1]) + ";";
+				key += std::to_string(metadataGlyph.spread) + ";";
+				key += std::to_string(metadataGlyph.size) + ";";
+				key += metadataGlyph.font + ";";
+				key += std::to_string(metadataGlyph.sdf);
 			}
 			uf::Glyph& glyph = ::glyphs.cache[font][key];
 
 			if ( !glyph.generated() ) {
-				glyph.setPadding( { metadata["text settings"]["padding"][0].as<size_t>(), metadata["text settings"]["padding"][1].as<size_t>() } );
-				glyph.setSpread( metadata["text settings"]["spread"].as<size_t>() );
-				if ( metadata["text settings"]["sdf"].as<bool>() ) glyph.useSdf(true);
-				glyph.generate( ::glyphs.glyph, c, metadata["text settings"]["size"].as<int>() );
+				glyph.setPadding( { metadataGlyph.padding[0], metadataGlyph.padding[1] } );
+				glyph.setSpread( metadataGlyph.spread );
+			#if UF_USE_VULKAN
+				if ( metadataGlyph.sdf ) glyph.useSdf(true);
+			#endif
+				glyph.generate( ::glyphs.glyph, c, metadataGlyph.size );
 			}
 			
 			stat.biggest.x = std::max( (float) stat.biggest.x, (float) glyph.getSize().x);
@@ -201,12 +212,12 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 			}
 			std::string key = ""; {
 				key += std::to_string(c) + ";";
-				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-				key += metadata["text settings"]["spread"].as<std::string>() + ";";
-				key += metadata["text settings"]["size"].as<std::string>() + ";";
-				key += metadata["text settings"]["font"].as<std::string>() + ";";
-				key += metadata["text settings"]["sdf"].as<std::string>();
+				key += std::to_string(metadataGlyph.padding[0]) + ",";
+				key += std::to_string(metadataGlyph.padding[1]) + ";";
+				key += std::to_string(metadataGlyph.spread) + ";";
+				key += std::to_string(metadataGlyph.size) + ";";
+				key += metadataGlyph.font + ";";
+				key += std::to_string(metadataGlyph.sdf);
 			}
 			uf::Glyph& glyph = ::glyphs.cache[font][key];
 			pod::GlyphBox g;
@@ -220,17 +231,17 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 			stat.cursor.x += (glyph.getAdvance().x);
 		}
 
-		stat.origin.x = ( !metadata["text settings"]["world"].as<bool>() && transform.position.x != (int) transform.position.x ) ? transform.position.x * ext::gui::size.current.x : transform.position.x;
-		stat.origin.y = ( !metadata["text settings"]["world"].as<bool>() && transform.position.y != (int) transform.position.y ) ? transform.position.y * ext::gui::size.current.y : transform.position.y;
-
-	
-		if ( ext::json::isArray( metadata["text settings"]["origin"] ) ) {
-			stat.origin.x = metadata["text settings"]["origin"][0].as<int>();
-			stat.origin.y = metadata["text settings"]["origin"][1].as<int>();
+		stat.origin.x = ( !metadata.world && transform.position.x != (int) transform.position.x ) ? transform.position.x * ext::gui::size.current.x : transform.position.x;
+		stat.origin.y = ( !metadata.world && transform.position.y != (int) transform.position.y ) ? transform.position.y * ext::gui::size.current.y : transform.position.y;
+	/*
+		if ( ext::json::isArray( metadataJson["text settings"]["origin"] ) ) {
+			stat.origin.x = metadataJson["text settings"]["origin"][0].as<int>();
+			stat.origin.y = metadataJson["text settings"]["origin"][1].as<int>();
 		}
-		else if ( metadata["text settings"]["origin"] == "top" ) stat.origin.y = ext::gui::size.current.y - stat.origin.y - stat.biggest.y;// else stat.origin.y = stat.origin.y;
-		if ( metadata["text settings"]["align"] == "right" ) stat.origin.x = ext::gui::size.current.x - stat.origin.x - stat.box.w;// else stat.origin.x = stat.origin.x;
-		else if ( metadata["text settings"]["align"] == "center" )
+	*/
+		if ( metadataGlyph.origin == "top" ) stat.origin.y = ext::gui::size.current.y - stat.origin.y - stat.biggest.y;// else stat.origin.y = stat.origin.y;
+		if ( metadataGlyph.align == "right" ) stat.origin.x = ext::gui::size.current.x - stat.origin.x - stat.box.w;// else stat.origin.x = stat.origin.x;
+		else if ( metadataGlyph.align == "center" )
 			stat.origin.x -= stat.box.w * 0.5f;
 	}
 
@@ -239,7 +250,7 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 	stat.cursor.y = stat.biggest.y;
 	for ( auto it = str.begin(); it != str.end(); ++it ) {
 		unsigned long c = *it; if ( c == '\n' ) {
-			if ( metadata["text settings"]["direction"] == "down" ) stat.cursor.y -= stat.biggest.y; else stat.cursor.y += stat.biggest.y;
+			if ( metadataGlyph.direction == "down" ) stat.cursor.y -= stat.biggest.y; else stat.cursor.y += stat.biggest.y;
 			stat.cursor.x = 0;
 			continue;
 		} else if ( c == '\t' ) {
@@ -259,12 +270,12 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 		}
 		std::string key = ""; {
 			key += std::to_string(c) + ";";
-			key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-			key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-			key += metadata["text settings"]["spread"].as<std::string>() + ";";
-			key += metadata["text settings"]["size"].as<std::string>() + ";";
-			key += metadata["text settings"]["font"].as<std::string>() + ";";
-			key += metadata["text settings"]["sdf"].as<std::string>();
+			key += std::to_string(metadataGlyph.padding[0]) + ",";
+			key += std::to_string(metadataGlyph.padding[1]) + ";";
+			key += std::to_string(metadataGlyph.spread) + ";";
+			key += std::to_string(metadataGlyph.size) + ";";
+			key += metadataGlyph.font + ";";
+			key += std::to_string(metadataGlyph.sdf);
 		}
 		uf::Glyph& glyph = ::glyphs.cache[font][key];
 
@@ -283,11 +294,7 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 			g.color = stat.colors.container.at(stat.colors.index);
 		} else {
 			std::cout << "Invalid color index `" << stat.colors.index <<  "` for string: " <<  string << ": (" << stat.colors.container.size() << ")" << std::endl;
-			g.color = {
-				metadata["text settings"]["color"][0].as<float>(),
-				metadata["text settings"]["color"][1].as<float>(),
-				metadata["text settings"]["color"][2].as<float>(),
-			};
+			g.color = metadata.color;
 		}
 		gs.push_back(g);
 	}
@@ -295,131 +302,95 @@ std::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const std::string& _string 
 	return gs;
 }
 
-void ext::Gui::load( const uf::Image& _image ) {
+void ext::Gui::load( const uf::Image& image ) {
 	auto& scene = uf::scene::getCurrentScene();
-	
+/*
 	auto& image = this->getComponent<uf::Image>();
-	// image = uf::Image( _image );
 	image.copy( _image );
-	auto& metadata = this->getComponent<uf::Serializer>();
-	metadata["size"][0] = image.getDimensions().x;
-	metadata["size"][1] = image.getDimensions().y;
+*/
+	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
+	auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	metadata.size = image.getDimensions();
 
 	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& texture = graphic.material.textures.emplace_back();
 	texture.loadFromImage( image );
-/*
-	{
-		pod::Transform<>& transform = gui.getComponent<pod::Transform<>>();
-		uf::GuiMesh& mesh = gui.getComponent<uf::GuiMesh>();
-		auto& texture = graphic.material.textures.front();
 
-		pod::Vector2f textureSize = {
-			metadata["size"][0].as<float>(),
-			metadata["size"][1].as<float>()
-		};
-
-		if ( metadata["scaling"].as<std::string>() == "fixed" ) {
-			transform.scale = pod::Vector3{ (float) textureSize.x / ext::gui::size.current.x, (float) textureSize.y / ext::gui::size.current.y, 1 };
-		} else if ( metadata["scaling"].as<std::string>() == "fixed-1080p" ) {
-			transform.scale = pod::Vector3{ (float) textureSize.x / 1920, (float) textureSize.y / 1080, 1 };
-		}
-	}
-*/
-
-	auto& mesh = this->getComponent<uf::GuiMesh>();
+	auto& mesh = this->getComponent<ext::Gui::mesh_t>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 	mesh.vertices = {
-		{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
-		{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
-		{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, metadata.color },
+		{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, metadata.color },
+		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, metadata.color },
 	
-		{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
-		{ {1.0f, 1.0f}, {1.0f, 1.0f}, },
-		{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
-	/*
-		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-		{ {-1.0f, -1.0f}, {0.0f, 1.0f}, },
-		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-
-		{ {-1.0f, 1.0f}, {0.0f, 0.0f}, },
-		{ {1.0f, -1.0f}, {1.0f, 1.0f}, },
-		{ {1.0f, 1.0f}, {1.0f, 0.0f}, }
-	*/
+		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, metadata.color },
+		{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, metadata.color },
+		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, metadata.color },
 	};
 
 	pod::Vector2f raidou = { 1, 1 };
 	bool modified = false;
 
-	if ( metadata["mode"].as<std::string>() == "flat" ) {
-		if ( ext::json::isNull(metadata["projection"]) ) metadata["projection"] = false;
-		if ( ext::json::isNull(metadata["flip uv"]) ) metadata["flip uv"] = true;
-		if ( ext::json::isNull(metadata["front face"]) ) metadata["front face"] = "ccw";
+	if ( metadataJson["mode"].as<std::string>() == "flat" ) {
+		if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = false;
+		if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = true;
+		if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "ccw";
+	#if UF_USE_OPENGL
+		metadataJson["cull mode"] = "back";
+	//	metadataJson["depth test"]["test"] = false;
+	//	metadataJson["depth test"]["write"] = true;
+	//	if ( metadataJson["flip uv"].is<bool>() ) metadataJson["flip uv"] = !metadataJson["flip uv"].as<bool>();
+	#endif
 	} else {
-		if ( ext::json::isNull(metadata["projection"]) ) metadata["projection"] = true;
-		if ( ext::json::isNull(metadata["flip uv"]) ) metadata["flip uv"] = false;
-		if ( ext::json::isNull(metadata["front face"]) ) metadata["front face"] = "cw";
+		if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = true;
+		if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = false;
+		if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "cw";
 	}
-	graphic.descriptor.parse( metadata );
+	metadataJson["cull mode"] = "none";
+	graphic.descriptor.parse( metadataJson );
 	
-	if ( metadata["flip uv"].as<bool>() ) {
-		for ( auto& v : mesh.vertices ) {
-			v.uv.y = 1 - v.uv.y;
-		}
+	if ( metadataJson["flip uv"].as<bool>() ) {
+		for ( auto& v : mesh.vertices ) v.uv.y = 1 - v.uv.y;
 	}
-	if ( metadata["scaling"].is<std::string>() ) {
-		std::string mode = metadata["scaling"].as<std::string>();
+	if ( metadata.depth != 0.0f )
+		for ( auto& v : mesh.vertices ) v.position.z = metadata.depth;
+	if ( metadataJson["scaling"].is<std::string>() ) {
+		std::string mode = metadataJson["scaling"].as<std::string>();
 		if ( mode == "mesh" ) {
 		//	raidou.x = (float) image.getDimensions().x / image.getDimensions().y;
 			raidou.y = (float) image.getDimensions().y / image.getDimensions().x;
 			modified = true;
 		}
-	} else if ( ext::json::isArray(metadata["scaling"]) ) {
-		raidou.x = metadata["scaling"][0].as<float>();
-		raidou.y = metadata["scaling"][1].as<float>();
+	} else if ( ext::json::isArray(metadataJson["scaling"]) ) {
+		raidou = uf::vector::decode( metadataJson["scaling"], raidou );
 		modified = true;
 	}
 	if ( modified ) {
 		transform.scale.x = raidou.x;
 		transform.scale.y = raidou.y;
 	}
-/*
-	for ( auto& vertex : mesh.vertices ) {
-		vertex.position.x *= raidou.x;
-		vertex.position.y *= raidou.y;
-	}
-
-	transform.scale.x = raidou.x;
-	transform.scale.y = raidou.y;
-*/
-/*
-	if ( !metadata["gui layer"].as<bool>() ) {
-		graphic.initialize( ::defaultRenderMode );
-	} else {
+	if ( metadataJson["layer"].is<std::string>() ) {
+		graphic.initialize( metadataJson["layer"].as<std::string>() );
+	} else if ( !ext::json::isNull( metadataJson["gui layer"] ) && !metadataJson["gui layer"].as<bool>() ) {
 		graphic.initialize();
-	}
-*/
-	if ( metadata["layer"].is<std::string>() ) {
-		graphic.initialize( metadata["layer"].as<std::string>() );
-	} else if ( !ext::json::isNull( metadata["gui layer"] ) && !metadata["gui layer"].as<bool>() ) {
-		graphic.initialize();
-	} else if ( metadata["gui layer"].is<std::string>() ) {
-		graphic.initialize( metadata["gui layer"].as<std::string>() );
+	} else if ( metadataJson["gui layer"].is<std::string>() ) {
+		graphic.initialize( metadataJson["gui layer"].as<std::string>() );
 	} else {
 		graphic.initialize( ::defaultRenderMode );
 	}
 	graphic.initializeMesh( mesh );
 	struct {
-		std::string vertex = uf::io::root+"/shaders/gui/vert.spv";
-		std::string fragment = uf::io::root+"/shaders/gui/frag.spv";
+		std::string vertex = uf::io::root+"/shaders/gui/base.vert.spv";
+		std::string fragment = uf::io::root+"/shaders/gui/base.frag.spv";
 	} filenames;
 	std::string suffix = ""; {
 		std::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<std::string>();
 		if ( _ != "" ) suffix = _ + ".";
 	}
-	if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-	if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
-	else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/"+suffix+"frag.spv";
+	if ( metadataJson["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadataJson["shaders"]["vertex"].as<std::string>();
+	if ( metadataJson["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadataJson["shaders"]["fragment"].as<std::string>();
+	else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/"+suffix+"base.frag.spv";
 
 	graphic.material.initializeShaders({
 		{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
@@ -444,32 +415,57 @@ UF_OBJECT_REGISTER_BEGIN(ext::Gui)
 UF_OBJECT_REGISTER_END()
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {	
-	auto& metadata = this->getComponent<uf::Serializer>();
-#if UF_USE_FREETYPE
-	this->addHook( "glyph:Load.%UID%", [&](ext::json::Value& json){
-		unsigned long c = json["glyph"].as<size_t>();
-		std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
-		std::string key = ""; {
-			key += std::to_string(c) + ";";
-			key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-			key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-			key += metadata["text settings"]["spread"].as<std::string>() + ";";
-			key += metadata["text settings"]["size"].as<std::string>() + ";";
-			key += metadata["text settings"]["font"].as<std::string>() + ";";
-			key += metadata["text settings"]["sdf"].as<std::string>();
+	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+
+	metadata.serialize = [&]() {
+		metadataJson["gui"]["color"] = uf::vector::encode( metadata.color );
+		metadataJson["gui"]["world"] = metadata.world;
+		if ( metadata.mode == 1 ) metadataJson["gui"]["only model"] = true;
+		else if ( metadata.mode == 2 ) metadataJson["gui"]["world"] = true;
+		else if ( metadata.mode == 3 ) metadataJson["gui"]["projection"] = true;
+		metadataJson["box"]["min"] = uf::vector::encode( metadata.box.min );
+		metadataJson["box"]["max"] = uf::vector::encode( metadata.box.max );
+		metadataJson["gui"]["clicked"] = metadata.clicked;
+		metadataJson["gui"]["hovered"] = metadata.hovered;
+		metadataJson["gui"]["uv"] = uf::vector::encode( metadata.uv );
+		metadataJson["gui"]["shader"] = metadata.shader;
+		metadataJson["gui"]["depth"] = metadata.depth;
+		metadataJson["gui"]["alpha"] = metadata.alpha;
+
+		for ( auto& key : ::metadataKeys ) {
+			if ( !ext::json::isNull( metadataJson[key] ) )
+				metadataJson["gui"][key] = metadataJson[key];
+			if ( !ext::json::isNull( metadataJson["text settings"][key] ) )
+				metadataJson["gui"][key] = metadataJson["text settings"][key];
 		}
-		uf::Glyph& glyph = ::glyphs.cache[font][key];
+	};
+	metadata.deserialize = [&]() {
+		for ( auto& key : ::metadataKeys ) {
+			if ( !ext::json::isNull( metadataJson[key] ) )
+				metadataJson["gui"][key] = metadataJson[key];
+			if ( !ext::json::isNull( metadataJson["text settings"][key] ) )
+				metadataJson["gui"][key] = metadataJson["text settings"][key];
+		}
 		
-		uf::Image image; {
-			const uint8_t* buffer = glyph.getBuffer();
-			uf::Image::container_t pixels;
-			std::size_t len = glyph.getSize().x * glyph.getSize().y;
-			pixels.insert( pixels.end(), buffer, buffer + len );
-			image.loadFromBuffer( pixels, glyph.getSize(), 8, 1, true );
-		}
-		this->as<ext::Gui>().load( image );
-	});
-#endif
+		metadata.color = uf::vector::decode( metadataJson["gui"]["color"], metadata.color );
+		metadata.world = metadataJson["gui"]["world"].as<bool>();
+		if ( metadataJson["gui"]["only model"].as<bool>() ) metadata.mode = 1;
+		else if ( metadataJson["gui"]["world"].as<bool>() ) metadata.mode = 2;
+		else if ( metadataJson["gui"]["projection"].as<bool>() ) metadata.mode = 3;
+		metadata.box.min = uf::vector::decode( metadataJson["box"]["min"], metadata.box.min );
+		metadata.box.max = uf::vector::decode( metadataJson["box"]["max"], metadata.box.max );
+		metadata.clicked = metadataJson["gui"]["clicked"].as<bool>();
+		metadata.hovered = metadataJson["gui"]["hovered"].as<bool>();
+		metadata.uv = uf::vector::decode( metadataJson["gui"]["uv"], metadata.uv );
+		metadata.shader = metadataJson["gui"]["shader"].as<int>();
+		metadata.depth = metadataJson["gui"]["depth"].as<float>();
+		metadata.alpha = metadataJson["gui"]["alpha"].as<float>();
+		if ( metadataJson["gui"]["alpha"].is<float>() ) metadata.color[3] *= metadata.alpha;
+	};
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
+
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		std::string filename = json["filename"].as<std::string>();
 		std::string category = json["category"].as<std::string>();
@@ -479,51 +475,25 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-		const uf::Image* imagePointer = NULL;
 		if ( !assetLoader.has<uf::Image>(filename) ) return;
-		imagePointer = &assetLoader.get<uf::Image>(filename);
-		if ( !imagePointer ) return;
-	//	uf::Image image = *imagePointer;
-		this->as<ext::Gui>().load( *imagePointer );
-	});
-	this->addHook( "window:Resized", [&](ext::json::Value& json){
-		if ( !this->hasComponent<uf::GuiMesh>() ) return;
-
-		pod::Vector2ui size; {
-			size.x = json["window"]["size"]["x"].as<size_t>();
-			size.y = json["window"]["size"]["y"].as<size_t>();
-		}
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-
-	/*
-		pod::Vector2f textureSize = {
-			metadata["size"][0].as<float>(),
-			metadata["size"][1].as<float>()
-		};
-		if ( ext::json::isObject( metadata["text settings"] ) ) {
-		} else if ( metadata["scaling"].as<std::string>() == "fixed" ) {
-			transform.scale = pod::Vector3{ (float) textureSize.x / size.x, (float) textureSize.y / size.y, 1 };
-		} else if ( metadata["scaling"].as<std::string>() == "fixed-1080p" ) {
-			transform.scale = pod::Vector3{ (float) textureSize.x / 1920, (float) textureSize.y / 1080, 1 };
-		}
-	*/
-	} );
-		
-	if ( metadata["system"]["clickable"].as<bool>() ) {
+		auto& image = assetLoader.get<uf::Image>(filename);
+		this->as<ext::Gui>().load( image );
+	});		
+	if ( metadataJson["system"]["clickable"].as<bool>() ) {
 		uf::Timer<long long> clickTimer(false);
-	//	clickTimer.start( uf::Time<>(-1000000) );
+		clickTimer.start( uf::Time<>(-1000000) );
 		if ( !clickTimer.running() ) clickTimer.start();
 		this->addHook( "gui:Clicked.%UID%", [&](ext::json::Value& json){
-			if ( ext::json::isObject( metadata["events"]["click"] ) ) {
-				uf::Serializer event = metadata["events"]["click"];
-				metadata["events"]["click"] = ext::json::array(); //Json::arrayValue;
-				metadata["events"]["click"][0] = event;
-			} else if ( !ext::json::isArray( metadata["events"]["click"] ) ) {
+			if ( ext::json::isObject( metadataJson["events"]["click"] ) ) {
+				uf::Serializer event = metadataJson["events"]["click"];
+				metadataJson["events"]["click"] = ext::json::array(); //Json::arrayValue;
+				metadataJson["events"]["click"][0] = event;
+			} else if ( !ext::json::isArray( metadataJson["events"]["click"] ) ) {
 				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
 				return;
 			}
-			for ( int i = 0; i < metadata["events"]["click"].size(); ++i ) {
-				uf::Serializer event = metadata["events"]["click"][i];
+			for ( int i = 0; i < metadataJson["events"]["click"].size(); ++i ) {
+				uf::Serializer event = metadataJson["events"]["click"][i];
 				uf::Serializer payload = event["payload"];
 				if ( event["delay"].is<float>() ) {
 					this->queueHook(event["name"].as<std::string>(), payload, event["delay"].as<float>());
@@ -533,11 +503,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 		});
 		this->addHook( "window:Mouse.Click", [&](ext::json::Value& json){
-			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-
-			if ( metadata["world"].as<bool>() ) return;
-			if ( ext::json::isNull( metadata["box"] ) ) return;
-
+			if ( metadata.world ) return;
+			if ( !metadata.box.min && !metadata.box.max ) return;
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
 			if ( down ) {
@@ -560,34 +527,30 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 						x = json["mouse"]["position"]["x"].as<float>();
 						y = json["mouse"]["position"]["y"].as<float>();
 					}
-
-					pod::Vector2f min = { metadata["box"]["min"]["x"].as<float>(), metadata["box"]["min"]["y"].as<float>() };
-					pod::Vector2f max = { metadata["box"]["max"]["x"].as<float>(), metadata["box"]["max"]["y"].as<float>() };
-					clicked = ( min.x <= x && min.y <= y && max.x >= x && max.y >= y );
+					clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
 				}
 
 			}
-			metadata["clicked"] = clicked;
-			if ( clicked ) {
-				this->callHook("gui:Clicked.%UID%", json);
-			}
+			metadata.clicked = clicked;
+			metadataJson["clicked"] = clicked;
+			if ( clicked ) this->callHook("gui:Clicked.%UID%", json);
 			this->callHook("gui:Mouse.Clicked.%UID%", json);
 		} );
 	}
-	if ( metadata["system"]["hoverable"].as<bool>() ) {
+	if ( metadataJson["system"]["hoverable"].as<bool>() ) {
 		uf::Timer<long long> hoverTimer(false);
 		hoverTimer.start( uf::Time<>(-1000000) );
 		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
-			if ( ext::json::isObject( metadata["events"]["hover"] ) ) {
-				uf::Serializer event = metadata["events"]["hover"];
-				metadata["events"]["hover"] = ext::json::array(); //Json::arrayValue;
-				metadata["events"]["hover"][0] = event;
-			} else if ( !ext::json::isArray( metadata["events"]["hover"] ) ) {
+			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
+				uf::Serializer event = metadataJson["events"]["hover"];
+				metadataJson["events"]["hover"] = ext::json::array(); //Json::arrayValue;
+				metadataJson["events"]["hover"][0] = event;
+			} else if ( !ext::json::isArray( metadataJson["events"]["hover"] ) ) {
 				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
 				return;
 			}
-			for ( int i = 0; i < metadata["events"]["hover"].size(); ++i ) {
-				uf::Serializer event = metadata["events"]["hover"][i];
+			for ( int i = 0; i < metadataJson["events"]["hover"].size(); ++i ) {
+				uf::Serializer event = metadataJson["events"]["hover"][i];
 				uf::Serializer payload = event["payload"];
 				float delay = event["delay"].as<float>();
 				if ( event["delay"].is<double>() ) {
@@ -600,10 +563,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		});
 		this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
 			if ( this->getUid() == 0 ) return;
-			if ( !this->hasComponent<uf::GuiMesh>() ) return;
-			uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-			if ( metadata["world"].as<bool>() ) return;
-			if ( ext::json::isNull( metadata["box"] ) ) return;
+			if ( !this->hasComponent<ext::Gui::mesh_t>() ) return;
+
+			if ( metadata.world ) return;
+			if ( !metadata.box.min && !metadata.box.max ) return;
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
@@ -620,11 +583,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				float x = click.x;
 				float y = click.y;
 
-				pod::Vector2f min = { metadata["box"]["min"]["x"].as<float>(), metadata["box"]["min"]["y"].as<float>() };
-				pod::Vector2f max = { metadata["box"]["max"]["x"].as<float>(), metadata["box"]["max"]["y"].as<float>() };
-				clicked = ( min.x <= x && min.y <= y && max.x >= x && max.y >= y );
+				clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
 			}
-			metadata["hovered"] = clicked;
+			metadata.hovered = clicked;
+			metadataJson["hovered"] = clicked;
 
 			if ( clicked && hoverTimer.elapsed().asDouble() >= 1 ) {
 				hoverTimer.reset();
@@ -633,53 +595,122 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			this->callHook("gui:Mouse.Moved.%UID%", json);
 		} );
 	}
-	if ( metadata["text settings"]["string"].is<std::string>() ) {
-		if ( ext::json::isNull( ::defaultSettings["metadata"] ) ) {
-			::defaultSettings.readFromFile(uf::io::root+"/entities/gui/text/string.json");
-		}
-		for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
-			std::string key = it.key();
-			if ( ext::json::isNull( metadata["text settings"][key] ) ) {
-				metadata["text settings"][key] = ::defaultSettings["metadata"]["text settings"][key];
-			}
-		}
+#if UF_USE_FREETYPE
+	if ( metadataJson["text settings"]["string"].is<std::string>() ) {
+		if ( ext::json::isNull( ::defaultSettings["metadata"] ) ) ::defaultSettings.readFromFile(uf::io::root+"/entities/gui/text/string.json");
 
-		#if UF_USE_FREETYPE
-		if ( false ) {
-			uf::Serializer payload;
-			payload["first"] = true;
-			payload["string"] = metadata["text settings"]["string"];
-			this->callHook("gui:UpdateString.%UID%", payload);
-		} else {
+		ext::json::forEach(::defaultSettings["metadata"]["text settings"], [&]( const std::string& key, ext::json::Value& value ){
+			if ( ext::json::isNull( metadataJson["text settings"][key] ) )
+				metadataJson["text settings"][key] = value;
+		});
+
+		auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
+		metadataGlyph.serialize = [&]() {
+			metadataJson["text settings"]["font"] = metadataGlyph.font;
+			metadataJson["text settings"]["string"] = metadataGlyph.string;
+
+			metadataJson["text settings"]["scale"] = metadataGlyph.scale;
+			metadataJson["text settings"]["padding"] = uf::vector::encode( metadataGlyph.padding );
+			metadataJson["text settings"]["spread"] = metadataGlyph.spread;
+			metadataJson["text settings"]["size"] = metadataGlyph.size;
+			metadataJson["text settings"]["weight"] = metadataGlyph.weight;
+			metadataJson["text settings"]["sdf"] = metadataGlyph.sdf;
+			metadataJson["text settings"]["shadowbox"] = metadataGlyph.shadowbox;
+			metadataJson["text settings"]["stroke"] = uf::vector::encode( metadataGlyph.stroke );
+
+			metadataJson["text settings"]["origin"] = metadataGlyph.origin;
+			metadataJson["text settings"]["align"] = metadataGlyph.align;
+			metadataJson["text settings"]["direction"] = metadataGlyph.direction;
+
+			for ( auto& key : ::metadataKeys ) {
+				if ( !ext::json::isNull( metadataJson[key] ) )
+					metadataJson["gui"][key] = metadataJson[key];
+				if ( !ext::json::isNull( metadataJson["text settings"][key] ) )
+					metadataJson["gui"][key] = metadataJson["text settings"][key];
+			}
+		};
+		metadataGlyph.deserialize = [&]() {
+			for ( auto& key : ::metadataKeys ) {
+				if ( !ext::json::isNull( metadataJson[key] ) ) metadataJson["gui"][key] = metadataJson[key];
+				if ( !ext::json::isNull( metadataJson["text settings"][key] ) ) metadataJson["gui"][key] = metadataJson["text settings"][key];
+			}
+			metadataGlyph.font = metadataJson["gui"]["font"].as<std::string>();
+			metadataGlyph.string = metadataJson["gui"]["string"].as<std::string>();
+			
+			metadataGlyph.scale = metadataJson["gui"]["scale"].as<float>();
+			metadataGlyph.padding = uf::vector::decode( metadataJson["gui"]["padding"], metadataGlyph.padding );
+			metadataGlyph.spread = metadataJson["gui"]["spread"].as<float>();
+			metadataGlyph.size = metadataJson["gui"]["size"].as<float>();
+			metadataGlyph.weight = metadataJson["gui"]["weight"].as<float>();
+			metadataGlyph.sdf = metadataJson["gui"]["sdf"].as<bool>();
+			metadataGlyph.shadowbox = metadataJson["gui"]["shadowbox"].as<bool>();
+			metadataGlyph.stroke = uf::vector::decode( metadataJson["gui"]["stroke"], metadataGlyph.stroke );
+			
+			metadataGlyph.origin = metadataJson["gui"]["origin"].as<std::string>();
+			metadataGlyph.align = metadataJson["gui"]["align"].as<std::string>();
+			metadataGlyph.direction = metadataJson["gui"]["direction"].as<std::string>();
+		};
+		this->addHook( "object:UpdateMetadata.%UID%", metadataGlyph.deserialize);
+	#if 0
+		metadataGlyph.deserialize();
+		{
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs();
 			
-			std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
+			std::string font = uf::io::root+"/fonts/" + metadataGlyph.font;
 			std::string key = ""; {
-				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-				key += metadata["text settings"]["spread"].as<std::string>() + ";";
-				key += metadata["text settings"]["size"].as<std::string>() + ";";
-				key += metadata["text settings"]["font"].as<std::string>() + ";";
-				key += metadata["text settings"]["sdf"].as<std::string>();
+				key += std::to_string(metadataGlyph.padding[0]) + ",";
+				key += std::to_string(metadataGlyph.padding[1]) + ";";
+				key += std::to_string(metadataGlyph.spread) + ";";
+				key += std::to_string(metadataGlyph.size) + ";";
+				key += metadataGlyph.font + ";";
+				key += std::to_string(metadataGlyph.sdf);
 			}
 			auto& scene = uf::scene::getCurrentScene();
-			auto& atlas = this->getComponent<uf::HashAtlas>();
+			auto& atlas = this->getComponent<uf::Atlas>();
 			auto& images = atlas.getImages();
 			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
 			auto& graphic = this->getComponent<uf::Graphic>();
-			mesh.vertices.reserve( glyphs.size() * 6 );
 
+			if ( metadataJson["mode"].as<std::string>() == "flat" ) {
+				if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = false;
+				if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "ccw";
+			#if UF_USE_OPENGL
+				metadataJson["cull mode"] = "front";
+			//	metadataJson["depth test"]["test"] = false;
+			//	metadataJson["depth test"]["write"] = true;
+			#endif
+			} else {
+				if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = true;
+				if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "cw";
+			}
+			metadataJson["cull mode"] = "none";
+			graphic.descriptor.parse( metadataJson );
+
+			mesh.vertices.reserve( glyphs.size() * 6 );
 			std::unordered_map<std::string, std::string> glyphHashMap;
 			for ( auto& g : glyphs ) {
 				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
 				auto& glyph = ::glyphs.cache[font][glyphKey];
-
+			#if UF_USE_OPENGL
+				const uint8_t* buffer = glyph.getBuffer();
+				uf::Image::container_t pixels;
+				std::size_t len = glyph.getSize().x * glyph.getSize().y;
+				pixels.reserve( len * 4 );
+				for ( size_t i = 0; i < len; ++i ) {
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+				}
+				glyphHashMap[glyphKey] = atlas.addImage( &pixels[0], glyph.getSize(), 8, 4, true );
+			#else
 				glyphHashMap[glyphKey] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
+			#endif
 			}
 
 			atlas.generate();
 
-			float scale = metadata["text settings"]["scale"].as<float>();
+			float scale = metadataGlyph.scale;
 			auto& transform = this->getComponent<pod::Transform<>>();
 			transform.scale.x = scale;
 			transform.scale.y = scale;
@@ -701,7 +732,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					auto& vertex = mesh.vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
-
+					vertex.position.z = metadata.depth;
 					vertex.uv.y = 1 - vertex.uv.y;
 				}
 			}
@@ -719,8 +750,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				std::string vertex = uf::io::root+"/shaders/gui/text.vert.spv";
 				std::string fragment = uf::io::root+"/shaders/gui/text.frag.spv";
 			} filenames;
-			if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-			if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
+			if ( metadataJson["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadataJson["shaders"]["vertex"].as<std::string>();
+			if ( metadataJson["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadataJson["shaders"]["fragment"].as<std::string>();
 			else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/text."+suffix+"frag.spv";
 
 			graphic.material.initializeShaders({
@@ -728,43 +759,40 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				{filenames.fragment, uf::renderer::enums::Shader::FRAGMENT},
 			});
 		}
-		#endif
-
+	#endif
 		this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
-
 			if ( json["old"]["text settings"]["string"] == json["new"]["text settings"]["string"] ) return;
 			this->queueHook( "gui:UpdateString.%UID%");
 		});
-		#if UF_USE_FREETYPE
 		this->addHook( "gui:UpdateString.%UID%", [&](ext::json::Value& json){
-			for ( auto it = ::defaultSettings["metadata"]["text settings"].begin(); it != ::defaultSettings["metadata"]["text settings"].end(); ++it ) {
-				std::string key = it.key();
-				if ( ext::json::isNull( metadata["text settings"][key] ) ) {
-					metadata["text settings"][key] = ::defaultSettings["metadata"]["text settings"][key];
-				}
-			}
-			if ( json["string"].is<std::string>() ) {
-				metadata["text settings"]["string"] = json["string"];
-			}
-			std::string string = metadata["text settings"]["string"].as<std::string>();
+			ext::json::forEach(::defaultSettings["metadata"]["text settings"], [&]( const std::string& key, ext::json::Value& value ){
+				if ( ext::json::isNull( metadataJson["text settings"][key] ) )
+					metadataJson["text settings"][key] = value;
+			});
+			if ( json["string"].is<std::string>() ) metadataJson["text settings"]["string"] = json["string"];
+			std::string string = metadataJson["text settings"]["string"].as<std::string>();
+
+
+			auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
+			bool first = metadataGlyph.string == "" || json["first"].as<bool>();
+			metadataGlyph.deserialize();
 
 			std::vector<pod::GlyphBox> glyphs = this->as<ext::Gui>().generateGlyphs( string );
-			
-			std::string font = uf::io::root+"/fonts/" + metadata["text settings"]["font"].as<std::string>();
+			std::string font = uf::io::root+"/fonts/" + metadataGlyph.font;
 			std::string key = ""; {
-				key += metadata["text settings"]["padding"][0].as<std::string>() + ",";
-				key += metadata["text settings"]["padding"][1].as<std::string>() + ";";
-				key += metadata["text settings"]["spread"].as<std::string>() + ";";
-				key += metadata["text settings"]["size"].as<std::string>() + ";";
-				key += metadata["text settings"]["font"].as<std::string>() + ";";
-				key += metadata["text settings"]["sdf"].as<std::string>();
+				key += std::to_string(metadataGlyph.padding[0]) + ",";
+				key += std::to_string(metadataGlyph.padding[1]) + ";";
+				key += std::to_string(metadataGlyph.spread) + ";";
+				key += std::to_string(metadataGlyph.size) + ";";
+				key += metadataGlyph.font + ";";
+				key += std::to_string(metadataGlyph.sdf);
 			}
 			auto& scene = uf::scene::getCurrentScene();
-			auto& atlas = this->getComponent<uf::HashAtlas>();
-			auto& images = atlas.getImages();
 			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
 			auto& graphic = this->getComponent<uf::Graphic>();
-			if ( !json["first"].as<bool>() ) {
+			auto& atlas = this->getComponent<uf::Atlas>();
+			auto& images = atlas.getImages();
+			if ( !first ) {
 				atlas.clear();
 				mesh.vertices.clear();
 				mesh.indices.clear();
@@ -778,13 +806,25 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			for ( auto& g : glyphs ) {
 				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
 				auto& glyph = ::glyphs.cache[font][glyphKey];
-
+			#if UF_USE_OPENGL
+				const uint8_t* buffer = glyph.getBuffer();
+				uf::Image::container_t pixels;
+				std::size_t len = glyph.getSize().x * glyph.getSize().y;
+				pixels.reserve( len * 2 );
+				for ( size_t i = 0; i < len; ++i ) {
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+				}
+				glyphHashMap[glyphKey] = atlas.addImage( &pixels[0], glyph.getSize(), 8, 2, true );
+			#else
 				glyphHashMap[glyphKey] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
+			#endif
 			}
 
 			atlas.generate();
+			atlas.clear(false);
 
-			float scale = metadata["text settings"]["scale"].as<float>();
+			float scale = metadataGlyph.scale;
 			auto& transform = this->getComponent<pod::Transform<>>();
 			transform.scale.x = scale;
 			transform.scale.y = scale;
@@ -806,15 +846,14 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					auto& vertex = mesh.vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
-
-					vertex.uv.y = 1 - vertex.uv.y;
+					vertex.position.z = metadata.depth;
 				}
 			}
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
 
-			if ( json["first"].as<bool>() ) {
+			if ( first ) {
 				graphic.initialize( ::defaultRenderMode );
 				graphic.initializeMesh( mesh );
 
@@ -826,8 +865,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					std::string vertex = uf::io::root+"/shaders/gui/text.vert.spv";
 					std::string fragment = uf::io::root+"/shaders/gui/text.frag.spv";
 				} filenames;
-				if ( metadata["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadata["shaders"]["vertex"].as<std::string>();
-				if ( metadata["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadata["shaders"]["fragment"].as<std::string>();
+				if ( metadataJson["shaders"]["vertex"].is<std::string>() ) filenames.vertex = metadataJson["shaders"]["vertex"].as<std::string>();
+				if ( metadataJson["shaders"]["fragment"].is<std::string>() ) filenames.fragment = metadataJson["shaders"]["fragment"].as<std::string>();
 				else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/text."+suffix+"frag.spv";
 
 				graphic.material.initializeShaders({
@@ -839,24 +878,25 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				graphic.getPipeline().update( graphic );
 			}
 		});
-		#endif
+		this->callHook("gui:UpdateString.%UID%");
 	}
+#endif
 }
 void ext::GuiBehavior::tick( uf::Object& self ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 #if 0
-	if ( metadata["text settings"]["fade in speed"].is<double>() && !metadata["system"]["faded in"].as<bool>() ) {
-		float speed = metadata["text settings"]["fade in speed"].as<float>();
-		float alpha = metadata["text settings"]["color"][3].as<float>();
+	uf::Serializer& metadataJson = this->getComponent<uf::Serializer>();
+	if ( metadataJson["text settings"]["fade in speed"].is<double>() && !metadataJson["system"]["faded in"].as<bool>() ) {
+		float speed = metadataJson["text settings"]["fade in speed"].as<float>();
+		float alpha = metadataJson["text settings"]["color"][3].as<float>();
 		speed *= uf::physics::time::delta;
 		if ( alpha < 1 && alpha + speed > 1 ) {
 			alpha = 1;
 			speed = 0;
 
-			metadata["system"]["faded in"] = true;
+			metadataJson["system"]["faded in"] = true;
 		}
 		if ( alpha + speed <= 1 ) {
-			metadata["text settings"]["color"][3] = alpha + speed;
+			metadataJson["text settings"]["color"][3] = alpha + speed;
 		}
 	}
 #endif
@@ -894,7 +934,8 @@ struct GlyphUniformDescriptor {
 	} gui;
 };
 void ext::GuiBehavior::render( uf::Object& self ){
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& graphic = this->getComponent<uf::Graphic>();
@@ -902,20 +943,23 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
+
+		bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>(); //metadataGlyph.string != "";
 	#if UF_USE_OPENGL
 		auto model = uf::matrix::identity();
 		auto uniformBuffer = graphic.getUniform();
 		pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniformBuffer.buffer));
 		uniform.projection = uf::matrix::identity();
-		if ( metadata["gui"]["only model"].as<bool>() ) {
+		if ( metadata.mode == 1 ) {
 			uniform.modelView = transform.model; 
-		} else if ( metadata["gui"]["world"].as<bool>() ) {
+		} else if ( metadata.mode == 2 ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();
 			uniform.projection = camera.getProjection();
 			uniform.modelView = camera.getView() * uf::transform::model( transform );
-		} else if ( metadata["gui"]["projection"].as<bool>() ) {
+			model = uniform.modelView;
+		} else if ( metadata.mode == 3 ) {
 			pod::Transform<> flatten = uf::transform::flatten( transform );
 			uniform.projection = camera.getProjection();
 			uniform.modelView = 
@@ -923,15 +967,25 @@ void ext::GuiBehavior::render( uf::Object& self ){
 				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
 				uf::quaternion::matrix( flatten.orientation ) *
 				flatten.model;
+			model = uniform.modelView;
 		} else {
 			pod::Transform<> flatten = uf::transform::flatten( transform );
+			model = 
+				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+				uf::quaternion::matrix( flatten.orientation ) *
+				flatten.model;
+			
+			flatten.position.y = -flatten.position.y;
+			if ( isGlyph ) flatten.scale.y = -flatten.scale.y;
+
+			flatten.position.z = 1;
 			uniform.modelView = 
 				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
 				uf::quaternion::matrix( flatten.orientation ) *
 				flatten.model;
 		}
-
 		graphic.updateUniform( &uniform, sizeof(uniform) );
 	#else
 		if ( !graphic.material.hasShader("vertex") ) return;
@@ -940,61 +994,23 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		auto& uniform = shader.getUniform("UBO");
 		auto& uniforms = uniform.get<UniformDescriptor<>>();
 
-		bool isGlyph = metadata["text settings"]["string"].is<std::string>();
-		std::vector<std::string> keys = {
-			"uv",
-			"shader",
-			"depth",
-			"color",
-			"world",
-			"projection",
-			"only model",
-			"sdf",
-			"shadowbox",
-			"stroke",
-			"weight",
-			"spread",
-			"scale",
-			"alpha",
-		};
-		for ( auto& key : keys ) {
-			if ( !ext::json::isNull( metadata[key] ) )
-				metadata["gui"][key] = metadata[key];
-			if ( !ext::json::isNull( metadata["text settings"][key] ) )
-				metadata["gui"][key] = metadata["text settings"][key];
-		}
+		uniforms.gui.offset = metadata.uv;
+		uniforms.gui.mode = metadata.shader;
+		uniforms.gui.depth = metadata.depth;
 
-		uniforms.gui.offset = {
-			metadata["gui"]["uv"][0].as<float>(),
-			metadata["gui"]["uv"][1].as<float>(),
-			metadata["gui"]["uv"][2].as<float>(),
-			metadata["gui"]["uv"][3].as<float>()
-		};
-		uniforms.gui.mode = metadata["gui"]["shader"].is<int>() ? metadata["gui"]["shader"].as<int>() : 0;
-		uniforms.gui.depth = metadata["gui"]["depth"].is<double>() ? metadata["gui"]["depth"].as<float>() : 0;
 		uniforms.gui.depth = 1 - uniforms.gui.depth;
-		if ( ext::json::isArray( metadata["gui"]["color"] ) ) {
-			uniforms.gui.color = {
-				metadata["gui"]["color"][0].as<float>(),
-				metadata["gui"]["color"][1].as<float>(),
-				metadata["gui"]["color"][2].as<float>(),
-				metadata["gui"]["color"][3].as<float>(),
-			};
-		} else {
-			uniforms.gui.color = { 1, 1, 1, 1 };
-		}
-		if ( metadata["gui"]["alpha"].is<double>() ) {
-			uniforms.gui.color[3] *= metadata["gui"]["alpha"].as<float>();
-		}
-		for ( std::size_t i = 0; i < 2; ++i ) {
-			if ( metadata["gui"]["only model"].as<bool>() ) {
+
+		uniforms.gui.color = metadata.color;
+
+		for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
+			if ( metadata.mode == 1 ) {
 				uniforms.matrices.model[i] = transform.model; 
-			} else if ( metadata["gui"]["world"].as<bool>() ) {
+			} else if ( metadata.mode == 2 ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& controller = scene.getController();
 				auto& camera = controller.getComponent<uf::Camera>();
 				uniforms.matrices.model[i] = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
-			} else if ( metadata["gui"]["projection"].as<bool>() ) {
+			} else if ( metadata.mode == 3 ) {
 				pod::Transform<> flatten = uf::transform::flatten( transform );
 				uniforms.matrices.model[i] = 
 					camera.getProjection(i) *
@@ -1015,22 +1031,14 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		// set glyph-based uniforms
 		if ( isGlyph ) {
 			auto& uniforms = uniform.get<GlyphUniformDescriptor<>>();
+			auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
 
-			uniforms.gui.sdf = metadata["gui"]["sdf"].as<bool>();
-			uniforms.gui.shadowbox = metadata["gui"]["shadowbox"].as<bool>();
-			if ( ext::json::isArray( metadata["gui"]["stroke"] ) ) {
-				uniforms.gui.stroke = {
-					metadata["gui"]["stroke"][0].as<float>(),
-					metadata["gui"]["stroke"][1].as<float>(),
-					metadata["gui"]["stroke"][2].as<float>(),
-					metadata["gui"]["stroke"][3].as<float>(),
-				};
-			} else {
-				uniforms.gui.stroke = { 1, 1, 1, 1 };
-			}
-			uniforms.gui.weight = metadata["gui"]["weight"].as<float>(); // float
-			uniforms.gui.spread = metadata["gui"]["spread"].as<int>(); // int
-			uniforms.gui.scale = metadata["gui"]["scale"].as<float>(); // float
+			uniforms.gui.sdf = metadataGlyph.sdf;
+			uniforms.gui.shadowbox = metadataGlyph.shadowbox;
+			uniforms.gui.stroke = metadataGlyph.stroke;
+			uniforms.gui.weight = metadataGlyph.weight;
+			uniforms.gui.spread = metadataGlyph.spread;
+			uniforms.gui.scale = metadataGlyph.scale;
 		}
 		shader.updateUniform( "UBO", uniform );
 
@@ -1040,8 +1048,8 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		pod::Vector2f min = {  1,  1 };
 		pod::Vector2f max = { -1, -1 };
 
-		if ( this->hasComponent<uf::GuiMesh>() ) {
-			auto& mesh = this->getComponent<uf::GuiMesh>();
+		if ( this->hasComponent<ext::Gui::mesh_t>() ) {
+			auto& mesh = this->getComponent<ext::Gui::mesh_t>();
 			for ( auto& vertex : mesh.vertices ) {
 				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
 				// gcc10+ doesn't like implicit template arguments
@@ -1066,10 +1074,10 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			}
 		}
 		
-		metadata["box"]["min"]["x"] = min.x;
-		metadata["box"]["min"]["y"] = min.y;
-		metadata["box"]["max"]["x"] = max.x;
-		metadata["box"]["max"]["y"] = max.y;
+		metadata.box.min.x = min.x;
+		metadata.box.min.y = min.y;
+		metadata.box.max.x = max.x;
+		metadata.box.max.y = max.y;
 	}
 }
 void ext::GuiBehavior::destroy( uf::Object& self ){}

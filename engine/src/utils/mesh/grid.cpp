@@ -93,7 +93,7 @@ const pod::Vector3f& uf::MeshGrid::center() const { return this->m_center; }
 const pod::Vector3f& uf::MeshGrid::extent() const { return this->m_extent; }
 
 void uf::MeshGrid::insert( uint32_t i1, uint32_t i2, uint32_t i3, const pod::Vector3f& v1, const pod::Vector3f& v2, const pod::Vector3f& v3 ) {
-#if 1
+#if 0
 	bool useStrongest = false;
 	int32_t strongestNode = -1;
 	pod::Collider::Manifold strongestManifold = {};	
@@ -125,7 +125,7 @@ void uf::MeshGrid::insert( uint32_t i1, uint32_t i2, uint32_t i3, const pod::Vec
 		node.indices.emplace_back(i3);
 	}
 #endif
-#if 0
+#if 1
 	auto center = centroid( v1, v2, v3 );
 	for ( size_t i = 0; i < this->m_nodes.size(); ++i ) {
 		auto& node = this->m_nodes[i];

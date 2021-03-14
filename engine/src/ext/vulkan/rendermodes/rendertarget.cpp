@@ -32,27 +32,16 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
+	std::string target = metadata["target"].as<std::string>();
 	if ( type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
-	std::string target = metadata["target"].as<std::string>();
 	// invalidate
-// 	if ( ( target == "" && descriptor.renderMode != this->getName() ) || ( target != "" && descriptor.renderMode != target ) ) {
 	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
 		descriptor.invalidated = true;
 	} else {
 		descriptor.renderMode = this->getName();
 	}
-/*
-	// allows for "easy" remapping for indices ranges
-	if ( ext::json::isObject( metadata["renderMode"]["target"][std::to_string(descriptor.indices)] ) ) {
-		auto& map = metadata["renderMode"]["target"][std::to_string(descriptor.indices)];
-		std::cout << "Replacing " << descriptor.indices;
-		descriptor.indices = map["size"].as<size_t>();
-		descriptor.offsets.index = map["offset"].as<size_t>();
-		std::cout << " with " << descriptor.offsets.index << " + " << descriptor.indices << std::endl;
-	}
-*/
 	return descriptor;
 }
 

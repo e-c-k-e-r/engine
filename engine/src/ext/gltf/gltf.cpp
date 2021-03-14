@@ -151,14 +151,14 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 	{
 		graph.images.reserve(model.images.size());
 		for ( auto& i : model.images ) {
+			size_t index = graph.images.size();
 			auto& image = graph.images.emplace_back();
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
 		}
 	}
 	// generate atlas
-	if ( mode & ext::gltf::LoadMode::ATLAS ) { if ( graph.atlas ) delete graph.atlas; graph.atlas = new uf::Atlas;
-		auto& atlas = *graph.atlas;
-		atlas.generate( graph.images );
+	if ( mode & ext::gltf::LoadMode::ATLAS ) {
+		graph.atlas.generate( graph.images );
 	}
 	// load textures
 	{
@@ -169,10 +169,11 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 
 			texture.storage.index = t.source;
 			texture.storage.sampler = t.sampler;
-			if ( graph.atlas ) {
-				auto& atlas = *graph.atlas;
-				auto atlasMin = atlas.mapUv( {0, 0}, t.source );
-				auto atlasMax = atlas.mapUv( {1, 1}, t.source );
+			if ( 0 <= t.source && graph.atlas.generated() ) {
+				size_t index = t.source;
+				const auto& hash = graph.images[index].getHash();
+				auto atlasMin = graph.atlas.mapUv( {0, 0}, hash );
+				auto atlasMax = graph.atlas.mapUv( {1, 1}, hash );
 
 				texture.storage.lerp = {
 					atlasMin.x,
@@ -183,6 +184,9 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 				};
 			}
 		}
+	}
+	if ( graph.atlas.generated() ) {
+		graph.atlas.clear(false);
 	}
 	// load materials
 	{

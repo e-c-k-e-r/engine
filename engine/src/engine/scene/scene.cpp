@@ -97,19 +97,19 @@ std::vector<uf::Entity*> uf::scene::generateGraph() {
 
 void uf::scene::tick() {
 	auto graph = uf::scene::generateGraph();
-//	UF_TIMER_MULTITRACE_START("==== START RENDER ====");
+//	UF_TIMER_MULTITRACE_START("==== START TICK ====");
 	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
 		(*it)->tick();
-//		UF_TIMER_MULTITRACE_START((*it)->getName() << ": " << (*it)->getUid());
+//		UF_TIMER_MULTITRACE((*it)->getName() << ": " << (*it)->getUid());
 	}
-//	UF_TIMER_MULTITRACE_END("==== END RENDER ====");
+//	UF_TIMER_MULTITRACE_END("==== END TICK ====");
 }
 void uf::scene::render() {
 	auto graph = uf::scene::generateGraph();
 //	UF_TIMER_MULTITRACE_START("==== START RENDER ====");
 	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
 		(*it)->render();
-//		UF_TIMER_MULTITRACE_START((*it)->getName() << ": " << (*it)->getUid());
+//		UF_TIMER_MULTITRACE((*it)->getName() << ": " << (*it)->getUid());
 	}
 //	UF_TIMER_MULTITRACE_END("==== END RENDER ====");
 }

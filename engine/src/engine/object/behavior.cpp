@@ -167,6 +167,10 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		graphic.destroy();
 		uf::renderer::states::rebuild = true;
 	}
+	if ( this->hasComponent<uf::Atlas>() ) {
+		auto& atlas = this->getComponent<uf::Atlas>();
+		atlas.clear();
+	}
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// listen for metadata file changes
@@ -201,17 +205,28 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		if ( ext::json::isObject( metadata ) ) queue = newQueue;
 	}
 #else
+
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	{
-		auto& queue = metadata.hooks.queue;
-		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-		float curTime = uf::Object::timer.elapsed().asDouble();
-		for ( auto it = queue.begin(); it != queue.end(); ) {
-			auto& q = *it;
-			if ( q.timeout < curTime ) { this->callHook( q.name, q.payload ); it = queue.erase( it ); }
-			else ++it;
-		}
+	auto& queue = metadata.hooks.queue;
+	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+	float curTime = uf::Object::timer.elapsed().asDouble();
+#if 1
+	decltype(metadata.hooks.queue) unprocessed;
+	unprocessed.reserve( metadata.hooks.queue.size() );
+
+	decltype(metadata.hooks.queue) executeQueue;
+	executeQueue.reserve( metadata.hooks.queue.size() );
+
+	for ( auto& q : queue ) if ( q.timeout < curTime ) executeQueue.emplace_back(q); else unprocessed.emplace_back(q);
+	for ( auto& q : executeQueue ) this->callHook( q.name, q.payload );
+	queue = std::move(unprocessed);
+#else
+	for ( auto it = queue.begin(); it != queue.end(); ) {
+		auto& q = *it;
+		if ( q.timeout < curTime ) { this->callHook( q.name, q.payload ); it = queue.erase( it ); }
+		else ++it;
 	}
+#endif
 #endif
 }
 void uf::ObjectBehavior::render( uf::Object& self ) {}

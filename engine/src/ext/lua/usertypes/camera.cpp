@@ -1,42 +1,56 @@
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 #include <uf/utils/camera/camera.h>
-UF_LUA_REGISTER_USERTYPE(uf::Camera,
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, []( uf::Camera& self ) {
+
+namespace binds {
+	pod::Transform<>& getTransform( uf::Camera& self ) {
 		return self.getTransform();
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getView, []( const uf::Camera& self, sol::variadic_args va ) {
+	}
+	pod::Matrix4f getView( const uf::Camera& self, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() > 0 ) {
 			size_t i = *it++;
 			return self.getView(i);
 		}
 		return self.getView();
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getProjection, []( const uf::Camera& self, sol::variadic_args va ) {
+	}
+	pod::Matrix4f getProjection( const uf::Camera& self, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() > 0 ) {
 			size_t i = *it++;
 			return self.getProjection(i);
 		}
 		return self.getProjection();
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setView, []( uf::Camera& self, const pod::Matrix4f& matrix, sol::variadic_args va ) {
+	}
+	void setView( uf::Camera& self, const pod::Matrix4f& matrix, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() > 0 ) {
 			size_t i = *it++;
-			return self.setView(matrix, i);
+			self.setView(matrix, i);
+		} else {
+			self.setView(matrix);
 		}
-		return self.setView(matrix);
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setProjection, []( uf::Camera& self, const pod::Matrix4f& matrix, sol::variadic_args va ) {
+	}
+	void setProjection( uf::Camera& self, const pod::Matrix4f& matrix, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() > 0 ) {
 			size_t i = *it++;
-			return self.setProjection(matrix, i);
+			self.setProjection(matrix, i);
+		} else {
+			self.setProjection(matrix);
 		}
-		return self.setProjection(matrix);
-	}),
-	UF_LUA_REGISTER_USERTYPE_MEMBER( uf::Camera::update )
+	}
+	void update( uf::Camera& self, bool force = true ) {
+		self.update(force);
+	}
+}
+
+UF_LUA_REGISTER_USERTYPE(uf::Camera,
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getTransform, UF_LUA_C_FUN(::binds::getTransform) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getView, UF_LUA_C_FUN(::binds::getView) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setView, UF_LUA_C_FUN(::binds::setView) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getProjection, UF_LUA_C_FUN(::binds::getProjection) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setProjection, UF_LUA_C_FUN(::binds::setProjection) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( update, UF_LUA_C_FUN(::binds::update) )
 )
 #endif

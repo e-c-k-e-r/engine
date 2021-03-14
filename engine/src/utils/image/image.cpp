@@ -91,6 +91,7 @@ bool uf::Image::open( const std::string& _filename, bool flip ) {
 #if UF_ENV_DREAMCAST
 	std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
 	if ( uf::io::exists(dtex) ) {
+		UF_DEBUG_MSG("Loading dtex instead for: " << filename);
 		filename = dtex;
 	}
 #endif
@@ -127,23 +128,36 @@ bool uf::Image::open( const std::string& _filename, bool flip ) {
 		uint32_t expected = 2 * header.width * header.height;
 		uint32_t ratio = (uint32_t) (((float) expected) / ((float) header.size));
 		bit_depth = 4;
+		this->m_format = format;
 		if ( compressed ) {
 			if ( twiddled ) {
 				switch ( format ) {
-					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_RGB_565_VQ_TWID_KOS; channels = 3; break;
+					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS; break;
 					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
 				}
 			} else {
 				switch ( format ) {
-					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS : GL_COMPRESSED_RGB_565_VQ_KOS; channels = 3; break;
+					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_4444_VQ_KOS; break;
 					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
 				}
 			}
 		} else { UF_EXCEPTION(filename << ": not a compressed texture"); return false; }
+	/*
+		UF_DEBUG_MSG("DTEX Header: " << header.id[0] << header.id[1] << header.id[2] << header.id[3] << " | " 
+			<< header.width << " x " << header.height << " | " 
+			<< twiddled << " | "
+			<< compressed << " | "
+			<< mipmapped << " | "
+			<< strided << " | "
+			<< header.size << " | "
+			<< std::bitset<32>(format) << " | " 
+			<< std::bitset<32>(this->m_format)
+		);
+	*/
 	} else 
 #endif
 	{
@@ -261,6 +275,7 @@ void uf::Image::copy( const uf::Image& copy ) {
 	this->m_bpp = copy.m_bpp;
 	this->m_channels = copy.m_channels;
 	this->m_filename = copy.m_filename;
+	this->m_format = copy.m_format;
 }
 // 	D-tor
 uf::Image::~Image() {
@@ -426,5 +441,6 @@ uf::Image& uf::Image::operator=( const uf::Image& copy ) {
 	this->m_bpp = copy.m_bpp;
 	this->m_channels = copy.m_channels;
 	this->m_filename = copy.m_filename;
+	this->m_format = copy.m_format;
 	return *this;
 }

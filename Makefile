@@ -43,7 +43,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua # freetype png meshoptimizer ogg openal draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png # meshoptimizer ogg openal draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN

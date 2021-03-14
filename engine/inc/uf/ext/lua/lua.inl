@@ -12,6 +12,7 @@ namespace {\
 
 #define UF_LUA_REGISTER_USERTYPE_DEFINE_RT(k, v) usertype[#k] = v;
 #define UF_LUA_REGISTER_USERTYPE_MEMBER_RT(member) usertype[UF_NS_GET_LAST(member)] = &member;
+#define UF_LUA_REGISTER_USERTYPE_MEMBER_FUN_RT(member) usertype[UF_NS_GET_LAST(member)] = UF_LUA_C_FUN(member);
 
 #define UF_LUA_REGISTER_USERTYPE_END() \
 		});\
@@ -30,3 +31,7 @@ namespace {\
 
 #define UF_LUA_REGISTER_USERTYPE_DEFINE(k, v) #k, v
 #define UF_LUA_REGISTER_USERTYPE_MEMBER(member) UF_NS_GET_LAST(member), &member
+#define UF_LUA_REGISTER_USERTYPE_MEMBER_FUN(member) UF_NS_GET_LAST(member), UF_LUA_C_FUN(member)
+
+#define UF_LUA_C_FUN(x) sol::c_call<decltype(&x), &x>
+#define UF_LUA_WRAP_FUN(x) sol::c_call<sol::wrap<decltype(&x), &x>>

@@ -30,9 +30,16 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			if ( ++::roundRobin.current >= ::roundRobin.lights.size() ) ::roundRobin.current = 0;
 		});
 	}
-
+/*
+	if ( !metadataJson["light"]["bias"]["shader"].is<float>() ) {
+		metadataJson["light"]["bias"]["shader"] = 0.000000005f;
+	}
+*/
 	if ( !metadataJson["light"]["bias"]["constant"].is<float>() ) {
 		metadataJson["light"]["bias"]["constant"] = 0.00005f;
+	}
+	if ( !metadataJson["light"]["type"].is<std::string>() ) {
+		metadataJson["light"]["type"] = "point";
 	}
 	if ( !ext::json::isArray( metadataJson["light"]["color"] ) ) {
 		metadataJson["light"]["color"][0] = 1; //metadataJson["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
@@ -70,7 +77,6 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata["type"] = "depth";
 		renderMode.metadata["depth bias"] = metadataJson["light"]["bias"];
 		renderMode.metadata["renderMode"] = metadataJson["renderMode"];
-		// std::cout << this->getName() << ": " << renderMode.metadata["renderMode"] << std::endl;
 
 		if ( metadataJson["light"]["type"].as<std::string>() == "point" ) {
 			metadataJson["light"]["fov"] = 90.0f;
@@ -88,7 +94,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		auto& cameraSize = camera.getSize();
 		renderMode.width = cameraSize.x;
 		renderMode.height = cameraSize.y;
-
+	//	UF_DEBUG_MSG(this->getName() << ": " << renderMode.metadata << " | " << metadataJson["light"]);
 	}
 
 	metadata.serialize = [&](){
@@ -100,8 +106,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		metadataJson["light"]["external update"] = metadata.renderer.external;
 		metadataJson["system"]["renderer"]["timer"] = metadata.renderer.limiter;
 		switch ( metadata.type ) {
-			case 0: metadataJson["light"]["type"] = ""; break;
-			case 1: metadataJson["light"]["type"] = "point"; break;
+			case 0: metadataJson["light"]["type"] = "point"; break;
+			case 1: metadataJson["light"]["type"] = "spot"; break;
 			case 2: metadataJson["light"]["type"] = "spot"; break;
 		}
 	};
@@ -118,8 +124,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
 		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
 			std::string lightType = metadataJson["light"]["type"].as<std::string>();
-			if ( lightType == "point" ) metadata.type = 1;
-			else if ( lightType == "spot" ) metadata.type = 2;
+			if ( lightType == "point" ) metadata.type = 0;
+			else if ( lightType == "spot" ) metadata.type = 1;
 		}
 	};
 	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
@@ -148,8 +154,8 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
 		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
 			std::string lightType = metadataJson["light"]["type"].as<std::string>();
-			if ( lightType == "point" ) metadata.type = 1;
-			else if ( lightType == "spot" ) metadata.type = 2;
+			if ( lightType == "point" ) metadata.type = 0;
+			else if ( lightType == "spot" ) metadata.type = 1;
 		}
 	}
 #endif
@@ -217,7 +223,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		if ( !metadata.renderer.external ) {
 			auto& camera = this->getComponent<uf::Camera>();
 			// omni light
-			if ( metadata.shadows && metadata.type == 1 ) {
+			if ( metadata.shadows && metadata.type == 0 ) {
 				auto transform = camera.getTransform();
 				std::vector<pod::Quaternion<>> rotations = {
 					uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 ),

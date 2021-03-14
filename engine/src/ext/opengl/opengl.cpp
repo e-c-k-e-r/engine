@@ -44,6 +44,7 @@ bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::opengl::settings::experimental::multiview = true;
 bool ext::opengl::settings::experimental::vsync = true;
 bool ext::opengl::settings::experimental::hdr = true;
+bool ext::opengl::settings::experimental::frustrumCull = false;
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;
@@ -347,6 +348,7 @@ void UF_API ext::opengl::tick(){
 void UF_API ext::opengl::render(){
 	ext::opengl::mutex.lock();
 #if !UF_ENV_DREAMCAST
+#if 0
 	if ( hasRenderMode("Gui", true) ) {
 		RenderMode& primary = getRenderMode("Gui", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
@@ -361,6 +363,7 @@ void UF_API ext::opengl::render(){
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
+#endif
 	ext::opengl::device.activateContext();
 #endif
 	for ( auto& renderMode : renderModes ) {

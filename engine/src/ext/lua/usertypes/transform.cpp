@@ -2,15 +2,8 @@
 #if UF_USE_LUA
 #include <uf/utils/math/transform.h>
 
-UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::position),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::scale),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::up),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::right),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::forward),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::orientation),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::model),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(move, []( pod::Transform<>& self, sol::variadic_args va ) {
+namespace binds {
+	void move( pod::Transform<>& self, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() == 1 ) {
 			pod::Vector3f delta = *it++;
@@ -20,8 +13,8 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 			double delta = *it++;
 			self = uf::transform::move( self, axis, delta );
 		}
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(rotate, []( pod::Transform<>& self, sol::variadic_args va ) {
+	}
+	void rotate( pod::Transform<>& self, sol::variadic_args va ) {
 		auto it = va.begin();
 		if ( va.size() == 1 ) {
 			pod::Quaternion<> delta = *it++;
@@ -31,22 +24,40 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 			double delta = *it++;
 			self = uf::transform::rotate( self, axis, delta );
 		}
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(flatten, []( const pod::Transform<>& t ) {
-		return uf::transform::flatten(t);
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, []( const pod::Transform<>& t ) {
+	}
+	pod::Transform<> flatten( const pod::Transform<>& t ) {
+		return uf::transform::flatten( t );
+	}
+	pod::Transform<> reorient( const pod::Transform<>& t ) {
 		return uf::transform::reorient( t );
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(getReference, []( pod::Transform<>& t ) {
+	}
+	pod::Transform<> getReference( pod::Transform<>& t ) {
 		return t.reference ? *t.reference : t;
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, []( const pod::Transform<>& t, pod::Vector3f& at ) {
+	}
+	pod::Transform<> lookAt( const pod::Transform<>& t, pod::Vector3f& at ) {
 		auto transform = t;
 		return uf::transform::lookAt( transform, at );
-	}),
-	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, []( const pod::Transform<>& t ) {
+	}
+	pod::Matrix4f getModel( const pod::Transform<>& t ) {
 		return uf::transform::model( t );
-	})
+	}
+}
+
+UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::position),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::scale),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::up),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::right),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::forward),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::orientation),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Transform<>::model),
+	
+	UF_LUA_REGISTER_USERTYPE_DEFINE(move, UF_LUA_C_FUN(::binds::move) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(rotate, UF_LUA_C_FUN(::binds::rotate)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(flatten, UF_LUA_C_FUN(::binds::flatten)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, UF_LUA_C_FUN(::binds::reorient)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(getReference, UF_LUA_C_FUN(::binds::getReference)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, UF_LUA_C_FUN(::binds::lookAt)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, UF_LUA_C_FUN(::binds::getModel))
 )
 #endif

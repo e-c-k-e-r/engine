@@ -359,7 +359,7 @@ size_t ext::opengl::CommandBuffer::size() const {
 	return infos.size();
 }
 
-void ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer::Descriptor& descriptor ) {
+pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer::Descriptor& descriptor ) {
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	pod::Uniform* uniform = (pod::Uniform*) (device->getBuffer( descriptor.buffer ) + descriptor.offset);
 
@@ -368,6 +368,8 @@ void ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer::Descrip
 
 	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
 	GL_ERROR_CHECK(glLoadMatrixf( &uniform->modelView[0] ));
+
+	return uniform->projection * uniform->modelView;
 #endif
 }
 #if 0
@@ -529,7 +531,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 }
 #endif
 void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
-	bindUniform( drawInfo.uniformBuffer );
+	auto projectionViewMatrix = bindUniform( drawInfo.uniformBuffer );
 
 	size_t indices = drawInfo.descriptor.indices;
 	size_t indicesStride = drawInfo.descriptor.geometry.attributes.index.size;
@@ -543,6 +545,12 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glFrontFace(drawInfo.descriptor.frontFace));
 		GL_ERROR_CHECK(glCullFace(drawInfo.descriptor.cullMode));
 	}
+	if ( drawInfo.descriptor.depth.test ) {
+		GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
+	} else {
+		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
+	}
+	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
 
 	// CPU-buffer based command dispatching
 	void* vertexPointer = (void*) ( device->getBuffer( drawInfo.vertexBuffer.buffer ) + drawInfo.vertexBuffer.offset );
@@ -586,7 +594,47 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.color));
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.position));
 
-	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
+	// frustrum culling
+	if ( ext::opengl::settings::experimental::frustrumCull ) {
+		std::vector<uf::renderer::index_t> unculled;
+		unculled.reserve(indices);
+		for ( size_t currentIndex = 0; currentIndex < indices; currentIndex += 3 ) {
+			const pod::Vector3f& positionA = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+0] * vertexStride)) + drawInfo.attributes.position));
+			const pod::Vector3f& positionB = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+2] * vertexStride)) + drawInfo.attributes.position));
+			const pod::Vector3f& positionC = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+1] * vertexStride)) + drawInfo.attributes.position));
+
+			bool inside = false;
+			pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionA, 1, true );
+			static constexpr pod::Vector3f min{-1.5,-1.5,-1.5};
+			static constexpr pod::Vector3f max{ 1.5, 1.5, 1.5};
+			if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
+		//	if ( min <= translated && translated <= max ) inside = true;
+			else {
+				pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionB, 1, true );
+				if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
+			//	if ( min <= translated && translated <= max ) inside = true;
+				else {
+					pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionC, 1, true );
+					if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
+				//	if ( min <= translated && translated <= max ) inside = true;
+				}
+			}
+			if ( inside ) {
+				unculled.emplace_back(indicesPointer[currentIndex+0]);
+				unculled.emplace_back(indicesPointer[currentIndex+1]);
+				unculled.emplace_back(indicesPointer[currentIndex+2]);
+			}
+		}
+		GLenum indicesType = GL_UNSIGNED_INT;
+		switch ( sizeof(uf::renderer::index_t) ) {
+			case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
+			case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
+			case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
+		}
+		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, unculled.size(), indicesType, &unculled[0]));
+	} else {
+		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
+	}
 
 	if ( drawInfo.auxTexture.image ) {
 	#if UF_ENV_DREAMCAST

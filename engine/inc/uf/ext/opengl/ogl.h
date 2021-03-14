@@ -48,15 +48,23 @@
 #define GL_DEBUG_MESSAGE(...) UF_DEBUG_MSG(__VA_ARGS__);
 #define GL_VALIDATION_MESSAGE(...) if ( ext::opengl::settings::validation ) GL_DEBUG_MESSAGE(__VA_ARGS__);
 
-#define GL_ERROR_CHECK(f) {														\
-	{f;}																		\
-	GLenum res = glGetError();													\
-	if (res != GL_NO_ERROR) {													\
-		std::string errorString = ext::opengl::errorString( res ); 				\
-		GL_VALIDATION_MESSAGE("[Validation Error] " << #f << ": " << errorString); 	\
-	}																			\
-}
+#if UF_ENV_DREAMCAST
+	#define GL_VALIDATION_ENABLED 0
+#else
+	#define GL_VALIDATION_ENABLED 1
+#endif
 
+#if GL_VALIDATION_ENABLED
+	#define GL_ERROR_CHECK(f) {																									\
+		{f;}																													\
+		if ( ext::opengl::settings::validation ) {																				\
+			GLenum res = glGetError();																							\
+			if (res != GL_NO_ERROR) GL_DEBUG_MESSAGE("[Validation Error] " << #f << ": " << ext::opengl::errorString( res )); 	\
+		}																														\
+	}
+#else
+	#define GL_ERROR_CHECK(f) {f;}
+#endif
 #if 0
 	#define GL_MUTEX_LOCK() ext::opengl::mutex.lock();
 	#define GL_MUTEX_UNLOCK() ext::opengl::mutex.unlock();

@@ -93,14 +93,14 @@ namespace ext {
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
-				uf::Image& image, 
+				const uf::Image& image, 
 				Device& device,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
-				uf::Image& image,
+				const uf::Image& image,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL

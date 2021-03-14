@@ -57,7 +57,7 @@ namespace pod {
 		ext::gltf::load_mode_t mode;
 		uf::Serializer metadata;
 
-		uf::Atlas* atlas = NULL;
+		uf::Atlas atlas;
 		std::vector<uf::Image> images;
 		std::vector<uf::renderer::Sampler> samplers;
 		std::vector<pod::Texture> textures;

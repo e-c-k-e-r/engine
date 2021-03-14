@@ -250,23 +250,23 @@ float random(vec3 seed, int i){
 	return fract(sin(dot_product) * 43758.5453);
 }
 
-float shadowFactor( Light light, uint shadowMap ) {
+float shadowFactor( Light light, uint shadowMap, float def ) {
 	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
-	if ( positionClip.x < -1 || positionClip.x >= 1 ) return 0.0;
-	if ( positionClip.y < -1 || positionClip.y >= 1 ) return 0.0;
-	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return 0.0;
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def; //0.0;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def; //0.0;
 
 	float factor = 1.0;
 
 	// spot light
-	if ( light.type == 2 || light.type == 3 ) {
+	if ( light.type == 1 || light.type == 2 ) {
 		float dist = length( positionClip.xy );
-		if ( dist > 0.5 ) return 0.0;
+		if ( dist > 0.5 ) return def; //0.0;
 		
 		// spot light with attenuation
-		if ( light.type == 3 ) {
+		if ( light.type == 2 ) {
 			factor = 1.0 - (pow(dist * 2,2.0));
 		}
 	}
@@ -578,7 +578,7 @@ float mipLevel( in vec2 uv ) {
 	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
 bool validTextureIndex( int textureIndex ) {
-	return 0 <= textureIndex && textureIndex < ubo.textures;
+	return 0 <= textureIndex; // && textureIndex < ubo.textures;
 }
 vec4 resolve( subpassInputMS t ) {
 	int samples = int(ubo.msaa);
@@ -698,30 +698,25 @@ void main() {
 	bool useLightmap = 0 <= material.indexLightmap;
 	if ( useLightmap ) {
 		fragColor = C.rgb + ubo.ambient.rgb;
-	} else {
-		fragColor = C.rgb * ubo.ambient.rgb * AO;
-	} {
-	/*
-		fragColor = C.rgb + ubo.ambient.rgb;
-		float factor = 0.0;
-		int total = 0;
+	/*	
+		float totalShadows = 0.0;
+		float totalLights = 0.0;
+
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			Light light = lights[i];
+			
 			if ( light.power <= 0.001 ) continue;
-			if ( !validTextureIndex(light.mapIndex) ) continue;
 			
 			vec3 lightPositionWorld = light.position.xyz;
 			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-			factor += (1 - shadowFactor( light, light.mapIndex, 1.0 )) * 3;
-			++total;
+			++totalLights;
+			if ( !validTextureIndex(light.mapIndex) ) continue;
+			totalShadows += shadowFactor( light, light.mapIndex, 1.0 );
 		}
-		if ( total > 0 ) {
-			float darken = 1 - factor / total;
-			fragColor *= darken;
-		}
+		fragColor = vec3(totalShadows / totalLights);
+	*/
 	} else {
 		fragColor = C.rgb * ubo.ambient.rgb * AO;
-	*/
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			Light light = lights[i];
 			
@@ -731,7 +726,7 @@ void main() {
 			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 			
 			if ( validTextureIndex(light.mapIndex) ) {
-				float factor = shadowFactor( light, light.mapIndex );
+				float factor = shadowFactor( light, light.mapIndex, 0.0 );
 				light.power *= factor;
 				litFactor += light.power;
 			}
@@ -747,6 +742,7 @@ void main() {
 	fog(rayO, rayD, fragColor, litFactor);
 
 /*
+
 	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
 		//dither1(fragColor);
 		fragColor += dither2();

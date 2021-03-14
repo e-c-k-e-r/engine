@@ -34,11 +34,22 @@ ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicD
 	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
+	std::string target = metadata["target"].as<std::string>();
+	if ( type == "depth" ) {
+	//	descriptor.cullMode = VK_CULL_MODE_NONE;
+	}
+	// invalidate
+	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
+		descriptor.invalidated = true;
+	} else {
+		descriptor.renderMode = this->getName();
+	}
 	return descriptor;
 }
 
 void ext::opengl::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::opengl::RenderMode::initialize( device );
+	this->setTarget( this->getName() );
 }
 
 void ext::opengl::RenderTargetRenderMode::tick() {
@@ -46,10 +57,9 @@ void ext::opengl::RenderTargetRenderMode::tick() {
 }
 void ext::opengl::RenderTargetRenderMode::destroy() {
 	ext::opengl::RenderMode::destroy();
-	blitter.destroy();
 }
 void ext::opengl::RenderTargetRenderMode::render() {
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	ext::opengl::RenderMode::render();
 }
 void ext::opengl::RenderTargetRenderMode::pipelineBarrier( GLhandle(VkCommandBuffer) commandBuffer, uint8_t state ) {
 }
@@ -59,25 +69,29 @@ void ext::opengl::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 	
 	auto& commands = getCommands();	
 	commands.start(); {
+	#if 0
 		CommandBuffer::InfoClear clearCommandInfo = {};
 		clearCommandInfo.type = enums::Command::CLEAR;
 		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
 		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		commands.record(clearCommandInfo);
-		
+	#endif
+	#if 0
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};
 		viewportCommandInfo.size = pod::Vector2ui{width, height};
 		commands.record(viewportCommandInfo);
+	#endif
 
 		size_t currentSubpass = 0;
 		size_t currentPass = 0;
 		size_t currentDraw = 0;
 		for ( auto graphic : graphics ) {
-			if ( graphic->descriptor.renderMode != this->getName() ) continue;
+			if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 			GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+			if ( descriptor.invalidated ) continue;
 			graphic->record( commands, descriptor, currentPass, currentDraw++ );
 		}
 	} commands.end();

@@ -13,5 +13,8 @@ namespace ext {
 		void tick( uf::Object& );
 		void render( uf::Object& );
 		void destroy( uf::Object& );
+		struct Metadata {
+
+		};
 	}
 }

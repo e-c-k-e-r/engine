@@ -175,9 +175,9 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 		// force disable use of a texture atlas, for now
 		metadata[uri]["flags"]["ATLAS"] = false;
 		metadata[uri]["flags"]["SEPARATE"] = true;
-		metadata[uri]["flags"]["NORMALS"] = true;
+	//	metadata[uri]["flags"]["NORMALS"] = true;
 	#else
-		metadata[uri]["flags"]["ATLAS"] = true;
+	//	metadata[uri]["flags"]["ATLAS"] = true;
 	#endif
 		ext::gltf::load_mode_t LOAD_FLAGS = 0;
 		#define LOAD_FLAG(name)\

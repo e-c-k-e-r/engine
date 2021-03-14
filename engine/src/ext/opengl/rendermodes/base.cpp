@@ -24,6 +24,7 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const std::vector<ext::o
 	size_t currentDraw = 0;
 	auto& commands = getCommands();
 	commands.start(); {
+	#if 0
 		CommandBuffer::InfoClear clearCommandInfo = {};
 		clearCommandInfo.type = enums::Command::CLEAR;
 		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -38,8 +39,8 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const std::vector<ext::o
 		//	auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
 		//	GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
 		}
-	
 		commands.record(clearCommandInfo);
+	#endif
 
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
@@ -102,7 +103,7 @@ void ext::opengl::BaseRenderMode::tick() {
 }
 void ext::opengl::BaseRenderMode::render() {
 //	if ( ext::opengl::renderModes.size() > 1 ) return;
-	if ( ext::opengl::renderModes.back() != this ) return;
+//	if ( ext::opengl::renderModes.back() != this ) return;
 	ext::opengl::RenderMode::render();
 }
 

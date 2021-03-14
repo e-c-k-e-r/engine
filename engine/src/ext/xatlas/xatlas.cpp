@@ -44,13 +44,13 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 	}		
 
 	::xatlas::ChartOptions chartOptions{};
-	chartOptions.useInputMeshUvs = true;
+//	chartOptions.useInputMeshUvs = true;
 	::xatlas::PackOptions packOptions{};
 //	packOptions.bruteForce = true;
 //	packOptions.resolution = resolution;
 //	packOptions.texelsPerUnit = 64.0f;
 //	packOptions.blockAlign = true;
-	packOptions.bilinear = true;
+//	packOptions.bilinear = true;
 
 	::xatlas::Generate(atlas, chartOptions, packOptions);
 	auto oldMeshes = std::move( graph.meshes );

@@ -85,11 +85,11 @@ namespace ext {
 				enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM
 			);
 			void loadFromImage(
-				uf::Image& image,
+				const uf::Image& image,
 				enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM
 			);
 			void loadFromImage(
-				uf::Image& image, 
+				const uf::Image& image, 
 				Device& device,
 				enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM
 			);

@@ -22,6 +22,7 @@ namespace pod {
 namespace ext {
 	class EXT_API Gui : public uf::Object {
 	public:
+		typedef uf::BaseMesh<pod::Vertex_3F2F3F> mesh_t;
 		typedef uf::BaseMesh<pod::Vertex_3F2F3F> glyph_mesh_t;
 	//	Gui();
 		std::vector<pod::GlyphBox> generateGlyphs( const std::string& = "" );

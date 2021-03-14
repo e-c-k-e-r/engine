@@ -706,14 +706,7 @@ void EXT_API ext::tick() {
 			++::times.frames;
 			double every = fps["every"].as<double>();
 			TIMER( every ) {
-	//			UF_DEBUG_MSG("Framerate: " << (1.0/times.deltaTime) << " FPS | Frametime: " << (times.deltaTime * 1000) << "ms");
 				UF_DEBUG_MSG("System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
-			#if UF_ENV_DREAMCAST
-			//	pvr_stats_t stats;
-			//	pvr_get_stats(&stats);
-			//	UF_DEBUG_MSG("PVR stats: " << stats.frame_last_time << " ms | " << stats.frame_rate << " fps | " << stats.reg_last_time << " ms | " << stats.rnd_last_time << " ms | " << stats.vtx_buffer_used << " bytes | " << stats.vtx_buffer_used_max << " bytes | " << stats.buf_last_time << " ms" );
-			#endif
-
 				::times.frames = 0;
 			}
 		}

@@ -190,7 +190,6 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -198,17 +197,6 @@ if ( uf::scene::useGraph ) {
 		if ( !graphic.initialized || !graphic.process ) continue;
 		graphics.push_back(&graphic);
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( !graphic.initialized || !graphic.process ) return;
-			graphics.push_back(&graphic);
-		});
-	}
-}
 
 	this->synchronize();
 //	bindPipelines( graphics );
@@ -242,7 +230,6 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -251,19 +238,6 @@ if ( uf::scene::useGraph ) {
 	//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) continue;
 		graphics.push_back(&graphic);
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( !graphic.initialized ) return;
-			if ( !graphic.process ) return;
-		//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) return;
-			graphics.push_back(&graphic);
-		});
-	}
-}
 	this->synchronize();
 	this->bindPipelines( graphics );
 }

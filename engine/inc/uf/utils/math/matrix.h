@@ -63,8 +63,8 @@ namespace uf {
 		template<typename T> pod::Matrix<T,4,4> multiply( const pod::Matrix<T,4,4>& left, const pod::Matrix<T,4,4>& right );						// 	Multiplies two matrices of same type and size together
 		template<typename T=pod::Matrix4> T /*UF_API*/ transpose( const T& matrix );										// 	Flip sign of all components
 		template<typename T=pod::Matrix4> T /*UF_API*/ inverse( const T& matrix );										// 	Flip sign of all components
-		template<typename T=pod::Math::num_t> pod::Vector3t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w = 1 );
-		template<typename T=pod::Math::num_t> pod::Vector4t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector );
+		template<typename T=pod::Math::num_t> pod::Vector3t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w = 1, bool = false );
+		template<typename T=pod::Math::num_t> pod::Vector4t<T> multiply( const pod::Matrix4t<T>& mat, const pod::Vector4t<T>& vector, bool = false );
 		
 		template<typename T=pod::Matrix4> T /*UF_API*/ multiplyAll( const T& matrix, typename T::type_t scalar );
 		template<typename T=pod::Matrix4> T /*UF_API*/ add( const T& lhs, const T& rhs );

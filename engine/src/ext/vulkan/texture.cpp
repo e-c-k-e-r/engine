@@ -268,75 +268,10 @@ void ext::vulkan::Texture::loadFromFile(
 ) {
 	uf::Image image;
 	image.open( filename );
-	switch ( image.getChannels() ) {
-		// R
-		case 1:
-			switch ( image.getBpp() ) {
-				case 8:
-					format = VK_FORMAT_R8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		// RGB
-		case 3:
-			switch ( image.getBpp() ) {
-				case 24:
-					format = VK_FORMAT_R8G8B8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		// RGBA
-		case 4:
-			switch ( image.getBpp() ) {
-				case 32:
-					format = VK_FORMAT_R8G8B8A8_UNORM;
-				break;
-				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
-				break;
-			}
-		break;
-		default:
-			UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
-		break;
-	}
-/*
-	if (device.features.textureCompressionBC) {
-		format = VK_FORMAT_BC3_UNORM_BLOCK;
-	}
-	else if (device.features.textureCompressionASTC_LDR) {
-		format = VK_FORMAT_ASTC_8x8_UNORM_BLOCK;
-	}
-	else if (device.features.textureCompressionETC2) {
-		format = VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK;
-	}
-	else {
-		UF_EXCEPTION("VK_ERROR_FEATURE_NOT_PRESENT");
-	}
-*/
-
-	// convert to power of two
-	//image.padToPowerOfTwo();
-
-	this->fromBuffers( 
-		(void*) image.getPixelsPtr(),
-		image.getPixels().size(),
-		format,
-		image.getDimensions()[0],
-		image.getDimensions()[1],
-		device,
-		imageUsageFlags,
-		imageLayout
-	);
+	return loadFromImage( image, device, format, imageUsageFlags, imageLayout );
 }
 void ext::vulkan::Texture::loadFromImage(
-	uf::Image& image,
+	const uf::Image& image,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
@@ -344,7 +279,7 @@ void ext::vulkan::Texture::loadFromImage(
 	return loadFromImage( image, ext::vulkan::device, format, imageUsageFlags, imageLayout );
 }
 void ext::vulkan::Texture::loadFromImage(
-	uf::Image& image, 
+	const uf::Image& image, 
 	Device& device,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,

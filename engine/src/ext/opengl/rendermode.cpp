@@ -45,7 +45,7 @@ std::vector<ext::opengl::Graphic*> ext::opengl::RenderMode::getBlitters() {
 
 ext::opengl::GraphicDescriptor ext::opengl::RenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
 	ext::opengl::GraphicDescriptor descriptor = reference;
-	descriptor.renderMode = this->getName();
+//	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
 	descriptor.parse( metadata );
 	return descriptor;
@@ -57,7 +57,6 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
 	std::vector<ext::opengl::Graphic*> graphics;
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -65,17 +64,6 @@ if ( uf::scene::useGraph ) {
 		if ( !graphic.initialized || !graphic.process ) continue;
 		graphics.push_back(&graphic);
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( !graphic.initialized || !graphic.process ) return;
-			graphics.push_back(&graphic);
-		});
-	}
-}
 
 	this->synchronize();
 //	bindPipelines( graphics );
@@ -101,7 +89,6 @@ void ext::opengl::RenderMode::bindPipelines() {
 	this->execute = true;
 
 	std::vector<ext::opengl::Graphic*> graphics;
-if ( uf::scene::useGraph ) {
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
@@ -109,18 +96,6 @@ if ( uf::scene::useGraph ) {
 		if ( !graphic.initialized || !graphic.process ) continue;
 		graphics.push_back(&graphic);
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( !graphic.initialized ) return;
-			if ( !graphic.process ) return;
-			graphics.push_back(&graphic);
-		});
-	}
-}
 
 	this->synchronize();
 	this->bindPipelines( graphics );
@@ -133,6 +108,8 @@ void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Grap
 			if ( !subpass.autoBuildPipeline ) continue;
 			// bind to this render mode
 			ext::opengl::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
+			// ignore invalidated descriptors
+			if ( descriptor.invalidated ) continue;
 			// ignore if pipeline exists for this render mode
 			if ( graphic.hasPipeline( descriptor ) ) continue;
 			graphic.initializePipeline( descriptor );
@@ -143,20 +120,39 @@ void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Grap
 void ext::opengl::RenderMode::render() {
 	auto& commands = getCommands(this->mostRecentCommandPoolId);
 	commands.submit();
+
+	if ( ext::opengl::renderModes.back() != this ) return;
+
 #if UF_ENV_DREAMCAST
-	//UF_TIMER_TRACE_INIT();
 	#if UF_USE_OPENGL_GLDC
 		glKosSwapBuffers();
-	//	profiler_print_stats();
 	#else
 		glutSwapBuffers();
 	#endif
-	//UF_TIMER_TRACE("==== SWAP BUFFER TIME ==== ");
 #else
-	if ( device ) {
-		device->activateContext().display();
-	}
+	if ( device ) device->activateContext().display();
 #endif
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
+
+	CommandBuffer::InfoClear clearCommandInfo = {};
+	clearCommandInfo.type = enums::Command::CLEAR;
+	clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
+	clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
+	clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
+	if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
+		clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );
+	}
+	if ( !ext::json::isNull( sceneMetadata["light"]["ambient"] ) ) {
+		clearCommandInfo.color = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{0,0,0,0} );
+	//	auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
+	//	GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
+	}
+
+	GL_ERROR_CHECK(glClearColor(clearCommandInfo.color[0], clearCommandInfo.color[1], clearCommandInfo.color[2], clearCommandInfo.color[3]));
+	GL_ERROR_CHECK(glClearDepth(clearCommandInfo.depth));
+	GL_ERROR_CHECK(glClear(clearCommandInfo.bits));
+
 }
 
 void ext::opengl::RenderMode::initialize( Device& device ) {

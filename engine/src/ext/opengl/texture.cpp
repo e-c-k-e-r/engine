@@ -81,7 +81,7 @@ void ext::opengl::Texture::loadFromFile(
 	return loadFromFile( filename, ext::opengl::device, format );
 }
 void ext::opengl::Texture::loadFromImage(
-	uf::Image& image, 
+	const uf::Image& image, 
 	enums::Format::type_t format
 ) {
 	return loadFromImage( image, ext::opengl::device, format );
@@ -96,13 +96,14 @@ void ext::opengl::Texture::loadFromFile(
 	return loadFromImage( image, device, format );
 }
 void ext::opengl::Texture::loadFromImage(
-	uf::Image& image, 
+	const uf::Image& image, 
 	Device& device,
 	enums::Format::type_t format
 ) {
-	if ( image.getFormat() > 0 ) {
+//	UF_DEBUG_MSG( image.getFilename() << " | " << std::bitset<32>(image.getFormat()) );
+	if ( image.getFormat() != 0 ) {
 		internalFormat = image.getFormat();
-	} else
+	} else {
 		switch ( image.getChannels() ) {
 			// R
 			case 1:
@@ -155,7 +156,7 @@ void ext::opengl::Texture::loadFromImage(
 			UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
 			break;
 		}
-
+	}
 	// convert to power of two
 	//image.padToPowerOfTwo();
 
@@ -195,6 +196,7 @@ void ext::opengl::Texture::fromBuffers(
 	Device& device
 ) {
 	this->initialize(device, viewType, texWidth, texHeight, texDepth, layers);
+	this->format = format;
 
 #if !UF_ENV_DREAMCAST
 	if ( this->mips == 0 ) {
@@ -261,16 +263,12 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 	GLenum format = GL_RGBA;
 	GLenum type = GL_UNSIGNED_BYTE;
 	switch ( this->format ) {
-	#if !UF_ENV_DREAMCAST
 		case enums::Format::R8_UNORM:
-			format = GL_RED;
+			format = GL_LUMINANCE;
 		break;
-	#endif
-	#if !UF_ENV_DREAMCAST
 		case enums::Format::R8G8_UNORM:
-			format = GL_RG;
+			format = GL_LUMINANCE_ALPHA;
 		break;
-	#endif
 		case enums::Format::R8G8B8_UNORM:
 			format = GL_RGB;
 		break;
