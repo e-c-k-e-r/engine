@@ -1,5 +1,5 @@
 #if UF_USE_VULKAN
-
+#include <bitset>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/image/image.h>
@@ -372,13 +372,15 @@ void ext::vulkan::Texture::fromBuffers(
 
 	if ( this->mips == 0 ) {
 		this->mips = 1;
-	} else if ( this->depth == 1 ) {
-		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+//	} else if ( this->depth == 1 ) {
+	} else {
+	//	this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
+		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(texWidth, texHeight),texDepth)))) + 1;
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
 		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
 			this->mips = 1;
-			VK_VALIDATION_MESSAGE("Texture image format does not support linear blitting!");
+			VK_VALIDATION_MESSAGE("Texture image format `" << format << "` does not support linear blitting!");
 		}
 	}
 
@@ -529,6 +531,10 @@ void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 	imageLayout = texture.imageLayout;
 	deviceMemory = texture.deviceMemory;
 	sampler = texture.sampler;
+	width = texture.width;
+	height = texture.height;
+	depth = texture.depth;
+	layers = texture.layers;
 	
 	this->updateDescriptors();
 }
@@ -596,7 +602,6 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		subresourceRange
 	);
-
 	// Copy mip levels from staging buffer
 	vkCmdCopyBufferToImage(
 		commandBuffer,
@@ -606,9 +611,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 		1,
 		&bufferCopyRegion
 	);
-
 	if ( this->mips > 1 ) this->generateMipmaps(commandBuffer, layer);
-	
 	setImageLayout(
 		commandBuffer,
 		image,
@@ -616,6 +619,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 		targetImageLayout,
 		subresourceRange
 	);
+	
 	device.flushCommandBuffer(commandBuffer);
 	// Clean up staging resources
 	staging.destroy();
@@ -624,16 +628,17 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 
 	this->updateDescriptors();
 }
-
 void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint32_t layer ) {
 	auto& device = *this->device;
 
 	if ( this->mips <= 1 ) return;
 
+	bool blitting = true;
 	VkFormatProperties formatProperties;
 	vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
 	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-		UF_EXCEPTION("texture image format does not support linear blitting!");
+		UF_EXCEPTION("Texture image format `" + std::to_string(format) + "` does not support linear blitting!");
+		blitting = false;
 	}
 
 	// base layer barrier
@@ -662,28 +667,32 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 			1, &barrier
 		);
 
-		// blit to current mip layer
-		VkImageBlit blit{};
-		blit.srcOffsets[0] = { 0, 0, 0 };
-		blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
-		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.srcSubresource.mipLevel = i - 1;
-		blit.srcSubresource.baseArrayLayer = layer;
-		blit.srcSubresource.layerCount = 1;
-		blit.dstOffsets[0] = { 0, 0, 0 };
-		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1 };
-		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		blit.dstSubresource.mipLevel = i;
-		blit.dstSubresource.baseArrayLayer = layer;
-		blit.dstSubresource.layerCount = 1;
+		if ( blitting ) {
+			// blit to current mip layer
+			VkImageBlit blit{};
+			blit.srcOffsets[0] = { 0, 0, 0 };
+			blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
+			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.srcSubresource.mipLevel = i - 1;
+			blit.srcSubresource.baseArrayLayer = layer;
+			blit.srcSubresource.layerCount = 1;
+			blit.dstOffsets[0] = { 0, 0, 0 };
+			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1 };
+			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.dstSubresource.mipLevel = i;
+			blit.dstSubresource.baseArrayLayer = layer;
+			blit.dstSubresource.layerCount = 1;
 
-		vkCmdBlitImage(
-			commandBuffer,
-			image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			1, &blit,
-			VK_FILTER_LINEAR
-		);
+			vkCmdBlitImage(
+				commandBuffer,
+				image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &blit,
+				VK_FILTER_LINEAR
+			);
+		} else {
+
+		}
 
 		// transition previous layer back
 		barrier.subresourceRange.baseMipLevel = i - 1;

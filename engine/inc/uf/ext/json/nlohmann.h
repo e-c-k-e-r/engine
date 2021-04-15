@@ -97,12 +97,18 @@ template<> inline bool ext::json::Value::is<std::string>(bool strict) const { re
 	template<> inline bool ext::json::Value::is<unsigned int>(bool strict) const { return strict ? is_number_unsigned() : is_number(); }
 #endif
 template<typename T> inline T ext::json::Value::as() const {
+	return !is<T>() ? T() : get<T>();
+/*
 	if ( !is<T>() ) return T();
 	return get<T>();
+*/
 }
 template<typename T> inline T ext::json::Value::as( const T& fallback ) const {
+	return !is<T>() ? fallback : get<T>();
+/*
 	if ( !is<T>() ) return fallback;
 	return get<T>();
+*/
 }
 template<> inline bool ext::json::Value::as<bool>() const {
 	// explicitly a bool

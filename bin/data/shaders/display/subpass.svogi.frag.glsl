@@ -13,7 +13,7 @@ struct Matrices {
 	mat4 iView[2];
 	mat4 iProjection[2];
 	mat4 iProjectionView[2];
-	mat4 ortho;
+	mat4 voxel;
 };
 
 struct Space {
@@ -94,6 +94,13 @@ struct DrawCall {
 	int textureIndex;
 	uint textures;
 };
+struct Voxel {
+	uvec2 id;
+	vec3 position;
+	vec3 normal;
+	vec2 uv;
+	vec4 color;
+};
 
 #if !MULTISAMPLING
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInput samplerId;
@@ -117,7 +124,7 @@ struct DrawCall {
 
 layout (binding = 4) uniform UBO {
 	Matrices matrices;
-	
+
 	Mode mode;
 	Fog fog;
 
@@ -148,15 +155,20 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 	DrawCall drawCalls[];
 };
 
-layout (binding = 9) uniform sampler3D samplerNoise;
-layout (binding = 10) uniform samplerCube samplerSkybox;
-layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 9) uniform usampler3D voxelId;
+layout (binding = 10) uniform sampler3D voxelNormal;
+layout (binding = 11) uniform sampler3D voxelUv;
+layout (binding = 12) uniform sampler3D voxelAlbedo;
 
+layout (binding = 13) uniform sampler3D samplerNoise;
+layout (binding = 14) uniform samplerCube samplerSkybox;
+layout (binding = 15) uniform sampler2D samplerTextures[TEXTURES];
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
+layout (location = 1) out vec4 outDebugValue;
 
 vec2 poissonDisk[16] = vec2[]( 
    vec2( -0.94201624, -0.39906216 ), 
@@ -177,100 +189,31 @@ vec2 poissonDisk[16] = vec2[](
    vec2( 0.14383161, -0.14100790 ) 
 );
 
-void phong( Light light, vec4 albedoSpecular, inout vec3 i ) {
-	vec3 Ls = vec3(1.0, 1.0, 1.0); 		// light specular
-	vec3 Ld = light.color; 				// light color
-	vec3 La = vec3(1.0, 1.0, 1.0);
-
-	vec3 Ks = vec3(albedoSpecular.a); 	// material specular
-	vec3 Kd = albedoSpecular.rgb;		// material diffuse
-	vec3 Ka = vec3(1.0, 1.0, 1.0); 
-
-	float Kexp = ubo.kexp;
-
-	vec3 V = position.eye;
-	vec3 N = normal.eye;
-	vec3 L = light.position.xyz - V;
-	float dist = length(L);
-//	if ( light.radius > 0.001 && light.radius < dist ) return;
-
-	vec3 D = normalize(L);
-	float d_dot = max(dot( D, N ), 0.0);
-
-	vec3 R = reflect( -D, N );
-	vec3 S = normalize(-V);
-	float s_factor = pow( max(dot( R, S ), 0.0), Kexp );
-	if ( Kexp < 0.0001 ) s_factor = 0;
-	
-	float radiance = light.power / (dist * dist);
-
-	vec3 Ia = La * Ka;
-	vec3 Id = Ld * Kd * d_dot * radiance;
-	vec3 Is = Ls * Ks * s_factor * radiance;
-	
-	i += Id + Is;
-}
-void phongSpecular( Light light, vec4 albedoSpecular, inout vec3 i ) {
-	vec3 Ls = vec3(1.0, 1.0, 1.0); 		// light specular
-	vec3 Ld = light.color; 				// light color
-	vec3 La = vec3(1.0, 1.0, 1.0);
-
-	vec3 Ks = vec3(albedoSpecular.a); 	// material specular
-	vec3 Kd = albedoSpecular.rgb;		// material diffuse
-	vec3 Ka = vec3(1.0, 1.0, 1.0); 
-
-	float Kexp = ubo.kexp;
-
-	vec3 V = position.eye;
-	vec3 N = normal.eye;
-	vec3 L = light.position.xyz - V;
-	float dist = length(L);
-
-	vec3 D = normalize(L);
-	vec3 R = reflect( -D, N );
-	vec3 S = normalize(-V);
-	float s_factor = pow( max(dot( R, S ), 0.0), Kexp );
-	if ( Kexp < 0.0001 ) s_factor = 0;
-	
-	float radiance = light.power / (dist * dist);
-
-	vec3 Ia = La * Ka;
-	vec3 Is = Ls * Ks * s_factor * radiance;
-	
-	i += Is;
-}
 const float PI = 3.14159265359;
-float DistributionGGX(vec3 N, vec3 H, float roughness) {
-    float a      = roughness*roughness;
-    float a2     = a*a;
-    float NdotH  = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
-	
-    float num   = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-	
-    return num / denom;
+const float EPSILON = 0.00001;
+
+// GGX/Towbridge-Reitz normal distribution function.
+// Uses Disney's reparametrization of alpha = roughness^2.
+float ndfGGX(float cosLh, float roughness) {
+	float alpha   = roughness * roughness;
+	float alphaSq = alpha * alpha;
+
+	float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
+	return alphaSq / (PI * denom * denom);
 }
 
-float GeometrySchlickGGX(float NdotV, float roughness) {
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
+// Single term for separable Schlick-GGX below.
+float gaSchlickG1(float cosTheta, float k) {
+	return cosTheta / (cosTheta * (1.0 - k) + k);
+}
 
-    float num   = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
-	
-    return num / denom;
+// Schlick-GGX approximation of geometric attenuation function using Smith's method.
+float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0; // Epic suggests using this roughness remapping for analytic lights.
+	return gaSchlickG1(cosLi, k) * gaSchlickG1(cosLo, k);
 }
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
-	
-    return ggx1 * ggx2;
-}
-vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+vec3 fresnelSchlick(vec3 F0, float cosTheta) {
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
@@ -303,14 +246,6 @@ float shadowFactor( Light light, uint shadowMap, float def ) {
 	
 	vec2 uv = positionClip.xy * 0.5 + 0.5;
 	float bias = light.depthBias;
-/*
-	if ( true ) {
-		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
-		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
-	} else if ( true ) {
-		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
-	}
-*/
 
 	float eyeDepth = positionClip.z;
 
@@ -327,152 +262,12 @@ float shadowFactor( Light light, uint shadowMap, float def ) {
 	}
 	return factor;
 }
-vec3 hslToRgb(vec3 HSL) {
-	vec3 RGB; {
-		float H = HSL.x;
-		float R = abs(H * 6 - 3) - 1;
-		float G = 2 - abs(H * 6 - 2);
-		float B = 2 - abs(H * 6 - 4);
-		RGB = clamp(vec3(R,G,B), 0, 1);
-	}
-	float C = (1 - abs(2 * HSL.z - 1)) * HSL.y;
-	return (RGB - 0.5) * C + HSL.z;
+// Returns a vector that is orthogonal to u.
+vec3 orthogonal(vec3 u){
+	u = normalize(u);
+	vec3 v = vec3(0.99146, 0.11664, 0.05832); // Pick any normalized vector.
+	return abs(dot(u, v)) > 0.99999f ? cross(u, vec3(0, 1, 0)) : cross(u, v);
 }
-vec3 rgbToHsl(vec3 RGB) {
-	float Epsilon = 1e-10;
-	vec3 HCV; {
-		vec4 P = (RGB.g < RGB.b) ? vec4(RGB.bg, -1.0, 2.0/3.0) : vec4(RGB.gb, 0.0, -1.0/3.0);
-		vec4 Q = (RGB.r < P.x) ? vec4(P.xyw, RGB.r) : vec4(RGB.r, P.yzx);
-		float C = Q.x - min(Q.w, Q.y);
-		float H = abs((Q.w - Q.y) / (6 * C + Epsilon) + Q.z);
-		HCV = vec3(H, C, Q.x);
-	}
-	float L = HCV.z - HCV.y * 0.5;
-	float S = HCV.y / (1 - abs(L * 2 - 1) + Epsilon);
-	return vec3(HCV.x, S, L);
-}
-
-float hueDistance(float h1, float h2) {
-	float diff = abs((h1 - h2));
-	return min(abs((1.0 - diff)), diff);
-}
-const float lightnessSteps = 4.0;
-float lightnessStep(float l) {
-    return floor((0.5 + l * lightnessSteps)) / lightnessSteps;
-}
-const int indexMatrix16x16[256] = int[](0,192, 48,240, 12,204, 60,252,  3,195, 51,243, 15,207, 63,255,
-									 128, 64,176,112,140, 76,188,124,131, 67,179,115,143, 79,191,127,
-									  32,224, 16,208, 44,236, 28,220, 35,227, 19,211, 47,239, 31,223,
-									 160, 96,144, 80,172,108,156, 92,163, 99,147, 83,175,111,159, 95,
-									   8,200, 56,248,  4,196, 52,244, 11,203, 59,251,  7,199, 55,247,
-									 136, 72,184,120,132, 68,180,116,139, 75,187,123,135, 71,183,119,
-									  40,232, 24,216, 36,228, 20,212, 43,235, 27,219, 39,231, 23,215,
-									 168,104,152, 88,164,100,148, 84,171,107,155, 91,167,103,151, 87,
-									   2,194, 50,242, 14,206, 62,254,  1,193, 49,241, 13,205, 61,253,
-									 130, 66,178,114,142, 78,190,126,129, 65,177,113,141, 77,189,125,
-									  34,226, 18,210, 46,238, 30,222, 33,225, 17,209, 45,237, 29,221,
-									 162, 98,146, 82,174,110,158, 94,161, 97,145, 81,173,109,157, 93,
-									  10,202, 58,250,  6,198, 54,246,  9,201, 57,249,  5,197, 53,245,
-									 138, 74,186,122,134, 70,182,118,137, 73,185,121,133, 69,181,117,
-									  42,234, 26,218, 38,230, 22,214, 41,233, 25,217, 37,229, 21,213,
-									 170,106,154, 90,166,102,150, 86,169,105,153, 89,165,101,149, 85);
-float indexValue16x16( float scale ) {
-	int x = int(mod(gl_FragCoord.x * scale, 16));
-	int y = int(mod(gl_FragCoord.y * scale, 16));
-	return indexMatrix16x16[(x + y * 16)] / 256.0;
-}
-const int indexMatrix8x8[64] = int[](0,  32, 8,  40, 2,  34, 10, 42,
-									 48, 16, 56, 24, 50, 18, 58, 26,
-									 12, 44, 4,  36, 14, 46, 6,  38,
-									 60, 28, 52, 20, 62, 30, 54, 22,
-									 3,  35, 11, 43, 1,  33, 9,  41,
-									 51, 19, 59, 27, 49, 17, 57, 25,
-									 15, 47, 7,  39, 13, 45, 5,  37,
-									 63, 31, 55, 23, 61, 29, 53, 21);
-float indexValue8x8( float scale ) {
-	int x = int(mod(gl_FragCoord.x * scale, 8));
-	int y = int(mod(gl_FragCoord.y * scale, 8));
-	return indexMatrix8x8[(x + y * 8)] / 64.0;
-}
-const int indexMatrix4x4[16] = int[](0,  8,  2,  10,
-									 12, 4,  14, 6,
-									 3,  11, 1,  9,
-									 15, 7,  13, 5);
-float indexValue4x4( float scale ) {
-	int x = int(mod(gl_FragCoord.x * scale, 4));
-	int y = int(mod(gl_FragCoord.y * scale, 4));
-	return indexMatrix4x4[(x + y * 4)] / 16.0;
-}
-vec3[2] closestColors(float hue) {
-	vec3 ret[2];
-	vec3 closest = vec3(-2, 0, 0);
-	vec3 secondClosest = vec3(-2, 0, 0);
-	vec3 temp;
-/*
-	for (int i = 0; i < palette.length(); ++i) {
-		temp = rgbToHsl(palette[i].rgb);
-		float tempDistance = hueDistance(temp.x, hue);
-		if (tempDistance < hueDistance(closest.x, hue)) {
-			secondClosest = closest;
-			closest = temp;
-		} else {
-			if (tempDistance < hueDistance(secondClosest.x, hue)) {
-				secondClosest = temp;
-			}
-		}
-	}
-*/
-	ret[0] = closest;
-	ret[1] = secondClosest;
-	return ret;
-}
-float dither(float color) {
-	float closestColor = (color < 0.5) ? 0 : 1;
-	float secondClosestColor = 1 - closestColor;
-	float d = 1; // -0.5 - fract(ubo.mode.parameters.w / 8.0);
-	if ( ubo.mode.scalar == 16 ) {
-	 	d = indexValue16x16(1);
-	} else if ( ubo.mode.scalar == 8 ) {
-	 	d = indexValue8x8(1);
-	} else if ( ubo.mode.scalar == 4 ) {
-	 	d = indexValue4x4(1);
-	}
-	float distance = abs(closestColor - color);
-	return (distance < d) ? closestColor : secondClosestColor;
-}
-void dither(inout vec3 color) { 
-	vec3 hsl = rgbToHsl(color);
-	hsl.x = dither(hsl.x);
-	color = hslToRgb(hsl);
-}
-void dither1(inout vec3 color) { 
-	vec3 hsl = rgbToHsl(color);
-
-	float d = 0;
-	vec3 cs[2] = { hsl, hsl }; // closestColors(hsl.x);
-	float scale = 1;
-	if ( ubo.mode.scalar == 16 ) {
-	 	d = indexValue16x16(scale);
-	} else if ( ubo.mode.scalar == 8 ) {
-	 	d = indexValue8x8(scale);
-	} else if ( ubo.mode.scalar == 4 ) {
-	 	d = indexValue4x4(scale);
-	}
-    float hueDiff = hueDistance(hsl.x, cs[0].x) / hueDistance(cs[1].x, cs[0].x);
-    float l1 = lightnessStep(max((hsl.z - 0.125), 0.0));
-    float l2 = lightnessStep(min((hsl.z + 0.124), 1.0));
-    float lightnessDiff = (hsl.z - l1) / (l2 - l1);
-
-    vec3 resultColor = (hueDiff < d) ? cs[0] : cs[1];
-    resultColor.z = (lightnessDiff < d) ? l1 : l2;
-    color = hslToRgb(resultColor);
-}
-vec3 dither2() {
-	vec3 vDither = dot( vec2( 171.0, 231.0 ), inUv.xy + ubo.mode.parameters.w ).xxx;
-	vDither.rgb = fract( vDither.rgb / vec3( 103.0, 71.0, 97.0 ) ) - vec3( 0.5, 0.5, 0.5 );
-	return ( vDither.rgb / 255.0 ) * 0.375;
-}
-
 float rand2(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453);
 }
@@ -490,71 +285,10 @@ void whitenoise(inout vec3 color) {
 	float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
 	color = mix( color, vec3(whiteNoise), blend );
 }
-
-void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightPositionWorld, inout vec3 i ) {
-	vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic); 
-
-	vec3 N = normalize(normal.eye);
-	vec3 L = light.position.xyz - position.eye;
-	float dist = length(L);
-
-	L = normalize(L);
-	vec3 V = normalize(-position.eye);
-	vec3 H = normalize(V + L);
-
-	float NdotL = max(dot(N, L), 0.0);
-	float NdotV = max(dot(N, V), 0.0);
-	float attenuation = light.power / (dist * dist);
-	vec3 radiance = light.color.rgb * attenuation;
-
-	// cook-torrance brdf
-	float NDF = DistributionGGX(N, H, roughness);        
-	float G   = GeometrySmith(N, V, L, roughness);      
-	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
-
-	vec3 kD = vec3(1.0) - F;
-	kD *= 1.0 - metallic;
-
-	vec3 numerator    = NDF * G * F;
-	float denominator = 4.0 * NdotV * NdotL;
-	vec3 specular     = numerator / max(denominator, 0.001);  
-
-	// add to outgoing radiance Lo
-	i += (kD * albedo / PI + specular) * radiance * NdotL;
+vec3 gamma( vec3 i ) {
+	return pow(i.rgb, vec3(1.0 / 2.2));
 }
-void pbrSpecular( Light light, vec3 albedo, float metallic, float roughness, inout vec3 i ) {
-	vec3 F0 = vec3(0.04); 
-    F0 = mix(F0, albedo, metallic); 
 
-	vec3 N = normalize(normal.eye);
-	vec3 L = light.position.xyz - position.eye;
-	float dist = length(L);
-
-	L = normalize(L);
-	vec3 V = normalize(-position.eye);
-	vec3 H = normalize(V + L);
-
-	float NdotL = max(dot(N, L), 0.0);
-	float NdotV = max(dot(N, V), 0.0);
-	float attenuation = light.power / (dist * dist);
-	vec3 radiance = light.color.rgb * attenuation;
-
-	// cook-torrance brdf
-	float NDF = DistributionGGX(N, H, roughness);        
-	float G   = GeometrySmith(N, V, L, roughness);      
-	vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);       
-
-	vec3 kD = vec3(1.0) - F;
-	kD *= 1.0 - metallic;
-
-	vec3 numerator    = NDF * G * F;
-	float denominator = 4.0 * NdotV * NdotL;
-	vec3 specular     = numerator / max(denominator, 0.001);  
-
-	// add to outgoing radiance Lo
-	i += specular * radiance * NdotL;
-}
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayO, vec3 rayD ) {
 	vec3 t0 = (boundsMin - rayO) / rayD;
 	vec3 t1 = (boundsMax - rayO) / rayD;
@@ -562,9 +296,9 @@ vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayO, vec3 rayD ) {
 	vec3 tmax = max(t0, t1);
 	float dstA = max( max(tmin.x, tmin.y), tmin.z );
 	float dstB = min( tmax.x, min(tmax.y, tmax.z) );
-	float dstToBox = max(0, dstA);
-	float dstInsideBox = max(0, dstB - dstToBox);
-	return vec2(dstToBox, dstInsideBox);
+	float tStart = max(0, dstA);
+	float tEnd = max(0, dstB - tStart);
+	return vec2(tStart, tEnd);
 }
 
 float sampleDensity( vec3 position ) {
@@ -623,7 +357,7 @@ vec3 decodeNormals( vec2 enc ) {
 	vec2 ang = enc*2-1;
 	vec2 scth = vec2( sin(ang.x * kPI), cos(ang.x * kPI) );
 	vec2 scphi = vec2(sqrt(1.0 - ang.y*ang.y), ang.y);
-	return vec3(scth.y*scphi.x, scth.x*scphi.x, scphi.y);
+	return normalize( vec3(scth.y*scphi.x, scth.x*scphi.x, scphi.y) );
 /*
 	vec2 fenc = enc*4-2;
 	float f = dot(fenc,fenc);
@@ -662,6 +396,78 @@ uvec4 resolve( usubpassInputMS t ) {
 	}
 	resolved /= uvec4(samples);
 	return resolved;
+}
+
+Voxel getVoxel( vec3 P ) {
+	vec3 uvw = vec3( ubo.matrices.voxel * vec4( P, 1.0f ) ) * 0.5f + 0.5f;
+
+	Voxel voxel;
+	voxel.id = uvec2(texture(voxelId, uvw).xy);
+	voxel.position = P;
+	voxel.normal = decodeNormals( texture(voxelNormal, uvw).xy );
+	voxel.uv = texture(voxelUv, uvw).xy;
+	voxel.color = texture(voxelAlbedo, uvw).rgba;
+
+	return voxel;
+}
+
+#define VOXEL_TRACE_IN_NDC 0
+vec4 voxelConeTrace( vec3 rayO, vec3 rayD, float aperture ) {
+	// bounds
+	float albedoSize = textureSize( voxelAlbedo, 0 ).x;
+	float mipmapLevels = textureQueryLod( voxelAlbedo, vec3(0) ).x;
+#if VOXEL_TRACE_IN_NDC
+	rayO = vec3( ubo.matrices.voxel * vec4( rayO, 1.0 ) );
+	rayD = vec3( ubo.matrices.voxel * vec4( rayD, 0.0 ) );
+
+	vec3 boundsMin = vec3( -1 );
+	vec3 boundsMax = vec3(  1 );
+	float voxelSize = 1.0 / albedoSize;
+#else
+	mat4 inverseOrtho = inverse( ubo.matrices.voxel );
+	vec3 boundsMin = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
+	vec3 boundsMax = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
+	float voxelSize = 1;
+#endif
+	float granularity = 1.0 / 6.0; // (2.0 * sqrt(2.0) );
+	// box
+	vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayO, rayD );
+	float tStart = rayBoxInfo.x;
+	float tEnd = rayBoxInfo.y;
+	// steps
+	float tDelta = voxelSize * granularity;
+	uint maxSteps = uint(albedoSize / granularity);
+	// marcher
+	float t = tStart + tDelta * 2.0;
+	vec3 rayPos = vec3(0);
+	vec4 radiance = vec4(0);
+	vec3 uvw = vec3(0);
+	// cone mipmap shit
+	float coneCoefficient = 2.0 * tan(aperture * 0.5);
+	float coneDiameter = coneCoefficient * t;
+	float level = aperture > 0 ? log2( coneDiameter / albedoSize ) : 0;
+	// results
+	vec4 color = vec4(0);
+	float occlusion = 0.0;
+	// do
+	uint stepCounter = 0;
+	while ( t < tEnd && occlusion < 1.0 && stepCounter++ < maxSteps ) {
+		t += tDelta;
+		rayPos = rayO + rayD * t;
+	#if VOXEL_TRACE_IN_NDC
+		uvw = rayPos * 0.5 + 0.5;
+	#else
+		uvw = (rayPos - boundsMin) / (boundsMax - boundsMin); // vec3( ubo.matrices.voxel * vec4( rayPos, 1 ) ) * 0.5 + 0.5;
+	#endif
+		if ( abs(uvw.x) > 1.0 || abs(uvw.y) > 1.0 || abs(uvw.z) > 1.0 ) break;
+		coneDiameter = coneCoefficient * t;
+		level = log2( coneDiameter / albedoSize );
+		radiance = texture(voxelAlbedo, uvw, level) * granularity;
+	
+		occlusion += radiance.a;
+		color.rgb += (1.0 - occlusion) * radiance.rgb;
+	}
+	return vec4(color.rgb, occlusion);
 }
 
 void main() {
@@ -757,81 +563,125 @@ void main() {
 #endif
 #endif
 	float M = material.factorMetallic;
-	float R = material.factorRoughness * 4.0;
+	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
+
+	vec4 indirectLighting = vec4(0);
+	// GI
+	{
+		vec3 P = position.world;
+		vec3 N = normal.world;
+
+	//	outFragColor = voxelConeTrace(rayO, rayD, 0 );
+	//	return;
+
+		const float ROUGHNESS_SCALE = clamp(sqrt( 0.111111f / ( R * R + 0.111111f ) ), 0.0, 1.0);
+		const float ANGLE_MIX = 0.5f;
+		const float DIFFUSE_CONE_APERTURE = 0.325;
+		const float DIFFUSE_INDIRECT_FACTOR = ROUGHNESS_SCALE; //0.11111f * 0.111111f;
+		
+		const vec3 ortho = normalize(orthogonal(N));
+		const vec3 ortho2 = normalize(cross(ortho, N));
+		const vec3 corner = 0.5f * (ortho + ortho2);
+		const vec3 corner2 = 0.5f * (ortho - ortho2);
+
+		const vec3 CONES[9] = {
+			N,
+
+			mix(N, ortho, ANGLE_MIX),
+			mix(N, -ortho, ANGLE_MIX),
+			mix(N, ortho2, ANGLE_MIX),
+			mix(N, -ortho2, ANGLE_MIX),
+
+			mix(N, corner, ANGLE_MIX),
+			mix(N, -corner, ANGLE_MIX),
+			mix(N, corner2, ANGLE_MIX),
+			mix(N, -corner2, ANGLE_MIX),
+		};
+
+		vec4 indirectDiffuse = vec4(0);
+		vec4 indirectSpecular = vec4(0);
+
+	//	indirectDiffuse += voxelConeTrace( P, N, 0.325 );
+		for ( uint i = 0; i < 1; ++i ) {
+			indirectDiffuse += voxelConeTrace(P, CONES[i], DIFFUSE_CONE_APERTURE );
+		}
+
+		const float SPECULAR_CONE_APERTURE = acos( ROUGHNESS_SCALE );
+		const float SPECULAR_INDIRECT_FACTOR = ROUGHNESS_SCALE; // 0.1;
+
+		vec3 R = reflect( normalize(P - rayO), N );
+		indirectSpecular = voxelConeTrace( P, R, SPECULAR_CONE_APERTURE );
+		indirectLighting = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;
+	//	AO = 1.0 - clamp(indirectDiffuse.a, 0.0, 1.0);
+	//	outFragColor.rgb = vec3(AO);
+	//	return;
+
+	//	outFragColor.rgb = indirectLighting.rgb;
+	//	outFragColor.rgb = indirectDiffuse.rgb;
+	//	outFragColor.rgb = indirectSpecular.rgb;
+	//	return;
+	}
+	R *= 2.0f;
 
 	bool usePbr = true;
 	bool gammaCorrect = false;
 	float litFactor = 1.0;
 	bool useLightmap = 0 <= material.indexLightmap;
 	if ( useLightmap ) {
-		fragColor = C.rgb + ubo.ambient.rgb;
-		for ( uint i = 0; i < ubo.lights; ++i ) {
-			Light light = lights[i];
-			
-			if ( light.power <= 0.001 ) continue;
-			
-			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-			if ( validTextureIndex(light.mapIndex) ) {
-				float factor = shadowFactor( light, light.mapIndex, 0.0 );
-				light.power *= factor;
-				litFactor += light.power;
-			}
-			if ( light.power <= 0.0001 ) continue;
-			if ( usePbr ) pbrSpecular( light, C.rgb, M, R, fragColor ); else phongSpecular( light, C, fragColor );
-		}
-	/*	
-		float totalShadows = 0.0;
-		float totalLights = 0.0;
-
-		for ( uint i = 0; i < ubo.lights; ++i ) {
-			Light light = lights[i];
-			
-			if ( light.power <= 0.001 ) continue;
-			
-			vec3 lightPositionWorld = light.position.xyz;
-			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-			++totalLights;
-			if ( !validTextureIndex(light.mapIndex) ) continue;
-			totalShadows += shadowFactor( light, light.mapIndex, 1.0 );
-		}
-		fragColor = vec3(totalShadows / totalLights);
-	*/
+		fragColor = C.rgb + ubo.ambient.rgb + indirectLighting.rgb;
 	} else {
-		fragColor = C.rgb * ubo.ambient.rgb * AO;
+		fragColor = C.rgb * ubo.ambient.rgb * (1 - AO) + indirectLighting.rgb;
+	}
+	{
+		const float LIGHT_POWER_CUTOFF = 0.0001;
+		vec3 N = normal.eye;
+		vec3 F0 = mix(vec3(0.04), C.rgb, M); 
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			Light light = lights[i];
-			
-			if ( light.power <= 0.001 ) continue;
-			
-			vec3 lightPositionWorld = light.position.xyz;
-			light.position.xyz = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
-			
+			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+			light.position = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position.xyz, 1));
 			if ( validTextureIndex(light.mapIndex) ) {
 				float factor = shadowFactor( light, light.mapIndex, 0.0 );
 				light.power *= factor;
 				litFactor += light.power;
 			}
-			if ( light.power <= 0.0001 ) continue;
-			if ( usePbr ) pbr( light, C.rgb, M, R, lightPositionWorld, fragColor ); else phong( light, C, fragColor );
+			vec3 Li = light.position - position.eye;
+			light.power *= 1.0 / (PI * pow(length(Li), 2.0));
+			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+
+			     Li = normalize(Li);
+			vec3 Lo = normalize( -position.eye );
+			vec3 Lh = normalize(Li + Lo);
+			
+			vec3 Lradiance = light.color.rgb * light.power;
+			vec3 albedo = C.rgb;
+
+			float cosLi = max(0.0, dot(N, Li));
+			float cosLo = max(0.0, dot(N, Lo));
+			float cosLh = max(0.0, dot(N, Lh));
+
+			vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
+			float D = ndfGGX( cosLh, R );
+			float G = gaSchlickGGX(cosLi, cosLo, R);
+
+			vec3 Kd = mix( vec3(1.0) - F, vec3(0.0), M );
+			vec3 diffuseBRDF = Kd * albedo;
+			vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+			if ( useLightmap ) {
+				fragColor.rgb += (specularBRDF) * Lradiance * cosLi;
+			} else {
+				fragColor.rgb += (diffuseBRDF + specularBRDF) * Lradiance * cosLi;
+			}
 		}
 	}
-	if ( gammaCorrect ) {
-		fragColor = fragColor / (fragColor + vec3(1.0));
- 		fragColor = pow(fragColor, vec3(1.0/2.2));  
- 	}
+	if ( gammaCorrect ) fragColor = gamma( fragColor );
 
 	fog(rayO, rayD, fragColor, litFactor);
 
-/*
-
-	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-		//dither1(fragColor);
-		fragColor += dither2();
-	}
-*/
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);
 	}
 	outFragColor = vec4(fragColor,1);
+
 }

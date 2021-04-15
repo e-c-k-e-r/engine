@@ -34,11 +34,6 @@ namespace ext {
 			VkSpecializationInfo specializationInfo;
 
 			uf::Serializer metadata;
-		/*
-			std::vector<uint8_t> specializationConstants;
-			std::vector<ext::vulkan::userdata_t> pushConstants;
-			std::vector<ext::vulkan::userdata_t> uniforms;
-		*/
 
 			ext::vulkan::userdata_t specializationConstants;
 			std::vector<ext::vulkan::userdata_t> pushConstants;
@@ -75,12 +70,16 @@ namespace ext {
 			VkDescriptorSet descriptorSet;
 			GraphicDescriptor descriptor;
 
+			uf::Serializer metadata;
+
 			void initialize( Graphic& graphic );
 			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
 			void update( Graphic& graphic );
 			void update( Graphic& graphic, GraphicDescriptor& descriptor );
 			void record( Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0 );
 			void destroy();
+
+			std::vector<Shader*> getShaders( std::vector<Shader>& );
 		};
 		struct UF_API Material {
 			bool aliased = false;
@@ -94,11 +93,11 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 
-			void attachShader( const std::string&, VkShaderStageFlagBits );
-			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& );
+			void attachShader( const std::string&, VkShaderStageFlagBits, const std::string& pipeline = "" );
+			void initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>&, const std::string& pipeline = "" );
 
-			bool hasShader( const std::string& type );
-			Shader& getShader( const std::string& type );
+			bool hasShader( const std::string& type, const std::string& pipeline = "" );
+			Shader& getShader( const std::string& type, const std::string& pipeline = "" );
 
 			bool validate();
 		};

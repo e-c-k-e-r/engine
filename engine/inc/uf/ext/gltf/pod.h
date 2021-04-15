@@ -6,6 +6,17 @@
 #include <uf/utils/math/transform.h>
 
 namespace pod {
+	struct UF_API SceneTextures {
+		uf::renderer::Texture3D noise;
+		uf::renderer::TextureCube skybox;
+		struct {
+			uf::renderer::Texture3D id;
+			uf::renderer::Texture3D normal;
+			uf::renderer::Texture3D albedo;
+			uf::renderer::Texture3D uv;
+		} voxels;
+	};
+
 	struct UF_API DrawCall {
 		struct Storage {
 			alignas(4) int32_t materialIndex = -1;

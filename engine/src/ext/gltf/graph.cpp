@@ -12,6 +12,132 @@
 #endif
 
 namespace {
+	void initializeShaders( pod::Graph& graph, uf::Object& entity ) {
+		auto& graphic = entity.getComponent<uf::Graphic>();
+		std::string root = uf::io::directory( graph.name );
+		size_t texture2Ds = 0;
+		for ( auto& texture : graphic.material.textures ) {
+			if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 1 ) ++texture2Ds;
+		}
+
+		// standard pipeline
+		{
+			std::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<std::string>("/gltf/base.vert.spv");
+			std::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<std::string>("");
+			std::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<std::string>("/gltf/base.frag.spv");
+			{
+				if ( !graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
+					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/gltf/skinned.instanced.vert.spv" : "/gltf/instanced.vert.spv";
+				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/gltf/skinned.vert.spv";
+				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
+				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
+			}
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
+				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
+			}
+			{
+				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
+			}
+		#if UF_USE_VULKAN
+			{
+				auto& shader = graphic.material.getShader("vertex");
+				struct SpecializationConstant {
+					uint32_t passes = 6;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.passes = uf::renderer::settings::maxViews;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
+					if ( sc["name"].as<std::string>() == "PASSES" ) sc["value"] = specializationConstants.passes;
+				});
+			}
+			{
+				auto& shader = graphic.material.getShader("fragment");
+				struct SpecializationConstant {
+					uint32_t textures = 1;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.textures = texture2Ds;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
+					if ( sc["name"].as<std::string>() == "TEXTURES" ) sc["value"] = specializationConstants.textures;
+				});
+				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+					if ( binding.descriptorCount > 1 ) binding.descriptorCount = specializationConstants.textures;
+				}
+			}
+		#endif
+		}
+		// svogi pipeline
+		if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+			std::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<std::string>("/gltf/base.vert.spv");
+			std::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<std::string>("/gltf/voxelize.geom.spv");
+			std::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<std::string>("/gltf/voxelize.frag.spv");
+		/*
+			{
+				if ( !graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
+					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/gltf/skinned.instanced.vert.spv" : "/gltf/instanced.vert.spv";
+				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/gltf/skinned.vert.spv";
+				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
+				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "svogi");
+			}
+		*/
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
+				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "svogi");
+			}
+			{
+				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "svogi");
+			}
+		#if UF_USE_VULKAN
+		/*
+			{
+				auto& shader = graphic.material.getShader("vertex", "svogi");
+				struct SpecializationConstant {
+					uint32_t passes = 6;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.passes = uf::renderer::settings::maxViews;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
+					if ( sc["name"].as<std::string>() == "PASSES" ) sc["value"] = specializationConstants.passes;
+				});
+			}
+		*/
+		/*
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
+				auto& shader = graphic.material.getShader("geometry", "svogi");
+				pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
+				pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
+
+				struct UniformDescriptor {
+					alignas(16) pod::Matrix4f matrix;
+				};
+
+				auto& uniform = shader.getUniform("UBO");
+				auto& uniforms = uniform.get<UniformDescriptor>();
+				uniforms.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, max.z, min.z );
+				shader.updateUniform( "UBO", uniform );
+			}
+		*/
+			{
+				auto& shader = graphic.material.getShader("fragment", "svogi");
+				struct SpecializationConstant {
+					uint32_t textures = 1;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+				specializationConstants.textures = texture2Ds;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
+					if ( sc["name"].as<std::string>() == "TEXTURES" ) sc["value"] = specializationConstants.textures;
+				});
+				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+					if ( binding.descriptorCount > 1 ) binding.descriptorCount = specializationConstants.textures;
+				}
+			}
+		#endif
+		}
+		graphic.process = true;
+	}
 	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		auto& graphic = entity.getComponent<uf::Graphic>();
 		graphic.device = &uf::renderer::device;
@@ -37,44 +163,18 @@ namespace {
 			for ( auto& sampler : graph.samplers ) {
 				graphic.material.samplers.emplace_back( sampler );
 			}
+			// bind scene's voxel texture
+			if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+				auto& scene = uf::scene::getCurrentScene();
+				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.id);
+				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.normal);
+				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.uv);
+				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.albedo);
+			}
 		}
 		if ( graph.metadata["flags"]["LOAD"].as<bool>() ) {
-			if ( graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
-				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-					graphic.material.attachShader(uf::io::root + "/shaders/gltf/skinned.vert.spv", uf::renderer::enums::Shader::VERTEX);
-				} else {
-					graphic.material.attachShader(uf::io::root + "/shaders/gltf/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
-				}
-			} else {
-				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-					graphic.material.attachShader(uf::io::root + "/shaders/gltf/skinned.instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
-				} else {
-					graphic.material.attachShader(uf::io::root + "/shaders/gltf/instanced.vert.spv", uf::renderer::enums::Shader::VERTEX);
-				}
-			}
-			graphic.material.attachShader(uf::io::root + "/shaders/gltf/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
-		#if UF_USE_VULKAN
-			{
-				auto& shader = graphic.material.getShader("vertex");
-				struct SpecializationConstant {
-					uint32_t passes = 6;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.passes = uf::renderer::settings::maxViews;
-			}
-			{
-				auto& shader = graphic.material.getShader("fragment");
-				struct SpecializationConstant {
-					uint32_t textures = 1;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.textures = graphic.material.textures.size();
-				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-					if ( binding.descriptorCount > 1 )
-						binding.descriptorCount = specializationConstants.textures;
-				}
-			}
-		#endif
+			initializeShaders( graph, entity );
 		} else {
 			graphic.process = false;
 		}
@@ -148,16 +248,10 @@ void uf::graph::process( pod::Graph& graph ) {
 	// invalidate our ST's if we're in OpenGL
 	} else {
 	#if UF_USE_OPENGL
-		for ( auto& mesh : graph.meshes ) {
-			for ( auto& v : mesh.vertices ) {
-				v.st = pod::Vector2f{0,0};
-			}
-		}
+		for ( auto& mesh : graph.meshes ) for ( auto& v : mesh.vertices ) v.st = pod::Vector2f{0,0};
 	#endif
 	}
 	if ( graph.metadata["flags"]["ATLAS"].as<bool>() && graph.atlas.generated() ) {
-	//	for ( auto& texture : graph.textures ) if ( 0 <= texture.storage.index ) ++texture.storage.index;
-
 		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas.getAtlas());
 		auto& texture = *graph.textures.emplace(graph.textures.begin());
 		texture.name = "atlas";
@@ -213,16 +307,6 @@ void uf::graph::process( pod::Graph& graph ) {
 			texture.texture.loadFromImage( image );
 		}
 	}
-/*
-	{
-		size_t textureSlot = 0;
-		for ( auto& texture : graph.textures ) {
-			texture.storage.index = -1;
-			if ( !texture.bind ) continue;
-			texture.storage.index = textureSlot++;
-		}
-	}
-*/
 
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
@@ -272,8 +356,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
 		for ( size_t i = 0; i < graph.textures.size(); ++i ) {
 			textures[i] = graph.textures[i].storage;
-		//	textures[i].index = i;
-		//	textures[i].remap = -1;
 		}
 		graph.root.textureBufferIndex = graphic.initializeBuffer(
 			(void*) textures.data(),
@@ -282,12 +364,43 @@ void uf::graph::process( pod::Graph& graph ) {
 		);
 	}
 
+	// calculate extents
+	pod::Vector3f extentMin = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	pod::Vector3f extentMax = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+
 	graph.root.entity->process([&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<ext::gltf::mesh_t>() ) return;
 		
+		auto& transform = entity->getComponent<pod::Transform<>>();
 		auto& mesh = entity->getComponent<ext::gltf::mesh_t>();
 		auto& metadata = entity->getComponent<uf::Serializer>();
 		std::string nodeName = metadata["system"]["graph"]["name"].as<std::string>();
+
+		pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+		pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+
+		auto model = uf::transform::model( transform );
+		for ( auto& vertex : mesh.vertices ) {
+		//	auto position = uf::matrix::multiply<float>( model, vertex.position, 1.0f );
+			min.x = std::min( min.x, vertex.position.x );
+			min.y = std::min( min.y, vertex.position.y );
+			min.z = std::min( min.z, vertex.position.z );
+
+			max.x = std::max( max.x, vertex.position.x );
+			max.y = std::max( max.y, vertex.position.y );
+			max.z = std::max( max.z, vertex.position.z );
+		}
+
+		min = uf::matrix::multiply<float>( model, min, 1.0f );
+		max = uf::matrix::multiply<float>( model, max, 1.0f );
+
+		extentMin.x = std::min( min.x, extentMin.x );
+		extentMin.y = std::min( min.y, extentMin.y );
+		extentMin.z = std::min( min.z, extentMin.z );
+
+		extentMax.x = std::max( max.x, extentMax.x );
+		extentMax.y = std::max( max.y, extentMax.y );
+		extentMax.z = std::max( max.z, extentMax.z );
 	#if 1
 		if ( graph.metadata["flags"]["NORMALS"].as<bool>() ) {
 			// bool invert = false;
@@ -391,6 +504,9 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 	});
+
+	if ( ext::json::isNull( graph.metadata["extents"]["min"] ) ) graph.metadata["extents"]["min"] = uf::vector::encode( extentMin * graph.metadata["extents"]["scale"].as<float>(1.0f) );
+	if ( ext::json::isNull( graph.metadata["extents"]["max"] ) ) graph.metadata["extents"]["max"] = uf::vector::encode( extentMax * graph.metadata["extents"]["scale"].as<float>(1.0f) );
 }
 void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) {
 	auto& node = graph.nodes[index];
@@ -601,6 +717,20 @@ void uf::graph::override( pod::Graph& graph ) {
 			}
 		}
 	}
+}
+
+void uf::graph::initialize( pod::Graph& graph ) {
+	graph.root.entity->initialize();
+	graph.root.entity->process([&]( uf::Entity* entity ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) {
+			if ( entity->getUid() == 0 ) entity->initialize();
+			return;
+		}
+		if ( !graph.metadata["flags"]["LOAD"].as<bool>() ) initializeShaders( graph, entity->as<uf::Object>() );
+		uf::instantiator::bind( "GltfBehavior", *entity );
+		uf::instantiator::unbind( "RenderBehavior", *entity );
+		if ( entity->getUid() == 0 ) entity->initialize();
+	});
 }
 
 void uf::graph::animate( pod::Graph& graph, const std::string& name, float speed, bool immediate ) {

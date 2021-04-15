@@ -57,8 +57,9 @@ layout (location = 1) out vec2 outNormals;
 #endif
 
 vec2 encodeNormals( vec3 n ) {
-	float p = sqrt(n.z*8+8);
-	return n.xy/p + 0.5;
+//	return n.xy / sqrt(n.z*8+8) + 0.5;
+#define kPI 3.1415926536f
+	return (vec2(atan(n.y,n.x)/kPI, n.z)+1.0)*0.5;
 }
 
 float wrap( float i ) {

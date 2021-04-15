@@ -51,6 +51,8 @@ namespace ext {
 	namespace RENDERER {
 		struct UF_API GraphicDescriptor {
 			std::string renderMode = "";
+			std::string pipeline = "";
+
 			uint32_t renderTarget = 0;
 			uint32_t subpass = 0;
 

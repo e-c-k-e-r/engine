@@ -172,7 +172,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 vec3 fresnelSchlick(float cosTheta, vec3 F0) {
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
-void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightPositionWorld, vec3 normal, vec3 position, inout vec3 i ) {
+void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 normal, vec3 position, inout vec3 i ) {
 	vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic); 
 
@@ -202,7 +202,8 @@ void pbr( Light light, vec3 albedo, float metallic, float roughness, vec3 lightP
 	vec3 specular     = numerator / max(denominator, 0.001);  
 
 	// add to outgoing radiance Lo
-	i += (kD * albedo / PI + specular) * radiance * NdotL;
+	// ignore specular
+	i += (kD * albedo / PI ) * radiance * NdotL;
 }
 
 void main() {
@@ -210,7 +211,7 @@ void main() {
 	vec2 uv = wrap(inUv.xy);
 	vec4 C = vec4(1, 1, 1, 1);
 	vec3 P = inPosition;
-	vec3 N = inNormal;
+	vec3 N = normalize( inNormal );
 
 	int materialId = int(inId.y);
 	Material material = materials[materialId];
@@ -248,6 +249,7 @@ void main() {
 		N = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
 	}
 #endif
+
 	C = vec4(1);
 	bool lit = false;
 	vec3 fragColor = vec3(0);
@@ -259,18 +261,7 @@ void main() {
 			light.power *= factor;
 		}
 		if ( light.power <= 0.0001 ) continue;
-		pbr( light, C.rgb, M, R, light.position.xyz,  N, P, fragColor );
-	//	if ( usePbr ) pbr( light, C.rgb, M, R, lightPositionWorld, fragColor ); else phong( light, C, fragColor );
-/*
-		Light light = lights[i];
-		if ( validTextureIndex(light.mapIndex) ) {
-			light.power *= shadowFactor( P, light, light.mapIndex, 0.0 );
-		}
-		if ( light.power < 0.001 ) continue;
-		pbr( light, C.rgb, M, R, light.position.xyz,  N, P, fragColor );
-		lit = true;
-*/
+		pbr( light, C.rgb, M, R,  N, P, fragColor );
 	}
-//	if ( !lit ) fragColor = C.rgb;
 	outAlbedo = vec4(fragColor, 1);
 }

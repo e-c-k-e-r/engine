@@ -14,6 +14,7 @@ namespace ext {
 		void tick( uf::Object& );
 		void render( uf::Object& );
 		void destroy( uf::Object& );
+
 		struct Metadata {
 			struct {
 				size_t textures = 256;
@@ -44,5 +45,7 @@ namespace ext {
 			std::function<void()> serialize;
 			std::function<void()> deserialize;
 		};
+
+		void bindBuffers( uf::Object&, const std::string& = "", bool = false );
 	}
 }

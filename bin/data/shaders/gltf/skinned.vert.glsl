@@ -38,10 +38,6 @@ layout (location = 4) out mat3 outTBN;
 layout (location = 7) out vec3 outPosition;
 layout (location = 8) out ivec4 outId;
 
-out gl_PerVertex {
-    vec4 gl_Position;   
-};
-
 vec4 snap(vec4 vertex, vec2 resolution) {
     vec4 snappedPos = vertex;
     snappedPos.xyz = vertex.xyz / vertex.w;
@@ -62,8 +58,12 @@ void main() {
 		inWeights.z * joints[int(inJoints.z)] +
 		inWeights.w * joints[int(inJoints.w)];
 
-	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * skinnedMatrix * vec4(inPos.xyz, 1.0));
-	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
+//	outPosition = vec3(ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * skinnedMatrix * vec4(inPos.xyz, 1.0));
+//	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * skinnedMatrix * vec4(inPos.xyz, 1.0));
+	outPosition = vec3(ubo.matrices.model * skinnedMatrix * vec4(inPos.xyz, 1.0));
+
+//	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
+	outNormal = vec3(ubo.matrices.model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
 
 

@@ -1,0 +1,371 @@
+#version 450
+#extension GL_EXT_samplerless_texture_functions : require
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+#define MULTISAMPLING 1
+#define RAY_MARCH_FOG 1
+#define UF_DEFERRED_SAMPLING 0
+
+layout (constant_id = 0) const uint TEXTURES = 256;
+
+struct Matrices {
+	mat4 view[2];
+	mat4 projection[2];
+	mat4 iView[2];
+	mat4 iProjection[2];
+	mat4 iProjectionView[2];
+	mat4 voxel;
+};
+
+struct Space {
+	vec3 eye;
+	vec3 world;
+} position, normal, view;
+
+struct Fog {
+	vec3 color;
+	float stepScale;
+
+	vec3 offset;
+	float densityScale;
+
+	float densityThreshold;
+	float densityMultiplier;
+	float absorbtion;
+	float padding1;
+
+	vec2 range;
+	float padding2;
+	float padding3;
+};
+
+struct Mode {
+	uint type;
+	uint scalar;
+	vec2 padding;
+	vec4 parameters;
+};
+
+struct Light {
+	vec3 position;
+	float radius;
+	
+	vec3 color;
+	float power;
+	
+	int type;
+	int mapIndex;
+	float depthBias;
+	float padding;
+
+	mat4 view;
+	mat4 projection;
+};
+
+struct Material {
+	vec4 colorBase;
+	vec4 colorEmissive;
+
+	float factorMetallic;
+	float factorRoughness;
+	float factorOcclusion;
+	float factorAlphaCutoff;
+
+	int indexAlbedo;
+	int indexNormal;
+	int indexEmissive;
+	int indexOcclusion;
+	
+	int indexMetallicRoughness;
+	int indexAtlas;
+	int indexLightmap;
+	int modeAlpha;
+};
+struct Texture {
+	int index;
+	int samp;
+	int remap;
+	float blend;
+
+	vec4 lerp;
+};
+struct DrawCall {
+	int materialIndex;
+	uint materials;
+	int textureIndex;
+	uint textures;
+};
+
+layout (binding = 4) uniform UBO {
+	Matrices matrices;
+
+	Mode mode;
+	Fog fog;
+
+	uint lights;
+	uint materials;
+	uint textures;
+	uint drawCalls;
+	
+	vec3 ambient;
+	float kexp;
+
+	uint msaa;
+	uint poissonSamples;
+	uint padding1;
+	uint padding2;
+} ubo;
+
+layout (std140, binding = 5) readonly buffer Lights {
+	Light lights[];
+};
+layout (std140, binding = 6) readonly buffer Materials {
+	Material materials[];
+};
+layout (std140, binding = 7) readonly buffer Textures {
+	Texture textures[];
+};
+layout (std140, binding = 8) readonly buffer DrawCalls {
+	DrawCall drawCalls[];
+};
+
+layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelID;
+layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal;
+layout (binding = 11, rg16f) uniform volatile coherent image3D voxelUv;
+layout (binding = 12, rgba8) uniform volatile coherent image3D voxelAlbedo;
+
+layout (binding = 13) uniform sampler3D samplerNoise;
+layout (binding = 14) uniform samplerCube samplerSkybox;
+layout (binding = 15) uniform sampler2D samplerTextures[TEXTURES];
+
+const float PI = 3.14159265359;
+const float EPSILON = 0.00001;
+
+// GGX/Towbridge-Reitz normal distribution function.
+// Uses Disney's reparametrization of alpha = roughness^2.
+float ndfGGX(float cosLh, float roughness) {
+	float alpha   = roughness * roughness;
+	float alphaSq = alpha * alpha;
+
+	float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
+	return alphaSq / (PI * denom * denom);
+}
+
+// Single term for separable Schlick-GGX below.
+float gaSchlickG1(float cosTheta, float k) {
+	return cosTheta / (cosTheta * (1.0 - k) + k);
+}
+
+// Schlick-GGX approximation of geometric attenuation function using Smith's method.
+float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0; // Epic suggests using this roughness remapping for analytic lights.
+	return gaSchlickG1(cosLi, k) * gaSchlickG1(cosLo, k);
+}
+vec3 fresnelSchlick(vec3 F0, float cosTheta) {
+	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
+float random(vec3 seed, int i){
+	vec4 seed4 = vec4(seed,i);
+	float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
+	return fract(sin(dot_product) * 43758.5453);
+}
+
+vec2 poissonDisk[16] = vec2[]( 
+   vec2( -0.94201624, -0.39906216 ), 
+   vec2( 0.94558609, -0.76890725 ), 
+   vec2( -0.094184101, -0.92938870 ), 
+   vec2( 0.34495938, 0.29387760 ), 
+   vec2( -0.91588581, 0.45771432 ), 
+   vec2( -0.81544232, -0.87912464 ), 
+   vec2( -0.38277543, 0.27676845 ), 
+   vec2( 0.97484398, 0.75648379 ), 
+   vec2( 0.44323325, -0.97511554 ), 
+   vec2( 0.53742981, -0.47373420 ), 
+   vec2( -0.26496911, -0.41893023 ), 
+   vec2( 0.79197514, 0.19090188 ), 
+   vec2( -0.24188840, 0.99706507 ), 
+   vec2( -0.81409955, 0.91437590 ), 
+   vec2( 0.19984126, 0.78641367 ), 
+   vec2( 0.14383161, -0.14100790 ) 
+);
+
+float shadowFactor( Light light, uint shadowMap, float def ) {
+	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
+	positionClip.xyz /= positionClip.w;
+
+	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
+	if ( positionClip.y < -1 || positionClip.y >= 1 ) return def; //0.0;
+	if ( positionClip.z <= 0 || positionClip.z >= 1 ) return def; //0.0;
+
+	float factor = 1.0;
+
+	// spot light
+	if ( light.type == 1 || light.type == 2 ) {
+		float dist = length( positionClip.xy );
+		if ( dist > 0.5 ) return def; //0.0;
+		
+		// spot light with attenuation
+		if ( light.type == 2 ) {
+			factor = 1.0 - (pow(dist * 2,2.0));
+		}
+	}
+	
+	vec2 uv = positionClip.xy * 0.5 + 0.5;
+	float bias = light.depthBias;
+/*
+	if ( true ) {
+		float cosTheta = clamp(dot(normal.eye, normalize(light.position.xyz - position.eye)), 0, 1);
+		bias = clamp(bias * tan(acos(cosTheta)), 0, 0.01);
+	} else if ( true ) {
+		bias = max(bias * 10 * (1.0 - dot(normal.eye, normalize(light.position.xyz - position.eye))), bias);
+	}
+*/
+
+	float eyeDepth = positionClip.z;
+
+	int samples = int(ubo.poissonSamples);
+	if ( samples <= 1 ) {
+		return eyeDepth < texture(samplerTextures[shadowMap], uv).r - bias ? 0.0 : factor;
+	}
+	for ( int i = 0; i < samples; ++i ) {
+	//	int index = i;
+	//	int index = int( float(samples) * random(gl_FragCoord.xyy, i) ) % samples;
+		int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
+		float lightDepth = texture(samplerTextures[shadowMap], uv + poissonDisk[index] / 700.0 ).r;
+		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
+	}
+	return factor;
+}
+
+vec3 decodeNormals( vec2 enc ) {
+#define kPI 3.1415926536f
+	vec2 ang = enc*2-1;
+	vec2 scth = vec2( sin(ang.x * kPI), cos(ang.x * kPI) );
+	vec2 scphi = vec2(sqrt(1.0 - ang.y*ang.y), ang.y);
+	return normalize( vec3(scth.y*scphi.x, scth.x*scphi.x, scphi.y) );
+/*
+	vec2 fenc = enc*4-2;
+	float f = dot(fenc,fenc);
+	float g = sqrt(1-f/4);
+	return normalize( vec3(fenc * g, 1 - f / 2) );
+*/
+}
+float wrap( float i ) {
+	return fract(i);
+}
+vec2 wrap( vec2 uv ) {
+	return vec2( wrap( uv.x ), wrap( uv.y ) );
+}
+
+bool validTextureIndex( int textureIndex ) {
+	return 0 <= textureIndex; // && textureIndex < ubo.textures;
+}
+
+void main() {	
+	vec3 tUvw = gl_GlobalInvocationID.xyz;
+
+	uvec2 ID = uvec2(imageLoad(voxelID, ivec3(tUvw) ).xy);
+	vec2 N = vec2(imageLoad(voxelNormal, ivec3(tUvw) ).xy);
+
+	normal.world = decodeNormals( N );
+	normal.eye = vec3( ubo.matrices.voxel * vec4( normal.world, 0.0f ) );
+
+	position.eye = vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelAlbedo)) * 2.0f - 1.0f;
+	position.world = vec3( inverse(ubo.matrices.voxel) * vec4( position.eye, 1.0f ) );
+
+	vec2 uv = imageLoad(voxelUv, ivec3(tUvw) ).xy;
+
+	uint drawId = ID.x;
+	uint materialId = ID.y;
+	if ( drawId == 0 || materialId == 0 ) {
+		imageStore(voxelAlbedo, ivec3(tUvw), vec4(0));
+		return;
+	}
+	--drawId;
+	--materialId;
+
+	DrawCall drawCall = drawCalls[drawId];
+	materialId += drawCall.materialIndex;
+
+	Material material = materials[materialId];
+	vec4 C = material.colorBase;
+
+	bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
+	Texture textureAtlas;
+	if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
+	if ( validTextureIndex( drawCall.textureIndex + material.indexAtlas ) ) {
+		Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
+		C = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv );
+	}
+
+	// OPAQUE
+	if ( material.modeAlpha == 0 ) {
+		C.a = 1;
+	// BLEND
+	} else if ( material.modeAlpha == 1 ) {
+
+	// MASK
+	} else if ( material.modeAlpha == 2 ) {
+
+	}
+
+	float M = material.factorMetallic;
+	float R = material.factorRoughness * 4.0;
+	float AO = material.factorOcclusion;
+
+	bool usePbr = true;
+	bool gammaCorrect = false;
+	float litFactor = 1.0;
+	bool useLightmap = 0 <= material.indexLightmap;
+	vec3 fragColor = vec3(0.0);
+	if ( useLightmap ) {
+		fragColor = C.rgb + ubo.ambient.rgb;
+	} else {
+		fragColor = C.rgb * ubo.ambient.rgb * (1 - AO);
+	}
+	{
+		const float LIGHT_POWER_CUTOFF = 0.005;
+		vec3 N = normal.world;
+		vec3 F0 = mix(vec3(0.04), C.rgb, M); 
+		for ( uint i = 0; i < ubo.lights; ++i ) {
+			Light light = lights[i];
+			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+			if ( validTextureIndex(light.mapIndex) ) {
+				float factor = shadowFactor( light, light.mapIndex, 0.0 );
+				light.power *= factor;
+				litFactor += light.power;
+			}
+			vec3 Li = light.position - position.world;
+			light.power *= 1.0 / (PI * pow(length(Li), 2.0));
+			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+
+			     Li = normalize(Li);
+			vec3 Lo = normalize( -position.world );
+			vec3 Lh = normalize(Li + Lo);
+			
+			vec3 Lradiance = light.color.rgb * light.power;
+			vec3 albedo = C.rgb;
+
+			float cosLi = max(0.0, dot(N, Li));
+			float cosLo = max(0.0, dot(N, Lo));
+			float cosLh = max(0.0, dot(N, Lh));
+
+			vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
+			float D = ndfGGX( cosLh, R );
+			float G = gaSchlickGGX(cosLi, cosLo, R);
+
+			vec3 Kd = mix( vec3(1.0) - F, vec3(0.0), M );
+			vec3 diffuseBRDF = Kd * albedo;
+			vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+			if ( useLightmap ) {
+				fragColor.rgb += (specularBRDF) * Lradiance * cosLi;
+			} else {
+				fragColor.rgb += (diffuseBRDF + specularBRDF) * Lradiance * cosLi;
+			}
+		}
+	}
+	imageStore(voxelAlbedo, ivec3(tUvw), vec4(fragColor.rgb, 1));
+}

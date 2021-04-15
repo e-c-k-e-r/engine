@@ -4,7 +4,6 @@
 #define UF_CAN_DISCARD 1
 
 layout (constant_id = 0) const uint TEXTURES = 1;
-layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
 
 struct Material {
 	vec4 colorBase;
@@ -33,12 +32,13 @@ struct Texture {
 
 	vec4 lerp;
 };
-layout (std140, binding = 1) readonly buffer Materials {
+layout (std140, binding = 0) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 2) readonly buffer Textures {
+layout (std140, binding = 1) readonly buffer Textures {
 	Texture textures[];
 };
+
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in vec2 inSt;
@@ -47,6 +47,12 @@ layout (location = 3) in vec3 inNormal;
 layout (location = 4) in mat3 inTBN;
 layout (location = 7) in vec3 inPosition;
 layout (location = 8) flat in ivec4 inId;
+
+layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelID;
+layout (binding = 9, rg16f) uniform volatile coherent image3D voxelNormal;
+layout (binding = 10, rg16f) uniform volatile coherent image3D voxelUv;
+layout (binding = 11, rgba8) uniform volatile coherent image3D voxelAlbedo;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
@@ -75,16 +81,16 @@ float mipLevel( in vec2 uv ) {
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < textures.length();
 }
+
 void main() {
-	float mip = mipLevel(inUv.xy);
-	vec2 uv = wrap(inUv.xy);
-	vec4 C = vec4(0, 0, 0, 0);
 	vec3 P = inPosition;
+	if ( !(abs(P.x) < 1.0 && abs(P.y) < 1 && abs(P.z) < 1) ) discard;
+
+	vec4 C = vec4(0, 0, 0, 0);
 	vec3 N = inNormal;
-#if UF_DEFERRED_SAMPLING
-	vec4 outAlbedo = vec4(0,0,0,0);
-#endif
-#if !UF_DEFERRED_SAMPLING || UF_CAN_DISCARD
+	vec2 uv = wrap(inUv.xy);
+	float mip = mipLevel(inUv.xy);
+
 	int materialId = int(inId.y);
 	Material material = materials[materialId];
 	
@@ -112,42 +118,19 @@ void main() {
 		}
 		if ( C.a == 0 ) discard;
 	}
-#if 1
-	if ( validTextureIndex( material.indexLightmap ) ) {
-	#if UF_DEFERRED_SAMPLING
-		outUvs = inSt;
-	#else
-		Texture t = textures[material.indexLightmap];
-		C *= textureLod( samplerTextures[t.index], inSt, mip );
-	#endif
-	}
-#endif
-#endif
-#if !UF_DEFERRED_SAMPLING
-	// sample normal
-	if ( validTextureIndex( material.indexNormal ) ) {
-		Texture t = textures[material.indexNormal];
-		N = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
-	}
-	#if 0
-		// sample metallic/roughness
-		if ( validTextureIndex( material.indexNormal ) ) {
-			Texture t = textures[material.indexNormal];
-			vec4 sampled = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
-			M = sampled.b;
-			R = sampled.g;
-		}
-		// sample ao
-		AO = material.factorOcclusion;
-		if ( validTextureIndex( material.indexOcclusion ) ) {
-			Texture t = textures[material.indexOcclusion];
-			AO = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv ).r;
-		}
-	#endif
-	outAlbedo = C * inColor;
+
+#if UF_DEFERRED_SAMPLING
+	vec4 outAlbedo;
 #else
-	outUvs = wrap(inUv.xy);
+	vec2 outUvs;
 #endif
-	outNormals = encodeNormals( N );
-	outId = ivec2(inId.w+1, inId.y+1);
+	/*vec4*/ 	outAlbedo = C * inColor;
+	/*uvec2*/ 	outId = uvec2(inId.w+1, inId.y+1);
+	/*vec2*/ 	outNormals = encodeNormals( normalize( N ) );
+	/*vec2*/ 	outUvs = wrap(inUv.xy);
+
+	imageStore(voxelID, ivec3(P * imageSize(voxelID)), uvec4(outId, 0, 0));
+	imageStore(voxelNormal, ivec3(P * imageSize(voxelNormal)), vec4(outNormals, 0, 0));
+	imageStore(voxelUv, ivec3(P * imageSize(voxelUv)), vec4(outUvs, 0, 0));
+	imageStore(voxelAlbedo, ivec3(P * imageSize(voxelAlbedo)), outAlbedo);
 }

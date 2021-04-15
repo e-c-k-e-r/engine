@@ -253,6 +253,12 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 			if ( descriptor.invalidated ) continue;
 			// ignore if pipeline exists for this render mode
 			if ( graphic.hasPipeline( descriptor ) ) continue;
+			// if pipeline name is specified for the rendermode, check if we have shaders for it
+			size_t shaders = 0;
+			for ( auto& shader : graphic.material.shaders ) {
+				if ( shader.metadata["pipeline"].as<std::string>() == descriptor.pipeline ) ++shaders;
+			}
+			if ( shaders == 0 ) continue;
 			graphic.initializePipeline( descriptor );
 		}
 	}

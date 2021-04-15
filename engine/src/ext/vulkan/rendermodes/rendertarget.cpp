@@ -6,6 +6,7 @@
 #include <uf/utils/window/window.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/vulkan/graphic.h>
+#include <uf/ext/gltf/graph.h>
 
 const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
@@ -13,6 +14,9 @@ const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 }
 void ext::vulkan::RenderTargetRenderMode::setTarget( const std::string& target ) {
 	this->metadata["target"] = target;
+}
+void ext::vulkan::RenderTargetRenderMode::bindCallback( int32_t subpass, const ext::vulkan::RenderTargetRenderMode::callback_t& callback ) {
+	commandBufferCallbacks[subpass] = callback;
 }
 
 const std::string ext::vulkan::RenderTargetRenderMode::getType() const {
@@ -33,7 +37,11 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
 	std::string target = metadata["target"].as<std::string>();
-	if ( type == "depth" ) {
+	if ( pass == 0 && type == "svogi" ) {
+		descriptor.cullMode = VK_CULL_MODE_NONE;
+		descriptor.depth.test = false;
+		descriptor.pipeline = "svogi";
+	} else if ( type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
 	// invalidate
@@ -55,7 +63,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	if ( subpasses == 0 ) subpasses = 1;
 	renderTarget.device = &device;
 	for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
-		if ( type == "depth" ) {
+		if ( type == "depth" /*|| type == "svogi"*/ ) {
 			struct {
 				size_t depth;
 			} attachments;
@@ -273,59 +281,155 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		mesh.indices = {
 			0, 1, 2, 2, 3, 0
 		};
+
 		blitter.device = &device;
 		blitter.material.device = &device;
 		blitter.initializeMesh( mesh );
-		blitter.material.initializeShaders({
-			{uf::io::root+"/shaders/display/renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{uf::io::root+"/shaders/display/renderTarget.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-		});
-		
-		for ( auto& attachment : renderTarget.attachments ) {
-			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+		if ( ext::json::isArray( metadata["shaders"] ) ) {
+			ext::json::forEach( metadata["shaders"], [&]( ext::json::Value& value ){
+				ext::vulkan::enums::Shader::type_t type; 
+				std::string filename = "";
+				std::string pipeline = "";
 
-			Texture2D& texture = blitter.material.textures.emplace_back();
-			enums::Filter::type_t filter = VK_FILTER_NEAREST;
-		/*
-			VkFormatProperties formatProperties;
-			vkGetPhysicalDeviceFormatProperties( device.physicalDevice, texture.format, &formatProperties );
-			if ( formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT )
-				filter = VK_FILTER_LINEAR;
-		*/
-			texture.sampler.descriptor.filter.min = filter;
-			texture.sampler.descriptor.filter.mag = filter;
-			texture.aliasAttachment(attachment);
+				if ( value.is<std::string>() ) {
+					filename = value.as<std::string>();
+					auto split = uf::string::split( filename, "." );
+					std::string extension = split.back(); split.pop_back();
+					std::string sType = split.back();
+					
+					if ( sType == "vert" ) type = ext::vulkan::enums::Shader::VERTEX;
+					else if ( sType == "frag" ) type = ext::vulkan::enums::Shader::FRAGMENT;
+					else if ( sType == "geom" ) type = ext::vulkan::enums::Shader::GEOMETRY;
+					else if ( sType == "comp" ) type = ext::vulkan::enums::Shader::COMPUTE;
+				} else {
+					filename = value["filename"].as<std::string>();
+					pipeline = value["pipeline"].as<std::string>();
+					std::string sType = value["type"].as<std::string>();
+
+					if ( sType == "vertex" ) type = ext::vulkan::enums::Shader::VERTEX;
+					else if ( sType == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
+					else if ( sType == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
+					else if ( sType == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
+				}
+
+				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
+			});
+		} else if ( ext::json::isObject( metadata["shaders"] ) ) {
+			ext::json::forEach( metadata["shaders"], [&]( const std::string& key, ext::json::Value& value ){
+				ext::vulkan::enums::Shader::type_t type; 
+				std::string filename = "";
+				std::string pipeline = "";
+				if ( value.is<std::string>() ) {
+					filename = value.as<std::string>();
+				} else {
+					filename = value["filename"].as<std::string>();
+					pipeline = value["pipeline"].as<std::string>();
+				}
+				if ( key == "vertex" ) type = ext::vulkan::enums::Shader::VERTEX;
+				else if ( key == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
+				else if ( key == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
+				else if ( key == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
+				
+				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
+			});
+		} else if ( metadata["shaders"].is<bool>() && !metadata["shaders"].as<bool>() ) {
+			// do not attach if we're requesting no blitter shaders
+			blitter.process = false;
+		} else {
+			blitter.material.initializeShaders({
+				{uf::io::root+"/shaders/display/renderTarget.vert.spv", ext::vulkan::enums::Shader::VERTEX},
+				{uf::io::root+"/shaders/display/renderTarget.frag.spv", ext::vulkan::enums::Shader::FRAGMENT}
+			});
+		}
+		if ( metadata["type"].as<std::string>() == "svogi"  ) {
+			auto& scene = uf::scene::getCurrentScene();
+
+			auto& shader = blitter.material.getShader("compute");
+			struct SpecializationConstant {
+				uint32_t maxTextures = 512;
+			};
+			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+
+			auto& metadata = scene.getComponent<uf::Serializer>();
+			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
+			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
+			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
+				if ( binding.descriptorCount > 1 )
+					binding.descriptorCount = specializationConstants.maxTextures;
+			}
+
+			std::vector<pod::Light::Storage> lights(maxLights);
+			std::vector<pod::Material::Storage> materials(specializationConstants.maxTextures);
+			std::vector<pod::Texture::Storage> textures(specializationConstants.maxTextures);
+			std::vector<pod::DrawCall::Storage> drawCalls(specializationConstants.maxTextures);
+
+			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
+
+			this->metadata["lightBufferIndex"] = blitter.initializeBuffer(
+				(void*) lights.data(),
+				lights.size() * sizeof(pod::Light::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			);
+			this->metadata["materialBufferIndex"] = blitter.initializeBuffer(
+				(void*) materials.data(),
+				materials.size() * sizeof(pod::Material::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			);
+
+			this->metadata["textureBufferIndex"] = blitter.initializeBuffer(
+				(void*) textures.data(),
+				textures.size() * sizeof(pod::Texture::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			);
+
+			this->metadata["drawCallBufferIndex"] = blitter.initializeBuffer(
+				(void*) drawCalls.data(),
+				drawCalls.size() * sizeof(pod::DrawCall::Storage),
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+			);
+		} else {
+			for ( auto& attachment : renderTarget.attachments ) {
+				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+
+				Texture2D& texture = blitter.material.textures.emplace_back();
+				enums::Filter::type_t filter = VK_FILTER_NEAREST;
+			/*
+				VkFormatProperties formatProperties;
+				vkGetPhysicalDeviceFormatProperties( device.physicalDevice, texture.format, &formatProperties );
+				if ( formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT )
+					filter = VK_FILTER_LINEAR;
+			*/
+				texture.sampler.descriptor.filter.min = filter;
+				texture.sampler.descriptor.filter.mag = filter;
+				texture.aliasAttachment(attachment);
+			}
 		}
 	}
 }
 
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
+	if ( metadata["type"].as<std::string>() == "svogi" ) {
+		if ( ext::vulkan::states::resized ) {
+			renderTarget.initialize( *renderTarget.device );
+			if ( blitter.process ) blitter.getPipeline().update( blitter );
+		}
+		return;
+	}
 	if ( ext::vulkan::states::resized ) {
 		renderTarget.initialize( *renderTarget.device );
-	/*
-		for ( auto& texture : blitter.material.textures ) {
-			texture.sampler.destroy();
-		}
-	*/
+	// 	for ( auto& texture : blitter.material.textures ) texture.sampler.destroy();
 		blitter.material.textures.clear();
 		for ( auto& attachment : renderTarget.attachments ) {
 			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 			Texture2D& texture = blitter.material.textures.emplace_back();
 			enums::Filter::type_t filter = VK_FILTER_NEAREST;
-		/*
-			VkFormatProperties formatProperties;
-			vkGetPhysicalDeviceFormatProperties( device->physicalDevice, texture.format, &formatProperties );
-			if ( formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT )
-				filter = VK_FILTER_LINEAR;
-		*/
+
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
 			texture.aliasAttachment(attachment);
 		}
-		if ( blitter.process ) {
-			blitter.getPipeline().update( blitter );
-		}
+		if ( blitter.process ) blitter.getPipeline().update( blitter );
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
@@ -471,6 +575,9 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 
 			size_t subpasses = renderTarget.passes.size();
 			size_t currentPass = 0;
+			// pre-renderpass commands
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
@@ -481,9 +588,13 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 						graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
 					}
+					if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i] );
 					if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 				}
 			vkCmdEndRenderPass(commands[i]);
+			
+			// post-renderpass commands
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));

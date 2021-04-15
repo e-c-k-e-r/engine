@@ -48,6 +48,15 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::identity() {
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t, T f, T n ) {
+	pod::Matrix4t<T> m = uf::matrix::identity();
+	m[0*4+0] = 2 / (r - l);
+    m[1*4+1] = 2 / (t - b);
+    m[2*4+2] = - 2 / (f - n);
+    m[3*4+0] = - (r + l) / (r - l);
+    m[3*4+1] = - (t + b) / (t - b);
+    m[3*4+2] = - (f + n) / (f - n);
+	return m;
+/*
 	std::vector<T> m = {
 		2 / (r - l), 0, 0, 0,
 		0, 2 / (t - b), 0, 0,
@@ -55,6 +64,7 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t, T f, T n ) {
 		-(r + l) / (r - l), -(t + b) / (t - b), -(f + n) / (f - n), 1,
 	};
 	return uf::matrix::initialize(m);
+*/
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t ) {

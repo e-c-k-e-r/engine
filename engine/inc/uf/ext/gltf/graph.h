@@ -86,25 +86,9 @@ namespace pod {
 
 namespace uf {
 	namespace graph {
-	/*
-		pod::Node& UF_API node();
-		pod::Node* UF_API find( const pod::Node& node, int32_t index );
-		pod::Node* UF_API find( pod::Node* node, int32_t index );
-		pod::Node* UF_API find( const pod::Graph& graph, int32_t index );
-
-		pod::Node* UF_API find( const pod::Node& node, const std::string& name );
-		pod::Node* UF_API find( pod::Node* node, const std::string& name );
-		pod::Node* UF_API find( const pod::Graph& graph, const std::string& name );
-
-		pod::Matrix4f UF_API local( const pod::Node& node );
-		pod::Matrix4f UF_API matrix( const pod::Node& node );
-	*/
 		pod::Node* UF_API find( pod::Graph& graph, int32_t index );
 		pod::Node* UF_API find( pod::Graph& graph, const std::string& name );
 
-	//	pod::Matrix4f UF_API local( const pod::Node& node );
-	//	pod::Matrix4f UF_API matrix( pod::Graph&, const pod::Node& node );
-		
 		pod::Matrix4f UF_API local( pod::Graph&, int32_t );
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
 
@@ -112,6 +96,7 @@ namespace uf {
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 		void UF_API cleanup( pod::Graph& graph );
+		void UF_API initialize( pod::Graph& graph );
 
 		void UF_API override( pod::Graph& );
 		void UF_API animate( pod::Graph&, const std::string&, float = 1, bool = true );

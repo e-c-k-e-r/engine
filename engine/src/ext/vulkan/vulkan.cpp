@@ -217,7 +217,7 @@ void ext::vulkan::initialize() {
 		};
 		Texture2D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		Texture2D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
+		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	{
 		std::vector<uint8_t> pixels = { 
@@ -229,7 +229,7 @@ void ext::vulkan::initialize() {
 		};
 		Texture3D::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		Texture3D::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-		Texture3D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 2, 1, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
+		Texture3D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 2, 1, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	{
 		std::vector<uint8_t> pixels = { 
@@ -253,7 +253,7 @@ void ext::vulkan::initialize() {
 		};
 		TextureCube::empty.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 		TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-		TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT );
+		TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;

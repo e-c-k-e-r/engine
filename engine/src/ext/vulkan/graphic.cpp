@@ -4,6 +4,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/openvr/openvr.h>
+#include <uf/utils/camera/camera.h>
 
 #include <spirv_cross/spirv_cross.hpp>
 #include <spirv_cross/spirv_glsl.hpp>
@@ -798,9 +799,11 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 	this->device = graphic.device;
 	//this->descriptor = descriptor;
 	Device& device = *graphic.device;
+	metadata["name"] = descriptor.pipeline;
 
 	// VK_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
-	assert( graphic.material.shaders.size() > 0 );
+	auto shaders = getShaders( graphic.material.shaders );
+	assert( shaders.size() > 0 );
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true);
 	auto& renderTarget = renderMode.getRenderTarget(  descriptor.renderTarget );
@@ -810,7 +813,9 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		std::vector<VkDescriptorPoolSize> poolSizes;
 		std::unordered_map<VkDescriptorType, uint32_t> descriptorTypes;
 
-		for ( auto& shader : graphic.material.shaders ) {
+	//	for ( auto& shader : graphic.material.shaders ) {
+		for ( auto* shaderPointer : shaders ) {
+			auto& shader = *shaderPointer;
 			descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
 
 			std::size_t offset = 0;
@@ -868,7 +873,8 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 	}
 	// Compute
-	for ( auto& shader : graphic.material.shaders ) {
+	for ( auto* shaderPointer : shaders ) {
+		auto& shader = *shaderPointer;
 		if ( shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 
 		// Create compute shader pipelines
@@ -1002,7 +1008,9 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		vertexInputState.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
 
 		std::vector<VkPipelineShaderStageCreateInfo> shaderDescriptors;
-		for ( auto& shader : graphic.material.shaders ) {
+		for ( auto* shaderPointer : shaders ) {
+			auto& shader = *shaderPointer;
+
 			void* s = (void*) shader.specializationConstants;
 			size_t len = shader.specializationConstants.data().len;
 			for ( size_t i = 0; i < len / 4; ++i ) {
@@ -1081,7 +1089,10 @@ PIPELINE_INITIALIZATION_INVALID:
 }
 void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) {
 	auto bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	for ( auto& shader : graphic.material.shaders ) {
+	auto shaders = getShaders( graphic.material.shaders );
+	for ( auto* shaderPointer : shaders ) {
+		auto& shader = *shaderPointer;
+
 		if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) {
 			bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 		}
@@ -1122,7 +1133,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	auto& renderTarget = renderMode.getRenderTarget(descriptor.renderTarget );
 
 	std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-	for ( auto& shader : graphic.material.shaders ) {
+	auto shaders = getShaders( graphic.material.shaders );
+	for ( auto* shaderPointer : shaders ) {
+		auto& shader = *shaderPointer;
 		descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
 	}
 
@@ -1155,7 +1168,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	}
 
 	ext::json::Value bindingMapping;
-	for ( auto& shader : graphic.material.shaders ) {
+	for ( auto* shaderPointer : shaders ) {
+		auto& shader = *shaderPointer;
+
 		#define PARSE_BUFFER( buffers ) for ( auto& buffer : buffers ) {\
 			if ( buffer.usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) {\
 				infos.uniform.emplace_back(buffer.descriptor);\
@@ -1180,7 +1195,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					consumes += layout.descriptorCount;
 					std::string imageType = "";
 					std::string binding = std::to_string(layout.binding);
-					for ( auto& shader : graphic.material.shaders ) {
+					for ( auto* shaderPointer : shaders ) {
+						auto& shader = *shaderPointer;
+
 						auto& info = shader.metadata["definitions"]["textures"][binding];
 						if ( ext::json::isNull(info) ) continue;
 						imageType = info["type"].as<std::string>();
@@ -1211,11 +1228,12 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 
 	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
-	for ( auto& shader : graphic.material.shaders ) {
-	//	std::cout << shader.filename << ": " << std::endl;
-	//	std::cout << "\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size() << std::endl;
-	//	std::cout << "\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size() << std::endl;
-	//	std::cout << "\tCONSUMING : " << shader.descriptorSetLayoutBindings.size() << std::endl;
+	for ( auto* shaderPointer : shaders ) {
+		auto& shader = *shaderPointer;
+	//	UF_DEBUG_MSG(shader.filename << ": ");
+	//	UF_DEBUG_MSG("\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size());
+	//	UF_DEBUG_MSG("\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size());
+	//	UF_DEBUG_MSG("\tCONSUMING : " << shader.descriptorSetLayoutBindings.size());
 
 		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 	//		VK_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
@@ -1224,7 +1242,14 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-				//	std::cout << "\tINSERTING IMAGE" << std::endl;
+				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " IMAGE");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ) UF_DEBUG_MSG("\t\tCOMBINED_IMAGE_SAMPLER");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) UF_DEBUG_MSG("\t\tSAMPLED_IMAGE");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ) UF_DEBUG_MSG("\t\tSTORAGE_IMAGE");
+					if ( layout.descriptorCount == 1 ) {
+						VkDescriptorImageInfo i = (*imageInfo);
+					//	UF_DEBUG_MSG(i.imageView << "\t" << i.imageLayout);
+					}
 					BREAK_ASSERT( imageInfo == infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -1236,7 +1261,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					imageInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-				//	std::cout << "\tINSERTING INPUT_ATTACHMENT" << std::endl;
+				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " INPUT_ATTACHMENT");
 					BREAK_ASSERT( inputInfo == infos.input.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -1248,7 +1273,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					inputInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_SAMPLER: {
-				//	std::cout << "\tINSERTING SAMPLER" << std::endl;
+				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " SAMPLER");
 					BREAK_ASSERT( samplerInfo == infos.sampler.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -1260,7 +1285,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					samplerInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-				//	std::cout << "\tINSERTING UNIFORM_BUFFER" << std::endl;
+				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " UNIFORM_BUFFER");
 					BREAK_ASSERT( uniformBufferInfo == infos.uniform.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -1272,7 +1297,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-				//	std::cout << "\tINSERTING STORAGE_BUFFER" << std::endl;
+				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " STORAGE_BUFFER");
 					BREAK_ASSERT( storageBufferInfo == infos.storage.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -1306,7 +1331,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 						std::string binding = std::to_string(descriptor.dstBinding);
 						std::string imageType = "";
-						for ( auto& shader : graphic.material.shaders ) {
+						for ( auto* shaderPointer : shaders ) {
+							auto& shader = *shaderPointer;
+
 							auto& info = shader.metadata["definitions"]["textures"][binding];
 							if ( ext::json::isNull(info) ) continue;
 							imageType = info["type"].as<std::string>();
@@ -1379,6 +1406,45 @@ void ext::vulkan::Pipeline::destroy() {
 		descriptorSetLayout = VK_NULL_HANDLE;
 	}
 }
+std::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( std::vector<ext::vulkan::Shader>& shaders ) {
+	std::string pipelineName = metadata["name"].as<std::string>();
+	std::unordered_map<std::string, ext::vulkan::Shader*> map;
+	std::vector<ext::vulkan::Shader*> res;
+
+	for ( auto& shader : shaders ) {
+		std::string target = shader.metadata["pipeline"].as<std::string>();
+		std::string type = shader.metadata["type"].as<std::string>();
+		if ( target != "" && target != pipelineName ) continue;
+		map[type] = &shader;
+	}
+	for ( auto pair : map ) {
+		res.insert( res.begin(), pair.second);
+	}
+
+/*
+	std::string pipelineName = metadata["name"].as<std::string>();
+	std::vector<ext::vulkan::Shader*> res;
+	std::unordered_map<std::string, size_t> map;
+
+	// first push base pipeline
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata["pipeline"].as<std::string>() != "" ) continue;
+		map[shader.metadata["type"].as<std::string>()] = res.size();
+		res.emplace_back(&shader);
+	}
+	// then add requested ones
+	if ( pipelineName != "" ) for ( auto& shader : shaders ) {
+		if ( shader.metadata["pipeline"].as<std::string>() != pipelineName ) continue;
+		if ( map.count(shader.metadata["type"].as<std::string>()) == 0 ) {
+			res.emplace_back(&shader);
+		} else {
+			size_t index = map.at(shader.metadata["type"].as<std::string>());
+			res[index] = &shader;
+		}
+	}
+*/
+	return res;
+}
 
 void ext::vulkan::Material::initialize( Device& device ) {
 	this->device = &device;
@@ -1394,7 +1460,7 @@ void ext::vulkan::Material::destroy() {
 	textures.clear();
 	samplers.clear();
 }
-void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderStageFlagBits stage ) {
+void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderStageFlagBits stage, const std::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
 	shader.initialize( *device, filename, stage );
 
@@ -1422,24 +1488,27 @@ void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderS
 		case VK_SHADER_STAGE_INTERSECTION_BIT_KHR: type = "intersection"; break;
 		case VK_SHADER_STAGE_CALLABLE_BIT_KHR: type = "callable"; break;
 	}
-	metadata["shaders"][type]["index"] = shaders.size() - 1;
-	metadata["shaders"][type]["filename"] = filename;
+	shader.metadata["pipeline"] = pipeline;
+	shader.metadata["type"] = type;
+
+	metadata["shaders"][pipeline][type]["index"] = shaders.size() - 1;
+	metadata["shaders"][pipeline][type]["filename"] = filename;
 }
-void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout ) {
+void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout, const std::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
 	for ( auto& request : layout ) {
-		attachShader( request.first, request.second );
+		attachShader( request.first, request.second, pipeline );
 	}
 }
-bool ext::vulkan::Material::hasShader( const std::string& type ) {
-	return !ext::json::isNull( metadata["shaders"][type] );
+bool ext::vulkan::Material::hasShader( const std::string& type, const std::string& pipeline ) {
+	return !ext::json::isNull( metadata["shaders"][pipeline][type] );
 }
-ext::vulkan::Shader& ext::vulkan::Material::getShader( const std::string& type ) {
-	if ( !hasShader(type) ) {
+ext::vulkan::Shader& ext::vulkan::Material::getShader( const std::string& type, const std::string& pipeline ) {
+	if ( !hasShader(type, pipeline) ) {
 		static ext::vulkan::Shader null;
 		return null;
 	}
-	size_t index = metadata["shaders"][type]["index"].as<size_t>();
+	size_t index = metadata["shaders"][pipeline][type]["index"].as<size_t>();
 	return shaders.at(index);
 }
 bool ext::vulkan::Material::validate() {
@@ -1454,6 +1523,10 @@ ext::vulkan::Graphic::~Graphic() {
 }
 void ext::vulkan::Graphic::initialize( const std::string& renderModeName ) {
 	RenderMode& renderMode = ext::vulkan::getRenderMode(renderModeName, true);
+
+//	if ( !uf::Camera::USE_REVERSE_INFINITE_PROJECTION && descriptor.depth.operation == ext::vulkan::enums::Compare::GREATER_OR_EQUAL ) {
+//		descriptor.depth.operation = ext::vulkan::enums::Compare::LESS_OR_EQUAL;
+//	}
 
 	this->descriptor.renderMode = renderModeName;
 	auto* device = renderMode.device;

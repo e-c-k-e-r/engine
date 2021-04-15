@@ -54,6 +54,9 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& fil
 */
 	target = uf::string::lowercase( target );
 	scene->load(filename != "" ? filename : "./scenes/" + target + "/scene.json");
+	if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+		uf::instantiator::bind( "VoxelizerBehavior", *scene );
+	}
 	scene->initialize();
 	return *scene;
 }
@@ -61,6 +64,9 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& 
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 	if ( data != "" ) scene->load(data);
+	if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+		uf::instantiator::bind( "VoxelizerBehavior", *scene );
+	}
 	scene->initialize();
 	return *scene;
 }

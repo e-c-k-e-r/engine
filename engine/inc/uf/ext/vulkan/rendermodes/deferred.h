@@ -13,6 +13,8 @@ namespace ext {
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
 			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
+
+			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
 			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );
