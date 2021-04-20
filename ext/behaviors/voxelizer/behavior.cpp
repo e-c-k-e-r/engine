@@ -20,12 +20,18 @@ UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerBehavior)
 void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
 	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 	// initialize voxel map
 	{
-		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = 256;
-		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = 256;
-		if ( metadata.voxelSize.z == 0 ) metadata.voxelSize.z = 256;
+		const uint32_t DEFAULT_VOXEL_SIZE = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>();
+		const float DEFAULT_VOXELIZE_LIMITER = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["limiter"].as<float>();
+
+		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
+		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
+		if ( metadata.voxelSize.z == 0 ) metadata.voxelSize.z = DEFAULT_VOXEL_SIZE;
+		if ( metadata.renderer.limiter == 0 ) metadata.renderer.limiter = DEFAULT_VOXELIZE_LIMITER;
 
 		std::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);
 		
@@ -43,16 +49,16 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 	//	if ( metadata.fragmentSize.y == 0 ) metadata.fragmentSize.y = metadata.voxelSize.y * 2;
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		metadata.renderModeName = "SVOGI:" + std::to_string((int) this->getUid());
+		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
-		renderMode.metadata["type"] = "svogi";
+		renderMode.metadata["type"] = "vxgi";
 		renderMode.metadata["samples"] = 1;
 
 		renderMode.blitter.device = &ext::vulkan::device;
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 	#if COMP_SHADER_USED
-		renderMode.metadata["shaders"]["compute"] = "/shaders/display/svogi.comp.spv";
+		renderMode.metadata["shaders"]["compute"] = "/shaders/display/vxgi.comp.spv";
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
 		renderMode.blitter.process = true;
@@ -126,9 +132,18 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	renderMode.setTarget("");
-	if ( renderMode.executed && !metadata.initialized ) {
-	//	renderMode.execute = false;
-		metadata.initialized = true;
+	if ( renderMode.executed  ) {
+		if ( !metadata.initialized ) metadata.initialized = true;
+
+		if ( metadata.renderer.limiter > 0 ) {
+			if ( metadata.renderer.timer > metadata.renderer.limiter ) {
+				metadata.renderer.timer = 0;
+				renderMode.execute = true;
+			} else {
+				metadata.renderer.timer = metadata.renderer.timer + uf::physics::time::delta;
+				renderMode.execute = false;
+			}
+		}
 	}
 #if COMP_SHADER_USED
 	auto& scene = uf::scene::getCurrentScene();

@@ -19,12 +19,16 @@ namespace ext {
 			pod::Vector3ui fragmentSize = { 0, 0 };
 			pod::Vector3ui voxelSize = { 256, 256, 256 };
 			pod::Vector3ui dispatchSize = { 8, 8, 8 };
-			std::string renderModeName = "SVOGI";
+			std::string renderModeName = "VXGI";
 			struct {
 				pod::Vector3f min = {};
 				pod::Vector3f max = {};
 				pod::Matrix4f matrix = uf::matrix::identity();
 			} extents;
+			struct {
+				float limiter = 0.0f;
+				float timer = 0.0f;
+			} renderer;
 			bool initialized = false;
 		};
 	}

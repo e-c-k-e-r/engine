@@ -2,8 +2,13 @@
 #extension GL_EXT_samplerless_texture_functions : require
 
 #define MULTISAMPLING 1
-#define DEFERRED_SAMPLING 0
 #define RAY_MARCH_FOG 1
+#define DEFERRED_SAMPLING 0
+#define SHADOW_CONE_TRACED 0
+#define VOXEL_TRACE_IN_NDC 0
+
+#define GAMMA_CORRECT 1
+#define TONE_MAP 1
 
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
@@ -37,7 +42,7 @@ struct Matrices {
 	mat4 iView[2];
 	mat4 iProjection[2];
 	mat4 iProjectionView[2];
-	mat4 ortho;
+	mat4 voxel;
 };
 
 struct Space {
@@ -118,6 +123,13 @@ struct DrawCall {
 	int textureIndex;
 	uint textures;
 };
+struct Voxel {
+	uvec2 id;
+	vec3 position;
+	vec3 normal;
+	vec2 uv;
+	vec4 color;
+};
 
 #if !MULTISAMPLING
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInput samplerId;
@@ -141,7 +153,7 @@ struct DrawCall {
 
 layout (binding = 4) uniform UBO {
 	Matrices matrices;
-	
+
 	Mode mode;
 	Fog fog;
 
@@ -172,15 +184,20 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 	DrawCall drawCalls[];
 };
 
-layout (binding = 9) uniform sampler3D samplerNoise;
-layout (binding = 10) uniform samplerCube samplerSkybox;
-layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 9) uniform usampler3D voxelId;
+layout (binding = 10) uniform sampler3D voxelNormal;
+layout (binding = 11) uniform sampler3D voxelUv;
+layout (binding = 12) uniform sampler3D voxelAlbedo;
 
+layout (binding = 13) uniform sampler3D samplerNoise;
+layout (binding = 14) uniform samplerCube samplerSkybox;
+layout (binding = 15) uniform sampler2D samplerTextures[TEXTURES];
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
+layout (location = 1) out vec4 outDebugValue;
 
 // GGX/Towbridge-Reitz normal distribution function.
 // Uses Disney's reparametrization of alpha = roughness^2.
@@ -377,6 +394,79 @@ float shadowFactor( const Light light, float def ) {
 	return factor;
 }
 
+Voxel getVoxel( vec3 P ) {
+	const vec3 uvw = vec3( ubo.matrices.voxel * vec4( P, 1.0f ) ) * 0.5f + 0.5f;
+
+	Voxel voxel;
+	voxel.id = uvec2(texture(voxelId, uvw).xy);
+	voxel.position = P;
+	voxel.normal = decodeNormals( texture(voxelNormal, uvw).xy );
+	voxel.uv = texture(voxelUv, uvw).xy;
+	voxel.color = texture(voxelAlbedo, uvw).rgba;
+
+	return voxel;
+}
+
+struct VoxelInfo {
+	vec3 min;
+	vec3 max;
+
+	float mipmapLevels;
+	float albedoSize;
+	float voxelSize;
+};
+VoxelInfo voxelInfo;
+
+vec4 voxelConeTrace( vec3 rayO, vec3 rayD, float aperture, float maxDistance ) {
+#if VOXEL_TRACE_IN_NDC
+	rayO = vec3( ubo.matrices.voxel * vec4( rayO, 1.0 ) );
+	rayD = vec3( ubo.matrices.voxel * vec4( rayD, 0.0 ) );
+#endif
+	const float granularity = 1.0 / 6.0; // (2.0 * sqrt(2.0) );
+	// box
+	const vec2 rayBoxInfo = rayBoxDst( voxelInfo.min, voxelInfo.max, rayO, rayD );
+	const float tStart = rayBoxInfo.x;
+	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfo.y) : rayBoxInfo.y;
+	// steps
+	const float tDelta = voxelInfo.voxelSize * granularity;
+	const uint maxSteps = uint(voxelInfo.albedoSize / granularity);
+	// marcher
+	float t = tStart + tDelta * 2.0;
+	vec3 rayPos = vec3(0);
+	vec4 radiance = vec4(0);
+	vec3 uvw = vec3(0);
+	// cone mipmap shit
+	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
+	float coneDiameter = coneCoefficient * t;
+	float level = aperture > 0 ? log2( coneDiameter / voxelInfo.albedoSize ) : 0;
+	// results
+	vec4 color = vec4(0);
+	float occlusion = 0.0;
+	uint stepCounter = 0;
+	const float falloff = 256.0f;
+	const vec3 voxelBoundsRecip = 1.0f / (voxelInfo.max - voxelInfo.min);
+	while ( t < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
+		t += tDelta * pow(2, coneDiameter / voxelInfo.albedoSize);
+		rayPos = rayO + rayD * t;
+	#if VOXEL_TRACE_IN_NDC
+		uvw = rayPos * 0.5 + 0.5;
+	#else
+		uvw = (rayPos - voxelInfo.min) * voxelBoundsRecip;
+	#endif
+		if ( abs(uvw.x) > 1.0 || abs(uvw.y) > 1.0 || abs(uvw.z) > 1.0 ) break;
+		coneDiameter = coneCoefficient * t;
+		level = log2( coneDiameter / voxelInfo.albedoSize );
+		radiance = texture(voxelAlbedo, uvw, level) * granularity;
+	
+		color += (1.0 - color.a) * radiance;
+		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + falloff * coneDiameter);
+	}
+	return vec4(color.rgb, occlusion);
+}
+vec4 voxelConeTrace( vec3 rayO, vec3 rayD, float aperture ) {
+	return voxelConeTrace( rayO, rayD, aperture, 0 );
+}
+
 void main() {
 	vec3 rayO = vec3(0);
 	vec3 rayD = vec3(0);
@@ -404,7 +494,7 @@ void main() {
 		rayD = normalize( far3 - near3 );
 	}
 	// separate our ray direction due to floating point precision problems
-	if ( false ) {
+	if ( true ) {
 		const mat4 iProjectionView = inverse( ubo.matrices.projection[inPushConstantPass] * mat4(mat3(ubo.matrices.view[inPushConstantPass])) );
 		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
@@ -424,7 +514,7 @@ void main() {
 
 	if ( ID.x == 0 || ID.y == 0 ) {
 		fragColor.rgb = texture( samplerSkybox, rayD ).rgb;
-		fog(rayO, rayD, fragColor, 0.0);
+		fog(rayO, rayD, fragColor, 0.5);
 		outFragColor = vec4(fragColor,1);
 		return;
 	}
@@ -466,20 +556,80 @@ void main() {
 #endif
 	const float M = material.factorMetallic;
 	const float R = material.factorRoughness;
-	const float AO = 1.0f - material.factorOcclusion;
+	float AO = material.factorOcclusion;
+
+	vec4 indirectLighting = vec4(0);
+	// GI
+	{
+		vec4 indirectDiffuse = vec4(0);
+		vec4 indirectSpecular = vec4(0);
+
+		const vec3 P = position.world;
+		const vec3 N = normal.world;
+
+		const float DIFFUSE_CONE_APERTURE = 0.57735f;
+		const float DIFFUSE_INDIRECT_FACTOR = 1.0f;
+		
+		const float SPECULAR_CONE_APERTURE = clamp(tan(PI * 0.5f * R), 0.0174533f, PI);
+		const float SPECULAR_INDIRECT_FACTOR = 1.0f;
+		
+		const vec4 CONES[] = {
+			vec4(0.0f, 1.0f, 0.0f, PI / 4.0f),
+			vec4(0.0f, 0.5f, 0.866025f, 3.0f * PI / 20.0f),
+			vec4(0.823639f, 0.5f, 0.267617f, 3.0f * PI / 20.0f),
+			vec4(0.509037f, 0.5f, -0.7006629f, 3.0f * PI / 20.0f),
+			vec4(-0.50937f, 0.5f, -0.7006629f, 3.0f * PI / 20.0f),
+			vec4(-0.823639f, 0.5f, 0.267617f, 3.0f * PI / 20.0f)
+		};
+		if ( DIFFUSE_INDIRECT_FACTOR > 0.0f ) {
+			voxelInfo.albedoSize = textureSize( voxelAlbedo, 0 ).x;
+			voxelInfo.mipmapLevels = textureQueryLod( voxelAlbedo, vec3(0) ).x;
+		#if VOXEL_TRACE_IN_NDC
+			voxelInfo.min = vec3( -1 );
+			voxelInfo.max = vec3(  1 );
+			voxelInfo.voxelSize = 1.0 / voxelInfo.albedoSize;
+		#else
+			const mat4 inverseOrtho = inverse( ubo.matrices.voxel );
+			voxelInfo.min = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
+			voxelInfo.max = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
+			voxelInfo.voxelSize = 1;
+		#endif
+		}
+		if ( SPECULAR_INDIRECT_FACTOR > 0.0f ) {
+			vec3 guide = vec3(0.0f, 1.0f, 0.0f);
+			if (abs(dot(N,guide)) == 1.0f) guide = vec3(0.0f, 0.0f, 1.0f);
+
+			const vec3 right = normalize(guide - dot(N, guide) * N);
+			const vec3 up = cross(right, N);
+			for ( uint i = 0; i < 6; ++i ) {
+				const vec3 coneDirection = normalize(N + CONES[i].x * right + CONES[i].z * up);
+				indirectDiffuse += voxelConeTrace(P, coneDirection, DIFFUSE_CONE_APERTURE ) * CONES[i].w;
+			}
+			indirectDiffuse.rgb *= A.rgb;
+			AO = indirectDiffuse.a;
+		//	outFragColor.rgb = indirectDiffuse.rgb; return;
+		}
+		{
+			const vec3 R = reflect( normalize(P - rayO), N );
+			indirectSpecular = voxelConeTrace( P, R, SPECULAR_CONE_APERTURE );
+			indirectLighting = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;
+		//	outFragColor.rgb = indirectSpecular.rgb; return;
+		}
+	//	outFragColor.rgb = indirectLighting.rgb; return;
+	}
 
 	float litFactor = 1.0;
 	if ( 0 <= material.indexLightmap ) {
-		fragColor = A.rgb + ubo.ambient.rgb * (1 - AO);
+		fragColor = A.rgb + ubo.ambient.rgb * (1 - AO) + indirectLighting.rgb;
 	} else {
-		fragColor = A.rgb * ubo.ambient.rgb * (1 - AO);
+		fragColor = A.rgb * ubo.ambient.rgb * (1 - AO) + indirectLighting.rgb;
 	}
 	{
 		const vec3 N = normal.eye;
 		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
 		const vec3 Lo = normalize( -position.eye );
 		const float cosLo = max(0.0, dot(N, Lo));
-
+	#if 0
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			const Light light = lights[i];
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
@@ -502,29 +652,22 @@ void main() {
 			const vec3 diffuseBRDF = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
 			const vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specularBRDF) * Lr * cosLi;
-		//	else if ( light.type == 0 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
+		//	else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
 			else fragColor.rgb += (diffuseBRDF + specularBRDF) * Lr * cosLi;
 			litFactor += light.power * La * Ls;
 		}
+	#endif
 	}
 
-	fog(rayO, rayD, fragColor, litFactor);
+	fog(rayO, rayD, fragColor, 1.0 ); //litFactor);
 
 #if TONE_MAP
-//	fragColor = fragColor / (fragColor + 1.0f);
 	fragColor = vec3(1.0) - exp(-fragColor * ubo.exposure);
 #endif
 #if GAMMA_CORRECT
-	fragColor = pow(fragColor, vec3(1.0 / ubo.gama));
+	fragColor = pow(fragColor, vec3(1.0 / ubo.gamma));
 #endif
 
-/*
-
-	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-		//dither1(fragColor);
-		fragColor += dither2();
-	}
-*/
 	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
 		whitenoise(fragColor);
 	}

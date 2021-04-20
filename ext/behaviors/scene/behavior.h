@@ -27,6 +27,8 @@ namespace ext {
 				size_t updateThreshold = 4;
 				pod::Vector4f ambient = {0,0,0,1};
 				pod::Vector4f specular = {1,1,1,1};
+				float exposure = 1.0f;
+				float gamma = 1.0f;
 			} light;
 			struct {
 				pod::Vector3f color = {1,1,1};

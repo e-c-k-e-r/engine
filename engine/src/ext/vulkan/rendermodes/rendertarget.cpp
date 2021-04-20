@@ -37,10 +37,10 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
 	std::string target = metadata["target"].as<std::string>();
-	if ( pass == 0 && type == "svogi" ) {
+	if ( pass == 0 && type == "vxgi" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
-		descriptor.pipeline = "svogi";
+		descriptor.pipeline = "vxgi";
 	} else if ( type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
@@ -63,7 +63,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	if ( subpasses == 0 ) subpasses = 1;
 	renderTarget.device = &device;
 	for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
-		if ( type == "depth" /*|| type == "svogi"*/ ) {
+		if ( type == "depth" || type == "vxgi" ) {
 			struct {
 				size_t depth;
 			} attachments;
@@ -341,7 +341,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{uf::io::root+"/shaders/display/renderTarget.frag.spv", ext::vulkan::enums::Shader::FRAGMENT}
 			});
 		}
-		if ( metadata["type"].as<std::string>() == "svogi"  ) {
+		if ( metadata["type"].as<std::string>() == "vxgi"  ) {
 			auto& scene = uf::scene::getCurrentScene();
 
 			auto& shader = blitter.material.getShader("compute");
@@ -409,7 +409,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	if ( metadata["type"].as<std::string>() == "svogi" ) {
+	if ( metadata["type"].as<std::string>() == "vxgi" ) {
 		if ( ext::vulkan::states::resized ) {
 			renderTarget.initialize( *renderTarget.device );
 			if ( blitter.process ) blitter.getPipeline().update( blitter );

@@ -154,9 +154,10 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
 		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
 			std::string lightType = metadataJson["light"]["type"].as<std::string>();
-			if ( lightType == "point" ) metadata.type = 0;
-			else if ( lightType == "spot" ) metadata.type = 1;
+			if ( lightType == "point" ) metadata.type = 1;
+			else if ( lightType == "spot" ) metadata.type = 2;
 		}
+		if ( metadataJson["light"]["dynamic"].as<bool>() ) metadata.type = -metadata.type;
 	}
 #endif
 #if 0
@@ -223,7 +224,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		if ( !metadata.renderer.external ) {
 			auto& camera = this->getComponent<uf::Camera>();
 			// omni light
-			if ( metadata.shadows && metadata.type == 0 ) {
+			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
 				auto transform = camera.getTransform();
 				std::vector<pod::Quaternion<>> rotations = {
 					uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 ),

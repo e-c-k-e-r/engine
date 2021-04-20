@@ -198,10 +198,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 		blitter.initialize( this->getName() );
 		blitter.initializeMesh( mesh );
-		if ( ext::vulkan::settings::experimental::deferredMode == "svogi" ) {
+		if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
 			blitter.material.initializeShaders({
 				{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{uf::io::root+"/shaders/display/subpass.svogi.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				{uf::io::root+"/shaders/display/subpass.vxgi.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		} else {
 			blitter.material.initializeShaders({

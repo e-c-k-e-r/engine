@@ -68,8 +68,8 @@ namespace {
 			}
 		#endif
 		}
-		// svogi pipeline
-		if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+		// vxgi pipeline
+		if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
 			std::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<std::string>("/gltf/base.vert.spv");
 			std::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<std::string>("/gltf/voxelize.geom.spv");
 			std::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<std::string>("/gltf/voxelize.frag.spv");
@@ -79,21 +79,21 @@ namespace {
 					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/gltf/skinned.instanced.vert.spv" : "/gltf/instanced.vert.spv";
 				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/gltf/skinned.vert.spv";
 				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
-				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "svogi");
+				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "vxgi");
 			}
 		*/
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
 				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
-				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "svogi");
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
 			}
 			{
 				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
-				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "svogi");
+				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vxgi");
 			}
 		#if UF_USE_VULKAN
 		/*
 			{
-				auto& shader = graphic.material.getShader("vertex", "svogi");
+				auto& shader = graphic.material.getShader("vertex", "vxgi");
 				struct SpecializationConstant {
 					uint32_t passes = 6;
 				};
@@ -106,7 +106,7 @@ namespace {
 		*/
 		/*
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-				auto& shader = graphic.material.getShader("geometry", "svogi");
+				auto& shader = graphic.material.getShader("geometry", "vxgi");
 				pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
 				pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
 
@@ -121,7 +121,7 @@ namespace {
 			}
 		*/
 			{
-				auto& shader = graphic.material.getShader("fragment", "svogi");
+				auto& shader = graphic.material.getShader("fragment", "vxgi");
 				struct SpecializationConstant {
 					uint32_t textures = 1;
 				};
@@ -164,7 +164,7 @@ namespace {
 				graphic.material.samplers.emplace_back( sampler );
 			}
 			// bind scene's voxel texture
-			if ( uf::renderer::settings::experimental::deferredMode == "svogi" ) {
+			if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.id);

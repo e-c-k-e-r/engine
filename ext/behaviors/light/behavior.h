@@ -19,7 +19,7 @@ namespace ext {
 			float power = 0.0f;
 			float bias = 0.0f;
 			bool shadows = false;
-			size_t type = 0;
+			int32_t type = 1;
 			struct {
 				std::string mode = "in-range";
 				float limiter = 0.0f;

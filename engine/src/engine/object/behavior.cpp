@@ -175,20 +175,19 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// listen for metadata file changes
 #if UF_ENTITY_METADATA_USE_JSON
-	auto& metadata = this->getComponent<uf::Serializer>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if !UF_ENV_DREAMCAST
-	if ( metadata["system"]["hot reload"]["enabled"].as<bool>() ) {
-		size_t mtime = uf::io::mtime( metadata["system"]["source"].as<std::string>() );
-		if ( metadata["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
-			std::cout << "File reload detected: " << ": " << metadata["system"]["source"].as<std::string>() << ", " << metadata["system"]["hot reload"]["mtime"] << " -> " << mtime << std::endl;
-			metadata["system"]["hot reload"]["mtime"] = mtime;
+	if ( metadataJson["system"]["hot reload"]["enabled"].as<bool>() ) {
+		size_t mtime = uf::io::mtime( metadataJson["system"]["source"].as<std::string>() );
+		if ( metadataJson["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
+			metadataJson["system"]["hot reload"]["mtime"] = mtime;
 			this->reload();
 		}
 	}
 #endif
 	// Call queued hooks
 	{
-		auto& queue = metadata["system"]["hooks"]["queue"];
+		auto& queue = metadataJson["system"]["hooks"]["queue"];
 		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 		float curTime = uf::Object::timer.elapsed().asDouble();
 		uf::Serializer newQueue = ext::json::array();
@@ -202,11 +201,18 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 				else newQueue.emplace_back(member);
 			});
 		}
-		if ( ext::json::isObject( metadata ) ) queue = newQueue;
+		if ( ext::json::isObject( metadataJson ) ) queue = newQueue;
 	}
 #else
-
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	if ( metadata.hotReload.enabled ) {
+		size_t mtime = uf::io::mtime( metadata.hotReload.source );
+		if ( metadata.hotReload.mtime < mtime ) {
+			metadata.hotReload.mtime = mtime;
+			this->reload();
+		}
+	}
+
 	auto& queue = metadata.hooks.queue;
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 	float curTime = uf::Object::timer.elapsed().asDouble();

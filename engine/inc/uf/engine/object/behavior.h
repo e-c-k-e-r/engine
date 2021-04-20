@@ -22,7 +22,11 @@ namespace uf {
 				ext::json::Value payload;
 				double timeout;
 			};
-
+			struct {
+				size_t mtime = 0;
+				bool enabled = false;
+				std::string source = "";
+			} hotReload;
 			struct {
 				std::unordered_map<std::string, std::vector<size_t>> bound;
 				std::vector<Queued> queue;

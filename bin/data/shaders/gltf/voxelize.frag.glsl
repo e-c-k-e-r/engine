@@ -1,7 +1,9 @@
 #version 450
 
-#define UF_DEFERRED_SAMPLING 0
-#define UF_CAN_DISCARD 1
+#define DEFERRED_SAMPLING 0
+#define USE_LIGHTMAP 1
+
+#define PI 3.1415926536f
 
 layout (constant_id = 0) const uint TEXTURES = 1;
 
@@ -56,7 +58,7 @@ layout (binding = 11, rgba8) uniform volatile coherent image3D voxelAlbedo;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
-#if UF_DEFERRED_SAMPLING
+#if DEFERRED_SAMPLING
 	layout (location = 2) out vec2 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
@@ -64,8 +66,7 @@ layout (location = 1) out vec2 outNormals;
 
 vec2 encodeNormals( vec3 n ) {
 //	return n.xy / sqrt(n.z*8+8) + 0.5;
-#define kPI 3.1415926536f
-	return (vec2(atan(n.y,n.x)/kPI, n.z)+1.0)*0.5;
+	return (vec2(atan(n.y,n.x)/PI, n.z)+1.0)*0.5;
 }
 float wrap( float i ) {
 	return fract(i);
@@ -74,8 +75,8 @@ vec2 wrap( vec2 uv ) {
 	return vec2( wrap( uv.x ), wrap( uv.y ) );
 }
 float mipLevel( in vec2 uv ) {
-	vec2 dx_vtc = dFdx(uv);
-	vec2 dy_vtc = dFdy(uv);
+	const vec2 dx_vtc = dFdx(uv);
+	const vec2 dy_vtc = dFdy(uv);
 	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
 bool validTextureIndex( int textureIndex ) {
@@ -83,51 +84,57 @@ bool validTextureIndex( int textureIndex ) {
 }
 
 void main() {
-	vec3 P = inPosition;
+	const vec3 P = inPosition;
 	if ( !(abs(P.x) < 1.0 && abs(P.y) < 1 && abs(P.z) < 1) ) discard;
 
-	vec4 C = vec4(0, 0, 0, 0);
-	vec3 N = inNormal;
-	vec2 uv = wrap(inUv.xy);
-	float mip = mipLevel(inUv.xy);
+	vec4 A = vec4(0, 0, 0, 0);
+	const vec3 N = inNormal;
+	const vec2 uv = wrap(inUv.xy);
+	const float mip = mipLevel(inUv.xy);
+	const int materialId = int(inId.y);
+	const Material material = materials[materialId];
 
-	int materialId = int(inId.y);
-	Material material = materials[materialId];
-	
-	float M = material.factorMetallic;
-	float R = material.factorRoughness;
-	float AO = material.factorOcclusion;
+	const float M = material.factorMetallic;
+	const float R = material.factorRoughness;
+	const float AO = material.factorOcclusion;
 	
 	// sample albedo
-	bool useAtlas = validTextureIndex( material.indexAtlas );
+	const bool useAtlas = validTextureIndex( material.indexAtlas );
 	Texture textureAtlas;
 	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 		Texture t = textures[material.indexAlbedo];
-		C = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		A = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
-			C.a = 1;
+			A.a = 1;
 		// alpha mode BLEND
 		} else if ( material.modeAlpha == 1 ) {
 
 		// alpha mode MASK
 		} else if ( material.modeAlpha == 2 ) {
-			if ( C.a < abs(material.factorAlphaCutoff) ) discard;
-			C.a = 1;
+			if ( A.a < abs(material.factorAlphaCutoff) ) discard;
+			A.a = 1;
 		}
-		if ( C.a == 0 ) discard;
+		if ( A.a == 0 ) discard;
 	}
-
-#if UF_DEFERRED_SAMPLING
-	vec4 outAlbedo;
-#else
-	vec2 outUvs;
+#if USE_LIGHTMAP
+	if ( validTextureIndex( material.indexLightmap ) ) {
+	#if DEFERRED_SAMPLING
+		outUvs = inSt;
+	#else
+		Texture t = textures[material.indexLightmap];
+		const float gamma = 1.6;
+		const vec4 L = pow(textureLod( samplerTextures[t.index], inSt, mip ), vec4(1.0 / gamma));
+		A *= L;
+	#endif
+	}
 #endif
-	/*vec4*/ 	outAlbedo = C * inColor;
-	/*uvec2*/ 	outId = uvec2(inId.w+1, inId.y+1);
-	/*vec2*/ 	outNormals = encodeNormals( normalize( N ) );
-	/*vec2*/ 	outUvs = wrap(inUv.xy);
+
+	const vec4 		outAlbedo = A * inColor;
+	const uvec2 	outId = uvec2(inId.w+1, inId.y+1);
+	const vec2 		outNormals = encodeNormals( normalize( N ) );
+	const vec2 		outUvs = wrap(inUv.xy);
 
 	imageStore(voxelID, ivec3(P * imageSize(voxelID)), uvec4(outId, 0, 0));
 	imageStore(voxelNormal, ivec3(P * imageSize(voxelNormal)), vec4(outNormals, 0, 0));

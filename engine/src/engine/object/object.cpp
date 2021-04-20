@@ -93,7 +93,13 @@ bool uf::Object::load( const std::string& f, bool inheritRoot ) {
 
 	json["root"] = uf::io::directory(filename);
 	json["source"] = filename;
+#if UF_ENTITY_METADATA_USE_JSON
 	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
+#else
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	metadata.hotReload.source = filename;
+	metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
+#endif
 	return this->load(json);
 }
 
@@ -118,7 +124,7 @@ bool uf::Object::reload( bool hard ) {
 		transform.reference = reference;
 	}
 	payload["new"] = metadata;
-	UF_DEBUG_MSG("Updated metadata for " << uf::string::toString( this ));
+//	UF_DEBUG_MSG("Updated metadata for " << uf::string::toString( this ));
 	this->queueHook("object:Reload.%UID%", payload);
 	return true;
 }
@@ -160,7 +166,14 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		if ( ext::json::isNull( json[key] ) )
 			json[key] = value;
 	});
+#if UF_ENTITY_METADATA_USE_JSON
 	json["hot reload"]["enabled"] = json["system"]["hot reload"]["enabled"];
+#else
+	{
+		auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+		metadata.hotReload.enabled = json["system"]["hot reload"]["enabled"].as<bool>();
+	}
+#endif
 	// Basic entity information
 	// Set name
 	this->m_name = json["name"].is<std::string>() ? json["name"].as<std::string>() : json["type"].as<std::string>();
@@ -325,7 +338,14 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 
 				json["root"] = uf::io::directory(filename);
 				json["source"] = filename;
-				json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+			#if UF_ENTITY_METADATA_USE_JSON
+				json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
+			#else
+				{
+					auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+					metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
+				}
+			#endif
 
 				if ( this->loadChildUid(json) == -1 ) continue;
 			}
@@ -363,7 +383,15 @@ uf::Object& uf::Object::loadChild( const std::string& f, bool initialize ) {
 
 	json["root"] = uf::io::directory(filename);
 	json["source"] = filename;
-	json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+#if UF_ENTITY_METADATA_USE_JSON
+	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
+#else
+	{
+		auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+		metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
+	}
+#endif
+
 	return this->loadChild(json, initialize);
 }
 uf::Object& uf::Object::loadChild( const uf::Serializer& _json, bool initialize ) {

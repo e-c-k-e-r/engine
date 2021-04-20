@@ -129,8 +129,8 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& storageBuffer = *graphic.getStorageBuffer("Models");
 		graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/ );
 	}
-	if ( graphic.material.hasShader("geometry", "svogi") ) {
-		auto& shader = graphic.material.getShader("geometry", "svogi");
+	if ( graphic.material.hasShader("geometry", "vxgi") ) {
+		auto& shader = graphic.material.getShader("geometry", "vxgi");
 		pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
 		pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
 	
