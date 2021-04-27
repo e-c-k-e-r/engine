@@ -318,6 +318,8 @@ void main() {
 		fragColor = A.rgb * ubo.ambient.rgb * (1 - AO);
 	}
 	{
+		const float R = material.factorRoughness * 2.0f;
+		
 		const vec3 N = normal.world;
 		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
 		const vec3 Lo = normalize( -position.world );
@@ -345,8 +347,10 @@ void main() {
 			const vec3 diffuseBRDF = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
 			const vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specularBRDF) * Lr * cosLi;
-		//	else if ( light.type == 0 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
+		//	else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
 			else fragColor.rgb += (diffuseBRDF + specularBRDF) * Lr * cosLi;
+		
+			if ( !(0 <= material.indexLightmap) ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
 			litFactor += light.power * La * Ls;
 		}
 	}

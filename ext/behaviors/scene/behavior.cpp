@@ -242,8 +242,6 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
 		metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
 		metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
-
-		UF_DEBUG_MSG( metadata.light.exposure << " | " << metadata.light.gamma );
 	#if UF_USE_OPENGL_FIXED_FUNCTION
 		uf::renderer::states::rebuild = true;
 	#endif
