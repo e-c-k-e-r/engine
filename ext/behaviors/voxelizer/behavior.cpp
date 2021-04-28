@@ -12,6 +12,7 @@
 
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
+#include <uf/ext/ext.h>
 
 #define COMP_SHADER_USED 1
 
@@ -25,13 +26,22 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 	// initialize voxel map
 	{
-		const uint32_t DEFAULT_VOXEL_SIZE = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>();
-		const float DEFAULT_VOXELIZE_LIMITER = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["limiter"].as<float>();
+		const uint32_t DEFAULT_VOXEL_SIZE = ext::config["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>(256);
+		const float DEFAULT_VOXELIZE_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["limiter"].as<float>(0);
+		const uint32_t DEFAULT_DISPATCH_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["dispatch"].as<uint32_t>(8);
 
 		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.z == 0 ) metadata.voxelSize.z = DEFAULT_VOXEL_SIZE;
+		
 		if ( metadata.renderer.limiter == 0 ) metadata.renderer.limiter = DEFAULT_VOXELIZE_LIMITER;
+
+		if ( metadata.dispatchSize.x == 0 ) metadata.dispatchSize.x = DEFAULT_DISPATCH_LIMITER;
+		if ( metadata.dispatchSize.y == 0 ) metadata.dispatchSize.y = DEFAULT_DISPATCH_LIMITER;
+		if ( metadata.dispatchSize.z == 0 ) metadata.dispatchSize.z = DEFAULT_DISPATCH_LIMITER;
+		
+		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
+		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
 
 		std::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);
 		
@@ -131,6 +141,11 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 
 	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+	
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+	auto& controller = scene.getController();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	renderMode.setTarget("");
 	if ( renderMode.executed  ) {
 		if ( !metadata.initialized ) metadata.initialized = true;
@@ -144,14 +159,50 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 				renderMode.execute = false;
 			}
 		}
+	#if 0
+		if ( renderMode.execute ) {
+			pod::Vector3f min = metadata.extents.min;
+			pod::Vector3f max = metadata.extents.max;
+
+			min.x += floor(controllerTransform.position.x);
+			min.y -= floor(controllerTransform.position.y);
+			min.z -= floor(controllerTransform.position.z);
+
+			max.x += floor(controllerTransform.position.x);
+			max.y -= floor(controllerTransform.position.y);
+			max.z -= floor(controllerTransform.position.z);
+			sceneTextures.voxels.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+		}
+	#endif
 	}
 #if COMP_SHADER_USED
-	auto& scene = uf::scene::getCurrentScene();
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, true );
 #endif
 #endif
 }
-void ext::VoxelizerBehavior::render( uf::Object& self ){}
+void ext::VoxelizerBehavior::render( uf::Object& self ){
+	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+	
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+	auto& controller = scene.getController();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+
+	if ( uf::renderer::currentRenderMode->getName() != "RenderTarget" && renderMode.execute ) {
+		pod::Vector3f min = metadata.extents.min;
+		pod::Vector3f max = metadata.extents.max;
+
+		min.x += floor(controllerTransform.position.x);
+		min.y -= floor(controllerTransform.position.y);
+		min.z -= floor(controllerTransform.position.z);
+
+		max.x += floor(controllerTransform.position.x);
+		max.y -= floor(controllerTransform.position.y);
+		max.z -= floor(controllerTransform.position.z);
+		sceneTextures.voxels.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+	}
+}
 void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {

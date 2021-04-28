@@ -7,13 +7,17 @@
 #define WHITENOISE 1
 #define DEFERRED_SAMPLING 0
 #define SHADOW_CONE_TRACED 0
-#define VOXEL_TRACE_IN_NDC 0
+#define VOXEL_TRACE_IN_NDC 1
 
 #define GAMMA_CORRECT 1
 #define TONE_MAP 1
 
+#define LAMBERT 0
+#define PBR 1
+
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
+const float SQRT2 = 1.41421356237;
 
 const float LIGHT_POWER_CUTOFF = 0.005;
 
@@ -415,6 +419,9 @@ struct VoxelInfo {
 	float mipmapLevels;
 	float albedoSize;
 	float voxelSize;
+
+	float albedoSizeRecip;
+	float voxelSizeRecip;
 };
 VoxelInfo voxelInfo;
 
@@ -422,32 +429,38 @@ vec4 voxelConeTrace( vec3 rayO, vec3 rayD, float aperture, float maxDistance ) {
 #if VOXEL_TRACE_IN_NDC
 	rayO = vec3( ubo.matrices.voxel * vec4( rayO, 1.0 ) );
 	rayD = vec3( ubo.matrices.voxel * vec4( rayD, 0.0 ) );
+	const float granularity = 1.0f / 8.0f;
+	const uint maxSteps = uint(voxelInfo.albedoSize * 2);
+#else
+	const float granularity = 8.0f;
+	const uint maxSteps = uint(voxelInfo.albedoSize * granularity);
 #endif
-	const float granularity = 12.0f;
+	const float granularityRecip = 1.0f / granularity;
 	// box
 	const vec2 rayBoxInfo = rayBoxDst( voxelInfo.min, voxelInfo.max, rayO, rayD );
 	const float tStart = rayBoxInfo.x;
 	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfo.y) : rayBoxInfo.y;
 	// steps
-	const float tDelta = voxelInfo.voxelSize / granularity;
-	const uint maxSteps = uint(voxelInfo.albedoSize * granularity);
+	const float tDelta = voxelInfo.voxelSize * granularityRecip;
 	// marcher
-	float t = tStart + tDelta * 2.0;
+	float t = tStart + 2.0 * SQRT2;
 	vec3 rayPos = vec3(0);
 	vec4 radiance = vec4(0);
 	vec3 uvw = vec3(0);
 	// cone mipmap shit
 	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
 	float coneDiameter = coneCoefficient * t;
-	float level = aperture > 0 ? log2( coneDiameter / voxelInfo.albedoSize ) : 0;
+	float level = aperture > 0 ? log2( coneDiameter ) : 0;
 	// results
 	vec4 color = vec4(0);
 	float occlusion = 0.0;
 	uint stepCounter = 0;
+	float tD;
 	const float falloff = 256.0f;
 	const vec3 voxelBoundsRecip = 1.0f / (voxelInfo.max - voxelInfo.min);
-	while ( t < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
-		t += tDelta * pow(2, coneDiameter / voxelInfo.albedoSize);
+//	while ( t < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
+	while ( t < tEnd && color.a < 1.0 && occlusion < 1.0 ) {
+		t += tDelta * (aperture > 0 ? coneDiameter : 1);
 		rayPos = rayO + rayD * t;
 	#if VOXEL_TRACE_IN_NDC
 		uvw = rayPos * 0.5 + 0.5;
@@ -456,11 +469,10 @@ vec4 voxelConeTrace( vec3 rayO, vec3 rayD, float aperture, float maxDistance ) {
 	#endif
 		if ( abs(uvw.x) > 1.0 || abs(uvw.y) > 1.0 || abs(uvw.z) > 1.0 ) break;
 		coneDiameter = coneCoefficient * t;
-		level = log2( coneDiameter / voxelInfo.albedoSize );
-		radiance = texture(voxelAlbedo, uvw, level); // / granularity;
-	//	radiance /= granularity;
-	//	if ( aperture < EPSILON && color.a > EPSILON ) radiance *= granularity;
-	
+		level = log2( coneDiameter );
+		if ( level >= voxelInfo.mipmapLevels ) break;
+		radiance = texture(voxelAlbedo, uvw, level);
+
 		color += (1.0 - color.a) * radiance;
 		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + falloff * coneDiameter);
 	}
@@ -571,10 +583,10 @@ void main() {
 		const vec3 N = normal.world;
 
 		const float DIFFUSE_CONE_APERTURE = 0.57735f;
-		const float DIFFUSE_INDIRECT_FACTOR = 0.125f; // 1.0f;
+		const float DIFFUSE_INDIRECT_FACTOR = 1.0f / 6.0f; // 1.0f;
 		
-		const float SPECULAR_CONE_APERTURE = clamp(tan(PI * 0.5f * R), 0.0174533f, PI);
-		const float SPECULAR_INDIRECT_FACTOR = 1.0 - M; // 1.0f;
+		const float SPECULAR_CONE_APERTURE = clamp(tan(PI * 0.5f * R), 0.0174533f, PI); // tan( R * PI * 0.5f * 0.1f );
+		const float SPECULAR_INDIRECT_FACTOR = (1.0 - M) * 0.5; // 1.0f;
 		
 		const vec4 CONES[] = {
 			vec4(0.0f, 1.0f, 0.0f, PI / 4.0f),
@@ -586,20 +598,22 @@ void main() {
 		};
 		{
 			voxelInfo.albedoSize = textureSize( voxelAlbedo, 0 ).x;
-			voxelInfo.mipmapLevels = textureQueryLod( voxelAlbedo, vec3(0) ).x;
+			voxelInfo.albedoSizeRecip = 1.0 / voxelInfo.albedoSize;
+			voxelInfo.mipmapLevels = log2(voxelInfo.albedoSize) + 1; //textureQueryLod( voxelAlbedo, vec3(0) ).x;
 		#if VOXEL_TRACE_IN_NDC
 			voxelInfo.min = vec3( -1 );
 			voxelInfo.max = vec3(  1 );
-			voxelInfo.voxelSize = 1.0 / voxelInfo.albedoSize;
+			voxelInfo.voxelSize = voxelInfo.albedoSizeRecip;
 		#else
 			const mat4 inverseOrtho = inverse( ubo.matrices.voxel );
 			voxelInfo.min = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
 			voxelInfo.max = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
 			voxelInfo.voxelSize = 1;
 		#endif
+			voxelInfo.voxelSizeRecip = 1.0 / voxelInfo.voxelSize;
 		}
 	 	
-	 	// outFragColor.rgb = voxelConeTrace( rayO, rayD, 0 ).rgb; return;
+	 //	outFragColor.rgb = voxelConeTrace( rayO, rayD, 0 ).rgb; return;
 
 		if ( DIFFUSE_INDIRECT_FACTOR > 0.0f ) {
 			vec3 guide = vec3(0.0f, 1.0f, 0.0f);
@@ -609,13 +623,14 @@ void main() {
 			const vec3 up = cross(right, N);
 			for ( uint i = 0; i < 6; ++i ) {
 				const vec3 coneDirection = normalize(N + CONES[i].x * right + CONES[i].z * up);
-				indirectDiffuse += voxelConeTrace(P, coneDirection, DIFFUSE_CONE_APERTURE ) * CONES[i].w;
+				indirectDiffuse += voxelConeTrace(P, coneDirection * ( dot(coneDirection, N) < 0 ? -1 : 1 ), DIFFUSE_CONE_APERTURE ) * CONES[i].w;
 			}
-			indirectDiffuse.rgb *= A.rgb;
-			AO = indirectDiffuse.a;
+		//	indirectDiffuse.rgb *= A.rgb;
 		//	outFragColor.rgb = indirectDiffuse.rgb; return;
+			AO = indirectDiffuse.a;
 		}
 		if ( SPECULAR_INDIRECT_FACTOR > 0.0f ) {
+		//	const vec3 R = reflect( normalize(P - rayO), N );
 			const vec3 R = reflect( normalize(P - rayO), N );
 			indirectSpecular = voxelConeTrace( P, R, SPECULAR_CONE_APERTURE );
 		//	outFragColor.rgb = indirectSpecular.rgb; return;
@@ -636,6 +651,7 @@ void main() {
 		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
 		const vec3 Lo = normalize( -position.eye );
 		const float cosLo = max(0.0, dot(N, Lo));
+		
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			const Light light = lights[i];
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
@@ -647,25 +663,29 @@ void main() {
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 			const float cosLi = max(0.0, dot(N, Li));
-
+			const vec3 Lr = light.color.rgb * light.power * La * Ls;
+		#if LAMBERT
+			const vec3 diffuse = A.rgb;
+			const vec3 specular = vec3(0);
+		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
 			const float cosLh = max(0.0, dot(N, Lh));
 			
-			const vec3 Lr = light.color.rgb * light.power * La * Ls;
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
 			const float D = ndfGGX( cosLh, R );
 			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuseBRDF = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
-			const vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-		
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specularBRDF) * Lr * cosLi;
-		//	else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
-			else fragColor.rgb += (diffuseBRDF + specularBRDF) * Lr * cosLi;
-	
-		// 	if ( !(0 <= material.indexLightmap) ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
+			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+		#endif
+			// lightmapped, compute only specular
+			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specular) * Lr * cosLi;
+			// point light, compute only diffuse
+			// else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuse) * Lr * cosLi;
+			else fragColor.rgb += (diffuse + specular) * Lr * cosLi;
 			litFactor += light.power * La * Ls;
 		}
 	}
+
 #if FOG
 	fog(rayO, rayD, fragColor, 1.0 ); //litFactor);
 #endif

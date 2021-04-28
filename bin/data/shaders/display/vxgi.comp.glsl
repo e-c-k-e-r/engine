@@ -7,6 +7,9 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 #define RAY_MARCH_FOG 1
 #define DEFERRED_SAMPLING 0
 
+#define LAMBERT 1
+#define PBR 0
+
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
 
@@ -251,13 +254,15 @@ float shadowFactor( const Light light, float def ) {
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
 	const int samples = int(ubo.poissonSamples);
-	if ( samples <= 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+	return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+#if 0
 	for ( int i = 0; i < samples; ++i ) {
 		const int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
 		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
+#endif
 }
 
 void main() {
@@ -278,6 +283,25 @@ void main() {
 		imageStore(voxelAlbedo, ivec3(tUvw), vec4(0));
 		return;
 	}
+#if 0
+	{
+		const uvec3 dim = imageSize(voxelAlbedo);
+		float sdf = max(dim.x, max(dim.y, dim.z)) * 2.82842712;
+
+		uvec2 ID;
+		ivec3 coord;
+		for ( uint z = 0; z < dim.z; ++z ) {
+		for ( uint y = 0; y < dim.y; ++y ) {
+		for ( uint x = 0; x < dim.x; ++x ) {
+			coord = ivec3(x,y,z);
+			ID = imageLoad( voxelID, coord ).xy;
+			if ( ID.x == 0 || ID.y == 0 ) continue;
+			sdf = min(distance(tUvw, coord), sdf);
+		}
+		}
+		}
+	}
+#endif
 	const uint drawId = ID.x - 1;
 	const DrawCall drawCall = drawCalls[drawId];
 	const uint materialId = ID.y + drawCall.materialIndex - 1;
@@ -319,15 +343,14 @@ void main() {
 	}
 	{
 		const float R = material.factorRoughness * 2.0f;
-		
 		const vec3 N = normal.world;
 		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
-		const vec3 Lo = normalize( -position.world );
+		const vec3 Lo = normalize( position.world );
 		const float cosLo = max(0.0, dot(N, Lo));
-
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			const Light light = lights[i];
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+			if ( light.type >= 0 && 0 <= material.indexLightmap ) continue;
 			const vec3 Lp = light.position;
 			const vec3 Liu = light.position - position.world;
 			const vec3 Li = normalize(Liu);
@@ -336,21 +359,25 @@ void main() {
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 			const float cosLi = max(0.0, dot(N, Li));
-
+			const vec3 Lr = light.color.rgb * light.power * La * Ls;
+		#if LAMBERT
+			const vec3 diffuse = A.rgb;
+			const vec3 specular = vec3(0);
+		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
 			const float cosLh = max(0.0, dot(N, Lh));
 			
-			const vec3 Lr = light.color.rgb * light.power * La * Ls;
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
 			const float D = ndfGGX( cosLh, R );
 			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuseBRDF = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
-			const vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specularBRDF) * Lr * cosLi;
-		//	else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
-			else fragColor.rgb += (diffuseBRDF + specularBRDF) * Lr * cosLi;
-		
-			if ( !(0 <= material.indexLightmap) ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
+			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+		#endif
+			// lightmapped, compute only specular
+			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specular) * Lr * cosLi;
+			// point light, compute only diffuse
+			// else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuse) * Lr * cosLi;
+			else fragColor.rgb += (diffuse + specular) * Lr * cosLi;
 			litFactor += light.power * La * Ls;
 		}
 	}

@@ -17,8 +17,8 @@ namespace ext {
 		void destroy( uf::Object& );
 		struct Metadata {
 			pod::Vector3ui fragmentSize = { 0, 0 };
-			pod::Vector3ui voxelSize = { 256, 256, 256 };
-			pod::Vector3ui dispatchSize = { 8, 8, 8 };
+			pod::Vector3ui voxelSize = { 0, 0, 0 };
+			pod::Vector3ui dispatchSize = { 0, 0, 0 };
 			std::string renderModeName = "VXGI";
 			struct {
 				pod::Vector3f min = {};

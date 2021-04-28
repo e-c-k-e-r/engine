@@ -5,6 +5,9 @@
 #define DEFERRED_SAMPLING 0
 #define RAY_MARCH_FOG 1
 
+#define LAMBERT 0
+#define PBR 1
+
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
 
@@ -491,19 +494,25 @@ void main() {
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 			const float cosLi = max(0.0, dot(N, Li));
-
+			const vec3 Lr = light.color.rgb * light.power * La * Ls;
+		#if LAMBERT
+			const vec3 diffuse = A.rgb;
+			const vec3 specular = vec3(0);
+		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
 			const float cosLh = max(0.0, dot(N, Lh));
 			
-			const vec3 Lr = light.color.rgb * light.power * La * Ls;
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
 			const float D = ndfGGX( cosLh, R );
 			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuseBRDF = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
-			const vec3 specularBRDF = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specularBRDF) * Lr * cosLi;
-			else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuseBRDF) * Lr * cosLi;
-			else fragColor.rgb += (diffuseBRDF + specularBRDF) * Lr * cosLi;
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
+			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+		#endif
+			// lightmapped, compute only specular
+			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specular) * Lr * cosLi;
+			// point light, compute only diffuse
+			// else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuse) * Lr * cosLi;
+			else fragColor.rgb += (diffuse + specular) * Lr * cosLi;
 			litFactor += light.power * La * Ls;
 		}
 	}

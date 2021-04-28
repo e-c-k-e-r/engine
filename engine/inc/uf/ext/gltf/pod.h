@@ -14,6 +14,7 @@ namespace pod {
 			uf::renderer::Texture3D normal;
 			uf::renderer::Texture3D albedo;
 			uf::renderer::Texture3D uv;
+			pod::Matrix4f matrix;
 		} voxels;
 	};
 

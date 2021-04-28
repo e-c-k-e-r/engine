@@ -131,6 +131,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 	}
 	if ( graphic.material.hasShader("geometry", "vxgi") ) {
 		auto& shader = graphic.material.getShader("geometry", "vxgi");
+	/*
 		pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
 		pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
 	
@@ -141,13 +142,16 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		max.x += floor(controllerTransform.position.x);
 		max.y -= floor(controllerTransform.position.y);
 		max.z -= floor(controllerTransform.position.z);
-	
+	//	uniforms.matrix = uf::matrix::translate( uf::matrix::identity(), -controllerTransform.position ) 
+		uniforms.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+	*/
+		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 		struct UniformDescriptor {
 			alignas(16) pod::Matrix4f matrix;
 		};
 		auto& uniform = shader.getUniform("UBO");
 		auto& uniforms = uniform.get<UniformDescriptor>();
-		uniforms.matrix = /*uf::matrix::translate( uf::matrix::identity(), -controllerTransform.position ) **/ uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+		uniforms.matrix = sceneTextures.voxels.matrix;
 		shader.updateUniform( "UBO", uniform );
 	}
 #endif

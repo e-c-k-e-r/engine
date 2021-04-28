@@ -32,7 +32,7 @@ uf::Atlas::hash_t uf::Atlas::addImage( const uint8_t* pointer, const pod::Vector
 	return this->addImage( std::move( image ), regenerate );
 }
 void uf::Atlas::generate( const uf::Atlas::images_t& images, float padding ) {
-	for ( auto& image : images ) this->addImage( image, false );
+	for ( auto& image : images ) this->addImage( image, true );
 	generate( padding );
 }
 void uf::Atlas::generate( float padding ) {

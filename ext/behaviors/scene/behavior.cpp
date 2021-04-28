@@ -22,6 +22,8 @@
 
 #include <uf/utils/math/collision.h>
 
+#include <uf/ext/ext.h>
+
 #include "../light/behavior.h"
 #include "../../ext.h"
 #include "../../gui/gui.h"
@@ -223,12 +225,12 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadataJson["light"]["fog"]["density"]["scale"] = metadata.fog.density.scale;
 	};
 	metadata.deserialize = [&](){
-		metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-		metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-		metadata.light.enabled = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
-		metadata.light.shadowSamples = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
-		metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
-		metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
+		metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
+		metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
+		metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
+		metadata.light.shadowSamples = ext::config["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
+		metadata.light.shadowThreshold = ext::config["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
+		metadata.light.updateThreshold = ext::config["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
 		metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
 		metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
 		metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
@@ -360,12 +362,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #else
-	if ( !metadata.max.textures ) metadata.max.textures = metadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-	if ( !metadata.max.lights ) metadata.max.lights = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-	if ( !metadata.light.enabled ) metadata.light.enabled = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
-	if ( !metadata.light.shadowSamples ) metadata.light.shadowSamples = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
-	if ( !metadata.light.shadowThreshold ) metadata.light.shadowThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
-	if ( !metadata.light.updateThreshold ) metadata.light.updateThreshold = metadataJson["system"]["config"]["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
+	if ( !metadata.max.textures ) metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
+	if ( !metadata.max.lights ) metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
+	if ( !metadata.light.enabled ) metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
+	if ( !metadata.light.shadowSamples ) metadata.light.shadowSamples = ext::config["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
+	if ( !metadata.light.shadowThreshold ) metadata.light.shadowThreshold = ext::config["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
+	if ( !metadata.light.updateThreshold ) metadata.light.updateThreshold = ext::config["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
 	if ( !metadata.light.exposure ) metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
 	if ( !metadata.light.gamma ) metadata.light.gamma = metadataJson["light"]["gamma"].as<float>(2.2f);
 #endif
@@ -621,9 +623,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		std::vector<pod::DrawCall::Storage> drawCalls;
 		drawCalls.reserve(maxTextures);
 
-		// add materials
 		pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
 		pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+
+		// add materials
 		for ( auto* g : graphs ) {
 			auto& graph = *g;
 
@@ -642,7 +645,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 				graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 				++textureSlot;
 			}
-
+	#if 1
+		}
+		uniforms->matrices.ortho = sceneTextures.voxels.matrix;
+	#else
 			// calculate extents
 			pod::Vector3f graphMin = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
 			pod::Vector3f graphMax = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
@@ -665,7 +671,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		max.z -= floor(controllerTransform.position.z );
 	
 		uniforms->matrices.ortho = /*uf::matrix::translate( uf::matrix::identity(), controllerTransform.position ) **/ uf::matrix::ortho( min.x, max.x, min.y, max.y, min.z, max.z );
-
+	#endif
 		uniforms->lengths.materials = std::min( materials.size(), maxTextures );
 		uniforms->lengths.textures = std::min( textures.size(), maxTextures );
 		uniforms->lengths.drawCalls = std::min( drawCalls.size(), maxTextures );

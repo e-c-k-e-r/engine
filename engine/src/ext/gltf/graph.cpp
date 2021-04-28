@@ -505,8 +505,10 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	});
 
-	if ( ext::json::isNull( graph.metadata["extents"]["min"] ) ) graph.metadata["extents"]["min"] = uf::vector::encode( extentMin * graph.metadata["extents"]["scale"].as<float>(1.0f) );
-	if ( ext::json::isNull( graph.metadata["extents"]["max"] ) ) graph.metadata["extents"]["max"] = uf::vector::encode( extentMax * graph.metadata["extents"]["scale"].as<float>(1.0f) );
+//	if ( ext::json::isNull( graph.metadata["extents"]["min"] ) )
+		graph.metadata["extents"]["min"] = uf::vector::encode( extentMin * graph.metadata["extents"]["scale"].as<float>(1.0f) );
+//	if ( ext::json::isNull( graph.metadata["extents"]["max"] ) )
+		graph.metadata["extents"]["max"] = uf::vector::encode( extentMax * graph.metadata["extents"]["scale"].as<float>(1.0f) );
 }
 void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) {
 	auto& node = graph.nodes[index];
@@ -527,6 +529,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// tie to tag
 	if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
 		auto& info = graph.metadata["tags"][node.name];
+		if ( info["ignore"].as<bool>() ) {
+			return;
+		}
 		if ( info["action"].as<std::string>() == "load" ) {
 			if ( info["filename"].is<std::string>() ) {
 				std::string filename = uf::io::resolveURI( info["filename"].as<std::string>(), graph.metadata["root"].as<std::string>() );
@@ -1429,7 +1434,7 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 		if ( saveSeparately ) {
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
 				std::string f = "image."+std::to_string(i)+(compression?".jpg":".png");
-				graph.images[i].save(directory + "/" + f);
+				graph.images[i].save(directory + "/" + f, true);
 				serializer["images"].emplace_back(f);
 			}
 		} else {
@@ -1518,7 +1523,7 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 	if ( saveSeparately ) {
 		for ( size_t i = 0; i < graph.images.size(); ++i ) {
 			std::string f = "image."+std::to_string(i)+(compression?".jpg":".png");
-			graph.images[i].save(directory + "/" + f);
+			graph.images[i].save(directory + "/" + f, true);
 			serializer["images"].emplace_back(f);
 		}
 	} else {
