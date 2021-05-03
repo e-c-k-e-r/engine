@@ -1,7 +1,7 @@
 #version 450
 
-#define UF_DEFERRED_SAMPLING 0
-#define UF_CAN_DISCARD 1
+#define DEFERRED_SAMPLING 0
+#define CAN_DISCARD 1
 
 layout (binding = 1) uniform sampler2D samplerTexture;
 
@@ -24,7 +24,7 @@ layout (location = 1) in flat Gui inGui;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
-#if UF_DEFERRED_SAMPLING
+#if DEFERRED_SAMPLING
 	layout (location = 2) out vec2 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
@@ -36,7 +36,7 @@ void main() {
 	if ( inUv.x > inGui.offset.z ) discard;
 	if ( inUv.y > inGui.offset.w ) discard;
 
-#if UF_DEFERRED_SAMPLING
+#if DEFERRED_SAMPLING
 	vec4 outAlbedo = vec4(0,0,0,0);
 #endif
 

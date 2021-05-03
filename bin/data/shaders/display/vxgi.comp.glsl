@@ -4,8 +4,7 @@
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 #define MULTISAMPLING 1
-#define RAY_MARCH_FOG 1
-#define DEFERRED_SAMPLING 0
+#define DEFERRED_SAMPLING 1
 
 #define LAMBERT 1
 #define PBR 0
@@ -15,26 +14,8 @@ const float EPSILON = 0.00001;
 
 const float LIGHT_POWER_CUTOFF = 0.005;
 
-const vec2 poissonDisk[16] = vec2[]( 
-   vec2( -0.94201624, -0.39906216 ), 
-   vec2( 0.94558609, -0.76890725 ), 
-   vec2( -0.094184101, -0.92938870 ), 
-   vec2( 0.34495938, 0.29387760 ), 
-   vec2( -0.91588581, 0.45771432 ), 
-   vec2( -0.81544232, -0.87912464 ), 
-   vec2( -0.38277543, 0.27676845 ), 
-   vec2( 0.97484398, 0.75648379 ), 
-   vec2( 0.44323325, -0.97511554 ), 
-   vec2( 0.53742981, -0.47373420 ), 
-   vec2( -0.26496911, -0.41893023 ), 
-   vec2( 0.79197514, 0.19090188 ), 
-   vec2( -0.24188840, 0.99706507 ), 
-   vec2( -0.81409955, 0.91437590 ), 
-   vec2( 0.19984126, 0.78641367 ), 
-   vec2( 0.14383161, -0.14100790 ) 
-);
-
 layout (constant_id = 0) const uint TEXTURES = 256;
+layout (constant_id = 1) const uint CASCADES = 1;
 
 struct Matrices {
 	mat4 view[2];
@@ -42,13 +23,22 @@ struct Matrices {
 	mat4 iView[2];
 	mat4 iProjection[2];
 	mat4 iProjectionView[2];
-	mat4 voxel;
+	vec4 eyePos[2];
+	mat4 vxgi;
 };
 
 struct Space {
 	vec3 eye;
 	vec3 world;
-} position, normal, view;
+};
+
+struct Ray {
+	vec3 origin;
+	vec3 direction;
+
+	vec3 position;
+	float distance;
+};
 
 struct Fog {
 	vec3 color;
@@ -109,6 +99,7 @@ struct Material {
 	int indexLightmap;
 	int modeAlpha;
 };
+
 struct Texture {
 	int index;
 	int samp;
@@ -117,12 +108,36 @@ struct Texture {
 
 	vec4 lerp;
 };
+
 struct DrawCall {
 	int materialIndex;
 	uint materials;
 	int textureIndex;
 	uint textures;
 };
+
+struct SurfaceMaterial {
+	uint id;
+
+	vec4 albedo;
+	vec4 indirect;
+
+	float metallic;
+	float roughness;
+	float occlusion;
+};
+
+struct Surface {
+	vec2 uv;
+	Space position;
+	Space normal;
+	
+	Ray ray;
+	
+	SurfaceMaterial material;
+
+	vec4 fragment;
+} surface;
 
 layout (binding = 4) uniform UBO {
 	Matrices matrices;
@@ -136,12 +151,12 @@ layout (binding = 4) uniform UBO {
 	uint drawCalls;
 	
 	vec3 ambient;
-	float kexp;
-
-	uint msaa;
-	uint poissonSamples;
 	float gamma;
+
 	float exposure;
+	uint msaa;
+	uint shadowSamples;
+	uint padding1;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -157,10 +172,10 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 	DrawCall drawCalls[];
 };
 
-layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelID;
-layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal;
-layout (binding = 11, rg16f) uniform volatile coherent image3D voxelUv;
-layout (binding = 12, rgba8) uniform volatile coherent image3D voxelAlbedo;
+layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
+layout (binding = 10, rg16f) uniform volatile coherent image3D voxelUv[CASCADES];
+layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
+layout (binding = 12, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
 
 layout (binding = 13) uniform sampler3D samplerNoise;
 layout (binding = 14) uniform samplerCube samplerSkybox;
@@ -230,7 +245,7 @@ bool validTextureIndex( int textureIndex ) {
 float shadowFactor( const Light light, float def ) {
 	if ( !validTextureIndex(light.mapIndex) ) return 1.0;
 
-	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
+	vec4 positionClip = light.projection * light.view * vec4(surface.position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
@@ -253,11 +268,11 @@ float shadowFactor( const Light light, float def ) {
 	const vec2 uv = positionClip.xy * 0.5 + 0.5;
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
-	const int samples = int(ubo.poissonSamples);
+	const int samples = int(ubo.shadowSamples);
 	return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
 #if 0
 	for ( int i = 0; i < samples; ++i ) {
-		const int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
+		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
 		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
@@ -266,121 +281,105 @@ float shadowFactor( const Light light, float def ) {
 }
 
 void main() {
-	vec3 fragColor = vec3(0);
+	const vec3 tUvw = gl_GlobalInvocationID.xzy;
+	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
+		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
+		surface.normal.eye = vec3( ubo.matrices.vxgi * vec4( surface.normal.world, 0.0f ) );
 	
-	const vec3 tUvw = gl_GlobalInvocationID.xyz;
-	{
-		const vec2 N = vec2(imageLoad(voxelNormal, ivec3(tUvw) ).xy);
-		normal.world = decodeNormals( N );
-		normal.eye = vec3( ubo.matrices.voxel * vec4( normal.world, 0.0f ) );
-	
-		position.eye = vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelAlbedo)) * 2.0f - 1.0f;
-		position.world = vec3( inverse(ubo.matrices.voxel) * vec4( position.eye, 1.0f ) );
-	}
-
-	const uvec2 ID = uvec2(imageLoad(voxelID, ivec3(tUvw) ).xy);
-	if ( ID.x == 0 || ID.y == 0 ) {
-		imageStore(voxelAlbedo, ivec3(tUvw), vec4(0));
-		return;
-	}
-#if 0
-	{
-		const uvec3 dim = imageSize(voxelAlbedo);
-		float sdf = max(dim.x, max(dim.y, dim.z)) * 2.82842712;
-
-		uvec2 ID;
-		ivec3 coord;
-		for ( uint z = 0; z < dim.z; ++z ) {
-		for ( uint y = 0; y < dim.y; ++y ) {
-		for ( uint x = 0; x < dim.x; ++x ) {
-			coord = ivec3(x,y,z);
-			ID = imageLoad( voxelID, coord ).xy;
-			if ( ID.x == 0 || ID.y == 0 ) continue;
-			sdf = min(distance(tUvw, coord), sdf);
+		surface.position.eye = vec3(gl_GlobalInvocationID.xyz) / (vec3(imageSize(voxelRadiance[CASCADE])) / (CASCADE + 1)) * 2.0f - 1.0f;
+		surface.position.world = vec3( inverse(ubo.matrices.vxgi) * vec4( surface.position.eye, 1.0f ) );
+		
+		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
+		if ( ID.x == 0 || ID.y == 0 ) {
+			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
+			continue;
 		}
+		const uint drawId = ID.x - 1;
+		const DrawCall drawCall = drawCalls[drawId];
+		surface.material.id = ID.y + drawCall.materialIndex - 1;
+		const Material material = materials[surface.material.id];
+		surface.material.albedo = material.colorBase;
+		surface.fragment = material.colorEmissive;
+
+	#if DEFERRED_SAMPLING
+		surface.uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) ).xy;
+		const bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
+		Texture textureAtlas;
+		if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
+		if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
+			const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
+			surface.material.albedo = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
 		}
+
+		// OPAQUE
+		if ( material.modeAlpha == 0 ) {
+			surface.material.albedo.a = 1;
+		// BLEND
+		} else if ( material.modeAlpha == 1 ) {
+
+		// MASK
+		} else if ( material.modeAlpha == 2 ) {
+
 		}
-	}
-#endif
-	const uint drawId = ID.x - 1;
-	const DrawCall drawCall = drawCalls[drawId];
-	const uint materialId = ID.y + drawCall.materialIndex - 1;
-	const Material material = materials[materialId];
-	vec4 A = material.colorBase;
-
-#if DEFERRED_SAMPLING
-	const vec2 uv = imageLoad(voxelUv, ivec3(tUvw) ).xy;
-	const bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
-	Texture textureAtlas;
-	if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
-	if ( validTextureIndex( drawCall.textureIndex + material.indexAtlas ) ) {
-		Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-		A = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv );
-	}
-
-	// OPAQUE
-	if ( material.modeAlpha == 0 ) {
-		A.a = 1;
-	// BLEND
-	} else if ( material.modeAlpha == 1 ) {
-
-	// MASK
-	} else if ( material.modeAlpha == 2 ) {
-
-	}
-#else
-	A = imageLoad(voxelAlbedo, ivec3(tUvw) );
-#endif
-	const float M = material.factorMetallic;
-	const float R = material.factorRoughness;
-	const float AO = material.factorOcclusion;
-
-	float litFactor = 1.0;
-	if ( 0 <= material.indexLightmap ) {
-		fragColor = A.rgb + ubo.ambient.rgb * (1 - AO);
-	} else {
-		fragColor = A.rgb * ubo.ambient.rgb * (1 - AO);
-	}
-	{
-		const float R = material.factorRoughness * 2.0f;
-		const vec3 N = normal.world;
-		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
-		const vec3 Lo = normalize( position.world );
-		const float cosLo = max(0.0, dot(N, Lo));
-		for ( uint i = 0; i < ubo.lights; ++i ) {
-			const Light light = lights[i];
-			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) continue;
-			const vec3 Lp = light.position;
-			const vec3 Liu = light.position - position.world;
-			const vec3 Li = normalize(Liu);
-			const float Ls = shadowFactor( light, 0.0 );
-			const float La = 1.0 / (PI * pow(length(Liu), 2.0));
-			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
-
-			const float cosLi = max(0.0, dot(N, Li));
-			const vec3 Lr = light.color.rgb * light.power * La * Ls;
-		#if LAMBERT
-			const vec3 diffuse = A.rgb;
-			const vec3 specular = vec3(0);
-		#elif PBR
-			const vec3 Lh = normalize(Li + Lo);
-			const float cosLh = max(0.0, dot(N, Lh));
-			
-			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-			const float D = ndfGGX( cosLh, R );
-			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
-			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
-		#endif
-			// lightmapped, compute only specular
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specular) * Lr * cosLi;
-			// point light, compute only diffuse
-			// else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuse) * Lr * cosLi;
-			else fragColor.rgb += (diffuse + specular) * Lr * cosLi;
-			litFactor += light.power * La * Ls;
+		// Emissive textures
+		if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
+			const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
+			surface.fragment += texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
 		}
-	}
+	#else
+		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
+	#endif
+		surface.material.metallic = material.factorMetallic;
+		surface.material.roughness = material.factorRoughness;
+		surface.material.occlusion = material.factorOcclusion;
 
-	imageStore(voxelAlbedo, ivec3(tUvw), vec4(fragColor.rgb, 1));
+		float litFactor = 1.0;
+		if ( 0 <= material.indexLightmap ) {
+			surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
+		} else {
+			surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
+		}
+		// corrections
+		surface.material.roughness *= 4.0;
+		{
+			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
+			const vec3 Lo = normalize( surface.position.world );
+			const float cosLo = max(0.0, dot(surface.normal.world, Lo));
+			for ( uint i = 0; i < ubo.lights; ++i ) {
+				const Light light = lights[i];
+				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+				if ( light.type >= 0 && 0 <= material.indexLightmap ) continue;
+				const vec3 Lp = light.position;
+				const vec3 Liu = light.position - surface.position.world;
+				const vec3 Li = normalize(Liu);
+				const float Ls = shadowFactor( light, 0.0 );
+				const float La = 1.0 / (PI * pow(length(Liu), 2.0));
+				if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
+
+				const float cosLi = max(0.0, dot(surface.normal.world, Li));
+				const vec3 Lr = light.color.rgb * light.power * La * Ls;
+			#if LAMBERT
+				const vec3 diffuse = surface.material.albedo.rgb;
+				const vec3 specular = vec3(0);
+			#elif PBR
+				const vec3 Lh = normalize(Li + Lo);
+				const float cosLh = max(0.0, dot(surface.normal.world, Lh));
+				
+				const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
+				const float D = ndfGGX( cosLh, surface.material.roughness );
+				const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
+				const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
+				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+			#endif
+				// lightmapped, compute only specular
+				if ( light.type >= 0 && 0 <= material.indexLightmap ) surface.fragment.rgb += (specular) * Lr * cosLi;
+				// point light, compute only diffuse
+				// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
+				else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
+				surface.fragment.a += light.power * La * Ls;
+			}
+		}
+
+		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, 1));
+	}
 }

@@ -2,14 +2,25 @@
 #extension GL_EXT_samplerless_texture_functions : require
 
 #define MULTISAMPLING 1
-#define DEFERRED_SAMPLING 0
-#define RAY_MARCH_FOG 1
+#define DEFERRED_SAMPLING 1
+
+#define VXGI_NDC 1
+#define VXGI_SHADOWS 0
+#define VXGI_CASCADES 1
+
+#define FOG 1
+#define FOG_RAY_MARCH 1
+
+#define WHITENOISE 1
+#define GAMMA_CORRECT 1
+#define TONE_MAP 1
 
 #define LAMBERT 0
 #define PBR 1
 
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
+const float SQRT2 = 1.41421356237;
 
 const float LIGHT_POWER_CUTOFF = 0.005;
 
@@ -40,13 +51,20 @@ struct Matrices {
 	mat4 iView[2];
 	mat4 iProjection[2];
 	mat4 iProjectionView[2];
-	mat4 ortho;
+	vec4 eyePos[2];
+	mat4 vxgi;
+};
+
+struct Ray {
+	vec3 origin;
+	vec3 direction;
+	float distance;
 };
 
 struct Space {
 	vec3 eye;
 	vec3 world;
-} position, normal, view;
+};
 
 struct Fog {
 	vec3 color;
@@ -107,6 +125,7 @@ struct Material {
 	int indexLightmap;
 	int modeAlpha;
 };
+
 struct Texture {
 	int index;
 	int samp;
@@ -115,12 +134,36 @@ struct Texture {
 
 	vec4 lerp;
 };
+
 struct DrawCall {
 	int materialIndex;
 	uint materials;
 	int textureIndex;
 	uint textures;
 };
+
+struct SurfaceMaterial {
+	uint id;
+
+	vec4 albedo;
+	vec4 indirect;
+
+	float metallic;
+	float roughness;
+	float occlusion;
+};
+
+struct Surface {
+	vec2 uv;
+	Space position;
+	Space normal;
+	
+	Ray ray;
+	
+	SurfaceMaterial material;
+
+	vec4 fragment;
+} surface;
 
 #if !MULTISAMPLING
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInput samplerId;
@@ -144,7 +187,7 @@ struct DrawCall {
 
 layout (binding = 4) uniform UBO {
 	Matrices matrices;
-	
+
 	Mode mode;
 	Fog fog;
 
@@ -154,12 +197,12 @@ layout (binding = 4) uniform UBO {
 	uint drawCalls;
 	
 	vec3 ambient;
-	float kexp;
-
-	uint msaa;
-	uint poissonSamples;
 	float gamma;
+
 	float exposure;
+	uint msaa;
+	uint shadowSamples;
+	uint padding1;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -178,7 +221,6 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 layout (binding = 9) uniform sampler3D samplerNoise;
 layout (binding = 10) uniform samplerCube samplerSkybox;
 layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
-
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
@@ -239,9 +281,9 @@ vec3 gamma( vec3 i ) {
 	return pow(i.rgb, vec3(1.0 / 2.2));
 }
 
-vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, vec3 rayO, vec3 rayD ) {
-	const vec3 t0 = (boundsMin - rayO) / rayD;
-	const vec3 t1 = (boundsMax - rayO) / rayD;
+vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
+	const vec3 t0 = (boundsMin - ray.origin) / ray.direction;
+	const vec3 t1 = (boundsMax - ray.origin) / ray.direction;
 	const vec3 tmin = min(t0, t1);
 	const vec3 tmax = max(t0, t1);
 	const float tStart = max(0, max( max(tmin.x, tmin.y), tmin.z ));
@@ -254,20 +296,20 @@ float sampleDensity( vec3 position ) {
 	return max(0, texture(samplerNoise, uvw).r - ubo.fog.densityThreshold) * ubo.fog.densityMultiplier;
 }
 
-void fog( vec3 rayO, vec3 rayD, inout vec3 i, float scale ) {
+void fog( in Ray ray, inout vec3 i, float scale ) {
 	if ( ubo.fog.stepScale <= 0 ) return;
 	if ( ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
 
-#if RAY_MARCH_FOG
+#if FOG_RAY_MARCH
 	const float range = ubo.fog.range.y;
-	const vec3 boundsMin = vec3(-range,-range,-range) + rayO;
-	const vec3 boundsMax = vec3(range,range,range) + rayO;
+	const vec3 boundsMin = vec3(-range,-range,-range) + ray.origin;
+	const vec3 boundsMax = vec3(range,range,range) + ray.origin;
 	const int numSteps = int(length(boundsMax - boundsMin) * ubo.fog.stepScale );
 
-	const vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, rayO, rayD );
+	const vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, ray );
 	const float dstToBox = rayBoxInfo.x;
 	const float dstInsideBox = rayBoxInfo.y;
-	const float depth = position.eye.z;
+	const float depth = surface.position.eye.z;
 
 	float lightEnergy = 0;
 	// march
@@ -278,7 +320,7 @@ void fog( vec3 rayO, vec3 rayD, inout vec3 i, float scale ) {
 		float totalDensity = 0;
 		float transmittance = 1;
 		while ( dstTravelled < dstLimit ) {
-			vec3 rayPos = rayO + rayD * (dstToBox + dstTravelled);
+			vec3 rayPos = ray.origin + ray.direction * (dstToBox + dstTravelled);
 			float density = sampleDensity(rayPos);
 			if ( density > 0 ) {
 				transmittance *= exp(-density * stepSize * ubo.fog.absorbtion);
@@ -293,7 +335,7 @@ void fog( vec3 rayO, vec3 rayD, inout vec3 i, float scale ) {
 	const vec3 color = ubo.fog.color.rgb;
 	const float inner = ubo.fog.range.x;
 	const float outer = ubo.fog.range.y * scale;
-	const float distance = length(-position.eye);
+	const float distance = length(-surface.position.eye);
 	const float factor = clamp( (distance - inner) / (outer - inner), 0.0, 1.0 );
 
 	i.rgb = mix(i.rgb, color, factor);
@@ -304,12 +346,6 @@ vec3 decodeNormals( vec2 enc ) {
 	const vec2 scth = vec2( sin(ang.x * PI), cos(ang.x * PI) );
 	const vec2 scphi = vec2(sqrt(1.0 - ang.y*ang.y), ang.y);
 	return normalize( vec3(scth.y*scphi.x, scth.x*scphi.x, scphi.y) );
-/*
-	vec2 fenc = enc*4-2;
-	float f = dot(fenc,fenc);
-	float g = sqrt(1-f/4);
-	return normalize( vec3(fenc * g, 1 - f / 2) );
-*/
 }
 float wrap( float i ) {
 	return fract(i);
@@ -347,7 +383,7 @@ uvec4 resolve( usubpassInputMS t ) {
 float shadowFactor( const Light light, float def ) {
 	if ( !validTextureIndex(light.mapIndex) ) return 1.0;
 
-	vec4 positionClip = light.projection * light.view * vec4(position.world, 1.0);
+	vec4 positionClip = light.projection * light.view * vec4(surface.position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
@@ -370,21 +406,34 @@ float shadowFactor( const Light light, float def ) {
 	const vec2 uv = positionClip.xy * 0.5 + 0.5;
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
-	const int samples = int(ubo.poissonSamples);
-	if ( samples <= 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+	const int samples = int(ubo.shadowSamples);
+	if ( samples < 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
-		const int index = int( float(samples) * random(floor(position.world.xyz * 1000.0), i)) % samples;
+		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
 		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
 }
 
-void main() {
-	vec3 rayO = vec3(0);
-	vec3 rayD = vec3(0);
-	vec3 fragColor = vec3(0);
+vec4 postProcess() {
+#if FOG
+	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
+#endif
+#if TONE_MAP
+	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.exposure);
+#endif
+#if GAMMA_CORRECT
+	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
+#endif
+#if WHITENOISE
+	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) whitenoise(surface.fragment.rgb);
+#endif
 
+	return vec4(surface.fragment.rgb,1);
+}
+
+void main() {
 	{
 	#if !MULTISAMPLING
 		const float depth = subpassLoad(samplerDepth).r;
@@ -394,65 +443,79 @@ void main() {
 
 		vec4 positionEye = ubo.matrices.iProjection[inPushConstantPass] * vec4(inUv * 2.0 - 1.0, depth, 1.0);
 		positionEye /= positionEye.w;
-		position.eye = positionEye.xyz;
-		position.world = vec3( ubo.matrices.iView[inPushConstantPass] * positionEye );
+		surface.position.eye = positionEye.xyz;
+		surface.position.world = vec3( ubo.matrices.iView[inPushConstantPass] * positionEye );
 	}
+#if 0
 	{
 		const vec4 near4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
-		rayO = near3;
-		rayD = normalize( far3 - near3 );
+		surface.ray.origin = near3;
+		surface.ray.direction = normalize( far3 - near3 );
 	}
 	// separate our ray direction due to floating point precision problems
-	if ( false ) {
+	{
 		const mat4 iProjectionView = inverse( ubo.matrices.projection[inPushConstantPass] * mat4(mat3(ubo.matrices.view[inPushConstantPass])) );
 		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
-		rayD = normalize( far3 - near3 );
+		surface.ray.direction = normalize( far3 - near3 );
 	}
+#else
+	{
+		const mat4 iProjectionView = inverse( ubo.matrices.projection[inPushConstantPass] * mat4(mat3(ubo.matrices.view[inPushConstantPass])) );
+		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		const vec3 near3 = near4.xyz / near4.w;
+		const vec3 far3 = far4.xyz / far4.w;
+
+		surface.ray.direction = normalize( far3 - near3 );
+		surface.ray.origin = ubo.matrices.eyePos[inPushConstantPass].xyz;
+	}
+#endif
 #if !MULTISAMPLING
-	normal.world = decodeNormals( subpassLoad(samplerNormal).xy );
+	surface.normal.world = decodeNormals( subpassLoad(samplerNormal).xy );
 	const uvec2 ID = subpassLoad(samplerId).xy;
 #else
-	normal.world = decodeNormals( resolve(samplerNormal).xy );
+	surface.normal.world = decodeNormals( resolve(samplerNormal).xy );
 	const uvec2 ID = resolve(samplerId).xy;
 #endif
-	normal.eye = vec3( ubo.matrices.view[inPushConstantPass] * vec4(normal.world, 0.0) );
+	surface.normal.eye = vec3( ubo.matrices.view[inPushConstantPass] * vec4(surface.normal.world, 0.0) );
 
 	if ( ID.x == 0 || ID.y == 0 ) {
-		fragColor.rgb = texture( samplerSkybox, rayD ).rgb;
-		fog(rayO, rayD, fragColor, 0.0);
-		outFragColor = vec4(fragColor,1);
+		surface.fragment.rgb = texture( samplerSkybox, surface.ray.direction ).rgb;
+		surface.fragment.a = 0.0;
+		outFragColor = postProcess();
 		return;
 	}
 	const uint drawId = ID.x - 1;
 	const DrawCall drawCall = drawCalls[drawId];
-	const uint materialId = ID.y + drawCall.materialIndex - 1;
-	const Material material = materials[materialId];
-	vec4 A = material.colorBase;
+	surface.material.id = ID.y + drawCall.materialIndex - 1;
+	const Material material = materials[surface.material.id];
+	surface.material.albedo = material.colorBase;
+	surface.fragment = material.colorEmissive;
 #if DEFERRED_SAMPLING
 #if !MULTISAMPLING
-	const vec2 uv = subpassLoad(samplerUv).xy;
+	surface.uv = subpassLoad(samplerUv).xy;
 #else
-	const vec2 uv = resolve(samplerUv).xy;
+	surface.uv = resolve(samplerUv).xy;
 #endif
 	const float mip = mipLevel(inUv.xy);
 	const bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
 	Texture textureAtlas;
 	if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
-	if ( validTextureIndex( drawCall.textureIndex + material.indexAtlas ) ) {
-		Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-		A = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+	if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
+		const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
+		surface.material.albedo = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
-		A.a = 1;
+		surface.material.albedo.a = 1;
 	// BLEND
 	} else if ( material.modeAlpha == 1 ) {
 
@@ -460,83 +523,72 @@ void main() {
 	} else if ( material.modeAlpha == 2 ) {
 
 	}
+	// Emissive textures
+	if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
+		const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
+		surface.fragment += textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
+	}
 #else
 #if !MULTISAMPLING
-	A = subpassLoad(samplerAlbedo);
+	surface.material.albedo = subpassLoad(samplerAlbedo);
 #else
-	A = resolve(samplerAlbedo);
+	surface.material.albedo = resolve(samplerAlbedo);
 #endif
 #endif
-	const float M = material.factorMetallic;
-	const float R = material.factorRoughness;
-	const float AO = 1.0f - material.factorOcclusion;
+	surface.material.metallic = material.factorMetallic;
+	surface.material.roughness = material.factorRoughness;
+	surface.material.occlusion = material.factorOcclusion;
 
-	float litFactor = 1.0;
 	if ( 0 <= material.indexLightmap ) {
-		fragColor = A.rgb + ubo.ambient.rgb * (1 - AO);
+		surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
 	} else {
-		fragColor = A.rgb * ubo.ambient.rgb * (1 - AO);
+		surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
 	}
-	{
-		const vec3 N = normal.eye;
-		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
-		const vec3 Lo = normalize( -position.eye );
-		const float cosLo = max(0.0, dot(N, Lo));
+	// corrections
+	surface.material.roughness *= 4.0;
 
+	{
+		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
+		const vec3 Lo = normalize( -surface.position.eye );
+		const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
+		
 		for ( uint i = 0; i < ubo.lights; ++i ) {
 			const Light light = lights[i];
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 			const vec3 Lp = light.position;
-			const vec3 Liu = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position, 1)) - position.eye;
+			const vec3 Liu = vec3(ubo.matrices.view[inPushConstantPass] * vec4(light.position, 1)) - surface.position.eye;
 			const vec3 Li = normalize(Liu);
+		#if VXGI_SHADOWS
+			const float Ls = i < ubo.shadowSamples ? shadowFactor( light, 0.0 ) : 1.0;
+		#else
 			const float Ls = shadowFactor( light, 0.0 );
+		#endif
 			const float La = 1.0 / (PI * pow(length(Liu), 2.0));
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
-			const float cosLi = max(0.0, dot(N, Li));
+			const float cosLi = max(0.0, dot(surface.normal.eye, Li));
 			const vec3 Lr = light.color.rgb * light.power * La * Ls;
 		#if LAMBERT
-			const vec3 diffuse = A.rgb;
+			const vec3 diffuse = surface.material.albedo.rgb;
 			const vec3 specular = vec3(0);
 		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
-			const float cosLh = max(0.0, dot(N, Lh));
+			const float cosLh = max(0.0, dot(surface.normal.eye, Lh));
 			
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-			const float D = ndfGGX( cosLh, R );
-			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
+			const float D = ndfGGX( cosLh, surface.material.roughness );
+			const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
 			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 		#endif
 			// lightmapped, compute only specular
-			if ( light.type >= 0 && 0 <= material.indexLightmap ) fragColor.rgb += (specular) * Lr * cosLi;
+			if ( light.type >= 0 && 0 <= material.indexLightmap ) surface.fragment.rgb += (specular) * Lr * cosLi;
 			// point light, compute only diffuse
-			// else if ( abs(light.type) == 1 ) fragColor.rgb += (diffuse) * Lr * cosLi;
-			else fragColor.rgb += (diffuse + specular) * Lr * cosLi;
-			litFactor += light.power * La * Ls;
+			// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
+			else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
+			surface.fragment.a += light.power * La * Ls;
 		}
 	}
 
-	fog(rayO, rayD, fragColor, litFactor);
-
-#if TONE_MAP
-//	fragColor = fragColor / (fragColor + 1.0f);
-	fragColor = vec3(1.0) - exp(-fragColor * ubo.exposure);
-#endif
-#if GAMMA_CORRECT
-	fragColor = pow(fragColor, vec3(1.0 / ubo.gama));
-#endif
-
-/*
-
-	if ( (ubo.mode.type & (0x1 << 0)) == (0x1 << 0) ) {
-		//dither1(fragColor);
-		fragColor += dither2();
-	}
-*/
-	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) {
-		whitenoise(fragColor);
-	}
-
-	outFragColor = vec4(fragColor,1);
+	outFragColor = postProcess();
 }

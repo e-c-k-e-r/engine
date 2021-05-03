@@ -38,6 +38,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		assetLoader.remove<pod::Graph>(filename);
 
 		bool shouldUpdate = false;	
+
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 		if ( !ext::json::isNull(graph.metadata["ambient"]) ) {
 			sceneMetadataJson["light"]["ambient"] = graph.metadata["ambient"];
@@ -48,6 +49,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 			shouldUpdate = true;	
 		}
 		if ( shouldUpdate ) scene.callHook("object:UpdateMetadata.%UID%");
+
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();
 		graph.root.entity->getComponent<pod::Transform<>>().reference = &transform;
@@ -75,23 +77,25 @@ void uf::GltfBehavior::destroy( uf::Object& self ) {
 		uf::graph::destroy( graph );
 	}
 }
+
+#define UNIFORMS_UPDATE_IN_TICK 1
 void uf::GltfBehavior::tick( uf::Object& self ) {
-	/* Animation change test */ 
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) uf::graph::update( graph );
 	}
-	/* Update uniforms */
+
 	if ( !this->hasComponent<uf::Graphic>() ) return;
+
 	auto& scene = uf::scene::getCurrentScene();
 	auto& metadata = this->getComponent<uf::Serializer>();
 	auto& graphic = this->getComponent<uf::Graphic>();
 	auto& controller = scene.getController();
-	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& camera = controller.getComponent<uf::Camera>();
+	auto& transform = this->getComponent<pod::Transform<>>();
 
 	if ( !graphic.initialized ) return;
-	
+
 	auto* objectWithGraph = this;
 	while ( objectWithGraph != &scene ) {
 		if ( objectWithGraph->hasComponent<pod::Graph>() ) break;
@@ -100,6 +104,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 	if ( !objectWithGraph->hasComponent<pod::Graph>() ) return;
 	auto& graph = objectWithGraph->getComponent<pod::Graph>();
 
+#if UNIFORMS_UPDATE_IN_TICK
 #if UF_USE_OPENGL
 	if ( graphic.material.hasShader("vertex") ) {
 		auto& shader = graphic.material.getShader("vertex");
@@ -119,7 +124,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		}
 	}
 #elif UF_USE_VULKAN
-	if ( graphic.material.hasShader("fragment") && !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+	if ( graphic.material.hasShader("vertex") && !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 		auto& shader = graphic.material.getShader("vertex");
 		std::vector<pod::Matrix4f> instances( graph.nodes.size() );
 		for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
@@ -129,31 +134,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& storageBuffer = *graphic.getStorageBuffer("Models");
 		graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/ );
 	}
-	if ( graphic.material.hasShader("geometry", "vxgi") ) {
-		auto& shader = graphic.material.getShader("geometry", "vxgi");
-	/*
-		pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
-		pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
-	
-		min.x += floor(controllerTransform.position.x);
-		min.y -= floor(controllerTransform.position.y);
-		min.z -= floor(controllerTransform.position.z);
-
-		max.x += floor(controllerTransform.position.x);
-		max.y -= floor(controllerTransform.position.y);
-		max.z -= floor(controllerTransform.position.z);
-	//	uniforms.matrix = uf::matrix::translate( uf::matrix::identity(), -controllerTransform.position ) 
-		uniforms.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
-	*/
-		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-		struct UniformDescriptor {
-			alignas(16) pod::Matrix4f matrix;
-		};
-		auto& uniform = shader.getUniform("UBO");
-		auto& uniforms = uniform.get<UniformDescriptor>();
-		uniforms.matrix = sceneTextures.voxels.matrix;
-		shader.updateUniform( "UBO", uniform );
-	}
+#endif
 #endif
 }
 
@@ -202,24 +183,15 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 	if ( graphic.material.hasShader("vertex") ) {
 		auto& shader = graphic.material.getShader("vertex");
 		auto& uniform = shader.getUniform("UBO");
+	#if UF_UNIFORMS_UPDATE_WITH_JSON
 		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-		#if UF_UNIFORMS_UPDATE_WITH_JSON
 			ext::json::Value uniforms;
 			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms["view"][i] = uf::matrix::encode( camera.getView( i ) );
 				uniforms["projection"][i] = uf::matrix::encode( camera.getProjection( i ) );
 			}
 			shader.updateUniform("UBO", uniforms );
-		#else
-			auto& uniforms = uniform.get<UniformDescriptor<>>();
-			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-				uniforms.view[i] = camera.getView( i );
-				uniforms.projection[i] = camera.getProjection( i );
-			}
-			shader.updateUniform( "UBO", uniform );
-		#endif
 		} else {
-		#if UF_UNIFORMS_UPDATE_WITH_JSON
 		//	auto uniforms = shader.getUniformJson("UBO");
 			ext::json::Value uniforms;
 			uniforms["matrices"]["model"] = uf::matrix::encode( uf::transform::model( transform ) );
@@ -239,24 +211,61 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 				uniforms["color"][3] = 1.0f;
 			}
 			shader.updateUniform("UBO", uniforms );
-		#else
+		}
+	#else
+		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+			auto& uniforms = uniform.get<UniformDescriptor<>>();
+			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
+				uniforms.view[i] = camera.getView( i );
+				uniforms.projection[i] = camera.getProjection( i );
+			}
+			shader.updateUniform( "UBO", uniform );
+		} else {
 			auto& uniforms = uniform.get<uf::MeshDescriptor<>>();
 			uniforms.matrices.model = uf::transform::model( transform );
 			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 				uniforms.matrices.view[i] = camera.getView( i );
 				uniforms.matrices.projection[i] = camera.getProjection( i );
 			}
-			if ( ext::json::isArray(metadata["color"]) ) {
-				uniforms.color[0] = metadata["color"][0].as<float>();
-				uniforms.color[1] = metadata["color"][1].as<float>();
-				uniforms.color[2] = metadata["color"][2].as<float>();
-				uniforms.color[3] = metadata["color"][3].as<float>();
-			} else {
-				uniforms.color = { 1, 1, 1, 1 };
-			}
+			uniforms.color = uf::vector::decode( metadata["color"], pod::Vector4f{1,1,1,1} );
 			shader.updateUniform( "UBO", uniform );
-		#endif
 		}
+	#endif
+	}
+#endif
+
+#if !UNIFORMS_UPDATE_IN_TICK
+	if ( uf::renderer::currentRenderMode == uf::renderer::renderModes.front() ) {
+	#if UF_USE_OPENGL
+		if ( graphic.material.hasShader("vertex") ) {
+			auto& shader = graphic.material.getShader("vertex");
+			auto& mesh = this->getComponent<ext::gltf::mesh_t>();
+
+			if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+				std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+				for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
+					auto& node = graph.nodes[i];
+					instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
+				}
+
+				graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex );
+				shader.execute( graphic, &mesh.vertices[0] );
+			} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+				shader.execute( graphic, &mesh.vertices[0] );
+			}
+		}
+	#elif UF_USE_VULKAN
+		if ( graphic.material.hasShader("vertex") && !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+			auto& shader = graphic.material.getShader("vertex");
+			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
+				auto& node = graph.nodes[i];
+				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
+			}
+			auto& storageBuffer = *graphic.getStorageBuffer("Models");
+			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.instanceBufferIndex /*storageBuffer*/ );
+		}
+	#endif
 	}
 #endif
 }

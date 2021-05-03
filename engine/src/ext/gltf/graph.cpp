@@ -16,8 +16,10 @@ namespace {
 		auto& graphic = entity.getComponent<uf::Graphic>();
 		std::string root = uf::io::directory( graph.name );
 		size_t texture2Ds = 0;
+		size_t texture3Ds = 0;
 		for ( auto& texture : graphic.material.textures ) {
 			if ( texture.width > 1 && texture.height > 1 && texture.depth == 1 && texture.layers == 1 ) ++texture2Ds;
+			else if ( texture.width > 1 && texture.height > 1 && texture.depth > 1 && texture.layers == 1 ) ++texture3Ds;
 		}
 
 		// standard pipeline
@@ -62,9 +64,14 @@ namespace {
 				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
 					if ( sc["name"].as<std::string>() == "TEXTURES" ) sc["value"] = specializationConstants.textures;
 				});
-				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-					if ( binding.descriptorCount > 1 ) binding.descriptorCount = specializationConstants.textures;
-				}
+
+				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
+					size_t binding = t["binding"].as<size_t>();
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding == binding ) layout.descriptorCount = specializationConstants.textures;
+					}
+				});
 			}
 		#endif
 		}
@@ -73,15 +80,7 @@ namespace {
 			std::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<std::string>("/gltf/base.vert.spv");
 			std::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<std::string>("/gltf/voxelize.geom.spv");
 			std::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<std::string>("/gltf/voxelize.frag.spv");
-		/*
-			{
-				if ( !graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
-					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/gltf/skinned.instanced.vert.spv" : "/gltf/instanced.vert.spv";
-				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/gltf/skinned.vert.spv";
-				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
-				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "vxgi");
-			}
-		*/
+
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
 				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
@@ -91,48 +90,32 @@ namespace {
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vxgi");
 			}
 		#if UF_USE_VULKAN
-		/*
-			{
-				auto& shader = graphic.material.getShader("vertex", "vxgi");
-				struct SpecializationConstant {
-					uint32_t passes = 6;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.passes = uf::renderer::settings::maxViews;
-				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
-					if ( sc["name"].as<std::string>() == "PASSES" ) sc["value"] = specializationConstants.passes;
-				});
-			}
-		*/
-		/*
-			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-				auto& shader = graphic.material.getShader("geometry", "vxgi");
-				pod::Vector3f min = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
-				pod::Vector3f max = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
-
-				struct UniformDescriptor {
-					alignas(16) pod::Matrix4f matrix;
-				};
-
-				auto& uniform = shader.getUniform("UBO");
-				auto& uniforms = uniform.get<UniformDescriptor>();
-				uniforms.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, max.z, min.z );
-				shader.updateUniform( "UBO", uniform );
-			}
-		*/
 			{
 				auto& shader = graphic.material.getShader("fragment", "vxgi");
 				struct SpecializationConstant {
-					uint32_t textures = 1;
+					uint32_t textures = 256;
+					uint32_t cascades = 2;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 				specializationConstants.textures = texture2Ds;
+				specializationConstants.cascades = texture3Ds / 4;
 				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
-					if ( sc["name"].as<std::string>() == "TEXTURES" ) sc["value"] = specializationConstants.textures;
+					std::string name = sc["name"].as<std::string>();
+					if ( name == "TEXTURES" ) sc["value"] = specializationConstants.textures;
+					else if ( name == "CASCADES" ) sc["value"] = specializationConstants.cascades;
 				});
-				for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-					if ( binding.descriptorCount > 1 ) binding.descriptorCount = specializationConstants.textures;
-				}
+				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+					size_t binding = t["binding"].as<size_t>();
+					std::string name = t["name"].as<std::string>();
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != binding ) continue;
+						if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.textures;
+						else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.cascades;
+						else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.cascades;
+						else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.cascades;
+						else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.cascades;
+					}
+				});
 			}
 		#endif
 		}
@@ -167,10 +150,10 @@ namespace {
 			if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.id);
-				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.normal);
-				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.uv);
-				graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.albedo);
+				for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
 			}
 		}
 		if ( graph.metadata["flags"]["LOAD"].as<bool>() ) {
@@ -340,12 +323,14 @@ void uf::graph::process( pod::Graph& graph ) {
 				break;
 			}
 		}
+		// Failsafe
+		if ( graph.materials.empty() ) graph.materials.emplace_back();
+		if ( graph.textures.empty() ) graph.textures.emplace_back();
+		
 		// Materials storage buffer
 		std::vector<pod::Material::Storage> materials( graph.materials.size() );
 		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 			materials[i] = graph.materials[i].storage;
-			if ( graph.metadata["alpha cutoff"].is<float>() )
-				materials[i].factorAlphaCutoff = graph.metadata["alpha cutoff"].as<float>();
 		}
 		graph.root.materialBufferIndex = graphic.initializeBuffer(
 			(void*) materials.data(),
@@ -1434,7 +1419,7 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 		if ( saveSeparately ) {
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
 				std::string f = "image."+std::to_string(i)+(compression?".jpg":".png");
-				graph.images[i].save(directory + "/" + f, true);
+				graph.images[i].save(directory + "/" + f);
 				serializer["images"].emplace_back(f);
 			}
 		} else {
@@ -1523,7 +1508,7 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 	if ( saveSeparately ) {
 		for ( size_t i = 0; i < graph.images.size(); ++i ) {
 			std::string f = "image."+std::to_string(i)+(compression?".jpg":".png");
-			graph.images[i].save(directory + "/" + f, true);
+			graph.images[i].save(directory + "/" + f);
 			serializer["images"].emplace_back(f);
 		}
 	} else {

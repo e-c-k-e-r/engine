@@ -1,11 +1,12 @@
 #version 450
 
-#define DEFERRED_SAMPLING 0
+#define DEFERRED_SAMPLING 1
 #define USE_LIGHTMAP 1
 
 #define PI 3.1415926536f
 
 layout (constant_id = 0) const uint TEXTURES = 1;
+layout (constant_id = 1) const uint CASCADES = 1;
 
 struct Material {
 	vec4 colorBase;
@@ -51,10 +52,11 @@ layout (location = 7) in vec3 inPosition;
 layout (location = 8) flat in ivec4 inId;
 
 layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelID;
-layout (binding = 9, rg16f) uniform volatile coherent image3D voxelNormal;
-layout (binding = 10, rg16f) uniform volatile coherent image3D voxelUv;
-layout (binding = 11, rgba8) uniform volatile coherent image3D voxelAlbedo;
+
+layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
+layout (binding = 9, rg16f) uniform volatile coherent image3D voxelUv[CASCADES];
+layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
+layout (binding = 11, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
@@ -84,8 +86,9 @@ bool validTextureIndex( int textureIndex ) {
 }
 
 void main() {
-	const vec3 P = inPosition;
-	if ( !(abs(P.x) < 1.0 && abs(P.y) < 1 && abs(P.z) < 1) ) discard;
+	const vec3 P = inPosition.xzy;
+	const uint CASCADE = uint(max( abs(floor(P.x)), max( abs(floor(P.y)), abs(floor(P.z)) ) ));
+	if ( CASCADES <= CASCADE ) discard;
 
 	vec4 A = vec4(0, 0, 0, 0);
 	const vec3 N = inNormal;
@@ -136,8 +139,8 @@ void main() {
 	const vec2 		outNormals = encodeNormals( normalize( N ) );
 	const vec2 		outUvs = wrap(inUv.xy);
 
-	imageStore(voxelID, ivec3(P * imageSize(voxelID)), uvec4(outId, 0, 0));
-	imageStore(voxelNormal, ivec3(P * imageSize(voxelNormal)), vec4(outNormals, 0, 0));
-	imageStore(voxelUv, ivec3(P * imageSize(voxelUv)), vec4(outUvs, 0, 0));
-	imageStore(voxelAlbedo, ivec3(P * imageSize(voxelAlbedo)), outAlbedo);
+	imageStore(voxelId[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelId[CASCADE])), uvec4(outId, 0, 0));
+	imageStore(voxelNormal[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelNormal[CASCADE])), vec4(outNormals, 0, 0));
+	imageStore(voxelUv[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelUv[CASCADE])), vec4(outUvs, 0, 0));
+	imageStore(voxelRadiance[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelRadiance[CASCADE])), outAlbedo);
 }

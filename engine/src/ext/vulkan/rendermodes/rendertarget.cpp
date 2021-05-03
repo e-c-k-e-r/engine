@@ -40,9 +40,10 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	if ( pass == 0 && type == "vxgi" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
+		descriptor.depth.write = false;
 		descriptor.pipeline = "vxgi";
 	} else if ( type == "depth" ) {
-		descriptor.cullMode = VK_CULL_MODE_NONE;
+	//	descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
 	// invalidate
 	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
@@ -185,7 +186,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				/*.blend = */false,
 				/*.samples = */msaa,
 			});
-			if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+			if ( false && ext::vulkan::settings::experimental::deferredMode != "" ) {
 				attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */VK_FORMAT_R16G16_UNORM,
 					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -216,7 +217,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				/*.blend =*/ true,
 				/*.samples =*/ 1,
 			});
-			if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+			if ( false && ext::vulkan::settings::experimental::deferredMode != "" ) {
 				// First pass: fill the G-Buffer
 				{
 					renderTarget.addPass(
@@ -347,16 +348,28 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute");
 			struct SpecializationConstant {
 				uint32_t maxTextures = 512;
+				uint32_t maxCascades = 1;
 			};
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
 			auto& metadata = scene.getComponent<uf::Serializer>();
-			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants.maxTextures;
-			}
+			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
+			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
+			specializationConstants.maxCascades = metadata["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(2);
+
+
+			ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+				size_t binding = t["binding"].as<size_t>();
+				std::string name = t["name"].as<std::string>();
+				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+					if ( layout.binding != binding ) continue;
+					if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.maxTextures;
+					else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.maxCascades;
+					else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.maxCascades;
+					else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.maxCascades;
+					else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.maxCascades;
+				}
+			});
 
 			std::vector<pod::Light::Storage> lights(maxLights);
 			std::vector<pod::Material::Storage> materials(specializationConstants.maxTextures);

@@ -210,10 +210,12 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	metadata.serialize = [&]() {
 		metadataJson["light"]["should"] = metadata.light.enabled;
+
 		metadataJson["light"]["ambient"] = uf::vector::encode( metadata.light.ambient );
 		metadataJson["light"]["specular"] = uf::vector::encode( metadata.light.specular );
 		metadataJson["light"]["exposure"] = metadata.light.exposure;
 		metadataJson["light"]["gamma"] = metadata.light.gamma;
+
 		metadataJson["light"]["fog"]["color"] = uf::vector::encode( metadata.fog.color );
 		metadataJson["light"]["fog"]["step scale"] = metadata.fog.stepScale;
 		metadataJson["light"]["fog"]["absorbtion"] = metadata.fog.absorbtion;
@@ -227,14 +229,17 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	metadata.deserialize = [&](){
 		metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
 		metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
+
 		metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
 		metadata.light.shadowSamples = ext::config["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
 		metadata.light.shadowThreshold = ext::config["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
 		metadata.light.updateThreshold = ext::config["engine"]["scenes"]["lights"]["update threshold"].as<size_t>();
+	
 		metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
 		metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
 		metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
 		metadata.light.gamma = metadataJson["light"]["gamma"].as<float>(2.2f);
+
 		metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
 		metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
 		metadata.fog.absorbtion = metadataJson["light"]["fog"]["absorbtion"].as<float>();
@@ -244,6 +249,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
 		metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
 		metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
+
 	#if UF_USE_OPENGL_FIXED_FUNCTION
 		uf::renderer::states::rebuild = true;
 	#endif
@@ -364,6 +370,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #else
 	if ( !metadata.max.textures ) metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
 	if ( !metadata.max.lights ) metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
+
 	if ( !metadata.light.enabled ) metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
 	if ( !metadata.light.shadowSamples ) metadata.light.shadowSamples = ext::config["engine"]["scenes"]["lights"]["shadow samples"].as<size_t>();
 	if ( !metadata.light.shadowThreshold ) metadata.light.shadowThreshold = ext::config["engine"]["scenes"]["lights"]["shadow threshold"].as<size_t>();
@@ -371,7 +378,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	if ( !metadata.light.exposure ) metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
 	if ( !metadata.light.gamma ) metadata.light.gamma = metadataJson["light"]["gamma"].as<float>(2.2f);
 #endif
-	/* Update lights */ if ( metadata.light.enabled ) {
+	/* Update lights */ if ( uf::renderer::settings::experimental::deferredMode != "vxgi" ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
 
@@ -456,7 +463,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 			alignas(16) pod::Matrix4f iView[2];
 			alignas(16) pod::Matrix4f iProjection[2];
 			alignas(16) pod::Matrix4f iProjectionView[2];
-			alignas(16) pod::Matrix4f ortho;
+			alignas(16) pod::Vector4f eyePos[2];
+			alignas(16) pod::Matrix4f vxgi;
 		} matrices;
 		struct Mode {
 			alignas(8) pod::Vector2ui type;
@@ -482,12 +490,14 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 			alignas(4) uint32_t textures = 0;
 			alignas(4) uint32_t drawCalls = 0;
 		} lengths;
-		alignas(16) pod::Vector4f ambient;
-
-		alignas(4) uint32_t msaa;
-		alignas(4) uint32_t poissonSamples;
+	//	alignas(16) pod::Vector4f ambient;
+		pod::Vector3f ambient;
 		alignas(4) float gamma;
+
 		alignas(4) float exposure;
+		alignas(4) uint32_t msaa;
+		alignas(4) uint32_t shadowSamples;
+		alignas(4) uint32_t padding1;
 	};
 	struct SpecializationConstant {
 		uint32_t maxTextures = 512;
@@ -536,7 +546,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 
 	int shadowSamples = metadata.light.shadowSamples;
 	int shadowThreshold = metadata.light.shadowThreshold;
-	if ( shadowSamples <= 0 ) shadowSamples = 16;
+	if ( shadowSamples < 0 ) shadowSamples = 0;
 	if ( shadowThreshold <= 0 ) shadowThreshold = std::numeric_limits<int>::max();
 	{
 		std::vector<LightInfo> scratch;
@@ -565,14 +575,16 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 			uniforms->matrices.iView[i] = uf::matrix::inverse( uniforms->matrices.view[i] );
 			uniforms->matrices.iProjection[i] = uf::matrix::inverse( uniforms->matrices.projection[i] );
 			uniforms->matrices.iProjectionView[i] = uf::matrix::inverse( uniforms->matrices.projection[i] * uniforms->matrices.view[i] );
+
+			uniforms->matrices.eyePos[i] = camera.getEye( i );
 		}
 
 		uniforms->ambient = metadata.light.ambient;
 		uniforms->msaa = ext::vulkan::settings::msaa;
-		uniforms->poissonSamples = shadowSamples;
+		uniforms->shadowSamples = shadowSamples;
 		uniforms->exposure = metadata.light.exposure;
 		uniforms->gamma = metadata.light.gamma;
-
+	
 		uniforms->fog.color = metadata.fog.color;
 		uniforms->fog.color.w = metadata.fog.stepScale;
 
@@ -598,10 +610,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 
 		graphic.material.textures.clear();
 		if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
-			graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.id); //this->getComponent<uf::renderer::Texture3D>());
-			graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.normal); //this->getComponent<uf::renderer::Texture3D>());
-			graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.uv); //this->getComponent<uf::renderer::Texture3D>());
-			graphic.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.albedo); //this->getComponent<uf::renderer::Texture3D>());
+			for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
 		}
 		
 		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.noise); //this->getComponent<uf::renderer::Texture3D>());
@@ -645,33 +657,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 				graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 				++textureSlot;
 			}
-	#if 1
 		}
-		uniforms->matrices.ortho = sceneTextures.voxels.matrix;
-	#else
-			// calculate extents
-			pod::Vector3f graphMin = uf::vector::decode( graph.metadata["extents"]["min"], pod::Vector3f{} );
-			pod::Vector3f graphMax = uf::vector::decode( graph.metadata["extents"]["max"], pod::Vector3f{} );
-
-			min.x = std::min( min.x, graphMin.x );
-			min.y = std::min( min.y, graphMin.y );
-			min.z = std::min( min.z, graphMin.z );
-
-			max.x = std::max( max.x, graphMax.x );
-			max.y = std::max( max.y, graphMax.y );
-			max.z = std::max( max.z, graphMax.z );
-		}
-	
-		min.x += floor(controllerTransform.position.x );
-		min.y -= floor(controllerTransform.position.y );
-		min.z -= floor(controllerTransform.position.z );
-
-		max.x += floor(controllerTransform.position.x );
-		max.y -= floor(controllerTransform.position.y );
-		max.z -= floor(controllerTransform.position.z );
-	
-		uniforms->matrices.ortho = /*uf::matrix::translate( uf::matrix::identity(), controllerTransform.position ) **/ uf::matrix::ortho( min.x, max.x, min.y, max.y, min.z, max.z );
-	#endif
+		uniforms->matrices.vxgi = sceneTextures.voxels.matrix;
 		uniforms->lengths.materials = std::min( materials.size(), maxTextures );
 		uniforms->lengths.textures = std::min( textures.size(), maxTextures );
 		uniforms->lengths.drawCalls = std::min( drawCalls.size(), maxTextures );
@@ -740,6 +727,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 
 				graphic.updatePipelines();
 			}
+			
 			shader.updateUniform( "UBO", uniform );	
 		}
 	}

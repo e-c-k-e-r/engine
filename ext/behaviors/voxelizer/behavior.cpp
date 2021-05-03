@@ -28,7 +28,8 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 	{
 		const uint32_t DEFAULT_VOXEL_SIZE = ext::config["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>(256);
 		const float DEFAULT_VOXELIZE_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["limiter"].as<float>(0);
-		const uint32_t DEFAULT_DISPATCH_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["dispatch"].as<uint32_t>(8);
+		const uint32_t DEFAULT_DISPATCH_SIZE = ext::config["engine"]["scenes"]["vxgi"]["dispatch"].as<uint32_t>(8);
+		const uint32_t DEFAULT_CASCADES = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<uint32_t>(8);
 
 		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
@@ -36,33 +37,42 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		
 		if ( metadata.renderer.limiter == 0 ) metadata.renderer.limiter = DEFAULT_VOXELIZE_LIMITER;
 
-		if ( metadata.dispatchSize.x == 0 ) metadata.dispatchSize.x = DEFAULT_DISPATCH_LIMITER;
-		if ( metadata.dispatchSize.y == 0 ) metadata.dispatchSize.y = DEFAULT_DISPATCH_LIMITER;
-		if ( metadata.dispatchSize.z == 0 ) metadata.dispatchSize.z = DEFAULT_DISPATCH_LIMITER;
-		
+		if ( metadata.dispatchSize.x == 0 ) metadata.dispatchSize.x = DEFAULT_DISPATCH_SIZE;
+		if ( metadata.dispatchSize.y == 0 ) metadata.dispatchSize.y = DEFAULT_DISPATCH_SIZE;
+		if ( metadata.dispatchSize.z == 0 ) metadata.dispatchSize.z = DEFAULT_DISPATCH_SIZE;
+
+		if ( metadata.cascades == 0 ) metadata.cascades = DEFAULT_CASCADES;
+
 		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
 		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
 
 		std::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);
 		
-		sceneTextures.voxels.id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-		sceneTextures.voxels.id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		for ( size_t i = 0; i < metadata.cascades; ++i ) {
+			auto& id = sceneTextures.voxels.id.emplace_back();
+			auto& uv = sceneTextures.voxels.uv.emplace_back();
+			auto& normal = sceneTextures.voxels.normal.emplace_back();
+			auto& radiance = sceneTextures.voxels.radiance.emplace_back();
 
-		sceneTextures.voxels.id.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		sceneTextures.voxels.normal.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		sceneTextures.voxels.uv.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		sceneTextures.voxels.albedo.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+			id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+			id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+
+			id.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+			uv.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+			normal.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+			radiance.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		}
 	}
 	// initialize render mode
 	{
-	//	if ( metadata.fragmentSize.x == 0 ) metadata.fragmentSize.x = metadata.voxelSize.x * 2;
-	//	if ( metadata.fragmentSize.y == 0 ) metadata.fragmentSize.y = metadata.voxelSize.y * 2;
+		if ( metadata.fragmentSize.x == 0 ) metadata.fragmentSize.x = metadata.voxelSize.x;
+		if ( metadata.fragmentSize.y == 0 ) metadata.fragmentSize.y = metadata.voxelSize.y;
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 		renderMode.metadata["type"] = "vxgi";
-		renderMode.metadata["samples"] = 1;
+		renderMode.metadata["samples"] = 2;
 
 		renderMode.blitter.device = &ext::vulkan::device;
 		renderMode.width = metadata.fragmentSize.x;
@@ -77,12 +87,13 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.process = false;
 	#endif
 
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.id); //this->getComponent<uf::renderer::Texture3D>());
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.normal); //this->getComponent<uf::renderer::Texture3D>());
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.uv); //this->getComponent<uf::renderer::Texture3D>());
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.voxels.albedo); //this->getComponent<uf::renderer::Texture3D>());
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.noise); //this->getComponent<uf::renderer::Texture3D>());
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.skybox); //this->getComponent<uf::renderer::TextureCube>());
+		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.uv ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.normal ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+
+		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.noise);
+		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.skybox);
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
 			// clear textures
@@ -94,10 +105,10 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			subresourceRange.layerCount = 1;
 
 			VkClearColorValue clearColor = { 0.0, 0.0, 0.0, 0.0 };
-			vkCmdClearColorImage( commandBuffer, sceneTextures.voxels.id.image, sceneTextures.voxels.id.imageLayout, &clearColor, 1, &subresourceRange );
-			vkCmdClearColorImage( commandBuffer, sceneTextures.voxels.normal.image, sceneTextures.voxels.normal.imageLayout, &clearColor, 1, &subresourceRange );
-			vkCmdClearColorImage( commandBuffer, sceneTextures.voxels.uv.image, sceneTextures.voxels.uv.imageLayout, &clearColor, 1, &subresourceRange );
-			vkCmdClearColorImage( commandBuffer, sceneTextures.voxels.albedo.image, sceneTextures.voxels.albedo.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.id ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.uv ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 		});
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
 			// parse voxel lighting
@@ -113,24 +124,25 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			subresourceRange.baseMipLevel = 0;
 			subresourceRange.baseArrayLayer = 0;
-			subresourceRange.levelCount = sceneTextures.voxels.albedo.mips;
 			subresourceRange.layerCount = 1;
-
-			sceneTextures.voxels.albedo.setImageLayout(
-				commandBuffer,
-				sceneTextures.voxels.albedo.image,
-				sceneTextures.voxels.albedo.imageLayout,
-				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				subresourceRange
-			);
-			sceneTextures.voxels.albedo.generateMipmaps( commandBuffer, 0 );
-			sceneTextures.voxels.albedo.setImageLayout(
-				commandBuffer,
-				sceneTextures.voxels.albedo.image,
-				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-				sceneTextures.voxels.albedo.imageLayout,
-				subresourceRange
-			);
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				subresourceRange.levelCount = t.mips;
+				t.setImageLayout(
+					commandBuffer,
+					t.image,
+					t.imageLayout,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					subresourceRange
+				);
+				t.generateMipmaps( commandBuffer, 0 );
+				t.setImageLayout(
+					commandBuffer,
+					t.image,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					t.imageLayout,
+					subresourceRange
+				);
+			}
 		});
 	}
 #endif
@@ -145,9 +157,10 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 	auto& controller = scene.getController();
-	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
 	renderMode.setTarget("");
-	if ( renderMode.executed  ) {
+
+	if ( renderMode.executed ) {
 		if ( !metadata.initialized ) metadata.initialized = true;
 
 		if ( metadata.renderer.limiter > 0 ) {
@@ -159,50 +172,42 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 				renderMode.execute = false;
 			}
 		}
-	#if 0
 		if ( renderMode.execute ) {
-			pod::Vector3f min = metadata.extents.min;
-			pod::Vector3f max = metadata.extents.max;
+			pod::Vector3f controllerPosition = controllerTransform.position;
+			controllerPosition.x = floor(controllerPosition.x);
+			controllerPosition.y = floor(controllerPosition.y);
+			controllerPosition.z = -floor(controllerPosition.z);
 
-			min.x += floor(controllerTransform.position.x);
-			min.y -= floor(controllerTransform.position.y);
-			min.z -= floor(controllerTransform.position.z);
-
-			max.x += floor(controllerTransform.position.x);
-			max.y -= floor(controllerTransform.position.y);
-			max.z -= floor(controllerTransform.position.z);
+			pod::Vector3f min = metadata.extents.min + controllerPosition;
+			pod::Vector3f max = metadata.extents.max + controllerPosition;
 			sceneTextures.voxels.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+		
+			auto graph = uf::scene::generateGraph();
+			for ( auto entity : graph ) {
+				if ( !entity->hasComponent<uf::Graphic>() ) continue;
+				auto& graphic = entity->getComponent<uf::Graphic>();
+				if ( graphic.material.hasShader("geometry", "vxgi") ) {
+					auto& shader = graphic.material.getShader("geometry", "vxgi");
+
+					auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+					struct UniformDescriptor {
+						alignas(16) pod::Matrix4f matrix;
+					};
+					auto& uniform = shader.getUniform("UBO");
+					auto& uniforms = uniform.get<UniformDescriptor>();
+					uniforms.matrix = sceneTextures.voxels.matrix;
+					shader.updateUniform( "UBO", uniform );
+				}
+			}
 		}
-	#endif
 	}
 #if COMP_SHADER_USED
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, true );
+	ext::ExtSceneBehavior::bindBuffers( scene );
 #endif
 #endif
 }
-void ext::VoxelizerBehavior::render( uf::Object& self ){
-	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
-	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-	
-	auto& scene = uf::scene::getCurrentScene();
-	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-	auto& controller = scene.getController();
-	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
-
-	if ( uf::renderer::currentRenderMode->getName() != "RenderTarget" && renderMode.execute ) {
-		pod::Vector3f min = metadata.extents.min;
-		pod::Vector3f max = metadata.extents.max;
-
-		min.x += floor(controllerTransform.position.x);
-		min.y -= floor(controllerTransform.position.y);
-		min.z -= floor(controllerTransform.position.z);
-
-		max.x += floor(controllerTransform.position.x);
-		max.y -= floor(controllerTransform.position.y);
-		max.z -= floor(controllerTransform.position.z);
-		sceneTextures.voxels.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
-	}
-}
+void ext::VoxelizerBehavior::render( uf::Object& self ){}
 void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {

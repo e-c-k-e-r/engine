@@ -1,6 +1,6 @@
 #version 450
 
-#define DEFERRED_SAMPLING 0
+#define DEFERRED_SAMPLING 1
 #define CAN_DISCARD 1
 #define USE_LIGHTMAP 1
 
@@ -137,7 +137,7 @@ void main() {
 		// sample metallic/roughness
 		if ( validTextureIndex( material.indexMetallicRoughness ) ) {
 			Texture t = textures[material.indexMetallicRoughness];
-			const vec4 sampled = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+			const vec4 sampled = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 			M = sampled.b;
 			R = sampled.g;
 		}
@@ -145,7 +145,7 @@ void main() {
 		AO = material.factorOcclusion;
 		if ( validTextureIndex( material.indexOcclusion ) ) {
 			Texture t = textures[material.indexOcclusion];
-			AO = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv ).r;
+			AO = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv ).r;
 		}
 	#endif
 	outAlbedo = A * inColor;

@@ -50,6 +50,7 @@ struct Material {
 	int indexLightmap;
 	int modeAlpha;
 };
+
 struct Texture {
 	int index;
 	int samp;
@@ -58,6 +59,7 @@ struct Texture {
 
 	vec4 lerp;
 };
+
 struct Light {
 	vec3 position;
 	float radius;
@@ -73,6 +75,43 @@ struct Light {
 	mat4 view;
 	mat4 projection;
 };
+
+struct Ray {
+	vec3 origin;
+	vec3 direction;
+
+	vec3 position;
+	float distance;
+};
+
+struct Space {
+	vec3 eye;
+	vec3 world;
+};
+
+struct SurfaceMaterial {
+	uint id;
+
+	vec4 albedo;
+	vec4 indirect;
+
+	float metallic;
+	float roughness;
+	float occlusion;
+};
+
+struct Surface {
+	vec2 uv;
+	Space position;
+	Space normal;
+	
+	Ray ray;
+	
+	SurfaceMaterial material;
+
+	vec4 fragment;
+} surface;
+
 layout (std140, binding = 3) readonly buffer Materials {
 	Material materials[];
 };
@@ -160,10 +199,10 @@ bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex; // && textureIndex < ubo.textures;
 }
 
-float shadowFactor( const Light light, const vec3 P, float def ) {
+float shadowFactor( const Light light, float def ) {
 	if ( !validTextureIndex(light.mapIndex) ) return 1.0;
 
-	vec4 positionClip = light.projection * light.view * vec4(P, 1.0);
+	vec4 positionClip = light.projection * light.view * vec4(surface.position.world, 1.0);
 	positionClip.xyz /= positionClip.w;
 
 	if ( positionClip.x < -1 || positionClip.x >= 1 ) return def; //0.0;
@@ -189,7 +228,7 @@ float shadowFactor( const Light light, const vec3 P, float def ) {
 	const int samples = 16; //int(ubo.poissonSamples);
 	if ( samples <= 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
-		const int index = int( float(samples) * random(floor(P * 1000.0), i)) % samples;
+		const int index = int( float(samples) * random(floor(surface.position.world * 1000.0), i)) % samples;
 		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
@@ -198,16 +237,18 @@ float shadowFactor( const Light light, const vec3 P, float def ) {
 
 void main() {
 	vec4 A = vec4(1, 1, 1, 1);
-	vec3 N = normalize( inNormal );
+	surface.normal.world = normalize( inNormal );
 	const float mip = mipLevel(inUv.xy);
-	const vec2 uv = wrap(inUv.xy);
-	const vec3 P = inPosition;
-	const int materialId = int(inId.y);
-	const Material material = materials[materialId];
+	surface.uv = wrap(inUv.xy);
+	surface.position.world = inPosition;
+	surface.material.id = int(inId.y);
+	const Material material = materials[surface.material.id];
 	
-	const float M = material.factorMetallic;
-	const float R = material.factorRoughness;
-	const float AO = 1.0f - material.factorOcclusion;
+	surface.material.metallic = material.factorMetallic;
+	surface.material.roughness = material.factorRoughness;
+	surface.material.occlusion = 1.0f - material.factorOcclusion;
+
+	surface.fragment = material.colorEmissive;
 #if 0
 	// sample albedo
 	const bool useAtlas = validTextureIndex( material.indexAtlas );
@@ -215,66 +256,70 @@ void main() {
 	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard;
 	{
-		Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		const Texture t = textures[material.indexAlbedo];
+		surface.material.albedo = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
-			A.a = 1;
+			surface.material.albedo.a = 1;
 		// alpha mode BLEND
 		} else if ( material.modeAlpha == 1 ) {
 
 		// alpha mode MASK
 		} else if ( material.modeAlpha == 2 ) {
-			if ( A.a < abs(material.factorAlphaCutoff) ) discard;
-			A.a = 1;
+			if ( surface.material.albedo.a < abs(material.factorAlphaCutoff) ) discard;
+			surface.material.albedo.a = 1;
 		}
-		if ( A.a == 0 ) discard;
+		if ( surface.material.albedo.a == 0 ) discard;
 	}
 
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
-		Texture t = textures[material.indexNormal];
-		N = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
+		const Texture t = textures[material.indexNormal];
+		surfacem.normal.world = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
+	}
+
+	// sample emissive
+	if ( validTextureIndex( material.indexEmissive ) ) {
+		const Texture t = textures[material.indexEmissive];
+		surface.fragment = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 	}
 #else
-	A = vec4(1);
+	surface.material.albedo = vec4(1);
 #endif
 
-	float litFactor = 1.0;
-	vec3 fragColor = vec3(0);
 	{
-		const vec3 F0 = mix(vec3(0.04), A.rgb, M); 
-		const vec3 Lo = normalize( -P );
-		const float cosLo = max(0.0, dot(N, Lo));
+		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
+		const vec3 Lo = normalize( -surface.position.world );
+		const float cosLo = max(0.0, dot(surface.normal.world, Lo));
 		for ( uint i = 0; i < lights.length(); ++i ) {
 			const Light light = lights[i];
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 			const vec3 Lp = light.position;
-			const vec3 Liu = light.position - P;
+			const vec3 Liu = light.position - surface.position.world;
 			const float La = 1.0 / (PI * pow(length(Liu), 2.0));
-			const float Ls = shadowFactor( light, P, 0.0 );
+			const float Ls = shadowFactor( light, 0.0 );
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 			const vec3 Li = normalize(Liu);
 			const vec3 Lr = light.color.rgb * light.power * La * Ls;
-			const float cosLi = abs(dot(N, Li));// max(0.0, dot(N, Li));
+			const float cosLi = abs(dot(surface.normal.world, Li));// max(0.0, dot(N, Li));
 		#if LAMBERT
-			const vec3 diffuse = A.rgb;
+			const vec3 diffuse = surface.material.albedo.rgb;
 			const vec3 specular = vec3(0);
 		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
 			const float cosLh = max(0.0, dot(N, Lh));
 			
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-			const float D = ndfGGX( cosLh, R );
-			const float G = gaSchlickGGX(cosLi, cosLo, R);
-			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), M ) * A.rgb;
+			const float D = ndfGGX( cosLh, surface.material.roughness );
+			const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
 			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 		#endif
-			fragColor.rgb += (diffuse + specular) * Lr * cosLi;
-			litFactor += light.power * La * Ls;
+			surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
+			surface.fragment.a += light.power * La * Ls;
 		}
 	}
 
-	outAlbedo = vec4(fragColor, 1);
+	outAlbedo = vec4(surface.fragment.rgb, 1);
 }

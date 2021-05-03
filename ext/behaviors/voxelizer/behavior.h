@@ -20,6 +20,7 @@ namespace ext {
 			pod::Vector3ui voxelSize = { 0, 0, 0 };
 			pod::Vector3ui dispatchSize = { 0, 0, 0 };
 			std::string renderModeName = "VXGI";
+			size_t cascades = 0;
 			struct {
 				pod::Vector3f min = {};
 				pod::Vector3f max = {};

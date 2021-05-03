@@ -71,8 +71,9 @@ void ext::PlayerModelBehavior::render( uf::Object& self ){
 	auto& transform = this->getComponent<pod::Transform<>>();
 
 //	auto& renderMode = *uf::renderer::currentRenderMode;
-//	if ( renderMode.getType() == "Deferred" ) {
-	if ( player.getUid() == controller.getUid() && uf::renderer::currentRenderMode->getName() != "RenderTarget" ) {
+//	UF_DEBUG_MSG( uf::renderer::currentRenderMode->getName() << ": " << uf::renderer::currentRenderMode->getType() );
+	if ( uf::renderer::currentRenderMode->getName() == "Gui" ) {
+//	if ( player.getUid() == controller.getUid() && uf::renderer::currentRenderMode->getName() != "RenderTarget" ) {
 		transform.scale = { 0, 0, 0 };
 	} else {
 		transform.scale = metadata.scale;

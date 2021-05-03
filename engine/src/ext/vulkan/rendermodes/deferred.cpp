@@ -62,7 +62,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.blend = */false,
 			/*.samples = */msaa,
 		});
-		if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+		if ( ext::vulkan::settings::experimental::deferredMode != "" ) {
 			attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 				/*.format = */VK_FORMAT_R16G16_UNORM,
 				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -131,7 +131,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.samples = */1,
 		});
 
-		if ( ext::vulkan::settings::experimental::deferredMode == "deferredSampling" ) {
+		if ( ext::vulkan::settings::experimental::deferredMode != "" ) {
 			// First pass: fill the G-Buffer
 			{
 				renderTarget.addPass(
@@ -213,23 +213,56 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& scene = uf::scene::getCurrentScene();
 
 			auto& shader = blitter.material.shaders.back();
-			struct SpecializationConstant {
-				uint32_t maxTextures = 512;
-			};
-			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
+			size_t maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
 
-			auto& metadata = scene.getComponent<uf::Serializer>();
-			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>();
-			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>();
-			for ( auto& binding : shader.descriptorSetLayoutBindings ) {
-				if ( binding.descriptorCount > 1 )
-					binding.descriptorCount = specializationConstants.maxTextures;
+			UF_DEBUG_MSG( maxLights << "\t" << maxTextures );
+
+			if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
+				struct SpecializationConstant {
+					uint32_t maxTextures = 256;
+					uint32_t maxCascades = 2;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+
+				auto& metadata = scene.getComponent<uf::Serializer>();
+				specializationConstants.maxTextures = maxTextures;
+				specializationConstants.maxCascades = metadata["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(2);
+				
+				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+					size_t binding = t["binding"].as<size_t>();
+					std::string name = t["name"].as<std::string>();
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != binding ) continue;
+						if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.maxTextures;
+						else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.maxCascades;
+						else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.maxCascades;
+						else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.maxCascades;
+						else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.maxCascades;
+					}
+				});
+			} else {
+				struct SpecializationConstant {
+					uint32_t maxTextures = 256;
+				};
+				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
+
+				auto& metadata = scene.getComponent<uf::Serializer>();
+				specializationConstants.maxTextures = maxTextures;
+
+				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
+					size_t binding = t["binding"].as<size_t>();
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding == binding ) layout.descriptorCount = specializationConstants.maxTextures;
+					}
+				});
 			}
 
 			std::vector<pod::Light::Storage> lights(maxLights);
-			std::vector<pod::Material::Storage> materials(specializationConstants.maxTextures);
-			std::vector<pod::Texture::Storage> textures(specializationConstants.maxTextures);
-			std::vector<pod::DrawCall::Storage> drawCalls(specializationConstants.maxTextures);
+			std::vector<pod::Material::Storage> materials(maxTextures);
+			std::vector<pod::Texture::Storage> textures(maxTextures);
+			std::vector<pod::DrawCall::Storage> drawCalls(maxTextures);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 

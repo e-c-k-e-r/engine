@@ -530,11 +530,13 @@ void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 	view = texture.view;
 	imageLayout = texture.imageLayout;
 	deviceMemory = texture.deviceMemory;
-	sampler = texture.sampler;
 	width = texture.width;
 	height = texture.height;
 	depth = texture.depth;
 	layers = texture.layers;
+	
+	sampler = texture.sampler;
+	sampler.device = NULL;
 	
 	this->updateDescriptors();
 }

@@ -24,39 +24,42 @@ layout (binding = 6) uniform UBO {
 } ubo;
 
 void main(){
-	vec3 norm = abs(inNormal[0] + inNormal[1] + inNormal[2]);
- 	uint axis = norm.y > norm.x ? 1 : 0;
- 	axis = norm.z > norm[axis] ? 2 : axis;
+	const float RENDER_RESOLUTION = 256.0;
+	const float PIXEL_SCALE = 2.0;
+ 	const float HALF_PIXEL = 1.0 / (RENDER_RESOLUTION * PIXEL_SCALE);
+ 	const vec3 C = ( inPosition[0] + inPosition[1] + inPosition[2] ) / 3.0;
 
-	mat4 invOrtho = inverse( ubo.voxel );
- 	vec3 extentMin = vec3( invOrtho * vec4(-1, -1, -1, 1 ) );
- 	vec3 extentMid = vec3( invOrtho * vec4( 0,  0,  0, 1 ) );
- 	vec3 extentMax = vec3( invOrtho * vec4( 1,  1,  1, 1 ) );
-	vec3 extentSize = extentMax - extentMin;
-
-	for( uint i = 0; i < 3; ++i ){
+#if USE_CROSS
+	const vec3 N = abs(cross(inPosition[2] - inPosition[0], inPosition[1] - inPosition[0]));
+#else
+	const vec3 N = abs(inNormal[0] + inNormal[1] + inNormal[2]);
+ 	uint A = N.y > N.x ? 1 : 0;
+ 	A = N.z > N[A] ? 2 : A;
+#endif
+ 	for(uint i = 0; i < 3; ++i){
 		outUv = inUv[i];
 		outSt = inSt[i];
 		outColor = inColor[i];
 		outNormal = inNormal[i];
 		outTBN = inTBN[i];
-		outPosition = inPosition[i];
+		outPosition = vec3( ubo.voxel * vec4( inPosition[i], 1 ) ) + normalize( inPosition[i] - C ) * HALF_PIXEL;
 		outId = inId[i];
 
-		outPosition = vec3( ubo.voxel * vec4( outPosition, 1 ) );
-		
-		gl_Position = vec4( outPosition.xyz, 1 );
-		if ( axis == 0 ) gl_Position.xyz = gl_Position.zyx;
-		else if ( axis == 1 ) gl_Position.xyz = gl_Position.xzy;
-		
-		// outPosition = (inPosition[i] - extentMin) / extentSize;
-		// outPosition = fract(outPosition * 0.5 + 0.5);
+		const vec3 P = fract(outPosition);
+	//	const vec3 P = fract(outPosition + normalize( inPosition[i] - C ) * HALF_PIXEL);
+	#if USE_CROSS
+		if ( N.z > N.x && N.z > N.y ) gl_Position = vec4(P.x, P.y, 0, 1);
+		else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(P.y, P.z, 0, 1);
+		else gl_Position = vec4(P.x, P.z, 0, 1);
+	#else
+		if ( A == 0 ) gl_Position = vec4(P.zy, 1, 1 );
+		else if ( A == 1 ) gl_Position = vec4(P.xz, 1, 1 );
+		else if ( A == 2 ) gl_Position = vec4(P.xy, 1, 1 );
+	#endif
 
 		outPosition = outPosition * 0.5 + 0.5;
-	//	gl_Position.xy = fract( gl_Position.xy * 0.5 + 0.5 ) * 2.0 - 1.0;
-	//	gl_Position.xy = fract( gl_Position.xy * 0.5 + 0.5 ) * 2.0 - 1.0;
-		gl_Position.z = 1;
-	
+
+
 		EmitVertex();
 	}
     EndPrimitive();

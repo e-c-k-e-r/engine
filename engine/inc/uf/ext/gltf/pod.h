@@ -10,10 +10,10 @@ namespace pod {
 		uf::renderer::Texture3D noise;
 		uf::renderer::TextureCube skybox;
 		struct {
-			uf::renderer::Texture3D id;
-			uf::renderer::Texture3D normal;
-			uf::renderer::Texture3D albedo;
-			uf::renderer::Texture3D uv;
+			std::vector<uf::renderer::Texture3D> id;
+			std::vector<uf::renderer::Texture3D> uv;
+			std::vector<uf::renderer::Texture3D> normal;
+			std::vector<uf::renderer::Texture3D> radiance;
 			pod::Matrix4f matrix;
 		} voxels;
 	};

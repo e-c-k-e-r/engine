@@ -39,11 +39,7 @@ namespace uf {
 		static bool USE_REVERSE_INFINITE_PROJECTION;
 		
 		Camera();
-/*
-		Camera( const pod::Math::num_t& fov, const pod::Vector2& size, const pod::Vector2& bounds, const pod::Vector3& offset = {0, 0, 0}, const pod::Vector2& tops = {0, 0} );
-		Camera( Camera&& move );
-		Camera( const Camera& copy );
-*/
+
 		bool modified() const;
 		void setStereoscopic( bool );
 		pod::Transform<>& getTransform();
@@ -55,8 +51,7 @@ namespace uf {
 		pod::Matrix4& getProjection( size_t = 0 );
 		const pod::Matrix4& getProjection( size_t = 0 ) const;
 
-	//	pod::Matrix4& getModel();
-	//	const pod::Matrix4& getModel() const;
+		pod::Vector3f getEye( size_t = 0 ) const;
 
 		pod::Math::num_t& getFov();
 		pod::Math::num_t getFov() const;
