@@ -23,6 +23,11 @@ layout (binding = 6) uniform UBO {
 	mat4 voxel;
 } ubo;
 
+#define CASCADE_POWER 2
+uint SCALE_CASCADE( uint x ) {
+	return uint(pow(1 + x, CASCADE_POWER));
+}
+
 void main(){
 	const float RENDER_RESOLUTION = 256.0;
 	const float PIXEL_SCALE = 2.0;
@@ -36,17 +41,27 @@ void main(){
  	uint A = N.y > N.x ? 1 : 0;
  	A = N.z > N[A] ? 2 : A;
 #endif
- 	for(uint i = 0; i < 3; ++i){
+	
+	const uint CASCADE = inId[0].z;
+	vec3 P[3] = {
+		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / SCALE_CASCADE(CASCADE),
+		vec3( ubo.voxel * vec4( inPosition[1], 1 ) ) / SCALE_CASCADE(CASCADE),
+		vec3( ubo.voxel * vec4( inPosition[2], 1 ) ) / SCALE_CASCADE(CASCADE),
+	};
+
+
+ 	for( uint i = 0; i < 3; ++i ){
+ 		const vec3 D = normalize( inPosition[i] - C ) * HALF_PIXEL;
+
 		outUv = inUv[i];
 		outSt = inSt[i];
 		outColor = inColor[i];
 		outNormal = inNormal[i];
 		outTBN = inTBN[i];
-		outPosition = vec3( ubo.voxel * vec4( inPosition[i], 1 ) ) + normalize( inPosition[i] - C ) * HALF_PIXEL;
+		outPosition = P[i]; // + D;
 		outId = inId[i];
 
-		const vec3 P = fract(outPosition);
-	//	const vec3 P = fract(outPosition + normalize( inPosition[i] - C ) * HALF_PIXEL);
+		const vec3 P = outPosition + D;
 	#if USE_CROSS
 		if ( N.z > N.x && N.z > N.y ) gl_Position = vec4(P.x, P.y, 0, 1);
 		else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(P.y, P.z, 0, 1);
@@ -56,10 +71,6 @@ void main(){
 		else if ( A == 1 ) gl_Position = vec4(P.xz, 1, 1 );
 		else if ( A == 2 ) gl_Position = vec4(P.xy, 1, 1 );
 	#endif
-
-		outPosition = outPosition * 0.5 + 0.5;
-
-
 		EmitVertex();
 	}
     EndPrimitive();

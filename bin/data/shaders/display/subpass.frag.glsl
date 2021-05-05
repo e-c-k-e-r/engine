@@ -4,10 +4,6 @@
 #define MULTISAMPLING 1
 #define DEFERRED_SAMPLING 1
 
-#define VXGI_NDC 1
-#define VXGI_SHADOWS 0
-#define VXGI_CASCADES 1
-
 #define FOG 1
 #define FOG_RAY_MARCH 1
 
@@ -58,6 +54,8 @@ struct Matrices {
 struct Ray {
 	vec3 origin;
 	vec3 direction;
+
+	vec3 position;
 	float distance;
 };
 
@@ -164,6 +162,14 @@ struct Surface {
 
 	vec4 fragment;
 } surface;
+
+struct Voxel {
+	uvec2 id;
+	vec3 position;
+	vec3 normal;
+	vec2 uv;
+	vec4 color;
+};
 
 #if !MULTISAMPLING
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInput samplerId;
@@ -331,7 +337,7 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 		i.rgb = mix(ubo.fog.color.rgb, i.rgb, transmittance);
 	}
 #endif
-
+#if 0
 	const vec3 color = ubo.fog.color.rgb;
 	const float inner = ubo.fog.range.x;
 	const float outer = ubo.fog.range.y * scale;
@@ -339,6 +345,7 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 	const float factor = clamp( (distance - inner) / (outer - inner), 0.0, 1.0 );
 
 	i.rgb = mix(i.rgb, color, factor);
+#endif
 }
 
 vec3 decodeNormals( vec2 enc ) {
@@ -544,6 +551,7 @@ void main() {
 	} else {
 		surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
 	}
+
 	// corrections
 	surface.material.roughness *= 4.0;
 

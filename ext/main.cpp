@@ -234,6 +234,13 @@ void EXT_API ext::initialize() {
 			}
 		}
 
+		/* Create initial scene (kludge) */ {
+			uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
+			uf::scene::scenes.push_back(&scene);
+			auto& metadata = scene.getComponent<uf::Serializer>();
+			metadata["system"]["config"] = ::config;
+		}
+
 		if ( ::config["engine"]["limiters"]["framerate"].as<std::string>() == "auto" && ::config["window"]["refresh rate"].is<size_t>() ) {
 			double scale = 1.0;
 			size_t refreshRate = ::config["window"]["refresh rate"].as<size_t>();
@@ -274,9 +281,6 @@ void EXT_API ext::initialize() {
 			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
 			::config["engine"]["threads"]["workers"] = threads;
 			uf::iostream << "Using " << threads << " worker threads" << "\n";
-		}
-		if ( ::config["engine"]["scenes"]["use graph"].is<bool>() ) {
-			uf::scene::useGraph = ::config["engine"]["scenes"]["use graph"].as<bool>();
 		}
 
 	#if UF_USE_BULLET
@@ -423,13 +427,6 @@ void EXT_API ext::initialize() {
 	#endif
 	}
 
-	/* Create initial scene (kludge) */ {
-		uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
-		uf::scene::scenes.push_back(&scene);
-		auto& metadata = scene.getComponent<uf::Serializer>();
-		metadata["system"]["config"] = ::config;
-	}
-
 	/* Initialize Vulkan */ {
 	#if UF_USE_VULKAN
 		// setup render mode
@@ -440,8 +437,9 @@ void EXT_API ext::initialize() {
 		}
 		if ( ::config["engine"]["render modes"]["deferred"].as<bool>() ) {
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
+			auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
+		//	renderMode.metadata["system"]["config"] = ::config;
 			if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
-				auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
 				renderMode.metadata["eyes"] = 2;
 			}
 		}

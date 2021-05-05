@@ -213,32 +213,31 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& scene = uf::scene::getCurrentScene();
 
 			auto& shader = blitter.material.shaders.back();
-			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
-			size_t maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
-
-			UF_DEBUG_MSG( maxLights << "\t" << maxTextures );
+			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
+			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
+			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(4);
 
 			if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
 				struct SpecializationConstant {
+					uint32_t maxCascades = 4;
 					uint32_t maxTextures = 256;
-					uint32_t maxCascades = 2;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
-				auto& metadata = scene.getComponent<uf::Serializer>();
 				specializationConstants.maxTextures = maxTextures;
-				specializationConstants.maxCascades = metadata["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(2);
+				specializationConstants.maxCascades = maxCascades;
 				
 				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
 					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
-						if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.maxTextures;
-						else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.maxCascades;
-						else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.maxCascades;
-						else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.maxCascades;
-						else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.maxCascades;
+						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+						else if ( name == "voxelId" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelUv" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 					}
 				});
 			} else {
@@ -247,14 +246,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
-				auto& metadata = scene.getComponent<uf::Serializer>();
 				specializationConstants.maxTextures = maxTextures;
 
 				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
 					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
 					size_t binding = t["binding"].as<size_t>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding == binding ) layout.descriptorCount = specializationConstants.maxTextures;
+						if ( layout.binding == binding ) layout.descriptorCount = maxTextures;
 					}
 				});
 			}

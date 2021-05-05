@@ -37,13 +37,14 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	descriptor.parse(metadata["descriptor"]);
 	std::string type = metadata["type"].as<std::string>();
 	std::string target = metadata["target"].as<std::string>();
-	if ( pass == 0 && type == "vxgi" ) {
+	size_t subpasses = metadata["subpasses"].as<size_t>();
+	if ( 0 <= pass && pass < subpasses && type == "vxgi" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
 		descriptor.pipeline = "vxgi";
 	} else if ( type == "depth" ) {
-	//	descriptor.cullMode = VK_CULL_MODE_NONE;
+		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
 	// invalidate
 	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
@@ -347,27 +348,29 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute");
 			struct SpecializationConstant {
-				uint32_t maxTextures = 512;
-				uint32_t maxCascades = 1;
+				uint32_t maxCascades = 4;
+				uint32_t maxTextures = 256;
 			};
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
-			auto& metadata = scene.getComponent<uf::Serializer>();
-			size_t maxLights = metadata["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
-			specializationConstants.maxTextures = metadata["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
-			specializationConstants.maxCascades = metadata["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(2);
+			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
+			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
+			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(4);
 
+			specializationConstants.maxTextures = maxTextures;
+			specializationConstants.maxCascades = maxCascades;
 
 			ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
 				size_t binding = t["binding"].as<size_t>();
 				std::string name = t["name"].as<std::string>();
 				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 					if ( layout.binding != binding ) continue;
-					if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.maxTextures;
-					else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.maxCascades;
-					else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.maxCascades;
-					else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.maxCascades;
-					else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.maxCascades;
+					if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+					else if ( name == "voxelId" ) layout.descriptorCount = maxCascades;
+					else if ( name == "voxelUv" ) layout.descriptorCount = maxCascades;
+					else if ( name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+					else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 				}
 			});
 
@@ -472,7 +475,6 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
-	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
 /*
 	VkSemaphoreWaitInfo waitInfo = {};
 	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;

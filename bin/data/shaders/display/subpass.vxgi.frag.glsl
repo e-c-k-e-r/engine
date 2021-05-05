@@ -4,7 +4,7 @@
 #define MULTISAMPLING 1
 #define DEFERRED_SAMPLING 1
 
-#define VXGI_NDC 0
+#define VXGI_NDC 1
 #define VXGI_SHADOWS 1
 
 #define FOG 1
@@ -42,8 +42,9 @@ const vec2 poissonDisk[16] = vec2[](
    vec2( 0.14383161, -0.14100790 ) 
 );
 
-layout (constant_id = 0) const uint TEXTURES = 256;
-layout (constant_id = 1) const uint CASCADES = 1;
+#define MAX_CASCADES 4
+layout (constant_id = 0) const uint CASCADES = MAX_CASCADES;
+layout (constant_id = 1) const uint TEXTURES = 256;
 
 struct Matrices {
 	mat4 view[2];
@@ -346,7 +347,7 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 		i.rgb = mix(ubo.fog.color.rgb, i.rgb, transmittance);
 	}
 #endif
-
+#if 0
 	const vec3 color = ubo.fog.color.rgb;
 	const float inner = ubo.fog.range.x;
 	const float outer = ubo.fog.range.y * scale;
@@ -354,6 +355,7 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 	const float factor = clamp( (distance - inner) / (outer - inner), 0.0, 1.0 );
 
 	i.rgb = mix(i.rgb, color, factor);
+#endif
 }
 
 vec3 decodeNormals( vec2 enc ) {
@@ -450,17 +452,12 @@ vec4 postProcess() {
 	return vec4(surface.fragment.rgb,1);
 }
 
-Voxel getVoxel( vec3 P ) {
-	const vec3 uvw = vec3( ubo.matrices.vxgi * vec4( P, 1.0f ) ) * 0.5f + 0.5f;
-
-	Voxel voxel;
-	voxel.id = uvec2(texture(voxelId[0], uvw).xy);
-	voxel.position = P;
-	voxel.normal = decodeNormals( texture(voxelNormal[0], uvw).xy );
-	voxel.uv = texture(voxelUv[0], uvw).xy;
-	voxel.color = texture(voxelRadiance[0], uvw).rgba;
-
-	return voxel;
+uint BIASED_ROUND( float x ) {
+	return uint( x < 255.0 / 256.0 ? floor(x) : ceil(x));
+}
+#define CASCADE_POWER 2
+uint SCALE_CASCADE( uint x ) {
+	return uint(pow(1 + x, CASCADE_POWER));
 }
 
 struct VoxelInfo {
@@ -476,24 +473,36 @@ struct VoxelInfo {
 } voxelInfo;
 
 vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
+	uint CASCADE = 1;
 #if VXGI_NDC
 	ray.origin = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
 	ray.direction = vec3( ubo.matrices.vxgi * vec4( ray.direction, 0.0 ) );
-	const float granularity = 1.0f / 16.0f;
-	const uint maxSteps = uint(voxelInfo.radianceSize * 2);
+	const float granularity = 1.0f / 32.0f;
+	const uint maxSteps = uint(voxelInfo.radianceSize * 2 * CASCADES);
+	
+	CASCADE = BIASED_ROUND(clamp( max( max( abs(ray.origin.x), abs(ray.origin.y) ), abs(ray.origin.z) ), 0, CASCADES - 1 ));
 #else
-	const float granularity = 10.0f;
-	const uint maxSteps = uint(voxelInfo.radianceSize * granularity);
+	const float granularity = 16.0f;
+	const uint maxSteps = uint(voxelInfo.radianceSize * granularity * CASCADES);
+	{
+		vec3 uvw = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
+		CASCADE = BIASED_ROUND(clamp( max( max( abs(uvw.x), abs(uvw.y) ), abs(uvw.z) ), 0, CASCADES - 1 ));
+	}
 #endif
 	const float granularityRecip = 1.0f / granularity;
 	// box
-	const vec2 rayBoxInfo = rayBoxDst( voxelInfo.min, voxelInfo.max, ray );
-	const float tStart = rayBoxInfo.x;
-	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfo.y) : rayBoxInfo.y;
+	const vec2 rayBoxInfoA = rayBoxDst( voxelInfo.min * SCALE_CASCADE(CASCADE), voxelInfo.max * SCALE_CASCADE(CASCADE), ray );
+	const vec2 rayBoxInfoB = rayBoxDst( voxelInfo.min * SCALE_CASCADE(CASCADES), voxelInfo.max * SCALE_CASCADE(CASCADES), ray );
+	const float tStart = rayBoxInfoA.x;
+	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfoB.y * SCALE_CASCADE(CASCADES)) : rayBoxInfoB.y * SCALE_CASCADE(CASCADES);
 	// steps
 	const float tDelta = voxelInfo.voxelSize * granularityRecip;
 	// marcher
+#if VXGI_NDC
+	ray.distance = tStart + tDelta * granularityRecip * 0.25;
+#else
 	ray.distance = tStart + tDelta * granularity;
+#endif
 	ray.position = vec3(0);
 	vec4 radiance = vec4(0);
 	vec3 uvw = vec3(0);
@@ -505,22 +514,76 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	vec4 color = vec4(0);
 	float occlusion = 0.0;
 	uint stepCounter = 0;
-	const float falloff = 32.0f; // maxDistance > 0.0 ? 0.0f : 256.0f;
-	const vec3 voxelBoundsRecip = 1.0f / (voxelInfo.max - voxelInfo.min);
-//	while ( ray.distance < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
-	while ( ray.distance < tEnd && color.a < 1.0 && occlusion < 1.0 ) {
+	const float falloff = 128.0f; // maxDistance > 0.0 ? 0.0f : 256.0f;
+	const vec3 voxelBounds = voxelInfo.max - voxelInfo.min;
+	const vec3 voxelBoundsRecip = 1.0f / voxelBounds;
+#if VXGI_NDC
+	while ( ray.distance < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
+#else
+	while ( color.a < 1.0 && stepCounter++ < maxSteps ) {
+#endif
 		ray.distance += tDelta * (aperture > 0 ? coneDiameter : 1);
 		ray.position = ray.origin + ray.direction * ray.distance;
+
 	#if VXGI_NDC
-		uvw = ray.position * 0.5 + 0.5;
+		uvw = ray.position;
 	#else
-		uvw = (ray.position - voxelInfo.min) * voxelBoundsRecip;
+		uvw = vec3( ubo.matrices.vxgi * vec4( ray.position, 1.0 ) );
 	#endif
-		if ( abs(uvw.x) > 1.0 || abs(uvw.y) > 1.0 || abs(uvw.z) > 1.0 ) break;
+		CASCADE = BIASED_ROUND(clamp( max( max( abs(uvw.x), abs(uvw.y) ), abs(uvw.z) ), 0, CASCADES - 1 ));
+
+		uvw = (uvw / SCALE_CASCADE(CASCADE)) * 0.5 + 0.5;
+
+		if ( CASCADE >= CASCADES || uvw.x <  0.0 || uvw.y <  0.0 || uvw.z <  0.0 || uvw.x >= 1.0 || uvw.y >= 1.0 || uvw.z >= 1.0 ) break;
+
 		coneDiameter = coneCoefficient * ray.distance;
-		level = log2( coneDiameter );
+		level = aperture > 0 ? log2( coneDiameter ) : 0;
+		
 		if ( level >= voxelInfo.mipmapLevels ) break;
-		radiance = textureLod(voxelRadiance[0], uvw.xzy, level);
+	
+	//	radiance = textureLod(voxelRadiance[CASCADE], uvw.xzy, level);
+	#define C 0
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 1
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 2
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 3
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 4
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 5
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 6
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	#define C 7
+	#if C < MAX_CASCADES
+		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
+	#endif
+	#undef C
+	
+	//	else radiance = textureLod(voxelRadiance[CASCADE], uvw.xzy, level);
 
 		color += (1.0 - color.a) * radiance;
 		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + falloff * coneDiameter);
@@ -543,7 +606,11 @@ float shadowFactor( const Light light, float def ) {
 	Ray ray;
 	ray.origin = surface.position.world;
 	ray.direction = normalize( light.position - surface.position.world );
+#if VXGI_NDC
+//	ray.origin -= ray.direction * 0.125;
+#else
 	ray.origin -= ray.direction * 0.5;
+#endif
 	float z = distance( surface.position.world, light.position ) - DEPTH_BIAS;
 	return 1.0 - voxelTrace( ray, SHADOW_APERTURE, z ).a;
 }
@@ -562,7 +629,7 @@ void main() {
 		surface.position.eye = positionEye.xyz;
 		surface.position.world = vec3( ubo.matrices.iView[inPushConstantPass] * positionEye );
 	}
-#if 0
+#if 1
 	{
 		const vec4 near4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = ubo.matrices.iProjectionView[inPushConstantPass] * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
@@ -720,12 +787,12 @@ void main() {
 		}
 	//	outFragColor.rgb = voxelConeTrace( surface.ray, 0 ).rgb; return;
 
-		Ray ray;
 		if ( DIFFUSE_INDIRECT_FACTOR > 0.0f ) {
 			for ( uint i = 0; i < CONES_COUNT; ++i ) {
 				float weight = i == 0 ? PI * 0.25f : PI * 0.15f;
-				ray.origin = P;
+				Ray ray;
 				ray.direction = CONES[i].xyz;
+				ray.origin = P; // + ray.direction;
 				indirectDiffuse += voxelConeTrace( ray, DIFFUSE_CONE_APERTURE ) * weight;
 			}
 			surface.material.occlusion = 1.0 - clamp(indirectDiffuse.a, 0.0, 1.0);
@@ -733,16 +800,11 @@ void main() {
 		//	outFragColor.rgb = vec3(surface.material.occlusion); return;
 		}
 		if ( SPECULAR_INDIRECT_FACTOR > 0.0f ) {
-			ray.origin = P;
+			Ray ray;
 			ray.direction = reflect( normalize(P - surface.ray.origin), N );
+			ray.origin = P; // + ray.direction;
 			indirectSpecular = voxelConeTrace( ray, SPECULAR_CONE_APERTURE );
 		// 	outFragColor.rgb = indirectSpecular.rgb; return;
-		/*
-			if ( indirectSpecular.a < 1.0 ) {
-				vec4 radiance = texture( samplerSkybox, ray.direction ) * 0.25;
-				indirectSpecular += (1.0 - indirectSpecular.a) * radiance;
-			}
-		*/
 		}
 		surface.material.indirect = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;
 	//	outFragColor.rgb = surface.material.indirect.rgb; return;

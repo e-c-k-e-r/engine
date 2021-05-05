@@ -5,8 +5,8 @@
 
 #define PI 3.1415926536f
 
-layout (constant_id = 0) const uint TEXTURES = 1;
-layout (constant_id = 1) const uint CASCADES = 1;
+layout (constant_id = 0) const uint CASCADES = 4;
+layout (constant_id = 1) const uint TEXTURES = 256;
 
 struct Material {
 	vec4 colorBase;
@@ -86,9 +86,10 @@ bool validTextureIndex( int textureIndex ) {
 }
 
 void main() {
-	const vec3 P = inPosition.xzy;
-	const uint CASCADE = uint(max( abs(floor(P.x)), max( abs(floor(P.y)), abs(floor(P.z)) ) ));
+	const uint CASCADE = inId.z;
 	if ( CASCADES <= CASCADE ) discard;
+	const vec3 P = inPosition.xzy * 0.5 + 0.5;
+	if ( abs(P.x) > 1 || abs(P.y) > 1 || abs(P.z) > 1 ) discard;
 
 	vec4 A = vec4(0, 0, 0, 0);
 	const vec3 N = inNormal;
@@ -139,8 +140,8 @@ void main() {
 	const vec2 		outNormals = encodeNormals( normalize( N ) );
 	const vec2 		outUvs = wrap(inUv.xy);
 
-	imageStore(voxelId[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelId[CASCADE])), uvec4(outId, 0, 0));
-	imageStore(voxelNormal[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelNormal[CASCADE])), vec4(outNormals, 0, 0));
-	imageStore(voxelUv[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelUv[CASCADE])), vec4(outUvs, 0, 0));
-	imageStore(voxelRadiance[CASCADE], ivec3(P * (1 + CASCADE) * imageSize(voxelRadiance[CASCADE])), outAlbedo);
+	imageStore(voxelId[CASCADE], ivec3(P * imageSize(voxelId[CASCADE])), uvec4(outId, 0, 0));
+	imageStore(voxelNormal[CASCADE], ivec3(P * imageSize(voxelNormal[CASCADE])), vec4(outNormals, 0, 0));
+	imageStore(voxelUv[CASCADE], ivec3(P * imageSize(voxelUv[CASCADE])), vec4(outUvs, 0, 0));
+	imageStore(voxelRadiance[CASCADE], ivec3(P * imageSize(voxelRadiance[CASCADE])), outAlbedo);
 }

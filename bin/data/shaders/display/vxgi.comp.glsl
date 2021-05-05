@@ -14,8 +14,8 @@ const float EPSILON = 0.00001;
 
 const float LIGHT_POWER_CUTOFF = 0.005;
 
-layout (constant_id = 0) const uint TEXTURES = 256;
-layout (constant_id = 1) const uint CASCADES = 1;
+layout (constant_id = 0) const uint CASCADES = 4;
+layout (constant_id = 1) const uint TEXTURES = 256;
 
 struct Matrices {
 	mat4 view[2];
@@ -280,13 +280,18 @@ float shadowFactor( const Light light, float def ) {
 #endif
 }
 
+#define CASCADE_POWER 2
+uint SCALE_CASCADE( uint x ) {
+	return uint(pow(1 + x, CASCADE_POWER));
+}
+
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
 		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
 		surface.normal.eye = vec3( ubo.matrices.vxgi * vec4( surface.normal.world, 0.0f ) );
 	
-		surface.position.eye = vec3(gl_GlobalInvocationID.xyz) / (vec3(imageSize(voxelRadiance[CASCADE])) / (CASCADE + 1)) * 2.0f - 1.0f;
+		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * SCALE_CASCADE(CASCADE);
 		surface.position.world = vec3( inverse(ubo.matrices.vxgi) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);

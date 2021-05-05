@@ -14,7 +14,6 @@
 #include "../scene/behavior.h"
 #include <uf/ext/ext.h>
 
-#define COMP_SHADER_USED 1
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerBehavior)
 #define this (&self)
@@ -73,19 +72,16 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 		renderMode.metadata["type"] = "vxgi";
 		renderMode.metadata["samples"] = 2;
+		renderMode.metadata["subpasses"] = metadata.cascades;
 
 		renderMode.blitter.device = &ext::vulkan::device;
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
-	#if COMP_SHADER_USED
+
 		renderMode.metadata["shaders"]["compute"] = "/shaders/display/vxgi.comp.spv";
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
 		renderMode.blitter.process = true;
-	#else
-		renderMode.metadata["shaders"] = false;
-		renderMode.blitter.process = false;
-	#endif
 
 		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.uv ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
@@ -109,16 +105,48 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.uv ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+				imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
+				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+				imageMemoryBarrier.subresourceRange.layerCount = 1;
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+				{					
+					VkPipelineStageFlags srcStageMask, dstStageMask;
+					imageMemoryBarrier.image = t.image;
+					imageMemoryBarrier.oldLayout = t.imageLayout;
+					imageMemoryBarrier.newLayout = t.imageLayout;
+				
+					imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+					imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+					srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+					dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+					
+					vkCmdPipelineBarrier( commandBuffer,
+						srcStageMask, dstStageMask,
+						VK_FLAGS_NONE,
+						0, NULL,
+						0, NULL,
+						1, &imageMemoryBarrier
+					);
+
+					t.imageLayout = imageMemoryBarrier.newLayout;
+				}
+			}
 		});
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
 			// parse voxel lighting
-		#if COMP_SHADER_USED
 			if ( renderMode.blitter.initialized ) {
 				auto& pipeline = renderMode.blitter.getPipeline();
 				pipeline.record(renderMode.blitter, commandBuffer);
 				vkCmdDispatch(commandBuffer, metadata.voxelSize.x / metadata.dispatchSize.x, metadata.voxelSize.y / metadata.dispatchSize.y, metadata.voxelSize.z / metadata.dispatchSize.z);
 			}
-		#endif
+			
 			// generate mipmaps
 			VkImageSubresourceRange subresourceRange = {};
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -142,6 +170,40 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 					t.imageLayout,
 					subresourceRange
 				);
+			}
+
+			// sync
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+				imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
+				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+				imageMemoryBarrier.subresourceRange.layerCount = 1;
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+				{					
+					VkPipelineStageFlags srcStageMask, dstStageMask;
+					imageMemoryBarrier.image = t.image;
+					imageMemoryBarrier.oldLayout = t.imageLayout;
+					imageMemoryBarrier.newLayout = t.imageLayout;
+				
+					imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+					imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+					srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+					dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+					
+					vkCmdPipelineBarrier( commandBuffer,
+						srcStageMask, dstStageMask,
+						VK_FLAGS_NONE,
+						0, NULL,
+						0, NULL,
+						1, &imageMemoryBarrier
+					);
+
+					t.imageLayout = imageMemoryBarrier.newLayout;
+				}
 			}
 		});
 	}
@@ -201,10 +263,8 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
-#if COMP_SHADER_USED
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, true );
 	ext::ExtSceneBehavior::bindBuffers( scene );
-#endif
 #endif
 }
 void ext::VoxelizerBehavior::render( uf::Object& self ){}
