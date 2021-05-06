@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #define DEFERRED_SAMPLING 1
 #define CAN_DISCARD 1
@@ -100,7 +101,7 @@ void main() {
 	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 		Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		A = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -121,7 +122,7 @@ void main() {
 	#else
 		Texture t = textures[material.indexLightmap];
 		const float gamma = 1.6;
-		const vec4 L = pow(textureLod( samplerTextures[t.index], inSt, mip ), vec4(1.0 / gamma));
+		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
 		A *= L;
 	#endif
 	}
@@ -131,13 +132,13 @@ void main() {
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
 		Texture t = textures[material.indexNormal];
-		N = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
+		N = inTBN * normalize( textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
 	}
 	#if 0
 		// sample metallic/roughness
 		if ( validTextureIndex( material.indexMetallicRoughness ) ) {
 			Texture t = textures[material.indexMetallicRoughness];
-			const vec4 sampled = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+			const vec4 sampled = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 			M = sampled.b;
 			R = sampled.g;
 		}
@@ -145,7 +146,7 @@ void main() {
 		AO = material.factorOcclusion;
 		if ( validTextureIndex( material.indexOcclusion ) ) {
 			Texture t = textures[material.indexOcclusion];
-			AO = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv ).r;
+			AO = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv ).r;
 		}
 	#endif
 	outAlbedo = A * inColor;

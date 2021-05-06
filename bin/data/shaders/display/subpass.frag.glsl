@@ -39,7 +39,7 @@ const vec2 poissonDisk[16] = vec2[](
    vec2( 0.14383161, -0.14100790 ) 
 );
 
-layout (constant_id = 0) const uint TEXTURES = 256;
+layout (constant_id = 0) const uint TEXTURES = 512;
 
 struct Matrices {
 	mat4 view[2];

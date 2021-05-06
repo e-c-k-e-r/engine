@@ -1,5 +1,6 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
+#extension GL_EXT_nonuniform_qualifier : enable
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
@@ -14,8 +15,8 @@ const float EPSILON = 0.00001;
 
 const float LIGHT_POWER_CUTOFF = 0.005;
 
-layout (constant_id = 0) const uint CASCADES = 4;
-layout (constant_id = 1) const uint TEXTURES = 256;
+layout (constant_id = 0) const uint CASCADES = 16;
+layout (constant_id = 1) const uint TEXTURES = 512;
 
 struct Matrices {
 	mat4 view[2];
@@ -156,7 +157,7 @@ layout (binding = 4) uniform UBO {
 	float exposure;
 	uint msaa;
 	uint shadowSamples;
-	uint padding1;
+	float cascadePower;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -269,20 +270,19 @@ float shadowFactor( const Light light, float def ) {
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
 	const int samples = int(ubo.shadowSamples);
-	return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+	return eyeDepth < texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv).r - bias ? 0.0 : factor;
 #if 0
 	for ( int i = 0; i < samples; ++i ) {
 		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
-		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
+		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
 #endif
 }
 
-#define CASCADE_POWER 2
-uint SCALE_CASCADE( uint x ) {
-	return uint(pow(1 + x, CASCADE_POWER));
+float SCALE_CASCADE( uint x ) {
+	return pow(1 + x, ubo.cascadePower);
 }
 
 void main() {
@@ -313,7 +313,7 @@ void main() {
 		if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
 		if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
 			const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-			surface.material.albedo = texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
+			surface.material.albedo = texture( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
 		}
 
 		// OPAQUE
@@ -329,7 +329,7 @@ void main() {
 		// Emissive textures
 		if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
 			const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
-			surface.fragment += texture( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
+			surface.fragment += texture( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
 		}
 	#else
 		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );

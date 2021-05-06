@@ -1,12 +1,13 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #define DEFERRED_SAMPLING 1
 #define USE_LIGHTMAP 1
 
 #define PI 3.1415926536f
 
-layout (constant_id = 0) const uint CASCADES = 4;
-layout (constant_id = 1) const uint TEXTURES = 256;
+layout (constant_id = 0) const uint CASCADES = 16;
+layout (constant_id = 1) const uint TEXTURES = 512;
 
 struct Material {
 	vec4 colorBase;
@@ -108,7 +109,7 @@ void main() {
 	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 		Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		A = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -129,7 +130,7 @@ void main() {
 	#else
 		Texture t = textures[material.indexLightmap];
 		const float gamma = 1.6;
-		const vec4 L = pow(textureLod( samplerTextures[t.index], inSt, mip ), vec4(1.0 / gamma));
+		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
 		A *= L;
 	#endif
 	}

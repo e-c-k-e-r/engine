@@ -14,7 +14,9 @@ namespace pod {
 			std::vector<uf::renderer::Texture3D> uv;
 			std::vector<uf::renderer::Texture3D> normal;
 			std::vector<uf::renderer::Texture3D> radiance;
+			
 			pod::Matrix4f matrix;
+			float cascadePower = 2.0;
 		} voxels;
 	};
 

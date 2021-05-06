@@ -29,6 +29,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		const float DEFAULT_VOXELIZE_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["limiter"].as<float>(0);
 		const uint32_t DEFAULT_DISPATCH_SIZE = ext::config["engine"]["scenes"]["vxgi"]["dispatch"].as<uint32_t>(8);
 		const uint32_t DEFAULT_CASCADES = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<uint32_t>(8);
+		const float DEFAULT_CASCADE_POWER = ext::config["engine"]["scenes"]["vxgi"]["cascadePower"].as<float>(1.5);
 
 		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
@@ -41,6 +42,8 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		if ( metadata.dispatchSize.z == 0 ) metadata.dispatchSize.z = DEFAULT_DISPATCH_SIZE;
 
 		if ( metadata.cascades == 0 ) metadata.cascades = DEFAULT_CASCADES;
+		
+		if ( metadata.cascadePower == 0 ) metadata.cascadePower = DEFAULT_CASCADE_POWER;
 
 		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
 		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
@@ -106,6 +109,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.uv ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 
+		#if 0
 			for ( auto& t : sceneTextures.voxels.radiance ) {
 				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -138,6 +142,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 					t.imageLayout = imageMemoryBarrier.newLayout;
 				}
 			}
+		#endif
 		});
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
 			// parse voxel lighting
@@ -172,6 +177,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 				);
 			}
 
+		#if 0
 			// sync
 			for ( auto& t : sceneTextures.voxels.radiance ) {
 				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -205,6 +211,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 					t.imageLayout = imageMemoryBarrier.newLayout;
 				}
 			}
+		#endif
 		});
 	}
 #endif
@@ -243,6 +250,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			pod::Vector3f min = metadata.extents.min + controllerPosition;
 			pod::Vector3f max = metadata.extents.max + controllerPosition;
 			sceneTextures.voxels.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+			sceneTextures.voxels.cascadePower = metadata.cascadePower;
 		
 			auto graph = uf::scene::generateGraph();
 			for ( auto entity : graph ) {
@@ -254,10 +262,17 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 					auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 					struct UniformDescriptor {
 						alignas(16) pod::Matrix4f matrix;
+						alignas(4) float cascadePower;
+						alignas(4) float padding1;
+						alignas(4) float padding2;
+						alignas(4) float padding3;
 					};
 					auto& uniform = shader.getUniform("UBO");
 					auto& uniforms = uniform.get<UniformDescriptor>();
+					
 					uniforms.matrix = sceneTextures.voxels.matrix;
+					uniforms.cascadePower = sceneTextures.voxels.cascadePower;
+
 					shader.updateUniform( "UBO", uniform );
 				}
 			}

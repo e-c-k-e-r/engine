@@ -93,8 +93,8 @@ namespace {
 			{
 				auto& shader = graphic.material.getShader("fragment", "vxgi");
 				struct SpecializationConstant {
-					uint32_t cascades = 4;
-					uint32_t textures = 256;
+					uint32_t cascades = 16;
+					uint32_t textures = 1;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 				specializationConstants.textures = texture2Ds;

@@ -21,11 +21,14 @@ layout (location = 8) flat out ivec4 outId;
 
 layout (binding = 6) uniform UBO {
 	mat4 voxel;
+	float cascadePower;
+	float padding1;
+	float padding2;
+	float padding3;
 } ubo;
 
-#define CASCADE_POWER 2
-uint SCALE_CASCADE( uint x ) {
-	return uint(pow(1 + x, CASCADE_POWER));
+float SCALE_CASCADE( uint x ) {
+	return pow(1 + x, ubo.cascadePower);
 }
 
 void main(){
@@ -61,7 +64,7 @@ void main(){
 		outPosition = P[i]; // + D;
 		outId = inId[i];
 
-		const vec3 P = outPosition + D;
+		const vec3 P = outPosition; // + D;
 	#if USE_CROSS
 		if ( N.z > N.x && N.z > N.y ) gl_Position = vec4(P.x, P.y, 0, 1);
 		else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(P.y, P.z, 0, 1);

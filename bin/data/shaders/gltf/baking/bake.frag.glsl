@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #define LAMBERT 1
 #define PBR 0
@@ -226,10 +227,10 @@ float shadowFactor( const Light light, float def ) {
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
 	const int samples = 16; //int(ubo.poissonSamples);
-	if ( samples <= 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+	if ( samples <= 1 ) return eyeDepth < texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
 		const int index = int( float(samples) * random(floor(surface.position.world * 1000.0), i)) % samples;
-		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
+		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
@@ -257,7 +258,7 @@ void main() {
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard;
 	{
 		const Texture t = textures[material.indexAlbedo];
-		surface.material.albedo = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		surface.material.albedo = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			surface.material.albedo.a = 1;
@@ -275,13 +276,13 @@ void main() {
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
 		const Texture t = textures[material.indexNormal];
-		surfacem.normal.world = inTBN * normalize( textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
+		surfacem.normal.world = inTBN * normalize( textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
 	}
 
 	// sample emissive
 	if ( validTextureIndex( material.indexEmissive ) ) {
 		const Texture t = textures[material.indexEmissive];
-		surface.fragment = textureLod( samplerTextures[(useAtlas) ? textureAtlas.index : t.index], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		surface.fragment = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
 	}
 #else
 	surface.material.albedo = vec4(1);

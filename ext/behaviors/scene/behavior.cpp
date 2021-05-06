@@ -497,7 +497,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		alignas(4) float exposure;
 		alignas(4) uint32_t msaa;
 		alignas(4) uint32_t shadowSamples;
-		alignas(4) uint32_t padding1;
+		alignas(4) float cascadePower;
 	};
 	struct SpecializationConstant {
 		uint32_t maxTextures = 512;
@@ -659,6 +659,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 			}
 		}
 		uniforms->matrices.vxgi = sceneTextures.voxels.matrix;
+		uniforms->cascadePower = sceneTextures.voxels.cascadePower;
+
 		uniforms->lengths.materials = std::min( materials.size(), maxTextures );
 		uniforms->lengths.textures = std::min( textures.size(), maxTextures );
 		uniforms->lengths.drawCalls = std::min( drawCalls.size(), maxTextures );

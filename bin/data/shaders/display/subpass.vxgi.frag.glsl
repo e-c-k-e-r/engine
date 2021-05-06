@@ -1,5 +1,6 @@
 #version 450
 #extension GL_EXT_samplerless_texture_functions : require
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #define MULTISAMPLING 1
 #define DEFERRED_SAMPLING 1
@@ -21,7 +22,7 @@ const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
 const float SQRT2 = 1.41421356237;
 
-const float LIGHT_POWER_CUTOFF = 0.005;
+const float LIGHT_POWER_CUTOFF = 0.0005;
 
 const vec2 poissonDisk[16] = vec2[]( 
    vec2( -0.94201624, -0.39906216 ), 
@@ -42,9 +43,8 @@ const vec2 poissonDisk[16] = vec2[](
    vec2( 0.14383161, -0.14100790 ) 
 );
 
-#define MAX_CASCADES 4
-layout (constant_id = 0) const uint CASCADES = MAX_CASCADES;
-layout (constant_id = 1) const uint TEXTURES = 256;
+layout (constant_id = 0) const uint CASCADES = 16;
+layout (constant_id = 1) const uint TEXTURES = 512;
 
 struct Matrices {
 	mat4 view[2];
@@ -213,7 +213,7 @@ layout (binding = 4) uniform UBO {
 	float exposure;
 	uint msaa;
 	uint shadowSamples;
-	uint padding1;
+	float cascadePower;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -425,10 +425,10 @@ float shadowFactor( const Light light, float def ) {
 	const float bias = light.depthBias;
 	const float eyeDepth = positionClip.z;
 	const int samples = int(ubo.shadowSamples);
-	if ( samples < 1 ) return eyeDepth < texture(samplerTextures[light.mapIndex], uv).r - bias ? 0.0 : factor;
+	if ( samples < 1 ) return eyeDepth < texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv).r - bias ? 0.0 : factor;
 	for ( int i = 0; i < samples; ++i ) {
 		const int index = int( float(samples) * random(floor(surface.position.world.xyz * 1000.0), i)) % samples;
-		const float lightDepth = texture(samplerTextures[light.mapIndex], uv + poissonDisk[index] / 700.0 ).r;
+		const float lightDepth = texture(samplerTextures[nonuniformEXT(light.mapIndex)], uv + poissonDisk[index] / 700.0 ).r;
 		if ( eyeDepth < lightDepth - bias ) factor -= 1.0 / samples;
 	}
 	return factor;
@@ -452,71 +452,64 @@ vec4 postProcess() {
 	return vec4(surface.fragment.rgb,1);
 }
 
-uint BIASED_ROUND( float x ) {
-	return uint( x < 255.0 / 256.0 ? floor(x) : ceil(x));
-}
-#define CASCADE_POWER 2
-uint SCALE_CASCADE( uint x ) {
-	return uint(pow(1 + x, CASCADE_POWER));
-}
-
 struct VoxelInfo {
 	vec3 min;
 	vec3 max;
 
 	float mipmapLevels;
 	float radianceSize;
-	float voxelSize;
-
 	float radianceSizeRecip;
-	float voxelSizeRecip;
 } voxelInfo;
 
+uint BIASED_ROUND( float x ) {
+	return uint( (x < 1 - voxelInfo.radianceSizeRecip) ? floor(x) : ceil(x));
+}
+float SCALE_CASCADE( uint x ) {
+	return pow(1 + x, ubo.cascadePower);
+}
+
 vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
-	uint CASCADE = 1;
+	uint CASCADE = 0;
 #if VXGI_NDC
 	ray.origin = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
 	ray.direction = vec3( ubo.matrices.vxgi * vec4( ray.direction, 0.0 ) );
-	const float granularity = 1.0f / 32.0f;
-	const uint maxSteps = uint(voxelInfo.radianceSize * 2 * CASCADES);
 	
 	CASCADE = BIASED_ROUND(clamp( max( max( abs(ray.origin.x), abs(ray.origin.y) ), abs(ray.origin.z) ), 0, CASCADES - 1 ));
 #else
-	const float granularity = 16.0f;
-	const uint maxSteps = uint(voxelInfo.radianceSize * granularity * CASCADES);
-	{
-		vec3 uvw = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
-		CASCADE = BIASED_ROUND(clamp( max( max( abs(uvw.x), abs(uvw.y) ), abs(uvw.z) ), 0, CASCADES - 1 ));
-	}
+{
+	vec3 uvw = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
+	CASCADE = BIASED_ROUND(clamp( max( max( abs(uvw.x), abs(uvw.y) ), abs(uvw.z) ), 0, CASCADES - 1 ));
+}
 #endif
-	const float granularityRecip = 1.0f / granularity;
+	const float granularityRecip = 12.0f;
+	const float granularity = 1.0f / granularityRecip;
+	const float occlusionFalloff = 128.0f;
+
+	const vec3 voxelBounds = voxelInfo.max - voxelInfo.min;
+	const vec3 voxelBoundsRecip = 1.0f / voxelBounds;
+
+	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
+	const uint maxSteps = uint(voxelInfo.radianceSize * CASCADES * granularityRecip);
 	// box
 	const vec2 rayBoxInfoA = rayBoxDst( voxelInfo.min * SCALE_CASCADE(CASCADE), voxelInfo.max * SCALE_CASCADE(CASCADE), ray );
 	const vec2 rayBoxInfoB = rayBoxDst( voxelInfo.min * SCALE_CASCADE(CASCADES), voxelInfo.max * SCALE_CASCADE(CASCADES), ray );
+	
 	const float tStart = rayBoxInfoA.x;
 	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfoB.y * SCALE_CASCADE(CASCADES)) : rayBoxInfoB.y * SCALE_CASCADE(CASCADES);
-	// steps
-	const float tDelta = voxelInfo.voxelSize * granularityRecip;
+	const float tDelta = voxelInfo.radianceSizeRecip * granularityRecip;
 	// marcher
-#if VXGI_NDC
-	ray.distance = tStart + tDelta * granularityRecip * 0.25;
-#else
-	ray.distance = tStart + tDelta * granularity;
-#endif
+	ray.distance = tStart + tDelta * 4 * (1 + CASCADE);
 	ray.position = vec3(0);
+
 	vec4 radiance = vec4(0);
 	vec3 uvw = vec3(0);
-	// cone mipmap shit
-	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
+	
 	float coneDiameter = coneCoefficient * ray.distance;
 	float level = aperture > 0 ? log2( coneDiameter ) : 0;
-	// results
+
 	vec4 color = vec4(0);
 	float occlusion = 0.0;
 	uint stepCounter = 0;
-	const float falloff = 128.0f; // maxDistance > 0.0 ? 0.0f : 256.0f;
-	const vec3 voxelBounds = voxelInfo.max - voxelInfo.min;
-	const vec3 voxelBoundsRecip = 1.0f / voxelBounds;
 #if VXGI_NDC
 	while ( ray.distance < tEnd && color.a < 1.0 && occlusion < 1.0 && stepCounter++ < maxSteps ) {
 #else
@@ -541,52 +534,10 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 		
 		if ( level >= voxelInfo.mipmapLevels ) break;
 	
-	//	radiance = textureLod(voxelRadiance[CASCADE], uvw.xzy, level);
-	#define C 0
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 1
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 2
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 3
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 4
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 5
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 6
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	#define C 7
-	#if C < MAX_CASCADES
-		if ( CASCADE == C && C < CASCADES ) radiance = textureLod(voxelRadiance[C], uvw.xzy, level);
-	#endif
-	#undef C
-	
-	//	else radiance = textureLod(voxelRadiance[CASCADE], uvw.xzy, level);
+		radiance = textureLod(voxelRadiance[nonuniformEXT(CASCADE)], uvw.xzy, level);
 
 		color += (1.0 - color.a) * radiance;
-		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + falloff * coneDiameter);
+		occlusion += ((1.0f - occlusion) * radiance.a) / (1.0f + occlusionFalloff * coneDiameter);
 	}
 	return maxDistance > 0 ? color : vec4(color.rgb, occlusion);
 //	return vec4(color.rgb, occlusion);
@@ -604,13 +555,8 @@ float shadowFactor( const Light light, float def ) {
 	const float DEPTH_BIAS = 0.0;
 
 	Ray ray;
-	ray.origin = surface.position.world;
 	ray.direction = normalize( light.position - surface.position.world );
-#if VXGI_NDC
-//	ray.origin -= ray.direction * 0.125;
-#else
-	ray.origin -= ray.direction * 0.5;
-#endif
+	ray.origin = surface.position.world + ray.direction * 0.5;
 	float z = distance( surface.position.world, light.position ) - DEPTH_BIAS;
 	return 1.0 - voxelTrace( ray, SHADOW_APERTURE, z ).a;
 }
@@ -694,7 +640,7 @@ void main() {
 	if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
 	if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
 		const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-		surface.material.albedo = textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
+		surface.material.albedo = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
@@ -709,7 +655,7 @@ void main() {
 	// Emissive textures
 	if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
 		const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
-		surface.fragment += textureLod( samplerTextures[(useAtlas)?textureAtlas.index:t.index], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
+		surface.fragment += textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
 	}
 #else
 #if !MULTISAMPLING
@@ -722,6 +668,19 @@ void main() {
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = material.factorOcclusion;
 	// GI
+	{
+		voxelInfo.radianceSize = textureSize( voxelRadiance[0], 0 ).x;
+		voxelInfo.radianceSizeRecip = 1.0 / voxelInfo.radianceSize;
+		voxelInfo.mipmapLevels = log2(voxelInfo.radianceSize) + 1;
+	#if VXGI_NDC
+		voxelInfo.min = vec3( -1 );
+		voxelInfo.max = vec3(  1 );
+	#else
+		const mat4 inverseOrtho = inverse( ubo.matrices.vxgi );
+		voxelInfo.min = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
+		voxelInfo.max = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
+	#endif
+	}
 	{
 		const vec3 P = surface.position.world;
 		const vec3 N = surface.normal.world;
@@ -769,22 +728,6 @@ void main() {
 		vec4 indirectDiffuse = vec4(0);
 		vec4 indirectSpecular = vec4(0);
 
-		{
-			voxelInfo.radianceSize = textureSize( voxelRadiance[0], 0 ).x;
-			voxelInfo.radianceSizeRecip = 1.0 / voxelInfo.radianceSize;
-			voxelInfo.mipmapLevels = log2(voxelInfo.radianceSize) + 1;
-		#if VXGI_NDC
-			voxelInfo.min = vec3( -1 );
-			voxelInfo.max = vec3(  1 );
-			voxelInfo.voxelSize = voxelInfo.radianceSizeRecip;
-		#else
-			const mat4 inverseOrtho = inverse( ubo.matrices.vxgi );
-			voxelInfo.min = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
-			voxelInfo.max = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
-			voxelInfo.voxelSize = 1;
-		#endif
-			voxelInfo.voxelSizeRecip = 1.0 / voxelInfo.voxelSize;
-		}
 	//	outFragColor.rgb = voxelConeTrace( surface.ray, 0 ).rgb; return;
 
 		if ( DIFFUSE_INDIRECT_FACTOR > 0.0f ) {
@@ -869,7 +812,7 @@ void main() {
 			// point light, compute only diffuse
 			// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 			else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
-			surface.fragment.a += light.power * La * Ls;
+		//	surface.fragment.a += light.power * La * Ls;
 		}
 	}
 

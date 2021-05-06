@@ -348,15 +348,15 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute");
 			struct SpecializationConstant {
-				uint32_t maxCascades = 4;
-				uint32_t maxTextures = 256;
+				uint32_t maxCascades = 16;
+				uint32_t maxTextures = 512;
 			};
 			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(256);
-			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(256);
-			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(4);
+			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(512);
+			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			specializationConstants.maxTextures = maxTextures;
 			specializationConstants.maxCascades = maxCascades;
