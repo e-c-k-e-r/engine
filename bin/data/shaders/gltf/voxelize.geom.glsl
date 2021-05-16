@@ -1,4 +1,5 @@
 #version 450
+#pragma shader_stage(geometry)
 
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
@@ -27,8 +28,9 @@ layout (binding = 6) uniform UBO {
 	float padding3;
 } ubo;
 
-float SCALE_CASCADE( uint x ) {
+float cascadePower( uint x ) {
 	return pow(1 + x, ubo.cascadePower);
+//	return max( 1, x * ubo.cascadePower );
 }
 
 void main(){
@@ -47,11 +49,10 @@ void main(){
 	
 	const uint CASCADE = inId[0].z;
 	vec3 P[3] = {
-		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / SCALE_CASCADE(CASCADE),
-		vec3( ubo.voxel * vec4( inPosition[1], 1 ) ) / SCALE_CASCADE(CASCADE),
-		vec3( ubo.voxel * vec4( inPosition[2], 1 ) ) / SCALE_CASCADE(CASCADE),
+		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / cascadePower(CASCADE),
+		vec3( ubo.voxel * vec4( inPosition[1], 1 ) ) / cascadePower(CASCADE),
+		vec3( ubo.voxel * vec4( inPosition[2], 1 ) ) / cascadePower(CASCADE),
 	};
-
 
  	for( uint i = 0; i < 3; ++i ){
  		const vec3 D = normalize( inPosition[i] - C ) * HALF_PIXEL;
@@ -61,7 +62,7 @@ void main(){
 		outColor = inColor[i];
 		outNormal = inNormal[i];
 		outTBN = inTBN[i];
-		outPosition = P[i]; // + D;
+		outPosition = P[i] + D;
 		outId = inId[i];
 
 		const vec3 P = outPosition; // + D;
@@ -70,9 +71,9 @@ void main(){
 		else if ( N.x > N.y && N.x > N.z ) gl_Position = vec4(P.y, P.z, 0, 1);
 		else gl_Position = vec4(P.x, P.z, 0, 1);
 	#else
-		if ( A == 0 ) gl_Position = vec4(P.zy, 1, 1 );
-		else if ( A == 1 ) gl_Position = vec4(P.xz, 1, 1 );
-		else if ( A == 2 ) gl_Position = vec4(P.xy, 1, 1 );
+		if ( A == 0 ) gl_Position = vec4(P.zy, 0, 1 );
+		else if ( A == 1 ) gl_Position = vec4(P.xz, 0, 1 );
+		else if ( A == 2 ) gl_Position = vec4(P.xy, 0, 1 );
 	#endif
 		EmitVertex();
 	}

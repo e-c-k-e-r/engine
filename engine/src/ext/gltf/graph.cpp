@@ -98,7 +98,7 @@ namespace {
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 				specializationConstants.textures = texture2Ds;
-				specializationConstants.cascades = texture3Ds / 4;
+				specializationConstants.cascades = texture3Ds / 4; // 5;
 				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
 					std::string name = sc["name"].as<std::string>();
 					if ( name == "TEXTURES" ) sc["value"] = specializationConstants.textures;
@@ -114,6 +114,7 @@ namespace {
 						else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.cascades;
 						else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.cascades;
 						else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.cascades;
+					//	else if ( name == "voxelDepth" ) layout.descriptorCount = specializationConstants.cascades;
 					}
 				});
 			}
@@ -154,6 +155,7 @@ namespace {
 				for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
 				for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
 				for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
+			//	for ( auto& t : sceneTextures.voxels.depth ) graphic.material.textures.emplace_back().aliasTexture(t);
 			}
 		}
 		if ( graph.metadata["flags"]["LOAD"].as<bool>() ) {

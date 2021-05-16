@@ -1,7 +1,12 @@
 #version 450
+#pragma shader_stage(fragment)
 
+#define TEXTURES 1
 #define DEFERRED_SAMPLING 0
-#define CAN_DISCARD 1
+
+#include "../common/macros.h"
+#include "../common/structs.h"
+#include "../common/functions.h"
 
 layout (binding = 1) uniform sampler2D samplerTexture;
 

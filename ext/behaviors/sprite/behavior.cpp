@@ -82,8 +82,8 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
 
-		graphic.material.attachShader(uf::io::root+"/shaders/base/vert.spv", uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader(uf::io::root+"/shaders/base/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.attachShader(uf::io::root+"/shaders/base/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+		graphic.material.attachShader(uf::io::root+"/shaders/base/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 		metadata["system"]["control"] = true;
 		metadata["system"]["loaded"] = true;

@@ -48,8 +48,9 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 		size = ext::gui::size.current;
 	}
 	if ( size.x <= 0 && size.y <= 0 ) {
-		size.x = ext::config["window"]["size"]["x"].as<size_t>();
-		size.y = ext::config["window"]["size"]["y"].as<size_t>();
+	//	size.x = ext::config["window"]["size"]["x"].as<size_t>();
+	//	size.y = ext::config["window"]["size"]["y"].as<size_t>();
+		size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 	}
 	page = ext::ultralight::create( page, metadata["html"].as<std::string>(), size);
 	std::string onLoad = this->formatHookName("html:Load.%UID%");
@@ -67,9 +68,9 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Resized", [&](ext::json::Value& json){
 		if ( !this->hasComponent<uf::GuiMesh>() ) return;
 
-		pod::Vector2ui size; {
-			size.x = json["window"]["size"]["x"].as<size_t>();
-			size.y = json["window"]["size"]["y"].as<size_t>();
+		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
+		//	size.x = json["window"]["size"]["x"].as<size_t>();
+		//	size.y = json["window"]["size"]["y"].as<size_t>();
 		};
 
 		metadata["size"][0] = size.x;

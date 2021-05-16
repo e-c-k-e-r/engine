@@ -80,8 +80,8 @@ void ext::NoiseBehavior::initialize( uf::Object& self ) {
 
 	this->callHook("entity:TextureUpdate.%UID%");
 
-	graphic.material.attachShader(uf::io::root+"/shaders/base/vert.spv", uf::renderer::enums::Shader::VERTEX);
-	graphic.material.attachShader(uf::io::root+"/shaders/noise/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+	graphic.material.attachShader(uf::io::root+"/shaders/base/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+	graphic.material.attachShader(uf::io::root+"/shaders/noise/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 }
 void ext::NoiseBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();

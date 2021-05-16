@@ -253,7 +253,7 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 		*memTypeFound = false;
 		return 0;
 	}
-	// UF_EXCEPTION("Could not find a matching memory type");
+	UF_EXCEPTION("Could not find a matching memory type");
 }
 
 int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
@@ -728,7 +728,7 @@ void ext::vulkan::Device::initialize() {
 			queueInfo.pQueuePriorities = &defaultQueuePriority;
 			queueCreateInfos.push_back(queueInfo);
 		} else {
-			queueFamilyIndices.graphics = VK_NULL_HANDLE;
+			queueFamilyIndices.graphics = NULL; // VK_NULL_HANDLE;
 		}
 		// Dedicated compute queue
 		if ( requestedQueueTypes & VK_QUEUE_COMPUTE_BIT ) {
@@ -782,16 +782,31 @@ void ext::vulkan::Device::initialize() {
 			deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
 		}
 
-		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS )
+		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
+		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+		{
+			deviceCreateInfo.pEnabledFeatures = nullptr;
+			deviceCreateInfo.pNext = &physicalDeviceFeatures2;
+		}
+		{
+			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			physicalDeviceFeatures2.features = enabledFeatures;
+			physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;	
+		}
+		{
+			descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+			descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+			descriptorIndexingFeatures.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+			descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+			descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+		}
+
+		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) {
 			UF_EXCEPTION("failed to create logical device!"); 
-
-		
-
+		}
 		{
 			uf::Serializer payload = ext::json::array();
-			for ( auto* c_str : deviceExtensions ) {
-				payload.emplace_back( std::string(c_str) );
-			}
+			for ( auto* c_str : deviceExtensions ) payload.emplace_back( std::string(c_str) );
 			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
 		}
 		{
@@ -911,6 +926,15 @@ void ext::vulkan::Device::initialize() {
 	{
 		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		
+		std::vector<uint8_t> buffer;
+		// read from cache on disk
+		if ( uf::io::exists( uf::io::root + "/cache/vulkan/cache.bin" ) ) {
+			buffer = uf::io::readAsBuffer( uf::io::root + "/cache/vulkan/cache.bin" );
+			pipelineCacheCreateInfo.initialDataSize = buffer.size();
+			pipelineCacheCreateInfo.pInitialData    = buffer.data();
+		}
+
 		VK_CHECK_RESULT(vkCreatePipelineCache( device, &pipelineCacheCreateInfo, nullptr, &this->pipelineCache));
 	}
 	// setup allocator
@@ -926,6 +950,17 @@ void ext::vulkan::Device::initialize() {
 
 void ext::vulkan::Device::destroy() {
 	if ( this->pipelineCache ) {
+		// write cache on disk
+		{
+			size_t size{};
+			VK_CHECK_RESULT(vkGetPipelineCacheData(this->logicalDevice, this->pipelineCache, &size, NULL));
+
+			std::vector<uint8_t> data(size);
+			VK_CHECK_RESULT(vkGetPipelineCacheData(this->logicalDevice, this->pipelineCache, &size, data.data()));
+
+			uf::io::write( uf::io::root + "/cache/vulkan/cache.bin", data );
+		}
+
 		vkDestroyPipelineCache( this->logicalDevice, this->pipelineCache, nullptr );
 		this->pipelineCache = nullptr;
 	}

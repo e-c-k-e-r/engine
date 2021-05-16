@@ -116,6 +116,16 @@ std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& filename, c
 	}
 	return buffer;
 }
+
+size_t UF_API uf::io::write( const std::string& filename, const void* buffer, size_t size ) {
+	std::ofstream output;
+	output.open( uf::io::sanitize( filename ), std::ios::binary);
+	output.write( (const char*) buffer, size );
+	output.close();
+
+	return size;
+}
+
 std::string UF_API uf::io::hash( const std::string& filename ) {
 	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
 }

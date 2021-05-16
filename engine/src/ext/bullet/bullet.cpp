@@ -386,7 +386,7 @@ void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
 		graphic.material.attachShader(uf::io::root + "/shaders/base/colored.vert.spv", uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader(uf::io::root + "/shaders/base/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.attachShader(uf::io::root + "/shaders/base/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 		graphic.initialize();
 		graphic.initializeMesh( mesh, 0 );

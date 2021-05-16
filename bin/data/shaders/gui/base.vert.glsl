@@ -1,4 +1,5 @@
 #version 450
+#pragma shader_stage(vertex)
 
 layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec2 inPos;

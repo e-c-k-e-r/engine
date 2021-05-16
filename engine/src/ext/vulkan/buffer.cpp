@@ -6,16 +6,26 @@
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 
+void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
+	this->buffer = buffer.buffer;
+	this->memory = buffer.memory;
+	this->descriptor = buffer.descriptor;
+	this->size = buffer.size;
+	this->alignment = buffer.alignment;
+	this->mapped = buffer.mapped;
+	this->usage = buffer.usage;
+	this->memoryProperties = buffer.memoryProperties;
+	this->memAlloc = buffer.memAlloc;
+	this->memReqs = buffer.memReqs;
+	this->allocation = buffer.allocation;
+	this->allocationInfo = buffer.allocationInfo;
+}
+
 VkResult ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
 //	return vkMapMemory( device, memory, offset, size, 0, &mapped );
 	return vmaMapMemory( allocator, allocation, &mapped );
 }
 
-/**
-* Unmap a mapped memory range
-*
-* @note Does not return a result as vkUnmapMemory can't fail
-*/
 void ext::vulkan::Buffer::unmap() {
 	if ( !mapped ) return;
 //	vkUnmapMemory( device, memory );
@@ -23,54 +33,23 @@ void ext::vulkan::Buffer::unmap() {
 	mapped = nullptr;
 }
 
-/** 
-* Attach the allocated memory block to the buffer
-* 
-* @param offset (Optional) Byte offset (from the beginning) for the memory region to bind
-* 
-* @return VkResult of the bindBufferMemory call
-*/
 VkResult ext::vulkan::Buffer::bind( VkDeviceSize offset ) {
 //	return vkBindBufferMemory( device, buffer, memory, offset );
 //	return vmaBindBufferMemory( allocator, allocation, buffer );
 	return VK_SUCCESS;
 }
 
-/**
-* Setup the default descriptor for this buffer
-*
-* @param size (Optional) Size of the memory range of the descriptor
-* @param offset (Optional) Byte offset from beginning
-*
-*/
 void ext::vulkan::Buffer::setupDescriptor( VkDeviceSize size, VkDeviceSize offset ) {
 	descriptor.offset = offset;
 	descriptor.buffer = buffer;
 	descriptor.range = size;
 }
 
-/**
-* Copies the specified data to the mapped buffer
-* 
-* @param data Pointer to the data to copy
-* @param size Size of the data to copy in machine units
-*
-*/
 void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
 	assert(mapped);
 	memcpy(mapped, data, size);
 }
 
-/** 
-* Flush a memory range of the buffer to make it visible to the device
-*
-* @note Only required for non-coherent memory
-*
-* @param size (Optional) Size of the memory range to flush. Pass VK_WHOLE_SIZE to flush the complete buffer range.
-* @param offset (Optional) Byte offset from beginning
-*
-* @return VkResult of the flush call
-*/
 VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) {
 /*
 	VkMappedMemoryRange mappedRange = {};
@@ -83,16 +62,6 @@ VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) {
 	return VK_SUCCESS;
 }
 
-/**
-* Invalidate a memory range of the buffer to make it visible to the host
-*
-* @note Only required for non-coherent memory
-*
-* @param size (Optional) Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate the complete buffer range.
-* @param offset (Optional) Byte offset from beginning
-*
-* @return VkResult of the invalidate call
-*/
 VkResult ext::vulkan::Buffer::invalidate( VkDeviceSize size, VkDeviceSize offset ) {
 /*
 	VkMappedMemoryRange mappedRange = {};
@@ -130,6 +99,8 @@ void ext::vulkan::Buffer::initialize( VkDevice device ) {
 	this->device = device;
 }
 void ext::vulkan::Buffer::destroy() {
+	if ( !device ) return;
+
 	if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
 //		vkDestroyBuffer(device, buffer, nullptr);
@@ -155,7 +126,9 @@ ext::vulkan::Buffers::~Buffers() {
 }
 */
 void ext::vulkan::Buffers::destroy() {
-	for ( auto& buffer : buffers ) buffer.destroy();
+	for ( auto& buffer : buffers ) {
+		if ( buffer.device ) buffer.destroy();
+	}
 	buffers.clear();
 }
 

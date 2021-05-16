@@ -61,7 +61,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	this->setTarget( this->getName() );
 	std::string type = metadata["type"].as<std::string>();
 	size_t subpasses = metadata["subpasses"].as<size_t>();
-	size_t msaa =  metadata["samples"].is<size_t>() ? ext::vulkan::sampleCount(metadata["samples"].as<size_t>()) : ext::vulkan::settings::msaa;
+	size_t msaa = metadata["samples"].is<size_t>() ? ext::vulkan::sampleCount(metadata["samples"].as<size_t>()) : ext::vulkan::settings::msaa;
 	if ( subpasses == 0 ) subpasses = 1;
 	renderTarget.device = &device;
 	for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
@@ -338,9 +338,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
+			std::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
 			blitter.material.initializeShaders({
-				{uf::io::root+"/shaders/display/renderTarget.vert.spv", ext::vulkan::enums::Shader::VERTEX},
-				{uf::io::root+"/shaders/display/renderTarget.frag.spv", ext::vulkan::enums::Shader::FRAGMENT}
+				{uf::io::root+"/shaders/display/renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+				{uf::io::root+"/shaders/display/renderTarget." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
 		if ( metadata["type"].as<std::string>() == "vxgi"  ) {
@@ -420,6 +421,18 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				texture.aliasAttachment(attachment);
 			}
 		}
+	/*
+		if ( blitter.process ) {
+			auto& mainRenderMode = ext::vulkan::getRenderMode("");
+			size_t eyes = mainRenderMode.metadata["eyes"].as<size_t>();
+			for ( size_t eye = 0; eye < eyes; ++eye ) {
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.subpass = 2 * eye + 1;
+				if ( blitter.hasPipeline( descriptor ) ) continue;
+				blitter.initializePipeline( descriptor );
+			}
+		}
+	*/
 	}
 }
 
@@ -428,7 +441,9 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	if ( metadata["type"].as<std::string>() == "vxgi" ) {
 		if ( ext::vulkan::states::resized ) {
 			renderTarget.initialize( *renderTarget.device );
-			if ( blitter.process ) blitter.getPipeline().update( blitter );
+			if ( blitter.process ) {
+				blitter.getPipeline().update( blitter );
+			}
 		}
 		return;
 	}
@@ -445,7 +460,21 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 			texture.sampler.descriptor.filter.mag = filter;
 			texture.aliasAttachment(attachment);
 		}
-		if ( blitter.process ) blitter.getPipeline().update( blitter );
+		if ( blitter.process ) {
+			auto& mainRenderMode = ext::vulkan::getRenderMode("");
+			size_t eyes = mainRenderMode.metadata["eyes"].as<size_t>();
+			for ( size_t eye = 0; eye < eyes; ++eye ) {
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.subpass = 2 * eye + 1;
+				if ( !blitter.hasPipeline( descriptor ) ) {
+				//	continue;
+					blitter.initializePipeline( descriptor );
+				} else {
+					blitter.getPipeline( descriptor ).update( blitter, descriptor );
+				}
+			}
+		//	blitter.getPipeline().update( blitter );
+		}
 	}
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {

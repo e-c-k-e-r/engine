@@ -25,7 +25,6 @@ namespace {
 			uf::iostream << "HTTP Error " << http.code << " on GET " << url << "\n";
 			return false;
 		}
-		std::ofstream output;
 
 		std::string actual = hash;
 		if ( hash != "" && (actual = uf::string::sha256(url)) != hash ) {
@@ -33,9 +32,7 @@ namespace {
 			return false;
 		}
 
-		output.open("./" + filename, std::ios::binary);
-		output.write( http.response.c_str(), http.response.size() );
-		output.close();
+		uf::io::write( "./" + filename, http.response );
 		return true;
 	}
 	std::string hashed( const std::string& uri ) {
@@ -103,7 +100,7 @@ std::string uf::Asset::cache( const std::string& uri, const std::string& hash, c
 	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
-		std::string cached = uf::io::root + "/cache/" + hash + "." + extension;
+		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			uf::iostream << "Failed to preload `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";
@@ -126,7 +123,7 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 	std::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
 		std::string hash = hashed( uri );
-		std::string cached = uf::io::root + "/cache/" + hash + "." + extension;
+		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			uf::iostream << "Failed to load `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
 			return "";

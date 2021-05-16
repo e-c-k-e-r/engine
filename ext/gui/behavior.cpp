@@ -508,9 +508,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
 			if ( down ) {
-				pod::Vector2ui position; {
-					position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-					position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
+				pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
+				//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
+				//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
 				}
 				pod::Vector2f click; {
 					click.x = (float) position.x / (float) ext::gui::size.current.x;
@@ -524,8 +524,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 
 					if (json["invoker"] == "vr" ) {
-						x = json["mouse"]["position"]["x"].as<float>();
-						y = json["mouse"]["position"]["y"].as<float>();
+						pod::Vector3f xy = uf::vector::decode( json["mouse"]["position"], pod::Vector2i{} );
+						x = xy.x;
+						y = xy.y;
+					//	x = json["mouse"]["position"]["x"].as<float>();
+					//	y = json["mouse"]["position"]["y"].as<float>();
 					}
 					clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
 				}
@@ -570,9 +573,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
-			pod::Vector2ui position; {
-				position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-				position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
+			pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
+			//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
+			//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
 			}
 			pod::Vector2f click; {
 				click.x = (float) position.x / (float) ext::gui::size.current.x;

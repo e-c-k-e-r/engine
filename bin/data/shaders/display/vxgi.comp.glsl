@@ -1,11 +1,13 @@
 #version 450
+#pragma shader_stage(compute)
+
 #extension GL_EXT_samplerless_texture_functions : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 #define MULTISAMPLING 1
-#define DEFERRED_SAMPLING 1
+#define DEFERRED_SAMPLING 0
 
 #define LAMBERT 1
 #define PBR 0
@@ -176,7 +178,11 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
 layout (binding = 10, rg16f) uniform volatile coherent image3D voxelUv[CASCADES];
 layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
-layout (binding = 12, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#if VXGI_HDR
+	layout (binding = 12, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#else
+	layout (binding = 12, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#endif
 
 layout (binding = 13) uniform sampler3D samplerNoise;
 layout (binding = 14) uniform samplerCube samplerSkybox;
@@ -281,8 +287,9 @@ float shadowFactor( const Light light, float def ) {
 #endif
 }
 
-float SCALE_CASCADE( uint x ) {
+float cascadePower( uint x ) {
 	return pow(1 + x, ubo.cascadePower);
+//	return max( 1, x * ubo.cascadePower );
 }
 
 void main() {
@@ -291,7 +298,7 @@ void main() {
 		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
 		surface.normal.eye = vec3( ubo.matrices.vxgi * vec4( surface.normal.world, 0.0f ) );
 	
-		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * SCALE_CASCADE(CASCADE);
+		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
 		surface.position.world = vec3( inverse(ubo.matrices.vxgi) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);

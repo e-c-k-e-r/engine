@@ -378,28 +378,23 @@ void ext::vulkan::destroy() {
 	Texture2D::empty.destroy();
 	Texture3D::empty.destroy();
 	TextureCube::empty.destroy();
-if ( uf::scene::useGraph ) {
+
 	auto graph = uf::scene::generateGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			graphic.destroy();
-		});
-	}
-}
+
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();
 	//	delete renderMode;
 		renderMode = NULL;
+	}
+
+	for ( auto& s : ext::vulkan::Sampler::samplers ) {
+		s.destroy();
 	}
 
 	swapchain.destroy();

@@ -56,6 +56,8 @@ namespace ext {
 			~Buffer();
 			void initialize( VkDevice device );
 			void destroy();
+
+			void aliasBuffer( const Buffer& );
 		};
 		struct UF_API Buffers {
 			std::vector<Buffer> buffers;

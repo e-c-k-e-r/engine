@@ -108,9 +108,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	});
 	/* store viewport size */	
 	this->addHook( "window:Resized", [&](ext::json::Value& json){
-		pod::Vector2ui size; {
-			size.x = json["window"]["size"]["x"].as<size_t>();
-			size.y = json["window"]["size"]["y"].as<size_t>();
+		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2i{} ); {
+		//	size.x = json["window"]["size"]["x"].as<size_t>();
+		//	size.y = json["window"]["size"]["y"].as<size_t>();
 		}
 
 		metadataJson["system"]["window"] = json["system"]["window"];
@@ -140,7 +140,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		float high = std::numeric_limits<float>::min();
 		float low = std::numeric_limits<float>::max();
 		float amplitude = metadataJson["noise"]["amplitude"].is<float>() ? metadataJson["noise"]["amplitude"].as<float>() : 1.5;
-		pod::Vector3ui size = uf::vector::decode(metadataJson["noise"]["size"], pod::Vector3ui{256, 256, 256});
+		pod::Vector3ui size = uf::vector::decode(metadataJson["noise"]["size"], pod::Vector3ui{64, 64, 64});
 		pod::Vector3d coefficients = uf::vector::decode(metadataJson["noise"]["coefficients"], pod::Vector3d{3.0, 3.0, 3.0});
 
 		std::vector<uint8_t> pixels(size.x * size.y * size.z);
@@ -169,8 +169,6 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		}
 		texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8_UNORM, size.x, size.y, size.z, 1 );
 	}
-	// initialize voxel map
-	
 	// initialize cubemap
 	{
 		std::vector<std::string> filenames = {
@@ -525,7 +523,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
 		if ( entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-			if ( metadata.renderer.mode == "in-range" ) renderMode.execute = false;
+			if ( metadata.renderer.mode == "in-range" ) {
+			//	UF_DEBUG_MSG( renderModeName << "\t" << entity->getName() << "\t" << renderMode.execute );
+				renderMode.execute = false;
+			}
 		}
 		if ( metadata.power <= 0 ) continue;
 		LightInfo& info = entities.emplace_back();
@@ -548,12 +549,14 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 	int shadowThreshold = metadata.light.shadowThreshold;
 	if ( shadowSamples < 0 ) shadowSamples = 0;
 	if ( shadowThreshold <= 0 ) shadowThreshold = std::numeric_limits<int>::max();
+
 	{
 		std::vector<LightInfo> scratch;
 		scratch.reserve(entities.size());
 		for ( size_t i = 0; i < entities.size(); ++i ) {
 			auto& info = entities[i];
 			if ( info.shadows && --shadowThreshold <= 0 ) info.shadows = false;
+			if ( renderModeName != "" ) info.shadows = false;
 			scratch.emplace_back(info);
 		}
 		entities = scratch;
@@ -610,16 +613,24 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 
 		graphic.material.textures.clear();
 		if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
-			for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
-			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
+			for ( auto& t : sceneTextures.voxels.id ) {
+				graphic.material.textures.emplace_back().aliasTexture(t);
+			}
+			for ( auto& t : sceneTextures.voxels.uv ) {
+				graphic.material.textures.emplace_back().aliasTexture(t);
+			}
+			for ( auto& t : sceneTextures.voxels.normal ) {
+				graphic.material.textures.emplace_back().aliasTexture(t);
+			}
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				graphic.material.textures.emplace_back().aliasTexture(t);
+			}
 		}
 		
-		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.noise); //this->getComponent<uf::renderer::Texture3D>());
-		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.skybox); //this->getComponent<uf::renderer::TextureCube>());
+		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.noise);
+		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.skybox);
 
-		size_t updateThreshold = metadata.light.updateThreshold;
+		int32_t updateThreshold = metadata.light.updateThreshold;
 		size_t textureSlot = 0;
 
 		std::vector<pod::Light::Storage> lights;
@@ -686,6 +697,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
 				if ( metadata.renderer.mode == "in-range" && --updateThreshold > 0 ) {
 					renderMode.execute = true;
+				//	UF_DEBUG_MSG( renderModeName << "\t" << entity->getName() << "\t" << renderMode.execute );
 				}
 				size_t view = 0;
 				for ( auto& attachment : renderMode.renderTarget.attachments ) {
@@ -706,6 +718,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 				lights.emplace_back(light);
 			}
 		}
+
 		{
 			uniforms->lengths.lights = std::min( lights.size(), metadata.max.lights );
 			bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();

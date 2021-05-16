@@ -9,6 +9,32 @@ ext::vulkan::Texture2D ext::vulkan::Texture2D::empty;
 ext::vulkan::Texture3D ext::vulkan::Texture3D::empty;
 ext::vulkan::TextureCube ext::vulkan::TextureCube::empty;
 
+std::vector<ext::vulkan::Sampler> ext::vulkan::Sampler::samplers;
+
+ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler::Descriptor& info ) {
+	ext::vulkan::Sampler sampler;
+	for ( auto& s : samplers ) {
+		if ( memcmp( &info, &s.descriptor, sizeof(info) - sizeof(VkDescriptorImageInfo) ) != 0 ) continue;
+		sampler = s;
+		goto RETRIEVE_RETURN;
+	/*
+		auto& d = s.descriptor;
+		if ( d.filter.min != info.filter.min || d.filter.mag != info.filter.mag || d.filter.borderColor != info.filter.borderColor ) continue;
+		if ( d.addressMode.unnormalizedCoordinates != info.addressMode.unnormalizedCoordinates || d.addressMode.u != info.addressMode.u || d.addressMode.v != info.addressMode.v || d.addressMode.w != info.addressMode.w ) continue;
+		if ( d.mip.compareEnable != info.mip.compareEnable || d.mip.compareOp != info.mip.compareOp || d.mip.mode != info.mip.mode || d.mip.lodBias != info.mip.lodBias || d.mip.min != info.mip.min || d.mip.max != info.mip.max ) continue;
+	*/
+	}
+	{
+		auto& s = samplers.emplace_back();
+		s.descriptor = info;
+		s.initialize( ext::vulkan::device );
+		sampler = s;
+	}
+RETRIEVE_RETURN:
+	sampler.device = NULL;
+	return sampler;
+}
+
 void ext::vulkan::Sampler::initialize( Device& device ) {
 	this->device = &device;
 	if ( device.enabledFeatures.samplerAnisotropy == VK_FALSE ) {
@@ -41,6 +67,8 @@ void ext::vulkan::Sampler::initialize( Device& device ) {
 	}
 }
 void ext::vulkan::Sampler::destroy() {
+	if ( !device ) return;
+
 	if ( sampler != VK_NULL_HANDLE ) {
 		vkDestroySampler(device->logicalDevice, sampler, nullptr);
 		sampler = VK_NULL_HANDLE;
@@ -112,7 +140,7 @@ void ext::vulkan::Texture::destroy() {
 //		vkFreeMemory(device->logicalDevice, deviceMemory, nullptr);
 		deviceMemory = VK_NULL_HANDLE;
 	}
-	sampler.destroy(); // should be above
+	if ( sampler.device ) sampler.destroy();
 }
 void ext::vulkan::Texture::setImageLayout(
 	VkCommandBuffer cmdbuffer,
@@ -417,7 +445,8 @@ void ext::vulkan::Texture::fromBuffers(
 	// Create sampler
 	sampler.descriptor.mip.min = 0;
 	sampler.descriptor.mip.max = static_cast<float>(this->mips);
-	sampler.initialize( device );
+	// sampler.initialize( device );
+	sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 
 	// Create image view	
 	VkImageViewCreateInfo viewCreateInfo = {};
@@ -511,7 +540,8 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	device.flushCommandBuffer(layoutCmd, true);
 
 	// Create sampler
-	sampler.initialize( device );
+	// sampler.initialize( device );
+	sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 
 	// Create image view
 	VkImageViewCreateInfo viewCreateInfo = ext::vulkan::initializers::imageViewCreateInfo();
@@ -547,7 +577,10 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	deviceMemory = attachment.mem;
 
 	// Create sampler
-	if ( createSampler ) sampler.initialize( ext::vulkan::device );
+	if ( createSampler ) {
+		// sampler.initialize( ext::vulkan::device );
+		sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
+	}
 	
 	this->updateDescriptors();
 }

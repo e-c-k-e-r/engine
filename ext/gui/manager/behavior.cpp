@@ -60,9 +60,9 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "window:Resized", [&](ext::json::Value& json){
 
-		pod::Vector2ui size; {
-			size.x = json["window"]["size"]["x"].as<size_t>();
-			size.y = json["window"]["size"]["y"].as<size_t>();
+		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
+		//	size.x = json["window"]["size"]["x"].as<size_t>();
+		//	size.y = json["window"]["size"]["y"].as<size_t>();
 		}
 		ext::gui::size.current = size;
 	//	ext::gui::size.reference = size;
@@ -71,9 +71,9 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 
 		bool down = json["mouse"]["state"].as<std::string>() == "Down";
 		bool clicked = false;
-		pod::Vector2ui position; {
-			position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-			position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
+		pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
+		//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
+		//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
 		}
 		pod::Vector2f click; {
 			click.x = (float) position.x / (float) ext::gui::size.current.x;

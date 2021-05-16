@@ -50,11 +50,13 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 
 		std::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);
 		
+		const bool HDR = false;
 		for ( size_t i = 0; i < metadata.cascades; ++i ) {
 			auto& id = sceneTextures.voxels.id.emplace_back();
 			auto& uv = sceneTextures.voxels.uv.emplace_back();
 			auto& normal = sceneTextures.voxels.normal.emplace_back();
 			auto& radiance = sceneTextures.voxels.radiance.emplace_back();
+		//	auto& depth = sceneTextures.voxels.depth.emplace_back();
 
 			id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
 			id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
@@ -62,7 +64,8 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			id.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 			uv.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 			normal.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-			radiance.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+			radiance.fromBuffers( (void*) empty.data(), empty.size(), HDR ? uf::renderer::enums::Format::R16G16B16A16_SFLOAT : uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 		}
 	}
 	// initialize render mode
@@ -74,7 +77,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 		renderMode.metadata["type"] = "vxgi";
-		renderMode.metadata["samples"] = 2;
+		renderMode.metadata["samples"] = 1;
 		renderMode.metadata["subpasses"] = metadata.cascades;
 
 		renderMode.blitter.device = &ext::vulkan::device;
@@ -108,41 +111,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.uv ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-
-		#if 0
-			for ( auto& t : sceneTextures.voxels.radiance ) {
-				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-				imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
-				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-				imageMemoryBarrier.subresourceRange.layerCount = 1;
-				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-				{					
-					VkPipelineStageFlags srcStageMask, dstStageMask;
-					imageMemoryBarrier.image = t.image;
-					imageMemoryBarrier.oldLayout = t.imageLayout;
-					imageMemoryBarrier.newLayout = t.imageLayout;
-				
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-					srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-					dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-					
-					vkCmdPipelineBarrier( commandBuffer,
-						srcStageMask, dstStageMask,
-						VK_FLAGS_NONE,
-						0, NULL,
-						0, NULL,
-						1, &imageMemoryBarrier
-					);
-
-					t.imageLayout = imageMemoryBarrier.newLayout;
-				}
-			}
-		#endif
+		//	for ( auto& t : sceneTextures.voxels.depth ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 		});
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
 			// parse voxel lighting
@@ -176,42 +145,6 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 					subresourceRange
 				);
 			}
-
-		#if 0
-			// sync
-			for ( auto& t : sceneTextures.voxels.radiance ) {
-				VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-				imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-				imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
-				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-				imageMemoryBarrier.subresourceRange.layerCount = 1;
-				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-				{					
-					VkPipelineStageFlags srcStageMask, dstStageMask;
-					imageMemoryBarrier.image = t.image;
-					imageMemoryBarrier.oldLayout = t.imageLayout;
-					imageMemoryBarrier.newLayout = t.imageLayout;
-				
-					imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-					imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-					srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-					dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-					
-					vkCmdPipelineBarrier( commandBuffer,
-						srcStageMask, dstStageMask,
-						VK_FLAGS_NONE,
-						0, NULL,
-						0, NULL,
-						1, &imageMemoryBarrier
-					);
-
-					t.imageLayout = imageMemoryBarrier.newLayout;
-				}
-			}
-		#endif
 		});
 	}
 #endif
@@ -242,7 +175,12 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			}
 		}
 		if ( renderMode.execute ) {
-			pod::Vector3f controllerPosition = controllerTransform.position;
+			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
+			controllerPosition.x = floor(controllerPosition.x);
+			controllerPosition.y = floor(controllerPosition.y);
+			controllerPosition.z = floor(controllerPosition.z);
+			controllerPosition += metadata.extents.min;
+
 			controllerPosition.x = floor(controllerPosition.x);
 			controllerPosition.y = floor(controllerPosition.y);
 			controllerPosition.z = -floor(controllerPosition.z);

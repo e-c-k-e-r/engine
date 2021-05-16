@@ -1,41 +1,17 @@
 #version 450
+#pragma shader_stage(fragment)
 #extension GL_EXT_nonuniform_qualifier : enable
 
-#define DEFERRED_SAMPLING 1
-#define USE_LIGHTMAP 1
-
-#define PI 3.1415926536f
+#define BLEND 1
+#define DEPTH_TEST 1
 
 layout (constant_id = 0) const uint CASCADES = 16;
 layout (constant_id = 1) const uint TEXTURES = 512;
 
-struct Material {
-	vec4 colorBase;
-	vec4 colorEmissive;
+#define MAX_TEXTURES textures.length()
+#include "../common/macros.h"
+#include "../common/structs.h"
 
-	float factorMetallic;
-	float factorRoughness;
-	float factorOcclusion;
-	float factorAlphaCutoff;
-
-	int indexAlbedo;
-	int indexNormal;
-	int indexEmissive;
-	int indexOcclusion;
-	
-	int indexMetallicRoughness;
-	int indexAtlas;
-	int indexLightmap;
-	int modeAlpha;
-};
-struct Texture {
-	int index;
-	int samp;
-	int remap;
-	float blend;
-
-	vec4 lerp;
-};
 layout (std140, binding = 0) readonly buffer Materials {
 	Material materials[];
 };
@@ -43,6 +19,7 @@ layout (std140, binding = 1) readonly buffer Textures {
 	Texture textures[];
 };
 
+#include "../common/functions.h"
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in vec2 inSt;
@@ -57,7 +34,12 @@ layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
 layout (binding = 9, rg16f) uniform volatile coherent image3D voxelUv[CASCADES];
 layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
-layout (binding = 11, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#if VXGI_HDR
+	layout (binding = 11, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#else
+	layout (binding = 11, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+#endif
+// layout (binding = 12, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
@@ -66,25 +48,6 @@ layout (location = 1) out vec2 outNormals;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif
-
-vec2 encodeNormals( vec3 n ) {
-//	return n.xy / sqrt(n.z*8+8) + 0.5;
-	return (vec2(atan(n.y,n.x)/PI, n.z)+1.0)*0.5;
-}
-float wrap( float i ) {
-	return fract(i);
-}
-vec2 wrap( vec2 uv ) {
-	return vec2( wrap( uv.x ), wrap( uv.y ) );
-}
-float mipLevel( in vec2 uv ) {
-	const vec2 dx_vtc = dFdx(uv);
-	const vec2 dy_vtc = dFdy(uv);
-	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
-}
-bool validTextureIndex( int textureIndex ) {
-	return 0 <= textureIndex && textureIndex < textures.length();
-}
 
 void main() {
 	const uint CASCADE = inId.z;
@@ -95,7 +58,7 @@ void main() {
 	vec4 A = vec4(0, 0, 0, 0);
 	const vec3 N = inNormal;
 	const vec2 uv = wrap(inUv.xy);
-	const float mip = mipLevel(inUv.xy);
+	const float mip = 0; // mipLevel(inUv.xy);
 	const int materialId = int(inId.y);
 	const Material material = materials[materialId];
 
@@ -136,13 +99,35 @@ void main() {
 	}
 #endif
 
-	const vec4 		outAlbedo = A * inColor;
+	const float outDepth = length(inPosition.xzy);
+	const vec4 inAlbedo = imageLoad(voxelRadiance[CASCADE], ivec3(P * imageSize(voxelRadiance[CASCADE])));
+#if DEPTH_TEST
+	{
+	//	const float depth = imageLoad(voxelDepth[CASCADE], ivec3(P * imageSize(voxelDepth[CASCADE]))).r;
+		const float inDepth = inAlbedo.a;
+		if ( inDepth != 0 && inDepth < outDepth ) discard;
+	//	imageStore(voxelDepth[CASCADE], ivec3(P * imageSize(voxelUv[CASCADE])), vec4(inDepth, 0, 0, 0));
+	}
+#endif
+
+//	const vec4 		outAlbedo = A * inColor;
+	const vec4 		outAlbedo = vec4( A.rgb * inColor.rgb, outDepth );
 	const uvec2 	outId = uvec2(inId.w+1, inId.y+1);
 	const vec2 		outNormals = encodeNormals( normalize( N ) );
 	const vec2 		outUvs = wrap(inUv.xy);
-
 	imageStore(voxelId[CASCADE], ivec3(P * imageSize(voxelId[CASCADE])), uvec4(outId, 0, 0));
-	imageStore(voxelNormal[CASCADE], ivec3(P * imageSize(voxelNormal[CASCADE])), vec4(outNormals, 0, 0));
 	imageStore(voxelUv[CASCADE], ivec3(P * imageSize(voxelUv[CASCADE])), vec4(outUvs, 0, 0));
+#if BLEND
+	{
+		const ivec3 uvw = ivec3(P * imageSize(voxelNormal[CASCADE]));
+		const vec3 inNormal = decodeNormals( imageLoad(voxelNormal[CASCADE], uvw).xy );
+		const vec4 store = vec4( encodeNormals(normalize(inNormal + N)), 0, 0 );
+		imageStore(voxelNormal[CASCADE], uvw, store);
+
+		imageStore(voxelRadiance[CASCADE], ivec3(P * imageSize(voxelRadiance[CASCADE])), inAlbedo.a > 0 ? (inAlbedo + outAlbedo) * 0.5 : outAlbedo);
+	}
+#else
+	imageStore(voxelNormal[CASCADE], ivec3(P * imageSize(voxelNormal[CASCADE])), vec4(outNormals, 0, 0));
 	imageStore(voxelRadiance[CASCADE], ivec3(P * imageSize(voxelRadiance[CASCADE])), outAlbedo);
+#endif
 }

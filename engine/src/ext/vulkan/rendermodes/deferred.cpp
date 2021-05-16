@@ -42,11 +42,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
 	renderTarget.device = &device;
 	size_t eyes = metadata["eyes"].as<size_t>();
+	size_t msaa = ext::vulkan::settings::msaa;
 	for ( size_t eye = 0; eye < eyes; ++eye ) {
 		struct {
 			size_t id, normals, uvs, albedo, depth, output, debug;
 		} attachments;
-		size_t msaa = ext::vulkan::settings::msaa;
 
 		attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */VK_FORMAT_R16G16_UINT,
@@ -122,7 +122,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			});
 		}
 		metadata["outputs"].emplace_back(attachments.output);
-
+	#if 0
 		attachments.debug = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -130,6 +130,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.blend = */false,
 			/*.samples = */1,
 		});
+	#endif
 
 		if ( ext::vulkan::settings::experimental::deferredMode != "" ) {
 			// First pass: fill the G-Buffer
@@ -147,7 +148,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ { attachments.output, attachments.debug },
+					/*.colors =*/ { attachments.output },
 					/*.inputs =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.depth },
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
@@ -170,7 +171,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ { attachments.output, attachments.debug },
+					/*.colors =*/ { attachments.output },
 					/*.inputs =*/ { attachments.id, attachments.normals, attachments.albedo, attachments.depth },
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
@@ -198,17 +199,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 		blitter.initialize( this->getName() );
 		blitter.initializeMesh( mesh );
+		std::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
 		if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
-			blitter.material.initializeShaders({
-				{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{uf::io::root+"/shaders/display/subpass.vxgi.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-			});
-		} else {
-			blitter.material.initializeShaders({
-				{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{uf::io::root+"/shaders/display/subpass.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-			});
+			fragmentShaderFilename = ( msaa <= 1 ) ? "vxgi.no-msaa." : "vxgi.";
 		}
+		blitter.material.initializeShaders({
+			{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
+			{uf::io::root+"/shaders/display/subpass." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
 		{
 			auto& scene = uf::scene::getCurrentScene();
 
@@ -220,8 +218,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
 				struct SpecializationConstant {
-					uint32_t maxCascades = 16;
 					uint32_t maxTextures = 512;
+					uint32_t maxCascades = 16;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 
@@ -287,13 +285,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 		}
-		blitter.initializePipeline();
+	//	blitter.initializePipeline();
 		for ( size_t eye = 0; eye < eyes; ++eye ) {
-			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-			descriptor.subpass = 2 * eye + 1;
-			if ( blitter.hasPipeline( descriptor ) ) continue;
-			blitter.initializePipeline( descriptor );
+			blitter.descriptor.subpass = 2 * eye + 1;
+			if ( blitter.hasPipeline( blitter.descriptor ) ) continue;
+			blitter.initializePipeline( blitter.descriptor );
 		}
+		blitter.descriptor.subpass = 1;
 	}
 }
 void ext::vulkan::DeferredRenderMode::tick() {
@@ -303,7 +301,14 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		renderTarget.initialize( *renderTarget.device );
 		// update blitter descriptor set
 		if ( blitter.initialized ) {
-			blitter.getPipeline().update( blitter );
+			size_t eyes = metadata["eyes"].as<size_t>();
+			for ( size_t eye = 0; eye < eyes; ++eye ) {
+				blitter.descriptor.subpass = 2 * eye + 1;
+				if ( !blitter.hasPipeline( blitter.descriptor ) ) continue;
+				blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+			}
+			blitter.descriptor.subpass = 1;
+		//	blitter.getPipeline().update( blitter );
 		//	blitter.updatePipelines();
 		}
 	}

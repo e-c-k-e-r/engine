@@ -244,31 +244,32 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 				camera.updateView();
 			}
 		}
-		bool execute = true;
+		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		// enable renderer every X seconds
 		if ( metadata.renderer.limiter > 0 ) {
 			if ( metadata.renderer.timer > metadata.renderer.limiter ) {
 				metadata.renderer.timer = 0;
-				execute = true;
+				renderMode.execute = true;
 			} else {
 				metadata.renderer.timer = metadata.renderer.timer + uf::physics::time::delta;
-				execute = false;
+				renderMode.execute = false;
 			}
 		} else {
 			// round robin, enable if it's the light's current turn
 			if ( metadata.renderer.mode == "round robin" ) {
-				if ( ::roundRobin.current < ::roundRobin.lights.size() ) execute = ::roundRobin.lights[::roundRobin.current] == this;
+				if ( ::roundRobin.current < ::roundRobin.lights.size() )
+					renderMode.execute = ::roundRobin.lights[::roundRobin.current] == this;
 			// render only if the light is used
 			} else if ( metadata.renderer.mode == "occlusion" ) {
-				execute = metadata.renderer.rendered;
+				renderMode.execute = metadata.renderer.rendered;
 			// light baking, but sadly re-bakes every time the command buffer is recorded
 			} else if ( metadata.renderer.mode == "once" ) {
-				execute = !metadata.renderer.rendered;
+				renderMode.execute = !metadata.renderer.rendered;
 				metadata.renderer.rendered = true;
+			} else if ( metadata.renderer.mode == "in-range" ) {
+				metadata.renderer.rendered = false;
 			}
 		}
-		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		renderMode.execute = execute;
 	}
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize();

@@ -69,8 +69,8 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.process = true;
 
 					graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
-					graphic.material.attachShader(uf::io::root+"/shaders/base/vert.spv", uf::renderer::enums::Shader::VERTEX);
-					graphic.material.attachShader(uf::io::root+"/shaders/base/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+					graphic.material.attachShader(uf::io::root+"/shaders/base/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root+"/shaders/base/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 					uf::instantiator::bind( "EntityBehavior", hand );
 					uf::instantiator::bind( "ObjectBehavior", hand );
@@ -104,8 +104,8 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					graphic.initialize();
 					graphic.initializeMesh(mesh);
 					
-					graphic.material.attachShader(uf::io::root+"/shaders/line/vert.spv", uf::renderer::enums::Shader::VERTEX);
-					graphic.material.attachShader(uf::io::root+"/shaders/line/frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+					graphic.material.attachShader(uf::io::root+"/shaders/line/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+					graphic.material.attachShader(uf::io::root+"/shaders/line/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 					graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_STRIP;
 					graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 					graphic.descriptor.lineWidth = metadata["hands"][side]["pointer"]["width"].as<float>();
@@ -166,10 +166,12 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					uf::Serializer payload;
 					payload["type"] = "window:Mouse.Click";
 					payload["invoker"] = "vr";
-					payload["mouse"]["position"]["x"]	= metadata["hands"][side]["cursor"]["position"][0].as<float>();
-					payload["mouse"]["position"]["y"]	= metadata["hands"][side]["cursor"]["position"][1].as<float>();
-					payload["mouse"]["delta"]["x"] 		= 0;
-					payload["mouse"]["delta"]["y"] 		= 0;
+				//	payload["mouse"]["position"]["x"]	= metadata["hands"][side]["cursor"]["position"][0].as<float>();
+				//	payload["mouse"]["position"]["y"]	= metadata["hands"][side]["cursor"]["position"][1].as<float>();
+				//	payload["mouse"]["delta"]["x"] 		= 0;
+				//	payload["mouse"]["delta"]["y"] 		= 0;
+					payload["mouse"]["position"]		= metadata["hands"][side]["cursor"]["position"];
+					payload["mouse"]["delta"] 			= uf::vector::encode( pod::Vector2i{0,0} );
 					payload["mouse"]["button"] 			= side == "left" ? "Right" : "Left";
 					payload["mouse"]["state"] = json["state"].as<bool>() ? "Down": "Up";
 

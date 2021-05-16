@@ -197,12 +197,13 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 				}
 			}
 			descriptions.push_back(description);
-		/*
-			std::cout << "Pass: " << descriptions.size() - 1 << std::endl;
-			for ( auto& color : pass.colors ) std::cout << "Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image << std::endl;
-			for ( auto& input : pass.inputs ) std::cout << "Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image << std::endl;
+		
+		#if 0
+			UF_DEBUG_MSG("Pass: " << descriptions.size() - 1);
+			for ( auto& color : pass.colors ) UF_DEBUG_MSG("Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image);
+			for ( auto& input : pass.inputs ) UF_DEBUG_MSG("Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image);
 			std::cout << std::endl;
-		*/
+		#endif
 			// transition dependency between subpasses
 			dependency.srcSubpass = dependency.dstSubpass;
 			dependency.srcStageMask = dependency.dstStageMask;
@@ -253,15 +254,15 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			
 			dependencies.push_back(dependency);
 		}
-	/*
+	
+	#if 0
 		for ( auto& dependency : dependencies  ) {
-			std::cout << "Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass << std::endl;
-			std::cout << "\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask << std::endl;
-			std::cout << "\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask << std::endl;
+			UF_DEBUG_MSG("Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass);
+			UF_DEBUG_MSG("\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask);
+			UF_DEBUG_MSG("\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask);
 		}
 		std::cout << std::endl;
-	*/
-	
+	#endif
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.flags = 0;

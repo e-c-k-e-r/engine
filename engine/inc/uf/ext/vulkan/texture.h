@@ -11,7 +11,7 @@ namespace ext {
 			Device* device = NULL;
 
 			VkSampler sampler;
-			struct {
+			struct Descriptor {
 				struct {
 					VkFilter min = VK_FILTER_LINEAR;
 					VkFilter mag = VK_FILTER_LINEAR;
@@ -38,7 +38,11 @@ namespace ext {
 
 			void initialize( Device& device );
 			void destroy();
+
+			static std::vector<ext::vulkan::Sampler> samplers;
+			static ext::vulkan::Sampler retrieve( const Descriptor& info );
 		};
+
 		struct UF_API Texture {
 			Device* device = nullptr;
 

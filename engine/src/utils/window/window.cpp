@@ -55,42 +55,59 @@ size_t UF_API_CALL uf::Window::getRefreshRate() const {
 }
 // 	Attribute modifiers
 void UF_API_CALL uf::Window::setPosition( const spec::uni::Window::vector_t& position ) {
-	if ( this->m_window ) this->m_window->setPosition(position);
+	if ( !this->m_window ) return;
+	this->m_window->setPosition(position);
 }
 void UF_API_CALL uf::Window::centerWindow() {
-	if ( this->m_window ) this->m_window->centerWindow();
+	if ( !this->m_window ) return;
+	this->m_window->centerWindow();
 }
 void UF_API_CALL uf::Window::setMousePosition( const spec::uni::Window::vector_t& position ) {
-	if ( this->m_window ) this->m_window->setMousePosition(position);
+	if ( !this->m_window ) return;
+	this->m_window->setMousePosition(position);
 }
 spec::uni::Window::vector_t UF_API_CALL uf::Window::getMousePosition() {
-	if ( this->m_window ) return this->m_window->getMousePosition();
-	return { 0, 0 };
+	return this->m_window ? this->m_window->getMousePosition() : spec::uni::Window::vector_t{ 0, 0 };
 }
 void UF_API_CALL uf::Window::setSize( const spec::uni::Window::vector_t& size ) {
-	if ( this->m_window ) this->m_window->setSize(size);
+	if ( !this->m_window ) return;
+	this->m_window->setSize(size);
 }
 void UF_API_CALL uf::Window::setTitle( const spec::uni::Window::title_t& title ) {
-	if ( this->m_window ) this->m_window->setTitle(title);
+	if ( !this->m_window ) return;
+	this->m_window->setTitle(title);
+
+	uf::Serializer json;
+	std::string hook = "window:Title.Changed";
+	json["type"] = hook;
+	json["invoker"] = "os";
+	json["window"]["title"] = std::string(title);
+	uf::hooks.call( hook, json );
 }
 void UF_API_CALL uf::Window::setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels ) {
-	if ( this->m_window ) this->m_window->setIcon(size, pixels);
+	if ( !this->m_window ) return;
+	this->m_window->setIcon(size, pixels);
 }
 void UF_API_CALL uf::Window::setVisible( bool visibility ) {
-	if ( this->m_window ) this->m_window->setVisible(visibility);
+	if ( !this->m_window ) return;
+	this->m_window->setVisible(visibility);
 }
 void UF_API_CALL uf::Window::setCursorVisible( bool visibility ) {
-	if ( this->m_window ) this->m_window->setCursorVisible(visibility);
+	if ( !this->m_window ) return;
+	this->m_window->setCursorVisible(visibility);
 }
 void UF_API_CALL uf::Window::setKeyRepeatEnabled( bool state ) {
-	if ( this->m_window ) this->m_window->setKeyRepeatEnabled(state);
+	if ( !this->m_window ) return;
+	this->m_window->setKeyRepeatEnabled(state);
 }
 void UF_API_CALL uf::Window::setMouseGrabbed( bool state ) {
-	if ( this->m_window ) this->m_window->setMouseGrabbed(state);
+	if ( !this->m_window ) return;
+	this->m_window->setMouseGrabbed(state);
 }
 
 void UF_API_CALL uf::Window::requestFocus() {
-	if ( this->m_window ) this->m_window->requestFocus();
+	if ( !this->m_window ) return;
+	this->m_window->requestFocus();
 }
 bool UF_API_CALL uf::Window::hasFocus() const {
 	return uf::Window::focused = (this->m_window ? this->m_window->hasFocus() : false);
@@ -99,11 +116,13 @@ pod::Vector2ui UF_API_CALL uf::Window::getResolution() {
 	return uf::Window::window_t::getResolution();
 }
 void UF_API_CALL uf::Window::switchToFullscreen( bool borderless ) {
-	if ( this->m_window ) this->m_window->switchToFullscreen( borderless );
+	if ( !this->m_window ) return;
+	this->m_window->switchToFullscreen( borderless );
 }
 // 	Update
 void UF_API_CALL uf::Window::processEvents() {
-	if ( this->m_window ) this->m_window->processEvents();
+	if ( !this->m_window ) return;
+	this->m_window->processEvents();
 }
 bool UF_API_CALL uf::Window::pollEvents( bool block ) {
 	return this->m_window ? this->m_window->pollEvents(block) : false;
@@ -113,8 +132,8 @@ bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW 
-	if (this->m_context) {
-		if (this->m_context->setActive(active)) return true;
+	if ( this->m_context ) {
+		if ( this->m_context->setActive(active) ) return true;
 		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to activate the window's context" << "\n";
 		return false;
 	}
@@ -144,21 +163,8 @@ void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& s
 #include <chrono>
 #include <uf/utils/time/time.h>
 void UF_API_CALL uf::Window::display() {
-	// Display the backbuffer on screen
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
-	if (this->m_context && this->setActive()) this->m_context->display();
-#endif
-#if 0
-	/* FPS */ if ( false ) {
-		static double limit = 1.0 / 60;
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start();
-		double delta = limit - timer.elapsed().asDouble();
-		if ( delta > 0 ) {
-			std::this_thread::sleep_for( std::chrono::milliseconds( (int) delta * 1000 ) );
-			timer.reset();
-		}
-	}
+	if ( this->m_context && this->setActive() ) this->m_context->display();
 #endif
 }
 

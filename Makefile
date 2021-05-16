@@ -24,8 +24,11 @@ LIB_NAME 				+= uf
 EXT_LIB_NAME 			+= ext
 
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
-GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
+#GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
+GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslc
+SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin32/spirv-opt
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(PREFIX)
 DEPS 					+=
@@ -39,7 +42,7 @@ INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mi
 LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas # draco discord
+	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas openvr # draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -240,7 +243,9 @@ $(TARGET): $(OBJS)
 endif
 
 %.spv: %.glsl
-	$(GLSL_VALIDATOR) -V -o $@ $<
+#	$(GLSL_VALIDATOR) -V -o $@ $<
+	$(GLSL_VALIDATOR) -std=450 -o $@ $<
+	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
 ifneq (,$(findstring dreamcast,$(ARCH)))
 clean:
@@ -283,4 +288,7 @@ clean-exe:
 	-rm $(EX_DLL)
 	-rm $(EXT_EX_DLL)
 	-rm $(TARGET)
+	-rm $(TARGET_SHADERS)
+
+clean-shaders:
 	-rm $(TARGET_SHADERS)

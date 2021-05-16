@@ -143,9 +143,10 @@ namespace UL {
 				else if ( s == "Middle" ) button = ULMouseButton::kMouseButton_Middle;
 				else if ( s == "Right" ) button = ULMouseButton::kMouseButton_Right;
 			}
-			int x = event["mouse"]["position"]["x"].as<int>() / ext::ultralight::scale;
-			int y = event["mouse"]["position"]["y"].as<int>() / ext::ultralight::scale;
-			handle = ulCreateMouseEvent( type, x, y, button );
+			auto mouse = uf::vector::decode( event["mouse"]["position"], pod::Vector2i{} ) / ext::ultralight::scale;
+		//	int x = event["mouse"]["position"]["x"].as<int>() / ext::ultralight::scale;
+		//	int y = event["mouse"]["position"]["y"].as<int>() / ext::ultralight::scale;
+			handle = ulCreateMouseEvent( type, mouse.x, mouse.y, button );
 		}
 		~MouseEvent() {
 			if ( !handle ) return;

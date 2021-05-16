@@ -104,8 +104,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
-				{uf::io::root+"/shaders/terrain/vert.spv", uf::renderer::enums::Shader::VERTEX},
-				{uf::io::root+"/shaders/terrain/frag.spv", uf::renderer::enums::Shader::FRAGMENT}
+				{uf::io::root+"/shaders/terrain/base.vert.spv", uf::renderer::enums::Shader::VERTEX},
+				{uf::io::root+"/shaders/terrain/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT}
 			});
 			// uf::renderer::rebuildOnTickStart = false;
 		}

@@ -40,8 +40,23 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 		uf::Camera& camera = this->getComponent<uf::Camera>();
 		settings.mode = metadataJson["camera"]["ortho"].as<bool>() ? -1 : 1;
-		settings.perspective.size.x = metadataJson["camera"]["settings"]["size"]["x"].as<double>();
-		settings.perspective.size.y = metadataJson["camera"]["settings"]["size"]["y"].as<double>();
+
+		settings.perspective.size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector3f{} );
+		// Update viewport
+		if ( settings.perspective.size.x <= 0 || settings.perspective.size.y <= 0 )  {
+			settings.perspective.size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
+			this->addHook( "window:Resized", [&](ext::json::Value& json){
+				// Update persistent window sized (size stored to JSON file)
+				pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
+				//	size.x = json["window"]["size"]["x"].as<size_t>();
+				//	size.y = json["window"]["size"]["y"].as<size_t>();
+				}
+				/* Update camera's viewport */ {
+					uf::Camera& camera = this->getComponent<uf::Camera>();
+					camera.setSize({(pod::Math::num_t)size.x, (pod::Math::num_t)size.y});
+				}
+			} );
+		}
 		camera.setSize(settings.perspective.size);
 		if ( settings.mode < 0 ) {
 			settings.ortho.lr.x 	= metadataJson["camera"]["settings"]["left"].as<double>();
@@ -76,24 +91,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			transform.scale.y = metadataJson["camera"]["scale"][1].as<double>();
 			transform.scale.z = metadataJson["camera"]["scale"][2].as<double>();
 		}
-
 		camera.setOffset(settings.offset);
 		camera.update(true);
-
-		// Update viewport
-		if ( metadataJson["camera"]["settings"]["size"]["auto"].as<bool>() )  {
-			this->addHook( "window:Resized", [&](ext::json::Value& json){
-				// Update persistent window sized (size stored to JSON file)
-				pod::Vector2ui size; {
-					size.x = json["window"]["size"]["x"].as<size_t>();
-					size.y = json["window"]["size"]["y"].as<size_t>();
-				}
-				/* Update camera's viewport */ {
-					uf::Camera& camera = this->getComponent<uf::Camera>();
-					camera.setSize({(pod::Math::num_t)size.x, (pod::Math::num_t)size.y});
-				}
-			} );
-		}
 	}
 	metadataJson["system"]["control"] = true;
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
@@ -106,8 +105,10 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		if ( !ext::json::isObject(json) ) return;
 		if ( json["invoker"] != "client" ) return;
 
-		pod::Vector2i delta = { json["mouse"]["delta"]["x"].as<int>(), json["mouse"]["delta"]["y"].as<int>() };
-		pod::Vector2i size  = { json["mouse"]["size"]["x"].as<int>(),  json["mouse"]["size"]["y"].as<int>() };
+	//	pod::Vector2i delta = { json["mouse"]["delta"]["x"].as<int>(), json["mouse"]["delta"]["y"].as<int>() };
+	//	pod::Vector2i size  = { json["mouse"]["size"]["x"].as<int>(),  json["mouse"]["size"]["y"].as<int>() };
+		pod::Vector2i delta = uf::vector::decode( json["mouse"]["delta"], pod::Vector2i{} );
+		pod::Vector2i size  = uf::vector::decode( json["mouse"]["size"], pod::Vector2i{} );
 		pod::Vector2 relta  = { (float) delta.x / size.x, (float) delta.y / size.y };
 		relta *= 2;
 		if ( delta.x == 0 && delta.y == 0 ) return;
@@ -379,10 +380,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #endif
-	stats.floored = fabs(physics.linear.velocity.y) < 0.01f;
 	stats.menu = metadata.system.menu;
 	stats.impulse = metadata.system.physics.impulse;
 	stats.noclipped = metadata.system.noclipped;
+	stats.floored = fabs(physics.linear.velocity.y) < 0.01f || stats.noclipped;
 	struct {
 		float move = 4;
 		float walk = 1;
@@ -394,6 +395,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		speed.move = metadata.system.physics.move;
 		speed.run = metadata.system.physics.run / speed.move;
 		speed.walk = metadata.system.physics.walk / speed.move;
+		
+		if ( stats.noclipped ) {
+			speed.move *= 4.0;
+			speed.run *= 2.0;
+		}
 	}
 	if ( !metadata.system.physics.collision ) {
 		stats.impulse = true;
@@ -449,23 +455,31 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		if ( stats.floored ) {
 			pod::Transform<> translator = transform;
+
 		#if UF_USE_OPENVR
 			if ( ext::openvr::context ) {
 				bool useController = true;
 				translator.orientation = uf::quaternion::multiply( transform.orientation * pod::Vector4f{1,1,1,1}, useController ? (ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) * pod::Vector4f{1,1,1,1}) : ext::openvr::hmdQuaternion() );
 				translator = uf::transform::reorient( translator );
 				
-				translator.forward *= { 1, 0, 1 };
-				translator.right *= { 1, 0, 1 };
-				
+				if ( !stats.noclipped ) {
+					translator.forward *= { 1, 0, 1 };
+					translator.right *= { 1, 0, 1 };
+				}
+
 				translator.forward = uf::vector::normalize( translator.forward );
 				translator.right = uf::vector::normalize( translator.right );
-			}
+			} else
 		#endif
+			if ( stats.noclipped ){
+				auto& cameraTransform = camera.getTransform();
+			//	translator = uf::transform::flatten( cameraTransform );
+				translator.forward.y += cameraTransform.forward.y;
+			}
 			pod::Vector3f queued = {};
 			if ( keys.forward || keys.backwards ) {
 				int polarity = keys.forward ? 1 : -1;
-				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				float mag = uf::vector::magnitude(physics.linear.velocity); // * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.forward * speed.move * polarity);
 				} else mag = speed.limitSquared;
@@ -477,17 +491,21 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					if ( stats.impulse && stats.noclipped ) {
 						physics.linear.velocity.x = correction.x;
 						physics.linear.velocity.z = correction.z;
+						
+						if ( stats.noclipped ) physics.linear.velocity.y = correction.y;
 					} else {
 						correction *= uf::physics::time::delta;
 						transform.position.x += correction.x;
 						transform.position.z += correction.z;
+						
+						if ( stats.noclipped ) transform.position.y += correction.y;
 					}
 				}
 				stats.updateCamera = (stats.walking = true);
 			}
 			if ( keys.left || keys.right ) {
 				int polarity = keys.right ? 1 : -1;
-				float mag = uf::vector::magnitude(physics.linear.velocity * pod::Vector3{1, 0, 1});
+				float mag = uf::vector::magnitude(physics.linear.velocity); // * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.right * speed.move * polarity);
 				} else mag = speed.limitSquared;
@@ -511,6 +529,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( collider.body && !collider.shared ) {
 					physics.linear.velocity.x = queued.x;
 					physics.linear.velocity.z = queued.z;
+					
+					if ( stats.noclipped ) physics.linear.velocity.y = queued.y;
 				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
 				#endif
@@ -520,6 +540,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( collider.body && !collider.shared ) {
 					physics.linear.velocity.x = 0;
 					physics.linear.velocity.z = 0;
+					
+					if ( stats.noclipped ) physics.linear.velocity.y = 0;
 				#if UF_USE_BULLET
 					ext::bullet::move( collider, physics.linear.velocity );
 				#endif

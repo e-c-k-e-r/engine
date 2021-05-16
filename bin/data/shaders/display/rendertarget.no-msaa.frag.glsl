@@ -4,6 +4,7 @@
 
 #define TEXTURES 1
 #define DEFERRED_SAMPLING 0
+#define MULTISAMPLING 0
 
 #include "../common/macros.h"
 #include "../common/structs.h"

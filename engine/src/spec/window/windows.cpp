@@ -992,8 +992,9 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
-					json["window"]["size"]["x"] = event.window.size.x;
-					json["window"]["size"]["y"] = event.window.size.y;
+					json["window"]["size"] = uf::vector::encode(event.window.size);
+				//	json["window"]["size"]["x"] = event.window.size.x;
+				//	json["window"]["size"]["y"] = event.window.size.y;
 					this->pushEvent(event.type, json);
 				}
 				
@@ -1028,8 +1029,9 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				{
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
-					json["window"]["size"]["x"] = event.window.size.x;
-					json["window"]["size"]["y"] = event.window.size.y;
+					json["window"]["size"] = uf::vector::encode(event.window.size);
+				//	json["window"]["size"]["x"] = event.window.size.x;
+				//	json["window"]["size"]["y"] = event.window.size.y;
 					this->pushEvent(event.type, json);
 				}
 			} else {
@@ -1255,8 +1257,9 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 
-				json["mouse"]["position"]["x"]		= event.mouse.position.x;
-				json["mouse"]["position"]["y"]		= event.mouse.position.y;
+				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+			//	json["mouse"]["position"]["x"]		= event.mouse.position.x;
+			//	json["mouse"]["position"]["y"]		= event.mouse.position.y;
 				json["mouse"]["delta"] 				= event.mouse.delta;
 
 				this->pushEvent(event.type, json);
@@ -1322,13 +1325,15 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			#if USE_OPTIMAL
 				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
 			#endif
-								json["type"] = event.type;
+				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 
-				json["mouse"]["position"]["x"]		= event.mouse.position.x;
-				json["mouse"]["position"]["y"]		= event.mouse.position.y;
-				json["mouse"]["delta"]["x"] 		= event.mouse.delta.x;
-				json["mouse"]["delta"]["y"] 		= event.mouse.delta.y;
+				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+				json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
+			//	json["mouse"]["position"]["x"]		= event.mouse.position.x;
+			//	json["mouse"]["position"]["y"]		= event.mouse.position.y;
+			//	json["mouse"]["delta"]["x"] 		= event.mouse.delta.x;
+			//	json["mouse"]["delta"]["y"] 		= event.mouse.delta.y;
 				json["mouse"]["button"] 			= event.mouse.button;
 				switch (event.mouse.state) {
 					case 1:
@@ -1441,12 +1446,15 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 
-				json["mouse"]["position"]["x"] = event.mouse.position.x;
-				json["mouse"]["position"]["y"] = event.mouse.position.y;
-				json["mouse"]["delta"]["x"] = event.mouse.delta.x;
-				json["mouse"]["delta"]["y"] = event.mouse.delta.y;
-				json["mouse"]["size"]["x"] = event.mouse.size.x;
-				json["mouse"]["size"]["y"] = event.mouse.size.y;
+			//	json["mouse"]["position"]["x"] = event.mouse.position.x;
+			//	json["mouse"]["position"]["y"] = event.mouse.position.y;
+			//	json["mouse"]["delta"]["x"] = event.mouse.delta.x;
+			//	json["mouse"]["delta"]["y"] = event.mouse.delta.y;
+			//	json["mouse"]["size"]["x"] = event.mouse.size.x;
+			//	json["mouse"]["size"]["y"] = event.mouse.size.y;
+				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+				json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
+				json["mouse"]["size"] = uf::vector::encode(event.mouse.size);
 				switch (event.mouse.state) {
 					case 1:
 						json["mouse"]["state"] = "Entered";
