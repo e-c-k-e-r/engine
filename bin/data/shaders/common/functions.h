@@ -12,16 +12,6 @@ vec3 orthogonal(vec3 u){
 	const vec3 v = vec3(0.99146, 0.11664, 0.05832); // Pick any normalized vector.
 	return abs(dot(u, v)) > 0.99999f ? cross(u, vec3(0, 1, 0)) : cross(u, v);
 }
-void whitenoise(inout vec3 color, const vec4 parameters) {
-	const float flicker = parameters.x;
-	const float pieces = parameters.y;
-	const float blend = parameters.z;
-	const float time = parameters.w;
-	if ( blend < 0.0001 ) return;
-	const float freq = sin(pow(mod(time, flicker) + flicker, 1.9));
-	const float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
-	color = mix( color, vec3(whiteNoise), blend );
-}
 vec3 decodeNormals( vec2 enc ) {
 	const vec2 ang = enc*2-1;
 	const vec2 scth = vec2( sin(ang.x * PI), cos(ang.x * PI) );
@@ -33,13 +23,11 @@ vec2 encodeNormals( vec3 n ) {
 //	return n.xy/p + 0.5;
 	return (vec2(atan(n.y,n.x)/PI, n.z)+1.0)*0.5;
 }
-float mipLevel( in vec2 uv ) {
-	const vec2 dx_vtc = dFdx(uv);
-	const vec2 dy_vtc = dFdy(uv);
-	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
-}
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_TEXTURES;
+}
+bool validCubemapIndex( int textureIndex ) {
+	return 0 <= textureIndex && textureIndex < CUBEMAPS;
 }
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const vec3 t0 = (boundsMin - ray.origin) / ray.direction;
@@ -49,6 +37,28 @@ vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const float tStart = max(0, max( max(tmin.x, tmin.y), tmin.z ));
 	const float tEnd = max(0, min( tmax.x, min(tmax.y, tmax.z) ) - tStart);
 	return vec2(tStart, tEnd);
+}
+#if VXGI
+float cascadePower( uint x ) {
+	return pow(1 + x, ubo.cascadePower);
+//	return max( 1, x * ubo.cascadePower );
+}
+#endif
+#if !COMPUTE
+void whitenoise(inout vec3 color, const vec4 parameters) {
+	const float flicker = parameters.x;
+	const float pieces = parameters.y;
+	const float blend = parameters.z;
+	const float time = parameters.w;
+	if ( blend < 0.0001 ) return;
+	const float freq = sin(pow(mod(time, flicker) + flicker, 1.9));
+	const float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
+	color = mix( color, vec3(whiteNoise), blend );
+}
+float mipLevel( in vec2 uv ) {
+	const vec2 dx_vtc = dFdx(uv);
+	const vec2 dy_vtc = dFdy(uv);
+	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
 vec4 resolve( subpassInputMS t, const uint samples ) {
 	vec4 resolved = vec4(0);
@@ -62,6 +72,7 @@ uvec4 resolve( usubpassInputMS t, const uint samples ) {
 	resolved /= uvec4(samples);
 	return resolved;
 }
+#endif
 vec4 resolve( sampler2DMS t, ivec2 uv ) {
 	vec4 resolved = vec4(0);
 	int samples = textureSamples(t);

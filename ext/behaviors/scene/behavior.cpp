@@ -225,7 +225,12 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadataJson["light"]["fog"]["density"]["scale"] = metadata.fog.density.scale;
 	};
 	metadata.deserialize = [&](){
-		metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
+		if ( !metadataJson["light"]["point light eye depth scale"].is<float>() )
+			metadataJson["light"]["point light eye depth scale"] = ext::config["engine"]["scenes"]["lights"]["point light eye depth scale"];
+
+		metadata.max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>();
+		metadata.max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>();
+		metadata.max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>();
 		metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 		metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
@@ -237,6 +242,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
 		metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
 		metadata.light.gamma = metadataJson["light"]["gamma"].as<float>(2.2f);
+
+		metadata.light.experimentalMode = ext::config["engine"]["scenes"]["experimental mode"].as<size_t>(0);
+		metadata.light.vxgiShadowSamples = ext::config["engine"]["scenes"]["vxgi shadow samples"].as<size_t>(0);
 
 		metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
 		metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
@@ -366,7 +374,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #else
-	if ( !metadata.max.textures ) metadata.max.textures = ext::config["engine"]["scenes"]["textures"]["max"].as<size_t>();
+	if ( !metadata.max.textures2D ) metadata.max.textures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>();
+	if ( !metadata.max.texturesCube ) metadata.max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>();
+	if ( !metadata.max.textures3D ) metadata.max.textures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>();
 	if ( !metadata.max.lights ) metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>();
 
 	if ( !metadata.light.enabled ) metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>() && metadataJson["light"]["should"].as<bool>();
@@ -453,7 +463,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		for ( ; i < metadata.max.lights; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
 	}
 #elif UF_USE_VULKAN
-	size_t maxTextures = metadata.max.textures;
 	struct UniformDescriptor {
 		struct Matrices {
 			alignas(16) pod::Matrix4f view[2];
@@ -496,11 +505,12 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		alignas(4) uint32_t msaa;
 		alignas(4) uint32_t shadowSamples;
 		alignas(4) float cascadePower;
+		
+		alignas(4) uint32_t indexSkybox;
+		alignas(4) uint32_t vxgiShadowSamples;
+		alignas(4) uint32_t padding1;
+		alignas(4) uint32_t padding2;
 	};
-	struct SpecializationConstant {
-		uint32_t maxTextures = 512;
-	} specializationConstants;
-	specializationConstants.maxTextures = maxTextures;
 
 	struct LightInfo {
 		uf::Entity* entity = NULL;
@@ -561,190 +571,226 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		}
 		entities = scratch;
 	}
+	
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
+
+	std::vector<uf::renderer::Texture> textures2D;
+	std::vector<uf::renderer::Texture> textures3D;
+	std::vector<uf::renderer::Texture> texturesCube;
+
+	int32_t updateThreshold = metadata.light.updateThreshold;
+
+	std::vector<pod::Light::Storage> lights;
+	lights.reserve( metadata.max.lights );
+
+	std::vector<pod::Material::Storage> materials;
+	materials.reserve(metadata.max.textures2D);
+	materials.emplace_back().colorBase = {0,0,0,0};
+
+	std::vector<pod::Texture::Storage> textures;
+	textures.reserve(metadata.max.textures2D);
+	
+	std::vector<pod::DrawCall::Storage> drawCalls;
+	drawCalls.reserve(metadata.max.textures2D);
+
+	pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+	pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+
+	// add materials
+	for ( auto* g : graphs ) {
+		auto& graph = *g;
+
+		drawCalls.emplace_back(pod::DrawCall::Storage{
+			materials.size(),
+			graph.materials.size(),
+			textures.size(),
+			graph.textures.size()
+		});
+		
+		for ( auto& material : graph.materials ) materials.emplace_back( material.storage );
+		for ( auto& texture : graph.textures ) textures.emplace_back( texture.storage );
+
+		for ( auto& texture : graph.textures ) {
+			if ( !texture.bind ) continue;
+			textures2D.emplace_back().aliasTexture(texture.texture);
+		}
+	}
+
+	// add skyboxes
+	texturesCube.emplace_back().aliasTexture(sceneTextures.skybox);
+	textures3D.emplace_back().aliasTexture(sceneTextures.noise);
+	// add lighting
+	for ( size_t i = 0; i < entities.size() && lights.size() < metadata.max.lights; ++i ) {
+		auto& info = entities[i];
+		uf::Entity* entity = info.entity;
+
+		auto& transform = entity->getComponent<pod::Transform<>>();
+		auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
+		auto& lightCamera = entity->getComponent<uf::Camera>();
+		lightMetadata.renderer.rendered = true;
+
+		pod::Light::Storage light;
+		light.position = info.position;
+
+		light.color = info.color;
+		light.type = info.type;
+		light.typeMap = 0;
+		light.indexMap = -1;
+
+		light.depthBias = info.bias;
+		if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+			if ( lightMetadata.renderer.mode == "in-range" && --updateThreshold > 0 ) {
+				renderMode.execute = true;
+			//	UF_DEBUG_MSG( renderModeName << "\t" << entity->getName() << "\t" << renderMode.execute );
+			}
+			// cubemap
+			if ( metadata.light.experimentalMode > 0 && renderMode.renderTarget.views == 6 ) {
+				light.typeMap = metadata.light.experimentalMode;
+				light.view = lightCamera.getView(0);
+				light.projection = lightCamera.getProjection(0);
+
+				if ( light.typeMap == 2 ) {
+					light.indexMap = textures2D.size();
+					for ( auto& attachment : renderMode.renderTarget.attachments ) {
+						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {			
+							textures2D.emplace_back().aliasAttachment(attachment, view);
+						}
+						break;
+					}
+				} else {
+					light.indexMap = texturesCube.size();
+					for ( auto& attachment : renderMode.renderTarget.attachments ) {
+						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						texturesCube.emplace_back().aliasAttachment(attachment);
+						break;
+					}
+				}
+				
+				lights.emplace_back(light);
+			} else {
+				for ( auto& attachment : renderMode.renderTarget.attachments ) {
+					if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+					for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
+
+						light.indexMap = textures2D.size();
+						light.view = lightCamera.getView(view);
+						light.projection = lightCamera.getProjection(view);
+						lights.emplace_back(light);
+						
+						textures2D.emplace_back().aliasAttachment(attachment, view);
+					}
+				}
+			}
+			light.indexMap = -1;
+		} else {
+			lights.emplace_back(light);
+		}
+	}
+
+	// add VXGI
+	if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
+		for ( auto& t : sceneTextures.voxels.id ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.uv ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.normal ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.radiance ) textures3D.emplace_back().aliasTexture(t);
+	}
+
+//	UF_DEBUG_MSG( "Before: " << textures2D.size() << " | " << metadata.max.textures2D << " || " << texturesCube.size() << " | " << metadata.max.texturesCube << " || " << textures3D.size() << " | " << metadata.max.textures3D );
+	while ( textures2D.size() < metadata.max.textures2D ) textures2D.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+	while ( texturesCube.size() < metadata.max.texturesCube ) texturesCube.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
+	while ( textures3D.size() < metadata.max.textures3D ) textures3D.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
+//	UF_DEBUG_MSG( "After: " << textures2D.size() << " | " << metadata.max.textures2D << " || " << texturesCube.size() << " | " << metadata.max.texturesCube << " || " << textures3D.size() << " | " << metadata.max.textures3D );
+
+	UniformDescriptor uniforms; {
+		for ( std::size_t i = 0; i < 2; ++i ) {
+			uniforms.matrices.view[i] = camera.getView( i );
+			uniforms.matrices.projection[i] = camera.getProjection( i );
+			uniforms.matrices.iView[i] = uf::matrix::inverse( uniforms.matrices.view[i] );
+			uniforms.matrices.iProjection[i] = uf::matrix::inverse( uniforms.matrices.projection[i] );
+			uniforms.matrices.iProjectionView[i] = uf::matrix::inverse( uniforms.matrices.projection[i] * uniforms.matrices.view[i] );
+
+			uniforms.matrices.eyePos[i] = camera.getEye( i );
+		}
+
+		uniforms.ambient = metadata.light.ambient;
+		uniforms.msaa = ext::vulkan::settings::msaa;
+		uniforms.shadowSamples = shadowSamples;
+		uniforms.exposure = metadata.light.exposure;
+		uniforms.gamma = metadata.light.gamma;
+
+		uniforms.indexSkybox = 0;
+		uniforms.vxgiShadowSamples = metadata.light.vxgiShadowSamples;
+	
+		uniforms.fog.color = metadata.fog.color;
+		uniforms.fog.color.w = metadata.fog.stepScale;
+		float timescale = metadata.fog.density.timescale;
+		uniforms.fog.offset = metadata.fog.density.offset * uf::physics::time::current * timescale;
+		uniforms.fog.offset.w = metadata.fog.density.scale;
+		uniforms.fog.densityThreshold = metadata.fog.density.threshold;
+		uniforms.fog.densityMultiplier = metadata.fog.density.multiplier;
+		uniforms.fog.absorbtion = metadata.fog.absorbtion;
+		uniforms.fog.range = metadata.fog.range;
+
+		uniforms.mode.type.x = metadataJson["system"]["renderer"]["shader"]["mode"].as<size_t>();
+		uniforms.mode.type.y = metadataJson["system"]["renderer"]["shader"]["scalar"].as<size_t>();
+		uniforms.mode.parameters = uf::vector::decode( metadataJson["system"]["renderer"]["shader"]["parameters"], uniforms.mode.parameters );
+		if ( metadataJson["system"]["renderer"]["shader"]["parameters"][3].as<std::string>() == "time" ) {
+			uniforms.mode.parameters.w = uf::physics::time::current;
+		}
+
+		uniforms.matrices.vxgi = sceneTextures.voxels.matrix;
+		uniforms.cascadePower = sceneTextures.voxels.cascadePower;
+
+		uniforms.lengths.materials = std::min( materials.size(), metadata.max.textures2D );
+		uniforms.lengths.textures = std::min( textures.size(), metadata.max.textures2D );
+		uniforms.lengths.drawCalls = std::min( drawCalls.size(), metadata.max.textures2D );
+		uniforms.lengths.lights = std::min( lights.size(), metadata.max.lights );
+	}
+
 	for ( auto* blitter : blitters ) {
 		auto& graphic = *blitter;
 		if ( !graphic.initialized ) continue;
 
 		auto& shader = graphic.material.getShader(isCompute ? "compute" : "fragment");
-		auto& uniform = shader.getUniform("UBO");
-		uint8_t* buffer = (uint8_t*) (void*) uniform;
-
-		UniformDescriptor* uniforms = (UniformDescriptor*) buffer;
-
-		for ( std::size_t i = 0; i < 2; ++i ) {
-			uniforms->matrices.view[i] = camera.getView( i );
-			uniforms->matrices.projection[i] = camera.getProjection( i );
-			uniforms->matrices.iView[i] = uf::matrix::inverse( uniforms->matrices.view[i] );
-			uniforms->matrices.iProjection[i] = uf::matrix::inverse( uniforms->matrices.projection[i] );
-			uniforms->matrices.iProjectionView[i] = uf::matrix::inverse( uniforms->matrices.projection[i] * uniforms->matrices.view[i] );
-
-			uniforms->matrices.eyePos[i] = camera.getEye( i );
-		}
-
-		uniforms->ambient = metadata.light.ambient;
-		uniforms->msaa = ext::vulkan::settings::msaa;
-		uniforms->shadowSamples = shadowSamples;
-		uniforms->exposure = metadata.light.exposure;
-		uniforms->gamma = metadata.light.gamma;
-	
-		uniforms->fog.color = metadata.fog.color;
-		uniforms->fog.color.w = metadata.fog.stepScale;
-
-		float timescale = metadata.fog.density.timescale;
-		uniforms->fog.offset = metadata.fog.density.offset * uf::physics::time::current * timescale;
-		uniforms->fog.offset.w = metadata.fog.density.scale;
-
-		uniforms->fog.densityThreshold = metadata.fog.density.threshold;
-		uniforms->fog.densityMultiplier = metadata.fog.density.multiplier;
-		uniforms->fog.absorbtion = metadata.fog.absorbtion;
-
-		uniforms->fog.range = metadata.fog.range;
-
-		uniforms->mode.type.x = metadataJson["system"]["renderer"]["shader"]["mode"].as<size_t>();
-		uniforms->mode.type.y = metadataJson["system"]["renderer"]["shader"]["scalar"].as<size_t>();
-		uniforms->mode.parameters = uf::vector::decode( metadataJson["system"]["renderer"]["shader"]["parameters"], uniforms->mode.parameters );
-		if ( metadataJson["system"]["renderer"]["shader"]["parameters"][3].as<std::string>() == "time" ) {
-			uniforms->mode.parameters.w = uf::physics::time::current;
-		}
-
+		
 		std::vector<VkImage> previousTextures;
 		for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
-
 		graphic.material.textures.clear();
-		if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
-			for ( auto& t : sceneTextures.voxels.id ) {
-				graphic.material.textures.emplace_back().aliasTexture(t);
-			}
-			for ( auto& t : sceneTextures.voxels.uv ) {
-				graphic.material.textures.emplace_back().aliasTexture(t);
-			}
-			for ( auto& t : sceneTextures.voxels.normal ) {
-				graphic.material.textures.emplace_back().aliasTexture(t);
-			}
-			for ( auto& t : sceneTextures.voxels.radiance ) {
-				graphic.material.textures.emplace_back().aliasTexture(t);
-			}
+
+		// attach our textures
+		for ( auto& t : textures2D ) graphic.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : texturesCube ) graphic.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : textures3D ) graphic.material.textures.emplace_back().aliasTexture(t);
+
+		bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();
+		for ( size_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
+			if ( previousTextures[i] != graphic.material.textures[i].image )
+				shouldUpdate = true;
 		}
 		
-		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.noise);
-		graphic.material.textures.emplace_back().aliasTexture(sceneTextures.skybox);
-
-		int32_t updateThreshold = metadata.light.updateThreshold;
-		size_t textureSlot = 0;
-
-		std::vector<pod::Light::Storage> lights;
-		lights.reserve( metadata.max.lights );
-
-		std::vector<pod::Material::Storage> materials;
-		materials.reserve(maxTextures);
-		materials.emplace_back().colorBase = {0,0,0,0};
-
-		std::vector<pod::Texture::Storage> textures;
-		textures.reserve(maxTextures);
+		size_t lightBufferIndex = renderMode.metadata["lightBufferIndex"].as<size_t>();
+		graphic.updateBuffer( (void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light::Storage), lightBufferIndex, false );
 		
-		std::vector<pod::DrawCall::Storage> drawCalls;
-		drawCalls.reserve(maxTextures);
+		if ( shouldUpdate ) {
+			size_t materialBufferIndex = renderMode.metadata["materialBufferIndex"].as<size_t>();
+			graphic.updateBuffer( (void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material::Storage), materialBufferIndex, false );
 
-		pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-		pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-
-		// add materials
-		for ( auto* g : graphs ) {
-			auto& graph = *g;
-
-			drawCalls.emplace_back(pod::DrawCall::Storage{
-				materials.size(),
-				graph.materials.size(),
-				textures.size(),
-				graph.textures.size()
-			});
+			size_t textureBufferIndex = renderMode.metadata["textureBufferIndex"].as<size_t>();
+			graphic.updateBuffer( (void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture::Storage), textureBufferIndex, false );
 			
-			for ( auto& material : graph.materials ) materials.emplace_back( material.storage );
-			for ( auto& texture : graph.textures ) textures.emplace_back( texture.storage );
+			size_t drawCallBufferIndex = renderMode.metadata["drawCallBufferIndex"].as<size_t>();
+			graphic.updateBuffer( (void*) drawCalls.data(), uniforms.lengths.drawCalls * sizeof(pod::DrawCall::Storage), drawCallBufferIndex, false );
 
-			for ( auto& texture : graph.textures ) {
-				if ( !texture.bind ) continue;
-				graphic.material.textures.emplace_back().aliasTexture(texture.texture);
-				++textureSlot;
-			}
+			graphic.updatePipelines();
 		}
-		uniforms->matrices.vxgi = sceneTextures.voxels.matrix;
-		uniforms->cascadePower = sceneTextures.voxels.cascadePower;
+		
+		auto& uniform = shader.getUniform("UBO");
+		memcpy( (void*) uniform, &uniforms, sizeof(uniforms) );
 
-		uniforms->lengths.materials = std::min( materials.size(), maxTextures );
-		uniforms->lengths.textures = std::min( textures.size(), maxTextures );
-		uniforms->lengths.drawCalls = std::min( drawCalls.size(), maxTextures );
-		// add lighting
-		for ( size_t i = 0; i < entities.size() && lights.size() < metadata.max.lights; ++i ) {
-			auto& info = entities[i];
-			uf::Entity* entity = info.entity;
-
-			auto& transform = entity->getComponent<pod::Transform<>>();
-			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-			auto& camera = entity->getComponent<uf::Camera>();
-			metadata.renderer.rendered = true;
-
-			pod::Light::Storage light;
-			light.position = info.position;
-
-			light.color = info.color;
-			light.type = info.type;
-			light.mapIndex = -1;
-
-			light.depthBias = info.bias;
-			if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				if ( metadata.renderer.mode == "in-range" && --updateThreshold > 0 ) {
-					renderMode.execute = true;
-				//	UF_DEBUG_MSG( renderModeName << "\t" << entity->getName() << "\t" << renderMode.execute );
-				}
-				size_t view = 0;
-				for ( auto& attachment : renderMode.renderTarget.attachments ) {
-					if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
-
-					graphic.material.textures.emplace_back().aliasAttachment(attachment);
-
-					light.mapIndex = textureSlot++;
-					light.view = camera.getView(view);
-					light.projection = camera.getProjection(view);
-					lights.emplace_back(light);
-
-					++view;
-				}
-				light.mapIndex = -1;
-			} else {
-				lights.emplace_back(light);
-			}
-		}
-
-		{
-			uniforms->lengths.lights = std::min( lights.size(), metadata.max.lights );
-			bool shouldUpdate = graphic.material.textures.size() != previousTextures.size();
-			for ( size_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
-				if ( previousTextures[i] != graphic.material.textures[i].image )
-					shouldUpdate = true;
-			}
-			
-			size_t lightBufferIndex = renderMode.metadata["lightBufferIndex"].as<size_t>();
-			graphic.updateBuffer( (void*) lights.data(), uniforms->lengths.lights * sizeof(pod::Light::Storage), lightBufferIndex, false );
-			
-			if ( shouldUpdate ) {
-				size_t materialBufferIndex = renderMode.metadata["materialBufferIndex"].as<size_t>();
-				graphic.updateBuffer( (void*) materials.data(), uniforms->lengths.materials * sizeof(pod::Material::Storage), materialBufferIndex, false );
-
-				size_t textureBufferIndex = renderMode.metadata["textureBufferIndex"].as<size_t>();
-				graphic.updateBuffer( (void*) textures.data(), uniforms->lengths.textures * sizeof(pod::Texture::Storage), textureBufferIndex, false );
-				
-				size_t drawCallBufferIndex = renderMode.metadata["drawCallBufferIndex"].as<size_t>();
-				graphic.updateBuffer( (void*) drawCalls.data(), uniforms->lengths.drawCalls * sizeof(pod::DrawCall::Storage), drawCallBufferIndex, false );
-
-				graphic.updatePipelines();
-			}
-			
-			shader.updateUniform( "UBO", uniform );	
-		}
+		shader.updateUniform( "UBO", uniform );	
 	}
 #endif
 }

@@ -4,9 +4,10 @@
 
 #define BLEND 1
 #define DEPTH_TEST 1
+#define CUBEMAPS 1
 
-layout (constant_id = 0) const uint CASCADES = 16;
-layout (constant_id = 1) const uint TEXTURES = 512;
+layout (constant_id = 0) const uint TEXTURES = 512;
+layout (constant_id = 1) const uint CASCADES = 16;
 
 #define MAX_TEXTURES textures.length()
 #include "../common/macros.h"

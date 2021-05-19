@@ -3,6 +3,7 @@
 #extension GL_EXT_samplerless_texture_functions : require
 
 #define TEXTURES 1
+#define CUBEMAPS 1
 #define DEFERRED_SAMPLING 0
 #define MULTISAMPLING 0
 

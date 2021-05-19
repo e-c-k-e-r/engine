@@ -92,29 +92,41 @@ namespace {
 		#if UF_USE_VULKAN
 			{
 				auto& shader = graphic.material.getShader("fragment", "vxgi");
+			/*
 				struct SpecializationConstant {
-					uint32_t cascades = 16;
 					uint32_t textures = 1;
+					uint32_t cascades = 16;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
 				specializationConstants.textures = texture2Ds;
-				specializationConstants.cascades = texture3Ds / 4; // 5;
-				ext::json::forEach( shader.metadata["specializationConstants"], [&]( ext::json::Value& sc ){
+				specializationConstants.cascades = texture3Ds / 4;
+			*/
+				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+				size_t maxTextures = texture2Ds;
+				size_t maxCascades = texture3Ds / 4;
+
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					std::string name = sc["name"].as<std::string>();
-					if ( name == "TEXTURES" ) sc["value"] = specializationConstants.textures;
-					else if ( name == "CASCADES" ) sc["value"] = specializationConstants.cascades;
+					if ( name == "TEXTURES" ) {
+						sc["value"] = (specializationConstants[i] = maxTextures);
+					//	sc["value"] = specializationConstants.textures;
+					}
+					else if ( name == "CASCADES" ) {
+						sc["value"] = (specializationConstants[i] = maxCascades);
+					//	sc["value"] = specializationConstants.cascades;
+					}
 				});
 				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
 					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
-						if ( name == "samplerTextures" ) layout.descriptorCount = specializationConstants.textures;
-						else if ( name == "voxelId" ) layout.descriptorCount = specializationConstants.cascades;
-						else if ( name == "voxelUv" ) layout.descriptorCount = specializationConstants.cascades;
-						else if ( name == "voxelNormal" ) layout.descriptorCount = specializationConstants.cascades;
-						else if ( name == "voxelRadiance" ) layout.descriptorCount = specializationConstants.cascades;
-					//	else if ( name == "voxelDepth" ) layout.descriptorCount = specializationConstants.cascades;
+						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+						else if ( name == "voxelId" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelUv" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+						else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
+					//	else if ( name == "voxelDepth" ) layout.descriptorCount = maxCascades;
 					}
 				});
 			}

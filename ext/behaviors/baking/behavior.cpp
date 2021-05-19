@@ -226,7 +226,7 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 
 				light.color = info.color;
 				light.type = info.type;
-				light.mapIndex = -1;
+				light.indexMap = -1;
 
 				light.depthBias = info.bias;
 				if ( info.shadows && entity->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
@@ -238,14 +238,14 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 
 						graphic.material.textures.emplace_back().aliasAttachment(attachment);
 
-						light.mapIndex = textureSlot++;
+						light.indexMap = textureSlot++;
 						light.view = camera.getView(view);
 						light.projection = camera.getProjection(view);
 						lights.emplace_back(light);
 
 						++view;
 					}
-					light.mapIndex = -1;
+					light.indexMap = -1;
 				} else {
 					lights.emplace_back(light);
 				}

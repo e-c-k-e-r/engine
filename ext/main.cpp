@@ -775,6 +775,11 @@ void EXT_API ext::terminate() {
 		ext::openvr::terminate();
 	}
 #endif
+#if UF_USE_LUA
+	{
+		ext::lua::terminate();
+	}
+#endif
 	uf::scene::destroy();
 
 	/* Garbage collection */ if ( false ) {

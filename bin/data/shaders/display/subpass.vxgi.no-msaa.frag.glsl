@@ -8,10 +8,6 @@
 void main() {
 	populateSurface();
 	indirectLighting();
-
-	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
-	surface.fragment.rgb += (0 <= surface.material.indexLightmap) ? (surface.material.albedo.rgb + ambient) : (surface.material.albedo.rgb * ambient);
-
-	pbr();
+	directLighting();
 	postProcess();
 }

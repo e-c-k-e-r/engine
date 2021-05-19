@@ -12,7 +12,7 @@
 #include <regex>
 
 #define VK_DEBUG_VALIDATION_MESSAGE(x)\
-	//VK_VALIDATION_MESSAGE(x);
+//	VK_VALIDATION_MESSAGE(x);
 
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
@@ -239,6 +239,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 
 			void* s = (void*) shader.specializationConstants;
 			size_t len = shader.specializationConstants.data().len;
+			bool invalidated = true;
 			for ( size_t i = 0; i < len / 4; ++i ) {
 				auto& payload = shader.metadata["specializationConstants"][i];
 				std::string type = payload["type"].as<std::string>();
@@ -248,6 +249,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					if ( payload["validate"].as<bool>() && v == 0 ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<int32_t>() ? payload["value"].as<int32_t>() : payload["default"].as<int32_t>();
+						invalidated = true;
 					}
 					payload["value"] = v;
 				} else if ( type == "uint32_t" ) {
@@ -256,6 +258,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					if ( payload["validate"].as<bool>() && v == 0 ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<uint32_t>() ? payload["value"].as<uint32_t>() : payload["default"].as<uint32_t>();
+						invalidated = true;
 					}
 					payload["value"] = v;
 				} else if ( type == "float" ) {
@@ -264,21 +267,23 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					if ( payload["validate"].as<bool>() && v == 0 ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
 						v = payload["value"].is<float>() ? payload["value"].as<float>() : payload["default"].as<float>();
+						invalidated = true;
 					}
 					payload["value"] = v;
 				}
 			}
 			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
-
-
-			{
-				shader.specializationInfo = {};
-				shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
+			if ( invalidated ) {
+			//	shader.specializationInfo = {};
+			//	shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
 				shader.specializationInfo.pMapEntries = shader.specializationMapEntries.data();
 				shader.specializationInfo.pData = (void*) shader.specializationConstants;
-				shader.specializationInfo.dataSize = shader.specializationConstants.data().len;
+			//	shader.specializationInfo.dataSize = shader.specializationConstants.data().len;
 				shader.descriptor.pSpecializationInfo = &shader.specializationInfo;
 			}
+			
+			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.specializationInfo.dataSize );
+			
 			shaderDescriptors.push_back(shader.descriptor);
 		}
 
@@ -371,7 +376,13 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	struct {
 		std::vector<VkDescriptorBufferInfo> uniform;
 		std::vector<VkDescriptorBufferInfo> storage;
+		
 		std::vector<VkDescriptorImageInfo> image;
+		std::vector<VkDescriptorImageInfo> image2D;
+		std::vector<VkDescriptorImageInfo> imageCube;
+		std::vector<VkDescriptorImageInfo> image3D;
+		std::vector<VkDescriptorImageInfo> imageUnknown;
+
 		std::vector<VkDescriptorImageInfo> sampler;
 		std::vector<VkDescriptorImageInfo> input;
 	} infos;
@@ -380,8 +391,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 		auto& subpass = renderTarget.passes[descriptor.subpass];
 		for ( auto& input : subpass.inputs ) {
 			infos.input.push_back(ext::vulkan::initializers::descriptorImageInfo( 
-				renderTarget.attachments[input.attachment].view,
-			//	input.layout
+				renderTarget.attachments[input.attachment].views[subpass.layer],
 				input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
 			));
 		}
@@ -390,13 +400,26 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	{
 		for ( auto& texture : graphic.material.textures ) {
 			infos.image.emplace_back(texture.descriptor);
+			switch ( texture.viewType ) {
+				case VK_IMAGE_VIEW_TYPE_2D:
+					infos.image2D.emplace_back(texture.descriptor);
+				break;
+				case VK_IMAGE_VIEW_TYPE_CUBE:
+					infos.imageCube.emplace_back(texture.descriptor);
+				break;
+				case VK_IMAGE_VIEW_TYPE_3D:
+					infos.image3D.emplace_back(texture.descriptor);
+				break;
+				default:
+					infos.imageUnknown.emplace_back(texture.descriptor);
+				break;
+			}
 		}
-		for ( auto& sampler : graphic.material.samplers ) {
-			infos.sampler.emplace_back(sampler.descriptor.info);
-		}
+		for ( auto& sampler : graphic.material.samplers ) infos.sampler.emplace_back(sampler.descriptor.info);
 	}
 
-	ext::json::Value bindingMapping;
+	size_t consumes = 0;
+	std::vector<std::string> types;
 	for ( auto* shaderPointer : shaders ) {
 		auto& shader = *shaderPointer;
 
@@ -413,8 +436,6 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 		PARSE_BUFFER(graphic.buffers)
 
 		// check if we can even consume that many infos
-		size_t consumes = 0;
-		std::vector<std::string> types;
 		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 			switch ( layout.descriptorType ) {
 				// consume an texture image info
@@ -422,43 +443,57 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					consumes += layout.descriptorCount;
-					std::string imageType = "";
 					std::string binding = std::to_string(layout.binding);
-					for ( auto* shaderPointer : shaders ) {
-						auto& shader = *shaderPointer;
-
-						auto& info = shader.metadata["definitions"]["textures"][binding];
-						if ( ext::json::isNull(info) ) continue;
-						imageType = info["type"].as<std::string>();
-						break;
-					}
+					std::string imageType = shader.metadata["definitions"]["textures"][binding]["type"].as<std::string>();					
 					types.reserve(consumes);
 					for ( size_t i = 0; i < layout.descriptorCount; ++i ) types.emplace_back(imageType);
 				} break;
 			}
 		}
-		for ( size_t i = infos.image.size(); i < consumes; ++i ) {
-			std::string type = i < types.size() ? types[i] : "";
-			if ( type == "3D" ) {
-				infos.image.push_back(Texture3D::empty.descriptor);
-			} else if ( type == "Cube" ) {
-				infos.image.push_back(TextureCube::empty.descriptor);
-			} else {
-				infos.image.push_back(Texture2D::empty.descriptor);
-			}
-		}
+	}
+	
+	size_t maxTextures2D = 0;
+	size_t maxTextures3D = 0;
+	size_t maxTexturesCube = 0;
+	size_t maxTexturesUnknown = 0;
+	for ( auto& type : types ) {
+		if ( type == "3D" ) ++maxTextures3D;
+		else if ( type == "Cube" ) ++maxTexturesCube;
+		else if ( type == "2D" ) ++maxTextures2D;
+		else ++maxTexturesUnknown;
 	}
 
+	while ( infos.image2D.size() < maxTextures2D ) infos.image2D.push_back(Texture2D::empty.descriptor);
+	while ( infos.imageCube.size() < maxTexturesCube ) infos.imageCube.push_back(TextureCube::empty.descriptor);
+	while ( infos.image3D.size() < maxTextures3D ) infos.image3D.push_back(Texture3D::empty.descriptor);
+	while ( infos.imageUnknown.size() < maxTexturesUnknown ) infos.imageUnknown.push_back(Texture2D::empty.descriptor);
+
+	for ( size_t i = infos.image.size(); i < consumes; ++i ) {
+		std::string type = i < types.size() ? types[i] : "";
+		if ( type == "3D" ) infos.image.push_back(Texture3D::empty.descriptor);
+		else if ( type == "Cube" ) infos.image.push_back(TextureCube::empty.descriptor);
+		else if ( type == "2D" ) infos.image.push_back(Texture2D::empty.descriptor);
+		else infos.image.push_back(Texture2D::empty.descriptor);
+	}
+	
 	auto uniformBufferInfo = infos.uniform.begin();
 	auto storageBufferInfo = infos.storage.begin();
+	
 	auto imageInfo = infos.image.begin();
+	auto image2DInfo = infos.image2D.begin();
+	auto imageCubeInfo = infos.imageCube.begin();
+	auto image3DInfo = infos.image3D.begin();
+	auto imageUnknownInfo = infos.imageUnknown.begin();
+
 	auto samplerInfo = infos.sampler.begin();
 	auto inputInfo = infos.input.begin();
+
 
 	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	for ( auto* shaderPointer : shaders ) {
 		auto& shader = *shaderPointer;
+
 	//	UF_DEBUG_MSG(shader.filename << ": ");
 	//	UF_DEBUG_MSG("\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size());
 	//	UF_DEBUG_MSG("\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size());
@@ -475,10 +510,53 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ) UF_DEBUG_MSG("\t\tCOMBINED_IMAGE_SAMPLER");
 				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) UF_DEBUG_MSG("\t\tSAMPLED_IMAGE");
 				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ) UF_DEBUG_MSG("\t\tSTORAGE_IMAGE");
-					if ( layout.descriptorCount == 1 ) {
-						VkDescriptorImageInfo i = (*imageInfo);
-					//	UF_DEBUG_MSG(i.imageView << "\t" << i.imageLayout);
+				//	if ( layout.descriptorCount == 1 ) UF_DEBUG_MSG(i.imageView << "\t" << (*imageInfo).imageLayout);
+
+				#if 1
+					std::string binding = std::to_string(layout.binding);
+					std::string imageType = shader.metadata["definitions"]["textures"][binding]["type"].as<std::string>();
+					if ( imageType == "2D" ) {
+						BREAK_ASSERT( image2DInfo == infos.image2D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&(*image2DInfo),
+							layout.descriptorCount
+						));
+						image2DInfo += layout.descriptorCount;
+					} else if ( imageType == "Cube" ) {
+						BREAK_ASSERT( imageCubeInfo == infos.imageCube.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&(*imageCubeInfo),
+							layout.descriptorCount
+						));
+						imageCubeInfo += layout.descriptorCount;
+					} else if ( imageType == "3D" ) {
+						BREAK_ASSERT( image3DInfo == infos.image3D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&(*image3DInfo),
+							layout.descriptorCount
+						));
+						image3DInfo += layout.descriptorCount;
+					} else {
+						BREAK_ASSERT( imageUnknownInfo == infos.imageUnknown.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&(*imageUnknownInfo),
+							layout.descriptorCount
+						));
+						imageUnknownInfo += layout.descriptorCount;
 					}
+				#else
 					BREAK_ASSERT( imageInfo == infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
@@ -488,6 +566,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						layout.descriptorCount
 					));
 					imageInfo += layout.descriptorCount;
+				#endif
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
 				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " INPUT_ATTACHMENT");

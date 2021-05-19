@@ -1,6 +1,7 @@
 #version 450
 #pragma shader_stage(fragment)
 
+#define CUBEMAPS 1
 #define MAX_TEXTURES TEXTURES
 layout (constant_id = 0) const uint TEXTURES = 1;
 

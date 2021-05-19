@@ -3,6 +3,7 @@
 
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#define CUBEMAPS 1
 #define MAX_TEXTURES textures.length()
 layout (constant_id = 0) const uint TEXTURES = 1;
 

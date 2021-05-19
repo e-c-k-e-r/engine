@@ -22,7 +22,6 @@ void pbr() {
 	for ( uint i = 0; i < ubo.lights; ++i ) {
 		const Light light = lights[i];
 		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-		const vec3 Lp = light.position;
 		const vec3 Liu = vec3(ubo.matrices.view[surface.pass] * vec4(light.position, 1)) - surface.position.eye;
 		const vec3 Li = normalize(Liu);
 		const float Ls = shadowFactor( light, 0.0 );

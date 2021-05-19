@@ -13,7 +13,7 @@
 #include <regex>
 
 #define VK_DEBUG_VALIDATION_MESSAGE(x)\
-	//VK_VALIDATION_MESSAGE(x);
+//	VK_VALIDATION_MESSAGE(x);
 
 ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& definition ) {
 	ext::json::Value member;
@@ -628,7 +628,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 				memcpy( &s[offset], &buffer, size );
 				offset += size;
 			}
-		/*
+		
 			{
 				specializationInfo = {};
 				specializationInfo.dataSize = specializationSize;
@@ -637,7 +637,6 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 				specializationInfo.pData = (void*) specializationConstants;
 				descriptor.pSpecializationInfo = &specializationInfo;
 			}
-		*/
 		}
 	/*
 	*/

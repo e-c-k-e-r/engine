@@ -121,6 +121,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				/*.samples =*/ 1,
 			});
 		}
+		attachments.debug = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format =*/ VK_FORMAT_R32G32B32A32_SFLOAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			/*.blend =*/ false,
+			/*.samples =*/ 1,
+		});
 		metadata["outputs"].emplace_back(attachments.output);
 	#if 0
 		attachments.debug = renderTarget.attach(RenderTarget::Attachment::Descriptor{
@@ -141,6 +148,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					/*.inputs =*/ {},
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
+					/*.layer = */0,
 					/*.autoBuildPipeline =*/ true
 				);
 			}
@@ -148,10 +156,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ { attachments.output },
+					/*.colors =*/ { attachments.output, attachments.debug },
 					/*.inputs =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.depth },
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
+					/*.layer = */0,
 					/*.autoBuildPipeline =*/ false
 				);
 			}
@@ -164,6 +173,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					/*.inputs =*/ {},
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
+					/*.layer = */0,
 					/*.autoBuildPipeline =*/ true
 				);
 			}
@@ -171,10 +181,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ { attachments.output },
+					/*.colors =*/ { attachments.output, attachments.debug },
 					/*.inputs =*/ { attachments.id, attachments.normals, attachments.albedo, attachments.depth },
 					/*.resolve =*/ {},
 					/*.depth = */ attachments.depth,
+					/*.layer = */0,
 					/*.autoBuildPipeline =*/ false
 				);
 			}
@@ -213,25 +224,37 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.shaders.back();
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"].as<size_t>(512);
+			size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
+			/*
 				struct SpecializationConstant {
-					uint32_t maxTextures = 512;
+					uint32_t maxTextures2D = 512;
+					uint32_t maxTexturesCube = 128;
 					uint32_t maxCascades = 16;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-
-				specializationConstants.maxTextures = maxTextures;
+				specializationConstants.maxTextures2D = maxTextures2D;
+				specializationConstants.maxTexturesCube = maxTexturesCube;
 				specializationConstants.maxCascades = maxCascades;
-				
+			*/
+				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
+					std::string name = sc["name"].as<std::string>();
+					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
+					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
+					else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
+				});
 				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
 					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
-						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+						else if ( name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
 						else if ( name == "voxelId" ) layout.descriptorCount = maxCascades;
 						else if ( name == "voxelUv" ) layout.descriptorCount = maxCascades;
 						else if ( name == "voxelNormal" ) layout.descriptorCount = maxCascades;
@@ -239,26 +262,37 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					}
 				});
 			} else {
+			/*
 				struct SpecializationConstant {
-					uint32_t maxTextures = 256;
+					uint32_t maxTextures2D = 512;
+					uint32_t maxTexturesCube = 128;
 				};
 				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-
-				specializationConstants.maxTextures = maxTextures;
+				specializationConstants.maxTextures2D = maxTextures2D;
+				specializationConstants.maxTexturesCube = maxTexturesCube;
+			*/
+				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+				ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
+					std::string name = sc["name"].as<std::string>();
+					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
+					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
+				});
 
 				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
-					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
 					size_t binding = t["binding"].as<size_t>();
+					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding == binding ) layout.descriptorCount = maxTextures;
+						if ( layout.binding != binding ) continue;
+						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+						else if ( name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
 					}
 				});
 			}
 
 			std::vector<pod::Light::Storage> lights(maxLights);
-			std::vector<pod::Material::Storage> materials(maxTextures);
-			std::vector<pod::Texture::Storage> textures(maxTextures);
-			std::vector<pod::DrawCall::Storage> drawCalls(maxTextures);
+			std::vector<pod::Material::Storage> materials(maxTextures2D);
+			std::vector<pod::Texture::Storage> textures(maxTextures2D);
+			std::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 

@@ -2,6 +2,7 @@
 #pragma shader_stage(fragment)
 
 #define TEXTURES 1
+#define CUBEMAPS 1
 #define MAX_TEXTURES TEXTURES
 #include "../common/macros.h"
 #include "../common/structs.h"

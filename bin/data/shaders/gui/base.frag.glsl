@@ -2,6 +2,7 @@
 #pragma shader_stage(fragment)
 
 #define TEXTURES 1
+#define CUBEMAPS 1
 #define DEFERRED_SAMPLING 0
 
 #include "../common/macros.h"

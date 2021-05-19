@@ -59,9 +59,9 @@ struct Light {
 	float power;
 	
 	int type;
-	int mapIndex;
+	int typeMap;
+	int indexMap;
 	float depthBias;
-	float padding;
 
 	mat4 view;
 	mat4 projection;
@@ -136,3 +136,12 @@ struct Voxel {
 	vec2 uv;
 	vec4 color;
 };
+
+struct VoxelInfo {
+	vec3 min;
+	vec3 max;
+
+	float mipmapLevels;
+	float radianceSize;
+	float radianceSizeRecip;
+} voxelInfo;

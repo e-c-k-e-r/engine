@@ -19,6 +19,7 @@ namespace ext {
 				VkImage image;
 				VkDeviceMemory mem;
 				VkImageView view;
+				std::vector<VkImageView> views;
 				VmaAllocation allocation;
 				VmaAllocationInfo allocationInfo;
 				VkPipelineColorBlendAttachmentState blendState;
@@ -28,6 +29,7 @@ namespace ext {
 			struct Subpass {
 				VkPipelineStageFlags stage;
 				VkAccessFlags access;
+				uint8_t layer;
 				bool autoBuildPipeline;
 
 				std::vector<VkAttachmentReference> colors;
@@ -47,7 +49,7 @@ namespace ext {
 			// RAII
 			void initialize( Device& device );
 			void destroy();
-			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t, bool = true  );
+			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t, size_t = 0, bool = true  );
 			size_t attach( const Attachment::Descriptor& descriptor, Attachment* attachment = NULL );
 		};
 	}

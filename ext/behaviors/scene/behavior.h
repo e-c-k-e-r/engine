@@ -17,7 +17,9 @@ namespace ext {
 
 		struct Metadata {
 			struct {
-				size_t textures = 256;
+				size_t textures2D = 512;
+				size_t texturesCube = 128;
+				size_t textures3D = 128;
 				size_t lights = 256;
 			} max;
 			struct {
@@ -29,6 +31,9 @@ namespace ext {
 				pod::Vector4f specular = {1,1,1,1};
 				float exposure = 1.0f;
 				float gamma = 1.0f;
+
+				size_t experimentalMode = 0;
+				size_t vxgiShadowSamples = 0;
 			} light;
 			struct {
 				pod::Vector3f color = {1,1,1};

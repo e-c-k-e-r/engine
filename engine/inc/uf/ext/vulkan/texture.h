@@ -113,6 +113,7 @@ namespace ext {
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM );
 			void aliasTexture( const Texture& );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
+			void aliasAttachment( const RenderTarget::Attachment& attachment, size_t, bool = true );
 			
 			void update( uf::Image& image, VkImageLayout, uint32_t layer = 1 );
 			void update( void*, VkDeviceSize, VkImageLayout, uint32_t layer = 1 );

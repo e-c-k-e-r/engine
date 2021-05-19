@@ -89,13 +89,18 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.descriptor.subpass = -1;
 		renderMode.blitter.process = true;
 
+		size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+		size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+		size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+
+		for ( size_t i = 0; i < maxTextures2D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);
+		for ( size_t i = 0; i < maxTexturesCube; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
+		for ( size_t i = 0; i < maxTextures3D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
+		
 		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.uv ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.normal ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.noise);
-		renderMode.blitter.material.textures.emplace_back().aliasTexture(sceneTextures.skybox);
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
 			// clear textures

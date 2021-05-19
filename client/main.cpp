@@ -20,7 +20,11 @@ int main(int argc, char** argv){
 
 	std::atexit([]{
 		uf::iostream << "Termination via std::atexit()!" << "\n";
-		client::terminated = !(client::ready = ext::ready = false);
+		ext::ready = false;
+		client::ready = false;
+		client::terminated = true;
+		ext::terminate();
+		client::terminate();
 	});
 
 	client::initialize();
@@ -46,19 +50,12 @@ int main(int argc, char** argv){
 				std::string hook = "window:Resized";
 				json["type"] = hook;
 				json["invoker"] = "ext";
-
 				json["window"]["size"] = client::config["window"]["size"];
-			//	json["window"]["size"]["x"] = client::config["window"]["size"]["x"];
-			//	json["window"]["size"]["y"] = client::config["window"]["size"]["y"];
 				uf::hooks.call(hook, json);
 			}
 		#if UF_ENV_DREAMCAST
-	//	UF_TIMER_MULTITRACE_START("==== START FRAME ====");
 			ext::render();
-	//		UF_TIMER_MULTITRACE("RENDER");
 			ext::tick();
-	//		UF_TIMER_MULTITRACE("TICK");
-	//	UF_TIMER_MULTITRACE_END("==== END FRAME ====");
 		#else
 			client::render();
 			ext::render();
@@ -81,8 +78,8 @@ int main(int argc, char** argv){
 	}
 	if ( !client::terminated ) {
 		uf::iostream << "Natural termination!" << "\n";
+		ext::terminate();
+		client::terminate();
 	}
-	ext::terminate();
-	client::terminate();
 	return 0;
 }

@@ -1,16 +1,4 @@
 // GI
-struct VoxelInfo {
-	vec3 min;
-	vec3 max;
-
-	float mipmapLevels;
-	float radianceSize;
-	float radianceSizeRecip;
-} voxelInfo;
-float cascadePower( uint x ) {
-	return pow(1 + x, ubo.cascadePower);
-//	return max( 1, x * ubo.cascadePower );
-}
 uint cascadeIndex( vec3 v ) {
 	float x = max3( abs( v ) );
 	for ( uint cascade = 0; cascade < CASCADES; ++cascade )
@@ -82,7 +70,7 @@ vec4 voxelTrace( inout Ray ray, float maxDistance ) {
 }
 uint voxelShadowsCount = 0;
 float voxelShadowFactor( const Light light, float def ) {
-	if ( voxelShadowsCount++ > ubo.shadowSamples ) return 1.0;
+	if ( voxelShadowsCount++ > ubo.vxgiShadowSamples ) return 1.0;
 
 	const float SHADOW_APERTURE = 0.2;
 	const float DEPTH_BIAS = 0.0;

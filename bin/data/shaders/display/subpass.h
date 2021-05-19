@@ -5,8 +5,9 @@
 #include "../common/macros.h"
 
 layout (constant_id = 0) const uint TEXTURES = 512;
+layout (constant_id = 1) const uint CUBEMAPS = 128;
 #if VXGI
-	layout (constant_id = 1) const uint CASCADES = 16;
+	layout (constant_id = 2) const uint CASCADES = 16;
 #endif
 
 #if !MULTISAMPLING
@@ -49,6 +50,11 @@ layout (binding = 4) uniform UBO {
 	uint msaa;
 	uint shadowSamples;
 	float cascadePower;
+
+	uint indexSkybox;
+	uint vxgiShadowSamples;
+	float pointLightEyeDepthScale;
+	uint padding2;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -64,33 +70,29 @@ layout (std140, binding = 8) readonly buffer DrawCalls {
 	DrawCall drawCalls[];
 };
 
+layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 10) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 11) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 9) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 10) uniform sampler3D voxelUv[CASCADES];
-	layout (binding = 11) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 12) uniform sampler3D voxelRadiance[CASCADES];
-
-	layout (binding = 13) uniform sampler3D samplerNoise;
-	layout (binding = 14) uniform samplerCube samplerSkybox;
-	layout (binding = 15) uniform sampler2D samplerTextures[TEXTURES];
-#else
-	layout (binding = 9) uniform sampler3D samplerNoise;
-	layout (binding = 10) uniform samplerCube samplerSkybox;
-	layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
+	layout (binding = 12) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 13) uniform sampler3D voxelUv[CASCADES];
+	layout (binding = 14) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 15) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
+layout (location = 1) out vec4 outDebugColor;
 
 #include "../common/functions.h"
 #include "../common/fog.h"
 #include "../common/pbr.h"
+#include "../common/shadows.h"
 #if VXGI
 	#include "../common/vxgi.h"
 #endif
-#include "../common/shadows.h"
 
 void postProcess() {
 #if FOG
@@ -165,7 +167,7 @@ void populateSurface() {
 	surface.normal.eye = vec3( ubo.matrices.view[surface.pass] * vec4(surface.normal.world, 0.0) );
 
 	if ( ID.x == 0 || ID.y == 0 ) {
-		surface.fragment.rgb = texture( samplerSkybox, surface.ray.direction ).rgb;
+		surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
 		surface.fragment.a = 0.0;
 		postProcess();
 		return;
@@ -216,4 +218,17 @@ void populateSurface() {
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = material.factorOcclusion;
 	surface.material.indexLightmap = material.indexLightmap;
+}
+
+void directLighting() {
+	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
+	surface.fragment.rgb += (0 <= surface.material.indexLightmap) ? (surface.material.albedo.rgb + ambient) : (surface.material.albedo.rgb * ambient);
+
+#if PBR
+	pbr();
+#elif LAMBERT
+	lambert();
+#elif PHONG
+	phong();
+#endif
 }

@@ -40,9 +40,9 @@ namespace pod {
 			alignas(16) pod::Vector4f color;
 
 			alignas(4) int32_t type = 0;
-			alignas(4) int32_t mapIndex = -1;
+			alignas(4) int32_t typeMap = 0;
+			alignas(4) int32_t indexMap = -1;
 			alignas(4) float depthBias = 0;
-			alignas(4) float padding = 0;
 			
 			alignas(16) pod::Matrix4f view;
 			alignas(16) pod::Matrix4f projection;
