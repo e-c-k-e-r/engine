@@ -1,6 +1,7 @@
 #extension GL_EXT_samplerless_texture_functions : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#define DEFERRED 1
 #define MAX_TEXTURES TEXTURES
 #include "../common/macros.h"
 
@@ -33,10 +34,11 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 #include "../common/structs.h"
 
 layout (binding = 4) uniform UBO {
-	Matrices matrices;
+	EyeMatrices eyes[2];
 
 	Mode mode;
 	Fog fog;
+	Vxgi vxgi;
 
 	uint lights;
 	uint materials;
@@ -49,12 +51,7 @@ layout (binding = 4) uniform UBO {
 	float exposure;
 	uint msaa;
 	uint shadowSamples;
-	float cascadePower;
-
 	uint indexSkybox;
-	uint vxgiShadowSamples;
-	float pointLightEyeDepthScale;
-	uint padding2;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -120,15 +117,15 @@ void populateSurface() {
 		const float depth = resolve(samplerDepth, ubo.msaa).r;
 	#endif
 
-		vec4 positionEye = ubo.matrices.iProjection[surface.pass] * vec4(inUv * 2.0 - 1.0, depth, 1.0);
+		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(inUv * 2.0 - 1.0, depth, 1.0);
 		positionEye /= positionEye.w;
 		surface.position.eye = positionEye.xyz;
-		surface.position.world = vec3( ubo.matrices.iView[surface.pass] * positionEye );
+		surface.position.world = vec3( ubo.eyes[surface.pass].iView * positionEye );
 	}
 #if 0
 	{
-		const vec4 near4 = ubo.matrices.iProjectionView[surface.pass] * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-		const vec4 far4 = ubo.matrices.iProjectionView[surface.pass] * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		const vec4 near4 = ubo.eyes[surface.pass].iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		const vec4 far4 = ubo.eyes[surface.pass].iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
@@ -137,7 +134,7 @@ void populateSurface() {
 	}
 	// separate our ray direction due to floating point precision problems
 	{
-		const mat4 iProjectionView = inverse( ubo.matrices.projection[surface.pass] * mat4(mat3(ubo.matrices.view[surface.pass])) );
+		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
 		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
@@ -147,14 +144,14 @@ void populateSurface() {
 	}
 #else
 	{
-		const mat4 iProjectionView = inverse( ubo.matrices.projection[surface.pass] * mat4(mat3(ubo.matrices.view[surface.pass])) );
+		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
 		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
-		surface.ray.origin = ubo.matrices.eyePos[surface.pass].xyz;
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
 	}
 #endif
 #if !MULTISAMPLING
@@ -164,7 +161,7 @@ void populateSurface() {
 	surface.normal.world = decodeNormals( resolve(samplerNormal, ubo.msaa).xy );
 	const uvec2 ID = subpassLoad(samplerId, 0).xy; //resolve(samplerId, ubo.msaa).xy;
 #endif
-	surface.normal.eye = vec3( ubo.matrices.view[surface.pass] * vec4(surface.normal.world, 0.0) );
+	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 
 	if ( ID.x == 0 || ID.y == 0 ) {
 		surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
@@ -185,12 +182,8 @@ void populateSurface() {
 	surface.uv = resolve(samplerUv, ubo.msaa).xy;
 #endif
 	const float mip = mipLevel(inUv.xy);
-	const bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
-	Texture textureAtlas;
-	if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
-	if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
-		const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-		surface.material.albedo = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
+	if ( validTextureIndex( drawCall.textureIndex, material.indexAlbedo ) ) {
+		surface.material.albedo = sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexAlbedo, material.indexAtlas, mip );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
@@ -203,9 +196,8 @@ void populateSurface() {
 
 	}
 	// Emissive textures
-	if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
-		const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
-		surface.fragment += textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv, mip );
+	if ( validTextureIndex( drawCall.textureIndex, material.indexEmissive ) ) {
+		surface.fragment += sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexEmissive, material.indexAtlas, mip );
 	}
 #else
 #if !MULTISAMPLING

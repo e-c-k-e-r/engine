@@ -1,0 +1,21 @@
+{
+	"name": "Baker",
+	"ignore": true,
+	"behaviors": [
+		"BakingBehavior"
+	],
+	"metadata": {
+		"baking": {
+			"resolution": 8192,
+			"model": "./models/medsci.glb",
+			"shadows": true,
+			"trigger": {
+				"mode": "rendered"
+			},
+			"output": {
+				"model": "./models/medsci.glb",
+				"map": "./models/medsci/lightmap.png"
+			}
+		}
+	}
+}

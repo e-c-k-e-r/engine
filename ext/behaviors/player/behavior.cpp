@@ -8,7 +8,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 #include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
@@ -626,18 +626,15 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 			int cycle = rand() % metadata.audio.footstep.list.size();
 			std::string filename = metadata.audio.footstep.list[cycle];
-			uf::Audio& footstep = emitter.add(filename);
+			uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
 
 			bool playing = false;
 			for ( uint i = 0; i < metadata.audio.footstep.list.size(); ++i ) {
-				uf::Audio& audio = emitter.add(metadata.audio.footstep.list[i]);
+				if ( !emitter.has(metadata.audio.footstep.list[i]) ) continue;
+				uf::Audio& audio = emitter.get( metadata.audio.footstep.list[i] );
 				if ( audio.playing() ) playing = true;
 			}
 			if ( !playing ) {
-				footstep.play();
-				footstep.setVolume(metadata.audio.footstep.volume);
-				footstep.setPosition( transform.position );
-
 				// [0, 1]
 				float modulation = (rand() % 100) / 100.0;
 				// [0, 0.1]
@@ -645,7 +642,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				// [-0.05, 0.05]
 				modulation -= 0.05f;
 				if ( keys.running ) modulation += 0.5f;
-				footstep.setPitch(1 + modulation);
+				footstep.setPitch( 1 + modulation );
+				footstep.setVolume( metadata.audio.footstep.volume );
+				footstep.setPosition( transform.position );
+
+				footstep.setTime( 0 );
+				footstep.play();
 			}
 			// set animation to walk
 			stats.targetAnimation = "walk";

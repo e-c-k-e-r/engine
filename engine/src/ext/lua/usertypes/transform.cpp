@@ -34,6 +34,9 @@ namespace binds {
 	pod::Transform<> getReference( pod::Transform<>& t ) {
 		return t.reference ? *t.reference : t;
 	}
+	void setReference( pod::Transform<>& self, pod::Transform<>& t ) {
+		self.reference = &t;
+	}
 	pod::Transform<> lookAt( const pod::Transform<>& t, pod::Vector3f& at ) {
 		auto transform = t;
 		return uf::transform::lookAt( transform, at );
@@ -57,6 +60,7 @@ UF_LUA_REGISTER_USERTYPE(pod::Transform<>,
 	UF_LUA_REGISTER_USERTYPE_DEFINE(flatten, UF_LUA_C_FUN(::binds::flatten)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(reorient, UF_LUA_C_FUN(::binds::reorient)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(getReference, UF_LUA_C_FUN(::binds::getReference)),
+	UF_LUA_REGISTER_USERTYPE_DEFINE(setReference, UF_LUA_C_FUN(::binds::setReference)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(lookAt, UF_LUA_C_FUN(::binds::lookAt)),
 	UF_LUA_REGISTER_USERTYPE_DEFINE(getModel, UF_LUA_C_FUN(::binds::getModel))
 )

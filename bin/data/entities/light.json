@@ -1,0 +1,44 @@
+{
+	"type": "Object",
+	"name": "Light",
+	"behaviors": [ "LightBehavior" ],
+	"ignore": false,
+	"transform": {
+		"reference": true
+	},
+	"system": {
+		"renderer": {
+		//	"limiter": 128
+		//	"mode": "round robin"
+		//	"mode": "once"
+			"mode": "in-range"
+		},
+		"behavior-0": {
+			"tick": {
+				"head loop children": true,
+				"forward iteration": false,
+				"multithreading": false
+			},
+			"render": {
+				"multithreading": false
+			}
+		}
+	},
+	"metadata": {
+		"light": {
+			"type": "point",
+			"color": [1, 1, 1],
+			"power": 100,
+			"fov": 90,
+			"bias": {
+				"constant": 1.25,
+				"slope": 1.75,
+				"shader": 0.000005 //0.000000005
+			},
+			"radius": [0.001, 0],
+			"resolution": 1024,
+			"shadows": true,
+			"static": false
+		}
+	}
+}

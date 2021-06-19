@@ -1,0 +1,77 @@
+{
+	"type": "Object",
+	"name": "Map",
+	"ignore": false,
+	"assets": [
+	//	{ "filename": "./static.json", "delay": 8 },
+	
+	//	{ "filename": "./models/sh_mcd.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/sh_mcd/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	],
+	"behaviors": [
+		"LoadingBehavior"
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"model": {
+			"debug": {
+				"no cleanup": false,
+				"print tree": false,
+				"print stats": false,
+				"export": {
+					"should": true,
+					"combined": true,
+					"compression": false,
+					"precision": 4
+				}
+			},
+			"cull mode": "none",
+
+		//	"lightmap": "./lightmap.png",
+		//	"ambient": [ 0.25, 0.25, 0.25 ],
+
+			"flags": {
+				"ATLAS": true,
+				"INVERT": false,
+				"TRANSFORM": false,
+				
+				"RENDER": true,
+				"COLLISION": false,
+				"SEPARATE": false,
+				"NORMALS": false,
+				"LOAD": false
+			},
+			"lights": {
+			//	"renderMode": { "target": "worldspawn_1" },
+				"shadows": true
+			},
+			"tags": {
+				"worldspawn": {
+					"action": "attach",
+					"filename": "./baker.json",
+					"collision": { "type": "mesh", "static": true }
+				},
+				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
+
+				"func_door_rotating_5409": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5487": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle": 1.570795 } } },
+				"func_door_rotating_5495": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle": 1.570795 } } },
+				"func_door_rotating_5568": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5576": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle": 1.570795 } } },
+				"func_door_rotating_5584": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5656": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle": 1.570795 } } },
+				"func_door_rotating_5664": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5689": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5698": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },
+				"func_door_rotating_5712": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } }
+			}		
+		}
+	}
+}

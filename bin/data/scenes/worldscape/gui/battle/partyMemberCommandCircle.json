@@ -1,0 +1,23 @@
+{
+	"name": "Menu: Party Member Command Circle",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.0939269, 0.153013, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 0.5625, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"shader": 1
+	},
+	"assets": [
+		"./textures/command.png"
+	]
+}

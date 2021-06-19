@@ -39,7 +39,13 @@
 #define GL_DRAW_ELEMENTS( indicesPointer, indices )\
 	GL_ERROR_CHECK(glBegin(GL_TRIANGLES)); {\
 		for ( size_t i = 0; i < indices; ++i ) {\
-			size_t index = indicesPointer[i];\
+			uint32_t index = 0;\
+			void* indexSrc = indexPointer + (currentIndex * indexStride);\
+			switch ( indexStride ) {\
+				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;\
+				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;\
+				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;\
+			}\
 			void* vertex = vertexPointer + (index * vertexStride);\
 			if ( vertexAttributeNormal.name != "" ) {\
 				float* normal = (float*) (vertex + vertexAttributeNormal.offset);\

@@ -1,0 +1,25 @@
+{
+	"type": "MarchingCubes",
+	"assets": [
+		"/gui.json",
+		"/player.json",
+		"./marching.json"
+	],
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"clear color": [ 0.5, 0.5, 0.5, 1 ]
+	},
+	"metadata": {
+		"light": {
+			"ambient": [ 0.2, 0.2, 0.2 ],
+			"kexp": 10,
+			"fog": {
+				"color": [ 0.1, 0.1, 0.1 ],
+				"range": [ 32, 64 ]
+			},
+			"should": true
+		}
+	}
+}

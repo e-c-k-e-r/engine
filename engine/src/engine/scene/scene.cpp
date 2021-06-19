@@ -1,4 +1,5 @@
 #include <uf/engine/scene/scene.h>
+#include <uf/engine/scene/behavior.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/renderer/renderer.h>
@@ -37,23 +38,36 @@ const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
 	return scene.getController();
 }
+void uf::Scene::invalidateGraph() {
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+	metadata.invalidationQueued = true;
+}
+const std::vector<uf::Entity*>& uf::Scene::getGraph() {
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+	if ( metadata.invalidationQueued ) {
+		metadata.invalidationQueued = false;
+		metadata.graph.clear();
+	}
+	if ( !metadata.graph.empty() ) return metadata.graph;
+	this->process([&]( uf::Entity* entity ) {
+		if ( !entity->getComponent<uf::ObjectBehavior::Metadata>().system.ignoreGraph ) metadata.graph.emplace_back(entity);
+	});
+	uf::renderer::states::rebuild = true;
+	return metadata.graph;
+}
+std::vector<uf::Entity*> uf::Scene::getGraph( bool reverse ) {
+	auto graph = this->getGraph();
+	if ( reverse ) std::reverse( graph.begin(), graph.end() );
+	return graph;
+}
 
 std::vector<uf::Scene*> uf::scene::scenes;
-std::vector<uf::Entity*> uf::scene::graph;
-bool uf::scene::queuedInvalidation = false;
-bool uf::scene::useGraph = true;
-
-uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& filename ) {
-	std::string target = name;
+uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& _filename ) {
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
-/*
-	std::regex regex("^(TestScene_?)?(.+?)(_?Scene)?$");
-	std::smatch match;
-	if ( std::regex_search( target, match, regex ) ) target = match[2];
-*/
-	target = uf::string::lowercase( target );
-	scene->load(filename != "" ? filename : "./scenes/" + target + "/scene.json");
+
+	const std::string filename = _filename != "" ? _filename : ("/" + uf::string::lowercase(name) + "/scene.json");
+	scene->load(filename);
 	if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
 		uf::instantiator::bind( "VoxelizerBehavior", *scene );
 	}
@@ -78,46 +92,22 @@ void uf::scene::unloadScene() {
 uf::Scene& uf::scene::getCurrentScene() {
 	return *uf::scene::scenes.back();
 }
-void uf::scene::invalidateGraph() {
-	uf::scene::queuedInvalidation = true;
-}
-std::vector<uf::Entity*> uf::scene::generateGraph() {
-	// invalidate it by clearing the graph
-	if ( uf::scene::queuedInvalidation ) {
-		uf::scene::graph.clear();
-		uf::scene::queuedInvalidation = false;
-	}
-
-	if ( !uf::scene::graph.empty() ) return uf::scene::graph;
-
-	for ( uf::Scene* scene : uf::scene::scenes ) {
+void uf::scene::invalidateGraphs() {
+	for ( auto scene : uf::scene::scenes ) {
 		if ( !scene ) continue;
-		scene->process([&]( uf::Entity* entity ) {
-			auto& metadata = entity->getComponent<uf::ObjectBehavior::Metadata>();
-			if ( !metadata.system.ignoreGraph ) uf::scene::graph.emplace_back(entity);
-		});
+		scene->invalidateGraph();
 	}
-	uf::renderer::states::rebuild = true;
-	return uf::scene::graph;
 }
 
 void uf::scene::tick() {
-	auto graph = uf::scene::generateGraph();
-//	UF_TIMER_MULTITRACE_START("==== START TICK ====");
-	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
-		(*it)->tick();
-//		UF_TIMER_MULTITRACE((*it)->getName() << ": " << (*it)->getUid());
-	}
-//	UF_TIMER_MULTITRACE_END("==== END TICK ====");
+	if ( scenes.empty() ) return;
+	auto graph = uf::scene::getCurrentScene().getGraph(true);
+	for ( auto entity : graph ) entity->tick();
 }
 void uf::scene::render() {
-	auto graph = uf::scene::generateGraph();
-//	UF_TIMER_MULTITRACE_START("==== START RENDER ====");
-	for ( auto it = graph.rbegin(); it != graph.rend(); ++it ) {
-		(*it)->render();
-//		UF_TIMER_MULTITRACE((*it)->getName() << ": " << (*it)->getUid());
-	}
-//	UF_TIMER_MULTITRACE_END("==== END RENDER ====");
+	if ( scenes.empty() ) return;
+	auto graph = uf::scene::getCurrentScene().getGraph(true);
+	for ( auto entity : graph ) entity->render();
 }
 void uf::scene::destroy() {
 	while ( !scenes.empty() ) unloadScene();

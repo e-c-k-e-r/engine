@@ -1,0 +1,28 @@
+{
+	"name": "Menu: Battle Option",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ -0.907025, -0.556947, 0 ],
+		"position": [ -0.945836, 0.282013, 0 ],
+		"position": [ -0.979556, 0.518861, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+		"scale": [ 0.156407, 0.0788377, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"text settings": {
+			"stroke": [ 0, 0, 0, 1 ],
+			"color": [ 1, 1, 1, 1 ],
+
+			"direction": "up",
+
+			"string": ""
+		}
+	}
+}

@@ -1,0 +1,61 @@
+{
+	"type": "Object",
+	"name": "gm_construct",
+	"ignore": false,
+	"assets": [
+	//	{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/gm_construct/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	],
+	"behaviors": [
+		"LoadingBehavior"
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"model": {
+			"debug": {
+				"no cleanup": false,
+				"print tree": false,
+				"print stats": true,
+				"export": {
+					"should": true,
+					"combined": false,
+					"compression": false,
+					"precision": 4
+				}
+			},
+		//	"filter": "NEAREST",
+			"flags": {
+				"ATLAS": true,
+				"INVERT": false,
+				"TRANSFORM": false,
+				
+				"RENDER": true,
+				"COLLISION": false,
+				"SEPARATE": false,
+				"NORMALS": false,
+				"LOAD": false
+			},
+			"lights": {
+				"shadows": true
+			},
+			"lights": {
+				"shadows": false
+			},
+			"tags": {
+				"worldspawn_2": { "collision": "static mesh" },
+				"info_player_spawn": {
+					"action": "attach",
+					"filename": "./player.json",
+					"preserve orientation": true
+				}
+			}
+		}
+	}
+}

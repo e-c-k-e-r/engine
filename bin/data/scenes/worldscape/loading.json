@@ -1,0 +1,33 @@
+{
+	"name": "Gui: Loading",
+	"type": "Object",
+	"behaviors": [
+		"GuiBehavior"
+	],
+	"assets": [
+		{ "filename": "./terrain.json", "delay": 0 },
+		{ "filename": "/overworld/dungeon_intro.ogg", "delay": 0 }
+	],
+	"ignore": false,
+	"transform": {
+		"position": [  -0.830591, -0.699509, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.258737, 0.115371, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 1, 1, 1, 0.1 ],
+		"location": "",
+		"scaling": "relative",
+		"text settings": {
+			"stroke": [ 1, 0.749, 0.368, 1 ],
+			"color": [ 1, 0.749, 0.368, 1 ],
+
+			"string": "Loading...",
+			"string1": "コマンド"
+		}
+	}
+}

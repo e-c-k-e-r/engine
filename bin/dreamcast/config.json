@@ -1,0 +1,141 @@
+{
+	"engine": {
+		"scenes": {
+			"start": "SS2",
+			"use graph": true,
+			"lights": {
+				"max": 4,
+				"enabled": false,
+				"shadows": false,
+				"update threshold": 4,
+				"shadow threshold": 8
+			},
+			"textures": {
+				"max": 80
+			}
+		},
+		"ext": {
+			"opengl": {
+				"validation": {
+					"enabled": true
+				},
+				"framebuffer": {
+					"size": 1,
+					"msaa": 1
+				},
+				"experimental": {
+					"rebuild on tick begin": false,
+					"wait on render end": false,
+					"individual pipelines": false,
+					"multithreaded command recording": false,
+					"deferred mode": "",
+				//	"deferred mode": "deferredSampling",
+					"deferred reconstruct position": true,
+					"deferred alias output to swapchain": true,
+					"hdr": false
+				},
+				"formats": {
+					"depth": "D32_SFLOAT",
+					"color": "R8G8B8A8_UNORM", // "R32G32B32A32_SFLOAT",
+					"normal": "R16G16B16A16_SFLOAT",
+					"position": "R16G16B16A16_SFLOAT"
+				},
+				"features": [],
+				"extensions": {
+					"instance": [],
+					"device": []
+				}
+			},
+			"lua": {
+				"main": "/main.lua",
+				"modules": {
+					"json": "/json.lua"
+				}
+			},
+			"bullet": {
+				"iterations": 1,
+				"substeps": 1,
+				"timescale": 1,
+				"multithreaded": false,
+				"pool size": {
+					"max collision algorithm": 64,
+					"max persistent manifold": 64
+				},
+				"debug draw": {
+					"enabled": false,
+					"rate": 1.0
+				}
+			},
+			"discord": {
+				"enabled": false
+			}
+		},
+		"audio": {
+			"mute": false
+		},
+		"memory pool": {
+			"globalOverride": false,
+			"subPools": true,
+			"size": "2048 KiB",
+			"pools": {
+				"entity": "128 KiB",
+				"userdata": "128 KiB",
+				"component": "128 KiB"
+			}
+		},
+		"hook" :  {
+			"mode" : "Readable"
+		},
+		"render modes": {
+			"gui": true,
+			"deferred": true,
+			"stereo deferred": false,
+			"multiview stereo deferred": false
+		},
+		"limiters": {
+			"deltaTime": 10,
+			"framerate": "auto"
+		},
+		"threads": {
+			"workers" : "auto",
+			"frame limiter": "auto"
+		},
+		"debug": {
+			"framerate": {
+				"print": true,
+				"every": 1
+			},
+			"garbage collection": {
+				"enabled": true,
+				"mode": 1,
+				"rate": 16,
+				"announce": true
+			},
+			"entity": {
+				"delete children on destroy": false,
+				"delete components on destroy": false
+			}
+		}
+	},
+	"window" : {
+		"terminal" :  {
+			"ncurses" : false,
+			"visible" : true
+		},
+		"keyboard" :  {
+			"repeat" : false
+		},
+		"cursor" :  {
+			"visible" : true,
+			"center" : false
+		},
+		"mode" : "windowed", // fullscreen, borderless, windowed
+		"icon" : "./data/textures/icon.png",
+		"size" :  {
+			"x" : 640,
+			"y" : 480
+		},
+		"title" : "Grimgram",
+		"visible" : true
+	}
+}

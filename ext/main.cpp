@@ -274,7 +274,16 @@ void EXT_API ext::initialize() {
 		}
 		// Mute audio
 		if ( ::config["engine"]["audio"]["mute"].is<bool>() )
-			uf::Audio::mute = ::config["engine"]["audio"]["mute"].as<bool>();
+			uf::audio::muted = ::config["engine"]["audio"]["mute"].as<bool>();
+
+		if ( ::config["engine"]["audio"]["streams by default"].is<bool>() )
+			uf::audio::streamsByDefault = ::config["engine"]["audio"]["streams by default"].as<bool>();
+
+		if ( ::config["engine"]["audio"]["buffers"]["size"].is<size_t>() )
+			uf::audio::bufferSize = ::config["engine"]["audio"]["buffers"]["size"].as<size_t>();
+		
+		if ( ::config["engine"]["audio"]["buffers"]["count"].is<size_t>() )
+			uf::audio::buffers = ::config["engine"]["audio"]["buffers"]["count"].as<size_t>();
 
 		// Set worker threads
 		if ( ::config["engine"]["threads"]["workers"].as<std::string>() == "auto" ) {

@@ -1,0 +1,10 @@
+{
+	"member-attack": "Attack",
+	"member-skill": "Skill",
+	"inventory": "Item",
+	"talk": "Talk",
+	"transients": "Party",
+	"escape": "Escape",
+	"analyze": "Analyze",
+	"pass": "Pass"
+}

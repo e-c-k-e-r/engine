@@ -190,7 +190,8 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
@@ -230,7 +231,8 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->execute = true;
 
 	std::vector<ext::vulkan::Graphic*> graphics;
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();

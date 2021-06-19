@@ -20,10 +20,14 @@
 	#include <iostream>
 	#include <iomanip>
 #endif
-#define UF_PRINT_MSG(X) std::cout << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << ": " << X << std::endl;
-#define UF_DEBUG_MSG(X) if ( UF_DEBUG ) UF_PRINT_MSG(X);
-#define UF_ERROR_MSG(X) UF_PRINT_MSG(X);
-#define UF_DEBUG_PRINT_MARKER() UF_DEBUG_MSG("")
+#define UF_MSG(X) std::cout << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << ": " << X << std::endl;
+
+#define UF_MSG_DEBUG(X) if ( UF_DEBUG ) UF_MSG(X);
+#define UF_DEBUG_PRINT_MARKER() UF_MSG_DEBUG("");
+
+#define UF_MSG_INFO(X) 		UF_MSG_DEBUG("[ INFO  ] " << X);
+#define UF_MSG_WARNING(X) 	UF_MSG_DEBUG("[WARNING] " << X);
+#define UF_MSG_ERROR(X) 	UF_MSG_DEBUG("[ ERROR ] " << X);
 
 #if UF_NO_EXCEPTIONS
 	#define UF_EXCEPTION(X) UF_ERROR_MSG(X)
@@ -35,24 +39,30 @@
 
 #define UF_TIMER_TRACE(X) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
-	if ( elapsed > 0 ) UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
 }
 
 #define UF_TIMER_TRACE_RESET(X) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMilliseconds();\
-	if ( elapsed > 0 ) UF_DEBUG_MSG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG(TIMER_TRACE.elapsed().asMilliseconds() << "ms\t" << X);\
 	TIMER_TRACE.reset();\
 }
 
 #define UF_TIMER_MULTITRACE_START(X)\
 	UF_TIMER_TRACE_INIT();\
 	long long TIMER_TRACE_PREV = 0, TIMER_TRACE_CUR = 0;\
-	UF_DEBUG_MSG(X);\
+	UF_MSG_DEBUG(X);\
 
 #define UF_TIMER_MULTITRACE(X) {\
 	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_DEBUG_MSG(std::setfill(' ') << std::setw(6) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(6) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
+	UF_MSG_DEBUG(std::setfill(' ') << std::setw(6) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(6) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 
-#define UF_TIMER_MULTITRACE_END(X) UF_DEBUG_MSG(X);
+#define UF_TIMER_MULTITRACE_END(X) UF_MSG_DEBUG(X);
+
+// alias
+#define UF_DEBUG_MSG(X) UF_MSG_DEBUG(X);
+
+#define MIN(X, Y) X < Y ? X : Y 
+#define MAX(X, Y) X > Y ? X : Y 

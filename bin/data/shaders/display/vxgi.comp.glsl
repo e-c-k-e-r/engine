@@ -22,10 +22,11 @@ layout (constant_id = 2) const uint CASCADES = 16;
 #include "../common/structs.h"
 
 layout (binding = 4) uniform UBO {
-	Matrices matrices;
+	EyeMatrices matrices[2];
 
 	Mode mode;
 	Fog fog;
+	Vxgi vxgi;
 
 	uint lights;
 	uint materials;
@@ -38,12 +39,7 @@ layout (binding = 4) uniform UBO {
 	float exposure;
 	uint msaa;
 	uint shadowSamples;
-	float cascadePower;
-
 	uint indexSkybox;
-	uint vxgiShadowSamples;
-	float pointLightEyeDepthScale;
-	uint padding2;
 } ubo;
 
 layout (std140, binding = 5) readonly buffer Lights {
@@ -80,10 +76,10 @@ void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
 		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
-		surface.normal.eye = vec3( ubo.matrices.vxgi * vec4( surface.normal.world, 0.0f ) );
+		surface.normal.eye = vec3( ubo.vxgi.matrix * vec4( surface.normal.world, 0.0f ) );
 	
 		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
-		surface.position.world = vec3( inverse(ubo.matrices.vxgi) * vec4( surface.position.eye, 1.0f ) );
+		surface.position.world = vec3( inverse(ubo.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
 		if ( ID.x == 0 || ID.y == 0 ) {
@@ -99,12 +95,8 @@ void main() {
 
 	#if DEFERRED_SAMPLING
 		surface.uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) ).xy;
-		const bool useAtlas = validTextureIndex( drawCall.textureIndex + material.indexAtlas );
-		Texture textureAtlas;
-		if ( useAtlas ) textureAtlas = textures[drawCall.textureIndex + material.indexAtlas];
-		if ( validTextureIndex( drawCall.textureIndex + material.indexAlbedo ) ) {
-			const Texture t = textures[drawCall.textureIndex + material.indexAlbedo];
-			surface.material.albedo = texture( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
+		if ( validTextureIndex( drawCall.textureIndex, material.indexAlbedo ) ) {
+			surface.material.albedo = sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexAlbedo, material.indexAtlas );
 		}
 
 		// OPAQUE
@@ -118,9 +110,8 @@ void main() {
 
 		}
 		// Emissive textures
-		if ( validTextureIndex( drawCall.textureIndex + material.indexEmissive ) ) {
-			const Texture t = textures[drawCall.textureIndex + material.indexEmissive];
-			surface.fragment += texture( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv );
+		if ( validTextureIndex( drawCall.textureIndex, material.indexEmissive ) ) {
+			surface.fragment += sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexEmissive, material.indexAtlas );
 		}
 	#else
 		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );

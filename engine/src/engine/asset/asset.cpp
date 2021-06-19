@@ -22,13 +22,13 @@ namespace {
 	bool retrieve( const std::string& url, const std::string& filename, const std::string& hash = "" ) {
 		uf::Http http = uf::http::get( url );
 		if ( http.code < 200 || http.code > 300 ) {
-			uf::iostream << "HTTP Error " << http.code << " on GET " << url << "\n";
+			UF_DEBUG_MSG("HTTP Error " << http.code << " on GET " << url);
 			return false;
 		}
 
 		std::string actual = hash;
 		if ( hash != "" && (actual = uf::string::sha256(url)) != hash ) {
-			uf::iostream << "HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual << "\n";
+			UF_DEBUG_MSG("HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual);
 			return false;
 		}
 
@@ -102,18 +102,18 @@ std::string uf::Asset::cache( const std::string& uri, const std::string& hash, c
 		std::string hash = hashed( uri );
 		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			uf::iostream << "Failed to preload `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
+			UF_DEBUG_MSG("Failed to preload `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		uf::iostream << "Failed to preload `" + filename + "`: Does not exist" << "\n"; 
+		UF_DEBUG_MSG("Failed to preload `" + filename + "`: Does not exist");
 		return "";
 	}
 	std::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		uf::iostream << "Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual << "\n";
+		UF_DEBUG_MSG("Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
 	return filename;
@@ -125,26 +125,26 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 		std::string hash = hashed( uri );
 		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			uf::iostream << "Failed to load `" + uri + "` (`" + cached + "`): HTTP error" << "\n"; 
+			UF_DEBUG_MSG("Failed to load `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		uf::iostream << "Failed to load `" + filename + "`: Does not exist" << "\n"; 
+		UF_DEBUG_MSG("Failed to load `" + filename + "`: Does not exist");
 		return "";
 	}
 	std::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		uf::iostream << "Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual << "\n";
+		UF_DEBUG_MSG("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
 	#define UF_ASSET_REGISTER(type)\
 		auto& container = this->getContainer<type>();\
-		if ( !ext::json::isNull( map[extension][uri] ) ) return filename;\
-		if ( !ext::json::isNull( map[extension][filename] ) ) return filename;\
-		map[extension][uri] = container.size();\
-		map[extension][filename] = container.size();\
+		if ( !ext::json::isNull( map[extension][uri]["index"] ) ) return filename;\
+		if ( !ext::json::isNull( map[extension][filename]["index"] ) ) return filename;\
+		map[extension][uri]["index"] = container.size();\
+		map[extension][filename]["index"] = container.size();\
 		type& asset = container.emplace_back();
 
 
@@ -155,7 +155,10 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 		asset.open(filename);
 	} else if ( category == "audio" || (category == "" && extension == "ogg") ) {
 		UF_ASSET_REGISTER(uf::Audio)
-		asset.load(filename);
+		asset.open(filename);
+	} else if ( category == "audio-stream" || (category == "" && extension == "ogg") ) {
+		UF_ASSET_REGISTER(uf::Audio)
+		asset.stream(filename);
 	} else if ( category == "entities" || (category == "" && extension == "json") ) {
 		UF_ASSET_REGISTER(uf::Serializer)
 		asset.readFromFile(filename);
@@ -176,36 +179,35 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 	#else
 	//	metadata[uri]["flags"]["ATLAS"] = true;
 	#endif
-		ext::gltf::load_mode_t LOAD_FLAGS = 0;
+		uf::graph::load_mode_t LOAD_FLAGS = 0;
 		#define LOAD_FLAG(name)\
 			if ( metadata[uri]["flags"][#name].as<bool>() )\
-				LOAD_FLAGS |= ext::gltf::LoadMode::name;
+				LOAD_FLAGS |= uf::graph::LoadMode::name;
 
 		LOAD_FLAG(ATLAS) 		//			= 0x1 << 1,
 		LOAD_FLAG(INVERT) 		//			= 0x1 << 2,
 		LOAD_FLAG(TRANSFORM) 	//			= 0x1 << 3,
 
-		asset = ext::gltf::load( filename, LOAD_FLAGS, metadata[uri] );
+		asset = uf::graph::load( filename, LOAD_FLAGS, metadata[uri] );
 		uf::graph::process( asset );
 		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_DEBUG_MSG(uf::graph::stats( asset ).dump(1,'\t'));
 		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_DEBUG_MSG(uf::graph::print( asset ));
 		if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		//uf::graph::process( asset );
 	} else {
-		uf::iostream << "Failed to parse `" + filename + "`: Unimplemented extension: " + extension << "\n"; 
+		UF_DEBUG_MSG("Failed to parse `" + filename + "`: Unimplemented extension: " + extension + " or category: " + category );
 	}
-	// uf::iostream << "Parsed URI: `" + uri + "` -> `" + filename + "`" << "\n"; 
 	return filename;
 }
 std::string uf::Asset::getOriginal( const std::string& uri ) {
 	std::string extension = uf::io::extension( uri );
 	auto& map = this->getComponent<uf::Serializer>();
-	if ( ext::json::isNull( map[extension][uri] ) ) return uri;
-	std::size_t index = map[extension][uri].as<size_t>();
+	if ( ext::json::isNull( map[extension][uri]["index"] ) ) return uri;
+	std::size_t index = map[extension][uri]["index"].as<size_t>();
 
 	std::string key = uri;
 	ext::json::forEach( map[extension], [&]( const std::string& k, ext::json::Value& v ) {
-		std::size_t i = v.as<size_t>();
+		std::size_t i = v["index"].as<size_t>();
 		if ( index == i && key != uri ) key = k;
 	});
 	return key;

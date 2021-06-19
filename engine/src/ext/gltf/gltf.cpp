@@ -75,7 +75,7 @@ namespace {
 		} else {
 			transform.position = { 0, 0, 0 };
 		}
-		if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ) {
+		if ( !(graph.mode & uf::graph::LoadMode::INVERT) ) {
 			transform.position.x *= -1;
 		}
 		if ( node.rotation.size() == 4 ) {
@@ -111,7 +111,7 @@ namespace {
 	}
 }
 
-pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t mode, const uf::Serializer& metadata ) {
+pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t mode, const uf::Serializer& metadata ) {
 	std::string extension = uf::io::extension( filename );
 	if ( extension != "glb" && extension != "gltf" ) {
 		return uf::graph::load( filename, mode, metadata );
@@ -157,7 +157,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 		}
 	}
 	// generate atlas
-	if ( mode & ext::gltf::LoadMode::ATLAS ) {
+	if ( mode & uf::graph::LoadMode::ATLAS ) {
 		graph.atlas.generate( graph.images );
 	}
 	// load textures
@@ -320,7 +320,7 @@ pod::Graph ext::gltf::load( const std::string& filename, ext::gltf::load_mode_t 
 
 					// required due to reverse-Z projection matrix flipping the X axis as well
 					// default is to proceed with this
-					if ( !(graph.mode & ext::gltf::LoadMode::INVERT) ){
+					if ( !(graph.mode & uf::graph::LoadMode::INVERT) ){
 						vertex.position.x *= -1;
 						vertex.normal.x *= -1;
 						vertex.tangent.x *= -1;

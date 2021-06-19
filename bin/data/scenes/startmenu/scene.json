@@ -1,0 +1,24 @@
+{
+	"type": "Main Menu",
+	"behaviors": [
+		"SceneBehavior",
+		"ExtSceneBehavior"
+	],
+	"assets": [
+		"/gui.json",
+	//	"./player.json",
+		"/ui/main menu.ogg",
+		"/gui/mainmenu/menu.json"
+	],
+	"hot reload": {
+		"enabled": true
+	},
+	"clear color": [ 0, 0, 0, 1 ],
+	"metadata": {
+		"volumes": {
+			"sfx": 0.25,
+			"bgm": 0.15,
+			"voice": 1.0
+		}
+	}
+}

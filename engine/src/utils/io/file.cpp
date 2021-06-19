@@ -152,18 +152,23 @@ bool UF_API uf::io::mkdir( const std::string& _filename ) {
 std::string UF_API uf::io::resolveURI( const std::string& filename, const std::string& _root ) {
 	std::string root = _root;
 	if ( filename.substr(0,8) == "https://" ) return filename;
-	std::string extension = uf::io::extension(filename);
+	const std::string extension = uf::io::extension(filename);
 	// just sanitize
-	if ( filename.find(uf::io::root) == 0 )
+	if ( filename.find(uf::io::root) == 0 ) {
 		return uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) );
+	}
 	if ( filename.find("%root%") == 0 ) {
-		std::string f = uf::string::replace( filename, "%root%", uf::io::root );
+		const std::string f = uf::string::replace( filename, "%root%", uf::io::root );
 		return uf::io::sanitize( uf::io::filename( f ), uf::io::directory( f ) );
 	}
 	// if the filename contains an absolute path or if no root is provided
 	if ( filename[0] == '/' || root == "" ) {
-		if ( filename.substr(0,9) == "/smtsamo/" ) root = uf::io::root;
-		else if ( uf::io::extension(filename, -1) == "graph.json" ) root = uf::io::root + "/models/";
+		const std::string basename = uf::io::filename( filename );
+		if ( filename[0] == '/' && filename[1] == '/' ) root = uf::io::root;
+	//	else if ( uf::io::extension(filename, -1) == "graph.json" ) root = uf::io::root + "/models/";
+	//	else if ( uf::io::extension(filename, -1) == "scene.json" ) root = uf::io::root + "/scenes/";
+		else if ( basename == "graph.json" ) root = uf::io::root + "/models/";
+		else if ( basename == "scene.json" ) root = uf::io::root + "/scenes/";
 		else if ( extension == "json" ) root = uf::io::root + "/entities/";
 		else if ( extension == "png" ) root = uf::io::root + "/textures/";
 		else if ( extension == "glb" ) root = uf::io::root + "/models/";

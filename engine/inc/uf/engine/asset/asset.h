@@ -41,6 +41,7 @@ namespace uf {
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			if ( ext::json::isNull( map[extension] ) ) return false;
 			if ( ext::json::isNull( map[extension][url] ) ) return false;
+			if ( ext::json::isNull( map[extension][url]["index"] ) ) return false;
 			return true;
 		}
 		template<typename T>
@@ -52,9 +53,7 @@ namespace uf {
 		T& get( const std::string& url ) {
 			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
-		
-			std::size_t index = map[extension][url].as<size_t>();
-		
+			size_t index = map[extension][url]["index"].as<size_t>(0);
 			return this->get<T>(index);
 		}
 
@@ -63,7 +62,7 @@ namespace uf {
 			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
-			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
+			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
 			
 			container.push_back( copy );
 			return container.back();
@@ -74,7 +73,7 @@ namespace uf {
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
-			if ( !ext::json::isNull( map[extension][url] ) ) return this->get<T>(url);
+			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
 		
 			container.push_back( move );
 			return container.back();
@@ -87,8 +86,17 @@ namespace uf {
 
 			std::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			std::size_t index = map[extension][url].as<size_t>();
-			container.erase( container.begin() + index );
+			std::size_t index = map[extension][url]["index"].as<size_t>();
+		//	container.erase( container.begin() + index );
+		//	map[extension][url] = ext::json::null();
+		//	map[extension][url]["erased"] = true;
+			
+			std::string key = "";
+			ext::json::forEach( map[extension], [&]( const std::string& k, ext::json::Value& v ) {
+				std::size_t i = v["index"].as<size_t>();
+				if ( index == i && key != url ) key = k;
+			});
+			if ( key != "" ) map[extension][key] = ext::json::null();
 			map[extension][url] = ext::json::null();
 			return;
 		}

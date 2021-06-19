@@ -8,5 +8,12 @@ namespace uf {
 		void UF_API tick( uf::Object& );
 		void UF_API render( uf::Object& );
 		void UF_API destroy( uf::Object& );
+		struct Metadata {
+			std::vector<uf::Entity*> graph;
+			bool invalidationQueued = false;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
+		};
 	}
 }

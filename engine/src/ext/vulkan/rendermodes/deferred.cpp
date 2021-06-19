@@ -12,7 +12,7 @@
 #include <uf/utils/math/transform.h>
 
 #include <uf/ext/vulkan/graphic.h>
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 
 const std::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";

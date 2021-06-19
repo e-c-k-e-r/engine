@@ -1,0 +1,29 @@
+{
+	"name": "HUD Text",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [  -0.830591, -0.899509, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.258737, 0.115371, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"text settings": {
+			"stroke": [ 1, 0.749, 0.368, 1 ],
+			"color": [ 1, 0.749, 0.368, 1 ],
+			"depth": 0.5,
+			"string": "."
+		}
+	}
+}

@@ -944,6 +944,8 @@ void ext::vulkan::Device::initialize() {
 		allocatorInfo.physicalDevice = physicalDevice;
 		allocatorInfo.instance = instance;
 		allocatorInfo.device = logicalDevice;
+
+		allocatorInfo.frameInUseCount = 1;
 		vmaCreateAllocator(&allocatorInfo, &allocator);
 	}
 }

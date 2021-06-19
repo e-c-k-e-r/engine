@@ -1,11 +1,10 @@
-struct Matrices {
-	mat4 view[2];
-	mat4 projection[2];
-	mat4 iView[2];
-	mat4 iProjection[2];
-	mat4 iProjectionView[2];
-	vec4 eyePos[2];
-	mat4 vxgi;
+struct EyeMatrices {
+	mat4 view;
+	mat4 projection;
+	mat4 iView;
+	mat4 iProjection;
+	mat4 iProjectionView;
+	vec4 eyePos;
 };
 
 struct Cursor {
@@ -34,12 +33,12 @@ struct Fog {
 	vec3 offset;
 	float densityScale;
 
+	vec2 range;
 	float densityThreshold;
 	float densityMultiplier;
+	
 	float absorbtion;
 	float padding1;
-
-	vec2 range;
 	float padding2;
 	float padding3;
 };
@@ -98,9 +97,9 @@ struct Texture {
 
 struct DrawCall {
 	int materialIndex;
-	uint materials;
 	int textureIndex;
-	uint textures;
+	uint textureSlot;
+	uint padding;
 };
 
 struct SurfaceMaterial {
@@ -129,6 +128,15 @@ struct Surface {
 	vec4 fragment;
 } surface;
 
+// VXGI stuff
+struct Vxgi {
+	mat4 matrix;
+
+	float cascadePower;
+	float granularity;
+	uint shadows;
+	uint padding1;
+};
 struct Voxel {
 	uvec2 id;
 	vec3 position;
@@ -136,7 +144,6 @@ struct Voxel {
 	vec2 uv;
 	vec4 color;
 };
-
 struct VoxelInfo {
 	vec3 min;
 	vec3 max;

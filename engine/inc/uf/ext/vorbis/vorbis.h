@@ -4,28 +4,15 @@
 #if UF_USE_VORBIS
 
 #include <vorbis/vorbisfile.h>
-
-#include <vector>
-#include <string>
+#include <uf/utils/audio/audio.h>
 
 namespace ext {
-	class UF_API Vorbis {
-	public:
-		static int BUFFER;
-	protected:
-		std::vector<char> m_buffer;
-		int m_format;
-		int m_frequency;
-		float m_duration;
-	public:
-		void load( const std::string& );
-		
-		std::vector<char>& getBuffer();
-		const std::vector<char>& getBuffer() const;
-		int getFormat() const;
-		int getFrequency() const;
-		float getDuration() const;
-	};
+	namespace vorbis {
+		void UF_API open( uf::Audio::Metadata& );
+		void UF_API load( uf::Audio::Metadata& );
+		void UF_API stream( uf::Audio::Metadata& );
+		void UF_API update( uf::Audio::Metadata& );
+		void UF_API close( uf::Audio::Metadata& );
+	}
 }
-
 #endif

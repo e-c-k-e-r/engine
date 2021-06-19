@@ -1,0 +1,127 @@
+{
+	"type": "Object",
+	"behaviors": [
+		"CraetureBehavior",
+		"HousamoSpriteBehavior"
+	],
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0.0
+		},
+		"scale": [ 3, 4.2375, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"physics": {
+		"collision": false,
+		"gravity": [ 0, -9.81, 0 ],
+		"walk": 1,
+		"move": 4,
+		"run": 8,
+		"rotate": 1.25,
+		"crouch": 1,
+		"jump": [ 0, 4, 0 ]
+	},
+	"metadata": {
+		"color": [ 1, 1, 1, 1 ],
+		"region": {
+			"track": true,
+			"persist": false
+		},
+		"": { 
+			"party": ["990301"], 
+			"transients": { "990301": { "id": "990301", "lv": 120 } }
+		},
+		"system": {
+			"onCollision": "npc"
+		},
+		"dialogue": {
+			"quit": {
+				"message": "",
+				"quit": true
+			},
+			"0": {
+				"message": "Welcome to the Velvet Room.\nHow may I help you today?",
+				"music": "./data/audio/overworld/poem.ogg",
+				"actions": {
+					"1": "Fuse Transients",
+					"2": "Check requests/compendium",
+					"3": "Talk",
+					"4": "Battle",
+					"quit": "Leave"
+				}
+			},
+			"1": {
+				"message": "[Fusion]",
+				"actions": {
+					"quit": ""
+				},
+				"hooks": [
+					{
+						"name": "menu:Pause",
+						"payload": {},
+						"timeout": 1
+					},
+					{
+						"name": "menu:Dialogue.Turn.%UID%",
+						"payload": {
+							"index": "quit"
+						},
+						"timeout": 1
+					}
+				]
+			},
+			"2": {
+				"message": "[Compendium]",
+				"actions": {
+					"quit": ""
+				}
+			},
+			"3": {
+				"message": "Should I have worn pants after all?",
+				"actions": {
+					"quit": ""
+				}
+			},
+			"4": {
+				"message": "[Battle]",
+				"actions": {
+					"quit": ""
+				},
+				"hooks": [
+					{
+						"name": "world:Battle.Prepare",
+						"payload": {
+							"": { "party": ["990301"], "transients": { "990301": { 
+								"id": "990301", "lv": 90, "hp": 5000, "max hp": 5000, "mp": 1000, "max mp": 1000, "skin": null,
+								"skills": [ "0", "517", "76", "515", "514", "200" ]
+							} } },
+							"music": "./data/audio/battle/strength.ogg"
+						},
+						"timeout": 2
+					},
+					{
+						"name": "world:Entity.LoadAsset-0",
+						"payload": {
+							"asset": "./data/smtsamo/fg/fg_hellbiker01.png"
+						},
+						"timeout": 2
+					},
+					{
+						"name": "menu:Dialogue.Turn.%UID%",
+						"payload": {
+							"index": "quit"
+						},
+						"timeout": 2
+					}
+				]
+			}
+		}
+	}
+}

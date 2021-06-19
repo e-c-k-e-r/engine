@@ -155,38 +155,37 @@ void ext::bullet::syncToBullet() {
 	// update bullet transforms
 	for ( int i = ext::bullet::dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; --i) {
 		btCollisionObject* obj = ext::bullet::dynamicsWorld->getCollisionObjectArray()[i];
+		
 		btRigidBody* body = btRigidBody::upcast(obj);
 		if ( !body || !body->getMotionState() ) return;
 	
-	#if 0
-		if ( rigidBodyMap.count(body) == 0 ) return;
-		size_t uid = rigidBodyMap[body];
-	#else
-		size_t uid = (size_t) body->getUserPointer();
-	#endif
-		if ( !uid ) continue;
-		auto* entity = scene.findByUid( uid );
+		uf::Object* entity = (uf::Object*) body->getUserPointer();
 		if ( !entity ) continue;
 
 		auto& collider = entity->getComponent<pod::Bullet>();
+	//	auto& transform = entity->getComponent<pod::Transform<>>();
+				
 		if ( !collider.shared ) continue;
 		{
 			auto& physics = entity->getComponent<pod::Physics>();
 			body->setLinearVelocity( btVector3( physics.linear.velocity.x, physics.linear.velocity.y, physics.linear.velocity.z ) );
 		}
 		{
-			auto& transform = entity->getComponent<pod::Transform<>>();
-			auto modelMatrix = uf::transform::model( transform );
+		//	auto model = uf::transform::model( transform );
+			auto model = uf::transform::model( collider.transform );
 			
 			btTransform t;
 			t = body->getWorldTransform();
-			t.setFromOpenGLMatrix(&modelMatrix[0]);
+			t.setFromOpenGLMatrix(&model[0]);
 
 		//	t.setOrigin( btVector3( transform.position.x, transform.position.y, transform.position.z ) );
 		//	t.setRotation( btQuaternion( transform.orientation.x, transform.orientation.y, transform.orientation.z, transform.orientation.w ) );
 
 			body->setWorldTransform(t);
 			body->setCenterOfMassTransform(t);
+
+		//	auto T = uf::transform::flatten( transform );
+		//	UF_DEBUG_MSG( entity->getName() << ": " << entity->getUid() << " " << uf::vector::toString( T.position ) );
 		}
 	}
 }
@@ -198,15 +197,12 @@ void ext::bullet::syncFromBullet() {
 		if ( !body || !body->getMotionState() ) return;
 		btTransform t;
 		body->getMotionState()->getWorldTransform(t);
-	#if 0
-		if ( rigidBodyMap.count(body) == 0 ) return;
-		size_t uid = rigidBodyMap[body];
-	#else
-		size_t uid = (size_t) body->getUserPointer();
-	#endif
-		if ( !uid ) continue;
-		auto* entity = scene.findByUid( uid );
+
+		uf::Object* entity = (uf::Object*) body->getUserPointer();
 		if ( !entity ) continue;
+		size_t uid = entity->getUid();
+
+		auto& collider = entity->getComponent<pod::Bullet>();
 
 		auto& transform = entity->getComponent<pod::Transform<>>();
 		transform.position.x = t.getOrigin().getX();
@@ -217,6 +213,10 @@ void ext::bullet::syncFromBullet() {
 		transform.orientation.y = t.getRotation().getY();
 		transform.orientation.z = t.getRotation().getZ();
 		transform.orientation.w = t.getRotation().getW();
+
+		// unoffset by our transform
+	//	transform.position -= collider.transform.position;
+	//	transform.orientation = transform.orientation * uf::quaternion::inverse( collider.transform.orientation );
 
 		{
 			auto& physics = entity->getComponent<pod::Physics>();
@@ -231,25 +231,27 @@ void ext::bullet::syncFromBullet() {
 
 
 		transform = uf::transform::reorient( transform );
-	
-	//	std::cout << entity->getName() << ": " << uid << " (" << i << ") @ " << uf::string::toString(transform.position) << std::endl;
 	}
 }
 pod::Bullet& ext::bullet::create( uf::Object& object ) {
 	auto& collider = object.getComponent<pod::Bullet>();
 
 	collider.uid = object.getUid();
-	collider.transform = &object.getComponent<pod::Transform<>>();
+	collider.pointer = &object;
+//	collider.transform = &object.getComponent<pod::Transform<>>();
+	collider.transform.reference = &object.getComponent<pod::Transform<>>();
 	collider.shared = false;
 	return collider;
 }
 void ext::bullet::attach( pod::Bullet& collider ) {
 	if ( !collider.shape ) return;
 	
+	auto model = uf::transform::model( collider.transform );
 	btTransform t;
-	t.setIdentity();
-	t.setOrigin(btVector3(collider.transform->position.x, collider.transform->position.y, collider.transform->position.z));
-	t.setRotation(btQuaternion(collider.transform->orientation.x, collider.transform->orientation.y, collider.transform->orientation.z, collider.transform->orientation.w));
+	t.setFromOpenGLMatrix(&model[0]);
+//	t.setIdentity();
+//	t.setOrigin(btVector3(collider.transform->position.x, collider.transform->position.y, collider.transform->position.z));
+//	t.setRotation(btQuaternion(collider.transform->orientation.x, collider.transform->orientation.y, collider.transform->orientation.z, collider.transform->orientation.w));
 
 	btVector3 inertia(collider.inertia.x, collider.inertia.y, collider.inertia.z);
 	btDefaultMotionState* motion = new btDefaultMotionState(t);
@@ -257,17 +259,13 @@ void ext::bullet::attach( pod::Bullet& collider ) {
 	btRigidBody::btRigidBodyConstructionInfo info(collider.mass, motion, collider.shape, inertia);
 	
 	collider.body = new btRigidBody(info);
-#if 0
-	rigidBodyMap[collider.body] = collider.uid;
-#else
-	collider.body->setUserPointer((void*) collider.uid);
-#endif
+//	collider.body->setUserPointer((void*) collider.uid);
+	collider.body->setUserPointer((void*) collider.pointer);
 
 	if ( collider.mass > 0 ) {
 		collider.body->activate(true);
 		collider.body->setActivationState(DISABLE_DEACTIVATION);
 	}
-
 
 	ext::bullet::dynamicsWorld->addRigidBody(collider.body);
 	ext::bullet::collisionShapes.push_back(collider.shape);
@@ -278,12 +276,80 @@ void ext::bullet::detach( pod::Bullet& collider ) {
 	ext::bullet::dynamicsWorld->removeCollisionObject( collider.body );
 }
 
+pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseGeometry& mesh, bool dynamic ) {
+	auto& transform = object.getComponent<pod::Transform<>>();
+
+	auto& collider = ext::bullet::create( object );
+	auto model = uf::transform::model( collider.transform );
+	
+	size_t indices = mesh.attributes.index.length;
+	size_t indexStride = mesh.attributes.index.size;
+	void* indexPointer = (void*) mesh.attributes.index.pointer;
+
+	size_t vertices = mesh.attributes.vertex.length;
+	size_t vertexStride = mesh.attributes.vertex.size;
+	void* vertexPointer = (void*) mesh.attributes.vertex.pointer;
+
+	uf::renderer::VertexDescriptor vertexAttributePosition;
+	for ( auto& attribute : mesh.attributes.descriptor ) {
+		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
+	}
+	if ( vertexAttributePosition.name == "" ) return collider;
+	
+	btTriangleMesh* bMesh = new btTriangleMesh( true, false );
+	bMesh->preallocateVertices( vertices );
+	for ( size_t currentIndex = 0; currentIndex < vertices; ++currentIndex ) {
+		void* vertexSrc = vertexPointer + (currentIndex * vertexStride);
+		const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
+		bMesh->findOrAddVertex( btVector3( position.x, position.y, position.z ), false );
+	}
+	if ( mesh.attributes.index.pointer ) {
+		bMesh->preallocateIndices( indices );
+		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
+			uint32_t index = 0;
+			void* indexSrc = indexPointer + (currentIndex * indexStride);
+			switch ( indexStride ) {
+				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
+				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;
+				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
+			}
+			bMesh->addIndex( index );
+		}
+		bMesh->getIndexedMeshArray()[0].m_numTriangles = indices / 3;
+	}
+
+	collider.shape = new btBvhTriangleMeshShape(bMesh, true);
+	ext::bullet::attach( collider );
+
+	btTransform t = collider.body->getWorldTransform();
+	t.setFromOpenGLMatrix(&model[0]);
+	collider.body->setWorldTransform(t);
+	collider.body->setCenterOfMassTransform(t);
+
+	btBvhTriangleMeshShape* triangleMeshShape = (btBvhTriangleMeshShape*) collider.shape;
+	btTriangleInfoMap* triangleInfoMap = new btTriangleInfoMap();
+	triangleInfoMap->m_edgeDistanceThreshold = 0.01f;
+	triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
+	if ( !false ) btGenerateInternalEdgeInfo( triangleMeshShape, triangleInfoMap );
+	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+
+	return collider;
+}
 pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Vector3f& corner, float mass ) {
 	auto& collider = ext::bullet::create( object );
 	collider.mass = mass;
-
 	collider.shape = new btBoxShape(btVector3(corner.x, corner.y, corner.z));
 	ext::bullet::attach( collider );
+
+	auto& transform = object.getComponent<pod::Transform<>>();
+	auto model = uf::transform::model( collider.transform );
+
+/*
+	btTransform t = collider.body->getWorldTransform();
+	t.setFromOpenGLMatrix(&model[0]);
+	collider.body->setWorldTransform(t);
+	collider.body->setCenterOfMassTransform(t);
+*/
 
 	collider.body->setContactProcessingThreshold(0.0);
 	collider.body->setAngularFactor(0.0);
@@ -295,14 +361,27 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Vector3f& corne
 pod::Bullet& ext::bullet::create( uf::Object& object, float radius, float height, float mass ) {
 	auto& collider = ext::bullet::create( object );
 	collider.mass = mass;
-
-	collider.shape = new btCapsuleShape(radius, height); // 1, 1.5
+	collider.shape = new btCapsuleShape(radius, height);
 	ext::bullet::attach( collider );
+
+	auto& transform = object.getComponent<pod::Transform<>>();
+	auto model = uf::transform::model( collider.transform );
+	
+/*
+	btTransform t = collider.body->getWorldTransform();
+	t.setFromOpenGLMatrix(&model[0]);
+	collider.body->setWorldTransform(t);
+	collider.body->setCenterOfMassTransform(t);
+*/
 
 	collider.body->setContactProcessingThreshold(0.0);
 	collider.body->setAngularFactor(0.0);
 	collider.body->setCcdMotionThreshold(1e-7);
 	collider.body->setCcdSweptSphereRadius(0.25 * 0.2);
+
+//	UF_DEBUG_MSG( collider.body->getLinearDamping() << " " << collider.body->getAngularDamping() );
+//	collider.body->setDamping( 0.8, 0.8 );
+
 	return collider;
 }
 

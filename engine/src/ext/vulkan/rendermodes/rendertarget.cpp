@@ -6,7 +6,7 @@
 #include <uf/utils/window/window.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/vulkan/graphic.h>
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 
 const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);

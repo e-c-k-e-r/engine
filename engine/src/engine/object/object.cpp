@@ -87,8 +87,7 @@ bool uf::Object::load( const std::string& f, bool inheritRoot ) {
 		uf::Serializer& metadata = parent.getComponent<uf::Serializer>();
 		root = metadata["system"]["root"].as<std::string>();
 	}
-	std::string filename = grabURI( f, root );
-//	std::cout << "Reading: " << filename << std::endl;
+	std::string filename = uf::io::resolveURI( f, root );
 	if ( !json.readFromFile( filename ) ) return false;
 
 	json["root"] = uf::io::directory(filename);
@@ -141,12 +140,12 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		separated["behaviors"] = json["behaviors"];
 		do {
 			std::string filename = chain["import"].is<std::string>() ? chain["import"].as<std::string>() : chain["include"].as<std::string>();
-			filename = grabURI( filename, root );
+			filename = uf::io::resolveURI( filename, root );
 			chain.readFromFile( filename );
 			root = uf::io::directory( filename );
 			ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
-				if ( ext::json::isObject( value ) ) value["filename"] = grabURI( value["filename"].as<std::string>(), root );
-				else value = grabURI( value.as<std::string>(), root );
+				if ( ext::json::isObject( value ) ) value["filename"] = uf::io::resolveURI( value["filename"].as<std::string>(), root );
+				else value = uf::io::resolveURI( value.as<std::string>(), root );
 				separated["assets"].emplace_back( value );
 			});
 			ext::json::forEach(chain["behaviors"], [&](ext::json::Value& value){
@@ -200,23 +199,25 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		if ( ext::json::isObject( json["physics"] ) && !this->hasComponent<pod::Physics>() ) {
 			auto& physics = this->getComponent<pod::Physics>();
 			if ( ext::json::isArray( json["physics"]["linear"]["velocity"] ) )
-				for ( uint j = 0; j < 3; ++j )
+				for ( size_t j = 0; j < 3; ++j )
 					physics.linear.velocity[j] = json["physics"]["linear"]["velocity"][j].as<float>();
 			if ( ext::json::isArray( json["physics"]["linear"]["acceleration"] ) )
-				for ( uint j = 0; j < 3; ++j )
+				for ( size_t j = 0; j < 3; ++j )
 					physics.linear.acceleration[j] = json["physics"]["linear"]["acceleration"][j].as<float>();
 			
 			if ( ext::json::isArray( json["physics"]["rotational"]["velocity"] ) )
-				for ( uint j = 0; j < 4; ++j )
+				for ( size_t j = 0; j < 4; ++j )
 					physics.rotational.velocity[j] = json["physics"]["rotational"]["velocity"][j].as<float>();
 			if ( ext::json::isArray( json["physics"]["rotational"]["acceleration"] ) )
-				for ( uint j = 0; j < 4; ++j )
+				for ( size_t j = 0; j < 4; ++j )
 					physics.rotational.acceleration[j] = json["physics"]["rotational"]["acceleration"][j].as<float>();
 		}
 	}
+
 	#define UF_OBJECT_LOAD_ASSET_HEADER(type)\
 		std::string assetCategory = #type;\
 		uf::Serializer target;\
+		bool override = false;\
 		if ( ext::json::isObject( metadata["system"]["assets"] ) ) {\
 			target = metadata["system"]["assets"];\
 		} else if ( ext::json::isArray( json["assets"] ) ) {\
@@ -225,30 +226,38 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			target = json["assets"][#type];\
 		}
 
+	std::vector<ext::json::Value> rejects;
 	#define UF_OBJECT_LOAD_ASSET(...)\
+		bool isObject = ext::json::isObject( target[i] );\
 		std::string canonical = "";\
-		std::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<std::string>() : "";\
-		std::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<std::string>() : target[i].as<std::string>();\
-		float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : 0;\
-		std::string category = ext::json::isObject( target[i] ) ? target[i]["category"].as<std::string>() : "";\
-		bool bind = ext::json::isObject( target[i] ) && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
-		std::string filename = grabURI( f, json["root"].as<std::string>() );\
-		bool singleThreaded = ext::json::isObject( target[i] ) ? target[i]["single threaded"].as<bool>() : false;\
+		std::string hash = isObject ? target[i]["hash"].as<std::string>() : "";\
+		std::string f = isObject ? target[i]["filename"].as<std::string>() : target[i].as<std::string>();\
+		float delay = isObject ? target[i]["delay"].as<float>() : 0;\
+		std::string category = isObject ? target[i]["category"].as<std::string>() : "";\
+		bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
+		std::string filename = uf::io::resolveURI( f, json["root"].as<std::string>() );\
+		bool singleThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;\
+		bool overriden = isObject ? target[i]["override"].as<bool>() : false;\
 		std::vector<std::string> allowedExtensions = {__VA_ARGS__};\
 		std::string extension = uf::io::extension(filename);\
-		if ( category != "" && category != assetCategory ) continue;\
-		if ( category == "" && std::find( allowedExtensions.begin(), allowedExtensions.end(), extension ) == allowedExtensions.end() ) continue;\
+		if ( override && overriden ) {\
+			if ( category == "" ) continue;\
+		} else {\
+			if ( category != "" && category != assetCategory ) continue;\
+			if ( category == "" && std::find( allowedExtensions.begin(), allowedExtensions.end(), extension ) == allowedExtensions.end() ) continue;\
+		}\
 		uf::Serializer payload;\
+		if ( isObject ) payload = target[i];\
 		payload["filename"] = filename;\
 		if ( hash != "" ) payload["hash"] = hash;\
-		payload["category"] = assetCategory;\
+		payload["category"] = assetCategory != "" ? assetCategory : category;\
 		payload["single threaded"] = singleThreaded;\
 		this->queueHook( "asset:QueueLoad.%UID%", payload, delay );\
 
 	// Audio
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(audio)
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("ogg")
 		}
 	}
@@ -256,7 +265,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	// Images
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(images)
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("png", "jpg", "jpeg")
 		}
 	}
@@ -264,7 +273,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	// GLTf models
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(models)
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("gltf", "glb", "graph")
 			if ( bind ) uf::instantiator::bind("GltfBehavior", *this);
 			
@@ -276,9 +285,17 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	// Lua scripts
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(scripts)
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("lua")
 			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
+		}
+	}
+	// Override
+	{
+		UF_OBJECT_LOAD_ASSET_HEADER()
+		override = true;
+		for ( size_t i = 0; i < target.size(); ++i ) {
+			UF_OBJECT_LOAD_ASSET()
 		}
 	}
 	// Bind behaviors
@@ -291,7 +308,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		} else if ( ext::json::isArray( json["behaviors"] ) ) {
 			target = json["behaviors"];
 		}
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			uf::instantiator::bind( target[i].as<std::string>(), *this );
 		}
 	}
@@ -301,7 +318,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		if ( json["metadata"].is<std::string>() ) {
 			std::string f = json["metadata"].as<std::string>();
-			std::string filename = grabURI( json["metadata"].as<std::string>(), json["root"].as<std::string>() );
+			std::string filename = uf::io::resolveURI( json["metadata"].as<std::string>(), json["root"].as<std::string>() );
 			if ( !metadata.readFromFile(filename) ) return false;
 		} else {
 			metadata = json["metadata"];
@@ -314,13 +331,13 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	// check for children
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(entities)
-		for ( uint i = 0; i < target.size(); ++i ) {
+		for ( size_t i = 0; i < target.size(); ++i ) {
 			std::string canonical = "";
 			std::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<std::string>() : "";
 			std::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<std::string>() : target[i].as<std::string>();
 			float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : -1;
 			std::string category = ext::json::isObject( target[i] ) ? target[i]["category"].as<std::string>() : "";\
-			std::string filename = grabURI( f, json["root"].as<std::string>() );
+			std::string filename = uf::io::resolveURI( f, json["root"].as<std::string>() );
 			if ( category != "" && category != assetCategory ) continue;
 			if ( category == "" && uf::io::extension(filename) != "json" ) continue;
 			if ( (canonical = assetLoader.load( filename, hash )) == "" ) continue;
@@ -376,7 +393,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 uf::Object& uf::Object::loadChild( const std::string& f, bool initialize ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	uf::Serializer json;
-	std::string filename = grabURI( f, metadata["system"]["root"].as<std::string>() );
+	std::string filename = uf::io::resolveURI( f, metadata["system"]["root"].as<std::string>() );
 	if ( !json.readFromFile(filename) ) {
 		return ::null;
 	}

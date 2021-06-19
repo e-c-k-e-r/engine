@@ -39,12 +39,12 @@ bool uf::Serializer::readFromFile( const std::string& from, const std::string& h
 	uf::String string;
 	bool exists = uf::io::exists(from);
 	if ( !exists ) {
-		UF_ERROR_MSG("Failed to read JSON file `" << from << "`: does not exist");
+		UF_MSG_ERROR("Failed to read JSON file `" << from << "`: does not exist");
 		return false;
 	}
 	auto buffer = uf::io::readAsBuffer( from, hash );
 	if ( buffer.empty() ) {
-		UF_ERROR_MSG("Failed to read JSON file `" << from << "`: empty file or hash mismatch");
+		UF_MSG_ERROR("Failed to read JSON file `" << from << "`: empty file or hash mismatch");
 		return false;
 	}
 

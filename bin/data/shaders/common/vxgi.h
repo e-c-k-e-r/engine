@@ -9,13 +9,13 @@ uint cascadeIndex( vec3 v ) {
 vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	ray.origin += ray.direction * voxelInfo.radianceSizeRecip * 2 * SQRT2;
 #if VXGI_NDC
-	ray.origin = vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) );
-	ray.direction = vec3( ubo.matrices.vxgi * vec4( ray.direction, 0.0 ) );
+	ray.origin = vec3( ubo.vxgi.matrix * vec4( ray.origin, 1.0 ) );
+	ray.direction = vec3( ubo.vxgi.matrix * vec4( ray.direction, 0.0 ) );
 	uint cascade = cascadeIndex(ray.origin);
 #else
-	uint cascade = cascadeIndex( vec3( ubo.matrices.vxgi * vec4( ray.origin, 1.0 ) ) );
+	uint cascade = cascadeIndex( vec3( ubo.vxgi.matrix * vec4( ray.origin, 1.0 ) ) );
 #endif
-	const float granularityRecip = 2.0; // 0.25f * (CASCADES - cascade);
+	const float granularityRecip = ubo.vxgi.granularity; //2.0; // 0.25f * (CASCADES - cascade);
 	const float granularity = 1.0f / granularityRecip;
 	const float occlusionFalloff = 128.0f;
 	const vec3 voxelBounds = voxelInfo.max - voxelInfo.min;
@@ -47,7 +47,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 	#if VXGI_NDC
 		uvw = ray.position;
 	#else
-		uvw = vec3( ubo.matrices.vxgi * vec4( ray.position, 1.0 ) );
+		uvw = vec3( ubo.vxgi.matrix * vec4( ray.position, 1.0 ) );
 	#endif
 		cascade = cascadeIndex( uvw );
 		uvw = (uvw / cascadePower(cascade)) * 0.5 + 0.5;
@@ -70,7 +70,7 @@ vec4 voxelTrace( inout Ray ray, float maxDistance ) {
 }
 uint voxelShadowsCount = 0;
 float voxelShadowFactor( const Light light, float def ) {
-	if ( voxelShadowsCount++ > ubo.vxgiShadowSamples ) return 1.0;
+	if ( voxelShadowsCount++ > ubo.vxgi.shadows ) return 1.0;
 
 	const float SHADOW_APERTURE = 0.2;
 	const float DEPTH_BIAS = 0.0;
@@ -89,7 +89,7 @@ void indirectLighting() {
 	voxelInfo.min = vec3( -1 );
 	voxelInfo.max = vec3(  1 );
 #else
-	const mat4 inverseOrtho = inverse( ubo.matrices.vxgi );
+	const mat4 inverseOrtho = inverse( ubo.vxgi.matrix );
 	voxelInfo.min = vec3( inverseOrtho * vec4( -1, -1, -1, 1 ) );
 	voxelInfo.max = vec3( inverseOrtho * vec4(  1,  1,  1, 1 ) );
 #endif

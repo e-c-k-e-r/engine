@@ -1,0 +1,25 @@
+{
+	"name": "Menu: Command Text",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [  -0.830591, -0.699509, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.258737, 0.115371, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"text settings": {
+			"stroke": [ 1, 0.749, 0.368, 1 ],
+			"color": [ 1, 0.749, 0.368, 1 ],
+
+			"string": "Menu",
+			"string1": "コマンド"
+		}
+	}
+}

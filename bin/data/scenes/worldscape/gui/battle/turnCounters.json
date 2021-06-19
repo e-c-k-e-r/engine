@@ -1,0 +1,18 @@
+{
+	"name": "Menu: Turn Counters",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ 0.908587, 0.862859, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.0673643, 0.104402, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative"
+	}
+}

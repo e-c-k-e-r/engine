@@ -281,8 +281,8 @@ void ext::vulkan::tick() {
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
 		ext::vulkan::states::rebuild = true;
 	}
-if ( uf::scene::useGraph ) {
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
@@ -290,18 +290,6 @@ if ( uf::scene::useGraph ) {
 		graphic.initializePipeline();
 		ext::vulkan::states::rebuild = true;
 	}
-} else {
-	for ( uf::Scene* scene : uf::scene::scenes ) {
-		if ( !scene ) continue;
-			scene->process([&]( uf::Entity* entity ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) return;
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( graphic.initialized || !graphic.process || graphic.initialized ) return;
-			graphic.initializePipeline();
-			ext::vulkan::states::rebuild = true;
-		});
-	}
-}
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( !renderMode->device ) {
@@ -379,7 +367,8 @@ void ext::vulkan::destroy() {
 	Texture3D::empty.destroy();
 	TextureCube::empty.destroy();
 
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();

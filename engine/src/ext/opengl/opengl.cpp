@@ -13,13 +13,6 @@
 #include <fstream>
 #include <atomic>
 
-namespace {
-	float fract( float n ) {
-		float whole, fractional;
-		return std::modf(n, &whole);
-	}
-}
-
 uint32_t ext::opengl::settings::width = 1280;
 uint32_t ext::opengl::settings::height = 720;
 uint8_t ext::opengl::settings::msaa = 1;
@@ -308,7 +301,8 @@ void UF_API ext::opengl::tick(){
 	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
 	}
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
@@ -387,7 +381,8 @@ void UF_API ext::opengl::destroy() {
 	synchronize();
 
 	Texture2D::empty.destroy();
-	auto graph = uf::scene::generateGraph();
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();

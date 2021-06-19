@@ -1,0 +1,67 @@
+{
+	"name": "World",
+	"type": "Scene",
+	"behaviors": [
+		"SceneCollisionBehavior",
+		"SceneBehavior",
+		"ExtSceneBehavior",
+		"WorldScapeSceneBehavior"
+	],
+	"assets": [
+		"./terrain.json",
+		"/gui.json",
+		"/player.json",
+		"/portal.json",
+	//	"/overworld/largemap.ogg"
+		"/overworld/dungeon_intro.ogg"
+	],
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"renderer": {
+			"clear values": [
+				[ 0, 0, 0, 0 ]
+			]
+		},
+		"physics": {
+			"collision": true,
+			"single threaded": false,
+			"sort": false,
+			"use": {
+				"strongest": false,
+				"worker": true,
+				"queue": false
+			},
+			"optimizations": {
+				"ignore static entities": true,
+				"ignore duplicate tests": true,
+				"entity-local update": true
+			}
+		}
+	},
+	"metadata": {
+		"menus": {
+			"pause": "/gui/pause/menu.json"
+		},
+		"volumes": {
+			"sfx": 0.25,
+			"bgm": 0.15,
+			"voice": 1.0
+		},
+		"shaders": {
+		//	"sprite": 	{ "suffix": "dither4" },
+		//	"gui": 		{ "suffix": "dither4" },
+		//	"region": 	{ "suffix": "dither4" }
+		},
+		"light": {
+			"ambient": [ 0.4, 0.4, 0.4 ],
+			"kexp": 0,
+			"fog": {
+				"color": [ 0.01, 0.01, 0.01 ],
+				"range": [ 4, 24 ]
+			},
+			"should": true
+		}
+	}
+}

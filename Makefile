@@ -23,6 +23,8 @@ FLAGS 				  	+= -Wno-pointer-arith
 LIB_NAME 				+= uf
 EXT_LIB_NAME 			+= ext
 
+7Z 						+= /c/Program\ Files/7-Zip/7z.exe
+
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
 VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
@@ -292,3 +294,6 @@ clean-exe:
 
 clean-shaders:
 	-rm $(TARGET_SHADERS)
+
+backup:
+	$(7Z) a -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z .

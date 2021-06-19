@@ -24,17 +24,25 @@ namespace ext {
 			} max;
 			struct {
 				bool enabled = true;
-				int shadowSamples = 4;
-				int shadowThreshold = 8;
-				size_t updateThreshold = 4;
 				pod::Vector4f ambient = {0,0,0,1};
 				pod::Vector4f specular = {1,1,1,1};
 				float exposure = 1.0f;
 				float gamma = 1.0f;
+			} light;
+			struct {
+				bool enabled = true;
+				int samples = 4;
+				int max = 8;
+				size_t update = 4;
 
 				size_t experimentalMode = 0;
-				size_t vxgiShadowSamples = 0;
-			} light;
+			} shadow;
+			struct {
+				uint32_t mode;
+				uint32_t scalar;
+				pod::Vector4f parameters = {0,0,0,0};
+				int8_t time = 3;
+			} shader;
 			struct {
 				pod::Vector3f color = {1,1,1};
 				float stepScale = 16.0f;

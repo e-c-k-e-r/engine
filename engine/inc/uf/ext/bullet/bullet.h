@@ -12,9 +12,10 @@
 namespace pod {
 	struct UF_API Bullet {
 		size_t uid = 0;
+		uf::Object* pointer = NULL;
 		float mass = 0.0f;
 		pod::Vector3f inertia = {};
-		pod::Transform<>* transform = NULL;
+		pod::Transform<> transform;
 
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
 	#if UF_USE_BULLET
@@ -50,8 +51,13 @@ namespace ext {
 		void UF_API detach( pod::Bullet& );
 
 		// collider from mesh
+	#if 0
 		template<typename T, typename U>
-		pod::Bullet& create( uf::Object&, const uf::BaseMesh<T, U>& mesh, bool = true, int = 0 );
+		pod::Bullet& create( uf::Object&, const uf::BaseMesh<T, U>& mesh, bool );
+	#endif
+
+		// collider for mesh (static or dynamic)
+		pod::Bullet& create( uf::Object&, const uf::BaseGeometry&, bool );
 		// collider for boundingbox
 		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
 		// collider for capsule

@@ -30,7 +30,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 		UF_DEBUG_MSG("Unwrapping...");
 		auto& graph = this->getComponent<pod::Graph>();
-		graph = ext::gltf::load( metadata.names.model, ext::gltf::LoadMode::ATLAS );
+		graph = ext::gltf::load( metadata.names.model, uf::graph::LoadMode::ATLAS );
 
 		auto size = ext::xatlas::unwrap( graph );
 		if ( size.x == 0 && size.y == 0 ) return;
@@ -109,7 +109,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			graphic.material.textures.emplace_back().aliasTexture(texture.texture);
 		}
 		
-		auto& mesh = this->getComponent<ext::gltf::mesh_t>();
+		auto& mesh = this->getComponent<uf::graph::mesh_t>();
 		for ( auto& m : graph.meshes ) mesh.insert(m);
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -162,6 +162,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 #endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {
+#if 0
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
@@ -169,49 +170,47 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 	if ( renderMode.executed && !metadata.initialized.renderMode ) {
 		UF_DEBUG_MSG("Preparing graphics to bake...");
 		auto& graph = this->getComponent<pod::Graph>();
-		auto& mesh = this->getComponent<ext::gltf::mesh_t>();
+		auto& mesh = this->getComponent<uf::graph::mesh_t>();
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 
 		graphic.initialize( metadata.names.renderMode );
 		graphic.initializeMesh( mesh );
-
 		// Light storage buffer
 		std::vector<pod::Light::Storage> lights;
 		lights.reserve(1024);
 		if ( metadata.shadows ) {
 			auto& scene = uf::scene::getCurrentScene();
+			auto& graph = scene.getGraph();
 			auto& controller = scene.getController();
 
 			struct LightInfo {
 				uf::Entity* entity = NULL;
-				pod::Vector4f color = {0,0,0,0};
+				pod::Vector3f color = {0,0,0,0};
 				pod::Vector3f position = {0,0,0};
 				float power = 0;
 				float bias = 0;
+				int32_t type = 0;
 				bool shadows = false;
-				size_t type = 0;
 			};
 			std::vector<LightInfo> infos;
-			{
-				auto graph = uf::scene::generateGraph();
-				for ( auto entity : graph ) {
-					if ( entity == &controller || entity == this ) continue;
-					if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
-					auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-					if ( metadata.power <= 0 ) continue;
-					LightInfo& info = infos.emplace_back();
-					auto& transform = entity->getComponent<pod::Transform<>>();
-					auto flatten = uf::transform::flatten( transform );
-					info.entity = entity;
-					info.position = flatten.position;
-					info.color = metadata.color;
-					info.color.w = metadata.power;
-					info.shadows = metadata.shadows;
-					info.bias = metadata.bias;
-					info.type = metadata.type;
-				}
+			for ( auto entity : graph ) {
+				if ( entity == &controller || entity == this ) continue;
+				if ( entity->getName() != "Light" && !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+				auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
+				if ( metadata.power <= 0 ) continue;
+				auto& transform = entity->getComponent<pod::Transform<>>();
+				auto flatten = uf::transform::flatten( transform );
+				LightInfo& info = infos.emplace_back(LightInfo{
+					.entity = entity,
+					.color = metadata.color,
+					.position = flatten.position,
+					.power = metadata.power,
+					.bias = metadata.bias,
+					.type = metadata.type,
+					.shadows = metadata.shadows,
+				});
 			}
 			size_t textureSlot = graphic.material.textures.size();
 			for ( auto& info : infos ) {
@@ -316,6 +315,7 @@ SAVE:
 	uf::Serializer payload;
 	payload["uid"] = this->getUid();
 	uf::scene::getCurrentScene().queueHook("system:Destroy", payload);
+#endif
 #endif
 }
 void ext::BakingBehavior::render( uf::Object& self ){}

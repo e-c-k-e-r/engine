@@ -16,11 +16,11 @@ bool uf::Entity::isValid() const {
 	return this && 0 < this->m_uid && this->m_uid <= uf::Entity::uids;
 }
 void uf::Entity::setUid() {
-	uf::scene::invalidateGraph();
+	uf::scene::invalidateGraphs();
 	this->m_uid = ++uf::Entity::uids;
 }
 void uf::Entity::unsetUid() {
-	uf::scene::invalidateGraph();
+	uf::scene::invalidateGraphs();
 	this->m_uid = 0;
 }
 bool uf::Entity::hasParent() const {

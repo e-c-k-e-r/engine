@@ -10,71 +10,47 @@
 #include <string>
 #include <vector>
 
-#include <uf/utils/math/vector.h>
-
-#define AL_CHECK_ERROR(...) __VA_ARGS__; ext::oal.checkError(__FUNCTION__, __LINE__)
-
-namespace ext {
-	class UF_API AL {
-	protected:
-		bool m_initialized;
-		ALCdevice* m_device;
-		ALCcontext* m_context;
-	public:
-		AL();
-		~AL();
-
-		bool initialize();
-		bool terminate();
-
-		void listener( ALenum, std::vector<ALfloat> );
-		void listener( const std::string, std::vector<ALfloat> );
-
-		void checkError( const std::string& = "", int = 0, const std::string& = "" ) const;
-		std::string getError() const;
-	};
-	namespace al {
-		class UF_API Source {
-		protected:
-			ALuint m_index;
-		public:
-			Source();
-			~Source();
-
-			void generate();
-			void destroy();
-
-			ALuint& getIndex();
-			ALuint getIndex() const;
-			
-			void source( ALenum, std::vector<ALfloat> );
-			void source( const std::string, std::vector<ALfloat> );
-			
-			void source( ALenum, std::vector<ALint> );
-			void source( const std::string, std::vector<ALint> );
-
-			void play();
-			void stop();
-			bool playing();
-		};
-		class UF_API Buffer {
-		protected:
-			ALuint m_index;
-		public:
-			Buffer();
-			~Buffer();
-
-			ALuint& getIndex();
-			ALuint getIndex() const;
-
-			void buffer(ALenum, const ALvoid*, ALsizei, ALsizei);
-
-			void generate();
-			void destroy();
-		};
-	}
-
-	extern UF_API ext::AL oal;
+#define AL_CHECK_RESULT(f) {\
+	(f);\
+	ALCenum error = alGetError();\
+	if ( error != AL_NO_ERROR ) UF_DEBUG_MSG("AL error: " << ext::al::getError(error) << ": " << #f);\
 }
 
+//	std::string errorString = alutGetErrorString(alutGetError());
+//	if ( errorString != "No ALUT error found" ) UF_DEBUG_MSG("AL error: " << errorString);
+
+#include "source.h"
+#include "buffer.h"
+#include <uf/utils/audio/metadata.h>
+#include <uf/utils/math/transform.h>
+
+namespace ext {
+	namespace al {
+		void UF_API initialize();
+		void UF_API destroy();
+
+		void UF_API listener( const pod::Transform<>& );
+	/*	
+		void UF_API listener( ALenum name, ALfloat x );
+		void UF_API listener( ALenum name, ALfloat x, ALfloat y, ALfloat z );
+		void UF_API listener( ALenum name, const ALfloat* f );
+
+		void UF_API listener( const std::string& name, ALfloat x );
+		void UF_API listener( const std::string& name, ALfloat x, ALfloat y, ALfloat z );
+		void UF_API listener( const std::string& name, const ALfloat* f );
+	*/
+
+		std::string UF_API getError( ALenum = 0 );
+
+		uf::audio::Metadata* UF_API create( const std::string&, bool, uint8_t );
+		uf::audio::Metadata* UF_API open( const std::string& );
+		uf::audio::Metadata* UF_API open( const std::string&, bool );
+		uf::audio::Metadata* UF_API load( const std::string& );
+		uf::audio::Metadata* UF_API stream( const std::string& );
+		void UF_API update( uf::audio::Metadata& );
+
+		void UF_API close( uf::audio::Metadata* );
+		void UF_API close( uf::audio::Metadata& );
+	}
+}
 #endif

@@ -66,11 +66,14 @@ void client::initialize() {
 
 	#if UF_USE_OPENAL
 	/* Initialize OpenAL */ {
-		if ( !ext::oal.initialize() ) {
+		ext::al::initialize();
+	/*
+		if ( !ext::al::initialize() ) {
 			std::cerr << "[ERROR] AL failed to initialize!" << std::endl;
 			std::exit(EXIT_SUCCESS);
 			return;
 		}
+	*/
 	}
 	#endif
 	
@@ -151,10 +154,13 @@ void client::terminate() {
 	client::window.terminate();
 
 	#if UF_USE_OPENAL
-	if ( !ext::oal.terminate() ) {
+	ext::al::destroy();
+/*
+	if ( !ext::al::destroy() ) {
 		std::cerr << "[ERROR] AL failed to terminate!" << std::endl;
 		std::exit(EXIT_SUCCESS);
 		return;
 	}
+*/
 	#endif
 }

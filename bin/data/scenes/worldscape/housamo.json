@@ -1,0 +1,41 @@
+{
+	"type": "Object",
+	"behaviors": [
+		"CraetureBehavior",
+		"HousamoSpriteBehavior"
+	],
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0.0
+		},
+		"scale": [ 3, 4.2375, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"physics": {
+		"collision": false,
+		"gravity": [ 0, -9.81, 0 ],
+		"walk": 1,
+		"move": 4,
+		"run": 8,
+		"rotate": 1.25,
+		"crouch": 1,
+		"jump": [ 0, 4, 0 ]
+	},
+	"metadata": {
+		"color": [ 1, 1, 1, 1 ],
+		"region": {
+			"track": true,
+			"persist": false
+		},
+		"system":{
+			"onCollision": "battle"
+		}
+	}
+}

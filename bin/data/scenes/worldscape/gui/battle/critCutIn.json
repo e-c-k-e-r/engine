@@ -1,0 +1,28 @@
+{
+	"name": "Menu: Crit Cut In",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0.407656, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [  0.4617, 0.2097, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 1, 1, 1, 1.0 ],
+		"location": "",
+		"scaling": "relative",
+		"debug": {
+			"moveable": true
+		},
+		"shaders": {
+			"fragment": "./data/shaders/gui.gradient.frag.spv"
+		}
+	},
+	"assets": [
+		"./data/smtsamo/ci/ci_tsathoggua01.png"
+	]
+}

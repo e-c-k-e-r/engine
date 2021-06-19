@@ -1,0 +1,88 @@
+{
+	"type": "Object",
+	"name": "MedSci",
+	"ignore": false,
+	"assets": [
+	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false }
+	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	
+	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+
+	//	{ "filename": "./models/medsci.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	],
+	"behaviors": [
+		"LoadingBehavior"
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"model": {
+			"debug": {
+				"static": true,
+				"no cleanup": false,
+				"print tree": false,
+				"print stats": false,
+				"export": {
+					"should": false,
+					"combined": false,
+					"compression": false,
+					"precision": 4
+				}
+			},
+			"ambient": [ 0, 0, 0 ],
+		/*
+			"grid": {
+				"center": [19.2895, 2.42479, 3.91724],
+				"size": [5, 1, 5]
+			},
+		*/
+		//	"lightmap": "./lightmap.png",
+			"filter": "NEAREST",
+			"flags": {
+				"ATLAS": true,
+				"INVERT": false,
+				"TRANSFORM": false,
+				
+				"RENDER": true,
+				"COLLISION": false,
+				"SEPARATE": false,
+				"NORMALS": true,
+				"LOAD": false
+			},
+			"lights": {
+				"shadows": true
+			},
+			"tags": {
+				"worldspawn_20": { 
+					"action": "attach",
+					"filename": "./baker.json",
+					"collision": { "type": "mesh", "static": true }
+				},
+				"info_player_spawn": {
+					"action": "attach",
+					"filename": "./player.json",
+					"preserve orientation": true
+				},
+				"ambience_xerxes": { "action": "load", "payload": { "import": "./ambience.json", "assets": [ "./audio/soundscape/xerxes.ogg" ], "metadata": { "audio": { "rolloffFactor": 0.5, "volume": 1.0 } } } },
+
+				"light_30145": { "light": { "power": 120 } },
+
+				"prop_camera_103001_light": { "light": { "shadows": false, "static": false, "dynamic": true, "power": 30 } },
+				"prop_camera_103118_light": { "light": { "shadows": false, "static": false, "dynamic": true, "power": 30 } },
+				"prop_camera_103001": { "action": "load", "payload": { "import": "./ambience.json", "assets": [ "./scripts/camera.lua", "./audio/soundscape/camera.ogg" ], "metadata": { "audio": { "rolloffFactor": 4, "volume": 1.0 }, "sensitivity": 10 }, "collision": { "type": "bounding box" } } },
+				"prop_camera_103118": { "action": "load", "payload": { "import": "./ambience.json", "assets": [ "./scripts/camera.lua", "./audio/soundscape/camera.ogg" ], "metadata": { "audio": { "rolloffFactor": 4, "volume": 1.0 }, "sensitivity": 10 }, "collision": { "type": "bounding box" } } },
+				"func_movelinear_57637": { "action": "load", "payload": { "assets": [ "./scripts/lift.lua" ], "metadata": { "delta": [ 0,8.6,0 ] } }, "collision": { "type": "bounding box" } },
+				"func_movelinear_82820": { "action": "load", "payload": { "assets": [ "./scripts/lift.lua" ], "metadata": { "delta": [ 0,9.2,0 ] } }, "collision": { "type": "bounding box" } },
+				"func_movelinear_103114": { "action": "load", "payload": { "assets": [ "./scripts/lift.lua" ], "metadata": { "delta": [ 0,-3.0,0 ] } }, "collision": { "type": "bounding box" } }
+			}
+		}
+	}
+}

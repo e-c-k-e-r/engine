@@ -9,12 +9,11 @@ void uf::EntityBehavior::initialize( uf::Object& self ) {
 	if ( !this->isValid() ) this->setUid();
 }
 
-
 void uf::EntityBehavior::tick( uf::Object& self ) {
-	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->tick();
+//	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->tick();
 }
 void uf::EntityBehavior::render( uf::Object& self ) {
-	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->render();
+//	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->render();
 }
 void uf::EntityBehavior::destroy( uf::Object& self ) {
 	for ( uf::Entity* kv : this->getChildren() ) {

@@ -1,0 +1,43 @@
+#pragma once
+
+#include <string>
+#include <fstream>
+
+#include <uf/ext/oal/source.h>
+#include <uf/ext/oal/buffer.h>
+
+namespace uf {
+	namespace audio {
+		struct UF_API Metadata {
+			std::string filename = "";
+			std::string extension = "";
+			struct {
+				std::ifstream* file = NULL;
+				void* handle = NULL;
+				char* buffer = NULL;
+				
+				ALsizei consumed = 0;
+				int32_t bitStream = 0;
+			} stream;
+			struct {
+				ext::al::Source source;
+				ext::al::Buffer buffer;
+			} al;
+			struct {
+				uint8_t channels = 0;
+				uint8_t bitDepth = 0;
+				uint32_t frequency = 0;
+				size_t size = 0;
+
+				uint32_t format = 0;
+				float duration = 0;
+			} info;
+			struct {
+				bool streamed = true;
+				bool loop = false;
+				uint8_t buffers = 4;
+				uint8_t loopMode = 0;
+			} settings;
+		};
+	}
+}

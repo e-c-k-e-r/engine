@@ -12,7 +12,7 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 	const float dstInsideBox = rayBoxInfo.y;
 	const float depth = surface.position.eye.z;
 
-	const float aperture = PI * 0.5;
+	const float aperture = 0; // PI * 0.5;
 	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
 
 	// march

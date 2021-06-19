@@ -98,6 +98,7 @@ template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::flatten( const 
 			combined.scale.z * pointer->scale.z,
 		};
 		combined.model = pointer->model * combined.model;
+		if ( pointer == pointer->reference ) break;
 		pointer = pointer->reference;
 	}
 	return combined = uf::transform::reorient(combined);
@@ -119,6 +120,7 @@ template<typename T> pod::Matrix4t<T> /*UF_API*/ uf::transform::model( const pod
 			uf::matrix::scale( uf::matrix::identity(), pointer->scale ) *
 			pointer->model;
 		matrix = model * matrix;
+		if ( pointer == pointer->reference ) break;
 		pointer = pointer->reference;
 	} while ( pointer && --depth >= 0 );
 	return matrix;

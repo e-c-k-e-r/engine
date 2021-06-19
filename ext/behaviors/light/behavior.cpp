@@ -49,7 +49,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["lights"]["shadows"].as<bool>() ) {
+	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) ) {
 		metadataJson["light"]["shadows"] = false;
 	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {

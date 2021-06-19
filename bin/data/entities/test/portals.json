@@ -1,0 +1,31 @@
+{
+	"type": "Portals",
+	"ignore": true,
+	"metadata": {
+		"portals": [
+			{
+				"transform": {
+					"position": [ 0, 4, -4 ],
+					"orientation": [ 0, 0, 0, 1 ],
+					"scale": [ 4, 4, 1 ]
+				},
+				"metadata": {
+					
+				}
+			},
+			{
+				"transform": {
+					"position": [ 0, 4, 4 ],
+					"rotation": {
+						"axis": [ 0, 1, 0 ],
+						"angle": 3.14159
+					},
+					"scale": [ 4, 4, 1 ]
+				},
+				"metadata": {
+
+				}
+			}
+		]
+	}
+}

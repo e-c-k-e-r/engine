@@ -17,14 +17,14 @@ UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
-	auto& metadata = this->getComponent<uf::Serializer>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	// 
 	{
-		size_t assets = metadata["system"]["assets"].size();
-		if ( metadata["system"]["load"]["ignore"].is<bool>() ) assets = 0;
-		metadata["system"]["load"]["progress"] = 0;
-		metadata["system"]["load"]["total"] = assets;
+		size_t assets = metadataJson["system"]["assets"].size();
+		if ( metadataJson["system"]["load"]["ignore"].is<bool>() ) assets = 0;
+		metadataJson["system"]["load"]["progress"] = 0;
+		metadataJson["system"]["load"]["total"] = assets;
 		if ( assets == 0 )  {
 			auto& parent = this->getParent().as<uf::Object>();
 			uf::Serializer payload;
@@ -32,34 +32,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	}
-
-#if UF_USE_BULLET
-	if ( ext::json::isObject(metadata["system"]["physics"]) ) {
-		float mass = metadata["system"]["physics"]["mass"].as<float>();
-		if ( metadata["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
-			pod::Vector3f corner = uf::vector::decode( metadata["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
-			ext::bullet::create( *this, corner, mass );
-		} else if ( metadata["system"]["physics"]["type"].as<std::string>() == "Capsule" ) {
-			float radius = metadata["system"]["physics"]["radius"].as<float>();
-			float height = metadata["system"]["physics"]["height"].as<float>();
-			ext::bullet::create( *this, radius, height, mass );
-		} else {
-			return;
-		}
-
-		auto& collider = this->getComponent<pod::Bullet>();
-		if ( !ext::json::isNull( metadata["system"]["physics"]["gravity"] ) ) {
-			collider.body->setGravity( btVector3(
-				metadata["system"]["physics"]["gravity"][0].as<float>(),
-				metadata["system"]["physics"]["gravity"][1].as<float>(),
-				metadata["system"]["physics"]["gravity"][2].as<float>()
-			) );
-			if ( metadata["system"]["physics"]["shared"].is<bool>() ) {
-				collider.shared = metadata["system"]["physics"]["shared"].as<bool>();
-			}
-		}
-	}
-#endif
 
 	this->addHook( "object:TransformReferenceController.%UID%", [&](ext::json::Value& json){
 		auto& transform = this->getComponent<pod::Transform<>>();
@@ -74,13 +46,13 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		if ( ext::json::isNull( json ) ) return;
 		if ( json["type"].as<std::string>() == "merge" ) {
-			metadata.merge(json["value"], true);
+			metadataJson.merge(json["value"], true);
 		} else if ( json["type"].as<std::string>() == "import" ) {
-			metadata.import(json["value"]);
+			metadataJson.import(json["value"]);
 		} else if ( json["path"].is<std::string>() ) {
-			metadata.path(json["path"].as<std::string>()) = json["value"];
+			metadataJson.path(json["path"].as<std::string>()) = json["value"];
 		} else {
-			metadata.merge(json, true);
+			metadataJson.merge(json, true);
 		}
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](ext::json::Value& json){
@@ -118,8 +90,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:Parsed.%UID%", [&](ext::json::Value& json){	
 		int portion = 1;
-		auto& total = metadata["system"]["load"]["total"];
-		auto& progress = metadata["system"]["load"]["progress"];
+		auto& total = metadataJson["system"]["load"]["total"];
+		auto& progress = metadataJson["system"]["load"]["progress"];
 		progress = progress.as<int>() + portion;
 		if ( progress.as<int>() == total.as<int>() ) {
 			auto& parent = this->getParent().as<uf::Object>();
@@ -129,6 +101,44 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	});
+
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	metadata.serialize = [&](){
+		if ( metadata.transform.trackParent ) metadataJson["system"]["transform"]["track"] = "parent";
+	};
+	metadata.deserialize = [&](){
+		metadata.transform.initial = this->getComponent<pod::Transform<>>();
+		metadata.transform.trackParent = metadataJson["system"]["transform"]["track"].as<std::string>() == "parent";
+	};
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
+
+#if UF_USE_BULLET
+	if ( ext::json::isObject(metadataJson["system"]["physics"]) ) {
+		float mass = metadataJson["system"]["physics"]["mass"].as<float>();
+		auto& collider = this->getComponent<pod::Bullet>();
+		if ( !ext::json::isNull( metadataJson["system"]["physics"]["inertia"] ) ) {
+			collider.inertia = uf::vector::decode( metadataJson["system"]["physics"]["inertia"], pod::Vector3f{} );
+		}
+		if ( metadataJson["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
+			pod::Vector3f corner = uf::vector::decode( metadataJson["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
+			ext::bullet::create( *this, corner, mass );
+		} else if ( metadataJson["system"]["physics"]["type"].as<std::string>() == "Capsule" ) {
+			float radius = metadataJson["system"]["physics"]["radius"].as<float>();
+			float height = metadataJson["system"]["physics"]["height"].as<float>();
+			ext::bullet::create( *this, radius, height, mass );
+		} else {
+			return;
+		}
+		if ( !ext::json::isNull( metadataJson["system"]["physics"]["gravity"] ) ) {
+			pod::Vector3f v = uf::vector::decode( metadataJson["system"]["physics"]["gravity"], pod::Vector3f{} );
+			collider.body->setGravity( btVector3( v.x, v.y, v.z ) );
+		}
+		if ( metadataJson["system"]["physics"]["shared"].is<bool>() ) {
+			collider.shared = metadataJson["system"]["physics"]["shared"].as<bool>();
+		}
+	}
+#endif
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
@@ -162,6 +172,10 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		auto& audio = this->getComponent<uf::SoundEmitter>();
 		audio.cleanup(true);
 	}
+	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
+		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
+		audio.cleanup(true);
+	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();
@@ -173,6 +187,19 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	}
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
+	// update audios
+	if ( this->hasComponent<uf::Audio>() ) {
+		auto& audio = this->getComponent<uf::Audio>();
+		audio.update();
+	}
+	if ( this->hasComponent<uf::SoundEmitter>() ) {
+		auto& audio = this->getComponent<uf::SoundEmitter>();
+		audio.update();
+	}
+	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
+		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
+		audio.update();
+	}
 	// listen for metadata file changes
 #if UF_ENTITY_METADATA_USE_JSON
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -205,12 +232,20 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	}
 #else
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+
 	if ( metadata.hotReload.enabled ) {
 		size_t mtime = uf::io::mtime( metadata.hotReload.source );
 		if ( metadata.hotReload.mtime < mtime ) {
 			metadata.hotReload.mtime = mtime;
 			this->reload();
 		}
+	}
+
+	if ( metadata.transform.trackParent && this->hasParent() ) {
+		auto& parent = this->getParent();
+		auto& transform = this->getComponent<pod::Transform<>>();
+		auto& parentTransform = parent.getComponent<pod::Transform<>>();
+		transform.position = uf::transform::flatten( parentTransform ).position + metadata.transform.initial.position;
 	}
 
 	auto& queue = metadata.hooks.queue;

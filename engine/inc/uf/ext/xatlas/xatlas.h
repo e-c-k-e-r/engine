@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 
 namespace ext {
 	namespace xatlas {

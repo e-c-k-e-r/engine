@@ -1,0 +1,97 @@
+{
+	"name": "Player",
+	"type": "Object",
+	"behaviors": [
+		"PlayerBehavior"
+	],
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0.0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"assets":  [
+		{ "filename": "./playerModel.json", "delay": 1.0, "single threaded": true },
+		"./hands.json"
+	],
+	"system": {
+		"behavior-0": {
+			"tick": {
+				"head loop children": false,
+				"multithreading": false
+			}
+		},
+		"physics": {
+			"collision": 1.0,
+			"impulse": true,
+			"gravity": [ 0, -9.81, 0 ],
+			"inertia": [ 10, 10, 10 ],
+			"walk": 1,
+			"move": 4,
+			"run": 8,
+			"rotate": 1.25,
+			"crouch": 1,
+			"jump": [ 0, 4, 0 ],
+
+			"type": "Capsule",
+			"radius": 1,
+			"height": 2,
+			"mass": 100,
+			"shared": false
+		}
+	},
+	"metadata": {
+		"overlay": {
+		//	"position": [ 0, 0, -3 ],
+		//	"scale": [ -1.77778, -1, 1 ],
+			"position": [ 0, 0, -3 ],
+			"scale": [ 1.77778, -1, 1 ],
+			"orientation": [ 0, 0, 0, 1 ],
+			"floating": false,
+			"enabled": true,
+			"alpha": 1.0,
+			"cursor": {
+				"type": "mouse",
+				"radius": 0.05,
+				"color": [ 0.2, 0.2, 1.0, 1.0 ],
+				"enabled": false
+			}
+		},
+		"region": {
+			"track": true,
+			"persist": true
+		},
+		"audio": {
+			"footstep": {
+				"volume": 0.5,
+				"list": [
+					"./data/audio/footstep/1.ogg",
+					"./data/audio/footstep/2.ogg"
+				]
+			}
+		},
+		"camera": {
+			"offset": [ 0, 0, 0 ],
+			"position" :  [ 0, 2, 0 ],
+			"scale": [ 1, 1, 1 ],
+			"invert": [ false, false, false ],
+			"limit": {
+			//	"minima": [ null, -1.57079633, null ],
+			//	"maxima": [ null, 1.57079633, null ],
+
+				"minima": [ null, -1.0, null ],
+				"maxima": [ null,  1.0, null ],
+
+				"current": [ null, 0, null ]
+			},
+			"settings": {
+				"fov" : 90,
+				"clip" : { "near" : 0.001, "far" : 512.0 },
+				"size" :  [ 0, 0 ]
+			}
+		}
+	}
+}

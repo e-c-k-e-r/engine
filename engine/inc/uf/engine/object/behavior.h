@@ -2,6 +2,7 @@
 
 #include <uf/config.h>
 #include <uf/ext/json/json.h>
+#include <uf/utils/math/transform.h>
 #include <uf/engine/behavior/behavior.h>
 
 #include <string>
@@ -34,6 +35,13 @@ namespace uf {
 			struct {
 				bool ignoreGraph = false;
 			} system;
+			struct {
+				pod::Transform<> initial;
+				bool trackParent = false;
+			} transform;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
 		};
 	}
 }

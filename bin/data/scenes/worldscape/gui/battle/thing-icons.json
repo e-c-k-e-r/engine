@@ -1,0 +1,23 @@
+{
+	"name": "Menu: Portraits",
+	"type": "Gui",
+	"ignore": true,
+	"transform": {
+		"position": [  0.836487, -0.715143, 0 ],
+		"rotation": {
+			"axis": [ 1, 0, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.11813, 0.195829, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"color": [ 1, 1, 1, 0.8 ],
+		"location": "",
+		"scaling": "relative",
+		"depth": 0.1
+	},
+	"assets": [
+		"./textures/rodandtuatgua.png"
+	]
+}

@@ -17,6 +17,7 @@ namespace ext {
 
 		struct Metadata {
 			bool hide = true;
+			bool track = true;
 			pod::Vector3f scale = {1,1,1};
 
 			std::function<void()> serialize;

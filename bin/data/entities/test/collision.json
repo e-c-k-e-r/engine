@@ -1,0 +1,36 @@
+{
+	"type": "Object",
+	"name": "World Collision",
+	"assets": [
+		"/cars.glb",
+		"/walls.glb",
+		"/floor.glb"
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"system": {
+		"defaults": {
+			"render": true,
+			"asset load": true
+		}
+	},
+	"metadata": {
+		"model": {
+			"flags": {
+				"GENERATE_NORMALS": false,
+				"APPLY_TRANSFORMS": false,
+				"SEPARATE_MESHES": false,
+				"RENDER": false,
+				"COLLISION": true,
+				"AABB": false,
+				"DEFAULT_LOAD": true
+			}
+		}
+	}
+}

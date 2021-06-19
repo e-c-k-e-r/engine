@@ -29,6 +29,32 @@ bool validTextureIndex( int textureIndex ) {
 bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < CUBEMAPS;
 }
+#if DEFERRED
+bool validTextureIndex( uint start, int offset ) {
+	return 0 <= offset && start + offset < MAX_TEXTURES;
+}
+uint textureIndex( uint start, int offset ) {
+	return start + offset;
+}
+vec4 sampleTexture( uint start, uint slot, int offset, int atlas ) {
+	Texture a;
+	const bool useAtlas = 0 <= atlas && validTextureIndex( start, atlas );
+	if ( useAtlas ) a = textures[textureIndex( start, atlas )];
+	const Texture t = textures[textureIndex( start, offset )];
+	const vec2 uv = ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv;
+	const uint i = slot + ( useAtlas ? a.index : t.index );
+	return texture( samplerTextures[nonuniformEXT(i)], uv );
+}
+vec4 sampleTexture( uint start, uint slot, int offset, int atlas, float mip ) {
+	Texture a;
+	const bool useAtlas = 0 <= atlas && validTextureIndex( start, atlas );
+	if ( useAtlas ) a = textures[textureIndex( start, atlas )];
+	const Texture t = textures[textureIndex( start, offset )];
+	const vec2 uv = ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, surface.uv ) : surface.uv;
+	const uint i = slot + ( useAtlas ? a.index : t.index );
+	return textureLod( samplerTextures[nonuniformEXT(i)], uv, mip );
+}
+#endif
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const vec3 t0 = (boundsMin - ray.origin) / ray.direction;
 	const vec3 t1 = (boundsMax - ray.origin) / ray.direction;
@@ -40,8 +66,8 @@ vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 }
 #if VXGI
 float cascadePower( uint x ) {
-	return pow(1 + x, ubo.cascadePower);
-//	return max( 1, x * ubo.cascadePower );
+	return pow(1 + x, ubo.vxgi.cascadePower);
+//	return max( 1, x * ubo.vxgi.cascadePower );
 }
 #endif
 #if !COMPUTE

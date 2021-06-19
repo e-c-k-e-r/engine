@@ -1413,7 +1413,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	size_t vertexStride = descriptor.geometry.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	void* vertexPointer = (void*) ( device->getBuffer( vertexBuffer.buffer ) + vertexBuffer.offset );
-	uf::renderer::index_t* indicesPointer = (uf::renderer::index_t*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
+	void* indicesPointer = (void*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
 
 	CommandBuffer::InfoDraw drawCommandInfo = {};
 	drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
@@ -1457,7 +1457,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 
 		bool useLightmap = false;
 		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-			auto index = indicesPointer[currentIndex];
+		//	auto index = indicesPointer[currentIndex];
+			uint32_t index = 0;
+			void* indexSrc = indicesPointer + (currentIndex * indicesStride);
+			switch ( indicesStride ) {
+				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
+				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;
+				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
+			}
 			void* vertices = vertexPointer + (index * vertexStride);
 			const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
 			// check if we're using a lightmap, having a lightmap means we have provided ST attributes

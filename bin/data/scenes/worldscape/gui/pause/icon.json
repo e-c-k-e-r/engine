@@ -1,0 +1,25 @@
+{
+	"name": "Gui: Icon",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"gui": {
+			"position": [ -0.875, -0.775, 0 ],
+			"uv": [ 0, 0, 1, 1 ],
+			"color": [ 1, 1, 1, 1 ],
+			"location": "",
+			"scaling": "fixed"
+		}
+	},
+	"assets": [
+		"https://cdn..xyz//unity/Android/icon/icon_agyou01_skin1.png"
+	]
+}
