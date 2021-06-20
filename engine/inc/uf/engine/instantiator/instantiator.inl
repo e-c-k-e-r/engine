@@ -52,7 +52,9 @@ template<typename T> void uf::instantiator::registerObject( const std::string& n
 		.behaviors = {}
 	});
 
-	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered instantiation for " << name);
+	#if UF_INSTANTIATOR_ANNOUNCE
+		UF_MSG_DEBUG("Registered instantiation for " << name);
+	#endif
 }
 #if 0
 template<typename T> void uf::instantiator::registerBehavior( const std::string& name ) {
@@ -66,7 +68,9 @@ template<typename T> void uf::instantiator::registerBehavior( const std::string&
 		.destroy = T::destroy,
 	});
 
-	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered behavior for " << name);
+	#if UF_INSTANTIATOR_ANNOUNCE
+		UF_MSG_DEBUG("Registered behavior for " << name);
+	#endif
 }
 #endif
 template<typename T> void uf::instantiator::registerBinding( const std::string& name ) {
@@ -75,7 +79,9 @@ template<typename T> void uf::instantiator::registerBinding( const std::string& 
 	auto& instantiator = container.get<T>();
 	instantiator.behaviors.emplace_back(name);
 	
-	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered binding for " << name);
+	#if UF_INSTANTIATOR_ANNOUNCE
+		UF_MSG_DEBUG("Registered binding for " << name);
+	#endif
 }
 
 template<typename T>

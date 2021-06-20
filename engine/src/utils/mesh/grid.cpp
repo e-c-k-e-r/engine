@@ -86,7 +86,7 @@ const uf::MeshGrid::Node& uf::MeshGrid::at( const pod::Vector3f& point ) const {
 	return this->m_nodes.front();
 }
 pod::Vector3f uf::MeshGrid::centroid( const pod::Vector3f& p1, const pod::Vector3f& p2, const pod::Vector3f& p3 ) const {
-	return (p1 + p2 + p3) / 3;
+	return uf::vector::divide(p1 + p2 + p3, 3.0f);
 }
 
 const pod::Vector3f& uf::MeshGrid::center() const { return this->m_center; }
@@ -157,7 +157,7 @@ void uf::MeshGrid::insert( uint32_t i1, uint32_t i2, uint32_t i3, const pod::Vec
 void uf::MeshGrid::analyze() const {
 	pod::Vector3f min = this->m_center - this->m_extent;
 	pod::Vector3f max = this->m_center + this->m_extent;
-	UF_DEBUG_MSG(
+	UF_MSG_DEBUG(
 		"Region count: " << this->m_nodes.size() << " | "
 		"Size: " << uf::vector::toString(this->m_size) << " | "
 		"Center: " << uf::vector::toString(this->m_center) << " | "
@@ -169,7 +169,7 @@ void uf::MeshGrid::analyze() const {
 	for ( auto& node : this->m_nodes ) total += node.indices.size();
 	for ( size_t i = 0; i < this->m_nodes.size(); ++i ) {
 		auto& node = this->m_nodes[i];
-		UF_DEBUG_MSG("Node[" << i << "]: Center: " << uf::vector::toString(node.center) << " | Percentage: " << ( 100.0f * (float) node.indices.size() / (float) total ) << "%" );
+		UF_MSG_DEBUG("Node[" << i << "]: Center: " << uf::vector::toString(node.center) << " | Percentage: " << ( 100.0f * (float) node.indices.size() / (float) total ) << "%" );
 	}
 }
 

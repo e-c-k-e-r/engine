@@ -86,17 +86,17 @@ std::string uf::Image::getFilename() const {
 	((((uint16_t)r & 0xf8) << 8) | (((uint16_t) g & 0xfc) << 3) | ((uint16_t) b >> 3))
 
 // from file
-bool uf::Image::open( const std::string& _filename, bool flip ) {
-	std::string filename = _filename;
+bool uf::Image::open( const std::string& filename, bool flip ) {
 #if UF_ENV_DREAMCAST
-	std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
-	if ( uf::io::exists(dtex) ) {
-		UF_DEBUG_MSG("Loading dtex instead for: " << filename);
-		filename = dtex;
+	std::string extension = uf::io::extension(filename);
+	if ( extension != "dtex" ) {
+		std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
+		if ( uf::io::exists(dtex) ) {
+		UF_MSG_DEBUG("Loading dtex instead for: " << filename);
+		return this->open(dtex, flip);
 	}
 #endif
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("does not exist: " + filename);
-	std::string extension = uf::io::extension(filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	int width = 0, height = 0, channelsDud = 0, bit_depth = 8, channels = 4;
@@ -147,7 +147,7 @@ bool uf::Image::open( const std::string& _filename, bool flip ) {
 			}
 		} else { UF_EXCEPTION(filename << ": not a compressed texture"); return false; }
 	/*
-		UF_DEBUG_MSG("DTEX Header: " << header.id[0] << header.id[1] << header.id[2] << header.id[3] << " | " 
+		UF_MSG_DEBUG("DTEX Header: " << header.id[0] << header.id[1] << header.id[2] << header.id[3] << " | " 
 			<< header.width << " x " << header.height << " | " 
 			<< twiddled << " | "
 			<< compressed << " | "

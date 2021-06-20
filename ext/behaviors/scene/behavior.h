@@ -17,10 +17,10 @@ namespace ext {
 
 		struct Metadata {
 			struct {
-				size_t textures2D = 512;
-				size_t texturesCube = 128;
-				size_t textures3D = 128;
-				size_t lights = 256;
+				uint32_t textures2D = 512;
+				uint32_t texturesCube = 128;
+				uint32_t textures3D = 128;
+				uint32_t lights = 256;
 			} max;
 			struct {
 				bool enabled = true;
@@ -33,15 +33,16 @@ namespace ext {
 				bool enabled = true;
 				int samples = 4;
 				int max = 8;
-				size_t update = 4;
+				uint32_t update = 4;
 
-				size_t experimentalMode = 0;
+				uint32_t experimentalMode = 0;
 			} shadow;
 			struct {
 				uint32_t mode;
 				uint32_t scalar;
 				pod::Vector4f parameters = {0,0,0,0};
 				int8_t time = 3;
+				bool invalidated = true;
 			} shader;
 			struct {
 				pod::Vector3f color = {1,1,1};
@@ -56,6 +57,7 @@ namespace ext {
 					float scale = 50.0f;
 				} density;
 			} fog;
+
 
 			std::function<void()> serialize;
 			std::function<void()> deserialize;

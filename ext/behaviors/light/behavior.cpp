@@ -74,17 +74,16 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		::roundRobin.lights.emplace_back(this);
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		renderMode.metadata["type"] = "depth";
-		renderMode.metadata["depth bias"] = metadataJson["light"]["bias"];
-		renderMode.metadata["renderMode"] = metadataJson["renderMode"];
+	//	renderMode.metadata["type"] = "depth";
+		renderMode.metadata.type = "depth";
+		renderMode.metadata.json["descriptor"]["depth bias"] = metadataJson["light"]["bias"];
+		renderMode.metadata.json["descriptor"]["renderMode"] = metadataJson["renderMode"];
 
 		if ( metadataJson["light"]["type"].as<std::string>() == "point" ) {
 			metadataJson["light"]["fov"] = 90.0f;
-			renderMode.metadata["subpasses"] = 6;
+			renderMode.metadata.subpasses = 6;
 		}
-		if ( metadataJson["light"]["fov"].is<float>() ) {
-			camera.setFov( metadataJson["light"]["fov"].as<float>() );
-		}
+		camera.setFov( metadataJson["light"]["fov"].as<float>(90) );
 		camera.updateView();
 		camera.updateProjection();
 		
@@ -94,7 +93,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		auto& cameraSize = camera.getSize();
 		renderMode.width = cameraSize.x;
 		renderMode.height = cameraSize.y;
-	//	UF_DEBUG_MSG(this->getName() << ": " << renderMode.metadata << " | " << metadataJson["light"]);
+	//	UF_MSG_DEBUG(this->getName() << ": " << renderMode.metadata << " | " << metadataJson["light"]);
 	}
 
 	metadata.serialize = [&](){

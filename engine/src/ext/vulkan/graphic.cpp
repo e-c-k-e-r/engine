@@ -24,8 +24,8 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic ) {
 void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& descriptor ) {
 	this->device = graphic.device;
 	this->descriptor = descriptor;
+	this->metadata.type = descriptor.pipeline;
 	Device& device = *graphic.device;
-	metadata["name"] = descriptor.pipeline;
 
 	// VK_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
 	auto shaders = getShaders( graphic.material.shaders );
@@ -241,7 +241,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			size_t len = shader.specializationConstants.data().len;
 			bool invalidated = true;
 			for ( size_t i = 0; i < len / 4; ++i ) {
-				auto& payload = shader.metadata["specializationConstants"][i];
+				auto& payload = shader.metadata.json["specializationConstants"][i];
 				std::string type = payload["type"].as<std::string>();
 				if ( type == "int32_t" ) {
 					int32_t& v = ((int32_t*) s)[i];
@@ -272,7 +272,7 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 					payload["value"] = v;
 				}
 			}
-			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
+			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata.json["specializationConstants"].dump(1, '\t'));
 			if ( invalidated ) {
 			//	shader.specializationInfo = {};
 			//	shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
@@ -330,7 +330,7 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
 			// 
-			if ( ext::json::isObject( shader.metadata["definitions"]["pushConstants"]["PushConstant"] ) ) {
+			if ( ext::json::isObject( shader.metadata.json["definitions"]["pushConstants"]["PushConstant"] ) ) {
 				if ( shader.descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT ) {
 					struct PushConstant {
 						uint32_t pass;
@@ -444,7 +444,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					consumes += layout.descriptorCount;
 					std::string binding = std::to_string(layout.binding);
-					std::string imageType = shader.metadata["definitions"]["textures"][binding]["type"].as<std::string>();					
+					std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();					
 					types.reserve(consumes);
 					for ( size_t i = 0; i < layout.descriptorCount; ++i ) types.emplace_back(imageType);
 				} break;
@@ -489,15 +489,14 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	auto inputInfo = infos.input.begin();
 
 
-	#define BREAK_ASSERT(condition, ...) if ( condition ) { VK_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
 	std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 	for ( auto* shaderPointer : shaders ) {
 		auto& shader = *shaderPointer;
 
-	//	UF_DEBUG_MSG(shader.filename << ": ");
-	//	UF_DEBUG_MSG("\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size());
-	//	UF_DEBUG_MSG("\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size());
-	//	UF_DEBUG_MSG("\tCONSUMING : " << shader.descriptorSetLayoutBindings.size());
+	//	UF_MSG_DEBUG(shader.filename << ": ");
+	//	UF_MSG_DEBUG("\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size());
+	//	UF_MSG_DEBUG("\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size());
+	//	UF_MSG_DEBUG("\tCONSUMING : " << shader.descriptorSetLayoutBindings.size());
 
 		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 	//		VK_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
@@ -506,17 +505,17 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " IMAGE");
-				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ) UF_DEBUG_MSG("\t\tCOMBINED_IMAGE_SAMPLER");
-				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) UF_DEBUG_MSG("\t\tSAMPLED_IMAGE");
-				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ) UF_DEBUG_MSG("\t\tSTORAGE_IMAGE");
-				//	if ( layout.descriptorCount == 1 ) UF_DEBUG_MSG(i.imageView << "\t" << (*imageInfo).imageLayout);
+				//	UF_MSG_DEBUG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " IMAGE");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ) UF_MSG_DEBUG("\t\tCOMBINED_IMAGE_SAMPLER");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ) UF_MSG_DEBUG("\t\tSAMPLED_IMAGE");
+				//	if ( layout.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ) UF_MSG_DEBUG("\t\tSTORAGE_IMAGE");
+				//	if ( layout.descriptorCount == 1 ) UF_MSG_DEBUG(i.imageView << "\t" << (*imageInfo).imageLayout);
 
 				#if 1
 					std::string binding = std::to_string(layout.binding);
-					std::string imageType = shader.metadata["definitions"]["textures"][binding]["type"].as<std::string>();
+					std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();
 					if ( imageType == "2D" ) {
-						BREAK_ASSERT( image2DInfo == infos.image2D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -526,7 +525,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						));
 						image2DInfo += layout.descriptorCount;
 					} else if ( imageType == "Cube" ) {
-						BREAK_ASSERT( imageCubeInfo == infos.imageCube.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -536,7 +535,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						));
 						imageCubeInfo += layout.descriptorCount;
 					} else if ( imageType == "3D" ) {
-						BREAK_ASSERT( image3DInfo == infos.image3D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -546,7 +545,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						));
 						image3DInfo += layout.descriptorCount;
 					} else {
-						BREAK_ASSERT( imageUnknownInfo == infos.imageUnknown.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( imageUnknownInfo != infos.imageUnknown.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -557,7 +556,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						imageUnknownInfo += layout.descriptorCount;
 					}
 				#else
-					BREAK_ASSERT( imageInfo == infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( imageInfo != infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -569,8 +568,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				#endif
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " INPUT_ATTACHMENT");
-					BREAK_ASSERT( inputInfo == infos.input.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+				//	UF_MSG_DEBUG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " INPUT_ATTACHMENT");
+					UF_ASSERT_BREAK_MSG( inputInfo != infos.input.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -581,8 +580,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					inputInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_SAMPLER: {
-				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " SAMPLER");
-					BREAK_ASSERT( samplerInfo == infos.sampler.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+				//	UF_MSG_DEBUG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " SAMPLER");
+					UF_ASSERT_BREAK_MSG( samplerInfo != infos.sampler.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -593,8 +592,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					samplerInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " UNIFORM_BUFFER");
-					BREAK_ASSERT( uniformBufferInfo == infos.uniform.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+				//	UF_MSG_DEBUG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " UNIFORM_BUFFER");
+					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -605,8 +604,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-				//	UF_DEBUG_MSG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " STORAGE_BUFFER");
-					BREAK_ASSERT( storageBufferInfo == infos.storage.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
+				//	UF_MSG_DEBUG("\t["<< layout.binding << "] INSERTING " << layout.descriptorCount << " STORAGE_BUFFER");
+					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 					writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -634,15 +633,16 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						descriptor.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ||
 						descriptor.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT
 				 ) {
-					if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE) {
-						VK_DEBUG_VALIDATION_MESSAGE("Null image view, replacing with fallback texture...");
+					if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE || descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
+				//	if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE ) {
+						VK_DEBUG_VALIDATION_MESSAGE("Null image view or layout is undefined, replacing with fallback texture...");
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 						std::string binding = std::to_string(descriptor.dstBinding);
 						std::string imageType = "";
 						for ( auto* shaderPointer : shaders ) {
 							auto& shader = *shaderPointer;
 
-							auto& info = shader.metadata["definitions"]["textures"][binding];
+							auto& info = shader.metadata.json["definitions"]["textures"][binding];
 							if ( ext::json::isNull(info) ) continue;
 							imageType = info["type"].as<std::string>();
 							break;
@@ -715,42 +715,23 @@ void ext::vulkan::Pipeline::destroy() {
 	}
 }
 std::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( std::vector<ext::vulkan::Shader>& shaders ) {
-	std::string pipelineName = metadata["name"].as<std::string>();
 	std::unordered_map<std::string, ext::vulkan::Shader*> map;
 	std::vector<ext::vulkan::Shader*> res;
 
+/*
+	std::string pipelineName = metadata["name"].as<std::string>();
 	for ( auto& shader : shaders ) {
-		std::string target = shader.metadata["pipeline"].as<std::string>();
-		std::string type = shader.metadata["type"].as<std::string>();
+		std::string target = shader.metadata.json["pipeline"].as<std::string>();
+		std::string type = shader.metadata.json["type"].as<std::string>();
 		if ( target != "" && target != pipelineName ) continue;
 		map[type] = &shader;
 	}
-	for ( auto pair : map ) {
-		res.insert( res.begin(), pair.second);
-	}
-
-/*
-	std::string pipelineName = metadata["name"].as<std::string>();
-	std::vector<ext::vulkan::Shader*> res;
-	std::unordered_map<std::string, size_t> map;
-
-	// first push base pipeline
-	for ( auto& shader : shaders ) {
-		if ( shader.metadata["pipeline"].as<std::string>() != "" ) continue;
-		map[shader.metadata["type"].as<std::string>()] = res.size();
-		res.emplace_back(&shader);
-	}
-	// then add requested ones
-	if ( pipelineName != "" ) for ( auto& shader : shaders ) {
-		if ( shader.metadata["pipeline"].as<std::string>() != pipelineName ) continue;
-		if ( map.count(shader.metadata["type"].as<std::string>()) == 0 ) {
-			res.emplace_back(&shader);
-		} else {
-			size_t index = map.at(shader.metadata["type"].as<std::string>());
-			res[index] = &shader;
-		}
-	}
 */
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+		map[shader.metadata.type] = &shader;
+	}
+	for ( auto pair : map ) res.insert( res.begin(), pair.second);
 	return res;
 }
 
@@ -796,11 +777,11 @@ void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderS
 		case VK_SHADER_STAGE_INTERSECTION_BIT_KHR: type = "intersection"; break;
 		case VK_SHADER_STAGE_CALLABLE_BIT_KHR: type = "callable"; break;
 	}
-	shader.metadata["pipeline"] = pipeline;
-	shader.metadata["type"] = type;
+	shader.metadata.pipeline = pipeline;
+	shader.metadata.type = type;
 
-	metadata["shaders"][pipeline][type]["index"] = shaders.size() - 1;
-	metadata["shaders"][pipeline][type]["filename"] = filename;
+	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
+	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
 }
 void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout, const std::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
@@ -809,14 +790,14 @@ void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::
 	}
 }
 bool ext::vulkan::Material::hasShader( const std::string& type, const std::string& pipeline ) {
-	return !ext::json::isNull( metadata["shaders"][pipeline][type] );
+	return !ext::json::isNull( metadata.json["shaders"][pipeline][type] );
 }
 ext::vulkan::Shader& ext::vulkan::Material::getShader( const std::string& type, const std::string& pipeline ) {
 	if ( !hasShader(type, pipeline) ) {
 		static ext::vulkan::Shader null;
 		return null;
 	}
-	size_t index = metadata["shaders"][pipeline][type]["index"].as<size_t>();
+	size_t index = metadata.json["shaders"][pipeline][type]["index"].as<size_t>();
 	return shaders.at(index);
 }
 bool ext::vulkan::Material::validate() {
@@ -984,7 +965,7 @@ ext::vulkan::Buffer* ext::vulkan::Graphic::getStorageBuffer( const std::string& 
 	size_t storageIndex = -1;
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
-		storageIndex = shader.metadata["definitions"]["storage"][name]["index"].as<size_t>();
+		storageIndex = shader.metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
 		break;
 	}
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
@@ -1043,11 +1024,13 @@ void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 		depth.bias.clamp = metadata["depth bias"]["clamp"].as<float>();
 	}
 }
-std::string ext::vulkan::GraphicDescriptor::hash() const {
+ext::vulkan::GraphicDescriptor::hash_t ext::vulkan::GraphicDescriptor::hash() const {
+#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
 	uf::Serializer serializer;
 
 	serializer["subpass"] = subpass;
-	if ( settings::experimental::individualPipelines ) serializer["renderMode"] = renderMode;
+	if ( settings::experimental::individualPipelines )
+		serializer["renderMode"] = renderMode;
 
 	serializer["renderTarget"] = renderTarget;
 	serializer["geometry"]["sizes"]["vertex"] = geometry.attributes.vertex.size;
@@ -1056,14 +1039,11 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 	serializer["offsets"]["vertex"] = offsets.vertex;
 	serializer["offsets"]["index"] = offsets.index;
 
-	{
-		int i = 0;
-		for ( auto& attribute : geometry.attributes.descriptor ) {
-			serializer["geometry"]["attributes"][i]["format"] = attribute.format;
-			serializer["geometry"]["attributes"][i]["offset"] = attribute.offset;
-			++i;
-		}
+	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
+		serializer["geometry"]["attributes"][i]["format"] = geometry.attributes.descriptor[i].format;
+		serializer["geometry"]["attributes"][i]["offset"] = geometry.attributes.descriptor[i].offset;
 	}
+
 	serializer["topology"] = topology;
 	serializer["cullMode"] = cullMode;
 	serializer["fill"] = fill;
@@ -1077,9 +1057,42 @@ std::string ext::vulkan::GraphicDescriptor::hash() const {
 	serializer["depth"]["bias"]["slope"] = depth.bias.slope;
 	serializer["depth"]["bias"]["clamp"] = depth.bias.clamp;
 
-//	if ( renderMode != "Gui" ) uf::iostream << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << "\n";
-//	return uf::string::sha256( serializer.serialize() );
-	return serializer.dump();
+	return uf::string::sha256( serializer.serialize() );
+//	return serializer.dump();
+#else
+	size_t hash{};
+
+	hash += std::hash<decltype(subpass)>{}(subpass);
+	if ( settings::experimental::individualPipelines )
+		hash += std::hash<decltype(renderMode)>{}(renderMode);
+	
+	hash += std::hash<decltype(renderTarget)>{}(renderTarget);
+	hash += std::hash<decltype(geometry.attributes.vertex.size)>{}(geometry.attributes.vertex.size);
+	hash += std::hash<decltype(geometry.attributes.index.size)>{}(geometry.attributes.index.size);
+	hash += std::hash<decltype(indices)>{}(indices);
+	hash += std::hash<decltype(offsets.vertex)>{}(offsets.vertex);
+	hash += std::hash<decltype(offsets.index)>{}(offsets.index);
+
+	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
+		hash += std::hash<decltype(geometry.attributes.descriptor[i].format)>{}(geometry.attributes.descriptor[i].format);
+		hash += std::hash<decltype(geometry.attributes.descriptor[i].offset)>{}(geometry.attributes.descriptor[i].offset);
+	}
+
+	hash += std::hash<decltype(topology)>{}(topology);
+	hash += std::hash<decltype(cullMode)>{}(cullMode);
+	hash += std::hash<decltype(fill)>{}(fill);
+	hash += std::hash<decltype(lineWidth)>{}(lineWidth);
+	hash += std::hash<decltype(frontFace)>{}(frontFace);
+	hash += std::hash<decltype(depth.test)>{}(depth.test);
+	hash += std::hash<decltype(depth.write)>{}(depth.write);
+	hash += std::hash<decltype(depth.operation)>{}(depth.operation);
+	hash += std::hash<decltype(depth.bias.enable)>{}(depth.bias.enable);
+	hash += std::hash<decltype(depth.bias.constant)>{}(depth.bias.constant);
+	hash += std::hash<decltype(depth.bias.slope)>{}(depth.bias.slope);
+	hash += std::hash<decltype(depth.bias.clamp)>{}(depth.bias.clamp);
+
+	return hash;
+#endif
 }
 
 #endif

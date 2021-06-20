@@ -50,6 +50,12 @@ namespace uf {
 namespace ext {
 	namespace RENDERER {
 		struct UF_API GraphicDescriptor {
+		#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
+			typedef std::string hash_t;
+		#else
+			typedef size_t hash_t;
+		#endif
+
 			std::string renderMode = "";
 			std::string pipeline = "";
 
@@ -82,7 +88,7 @@ namespace ext {
 				} bias;
 			} depth;
 			bool invalidated = false;
-			std::string hash() const;
+			hash_t hash() const;
 			void parse( ext::json::Value& );
 			bool operator==( const GraphicDescriptor& right ) const { return this->hash() == right.hash(); }
 		};

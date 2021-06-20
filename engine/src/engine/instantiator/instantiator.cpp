@@ -97,7 +97,9 @@ bool uf::instantiator::valid( uf::Entity* pointer ) {
 void uf::instantiator::registerBehavior( const std::string& name, const pod::Behavior& behavior ) {
 	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new std::unordered_map<std::string, pod::Behavior>;\
 	(*uf::instantiator::behaviors)[name] = behavior;
-	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered behavior for " << name << " | " << behavior.type);
+#if UF_INSTANTIATOR_ANNOUNCE
+	UF_MSG_DEBUG("Registered behavior for " << name << " | " << behavior.type);
+#endif
 }
 void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
@@ -105,7 +107,9 @@ void uf::instantiator::registerBinding( const std::string& object, const std::st
 	auto& instantiator = uf::instantiator::objects->get( object );
 	instantiator.behaviors.emplace_back( behavior );
 	
-	if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size());
+#if UF_INSTANTIATOR_ANNOUNCE
+	UF_MSG_DEBUG("Registered binding: " << object << " and " << behavior << ": " << instantiator.behaviors.size());
+#endif
 }
 
 uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
@@ -124,14 +128,18 @@ void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
 	if ( !uf::instantiator::objects->has( name, false ) ) {
 		if ( uf::instantiator::behaviors->count( name ) == 0 ) return;
 		auto& behavior = (*uf::instantiator::behaviors)[name];
-		if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
+	#if UF_INSTANTIATOR_ANNOUNCE
+		UF_MSG_DEBUG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
+	#endif
 		entity.addBehavior(behavior);
 		return;
 	}
 	auto& instantiator = uf::instantiator::objects->get( name );
 	for ( auto& name : instantiator.behaviors ) {
 		auto& behavior = (*uf::instantiator::behaviors)[name];
-		if ( UF_INSTANTIATOR_ANNOUNCE ) UF_DEBUG_MSG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
+	#if UF_INSTANTIATOR_ANNOUNCE
+		UF_MSG_DEBUG("Attaching " << name << " | " << behavior.type << " to " << entity.getName());
+	#endif
 		entity.addBehavior(behavior);
 	}
 }

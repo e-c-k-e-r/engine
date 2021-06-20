@@ -231,9 +231,9 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			descriptions.push_back(description);
 		
 		#if 0
-			UF_DEBUG_MSG("Pass: " << descriptions.size() - 1);
-			for ( auto& color : pass.colors ) UF_DEBUG_MSG("Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image);
-			for ( auto& input : pass.inputs ) UF_DEBUG_MSG("Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image);
+			UF_MSG_DEBUG("Pass: " << descriptions.size() - 1);
+			for ( auto& color : pass.colors ) UF_MSG_DEBUG("Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image);
+			for ( auto& input : pass.inputs ) UF_MSG_DEBUG("Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image);
 			std::cout << std::endl;
 		#endif
 			// transition dependency between subpasses
@@ -289,9 +289,9 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	
 	#if 0
 		for ( auto& dependency : dependencies  ) {
-			UF_DEBUG_MSG("Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass);
-			UF_DEBUG_MSG("\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask);
-			UF_DEBUG_MSG("\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask);
+			UF_MSG_DEBUG("Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass);
+			UF_MSG_DEBUG("\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask);
+			UF_MSG_DEBUG("\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask);
 		}
 		std::cout << std::endl;
 	#endif

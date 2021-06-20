@@ -185,7 +185,7 @@ void ext::bullet::syncToBullet() {
 			body->setCenterOfMassTransform(t);
 
 		//	auto T = uf::transform::flatten( transform );
-		//	UF_DEBUG_MSG( entity->getName() << ": " << entity->getUid() << " " << uf::vector::toString( T.position ) );
+		//	UF_MSG_DEBUG( entity->getName() << ": " << entity->getUid() << " " << uf::vector::toString( T.position ) );
 		}
 	}
 }
@@ -379,7 +379,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, float radius, float height
 	collider.body->setCcdMotionThreshold(1e-7);
 	collider.body->setCcdSweptSphereRadius(0.25 * 0.2);
 
-//	UF_DEBUG_MSG( collider.body->getLinearDamping() << " " << collider.body->getAngularDamping() );
+//	UF_MSG_DEBUG( collider.body->getLinearDamping() << " " << collider.body->getAngularDamping() );
 //	collider.body->setDamping( 0.8, 0.8 );
 
 	return collider;

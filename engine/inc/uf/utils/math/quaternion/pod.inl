@@ -44,7 +44,7 @@ template<typename T> T& uf::quaternion::multiply( T& left, const T& right ) {
 template<typename T> pod::Vector3t<T> uf::quaternion::rotate( const pod::Quaternion<T>& left, const pod::Vector3t<T>& right ) {
 	pod::Vector3t<T> qVec = { left.x, left.y, left.z };
 	T s = left.w;
-	return uf::vector::multiply( qVec, 2 * uf::vector::dot( qVec, right ) ) + uf::vector::multiply( right, s*s - uf::vector::dot( qVec, qVec )) +  ( uf::vector::cross( qVec, right ) * 2 * s );
+	return uf::vector::multiply( qVec, static_cast<T>(2) * uf::vector::dot( qVec, right ) ) + uf::vector::multiply( right, s*s - uf::vector::dot( qVec, qVec )) +  ( uf::vector::cross( qVec, right ) * static_cast<T>(2) * s );
 }
 template<typename T> pod::Vector4t<T> uf::quaternion::rotate( const pod::Quaternion<T>& left, const pod::Vector4t<T>& right ) {
 	pod::Vector3t<T> vector = uf::quaternion::rotate( left, {right.x, right.y, right.z} );
@@ -112,28 +112,21 @@ template<typename T> T uf::quaternion::roll( const pod::Quaternion<T>& q ) {
 }
 
 // 	Linearly interpolate between two quaternions
-template<typename T> T uf::quaternion::lerp( const T& from, const T& to, double delta ) {
+template<typename T> T uf::quaternion::lerp( const T& from, const T& to, typename T::type_t delta ) {
 	return uf::vector::lerp( from, to, delta );
 }
 // 	Spherically interpolate between two quaternions
-template<typename T> T uf::quaternion::slerp( const T& x, const T& y, double a ) {
-//	return uf::vector::slerp( from, to, delta );
+template<typename T> T uf::quaternion::slerp( const T& x, const T& y, typename T::type_t a ) {
 	T z = y;
-
 	auto cosTheta = uf::quaternion::dot( x, y );
-
-	// If cosTheta < 0, the interpolation will take the long way around the sphere.
-	// To fix this, one quat must be negated.
 	if( cosTheta < 0 ) {
 		z = -y;
 		cosTheta = -cosTheta;
 	}
-
-	// Perform a linear interpolation when cosTheta is close to 1 to avoid side effect of sin(angle) becoming a zero denominator
 	if( cosTheta > 1 - std::numeric_limits<typename T::type_t>::epsilon() ) return uf::vector::mix( x, z, a );
-	// Essential Mathematics, page 467
 	typename T::type_t angle = acos(cosTheta);
-	return (x * sin((1 - a) * angle) + z * sin(a * angle)) / sin(angle);
+	return uf::vector::divide( uf::vector::add(uf::vector::multiply(x, sin(static_cast<typename T::type_t>(1) - a * angle)), uf::vector::multiply(z, sin(a * angle))), sin(angle) );
+//	return (x * sin((static_cast<typename T::type_t>(1) - a) * angle) + z * sin(a * angle)) / sin(angle);
 }
 
 // 	Compute the distance between two quaternions (doesn't sqrt)

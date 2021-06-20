@@ -28,7 +28,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		if ( metadataJson["baking"]["resolution"].is<size_t>() ) metadata.size = { metadataJson["baking"]["resolution"].as<size_t>(), metadataJson["baking"]["resolution"].as<size_t>() };
 		metadata.shadows = metadataJson["baking"]["shadows"].as<bool>();
 
-		UF_DEBUG_MSG("Unwrapping...");
+		UF_MSG_DEBUG("Unwrapping...");
 		auto& graph = this->getComponent<pod::Graph>();
 		graph = ext::gltf::load( metadata.names.model, uf::graph::LoadMode::ATLAS );
 
@@ -36,7 +36,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		if ( size.x == 0 && size.y == 0 ) return;
 		if ( metadata.size.x == 0 && metadata.size.y == 0 ) metadata.size = size;
 		if ( metadata.names.output.model != "" ) {
-			UF_DEBUG_MSG("Saving to " << metadata.names.output.model);
+			UF_MSG_DEBUG("Saving to " << metadata.names.output.model);
 			uf::graph::save( graph, metadata.names.output.model );
 		}
 
@@ -114,8 +114,9 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::renderer::addRenderMode( &renderMode, metadata.names.renderMode );
-		renderMode.metadata["type"] = "single";
-		renderMode.metadata["samples"] = 1;
+
+		renderMode.metadata.type = "single";
+		renderMode.metadata.samples = 1;
 
 		renderMode.width = metadata.size.x;
 		renderMode.height = metadata.size.y;
@@ -155,7 +156,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			uf::renderer::enums::Buffer::STORAGE
 		);
 
-		UF_DEBUG_MSG("Unwrapped model");
+		UF_MSG_DEBUG("Unwrapped model");
 	});
 
 	this->queueHook( "entity:PostInitialization.%UID%", ext::json::null(), 2.0f );
@@ -168,7 +169,7 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	if ( renderMode.executed && !metadata.initialized.renderMode ) {
-		UF_DEBUG_MSG("Preparing graphics to bake...");
+		UF_MSG_DEBUG("Preparing graphics to bake...");
 		auto& graph = this->getComponent<pod::Graph>();
 		auto& mesh = this->getComponent<uf::graph::mesh_t>();
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -295,7 +296,7 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 
 		graphic.process = true;
 		metadata.initialized.renderMode = true;
-		UF_DEBUG_MSG("Graphic configured, ready to bake");
+		UF_MSG_DEBUG("Graphic configured, ready to bake");
 	} else if ( renderMode.executed && !metadata.initialized.map ) {
 		TIMER(1.0, (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) && ) {
 			goto SAVE;
@@ -304,12 +305,12 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 	return;
 SAVE:
 	renderMode.execute = false;
-	UF_DEBUG_MSG("Baking...");
+	UF_MSG_DEBUG("Baking...");
 	auto image = renderMode.screenshot();
 	std::string filename = metadata.names.output.map;
 	bool status = image.save(filename);
-	UF_DEBUG_MSG("Writing to " << filename << ": " << status);
-	UF_DEBUG_MSG("Baked.");
+	UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+	UF_MSG_DEBUG("Baked.");
 	metadata.initialized.map = true;
 
 	uf::Serializer payload;

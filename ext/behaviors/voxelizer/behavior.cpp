@@ -78,15 +78,16 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
-		renderMode.metadata["type"] = "vxgi";
-		renderMode.metadata["samples"] = 1;
-		renderMode.metadata["subpasses"] = metadata.cascades;
+
+		renderMode.metadata.type = "vxgi";
+		renderMode.metadata.samples = 1;
+		renderMode.metadata.subpasses = metadata.cascades;
 
 		renderMode.blitter.device = &ext::vulkan::device;
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 
-		renderMode.metadata["shaders"]["compute"] = "/shaders/display/vxgi.comp.spv";
+		renderMode.metadata.json["shaders"]["compute"] = "/shaders/display/vxgi.comp.spv";
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
 		renderMode.blitter.process = true;

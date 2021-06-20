@@ -100,7 +100,6 @@ void ext::opengl::Texture::loadFromImage(
 	Device& device,
 	enums::Format::type_t format
 ) {
-//	UF_DEBUG_MSG( image.getFilename() << " | " << std::bitset<32>(image.getFormat()) );
 	if ( image.getFormat() != 0 ) {
 		internalFormat = image.getFormat();
 	} else {

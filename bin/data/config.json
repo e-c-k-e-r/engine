@@ -1,16 +1,16 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "McDonalds",
 			"lights": {
 				"max": 512,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 4,
+				"update": 2,
 				"max": 8,
-				"samples": 4,
+				"samples": 2,
 				"experimental mode": 1
 			},
 			"textures": {
@@ -21,16 +21,16 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0.5,
+				"limiter": 1,
 				"size": 96,
 				"dispatch": 8,
-				"cascades": 3,
-				"cascadePower": 3,
-				"shadows": 4,
-				"granularity": 2,
+				"cascades": 7,
+				"cascadePower": 1.5,
+				"shadows": 0,
+				"granularity": 4,
 				"extents": {
-					"min": [ -2, -2, -2 ],
-					"max": [  2,  2,  2 ]
+					"min": [ -2.5, -2.5, -2.5 ],
+					"max": [  2.5,  2.5,  2.5 ]
 				}
 			}
 		},
@@ -53,7 +53,7 @@
 				//	"size": [ 640, 480, "NEAREST" ],
 				//	"size": [ 256, 224, "NEAREST" ],
 				//	"msaa": 16
-					"msaa": 8
+					"msaa": 4
 				},
 				"experimental": {
 					"rebuild on tick begin": false,

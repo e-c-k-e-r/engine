@@ -45,7 +45,7 @@ pod::Collider::Manifold UF_API pod::Collider::intersects( const pod::Collider& y
 		if( simplex.size == 0 ) {	
 			simplex.b = a;
 
-			direction = direction * -1;
+			direction = uf::vector::multiply(direction, -1);
 			simplex.size = 1;
 			continue;
 		}
@@ -87,7 +87,7 @@ pod::Collider::Manifold UF_API pod::Collider::intersects( const pod::Collider& y
 			simplex.d = simplex.b;
 			simplex.b = a;
 
-			direction = abc * -1;
+			direction = uf::vector::multiply(abc, -1);
 			simplex.size = 3;
 			continue;
 		}

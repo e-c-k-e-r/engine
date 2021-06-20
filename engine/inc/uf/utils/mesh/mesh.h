@@ -23,9 +23,11 @@ namespace uf {
 	class /*UF_API*/ BaseMesh : public BaseGeometry {
 	public:
 		typedef T vertex_t;
-		typedef U indices_t;
+		typedef U index_t;
+		typedef vertex_t vertices_t;
+		typedef index_t indices_t;
 		std::vector<vertex_t> vertices;
-		std::vector<indices_t> indices;
+		std::vector<index_t> indices;
 
 		void initialize( size_t = SIZE_MAX );
 		void destroy();

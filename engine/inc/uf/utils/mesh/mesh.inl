@@ -29,7 +29,7 @@ void uf::BaseMesh<T, U>::expand( bool check ) {
 			}
 			// invalid index, mark cache as invalid
 			if ( index >= _vertices.size() ) {
-				UF_DEBUG_MSG("Invalid index: Max: " << _vertices.size() << "\tGot: " << index);
+				UF_MSG_DEBUG("Invalid index: Max: " << _vertices.size() << "\tGot: " << index);
 				valid = false;
 				cache.emplace_back( cache.empty() ? vertex_t{} : cache.back() );
 				continue;

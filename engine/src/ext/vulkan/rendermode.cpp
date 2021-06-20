@@ -20,8 +20,9 @@ const std::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }
 const std::string ext::vulkan::RenderMode::getName() const {
-	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-	return metadata["name"].as<std::string>();
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["name"].as<std::string>();
+	return metadata.name;
 }
 ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;
@@ -162,28 +163,8 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 	ext::vulkan::GraphicDescriptor descriptor = reference;
 //	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
-	descriptor.parse( metadata );
+	descriptor.parse( metadata.json["descriptor"] );
 	return descriptor;
-}
-void ext::vulkan::RenderMode::bindGraphicPushConstants( ext::vulkan::Graphic* pointer, size_t pass ) {
-	auto& graphic = *pointer;
-	// bind vertex shader push constants
-	{
-		auto& shader = graphic.material.getShader("vertex");
-		auto& metadata = shader.metadata["definitions"]["pushConstants"]["PushConstant"];
-		struct PushConstant {
-			uint32_t pass = 0;
-		};
-		if ( ext::json::isObject( metadata ) ) {
-			auto& pushConstant = shader.pushConstants.at( metadata["index"].as<size_t>() ).get<PushConstant>();
-			pushConstant.pass = pass;
-		}
-	}
-	// bind fragment shader push constants
-	{
-		auto& shader = graphic.material.getShader("fragment");
-		auto& metadata = shader.metadata["definitions"]["pushConstants"]["PushConstant"];
-	}
 }
 
 void ext::vulkan::RenderMode::createCommandBuffers() {
@@ -258,7 +239,7 @@ void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Grap
 			// if pipeline name is specified for the rendermode, check if we have shaders for it
 			size_t shaders = 0;
 			for ( auto& shader : graphic.material.shaders ) {
-				if ( shader.metadata["pipeline"].as<std::string>() == descriptor.pipeline ) ++shaders;
+				if ( shader.metadata.pipeline == descriptor.pipeline ) ++shaders;
 			}
 			if ( shaders == 0 ) continue;
 			graphic.initializePipeline( descriptor );

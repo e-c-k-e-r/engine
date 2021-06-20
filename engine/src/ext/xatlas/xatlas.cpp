@@ -38,7 +38,7 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas, meshDecl, graph.meshes.size());
 		if (error != ::xatlas::AddMeshError::Success) {
 			::xatlas::Destroy(atlas);
-			UF_DEBUG_MSG(::xatlas::StringForEnum(error));
+			UF_MSG_ERROR(::xatlas::StringForEnum(error));
 			return {};
 		}
 	}		

@@ -9,11 +9,13 @@
 #include <uf/engine/graph/graph.h>
 
 const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
-	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-	return metadata["target"].as<std::string>();
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["target"].as<std::string>();
+	return metadata.target;
 }
 void ext::vulkan::RenderTargetRenderMode::setTarget( const std::string& target ) {
-	this->metadata["target"] = target;
+//	this->metadata["target"] = target;
+	metadata.target = target;
 }
 void ext::vulkan::RenderTargetRenderMode::bindCallback( int32_t subpass, const ext::vulkan::RenderTargetRenderMode::callback_t& callback ) {
 	commandBufferCallbacks[subpass] = callback;
@@ -34,20 +36,18 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitt
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
-	descriptor.parse(metadata["descriptor"]);
-	std::string type = metadata["type"].as<std::string>();
-	std::string target = metadata["target"].as<std::string>();
-	size_t subpasses = metadata["subpasses"].as<size_t>();
-	if ( 0 <= pass && pass < subpasses && type == "vxgi" ) {
+	descriptor.parse(metadata.json["descriptor"]);
+
+	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == "vxgi" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
 		descriptor.pipeline = "vxgi";
-	} else if ( type == "depth" ) {
+	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
 	// invalidate
-	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
+	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
 		descriptor.invalidated = true;
 	} else {
 		descriptor.renderMode = this->getName();
@@ -59,14 +59,11 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	ext::vulkan::RenderMode::initialize( device );
 
 	this->setTarget( this->getName() );
-	std::string type = metadata["type"].as<std::string>();
-	size_t subpasses = metadata["subpasses"].as<size_t>();
-	size_t msaa = metadata["samples"].is<size_t>() ? ext::vulkan::sampleCount(metadata["samples"].as<size_t>()) : ext::vulkan::settings::msaa;
-	metadata["outputs"] = ext::json::array();
-	if ( subpasses == 0 ) subpasses = 1;
+	uint8_t msaa = ext::vulkan::sampleCount(metadata.samples);
+	if ( metadata.subpasses == 0 ) metadata.subpasses = 1;
 	renderTarget.device = &device;
-	if ( type == "depth" || type == "vxgi" ) {
-		renderTarget.views = subpasses;
+	if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
+		renderTarget.views = metadata.subpasses;
 		struct {
 			size_t depth;
 		} attachments;
@@ -78,7 +75,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			/*.blend = */ false,
 			/*.samples = */ 1,
 		});
-		for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
+		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				{},
@@ -90,8 +87,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			);
 		}
 	} else {
-		for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
-			if ( type == "depth" || type == "vxgi" ) {
+		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
+			if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
 				struct {
 					size_t depth;
 				} attachments;
@@ -112,7 +109,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					0,
 					true
 				);
-			} else if ( type == "single" ) {
+			} else if ( metadata.type == "single" ) {
 				struct {
 					size_t albedo, depth;
 				} attachments;
@@ -297,8 +294,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 						);
 					}
 				}
-			//	metadata["outputs"][0] = attachments.output;
-				metadata["outputs"].emplace_back(attachments.output);
+				metadata.outputs.emplace_back(attachments.output);
 			#endif
 			}
 		}
@@ -321,9 +317,9 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		blitter.device = &device;
 		blitter.material.device = &device;
 		blitter.initializeMesh( mesh );
-		if ( ext::json::isArray( metadata["shaders"] ) ) {
-			ext::json::forEach( metadata["shaders"], [&]( ext::json::Value& value ){
-				ext::vulkan::enums::Shader::type_t type; 
+		if ( ext::json::isArray( metadata.json["shaders"] ) ) {
+			ext::json::forEach( metadata.json["shaders"], [&]( ext::json::Value& value ){
+				ext::vulkan::enums::Shader::type_t type{}; 
 				std::string filename = "";
 				std::string pipeline = "";
 
@@ -350,9 +346,9 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
-		} else if ( ext::json::isObject( metadata["shaders"] ) ) {
-			ext::json::forEach( metadata["shaders"], [&]( const std::string& key, ext::json::Value& value ){
-				ext::vulkan::enums::Shader::type_t type; 
+		} else if ( ext::json::isObject( metadata.json["shaders"] ) ) {
+			ext::json::forEach( metadata.json["shaders"], [&]( const std::string& key, ext::json::Value& value ){
+				ext::vulkan::enums::Shader::type_t type{}; 
 				std::string filename = "";
 				std::string pipeline = "";
 				if ( value.is<std::string>() ) {
@@ -368,7 +364,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
-		} else if ( metadata["shaders"].is<bool>() && !metadata["shaders"].as<bool>() ) {
+		} else if ( metadata.json["shaders"].is<bool>() && !metadata.json["shaders"].as<bool>() ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
@@ -378,7 +374,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{uf::io::root+"/shaders/display/renderTarget." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
-		if ( metadata["type"].as<std::string>() == "vxgi"  ) {
+		if ( metadata.type == "vxgi"  ) {
 			auto& scene = uf::scene::getCurrentScene();
 
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -389,26 +385,16 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			auto& shader = blitter.material.getShader("compute");
-		/*
-			struct SpecializationConstant {
-				uint32_t maxTextures2D = 512;
-				uint32_t maxTexturesCube = 128;
-				uint32_t maxCascades = 16;
-			};
-			auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-			specializationConstants.maxTextures2D = maxTextures2D;
-			specializationConstants.maxTexturesCube = maxTexturesCube;
-			specializationConstants.maxCascades = maxCascades;
-		*/
+
 			uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
-			ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
+			ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 				std::string name = sc["name"].as<std::string>();
 				if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 				else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 				else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
 			});
 
-			ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+			ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 				size_t binding = t["binding"].as<size_t>();
 				std::string name = t["name"].as<std::string>();
 				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
@@ -429,24 +415,24 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
-			this->metadata["lightBufferIndex"] = blitter.initializeBuffer(
+			metadata.lightBufferIndex = blitter.initializeBuffer(
 				(void*) lights.data(),
 				lights.size() * sizeof(pod::Light::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
-			this->metadata["materialBufferIndex"] = blitter.initializeBuffer(
+			metadata.materialBufferIndex = blitter.initializeBuffer(
 				(void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			this->metadata["textureBufferIndex"] = blitter.initializeBuffer(
+			metadata.textureBufferIndex = blitter.initializeBuffer(
 				(void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			this->metadata["drawCallBufferIndex"] = blitter.initializeBuffer(
+			metadata.drawCallBufferIndex = blitter.initializeBuffer(
 				(void*) drawCalls.data(),
 				drawCalls.size() * sizeof(pod::DrawCall::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
@@ -485,18 +471,21 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
-	if ( metadata["type"].as<std::string>() == "vxgi" ) {
-		if ( ext::vulkan::states::resized ) {
+
+	bool resized = this->width == 0 && this->height == 0 && ext::vulkan::states::resized;
+	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
+
+	if ( metadata.type == "vxgi" ) {
+		if ( resized ) {
 			renderTarget.initialize( *renderTarget.device );
-			if ( blitter.process ) {
-				blitter.getPipeline().update( blitter );
-			}
+		}
+		if ( rebuild && blitter.process ) {
+			blitter.getPipeline().update( blitter );
 		}
 		return;
 	}
-	if ( ext::vulkan::states::resized ) {
+	if ( resized ) {
 		renderTarget.initialize( *renderTarget.device );
-	// 	for ( auto& texture : blitter.material.textures ) texture.sampler.destroy();
 		blitter.material.textures.clear();
 		for ( auto& attachment : renderTarget.attachments ) {
 			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
@@ -507,20 +496,18 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 			texture.sampler.descriptor.filter.mag = filter;
 			texture.aliasAttachment(attachment);
 		}
-		if ( blitter.process ) {
-			auto& mainRenderMode = ext::vulkan::getRenderMode("");
-			size_t eyes = mainRenderMode.metadata["eyes"].as<size_t>();
-			for ( size_t eye = 0; eye < eyes; ++eye ) {
-				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-				descriptor.subpass = 2 * eye + 1;
-				if ( !blitter.hasPipeline( descriptor ) ) {
-				//	continue;
-					blitter.initializePipeline( descriptor );
-				} else {
-					blitter.getPipeline( descriptor ).update( blitter, descriptor );
-				}
+	}
+	if ( rebuild && blitter.process ) {
+		auto& mainRenderMode = ext::vulkan::getRenderMode("");
+		size_t eyes = mainRenderMode.metadata.eyes;
+		for ( size_t eye = 0; eye < eyes; ++eye ) {
+			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+			descriptor.subpass = 2 * eye + 1;
+			if ( !blitter.hasPipeline( descriptor ) ) {
+				blitter.initializePipeline( descriptor );
+			} else {
+				blitter.getPipeline( descriptor ).update( blitter, descriptor );
 			}
-		//	blitter.getPipeline().update( blitter );
 		}
 	}
 }

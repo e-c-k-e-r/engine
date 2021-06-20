@@ -128,9 +128,9 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 	graph.mode = mode;
 	graph.metadata = metadata;
 
-	if ( !warn.empty() ) UF_DEBUG_MSG("glTF warning: " << warn);
-	if ( !err.empty() ) UF_DEBUG_MSG("glTF error: " << err);
-	if ( !ret ) { UF_DEBUG_MSG("glTF error: failed to parse file: " << filename);
+	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: " << warn);
+	if ( !err.empty() ) UF_MSG_ERROR("glTF error: " << err);
+	if ( !ret ) { UF_MSG_ERROR("glTF error: failed to parse file: " << filename);
 		return graph;
 	}
 
@@ -225,7 +225,7 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 			} else if ( material.alphaMode == "MASK" ) {
 				material.storage.modeAlpha = 2;
 			} else {
-				UF_DEBUG_MSG("Unhandled alpha mode: " << material.alphaMode)
+				UF_MSG_WARNING("Unhandled alpha mode: " << material.alphaMode)
 			}
 			if ( m.doubleSided && graph.metadata["cull mode"].as<std::string>() == "auto" ) {
 				graph.metadata["cull mode"] = "none";
@@ -365,10 +365,10 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 				
 				mesh.updateDescriptor();
 			/*
-				UF_DEBUG_MSG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
+				UF_MSG_DEBUG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
 				size_t o = graph.metadata["mesh optimization"].is<size_t>() ? graph.metadata["mesh optimization"].as<size_t>() : SIZE_MAX;
 				if ( o > 0 ) mesh.optimize(o);
-				UF_DEBUG_MSG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
+				UF_MSG_DEBUG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
 			*/
 			}
 		}

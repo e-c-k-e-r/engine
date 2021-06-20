@@ -23,7 +23,11 @@ namespace ext {
 			VkDescriptorSet descriptorSet;
 			GraphicDescriptor descriptor;
 
-			uf::Serializer metadata;
+			struct {
+				uf::Serializer json;
+				
+				std::string type = "";
+			} metadata;
 
 			void initialize( Graphic& graphic );
 			void initialize( Graphic& graphic, GraphicDescriptor& descriptor );
@@ -41,7 +45,10 @@ namespace ext {
 			std::vector<Sampler> samplers;
 			std::vector<Texture2D> textures;
 			std::vector<Shader> shaders;
-			uf::Serializer metadata;
+
+			struct {
+				uf::Serializer json;
+			} metadata;
 
 			void initialize( Device& device );
 			void destroy();
@@ -60,7 +67,7 @@ namespace ext {
 			bool initialized = false;
 			bool process = true;
 			Material material;
-			std::unordered_map<std::string, Pipeline> pipelines;
+			std::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
 
 			~Graphic();
 			void initialize( const std::string& = "" );

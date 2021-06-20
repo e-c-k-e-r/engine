@@ -32,7 +32,12 @@ namespace ext {
 			std::vector<VkSpecializationMapEntry> specializationMapEntries;
 			VkSpecializationInfo specializationInfo;
 
-			uf::Serializer metadata;
+			struct {
+				uf::Serializer json;
+				
+				std::string pipeline = "";
+				std::string type = "";
+			} metadata;
 
 			ext::vulkan::userdata_t specializationConstants;
 			std::vector<ext::vulkan::userdata_t> pushConstants;

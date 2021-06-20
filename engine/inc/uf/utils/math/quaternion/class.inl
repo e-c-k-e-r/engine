@@ -128,12 +128,12 @@ inline pod::Angle uf::Quaternion<T>::angle( const Quaternion<T>& b ) const {
 
 // 	Linearly interpolate between two quaternions
 template<typename T>
-inline uf::Quaternion<T> uf::Quaternion<T>::lerp( const Quaternion<T> to, double delta ) const {
+inline uf::Quaternion<T> uf::Quaternion<T>::lerp( const Quaternion<T> to, typename T::type_t delta ) const {
 	return uf::quaternion::lerp( this->m_pod, to.m_pod, delta );
 }
 // 	Spherically interpolate between two quaternions
 template<typename T>
-inline uf::Quaternion<T> uf::Quaternion<T>::slerp( const Quaternion<T> to, double delta ) const {
+inline uf::Quaternion<T> uf::Quaternion<T>::slerp( const Quaternion<T> to, typename T::type_t delta ) const {
 	return uf::quaternion::slerp( this->m_pod, to.m_pod, delta );
 }
 

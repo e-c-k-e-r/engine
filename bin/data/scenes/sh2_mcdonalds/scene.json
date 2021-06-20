@@ -52,7 +52,7 @@
 			"shadows": true
 		},
 		"noise": {
-			"size": [ 32, 32, 32 ]
+			"size": [ 16, 16, 16 ]
 		}
 	}
 }

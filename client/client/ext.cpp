@@ -101,6 +101,8 @@ void client::initialize() {
 		} );
 		uf::hooks.addHook( "window:Resized", [&](const ext::json::Value& json){
 			pod::Vector2i size = uf::vector::decode( json["window"]["size"], pod::Vector2i{} );
+			if ( size.x == uf::renderer::settings::width && size.y == uf::renderer::settings::height ) return;
+			
 			if ( json["invoker"] != "os" ) client::window.setSize(size);
 			// Update viewport
 			if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
@@ -108,7 +110,6 @@ void client::initialize() {
 				uf::renderer::settings::width = size.x * scale;
 				uf::renderer::settings::height = size.y * scale;
 			}
-
 			uf::renderer::states::resized = true;
 		} );
 	}

@@ -668,7 +668,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	uf::Timer<long long> TIMER_TRACE;
 	long long prevTime = 0;
 	long long curTime = 0;
-	UF_DEBUG_MSG("==== START RENDER ====");
+	UF_MSG_DEBUG("==== START RENDER ====");
 
 	ext::opengl::Buffer::Descriptor vertexBuffer = {};
 	ext::opengl::Buffer::Descriptor indexBuffer = {};
@@ -857,7 +857,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
 				}
 				curTime = TIMER_TRACE.elapsed().asMicroseconds();
-				UF_DEBUG_MSG(curTime << " us\t" << (curTime - prevTime) << " us\t" << textureId);
+				UF_MSG_DEBUG(curTime << " us\t" << (curTime - prevTime) << " us\t" << textureId);
 				prevTime = curTime;
 			}
 		}

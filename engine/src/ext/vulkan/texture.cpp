@@ -462,13 +462,34 @@ void ext::vulkan::Texture::fromBuffers(
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
-	if ( data ) {
+	if ( data && bufferSize ) {
 		uint8_t* layerPointer = (uint8_t*) data;
 		VkDeviceSize layerSize = bufferSize / this->layers;
 		for ( size_t layer = 0; layer < this->layers; ++layer ) {
 			this->update( (void*) layerPointer, layerSize, imageLayout, layer );
 			layerPointer += layerSize;
 		}
+	} else {
+		// Create image view
+		VkImageSubresourceRange subresourceRange = {};
+		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresourceRange.baseMipLevel = 0;
+		subresourceRange.baseArrayLayer = 0;
+		subresourceRange.levelCount = this->mips;
+		subresourceRange.layerCount = this->layers;
+
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+		setImageLayout(
+			commandBuffer,
+			image,
+			this->imageLayout,
+			imageLayout,
+			subresourceRange
+		);
+		device.flushCommandBuffer(commandBuffer);
+
+		this->imageLayout = imageLayout;
+		this->updateDescriptors();
 	}
 /*	
 	if ( this->layers > 1 ) {
@@ -610,7 +631,7 @@ void ext::vulkan::Texture::update( uf::Image& image, VkImageLayout targetImageLa
 	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size(), layer );
 }
 void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageLayout targetImageLayout, uint32_t layer ) {
-		// Update descriptor image info member that can be used for setting up descriptor sets
+	// Update descriptor image info member that can be used for setting up descriptor sets
 
 	auto& device = *this->device;
 

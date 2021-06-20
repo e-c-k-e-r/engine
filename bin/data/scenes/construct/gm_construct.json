@@ -49,7 +49,7 @@
 				"shadows": false
 			},
 			"tags": {
-				"worldspawn_2": { "collision": "static mesh" },
+				"worldspawn_2": { "collision": { "type": "mesh", "dynamic": false } },
 				"info_player_spawn": {
 					"action": "attach",
 					"filename": "./player.json",

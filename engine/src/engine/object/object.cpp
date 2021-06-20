@@ -123,7 +123,6 @@ bool uf::Object::reload( bool hard ) {
 		transform.reference = reference;
 	}
 	payload["new"] = metadata;
-//	UF_DEBUG_MSG("Updated metadata for " << uf::string::toString( this ));
 	this->queueHook("object:Reload.%UID%", payload);
 	return true;
 }

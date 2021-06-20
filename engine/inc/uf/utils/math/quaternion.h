@@ -27,7 +27,7 @@ namespace uf {
 		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two vectors (equals)
 	// 	Basic arithmetic
 		template<typename T> T /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two vectors of same type and size together
-		template<typename T = pod::Math::num_t> pod::Quaternion<T> /*UF_API*/ identity();						// 	Multiplies two vectors of same type and size together
+		template<typename T = pod::Math::num_t> pod::Quaternion<T> /*UF_API*/ identity();					// 	Multiplies two vectors of same type and size together
 		template<typename T> pod::Vector3t<T> /*UF_API*/ rotate( const pod::Quaternion<T>& left, const pod::Vector3t<T>& right );						// 	Multiplies two vectors of same type and size together
 		template<typename T> pod::Vector4t<T> /*UF_API*/ rotate( const pod::Quaternion<T>& left, const pod::Vector4t<T>& right );						// 	Multiplies two vectors of same type and size together
 		template<typename T> typename T::type_t /*UF_API*/ sum( const T& vector );							// 	Compute the sum of all components 
@@ -41,11 +41,11 @@ namespace uf {
 		template<typename T> typename T::type_t /*UF_API*/ dot( const T& left, const T& right ); 			// 	Compute the dot product between two vectors
 		template<typename T> pod::Angle /*UF_API*/ angle( const T& a, const T& b ); 						// 	Compute the angle between two vectors
 		
-		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, double delta ); 				// 	Linearly interpolate between two vectors
-		template<typename T> T /*UF_API*/ slerp( const T& from, const T& to, double delta ); 				// 	Spherically interpolate between two vectors
+		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, typename T::type_t delta ); 	// 	Linearly interpolate between two vectors
+		template<typename T> T /*UF_API*/ slerp( const T& from, const T& to, typename T::type_t delta ); 	// 	Spherically interpolate between two vectors
 		
-		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); 				// 	Gets the magnitude of the vector
-		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); 					// 	Gets the magnitude of the vector
+		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); 		// 	Gets the magnitude of the vector
+		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); 				// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); 						// 	Compute the norm of the vector
 		template<typename T> T /*UF_API*/ normalize( const T& vector ); 									// 	Normalizes a vector
@@ -120,8 +120,8 @@ public:
 		inline T dot( const Quaternion<T> right ) const; 								// 	Compute the dot product between two quaternions
 		inline pod::Angle angle( const Quaternion<T>& b ) const; 						// 	Compute the angle between two quaternions
 		
-		inline uf::Quaternion<T> lerp( const Quaternion<T> to, double delta ) const; 	// 	Linearly interpolate between two quaternions
-		inline uf::Quaternion<T> slerp( const Quaternion<T> to, double delta ) const; 	// 	Spherically interpolate between two quaternions
+		inline uf::Quaternion<T> lerp( const Quaternion<T> to, typename T::type_t delta ) const; 	// 	Linearly interpolate between two quaternions
+		inline uf::Quaternion<T> slerp( const Quaternion<T> to, typename T::type_t delta ) const; 	// 	Spherically interpolate between two quaternions
 		
 		inline T distanceSquared( const Quaternion<T> b ) const; 						// 	Compute the distance between two quaternions (doesn't sqrt)
 		inline T distance( const Quaternion<T> b ) const; 								// 	Compute the distance between two quaternions

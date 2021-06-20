@@ -14,7 +14,23 @@ namespace ext {
 			bool rebuild = false;
 			uint32_t width = 0;
 			uint32_t height = 0;
-			uf::Serializer metadata;
+			struct {			
+				uf::Serializer json;
+
+				std::string name = "";
+				std::string type = "";
+				std::string target = "";
+				std::vector<uint8_t> outputs;
+
+				uint8_t subpasses = 1;
+				uint8_t samples = 1;
+				uint8_t eyes = 1;
+
+				size_t lightBufferIndex = 0;
+				size_t materialBufferIndex = 0;
+				size_t textureBufferIndex = 0;
+				size_t drawCallBufferIndex = 0;
+			} metadata;
 			
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;
@@ -43,7 +59,6 @@ namespace ext {
 			virtual commands_container_t& getCommands( std::thread::id );
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
-			virtual void bindGraphicPushConstants( ext::vulkan::Graphic*, size_t = 0 );
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();

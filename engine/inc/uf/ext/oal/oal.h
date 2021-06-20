@@ -13,11 +13,11 @@
 #define AL_CHECK_RESULT(f) {\
 	(f);\
 	ALCenum error = alGetError();\
-	if ( error != AL_NO_ERROR ) UF_DEBUG_MSG("AL error: " << ext::al::getError(error) << ": " << #f);\
+	if ( error != AL_NO_ERROR ) UF_MSG_ERROR("AL error: " << ext::al::getError(error) << ": " << #f);\
 }
 
 //	std::string errorString = alutGetErrorString(alutGetError());
-//	if ( errorString != "No ALUT error found" ) UF_DEBUG_MSG("AL error: " << errorString);
+//	if ( errorString != "No ALUT error found" ) UF_MSG_ERROR("AL error: " << errorString);
 
 #include "source.h"
 #include "buffer.h"

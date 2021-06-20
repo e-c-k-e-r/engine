@@ -431,7 +431,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				bool state = !stats.noclipped;
 				metadata.system.noclipped = state;
 				
-				UF_DEBUG_MSG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
+				UF_MSG_DEBUG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
 				if ( state ) {
 				#if UF_USE_BULLET
 					if ( collider.body ) {
@@ -478,7 +478,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			}
 			pod::Vector3f queued = {};
 			if ( keys.forward || keys.backwards ) {
-				int polarity = keys.forward ? 1 : -1;
+				float polarity = keys.forward ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity); // * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.forward * speed.move * polarity);
@@ -504,7 +504,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				stats.updateCamera = (stats.walking = true);
 			}
 			if ( keys.left || keys.right ) {
-				int polarity = keys.right ? 1 : -1;
+				float polarity = keys.right ? 1 : -1;
 				float mag = uf::vector::magnitude(physics.linear.velocity); // * pod::Vector3{1, 0, 1});
 				if ( mag < speed.limitSquared ) {
 					mag = uf::vector::magnitude(physics.linear.velocity + translator.right * speed.move * polarity);
@@ -557,7 +557,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 					ext::bullet::move( collider, physics.linear.velocity );
 				#endif
 				} else {
-					transform.position += yump * uf::physics::time::delta;
+					transform.position += uf::vector::multiply(yump, uf::physics::time::delta);
 				}
 			}
 		}
@@ -595,7 +595,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				}
 			} else {
 				if ( !metadata.system.physics.collision ) {
-					transform.position -= yump * uf::physics::time::delta;
+					transform.position -= uf::vector::multiply(yump, uf::physics::time::delta);
 				} else {
 					if ( !metadata.system.crouching )  stats.deltaCrouch = true;
 					metadata.system.crouching = true;

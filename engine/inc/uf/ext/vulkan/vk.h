@@ -9,16 +9,12 @@
 #include <cassert>
 #include <mutex>
 
-#define VK_DEBUG_MESSAGE(...) UF_DEBUG_MSG(__VA_ARGS__);
+#define VK_DEBUG_MESSAGE(...) UF_MSG_ERROR(__VA_ARGS__);
 #define VK_VALIDATION_MESSAGE(...) if ( ext::vulkan::settings::validation ) VK_DEBUG_MESSAGE(__VA_ARGS__);
 
-#define VK_CHECK_RESULT(f) {										\
-	VkResult res = (f);												\
-	if (res != VK_SUCCESS) {										\
-		std::string errorString = ext::vulkan::errorString( res ); 	\
-		VK_DEBUG_MESSAGE(errorString); 								\
-		UF_EXCEPTION(errorString);									\
-	}																\
+#define VK_CHECK_RESULT(f) {\
+	VkResult res = (f);\
+	if (res != VK_SUCCESS) UF_EXCEPTION(ext::vulkan::errorString( res ));\
 }
 
 #define VK_FLAGS_NONE 0

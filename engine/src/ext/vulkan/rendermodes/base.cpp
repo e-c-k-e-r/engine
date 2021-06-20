@@ -98,7 +98,7 @@ void ext::vulkan::BaseRenderMode::render() {
 }
 
 void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
-	this->metadata["name"] = "Swapchain";
+	this->metadata.name = "Swapchain";
 	auto windowSize = device.window->getSize();
 	this->width = windowSize.x;
 	this->height = windowSize.y;

@@ -31,7 +31,7 @@
 				"print tree": false,
 				"print stats": false,
 				"export": {
-					"should": false,
+					"should": true,
 					"combined": false,
 					"compression": false,
 					"precision": 4

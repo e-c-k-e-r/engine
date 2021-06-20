@@ -81,7 +81,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	for ( auto& filter : ext::vulkan::settings::validationFilters ) {
 		if ( message.find(filter) != std::string::npos ) return VK_FALSE;
 	}
-	uf::iostream << "[Validation Layer] " << message << "\n";
+	UF_MSG_ERROR("[Validation Layer] " << message);
 	return VK_FALSE;
 }
 
@@ -160,7 +160,7 @@ bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
 }
 
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
-	mode->metadata["name"] = name;
+	mode->metadata.name = name;
 	renderModes.push_back(mode);
 	VK_VALIDATION_MESSAGE("Adding RenderMode: " << name << ": " << mode->getType());
 	// reorder
@@ -367,6 +367,7 @@ void ext::vulkan::destroy() {
 	Texture3D::empty.destroy();
 	TextureCube::empty.destroy();
 
+/*
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -374,6 +375,7 @@ void ext::vulkan::destroy() {
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	}
+*/
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;

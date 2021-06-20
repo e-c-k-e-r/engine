@@ -84,7 +84,7 @@ void spec::dreamcast::controller::tick() {
 	if ( pressed("R_DPAD_DOWN") ) str.emplace_back("R_DPAD_DOWN");
 	if ( pressed("R_DPAD_LEFT") ) str.emplace_back("R_DPAD_LEFT");
 	if ( pressed("R_DPAD_RIGHT") ) str.emplace_back("R_DPAD_RIGHT");
-	if ( !str.empty() ) UF_DEBUG_MSG(uf::string::join( str, " | " ));
+	if ( !str.empty() ) UF_MSG_DEBUG(uf::string::join( str, " | " ));
 #endif
 }
 void spec::dreamcast::controller::terminate() {

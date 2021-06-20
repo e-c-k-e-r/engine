@@ -45,7 +45,7 @@
 
 #define UF_USE_OPENGL_IMMEDIATE_MODE 0
 
-#define GL_DEBUG_MESSAGE(...) UF_DEBUG_MSG(__VA_ARGS__);
+#define GL_DEBUG_MESSAGE(...) UF_MSG_ERROR(__VA_ARGS__);
 #define GL_VALIDATION_MESSAGE(...) if ( ext::opengl::settings::validation ) GL_DEBUG_MESSAGE(__VA_ARGS__);
 
 #if UF_ENV_DREAMCAST

@@ -22,13 +22,13 @@ namespace {
 	bool retrieve( const std::string& url, const std::string& filename, const std::string& hash = "" ) {
 		uf::Http http = uf::http::get( url );
 		if ( http.code < 200 || http.code > 300 ) {
-			UF_DEBUG_MSG("HTTP Error " << http.code << " on GET " << url);
+			UF_MSG_ERROR("HTTP Error " << http.code << " on GET " << url);
 			return false;
 		}
 
 		std::string actual = hash;
 		if ( hash != "" && (actual = uf::string::sha256(url)) != hash ) {
-			UF_DEBUG_MSG("HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual);
+			UF_MSG_ERROR("HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual);
 			return false;
 		}
 
@@ -102,18 +102,18 @@ std::string uf::Asset::cache( const std::string& uri, const std::string& hash, c
 		std::string hash = hashed( uri );
 		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			UF_DEBUG_MSG("Failed to preload `" + uri + "` (`" + cached + "`): HTTP error");
+			UF_MSG_ERROR("Failed to preload `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		UF_DEBUG_MSG("Failed to preload `" + filename + "`: Does not exist");
+		UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
 		return "";
 	}
 	std::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		UF_DEBUG_MSG("Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
+		UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
 	return filename;
@@ -125,18 +125,18 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 		std::string hash = hashed( uri );
 		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			UF_DEBUG_MSG("Failed to load `" + uri + "` (`" + cached + "`): HTTP error");
+			UF_MSG_ERROR("Failed to load `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		UF_DEBUG_MSG("Failed to load `" + filename + "`: Does not exist");
+		UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
 		return "";
 	}
 	std::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		UF_DEBUG_MSG("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
+		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
 	#define UF_ASSET_REGISTER(type)\
@@ -190,12 +190,12 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 
 		asset = uf::graph::load( filename, LOAD_FLAGS, metadata[uri] );
 		uf::graph::process( asset );
-		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_DEBUG_MSG(uf::graph::stats( asset ).dump(1,'\t'));
-		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_DEBUG_MSG(uf::graph::print( asset ));
+		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO(uf::graph::stats( asset ).dump(1,'\t'));
+		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO(uf::graph::print( asset ));
 		if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		//uf::graph::process( asset );
 	} else {
-		UF_DEBUG_MSG("Failed to parse `" + filename + "`: Unimplemented extension: " + extension + " or category: " + category );
+		UF_MSG_ERROR("Failed to parse `" + filename + "`: Unimplemented extension: " + extension + " or category: " + category );
 	}
 	return filename;
 }

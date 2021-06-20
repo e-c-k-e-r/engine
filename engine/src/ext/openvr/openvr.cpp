@@ -432,8 +432,8 @@ void ext::openvr::submit() { bool invert = swapEyes;
 	
 	float width = renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width;
 	float height = renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height;
-	auto& leftOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata["outputs"][0].as<size_t>()];
-	auto& rightOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata["outputs"][1].as<size_t>()];
+	auto& leftOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata.outputs[0]];
+	auto& rightOutputAttachment = renderMode.renderTarget.attachments[renderMode.metadata.outputs[1]];
 
 	// Submit to SteamVR
 	vr::VRTextureBounds_t bounds;

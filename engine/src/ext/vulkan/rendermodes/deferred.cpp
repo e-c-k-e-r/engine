@@ -28,8 +28,7 @@ std::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters(
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
-	if ( !metadata["eyes"].is<size_t>() ) metadata["eyes"] = 1;
-	metadata["outputs"] = ext::json::array();
+	if ( metadata.eyes == 0 ) metadata.eyes = 1;
 	{
 		float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 		float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
@@ -41,9 +40,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	ext::vulkan::RenderMode::initialize( device );
 	renderTarget.device = &device;
-	size_t eyes = metadata["eyes"].as<size_t>();
 	size_t msaa = ext::vulkan::settings::msaa;
-	for ( size_t eye = 0; eye < eyes; ++eye ) {
+	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 		struct {
 			size_t id, normals, uvs, albedo, depth, output, debug;
 		} attachments;
@@ -128,7 +126,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.blend =*/ false,
 			/*.samples =*/ 1,
 		});
-		metadata["outputs"].emplace_back(attachments.output);
+		metadata.outputs.emplace_back(attachments.output);
 	#if 0
 		attachments.debug = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -242,13 +240,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				specializationConstants.maxCascades = maxCascades;
 			*/
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
-				ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
+				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					std::string name = sc["name"].as<std::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 					else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
 				});
-				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
 					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
@@ -272,13 +270,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				specializationConstants.maxTexturesCube = maxTexturesCube;
 			*/
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
-				ext::json::forEach( shader.metadata["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
+				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					std::string name = sc["name"].as<std::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 				});
 
-				ext::json::forEach( shader.metadata["definitions"]["textures"], [&]( ext::json::Value& t ){
+				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
 					std::string name = t["name"].as<std::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
@@ -296,31 +294,31 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
-			this->metadata["lightBufferIndex"] = blitter.initializeBuffer(
+			metadata.lightBufferIndex = blitter.initializeBuffer(
 				(void*) lights.data(),
 				lights.size() * sizeof(pod::Light::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
-			this->metadata["materialBufferIndex"] = blitter.initializeBuffer(
+			metadata.materialBufferIndex = blitter.initializeBuffer(
 				(void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			this->metadata["textureBufferIndex"] = blitter.initializeBuffer(
+			metadata.textureBufferIndex = blitter.initializeBuffer(
 				(void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			this->metadata["drawCallBufferIndex"] = blitter.initializeBuffer(
+			metadata.drawCallBufferIndex = blitter.initializeBuffer(
 				(void*) drawCalls.data(),
 				drawCalls.size() * sizeof(pod::DrawCall::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 		}
 	//	blitter.initializePipeline();
-		for ( size_t eye = 0; eye < eyes; ++eye ) {
+		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 			blitter.descriptor.subpass = 2 * eye + 1;
 			if ( blitter.hasPipeline( blitter.descriptor ) ) continue;
 			blitter.initializePipeline( blitter.descriptor );
@@ -331,20 +329,20 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 void ext::vulkan::DeferredRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 	
-	if ( ext::vulkan::states::resized ) {
+	bool resized = this->width == 0 && this->height == 0 && ext::vulkan::states::resized;
+	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
+
+	if ( resized ) {
 		renderTarget.initialize( *renderTarget.device );
-		// update blitter descriptor set
-		if ( blitter.initialized ) {
-			size_t eyes = metadata["eyes"].as<size_t>();
-			for ( size_t eye = 0; eye < eyes; ++eye ) {
-				blitter.descriptor.subpass = 2 * eye + 1;
-				if ( !blitter.hasPipeline( blitter.descriptor ) ) continue;
-				blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-			}
-			blitter.descriptor.subpass = 1;
-		//	blitter.getPipeline().update( blitter );
-		//	blitter.updatePipelines();
+	}
+	// update blitter descriptor set
+	if ( rebuild && blitter.initialized ) {
+		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+			blitter.descriptor.subpass = 2 * eye + 1;
+			if ( !blitter.hasPipeline( blitter.descriptor ) ) continue;
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
 		}
+		blitter.descriptor.subpass = 1;
 	}
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
@@ -359,9 +357,6 @@ ext::vulkan::GraphicDescriptor ext::vulkan::DeferredRenderMode::bindGraphicDescr
 void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
-
-	if ( !metadata["eyes"].is<size_t>() ) metadata["eyes"] = 1;
-	size_t eyes = metadata["eyes"].as<size_t>();
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -442,7 +437,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);
 				// render to geometry buffers
-				for ( size_t eye = 0; eye < eyes; ++eye ) {
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 					size_t currentPass = 0;
 					size_t currentDraw = 0;
 					for ( auto graphic : graphics ) {
@@ -477,7 +472,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 							blitter.record(commands[i], descriptor, eye, currentDraw++);
 						}
 					}
-					if ( eye + 1 < eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+					if ( eye + 1 < metadata.eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
 				}
 			vkCmdEndRenderPass(commands[i]);
 
@@ -523,7 +518,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::settings::height,
 						1
 					};
-					auto& outputAttachment = renderTarget.attachments[metadata["outputs"][0].as<size_t>()];
+					auto& outputAttachment = renderTarget.attachments[metadata.outputs.front()];
 					// Transition to KHR
 					{
 						imageMemoryBarrier.image = outputAttachment.image;

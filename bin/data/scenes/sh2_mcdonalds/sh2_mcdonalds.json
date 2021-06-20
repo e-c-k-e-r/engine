@@ -27,7 +27,7 @@
 				"print stats": false,
 				"export": {
 					"should": true,
-					"combined": true,
+					"combined": false,
 					"compression": false,
 					"precision": 4
 				}

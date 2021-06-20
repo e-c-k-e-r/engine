@@ -27,7 +27,7 @@
 				"print stats": false,
 				"export": {
 					"should": true,
-					"combined": true,
+					"combined": false,
 					"compression": false,
 					"precision": 4
 				}
@@ -49,7 +49,6 @@
 				"LOAD": false
 			},
 			"lights": {
-			//	"renderMode": { "target": "worldspawn_1" },
 				"shadows": true
 			},
 			"tags": {

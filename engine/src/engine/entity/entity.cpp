@@ -13,7 +13,7 @@ uf::Entity::~Entity(){
 }
 bool uf::Entity::isValid() const {
 	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
-	return this && 0 < this->m_uid && this->m_uid <= uf::Entity::uids;
+	return this != NULL && (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
 }
 void uf::Entity::setUid() {
 	uf::scene::invalidateGraphs();
@@ -78,7 +78,7 @@ void uf::Entity::operator delete( void* pointer ) {
 }
 
 uf::Entity* uf::Entity::findByName( const std::string& name ) {
-	for ( uf::Entity* entity : this->getChildren() ) {
+	for ( uf::Entity* entity : this->m_children ) {
 		if ( entity->getName() == name ) return entity;
 		uf::Entity* p = entity->findByName(name);
 		if ( p ) return p;
@@ -86,7 +86,7 @@ uf::Entity* uf::Entity::findByName( const std::string& name ) {
 	return (uf::Entity*) NULL;
 };
 uf::Entity* uf::Entity::findByUid( std::size_t id ) {
-	for ( uf::Entity* entity : this->getChildren() ) {
+	for ( uf::Entity* entity : this->m_children ) {
 		if ( entity->getUid() == id ) return entity;
 		uf::Entity* p = entity->findByUid(id);
 		if ( p ) return p;
@@ -95,7 +95,7 @@ uf::Entity* uf::Entity::findByUid( std::size_t id ) {
 };
 
 const uf::Entity* uf::Entity::findByName( const std::string& name ) const {
-	for ( uf::Entity* entity : this->getChildren() ) {
+	for ( uf::Entity* entity : this->m_children ) {
 		if ( entity->getName() == name ) return entity;
 		uf::Entity* p = entity->findByName(name);
 		if ( p ) return p;
@@ -103,7 +103,7 @@ const uf::Entity* uf::Entity::findByName( const std::string& name ) const {
 	return (uf::Entity*) NULL;
 };
 const uf::Entity* uf::Entity::findByUid( std::size_t id ) const {
-	for ( const uf::Entity* entity : this->getChildren() ) {
+	for ( const uf::Entity* entity : this->m_children ) {
 		if ( entity->getUid() == id ) return entity;
 		const uf::Entity* p = entity->findByUid(id);
 		if ( p ) return p;
@@ -113,14 +113,14 @@ const uf::Entity* uf::Entity::findByUid( std::size_t id ) const {
 
 void uf::Entity::process( std::function<void(uf::Entity*)> fn ) {
 	fn(this);
-	for ( uf::Entity* entity : this->getChildren() ) {
+	for ( uf::Entity* entity : this->m_children ) {
 		if ( !entity ) continue;
 		entity->process(fn);
 	}
 }
 void uf::Entity::process( std::function<void(uf::Entity*, int)> fn, int depth ) {
 	fn(this, depth);
-	for ( uf::Entity* entity : this->getChildren() ) {
+	for ( uf::Entity* entity : this->m_children ) {
 		if ( !entity ) continue;
 		entity->process(fn, depth + 1);
 	}

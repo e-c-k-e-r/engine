@@ -447,9 +447,8 @@ void EXT_API ext::initialize() {
 		if ( ::config["engine"]["render modes"]["deferred"].as<bool>() ) {
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
 			auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
-		//	renderMode.metadata["system"]["config"] = ::config;
 			if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
-				renderMode.metadata["eyes"] = 2;
+				renderMode.metadata.eyes = 2;
 			}
 		}
 	#endif
@@ -687,7 +686,7 @@ void EXT_API ext::tick() {
 			bool announce = gc["announce"].as<bool>();
 			TIMER( every ) {
 				size_t collected = uf::instantiator::collect( mode );
-				if ( announce && collected > 0 ) UF_DEBUG_MSG("GC collected " << (int) collected << " unused entities");
+				if ( announce && collected > 0 ) UF_MSG_DEBUG("GC collected " << (int) collected << " unused entities");
 			}
 		}
 	}
@@ -713,7 +712,7 @@ void EXT_API ext::tick() {
 			++::times.frames;
 			double every = fps["every"].as<double>();
 			TIMER( every ) {
-				UF_DEBUG_MSG("System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
+				UF_MSG_DEBUG("System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
 				::times.frames = 0;
 			}
 		}
