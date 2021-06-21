@@ -541,9 +541,9 @@ template<typename T> pod::Vector3t<typename T::type_t> /*UF_API*/ uf::matrix::eu
 
 
 template<typename T, size_t R, size_t C>
-ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m, bool compress ) {
+ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json;
-	if ( compress ) for ( size_t i = 0; i < R*C; ++i ) json[i] = uf::math::quantizeShort( m[i] );
+	if ( settings.quantize ) for ( size_t i = 0; i < R*C; ++i ) json[i] = uf::math::quantizeShort( m[i] );
 	else for ( size_t i = 0; i < R*C; ++i ) json[i] = m[i];
 	return json;
 }

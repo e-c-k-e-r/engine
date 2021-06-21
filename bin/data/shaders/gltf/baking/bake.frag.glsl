@@ -11,7 +11,6 @@ layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
 #define PBR 0
 #define LAMBERT 1
 #define CUBEMAPS 1
-
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 #include "../../common/functions.h"

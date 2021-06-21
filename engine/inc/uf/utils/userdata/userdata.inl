@@ -40,6 +40,11 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) {
+	#if UF_USERDATA_RTTI
+		if ( userdata->type != typeid(T).hash_code() ) UF_MSG_ERROR("Userdata type mismatch: " << userdata << ": expected " << typeid(T).hash_code() << ", got " << userdata->type);
+	#else		
+		if ( userdata->len != sizeof(T) ) UF_MSG_ERROR("Userdata size mismatch: " << userdata << ": expected " << sizeof(T) << ", got " << userdata->len);
+	#endif		
 		UF_EXCEPTION("Userdata size|type mismatch");
 	}
 	union {
@@ -52,6 +57,11 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 template<typename T>
 const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) {
+	#if UF_USERDATA_RTTI
+		if ( userdata->type != typeid(T).hash_code() ) UF_MSG_ERROR("Userdata type mismatch: " << userdata << ": expected " << typeid(T).hash_code() << ", got " << userdata->type);
+	#else		
+		if ( userdata->len != sizeof(T) ) UF_MSG_ERROR("Userdata size mismatch: " << userdata << ": expected " << sizeof(T) << ", got " << userdata->len);
+	#endif	
 		UF_EXCEPTION("Userdata size|type mismatch");
 	}
 	union {

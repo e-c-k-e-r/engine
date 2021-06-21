@@ -16,9 +16,9 @@
 
 namespace pod {
 	struct UF_API Userdata {
-		std::size_t len = 0;
+		size_t len = 0;
 	#if UF_USERDATA_RTTI
-		std::size_t type;
+		size_t type = 0;
 	#endif
 		uint8_t data[1];
 	};

@@ -634,7 +634,6 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 						descriptor.descriptorType == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT
 				 ) {
 					if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE || descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
-				//	if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Null image view or layout is undefined, replacing with fallback texture...");
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 						std::string binding = std::to_string(descriptor.dstBinding);

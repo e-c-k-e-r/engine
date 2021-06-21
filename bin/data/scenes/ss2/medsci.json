@@ -5,12 +5,15 @@
 	"assets": [
 	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/medsci.glb", "delay": 0, "single threaded": false }
-		{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/medsci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"
@@ -26,16 +29,18 @@
 	"metadata": {
 		"model": {
 			"debug": {
-				"static": true,
 				"no cleanup": false,
 				"print tree": false,
-				"print stats": false,
-				"export": {
-					"should": true,
-					"combined": false,
-					"compression": false,
-					"precision": 4
-				}
+				"print stats": false
+			},
+			"export": {
+				"should": true,
+				"pretty": false,
+				"compress": true,
+				"quantize": false,
+				"precision": 4,
+				"combined": false,
+				"encode buffers": true
 			},
 			"ambient": [ 0, 0, 0 ],
 		/*

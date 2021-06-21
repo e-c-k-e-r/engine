@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <typeinfo>
 
-#define UF_COMPONENT_POINTERED_USERDATA 0
+#define UF_COMPONENT_POINTERED_USERDATA 1
 
 namespace pod {
 	struct UF_API Component {

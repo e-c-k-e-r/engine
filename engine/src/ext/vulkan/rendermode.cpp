@@ -360,7 +360,9 @@ void ext::vulkan::RenderMode::destroy() {
 	commands.clear();
 */
 	for ( auto& pair : this->commands.container() ) {
-		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		if ( !pair.second.empty() ) {
+			vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		}
 		pair.second.clear();
 	}
 	if ( renderCompleteSemaphore != VK_NULL_HANDLE ) {

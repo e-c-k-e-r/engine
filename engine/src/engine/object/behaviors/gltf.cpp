@@ -32,9 +32,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
 		if ( !assetLoader.has<pod::Graph>(filename) ) return;
-		pod::Graph* graphPointer = &assetLoader.get<pod::Graph>(filename);
-		auto& graph = this->getComponent<pod::Graph>();
-		graph = std::move( *graphPointer );
+		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(filename) ));
 		assetLoader.remove<pod::Graph>(filename);
 
 		bool shouldUpdate = false;	
@@ -71,12 +69,7 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		this->addChild(graph.root.entity->as<uf::Entity>());
 	});
 }
-void uf::GltfBehavior::destroy( uf::Object& self ) {
-	if ( this->hasComponent<pod::Graph>() ) {
-		auto& graph = this->getComponent<pod::Graph>();
-		uf::graph::destroy( graph );
-	}
-}
+void uf::GltfBehavior::destroy( uf::Object& self ) {}
 
 #define UNIFORMS_UPDATE_IN_TICK 1
 void uf::GltfBehavior::tick( uf::Object& self ) {

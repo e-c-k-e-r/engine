@@ -148,15 +148,7 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 			uf::hooks.removeHook(key, id.as<size_t>());
 		});
 	});
-/*
-	for( auto it = metadata["system"]["hooks"]["bound"].begin() ; it != metadata["system"]["hooks"]["bound"].end() ; ++it ) {
-	 	std::string name = it.key();
-		for ( size_t i = 0; i < metadata["system"]["hooks"]["bound"][name].size(); ++i ) {
-			size_t id = metadata["system"]["hooks"]["bound"][name][(int) i].as<size_t>();
-			uf::hooks.removeHook(name, id);
-		}
-	}
-*/
+
 #else
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	for ( auto pair : metadata.hooks.bound ) {
@@ -167,24 +159,44 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	if ( this->hasComponent<uf::Audio>() ) {
 		auto& audio = this->getComponent<uf::Audio>();
 		audio.destroy();
+	//	UF_MSG_DEBUG("Destroying audio: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::SoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::SoundEmitter>();
 		audio.cleanup(true);
+	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
 		audio.cleanup(true);
+	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();
 		uf::renderer::states::rebuild = true;
+	//	UF_MSG_DEBUG("Destroying graphic: " << this->getName() << ": " << this->getUid());
+	}
+	if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::graph::destroy( graph );
+	//	UF_MSG_DEBUG("Destroying graph: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Atlas>() ) {
 		auto& atlas = this->getComponent<uf::Atlas>();
 		atlas.clear();
+	//	UF_MSG_DEBUG("Destroying atlas: " << this->getName() << ": " << this->getUid());
 	}
+#if UF_USE_VULKAN
+	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+		uf::renderer::removeRenderMode( &renderMode, false );
+		renderMode.destroy();
+		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
+		uf::renderer::states::rebuild = true;
+	//	UF_MSG_DEBUG("Destroying render mode: " << this->getName() << ": " << this->getUid());
+	}
+#endif
 }
 void uf::ObjectBehavior::tick( uf::Object& self ) {
 	// update audios

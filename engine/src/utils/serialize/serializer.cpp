@@ -3,6 +3,7 @@
 #include <uf/utils/string/ext.h>
 
 #include <uf/utils/io/iostream.h>
+#include <uf/ext/zlib/zlib.h>
 
 #include <sstream>
 #include <fstream>
@@ -25,28 +26,29 @@ uf::Serializer::Serializer( const ext::json::base_value& json ) { //: sol::table
 	*this = json;
 }
 uf::Serializer::output_t uf::Serializer::serialize( bool pretty ) const {
-	return ext::json::encode( *this, pretty );
+	return ext::json::encode( *this, ext::json::EncodingSettings{ .pretty = pretty } );
 }
-uf::Serializer::output_t uf::Serializer::serialize( size_t precision, bool pretty ) const {
-	return ext::json::encode( *this, precision, pretty );
+uf::Serializer::output_t uf::Serializer::serialize( const ext::json::EncodingSettings& settings ) const {
+	return ext::json::encode( *this, settings );
 }
 void uf::Serializer::deserialize( const std::string& str ) {
 	if ( str == "" ) return;
 	ext::json::decode( *this, str );
 }
 
-bool uf::Serializer::readFromFile( const std::string& from, const std::string& hash ) {
+bool uf::Serializer::readFromFile( const std::string& filename, const std::string& hash ) {
 	uf::String string;
-	bool exists = uf::io::exists(from);
+//	std::string filename = _filename + ( uf::io::exists(_filename + ".gz") ? ".gz" : "" );
+	bool exists = uf::io::exists( filename );
 	if ( !exists ) {
-		UF_MSG_ERROR("Failed to read JSON file `" << from << "`: does not exist");
+		UF_MSG_ERROR("Failed to read JSON file `" << filename << "`: does not exist");
 		return false;
 	}
-	auto buffer = uf::io::readAsBuffer( from, hash );
+	auto buffer = uf::io::readAsBuffer( filename, hash );
 	if ( buffer.empty() ) {
-		UF_MSG_ERROR("Failed to read JSON file `" << from << "`: empty file or hash mismatch");
+		UF_MSG_ERROR("Failed to read JSON file `" << filename << "`: empty file or hash mismatch");
 		return false;
-	}
+	}	
 
 	auto& str = string.getString();
 	str.reserve(buffer.size());
@@ -54,45 +56,12 @@ bool uf::Serializer::readFromFile( const std::string& from, const std::string& h
 
 	this->deserialize(string);
 	return true;
-/*	
-	struct {
-		std::ifstream input;
-		uf::String buffer;
-		std::string filename;
-		bool exists;
-	} file; {
-		file.exists = uf::io::exists(from);
-		file.filename = from;
-	}
-
-	if ( !file.exists ) return false;
-
-	file.input.open(file.filename, std::ios::binary );
-	file.input.seekg(0, std::ios::end);
-	str.reserve(file.input.tellg());
-	file.input.seekg(0, std::ios::beg);
-	str.assign((std::istreambuf_iterator<char>(file.input)),std::istreambuf_iterator<char>());
-	file.input.close();
-
-	this->deserialize(file.buffer);
-	return true;
-*/
 }
-bool uf::Serializer::writeToFile( const std::string& to ) const {
-	std::string buffer = this->serialize();
-	std::ofstream output;
-	output.open(to, std::ios::binary);
-	output.write( buffer.c_str(), buffer.size() );
-	output.close();
-	return true;
-}
-bool uf::Serializer::writeToFile( const std::string& to, size_t precision ) const {
-	std::string buffer = this->serialize(precision);
-	std::ofstream output;
-	output.open(to, std::ios::binary);
-	output.write( buffer.c_str(), buffer.size() );
-	output.close();
-	return true;
+bool uf::Serializer::writeToFile( const std::string& filename, const ext::json::EncodingSettings& settings ) const {
+	std::string buffer = this->serialize( settings );
+	size_t written = uf::io::write( filename + ( settings.compress ? ".gz" : "" ) , buffer.c_str(), buffer.size() );
+	if ( !written ) UF_MSG_ERROR("Failed to write JSON file `" << filename << "`");
+	return written;
 }
 
 void uf::Serializer::merge( const uf::Serializer& other, bool priority ) {

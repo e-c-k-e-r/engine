@@ -11,6 +11,10 @@ namespace uf {
 		struct Metadata {
 			std::vector<uf::Entity*> graph;
 			bool invalidationQueued = false;
+			struct {
+				uf::Entity* controller = NULL;
+				void* renderMode = NULL;
+			} cached;
 
 			std::function<void()> serialize;
 			std::function<void()> deserialize;

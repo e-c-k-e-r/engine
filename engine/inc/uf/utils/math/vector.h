@@ -143,7 +143,7 @@ namespace uf {
 		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); 						// 	Normalizes a vector
 		
 		template<typename T> std::string /*UF_API*/ toString( const T& vector ); 							// 	Parses a vector as a string
-		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v, bool = false ); 				// 	Parses a vector into a JSON value
+		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); 				// 	Parses a vector into a JSON value
 		
 		template<typename T, size_t N> pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); 							// 	Parses a JSON value into a vector
 		template<typename T, size_t N> pod::Vector<T,N> decode( const ext::json::Value& v, const pod::Vector<T,N>& = {} ); 				// 	Parses a JSON value into a vector

@@ -44,11 +44,11 @@ INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mi
 LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas openvr # draco discord
+	REQ_DEPS 			+= vulkan json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas openvr # draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png # meshoptimizer ogg openal draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png zlib # meshoptimizer ogg openal draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -76,7 +76,7 @@ ifneq (,$(findstring json,$(REQ_DEPS)))
 	endif
 endif
 ifneq (,$(findstring png,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_PNG
+	FLAGS 				+= -DUF_USE_PNG -DUF_USE_ZLIB
 	DEPS 				+= -lpng -lz
 endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))

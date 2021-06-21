@@ -11,39 +11,48 @@ UF_OBJECT_REGISTER_BEGIN(uf::Scene)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::SceneBehavior)
 UF_OBJECT_REGISTER_END()
 uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
+
+namespace {
+	uf::SceneBehavior::Metadata metadata;
+}
+
 uf::Entity& uf::Scene::getController() {
-	static uf::Entity* cachedController = NULL;
+//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 	if ( uf::renderer::currentRenderMode ) {
-		static uf::renderer::RenderMode* cachedRenderMode = NULL;
 		auto& renderMode = *uf::renderer::currentRenderMode;
 
-		if ( cachedRenderMode == &renderMode && cachedController && cachedController->getUid() > 0 ) {
-			return *cachedController;
+		if ( metadata.cached.renderMode == &renderMode && metadata.cached.controller && metadata.cached.controller->isValid() ) {
+			return *metadata.cached.controller;
 		}
-		cachedController = NULL;
-		cachedRenderMode = &renderMode;
+		metadata.cached.controller = NULL;
+		metadata.cached.renderMode = &renderMode;
 		auto split = uf::string::split( renderMode.getName(), ":" );
 		if ( split.front() == "RT" ) {
 			uint64_t uid = std::stoi( split.back() );
 			uf::Entity* ent = this->findByUid( uid );
-			if ( ent ) return *(cachedController = ent);
+			if ( ent ) return *(metadata.cached.controller = ent);
 		}
 	}
-	if ( cachedController && cachedController->getUid() > 0 ) return *cachedController;
-	cachedController = this->findByName("Player");
-	return cachedController ? *cachedController : *this;
+	if ( metadata.cached.controller && metadata.cached.controller->isValid() ) return *metadata.cached.controller;
+	metadata.cached.controller = this->findByName("Player");
+	return metadata.cached.controller ? *metadata.cached.controller : *this;
 	// return this;
 }
 const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
 	return scene.getController();
 }
+
+
+
 void uf::Scene::invalidateGraph() {
-	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 	metadata.invalidationQueued = true;
+	metadata.cached.renderMode = NULL;
+	metadata.cached.controller = NULL;
 }
 const std::vector<uf::Entity*>& uf::Scene::getGraph() {
-	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
 		metadata.graph.clear();
@@ -68,7 +77,7 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& _fi
 
 	const std::string filename = _filename != "" ? _filename : ("/" + uf::string::lowercase(name) + "/scene.json");
 	scene->load(filename);
-	if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
+	if ( uf::renderer::settings::experimental::vxgi ) {
 		uf::instantiator::bind( "VoxelizerBehavior", *scene );
 	}
 	scene->initialize();
@@ -78,7 +87,7 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& 
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 	if ( data != "" ) scene->load(data);
-	if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
+	if ( uf::renderer::settings::experimental::vxgi ) {
 		uf::instantiator::bind( "VoxelizerBehavior", *scene );
 	}
 	scene->initialize();

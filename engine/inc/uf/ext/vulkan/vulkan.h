@@ -64,6 +64,8 @@ namespace ext {
 				extern UF_API bool vsync;
 				extern UF_API bool hdr;
 				extern UF_API bool frustrumCull;
+				extern UF_API bool vxgi;
+				extern UF_API bool deferredSampling;
 			}
 
 			namespace formats {

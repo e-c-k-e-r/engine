@@ -24,7 +24,7 @@
 			},
 			"radius": [0.001, 0],
 			"resolution": 1024,
-			"shadows": true,
+			"shadows": false,
 			"static": false
 		}
 	}

@@ -4,18 +4,17 @@
 	"ignore": false,
 	"assets": [
 	//	"/player/bear.glb"
-		{ "filename": "%root%/models/player/bear/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "/player/bear/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "/player/bear/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"PlayerModelBehavior"
 	],
 	"transform": {
 		"position": [ 0, -2.0, 0 ],
-	//	"position": [ 25.0223, 2.42479, 6.79808 ],
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0
-		//	"angle": -1.57079633
 		},
 		"scale": [ 0.16, 0.16, 0.16 ]
 	},
@@ -31,16 +30,19 @@
 			"debug": {
 				"no cleanup": false,
 				"print tree": false,
-				"print stats": false,
-				"export": {
-					"should": false,
-					"combined": true,
-					"compression": false,
-					"precision": 4
-				}
+				"print stats": false
+			},
+			"export": {
+				"should": true,
+				"pretty": false,
+				"compress": true,
+				"quantize": false,
+				"precision": 4,
+				"combined": false,
+				"encode buffers": true
 			},
 			"animation": "wank",
-			"print animations": true,
+		//	"print animations": true,
 			"flags": {
 				"ATLAS": true,
 				"SKINNED": true,

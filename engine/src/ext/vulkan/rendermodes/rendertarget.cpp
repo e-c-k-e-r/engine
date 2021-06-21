@@ -343,7 +343,16 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					else if ( sType == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
 					else if ( sType == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
 				}
-
+			#if 0
+				if ( type == ext::vulkan::enums::Shader::FRAGMENT ) {
+					if ( msaa > 1 ) {
+						filename = uf::string::replace( filename, "frag", "msaa.frag" );
+					}
+					if ( uf::renderer::settings::experimental::deferredSampling ) {
+						filename = uf::string::replace( filename, "frag", "deferredSampling.frag" );
+					}
+				}
+			#endif
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
 		} else if ( ext::json::isObject( metadata.json["shaders"] ) ) {
@@ -361,17 +370,34 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				else if ( key == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
 				else if ( key == "geometry" ) type = ext::vulkan::enums::Shader::GEOMETRY;
 				else if ( key == "compute" ) type = ext::vulkan::enums::Shader::COMPUTE;
-				
+			#if 0
+				if ( type == ext::vulkan::enums::Shader::FRAGMENT ) {
+					if ( msaa > 1 ) {
+						filename = uf::string::replace( filename, "frag", "msaa.frag" );
+					}
+					if ( uf::renderer::settings::experimental::deferredSampling ) {
+						filename = uf::string::replace( filename, "frag", "deferredSampling.frag" );
+					}
+				}
+			#endif
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
 		} else if ( metadata.json["shaders"].is<bool>() && !metadata.json["shaders"].as<bool>() ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
-			std::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
+			std::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
+			std::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv";
+			if ( msaa > 1 ) {
+				fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "msaa.frag" );
+			}
+			// I don't actually have support for deferred sampling within a render target
+			if ( uf::renderer::settings::experimental::deferredSampling ) {
+			//	fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
+			}
 			blitter.material.initializeShaders({
-				{uf::io::root+"/shaders/display/renderTarget.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-				{uf::io::root+"/shaders/display/renderTarget." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
+				{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},
+				{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
 		if ( metadata.type == "vxgi"  ) {

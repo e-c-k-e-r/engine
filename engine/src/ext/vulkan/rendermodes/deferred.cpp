@@ -60,7 +60,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.blend = */false,
 			/*.samples = */msaa,
 		});
-		if ( ext::vulkan::settings::experimental::deferredMode != "" ) {
+		if ( ext::vulkan::settings::experimental::deferredSampling ) {
 			attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 				/*.format = */VK_FORMAT_R16G16_UNORM,
 				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -137,7 +137,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		});
 	#endif
 
-		if ( ext::vulkan::settings::experimental::deferredMode != "" ) {
+		if ( ext::vulkan::settings::experimental::deferredSampling ) {
 			// First pass: fill the G-Buffer
 			{
 				renderTarget.addPass(
@@ -208,14 +208,32 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 		blitter.initialize( this->getName() );
 		blitter.initializeMesh( mesh );
+
+		std::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
+		std::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv";
+		if ( uf::renderer::settings::experimental::vxgi ) {
+			fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "vxgi.frag" );
+		}
+		if ( msaa > 1 ) {
+			fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "msaa.frag" );
+		}
+		if ( uf::renderer::settings::experimental::deferredSampling ) {
+			fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
+		}
+		blitter.material.initializeShaders({
+			{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},
+			{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
+		});
+	/*
 		std::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
-		if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
+		if ( ext::vulkan::settings::experimental::vxgi ) {
 			fragmentShaderFilename = ( msaa <= 1 ) ? "vxgi.no-msaa." : "vxgi.";
 		}
 		blitter.material.initializeShaders({
 			{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
 			{uf::io::root+"/shaders/display/subpass." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
+	*/
 		{
 			auto& scene = uf::scene::getCurrentScene();
 
@@ -227,7 +245,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
-			if ( ext::vulkan::settings::experimental::deferredMode == "vxgi" ) {
+			if ( ext::vulkan::settings::experimental::vxgi ) {
 			/*
 				struct SpecializationConstant {
 					uint32_t maxTextures2D = 512;

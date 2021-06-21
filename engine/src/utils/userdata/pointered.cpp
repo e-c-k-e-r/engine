@@ -45,7 +45,9 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 	}
 #endif
 	userdata.len = len;
+#if UF_USERDATA_RTTI
 	userdata.type = typeid(NULL).hash_code();
+#endif
 	return userdata;
 }
 void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::PointeredUserdata& userdata ) {

@@ -37,6 +37,8 @@ bool ext::vulkan::settings::experimental::multiview = true;
 bool ext::vulkan::settings::experimental::vsync = true;
 bool ext::vulkan::settings::experimental::hdr = true;
 bool ext::vulkan::settings::experimental::frustrumCull = false;
+bool ext::vulkan::settings::experimental::vxgi = true;
+bool ext::vulkan::settings::experimental::deferredSampling = true;
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;

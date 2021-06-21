@@ -340,9 +340,9 @@ std::string /*UF_API*/ uf::vector::toString( const T& v ) {
 }
 
 template<typename T, size_t N>
-ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v, bool compress ) {
+ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json;
-	if ( compress ) for ( size_t i = 0; i < N; ++i ) json[i] = uf::math::quantizeShort( v[i] );
+	if ( settings.quantize ) for ( size_t i = 0; i < N; ++i ) json[i] = uf::math::quantizeShort( v[i] );
 	else for ( size_t i = 0; i < N; ++i ) json[i] = v[i];
 	return json;
 }

@@ -473,6 +473,8 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 		}
 	}
 	{
+		if ( graph.metadata["export"]["should"].as<bool>() ) uf::graph::save( graph, filename );
+	/*
 		bool shouldExport = false;
 		if ( graph.metadata["debug"]["export"].is<bool>() ) shouldExport = graph.metadata["debug"]["export"].as<bool>();
 		else if ( ext::json::isObject( graph.metadata["debug"]["export"] ) ) {
@@ -482,6 +484,7 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 				shouldExport = true;
 		}
 		if ( shouldExport ) uf::graph::save( graph, filename );
+	*/
 	}
 	return graph;
 }

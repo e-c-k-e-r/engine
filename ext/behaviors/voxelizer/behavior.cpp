@@ -55,7 +55,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		const bool HDR = false;
 		for ( size_t i = 0; i < metadata.cascades; ++i ) {
 			auto& id = sceneTextures.voxels.id.emplace_back();
-			auto& uv = sceneTextures.voxels.uv.emplace_back();
+		//	auto& uv = sceneTextures.voxels.uv.emplace_back();
 			auto& normal = sceneTextures.voxels.normal.emplace_back();
 			auto& radiance = sceneTextures.voxels.radiance.emplace_back();
 		//	auto& depth = sceneTextures.voxels.depth.emplace_back();
@@ -64,7 +64,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 
 			id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-			uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		//	uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 			normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 			radiance.fromBuffers( NULL, 0, HDR ? uf::renderer::enums::Format::R16G16B16A16_SFLOAT : uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 		//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
@@ -87,7 +87,14 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 
-		renderMode.metadata.json["shaders"]["compute"] = "/shaders/display/vxgi.comp.spv";
+		std::string computeShaderFilename = "/shaders/display/vxgi.comp.spv";
+		if ( renderMode.metadata.samples > 1 ) {
+			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "msaa.frag" );
+		}
+		if ( uf::renderer::settings::experimental::deferredSampling ) {
+			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "deferredSampling.frag" );
+		}
+		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
 		renderMode.blitter.process = true;
@@ -101,9 +108,10 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		for ( size_t i = 0; i < maxTextures3D; ++i ) renderMode.blitter.material.textures.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 		
 		for ( auto& t : sceneTextures.voxels.id ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.uv ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.normal ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.uv ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.depth ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 
 		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
 			// clear textures
@@ -119,7 +127,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.normal ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.uv ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
-		//	for ( auto& t : sceneTextures.voxels.depth ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
+			for ( auto& t : sceneTextures.voxels.depth ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 		});
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
 			// parse voxel lighting

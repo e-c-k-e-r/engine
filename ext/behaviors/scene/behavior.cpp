@@ -399,12 +399,33 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		UF_MSG_DEBUG("metadata.shader.time: " << (int) metadata.shader.time);
 	}
 #endif
-	/* Update lights */ if ( uf::renderer::settings::experimental::deferredMode != "vxgi" ) {
+	/* Update lights */ if ( !uf::renderer::settings::experimental::vxgi ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}
-void ext::ExtSceneBehavior::destroy( uf::Object& self ) {}
+void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
+	if ( this->hasComponent<pod::SceneTextures>() ) {
+		auto& sceneTextures = this->getComponent<pod::SceneTextures>();
+		for ( auto& t : sceneTextures.voxels.id ) t.destroy();
+		sceneTextures.voxels.id.clear();
+
+		for ( auto& t : sceneTextures.voxels.normal ) t.destroy();
+		sceneTextures.voxels.normal.clear();
+
+		for ( auto& t : sceneTextures.voxels.uv ) t.destroy();
+		sceneTextures.voxels.uv.clear();
+
+		for ( auto& t : sceneTextures.voxels.radiance ) t.destroy();
+		sceneTextures.voxels.radiance.clear();
+
+		for ( auto& t : sceneTextures.voxels.depth ) t.destroy();
+		sceneTextures.voxels.depth.clear();
+
+		sceneTextures.noise.destroy();
+		sceneTextures.skybox.destroy();
+	}
+}
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& renderModeName, bool isCompute ) {
 	auto& graph = this->getGraph();
@@ -704,11 +725,12 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 	}
 
 	// attach VXGI voxels
-	if ( uf::renderer::settings::experimental::deferredMode == "vxgi" ) {
+	if ( uf::renderer::settings::experimental::vxgi ) {
 		for ( auto& t : sceneTextures.voxels.id ) textures3D.emplace_back().aliasTexture(t);
-		for ( auto& t : sceneTextures.voxels.uv ) textures3D.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.normal ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.uv ) textures3D.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.radiance ) textures3D.emplace_back().aliasTexture(t);
+		for ( auto& t : sceneTextures.voxels.depth ) textures3D.emplace_back().aliasTexture(t);
 	}
 	// bind textures
 	while ( textures2D.size() < metadata.max.textures2D ) textures2D.emplace_back().aliasTexture(uf::renderer::Texture2D::empty);

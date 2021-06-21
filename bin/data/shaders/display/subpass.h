@@ -72,16 +72,14 @@ layout (binding = 10) uniform samplerCube samplerCubemaps[CUBEMAPS];
 layout (binding = 11) uniform sampler3D samplerNoise;
 #if VXGI
 	layout (binding = 12) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 13) uniform sampler3D voxelUv[CASCADES];
-	layout (binding = 14) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 15) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 13) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 14) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat uint inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
-layout (location = 1) out vec4 outDebugColor;
 
 #include "../common/functions.h"
 #include "../common/fog.h"

@@ -154,13 +154,13 @@ std::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool
 }
 
 template<typename T>
-ext::json::Value /*UF_API*/ uf::transform::encode( const pod::Transform<T>& t, bool flatten, bool compress ) {
+ext::json::Value /*UF_API*/ uf::transform::encode( const pod::Transform<T>& t, bool flatten, const ext::json::EncodingSettings& settings ) {
 	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;
 	ext::json::Value json;
-	json["position"] = uf::vector::encode(transform.position, compress);
-	json["orientation"] = uf::vector::encode(transform.orientation, compress);
-	json["scale"] = uf::vector::encode(transform.scale, compress);
-	json["model"] = uf::matrix::encode(transform.model, compress);
+	json["position"] = uf::vector::encode(transform.position, settings);
+	json["orientation"] = uf::vector::encode(transform.orientation, settings);
+	json["scale"] = uf::vector::encode(transform.scale, settings);
+	json["model"] = uf::matrix::encode(transform.model, settings);
 	return json;
 }
 template<typename T>

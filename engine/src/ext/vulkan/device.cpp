@@ -342,7 +342,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, boo
 	VK_CHECK_RESULT(vkQueueSubmit( getQueue( QueueEnum::TRANSFER ), 1, &submitInfo, fence));
 	// vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence);
 	// Wait for the fence to signal that command buffer has finished executing
-	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 
 	vkDestroyFence(logicalDevice, fence, nullptr);
 

@@ -124,43 +124,56 @@ std::vector<std::string> ext::json::keys( const ext::json::Value& v ) {
 	rapidjson::Document::AllocatorType ext::json::allocator;
 #endif
 
+ext::json::Value ext::json::reencode( const ext::json::Value& _x, const EncodingSettings& settings ) {
+	if ( settings.precision == 0 ) return _x;
+	ext::json::Value x = _x;
+	if ( x.is<float>(true) ) {
+		std::stringstream str;
+		str << std::setprecision(settings.precision) << x.as<float>();
+	//	ext::json::decode( x, str.str() );
+		x = nlohmann::json::parse(str);
+	} else if ( ext::json::isObject( x ) || ext::json::isArray( x ) ) {
+		ext::json::forEach( x, [&]( ext::json::Value& v ){ ext::json::reencode( v, settings ); } );
+	}
+	return x;
+}
+ext::json::Value& ext::json::reencode( ext::json::Value& x, const EncodingSettings& settings ) {
+	if ( settings.precision == 0 ) return x;
+	if ( x.is<float>(true) ) {
+		std::stringstream str;
+		str << std::setprecision(settings.precision) << x.as<float>();
+	//	ext::json::decode( x, str.str() );
+		x = nlohmann::json::parse(str);
+	} else if ( ext::json::isObject( x ) || ext::json::isArray( x ) ) {
+		ext::json::forEach( x, [&]( ext::json::Value& v ){ ext::json::reencode( v, settings ); } );
+	}
+	return x;
+}
+
 std::string ext::json::encode( const ext::json::Value& json, bool pretty ) {
+	return ext::json::encode( json, ext::json::EncodingSettings{ .pretty = true } );
+}
+std::string ext::json::encode( const ext::json::Value& _json, const ext::json::EncodingSettings& settings ) {
+	ext::json::Value json = ext::json::reencode( _json, settings );
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
-	return pretty ? json.dump(1, '\t') : json.dump();
+	return settings.pretty ? json.dump(1, '\t') : json.dump();
 #elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP
 	Json::FastWriter fast;
 	Json::StyledWriter styled;
-	std::string output = pretty ? styled.write(json) : fast.write(json);
+	std::string output = settings.pretty ? styled.write(json) : fast.write(json);
 	if ( output.back() == '\n' ) output.pop_back();
 	return output;
 #elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
-	return ext::lua::state["json"]["encode"]( table );
+	return ext::lua::state["json"]["encode"]( _json );
 #endif
 }
-std::string ext::json::encode( const ext::json::Value& json, size_t precision, bool pretty ) {
-#if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
-	std::stringstream ss;
-	ss.precision(precision);
-	if ( pretty ) ss << std::setw(4);
-	ss << json;
-	return ss.str();
-//	return pretty ? json.dump(1, '\t') : json.dump();
-#elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP
-	Json::FastWriter fast;
-	Json::StyledWriter styled;
-	std::string output = pretty ? styled.write(json) : fast.write(json);
-	if ( output.back() == '\n' ) output.pop_back();
-	return output;
-#elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
-	return ext::lua::state["json"]["encode"]( table );
-#endif
-}
+
 #if UF_USE_LUA
 std::string ext::json::encode( const sol::table& table ) {
 	return ext::lua::state["json"]["encode"]( table );
 }
 #endif
-void ext::json::decode( ext::json::Value& json, const std::string& str ) {
+ext::json::Value& ext::json::decode( ext::json::Value& json, const std::string& str ) {
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
 #if UF_NO_EXCEPTIONS
 	json = nlohmann::json::parse(str, nullptr, true, true);
@@ -168,15 +181,16 @@ void ext::json::decode( ext::json::Value& json, const std::string& str ) {
 	try {
 		json = nlohmann::json::parse(str, nullptr, true, true);
 	} catch ( nlohmann::json::parse_error& e ) {
-		uf::iostream << "[JSON] " << e.what() << "\n";
+		UF_MSG_ERROR("JSON error: " << e.what() << "\tAttempted to parse: " << str)
 	}
 #endif
 #elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP 
 	Json::Reader reader;
 	if ( !reader.parse(str, json) ) {
-		uf::iostream << "JSON Error: " << reader.getFormattedErrorMessages() << "\n";
+		UF_MSG_ERROR("JSON error: " << reader.getFormattedErrorMessages() << "\tAttempted to parse: " << str)
 	}
 #elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
 	json = ext::lua::state["json"]["decode"]( str );
 #endif
+	return json;
 }

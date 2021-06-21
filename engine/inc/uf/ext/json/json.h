@@ -20,6 +20,13 @@
 
 namespace ext {
 	namespace json {
+		struct UF_API EncodingSettings {
+			bool pretty = false;
+			bool compress = false;
+			bool quantize = false;
+			uint8_t precision = 0;
+		};
+
 		// cares not about breaking
 		void UF_API forEach( ext::json::Value& json, const std::function<void(ext::json::Value&)>& function );
 		void UF_API forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&)>& function );
@@ -38,9 +45,12 @@ namespace ext {
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&, bool&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&, bool&)>& function );
 
+		ext::json::Value UF_API reencode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
+		ext::json::Value& UF_API reencode( ext::json::Value& json, const ext::json::EncodingSettings& settings );
+
 		std::string UF_API encode( const ext::json::Value& json, bool pretty = true );
-		std::string UF_API encode( const ext::json::Value& json, size_t precision, bool pretty = true );
-		void UF_API decode( ext::json::Value& json, const std::string& str );
+		std::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
+		ext::json::Value& UF_API decode( ext::json::Value& json, const std::string& str );
 	#if UF_USE_LUA
 		std::string UF_API encode( const sol::table& table );
 	#endif

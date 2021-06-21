@@ -160,7 +160,7 @@ void ext::bullet::syncToBullet() {
 		if ( !body || !body->getMotionState() ) return;
 	
 		uf::Object* entity = (uf::Object*) body->getUserPointer();
-		if ( !entity ) continue;
+		if ( !entity || !entity->isValid() || !entity->hasComponent<pod::Bullet>() ) continue;
 
 		auto& collider = entity->getComponent<pod::Bullet>();
 	//	auto& transform = entity->getComponent<pod::Transform<>>();
@@ -199,7 +199,7 @@ void ext::bullet::syncFromBullet() {
 		body->getMotionState()->getWorldTransform(t);
 
 		uf::Object* entity = (uf::Object*) body->getUserPointer();
-		if ( !entity ) continue;
+		if ( !entity || !entity->isValid() || !entity->hasComponent<pod::Bullet>() ) continue;
 		size_t uid = entity->getUid();
 
 		auto& collider = entity->getComponent<pod::Bullet>();

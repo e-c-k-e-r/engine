@@ -23,7 +23,7 @@ namespace uf {
 	#endif
 		
 		Serializer::output_t serialize( bool pretty = false ) const;
-		Serializer::output_t serialize( size_t precision, bool pretty = false ) const;
+		Serializer::output_t serialize( const ext::json::EncodingSettings& ) const;
 		void deserialize( const std::string& );
 
 		// serializeable
@@ -61,8 +61,7 @@ namespace uf {
 		}
 	
 		bool readFromFile( const std::string& from, const std::string& hash = "" );
-		bool writeToFile( const std::string& to ) const;
-		bool writeToFile( const std::string& to, size_t precision ) const;
+		bool writeToFile( const std::string& to, const ext::json::EncodingSettings& = {} ) const;
 		
 		void merge( const uf::Serializer& other, bool priority = true );
 		void import( const uf::Serializer& other );

@@ -12,6 +12,10 @@ vec3 orthogonal(vec3 u){
 	const vec3 v = vec3(0.99146, 0.11664, 0.05832); // Pick any normalized vector.
 	return abs(dot(u, v)) > 0.99999f ? cross(u, vec3(0, 1, 0)) : cross(u, v);
 }
+vec4 blend( vec4 source, vec4 dest, float a ) {
+    return source * a + dest * (1.0 - a);
+}
+
 vec3 decodeNormals( vec2 enc ) {
 	const vec2 ang = enc*2-1;
 	const vec2 scth = vec2( sin(ang.x * PI), cos(ang.x * PI) );
@@ -29,7 +33,7 @@ bool validTextureIndex( int textureIndex ) {
 bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < CUBEMAPS;
 }
-#if DEFERRED
+#if DEFERRED || COMPUTE
 bool validTextureIndex( uint start, int offset ) {
 	return 0 <= offset && start + offset < MAX_TEXTURES;
 }

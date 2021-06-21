@@ -1,14 +1,14 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SS2",
 			"lights": {
 				"max": 512,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 2,
+				"update": 4,
 				"max": 8,
 				"samples": 2,
 				"experimental mode": 1
@@ -21,11 +21,11 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 1,
-				"size": 96,
+				"limiter": 0.125,
+				"size": 64,
 				"dispatch": 8,
-				"cascades": 7,
-				"cascadePower": 1.5,
+				"cascades": 4,
+				"cascadePower": 4,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
@@ -60,13 +60,13 @@
 					"wait on render end": false,
 					"individual pipelines": true,
 					"multithreaded command recording": true,
-				//	"deferred mode": "",
-				//	"deferred mode": "deferredSampling",
-					"deferred mode": "vxgi",
+					"deferred mode": "",
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": true,
 					"vsync": true,
-					"hdr": false
+					"hdr": false,
+					"vxgi": false,
+					"deferred sampling": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -207,7 +207,7 @@
 			"garbage collection": {
 				"enabled": true,
 				"mode": 1,
-				"rate": 16,
+				"rate": 4,
 				"announce": true
 			},
 			"entity": {
@@ -230,7 +230,8 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-		"size" :  [ 960, 540 ],
+		"size" :  [ 1280, 720 ],
+	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 		"title" : "Grimgram",
 		"visible" : true

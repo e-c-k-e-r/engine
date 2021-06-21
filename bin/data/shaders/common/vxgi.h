@@ -70,7 +70,7 @@ vec4 voxelTrace( inout Ray ray, float maxDistance ) {
 }
 uint voxelShadowsCount = 0;
 float voxelShadowFactor( const Light light, float def ) {
-	if ( voxelShadowsCount++ > ubo.vxgi.shadows ) return 1.0;
+	if ( ubo.vxgi.shadows < ++voxelShadowsCount ) return 1.0;
 
 	const float SHADOW_APERTURE = 0.2;
 	const float DEPTH_BIAS = 0.0;

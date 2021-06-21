@@ -6,7 +6,8 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/mcdonalds.glb", "delay": 0, "single threaded": false }
-		{ "filename": "./models/mcdonalds/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/mcdonalds/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"
@@ -24,13 +25,16 @@
 			"debug": {
 				"no cleanup": false,
 				"print tree": false,
-				"print stats": false,
-				"export": {
-					"should": true,
-					"combined": false,
-					"compression": false,
-					"precision": 4
-				}
+				"print stats": false
+			},
+			"export": {
+				"should": true,
+				"pretty": false,
+				"compress": true,
+				"quantize": false,
+				"precision": 4,
+				"combined": false,
+				"encode buffers": true
 			},
 			"cull mode": "none",
 
