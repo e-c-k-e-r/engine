@@ -2,8 +2,10 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/utf.h>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/utils/window/payloads.h>
 
-#define USE_OPTIMAL 0
+#define UF_USE_USERDATA 1
+#define UF_USE_JSON 1
 
 #if UF_ENV_WINDOWS && (!UF_USE_SFML || (UF_USE_SFML && UF_USE_SFML == 0))
 namespace {
@@ -772,39 +774,53 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 	}
 	/* Key inputs */ if ( this->m_asyncParse ) {
 		std::vector<WPARAM> keys = GetKeys();
+		pod::payloads::windowKey event{
+			"window:Key",
+			"os",
+			{
+				"",
+				0,
 
-		struct Event {
-			std::string type = "unknown";
-			std::string invoker = "???";
-
-			struct {
-				int state;
-				std::string code;
-				uint32_t raw;
-				bool async;
-
-				struct {
-					bool alt;
-					bool ctrl;
-					bool shift;
-					bool sys;
-				} modifier;
-			} key;
+				-1,
+				true,
+				{
+					HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
+					HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
+					HIWORD(GetAsyncKeyState(VK_SHIFT))		!= 0,
+					HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
+				}
+			}
 		};
-		Event event; {
-			event.type 			= "window:Key";
-			event.invoker 		= "window";
-			event.key.state 	= -1;
-			event.key.code 		= "NULL";
-			event.key.raw 		= 0;
-			event.key.async 	= true;
-			event.key.modifier 	= {	
-				.alt		= HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
-				.ctrl 		= HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
-				.shift		= HIWORD(GetAsyncKeyState(VK_SHIFT))	!= 0,
-				.sys  		= HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
-			};
+	#if UF_USE_JSON			
+		uf::Serializer json;	
+		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
+		json["invoker"] 						= event.invoker;
+		json["key"]["code"] 					= "";
+		json["key"]["raw"] 						= 0;
+		json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
+		json["key"]["async"] 					= event.key.async;
+		json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
+		json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
+		json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
+		json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
+	#endif
+		for ( auto& key : keys ) {
+			const auto code = GetKeyName(key);
+			event.key.code 	= code;
+			event.key.raw  	= key;
+
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+			this->pushEvent(event.type + "." + code, event);
+		#endif
+		#if UF_USE_JSON			
+			json["key"]["code"] = code;
+			json["key"]["raw"] = key;
+			this->pushEvent(event.type, json);
+			this->pushEvent(event.type + "." + code, json);
+		#endif
 		}
+	#if 0
 		/* Readable (JSON) + Optimal (Userdata) event */ {
 			uf::Serializer json;	
 			/* Set up JSON data*/ {
@@ -830,6 +846,7 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 				}
 			}
 		}
+	#endif
 	}
 }
 bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
@@ -843,32 +860,16 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 		auto& event = this->m_events.front();
 		if ( event.payload.is<std::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
-		//	std::cout << event.name << " (string)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
-		//	std::cout << event.name << " (serializer)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<ext::json::Value>() ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
-		//	std::cout << event.name << " (json)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else {
-		//	std::cout << event.name << "(???)" << std::endl;		
-			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}
-	/*
-		try {
-			uf::hooks.call( "window:Event", payload );
-			uf::hooks.call( event.name, payload );
-		} catch ( ... ) {
-			// Let the hook handler handle the exceptions
-		}
-	*/
 		this->m_events.pop();
 	}
 	return true;
@@ -938,11 +939,12 @@ void UF_API_CALL spec::win32::Window::registerWindowClass() {
 void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lParam) {
 	if (!this->m_handle) return;
 	
-	uf::Serializer json;
 	std::string hook = "window:Unknown";
 	std::string serialized = "";
 	std::stringstream serializer;
 	bool labelAsDelta = true;
+
+	uf::Serializer json;
 
 	switch (message) {
 		case WM_DESTROY:
@@ -952,54 +954,40 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			if (LOWORD(lParam) == HTCLIENT) SetCursor(this->m_cursor);
 		break;
 		case WM_CLOSE: {
-			struct Event {
-				std::string type = "unknown";
-				std::string invoker = "???";
+			pod::payloads::windowEvent event{
+				"window:Closed",
+				"os",
 			};
-			Event event; {
-				event.type = "window:Closed";
-				event.invoker = "os";
-			};
-		#if USE_OPTIMAL
-			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
 		#endif
-			{
-				json["type"] = event.type;
-				json["invoker"] = event.invoker;
-				this->pushEvent(event.type, json);
-			}
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+			this->pushEvent(event.type, json);
+		#endif
 		} break;
 		case WM_SIZE: {
-			if (wParam != SIZE_MINIMIZED && !this->m_resizing && this->m_lastSize != getSize()) {
-				this->m_lastSize = this->getSize();
+			if (wParam == SIZE_MINIMIZED || this->m_resizing || this->m_lastSize == getSize()) break;
+			this->m_lastSize = this->getSize();
 
-				struct Event {
-					std::string type = "unknown";
-					std::string invoker = "???";
-
-					struct {
-						pod::Vector2i size;
-					} window;
-				};
-				Event event; {
-					event.type = "window:Resized";
-					event.invoker = "os";
-					event.window.size = this->m_lastSize;
-				};
-			#if USE_OPTIMAL
-				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-			#endif
-				{
-					json["type"] = event.type;
-					json["invoker"] = event.invoker;
-					json["window"]["size"] = uf::vector::encode(event.window.size);
-				//	json["window"]["size"]["x"] = event.window.size.x;
-				//	json["window"]["size"]["y"] = event.window.size.y;
-					this->pushEvent(event.type, json);
-				}
-				
-				this->grabMouse(this->m_mouseGrabbed);
-			}
+			pod::payloads::windowResized event{
+				"window:Resized",
+				"os",
+				{ this->m_lastSize },
+			};
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+		#endif
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+			json["window"]["size"] = uf::vector::encode(event.window.size);
+			this->pushEvent(event.type, json);
+		#endif
+			this->grabMouse(this->m_mouseGrabbed);
 		} break;
 		case WM_ENTERSIZEMOVE: {	
 			this->m_resizing = true;
@@ -1007,50 +995,38 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 		} break;
 		case WM_EXITSIZEMOVE:{
 			this->m_resizing = false;
-			if(this->m_lastSize != this->getSize()) {
+			if( this->m_lastSize != this->getSize() ) {
 				this->m_lastSize = this->getSize();
 
-				struct Event {
-					std::string type = "unknown";
-					std::string invoker = "???";
-
-					struct {
-						pod::Vector2i size;
-					} window;
+				pod::payloads::windowResized event = {
+					"window:Resized",
+					"os",
+					{ this->m_lastSize },
 				};
-				Event event; {
-					event.type = "window:Resized";
-					event.invoker = "os";
-					event.window.size = this->m_lastSize;
-				};
-			#if USE_OPTIMAL
-				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#if UF_USE_USERDATA
+				this->pushEvent(event.type, event);
 			#endif
-				{
-					json["type"] = event.type;
-					json["invoker"] = event.invoker;
-					json["window"]["size"] = uf::vector::encode(event.window.size);
-				//	json["window"]["size"]["x"] = event.window.size.x;
-				//	json["window"]["size"]["y"] = event.window.size.y;
-					this->pushEvent(event.type, json);
-				}
+			#if UF_USE_JSON
+				uf::Serializer json;
+				json["type"] = event.type;
+				json["invoker"] = event.invoker;
+				json["window"]["size"] = uf::vector::encode(event.window.size);
+				this->pushEvent(event.type, json);
+			#endif
 			} else {
-				struct Event {
-					std::string type = "unknown";
-					std::string invoker = "???";
+				pod::payloads::windowEvent event{
+					"window:Moved",
+					"os",
 				};
-				Event event; {
-					event.type = "window:Moved";
-					event.invoker = "os";
-				};
-			#if USE_OPTIMAL
-				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+			#if UF_USE_USERDATA
+				this->pushEvent(event.type, event);
 			#endif
-				{
-					json["type"] = event.type;
-					json["invoker"] = event.invoker;
-					this->pushEvent(event.type, json);
-				}
+			#if UF_USE_JSON
+				uf::Serializer json;
+				json["type"] = event.type;
+				json["invoker"] = event.invoker;
+				this->pushEvent(event.type, json);
+			#endif
 			}
 			this->grabMouse(this->m_mouseGrabbed);
 		} break;
@@ -1069,35 +1045,27 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->grabMouse(this->m_mouseGrabbed);
 				SetCursor(this->m_cursor);
 			}
-			struct Event {
-				std::string type = "unknown";
-				std::string invoker = "???";
-
-				struct {
-					int state = 0;
-				} window;
+			pod::payloads::windowFocusedChanged event{
+				"window:Focus.Changed",
+				"os",
 			};
-			Event event; {
-				event.type = "window:Focus.Changed";
-				event.invoker = "os";
-
-				switch ( message ) {
-					case WM_SETFOCUS: event.window.state 	=  1; break;
-					case WM_KILLFOCUS: event.window.state 	= -1; break;
-				}
-			};
-		#if USE_OPTIMAL
-			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-		#endif
-			{
-				json["type"] = event.type;
-				json["invoker"] = event.invoker;
-				switch ( message ) {
-					case WM_SETFOCUS: json["window"]["state"] = "Gained"; break;
-					case WM_KILLFOCUS: json["window"]["state"] =  "Lost"; break;
-				}
-				this->pushEvent(event.type, json);
+			switch ( message ) {
+				case WM_SETFOCUS: event.window.state 	=  1; break;
+				case WM_KILLFOCUS: event.window.state 	= -1; break;
 			}
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+		#endif
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+			switch ( message ) {
+				case WM_SETFOCUS: json["window"]["state"] = "Gained"; break;
+				case WM_KILLFOCUS: json["window"]["state"] =  "Lost"; break;
+			}
+			this->pushEvent(event.type, json);
+		#endif
 		} break;
 		// Text event
 		case WM_CHAR: if ( /*true ||*/ this->m_syncParse ) {
@@ -1120,36 +1088,26 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					std::basic_string<uint32_t> 	utf32; 	utf32+=character;
 					std::basic_string<uint8_t> 		utf8; 	utf8.reserve(utf32.length());
 					uf::Utf32::toUtf8(utf32.begin(), utf32.end(), std::back_inserter(utf8));
-					
-					std::stringstream to_hex;
-					to_hex << std::hex << character;
 
-					struct Event {
-						std::string type = "unknown";
-						std::string invoker = "???";
-
-						struct {
-							uint32_t utf32;
-							std::string unicode;
-						} text;
+					pod::payloads::windowTextEntered event{
+						"window:Text.Entered",
+						"os",
+						{
+							character,
+							std::string(utf8.begin(), utf8.end()),
+						}
 					};
-					Event event; {
-						event.type = "window:Text.Entered";
-						event.invoker = "os";
-
-						event.text.utf32 = character;
-						event.text.unicode = std::string(utf8.begin(), utf8.end());
-					};
-				#if USE_OPTIMAL
-					this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+				#if UF_USE_USERDATA
+					this->pushEvent(event.type, event);
 				#endif
-
+				#if UF_USE_JSON
+					uf::Serializer json;
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
-
 					json["text"]["uint32_t"] = event.text.utf32;
-					json["text"]["unicode"] 		= std::string(utf8.begin(), utf8.end());
+					json["text"]["unicode"] = event.text.unicode;
 					this->pushEvent(event.type, json);
+				#endif
 				}
 			}
 		} break;
@@ -1158,71 +1116,51 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 		case WM_KEYUP:
 		case WM_SYSKEYUP: if ( /*true ||*/ this->m_syncParse ) {
 			if (this->m_keyRepeatEnabled || ((HIWORD(lParam) & KF_REPEAT) == 0)) {
-				struct Event {
-					std::string type = "unknown";
-					std::string invoker = "???";
+				int_fast8_t state = 0;
+				switch ( message ) {
+					case WM_KEYDOWN:
+					case WM_SYSKEYDOWN: state 	= -1; break;
 
-					struct {
-						int state = -1;
-						std::string code;
-						uint32_t raw;
-						bool async;
-
-						struct {
-							bool alt;
-							bool ctrl;
-							bool shift;
-							bool sys;
-						} modifier;
-					} key;
-				};
-				Event event; {
-					event.type 			= "window:Key",
-					event.invoker 		= "window",
-					event.key.code 		= this->getKey(wParam, lParam),
-					event.key.raw 		= wParam,
-					event.key.async 	= false,
-					event.key.modifier 	= {	
-						.alt		= HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
-						.ctrl 		= HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
-						.shift		= HIWORD(GetAsyncKeyState(VK_SHIFT))	!= 0,
-						.sys  		= HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
-					};
-					switch ( message ) {
-						case WM_KEYDOWN:
-						case WM_SYSKEYDOWN: event.key.state 	= -1; break;
-
-						case WM_KEYUP:
-						case WM_SYSKEYUP: event.key.state 		=  1; break;
-					}
+					case WM_KEYUP:
+					case WM_SYSKEYUP: state 	=  1; break;
 				}
-		 	//	if ( USE_OPTIMAL ) this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-			//	if ( USE_OPTIMAL ) this->pushEvent(event.type + "." + event.key.code, uf::Userdata(uf::userdata::create(event)));
-				json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
-				json["invoker"] 						= event.invoker;
-				json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
-				json["key"]["async"] 					= event.key.async;
-				json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
-				json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
-				json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
-				json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
-				
-				json["key"]["code"] 					= event.key.code;
-				json["key"]["raw"] 						= event.key.raw;
-				json["key"]["lparam"] 					= lParam;
-
-				// don't know why things dont like things
-			/*
-				if (event.key.state == -1) {
-					uf::hooks.call(event.type, json);
-					uf::hooks.call(event.type + "." + event.key.code, json);
-				} else {
+				pod::payloads::windowKey event{
+						"window:Key",
+						"os",
+						{
+							this->getKey(wParam, lParam),
+							wParam,
+							state,
+							false,
+							{	
+								.alt		= HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
+								.ctrl 		= HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
+								.shift		= HIWORD(GetAsyncKeyState(VK_SHIFT))	!= 0,
+								.sys  		= HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
+							}
+						}
+					};
+				#if UF_USE_USERDATA
+					this->pushEvent(event.type, event);
+					this->pushEvent(event.type + "." + event.key.code, event);
+				#endif
+				#if UF_USE_JSON
+					uf::Serializer json;
+					json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
+					json["invoker"] 						= event.invoker;
+					json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
+					json["key"]["async"] 					= event.key.async;
+					json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
+					json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
+					json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
+					json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
+					
+					json["key"]["code"] 					= event.key.code;
+					json["key"]["raw"] 						= event.key.raw;
+					json["key"]["lparam"] 					= lParam;
 					this->pushEvent(event.type, json);
 					this->pushEvent(event.type + "." + event.key.code, json);
-				}
-			*/
-				this->pushEvent(event.type, json);
-				this->pushEvent(event.type + "." + event.key.code, json);
+				#endif
 			}
 		} break;
 		case WM_MOUSEWHEEL: {
@@ -1232,38 +1170,25 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			ScreenToClient(this->m_handle, &position);
 
 			int16_t delta = static_cast<int16_t>(HIWORD(wParam));
-
-			struct Event {
-				std::string type = "unknown";
-				std::string invoker = "???";
-
-				struct {
-					pod::Vector2ui 	position = {};
-					float 			delta = 0;
-				} mouse;
+			pod::payloads::windowMouseWheel event{
+				"window:Mouse.Wheel",
+				"os",
+				{
+					pod::Vector2ui{ position.x, position.y },
+					delta,
+				}
 			};
-			Event event; {
-				event.type = "window:Mouse.Wheel";
-				event.invoker = "os";
-
-				event.mouse.position.x = position.x;
-				event.mouse.position.y = position.y;
-				event.mouse.delta = delta; // 120.0f;
-			};
-		#if USE_OPTIMAL
-			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
 		#endif
-			{
-				json["type"] = event.type;
-				json["invoker"] = event.invoker;
-
-				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
-			//	json["mouse"]["position"]["x"]		= event.mouse.position.x;
-			//	json["mouse"]["position"]["y"]		= event.mouse.position.y;
-				json["mouse"]["delta"] 				= event.mouse.delta;
-
-				this->pushEvent(event.type, json);
-			}
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+			json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+			json["mouse"]["delta"] = event.mouse.delta;
+			this->pushEvent(event.type, json);
+		#endif
 		} break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
@@ -1274,187 +1199,90 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP: if ( true || this->m_syncParse ) {
 			static pod::Vector2i lastPosition = {};
-			struct Event {
-				std::string type = "unknown";
-				std::string invoker = "???";
+			
+			const pod::Vector2i currentPosition = pod::Vector2ui{ static_cast<int16_t>(LOWORD(lParam)), static_cast<int16_t>(HIWORD(lParam)) };
+			std::string button = ""; 
+			int_fast8_t state = 0;
 
-				struct {
-					pod::Vector2i 	position = {};
-					pod::Vector2i 	delta = lastPosition;
-					std::string 	button = "???";
-					int 			state = 0;
-				} mouse;
-			};
-			Event event; {
-				event.type = "window:Mouse.Click";
-				event.invoker = "os";
+			switch ( message ) {	
+				case WM_LBUTTONDOWN:
+				case WM_LBUTTONUP: 		button = "Left"; break;
+				
+				case WM_RBUTTONDOWN:
+				case WM_RBUTTONUP: 		button = "Right"; break;
+				
+				case WM_MBUTTONDOWN:
+				case WM_MBUTTONUP: 		button = "Middle"; break;
+				
+				case WM_XBUTTONDOWN:
+				case WM_XBUTTONUP: 		button = "Aux"; break;
 
-			//	event.mouse.position = this->getMousePosition();
-				event.mouse.position.x 	= static_cast<int16_t>(LOWORD(lParam));
-				event.mouse.position.y 	= static_cast<int16_t>(HIWORD(lParam));
-				event.mouse.delta 		= event.mouse.position - lastPosition;
-				switch ( message ) {	
-					case WM_LBUTTONDOWN:
-					case WM_LBUTTONUP: 		event.mouse.button = "Left"; break;
-					
-					case WM_RBUTTONDOWN:
-					case WM_RBUTTONUP: 		event.mouse.button = "Right"; break;
-					
-					case WM_MBUTTONDOWN:
-					case WM_MBUTTONUP: 		event.mouse.button = "Middle"; break;
-					
-					case WM_XBUTTONDOWN:
-					case WM_XBUTTONUP: 		event.mouse.button = "Aux"; break;
-
-					default: 				event.mouse.button = "???"; break;
-				}
-				switch ( message ) {	
-					case WM_LBUTTONUP:
-					case WM_RBUTTONUP:
-					case WM_MBUTTONUP:
-					case WM_XBUTTONUP: 		event.mouse.state = 1; break;
-
-					case WM_LBUTTONDOWN:
-					case WM_RBUTTONDOWN:
-					case WM_MBUTTONDOWN:
-					case WM_XBUTTONDOWN: 	event.mouse.state = -1; break;
-					default: 				event.mouse.state =  0; break; 
-				}
-			};
-			if ( true || this->m_syncParse ){
-			#if USE_OPTIMAL
-				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-			#endif
-				json["type"] = event.type;
-				json["invoker"] = event.invoker;
-
-				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
-				json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
-			//	json["mouse"]["position"]["x"]		= event.mouse.position.x;
-			//	json["mouse"]["position"]["y"]		= event.mouse.position.y;
-			//	json["mouse"]["delta"]["x"] 		= event.mouse.delta.x;
-			//	json["mouse"]["delta"]["y"] 		= event.mouse.delta.y;
-				json["mouse"]["button"] 			= event.mouse.button;
-				switch (event.mouse.state) {
-					case 1:
-						json["mouse"]["state"] = "Up";
-					break;
-					case -1:
-						json["mouse"]["state"] = "Down";
-					break;
-					default: 
-						json["mouse"]["state"] = "???";
-					break;
-				}
-
-				this->pushEvent(event.type, json);
+				default: 				button = "???"; break;
 			}
-			lastPosition = event.mouse.position; //this->getMousePosition();
+			switch ( message ) {	
+				case WM_LBUTTONUP:
+				case WM_RBUTTONUP:
+				case WM_MBUTTONUP:
+				case WM_XBUTTONUP: 		state = 1; break;
+
+				case WM_LBUTTONDOWN:
+				case WM_RBUTTONDOWN:
+				case WM_MBUTTONDOWN:
+				case WM_XBUTTONDOWN: 	state = -1; break;
+				default: 				state =  0; break; 
+			}
+			pod::payloads::windowMouseClick event{
+				"window:Mouse.Click",
+				"os",
+				{
+					currentPosition,
+					currentPosition - lastPosition,
+					button,
+					state
+				}
+			};
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+		#endif
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+			json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+			json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
+			json["mouse"]["button"] = event.mouse.button;
+			switch (event.mouse.state) {
+				case 1: json["mouse"]["state"] = "Up"; break;
+				case -1: json["mouse"]["state"] = "Down"; break;
+			}
+			this->pushEvent(event.type, json);
+		#endif
+
+			lastPosition = currentPosition;
 		} break;
 		case WM_MOUSELEAVE:
-			if (this->m_mouseInside) {
+			if ( this->m_mouseInside ) {
 				this->m_mouseInside = false;
 
-				struct Event {
-					std::string type = "unknown";
-					std::string invoker = "???";
-
-					struct {
-						int state = 0;
-					} mouse;
-				};
-				Event event; {
-					event.type = "window:Mouse.Moved";
-					event.invoker = "os";
-
-					event.mouse.state = -1;
-				};
-			#if USE_OPTIMAL
-				this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-			#endif
-				{
-					json["type"] = event.type;
-					json["invoker"] = event.invoker;
-
-					switch (event.mouse.state) {
-						case 1:
-							json["mouse"]["state"] = "Entered";
-						break;
-						case -1:
-							json["mouse"]["state"] = "Left";
-						break;
-						default: 
-							json["mouse"]["state"] = "???";
-						break;
+				pod::payloads::windowMouseMoved event{
+					"window:Mouse.Moved",
+					"os",
+					{
+						{}
+					},
+					{
+						{},
+						{},
+						-1
 					}
-					this->pushEvent(event.type, json);
-				}
-			}
-		break;
-		case WM_MOUSEMOVE: {
-			static pod::Vector2i lastPosition = {};
-			struct Event {
-				std::string type = "unknown";
-				std::string invoker = "???";
-
-				struct {
-					int state = 0;
-					pod::Vector2i position;
-					pod::Vector2i delta;
-					pod::Vector2i size;
-				} mouse;
-			};
-			Event event; {
-				event.type = "window:Mouse.Moved";
-				event.invoker = "os";
-			};
-
-			int x = static_cast<int16_t>(LOWORD(lParam));
-			int y = static_cast<int16_t>(HIWORD(lParam));
-			RECT area;
-			GetClientRect(this->m_handle, &area);
-			if ((wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON | MK_XBUTTON1 | MK_XBUTTON2)) == 0) {
-				if (GetCapture() == this->m_handle) ReleaseCapture();
-			}
-			else if (GetCapture() != this->m_handle) {
-				SetCapture(this->m_handle);
-			}
-
-			if ((x < area.left) || (x > area.right) || (y < area.top) || (y > area.bottom)) {
-				if (this->m_mouseInside) {
-					this->m_mouseInside = false;
-					this->setTracking(false);
-					event.mouse.state = -1;
-				}
-			} else {
-				if (!this->m_mouseInside) {
-					this->m_mouseInside = true;
-					this->setTracking(true);
-					event.mouse.state =  1;
-				}
-			}
-			{
-				event.mouse.position.x = x;
-				event.mouse.position.y = y;
-				event.mouse.size = {area.right, area.bottom};
-				event.mouse.delta = event.mouse.position - lastPosition;
-			}
-		#if USE_OPTIMAL
-			this->pushEvent(event.type, uf::Userdata(uf::userdata::create(event)));
-		#endif
-			{
+				};
+			#if UF_USE_USERDATA
+				this->pushEvent(event.type, event);
+			#endif
+			#if UF_USE_JSON
+				uf::Serializer json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
-
-			//	json["mouse"]["position"]["x"] = event.mouse.position.x;
-			//	json["mouse"]["position"]["y"] = event.mouse.position.y;
-			//	json["mouse"]["delta"]["x"] = event.mouse.delta.x;
-			//	json["mouse"]["delta"]["y"] = event.mouse.delta.y;
-			//	json["mouse"]["size"]["x"] = event.mouse.size.x;
-			//	json["mouse"]["size"]["y"] = event.mouse.size.y;
-				json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
-				json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
-				json["mouse"]["size"] = uf::vector::encode(event.mouse.size);
 				switch (event.mouse.state) {
 					case 1:
 						json["mouse"]["state"] = "Entered";
@@ -1467,8 +1295,78 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					break;
 				}
 				this->pushEvent(event.type, json);
+			#endif
 			}
-			lastPosition = event.mouse.position; //this->getMousePosition();
+		break;
+		case WM_MOUSEMOVE: {
+			static pod::Vector2i lastPosition = {};
+			const pod::Vector2i currentPosition = {
+				static_cast<int16_t>(LOWORD(lParam)),
+				static_cast<int16_t>(HIWORD(lParam)),
+			};
+			RECT area;
+			GetClientRect(this->m_handle, &area);
+			if ((wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON | MK_XBUTTON1 | MK_XBUTTON2)) == 0) {
+				if (GetCapture() == this->m_handle) ReleaseCapture();
+			}
+			else if (GetCapture() != this->m_handle) {
+				SetCapture(this->m_handle);
+			}
+
+			int_fast8_t state{};
+			if ((currentPosition.x < area.left) || (currentPosition.x > area.right) || (currentPosition.y < area.top) || (currentPosition.y > area.bottom)) {
+				if ( this->m_mouseInside ) {
+					this->m_mouseInside = false;
+					this->setTracking(false);
+					state = -1;
+				}
+			} else {
+				if ( !this->m_mouseInside ) {
+					this->m_mouseInside = true;
+					this->setTracking(true);
+					state = 1;
+				}
+			}
+
+			pod::payloads::windowMouseMoved event{
+				"window:Mouse.Moved",
+				"os",
+				{
+					pod::Vector2ui{ area.right, area.bottom },
+				},
+				{
+					currentPosition,
+					currentPosition - lastPosition,
+					state
+				}
+			};
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+		#endif
+		#if UF_USE_JSON
+			uf::Serializer json;
+			json["type"] = event.type;
+			json["invoker"] = event.invoker;
+
+			json["window"]["size"] = uf::vector::encode(event.window.size);
+
+			json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
+			json["mouse"]["delta"] = uf::vector::encode(event.mouse.delta);
+			switch (event.mouse.state) {
+				case 1:
+					json["mouse"]["state"] = "Entered";
+				break;
+				case -1:
+					json["mouse"]["state"] = "Left";
+				break;
+				default: 
+					json["mouse"]["state"] = "???";
+				break;
+			}
+			this->pushEvent(event.type, json);
+		#endif
+
+			lastPosition = currentPosition;
 		break;
 		}
 	}

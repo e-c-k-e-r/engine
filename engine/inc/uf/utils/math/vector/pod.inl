@@ -407,11 +407,14 @@ pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, p
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
 		for ( uint_fast8_t i = 0; i < N; ++i )
-			v[i] = json[i].as<T>();
+			v[i] = json[i].as<T>(v[i]);
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
-			if ( i < N ) v[i++] = uf::math::unquantize( c.as<T>() );
+			if ( i < N ) {
+				v[i] = uf::math::unquantize( c.as<T>(v[i]) );
+				++i;
+			}
 		});
 	}
 	return v;
@@ -422,11 +425,14 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
 		for ( uint_fast8_t i = 0; i < N; ++i )
-			v[i] = json[i].as<T>();
+			v[i] = json[i].as<T>(_v[i]);
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
-			if ( i < N ) v[i++] = c.as<T>();
+			if ( i < N ) {
+				v[i] = c.as<T>(_v[i]);
+				++i;
+			}
 		});
 	}
 	return v;

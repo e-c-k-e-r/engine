@@ -169,15 +169,19 @@ pod::Transform<T>& /*UF_API*/ uf::transform::decode( const ext::json::Value& _js
 //	transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
 //	transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
 //	transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
-	if ( ext::json::isArray(json["position"]) || ext::json::isObject(json["position"]) ) transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
-	if ( ext::json::isArray(json["scale"]) || ext::json::isObject(json["scale"]) ) transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
-	if ( ext::json::isArray(json["orientation"]) || ext::json::isObject(json["orientation"]) ) transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
+//	if ( ext::json::isArray(json["position"]) || ext::json::isObject(json["position"]) )
+		transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
+//	if ( ext::json::isArray(json["scale"]) || ext::json::isObject(json["scale"]) )
+		transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
+//	if ( ext::json::isArray(json["orientation"]) || ext::json::isObject(json["orientation"]) )
+		transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
 	if ( ext::json::isObject(json["rotation"]) && !ext::json::isNull(json["rotation"]["axis"]) && !ext::json::isNull(json["rotation"]["angle"]) ) {
 		pod::Vector3t<T> axis = uf::vector::decode<T, 3>(json["rotation"]["axis"]);
 		T angle = json["rotation"]["angle"].as<T>();
 		transform.orientation = uf::quaternion::axisAngle( axis, angle );
 	}
-	if ( ext::json::isArray(json["model"]) ) transform.model = uf::matrix::decode<T, 4, 4>(json["model"]);
+//	if ( ext::json::isArray(json["model"]) )
+		transform.model = uf::matrix::decode<T, 4, 4>(json["model"], transform.model);
 	return transform;
 }
 template<typename T>
@@ -187,14 +191,18 @@ pod::Transform<T> /*UF_API*/ uf::transform::decode( const ext::json::Value& _jso
 //	transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
 //	transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
 //	transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
-	if ( ext::json::isArray(json["position"]) || ext::json::isObject(json["position"]) ) transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
-	if ( ext::json::isArray(json["scale"]) || ext::json::isObject(json["scale"]) ) transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
-	if ( ext::json::isArray(json["orientation"]) || ext::json::isObject(json["orientation"]) ) transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
+//	if ( ext::json::isArray(json["position"]) || ext::json::isObject(json["position"]) )
+		transform.position = uf::vector::decode<T, 3>(json["position"], transform.position);
+//	if ( ext::json::isArray(json["scale"]) || ext::json::isObject(json["scale"]) )
+		transform.scale = uf::vector::decode<T, 3>(json["scale"], transform.scale);
+//	if ( ext::json::isArray(json["orientation"]) || ext::json::isObject(json["orientation"]) )
+		transform.orientation = uf::vector::decode<T, 4>(json["orientation"], transform.orientation);
 	if ( ext::json::isObject(json["rotation"]) && !ext::json::isNull(json["rotation"]["axis"]) && !ext::json::isNull(json["rotation"]["angle"]) ) {
 		pod::Vector3t<T> axis = uf::vector::decode<T, 3>(json["rotation"]["axis"]);
 		T angle = json["rotation"]["angle"].as<T>();
 		transform.orientation = uf::quaternion::axisAngle( axis, angle );
 	}
-	if ( ext::json::isArray(json["model"]) ) transform.model = uf::matrix::decode<T, 4, 4>(json["model"]);
+//	if ( ext::json::isArray(json["model"]) )
+		transform.model = uf::matrix::decode<T, 4, 4>(json["model"], transform.model);
 	return transform;
 }

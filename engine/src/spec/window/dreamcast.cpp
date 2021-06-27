@@ -362,65 +362,52 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 	if ( ::mouse.device ) ::mouse.state = (mouse_state_t*) maple_dev_status(::mouse.device);
 
 	/* Key inputs */ if ( this->m_asyncParse ) {
-		std::vector<uint8_t> keys = GetKeys();
+		std::vector<WPARAM> keys = GetKeys();
+		pod::payloads::windowKey event{
+			"window:Key",
+			"os",
+			{
+				"",
+				0,
 
-		struct Event {
-			std::string type = "unknown";
-			std::string invoker = "???";
-
-			struct {
-				int state;
-				std::string code;
-				uint32_t raw;
-				bool async;
-
-				struct {
-					bool alt;
-					bool ctrl;
-					bool shift;
-					bool sys;
-				} modifier;
-			} key;
-		};
-		Event event; {
-			event.type 			= "window:Key";
-			event.invoker 		= "window";
-			event.key.state 	= -1;
-			event.key.code 		= "NULL";
-			event.key.raw 		= 0;
-			event.key.async 	= true;
-			event.key.modifier 	= {	
-				.alt		= GetModifier(KBD_MOD_LALT) || GetModifier(KBD_MOD_RALT),
-				.ctrl 		= GetModifier(KBD_MOD_LCTRL) || GetModifier(KBD_MOD_RCTRL),
-				.shift		= GetModifier(KBD_MOD_LSHIFT) || GetModifier(KBD_MOD_RSHIFT),
-				.sys  		= GetModifier(KBD_MOD_S1) || GetModifier(KBD_MOD_S2),
-			};
-		}
-		/* Readable (JSON) + Optimal (Userdata) event */ {
-			uf::Serializer json;	
-			/* Set up JSON data*/ {
-				json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
-				json["invoker"] 						= event.invoker;
-				json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
-				json["key"]["async"] 					= event.key.async;
-				json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
-				json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
-				json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
-				json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
-			}
-			/* Loop through key inputs */ {	
-				for ( auto& key : keys ) {
-					auto code = GetKeyName(key);
-					event.key.code 	= code;
-					event.key.raw  	= key;
-					event.key.state = GetKeyState(key);
-
-					json["key"]["code"] = code;
-					json["key"]["raw"] = key;
-					this->pushEvent(event.type, json);
-					this->pushEvent(event.type + "." + code, json);
+				-1,
+				true,
+				{
+					GetModifier(KBD_MOD_LALT) || GetModifier(KBD_MOD_RALT),
+					GetModifier(KBD_MOD_LCTRL) || GetModifier(KBD_MOD_RCTRL),
+					GetModifier(KBD_MOD_LSHIFT) || GetModifier(KBD_MOD_RSHIFT),
+					GetModifier(KBD_MOD_S1) || GetModifier(KBD_MOD_S2),
 				}
 			}
+		};
+	#if UF_USE_JSON			
+		uf::Serializer json;	
+		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
+		json["invoker"] 						= event.invoker;
+		json["key"]["code"] 					= "";
+		json["key"]["raw"] 						= 0;
+		json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
+		json["key"]["async"] 					= event.key.async;
+		json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
+		json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
+		json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
+		json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
+	#endif
+		for ( auto& key : keys ) {
+			const auto code = GetKeyName(key);
+			event.key.code 	= code;
+			event.key.raw  	= key;
+
+		#if UF_USE_USERDATA
+			this->pushEvent(event.type, event);
+			this->pushEvent(event.type + "." + code, event);
+		#endif
+		#if UF_USE_JSON			
+			json["key"]["code"] = code;
+			json["key"]["raw"] = key;
+			this->pushEvent(event.type, json);
+			this->pushEvent(event.type + "." + code, json);
+		#endif
 		}
 	}
 }
@@ -435,22 +422,14 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 		auto& event = this->m_events.front();
 		if ( event.payload.is<std::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
-		//	std::cout << event.name << " (string)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
-		//	std::cout << event.name << " (serializer)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<ext::json::Value>() ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
-		//	std::cout << event.name << " (json)\t" << payload << std::endl;
-			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else {
-		//	std::cout << event.name << "(???)" << std::endl;		
-			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}
 	/*

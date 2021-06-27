@@ -31,18 +31,6 @@
 
 #include <regex>
 
-namespace pod {
-	namespace payloads {
-		struct windowMouseMoved {
-			std::string invoker = "";
-			pod::Vector2i delta;
-			pod::Vector2ui position;
-			pod::Vector2ui size;
-			int_fast8_t state;
-		};
-	}
-}
-
 namespace {
 #if UF_USE_FREETYPE
 	struct {
@@ -555,51 +543,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	if ( metadataJson["system"]["hoverable"].as<bool>() ) {
 		uf::Timer<long long> hoverTimer(false);
 		hoverTimer.start( uf::Time<>(-1000000) );
-	#if 1
-		this->addHook( "window:Mouse.Moved", [&]( pod::payloads::windowMouseMoved& payload ){
-			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
-				uf::Serializer event = metadataJson["events"]["hover"];
-				metadataJson["events"]["hover"] = ext::json::array(); //Json::arrayValue;
-				metadataJson["events"]["hover"][0] = event;
-			} else if ( !ext::json::isArray( metadataJson["events"]["hover"] ) ) {
-				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", payload );
-				return;
-			}
-			for ( int i = 0; i < metadataJson["events"]["hover"].size(); ++i ) {
-				uf::Serializer event = metadataJson["events"]["hover"][i];
-				uf::Serializer payload = event["payload"];
-				float delay = event["delay"].as<float>();
-				if ( event["delay"].is<double>() ) this->queueHook(event["name"].as<std::string>(), payload, event["delay"].as<float>());
-				else this->callHook(event["name"].as<std::string>(), payload );
-			}
-			return;
-		});
-		this->addHook( "window:Mouse.Moved", [&]( pod::payloads::windowMouseMoved& payload ){
-			if ( this->getUid() == 0 || !this->hasComponent<ext::Gui::mesh_t>() || metadata.world || (!metadata.box.min && !metadata.box.max) ) return;
-
-			bool clicked = false;
-			bool down = payload.state < 0;
-			pod::Vector2f click; {
-				click.x = (float) payload.position.x / (float) ext::gui::size.current.x;
-				click.y = (float) payload.position.y / (float) ext::gui::size.current.y;
-
-				click.x = (click.x * 2.0f) - 1.0f;
-				click.y = (click.y * 2.0f) - 1.0f;
-				float x = click.x;
-				float y = click.y;
-
-				clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
-			}
-			metadata.hovered = clicked;
-			metadataJson["hovered"] = clicked;
-
-			if ( clicked && hoverTimer.elapsed().asDouble() >= 1 ) {
-				hoverTimer.reset();
-				this->callHook("gui:Hovered.%UID%", payload);
-			}
-			this->callHook("gui:Mouse.Moved.%UID%", payload);
-		});
-	#else
 		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
 			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
 				uf::Serializer event = metadataJson["events"]["hover"];
@@ -628,12 +571,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( metadata.world ) return;
 			if ( !metadata.box.min && !metadata.box.max ) return;
 
-			bool down = json["mouse"]["state"].as<std::string>() == "Down";
 			bool clicked = false;
-			pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
-			//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-			//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
-			}
+			bool down = json["mouse"]["state"].as<std::string>() == "Down";
+			pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} );
 			pod::Vector2f click; {
 				click.x = (float) position.x / (float) ext::gui::size.current.x;
 				click.y = (float) position.y / (float) ext::gui::size.current.y;
@@ -654,7 +594,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			this->callHook("gui:Mouse.Moved.%UID%", json);
 		} );
-	#endif
 	}
 #if UF_USE_FREETYPE
 	if ( metadataJson["text settings"]["string"].is<std::string>() ) {

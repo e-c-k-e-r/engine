@@ -84,8 +84,7 @@
 
 				"minima": [ null, -1.0, null ],
 				"maxima": [ null,  1.0, null ],
-
-				"current": [ null, 0, null ]
+				"current":[ null,   0, null ]
 			},
 			"settings": {
 				"fov" : 90,

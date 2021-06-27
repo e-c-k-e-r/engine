@@ -8,23 +8,12 @@
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/window/payloads.h>
 
 bool client::ready = false;
 bool client::terminated = false;
 uf::Window client::window;
 uf::Serializer client::config;
-
-namespace pod {
-	namespace payloads {
-		struct windowMouseMoved {
-			std::string invoker = "";
-			pod::Vector2i delta;
-			pod::Vector2ui position;
-			pod::Vector2ui size;
-			int_fast8_t state;
-		};
-	}
-}
 
 void client::initialize() {
 	uf::IoStream::ncurses = true;
@@ -157,11 +146,16 @@ void client::tick() {
 		}
 	#endif
 		uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
-			.invoker = "client",
-			.delta = previous - current,
-			.position = current,
-			.size = size,
-			.state = 0
+			"window:Mouse.Moved",
+			"client",
+			{
+				pod::Vector2ui{ size.x, size.y },
+			},
+			{
+				current,
+				previous - current,
+				0
+			}
 		});
 	}
 }

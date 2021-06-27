@@ -5,6 +5,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
+#include <uf/utils/window/payloads.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
@@ -12,18 +13,6 @@
 #include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
-
-namespace pod {
-	namespace payloads {
-		struct windowMouseMoved {
-			std::string invoker = "";
-			pod::Vector2i delta;
-			pod::Vector2ui position;
-			pod::Vector2ui size;
-			int_fast8_t state;
-		};
-	}
-}
 
 #include <sstream>
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
@@ -111,26 +100,20 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	}
 	metadataJson["system"]["control"] = true;
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
-	//	metadataJson["system"]["control"] = !json["state"].as<bool>();	
 		metadata.system.control = !json["state"].as<bool>();
 	});
 
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
-		pod::Vector2 relta = { (float) payload.delta.x / payload.size.x, (float) payload.delta.y / payload.size.y };
-		relta *= 2;
-		if ( (payload.delta.x == 0 && payload.delta.y == 0) || !metadata.system.control ) return;
+		float sensitivity = 2;
+		pod::Vector2 relta = { (float) sensitivity * payload.mouse.delta.x / payload.window.size.x, (float) sensitivity * payload.mouse.delta.y / payload.window.size.y };
+		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
 		bool updateCamera = false;
-		if ( payload.delta.x != 0 ) {
-			double current, minima, maxima; {
-				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ? metadataJson["camera"]["limit"]["current"][0].as<double>() : NAN;
-				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][0] ) ? metadataJson["camera"]["limit"]["minima"][0].as<double>() : NAN;
-				maxima = !ext::json::isNull( metadataJson["camera"]["limit"]["maxima"][0] ) ? metadataJson["camera"]["limit"]["maxima"][0].as<double>() : NAN;
-			}
-			if ( metadataJson["camera"]["invert"][0].as<bool>() ) relta.x *= -1;
-			current += relta.x;
-			if ( current != current || ( current < maxima && current > minima ) ) {
+		if ( payload.mouse.delta.x != 0 ) {
+			if ( metadata.camera.invert.x ) relta.x *= -1;
+			metadata.camera.limit.current.x += relta.x;
+			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
 				if ( collider.body && !collider.shared ) {
 				#if UF_USE_BULLET
 					ext::bullet::applyRotation( collider, transform.up, relta.x );
@@ -138,27 +121,19 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 				} else {
 					uf::transform::rotate( transform, transform.up, relta.x ), updateCamera = true;
 				}
-			} else current -= relta.x;
-
-			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ) metadataJson["camera"]["limit"]["current"][0] = current;
+			} else metadata.camera.limit.current.x -= relta.x;
 		}
-		if ( payload.delta.y != 0 ) {
-			double current, minima, maxima; {
-				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ? metadataJson["camera"]["limit"]["current"][1].as<double>() : NAN;
-				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][1] ) ? metadataJson["camera"]["limit"]["minima"][1].as<double>() : NAN;
-				maxima = !ext::json::isNull( metadataJson["camera"]["limit"]["maxima"][1] ) ? metadataJson["camera"]["limit"]["maxima"][1].as<double>() : NAN;
-			}
-			if ( metadataJson["camera"]["invert"][1].as<bool>() ) relta.y *= -1;
-			current += relta.y;
-			if ( current != current || ( current < maxima && current > minima ) ) {
+		if ( payload.mouse.delta.y != 0 ) {
+			if ( metadata.camera.invert.y ) relta.y *= -1;
+			metadata.camera.limit.current.y += relta.y;
+			if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
 			//	if ( collider.body && !collider.shared ) {
 			//		ext::bullet::applyRotation( collider, cameraTransform.right, relta.y );
 			//	} else {
 					uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y );
 			//	}
 				updateCamera = true;
-			} else current -= relta.y;
-			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ) metadataJson["camera"]["limit"]["current"][1] = current;
+			} else metadata.camera.limit.current.y -= relta.y;
 		}
 		if ( updateCamera ) camera.updateView();
 	});
@@ -259,6 +234,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		auto& metadataSystem = metadataJson["system"];
 		auto& metadataSystemPhysics = metadataSystem["physics"];
 		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
+		auto& metadataCamera = metadataJson["camera"];
+		auto& metadataCameraLimit = metadataCamera["limit"];
 		
 		metadataSystem["menu"] = metadata.system.menu;
 		metadataSystem["control"] = metadata.system.control;
@@ -274,11 +251,17 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		metadataSystemPhysics["crouch"] = metadata.system.physics.crouch;
 		metadataAudioFootstep["list"] = metadata.audio.footstep.list;
 		metadataAudioFootstep["volume"] = metadata.audio.footstep.volume;
+		metadataCamera["invert"] = uf::vector::encode(metadata.camera.invert);
+		metadataCameraLimit["current"] = uf::vector::encode(metadata.camera.limit.current);
+		metadataCameraLimit["minima"] = uf::vector::encode(metadata.camera.limit.min);
+		metadataCameraLimit["maxima"] = uf::vector::encode(metadata.camera.limit.max);
 	};
 	metadata.deserialize = [&](){
 		auto& metadataSystem = metadataJson["system"];
 		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
 		auto& metadataSystemPhysics = metadataSystem["physics"];
+		auto& metadataCamera = metadataJson["camera"];
+		auto& metadataCameraLimit = metadataCamera["limit"];
 
 		metadata.system.menu = metadataSystem["menu"].as<std::string>();
 		metadata.system.control = metadataSystem["control"].as<bool>();
@@ -296,6 +279,15 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			metadata.audio.footstep.list.emplace_back(value);
 		});
 		metadata.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
+
+		metadata.camera.invert = uf::vector::decode( metadataCamera["invert"], pod::Vector3t<bool>{false, false, false} );
+		metadata.camera.limit.current = uf::vector::decode( metadataCameraLimit["current"], pod::Vector3f{NAN, NAN, NAN} );
+		metadata.camera.limit.min = uf::vector::decode( metadataCameraLimit["minima"], pod::Vector3f{NAN, NAN, NAN} );
+		metadata.camera.limit.max = uf::vector::decode( metadataCameraLimit["maxima"], pod::Vector3f{NAN, NAN, NAN} );
+
+	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.current[i] = metadataCameraLimit["current"][i].as<float>(NAN);
+	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.min[i] = metadataCameraLimit["minima"][i].as<float>(NAN);
+	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.max[i] = metadataCameraLimit["maxima"][i].as<float>(NAN);
 	};
 	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
 	metadata.deserialize();

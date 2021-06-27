@@ -25,42 +25,41 @@ namespace spec {
 			std::queue<Event> m_events;
 		public:
 		// 	C-tors
-			/*virtual*/ void UF_API_CALL create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window" ) {} ;// = 0;
+			void create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window" ) {} ;// = 0;
 		// 	D-tors
-			/*virtual*/ void UF_API_CALL terminate();/* = 0;*/
+			void terminate();/* = 0;*/
 		// 	Gets
-			/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getPosition() const;/* = 0;*/
-			/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getSize() const;/* = 0;*/
-			/*virtual*/ size_t UF_API_CALL getRefreshRate() const;/* = 0;*/
+			spec::uni::Window::vector_t getPosition() const;/* = 0;*/
+			spec::uni::Window::vector_t getSize() const;/* = 0;*/
+			size_t getRefreshRate() const;/* = 0;*/
 		// 	Attribute modifiers
-			/*virtual*/ void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );/* = 0;*/
-			/*virtual*/ void UF_API_CALL centerWindow();/* = 0;*/
-			/*virtual*/ void UF_API_CALL setMousePosition( const spec::uni::Window::vector_t& position );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setSize( const spec::uni::Window::vector_t& size );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setTitle( const spec::uni::Window::title_t& title );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setVisible( bool visibility );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setCursorVisible( bool visibility );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setKeyRepeatEnabled( bool state );/* = 0;*/
-			/*virtual*/ void UF_API_CALL setMouseGrabbed( bool state );/* = 0;*/
+			void setPosition( const spec::uni::Window::vector_t& position );/* = 0;*/
+			void centerWindow();/* = 0;*/
+			void setMousePosition( const spec::uni::Window::vector_t& position );/* = 0;*/
+			void setSize( const spec::uni::Window::vector_t& size );/* = 0;*/
+			void setTitle( const spec::uni::Window::title_t& title );/* = 0;*/
+			void setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );/* = 0;*/
+			void setVisible( bool visibility );/* = 0;*/
+			void setCursorVisible( bool visibility );/* = 0;*/
+			void setKeyRepeatEnabled( bool state );/* = 0;*/
+			void setMouseGrabbed( bool state );/* = 0;*/
 		
-			/*virtual*/ void UF_API_CALL requestFocus();/* = 0;*/
-			/*virtual*/ bool UF_API_CALL hasFocus() const;/* = 0;*/
+			void requestFocus();/* = 0;*/
+			bool hasFocus() const;/* = 0;*/
 		// 	Update
-			/*virtual*/ void UF_API_CALL processEvents();/* = 0;*/
-		/*
-			void UF_API_CALL pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument );
-			void UF_API_CALL pushEvent( const uf::OptimalHook::name_t& name, const uf::OptimalHook::argument_t& argument );
-			void UF_API_CALL pushEvent( const uf::ReadableHook::argument_t& serialized );
-			void UF_API_CALL pushEvent( const uf::OptimalHook::argument_t& userdata );
-		*/
-			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const std::string& payload );
-			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
-			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
-			void UF_API_CALL pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
-			void UF_API_CALL pushEvent( const uf::Hooks::argument_t& payload );
-			bool UF_API_CALL pollEvents( bool block = false );
-			static bool UF_API_CALL isKeyPressed( const std::string& );
+			void processEvents();/* = 0;*/
+
+			void pushEvent( const uf::Hooks::name_t& name, const std::string& payload );
+			void pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
+			void pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
+			void pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
+			void pushEvent( const uf::Hooks::argument_t& payload );
+			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
+
+			bool pollEvents( bool block = false );
+			static bool isKeyPressed( const std::string& );
 		};
 	}
 }
+
+#include "universal.inl"

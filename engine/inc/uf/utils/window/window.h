@@ -17,44 +17,44 @@ namespace uf {
 	// 	C-tors
 		UF_API_CALL Window();
 		UF_API_CALL Window( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window", const spec::Context::Settings& settings = spec::Context::Settings() );
-		/*virtual*/ void UF_API_CALL create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window", const spec::Context::Settings& settings = spec::Context::Settings() );
+		void UF_API_CALL create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window", const spec::Context::Settings& settings = spec::Context::Settings() );
 	// 	D-tors
-		/*virtual*/ ~Window();
-		/*virtual*/ void UF_API_CALL terminate();
+		~Window();
+		void UF_API_CALL terminate();
 	// 	Gets
-		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getPosition() const;
-		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getSize() const;
-		/*virtual*/ size_t UF_API_CALL getRefreshRate() const;
+		spec::uni::Window::vector_t UF_API_CALL getPosition() const;
+		spec::uni::Window::vector_t UF_API_CALL getSize() const;
+		size_t UF_API_CALL getRefreshRate() const;
 	// 	Attribute modifiers
-		/*virtual*/ void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );
-		/*virtual*/ void UF_API_CALL centerWindow();
-		/*virtual*/ void UF_API_CALL setMousePosition( const spec::uni::Window::vector_t& position );
-		/*virtual*/ spec::uni::Window::vector_t UF_API_CALL getMousePosition();
-		/*virtual*/ void UF_API_CALL setSize( const spec::uni::Window::vector_t& size );
-		/*virtual*/ void UF_API_CALL setTitle( const spec::uni::Window::title_t& title );
-		/*virtual*/ void UF_API_CALL setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );
-		/*virtual*/ void UF_API_CALL setVisible( bool visibility );
-		/*virtual*/ void UF_API_CALL setCursorVisible( bool visibility );
-		/*virtual*/ void UF_API_CALL setKeyRepeatEnabled( bool state );
-		/*virtual*/ void UF_API_CALL setMouseGrabbed( bool state );
+		void UF_API_CALL setPosition( const spec::uni::Window::vector_t& position );
+		void UF_API_CALL centerWindow();
+		void UF_API_CALL setMousePosition( const spec::uni::Window::vector_t& position );
+		spec::uni::Window::vector_t UF_API_CALL getMousePosition();
+		void UF_API_CALL setSize( const spec::uni::Window::vector_t& size );
+		void UF_API_CALL setTitle( const spec::uni::Window::title_t& title );
+		void UF_API_CALL setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );
+		void UF_API_CALL setVisible( bool visibility );
+		void UF_API_CALL setCursorVisible( bool visibility );
+		void UF_API_CALL setKeyRepeatEnabled( bool state );
+		void UF_API_CALL setMouseGrabbed( bool state );
 	
-		/*virtual*/ void UF_API_CALL requestFocus();
-		/*virtual*/ bool UF_API_CALL hasFocus() const;
+		void UF_API_CALL requestFocus();
+		bool UF_API_CALL hasFocus() const;
 		static pod::Vector2ui UF_API_CALL getResolution();
-		/*virtual*/ void UF_API_CALL switchToFullscreen( bool borderless = false );
+		void UF_API_CALL switchToFullscreen( bool borderless = false );
 	// 	Update
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 		std::vector<std::string> getExtensions( bool validationEnabled = true );
 		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
 	#endif
 		static bool focused;
-		static /*virtual*/ bool UF_API_CALL isKeyPressed(const std::string&);
-		/*virtual*/ void UF_API_CALL processEvents();
-		/*virtual*/ bool UF_API_CALL pollEvents(bool block = false);
-		/*virtual*/ bool UF_API_CALL setActive( bool active = true );
-		/*virtual*/ void UF_API_CALL display();
-		/*virtual*/ Window::window_t* UF_API_CALL getHandle();
-		/*virtual*/ const Window::window_t* UF_API_CALL getHandle() const;
+		static bool UF_API_CALL isKeyPressed(const std::string&);
+		void UF_API_CALL processEvents();
+		bool UF_API_CALL pollEvents(bool block = false);
+		bool UF_API_CALL setActive( bool active = true );
+		void UF_API_CALL display();
+		Window::window_t* UF_API_CALL getHandle();
+		const Window::window_t* UF_API_CALL getHandle() const;
 	};
 }
 #elif UF_USE_SFML
