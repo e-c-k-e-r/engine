@@ -28,14 +28,15 @@ namespace uf {
 	namespace userdata {
 		extern UF_API uf::MemoryPool memoryPool;
 		extern UF_API bool autoDestruct;
+		extern UF_API bool autoValidate;
 
 		pod::Userdata* UF_API create( std::size_t len, void* data = NULL );
 		void UF_API destroy( pod::Userdata* userdata );
 		pod::Userdata* UF_API copy( const pod::Userdata* userdata );
 
 		template<typename T> pod::Userdata* create( const T& data = T() );
-		template<typename T> T& get( pod::Userdata* userdata, bool validate = true);
-		template<typename T> const T& get(const pod::Userdata* userdata, bool validate = true );
+		template<typename T> T& get( pod::Userdata* userdata, bool validate = uf::userdata::autoValidate);
+		template<typename T> const T& get(const pod::Userdata* userdata, bool validate = uf::userdata::autoValidate );
 		template<typename T> bool is(const pod::Userdata* userdata);
 
 		std::string UF_API toBase64( pod::Userdata* userdata );
@@ -82,12 +83,15 @@ namespace uf {
 	// 	POD access
 		Userdata::pod_t& data(); 								// 	Returns a reference of POD
 		const Userdata::pod_t& data() const; 					// 	Returns a const-reference of POD
-	// 	Validity checks
+		size_t size() const;
+	#if UF_USERDATA_RTTI
+		size_t type() const;
+	#endif	// 	Validity checks
 		bool initialized() const;
 	// 	Variadic construction
 		template<typename T> pod::Userdata* create( const T& data = T() );
-		template<typename T> T& get();
-		template<typename T> const T& get() const;
+		template<typename T> T& get(bool = uf::userdata::autoValidate);
+		template<typename T> const T& get(bool = uf::userdata::autoValidate) const;
 
 		template<typename T> bool is() const;
 		template<typename T> inline T& as() { return get<T>(); }

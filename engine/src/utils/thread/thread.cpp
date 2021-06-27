@@ -234,11 +234,11 @@ bool UF_API uf::thread::has( const std::string& name ) {
 }
 pod::Thread& UF_API uf::thread::get( uint uid ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::uid(*thread) == uid ) return *thread;
-	UF_EXCEPTION("invalid call to uf::thread::get");
+	UF_EXCEPTION("Thread error: invalid call");
 }
 pod::Thread& UF_API uf::thread::get( const std::string& name ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return *thread;
-	UF_EXCEPTION("invalid call to uf::thread::get");
+	UF_EXCEPTION("Thread error: invalid call");
 }
 bool UF_API uf::thread::isMain() {
 	return uf::thread::mainThreadId == std::this_thread::get_id();

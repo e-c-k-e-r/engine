@@ -36,9 +36,15 @@
 #define UF_MSG_ERROR(X) 				UF_MSG(X, "  ERROR  ");
 
 #if UF_NO_EXCEPTIONS
-	#define UF_EXCEPTION(X) UF_MSG_ERROR(X)
+	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); }
 #else
-	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); throw std::runtime_error(X); }
+	#define UF_EXCEPTION(X) {\
+		std::stringstream str;\
+		str << X;\
+		std::string Y = str.str();\
+		UF_MSG_ERROR(Y);\
+		throw std::runtime_error(Y);\
+	}
 #endif
 
 #define UF_ASSERT_BREAK(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: " << #condition); break; }

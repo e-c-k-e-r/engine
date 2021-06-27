@@ -111,7 +111,7 @@ void ext::NoiseBehavior::tick( uf::Object& self ) {
 	shader.updateUniform("UBO", uniforms );
 #else
 	struct UniformDescriptor {
-		alignas(4) float slice = 0;
+		/*alignas(4)*/ float slice = 0;
 	};
 	auto& uniforms = uniform.get<UniformDescriptor>();
 	uniforms.slice = slice;

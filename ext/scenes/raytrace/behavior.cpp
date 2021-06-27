@@ -84,20 +84,20 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 		/* Add lights to scene */ if ( renderMode.compute.initialized ) {
 			renderMode.execute = true;
 			struct UniformDescriptor {
-				alignas(16) pod::Matrix4f matrices[2];
-				alignas(16) pod::Vector4f ambient;
+				/*alignas(16)*/ pod::Matrix4f matrices[2];
+				/*alignas(16)*/ pod::Vector4f ambient;
 				struct {
-					alignas(8) pod::Vector2f range;
-					alignas(8) pod::Vector2f padding;
-					alignas(16) pod::Vector4f color;
+					/*alignas(8)*/ pod::Vector2f range;
+					/*alignas(8)*/ pod::Vector2f padding;
+					/*alignas(16)*/ pod::Vector4f color;
 				} fog;
 				struct Light {
-					alignas(16) pod::Vector4f position;
-					alignas(16) pod::Vector4f color;
-					alignas(8) pod::Vector2i type;
-					alignas(8) pod::Vector2i padding;
-					alignas(16) pod::Matrix4f view;
-					alignas(16) pod::Matrix4f projection;
+					/*alignas(16)*/ pod::Vector4f position;
+					/*alignas(16)*/ pod::Vector4f color;
+					/*alignas(8)*/ pod::Vector2i type;
+					/*alignas(8)*/ pod::Vector2i padding;
+					/*alignas(16)*/ pod::Matrix4f view;
+					/*alignas(16)*/ pod::Matrix4f projection;
 				} lights;
 			};
 			

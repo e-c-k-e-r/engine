@@ -159,32 +159,37 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	if ( this->hasComponent<uf::Audio>() ) {
 		auto& audio = this->getComponent<uf::Audio>();
 		audio.destroy();
+	//	this->deleteComponent<uf::Audio>();
 	//	UF_MSG_DEBUG("Destroying audio: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::SoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::SoundEmitter>();
 		audio.cleanup(true);
+	//	this->deleteComponent<uf::SoundEmitter>();
 	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
 		audio.cleanup(true);
+	//	this->deleteComponent<uf::MappedSoundEmitter>();
 	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();
-		uf::renderer::states::rebuild = true;
+	//	this->deleteComponent<uf::Graphic>();
 	//	UF_MSG_DEBUG("Destroying graphic: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::destroy( graph );
+	//	this->deleteComponent<pod::Graph>();
 	//	UF_MSG_DEBUG("Destroying graph: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Atlas>() ) {
 		auto& atlas = this->getComponent<uf::Atlas>();
 		atlas.clear();
+	//	this->deleteComponent<uf::Atlas>();
 	//	UF_MSG_DEBUG("Destroying atlas: " << this->getName() << ": " << this->getUid());
 	}
 #if UF_USE_VULKAN
@@ -192,8 +197,7 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::renderer::removeRenderMode( &renderMode, false );
 		renderMode.destroy();
-		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
-		uf::renderer::states::rebuild = true;
+	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	//	UF_MSG_DEBUG("Destroying render mode: " << this->getName() << ": " << this->getUid());
 	}
 #endif

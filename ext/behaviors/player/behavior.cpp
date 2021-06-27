@@ -13,16 +13,32 @@
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
 
+namespace pod {
+	namespace payloads {
+		struct windowMouseMoved {
+			std::string invoker = "";
+			pod::Vector2i delta;
+			pod::Vector2ui position;
+			pod::Vector2ui size;
+			int_fast8_t state;
+		};
+	}
+}
+
 #include <sstream>
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& camera = this->getComponent<uf::Camera>();
-	camera.getTransform().reference = &transform;
-	
+	auto& cameraTransform = camera.getTransform();
+	cameraTransform.reference = &transform;
+
+	auto& collider = this->getComponent<pod::Bullet>();
+
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
+
 	/* Load Config */ {
 		struct {
 			int mode = 0;
@@ -38,7 +54,6 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			bool stereoscopic = true;
 		} settings;
 
-		uf::Camera& camera = this->getComponent<uf::Camera>();
 		settings.mode = metadataJson["camera"]["ortho"].as<bool>() ? -1 : 1;
 
 		settings.perspective.size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector3f{} );
@@ -99,27 +114,15 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	//	metadataJson["system"]["control"] = !json["state"].as<bool>();	
 		metadata.system.control = !json["state"].as<bool>();
 	});
-	// Rotate Camera
-	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
-		// discard events sent by os, only trust client now
-		if ( !ext::json::isObject(json) ) return;
-		if ( json["invoker"] != "client" ) return;
 
-	//	pod::Vector2i delta = { json["mouse"]["delta"]["x"].as<int>(), json["mouse"]["delta"]["y"].as<int>() };
-	//	pod::Vector2i size  = { json["mouse"]["size"]["x"].as<int>(),  json["mouse"]["size"]["y"].as<int>() };
-		pod::Vector2i delta = uf::vector::decode( json["mouse"]["delta"], pod::Vector2i{} );
-		pod::Vector2i size  = uf::vector::decode( json["mouse"]["size"], pod::Vector2i{} );
-		pod::Vector2 relta  = { (float) delta.x / size.x, (float) delta.y / size.y };
+	// Rotate Camera
+	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
+		pod::Vector2 relta = { (float) payload.delta.x / payload.size.x, (float) payload.delta.y / payload.size.y };
 		relta *= 2;
-		if ( delta.x == 0 && delta.y == 0 ) return;
-		if ( !metadata.system.control ) return;
+		if ( (payload.delta.x == 0 && payload.delta.y == 0) || !metadata.system.control ) return;
 
 		bool updateCamera = false;
-		uf::Camera& camera = this->getComponent<uf::Camera>();
-		pod::Transform<>& transform = this->getComponent<pod::Transform<>>();
-		pod::Transform<>& cameraTransform = camera.getTransform();
-		auto& collider = this->getComponent<pod::Bullet>();
-		if ( delta.x != 0 ) {
+		if ( payload.delta.x != 0 ) {
 			double current, minima, maxima; {
 				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ? metadataJson["camera"]["limit"]["current"][0].as<double>() : NAN;
 				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][0] ) ? metadataJson["camera"]["limit"]["minima"][0].as<double>() : NAN;
@@ -139,7 +142,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][0] ) ) metadataJson["camera"]["limit"]["current"][0] = current;
 		}
-		if ( delta.y != 0 ) {
+		if ( payload.delta.y != 0 ) {
 			double current, minima, maxima; {
 				current = !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ? metadataJson["camera"]["limit"]["current"][1].as<double>() : NAN;
 				minima = !ext::json::isNull( metadataJson["camera"]["limit"]["minima"][1] ) ? metadataJson["camera"]["limit"]["minima"][1].as<double>() : NAN;
@@ -157,9 +160,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			} else current -= relta.y;
 			if ( !ext::json::isNull( metadataJson["camera"]["limit"]["current"][1] ) ) metadataJson["camera"]["limit"]["current"][1] = current;
 		}
-		if ( updateCamera ) {
-			camera.updateView();
-		}
+		if ( updateCamera ) camera.updateView();
 	});
 #if 0
 	this->addHook( ":Update.%UID%", [&](ext::json::Value& json){

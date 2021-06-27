@@ -31,6 +31,18 @@
 
 #include <regex>
 
+namespace pod {
+	namespace payloads {
+		struct windowMouseMoved {
+			std::string invoker = "";
+			pod::Vector2i delta;
+			pod::Vector2ui position;
+			pod::Vector2ui size;
+			int_fast8_t state;
+		};
+	}
+}
+
 namespace {
 #if UF_USE_FREETYPE
 	struct {
@@ -543,6 +555,51 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	if ( metadataJson["system"]["hoverable"].as<bool>() ) {
 		uf::Timer<long long> hoverTimer(false);
 		hoverTimer.start( uf::Time<>(-1000000) );
+	#if 1
+		this->addHook( "window:Mouse.Moved", [&]( pod::payloads::windowMouseMoved& payload ){
+			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
+				uf::Serializer event = metadataJson["events"]["hover"];
+				metadataJson["events"]["hover"] = ext::json::array(); //Json::arrayValue;
+				metadataJson["events"]["hover"][0] = event;
+			} else if ( !ext::json::isArray( metadataJson["events"]["hover"] ) ) {
+				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", payload );
+				return;
+			}
+			for ( int i = 0; i < metadataJson["events"]["hover"].size(); ++i ) {
+				uf::Serializer event = metadataJson["events"]["hover"][i];
+				uf::Serializer payload = event["payload"];
+				float delay = event["delay"].as<float>();
+				if ( event["delay"].is<double>() ) this->queueHook(event["name"].as<std::string>(), payload, event["delay"].as<float>());
+				else this->callHook(event["name"].as<std::string>(), payload );
+			}
+			return;
+		});
+		this->addHook( "window:Mouse.Moved", [&]( pod::payloads::windowMouseMoved& payload ){
+			if ( this->getUid() == 0 || !this->hasComponent<ext::Gui::mesh_t>() || metadata.world || (!metadata.box.min && !metadata.box.max) ) return;
+
+			bool clicked = false;
+			bool down = payload.state < 0;
+			pod::Vector2f click; {
+				click.x = (float) payload.position.x / (float) ext::gui::size.current.x;
+				click.y = (float) payload.position.y / (float) ext::gui::size.current.y;
+
+				click.x = (click.x * 2.0f) - 1.0f;
+				click.y = (click.y * 2.0f) - 1.0f;
+				float x = click.x;
+				float y = click.y;
+
+				clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
+			}
+			metadata.hovered = clicked;
+			metadataJson["hovered"] = clicked;
+
+			if ( clicked && hoverTimer.elapsed().asDouble() >= 1 ) {
+				hoverTimer.reset();
+				this->callHook("gui:Hovered.%UID%", payload);
+			}
+			this->callHook("gui:Mouse.Moved.%UID%", payload);
+		});
+	#else
 		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
 			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
 				uf::Serializer event = metadataJson["events"]["hover"];
@@ -597,6 +654,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			this->callHook("gui:Mouse.Moved.%UID%", json);
 		} );
+	#endif
 	}
 #if UF_USE_FREETYPE
 	if ( metadataJson["text settings"]["string"].is<std::string>() ) {
@@ -906,35 +964,29 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 }
 template<size_t N = uf::renderer::settings::maxViews>
 struct UniformDescriptor {
-	struct {
-		alignas(16) pod::Matrix4f model[N];
+	struct Matrices {
+		/*alignas(16)*/ pod::Matrix4f model[N];
 	} matrices;
-	struct {
-		alignas(16) pod::Vector4f offset;
-		alignas(16) pod::Vector4f color;
-		alignas(4) int32_t mode = 0;
-		alignas(4) float depth = 0.0f;
-		alignas(8) pod::Vector2f padding;
+	struct Gui {
+		/*alignas(16)*/ pod::Vector4f offset;
+		/*alignas(16)*/ pod::Vector4f color;
+
+		/*alignas(4)*/ int32_t mode = 0;
+		/*alignas(4)*/ float depth = 0.0f;
+		/*alignas(8)*/ float padding1;
+		/*alignas(8)*/ float padding2;
 	} gui;
 };
 template<size_t N = uf::renderer::settings::maxViews>
-struct GlyphUniformDescriptor {
-	struct {
-		alignas(16) pod::Matrix4f model[N];
-	} matrices;
-	struct {
-		alignas(16) pod::Vector4f offset;
-		alignas(16) pod::Vector4f color;
-		alignas(4) int32_t mode = 0;
-		alignas(4) float depth = 0.0f;
-		alignas(4) int32_t sdf = false;
-		alignas(4) int32_t shadowbox = false;
-		alignas(16) pod::Vector4f stroke;
-		alignas(4) float weight;
-		alignas(4) int32_t spread;
-		alignas(4) float scale;
-		alignas(4) float padding;
-	} gui;
+struct GlyphUniformDescriptor : public ::UniformDescriptor<N> {
+	struct Glyph {
+		/*alignas(16)*/ pod::Vector4f stroke;
+
+		/*alignas(4)*/ int32_t spread;
+		/*alignas(4)*/ float weight;
+		/*alignas(4)*/ float scale;
+		/*alignas(4)*/ float padding;
+	} glyph;
 };
 void ext::GuiBehavior::render( uf::Object& self ){
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
@@ -995,17 +1047,9 @@ void ext::GuiBehavior::render( uf::Object& self ){
 
 		auto& shader = graphic.material.getShader("vertex");
 		auto& uniform = shader.getUniform("UBO");
-		auto& uniforms = uniform.get<UniformDescriptor<>>();
+		auto& uniforms = uniform.get<UniformDescriptor<>>(false); // skip validation
 
-		uniforms.gui.offset = metadata.uv;
-		uniforms.gui.mode = metadata.shader;
-		uniforms.gui.depth = metadata.depth;
-
-		uniforms.gui.depth = 1 - uniforms.gui.depth;
-
-		uniforms.gui.color = metadata.color;
-
-		for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
+		for ( uint_fast8_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
 			if ( metadata.mode == 1 ) {
 				uniforms.matrices.model[i] = transform.model; 
 			} else if ( metadata.mode == 2 ) {
@@ -1031,17 +1075,27 @@ void ext::GuiBehavior::render( uf::Object& self ){
 			}
 		}
 
+		uniforms.gui = ::UniformDescriptor<>::Gui{
+			.offset = metadata.uv,
+			.color = metadata.color,
+
+			.mode = metadata.shader,
+			.depth = metadata.depth,
+		};
 		// set glyph-based uniforms
-		if ( isGlyph ) {
-			auto& uniforms = uniform.get<GlyphUniformDescriptor<>>();
+		if ( isGlyph && uniform.size() == sizeof(::GlyphUniformDescriptor<>) ) {
+			auto& uniforms = uniform.get<::GlyphUniformDescriptor<>>();
 			auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
 
-			uniforms.gui.sdf = metadataGlyph.sdf;
-			uniforms.gui.shadowbox = metadataGlyph.shadowbox;
-			uniforms.gui.stroke = metadataGlyph.stroke;
-			uniforms.gui.weight = metadataGlyph.weight;
-			uniforms.gui.spread = metadataGlyph.spread;
-			uniforms.gui.scale = metadataGlyph.scale;
+		//	uniforms.gui.sdf = metadataGlyph.sdf;
+		//	uniforms.gui.shadowbox = metadataGlyph.shadowbox;
+			if ( metadataGlyph.sdf ) uniforms.gui.mode &= 1 << 1;
+			if ( metadataGlyph.shadowbox ) uniforms.gui.mode &= 1 << 2;
+
+			uniforms.glyph.stroke = metadataGlyph.stroke;
+			uniforms.glyph.spread = metadataGlyph.spread;
+			uniforms.glyph.weight = metadataGlyph.weight;
+			uniforms.glyph.scale = metadataGlyph.scale;
 		}
 		shader.updateUniform( "UBO", uniform );
 

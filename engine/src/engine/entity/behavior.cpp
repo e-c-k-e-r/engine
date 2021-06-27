@@ -22,8 +22,8 @@ void uf::EntityBehavior::destroy( uf::Object& self ) {
 		if ( uf::Entity::deleteChildrenOnDestroy ) delete kv;
 	}
 	this->getChildren().clear();
-	this->unsetUid();
 	if ( this->hasParent() ) this->getParent().removeChild(*this);
+	this->unsetUid();
 	if ( uf::Entity::deleteComponentsOnDestroy ) this->destroyComponents();
 }
 #undef this

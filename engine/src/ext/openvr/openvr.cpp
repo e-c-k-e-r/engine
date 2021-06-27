@@ -724,6 +724,6 @@ uf::Graphic& ext::openvr::getRenderModel( const std::string& name ) {
 uf::Graphic& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {
 	if ( hand == vr::Controller_Hand::Hand_Left ) return renderModels["{indexcontroller}valve_controller_knu_1_0_left"]; //return ::devices.controllers.left.mesh;
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return renderModels["{indexcontroller}valve_controller_knu_1_0_right"]; //return ::devices.controllers.right.mesh;
-	UF_EXCEPTION("Invalid hand");
+	UF_EXCEPTION("OpenVR error: invalid hand requested");
 }
 #endif

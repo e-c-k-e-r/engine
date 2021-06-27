@@ -25,7 +25,10 @@ namespace pod {
 		typedef std::function<pod::Hook::userdata_t(const pod::Hook::userdata_t&)> function_t;
 
 		size_t uid;
-		size_t type;
+		struct Type {
+			size_t hash;
+			size_t size;
+		} type;
 		function_t callback;
 	};
 }
@@ -44,7 +47,7 @@ namespace uf {
 		uf::Hooks::container_t m_container;
 	public:
 		bool exists( const name_t& name );
-		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, size_t type = 0 );
+		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, const pod::Hook::Type& = {0, 0} );
 		void removeHook( const name_t& name, size_t uid );
 		return_t call( const name_t& name, const argument_t& payload );
 		

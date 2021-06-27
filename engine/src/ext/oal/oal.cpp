@@ -32,7 +32,9 @@ void ext::al::initialize() {
 	}
 	return this->m_initialized = true;
 */
-	if ( alutInit(NULL, NULL) != AL_TRUE ) UF_EXCEPTION("AL error: " + std::string(alutGetErrorString(alutGetError())));
+	if ( alutInit(NULL, NULL) != AL_TRUE ) {
+		UF_EXCEPTION("AL error: " << alutGetErrorString( alutGetError() ) );
+	}
 }
 void ext::al::destroy() {
 /*

@@ -120,9 +120,7 @@ std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& _filename, 
 	std::string filename = sanitize(_filename);
 	std::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) {
-		auto decompressed = uf::io::decompress( filename );
-		buffer.reserve(decompressed.size());
-		buffer.assign(decompressed.begin(), decompressed.end());
+		buffer = uf::io::decompress( filename );
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {

@@ -353,12 +353,7 @@ void ext::vulkan::RenderMode::destroy() {
 	this->synchronize();
 
 	renderTarget.destroy();
-/*	
-	if ( commands.size() > 0 ) {
-		vkFreeCommandBuffers( *device, this->getType() == "Compute" ? device->getCommandPool(Device::QueueEnum::COMPUTE) : device->getCommandPool(Device::QueueEnum::GRAPHICS), static_cast<uint32_t>(commands.size()), commands.data());
-	}
-	commands.clear();
-*/
+
 	for ( auto& pair : this->commands.container() ) {
 		if ( !pair.second.empty() ) {
 			vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());

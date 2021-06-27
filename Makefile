@@ -1,5 +1,5 @@
 ARCH 					= win64
-PREFIX					= gcc
+PREFIX					= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll
@@ -44,7 +44,7 @@ INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mi
 LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
 	
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas openvr # draco discord
+	REQ_DEPS 			+= vulkan json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas simd # openvr draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))

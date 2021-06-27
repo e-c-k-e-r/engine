@@ -68,6 +68,10 @@ namespace {
 		double deltaTime = 0;
 		size_t frames = 0;
 		double limiter = 1.0 / 144.0;
+		struct {
+			size_t frames = 0;
+			double time = 0;
+		} total;
 	} times;
 
 	uf::Serializer& config = ext::config;
@@ -658,6 +662,7 @@ void EXT_API ext::tick() {
 		auto& fps = ::config["engine"]["debug"]["framerate"];
 		/* FPS Print */ if ( fps["print"].as<bool>() ) {
 			++::times.frames;
+			++::times.total.frames;
 			double every = fps["every"].as<double>();
 			TIMER( every ) {
 				UF_MSG_DEBUG("System: " << (every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
@@ -743,6 +748,11 @@ void EXT_API ext::terminate() {
 
 	/* Close vulkan */ {
 		uf::renderer::destroy();
+	}
+
+	/* Print system stats */ {
+		::times.total.time = times.sys.elapsed().asDouble();
+		UF_MSG_DEBUG("System: Total Time: " << ::times.total.time << " | Total Frames: " << ::times.total.frames << " | Average FPS: " << ::times.total.frames / ::times.total.time);
 	}
 
 	/* Flush input buffer */ {

@@ -321,7 +321,7 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
 				break;
 			}
 		break;
@@ -332,7 +332,7 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8G8B8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
 				break;
 			}
 		break;
@@ -343,12 +343,12 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8G8B8A8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
 				break;
 			}
 		break;
 		default:
-			UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
+			UF_EXCEPTION("Vulkan error: unsupported channels of " + image.getChannels() );
 		break;
 	}
 
@@ -713,7 +713,7 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 	VkFormatProperties formatProperties;
 	vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
 	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-		UF_EXCEPTION("Texture image format `" + std::to_string(format) + "` does not support linear blitting!");
+		UF_MSG_ERROR("Texture image format does not support linear blitting: " << format);
 		blitting = false;
 	}
 

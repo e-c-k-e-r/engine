@@ -95,7 +95,9 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& 
 }
 void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
-	current->destroy();
+//	current->destroy();
+	auto graph = current->getGraph(true);
+	for ( auto entity : graph ) entity->destroy();
 	uf::scene::scenes.pop_back();
 }
 uf::Scene& uf::scene::getCurrentScene() {

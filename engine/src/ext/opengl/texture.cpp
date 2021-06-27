@@ -111,7 +111,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = enums::Format::R8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
 					break;
 				}
 			break;
@@ -122,7 +122,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = enums::Format::R8G8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
 					break;
 				}
 			break;
@@ -133,7 +133,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = enums::Format::R8G8B8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
 					break;
 				}
 			break;
@@ -147,12 +147,12 @@ void ext::opengl::Texture::loadFromImage(
 						format = enums::Format::R8G8B8A8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("unsupported BPP of " + std::to_string(image.getBpp()));
+					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
 					break;
 				}
 			break;
 			default:
-			UF_EXCEPTION("unsupported channels of " + std::to_string(image.getChannels()));
+			UF_EXCEPTION("OpenGL error: unsupported channels of " << image.getChannels() );
 			break;
 		}
 	}

@@ -96,7 +96,7 @@ bool uf::Image::open( const std::string& filename, bool flip ) {
 		return this->open(dtex, flip);
 	}
 #endif
-	if ( !uf::io::exists(filename) ) UF_EXCEPTION("does not exist: " + filename);
+	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: " + filename);
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	int width = 0, height = 0, channelsDud = 0, bit_depth = 8, channels = 4;
@@ -135,17 +135,17 @@ bool uf::Image::open( const std::string& filename, bool flip ) {
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_RGB_565_VQ_TWID_KOS; channels = 3; break;
 					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS; break;
-					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format: " << filename); return false;
 				}
 			} else {
 				switch ( format ) {
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS : GL_COMPRESSED_RGB_565_VQ_KOS; channels = 3; break;
 					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_4444_VQ_KOS; break;
-					default: UF_EXCEPTION(filename << ": invalid texture format"); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format: " << filename); return false;
 				}
 			}
-		} else { UF_EXCEPTION(filename << ": not a compressed texture"); return false; }
+		} else { UF_EXCEPTION("Image error: not a compressed texture: " << filename); return false; }
 	/*
 		UF_MSG_DEBUG("DTEX Header: " << header.id[0] << header.id[1] << header.id[2] << header.id[3] << " | " 
 			<< header.width << " x " << header.height << " | " 

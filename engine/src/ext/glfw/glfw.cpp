@@ -33,7 +33,7 @@ void ext::glfw::Window::initialize( size_t width, size_t height, const std::stri
 }
 void ext::glfw::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
 	if ( glfwCreateWindowSurface( instance, this->m_window, nullptr, &surface ) != VK_SUCCESS )
-		UF_EXCEPTION("failed to create window surface!");
+		UF_EXCEPTION("Failed to create window surface!");
 }
 bool ext::glfw::Window::loop() {
 	return !glfwWindowShouldClose( this->m_window );

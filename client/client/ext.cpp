@@ -14,6 +14,18 @@ bool client::terminated = false;
 uf::Window client::window;
 uf::Serializer client::config;
 
+namespace pod {
+	namespace payloads {
+		struct windowMouseMoved {
+			std::string invoker = "";
+			pod::Vector2i delta;
+			pod::Vector2ui position;
+			pod::Vector2ui size;
+			int_fast8_t state;
+		};
+	}
+}
+
 void client::initialize() {
 	uf::IoStream::ncurses = true;
 	uf::renderer::device.window = &client::window;
@@ -123,6 +135,7 @@ void client::initialize() {
 	client::window.pollEvents();
 #endif
 }
+
 void client::tick() {
 	client::window.pollEvents();
 
@@ -130,16 +143,26 @@ void client::tick() {
 		auto previous = client::window.getMousePosition();
 		client::window.setMousePosition(client::window.getSize()/2);
 		auto current = client::window.getMousePosition();
-
 		auto size = client::window.getSize();
-		uf::Serializer payload;
-		payload["invoker"] = "client";
-		payload["mouse"]["delta"] = uf::vector::encode( previous - current );
-		payload["mouse"]["position"] = uf::vector::encode( current );
-		payload["mouse"]["size"] = uf::vector::encode( size );
-		payload["mouse"]["state"] = "???";
-		payload["type"] = "window:Mouse.Moved";
-		uf::hooks.call("window:Mouse.Moved", payload);
+	#if 0
+		{
+			uf::Serializer payload;
+			payload["invoker"] = "client";
+			payload["mouse"]["delta"] = uf::vector::encode( previous - current );
+			payload["mouse"]["position"] = uf::vector::encode( current );
+			payload["mouse"]["size"] = uf::vector::encode( size );
+			payload["mouse"]["state"] = "???";
+			payload["type"] = "window:Mouse.Moved";
+			uf::hooks.call("window:Mouse.Moved", payload);
+		}
+	#endif
+		uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
+			.invoker = "client",
+			.delta = previous - current,
+			.position = current,
+			.size = size,
+			.state = 0
+		});
 	}
 }
 

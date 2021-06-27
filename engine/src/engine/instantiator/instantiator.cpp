@@ -65,6 +65,7 @@ uf::Entity* uf::instantiator::alloc( size_t size ) {
 void uf::instantiator::free( uf::Entity* pointer ) {
 	if ( !pointer ) return;
 	if ( pointer->getUid() > 0 ) pointer->destroy();
+//	pointer->destroyComponents();
 
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;

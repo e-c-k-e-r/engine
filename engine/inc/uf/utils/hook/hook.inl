@@ -9,7 +9,7 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<vo
 		callback( unconst_payload );
 		
 		return ret;
-	}, typeid(callback).hash_code());
+	}, pod::Hook::Type{typeid(Argument).hash_code(), sizeof(Argument)});
 }
 template<typename R, typename Arg>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(Arg)>& callback ) {
@@ -21,7 +21,7 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(
 		R res = callback( unconst_payload );
 		ret.create<R>(res);
 		return ret;
-	}, typeid(callback).hash_code());
+	}, pod::Hook::Type{typeid(Argument).hash_code(), sizeof(Argument)});
 }
 
 template<typename Function>

@@ -935,7 +935,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 		case 16: indicesType = VK_INDEX_TYPE_UINT16; break;
 		case 32: indicesType = VK_INDEX_TYPE_UINT32; break;
 		default:
-			UF_EXCEPTION("invalid indices size of " + std::to_string((int) descriptor.geometry.attributes.index.size));
+			UF_EXCEPTION("Vulkan error: invalid indices size of " + std::to_string((int) descriptor.geometry.attributes.index.size));
 		break;
 	}
 	vkCmdBindIndexBuffer(commandBuffer, indexBuffer->buffer, descriptor.offsets.index, indicesType);

@@ -15,7 +15,9 @@ vec3 orthogonal(vec3 u){
 vec4 blend( vec4 source, vec4 dest, float a ) {
     return source * a + dest * (1.0 - a);
 }
-
+bool enabled( uint flag, uint bit ) {
+	return (flag & (1 << bit)) != 0;
+}
 vec3 decodeNormals( vec2 enc ) {
 	const vec2 ang = enc*2-1;
 	const vec2 scth = vec2( sin(ang.x * PI), cos(ang.x * PI) );

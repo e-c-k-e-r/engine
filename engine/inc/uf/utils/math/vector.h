@@ -437,7 +437,7 @@ namespace pod {
 	#endif
 	};
 	template<typename T>
-	struct /*UF_API*/ alignas(16) Vector<T,4> {
+	struct /*UF_API*/ /*alignas(16)*/ Vector<T,4> {
 	// 	XYZW access
 		T x;
 		T y;

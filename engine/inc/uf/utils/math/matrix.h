@@ -8,8 +8,8 @@
 
 #include "math.h"
 namespace pod {
-	template<typename T = pod::Math::num_t, std::size_t R = 4, std::size_t C = R> 
-	struct /*UF_API*/ alignas(16) Matrix {
+	template<typename T = pod::Math::num_t, size_t R = 4, size_t C = R> 
+	struct UF_API /*alignas(16)*/ Matrix {
 	// 	n-dimensional/unspecialized matrix access
 		T components[R*C] = {};
 	//	T components[R][C] = {};
@@ -17,15 +17,15 @@ namespace pod {
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t rows = R;
-		static const std::size_t columns = C;
+		static const uint_fast8_t rows = R;
+		static const uint_fast8_t columns = C;
 	// 	Overload access
 		// Accessing via subscripts
-		inline T& operator[](std::size_t i);
-		inline const T& operator[](std::size_t i) const;
+		inline T& operator[](uint_fast8_t i);
+		inline const T& operator[](uint_fast8_t i) const;
 		
-		inline T& operator()(size_t r, size_t c);
-		inline const T& operator()(size_t r, size_t c) const;
+		inline T& operator()(uint_fast8_t r, uint_fast8_t c);
+		inline const T& operator()(uint_fast8_t r, uint_fast8_t c) const;
 
 		// Arithmetic
 		Matrix<T,R,C> operator()() const; 								// 	Creation
@@ -55,7 +55,7 @@ namespace uf {
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const T* );
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const std::vector<T>& );
 		template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> /*UF_API*/ identityi();
-		template<typename T=pod::Matrix4> std::size_t /*UF_API*/ compareTo( const T& left, const T& right ); 			// 	Equality check between two matrices (less than)
+		template<typename T=pod::Matrix4> int /*UF_API*/ compareTo( const T& left, const T& right ); 			// 	Equality check between two matrices (less than)
 		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two matrices (equals)
 	// 	Basic arithmetic
 	//	template<typename T=pod::Matrix4> pod::Matrix<typename T::type_t, C, C> /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two matrices of same type and size together
@@ -101,8 +101,8 @@ namespace uf {
 	// 	Replicate POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t rows = R;
-		static const std::size_t columns = C;
+		static const uint_fast8_t rows = R;
+		static const uint_fast8_t columns = C;
 	protected:
 	// 	POD storage
 		Matrix<T,R,C>::pod_t m_pod;
@@ -123,12 +123,12 @@ namespace uf {
 	// 	Alternative POD access
 		T* get();																		// 	Returns a pointer to the entire array
 		const T* get() const; 															// 	Returns a const-pointer to the entire array
-		T& getComponent( std::size_t i );												// 	Returns a reference to a single element
-		const T& getComponent( std::size_t i ) const; 									// 	Returns a const-reference to a single element
+		T& getComponent( uint_fast8_t i );												// 	Returns a reference to a single element
+		const T& getComponent( uint_fast8_t i ) const; 									// 	Returns a const-reference to a single element
 	// 	POD manipulation
 		T* set(const T components[R][C]);												// 	Sets the entire array
 		T* set(const T components[R*C]);												// 	Sets the entire array
-		T& setComponent( std::size_t i, const T& value );								// 	Sets a single element
+		T& setComponent( uint_fast8_t i, const T& value );								// 	Sets a single element
 	// 	Validation
 		bool isValid() const; 															// 	Checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
@@ -148,8 +148,8 @@ namespace uf {
 		inline uf::Matrix<T,C,C> multiply( const U& matrix );							// 	Multiplies two matrices of same type and size together
 	// 	Overloaded ops
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](uint_fast8_t i);
+		const T& operator[](uint_fast8_t i) const;
 		// Arithmetic
 		inline Matrix<T,R,C> operator-() const; 										// 	Negation
 		inline Matrix<T,C,C> operator*( const Matrix<T,R,C>& matrix ) const; 			// 	Multiplication between two matrices

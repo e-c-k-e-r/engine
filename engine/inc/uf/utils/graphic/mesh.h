@@ -68,10 +68,10 @@ namespace uf {
 	template<size_t N = 6>
 	struct MeshDescriptor {
 		struct {
-			alignas(16) pod::Matrix4f model;
-			alignas(16) pod::Matrix4f view[N];
-			alignas(16) pod::Matrix4f projection[N];
+			/*alignas(16)*/ pod::Matrix4f model;
+			/*alignas(16)*/ pod::Matrix4f view[N];
+			/*alignas(16)*/ pod::Matrix4f projection[N];
 		} matrices;
-		alignas(16) pod::Vector4f color = { 1, 1, 1, 0 };
+		/*alignas(16)*/ pod::Vector4f color = { 1, 1, 1, 0 };
 	};
 }

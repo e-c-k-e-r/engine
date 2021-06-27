@@ -65,7 +65,7 @@
 					"deferred alias output to swapchain": true,
 					"vsync": true,
 					"hdr": false,
-					"vxgi": false,
+					"vxgi": true,
 					"deferred sampling": false
 				},
 				"formats": {

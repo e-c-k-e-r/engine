@@ -226,12 +226,12 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
 				auto transform = camera.getTransform();
 				std::vector<pod::Quaternion<>> rotations = {
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633 ), // right
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633 ), // left
-					uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633 ), // down
-					uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633 ), // up
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633 ), // front
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633 ), // back
+					uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633f ), // right
+					uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633f ), // left
+					uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633f ), // down
+					uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633f ), // up
+					uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633f ), // front
+					uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633f ), // back
 				/*
 					uf::quaternion::axisAngle( { 0, 1, 0 },  1 * 1.57079633 ), // right
 					uf::quaternion::axisAngle( { 0, 1, 0 }, -1 * 1.57079633 ), // left

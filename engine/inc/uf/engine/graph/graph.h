@@ -16,12 +16,12 @@
 namespace pod {
 	struct UF_API Texture {
 		struct Storage {
-			alignas(4) int32_t index = -1;
-			alignas(4) int32_t sampler = -1;
-			alignas(4) int32_t remap = -1;
-			alignas(4) float blend = 0;
+			/*alignas(4)*/ int32_t index = -1;
+			/*alignas(4)*/ int32_t sampler = -1;
+			/*alignas(4)*/ int32_t remap = -1;
+			/*alignas(4)*/ float blend = 0;
 
-			alignas(16) pod::Vector4f lerp = {0, 0, 1, 1};
+			/*alignas(16)*/ pod::Vector4f lerp = {0, 0, 1, 1};
 		} storage;
 		std::string name = "";
 		uf::renderer::Texture2D texture;
@@ -29,19 +29,21 @@ namespace pod {
 	};
 	struct UF_API Node {
 		std::string name = "";
+
 		int32_t index = -1;
 		int32_t skin = -1;
 		int32_t parent = -1;
 		int32_t mesh = -1;
-		std::vector<int32_t> children;
-		
+
 		pod::Transform<> transform;
+		std::vector<int32_t> children;
 
 		uf::Object* entity = NULL;
-		uf::Collider collider;
-		int32_t jointBufferIndex = -1;
-		int32_t materialBufferIndex = -1;
-		int32_t textureBufferIndex = -1;
+		struct {
+			int32_t material = -1;
+			int32_t texture = -1;
+			int32_t joint = -1;
+		} buffers;
 	};
 	struct UF_API Graph {
 		typedef uf::graph::skinned_mesh_t Mesh;
@@ -51,7 +53,10 @@ namespace pod {
 		std::vector<pod::Node> nodes;
 
 		uf::Object* entity = NULL;
-		size_t instanceBufferIndex = -1;
+		
+		struct {
+			int32_t instance = -1;
+		} buffers;
 
 		std::string name = "";
 		uf::graph::load_mode_t mode;

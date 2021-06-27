@@ -213,11 +213,11 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 				if ( graphic.material.hasShader("geometry", "vxgi") ) {
 					auto& shader = graphic.material.getShader("geometry", "vxgi");
 					struct UniformDescriptor {
-						alignas(16) pod::Matrix4f matrix;
-						alignas(4) float cascadePower;
-						alignas(4) float padding1;
-						alignas(4) float padding2;
-						alignas(4) float padding3;
+						/*alignas(16)*/ pod::Matrix4f matrix;
+						/*alignas(4)*/ float cascadePower;
+						/*alignas(4)*/ float padding1;
+						/*alignas(4)*/ float padding2;
+						/*alignas(4)*/ float padding3;
 					};
 					auto& uniform = shader.getUniform("UBO");
 					auto& uniforms = uniform.get<UniformDescriptor>();

@@ -46,7 +46,7 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 #endif
 	userdata.len = len;
 #if UF_USERDATA_RTTI
-	userdata.type = typeid(NULL).hash_code();
+	userdata.type = 0;
 #endif
 	return userdata;
 }
@@ -159,6 +159,10 @@ uf::PointeredUserdata::pod_t& uf::PointeredUserdata::data() {
 const uf::PointeredUserdata::pod_t& uf::PointeredUserdata::data() const {
 	return this->m_pod;
 }
+size_t uf::PointeredUserdata::size() const { return this->m_pod.len; }
+#if UF_USERDATA_RTTI
+size_t uf::PointeredUserdata::type() const { return this->m_pod.type; }
+#endif
 // 	Validity checks
 bool uf::PointeredUserdata::initialized() const {
 	return this->m_pod.len > 0 && this->m_pod.data;

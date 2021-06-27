@@ -1,48 +1,57 @@
+#if __GNUC__
+	#pragma GCC push_options
+	#pragma GCC optimize ("unroll-loops")
+#endif
+
 // 	Overloaded ops
 // Accessing via subscripts
-template<typename T, std::size_t R, std::size_t C>
-inline T& pod::Matrix<T,R,C>::operator[](std::size_t i) {
+template<typename T, size_t R, size_t C>
+inline T& pod::Matrix<T,R,C>::operator[](uint_fast8_t i) {
 //	static T null = 0.0/0.0;
 //	if ( i >= R*C ) return null;
 	return this->components[i];
 }
-template<typename T, std::size_t R, std::size_t C>
-inline const T& pod::Matrix<T,R,C>::operator[](std::size_t i) const {
+template<typename T, size_t R, size_t C>
+inline const T& pod::Matrix<T,R,C>::operator[](uint_fast8_t i) const {
 //	static T null = 0.0/0.0;
 //	if ( i >= R*C ) return null;
 	return this->components[i];
 }
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator()() const {
 	pod::Matrix<T,R,C> matrix;
-	for ( std::size_t r = 0; r < R; ++r ) 
-		for ( std::size_t c = 0; c < C; ++c ) 
+	#pragma unroll // GCC unroll C
+	for ( uint_fast8_t c = 0; c < C; ++c ) 
+		#pragma unroll // GCC unroll R
+		for ( uint_fast8_t r = 0; r < R; ++r ) 
 			matrix[r+c*C] = (r == c ? 1 : 0);
 	return matrix;
 }
-template<typename T, std::size_t R, std::size_t C>
-inline T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) {
+template<typename T, size_t R, size_t C>
+inline T& pod::Matrix<T,R,C>::operator()(uint_fast8_t r, uint_fast8_t c) {
 	return this->components[r+c*C];
 }
-template<typename T, std::size_t R, std::size_t C>
-inline const T& pod::Matrix<T,R,C>::operator()(size_t r, size_t c) const {
+template<typename T, size_t R, size_t C>
+inline const T& pod::Matrix<T,R,C>::operator()(uint_fast8_t r, uint_fast8_t c) const {
 	return this->components[r+c*C];
 }
 /*
-template<typename T, std::size_t R, std::size_t C>
-T* pod::Matrix<T,R,C>::operator[](std::size_t i) {
+template<typename T, size_t R, size_t C>
+T* pod::Matrix<T,R,C>::operator[](size_t i) {
 	return this->components[i];
 }
-template<typename T, std::size_t R, std::size_t C>
-const T* pod::Matrix<T,R,C>::operator[](std::size_t i) const {
+template<typename T, size_t R, size_t C>
+const T* pod::Matrix<T,R,C>::operator[](size_t i) const {
 	return this->components[i];
 }
 */
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::identity() {
 	pod::Matrix4t<T> matrix;
-	for ( std::size_t r = 0; r < 4; ++r ) 
-		for ( std::size_t c = 0; c < 4; ++c ) 
+	#pragma unroll // GCC unroll 4
+	for ( uint_fast8_t c = 0; c < 4; ++c ) 
+		#pragma unroll // GCC unroll 4
+		for ( uint_fast8_t r = 0; r < 4; ++r ) 
 			matrix[r+c*4] = (r == c ? 1 : 0);
 	return matrix;
 }
@@ -79,12 +88,14 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t ) {
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const T* list ) {
 	pod::Matrix4t<T> matrix;
-//	memcpy(&matrix[0], list, 16);
-	for ( std::size_t i = 0; i < 16; ++i )
+//	memcpy(&matrix[0], list, sizeof(matrix));
+	#pragma unroll // GCC unroll 16
+	for ( uint_fast8_t i = 0; i < 16; ++i )
 		matrix.components[i] = list[i];
+
 /*
-	for ( std::size_t r = 0; r < 4; ++r ) 
-		for ( std::size_t c = 0; c < 4; ++c ) 
+	for ( uint_fast8_t r = 0; r < 4; ++r ) 
+		for ( uint_fast8_t c = 0; c < 4; ++c ) 
 			matrix[r+c*4] = list[r+c*4];
 */
 	return matrix;
@@ -93,64 +104,73 @@ template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const std::vector<T>& list ) {
 	pod::Matrix4t<T> matrix;
 	if ( list.size() != 16 ) return matrix;
-//	memcpy(&matrix[0], &list[0], 16);
-	for ( std::size_t i = 0; i < 16; ++i )
+//	memcpy(&matrix[0], &list[0], sizeof(matrix));
+	#pragma unroll // GCC unroll 16
+	for ( uint_fast8_t i = 0; i < 16; ++i )
 		matrix.components[i] = list[i];
+
 /*
-	for ( std::size_t r = 0; r < 4; ++r ) 
-		for ( std::size_t c = 0; c < 4; ++c ) 
+	#pragma unroll // GCC unroll 4
+	for ( uint_fast8_t r = 0; r < 4; ++r ) 
+		#pragma unroll // GCC unroll 4
+		for ( uint_fast8_t c = 0; c < 4; ++c ) 
 			matrix[r+c*4] = list[r+c*4];
 */
 	return matrix;
 }
 template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::identityi(){
 	pod::Matrix<typename T::type_t, T::columns, T::columns> matrix;
-	for ( std::size_t r = 0; r < T::columns; ++r ) 
-		for ( std::size_t c = 0; c < T::columns; ++c ) 
+
+	#pragma unroll // GCC unroll T::columns
+	for ( uint_fast8_t c = 0; c < T::columns; ++c ) 
+		#pragma unroll // GCC unroll T::rows
+		for ( uint_fast8_t r = 0; r < T::rows; ++r ) 
 			matrix[r+c*T::columns] = (r == c ? 1 : 0);
+
+
 	return matrix;
 }
 // Arithmetic
 // 	Negation
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator-() const {
 	return uf::matrix::inverse(*this);
 }
 // 	Multiplication between two matrices
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::multiply(*this, matrix);
 }
 // 	Multiplication between two matrices
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator*( T scalar ) const {
 	return uf::matrix::multiplyAll(*this, scalar);
 }
 // 	Multiplication between two matrices
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C> pod::Matrix<T,R,C>::operator+( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::add(*this, matrix);
 }
 // 	Multiplication set between two matrices
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline pod::Matrix<T,R,C>& pod::Matrix<T,R,C>::operator *=( const Matrix<T,R,C>& matrix ) {
 	return uf::matrix::multiply(*this, matrix);
 }
 // 	Equality check between two matrices (equals)
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline bool pod::Matrix<T,R,C>::operator==( const Matrix<T,R,C>& matrix ) const {
 	return uf::matrix::equals( *this, matrix );
 }
 // 	Equality check between two matrices (not equals)
-template<typename T, std::size_t R, std::size_t C>
+template<typename T, size_t R, size_t C>
 inline bool pod::Matrix<T,R,C>::operator!=( const Matrix<T,R,C>& matrix ) const {
 	return !uf::matrix::equals( *this, matrix );
 }
 
 // 	Equality checking
 // 	Equality check between two matrices (less than)
-template<typename T> std::size_t uf::matrix::compareTo( const T& left, const T& right ) {
-	return 1;
+template<typename T> int uf::matrix::compareTo( const T& left, const T& right ) {
+	return memcmp( &left[0], &right[0], sizeof(left) );
 }
 // 	Equality check between two matrices (equals)
 template<typename T> bool uf::matrix::equals( const T& left, const T& right ) {
@@ -165,7 +185,8 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 	auto row2 = uf::simd::load(&left[4]);
 	auto row3 = uf::simd::load(&left[8]);
 	auto row4 = uf::simd::load(&left[12]);
-	for(int i=0; i<4; i++) {
+	#pragma unroll // GCC unroll 4
+	for( uint_fast8_t i = 0; i < 4; i++) {
 		auto brod1 = uf::simd::set(right[4*i + 0]);
 		auto brod2 = uf::simd::set(right[4*i + 1]);
 		auto brod3 = uf::simd::set(right[4*i + 2]);
@@ -179,6 +200,7 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 						uf::simd::mul(brod4, row4)));
 		uf::simd::store(row, &res[4*i]);
 	}
+
 	return res;
 #elif UF_ENV_DREAMCAST
 // 	kallistios has dedicated SH4 asm for these or something
@@ -190,17 +212,20 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 //	MATH_Load_Matrix_Product( (ALL_FLOATS_STRUCT*) &left[0], (ALL_FLOATS_STRUCT*) &right[0] );
 //	MATH_Store_XMTRX( (ALL_FLOATS_STRUCT*) &res[0]);
 	return res;
-#elif 1
+#elif 0
 	// 
 	float* dstPtr = &res[0];
 	const float* leftPtr = &right[0];
 
-	for (size_t i = 0; i < 4; ++i) {
-		for (size_t j = 0; j < 4; ++j) {
+	#pragma unroll // GCC unroll 4
+	for (uint_fast8_t i = 0; i < 4; ++i) {
+		#pragma unroll // GCC unroll 4
+		for (uint_fast8_t j = 0; j < 4; ++j) {
 			const float* rightPtr = &left[0] + j;
 
 			float sum = leftPtr[0] * rightPtr[0];
-			for (size_t n = 1; n < 4; ++n) {
+			#pragma unroll // GCC unroll 3
+			for (uint_fast8_t n = 1; n < 4; ++n) {
 				rightPtr += 4;
 				sum += leftPtr[n] * rightPtr[0];
 			}
@@ -209,14 +234,18 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 		leftPtr += 4;
 	}
 	return res;
-#elif 1
+#elif 0
 	// don't know if it's more performant than below
-	std::size_t i = 0;
-	for ( size_t col = 0; col < 4; col++ ) {
-		for ( size_t row = 0; row < 4; row++ ) {
-			res[i++] = uf::vector::dot( { right[0+col*4], right[1+col*4], right[2+col*4], right[3+col*4] }, { left[row+0*4], left[row+1*4], left[row+2*4], left[row+3*4] } );
+	uint_fast8_t i = 0;
+
+	#pragma unroll // GCC unroll 4
+	for ( uint_fast8_t c = 0; c < 4; c++ ) {
+		#pragma unroll // GCC unroll 4
+		for ( uint_fast8_t r = 0; r < 4; r++ ) {
+			res[i++] = uf::vector::dot( { right[0+c*4], right[1+c*4], right[2+c*4], right[3+c*4] }, { left[r+0*4], left[r+1*4], left[r+2*4], left[r+3*4] } );
 		}
 	}
+
 	return res;
 #else
 	// it works
@@ -243,33 +272,37 @@ template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<
 #endif
 }
 template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( const T& left, const U& right ) {
-	static const std::size_t R = T::rows;
-	static const std::size_t C = T::columns;
-
-	pod::Matrix<typename T::type_t,R,C> res;
+	pod::Matrix<typename T::type_t,T::rows,T::columns> res;
 #if 1
 	float* dstPtr = &res[0];
 	const float* leftPtr = &right[0];
 
-	for (size_t i = 0; i < R; ++i) {
-		for (size_t j = 0; j < C; ++j) {
+	#pragma unroll // GCC unroll T::rows
+	for (uint_fast8_t i = 0; i < T::rows; ++i) {
+		#pragma unroll // GCC unroll T::columns
+		for (uint_fast8_t j = 0; j < T::columns; ++j) {
 			const float* rightPtr = &left[0] + j;
 
 			float sum = leftPtr[0] * rightPtr[0];
-			for (size_t n = 1; n < C; ++n) {
-				rightPtr += C;
+			#pragma unroll // GCC unroll T::columns - 1
+			for (uint_fast8_t n = 1; n < T::columns; ++n) {
+				rightPtr += T::columns;
 				sum += leftPtr[n] * rightPtr[0];
 			}
 			*dstPtr++ = sum;
 		}
-		leftPtr += C;
+		leftPtr += T::columns;
 	}
+
 #else
-	std::size_t i = 0;
-	for ( size_t col = 0; col < R; col++ ) {
-		for ( size_t row = 0; row < C; row++ ) {
+	uint_fast8_t i = 0;
+	#pragma unroll // GCC unroll
+	for ( uint_fast8_t col = 0; col < R; col++ ) {
+		#pragma unroll // GCC unroll
+		for ( uint_fast8_t row = 0; row < C; row++ ) {
 			auto& sum = res[i++];
-			for ( size_t i = 0; i < C; i++ )
+			#pragma unroll // GCC unroll
+			for ( uint_fast8_t i = 0; i < C; i++ )
 				sum += right[i + col * C] * left[row + i * R];
 		}
 	}
@@ -277,39 +310,41 @@ template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::
 	return res;
 }
 template<typename T=pod::Matrix4> T /*UF_API*/ uf::matrix::multiplyAll( const T& m, typename T::type_t scalar ) {
-	static const std::size_t R = T::rows;
-	static const std::size_t C = T::columns;
 	T matrix;
-	for ( size_t i = 0; i < R*C; ++i ) matrix[i] = m[i] * scalar;
+	#pragma unroll // GCC unroll T::rows * T::columns
+	for ( uint_fast8_t i = 0; i < T::rows * T::columns; ++i )
+		matrix[i] = m[i] * scalar;
+
 	return matrix;
 }
 template<typename T=pod::Matrix4> T /*UF_API*/ uf::matrix::add( const T& lhs, const T& rhs ) {
-	static const std::size_t R = T::rows;
-	static const std::size_t C = T::columns;
 	T matrix;
-	for ( size_t i = 0; i < R*C; ++i ) matrix[i] = lhs[i] + rhs[i];
+	#pragma unroll // GCC unroll T::rows * T::columns
+	for ( uint_fast8_t i = 0; i < T::rows * T::columns; ++i )
+		matrix[i] = lhs[i] + rhs[i];
+
 	return matrix;
 }
 // 	Transpose matrix
 template<typename T> T uf::matrix::transpose( const T& matrix ) {
-	static const std::size_t R = T::rows;
-	static const std::size_t C = T::columns;
 	T transpose;
 
-	for ( typename T::type_t col = 0; col < C; ++col )
-	for ( typename T::type_t row = 0; row < R; ++row )
-		transpose[col * R + row] = matrix[row * C + col];
+	#pragma unroll // GCC unroll T::rows
+	for ( typename T::type_t r = 0; r < T::rows; ++r )
+		#pragma unroll // GCC unroll T::columns
+		for ( typename T::type_t c = 0; c < T::columns; ++c )
+			transpose[c * T::rows + r] = matrix[r * T::columns + c];
+
 
 	return transpose;
 }
 // 	Flip sign of all components
 template<typename T> T uf::matrix::inverse( const T& matrix ) {
-	if ( T::rows != 4 ) return matrix;
-	if ( T::columns != 4 ) return matrix;
+	if ( T::rows != 4 || T::columns != 4 ) return matrix;
 
 	const typename T::type_t* m = &matrix[0];
 	typename T::type_t inv[16], det;
-	std::size_t i;
+	uint_fast8_t i;
 
 	inv[0] = m[5]  * m[10] * m[15] - 
 			 m[5]  * m[11] * m[14] - 
@@ -412,7 +447,10 @@ template<typename T> T uf::matrix::inverse( const T& matrix ) {
 	if (det == 0) return matrix;
 	det = 1.0 / det;
 	T inverted;
-	for (i = 0; i < 16; i++) inverted[i] = inv[i] * det;
+	#pragma unroll // GCC unroll 16
+	for ( i = 0; i < 16; ++i )
+		inverted[i] = inv[i] * det;
+
 	return inverted;
 }
 // 	Writes to first value
@@ -519,13 +557,17 @@ template<typename T> T& uf::matrix::scale( T& matrix, const pod::Vector3t<typena
 	return matrix;
 }
 template<typename T> T& uf::matrix::copy( T& destination, const T& source ) {
-	for ( std::size_t i = 0; i < 16; ++i )
+	#pragma unroll // GCC unroll 16
+	for ( uint_fast8_t i = 0; i < 16; ++i )
 		destination[i] = source[i];
+
 	return destination;
 }
 template<typename T> T& uf::matrix::copy( T& destination, typename T::type_t* const source ) {
-	for ( std::size_t i = 0; i < 16; ++i )
+	#pragma unroll // GCC unroll 16
+	for ( uint_fast8_t i = 0; i < 16; ++i )
 		destination[i] = source[i];
+
 	return destination;
 }
 
@@ -543,20 +585,33 @@ template<typename T> pod::Vector3t<typename T::type_t> /*UF_API*/ uf::matrix::eu
 template<typename T, size_t R, size_t C>
 ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json;
-	if ( settings.quantize ) for ( size_t i = 0; i < R*C; ++i ) json[i] = uf::math::quantizeShort( m[i] );
-	else for ( size_t i = 0; i < R*C; ++i ) json[i] = m[i];
+	if ( settings.quantize )
+		#pragma unroll // GCC unroll R*C
+		for ( uint_fast8_t i = 0; i < R*C; ++i )
+			json[i] = uf::math::quantizeShort( m[i] );
+	else
+		#pragma unroll // GCC unroll R*C
+		for ( uint_fast8_t i = 0; i < R*C; ++i )
+			json[i] = m[i];
+
 	return json;
 }
 template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, pod::Matrix<T,R,C>& m ) {
-	for ( size_t i = 0; i < R*C; ++i ) m[i] = json[i].as<T>();
+	#pragma unroll // GCC unroll R*C
+	for ( uint_fast8_t i = 0; i < R*C; ++i )
+		m[i] = json[i].as<T>();
+
 	return m;
 }
 
 template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, const pod::Matrix<T,R,C>& _m ) {
 	pod::Matrix<T,R,C> m = _m;
-	for ( size_t i = 0; i < R*C; ++i ) m[i] = json[i].as<T>();
+	#pragma unroll // GCC unroll R*C
+	for ( uint_fast8_t i = 0; i < R*C; ++i )
+		m[i] = json[i].as<T>();
+
 	return m;
 }
 
@@ -564,8 +619,10 @@ template<typename T, size_t R, size_t C>
 std::string /*UF_API*/ uf::matrix::toString( const pod::Matrix<T,R,C>& m ) {
 	std::stringstream ss;
 	ss << "Matrix(\n\t";
-	for ( size_t c = 0; c < C; ++c ) {
-		for ( size_t r = 0; r < R; ++r ) {
+	#pragma unroll // GCC unroll C
+	for ( uint_fast8_t c = 0; c < C; ++c ) {
+		#pragma unroll // GCC unroll R
+		for ( uint_fast8_t r = 0; r < R; ++r ) {
 			ss << m[r+c*C] << ", ";
 		}
 		if ( c + 1 < C ) ss << "\n\t";
@@ -573,3 +630,7 @@ std::string /*UF_API*/ uf::matrix::toString( const pod::Matrix<T,R,C>& m ) {
 	ss << "\n)";
 	return ss.str();
 }
+
+#if __GNUC__
+	#pragma GCC pop_options
+#endif

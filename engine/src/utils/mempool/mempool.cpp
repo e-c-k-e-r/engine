@@ -81,7 +81,7 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 	pod::Allocation allocation;
 	// pool not initialized
 	if ( len <= 0 ) {
-		if ( DEBUG_PRINT ) uf::iostream << "CANNOT MALLOC: " << size << ", POOL NOT INITIALIZED" << "\n";
+		if ( DEBUG_PRINT ) UF_MSG_DEBUG("CANNOT MALLOC: " << size << ", POOL NOT INITIALIZED");
 		goto MANUAL_MALLOC;
 	}
 
@@ -141,9 +141,9 @@ pod::Allocation uf::MemoryPool::allocate( void* data, size_t size ) {
 		}
 		// no allocation found, OOM
 		if ( index + size > len ) {
-			uf::iostream << "MemoryPool: " << this << ": Out of Memory!\n";
-			uf::iostream << "Trying to request " << size << " bytes of memory\n";
-			uf::iostream << "Stats: " << this->stats() << "\n";
+			UF_MSG_DEBUG("MemoryPool: " << this << ": Out of Memory!");
+			UF_MSG_DEBUG("Trying to request " << size << " bytes of memory");
+			UF_MSG_DEBUG("Stats: " << this->stats());
 			goto MANUAL_MALLOC;
 		}
 
@@ -173,7 +173,7 @@ MANUAL_MALLOC:
 	}
 RETURN:
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.unlock();
-	if ( DEBUG_PRINT ) uf::iostream << "MALLOC'd: " << allocation.pointer << ", " << allocation.size << ", " << allocation.index << "\n";
+	if ( DEBUG_PRINT ) UF_MSG_DEBUG("MALLOC'd: " << allocation.pointer << ", " << allocation.size << ", " << allocation.index);
 	return allocation;
 }
 void* uf::MemoryPool::alloc( void* data, size_t size ) {
@@ -205,7 +205,7 @@ bool uf::MemoryPool::free( void* pointer, size_t size ) {
 	if ( UF_MEMORYPOOL_MUTEX ) this->m_mutex.lock();
 	// fail if uninitialized or pointer is outside of our pool
 	if ( this->m_size <= 0 || pointer < &this->m_pool[0] || pointer >= &this->m_pool[0] + this->m_size ) {
-		if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", ERROR: " << (this->m_size <= 0) << " " << (pointer < &this->m_pool[0]) << " " << (pointer >= &this->m_pool[0] + this->m_size) << "\n";
+		if ( DEBUG_PRINT ) UF_MSG_DEBUG("CANNOT FREE: " << pointer << ", ERROR: " << (this->m_size <= 0) << " " << (pointer < &this->m_pool[0]) << " " << (pointer >= &this->m_pool[0] + this->m_size));
 		goto MANUAL_FREE;
 	}
 	{
@@ -222,15 +222,15 @@ bool uf::MemoryPool::free( void* pointer, size_t size ) {
 		}
 		// pointer isn't actually allocated
 		if ( allocation.index != index ) {
-			if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", NOT FOUND" << "\n";
+			if ( DEBUG_PRINT ) UF_MSG_DEBUG("CANNOT FREE: " << pointer << ", NOT FOUND");
 			goto MANUAL_FREE;
 		}
 		// size validation mismatch, do not free
 		if (size > 0 && allocation.size != size) {
-			if ( DEBUG_PRINT ) uf::iostream << "CANNOT FREE: " << pointer << ", MISMATCHED SIZES (" << size << " != " << allocation.size << ")" << "\n";
+			if ( DEBUG_PRINT ) UF_MSG_DEBUG("CANNOT FREE: " << pointer << ", MISMATCHED SIZES (" << size << " != " << allocation.size << ")");
 			goto MANUAL_FREE;
 		}
-		if ( DEBUG_PRINT ) uf::iostream << "FREE'D ALLOCATION: " << pointer << ", " << size << "\t" << allocation.pointer << ", " << allocation.size << ", " << allocation.index << "\n";
+		if ( DEBUG_PRINT ) UF_MSG_DEBUG("FREE'D ALLOCATION: " << pointer << ", " << size << "\t" << allocation.pointer << ", " << allocation.size << ", " << allocation.index);
 		// remove from our allocation table...
 		this->m_allocations.erase(it);
 		// ...but add it to our free'd allocation cache

@@ -237,7 +237,7 @@ uint32_t ext::vulkan::Device::getQueueFamilyIndex( VkQueueFlagBits queueFlags ) 
 		if ( queueFamilyProperties[i].queueFlags & queueFlags )
 			return i;
 	}
-	UF_EXCEPTION("Could not find a matching queue family index");
+	UF_EXCEPTION("Vulkan error: could not find a matching queue family index");
 }
 uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32 *memTypeFound ) {
 	for ( uint32_t i = 0; i < memoryProperties.memoryTypeCount; ++i ) {
@@ -253,7 +253,7 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 		*memTypeFound = false;
 		return 0;
 	}
-	UF_EXCEPTION("Could not find a matching memory type");
+	UF_EXCEPTION("Vulkan error: could not find a matching memory type");
 }
 
 int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
@@ -477,7 +477,7 @@ VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEn
 		cmdPoolInfo.queueFamilyIndex = index;
 		cmdPoolInfo.flags = createFlags;
 		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
-			UF_EXCEPTION("failed to create command pool for graphics!");
+			UF_EXCEPTION("Vulkan error: failed to create command pool for graphics!");
 	}
 	return *pool;
 }
@@ -538,7 +538,7 @@ void ext::vulkan::Device::initialize() {
 					layerFound = true; break;
 				}
 			}
-			if ( !layerFound ) UF_EXCEPTION("validation layers requested, but not available!");
+			if ( !layerFound ) UF_EXCEPTION("Vulkan error: validation layers requested, but not available!");
 		}
 	}
 	// 
@@ -553,7 +553,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		if ( ext::vulkan::settings::validation )
 			for ( auto ext : requestedExtensions )
-				uf::iostream << "Requested instance extension: " << ext << "\n";
+				UF_MSG_INFO("Requested instance extension: " << ext);
 
 		uint32_t extensionsCount = 0;
 		uint32_t enabledExtensionsCount = 0;
@@ -625,7 +625,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, nullptr );
-		if ( deviceCount == 0 ) UF_EXCEPTION("failed to find GPUs with Vulkan support!");
+		if ( deviceCount == 0 ) UF_EXCEPTION("Vulkan error: failed to find GPUs with Vulkan support!");
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, devices.data() );
@@ -636,7 +636,7 @@ void ext::vulkan::Device::initialize() {
 			candidates.insert( std::make_pair(score, device) );
 		}
 		// Check if the best candidate is suitable at all
-		if ( candidates.rbegin()->first <= 0 ) UF_EXCEPTION("failed to find a suitable GPU!");
+		if ( candidates.rbegin()->first <= 0 ) UF_EXCEPTION("Vulkan error: failed to find a suitable GPU!");
 		this->physicalDevice = candidates.rbegin()->second;
 	}
 	// Update properties
@@ -802,7 +802,7 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) {
-			UF_EXCEPTION("failed to create logical device!"); 
+			UF_EXCEPTION("Vulkan error: failed to create logical device!"); 
 		}
 		{
 			uf::Serializer payload = ext::json::array();

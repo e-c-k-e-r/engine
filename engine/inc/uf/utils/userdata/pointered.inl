@@ -15,8 +15,8 @@ namespace uf {
 		pod::PointeredUserdata UF_API copy( const pod::PointeredUserdata& userdata );
 
 		template<typename T> pod::PointeredUserdata create( const T& data = T() );
-		template<typename T> T& get( pod::PointeredUserdata& userdata, bool validate = true);
-		template<typename T> const T& get(const pod::PointeredUserdata& userdata, bool validate = true );
+		template<typename T> T& get( pod::PointeredUserdata& userdata, bool validate = uf::userdata::autoValidate);
+		template<typename T> const T& get(const pod::PointeredUserdata& userdata, bool validate = uf::userdata::autoValidate );
 		template<typename T> bool is(const pod::PointeredUserdata& userdata);
 
 		std::string UF_API toBase64( pod::PointeredUserdata& userdata );
@@ -63,12 +63,16 @@ namespace uf {
 	// 	POD access
 		PointeredUserdata::pod_t& data(); 								// 	Returns a reference of POD
 		const PointeredUserdata::pod_t& data() const; 					// 	Returns a const-reference of POD
+		size_t size() const;
+	#if UF_USERDATA_RTTI
+		size_t type() const;
+	#endif
 	// 	Validity checks
 		bool initialized() const;
 	// 	Variadic construction
 		template<typename T> pod::PointeredUserdata& create( const T& data = T() );
-		template<typename T> T& get();
-		template<typename T> const T& get() const;
+		template<typename T> T& get(bool = uf::userdata::autoValidate);
+		template<typename T> const T& get(bool = uf::userdata::autoValidate) const;
 
 		template<typename T> bool is() const;
 		template<typename T> inline T& as() { return get<T>(); }
@@ -129,14 +133,7 @@ pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedM
 #include <stdexcept>
 template<typename T>
 T& uf::pointeredUserdata::get( pod::PointeredUserdata& userdata, bool validate ) {
-	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) {
-	#if UF_USERDATA_RTTI
-		if ( userdata.type != typeid(T).hash_code() ) UF_MSG_ERROR("Userdata type mismatch: " << userdata.data << ": expected " << typeid(T).hash_code() << ", got " << userdata.type);
-	#else		
-		if ( userdata.len != sizeof(T) ) UF_MSG_ERROR("Userdata size mismatch: " << userdata.data << ": expected " << sizeof(T) << ", got " << userdata.len);
-	#endif	
-		UF_EXCEPTION("PointeredUserdata size|type mismatch");
-	}
+	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
 		uint8_t* original;
 		T* casted;
@@ -146,14 +143,7 @@ T& uf::pointeredUserdata::get( pod::PointeredUserdata& userdata, bool validate )
 }
 template<typename T>
 const T& uf::pointeredUserdata::get( const pod::PointeredUserdata& userdata, bool validate ) {
-	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) {
-	#if UF_USERDATA_RTTI
-		if ( userdata.type != typeid(T).hash_code() ) UF_MSG_ERROR("Userdata type mismatch: " << userdata.data << ": expected " << typeid(T).hash_code() << ", got " << userdata.type);
-	#else		
-		if ( userdata.len != sizeof(T) ) UF_MSG_ERROR("Userdata size mismatch: " << userdata.data << ": expected " << sizeof(T) << ", got " << userdata.len);
-	#endif	
-		UF_EXCEPTION("PointeredUserdata size|type mismatch");
-	}
+	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
 		const uint8_t* original;
 		const T* casted;
@@ -165,10 +155,9 @@ const T& uf::pointeredUserdata::get( const pod::PointeredUserdata& userdata, boo
 template<typename T>
 bool uf::pointeredUserdata::is( const pod::PointeredUserdata& userdata ) {
 #if UF_USERDATA_RTTI
-	return userdata.type == typeid(T).hash_code();
-#else
-	return userdata.len == sizeof(T);
+	if ( userdata.type ) return userdata.type == typeid(T).hash_code() && userdata.len == sizeof(T);
 #endif
+	return userdata.len == sizeof(T);
 }
 
 // No need to cast data to a pointer AND get the data's size!
@@ -179,25 +168,13 @@ pod::PointeredUserdata& uf::PointeredUserdata::create( const T& data ) {
 }
 // Easy way to get the userdata as a reference
 template<typename T>
-T& uf::PointeredUserdata::get() {
-	union {
-		uint8_t* original;
-		T* casted;
-	} cast;
-	cast.original = this->m_pod.data;
-	return *cast.casted;
-//	return uf::pointeredUserdata::get<T>( this->m_pod );
+T& uf::PointeredUserdata::get(bool validate) {
+	return uf::pointeredUserdata::get<T>( this->m_pod, validate );
 }
 // Easy way to get the userdata as a const-reference
 template<typename T>
-const T& uf::PointeredUserdata::get() const {
-	union {
-		const uint8_t* original;
-		const T* casted;
-	} cast;
-	cast.original = this->m_pod.data;
-	return *cast.casted;
-//	return uf::pointeredUserdata::get<T>( this->m_pod );
+const T& uf::PointeredUserdata::get(bool validate) const {
+	return uf::pointeredUserdata::get<T>( this->m_pod, validate );
 }
 
 template<typename T>

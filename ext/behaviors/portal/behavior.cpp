@@ -124,14 +124,14 @@ void ext::PortalBehavior::render( uf::Object& self ){
 
 		struct UniformDescriptor {
 			struct {
-				alignas(16) pod::Matrix4f models[2];
+				/*alignas(16)*/ pod::Matrix4f models[2];
 			} matrices;
 			struct {
-				alignas(8) pod::Vector2f position = { 0.5f, 0.5f };
-				alignas(8) pod::Vector2f radius = { 0.1f, 0.1f };
-				alignas(16) pod::Vector4f color = { 1, 1, 1, 1 };
+				/*alignas(8)*/ pod::Vector2f position = { 0.5f, 0.5f };
+				/*alignas(8)*/ pod::Vector2f radius = { 0.1f, 0.1f };
+				/*alignas(16)*/ pod::Vector4f color = { 1, 1, 1, 1 };
 			} cursor;
-			alignas(4) float alpha;
+			/*alignas(4)*/ float alpha;
 		};
 
 		auto& shader = blitter.material.shaders.front();

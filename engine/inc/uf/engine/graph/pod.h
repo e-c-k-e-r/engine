@@ -20,10 +20,10 @@ namespace pod {
 
 	struct UF_API DrawCall {
 		struct Storage {
-			alignas(4) int32_t materialIndex = -1;
-			alignas(4) int32_t textureIndex = -1;
-			alignas(4) uint32_t textureSlot = 0;
-			alignas(4) uint32_t padding = 0;
+			/*alignas(4)*/ int32_t materialIndex = -1;
+			/*alignas(4)*/ int32_t textureIndex = -1;
+			/*alignas(4)*/ uint32_t textureSlot = 0;
+			/*alignas(4)*/ uint32_t padding = 0;
 		} storage;
 		std::string name = "";
 		size_t verticesIndex = 0;
@@ -33,16 +33,16 @@ namespace pod {
 	};
 	struct UF_API Light {
 		struct UF_API Storage {
-			alignas(16) pod::Vector4f position;
-			alignas(16) pod::Vector4f color;
+			/*alignas(16)*/ pod::Vector4f position;
+			/*alignas(16)*/ pod::Vector4f color;
 
-			alignas(4) int32_t type = 0;
-			alignas(4) int32_t typeMap = 0;
-			alignas(4) int32_t indexMap = -1;
-			alignas(4) float depthBias = 0;
+			/*alignas(4)*/ int32_t type = 0;
+			/*alignas(4)*/ int32_t typeMap = 0;
+			/*alignas(4)*/ int32_t indexMap = -1;
+			/*alignas(4)*/ float depthBias = 0;
 			
-			alignas(16) pod::Matrix4f view;
-			alignas(16) pod::Matrix4f projection;
+			/*alignas(16)*/ pod::Matrix4f view;
+			/*alignas(16)*/ pod::Matrix4f projection;
 		};
 		std::string name = "";
 		pod::Vector3f color = { 1, 1, 1 };
@@ -51,23 +51,23 @@ namespace pod {
 	};
 	struct UF_API Material {
 		struct Storage {
-			alignas(16) pod::Vector4f colorBase = { 0, 0, 0, 0 };
-			alignas(16) pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
+			/*alignas(16)*/ pod::Vector4f colorBase = { 0, 0, 0, 0 };
+			/*alignas(16)*/ pod::Vector4f colorEmissive = { 0, 0, 0, 0 };
 			
-			alignas(4) float factorMetallic = 0.0f;
-			alignas(4) float factorRoughness = 0.0f;
-			alignas(4) float factorOcclusion = 0.0f;
-			alignas(4) float factorAlphaCutoff = 1.0f;
+			/*alignas(4)*/ float factorMetallic = 0.0f;
+			/*alignas(4)*/ float factorRoughness = 0.0f;
+			/*alignas(4)*/ float factorOcclusion = 0.0f;
+			/*alignas(4)*/ float factorAlphaCutoff = 1.0f;
 
-			alignas(4) int32_t indexAlbedo = -1;
-			alignas(4) int32_t indexNormal = -1;
-			alignas(4) int32_t indexEmissive = -1;
-			alignas(4) int32_t indexOcclusion = -1;
+			/*alignas(4)*/ int32_t indexAlbedo = -1;
+			/*alignas(4)*/ int32_t indexNormal = -1;
+			/*alignas(4)*/ int32_t indexEmissive = -1;
+			/*alignas(4)*/ int32_t indexOcclusion = -1;
 
-			alignas(4) int32_t indexMetallicRoughness = -1;
-			alignas(4) int32_t indexAtlas = -1;
-			alignas(4) int32_t indexLightmap = -1;
-			alignas(4) int32_t modeAlpha = -1;
+			/*alignas(4)*/ int32_t indexMetallicRoughness = -1;
+			/*alignas(4)*/ int32_t indexAtlas = -1;
+			/*alignas(4)*/ int32_t indexLightmap = -1;
+			/*alignas(4)*/ int32_t modeAlpha = -1;
 		} storage;
 		std::string name = "";
 		std::string alphaMode = "";

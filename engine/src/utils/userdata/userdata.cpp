@@ -6,6 +6,7 @@
 
 uf::MemoryPool uf::userdata::memoryPool;
 bool uf::userdata::autoDestruct = true;
+bool uf::userdata::autoValidate = true;
 // Constructs a pod::Userdata struct
 pod::Userdata* UF_API uf::userdata::create( std::size_t len, void* data ) {
 	return uf::userdata::create( uf::userdata::memoryPool, len, data );
@@ -45,7 +46,7 @@ pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool,
 #endif
 	userdata->len = len;
 #if UF_USERDATA_RTTI
-	userdata->type = typeid(NULL).hash_code();
+	userdata->type = 0;
 #endif
 	return userdata;
 }
@@ -156,6 +157,10 @@ const uf::Userdata::pod_t& uf::Userdata::data() const {
 	static Userdata::pod_t null = { 0 };
 	return this->m_pod ? *this->m_pod : null;
 }
+size_t uf::Userdata::size() const { return this->m_pod->len; }
+#if UF_USERDATA_RTTI
+size_t uf::Userdata::type() const { return this->m_pod->type; }
+#endif
 // 	Validity checks
 bool uf::Userdata::initialized() const {
 	return this->m_pod != NULL;

@@ -100,7 +100,7 @@ void postProcess() {
 	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
 #endif
 #if WHITENOISE
-	if ( (ubo.mode.type & (0x1 << 1)) == (0x1 << 1) ) whitenoise(surface.fragment.rgb, ubo.mode.parameters);
+	if ( enabled(ubo.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.mode.parameters);
 #endif
 
 	outFragColor = vec4(surface.fragment.rgb,1);
