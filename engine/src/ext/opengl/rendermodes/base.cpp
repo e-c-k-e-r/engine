@@ -28,7 +28,7 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const std::vector<ext::o
 		CommandBuffer::InfoClear clearCommandInfo = {};
 		clearCommandInfo.type = enums::Command::CLEAR;
 		clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
-		clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
+		clearCommandInfo.depth = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
 			clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );
@@ -56,12 +56,12 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const std::vector<ext::o
 }
 
 void ext::opengl::BaseRenderMode::initialize( Device& device ) {
-	this->metadata["name"] = "Swapchain";
+	this->metadata.name = "Swapchain";
 	auto windowSize = device.window->getSize();
 	this->width = windowSize.x;
 	this->height = windowSize.y;
 
-	if ( uf::Camera::USE_REVERSE_INFINITE_PROJECTION ) {
+	if ( uf::matrix::reverseInfiniteProjection ) {
 		GL_ERROR_CHECK(glDepthFunc(GL_GEQUAL));
 		#if !UF_ENV_DREAMCAST || (UF_ENV_DREAMCAST && UF_USE_OPENGL_GLDC)
 			glDepthRange(0, 1);

@@ -168,7 +168,7 @@ template<typename T> pod::Matrix4t<typename T::type_t> uf::quaternion::matrix( c
 
 //	const typename T::type_t ww = w * w;
 
-	return uf::matrix::initialize({
+	return pod::Matrix4t<typename T::type_t>({
 	1 - yy - zz, 			xy - zw, 			xz + yw, 	0,
 		xy + zw, 		1 - xx - zz, 			yz - xw, 	0,
 		xz - yw, 			yz + xw, 		1 - xx - yy, 	0,

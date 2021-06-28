@@ -820,33 +820,6 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 			this->pushEvent(event.type + "." + code, json);
 		#endif
 		}
-	#if 0
-		/* Readable (JSON) + Optimal (Userdata) event */ {
-			uf::Serializer json;	
-			/* Set up JSON data*/ {
-				json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
-				json["invoker"] 						= event.invoker;
-				json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
-				json["key"]["async"] 					= event.key.async;
-				json["key"]["modifier"]["alt"]			= event.key.modifier.alt;
-				json["key"]["modifier"]["control"] 		= event.key.modifier.ctrl;
-				json["key"]["modifier"]["shift"]		= event.key.modifier.shift;
-				json["key"]["modifier"]["system"]  		= event.key.modifier.sys;
-			}
-			/* Loop through key inputs */ {	
-				for ( auto& key : keys ) {
-					auto code = GetKeyName(key);
-					event.key.code 	= code;
-					event.key.raw  	= key;
-
-					json["key"]["code"] = code;
-					json["key"]["raw"] = key;
-					this->pushEvent(event.type, json);
-					this->pushEvent(event.type + "." + code, json);
-				}
-			}
-		}
-	#endif
 	}
 }
 bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {

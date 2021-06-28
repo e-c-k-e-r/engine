@@ -34,7 +34,8 @@
 				"quantize": false,
 				"precision": 4,
 				"combined": false,
-				"encode buffers": true
+				"encode buffers": true,
+				"unwrap": false
 			},
 			"cull mode": "none",
 

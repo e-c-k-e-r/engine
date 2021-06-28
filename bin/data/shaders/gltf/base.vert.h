@@ -1,5 +1,7 @@
 layout (constant_id = 0) const uint PASSES = 6;
 
+#include "../common/structs.h"
+
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec2 inSt;
@@ -16,19 +18,10 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-struct Matrices {
-#if !INSTANCED
-	mat4 model;
-#endif
-	mat4 view[PASSES];
-	mat4 projection[PASSES];
-};
-layout (binding = 3) uniform UBO {
-	Matrices matrices;
-#if !INSTANCED
-	vec4 color;
-#endif
-} ubo;
+
+layout (binding = 3) uniform Camera {
+	Viewport viewport[PASSES];
+} camera;
 
 #if SKINNED && INSTANCED
 	layout (std140, binding = 4) readonly buffer Models {
@@ -37,14 +30,19 @@ layout (binding = 3) uniform UBO {
 	layout (std140, binding = 5) readonly buffer Joints {
 		mat4 joints[];
 	};
-#elif SKINNED
-	layout (std140, binding = 4) readonly buffer Joints {
-		mat4 joints[];
-	};
-#elif INSTANCED
-	layout (std140, binding = 4) readonly buffer Models {
-		mat4 models[];
-	};
+#else
+	layout (binding = 4) uniform UBO {
+		mat4 model;
+	} ubo;
+	#if SKINNED
+		layout (std140, binding = 5) readonly buffer Joints {
+			mat4 joints[];
+		};
+	#elif INSTANCED
+		layout (std140, binding = 5) readonly buffer Models {
+			mat4 models[];
+		};
+	#endif
 #endif
 
 layout (location = 0) out vec2 outUv;
@@ -66,12 +64,11 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 void main() {
 	outUv = inUv;
 	outSt = inSt;
-#if INSTANCED
-	outColor = vec4(1);
-#else
-	outColor = ubo.color;
-#endif
+	outColor = vec4(1); // ubo.color;
 	outId = ivec4(inId, PushConstant.pass, PushConstant.draw);
+
+	const mat4 view = camera.viewport[PushConstant.pass].view;
+	const mat4 projection = camera.viewport[PushConstant.pass].projection;
 #if SKINNED 
 	mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[int(inJoints.x)] + inWeights.y * joints[int(inJoints.y)] + inWeights.z * joints[int(inJoints.z)] + inWeights.w * joints[int(inJoints.w)];
 #else
@@ -80,16 +77,16 @@ void main() {
 #if INSTANCED
 	mat4 model = models.length() <= 0 ? skinned : (models[int(inId.x)] * skinned);
 #else
-	mat4 model = ubo.matrices.model * skinned;
+	mat4 model = ubo.model * skinned;
 #endif
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
 
-	vec3 T = vec3(ubo.matrices.view[PushConstant.pass] * model * vec4(inTangent.xyz, 0.0));
+	vec3 T = vec3(view * model * vec4(inTangent.xyz, 0.0));
 	vec3 N = outNormal;
 	vec3 B = cross(N, T) * inTangent.w;
 	outTBN = mat3( T, B, N );
 
-	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * model * vec4(inPos.xyz, 1.0);
+	gl_Position = projection * view * model * vec4(inPos.xyz, 1.0);
 }

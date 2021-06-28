@@ -10,11 +10,13 @@
 
 
 const std::string ext::opengl::RenderTargetRenderMode::getTarget() const {
-	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-	return metadata["target"].as<std::string>();
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["target"].as<std::string>();
+	return metadata.target;
 }
 void ext::opengl::RenderTargetRenderMode::setTarget( const std::string& target ) {
-	this->metadata["target"] = target;
+//	this->metadata["target"] = target;
+	metadata.target = target;
 }
 
 const std::string ext::opengl::RenderTargetRenderMode::getType() const {
@@ -32,14 +34,17 @@ std::vector<ext::opengl::Graphic*> ext::opengl::RenderTargetRenderMode::getBlitt
 
 ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
 	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
-	descriptor.parse(metadata["descriptor"]);
-	std::string type = metadata["type"].as<std::string>();
-	std::string target = metadata["target"].as<std::string>();
-	if ( type == "depth" ) {
-	//	descriptor.cullMode = VK_CULL_MODE_NONE;
+	descriptor.parse(metadata.json["descriptor"]);
+	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == "vxgi" ) {
+	//	descriptor.cullMode = GL_CULL_MODE_NONE;
+		descriptor.depth.test = false;
+		descriptor.depth.write = false;
+		descriptor.pipeline = "vxgi";
+	} else if ( metadata.type == "depth" ) {
+	//	descriptor.cullMode = GL_CULL_MODE_NONE;
 	}
 	// invalidate
-	if ( target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != target ) {
+	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
 		descriptor.invalidated = true;
 	} else {
 		descriptor.renderMode = this->getName();

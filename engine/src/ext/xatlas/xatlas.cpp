@@ -94,7 +94,7 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 			vertex.id.x = node.index;
 		// in almost-software mode, material ID is actually its albedo ID, as we can't use any other forms of mapping
 		#if UF_USE_OPENGL_FIXED_FUNCTION
-			if ( !(graph.mode & ext::gltf::LoadMode::ATLAS) ) {
+			if ( !(graph.mode & uf::graph::LoadMode::ATLAS) ) {
 				auto& material = graph.materials[vertex.id.y];
 				auto& texture = graph.textures[material.storage.indexAlbedo];
 				vertex.id.y = texture.storage.index;

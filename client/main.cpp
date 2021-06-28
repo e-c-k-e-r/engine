@@ -10,7 +10,6 @@
 #else
 	#define HANDLE_EXCEPTIONS 0
 #endif
-
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -57,10 +56,10 @@ int main(int argc, char** argv){
 			ext::render();
 			ext::tick();
 		#else
-			client::render();
-			ext::render();
 			client::tick();
+			client::render();
 			ext::tick();
+			ext::render();
 		#endif
 	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {

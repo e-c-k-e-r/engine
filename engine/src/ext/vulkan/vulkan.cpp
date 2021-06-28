@@ -28,8 +28,9 @@ VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::waitOnRenderEnd = false;
-bool ext::vulkan::settings::experimental::individualPipelines = false;
-bool ext::vulkan::settings::experimental::multithreadedCommandRecording = false;
+bool ext::vulkan::settings::experimental::individualPipelines = true;
+bool ext::vulkan::settings::experimental::multithreadedCommandRecording = true;
+bool ext::vulkan::settings::experimental::multithreadedCommandRendering = false;
 std::string ext::vulkan::settings::experimental::deferredMode = "";
 bool ext::vulkan::settings::experimental::deferredReconstructPosition = false;
 bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
@@ -60,6 +61,7 @@ ext::vulkan::RenderMode* ext::vulkan::currentRenderMode = NULL;
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
 };
+std::unordered_map<std::string, ext::vulkan::RenderMode*> ext::vulkan::renderModesMap;
 
 VkResult ext::vulkan::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -151,25 +153,24 @@ void ext::vulkan::alignedFree(void* data) {
 }
 
 bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
+	if ( isName && ext::vulkan::renderModesMap.count(name) > 0 ) return true;
 	for ( auto& renderMode: ext::vulkan::renderModes ) {
-		if ( isName ) {
-			if ( renderMode->getName() == name ) return true;
-		} else {
-			if ( renderMode->getType() == name ) return true;
-		}
+		if ( isName && renderMode->getName() == name ) return true;
+		else if ( renderMode->getType() == name ) return true;
 	}
 	return false;
 }
 
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
 	mode->metadata.name = name;
-	renderModes.push_back(mode);
+	renderModesMap[name] = renderModes.emplace_back(mode);
 	VK_VALIDATION_MESSAGE("Adding RenderMode: " << name << ": " << mode->getType());
 	// reorder
 	ext::vulkan::states::rebuild = true;
 	return *mode;
 }
 ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
+	if ( isName && renderModesMap.count(name) > 0 ) return *renderModesMap[name];
 	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
@@ -189,6 +190,7 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 	return *target;
 }
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::string& name, bool isName ) {
+	if ( isName && renderModesMap.count(name) > 0 ) return { renderModesMap[name] };
 	return ext::vulkan::getRenderModes({name}, isName);
 }
 std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::vector<std::string>& names, bool isName ) {
@@ -196,14 +198,15 @@ std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::ve
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
-//			VK_VALIDATION_MESSAGE("Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")");
 		}
 	}
 	return targets;
 }
 void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	if ( !mode ) return;
+	std::string name = mode->getName();
 	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
+	renderModesMap.erase( name );
 	mode->destroy();
 	if ( free ) delete mode;
 	ext::vulkan::states::rebuild = true;
@@ -341,14 +344,36 @@ void ext::vulkan::render() {
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
 
+#if 1
+	std::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( !renderMode->execute ) continue;
+		if ( !renderMode || !renderMode->execute ) continue;
+		ext::vulkan::currentRenderMode = renderMode;
+		if ( settings::experimental::multithreadedCommandRendering ) {
+			jobs.emplace_back([&]{
+				uf::scene::render();
+				renderMode->render();
+				renderMode->executed = true;
+				return 0;
+			});
+		} else {
+			uf::scene::render();
+			renderMode->render();
+			renderMode->executed = true;
+		}
+	}
+	if ( !jobs.empty() ) {
+		uf::thread::batchWorkers( jobs );
+	}
+#else
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode || !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
 		uf::scene::render();
 		renderMode->render();
 		renderMode->executed = true;
 	}
+#endif
 
 	ext::vulkan::currentRenderMode = NULL;
 	if ( ext::vulkan::settings::experimental::waitOnRenderEnd ) {

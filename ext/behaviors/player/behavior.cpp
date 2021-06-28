@@ -28,6 +28,48 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
+#if 1
+	{
+		camera.setStereoscopic(true);
+		
+		pod::Transform<>& transform = camera.getTransform();
+		
+		transform.position = uf::vector::decode( metadataJson["camera"]["position"], transform.position );
+		transform.scale = uf::vector::decode( metadataJson["camera"]["scale"], transform.scale );
+
+		if ( metadataJson["camera"]["ortho"].as<bool>() ) {
+			float l = metadataJson["camera"]["settings"]["left"].as<float>();
+			float r = metadataJson["camera"]["settings"]["right"].as<float>();
+			float b = metadataJson["camera"]["settings"]["bottom"].as<float>();
+			float t = metadataJson["camera"]["settings"]["top"].as<float>();
+			float n = metadataJson["camera"]["settings"]["near"].as<float>();
+			float f = metadataJson["camera"]["settings"]["far"].as<float>();
+			
+			camera.setProjection( uf::matrix::orthographic( l, r, b, t, n, f ) );
+		} else {
+			float fov = metadataJson["camera"]["settings"]["fov"].as<float>(120) * (3.14159265358f / 180.0f);
+			float znear = metadataJson["camera"]["settings"]["clip"]["near"].as<float>();
+			float zfar = metadataJson["camera"]["settings"]["clip"]["far"].as<float>();
+			
+			pod::Vector2ui size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector2ui{} );
+			float raidou = (float) size.x / (float) size.y;
+
+			if ( size.x == 0 || size.y == 0 )  {
+				size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
+				raidou = (float) size.x / (float) size.y;
+				this->addHook( "window:Resized", [&, fov, znear, zfar](ext::json::Value& json){
+					pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
+					float raidou = (float) size.x / (float) size.y;
+					camera.setProjection( uf::matrix::perspective( fov, raidou, znear, zfar ) );
+				} );
+			}
+			camera.setProjection( uf::matrix::perspective( fov, raidou, znear, zfar ) );
+
+		}
+
+		camera.update(true);
+	}
+#else
 	/* Load Config */ {
 		struct {
 			int mode = 0;
@@ -81,10 +123,6 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		}
 		camera.setStereoscopic(true);
 
-		settings.offset.x = metadataJson["camera"]["offset"][0].as<double>();
-		settings.offset.y = metadataJson["camera"]["offset"][1].as<double>();
-		settings.offset.z = metadataJson["camera"]["offset"][2].as<double>();
-
 		pod::Transform<>& transform = camera.getTransform();
 		/* Transform initialization */ {
 			transform.position.x = metadataJson["camera"]["position"][0].as<double>();
@@ -95,9 +133,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			transform.scale.y = metadataJson["camera"]["scale"][1].as<double>();
 			transform.scale.z = metadataJson["camera"]["scale"][2].as<double>();
 		}
-		camera.setOffset(settings.offset);
 		camera.update(true);
 	}
+#endif
 	metadataJson["system"]["control"] = true;
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
 		metadata.system.control = !json["state"].as<bool>();
@@ -135,7 +173,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 				updateCamera = true;
 			} else metadata.camera.limit.current.y -= relta.y;
 		}
-		if ( updateCamera ) camera.updateView();
+		if ( updateCamera ) camera.update(true);
 	});
 #if 0
 	this->addHook( ":Update.%UID%", [&](ext::json::Value& json){
@@ -692,7 +730,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 #endif
-	if ( stats.updateCamera ) camera.updateView();
+	if ( stats.updateCamera ) camera.update(true);
 
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize();

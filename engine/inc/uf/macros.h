@@ -47,9 +47,11 @@
 	}
 #endif
 
+#define UF_ASSERT(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: " << #condition); }
 #define UF_ASSERT_BREAK(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: " << #condition); break; }
 #define UF_ASSERT_SAFE(condition) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: " << #condition); }
 
+#define UF_ASSERT_MSG(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: " << #condition << " " << __VA_ARGS__); }
 #define UF_ASSERT_BREAK_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: " << #condition << " " << __VA_ARGS__); break; }
 #define UF_ASSERT_SAFE_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: " << #condition << " " << __VA_ARGS__); }
 

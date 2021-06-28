@@ -30,6 +30,7 @@ namespace ext {
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
 				extern UF_API bool multithreadedCommandRecording;
+				extern UF_API bool multithreadedCommandRendering;
 				extern UF_API std::string deferredMode;
 				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
@@ -37,6 +38,8 @@ namespace ext {
 				extern UF_API bool vsync;
 				extern UF_API bool hdr;
 				extern UF_API bool frustrumCull;
+				extern UF_API bool vxgi;
+				extern UF_API bool deferredSampling;
 			}
 
 			namespace formats {

@@ -40,7 +40,8 @@
 				"quantize": false,
 				"precision": 4,
 				"combined": false,
-				"encode buffers": true
+				"encode buffers": true,
+				"unwrap": true
 			},
 			"ambient": [ 0, 0, 0 ],
 		/*
@@ -49,6 +50,7 @@
 				"size": [5, 1, 5]
 			},
 		*/
+		//	"lightmap": "./lightmap.min.png",
 		//	"lightmap": "./lightmap.png",
 			"filter": "NEAREST",
 			"flags": {

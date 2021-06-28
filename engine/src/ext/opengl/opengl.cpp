@@ -7,7 +7,7 @@
 #include <uf/utils/graphic/graphic.h>
 
 #include <uf/ext/openvr/openvr.h>
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 
 #include <ostream>
 #include <fstream>
@@ -31,6 +31,7 @@ bool ext::opengl::settings::experimental::rebuildOnTickBegin = false;
 bool ext::opengl::settings::experimental::waitOnRenderEnd = false;
 bool ext::opengl::settings::experimental::individualPipelines = true;
 bool ext::opengl::settings::experimental::multithreadedCommandRecording = true;
+bool ext::opengl::settings::experimental::multithreadedCommandRendering = false;
 std::string ext::opengl::settings::experimental::deferredMode = "";
 bool ext::opengl::settings::experimental::deferredReconstructPosition = false;
 bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;
@@ -38,6 +39,8 @@ bool ext::opengl::settings::experimental::multiview = true;
 bool ext::opengl::settings::experimental::vsync = true;
 bool ext::opengl::settings::experimental::hdr = true;
 bool ext::opengl::settings::experimental::frustrumCull = false;
+bool ext::opengl::settings::experimental::vxgi = true;
+bool ext::opengl::settings::experimental::deferredSampling = true;
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;
@@ -86,7 +89,7 @@ bool ext::opengl::hasRenderMode( const std::string& name, bool isName ) {
 }
 
 ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const std::string& name ) {
-	mode->metadata["name"] = name;
+	mode->metadata.name = name;
 	renderModes.push_back(mode);
 	if ( ext::opengl::settings::validation ) uf::iostream << "Adding RenderMode: " << name << ": " << mode->getType() << "\n";
 	// reorder
@@ -176,7 +179,7 @@ void UF_API ext::opengl::initialize() {
 		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 
-			ext::gltf::mesh_t::vertex_t* verticesSrc = (ext::gltf::mesh_t::vertex_t*) userdata;
+			pod::Graph::Mesh::vertex_t* verticesSrc = (pod::Graph::Mesh::vertex_t*) userdata;
 
 			uf::renderer::Buffer::Descriptor vertexBuffer = {};
 			uf::renderer::Buffer::Descriptor instancesBuffer = graphic.getStorage(0);
@@ -242,7 +245,7 @@ void UF_API ext::opengl::initialize() {
 		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 
-			ext::gltf::mesh_t::vertex_t* verticesSrc = (ext::gltf::mesh_t::vertex_t*) userdata;
+			pod::Graph::Mesh::vertex_t* verticesSrc = (pod::Graph::Mesh::vertex_t*) userdata;
 
 			uf::renderer::Buffer::Descriptor vertexBuffer = {};
 			uf::renderer::Buffer::Descriptor jointsBuffer = graphic.getStorage(0);

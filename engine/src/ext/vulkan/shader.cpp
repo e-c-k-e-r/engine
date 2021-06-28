@@ -442,7 +442,8 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType, size_t index ) {			
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
-			std::string name = resource.name;
+			const size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+			const std::string name = resource.name;
 			size_t arraySize = 1;
 			if ( !type.array.empty() ) {
 				arraySize = type.array[0];
@@ -453,23 +454,30 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					std::string tname = "";
+					ext::vulkan::enums::Image::viewType_t etype{};
 					switch ( type.image.dim ) {
-						case spv::Dim::Dim1D: tname = "1D"; break;
-						case spv::Dim::Dim2D: tname = "2D"; break;
-						case spv::Dim::Dim3D: tname = "3D"; break;
-						case spv::Dim::DimCube: tname = "Cube"; break;
+						case spv::Dim::Dim1D: tname = "1D"; etype = ext::vulkan::enums::Image::VIEW_TYPE_1D; break;
+						case spv::Dim::Dim2D: tname = "2D"; etype = ext::vulkan::enums::Image::VIEW_TYPE_2D; break;
+						case spv::Dim::Dim3D: tname = "3D"; etype = ext::vulkan::enums::Image::VIEW_TYPE_3D; break;
+						case spv::Dim::DimCube: tname = "Cube"; etype = ext::vulkan::enums::Image::VIEW_TYPE_CUBE; break;
 						case spv::Dim::DimRect: tname = "Rect"; break;
 						case spv::Dim::DimBuffer: tname = "Buffer"; break;
 						case spv::Dim::DimSubpassData: tname = "SubpassData"; break;
-
 					}
-					size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
 					std::string key = std::to_string(binding);
 					metadata.json["definitions"]["textures"][key]["name"] = name;
 					metadata.json["definitions"]["textures"][key]["index"] = index;
 					metadata.json["definitions"]["textures"][key]["binding"] = binding;
 					metadata.json["definitions"]["textures"][key]["size"] = arraySize;
 					metadata.json["definitions"]["textures"][key]["type"] = tname;
+
+					metadata.definitions.textures[binding] = Shader::Metadata::Definition::Texture{
+						name,
+						index,
+						binding,
+						arraySize,
+						etype,
+					};
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
 					size_t bufferSize = comp.get_declared_struct_size(base_type);
@@ -485,31 +493,41 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 					}
 					{
 						VK_DEBUG_VALIDATION_MESSAGE("Uniform size of " << bufferSize << " for shader " << filename);
-						auto& uniform = uniforms.emplace_back();
-						uniform.create( bufferSize );
-					}		
+					//	auto& uniform = uniforms.emplace_back();
+					//	uniform.create( bufferSize );
+					}
 					// generate definition to JSON
 					{
 						metadata.json["definitions"]["uniforms"][name]["name"] = name;
 						metadata.json["definitions"]["uniforms"][name]["index"] = index;
+						metadata.json["definitions"]["uniforms"][name]["binding"] = binding;
 						metadata.json["definitions"]["uniforms"][name]["size"] = bufferSize;
 						metadata.json["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
 					}
+					// generate definition to unordered_map
+					metadata.definitions.uniforms[name] = Shader::Metadata::Definition::Uniform{
+						name,
+						index,
+						binding,
+						bufferSize,
+					};
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
 					// generate definition to JSON
 					{
 						metadata.json["definitions"]["storage"][name]["name"] = name;
 						metadata.json["definitions"]["storage"][name]["index"] = index;
+						metadata.json["definitions"]["storage"][name]["binding"] = binding;
 						metadata.json["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
 					}
-					// test
-					{
-					//	updateUniform(name, getUniform(name));
-					}
+					metadata.definitions.storage[name] = Shader::Metadata::Definition::Storage{
+						name,
+						index,
+						binding
+					};
 				} break;
 			}
-			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, comp.get_decoration(resource.id, spv::DecorationBinding), arraySize ) );
+			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
 		};
 		
 
@@ -527,11 +545,24 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
 		#undef LOOP_RESOURCES
-
+	
+		{
+			uniforms.reserve( metadata.definitions.uniforms.size() );
+			std::vector<size_t> sizes( metadata.definitions.uniforms.size() );
+			for ( auto pair : metadata.definitions.uniforms ) {
+				sizes[pair.second.index] = pair.second.size;
+			}
+			for ( auto size : sizes ) {
+				auto& uniform = uniforms.emplace_back();
+				uniform.create( size );
+			}
+		}
+	
 		for ( const auto& resource : res.push_constant_buffers ) {
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
-			std::string name = resource.name;
+			const size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+			const std::string name = resource.name;
 			size_t size = comp.get_declared_struct_size(type);
 			if ( size <= 0 ) continue;
 			// not a multiple of 4, for some reason
@@ -553,9 +584,19 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const std::st
 			// generate definition to JSON
 			{
 				metadata.json["definitions"]["pushConstants"][name]["name"] = name;
-				metadata.json["definitions"]["pushConstants"][name]["size"] = size;
 				metadata.json["definitions"]["pushConstants"][name]["index"] = pushConstants.size() - 1;
+				metadata.json["definitions"]["pushConstants"][name]["binding"] = binding;
+				metadata.json["definitions"]["pushConstants"][name]["size"] = size;
 				metadata.json["definitions"]["pushConstants"][name]["members"] = parseMembers(resource.type_id);
+			}
+			// generate definition to unordered_map
+			{
+				metadata.definitions.pushConstants[name] = Shader::Metadata::Definition::PushConstant{
+					name,
+					pushConstants.size() - 1,
+					binding,
+					size
+				};
 			}
 		}
 		
@@ -698,11 +739,13 @@ bool ext::vulkan::Shader::validate() {
 	return valid;
 }
 bool ext::vulkan::Shader::hasUniform( const std::string& name ) {
-	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
+//	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
+	return metadata.definitions.uniforms.count(name) > 0;
 }
 ext::vulkan::Buffer* ext::vulkan::Shader::getUniformBuffer( const std::string& name ) {
 	if ( !hasUniform(name) ) return NULL;
-	size_t uniformIndex = metadata.json["definitions"]["uniforms"][name]["index"].as<size_t>();
+//	size_t uniformIndex = metadata.json["definitions"]["uniforms"][name]["index"].as<size_t>();
+	size_t uniformIndex = metadata.definitions.uniforms[name].index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
@@ -711,15 +754,15 @@ ext::vulkan::Buffer* ext::vulkan::Shader::getUniformBuffer( const std::string& n
 	return NULL;
 }
 ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const std::string& name ) {
-	if ( !hasUniform(name) ) {
-		static ext::vulkan::userdata_t null;
-		return null;
-	}
+	UF_ASSERT( hasUniform(name) );
+	return uniforms[metadata.definitions.uniforms[name].index];
+/*
 	auto& definition = metadata.json["definitions"]["uniforms"][name];
 	size_t uniformSize = definition["size"].as<size_t>();
 	size_t uniformIndex = definition["index"].as<size_t>();
 	auto& userdata = uniforms[uniformIndex];
 	return userdata;
+*/
 }
 bool ext::vulkan::Shader::updateUniform( const std::string& name ) {
 	if ( !hasUniform(name) ) return false;
@@ -730,7 +773,8 @@ bool ext::vulkan::Shader::updateUniform( const std::string& name, const ext::vul
 	if ( !hasUniform(name) ) return false;
 	auto* bufferObject = getUniformBuffer(name);
 	if ( !bufferObject ) return false;
-	size_t size = std::max(metadata.json["definitions"]["uniforms"][name]["size"].as<size_t>(), bufferObject->allocationInfo.size);
+//	size_t size = std::max(metadata.json["definitions"]["uniforms"][name]["size"].as<size_t>(), bufferObject->allocationInfo.size);
+	size_t size = MAX(metadata.definitions.uniforms[name].size, bufferObject->allocationInfo.size);
 	updateBuffer( (void*) userdata, size, *bufferObject );
 	return true;
 }
@@ -743,7 +787,7 @@ uf::Serializer ext::vulkan::Shader::getUniformJson( const std::string& name, boo
 	return definitionToJson(definition);
 }
 ext::vulkan::userdata_t ext::vulkan::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
-	if ( !hasUniform(name) ) return false;
+	UF_ASSERT( hasUniform(name) );
 	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
 }
 bool ext::vulkan::Shader::updateUniform( const std::string& name, const ext::json::Value& payload ) {
@@ -758,12 +802,14 @@ bool ext::vulkan::Shader::updateUniform( const std::string& name, const ext::jso
 }
 
 bool ext::vulkan::Shader::hasStorage( const std::string& name ) {
-	return !ext::json::isNull(metadata.json["definitions"]["storage"][name]);
+//	return !ext::json::isNull(metadata.json["definitions"]["storage"][name]);
+	return metadata.definitions.storage.count(name) > 0;
 }
 
 ext::vulkan::Buffer* ext::vulkan::Shader::getStorageBuffer( const std::string& name ) {
 	if ( !hasStorage(name) ) return NULL;
-	size_t storageIndex = metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
+//	size_t storageIndex = metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
+	size_t storageIndex = metadata.definitions.storage[name].index;
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
 		if ( storageCounter++ != storageIndex ) continue;

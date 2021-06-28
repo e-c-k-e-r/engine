@@ -208,6 +208,19 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 	auto& controllerCamera = controller.getComponent<uf::Camera>();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& controllerCameraTransform = controllerCamera.getTransform();
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& camera = controller.getComponent<uf::Camera>();
+
+	pod::Matrix4f playerModel = uf::matrix::identity(); {
+		auto& controller = this->getParent();
+		auto& camera = controller.getComponent<uf::Camera>();
+		pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
+		pod::Matrix4f rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
+		playerModel = translation * rotation;
+	}
+
 	{
 		pod::Transform<>& transform = ::hands.left->getComponent<pod::Transform<>>();
 		transform.position = ext::openvr::controllerPosition( vr::Controller_Hand::Hand_Left );
@@ -282,7 +295,95 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 			for ( size_t i = 0; i < 2; ++i ) lightCamera.setView( model, i );
 		}
 	}
+	//
+	if ( ::hands.left && ::hands.left->hasComponent<uf::Graphic>() ) {
+		auto& graphic = ::hands.left->getComponent<uf::Graphic>();
+		auto& transform = ::hands.left->getComponent<pod::Transform<>>();
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
+		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
+			struct UniformDescriptor {
+				/*alignas(16)*/ pod::Matrix4f model;
+			};
+			auto& shader = graphic.material.getShader("vertex");
+			auto& uniforms = uniform.get<UniformDescriptor>();
+			uniforms.model = model;
+		//	uniforms.color = uf::vector::decode( metadata["hands"]["left"]["controller"]["color"], pod::Vector4f{1,1,1,1} );
 
+			if ( uf::renderer::currentRenderMode ) {
+				auto& renderMode = *uf::renderer::currentRenderMode;
+				if ( renderMode.getName() == "" ) uniforms.model = pod::Matrix4f{};
+			} else uniforms.model = pod::Matrix4f{};
+
+			shader.updateUniform( "UBO", uniform );
+		}
+	}
+	if ( ::hands.right && ::hands.right->hasComponent<uf::Graphic>() ) {
+		auto& graphic = ::hands.right->getComponent<uf::Graphic>();
+		auto& transform = ::hands.right->getComponent<pod::Transform<>>();
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
+		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
+			struct UniformDescriptor {
+				/*alignas(16)*/ pod::Matrix4f model;
+			};
+			auto& shader = graphic.material.getShader("vertex");
+			auto& uniforms = uniform.get<UniformDescriptor>();
+			uniforms.model = model;
+		//	uniforms.color = uf::vector::decode( metadata["hands"]["right"]["controller"]["color"], pod::Vector4f{1,1,1,1} );
+
+			if ( uf::renderer::currentRenderMode ) {
+				auto& renderMode = *uf::renderer::currentRenderMode;
+				if ( renderMode.getName() == "" ) uniforms.model = pod::Matrix4f{};
+			} else uniforms.model = pod::Matrix4f{};
+
+			shader.updateUniform( "UBO", uniform );
+		}
+	}
+	if ( ::lines.left && ::lines.left->hasComponent<uf::Graphic>() ) {
+		auto& graphic = ::lines.left->getComponent<uf::Graphic>();
+		auto& transform = ::lines.left->getComponent<pod::Transform<>>();
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Left );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
+		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
+			struct UniformDescriptor {
+				/*alignas(16)*/ pod::Matrix4f model;
+			};
+			auto& shader = graphic.material.getShader("vertex");
+			auto& uniforms = uniform.get<UniformDescriptor>();
+			uniforms.model = model;
+		//	uniforms.color = uf::vector::decode( metadata["hands"]["left"]["pointer"]["color"], pod::Vector4f{1,1,1,1} );
+
+			if ( uf::renderer::currentRenderMode ) {
+				auto& renderMode = *uf::renderer::currentRenderMode;
+				if ( renderMode.getName() == "" ) uniforms.model = pod::Matrix4f{};
+			} else uniforms.model = pod::Matrix4f{};
+
+			shader.updateUniform( "UBO", uniform );
+		}
+	}
+	if ( ::lines.right && ::lines.right->hasComponent<uf::Graphic>() ) {
+		auto& graphic = ::lines.right->getComponent<uf::Graphic>();
+		auto& transform = ::lines.right->getComponent<pod::Transform<>>();
+		graphic.process = ext::openvr::controllerActive( vr::Controller_Hand::Hand_Right );
+		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
+		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
+			struct UniformDescriptor {
+				/*alignas(16)*/ pod::Matrix4f model;
+			};
+			auto& shader = graphic.material.getShader("vertex");
+			auto& uniforms = uniform.get<UniformDescriptor>();
+			uniforms.model = model;
+		//	uniforms.color = uf::vector::decode( metadata["hands"]["right"]["pointer"]["color"], pod::Vector4f{1,1,1,1} );
+
+			if ( uf::renderer::currentRenderMode ) {
+				auto& renderMode = *uf::renderer::currentRenderMode;
+				if ( renderMode.getName() == "" ) uniforms.model = pod::Matrix4f{};
+			} else uniforms.model = pod::Matrix4f{};
+
+			shader.updateUniform( "UBO", uniform );
+		}
+	}
 	// raytrace pointer / hand collision
 	{
 		std::vector<uf::Object*> handPointers = { ::hands.left, ::hands.right };
@@ -366,14 +467,6 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 
-	pod::Matrix4f playerModel = uf::matrix::identity(); {
-		auto& controller = this->getParent();
-		auto& camera = controller.getComponent<uf::Camera>();
-		pod::Matrix4f translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
-		pod::Matrix4f rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
-		playerModel = translation * rotation;
-	}
-//	pod::Matrix4f cameraModel = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position ) * uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );	
 	if ( ::hands.left && ::hands.left->hasComponent<uf::Graphic>() ) {
 		auto& graphic = ::hands.left->getComponent<uf::Graphic>();
 		auto& transform = ::hands.left->getComponent<pod::Transform<>>();
@@ -381,28 +474,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, false );
 		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
 			auto& shader = graphic.material.getShader("vertex");
-			auto& uniform = shader.getUniform("UBO");
-			auto& uniforms = uniform.get<uf::MeshDescriptor<>>();
-
-			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-			uniforms.color[0] = metadata["hands"]["left"]["controller"]["color"][0].as<float>();
-			uniforms.color[1] = metadata["hands"]["left"]["controller"]["color"][1].as<float>();
-			uniforms.color[2] = metadata["hands"]["left"]["controller"]["color"][2].as<float>();
-			uniforms.color[3] = metadata["hands"]["left"]["controller"]["color"][3].as<float>();
-
-			if ( uf::renderer::currentRenderMode ) {
-				auto& renderMode = *uf::renderer::currentRenderMode;
-				if ( renderMode.getName() == "" )
-					uniforms.matrices.model = pod::Matrix4f{};
-			} else {
-				uniforms.matrices.model = pod::Matrix4f{};
-			}
-
-			shader.updateUniform( "UBO", uniform );
+			auto& uniform = shader.getUniform("Camera");
+			auto& uniforms = uniform.get<pod::Camera::Viewports>();
+			uniforms = camera.data().viewport;
+			shader.updateUniform("Camera", uniform);
 		}
 	}
 	if ( ::hands.right && ::hands.right->hasComponent<uf::Graphic>() ) {
@@ -412,28 +487,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, false );
 		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
 			auto& shader = graphic.material.getShader("vertex");
-			auto& uniform = shader.getUniform("UBO");
-			auto& uniforms = uniform.get<uf::MeshDescriptor<>>();
-
-			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-			uniforms.color[0] = metadata["hands"]["right"]["controller"]["color"][0].as<float>();
-			uniforms.color[1] = metadata["hands"]["right"]["controller"]["color"][1].as<float>();
-			uniforms.color[2] = metadata["hands"]["right"]["controller"]["color"][2].as<float>();
-			uniforms.color[3] = metadata["hands"]["right"]["controller"]["color"][3].as<float>();
-
-			if ( uf::renderer::currentRenderMode ) {
-				auto& renderMode = *uf::renderer::currentRenderMode;
-				if ( renderMode.getName() == "" )
-					uniforms.matrices.model = pod::Matrix4f{};
-			} else {
-				uniforms.matrices.model = pod::Matrix4f{};
-			}
-
-			shader.updateUniform( "UBO", uniform );
+			auto& uniform = shader.getUniform("Camera");
+			auto& uniforms = uniform.get<pod::Camera::Viewports>();
+			uniforms = camera.data().viewport;
+			shader.updateUniform("Camera", uniform);
 		}
 	}
 	if ( ::lines.left && ::lines.left->hasComponent<uf::Graphic>() ) {
@@ -443,20 +500,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Left, true );
 		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
 			auto& shader = graphic.material.getShader("vertex");
-			auto& uniform = shader.getUniform("UBO");
-			auto& uniforms = uniform.get<uf::MeshDescriptor<>>();
-
-			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-			uniforms.color[0] = metadata["hands"]["left"]["pointer"]["color"][0].as<float>();
-			uniforms.color[1] = metadata["hands"]["left"]["pointer"]["color"][1].as<float>();
-			uniforms.color[2] = metadata["hands"]["left"]["pointer"]["color"][2].as<float>();
-			uniforms.color[3] = metadata["hands"]["left"]["pointer"]["color"][3].as<float>();
-			
-			shader.updateUniform( "UBO", uniform );
+			auto& uniform = shader.getUniform("Camera");
+			auto& uniforms = uniform.get<pod::Camera::Viewports>();
+			uniforms = camera.data().viewport;
+			shader.updateUniform("Camera", uniform);
 		}
 	}
 	if ( ::lines.right && ::lines.right->hasComponent<uf::Graphic>() ) {
@@ -466,20 +513,10 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 		pod::Matrix4f model = playerModel * ext::openvr::controllerModelMatrix( vr::Controller_Hand::Hand_Right, true );
 		if ( graphic.initialized && graphic.material.hasShader("vertex") ) {	
 			auto& shader = graphic.material.getShader("vertex");
-			auto& uniform = shader.getUniform("UBO");
-			auto& uniforms = uniform.get<uf::MeshDescriptor<>>();
-
-			uniforms.matrices.model = model;
-			for ( std::size_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-				uniforms.matrices.view[i] = camera.getView( i );
-				uniforms.matrices.projection[i] = camera.getProjection( i );
-			}
-			uniforms.color[0] = metadata["hands"]["right"]["pointer"]["color"][0].as<float>();
-			uniforms.color[1] = metadata["hands"]["right"]["pointer"]["color"][1].as<float>();
-			uniforms.color[2] = metadata["hands"]["right"]["pointer"]["color"][2].as<float>();
-			uniforms.color[3] = metadata["hands"]["right"]["pointer"]["color"][3].as<float>();
-			
-			shader.updateUniform( "UBO", uniform );
+			auto& uniform = shader.getUniform("Camera");
+			auto& uniforms = uniform.get<pod::Camera::Viewports>();
+			uniforms = camera.data().viewport;
+			shader.updateUniform("Camera", uniform);
 		}
 	}
 #endif

@@ -14,7 +14,7 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-layout (std140, binding = 1) readonly buffer Models {
+layout (std140, binding = 0) readonly buffer Models {
 	mat4 models[];
 };
 

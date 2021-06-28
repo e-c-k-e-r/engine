@@ -83,17 +83,17 @@ void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t heig
 	this->layers = layers;
 	// implicitly set type
 	if ( width > 1 && height > 1 && depth > 1 ) {
-		this->type = VK_IMAGE_TYPE_3D;
+		this->type = ext::vulkan::enums::Image::TYPE_3D;
 	} else if ( (width == 1 && height > 1 && depth > 1) || (width > 1 && height == 1 && depth > 1) || (width > 1 && height > 1 && depth == 1) ) {
-		this->type = VK_IMAGE_TYPE_2D;
+		this->type = ext::vulkan::enums::Image::TYPE_2D;
 	} else if ( (width > 1 && height == 1 && depth == 1) || (width == 1 && height > 1 && depth == 1) || (width == 1 && height == 1 && depth > 1) ) {
-		this->type = VK_IMAGE_TYPE_1D;
+		this->type = ext::vulkan::enums::Image::TYPE_1D;
 	}
 /*
 	if ( layers > 1 ) {
-		if ( viewType == VK_IMAGE_VIEW_TYPE_1D ) viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
-		if ( viewType == VK_IMAGE_VIEW_TYPE_2D ) viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-		if ( viewType == VK_IMAGE_VIEW_TYPE_CUBE ) viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+		if ( viewType == ext::vulkan::enums::Image::VIEW_TYPE_1D ) viewType = ext::vulkan::enums::Image::VIEW_TYPE_1D_ARRAY;
+		if ( viewType == ext::vulkan::enums::Image::VIEW_TYPE_2D ) viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY;
+		if ( viewType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) viewType = ext::vulkan::enums::Image::VIEW_TYPE_CUBE_ARRAY;
 	}
 */
 }
@@ -101,18 +101,18 @@ void ext::vulkan::Texture::initialize( Device& device, VkImageViewType viewType,
 	this->initialize( device, width, height, depth, layers );
 	this->viewType = viewType;
 	switch ( viewType ) {
-		case VK_IMAGE_VIEW_TYPE_1D:
-		case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
-			type = VK_IMAGE_TYPE_1D;
+		case ext::vulkan::enums::Image::VIEW_TYPE_1D:
+		case ext::vulkan::enums::Image::VIEW_TYPE_1D_ARRAY:
+			type = ext::vulkan::enums::Image::TYPE_1D;
 		break;
-		case VK_IMAGE_VIEW_TYPE_2D:
-		case VK_IMAGE_VIEW_TYPE_CUBE:
-		case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
-		case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY: 
-			type = VK_IMAGE_TYPE_2D;
+		case ext::vulkan::enums::Image::VIEW_TYPE_2D:
+		case ext::vulkan::enums::Image::VIEW_TYPE_CUBE:
+		case ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY:
+		case ext::vulkan::enums::Image::VIEW_TYPE_CUBE_ARRAY: 
+			type = ext::vulkan::enums::Image::TYPE_2D;
 		break;
-		case VK_IMAGE_VIEW_TYPE_3D:
-			type = VK_IMAGE_TYPE_3D;
+		case ext::vulkan::enums::Image::VIEW_TYPE_3D:
+			type = ext::vulkan::enums::Image::TYPE_3D;
 		break;
 	}
 }
@@ -433,7 +433,7 @@ void ext::vulkan::Texture::fromBuffers(
 		imageCreateInfo.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	}
 	// Ensure cube maps get the compat flag bit
-	if ( this->viewType == VK_IMAGE_VIEW_TYPE_CUBE || this->viewType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY ) {
+	if ( this->viewType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE || this->viewType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE_ARRAY ) {
 		imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	}
 
@@ -595,8 +595,8 @@ void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 }
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
 	image = attachment.image;
-	type = VK_IMAGE_TYPE_2D;
-	viewType = attachment.views.size() == 6 ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+	type = ext::vulkan::enums::Image::TYPE_2D;
+	viewType = attachment.views.size() == 6 ? ext::vulkan::enums::Image::VIEW_TYPE_CUBE : ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.view;
 	imageLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
 	deviceMemory = attachment.mem;
@@ -611,8 +611,8 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 }
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, size_t layer, bool createSampler ) {
 	image = attachment.image;
-	type = VK_IMAGE_TYPE_2D;
-	viewType = VK_IMAGE_VIEW_TYPE_2D;
+	type = ext::vulkan::enums::Image::TYPE_2D;
+	viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.views[layer];
 	imageLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
 	deviceMemory = attachment.mem;
@@ -790,16 +790,16 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 }
 
 ext::vulkan::Texture2D::Texture2D() {
-	type = VK_IMAGE_TYPE_2D;
-	viewType = VK_IMAGE_VIEW_TYPE_2D;
+	type = ext::vulkan::enums::Image::TYPE_2D;
+	viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D;
 }
 ext::vulkan::Texture3D::Texture3D() {
-	type = VK_IMAGE_TYPE_3D;
-	viewType = VK_IMAGE_VIEW_TYPE_3D;
+	type = ext::vulkan::enums::Image::TYPE_3D;
+	viewType = ext::vulkan::enums::Image::VIEW_TYPE_3D;
 }
 ext::vulkan::TextureCube::TextureCube() {
-	type = VK_IMAGE_TYPE_2D;
-	viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+	type = ext::vulkan::enums::Image::TYPE_2D;
+	viewType = ext::vulkan::enums::Image::VIEW_TYPE_CUBE;
 }
 
 #endif

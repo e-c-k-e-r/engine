@@ -3,14 +3,16 @@
 
 #extension GL_EXT_nonuniform_qualifier : enable
 
-layout (constant_id = 0) const uint TEXTURES = 1;
-layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
+layout (constant_id = 0) const uint TEXTURES = 512;
+layout (constant_id = 1) const uint CUBEMAPS = 128;
+
+layout (binding = 1) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 2) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
 
 #define PBR 0
 #define LAMBERT 1
-#define CUBEMAPS 1
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 #include "../../common/functions.h"

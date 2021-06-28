@@ -2,6 +2,7 @@
 
 #include <uf/utils/renderer/renderer.h>
 
+#include <uf/utils/math/matrix.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/camera/camera.h>
@@ -11,6 +12,14 @@ namespace {
 		size_t current = 0;
 		std::vector<uf::Object*> lights;
 	} roundRobin;
+	const pod::Quaternion<> rotations[6] = {
+		uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633f ), // right
+		uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633f ), // left
+		uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633f ), // down
+		uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633f ), // up
+		uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633f ), // front
+		uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633f ), // back
+	};
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::LightBehavior)
@@ -56,20 +65,6 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		auto& cameraTransform = camera.getTransform();
 		cameraTransform.reference = &transform;
 		camera.setStereoscopic(false);
-		if ( ext::json::isArray( metadataJson["light"]["radius"] ) ) {
-			auto bounds = camera.getBounds();
-			bounds.x = metadataJson["light"]["radius"][0].as<float>();
-			bounds.y = metadataJson["light"]["radius"][1].as<float>();
-			camera.setBounds(bounds);
-		}
-		if ( ext::json::isArray( metadataJson["light"]["resolution"] ) ) {
-			camera.setSize( uf::vector::decode( metadataJson["light"]["resolution"], pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } ) );
-		} else if ( metadataJson["light"]["resolution"].is<float>() ) {
-			size_t size = metadataJson["light"]["resolution"].as<size_t>();
-			camera.setSize( {size, size} );
-		} else {
-			camera.setSize( pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } );
-		}
 		
 		::roundRobin.lights.emplace_back(this);
 
@@ -83,17 +78,27 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			metadataJson["light"]["fov"] = 90.0f;
 			renderMode.metadata.subpasses = 6;
 		}
-		camera.setFov( metadataJson["light"]["fov"].as<float>(90) );
-		camera.updateView();
-		camera.updateProjection();
+
+		float fov = metadataJson["light"]["fov"].as<float>(90) * (3.14159265358f / 180.0f);
+		pod::Vector2f radius = uf::vector::decode(  metadataJson["light"]["radius"], pod::Vector2f{0.001, 32} );
+		pod::Vector2ui size{};
+		if ( ext::json::isArray( metadataJson["light"]["resolution"] ) ) {
+			size = uf::vector::decode( metadataJson["light"]["resolution"], pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } );
+		} else if ( metadataJson["light"]["resolution"].is<float>() ) {
+			size_t r = metadataJson["light"]["resolution"].as<size_t>();
+			size.x = r;
+			size.y = r;
+		} else {
+			size = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
+		}
+		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
+		camera.update(true);
 		
 		std::string name = "RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
 		renderMode.blitter.process = false;
-		auto& cameraSize = camera.getSize();
-		renderMode.width = cameraSize.x;
-		renderMode.height = cameraSize.y;
-	//	UF_MSG_DEBUG(this->getName() << ": " << renderMode.metadata << " | " << metadataJson["light"]);
+		renderMode.width = size.x;
+		renderMode.height = size.y;
 	}
 
 	metadata.serialize = [&](){
@@ -123,9 +128,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
 		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
 			std::string lightType = metadataJson["light"]["type"].as<std::string>();
-			if ( lightType == "point" ) metadata.type = 0;
-			else if ( lightType == "spot" ) metadata.type = 1;
+			if ( lightType == "point" ) metadata.type = 1;
+			else if ( lightType == "spot" ) metadata.type = 2;
 		}
+		if ( metadataJson["light"]["dynamic"].as<bool>() ) metadata.type = -metadata.type;
 	};
 	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
 	metadata.deserialize();
@@ -140,7 +146,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	}
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
-#else
+#elif 0
 	if ( !metadata.color ) metadata.color = uf::vector::decode( metadataJson["light"]["color"], pod::Vector3f{1,1,1} );
 	if ( !metadata.power ) metadata.power = metadataJson["light"]["power"].as<float>();
 	if ( !metadata.bias ) metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
@@ -148,7 +154,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	if (  metadata.renderer.mode == "" ) metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<std::string>();
 	if ( !metadata.renderer.external ) metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
 	if ( !metadata.renderer.limiter ) metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
-	if ( !metadata.type ) {
+	if ( !metadata.type) {
 		if ( metadataJson["light"]["type"].is<size_t>() ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
 		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
@@ -219,37 +225,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 #endif
 	// limit updating our shadow map
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-		// skip if we're handling the camera view matrix position ourselves
-		if ( !metadata.renderer.external ) {
-			auto& camera = this->getComponent<uf::Camera>();
-			// omni light
-			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
-				auto transform = camera.getTransform();
-				std::vector<pod::Quaternion<>> rotations = {
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633f ), // right
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 3 * 1.57079633f ), // left
-					uf::quaternion::axisAngle( { 1, 0, 0 }, 3 * 1.57079633f ), // down
-					uf::quaternion::axisAngle( { 1, 0, 0 }, 1 * 1.57079633f ), // up
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 0 * 1.57079633f ), // front
-					uf::quaternion::axisAngle( { 0, 1, 0 }, 2 * 1.57079633f ), // back
-				/*
-					uf::quaternion::axisAngle( { 0, 1, 0 },  1 * 1.57079633 ), // right
-					uf::quaternion::axisAngle( { 0, 1, 0 }, -1 * 1.57079633 ), // left
-					uf::quaternion::axisAngle( { 1, 0, 0 }, -1 * 1.57079633 ), // up
-					uf::quaternion::axisAngle( { 1, 0, 0 },  1 * 1.57079633 ), // down
-					uf::quaternion::axisAngle( { 0, 1, 0 },  0 * 1.57079633 ), // front
-					uf::quaternion::axisAngle( { 0, 1, 0 },  2 * 1.57079633 ), // back
-				*/
-				};
-				for ( size_t i = 0; i < rotations.size(); ++i ) {
-					auto transform = camera.getTransform();
-					transform.orientation = rotations[i];
-					camera.setView( uf::matrix::inverse( uf::transform::model( transform, false ) ), i );
-				}
-			} else {
-				camera.updateView();
-			}
-		}
+		
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		// enable renderer every X seconds
 		if ( metadata.renderer.limiter > 0 ) {
@@ -274,6 +250,21 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 				metadata.renderer.rendered = true;
 			} else if ( metadata.renderer.mode == "in-range" ) {
 				metadata.renderer.rendered = false;
+			}
+		}
+		// skip if we're handling the camera view matrix position ourselves
+		if ( renderMode.execute && !metadata.renderer.external ) {
+			auto& camera = this->getComponent<uf::Camera>();
+			// omni light
+			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
+				auto transform = camera.getTransform();
+				for ( size_t i = 0; i < 6; ++i ) {
+					transform.orientation = ::rotations[i];
+					auto model = uf::transform::model( transform, false );
+					camera.setView( uf::matrix::inverse( model ), i );
+				}
+			} else {
+				camera.update(true);
 			}
 		}
 	}

@@ -12,78 +12,80 @@
 
 namespace {
 	int endian = 0;
-	size_t read( void* destination, size_t size, size_t nmemb, void* userdata ) {
-		uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-		std::ifstream& file = *metadata.stream.file;
+	namespace funs {
+		size_t read( void* destination, size_t size, size_t nmemb, void* userdata ) {
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			std::ifstream& file = *metadata.stream.file;
 
-		ALsizei length = size * nmemb; // chunk size * chunk count
-		if ( metadata.stream.consumed + length > metadata.info.size ) {
-			length = metadata.info.size - metadata.stream.consumed;
-		}
-		// reopen file handle if necessary
-		if ( !file.is_open() ) {
-			file.open(metadata.filename, std::ios::binary);
+			ALsizei length = size * nmemb; // chunk size * chunk count
+			if ( metadata.stream.consumed + length > metadata.info.size ) {
+				length = metadata.info.size - metadata.stream.consumed;
+			}
+			// reopen file handle if necessary
 			if ( !file.is_open() ) {
-				UF_MSG_ERROR("Could not open file: " << metadata.filename);
-				return 0;
+				file.open(metadata.filename, std::ios::binary);
+				if ( !file.is_open() ) {
+					UF_MSG_ERROR("Could not open file: " << metadata.filename);
+					return 0;
+				}
 			}
-		}
-		// (re)seek to current position
-		file.clear();
-		file.seekg(metadata.stream.consumed);
-		// setup read buffer
-		char data[length];
-		if ( !file.read(&data[0], length) ) {
-			if ( file.eof() ) file.clear();
-			else if ( file.fail() ) {
-				UF_MSG_ERROR("File stream has fail bit set: " << metadata.filename );
-				file.clear();
-				return 0;
-			}
-			else if ( file.bad() ) {
-				UF_MSG_ERROR("File stream has bad bit set: " << metadata.filename );
-				file.clear();
-				return 0;
-			}
-		} else file.clear();
-		// copy from temp buffer
-		metadata.stream.consumed += length;
-		memcpy( destination, &data[0], length );
+			// (re)seek to current position
+			file.clear();
+			file.seekg(metadata.stream.consumed);
+			// setup read buffer
+			char data[length];
+			if ( !file.read(&data[0], length) ) {
+				if ( file.eof() ) file.clear();
+				else if ( file.fail() ) {
+					UF_MSG_ERROR("File stream has fail bit set: " << metadata.filename );
+					file.clear();
+					return 0;
+				}
+				else if ( file.bad() ) {
+					UF_MSG_ERROR("File stream has bad bit set: " << metadata.filename );
+					file.clear();
+					return 0;
+				}
+			} else file.clear();
+			// copy from temp buffer
+			metadata.stream.consumed += length;
+			memcpy( destination, &data[0], length );
 
-		return length;
-	}
-	int seek( void* userdata, ogg_int64_t to, int type ) {
-		uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-		switch ( type ) {
-			case SEEK_CUR: metadata.stream.consumed += to; break; // increment
-			case SEEK_END: metadata.stream.consumed = metadata.info.size - to; break; // from the end
-			case SEEK_SET: metadata.stream.consumed = to; break; // from the start
-			default: return -1;
+			return length;
 		}
-		// clamp
-		if ( metadata.stream.consumed < 0 ) {
-			metadata.stream.consumed = 0;
-			return -1;
+		int seek( void* userdata, ogg_int64_t to, int type ) {
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			switch ( type ) {
+				case SEEK_CUR: metadata.stream.consumed += to; break; // increment
+				case SEEK_END: metadata.stream.consumed = metadata.info.size - to; break; // from the end
+				case SEEK_SET: metadata.stream.consumed = to; break; // from the start
+				default: return -1;
+			}
+			// clamp
+			if ( metadata.stream.consumed < 0 ) {
+				metadata.stream.consumed = 0;
+				return -1;
+			}
+			if ( metadata.stream.consumed > metadata.info.size ) {
+				metadata.stream.consumed = metadata.info.size;
+				return -1;
+			}
+			return 0;
 		}
-		if ( metadata.stream.consumed > metadata.info.size ) {
-			metadata.stream.consumed = metadata.info.size;
-			return -1;
-		}
-		return 0;
-	}
-	long tell( void* userdata ) {
-		uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-		return metadata.stream.consumed;
-	}
-	int close( void* userdata ) {
-		uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
-		if ( !metadata.stream.file ) return 0;
+		int close( void* userdata ) {
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			if ( !metadata.stream.file ) return 0;
 
-		std::ifstream& file = *metadata.stream.file;
-		if ( file.is_open() ) file.close();
-		delete metadata.stream.file;
-		metadata.stream.file = NULL;
-		return 0;
+			std::ifstream& file = *metadata.stream.file;
+			if ( file.is_open() ) file.close();
+			delete metadata.stream.file;
+			metadata.stream.file = NULL;
+			return 0;
+		}
+		long tell( void* userdata ) {
+			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
+			return metadata.stream.consumed;
+		}
 	}
 }
 
@@ -172,10 +174,10 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	file.seekg(0, std::ios::beg);
 	// set our custom callbacks
 	ov_callbacks callbacks;
-	callbacks.read_func = ::read;
-	callbacks.close_func = ::close;
-	callbacks.seek_func = ::seek;
-	callbacks.tell_func = ::tell;
+	callbacks.read_func = ::funs::read;
+	callbacks.seek_func = ::funs::seek;
+	callbacks.close_func = ::funs::close;
+	callbacks.tell_func = ::funs::tell;
 	// create oggvorbis handle
 	if ( ov_open_callbacks((void*) &metadata, &vorbisFile, NULL, -1, callbacks) < 0 ) {
 		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: " << metadata.filename);

@@ -7,570 +7,8 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/gltf/gltf.h>
 
-#if 0
-#include <spirv_cross/spirv_cross.hpp>
-#include <spirv_cross/spirv_glsl.hpp>
-#endif
-#include <fstream>
-#include <regex>
-
 #define GL_DEBUG_VALIDATION_MESSAGE(x)\
 	GL_VALIDATION_MESSAGE(x);
-
-namespace {
-	uint32_t VERTEX_BUFFER_BIND_ID = 0;
-#if UF_USE_OPENGL_FIXED_FUNCTION
-	std::unordered_map<std::string, ext::opengl::Shader::module_t> modules;
-#endif
-}
-
-#if UF_USE_OPENGL_FIXED_FUNCTION
-void ext::opengl::Shader::bind( const std::string& name, const module_t& module ) {
-	::modules[name] = module;
-}
-void ext::opengl::Shader::execute( const ext::opengl::Graphic& graphic, void* userdata ) {
-	if ( module ) module( *this, graphic, userdata );
-}
-#endif
-
-/*
-ext::opengl::Shader::~Shader() {
-	if ( !aliased ) destroy();
-}
-*/
-void ext::opengl::Shader::initialize( ext::opengl::Device& device, const std::string& filename, enums::Shader::type_t stage ) {
-	this->device = &device;
-	descriptor.stage = stage;
-
-	ext::opengl::Buffers::initialize( device );
-	aliased = false;
-
-	// set up metadata
-	{
-		metadata["filename"] = filename;
-		metadata["type"] = "";
-	}
-// GPU-based shader execution
-#if !UF_USE_OPENGL_FIXED_FUNCTION
-	std::string glsl;
-	{
-		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
-		if ( !is.is_open() ) {
-			GL_VALIDATION_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
-			return;
-		}
-		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
-		spirv.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
-	
-		assert(spirv.size() > 0);
-	}
-	{
-		device.activateContext();
-		module = glCreateShader(stage);
-		GL_ERROR_CHECK(glShaderSource(module, 1, &glsl.c_str(), NULL));
-		GL_ERROR_CHECK(glCompileShader(module));
-	}
-	{
-		size_t len = 1024;
-		GLint status;
-		GLbyte log[len];
-		GL_ERROR_CHECK(glGetShaderiv(module, GL_LINK_STATUS, &status));
-		if ( !status ) {
-			GL_ERROR_CHECK(glGetShaderInfoLog(module, len, NULL, log));
-			GL_VALIDATION_MESSAGE(log);
-		}
-	}
-// CPU-based shader execution
-#else
-	{
-	//	GL_VALIDATION_MESSAGE(filename);
-		if ( ::modules.count(filename) > 0 ) {
-			module = ::modules[filename];
-		}
-	}
-#endif
-#if 0	
-	std::string spirv;
-	
-	{
-		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
-		if ( !is.is_open() ) {
-			GL_VALIDATION_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
-			return;
-		}
-		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
-		spirv.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
-	
-		assert(spirv.size() > 0);
-	}
-	
-	{
-	
-		GLhandle(VkShaderModuleCreateInfo) moduleCreateInfo = {};
-		moduleCreateInfo.sType = GL_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		moduleCreateInfo.codeSize = spirv.size();
-		moduleCreateInfo.pCode = (uint32_t*) spirv.data();
-
-		GL_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &module));
-	}
-	
-	{
-		descriptor.sType = GL_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		descriptor.stage = stage;
-		descriptor.module = module;
-		descriptor.pName = "main";
-
-		assert(descriptor.module != GL_NULL_HANDLE);
-	}
-	// set up metadata
-	{
-		metadata["filename"] = filename;
-		metadata["type"] = "";
-	}
-	// do reflection
-	{
-		spirv_cross::Compiler comp( (uint32_t*) &spirv[0], spirv.size() / 4 );
-		spirv_cross::ShaderResources res = comp.get_shader_resources();
-
-		std::function<ext::json::Value(spirv_cross::TypeID)> parseMembers = [&]( spirv_cross::TypeID type_id ) {
-			auto parseMember = [&]( auto type_id ){
-				uf::Serializer payload;
-				
-				auto type = comp.get_type(type_id);
-
-				std::string name = "";
-				size_t size = 1;
-				ext::json::Value value;
-				switch ( type.basetype ) {
-					case spirv_cross::SPIRType::BaseType::Boolean: 		name = "bool"; 		size = sizeof(bool); 		value = (bool) 0; 		break;
-					case spirv_cross::SPIRType::BaseType::SByte: 		name = "int8_t"; 	size = sizeof(int8_t); 		value = (int8_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::UByte: 		name = "uint8_t"; 	size = sizeof(uint8_t); 	value = (uint8_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::Short: 		name = "int16_t"; 	size = sizeof(int16_t); 	value = (int16_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::UShort: 		name = "uint16_t";	size = sizeof(uint16_t); 	value = (uint16_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::Int: 			name = "int32_t"; 	size = sizeof(int32_t); 	value = (int32_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::UInt: 		name = "uint32_t";	size = sizeof(uint32_t); 	value = (uint32_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::Int64: 		name = "int64_t"; 	size = sizeof(int64_t); 	value = (int64_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::UInt64: 		name = "uint64_t";	size = sizeof(uint64_t); 	value = (uint64_t) 0; 	break;
-					case spirv_cross::SPIRType::BaseType::Half: 		name = "half"; 		size = sizeof(float)/2; 	value = (float) 0; 		break;
-					case spirv_cross::SPIRType::BaseType::Float: 		name = "float"; 	size = sizeof(float); 		value = (float) 0; 		break;
-					case spirv_cross::SPIRType::BaseType::Double: 		name = "double"; 	size = sizeof(double); 		value = (double) 0; 		break;
-					case spirv_cross::SPIRType::BaseType::Image: 		name = "image2D"; 	break;
-					case spirv_cross::SPIRType::BaseType::SampledImage: name = "sampler2D"; break;
-					case spirv_cross::SPIRType::BaseType::Sampler: 		name = "sampler"; 	break;
-					default:
-						name = comp.get_name(type_id);
-						size = comp.get_declared_struct_size(type);
-					break;
-				}
-				if ( name == "" ) name = comp.get_name(type.type_alias);
-				if ( name == "" ) name = comp.get_name(type.type_alias);
-				if ( name == "" ) name = comp.get_name(type.parent_type);
-				if ( name == "" ) name = comp.get_fallback_name(type_id);
-				if ( type.vecsize > 1 ) {
-					name = "<"+name+">";
-					if ( type.columns > 1 ) {
-						name = "Matrix"+std::to_string(type.vecsize)+"x"+std::to_string(type.columns)+name;
-					} else {
-						name = "Vector"+std::to_string(type.vecsize)+name;
-					}
-				}
-				{
-					ext::json::Value source = value;
-					value = ext::json::array();
-					for ( size_t i = 0; i < type.vecsize * type.columns; ++i ) {
-						value.emplace_back(source);
-					}
-					size *= type.columns * type.vecsize;
-				}
-				for ( auto arraySize : type.array ) {
-					if ( arraySize > 1 ) {
-						ext::json::Value source = value;
-						value = ext::json::array();
-						for ( size_t i = 0; i < arraySize; ++i ) {
-							value.emplace_back(source);
-						}
-						name += "[" + std::to_string(arraySize) + "]";
-						size *= arraySize;
-					}
-				}
-				if ( ext::json::isArray(value) && value.size() == 1 ) {
-					value = value[0];
-				}
-				payload["name"] = name;
-				payload["size"] = size;
-				payload["value"] = value;
-				return payload;
-			};
-			uf::Serializer payload = ext::json::array();
-			const auto& type = comp.get_type(type_id);
-			for ( auto& member_type_id : type.member_types ) {
-				const auto& member_type = comp.get_type(member_type_id);
-				std::string name = comp.get_member_name(type.type_alias, payload.size());
-				if ( name == "" ) name = comp.get_member_name(type.parent_type, payload.size());
-				if ( name == "" ) name = comp.get_member_name(type_id, payload.size());
-				
-				auto& entry = payload.emplace_back();
-				auto parsed = parseMember(member_type_id);
-				std::string type_name = parsed["name"];
-				entry["name"] = type_name + " " + name; 
-				if ( member_type.basetype == spirv_cross::SPIRType::BaseType::Struct ) {
-					entry["struct"] = true;
-					auto parsed = parseMembers(member_type_id);
-					if ( !member_type.array.empty() && member_type.array[0] > 1 ) {
-						size_t size = comp.get_declared_struct_size(member_type);
-						for ( auto arraySize : member_type.array ) {
-							ext::json::Value source = parsed;
-							parsed = ext::json::array();
-							for ( size_t i = 0; i < arraySize; ++i ) {
-								parsed.emplace_back(source);
-							}
-							size = size * arraySize;
-						}
-						entry["size"] = size;
-						entry["value"] = parsed;
-					} else {
-						entry["size"] = comp.get_declared_struct_size(member_type);
-						entry["members"] = parsed;
-					}
-				} else {
-					entry["size"] = parsed["size"];
-					entry["value"] = parsed["value"];
-				}
-			}
-			return payload;
-		};
-
-		auto parseResource = [&]( const spirv_cross::Resource& resource, GLhandle(VkDescriptorType) descriptorType, size_t index ) {			
-			const auto& type = comp.get_type(resource.type_id);
-			const auto& base_type = comp.get_type(resource.base_type_id);
-			std::string name = resource.name;
-			
-			switch ( descriptorType ) {
-				case GL_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-					size_t size = comp.get_declared_struct_size(base_type);
-					if ( size <= 0 ) break;
-					if ( size > device.properties.limits.maxUniformBufferRange ) {
-						GL_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer length of " << size << " for shader " << filename);
-						size = device.properties.limits.maxUniformBufferRange;
-					}
-					size_t misalignment = size % device.properties.limits.minStorageBufferOffsetAlignment;
-					if ( misalignment != 0 ) {
-						GL_DEBUG_VALIDATION_MESSAGE("Invalid uniform buffer alignment of " << misalignment << " for shader " << filename << ", correcting...");
-						size += misalignment;
-					}
-					{
-						GL_DEBUG_VALIDATION_MESSAGE("Uniform size of " << size << " for shader " << filename);
-						auto& uniform = uniforms.emplace_back();
-						uniform.create( size );
-					}		
-					// generate definition to JSON
-					{
-						metadata["definitions"]["uniforms"][name]["name"] = name;
-						metadata["definitions"]["uniforms"][name]["index"] = index;
-						metadata["definitions"]["uniforms"][name]["size"] = size;
-						metadata["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
-					}
-				} break;
-				case GL_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-					// generate definition to JSON
-					{
-						metadata["definitions"]["storage"][name]["name"] = name;
-						metadata["definitions"]["storage"][name]["index"] = index;
-						metadata["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
-					}
-					// test
-					{
-					//	updateUniform(name, getUniform(name));
-					}
-				} break;
-			}
-
-			size_t size = 1;
-			if ( !type.array.empty() ) {
-				size = type.array[0];
-			}
-			descriptorSetLayoutBindings.push_back( ext::opengl::initializers::descriptorSetLayoutBinding( descriptorType, stage, comp.get_decoration(resource.id, spv::DecorationBinding), size ) );
-		};
-		
-
-		//for ( const auto& resource : res.key ) {
-		#define LOOP_RESOURCES( key, type ) for ( size_t i = 0; i < res.key.size(); ++i ) {\
-			const auto& resource = res.key[i];\
-			GL_DEBUG_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
-			parseResource( resource, type, i );\
-		}
-		LOOP_RESOURCES( sampled_images, GL_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-		LOOP_RESOURCES( separate_images, GL_DESCRIPTOR_TYPE_SAMPLED_IMAGE );
-		LOOP_RESOURCES( storage_images, GL_DESCRIPTOR_TYPE_STORAGE_IMAGE );
-		LOOP_RESOURCES( separate_samplers, GL_DESCRIPTOR_TYPE_SAMPLER );
-		LOOP_RESOURCES( subpass_inputs, GL_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
-		LOOP_RESOURCES( uniform_buffers, GL_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-		LOOP_RESOURCES( storage_buffers, GL_DESCRIPTOR_TYPE_STORAGE_BUFFER );
-		#undef LOOP_RESOURCES
-
-	//	if ( filename == uf::io::root + "/shaders/display.subpass.stereo.frag.spv" )
-	//		std::cout << filename << ": " << ext::json::encode(metadata, true) << std::endl;
-		
-		for ( const auto& resource : res.push_constant_buffers ) {
-			const auto& type = comp.get_type(resource.type_id);
-			const auto& base_type = comp.get_type(resource.base_type_id);
-			std::string name = resource.name;
-			size_t size = comp.get_declared_struct_size(type);
-			if ( size <= 0 ) continue;
-			// not a multiple of 4, for some reason
-			if ( size % 4 != 0 ) {
-				GL_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename << ", must be multiple of 4, correcting...");
-				size /= 4;
-				++size; 
-				size *= 4;
-			}
-			if ( size > device.properties.limits.maxPushConstantsSize ) {
-				GL_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << size << " for shader " << filename);
-				size = device.properties.limits.maxPushConstantsSize;
-			}
-			GL_DEBUG_VALIDATION_MESSAGE("Push constant size of " << size << " for shader " << filename);
-			{
-				auto& pushConstant = pushConstants.emplace_back();
-				pushConstant.create( size );
-			}
-			// generate definition to JSON
-			{
-				metadata["definitions"]["pushConstants"][name]["name"] = name;
-				metadata["definitions"]["pushConstants"][name]["size"] = size;
-				metadata["definitions"]["pushConstants"][name]["index"] = pushConstants.size() - 1;
-				metadata["definitions"]["pushConstants"][name]["members"] = parseMembers(resource.type_id);
-			}
-		}
-		
-		size_t specializationSize = 0;
-		for ( const auto& constant : comp.get_specialization_constants() ) {
-			const auto& value = comp.get_constant(constant.id);
-			const auto& type = comp.get_type(value.constant_type);
-			size_t size = 4; //comp.get_declared_struct_size(type);
-
-			GLhandle(VkSpecializationMapEntry) specializationMapEntry;
-			specializationMapEntry.constantID = constant.constant_id;
-			specializationMapEntry.size = size;
-			specializationMapEntry.offset = specializationSize;
-			specializationMapEntries.push_back(specializationMapEntry);
-			specializationSize += size;
-		}
-		if ( specializationSize > 0 ) {			
-			specializationConstants.create( specializationSize );
-			GL_DEBUG_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
-
-			uint8_t* s = (uint8_t*) (void*) specializationConstants;
-			size_t offset = 0;
-
-			metadata["specializationConstants"] = ext::json::array();
-			for ( const auto& constant : comp.get_specialization_constants() ) {
-				const auto& value = comp.get_constant(constant.id);
-				const auto& type = comp.get_type(value.constant_type);
-				std::string name = comp.get_name (constant.id);
-
-				ext::json::Value member;
-
-				size_t size = 4;
-				uint8_t buffer[size];
-				switch ( type.basetype ) {
-					case spirv_cross::SPIRType::UInt: {
-						auto v = value.scalar();
-						member["type"] = "uint32_t";
-						member["value"] = v;
-						member["validate"] = true;
-						memcpy( &buffer[0], &v, sizeof(v) );
-					} break;
-					case spirv_cross::SPIRType::Int: {
-						auto v = value.scalar_i32();
-						member["type"] = "int32_t";
-						member["value"] = v;
-						memcpy( &buffer[0], &v, sizeof(v) );
-					} break;
-					case spirv_cross::SPIRType::Float: {
-						auto v = value.scalar_f32();
-						member["type"] = "float";
-						member["value"] = v;
-						memcpy( &buffer[0], &v, sizeof(v) );
-					} break;
-					case spirv_cross::SPIRType::Boolean: {
-						auto v = value.scalar()!=0;
-						member["type"] = "bool";
-						member["value"] = v;
-						memcpy( &buffer[0], &v, sizeof(v) );
-					} break;
-					default: {
-						GL_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
-					} break;
-				}
-				member["name"] = name;
-				member["size"] = size;
-				member["default"] = member["value"];
-				GL_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<std::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
-				metadata["specializationConstants"].emplace_back(member);
-
-				memcpy( &s[offset], &buffer, size );
-				offset += size;
-			}
-		/*
-			{
-				specializationInfo = {};
-				specializationInfo.dataSize = specializationSize;
-				specializationInfo.mapEntryCount = specializationMapEntries.size();
-				specializationInfo.pMapEntries = specializationMapEntries.data();
-				specializationInfo.pData = (void*) specializationConstants;
-				descriptor.pSpecializationInfo = &specializationInfo;
-			}
-		*/
-		}
-	/*
-	*/
-	//	LOOP_RESOURCES( stage_inputs, GLhandle(VkVertexInputAttributeDescription) );
-	//	LOOP_RESOURCES( stage_outputs, GLhandle(VkPipelineColorBlendAttachmentState) );
-	}
-
-	// organize layouts
-	{
-		std::sort( descriptorSetLayoutBindings.begin(), descriptorSetLayoutBindings.end(), [&]( const GLhandle(VkDescriptorSetLayoutBinding)& l, const GLhandle(VkDescriptorSetLayoutBinding)& r ){
-			return l.binding < r.binding;
-		} );
-	}
-	// update uniform buffers
-	for ( auto& uniform : uniforms ) {
-		auto& userdata = uniform.data();
-		initializeBuffer(
-			(void*) userdata.data,
-			userdata.len,
-			uf::renderer::enums::Buffer::UNIFORM
-		);
-	}
-#endif
-}
-
-void ext::opengl::Shader::destroy() {
-	if ( aliased ) return;
-	if ( !device ) return;
-
-	ext::opengl::Buffers::destroy();
-#if !UF_USE_OPENGL_FIXED_FUNCTION
-	if ( module != GL_NULL_HANDLE ) {
-		GL_ERROR_CHECK(glDeleteShader( module ));
-		module = GL_NULL_HANDLE;
-		descriptor = {};
-	}
-#endif
-
-	for ( auto& userdata : uniforms ) userdata.destroy();
-	for ( auto& userdata : pushConstants ) userdata.destroy();
-	uniforms.clear();
-	pushConstants.clear();
-}
-
-bool ext::opengl::Shader::validate() {
-	// check if uniforms match buffer size
-	bool valid = true;
-#if 0
-	{
-		auto it = uniforms.begin();
-		for ( auto& buffer : buffers ) {
-			if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
-			if ( it == uniforms.end() ) break;
-			auto& uniform = *(it++);
-			if ( uniform.data().len != buffer.allocationInfo.size ) {
-				GL_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
-				uniform.destroy();
-				uniform.create(buffer.allocationInfo.size);
-				valid = false;
-			}
-		}
-	}
-#endif
-	return valid;
-}
-bool ext::opengl::Shader::hasUniform( const std::string& name ) {
-	return !ext::json::isNull(metadata["definitions"]["uniforms"][name]);
-}
-ext::opengl::Buffer* ext::opengl::Shader::getUniformBuffer( const std::string& name ) {
-	if ( !hasUniform(name) ) return NULL;
-	size_t uniformIndex = metadata["definitions"]["uniforms"][name]["index"].as<size_t>();
-	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
-		if ( uniformCounter++ != uniformIndex ) continue;
-		return &buffers[bufferIndex];
-	}
-	return NULL;
-}
-ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const std::string& name ) {
-	if ( !hasUniform(name) ) {
-		static ext::opengl::userdata_t null;
-		return null;
-	}
-	auto& definition = metadata["definitions"]["uniforms"][name];
-	size_t uniformSize = definition["size"].as<size_t>();
-	size_t uniformIndex = definition["index"].as<size_t>();
-	auto& userdata = uniforms[uniformIndex];
-	return userdata;
-}
-bool ext::opengl::Shader::updateUniform( const std::string& name ) {
-	if ( !hasUniform(name) ) return false;
-	auto& uniform = getUniform(name);
-	return updateUniform(name, uniform);
-}
-bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::opengl::userdata_t& userdata ) {
-	if ( !hasUniform(name) ) return false;
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-	size_t size = std::max(metadata["definitions"]["uniforms"][name]["size"].as<size_t>(), (size_t) bufferObject->allocationInfo.size);
-	updateBuffer( (void*) userdata, size, *bufferObject );
-	return true;
-}
-
-uf::Serializer ext::opengl::Shader::getUniformJson( const std::string& name, bool cache ) {
-	if ( !hasUniform(name) ) return ext::json::null();
-	if ( cache && !ext::json::isNull(metadata["uniforms"][name]) ) return metadata["uniforms"][name];
-	auto& definition = metadata["definitions"]["uniforms"][name];
-	if ( cache ) return metadata["uniforms"][name] = definitionToJson(definition);
-	return definitionToJson(definition);
-}
-ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
-	if ( !hasUniform(name) ) return false;
-	return jsonToUserdata(payload, metadata["definitions"]["uniforms"][name]);
-}
-bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::json::Value& payload ) {
-	if ( !hasUniform(name) ) return false;
-
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-
-	auto uniform = getUniformUserdata( name, payload );	
-	updateBuffer( (void*) uniform, uniform.data().len, *bufferObject );
-	return true;
-}
-
-bool ext::opengl::Shader::hasStorage( const std::string& name ) {
-	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
-}
-
-ext::opengl::Buffer* ext::opengl::Shader::getStorageBuffer( const std::string& name ) {
-	if ( !hasStorage(name) ) return NULL;
-	size_t storageIndex = metadata["definitions"]["storage"][name]["index"].as<size_t>();
-	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
-		if ( storageCounter++ != storageIndex ) continue;
-		return &buffers[bufferIndex];
-	}
-	return NULL;
-}
-uf::Serializer ext::opengl::Shader::getStorageJson( const std::string& name, bool cache ) {
-	if ( !hasStorage(name) ) return ext::json::null();
-	if ( cache && !ext::json::isNull(metadata["storage"][name]) ) return metadata["storage"][name];
-	auto& definition = metadata["definitions"]["storage"][name];
-	if ( cache ) return metadata["storage"][name] = definitionToJson(definition);
-	return definitionToJson(definition);
-}
-ext::opengl::userdata_t ext::opengl::Shader::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
-	if ( !hasStorage(name) ) return false;
-	return jsonToUserdata(payload, metadata["definitions"]["storage"][name]);
-}
 
 void ext::opengl::Pipeline::initialize( Graphic& graphic ) {
 	return this->initialize( graphic, graphic.descriptor );
@@ -614,287 +52,6 @@ void ext::opengl::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 	}
 #endif
 	graphic.process = true;
-#if 0
-	// GL_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
-	assert( graphic.material.shaders.size() > 0 );
-
-	RenderMode& renderMode = ext::opengl::getRenderMode( descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget(  descriptor.renderTarget );
-	{
-		std::vector<GLhandle(VkDescriptorSetLayoutBinding)> descriptorSetLayoutBindings;
-		std::vector<GLhandle(VkPushConstantRange)> pushConstantRanges;
-		std::vector<GLhandle(VkDescriptorPoolSize)> poolSizes;
-		std::unordered_map<GLhandle(VkDescriptorType), uint32_t> descriptorTypes;
-
-		for ( auto& shader : graphic.material.shaders ) {
-			descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
-
-			std::size_t offset = 0;
-			for ( auto& pushConstant : shader.pushConstants ) {
-				size_t len = pushConstant.data().len;
-				if ( len <= 0 || len > device.properties.limits.maxPushConstantsSize ) {
-					GL_DEBUG_VALIDATION_MESSAGE("Invalid push constant length of " << len << " for shader " << shader.filename);
-				//	goto PIPELINE_INITIALIZATION_INVALID;
-					len = device.properties.limits.maxPushConstantsSize;
-				}
-				pushConstantRanges.push_back(ext::opengl::initializers::pushConstantRange(
-					shader.descriptor.stage,
-					len,
-					offset
-				));
-				offset += len;
-			}
-		}
-		for ( auto& descriptor : descriptorSetLayoutBindings ) {
-			if ( descriptorTypes.count( descriptor.descriptorType ) < 0 ) descriptorTypes[descriptor.descriptorType] = 0;
-			descriptorTypes[descriptor.descriptorType] += descriptor.descriptorCount;
-		}
-		for ( auto pair : descriptorTypes ) {
-			poolSizes.push_back(ext::opengl::initializers::descriptorPoolSize(pair.first, pair.second));
-		}
-		GLhandle(VkDescriptorPoolCreateInfo) descriptorPoolInfo = ext::opengl::initializers::descriptorPoolCreateInfo(
-			poolSizes.size(),
-			poolSizes.data(),
-			1
-		);
-		
-		GL_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
-
-
-		GLhandle(VkDescriptorSetLayoutCreateInfo) descriptorLayout = ext::opengl::initializers::descriptorSetLayoutCreateInfo(
-			descriptorSetLayoutBindings.data(),
-			descriptorSetLayoutBindings.size()
-		);
-		GL_CHECK_RESULT(vkCreateDescriptorSetLayout( device, &descriptorLayout, nullptr, &descriptorSetLayout ));
-
-		GLhandle(VkDescriptorSetAllocateInfo) allocInfo = ext::opengl::initializers::descriptorSetAllocateInfo(
-			descriptorPool,
-			&descriptorSetLayout,
-			1
-		);
-		GL_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
-
-		GLhandle(VkPipelineLayoutCreateInfo) pPipelineLayoutCreateInfo = ext::opengl::initializers::pipelineLayoutCreateInfo(
-			&descriptorSetLayout,
-			1
-		);
-		pPipelineLayoutCreateInfo.pushConstantRangeCount = pushConstantRanges.size();
-		pPipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges.data();
-
-		GL_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
-	}
-	// Compute
-	for ( auto& shader : graphic.material.shaders ) {
-		if ( shader.descriptor.stage != uf::renderer::enums::Shader::COMPUTE ) continue;
-
-		// Create compute shader pipelines
-		GLhandle(VkComputePipelineCreateInfo) computePipelineCreateInfo = ext::opengl::initializers::computePipelineCreateInfo(
-			pipelineLayout,
-			0
-		);
-		computePipelineCreateInfo.stage = shader.descriptor;
-		GL_CHECK_RESULT(vkCreateComputePipelines(device, device.pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
-	
-		return;
-	}
-	// Graphic
-	{
-		GLhandle(VkPipelineInputAssemblyStateCreateInfo) inputAssemblyState = ext::opengl::initializers::pipelineInputAssemblyStateCreateInfo(
-			descriptor.topology,
-			0,
-			GL_FALSE
-		);
-		GLhandle(VkPipelineRasterizationStateCreateInfo) rasterizationState = ext::opengl::initializers::pipelineRasterizationStateCreateInfo(
-			descriptor.fill,
-			descriptor.cullMode, //	uf::renderer::enums::CullMode::NONE,
-			descriptor.frontFace,
-			0
-		);
-		rasterizationState.lineWidth = graphic.descriptor.lineWidth;
-		rasterizationState.depthBiasEnable = graphic.descriptor.depth.bias.enable;
-		rasterizationState.depthBiasConstantFactor = graphic.descriptor.depth.bias.constant;
-		rasterizationState.depthBiasSlopeFactor = graphic.descriptor.depth.bias.slope;
-		rasterizationState.depthBiasClamp = graphic.descriptor.depth.bias.clamp;
-
-		std::vector<GLhandle(VkPipelineColorBlendAttachmentState)> blendAttachmentStates;
-
-		GLhandle(VkSampleCountFlagBits) samples = GL_SAMPLE_COUNT_1;
-		if ( renderMode.getType() != "Swapchain" ) {
-			auto& subpass = renderTarget.passes[descriptor.subpass];
-			for ( auto& color : subpass.colors ) {
-				auto& attachment = renderTarget.attachments[color.attachment];
-				blendAttachmentStates.push_back(attachment.blendState);
-				samples = std::max(samples, ext::opengl::sampleCount( attachment.descriptor.samples ));
-			}
-			// require blending if independentBlend is not an enabled feature
-			if ( device.enabledFeatures.independentBlend == GL_FALSE ) {
-				for ( size_t i = 1; i < blendAttachmentStates.size(); ++i ) {
-					blendAttachmentStates[i] = blendAttachmentStates[0];
-				}
-			}
-		} else {
-			descriptor.subpass = 0;
-
-			GLhandle(VkBool32) blendEnabled = GL_FALSE;
-			GLhandle(VkColorComponentFlags) writeMask = GL_COLOR_COMPONENT_R_BIT | GL_COLOR_COMPONENT_G_BIT | GL_COLOR_COMPONENT_B_BIT;
-
-			if ( true ) {
-				blendEnabled = GL_TRUE;
-				writeMask |= GL_COLOR_COMPONENT_A_BIT;
-			}
-
-			GLhandle(VkPipelineColorBlendAttachmentState) blendAttachmentState = ext::opengl::initializers::pipelineColorBlendAttachmentState(
-				writeMask,
-				blendEnabled
-			);
-			if ( blendEnabled == GL_TRUE ) {
-				blendAttachmentState.srcColorBlendFactor = GL_BLEND_FACTOR_SRC_ALPHA;
-				blendAttachmentState.dstColorBlendFactor = GL_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				blendAttachmentState.colorBlendOp = GL_BLEND_OP_ADD;
-				blendAttachmentState.srcAlphaBlendFactor = GL_BLEND_FACTOR_SRC_ALPHA;
-				blendAttachmentState.dstAlphaBlendFactor = GL_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				blendAttachmentState.alphaBlendOp = GL_BLEND_OP_ADD;
-			}
-			blendAttachmentStates.push_back(blendAttachmentState);
-		}
-
-		GLhandle(VkPipelineColorBlendStateCreateInfo) colorBlendState = ext::opengl::initializers::pipelineColorBlendStateCreateInfo(
-			blendAttachmentStates.size(),
-			blendAttachmentStates.data()
-		);
-		GLhandle(VkPipelineDepthStencilStateCreateInfo) depthStencilState = ext::opengl::initializers::pipelineDepthStencilStateCreateInfo(
-			descriptor.depth.test,
-			descriptor.depth.write,
-			descriptor.depth.operation //GL_COMPARE_OP_LESS_OR_EQUAL
-		);
-		GLhandle(VkPipelineViewportStateCreateInfo) viewportState = ext::opengl::initializers::pipelineViewportStateCreateInfo(
-			1, 1, 0
-		);
-		GLhandle(VkPipelineMultisampleStateCreateInfo) multisampleState = ext::opengl::initializers::pipelineMultisampleStateCreateInfo(
-			samples,
-			0
-		);
-		if ( device.features.sampleRateShading ) {
-			multisampleState.sampleShadingEnable = GL_TRUE;
-			multisampleState.minSampleShading = 0.25f;
-		}
-
-
-		std::vector<GLhandle(VkDynamicState)> dynamicStateEnables = {
-			GL_DYNAMIC_STATE_VIEWPORT,
-			GL_DYNAMIC_STATE_SCISSOR
-		};
-		GLhandle(VkPipelineDynamicStateCreateInfo) dynamicState = ext::opengl::initializers::pipelineDynamicStateCreateInfo(
-			dynamicStateEnables.data(),
-			dynamicStateEnables.size(),
-			0
-		);
-
-		// Binding description
-		std::vector<GLhandle(VkVertexInputBindingDescription)> vertexBindingDescriptions = {
-			ext::opengl::initializers::vertexInputBindingDescription(
-				VERTEX_BUFFER_BIND_ID, 
-				descriptor.geometry.attributes.vertex.size, 
-				GL_VERTEX_INPUT_RATE_VERTEX
-			)
-		};
-		// Attribute descriptions
-		// Describes memory layout and shader positions
-		std::vector<GLhandle(VkVertexInputAttributeDescription)> vertexAttributeDescriptions = {};
-		for ( auto& attribute : descriptor.geometry.attributes.descriptor ) {
-			auto d = ext::opengl::initializers::vertexInputAttributeDescription(
-				VERTEX_BUFFER_BIND_ID,
-				vertexAttributeDescriptions.size(),
-				attribute.format,
-				attribute.offset
-			);
-			vertexAttributeDescriptions.push_back(d);
-		}
-
-		GLhandle(VkPipelineVertexInputStateCreateInfo) vertexInputState = ext::opengl::initializers::pipelineVertexInputStateCreateInfo();
-		vertexInputState.vertexBindingDescriptionCount = vertexBindingDescriptions.size();
-		vertexInputState.pVertexBindingDescriptions = vertexBindingDescriptions.data();
-		vertexInputState.vertexAttributeDescriptionCount = vertexAttributeDescriptions.size();
-		vertexInputState.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
-
-		std::vector<GLhandle(VkPipelineShaderStageCreateInfo)> shaderDescriptors;
-		for ( auto& shader : graphic.material.shaders ) {
-			void* s = (void*) shader.specializationConstants;
-			size_t len = shader.specializationConstants.data().len;
-			for ( size_t i = 0; i < len / 4; ++i ) {
-				auto& payload = shader.metadata["specializationConstants"][i];
-				std::string type = payload["type"].as<std::string>();
-				if ( type == "int32_t" ) {
-					int32_t& v = ((int32_t*) s)[i];
-					// failsafe, because for some reason things break
-					if ( payload["validate"].as<bool>() && v == 0 ) {
-						GL_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
-						v = payload["value"].is<int32_t>() ? payload["value"].as<int32_t>() : payload["default"].as<int32_t>();
-					}
-					payload["value"] = v;
-				} else if ( type == "uint32_t" ) {
-					uint32_t& v = ((uint32_t*) s)[i];
-					// failsafe, because for some reason things break
-					if ( payload["validate"].as<bool>() && v == 0 ) {
-						GL_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
-						v = payload["value"].is<uint32_t>() ? payload["value"].as<uint32_t>() : payload["default"].as<uint32_t>();
-					}
-					payload["value"] = v;
-				} else if ( type == "float" ) {
-					float& v = ((float*) s)[i];
-					// failsafe, because for some reason things break
-					if ( payload["validate"].as<bool>() && v == 0 ) {
-						GL_DEBUG_VALIDATION_MESSAGE("Specialization constant of 0 for `" << payload.dump() << "` for shader `" << shader.filename << "`");
-						v = payload["value"].is<float>() ? payload["value"].as<float>() : payload["default"].as<float>();
-					}
-					payload["value"] = v;
-				}
-			}
-			GL_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata["specializationConstants"].dump(1, '\t'));
-
-
-			{
-				shader.specializationInfo = {};
-				shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
-				shader.specializationInfo.pMapEntries = shader.specializationMapEntries.data();
-				shader.specializationInfo.pData = (void*) shader.specializationConstants;
-				shader.specializationInfo.dataSize = shader.specializationConstants.data().len;
-				shader.descriptor.pSpecializationInfo = &shader.specializationInfo;
-			}
-			shaderDescriptors.push_back(shader.descriptor);
-		}
-
-		GLhandle(VkGraphicsPipelineCreateInfo) pipelineCreateInfo = ext::opengl::initializers::pipelineCreateInfo(
-			pipelineLayout,
-			renderTarget.renderPass,
-			0
-		);
-		pipelineCreateInfo.pVertexInputState = &vertexInputState;
-		pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
-		pipelineCreateInfo.pRasterizationState = &rasterizationState;
-		pipelineCreateInfo.pColorBlendState = &colorBlendState;
-		pipelineCreateInfo.pMultisampleState = &multisampleState;
-		pipelineCreateInfo.pViewportState = &viewportState;
-		pipelineCreateInfo.pDepthStencilState = &depthStencilState;
-		pipelineCreateInfo.pDynamicState = &dynamicState;
-		pipelineCreateInfo.stageCount = shaderDescriptors.size();
-		pipelineCreateInfo.pStages = shaderDescriptors.data();
-		pipelineCreateInfo.subpass = descriptor.subpass;
-
-		GL_CHECK_RESULT(vkCreateGraphicsPipelines( device, device.pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline));
-		GL_DEBUG_VALIDATION_MESSAGE("Created graphics pipeline");
-	}
-
-	graphic.process = true;
-	return;
-PIPELINE_INITIALIZATION_INVALID:
-	graphic.process = false;
-	GL_DEBUG_VALIDATION_MESSAGE("Pipeline initialization invalid, updating next tick...");
-	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
-		this->initialize( graphic, descriptor );
-	return 0;}, true );
-	return;
-#endif
 }
 void ext::opengl::Pipeline::record( Graphic& graphic, CommandBuffer& commandBuffer, size_t pass, size_t draw ) {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
@@ -904,247 +61,11 @@ void ext::opengl::Pipeline::record( Graphic& graphic, CommandBuffer& commandBuff
 	pipelineCommandInfo.descriptor.vertexArray = descriptor.vertexArray;
 	commandBuffer.record(pipelineCommandInfo);
 #endif
-#if 0
-	auto bindPoint = GL_PIPELINE_BIND_POINT_GRAPHICS;
-	for ( auto& shader : graphic.material.shaders ) {
-		if ( shader.descriptor.stage == uf::renderer::enums::Shader::COMPUTE ) {
-			bindPoint = GL_PIPELINE_BIND_POINT_COMPUTE;
-		}
-		size_t offset = 0;
-		for ( auto& pushConstant : shader.pushConstants ) {
-			// 
-			if ( ext::json::isObject( shader.metadata["definitions"]["pushConstants"]["PushConstant"] ) ) {
-				if ( shader.descriptor.stage == uf::renderer::enums::Shader::VERTEX ) {
-					struct PushConstant {
-						uint32_t pass;
-						uint32_t draw;
-					} pushConstant = { pass, draw };
-					vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, sizeof(pushConstant), &pushConstant );
-				}
-			} else {
-				size_t len = pushConstant.data().len;
-				void* pointer = pushConstant.data().data;
-				if ( len > 0 && pointer ) {
-					vkCmdPushConstants( commandBuffer, pipelineLayout, shader.descriptor.stage, 0, len, pointer );
-				}
-			}
-		}
-	}
-	// Bind descriptor sets describing shader binding points
-	vkCmdBindDescriptorSets(commandBuffer, bindPoint, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-	// Bind the rendering pipeline
-	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
-#endif
 }
 void ext::opengl::Pipeline::update( Graphic& graphic ) {
 	return this->update( graphic, graphic.descriptor );
 }
 void ext::opengl::Pipeline::update( Graphic& graphic, GraphicDescriptor& descriptor ) {
-#if 0
-	//
-	if ( descriptorSet == GL_NULL_HANDLE ) return;
-	//descriptor = d;
-	// generate fallback empty texture
-	auto& emptyTexture = Texture2D::empty;
-
-	RenderMode& renderMode = ext::opengl::getRenderMode(descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget(descriptor.renderTarget );
-
-	std::vector<GLhandle(VkDescriptorSetLayoutBinding)> descriptorSetLayoutBindings;
-	for ( auto& shader : graphic.material.shaders ) {
-		descriptorSetLayoutBindings.insert( descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.begin(), shader.descriptorSetLayoutBindings.end() );
-	}
-
-	struct {
-		std::vector<GLhandle(VkDescriptorBufferInfo)> uniform;
-		std::vector<GLhandle(VkDescriptorBufferInfo)> storage;
-		std::vector<GLhandle(VkDescriptorImageInfo)> image;
-		std::vector<GLhandle(VkDescriptorImageInfo)> sampler;
-		std::vector<GLhandle(VkDescriptorImageInfo)> input;
-	} infos;
-
-	if ( descriptor.subpass < renderTarget.passes.size() ) {
-		auto& subpass = renderTarget.passes[descriptor.subpass];
-		for ( auto& input : subpass.inputs ) {
-			infos.input.push_back(ext::opengl::initializers::descriptorImageInfo( 
-				renderTarget.attachments[input.attachment].view,
-			//	input.layout
-				input.layout == GL_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? GL_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
-			));
-		}
-	}
-
-	{
-		for ( auto& texture : graphic.material.textures ) {
-			infos.image.emplace_back(texture.descriptor);
-		}
-		for ( auto& sampler : graphic.material.samplers ) {
-			infos.sampler.emplace_back(sampler.descriptor.info);
-		}
-	}
-
-	for ( auto& shader : graphic.material.shaders ) {
-		#define PARSE_BUFFER( buffers ) for ( auto& buffer : buffers ) {\
-			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) {\
-				infos.uniform.emplace_back(buffer.descriptor);\
-			}\
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) {\
-				infos.storage.emplace_back(buffer.descriptor);\
-			}\
-		}
-
-		PARSE_BUFFER(shader.buffers)
-		PARSE_BUFFER(graphic.buffers)
-
-		// check if we can even consume that many infos
-		size_t consumes = 0;
-		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-			switch ( layout.descriptorType ) {
-				// consume an texture image info
-				case GL_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-				case GL_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-				case GL_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-					consumes += layout.descriptorCount;
-				} break;
-			}
-		}
-		for ( size_t i = infos.image.size(); i < consumes; ++i ) {
-			 infos.image.push_back(emptyTexture.descriptor);
-		}
-	}
-
-	auto uniformBufferInfo = infos.uniform.begin();
-	auto storageBufferInfo = infos.storage.begin();
-	auto imageInfo = infos.image.begin();
-	auto samplerInfo = infos.sampler.begin();
-	auto inputInfo = infos.input.begin();
-
-	#define BREAK_ASSERT(condition, ...) if ( condition ) { GL_VALIDATION_MESSAGE(#condition << "\t" << __VA_ARGS__); break; }
-	std::vector<GLhandle(VkWriteDescriptorSet)> writeDescriptorSets;
-	for ( auto& shader : graphic.material.shaders ) {
-	//	std::cout << shader.filename << ": " << std::endl;
-	//	std::cout << "\tAVAILABLE UNIFORM BUFFERS: " << infos.uniform.size() << std::endl;
-	//	std::cout << "\tAVAILABLE STORAGE BUFFERS: " << infos.storage.size() << std::endl;
-	//	std::cout << "\tCONSUMING : " << shader.descriptorSetLayoutBindings.size() << std::endl;
-		for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-	//		GL_VALIDATION_MESSAGE(shader.filename << "\tType: " << layout.descriptorType << "\tConsuming: " << layout.descriptorCount);
-			switch ( layout.descriptorType ) {
-				// consume an texture image info
-				case GL_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-				case GL_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-				case GL_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-				//	std::cout << "\tINSERTING IMAGE" << std::endl;
-					BREAK_ASSERT( imageInfo == infos.image.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
-					writeDescriptorSets.push_back(ext::opengl::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						&(*imageInfo),
-						layout.descriptorCount
-					));
-					imageInfo += layout.descriptorCount;
-				} break;
-				case GL_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-				//	std::cout << "\tINSERTING INPUT_ATTACHMENT" << std::endl;
-					BREAK_ASSERT( inputInfo == infos.input.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
-					writeDescriptorSets.push_back(ext::opengl::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						&(*inputInfo),
-						layout.descriptorCount
-					));
-					inputInfo += layout.descriptorCount;
-				} break;
-				case GL_DESCRIPTOR_TYPE_SAMPLER: {
-				//	std::cout << "\tINSERTING SAMPLER" << std::endl;
-					BREAK_ASSERT( samplerInfo == infos.sampler.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
-					writeDescriptorSets.push_back(ext::opengl::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						&(*samplerInfo),
-						layout.descriptorCount
-					));
-					samplerInfo += layout.descriptorCount;
-				} break;
-				case GL_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-				//	std::cout << "\tINSERTING UNIFORM_BUFFER" << std::endl;
-					BREAK_ASSERT( uniformBufferInfo == infos.uniform.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
-					writeDescriptorSets.push_back(ext::opengl::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						&(*uniformBufferInfo),
-						layout.descriptorCount
-					));
-					uniformBufferInfo += layout.descriptorCount;
-				} break;
-				case GL_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-				//	std::cout << "\tINSERTING STORAGE_BUFFER" << std::endl;
-					BREAK_ASSERT( storageBufferInfo == infos.storage.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
-					writeDescriptorSets.push_back(ext::opengl::initializers::writeDescriptorSet(
-						descriptorSet,
-						layout.descriptorType,
-						layout.binding,
-						&(*storageBufferInfo),
-						layout.descriptorCount
-					));
-					storageBufferInfo += layout.descriptorCount;
-				} break;
-			}
-
-		}
-	}
-
-	for ( auto& descriptor : writeDescriptorSets ) {
-		for ( size_t i = 0; i < descriptor.descriptorCount; ++i ) {
-			if ( descriptor.pBufferInfo ) {
-				if ( descriptor.pBufferInfo[i].offset % device->properties.limits.minUniformBufferOffsetAlignment != 0 ) {
-					GL_DEBUG_VALIDATION_MESSAGE("Invalid descriptor for buffer: " << descriptor.pBufferInfo[i].buffer << " (Offset: " << descriptor.pBufferInfo[i].offset << ", Range: " << descriptor.pBufferInfo[i].range << "), invalidating...");
-					goto PIPELINE_UPDATE_INVALID;
-				}
-			}
-			if ( descriptor.pImageInfo ) {
-				if ( descriptor.pImageInfo[i].imageView == 0x0 ) {
-					GL_DEBUG_VALIDATION_MESSAGE("Null image view, replacing with fallback texture...");
-					auto pointer = const_cast<GLhandle(VkDescriptorImageInfo)*>(&descriptor.pImageInfo[i]);
-					*pointer = emptyTexture.descriptor;
-				}
-				if ( descriptor.pImageInfo[i].imageLayout == GL_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
-					GL_DEBUG_VALIDATION_MESSAGE("Image layout is GL_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to GL_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
-					auto pointer = const_cast<GLhandle(VkDescriptorImageInfo)*>(&descriptor.pImageInfo[i]);
-					pointer->imageLayout = GL_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-				}
-				if ( descriptor.descriptorType == GL_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && !descriptor.pImageInfo[i].sampler ) {
-					GL_DEBUG_VALIDATION_MESSAGE("Image descriptor type is GL_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, yet lacks a sampler, adding default sampler...");
-					auto pointer = const_cast<GLhandle(VkDescriptorImageInfo)*>(&descriptor.pImageInfo[i]);
-					pointer->sampler = emptyTexture.sampler.sampler;
-				}
-			}
-		}
-	}
-	renderMode.rebuild = true;
-	graphic.process = true;
-
-	vkUpdateDescriptorSets(
-		*device,
-		writeDescriptorSets.size(),
-		writeDescriptorSets.data(),
-		0,
-		NULL
-	);
-	return;
-
-PIPELINE_UPDATE_INVALID:
-	graphic.process = false;
-	GL_DEBUG_VALIDATION_MESSAGE("Pipeline update invalid, updating next tick...");
-	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
-		this->update( graphic, descriptor );
-	return 0;}, true );
-	return;
-#endif
 }
 void ext::opengl::Pipeline::destroy() {
 	if ( aliased ) return;
@@ -1157,26 +78,6 @@ void ext::opengl::Pipeline::destroy() {
 	}
 #endif
 	descriptor = {};
-#if 0
-	if ( aliased ) return;
-
-	if ( descriptorPool != GL_NULL_HANDLE) {
-		vkDestroyDescriptorPool( *device, descriptorPool, nullptr );
-		descriptorPool = GL_NULL_HANDLE;
-	}
-	if ( pipelineLayout != GL_NULL_HANDLE ) {
-		vkDestroyPipelineLayout( *device, pipelineLayout, nullptr );
-		pipelineLayout = GL_NULL_HANDLE;
-	}
-	if ( pipeline != GL_NULL_HANDLE ) {
-		vkDestroyPipeline( *device, pipeline, nullptr );
-		pipeline = GL_NULL_HANDLE;
-	}
-	if ( descriptorSetLayout != GL_NULL_HANDLE ) {
-		vkDestroyDescriptorSetLayout( *device, descriptorSetLayout, nullptr );
-		descriptorSetLayout = GL_NULL_HANDLE;
-	}
-#endif
 }
 
 void ext::opengl::Material::initialize( Device& device ) {
@@ -1193,70 +94,55 @@ void ext::opengl::Material::destroy() {
 	textures.clear();
 	samplers.clear();
 }
-void ext::opengl::Material::attachShader( const std::string& filename, enums::Shader::type_t stage ) {
+void ext::opengl::Material::attachShader( const std::string& filename, enums::Shader::type_t stage, const std::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
 	shader.initialize( *device, filename, stage );
-
-#if 0
-	// check how many samplers requested
-	for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-		if ( layout.descriptorType != GL_DESCRIPTOR_TYPE_SAMPLER ) continue;
-		Sampler& sampler = samplers.emplace_back();
-		sampler.initialize( *device );
-	}
-#endif
 	
 	std::string type = "unknown";
 	switch ( stage ) {
 		case uf::renderer::enums::Shader::VERTEX: type = "vertex"; break;
 		case uf::renderer::enums::Shader::FRAGMENT: type = "fragment"; break;
 		case uf::renderer::enums::Shader::COMPUTE: type = "compute"; break;
-	/*
-		case uf::renderer::enums::Shader::TESSELLATION_CONTROL: type = "tessellation_control"; break;
-		case uf::renderer::enums::Shader::TESSELLATION_EVALUATION: type = "tessellation_evaluation"; break;
-		case uf::renderer::enums::Shader::GEOMETRY: type = "geometry"; break;
-		case uf::renderer::enums::Shader::ALL_GRAPHICS: type = "all_graphics"; break;
-		case uf::renderer::enums::Shader::ALL: type = "all"; break;
-		case uf::renderer::enums::Shader::RAYGEN_KHR: type = "raygen"; break;
-		case uf::renderer::enums::Shader::ANY_HIT_KHR: type = "any_hit"; break;
-		case uf::renderer::enums::Shader::CLOSEST_HIT_KHR: type = "closest_hit"; break;
-		case uf::renderer::enums::Shader::MISS_KHR: type = "miss"; break;
-		case uf::renderer::enums::Shader::INTERSECTION_KHR: type = "intersection"; break;
-		case uf::renderer::enums::Shader::CALLABLE_KHR: type = "callable"; break;
-	*/
 	}
-	metadata["shaders"][type]["index"] = shaders.size() - 1;
-	metadata["shaders"][type]["filename"] = filename;
+	shader.metadata.pipeline = pipeline;
+	shader.metadata.type = type;
+
+	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
+	metadata.json["shaders"][pipeline][type]["filename"] = filename;
+	metadata.shaders[pipeline+":"+type] = shaders.size() - 1;
 }
-void ext::opengl::Material::initializeShaders( const std::vector<std::pair<std::string, enums::Shader::type_t>>& layout ) {
+void ext::opengl::Material::initializeShaders( const std::vector<std::pair<std::string, enums::Shader::type_t>>& layout, const std::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
 	for ( auto& request : layout ) {
-		attachShader( request.first, request.second );
+		attachShader( request.first, request.second, pipeline );
 	}
 }
-bool ext::opengl::Material::hasShader( const std::string& type ) {
+bool ext::opengl::Material::hasShader( const std::string& type, const std::string& pipeline ) {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
-	return !ext::json::isNull( metadata["shaders"][type] );
+//	return !ext::json::isNull( metadata["shaders"][type] );
+	return metadata.shaders.count(pipeline+":"+type) > 0;
 #else
-	if ( ext::json::isNull( metadata["shaders"][type] ) ) return false;
-	size_t index = metadata["shaders"][type]["index"].as<size_t>();
-	auto& shader = shaders.at(index);
+//	if ( ext::json::isNull( metadata["shaders"][type] ) ) return false;
+	if ( metadata.shaders.count(pipeline+":"+type) == 0 ) return false;
+	auto& shader = shaders.at(metadata.shaders[pipeline+":"+type]);
 	return (bool) shader.module;
 #endif
 }
-ext::opengl::Shader& ext::opengl::Material::getShader( const std::string& type ) {
+ext::opengl::Shader& ext::opengl::Material::getShader( const std::string& type, const std::string& pipeline ) {
+	UF_ASSERT( hasShader(type, pipeline) );
+	return shaders.at( metadata.shaders[pipeline+":"+type] );
+/*
 	if ( !hasShader(type) ) {
 		static ext::opengl::Shader null;
 		return null;
 	}
 	size_t index = metadata["shaders"][type]["index"].as<size_t>();
 	return shaders.at(index);
+*/
 }
 bool ext::opengl::Material::validate() {
 	bool was = true;
-	for ( auto& shader : shaders ) {
-		if ( !shader.validate() ) was = false;
-	}
+	for ( auto& shader : shaders ) if ( !shader.validate() ) was = false;
 	return was;
 }
 ext::opengl::Graphic::~Graphic() {
@@ -1365,18 +251,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, si
 
 void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass, size_t draw ) {
 	if ( !process ) return;
-#if 0
-	if ( !this->hasPipeline( descriptor ) ) {
-		GL_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline");
-		return;
-	}
-	auto& pipeline = this->getPipeline( descriptor );
-	if ( pipeline.descriptorSet == GL_NULL_HANDLE ) {
-		GL_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
-		return;
-	}
-	pipeline.record(*this, commandBuffer, pass, draw);
-#endif	
+
 	Buffer::Descriptor vertexBuffer = {};
 	Buffer::Descriptor indexBuffer = {};
 	Buffer::Descriptor uniformBuffer = {};
@@ -1509,44 +384,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 		drawCommandInfo.texture = material.textures.front().descriptor;
 		commandBuffer.record(drawCommandInfo);
 	}
-#if 0
-	for ( auto& texture : material.textures ) {
-	//	if ( !glIsTexture(texture.image) ) continue;
-		if ( !texture.image ) continue;
-		CommandBuffer::InfoTexture textureCommandInfo = {};
-		textureCommandInfo.type = ext::opengl::enums::Command::BIND_TEXTURE;
-		textureCommandInfo.descriptor = texture.descriptor;
-		commandBuffer.record(textureCommandInfo);
-	}
-
-	CommandBuffer::InfoBuffer vertexBufferCommandInfo = {};
-	vertexBufferCommandInfo.type = ext::opengl::enums::Command::BIND_BUFFER;
-	vertexBufferCommandInfo.descriptor = vertexBuffer;
-	vertexBufferCommandInfo.usage = uf::renderer::enums::Buffer::VERTEX;
-	commandBuffer.record(vertexBufferCommandInfo);
-
-	if ( indexBuffer.buffer ) {
-		length = descriptor.indices;
-		CommandBuffer::InfoBuffer indexBufferCommandInfo = {};
-		indexBufferCommandInfo.type = ext::opengl::enums::Command::BIND_BUFFER;
-		indexBufferCommandInfo.descriptor = indexBuffer;
-		indexBufferCommandInfo.usage = uf::renderer::enums::Buffer::INDEX;
-		commandBuffer.record(indexBufferCommandInfo);
-	}
-	if ( uniformBuffer.buffer ) {
-		CommandBuffer::InfoBuffer uniformBufferCommandInfo = {};
-		uniformBufferCommandInfo.type = ext::opengl::enums::Command::BIND_BUFFER;
-		uniformBufferCommandInfo.descriptor = uniformBuffer;
-		uniformBufferCommandInfo.usage = uf::renderer::enums::Buffer::UNIFORM;
-		commandBuffer.record(uniformBufferCommandInfo);
-	}
-
-	CommandBuffer::InfoDraw drawCommandInfo = {};
-	drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
-	drawCommandInfo.length = length;
-	drawCommandInfo.descriptor = descriptor;
-	commandBuffer.record(drawCommandInfo);
-#endif
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();
@@ -1569,7 +406,8 @@ ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const std::string& 
 	size_t storageIndex = -1;
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
-		storageIndex = shader.metadata["definitions"]["storage"][name]["index"].as<size_t>();
+	//	storageIndex = shader.metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
+		storageIndex = shader.metadata.definitions.storage[name].index;
 		break;
 	}
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
@@ -1672,11 +510,13 @@ void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 		depth.bias.clamp = metadata["depth bias"]["clamp"].as<float>();
 	}
 }
-std::string ext::opengl::GraphicDescriptor::hash() const {
+ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() const {
+#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
 	uf::Serializer serializer;
 
 	serializer["subpass"] = subpass;
-	if ( settings::experimental::individualPipelines ) serializer["renderMode"] = renderMode;
+	if ( settings::experimental::individualPipelines )
+		serializer["renderMode"] = renderMode;
 
 	serializer["renderTarget"] = renderTarget;
 	serializer["geometry"]["sizes"]["vertex"] = geometry.attributes.vertex.size;
@@ -1685,14 +525,11 @@ std::string ext::opengl::GraphicDescriptor::hash() const {
 	serializer["offsets"]["vertex"] = offsets.vertex;
 	serializer["offsets"]["index"] = offsets.index;
 
-	{
-		int i = 0;
-		for ( auto& attribute : geometry.attributes.descriptor ) {
-			serializer["geometry"]["attributes"][i]["format"] = attribute.format;
-			serializer["geometry"]["attributes"][i]["offset"] = attribute.offset;
-			++i;
-		}
+	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
+		serializer["geometry"]["attributes"][i]["format"] = geometry.attributes.descriptor[i].format;
+		serializer["geometry"]["attributes"][i]["offset"] = geometry.attributes.descriptor[i].offset;
 	}
+
 	serializer["topology"] = topology;
 	serializer["cullMode"] = cullMode;
 	serializer["fill"] = fill;
@@ -1706,9 +543,42 @@ std::string ext::opengl::GraphicDescriptor::hash() const {
 	serializer["depth"]["bias"]["slope"] = depth.bias.slope;
 	serializer["depth"]["bias"]["clamp"] = depth.bias.clamp;
 
-//	if ( renderMode != "Gui" ) uf::iostream << this << ": " << indices << ": " << renderMode << ": " << subpass << ": " << serializer << "\n";
-//	return uf::string::sha256( serializer.serialize() );
-	return serializer.dump();
+	return uf::string::sha256( serializer.serialize() );
+//	return serializer.dump();
+#else
+	size_t hash{};
+
+	hash += std::hash<decltype(subpass)>{}(subpass);
+	if ( settings::experimental::individualPipelines )
+		hash += std::hash<decltype(renderMode)>{}(renderMode);
+	
+	hash += std::hash<decltype(renderTarget)>{}(renderTarget);
+	hash += std::hash<decltype(geometry.attributes.vertex.size)>{}(geometry.attributes.vertex.size);
+	hash += std::hash<decltype(geometry.attributes.index.size)>{}(geometry.attributes.index.size);
+	hash += std::hash<decltype(indices)>{}(indices);
+	hash += std::hash<decltype(offsets.vertex)>{}(offsets.vertex);
+	hash += std::hash<decltype(offsets.index)>{}(offsets.index);
+
+	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
+		hash += std::hash<decltype(geometry.attributes.descriptor[i].format)>{}(geometry.attributes.descriptor[i].format);
+		hash += std::hash<decltype(geometry.attributes.descriptor[i].offset)>{}(geometry.attributes.descriptor[i].offset);
+	}
+
+	hash += std::hash<decltype(topology)>{}(topology);
+	hash += std::hash<decltype(cullMode)>{}(cullMode);
+	hash += std::hash<decltype(fill)>{}(fill);
+	hash += std::hash<decltype(lineWidth)>{}(lineWidth);
+	hash += std::hash<decltype(frontFace)>{}(frontFace);
+	hash += std::hash<decltype(depth.test)>{}(depth.test);
+	hash += std::hash<decltype(depth.write)>{}(depth.write);
+	hash += std::hash<decltype(depth.operation)>{}(depth.operation);
+	hash += std::hash<decltype(depth.bias.enable)>{}(depth.bias.enable);
+	hash += std::hash<decltype(depth.bias.constant)>{}(depth.bias.constant);
+	hash += std::hash<decltype(depth.bias.slope)>{}(depth.bias.slope);
+	hash += std::hash<decltype(depth.bias.clamp)>{}(depth.bias.clamp);
+
+	return hash;
+#endif
 }
 
 ext::json::Value ext::opengl::definitionToJson(/*const*/ ext::json::Value& definition ) {

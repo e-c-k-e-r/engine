@@ -45,3 +45,4 @@ const float EPSILON = 0.00001;
 const float SQRT2 = 1.41421356237;
 
 const float LIGHT_POWER_CUTOFF = 0.0005;
+const float LIGHTMAP_GAMMA = 1.0;

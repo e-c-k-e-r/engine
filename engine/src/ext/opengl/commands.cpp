@@ -8,7 +8,7 @@
 #include <bitset>
 
 #include <uf/utils/graphic/mesh.h>
-#include <uf/ext/gltf/mesh.h>
+#include <uf/engine/graph/mesh.h>
 
 #define VERBOSE false
 #define VERBOSE_SUBMIT false

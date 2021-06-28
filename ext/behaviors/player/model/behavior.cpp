@@ -10,6 +10,8 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/renderer/renderer.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerModelBehavior)
@@ -20,10 +22,10 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	auto& controller = scene.getController();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& transform = this->getComponent<pod::Transform<>>();
+	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	transform.reference = &controllerTransform;
 
-	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
 	metadata.serialize = [&]() {
 		metadataJson["track"] = metadata.track;
 		metadataJson["hide"] = metadata.hide;
@@ -40,20 +42,31 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	metadata.deserialize();
 }
 void ext::PlayerModelBehavior::tick( uf::Object& self ) {
-	if ( this->getChildren().size() != 1 ) return;
-	auto& metadata = this->getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
+	if ( !metadata.hide || metadata.set || this->getChildren().size() != 1 ) return;
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #endif
+	this->process([&](uf::Entity* entity){
+		if ( !entity->hasComponent<uf::Graphic>() ) return;
+		auto& graphic = entity->getComponent<uf::Graphic>();
+		auto& pipeline = graphic.getPipeline();
+		pipeline.metadata.process = false;
+		metadata.set = true;
+	});
+	metadata.set = true;
 }
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){
+/*
 	if ( this->getChildren().size() != 1 ) return;
 
 	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
 	if ( !metadata.hide ) return;
 	auto& transform = this->getComponent<pod::Transform<>>();
 	transform.scale = uf::renderer::currentRenderMode->getName() == "Gui" ? pod::Vector3f{ 0, 0, 0 } : metadata.scale;
+*/
 }
 void ext::PlayerModelBehavior::destroy( uf::Object& self ){
 

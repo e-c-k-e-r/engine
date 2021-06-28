@@ -5,7 +5,7 @@
 #include "../common/structs.h"
 #include "../common/functions.h"
 
-layout (binding = 1) uniform sampler2D samplerTexture;
+layout (binding = 2) uniform sampler2D samplerTexture;
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in vec4 inColor;

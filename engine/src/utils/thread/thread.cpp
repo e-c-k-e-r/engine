@@ -59,11 +59,11 @@ pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
 		std::string thread = name;
 		if ( current > 0 ) thread += " " + std::to_string(current);
 		bool exists = uf::thread::has(thread);
-		auto& pod = exists ? uf::thread::get(thread) : uf::thread::create( thread, true );
+		auto& pod = exists ? uf::thread::get(thread) : uf::thread::create(thread, true);
 		if ( std::this_thread::get_id() != pod.thread.get_id() ) return pod;
 	}
-	bool exists = uf::thread::has( "Main" );
-	auto& pod = exists ? uf::thread::get( "Main" ) : uf::thread::create(  "Main" , true );
+	bool exists = uf::thread::has("Main");
+	auto& pod = exists ? uf::thread::get("Main" ) : uf::thread::create("Main", true);
 	return pod;
 }
 void UF_API uf::thread::batchWorkers( const std::vector<pod::Thread::function_t>& functions, bool wait, const std::string& name ) {

@@ -27,6 +27,7 @@ namespace ext {
 				uf::Serializer json;
 				
 				std::string type = "";
+				bool process = true;
 			} metadata;
 
 			void initialize( Graphic& graphic );
@@ -46,8 +47,9 @@ namespace ext {
 			std::vector<Texture2D> textures;
 			std::vector<Shader> shaders;
 
-			struct {
+			struct Metadata {
 				uf::Serializer json;
+				std::unordered_map<std::string, size_t> shaders;
 			} metadata;
 
 			void initialize( Device& device );
@@ -68,6 +70,10 @@ namespace ext {
 			bool process = true;
 			Material material;
 			std::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
+
+			struct {
+				std::unordered_map<std::string, size_t> buffers;
+			} metadata;
 
 			~Graphic();
 			void initialize( const std::string& = "" );

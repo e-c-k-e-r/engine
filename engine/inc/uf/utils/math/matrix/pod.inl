@@ -56,36 +56,6 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::identity() {
 	return matrix;
 }
 template<typename T>
-pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t, T f, T n ) {
-	pod::Matrix4t<T> m = uf::matrix::identity();
-	m[0*4+0] = 2 / (r - l);
-    m[1*4+1] = 2 / (t - b);
-    m[2*4+2] = - 2 / (f - n);
-    m[3*4+0] = - (r + l) / (r - l);
-    m[3*4+1] = - (t + b) / (t - b);
-    m[3*4+2] = - (f + n) / (f - n);
-	return m;
-/*
-	std::vector<T> m = {
-		2 / (r - l), 0, 0, 0,
-		0, 2 / (t - b), 0, 0,
-		0, 0, -2 / (f - n), 0,
-		-(r + l) / (r - l), -(t + b) / (t - b), -(f + n) / (f - n), 1,
-	};
-	return uf::matrix::initialize(m);
-*/
-}
-template<typename T>
-pod::Matrix4t<T> /*UF_API*/ uf::matrix::ortho( T l, T r, T b, T t ) {
-	std::vector<T> m = {
-		2 / (r - l), 0, 0, 0,
-		0, 2 / (t - b), 0, 0,
-		0, 0, 1, 0,
-		-(r + l) / (r - l), -(t+b)/(t-b), 0, 1
-	};
-	return uf::matrix::initialize(m);
-}
-template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::initialize( const T* list ) {
 	pod::Matrix4t<T> matrix;
 //	memcpy(&matrix[0], list, sizeof(matrix));
@@ -468,7 +438,7 @@ template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<
 	auto res = *((pod::Vector4t<T>*) &t);
 	if ( div && res.w > 0 ) res /= res.w;
 	return res;
-#endif
+#else
 	auto res = pod::Vector4t<T>{
 		vector[0] * mat[0] + vector[1] * mat[4] + vector[2] * mat[8] + vector[3] * mat[12],
 		vector[0] * mat[1] + vector[1] * mat[5] + vector[2] * mat[9] + vector[3] * mat[13],
@@ -477,6 +447,7 @@ template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<
 	};
 	if ( div && res.w > 0 ) res /= res.w;
 	return res;
+#endif
 }
 // 	Flip sign of all components
 template<typename T> T& uf::matrix::invert( T& matrix ) {
@@ -556,6 +527,74 @@ template<typename T> T& uf::matrix::scale( T& matrix, const pod::Vector3t<typena
 	matrix[10] = vector.z;
 	return matrix;
 }
+template<typename T>
+pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t, T f, T n ) {
+	pod::Matrix4t<T> m = uf::matrix::identity();
+	m[0*4+0] = 2 / (r - l);
+    m[1*4+1] = 2 / (t - b);
+    m[2*4+2] = - 2 / (f - n);
+    m[3*4+0] = - (r + l) / (r - l);
+    m[3*4+1] = - (t + b) / (t - b);
+    m[3*4+2] = - (f + n) / (f - n);
+	return m;
+/*
+	std::vector<T> m = {
+		2 / (r - l), 0, 0, 0,
+		0, 2 / (t - b), 0, 0,
+		0, 0, -2 / (f - n), 0,
+		-(r + l) / (r - l), -(t + b) / (t - b), -(f + n) / (f - n), 1,
+	};
+	return uf::matrix::initialize(m);
+*/
+}
+template<typename T>
+pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t ) {
+	std::vector<T> m = {
+		2 / (r - l), 0, 0, 0,
+		0, 2 / (t - b), 0, 0,
+		0, 0, 1, 0,
+		-(r + l) / (r - l), -(t+b)/(t-b), 0, 1
+	};
+	return uf::matrix::initialize(m);
+}
+template<typename T=pod::Math::num_t>
+pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T zfar ) {
+	if ( uf::matrix::reverseInfiniteProjection ) {
+		T f = static_cast<T>(1) / tan( static_cast<T>(0.5) * fov );
+	#if UF_USE_OPENGL
+		return pod::Matrix4t<T>({
+			f / raidou, 	0, 	 	0, 		0,
+			0, 			 	f, 	 	0, 		0,
+			0,       		0,    	0, 		1,
+			0,       		0,   znear, 	0
+		});
+	#elif UF_USE_VULKAN
+		return pod::Matrix4t<T>({
+			f / raidou, 	0.0f, 	 0.0f, 	0.0f,
+			0.0f, 			-f, 	 0.0f, 	0.0f,
+			0.0f,       	0.0f,    0.0f, 	1.0f,
+			0.0f,       	0.0f,   znear, 	0.0f
+		});
+	#endif
+	} else {
+		T range = znear - zfar;
+		T f = tanf( static_cast<T>(0.5) * fov );
+
+		T Sx = static_cast<T>(1) / (f * raidou);
+		T Sy = static_cast<T>(1) / f;
+		T Sz = (-znear - zfar) / range;
+		T Pz = static_cast<T>(2) * zfar * znear / range;
+	#if UF_USE_VULKAN
+		Sy = -Sy;
+	#endif
+		return pod::Matrix4t<T>({
+			Sx, 	 0, 	 0, 	  0,
+			 0, 	Sy, 	 0, 	  0,
+			 0, 	 0, 	Sz, 	  1,
+			 0, 	 0, 	Pz, 	  0
+		});
+	}
+}
 template<typename T> T& uf::matrix::copy( T& destination, const T& source ) {
 	#pragma unroll // GCC unroll 16
 	for ( uint_fast8_t i = 0; i < 16; ++i )
@@ -598,20 +637,36 @@ ext::json::Value /*UF_API*/ uf::matrix::encode( const pod::Matrix<T,R,C>& m, con
 }
 template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C>& /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, pod::Matrix<T,R,C>& m ) {
-	#pragma unroll // GCC unroll R*C
-	for ( uint_fast8_t i = 0; i < R*C; ++i )
-		m[i] = json[i].as<T>();
-
+	if ( ext::json::isArray(json) )
+		#pragma unroll // GCC unroll T::size
+		for ( uint_fast8_t i = 0; i < R*C; ++i )
+			m[i] = json[i].as<T>(m[i]);
+	else if ( ext::json::isObject(json) ) {
+		uint_fast8_t i = 0;
+		ext::json::forEach(json, [&](const ext::json::Value& c){
+			if ( i >= R*C ) return;
+			m[i] = c.as<T>(m[i]);
+			++i;
+		});
+	}
 	return m;
 }
 
 template<typename T, size_t R, size_t C>
 pod::Matrix<T,R,C> /*UF_API*/ uf::matrix::decode( const ext::json::Value& json, const pod::Matrix<T,R,C>& _m ) {
 	pod::Matrix<T,R,C> m = _m;
-	#pragma unroll // GCC unroll R*C
-	for ( uint_fast8_t i = 0; i < R*C; ++i )
-		m[i] = json[i].as<T>();
-
+	if ( ext::json::isArray(json) )
+		#pragma unroll // GCC unroll T::size
+		for ( uint_fast8_t i = 0; i < R*C; ++i )
+			m[i] = json[i].as<T>(_m[i]);
+	else if ( ext::json::isObject(json) ) {
+		uint_fast8_t i = 0;
+		ext::json::forEach(json, [&](const ext::json::Value& c){
+			if ( i >= R*C ) return;
+			m[i] = c.as<T>(_m[i]);
+			++i;
+		});
+	}
 	return m;
 }
 

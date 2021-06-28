@@ -5,6 +5,7 @@
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/string/base64.h>
+#include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
@@ -38,16 +39,15 @@ namespace {
 				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
 				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
 			}
-			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
-				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
-			}
 			{
 				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
 			}
 		#if UF_USE_VULKAN
-		#if 1
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
+				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
+			}
 			{
 				uint32_t maxPasses = 6;
 
@@ -76,38 +76,6 @@ namespace {
 					}
 				});
 			}
-		#else
-			{
-				auto& shader = graphic.material.getShader("vertex");
-				struct SpecializationConstant {
-					uint32_t passes = 6;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.passes = uf::renderer::settings::maxViews;
-				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( ext::json::Value& sc ){
-					if ( sc["name"].as<std::string>() == "PASSES" ) sc["value"] = specializationConstants.passes;
-				});
-			}
-			{
-				auto& shader = graphic.material.getShader("fragment");
-				struct SpecializationConstant {
-					uint32_t textures = 1;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.textures = texture2Ds;
-				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( ext::json::Value& sc ){
-					if ( sc["name"].as<std::string>() == "TEXTURES" ) sc["value"] = specializationConstants.textures;
-				});
-
-				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
-					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
-					size_t binding = t["binding"].as<size_t>();
-					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding == binding ) layout.descriptorCount = specializationConstants.textures;
-					}
-				});
-			}
-		#endif
 		#endif
 		}
 		// vxgi pipeline
@@ -118,16 +86,15 @@ namespace {
 			if ( uf::renderer::settings::experimental::deferredSampling ) {
 			//	fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
 			}
-
-			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
-				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
-			}
 			{
 				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vxgi");
 			}
 		#if UF_USE_VULKAN
+			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
+				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
+			}
 			{
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
@@ -1157,6 +1124,7 @@ pod::Graph uf::graph::load( const std::string& filename, uf::graph::load_mode_t 
 		return 0;
 	});
 	jobs.emplace_back([&]{
+	#if !UF_ENV_DREAMCAST
 		if ( !ext::json::isNull( serializer["atlas"] ) ) {
 			UF_DEBUG_TIMER_MULTITRACE("Reading atlas...");
 			auto& image = graph.atlas.getAtlas();
@@ -1169,6 +1137,7 @@ pod::Graph uf::graph::load( const std::string& filename, uf::graph::load_mode_t 
 				decode( value, image, graph );
 			}
 		}
+	#endif
 		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
@@ -1274,6 +1243,7 @@ pod::Graph uf::graph::load( const std::string& filename, uf::graph::load_mode_t 
 		}
 	});
 	// load images
+	#if !UF_ENV_DREAMCAST
 	if ( !ext::json::isNull( serializer["atlas"] ) ) {
 		UF_DEBUG_TIMER_MULTITRACE("Reading atlas...");
 		auto& image = graph.atlas.getAtlas();
@@ -1286,6 +1256,7 @@ pod::Graph uf::graph::load( const std::string& filename, uf::graph::load_mode_t 
 			decode( value, image, graph );
 		}
 	}
+	#endif
 	UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 	graph.images.reserve( serializer["images"].size() );
 	ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
@@ -1372,6 +1343,7 @@ namespace {
 	struct EncodingSettings : public ext::json::EncodingSettings {
 		bool combined = false;
 		bool encodeBuffers = true;
+		bool unwrap = true;
 		std::string filename = "";
 	};
 
@@ -1545,9 +1517,15 @@ void uf::graph::save( const pod::Graph& graph, const std::string& filename ) {
 		/*.precision = */graph.metadata["export"]["precision"].as<uint8_t>(),
 		/*.combined = */graph.metadata["export"]["combined"].as<bool>(),
 		/*.encodeBuffers = */graph.metadata["export"]["encode buffers"].as<bool>(true),
+		/*.unwrap = */graph.metadata["export"]["unwrap"].as<bool>(true),
 		/*.filename = */directory + "/graph.json",
 	};
 	if ( !settings.combined ) uf::io::mkdir(directory);
+	if ( settings.unwrap ) {
+		pod::Graph& g = const_cast<pod::Graph&>(graph);
+		auto size = ext::xatlas::unwrap( g );
+		serializer["wrapped"] = uf::vector::encode( size );
+	}
 
 #if UF_GRAPH_LOAD_MULTITHREAD
 	std::vector<std::function<int()>> jobs;

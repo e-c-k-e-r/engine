@@ -455,12 +455,11 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 		auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
 		if ( metadata.power <= 0 ) continue;
 		auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
-		LightInfo& info = entities.emplace_back(LighInfo{
+		LightInfo& info = entities.emplace_back(LightInfo{
 			.entity = entity,
 			.position = flatten.position,
 			.w = 1,
 			.color = metadata.color,
-			.alpha = 1,
 			.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
 			.power = metadata.power,
 		});
@@ -740,7 +739,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const std::string& re
 	// update uniform information
 	// hopefully write combining kicks in
 	UniformDescriptor uniforms; {
-		pod::Matrix4f view, projection;
 		for ( auto i = 0; i < 2; ++i ) {
 			uniforms.matrices[i] = UniformDescriptor::Matrices{
 				.view = camera.getView(i),

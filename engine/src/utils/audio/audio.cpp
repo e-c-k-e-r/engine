@@ -1,22 +1,34 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/utils/string/ext.h>
 
-#if defined(UF_USE_OPENAL)
-#include <uf/ext/vorbis/vorbis.h>
-#include <uf/ext/oal/oal.h>
+#if UF_USE_OPENAL
+	#include <uf/ext/vorbis/vorbis.h>
+	#include <uf/ext/oal/oal.h>
 #endif
 
-bool uf::audio::muted = false;
+#if UF_USE_OPENAL
+	bool uf::audio::muted = false;
+#else
+	bool uf::audio::muted = true;
+#endif
 bool uf::audio::streamsByDefault = true;
 uint8_t uf::audio::buffers = 4;
 size_t uf::audio::bufferSize = 1024 * 16;
 uf::Audio uf::audio::null;
 
 bool uf::Audio::initialized() const {
+#if UF_USE_OPENAL
 	return this->m_metadata && this->m_metadata->al.source.getIndex();
+#else
+	return false;
+#endif
 }
 bool uf::Audio::playing() const {
+#if UF_USE_OPENAL
 	return this->m_metadata && this->m_metadata->al.source.playing();
+#else
+	return false;
+#endif
 }
 
 void uf::Audio::open( const std::string& filename ) {
@@ -27,107 +39,153 @@ void uf::Audio::open( const std::string& filename, bool streamed ) {
 }
 void uf::Audio::load( const std::string& filename ) {
 	if ( uf::audio::muted ) return;
+#if UF_USE_OPENAL
 	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
 	this->m_metadata = ext::al::load( filename );
+#endif
 }
 void uf::Audio::stream( const std::string& filename ) {
 	if ( uf::audio::muted ) return;
+#if UF_USE_OPENAL
 	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
 	this->m_metadata = ext::al::stream( filename );
+#endif
 }
 void uf::Audio::update() {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	ext::al::update( *this->m_metadata );
+#endif
 }
 void uf::Audio::destroy() {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	ext::al::close( this->m_metadata );
 	this->m_metadata = NULL;
+#endif
 }
 
 void uf::Audio::play() {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.play();
+#endif
 }
 void uf::Audio::stop() {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.stop();
+#endif
 }
 void uf::Audio::loop( bool x ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->settings.loop = x;
 	if ( !this->m_metadata->settings.streamed ) {
 	}
 	this->m_metadata->al.source.set( AL_LOOPING, x ? AL_TRUE : AL_FALSE );
+#endif
 }
 bool uf::Audio::loops() const {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return false;
 	return this->m_metadata->settings.loop;
+#else
+	return false;
+#endif
 }
 
 float uf::Audio::getTime() const {
+#if UF_USE_OPENAL
 	if ( !this->playing() ) return 0;
 
 	float v;
 	this->m_metadata->al.source.get( AL_SEC_OFFSET, v );
 	return v;
+#else
+	return 0;
+#endif
 }
 void uf::Audio::setTime( float v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_SEC_OFFSET, v ); 
+#endif
 }
 
 void uf::Audio::setPosition( const pod::Vector3f& v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_POSITION, &v[0] );
+#endif
 }
 void uf::Audio::setOrientation( const pod::Quaternion<>& v ) {
 	if ( !this->m_metadata ) return;
-
 }
 
 float uf::Audio::getPitch() const {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return 0;
 	float v;
 	this->m_metadata->al.source.get( AL_PITCH, v );
 	return v;
+#else
+	return 0;
+#endif
 }
 void uf::Audio::setPitch( float v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_PITCH, v );
+#endif
 }
 
 float uf::Audio::getGain() const {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return 0;
 	float v;
 	this->m_metadata->al.source.get( AL_GAIN, v );
 	return v;
+#endif
+	return 0;
 }
 void uf::Audio::setGain( float v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_GAIN, v );
+#endif
 }
 
 float uf::Audio::getRolloffFactor() const {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return 0;
 	float v;
 	this->m_metadata->al.source.get( AL_ROLLOFF_FACTOR, v );
 	return v;
+#endif
+	return 0;
 }
 void uf::Audio::setRolloffFactor( float v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_ROLLOFF_FACTOR, v );
+#endif
 }
 
 float uf::Audio::getMaxDistance() const {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return 0;
 	float v;
 	this->m_metadata->al.source.get( AL_MAX_DISTANCE, v );
 	return v;
+#endif
+	return 0;
 }
 void uf::Audio::setMaxDistance( float v ) {
+#if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
 	this->m_metadata->al.source.set( AL_MAX_DISTANCE, v );
+#endif
 }
 
 float uf::Audio::getVolume() const { return this->getGain(); }

@@ -7,7 +7,8 @@
 	"metadata": {
 		"baking": {
 			"resolution": 8192,
-			"model": "./models/medsci.glb",
+		//	"model": "./models/medsci.glb",
+			"model": "./models/medsci/graph.json.gz",
 			"shadows": true,
 			"trigger": {
 				"mode": "rendered"
@@ -15,6 +16,16 @@
 			"output": {
 				"model": "./models/medsci.glb",
 				"map": "./models/medsci/lightmap.png"
+			},
+			"export": {
+				"should": true,
+				"pretty": false,
+				"compress": true,
+				"quantize": false,
+				"precision": 4,
+				"combined": false,
+				"encode buffers": true,
+				"unwrap": true
 			}
 		}
 	}

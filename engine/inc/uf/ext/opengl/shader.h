@@ -1,24 +1,28 @@
-#pragma once 	
+#pragma once
 
-#include <uf/ext/vulkan/device.h>
-#include <uf/ext/vulkan/swapchain.h>
-#include <uf/ext/vulkan/initializers.h>
-#include <uf/ext/vulkan/texture.h>
-#include <uf/utils/graphic/descriptor.h>
+#include <uf/ext/opengl/device.h>
+#include <uf/ext/opengl/swapchain.h>
+#include <uf/ext/opengl/initializers.h>
+#include <uf/ext/opengl/texture.h>
+#include <uf/ext/opengl/shader.h>
 #include <uf/utils/graphic/mesh.h>
+#include <uf/utils/graphic/descriptor.h>
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 
 namespace ext {
-	namespace vulkan {
+	namespace opengl {
 		#if UF_GRAPHIC_POINTERED_USERDATA
 			typedef uf::PointeredUserdata userdata_t;
 		#else
 			typedef uf::Userdata userdata_t;
 		#endif
 
+		struct Graphic;
+		struct CommandBuffer;
+
 		ext::json::Value definitionToJson(/*const*/ ext::json::Value& definition );
-		ext::vulkan::userdata_t jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition );
+		ext::opengl::userdata_t jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition );
 
 		struct UF_API Shader : public Buffers {
 			bool aliased = false;
@@ -26,11 +30,16 @@ namespace ext {
 			Device* device = NULL;
 			std::string filename = "";
 
-			VkShaderModule module = VK_NULL_HANDLE;
-			VkPipelineShaderStageCreateInfo descriptor;
-			std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-			std::vector<VkSpecializationMapEntry> specializationMapEntries;
-			VkSpecializationInfo specializationInfo;
+		#if !UF_USE_OPENGL_FIXED_FUNCTION
+			GLuint module = GL_NULL_HANDLE;
+		#else
+			typedef std::function<void(const Shader&, const Graphic&, void*)> module_t;
+			module_t module;
+		#endif
+			struct Descriptor {
+				GLuint module;
+				enums::Shader::type_t stage;
+			} descriptor;
 
 			struct Metadata {
 				uf::Serializer json;
@@ -44,7 +53,7 @@ namespace ext {
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
-						ext::vulkan::enums::Image::viewType_t type{};
+						ext::opengl::enums::Image::viewType_t type{};
 					};
 					struct Uniform {
 						std::string name = "";
@@ -71,28 +80,33 @@ namespace ext {
 				} definitions;
 			} metadata;
 
-			ext::vulkan::userdata_t specializationConstants;
-			std::vector<ext::vulkan::userdata_t> pushConstants;
-			std::vector<ext::vulkan::userdata_t> uniforms;
+			ext::opengl::userdata_t specializationConstants;
+			std::vector<ext::opengl::userdata_t> pushConstants;
+			std::vector<ext::opengl::userdata_t> uniforms;
 		//	~Shader();
-			void initialize( Device& device, const std::string&, VkShaderStageFlagBits );
+			void initialize( Device& device, const std::string&, enums::Shader::type_t stage );
 			void destroy();
 			bool validate();
 
 			bool hasUniform( const std::string& name );
 
 			Buffer* getUniformBuffer( const std::string& name );
-			ext::vulkan::userdata_t& getUniform( const std::string& name );
+			ext::opengl::userdata_t& getUniform( const std::string& name );
 			uf::Serializer getUniformJson( const std::string& name, bool cache = true );
-			ext::vulkan::userdata_t getUniformUserdata( const std::string& name, const ext::json::Value& payload );
+			ext::opengl::userdata_t getUniformUserdata( const std::string& name, const ext::json::Value& payload );
 			bool updateUniform( const std::string& name );
-			bool updateUniform( const std::string& name, const ext::vulkan::userdata_t& );
+			bool updateUniform( const std::string& name, const ext::opengl::userdata_t& );
 			bool updateUniform( const std::string& name, const ext::json::Value& payload );
 			
 			bool hasStorage( const std::string& name );
 			Buffer* getStorageBuffer( const std::string& name );
 			uf::Serializer getStorageJson( const std::string& name, bool cache = true );
-			ext::vulkan::userdata_t getStorageUserdata( const std::string& name, const ext::json::Value& payload );
+			ext::opengl::userdata_t getStorageUserdata( const std::string& name, const ext::json::Value& payload );
+
+		#if UF_USE_OPENGL_FIXED_FUNCTION
+			static void bind( const std::string& name, const module_t& module );
+			void execute( const Graphic& graphic, void* = NULL );
+		#endif
 		};
 	}
 }

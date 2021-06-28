@@ -23,12 +23,13 @@ namespace pod {
 	struct /*UF_API*/ Transform {
 		typedef T type_t;
 
-		pod::Vector3t<T> position;
+		pod::Vector3t<T> position = {0, 0,0 };
 		pod::Vector3t<T> scale = {1, 1, 1};
 
 		pod::Vector3t<T> up = {0, 1, 0};
 		pod::Vector3t<T> right = {1, 0, 0};
 		pod::Vector3t<T> forward = {0, 0, 1};
+		
 		pod::Quaternion<T> orientation = {0, 0, 0, 1};
 
 		pod::Matrix4t<T> model = uf::matrix::identity();

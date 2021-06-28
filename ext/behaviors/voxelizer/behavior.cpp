@@ -204,7 +204,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			pod::Vector3f min = metadata.extents.min + controllerPosition;
 			pod::Vector3f max = metadata.extents.max + controllerPosition;
 
-			metadata.extents.matrix = uf::matrix::ortho<float>( min.x, max.x, min.y, max.y, min.z, max.z );
+			metadata.extents.matrix = uf::matrix::orthographic( min.x, max.x, min.y, max.y, min.z, max.z );
 
 			auto& graph = scene.getGraph();
 			for ( auto entity : graph ) {

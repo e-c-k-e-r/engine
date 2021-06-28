@@ -7,6 +7,11 @@ struct EyeMatrices {
 	vec4 eyePos;
 };
 
+struct Viewport {
+	mat4 view;
+	mat4 projection;
+};
+
 struct Cursor {
 	vec2 position;
 	vec2 radius;

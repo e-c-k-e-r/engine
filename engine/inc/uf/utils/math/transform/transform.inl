@@ -1,9 +1,15 @@
 template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::initialize( pod::Transform<T>& transform ) {
+	transform.position = {0, 0, 0};
+	transform.scale = {1, 1, 1};
+
 	transform.up = {0, 1, 0};
 	transform.right = {1, 0, 0};
 	transform.forward = {0, 0, 1};
+
 	transform.orientation = {0, 0, 0, 1};
+
 	transform.model = uf::matrix::identity();
+	
 	transform.reference = NULL;
 	return transform;
 }

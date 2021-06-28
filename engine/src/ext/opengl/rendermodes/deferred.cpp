@@ -12,7 +12,7 @@
 #include <uf/utils/math/transform.h>
 
 #include <uf/ext/opengl/graphic.h>
-#include <uf/ext/gltf/graph.h>
+#include <uf/engine/graph/graph.h>
 #include <uf/utils/camera/camera.h>
 
 const std::string ext::opengl::DeferredRenderMode::getType() const {

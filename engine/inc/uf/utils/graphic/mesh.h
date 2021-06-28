@@ -64,7 +64,7 @@ namespace uf {
 	typedef BaseMesh<pod::Vertex_3F2F3F32B> ColoredMesh;
 	typedef BaseMesh<pod::Vertex_3F2F3F> Mesh;
 	typedef BaseMesh<pod::Vertex_3F> LineMesh;
-
+#if 0
 	template<size_t N = 6>
 	struct MeshDescriptor {
 		struct {
@@ -74,4 +74,5 @@ namespace uf {
 		} matrices;
 		/*alignas(16)*/ pod::Vector4f color = { 1, 1, 1, 0 };
 	};
+#endif
 }

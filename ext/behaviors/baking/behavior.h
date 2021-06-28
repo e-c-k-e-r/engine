@@ -25,6 +25,23 @@ namespace ext {
 				std::string renderMode = "Baker";
 			} names;
 			struct {
+				size_t instance = 0;
+				size_t material = 0;
+				size_t texture = 0;
+				size_t light = 0;
+			} buffers;
+			struct {
+				size_t textures2D = 1024;
+				size_t texturesCube = 512;
+				size_t textures3D = 1;
+				size_t lights = 1024;
+				size_t shadows = 1024;
+			} max;
+			struct {
+				size_t max = 0;
+				size_t update = 0;
+			} previous;
+			struct {
 				std::string mode = "key";
 				std::string value = "";
 			} trigger;

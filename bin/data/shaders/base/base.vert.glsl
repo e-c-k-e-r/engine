@@ -1,6 +1,8 @@
 #version 450
 #pragma shader_stage(vertex)
 
+#include "../common/structs.h"
+
 layout (constant_id = 0) const uint PASSES = 6;
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUv;
@@ -11,34 +13,27 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-struct Matrices {
-	mat4 model;
-	mat4 view[PASSES];
-	mat4 projection[PASSES];
-};
-
 layout (binding = 0) uniform UBO {
-	Matrices matrices;
-	vec4 color;
+	mat4 model;
+// 	vec4 color;
 } ubo;
+
+layout (binding = 1) uniform Camera {
+	Viewport viewport[PASSES];
+} camera;
 
 layout (location = 0) out vec2 outUv;
 layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec3 outNormal;
 layout (location = 3) out vec3 outPosition;
 
-out gl_PerVertex {
-    vec4 gl_Position;   
-};
-
-
 void main() {
 	outUv = inUv;
-	outColor = ubo.color;
+	outColor = vec4(1); // ubo.color;
 
-	outPosition = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0));
-	outNormal = vec3(ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inNormal.xyz, 0.0));
+	outPosition = vec3(camera.viewport[PushConstant.pass].view * ubo.model * vec4(inPos.xyz, 1.0));
+	outNormal = vec3(camera.viewport[PushConstant.pass].view * ubo.model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);
 
-	gl_Position = ubo.matrices.projection[PushConstant.pass] * ubo.matrices.view[PushConstant.pass] * ubo.matrices.model * vec4(inPos.xyz, 1.0);
+	gl_Position = camera.viewport[PushConstant.pass].projection * camera.viewport[PushConstant.pass].view * ubo.model * vec4(inPos.xyz, 1.0);
 }

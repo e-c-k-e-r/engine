@@ -23,8 +23,9 @@ const std::string ext::opengl::RenderMode::getType() const {
 	return "";
 }
 const std::string ext::opengl::RenderMode::getName() const {
-	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-	return metadata["name"].as<std::string>();
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["name"].as<std::string>();
+	return metadata.name;
 }
 ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget( size_t i ) {
 	return renderTarget;
@@ -47,7 +48,7 @@ ext::opengl::GraphicDescriptor ext::opengl::RenderMode::bindGraphicDescriptor( c
 	ext::opengl::GraphicDescriptor descriptor = reference;
 //	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
-	descriptor.parse( metadata );
+	descriptor.parse( metadata.json["descriptor"] );
 	return descriptor;
 }
 void ext::opengl::RenderMode::bindGraphicPushConstants( ext::opengl::Graphic* pointer, size_t pass ) {
@@ -114,6 +115,12 @@ void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Grap
 			if ( descriptor.invalidated ) continue;
 			// ignore if pipeline exists for this render mode
 			if ( graphic.hasPipeline( descriptor ) ) continue;
+			// if pipeline name is specified for the rendermode, check if we have shaders for it
+			size_t shaders = 0;
+			for ( auto& shader : graphic.material.shaders ) {
+				if ( shader.metadata.pipeline == descriptor.pipeline ) ++shaders;
+			}
+			if ( shaders == 0 ) continue;
 			graphic.initializePipeline( descriptor );
 		}
 	}
@@ -140,7 +147,7 @@ void ext::opengl::RenderMode::render() {
 	CommandBuffer::InfoClear clearCommandInfo = {};
 	clearCommandInfo.type = enums::Command::CLEAR;
 	clearCommandInfo.color = {0.0f, 0.0f, 0.0f, 0.0f};
-	clearCommandInfo.depth = uf::Camera::USE_REVERSE_INFINITE_PROJECTION ? 0.0f : 1.0f;
+	clearCommandInfo.depth = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
 	clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 	if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
 		clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );

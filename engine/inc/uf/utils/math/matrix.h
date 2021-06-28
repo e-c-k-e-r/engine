@@ -48,13 +48,15 @@ namespace pod {
 
 namespace uf {
 	namespace matrix {
-	// 	Equality checking
+		extern bool UF_API reverseInfiniteProjection;
+
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ identity();
-		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ ortho( T, T, T, T );
-		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ ortho( T, T, T, T, T, T );
+
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const T* );
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const std::vector<T>& );
 		template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> /*UF_API*/ identityi();
+
+	// 	Equality checking
 		template<typename T=pod::Matrix4> int /*UF_API*/ compareTo( const T& left, const T& right ); 			// 	Equality check between two matrices (less than)
 		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two matrices (equals)
 	// 	Basic arithmetic
@@ -81,6 +83,23 @@ namespace uf {
 		template<typename T=pod::Matrix4> T& /*UF_API*/ rotate( T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ scale( T& matrix, const pod::Vector3t<typename T::type_t>& vector );
 		template<typename T=pod::Matrix4> pod::Vector3t<typename T::type_t> /*UF_API*/ eulerAngles( const T& matrix );
+
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ orthographic( T, T, T, T, T, T );
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ orthographic( T, T, T, T );
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> inline /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt, const pod::Vector2t<T>& nf ) {
+			return orthographic<T>( lr.x, lr.y, bt.x, bt.y, nf.x, nf.y );
+		}
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> inline /*UF_API*/ orthographic( const pod::Vector2t<T>& lr, const pod::Vector2t<T>& bt ) {
+			return orthographic<T>( lr.x, lr.y, bt.x, bt.y );
+		}
+
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ perspective( T, T, T, T );
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> inline /*UF_API*/ perspective( T fov, T raidou, const pod::Vector2f& range ) {
+			return perspective( fov, raidou, range.x, range.y );
+		}
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> inline /*UF_API*/ perspective( T fov, const pod::Vector2ui& size, const pod::Vector2f& range ) {
+			return perspective( fov, (T) size.x / (T) size.y, range.x, range.y );
+		}
 	// 	Setting
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, const T& source );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, typename T::type_t* const source );

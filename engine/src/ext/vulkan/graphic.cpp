@@ -27,7 +27,6 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 	this->metadata.type = descriptor.pipeline;
 	Device& device = *graphic.device;
 
-	// VK_VALIDATION_MESSAGE(&graphic << ": Shaders: " << graphic.material.shaders.size() << " Textures: " << graphic.material.textures.size());
 	auto shaders = getShaders( graphic.material.shaders );
 	assert( shaders.size() > 0 );
 
@@ -274,16 +273,11 @@ void ext::vulkan::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 			}
 			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.metadata.json["specializationConstants"].dump(1, '\t'));
 			if ( invalidated ) {
-			//	shader.specializationInfo = {};
-			//	shader.specializationInfo.mapEntryCount = shader.specializationMapEntries.size();
 				shader.specializationInfo.pMapEntries = shader.specializationMapEntries.data();
 				shader.specializationInfo.pData = (void*) shader.specializationConstants;
-			//	shader.specializationInfo.dataSize = shader.specializationConstants.data().len;
 				shader.descriptor.pSpecializationInfo = &shader.specializationInfo;
 			}
-			
 			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants for shader `" << shader.filename << "`: " << shader.specializationInfo.dataSize );
-			
 			shaderDescriptors.push_back(shader.descriptor);
 		}
 
@@ -330,7 +324,8 @@ void ext::vulkan::Pipeline::record( Graphic& graphic, VkCommandBuffer commandBuf
 		size_t offset = 0;
 		for ( auto& pushConstant : shader.pushConstants ) {
 			// 
-			if ( ext::json::isObject( shader.metadata.json["definitions"]["pushConstants"]["PushConstant"] ) ) {
+		//	if ( ext::json::isObject( shader.metadata.json["definitions"]["pushConstants"]["PushConstant"] ) ) {
+			if ( shader.metadata.definitions.pushConstants.count("PushConstant") > 0 ) {
 				if ( shader.descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT ) {
 					struct PushConstant {
 						uint32_t pass;
@@ -419,7 +414,8 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	}
 
 	size_t consumes = 0;
-	std::vector<std::string> types;
+//	std::vector<std::string> types;
+	std::vector<ext::vulkan::enums::Image::viewType_t> types;
 	for ( auto* shaderPointer : shaders ) {
 		auto& shader = *shaderPointer;
 
@@ -443,8 +439,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					consumes += layout.descriptorCount;
-					std::string binding = std::to_string(layout.binding);
-					std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();					
+				//	std::string binding = std::to_string(layout.binding);
+				//	std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();					
+					ext::vulkan::enums::Image::viewType_t imageType = shader.metadata.definitions.textures[layout.binding].type;
 					types.reserve(consumes);
 					for ( size_t i = 0; i < layout.descriptorCount; ++i ) types.emplace_back(imageType);
 				} break;
@@ -457,9 +454,9 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	size_t maxTexturesCube = 0;
 	size_t maxTexturesUnknown = 0;
 	for ( auto& type : types ) {
-		if ( type == "3D" ) ++maxTextures3D;
-		else if ( type == "Cube" ) ++maxTexturesCube;
-		else if ( type == "2D" ) ++maxTextures2D;
+		if ( type == ext::vulkan::enums::Image::VIEW_TYPE_3D ) ++maxTextures3D;
+		else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) ++maxTexturesCube;
+		else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_2D ) ++maxTextures2D;
 		else ++maxTexturesUnknown;
 	}
 
@@ -469,10 +466,11 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 	while ( infos.imageUnknown.size() < maxTexturesUnknown ) infos.imageUnknown.push_back(Texture2D::empty.descriptor);
 
 	for ( size_t i = infos.image.size(); i < consumes; ++i ) {
-		std::string type = i < types.size() ? types[i] : "";
-		if ( type == "3D" ) infos.image.push_back(Texture3D::empty.descriptor);
-		else if ( type == "Cube" ) infos.image.push_back(TextureCube::empty.descriptor);
-		else if ( type == "2D" ) infos.image.push_back(Texture2D::empty.descriptor);
+	//	std::string type = i < types.size() ? types[i] : "";
+		ext::vulkan::enums::Image::viewType_t type = i < types.size() ? types[i] : ext::vulkan::enums::Image::viewType_t{};
+		if ( type == ext::vulkan::enums::Image::VIEW_TYPE_3D ) infos.image.push_back(Texture3D::empty.descriptor);
+		else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) infos.image.push_back(TextureCube::empty.descriptor);
+		else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_2D ) infos.image.push_back(Texture2D::empty.descriptor);
 		else infos.image.push_back(Texture2D::empty.descriptor);
 	}
 	
@@ -512,9 +510,10 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 				//	if ( layout.descriptorCount == 1 ) UF_MSG_DEBUG(i.imageView << "\t" << (*imageInfo).imageLayout);
 
 				#if 1
-					std::string binding = std::to_string(layout.binding);
-					std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();
-					if ( imageType == "2D" ) {
+				//	std::string binding = std::to_string(layout.binding);
+				//	std::string imageType = shader.metadata.json["definitions"]["textures"][binding]["type"].as<std::string>();
+					ext::vulkan::enums::Image::viewType_t imageType = shader.metadata.definitions.textures[layout.binding].type;
+					if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D ) {
 						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
@@ -524,7 +523,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 							layout.descriptorCount
 						));
 						image2DInfo += layout.descriptorCount;
-					} else if ( imageType == "Cube" ) {
+					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) {
 						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
@@ -534,7 +533,7 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 							layout.descriptorCount
 						));
 						imageCubeInfo += layout.descriptorCount;
-					} else if ( imageType == "3D" ) {
+					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_3D ) {
 						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), "Filename: " << shader.filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.push_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
@@ -636,19 +635,22 @@ void ext::vulkan::Pipeline::update( Graphic& graphic, GraphicDescriptor& descrip
 					if ( descriptor.pImageInfo[i].imageView == VK_NULL_HANDLE || descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_UNDEFINED ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Null image view or layout is undefined, replacing with fallback texture...");
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
-						std::string binding = std::to_string(descriptor.dstBinding);
-						std::string imageType = "";
+					//	std::string binding = std::to_string(descriptor.dstBinding);
+					//	std::string imageType = "";
+						ext::vulkan::enums::Image::viewType_t imageType{};
 						for ( auto* shaderPointer : shaders ) {
 							auto& shader = *shaderPointer;
 
-							auto& info = shader.metadata.json["definitions"]["textures"][binding];
-							if ( ext::json::isNull(info) ) continue;
-							imageType = info["type"].as<std::string>();
+							if ( shader.metadata.definitions.textures.count(descriptor.dstBinding) == 0  ) continue;
+							imageType = shader.metadata.definitions.textures[descriptor.dstBinding].type;
+						//	auto& info = shader.metadata.json["definitions"]["textures"][binding];
+						//	if ( ext::json::isNull(info) ) continue;
+						//	imageType = info["type"].as<std::string>();
 							break;
 						}
-						if ( imageType == "3D" ) {
+						if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_3D ) {
 							*pointer = Texture3D::empty.descriptor;
-						} else if ( imageType == "Cube" ) {
+						} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) {
 							*pointer = TextureCube::empty.descriptor;
 						} else {
 							*pointer = Texture2D::empty.descriptor;
@@ -716,16 +718,6 @@ void ext::vulkan::Pipeline::destroy() {
 std::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( std::vector<ext::vulkan::Shader>& shaders ) {
 	std::unordered_map<std::string, ext::vulkan::Shader*> map;
 	std::vector<ext::vulkan::Shader*> res;
-
-/*
-	std::string pipelineName = metadata["name"].as<std::string>();
-	for ( auto& shader : shaders ) {
-		std::string target = shader.metadata.json["pipeline"].as<std::string>();
-		std::string type = shader.metadata.json["type"].as<std::string>();
-		if ( target != "" && target != pipelineName ) continue;
-		map[type] = &shader;
-	}
-*/
 	for ( auto& shader : shaders ) {
 		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
 		map[shader.metadata.type] = &shader;
@@ -780,7 +772,8 @@ void ext::vulkan::Material::attachShader( const std::string& filename, VkShaderS
 	shader.metadata.type = type;
 
 	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
-	metadata.json["shaders"][pipeline][type]["index"] = shaders.size() - 1;
+	metadata.json["shaders"][pipeline][type]["filename"] = filename;
+	metadata.shaders[pipeline+":"+type] = shaders.size() - 1;
 }
 void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::string, VkShaderStageFlagBits>>& layout, const std::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
@@ -789,21 +782,24 @@ void ext::vulkan::Material::initializeShaders( const std::vector<std::pair<std::
 	}
 }
 bool ext::vulkan::Material::hasShader( const std::string& type, const std::string& pipeline ) {
-	return !ext::json::isNull( metadata.json["shaders"][pipeline][type] );
+	return metadata.shaders.count(pipeline+":"+type) > 0;
+//	return !ext::json::isNull( metadata.json["shaders"][pipeline][type] );
 }
 ext::vulkan::Shader& ext::vulkan::Material::getShader( const std::string& type, const std::string& pipeline ) {
+	UF_ASSERT( hasShader(type, pipeline) );
+	return shaders.at( metadata.shaders[pipeline+":"+type] );
+/*
 	if ( !hasShader(type, pipeline) ) {
 		static ext::vulkan::Shader null;
 		return null;
 	}
 	size_t index = metadata.json["shaders"][pipeline][type]["index"].as<size_t>();
 	return shaders.at(index);
+*/
 }
 bool ext::vulkan::Material::validate() {
 	bool was = true;
-	for ( auto& shader : shaders ) {
-		if ( !shader.validate() ) was = false;
-	}
+	for ( auto& shader : shaders ) if ( !shader.validate() ) was = false;
 	return was;
 }
 ext::vulkan::Graphic::~Graphic() {
@@ -915,6 +911,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, GraphicDescrip
 		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set");
 		return;
 	}
+	if ( !pipeline.metadata.process ) return;
 
 	Buffer* vertexBuffer = NULL;
 	Buffer* indexBuffer = NULL;
@@ -964,7 +961,8 @@ ext::vulkan::Buffer* ext::vulkan::Graphic::getStorageBuffer( const std::string& 
 	size_t storageIndex = -1;
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
-		storageIndex = shader.metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
+	//	storageIndex = shader.metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
+		storageIndex = shader.metadata.definitions.storage[name].index;
 		break;
 	}
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {

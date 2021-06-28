@@ -2,16 +2,16 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"use graph": true,
 			"lights": {
-				"max": 4,
-				"enabled": false,
-				"shadows": false,
-				"update threshold": 4,
-				"shadow threshold": 8
+				"max": 512,
+				"enabled": true
 			},
-			"textures": {
-				"max": 80
+			"shadows": {
+				"enabled": true,
+				"update": 4,
+				"max": 8,
+				"samples": 2,
+				"experimental mode": 1
 			}
 		},
 		"ext": {
@@ -26,10 +26,10 @@
 				"experimental": {
 					"rebuild on tick begin": false,
 					"wait on render end": false,
-					"individual pipelines": false,
-					"multithreaded command recording": false,
+					"individual pipelines": true,
+					"multithreaded command recording": true,
+					"multithreaded command rendering": false,
 					"deferred mode": "",
-				//	"deferred mode": "deferredSampling",
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": true,
 					"hdr": false
@@ -65,26 +65,25 @@
 					"enabled": false,
 					"rate": 1.0
 				}
-			},
-			"discord": {
-				"enabled": false
 			}
 		},
 		"audio": {
-			"mute": false
+			"mute": false,
+			"buffers": {
+				"size": 32768,
+				"count": 4
+			},
+			"streams by default": true
 		},
 		"memory pool": {
 			"globalOverride": false,
 			"subPools": true,
 			"size": "2048 KiB",
 			"pools": {
-				"entity": "128 KiB",
-				"userdata": "128 KiB",
-				"component": "128 KiB"
+				"entity": "96 KiB",
+				"userdata": "96 KiB",
+				"component": "96 KiB"
 			}
-		},
-		"hook" :  {
-			"mode" : "Readable"
 		},
 		"render modes": {
 			"gui": true,
@@ -108,7 +107,7 @@
 			"garbage collection": {
 				"enabled": true,
 				"mode": 1,
-				"rate": 16,
+				"rate": 4,
 				"announce": true
 			},
 			"entity": {
@@ -131,10 +130,7 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-		"size" :  {
-			"x" : 640,
-			"y" : 480
-		},
+		"size" :  [ 640, 480 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}

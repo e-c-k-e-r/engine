@@ -16,8 +16,8 @@ namespace uf {
 				void* handle = NULL;
 				char* buffer = NULL;
 				
-				ALsizei consumed = 0;
-				int32_t bitStream = 0;
+				size_t consumed = 0;
+				int bitStream = 0;
 			} stream;
 			struct {
 				ext::al::Source source;

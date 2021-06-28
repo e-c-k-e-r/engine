@@ -57,6 +57,7 @@ namespace ext {
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
 				extern UF_API bool multithreadedCommandRecording;
+				extern UF_API bool multithreadedCommandRendering;
 				extern UF_API std::string deferredMode;
 				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
@@ -89,6 +90,7 @@ namespace ext {
 
 		extern UF_API RenderMode* currentRenderMode;
 		extern UF_API std::vector<RenderMode*> renderModes;
+		extern UF_API std::unordered_map<std::string, RenderMode*> renderModesMap;
 		extern UF_API std::vector<uf::Scene*> scenes;
 
 		bool UF_API hasRenderMode( const std::string&, bool = true );

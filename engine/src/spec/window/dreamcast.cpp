@@ -2,6 +2,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/utf.h>
 #include <uf/utils/string/ext.h>
+#include <uf/utils/window/payloads.h>
 
 #if UF_ENV_DREAMCAST
 
@@ -362,7 +363,7 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 	if ( ::mouse.device ) ::mouse.state = (mouse_state_t*) maple_dev_status(::mouse.device);
 
 	/* Key inputs */ if ( this->m_asyncParse ) {
-		std::vector<WPARAM> keys = GetKeys();
+		std::vector<uint8_t> keys = GetKeys();
 		pod::payloads::windowKey event{
 			"window:Key",
 			"os",

@@ -411,10 +411,9 @@ pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, p
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
-			if ( i < N ) {
-				v[i] = uf::math::unquantize( c.as<T>(v[i]) );
-				++i;
-			}
+			if ( i >= N ) return;
+			v[i] = uf::math::unquantize( c.as<T>(v[i]) );
+			++i;
 		});
 	}
 	return v;
@@ -429,10 +428,9 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	else if ( ext::json::isObject(json) ) {
 		uint_fast8_t i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
-			if ( i < N ) {
-				v[i] = c.as<T>(_v[i]);
-				++i;
-			}
+			if ( i >= N ) return;
+			v[i] = c.as<T>(_v[i]);
+			++i;
 		});
 	}
 	return v;
