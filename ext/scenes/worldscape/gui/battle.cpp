@@ -14,7 +14,7 @@
 #include "..//battle.h"
 #include <uf/engine/asset/asset.h>
 
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 
 //#include <uf/ext/renderer/renderer.h>
 
@@ -36,42 +36,42 @@ namespace {
 	ext::Gui* critCutInBackground;
 	ext::Gui* critCutIn;
 
-	std::vector<ext::Gui*> partyMemberButtons(5);
-//	std::vector<ext::Gui*> partyMemberIcons(5);
-//	std::vector<ext::Gui*> partyMemberTexts(5);
-	std::vector<ext::Gui*> particles;
+	uf::stl::vector<ext::Gui*> partyMemberButtons(5);
+//	uf::stl::vector<ext::Gui*> partyMemberIcons(5);
+//	uf::stl::vector<ext::Gui*> partyMemberTexts(5);
+	uf::stl::vector<ext::Gui*> particles;
 
 	ext::HousamoBattle* battleManager;
 
 
-	uf::Serializer masterTableGet( const std::string& table ) {
+	uf::Serializer masterTableGet( const uf::stl::string& table ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
+	uf::Serializer masterDataGet( const uf::stl::string& table, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
+	inline int64_t parseInt( const uf::stl::string& str ) {
 		return atoi(str.c_str());
 	}
-	inline std::string colorString( const std::string& hex ) {
+	inline uf::stl::string colorString( const uf::stl::string& hex ) {
 		return "%#" + hex + "%";
 	}
 
-	void playSound( ext::GuiBattle& entity, const std::string& id, const std::string& key ) {
+	void playSound( ext::GuiBattle& entity, const uf::stl::string& id, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string name = charaData["filename"].as<std::string>();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string name = charaData["filename"].as<uf::stl::string>();
 
 		if ( name == "none" ) return;
 
-		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
+		uf::stl::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].as<bool>() ) {
 			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
@@ -79,7 +79,7 @@ namespace {
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.Voice." + std::to_string(entity.getUid()));
 	}
-	void playSound( ext::GuiBattle& entity, std::size_t uid, const std::string& key ) {
+	void playSound( ext::GuiBattle& entity, std::size_t uid, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& pMetadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -87,29 +87,29 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].as<std::string>();
+		uf::stl::string id = metadata[""]["id"].as<uf::stl::string>();
 		playSound( entity, id, key );
 	}
-	void playSound( ext::GuiBattle& entity, const std::string& key ) {
+	void playSound( ext::GuiBattle& entity, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
+		uf::stl::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
 	}
-	void playMusic( ext::GuiBattle& entity, const std::string& filename ) {
+	void playMusic( ext::GuiBattle& entity, const uf::stl::string& filename ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		assetLoader.load(filename, "asset:Load." + std::to_string(scene.getUid()));
 	}
-	std::string getKeyFromIndex( uf::Serializer& object, uint64_t index ) {
+	uf::stl::string getKeyFromIndex( uf::Serializer& object, uint64_t index ) {
 		uint64_t i = 0;
-		std::string key = "";
+		uf::stl::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
 			if ( i++ == index ) key = it.key();
 		}
@@ -123,23 +123,23 @@ namespace {
 		struct {
 			int selection = 0;
 			int selectionsMax = 3;
-			std::vector<std::string> invalids;
+			uf::stl::vector<uf::stl::string> invalids;
 		} skill;
 		struct {
 			int selection = 0;
 			int selectionsMax = 3;
-			std::vector<std::string> invalids;
+			uf::stl::vector<uf::stl::string> invalids;
 			uf::Serializer current;
 		} actions;
 		struct {
 			int selection = 0;
 			int selectionsMax = 3;
-			std::vector<std::string> invalids;
+			uf::stl::vector<uf::stl::string> invalids;
 			uf::Serializer current;
 		} targets;
 		uf::Serializer currentMember;
 		uf::Serializer previousMember;
-		std::string state = "open";
+		uf::stl::string state = "open";
 		bool initialized = false;
 	};
 	static BattleStats stats;
@@ -153,12 +153,12 @@ void ext::GuiBattle::initialize() {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	battleManager = (ext::HousamoBattle*) this->getRootParent().findByName( "Battle Manager" );
 
-	partyMemberButtons = std::vector<ext::Gui*>(5);
+	partyMemberButtons = uf::stl::vector<ext::Gui*>(5);
 
-	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -177,10 +177,10 @@ void ext::GuiBattle::initialize() {
 		return "true";
 	});
 
-	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -240,7 +240,7 @@ void ext::GuiBattle::initialize() {
 		turnCounters->initialize();
 	}	
 
-	this->addHook("world:Battle.TurnStart.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.TurnStart.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		uf::Serializer json = event;
 
 		
@@ -251,11 +251,11 @@ void ext::GuiBattle::initialize() {
 		
 		return "true";
 	});
-	this->addHook("world:Battle.Damage.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.Damage.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		uf::Serializer json = event;
 
-		std::string uid = json["target"]["uid"].as<std::string>();
-		std::string damage = json["target"]["damage"].as<std::string>();
+		uf::stl::string uid = json["target"]["uid"].as<uf::stl::string>();
+		uf::stl::string damage = json["target"]["damage"].as<uf::stl::string>();
 
 		pod::Transform<> pTransform;
 		pTransform.position = { 0, 0, 0 };
@@ -268,7 +268,7 @@ void ext::GuiBattle::initialize() {
 				if ( pointer->getUid() == 0 ) continue;
 				if ( pointer->getName() == "Menu: Party Member Icon" ) {
 					uf::Serializer& pMetadata = pointer->getComponent<uf::Serializer>();
-					if ( pMetadata[""]["uid"].as<std::string>() != uid ) continue;
+					if ( pMetadata[""]["uid"].as<uf::stl::string>() != uid ) continue;
 					pTransform = pointer->getComponent<pod::Transform<>>();
 					pTransform.position.y -= (0.1);
 				}
@@ -278,7 +278,7 @@ void ext::GuiBattle::initialize() {
 		this->addChild(*particle);
 		uf::Serializer& pMetadata = particle->getComponent<uf::Serializer>();
 		particle->as<uf::Object>().load("./damageText.json", true);
-		std::string color = json["color"].is<std::string>() ? json["color"].as<std::string>() : "FF0000";
+		uf::stl::string color = json["color"].is<uf::stl::string>() ? json["color"].as<uf::stl::string>() : "FF0000";
 		pMetadata["text settings"]["string"] = "%#"+color+"%" + damage;
 		pod::Transform<>& transform = particle->getComponent<pod::Transform<>>();
 		transform = pTransform;
@@ -288,9 +288,9 @@ void ext::GuiBattle::initialize() {
 
 		return "true";
 	});
-	this->addHook("world:Battle.Message.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.Message.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		uf::Serializer json = event;
-		std::string message = json["message"].as<std::string>();
+		uf::stl::string message = json["message"].as<uf::stl::string>();
 
 		if ( battleMessage ) {
 			battleMessage->destroy();
@@ -308,7 +308,7 @@ void ext::GuiBattle::initialize() {
 
 		return "true";
 	});
-	this->addHook("world:Battle.RemoveOnCrit.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.RemoveOnCrit.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		if ( critCutInBackground && critCutInBackground->getUid() != 0 ) {
 			critCutInBackground->destroy();
 			this->removeChild(*critCutInBackground);
@@ -323,7 +323,7 @@ void ext::GuiBattle::initialize() {
 		}
 		return "true";
 	});
-	this->addHook("world:Battle.OnCrit.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.OnCrit.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		uf::Serializer json = event;
 		if ( critCutInBackground && critCutInBackground->getUid() != 0 ) {
 			critCutInBackground->destroy();
@@ -348,9 +348,9 @@ void ext::GuiBattle::initialize() {
 			this->addChild(*critCutIn);
 			uf::Serializer& pMetadata = critCutIn->getComponent<uf::Serializer>();
 
-			uf::Serializer cardData = masterDataGet("Card", json["id"].as<std::string>());
-			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].as<std::string>() +".png";
-			if ( !uf::io::exists( pMetadata["system"]["assets"][0].as<std::string>() ) ) pMetadata["system"]["assets"][0] = ext::json::null();
+			uf::Serializer cardData = masterDataGet("Card", json["id"].as<uf::stl::string>());
+			pMetadata["system"]["assets"][0] = "/smtsamo/ci/ci_"+ cardData["filename"].as<uf::stl::string>() +".png";
+			if ( !uf::io::exists( pMetadata["system"]["assets"][0].as<uf::stl::string>() ) ) pMetadata["system"]["assets"][0] = ext::json::null();
 			critCutIn->as<uf::Object>().load("./critCutIn.json", true);
 			critCutIn->initialize();
 		}
@@ -360,7 +360,7 @@ void ext::GuiBattle::initialize() {
 
 		return "true";
 	});
-	this->addHook("world:Battle.Update.%UID%", [&](const std::string& event) -> std::string {
+	this->addHook("world:Battle.Update.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 		uf::Serializer json = event;
 	
 		{
@@ -430,10 +430,10 @@ void ext::GuiBattle::initialize() {
 				breaks = true;
 				return;
 			}
-			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-			std::string name = cardData["filename"].as<std::string>();
-			if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
-			std::string filename = "https://cdn..xyz//unity/Android/icon/icon_" + name + ".png";
+			uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+			uf::stl::string name = cardData["filename"].as<uf::stl::string>();
+			if ( member["skin"].is<uf::stl::string>() ) name += "_" + member["skin"].as<uf::stl::string>();
+			uf::stl::string filename = "https://cdn..xyz//unity/Android/icon/icon_" + name + ".png";
 			if ( cardData["internal"].as<bool>() ) {
 				filename = "/smtsamo/icon/icon_" + name + ".png";
 			}
@@ -470,7 +470,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
 					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
-					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].as<std::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<std::string>();
+					pMetadata["text settings"]["string"] = "" + colorString("00FF00") + "" + member["hp"].as<uf::stl::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<uf::stl::string>();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -549,7 +549,7 @@ void ext::GuiBattle::initialize() {
 					partyMemberButton->addChild(*partyMemberText);
 					uf::Serializer& pMetadata = partyMemberText->getComponent<uf::Serializer>();
 					partyMemberText->as<uf::Object>().load("./partyMemberText.json", true);
-					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].as<std::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<std::string>();
+					pMetadata["text settings"]["string"] = "" + colorString("FF0000") + "" + member["hp"].as<uf::stl::string>() + "\n" + colorString("0000FF") + "" + member["mp"].as<uf::stl::string>();
 					pMetadata[""] = member;
 					pod::Transform<>& transform = partyMemberText->getComponent<pod::Transform<>>();
 					transform.position = bTransform.position;
@@ -617,7 +617,7 @@ void ext::GuiBattle::initialize() {
 		return "true";
 	});
 
-	this->addHook("menu:Close.%UID%", [&]( const std::string& event ) -> std::string {		
+	this->addHook("menu:Close.%UID%", [&]( const uf::stl::string& event ) -> uf::stl::string {		
 		// kill
 		this->getParent().removeChild(*this);
 		this->destroy();
@@ -638,15 +638,15 @@ void ext::GuiBattle::tick() {
 	static uf::Timer<long long> timer(false);
 	static float timeout = 1.0f;
 	if ( !timer.running() ) timer.start();
-	static std::string queuedAction;
+	static uf::stl::string queuedAction;
 
 	std::function<void(uf::Serializer&)> postParseResult = [&]( uf::Serializer& result ) {
 		if ( result["end"].as<bool>() ) bMetadata["system"]["closing"] = true;
 		if ( !ext::json::isNull( result["timeout"] ) ) timeout = result["timeout"].as<float>();
 		else timeout = 1;
 		// modify timeout based on string length
-		if ( result["message"].is<std::string>() && !ext::json::isNull( result["target"] ) ) {
-			uint64_t size = result["message"].as<std::string>().size();
+		if ( result["message"].is<uf::stl::string>() && !ext::json::isNull( result["target"] ) ) {
+			uint64_t size = result["message"].as<uf::stl::string>().size();
 			float modified = size * 0.025f;
 			if ( timeout < modified ) timeout = modified;
 		}
@@ -670,31 +670,31 @@ void ext::GuiBattle::tick() {
 			return;
 		}
 		stats.currentMember = member;
-		std::string string = "";
+		uf::stl::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.skill.selection;
 		stats.actions.invalids.clear();
 		stats.currentMember["skills"] = ext::json::array();
 		for ( int i = 0; i < member["skills"].size(); ++i ) {
-			std::string id = member["skills"][i].as<std::string>();
+			uf::stl::string id = member["skills"][i].as<uf::stl::string>();
 			uf::Serializer skillData = masterDataGet("Skill", id);
 			bool add = false;
 			if ( skillData["type"].as<int>() > 0 && skillData["type"].as<int>() < 16 ) add = true;
 			if ( add ) stats.currentMember["skills"].emplace_back(id);
 		}
 
-		std::string skillDescription = "";
+		uf::stl::string skillDescription = "";
 
 		for ( int i = start; i < stats.currentMember["skills"].size(); ++i ) {
-			std::string id = stats.currentMember["skills"][i].as<std::string>();
-			std::string text = "";
+			uf::stl::string id = stats.currentMember["skills"][i].as<uf::stl::string>();
+			uf::stl::string text = "";
 			if ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), id ) != stats.skill.invalids.end() ) continue;
 			if ( ++counter > stats.skill.selectionsMax ) break;
-			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+			uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 			uf::Serializer skillData = masterDataGet("Skill", id);
 			if ( id != "0" ) {
-				text = skillData["name"].as<std::string>();
+				text = skillData["name"].as<uf::stl::string>();
 			} else {
 				text = "攻撃";
 			}
@@ -703,34 +703,34 @@ void ext::GuiBattle::tick() {
 			}
 			else {
 				text = "" + colorString("FF0000") + "" + text;
-				skillDescription = skillData["effect"].as<std::string>();
+				skillDescription = skillData["effect"].as<uf::stl::string>();
 				if ( skillData["mp"].is<double>() ) {
 					int64_t cost = skillData["mp"].as<int>();
-					skillDescription = skillData["effect"].as<std::string>() + "\nCost: " + colorString("0000FF") + ""+std::to_string(cost)+" MP" + colorString("FFFFFF") + "";
+					skillDescription = skillData["effect"].as<uf::stl::string>() + "\nCost: " + colorString("0000FF") + ""+std::to_string(cost)+" MP" + colorString("FFFFFF") + "";
 				}
 				if ( skillData["hp%"].is<double>() ) {
 					int64_t cost = skillData["hp%"].as<int>();
 					cost = member["max hp"].as<float>() * ( cost / 100.0f );
-					skillDescription = skillData["effect"].as<std::string>() + "\nCost: " + colorString("00FF00") + ""+std::to_string(cost)+" HP" + colorString("FFFFFF") + "";
+					skillDescription = skillData["effect"].as<uf::stl::string>() + "\nCost: " + colorString("00FF00") + ""+std::to_string(cost)+" HP" + colorString("FFFFFF") + "";
 				}
 			}
 			string += "\n" + text;
 		}
 		if ( stats.currentMember["skills"].size() > stats.skill.selectionsMax ) {
 			for ( int i = 0; i < stats.currentMember["skills"].size(); ++i ) {
-				std::string id = stats.currentMember["skills"][i].as<std::string>();
-				std::string text = "";
+				uf::stl::string id = stats.currentMember["skills"][i].as<uf::stl::string>();
+				uf::stl::string text = "";
 				if ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), id ) != stats.skill.invalids.end() ) continue;
 				if ( ++counter > stats.skill.selectionsMax ) break;
 				if ( id != "0" ) {
-					uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+					uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 					uf::Serializer skillData = masterDataGet("Skill", id);
 
-					text = skillData["name"].as<std::string>();
+					text = skillData["name"].as<uf::stl::string>();
 				} else {
-					uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+					uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 
 					text = "攻撃";
 				}
@@ -768,13 +768,13 @@ void ext::GuiBattle::tick() {
 			return;
 		}
 		stats.actions.current = actions;
-		std::string string = "";
+		uf::stl::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.actions.selection;
 		auto keys = ext::json::keys( actions );
 		for ( int i = start; i < keys.size(); ++i ) {
-			std::string key = getKeyFromIndex( actions, i );
-			std::string text = actions[key].as<std::string>();
+			uf::stl::string key = getKeyFromIndex( actions, i );
+			uf::stl::string text = actions[key].as<uf::stl::string>();
 			if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 			if ( ++counter > stats.actions.selectionsMax ) break;
 			if ( i != stats.actions.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -783,8 +783,8 @@ void ext::GuiBattle::tick() {
 		}
 		if ( keys.size() > stats.actions.selectionsMax ) {
 			for ( int i = 0; i < keys.size(); ++i ) {
-				std::string key = getKeyFromIndex( actions, i );
-				std::string text = actions[key].as<std::string>();
+				uf::stl::string key = getKeyFromIndex( actions, i );
+				uf::stl::string text = actions[key].as<uf::stl::string>();
 				if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 				if ( ++counter > stats.actions.selectionsMax ) break;
 				if ( i != stats.actions.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -816,16 +816,16 @@ void ext::GuiBattle::tick() {
 			return;
 		}
 		stats.targets.current = actions;
-		std::string string = "";
+		uf::stl::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.targets.selection;
 		stats.skill.invalids.clear();
 		stats.actions.invalids.clear();
-		std::string targetDescription = "";
+		uf::stl::string targetDescription = "";
 		for ( int i = start; i < actions.size(); ++i ) {
-			uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<std::string>());
-			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-			std::string text = charaData["name"].as<std::string>();
+			uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<uf::stl::string>());
+			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+			uf::stl::string text = charaData["name"].as<uf::stl::string>();
 			if ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), text ) != stats.targets.invalids.end() ) continue;
 			if ( ++counter > stats.targets.selectionsMax ) break;
 			if ( i != stats.targets.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -834,9 +834,9 @@ void ext::GuiBattle::tick() {
 		}
 		if ( actions.size() > stats.targets.selectionsMax ) {
 			for ( int i = 0; i < actions.size(); ++i ) {
-				uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<std::string>());
-				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-				std::string text = charaData["name"].as<std::string>();
+				uf::Serializer cardData = masterDataGet("Card", actions[i]["id"].as<uf::stl::string>());
+				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+				uf::stl::string text = charaData["name"].as<uf::stl::string>();
 				if ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), text ) != stats.targets.invalids.end() ) continue;
 				if ( ++counter > stats.targets.selectionsMax ) break;
 				if ( i != stats.targets.selection ) text = "" + colorString("FFFFFF") + "" + text;
@@ -856,12 +856,12 @@ void ext::GuiBattle::tick() {
 		}
 		if ( queuedAction == "analyze" ) {
 			uf::Serializer payload;
-			payload["uid"] = stats.targets.current[stats.targets.selection]["uid"].as<std::string>();
-		//	if ( payload["uid"].as<std::string>() == "")
+			payload["uid"] = stats.targets.current[stats.targets.selection]["uid"].as<uf::stl::string>();
+		//	if ( payload["uid"].as<uf::stl::string>() == "")
 			payload["action"] = "analyze";
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
-			targetDescription = result["message"].as<std::string>();
+			targetDescription = result["message"].as<uf::stl::string>();
 		}
 		if ( targetDescription != "" ) {
 			uf::Serializer payload;
@@ -874,7 +874,7 @@ void ext::GuiBattle::tick() {
 	if ( !stats.initialized ) {
 		stats.initialized = true;
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-		this->addHook("world:Battle.Turn.%UID%", [&](const std::string& event) -> std::string {
+		this->addHook("world:Battle.Turn.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 			uf::Serializer json = event;
 			uf::Serializer payload;
 			payload["action"] = "turn-start";
@@ -895,9 +895,9 @@ void ext::GuiBattle::tick() {
 			if ( ext::json::isNull( result["uid"] ) ) return "false";
 			uint64_t uid = result["uid"].as<size_t>();
 
-			renderCommandOptions(std::string(""));
-			renderSkillOptions(std::string(""));
-			renderTargetOptions(std::string(""));
+			renderCommandOptions(uf::stl::string(""));
+			renderSkillOptions(uf::stl::string(""));
+			renderTargetOptions(uf::stl::string(""));
 
 			payload = uf::Serializer{};
 			payload["uid"] = uid;
@@ -926,7 +926,7 @@ void ext::GuiBattle::tick() {
 		if ( metadata["system"]["closing"].as<bool>() ) {
 			if ( alpha >= 1.0f ) {
 				uf::Asset assetLoader;
-				std::string canonical = assetLoader.load(uf::io::root+"/audio/ui/menu close.ogg");
+				uf::stl::string canonical = assetLoader.load(uf::io::root+"/audio/ui/menu close.ogg");
 				uf::Audio& sfx = assetLoader.get<uf::Audio>(canonical);
 				sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 				sfx.play();
@@ -1204,7 +1204,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.targets.selection;
 					if ( stats.targets.selection < 0 ) { stats.targets.selection = stats.targets.current.size() - 1; }
-				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<std::string>() ) != stats.targets.invalids.end() );
+				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<uf::stl::string>() ) != stats.targets.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1214,7 +1214,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.targets.selection;
 					if ( stats.targets.selection >= stats.targets.current.size() ) { stats.targets.selection = 0; }
-				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<std::string>() ) != stats.targets.invalids.end() );
+				} while ( std::find( stats.targets.invalids.begin(), stats.targets.invalids.end(), stats.targets.current[stats.targets.selection]["id"].as<uf::stl::string>() ) != stats.targets.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1230,9 +1230,9 @@ void ext::GuiBattle::tick() {
 			}
 		} else if ( keys.back && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
-			renderTargetOptions(std::string(""));
+			renderTargetOptions(uf::stl::string(""));
 			if ( queuedAction == "analyze" ) {
-				renderSkillOptions(std::string(""));
+				renderSkillOptions(uf::stl::string(""));
 				renderCommandOptions(stats.actions.current);
 			} else renderSkillOptions(stats.currentMember);
 			timer.reset();
@@ -1249,9 +1249,9 @@ void ext::GuiBattle::tick() {
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 			postParseResult(result);
 
-			renderTargetOptions(std::string(""));
-			renderCommandOptions(std::string(""));
-			renderSkillOptions(std::string(""));
+			renderTargetOptions(uf::stl::string(""));
+			renderCommandOptions(uf::stl::string(""));
+			renderSkillOptions(uf::stl::string(""));
 
 			timer.reset();
 			stats.state = "waiting";
@@ -1281,7 +1281,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.skill.selection;
 					if ( stats.skill.selection < 0 ) { stats.skill.selection = stats.currentMember["skills"].size()- 1; }
-				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<std::string>() ) != stats.skill.invalids.end() );
+				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<uf::stl::string>() ) != stats.skill.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1291,7 +1291,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.skill.selection;
 					if ( stats.skill.selection >= stats.currentMember["skills"].size()) { stats.skill.selection = 0; }
-				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<std::string>() ) != stats.skill.invalids.end() );
+				} while ( std::find( stats.skill.invalids.begin(), stats.skill.invalids.end(), stats.currentMember["skills"][stats.skill.selection].as<uf::stl::string>() ) != stats.skill.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1304,14 +1304,14 @@ void ext::GuiBattle::tick() {
 			}
 		} else if ( keys.back && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
-			renderSkillOptions(std::string(""));
+			renderSkillOptions(uf::stl::string(""));
 			renderCommandOptions(stats.actions.current);
 			timer.reset();
 		} else if ( keys.select && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
 			bool allRanged = false;
-			renderSkillOptions(std::string(""));
-			renderCommandOptions(std::string(""));
+			renderSkillOptions(uf::stl::string(""));
+			renderCommandOptions(uf::stl::string(""));
 
 
 			uf::Serializer payload;
@@ -1320,7 +1320,7 @@ void ext::GuiBattle::tick() {
 			payload["skill"] = stats.currentMember["skills"][stats.skill.selection];
 			uf::Serializer result = battleManager->callHook("world:Battle.Action.%UID%", payload)[0].as<uf::Serializer>();
 
-			std::string skillId = stats.currentMember["skills"][stats.skill.selection].as<std::string>();
+			uf::stl::string skillId = stats.currentMember["skills"][stats.skill.selection].as<uf::stl::string>();
 			uf::Serializer skillData = masterDataGet("Skill", skillId);
 			if ( result["range"].is<double>() ) skillData["range"] = result["range"];
 			if ( skillData["range"].as<int>() > 1 ) {
@@ -1363,7 +1363,7 @@ void ext::GuiBattle::tick() {
 				do {
 					--stats.actions.selection;
 					if ( stats.actions.selection < 0 ) { stats.actions.selection = stats.actions.current.size() - 1; }
-				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<std::string>() ) != stats.actions.invalids.end() );
+				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<uf::stl::string>() ) != stats.actions.invalids.end() );
 			}
 		}
 		else if ( keys.down ) {
@@ -1373,7 +1373,7 @@ void ext::GuiBattle::tick() {
 				do {
 					++stats.actions.selection;
 					if ( stats.actions.selection >= stats.actions.current.size() ) { stats.actions.selection = 0; }
-				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<std::string>() ) != stats.actions.invalids.end() );
+				} while ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), stats.actions.current[stats.actions.selection].as<uf::stl::string>() ) != stats.actions.invalids.end() );
 			}
 		}
 		else released = true;
@@ -1392,7 +1392,7 @@ void ext::GuiBattle::tick() {
 		} else if ( keys.select && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
 			uf::Serializer payload;
-			std::string action = stats.actions.current[stats.actions.selection].as<std::string>();
+			uf::stl::string action = stats.actions.current[stats.actions.selection].as<uf::stl::string>();
 			payload["action"] = action;
 			if ( payload["action"] == "member-attack" ) {
 				payload["uid"] = stats.currentMember["uid"];
@@ -1403,7 +1403,7 @@ void ext::GuiBattle::tick() {
 			postParseResult(result);
 			timer.reset();
 
-			renderCommandOptions(std::string(""));
+			renderCommandOptions(uf::stl::string(""));
 
 			stats.state = "waiting";
 			if ( result["invalid"].as<bool>() ) {
@@ -1411,7 +1411,7 @@ void ext::GuiBattle::tick() {
 				renderCommandOptions(stats.actions.current);
 			//	this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-attack" ) {
-				renderSkillOptions(std::string(""));
+				renderSkillOptions(uf::stl::string(""));
 				stats.state = "waiting";
 				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-skill" ) {
@@ -1470,7 +1470,7 @@ void ext::GuiBattle::tick() {
 		} else if ( keys.select && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
 			uf::Serializer payload;
-			std::string action = getKeyFromIndex(stats.actions.current, stats.actions.selection);
+			uf::stl::string action = getKeyFromIndex(stats.actions.current, stats.actions.selection);
 			action = uf::io::extension(action);
 			payload["action"] = action;
 			payload["uid"] = stats.currentMember["uid"];
@@ -1490,7 +1490,7 @@ void ext::GuiBattle::tick() {
 			postParseResult(result);
 			timer.reset();
 
-			renderCommandOptions(std::string(""));
+			renderCommandOptions(uf::stl::string(""));
 			queuedAction = action;
 
 			stats.state = "waiting";
@@ -1498,7 +1498,7 @@ void ext::GuiBattle::tick() {
 				stats.actions.invalids.push_back(action);
 				renderCommandOptions(stats.actions.current);
 			} else if ( payload["action"] == "member-attack" ) {
-				renderSkillOptions(std::string(""));
+				renderSkillOptions(uf::stl::string(""));
 				stats.state = "waiting";
 				this->queueHook("world:Battle.Turn.%UID%", ext::json::null(), timeout);
 			} else if ( payload["action"] == "member-skill" ) {

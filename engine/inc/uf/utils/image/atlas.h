@@ -1,12 +1,12 @@
 #pragma once
 
 #include <uf/utils/image/image.h>
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 
 namespace uf {
 	class UF_API Atlas {
 	public:
-		typedef std::string hash_t;
+		typedef uf::stl::string hash_t;
 		struct Identifier {
 			size_t index;
 			hash_t hash;
@@ -17,8 +17,8 @@ namespace uf {
 			pod::Vector2ui size = {};
 			pod::Vector2ui coord = {};
 		};
-		typedef std::vector<uf::Image> images_t;
-		typedef std::unordered_map<hash_t, Tile> atlas_t;
+		typedef uf::stl::vector<uf::Image> images_t;
+		typedef uf::stl::unordered_map<hash_t, Tile> atlas_t;
 	protected:
 		uf::Image m_atlas;
 		atlas_t m_tiles;
@@ -28,7 +28,7 @@ namespace uf {
 		hash_t addImage( const uint8_t*, const pod::Vector2ui&, std::size_t, std::size_t, bool = false, bool = false );
 		
 		void generate(float padding = 1);
-		void generate( const std::vector<uf::Image>&, float padding = 1);
+		void generate( const uf::stl::vector<uf::Image>&, float padding = 1);
 		void clear(bool = true);
 		bool generated() const;
 		
@@ -45,8 +45,8 @@ namespace uf {
 #if 0
 	class UF_API HashAtlas {
 	public:
-		typedef std::string hash_t;
-		typedef std::unordered_map<hash_t, uf::Image> images_t;
+		typedef uf::stl::string hash_t;
+		typedef uf::stl::unordered_map<hash_t, uf::Image> images_t;
 		
 		struct Identifier {
 			hash_t hash;
@@ -66,7 +66,7 @@ namespace uf {
 		void generate( const images_t&, float padding = 1);
 		void clear();
 		bool has( const uf::Image& ) const;
-		bool has( const std::string& ) const;
+		bool has( const uf::stl::string& ) const;
 		
 		pod::Vector2f mapUv( const pod::Vector2f&, const hash_t& );
 		

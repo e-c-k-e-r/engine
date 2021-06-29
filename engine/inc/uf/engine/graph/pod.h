@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/transform.h>
 
@@ -10,11 +10,11 @@ namespace pod {
 		uf::renderer::Texture3D noise;
 		uf::renderer::TextureCube skybox;
 		struct {
-			std::vector<uf::renderer::Texture3D> id;
-			std::vector<uf::renderer::Texture3D> uv;
-			std::vector<uf::renderer::Texture3D> normal;
-			std::vector<uf::renderer::Texture3D> radiance;
-			std::vector<uf::renderer::Texture3D> depth;
+			uf::stl::vector<uf::renderer::Texture3D> id;
+			uf::stl::vector<uf::renderer::Texture3D> uv;
+			uf::stl::vector<uf::renderer::Texture3D> normal;
+			uf::stl::vector<uf::renderer::Texture3D> radiance;
+			uf::stl::vector<uf::renderer::Texture3D> depth;
 		} voxels;
 	};
 
@@ -25,7 +25,7 @@ namespace pod {
 			/*alignas(4)*/ uint32_t textureSlot = 0;
 			/*alignas(4)*/ uint32_t padding = 0;
 		} storage;
-		std::string name = "";
+		uf::stl::string name = "";
 		size_t verticesIndex = 0;
 		size_t vertices = 0;
 		size_t indicesIndex = 0;
@@ -44,7 +44,7 @@ namespace pod {
 			/*alignas(16)*/ pod::Matrix4f view;
 			/*alignas(16)*/ pod::Matrix4f projection;
 		};
-		std::string name = "";
+		uf::stl::string name = "";
 		pod::Vector3f color = { 1, 1, 1 };
 		float intensity = 1.0f;
 		float range = 0.0f;
@@ -69,29 +69,29 @@ namespace pod {
 			/*alignas(4)*/ int32_t indexLightmap = -1;
 			/*alignas(4)*/ int32_t modeAlpha = -1;
 		} storage;
-		std::string name = "";
-		std::string alphaMode = "";
+		uf::stl::string name = "";
+		uf::stl::string alphaMode = "";
 	};
 	struct UF_API Skin {
-		std::string name = "";
-		std::vector<int32_t> joints;
-		std::vector<pod::Matrix4f> inverseBindMatrices;
+		uf::stl::string name = "";
+		uf::stl::vector<int32_t> joints;
+		uf::stl::vector<pod::Matrix4f> inverseBindMatrices;
 	};
 	struct UF_API Animation {
 		struct Sampler {
-			std::string interpolator;
-			std::vector<float> inputs;
-			std::vector<pod::Vector4f> outputs;
+			uf::stl::string interpolator;
+			uf::stl::vector<float> inputs;
+			uf::stl::vector<pod::Vector4f> outputs;
 		};
 		struct Channel {
-			std::string path;
+			uf::stl::string path;
 			int32_t node;
 			uint32_t sampler;
 		};
 
-		std::string name = "";
-		std::vector<Sampler> samplers;
-		std::vector<Channel> channels;
+		uf::stl::string name = "";
+		uf::stl::vector<Sampler> samplers;
+		uf::stl::vector<Channel> channels;
 		float start = std::numeric_limits<float>::max();
 		float end = std::numeric_limits<float>::min();
 		float cur = 0;

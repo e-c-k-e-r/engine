@@ -21,10 +21,10 @@ namespace ext {
 		ext::TerrainVoxel::light_t m_light = 0x0000;
 	public:
 		struct Model {
-			struct { std::vector<float> left, right, top, bottom, front, back; } position;
-			struct { std::vector<float> left, right, top, bottom, front, back; } uv;
-			struct { std::vector<float> left, right, top, bottom, front, back; } normal;
-			struct { std::vector<float> left, right, top, bottom, front, back; } color;
+			struct { uf::stl::vector<float> left, right, top, bottom, front, back; } position;
+			struct { uf::stl::vector<float> left, right, top, bottom, front, back; } uv;
+			struct { uf::stl::vector<float> left, right, top, bottom, front, back; } normal;
+			struct { uf::stl::vector<float> left, right, top, bottom, front, back; } color;
 		};
 
 		TerrainVoxel( ext::TerrainVoxel::uid_t = 0, bool = false, bool = false, pod::Vector2ui = {0, 0}, ext::TerrainVoxel::light_t = 0x0000 );
@@ -32,7 +32,7 @@ namespace ext {
 		virtual ~TerrainVoxel();
 
 		static pod::Vector2ui size();
-		static const std::vector<ext::TerrainVoxel>& atlas();
+		static const uf::stl::vector<ext::TerrainVoxel>& atlas();
 		static ext::TerrainVoxel atlas( ext::TerrainVoxel::uid_t );
 
 		virtual bool opaque() const;

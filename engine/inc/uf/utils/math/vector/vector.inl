@@ -2,7 +2,7 @@
 #include "class.inl"
 
 template<typename T, size_t N>
-std::string /*UF_API*/ uf::string::toString( const pod::Vector<T,N>& v ) {
+uf::stl::string /*UF_API*/ uf::string::toString( const pod::Vector<T,N>& v ) {
 	return uf::vector::toString(v);
 }
 

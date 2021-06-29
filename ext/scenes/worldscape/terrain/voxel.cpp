@@ -480,8 +480,8 @@ ext::TerrainVoxelStair::TerrainVoxelStair() : ext::TerrainVoxel( 5, true, true, 
 ext::TerrainVoxelLava::TerrainVoxelLava() : ext::TerrainVoxel( 6, true, true, {0, 2}, 0xFFFF ) {}
 
 //
-const std::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {
-	static std::vector<ext::TerrainVoxel> atlas;
+const uf::stl::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {
+	static uf::stl::vector<ext::TerrainVoxel> atlas;
 	if ( atlas.size() == 0 ) {	
 		atlas.push_back( ext::TerrainVoxel() );
 		atlas.push_back( ext::TerrainVoxelFloor() );
@@ -494,9 +494,9 @@ const std::vector<ext::TerrainVoxel>& ext::TerrainVoxel::atlas() {
 	return atlas;
 }
 ext::TerrainVoxel ext::TerrainVoxel::atlas( ext::TerrainVoxel::uid_t uid ) {
-	std::vector<ext::TerrainVoxel> atlas = ext::TerrainVoxel::atlas();
+	uf::stl::vector<ext::TerrainVoxel> atlas = ext::TerrainVoxel::atlas();
 	static ext::TerrainVoxel base;
-	for ( std::vector<ext::TerrainVoxel>::iterator it = atlas.begin(); it != atlas.end(); ++it ) {
+	for ( uf::stl::vector<ext::TerrainVoxel>::iterator it = atlas.begin(); it != atlas.end(); ++it ) {
 		if ( it->uid() == uid ) return *it;
 	}
 	return base;

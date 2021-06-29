@@ -17,12 +17,12 @@ namespace ext {
 		struct Metadata {
 			pod::Vector2ui size = {};
 			struct {
-				std::string model = "";
+				uf::stl::string model = "";
 				struct{
-					std::string model = "";
-					std::string map = "./lightmap.png";
+					uf::stl::string model = "";
+					uf::stl::string map = "./lightmap.png";
 				} output;
-				std::string renderMode = "Baker";
+				uf::stl::string renderMode = "Baker";
 			} names;
 			struct {
 				size_t instance = 0;
@@ -42,8 +42,8 @@ namespace ext {
 				size_t update = 0;
 			} previous;
 			struct {
-				std::string mode = "key";
-				std::string value = "";
+				uf::stl::string mode = "key";
+				uf::stl::string value = "";
 			} trigger;
 			struct {
 				bool renderMode = false;

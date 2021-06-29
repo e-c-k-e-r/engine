@@ -21,40 +21,40 @@
 
 namespace {
 	ext::Gui* gui;
-	std::string previousMusic;
+	uf::stl::string previousMusic;
 
-	uf::Serializer masterTableGet( const std::string& table ) {
+	uf::Serializer masterTableGet( const uf::stl::string& table ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
+	uf::Serializer masterDataGet( const uf::stl::string& table, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
+	inline int64_t parseInt( const uf::stl::string& str ) {
 		return atoi(str.c_str());
 	}
 
-	inline std::string colorString( const std::string& hex ) {
+	inline uf::stl::string colorString( const uf::stl::string& hex ) {
 		return "%#" + hex + "%";
 	}
 
 }
 
 namespace {
-	void playSound( ext::HousamoBattle& entity, const std::string& id, const std::string& key ) {
+	void playSound( ext::HousamoBattle& entity, const uf::stl::string& id, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string name = charaData["filename"].as<std::string>();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string name = charaData["filename"].as<uf::stl::string>();
 
 		if ( name == "none" ) return;
 
-		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
+		uf::stl::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].as<bool>() ) {
 			url = uf::io::root+"/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
@@ -62,7 +62,7 @@ namespace {
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.Voice." + std::to_string(entity.getUid()));
 	}
-	void playSound( ext::HousamoBattle& entity, std::size_t uid, const std::string& key ) {
+	void playSound( ext::HousamoBattle& entity, std::size_t uid, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& pMetadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -70,20 +70,20 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].as<std::string>();
+		uf::stl::string id = metadata[""]["id"].as<uf::stl::string>();
 		playSound( entity, id, key );
 	}
-	void playSound( ext::HousamoBattle& entity, const std::string& key ) {
+	void playSound( ext::HousamoBattle& entity, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
+		uf::stl::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
 	}
-	void playMusic( ext::HousamoBattle& entity, const std::string& filename ) {
+	void playMusic( ext::HousamoBattle& entity, const uf::stl::string& filename ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -100,7 +100,7 @@ namespace {
 
 	uf::Audio sfx;
 	uf::Audio voice;
-	std::vector<ext::Housamo*> transients;
+	uf::stl::vector<ext::Housamo*> transients;
 }
 void ext::HousamoBattle::initialize() {	
 	uf::Object::initialize();
@@ -110,18 +110,18 @@ void ext::HousamoBattle::initialize() {
 
 	uf::Scene& scene = uf::scene::getCurrentScene();
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-//	std::vector<ext::Housamo>& transients = this->getComponent<std::vector<ext::Housamo>>();
+//	uf::stl::vector<ext::Housamo>& transients = this->getComponent<uf::stl::vector<ext::Housamo>>();
 
 	this->m_name = "Battle Manager";
 
 	// asset loading
-	this->addHook( "asset:Cache.Voice.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.Voice.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -134,13 +134,13 @@ void ext::HousamoBattle::initialize() {
 
 		return "true";
 	});
-	this->addHook( "asset:Cache.SFX.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.SFX.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -153,21 +153,21 @@ void ext::HousamoBattle::initialize() {
 
 		return "true";
 	});
-	this->addHook( "asset:Music.Load.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Music.Load.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
-		std::string filename = "";
+		uf::stl::string filename = "";
 		if ( ext::json::isArray( json["music"] ) ) {
 			int ri = floor(rand() % json["music"].size());
-			filename = json["music"][ri].as<std::string>();
-		} else if ( json["music"].is<std::string>() ) {
-			filename = json["music"].as<std::string>();
+			filename = json["music"][ri].as<uf::stl::string>();
+		} else if ( json["music"].is<uf::stl::string>() ) {
+			filename = json["music"].as<uf::stl::string>();
 		}
 		if ( filename != "" ) playMusic(*this, filename);
 		return "true";
 	});
 
 	// bind events
-	this->addHook( "world:Battle.Start.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Start.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 
 		metadata["battle"] = json["battle"];
@@ -196,7 +196,7 @@ void ext::HousamoBattle::initialize() {
 	//	for ( auto& id : metadata["battle"]["player"]["party"] ) {
 		ext::json::forEach(metadata["battle"]["player"]["party"], [&](ext::json::Value& id){
 			uint64_t uid = transients.size();
-			auto& member = metadata["battle"]["player"]["transients"][id.as<std::string>()];
+			auto& member = metadata["battle"]["player"]["transients"][id.as<uf::stl::string>()];
 			member["uid"] = uid;
 
 			ext::Housamo* transient = new ext::Housamo;
@@ -214,7 +214,7 @@ void ext::HousamoBattle::initialize() {
 	//	for ( auto& id : metadata["battle"]["enemy"]["party"] ) {
 		ext::json::forEach(metadata["battle"]["enemy"]["party"], [&](ext::json::Value& id){
 			uint64_t uid = transients.size();
-			auto& member = metadata["battle"]["enemy"]["transients"][id.as<std::string>()];
+			auto& member = metadata["battle"]["enemy"]["transients"][id.as<uf::stl::string>()];
 			member["uid"] = uid;
 
 			ext::Housamo* transient = new ext::Housamo;
@@ -237,12 +237,12 @@ void ext::HousamoBattle::initialize() {
 		ext::json::forEach(metadata["skills"], [&](ext::json::Value& member){
 		//	for ( auto& skillId : member["skills"]  ) {
 			ext::json::forEach(member["skills"], [&](ext::json::Value& skillId){
-				uf::Serializer skillData = masterDataGet("Skill", skillId.as<std::string>());
+				uf::Serializer skillData = masterDataGet("Skill", skillId.as<uf::stl::string>());
 				if ( skillData["type"].as<int>() != 16 ) return;
 			//	for ( auto& status : skillData["statuses"] ) {
 				ext::json::forEach(skillData["status"], [&](ext::json::Value& status){
-					std::string target = status["target"].as<std::string>();
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string target = status["target"].as<uf::stl::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 
 					float r = (rand() % 100) / 100.0;
@@ -255,18 +255,18 @@ void ext::HousamoBattle::initialize() {
 					// apply status
 					uf::Serializer targets;								
 					if ( target == "self" ) {
-						targets.emplace_back(member["uid"].as<std::string>());
+						targets.emplace_back(member["uid"].as<uf::stl::string>());
 					} else if ( target == "enemy" ) {
 					//	for ( auto& tmember :  metadata["battle"]["transients"] ) {
 						ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& tmember){
 							if ( tmember["type"] == member["type"] ) return;
-							targets.emplace_back(tmember["uid"].as<std::string>());
+							targets.emplace_back(tmember["uid"].as<uf::stl::string>());
 						});
 					} else if ( target == "ally" ) {
 					//	for ( auto& tmember :  metadata["battle"]["transients"] ) {
 						ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& tmember){
 							if ( tmember["type"] != member["type"] ) return;
-							targets.emplace_back(tmember["uid"].as<std::string>());
+							targets.emplace_back(tmember["uid"].as<uf::stl::string>());
 						});
 					}
 				//	for ( auto& target : targets ) {
@@ -276,12 +276,12 @@ void ext::HousamoBattle::initialize() {
 						statusPayload["modifier"] = status["modifier"];
 
 						statusPayload["turns"] = status["turns"].is<double>() ? status["turns"] : statusData["turns"];
-						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].emplace_back(statusPayload);
+						metadata["battle"]["transients"][target.as<uf::stl::string>()]["statuses"].emplace_back(statusPayload);
 
-						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<std::string>()]["id"].as<std::string>() );
-						uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<uf::stl::string>()]["id"].as<uf::stl::string>() );
+						uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 
-						payload["message"] = payload["message"].as<std::string>() + "\nApplied "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + " to " + charaData["name"].as<std::string>();
+						payload["message"] = payload["message"].as<uf::stl::string>() + "\nApplied "+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + " to " + charaData["name"].as<uf::stl::string>();
 					});
 				});
 			});
@@ -290,7 +290,7 @@ void ext::HousamoBattle::initialize() {
 		payload["battle"] = metadata["battle"];
 		return payload;
 	});
-	this->addHook( "world:Battle.Gui.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Gui.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		ext::Gui* guiManager = (ext::Gui*) this->globalFindByName("Gui Manager");
 		ext::Gui* guiMenu = new ext::GuiBattle;
 		guiManager->addChild(*guiMenu);
@@ -306,13 +306,13 @@ void ext::HousamoBattle::initialize() {
 		return "true";
 	});
 	// json.action and json.uid
-	this->addHook( "world:Battle.Action.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Action.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string hookName = "";
+		uf::stl::string hookName = "";
 		uf::Serializer payload;
 
-		std::string action = json["action"].as<std::string>();
+		uf::stl::string action = json["action"].as<uf::stl::string>();
 		
 		// dead check
 		struct {
@@ -398,16 +398,16 @@ void ext::HousamoBattle::initialize() {
 
 		{
 		//	for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-		//		std::string key = it.key();
-			ext::json::forEach(metadata["battle"]["transients"], [&](const std::string& key, ext::json::Value& member){
+		//		uf::stl::string key = it.key();
+			ext::json::forEach(metadata["battle"]["transients"], [&](const uf::stl::string& key, ext::json::Value& member){
 				if ( key == "" || ext::json::isNull( member["type"] ) ) metadata["battle"].erase(key);
 			});
 		}
 
 		/* remove dead */ if ( false ) {
 		//	for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-		//		std::string key = it.key();
-			ext::json::forEach(metadata["battle"]["transients"], [&](const std::string& key, ext::json::Value& member){
+		//		uf::stl::string key = it.key();
+			ext::json::forEach(metadata["battle"]["transients"], [&](const uf::stl::string& key, ext::json::Value& member){
 				if ( metadata["battle"]["transients"][key]["hp"].as<int>() > 0 ) return;
 			//	metadata["battle"]["transients"].erase(key);
 			});
@@ -427,24 +427,24 @@ void ext::HousamoBattle::initialize() {
 		return result;
 	});
 
-	this->addHook( "world:Battle.AI.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.AI.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		// default to attack
-		std::string queuedSkillId = "0";
+		uf::stl::string queuedSkillId = "0";
 		if ( json["uid"] == "" ) {
 			json["skill"] = "0";
 			return json;
 		}
-		auto& member = metadata["battle"]["transients"][json["uid"].as<std::string>()];
+		auto& member = metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()];
 		// deduce member state
 		struct {
-			std::vector<std::string> ailments;
+			uf::stl::vector<uf::stl::string> ailments;
 			int ndas = 0;
 			float factor = 0.0f;
 		} stats;
 	//	for ( auto& status : member["statuses"] ) {
 		ext::json::forEach(metadata["statuses"], [&](ext::json::Value& status){
-			std::string id = status["id"].as<std::string>();
+			uf::stl::string id = status["id"].as<uf::stl::string>();
 			if ( id == "0" ) return;
 			stats.ailments.push_back(id);
 			if ( id == "6" ) ++stats.ndas;
@@ -454,7 +454,7 @@ void ext::HousamoBattle::initialize() {
 		possibilities = ext::json::array();
 	//	for ( auto& skillId : member["skills"] ) {
 		ext::json::forEach(metadata["skills"], [&](ext::json::Value& skillId, bool breaks){
-			uf::Serializer skillData = masterDataGet("Skill", skillId.as<std::string>());
+			uf::Serializer skillData = masterDataGet("Skill", skillId.as<uf::stl::string>());
 			// not recarms
 			std::cout << skillData["name"] << ": ";
 			if ( skillId == "81" || skillId == "82" ) {
@@ -477,13 +477,13 @@ void ext::HousamoBattle::initialize() {
 				return;
 			}
 			// do not use same skills
-			if ( std::find(member["used skills"].begin(), member["used skills"].end(), skillId.as<std::string>()) != member["used skills"].end() ) {
+			if ( std::find(member["used skills"].begin(), member["used skills"].end(), skillId.as<uf::stl::string>()) != member["used skills"].end() ) {
 				std::cout << "\tRecently Used" << std::endl;
 				return;
 			}
 			// grants additional turns
 			if ( skillData["turns+"].is<double>() ) {
-				queuedSkillId = skillId.as<std::string>();
+				queuedSkillId = skillId.as<uf::stl::string>();
 				std::cout << "\tCan gain turns" << std::endl;
 				breaks = true;
 				return;
@@ -491,14 +491,14 @@ void ext::HousamoBattle::initialize() {
 			} else if ( member["hp"].as<float>() / member["max hp"].as<float>() < 0.3f ) {
 				if ( skillData["type"] != "14" ) return;
 				if ( stats.factor < skillData["power"].as<float>() ) {
-					queuedSkillId = skillId.as<std::string>();
+					queuedSkillId = skillId.as<uf::stl::string>();
 					stats.factor = skillData["power"].as<float>();
 					std::cout << "\tCan heal" << std::endl;
 				}
 			// remove debuffs
 			} else if ( skillId == "200" ) {
 				if ( stats.ndas * 75.0f > stats.factor ) {
-					queuedSkillId = skillId.as<std::string>();
+					queuedSkillId = skillId.as<uf::stl::string>();
 					stats.factor = stats.ndas * 75.0f;
 					std::cout << "\tCan Dekunda" << std::endl;
 				}
@@ -507,14 +507,14 @@ void ext::HousamoBattle::initialize() {
 				// remove negative ailment (fear, etc)
 			//	for ( auto& status : skillData["statuses"] ) {
 				ext::json::forEach(skillData["statuses"], [&](ext::json::Value& status){
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 						statusData[it.key()] = *it;
 					}
 					// remove statuses
 					if ( statusData["type"] == "remove" && std::find( stats.ailments.begin(), stats.ailments.end(), statusId ) != stats.ailments.end() ) {
-						queuedSkillId = skillId.as<std::string>();
+						queuedSkillId = skillId.as<uf::stl::string>();
 						stats.factor = 150.0f;
 						std::cout << "\tCan remove status " << statusData["name"] << std::endl;
 					}
@@ -531,25 +531,25 @@ void ext::HousamoBattle::initialize() {
 		if ( queuedSkillId == "0" && possibilities.size() > 0 ) {
 			possibilities.emplace_back("0");
 			int ri = floor(rand() % possibilities.size());
-			queuedSkillId = possibilities[ri].as<std::string>();
+			queuedSkillId = possibilities[ri].as<uf::stl::string>();
 			auto queuedSkillData = masterDataGet( "Skill", queuedSkillId );
-			std::cout << "Picked " << queuedSkillData["name"].as<std::string>() << std::endl;
+			std::cout << "Picked " << queuedSkillData["name"].as<uf::stl::string>() << std::endl;
 		}
 		json["skill"] = queuedSkillId;
 		return json;
 	});
-	this->addHook( "world:Battle.GetTargets.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.GetTargets.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		uf::Serializer payload;
 
 		payload["targets"] = ext::json::array();
-		auto& member = metadata["battle"]["transients"][json["uid"].as<std::string>()];
-		if ( json["skill"].is<std::string>() ) {
-			std::string skillId = json["skill"].as<std::string>();
+		auto& member = metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()];
+		if ( json["skill"].is<uf::stl::string>() ) {
+			uf::stl::string skillId = json["skill"].as<uf::stl::string>();
 			if ( json["skill"] == "0" ) {
 			//	for ( auto& status : member["statuses"] ) {
 				ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 						statusData[it.key()] = *it;
@@ -557,18 +557,18 @@ void ext::HousamoBattle::initialize() {
 					if ( statusData["skill"] != skillId ) return;
 					if ( statusData["range"].is<double>() ) json["range"] = statusData["range"];
 				});
-			} else if ( !json["type"].is<std::string>() ) {
+			} else if ( !json["type"].is<uf::stl::string>() ) {
 				uf::Serializer skillData = masterDataGet( "Skill", skillId );
-				json["type"] = skillData["target"].as<std::string>();
+				json["type"] = skillData["target"].as<uf::stl::string>();
 				if ( json["type"] == "" ) json["type"] = "enemy";
 			}
 		} else {
 			json["type"] = "all";
 		}
 
-		if ( json["type"].is<std::string>() ) {
+		if ( json["type"].is<uf::stl::string>() ) {
 			if ( json["type"] == "self" ) {
-				payload["targets"].emplace_back( metadata["battle"]["transients"][json["uid"].as<std::string>()] );
+				payload["targets"].emplace_back( metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()] );
 			} else {
 				for ( auto& m : metadata["battle"]["transients"] ) {
 					if ( json["type"] == "ally" && m["type"] != member["type"] ) continue;
@@ -579,7 +579,7 @@ void ext::HousamoBattle::initialize() {
 		}
 		return payload;
 	});
-	this->addHook( "world:Battle.Escape.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Escape.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer payload;
 		float r = (rand() % 100) / 100.0;
 		if ( r > 0.9 ) {
@@ -593,7 +593,7 @@ void ext::HousamoBattle::initialize() {
 		}
 		return payload;
 	});
-	this->addHook( "world:Battle.Talk.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Talk.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer payload;
 		float r = (rand() % 100) / 100.0;
 		payload["message"] = "";
@@ -601,26 +601,26 @@ void ext::HousamoBattle::initialize() {
 		payload["invalid"] = true;
 
 		uf::Serializer target;
-		std::string name;
+		uf::stl::string name;
 
 	//	for ( auto& member : metadata["battle"]["transients"] ) {
 		ext::json::forEach(metadata["battle"]["transients"], [&](ext::json::Value& member, bool breaks){
 			if ( member["type"] != "enemy" ) return;
 			target = (ext::json::Value&) member;
 			size_t uid = member["uid"].as<size_t>();
-			uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-			name = charaData["name"].as<std::string>();
+			uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+			uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+			name = charaData["name"].as<uf::stl::string>();
 			breaks = true;
 		});
 		if ( target ) {
-			playSound(*this, target["id"].as<std::string>(), r > 0.5 ? "turn" : "battlestart");
+			playSound(*this, target["id"].as<uf::stl::string>(), r > 0.5 ? "turn" : "battlestart");
 			payload["message"] = ""+colorString("FF0000") + "" + name + ""+colorString("FFFFFF") + " speaks.";
 		}
 
 		return payload;
 	});
-	this->addHook( "world:Battle.OnHit.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.OnHit.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		uint64_t uid = json["uid"].as<size_t>();
 		ext::Housamo* transient = transients.at(uid);
@@ -642,12 +642,12 @@ void ext::HousamoBattle::initialize() {
 		hMetadata["color"][3] = color[3];
 		return "true";
 	});
-	this->addHook( "world:Battle.Turn.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Turn.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 
 		bool found = false;
 		uint64_t turnPlayer = json["uid"].as<size_t>();
-		std::string name = "";
+		uf::stl::string name = "";
 		auto& turnState = metadata["battle"]["turn"];
 		{
 			if ( turnState["counter"].as<float>() <= 0 ) {
@@ -661,7 +661,7 @@ void ext::HousamoBattle::initialize() {
 					bool locked = false;
 				//	for ( auto& status : member["statuses"] ) {
 					ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-						std::string statusId = status["id"].as<std::string>();
+						uf::stl::string statusId = status["id"].as<uf::stl::string>();
 						uf::Serializer statusData = masterDataGet("Status", statusId);
 						for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 							statusData[it.key()] = *it;
@@ -695,7 +695,7 @@ void ext::HousamoBattle::initialize() {
 				bool locked = false;
 			//	for ( auto& status : member["statuses"] ) {
 				ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 						statusData[it.key()] = *it;
@@ -727,10 +727,10 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		payload["uid"] = turnPlayer;
-		auto& member = metadata["battle"]["transients"][payload["uid"].as<std::string>()];
-		uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		name = charaData["name"].as<std::string>();
+		auto& member = metadata["battle"]["transients"][payload["uid"].as<uf::stl::string>()];
+		uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		name = charaData["name"].as<uf::stl::string>();
 		payload["message"] = "What will "+colorString("FF0000") + "" + name + ""+colorString("FFFFFF") + " do?";
 
 		// 
@@ -744,7 +744,7 @@ void ext::HousamoBattle::initialize() {
 		if ( turnState["start of turn"].as<bool>() ) {
 			/* remove dead */ if ( false ) {
 				for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-					std::string key = it.key();
+					uf::stl::string key = it.key();
 					if ( metadata["battle"]["transients"][key]["hp"].as<int>() > 0 ) continue;
 				//	metadata["battle"]["transients"].erase(key);
 				}
@@ -756,33 +756,33 @@ void ext::HousamoBattle::initialize() {
 				member["used skills"] = ext::json::array();
 				if ( member["type"] != turnState["phase"] ) return;
 				auto& statuses = member["statuses"];
-//				std::cout << "Before: " << member["uid"].as<std::string>() << ": " << statuses << std::endl;
+//				std::cout << "Before: " << member["uid"].as<uf::stl::string>() << ": " << statuses << std::endl;
 			//	for ( int i = 0; i < statuses.size(); ++i ) {
 				ext::json::forEach(statuses, [&](size_t i, ext::json::Value& status){
-					uf::Serializer statusData = masterDataGet("Status", status["id"].as<std::string>());
+					uf::Serializer statusData = masterDataGet("Status", status["id"].as<uf::stl::string>());
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 						statusData[it.key()] = *it;
 					}
 					
-					uf::Serializer cardData = masterDataGet( "Card", member["id"].as<std::string>() );
-					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+					uf::Serializer cardData = masterDataGet( "Card", member["id"].as<uf::stl::string>() );
+					uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 					
 					if ( statusData["hp"].is<double>() ) {
 						int64_t hp = statusData["hp"].as<int>();
 						member["hp"] = member["hp"].as<int>() + hp;
-						payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<std::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("00FF00") + ""+ std::to_string(hp) +" HP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + "";
+						payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<uf::stl::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("00FF00") + ""+ std::to_string(hp) +" HP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + "";
 					}
 					if ( statusData["hp%"].is<double>() ) {
 						int64_t hp = member["max hp"].as<float>() * (statusData["hp%"].as<int>() / 100.0f);
 						if ( member["max hp"].as<int>() < member["hp"].as<int>() + hp ) hp = member["max hp"].as<int>() - member["hp"].as<int>();
 						member["hp"] = member["hp"].as<int>() + hp;
-						if ( hp > 0 ) payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<std::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("00FF00") + ""+ std::to_string(hp) +" HP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + "";
+						if ( hp > 0 ) payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<uf::stl::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("00FF00") + ""+ std::to_string(hp) +" HP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + "";
 					}
 					if ( statusData["mp"].is<double>() ) {
 						int64_t mp = statusData["mp"].as<int>();
 						member["mp"] = member["mp"].as<int>() + mp;
 						if ( member["max mp"].as<int>() < member["mp"].as<int>() + mp ) mp = member["max mp"].as<int>() - member["mp"].as<int>();
-						payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<std::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("0000FF") + ""+ std::to_string(mp) +" MP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + "";
+						payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<uf::stl::string>() +  ""+colorString("FFFFFF") + " gained "+colorString("0000FF") + ""+ std::to_string(mp) +" MP"+colorString("FFFFFF") + " from "+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + "";
 					}
 					if ( statusData["lock"].is<double>() ) {
 						skipped = true;
@@ -791,11 +791,11 @@ void ext::HousamoBattle::initialize() {
 				uf::Serializer newStatuses;
 				for ( int i = statuses.size() - 1; i >= 0; --i ) {
 					auto& status = statuses[i];
-					uf::Serializer statusData = masterDataGet("Status", status["id"].as<std::string>());
+					uf::Serializer statusData = masterDataGet("Status", status["id"].as<uf::stl::string>());
 					if ( !ext::json::isNull( status["turns"] ) ) {
 						status["turns"] = status["turns"].as<int>() - 1;
 						if ( status["turns"].as<int>() < 0 ) {
-							if ( statusData["id"] != "0" ) payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + " wore off.";
+							if ( statusData["id"] != "0" ) payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + " wore off.";
 						} else {
 							newStatuses.emplace_back(status);
 						}
@@ -804,13 +804,13 @@ void ext::HousamoBattle::initialize() {
 					}
 				}
 				statuses = newStatuses;
-//				std::cout << "After: " << member["uid"].as<std::string>() << ": " << statuses << std::endl;
+//				std::cout << "After: " << member["uid"].as<uf::stl::string>() << ": " << statuses << std::endl;
 			});
 		}
 
 		{
 			for ( auto it = metadata["battle"]["transients"].begin(); it != metadata["battle"]["transients"].end(); ++it ) {
-				std::string key = it.key();
+				uf::stl::string key = it.key();
 				if ( key == "" || ext::json::isNull( (*it)["type"] ) ) metadata["battle"].erase(key);
 			}
 		}
@@ -823,7 +823,7 @@ void ext::HousamoBattle::initialize() {
 
 		if ( skipped ) payload["skipped"] = true;
 	/*
-		std::vector<std::string> list = {
+		uf::stl::vector<uf::stl::string> list = {
 			"member-attack",
 			"member-skill",
 			"inventory",
@@ -848,21 +848,21 @@ void ext::HousamoBattle::initialize() {
 		payload[""] = member;
 		return payload;
 	});
-	this->addHook( "world:Battle.Attack.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.Attack.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 
-		std::string skillId = json["skill"].as<std::string>();
+		uf::stl::string skillId = json["skill"].as<uf::stl::string>();
 		uf::Serializer skillData = masterDataGet("Skill", skillId);
 
 //		ext::Housamo* transient = transients.at(uid);
-		auto& member = metadata["battle"]["transients"][json["uid"].as<std::string>()];
+		auto& member = metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()];
 
 		uf::Serializer payload;
 		payload["message"] = "";
 		// modify skill data based on statuses
 	//	for ( auto& status : member["statuses"] ) {
 		ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-			std::string statusId = status["id"].as<std::string>();
+			uf::stl::string statusId = status["id"].as<uf::stl::string>();
 			uf::Serializer statusData = masterDataGet("Status", statusId);
 			for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 				statusData[it.key()] = *it;
@@ -884,7 +884,7 @@ void ext::HousamoBattle::initialize() {
 					json["target"].emplace_back( m["uid"].as<size_t>() );
 				});
 			} else {
-				std::vector<uint64_t> targets;
+				uf::stl::vector<uint64_t> targets;
 			//	for ( auto& m : metadata["battle"]["transients"] ) {
 				ext::json::forEach(member["battle"]["transients"], [&](ext::json::Value& m){
 					if ( skillData["target"] == "ally" && m["type"] != member["type"] ) return;
@@ -898,19 +898,19 @@ void ext::HousamoBattle::initialize() {
 		}
 
 		uf::Serializer elementData;
-		uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string elementId;
+		uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string elementId;
 		
 		float basePower = member["type"] == "enemy" ? 1.2f : 1.0f;
 
 		if ( skillId != "0" ) {
-			payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<std::string>() + ""+colorString("FFFFFF") + ": "+colorString("7777FF") + "" + skillData["name"].as<std::string>() + colorString("FFFFFF");
+			payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + ": "+colorString("7777FF") + "" + skillData["name"].as<uf::stl::string>() + colorString("FFFFFF");
 
-			elementId = skillData["type"].as<std::string>();
+			elementId = skillData["type"].as<uf::stl::string>();
 			elementData = masterDataGet("Element", elementId);
 		} else {
-			payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<std::string>() + ""+colorString("FFFFFF") + ": "+colorString("7777FF") + "攻撃" + colorString("FFFFFF");
+			payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "" + charaData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + ": "+colorString("7777FF") + "攻撃" + colorString("FFFFFF");
 
 			elementId = "0";
 			if ( cardData["weapon_type"] == "1" ) elementId = "1"; // slash
@@ -945,7 +945,7 @@ void ext::HousamoBattle::initialize() {
 
 		//	for ( auto& status : member["statuses"] ) {
 			ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-				std::string statusId = status["id"].as<std::string>();
+				uf::stl::string statusId = status["id"].as<uf::stl::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 					statusData[it.key()] = *it;
@@ -968,17 +968,17 @@ void ext::HousamoBattle::initialize() {
 			hpCost = member["max hp"].as<float>() * ( hpCost / 100.0f );
 
 			if ( mp < mpCost ) {
-				payload["message"] = "Not enough MP to use `"+colorString("FF0000") + ""+skillData["name"].as<std::string>()+""+colorString("FFFFFF") + "`.";
+				payload["message"] = "Not enough MP to use `"+colorString("FF0000") + ""+skillData["name"].as<uf::stl::string>()+""+colorString("FFFFFF") + "`.";
 				payload["timeout"] = 2.0f;
 				if ( member["type"] != "enemy" ) {
 					payload["invalid"] = true;
 				}
 				return payload;
 			} else if ( mpCost > 0 ) {
-				metadata["battle"]["transients"][member["uid"].as<std::string>()]["mp"] = mp - mpCost;
+				metadata["battle"]["transients"][member["uid"].as<uf::stl::string>()]["mp"] = mp - mpCost;
 			}
 			if ( hp < hpCost ) {
-				payload["message"] = "Not enough HP to use `"+colorString("FF0000") + ""+skillData["name"].as<std::string>()+""+colorString("FFFFFF") + "`.";
+				payload["message"] = "Not enough HP to use `"+colorString("FF0000") + ""+skillData["name"].as<uf::stl::string>()+""+colorString("FFFFFF") + "`.";
 				payload["timeout"] = 2.0f;
 				if ( member["type"] != "enemy" ) {
 					payload["invalid"] = true;
@@ -988,7 +988,7 @@ void ext::HousamoBattle::initialize() {
 					skillData = masterDataGet("Skill", skillId);
 				}
 			} else if ( hpCost > 0 ) {
-				metadata["battle"]["transients"][member["uid"].as<std::string>()]["hp"] = hp - hpCost;
+				metadata["battle"]["transients"][member["uid"].as<uf::stl::string>()]["hp"] = hp - hpCost;
 				{
 					uf::Serializer payload;
 					payload["uid"] = member["uid"];
@@ -1001,21 +1001,21 @@ void ext::HousamoBattle::initialize() {
 
 		if ( skillData["turns+"].is<double>() ) {
 			member["used skills"].emplace_back(skillId);
-			payload["message"] = payload["message"].as<std::string>() + "\nGained "+colorString("FF0000") + ""+skillData["turns+"].as<std::string>()+""+colorString("FFFFFF") + " additional turns!";
+			payload["message"] = payload["message"].as<uf::stl::string>() + "\nGained "+colorString("FF0000") + ""+skillData["turns+"].as<uf::stl::string>()+""+colorString("FFFFFF") + " additional turns!";
 			metadata["battle"]["turn"]["counter"] = metadata["battle"]["turn"]["counter"].as<float>() + skillData["turns+"].as<float>();
 		}
 
 	//	for ( auto& targetId : json["target"] ) {
 		ext::json::forEach(json["target"], [&](ext::json::Value& targetId){
-			uf::Serializer target = metadata["battle"]["transients"][targetId.as<std::string>()];
+			uf::Serializer target = metadata["battle"]["transients"][targetId.as<uf::stl::string>()];
 
 			float power = basePower;
 			float morePower = 0;
 			float probability = skillData["proc"].is<double>() ? skillData["proc"].as<int>() / 100.0f : 1.0f;
 			// modify probability from statuses
-		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
-			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
-				std::string statusId = status["id"].as<std::string>();
+		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()]["statuses"], [&](ext::json::Value& status){
+				uf::stl::string statusId = status["id"].as<uf::stl::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 					statusData[it.key()] = *it;
@@ -1033,13 +1033,13 @@ void ext::HousamoBattle::initialize() {
 				if ( statusData["proc+"].is<double>() ) {
 					float moreProb = statusData["proc+"].as<float>() / 100.0f;
 					probability += moreProb;
-					payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(moreProb*100)) + "%"+colorString("FF0000") + " more probability"+colorString("FFFFFF") + "";
+					payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(moreProb*100)) + "%"+colorString("FF0000") + " more probability"+colorString("FFFFFF") + "";
 				}
 			});
 			// find attack modifying statuses on attacker
-		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"] ) {
-			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
-				std::string statusId = status["id"].as<std::string>();
+		//	for ( auto& status : metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()]["statuses"], [&](ext::json::Value& status){
+				uf::stl::string statusId = status["id"].as<uf::stl::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 					statusData[it.key()] = *it;
@@ -1059,13 +1059,13 @@ void ext::HousamoBattle::initialize() {
 				if ( statusData["power"].is<double>() ) {
 					float adjust = statusData["power"].as<float>() / 100.0f;
 					morePower += adjust;
-				//	payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more power"+colorString("FFFFFF") + "";
+				//	payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more power"+colorString("FFFFFF") + "";
 				}
 			});
 			// find defense modifying statuses on target
-		//	for ( auto& status : metadata["battle"]["transients"][targetId.as<std::string>()]["statuses"] ) {
-			ext::json::forEach(metadata["battle"]["transients"][targetId.as<std::string>()]["statuses"], [&](ext::json::Value& status){
-				std::string statusId = status["id"].as<std::string>();
+		//	for ( auto& status : metadata["battle"]["transients"][targetId.as<uf::stl::string>()]["statuses"] ) {
+			ext::json::forEach(metadata["battle"]["transients"][targetId.as<uf::stl::string>()]["statuses"], [&](ext::json::Value& status){
+				uf::stl::string statusId = status["id"].as<uf::stl::string>();
 				uf::Serializer statusData = masterDataGet("Status", statusId);
 				for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 					statusData[it.key()] = *it;
@@ -1083,10 +1083,10 @@ void ext::HousamoBattle::initialize() {
 				if ( statusData["defense"].is<double>() ) {
 					float adjust = statusData["defense"].as<float>() / 100.0f;
 					morePower -= adjust;
-				//	payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more defense"+colorString("FFFFFF") + "";
+				//	payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(adjust*100)) + "%"+colorString("FF0000") + " more defense"+colorString("FFFFFF") + "";
 				}
 			});
-		//	if ( morePower != 0 ) payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(morePower*100)) + "%"+colorString("FF0000") + " power modifier"+colorString("FFFFFF") + "";
+		//	if ( morePower != 0 ) payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF00FF") + "" + std::to_string((int)(morePower*100)) + "%"+colorString("FF0000") + " power modifier"+colorString("FFFFFF") + "";
 
 			float r = (rand() % 100) / 100.0;
 			// missed
@@ -1099,14 +1099,14 @@ void ext::HousamoBattle::initialize() {
 			}
 
 			bool repel = false;
-			std::function<void(const std::string&)> affinityCheck = [&]( const std::string& targetId ) {
+			std::function<void(const uf::stl::string&)> affinityCheck = [&]( const uf::stl::string& targetId ) {
 				auto& target = metadata["battle"]["transients"][targetId];
-				uf::Serializer cardData = masterDataGet("Card", target["id"].as<std::string>());
+				uf::Serializer cardData = masterDataGet("Card", target["id"].as<uf::stl::string>());
 				uf::Serializer affinity = cardData["affinity"][elementId];
 				// affinity change check
 			//	for ( auto& status : target["statuses"] ) {
 				ext::json::forEach(target["statuses"], [&](ext::json::Value& status){
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 						statusData[it.key()] = *it;
@@ -1123,19 +1123,19 @@ void ext::HousamoBattle::initialize() {
 
 					if ( !ext::json::isNull( statusData["affinity"] ) ) {
 						if ( !ext::json::isNull( statusData["affinity"][elementId] ) ) affinity = statusData["affinity"][elementId];
-					//	payload["message"] = payload["message"].as<std::string>() + "\naffinity modifier."+colorString("FFFFFF") + "";
+					//	payload["message"] = payload["message"].as<uf::stl::string>() + "\naffinity modifier."+colorString("FFFFFF") + "";
 					}
 				});
 				if ( !ext::json::isNull( affinity ) ) {
-					std::string affinityStr = affinity.as<std::string>();
+					uf::stl::string affinityStr = affinity.as<uf::stl::string>();
 					if ( repel && affinityStr == "repel" ) affinityStr = "null";
-					if ( affinityStr == "weak" ) { payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "Weak!\n"; morePower *= 2.0f; }
-					else if ( affinityStr == "strong" ) { payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "Strong!\n"; morePower *= 0.5f; }
-					else if ( affinityStr == "drain" ) { turnEffects.endTurn = true; payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "Drain!\n"; morePower *= -1.0f; }
-					else if ( affinityStr == "null" ) { turnEffects.loseTurn = 2; payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "Nulled!\n"; morePower *= 0; }
-					else if ( affinityStr == "repel" ) { turnEffects.endTurn = true; payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + "Repelled!\n"; repel = true;
+					if ( affinityStr == "weak" ) { payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "Weak!\n"; morePower *= 2.0f; }
+					else if ( affinityStr == "strong" ) { payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "Strong!\n"; morePower *= 0.5f; }
+					else if ( affinityStr == "drain" ) { turnEffects.endTurn = true; payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "Drain!\n"; morePower *= -1.0f; }
+					else if ( affinityStr == "null" ) { turnEffects.loseTurn = 2; payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "Nulled!\n"; morePower *= 0; }
+					else if ( affinityStr == "repel" ) { turnEffects.endTurn = true; payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + "Repelled!\n"; repel = true;
 						// check again
-						affinityCheck(json["uid"].as<std::string>());
+						affinityCheck(json["uid"].as<uf::stl::string>());
 					} else {
 						affinityStr = "";
 					}
@@ -1147,7 +1147,7 @@ void ext::HousamoBattle::initialize() {
 						showMessage( payload );
 					}
 				}
-			}; affinityCheck(target["uid"].as<std::string>());
+			}; affinityCheck(target["uid"].as<uf::stl::string>());
 
 			power += morePower;
 			
@@ -1191,10 +1191,10 @@ void ext::HousamoBattle::initialize() {
 			}
 
 			bool critted = false;
-			std::function<void(const std::string&)> applyDamage = [&]( const std::string& targetId ) {
+			std::function<void(const uf::stl::string&)> applyDamage = [&]( const uf::stl::string& targetId ) {
 				auto& target = metadata["battle"]["transients"][targetId];
-				uf::Serializer cardData = masterDataGet("Card", target["id"].as<std::string>());
-				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+				uf::Serializer cardData = masterDataGet("Card", target["id"].as<uf::stl::string>());
+				uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 				int curHp = target["hp"].as<float>();
 				bool isCrit = ((rand() % 100) / 100.0) < 0.1;
 				if ( damage == 0 ) isCrit = false;
@@ -1232,7 +1232,7 @@ void ext::HousamoBattle::initialize() {
 							int mpDrain = target["max mp"].as<float>() * ratio;
 							if ( target["mp"].as<float>() > mpDrain ) mpDrain = target["mp"].as<float>();
 							target["mp"] = target["mp"].as<float>() - mpDrain;
-							payload["message"] = payload["message"].as<std::string>() + "\n  " + colorString("0000FF") + std::to_string(mpDrain);
+							payload["message"] = payload["message"].as<uf::stl::string>() + "\n  " + colorString("0000FF") + std::to_string(mpDrain);
 							
 							showMessage( payload );
 
@@ -1250,7 +1250,7 @@ void ext::HousamoBattle::initialize() {
 				damage = oldDamage;
 
 				if ( curHp <= 0 ) {
-					payload["message"] = payload["message"].as<std::string>() + "\n"+colorString("FF0000") + ""+ charaData["name"].as<std::string>() +" "+colorString("FFFFFF") + "died!";
+					payload["message"] = payload["message"].as<uf::stl::string>() + "\n"+colorString("FF0000") + ""+ charaData["name"].as<uf::stl::string>() +" "+colorString("FFFFFF") + "died!";
 					target["hp"] = 0;
 
 					uf::Serializer statusPayload;
@@ -1258,12 +1258,12 @@ void ext::HousamoBattle::initialize() {
 					target["statuses"] = ext::json::array();
 					target["statuses"].emplace_back(statusPayload);
 				}
-			}; applyDamage(repel ? json["uid"].as<std::string>() : target["uid"].as<std::string>());
+			}; applyDamage(repel ? json["uid"].as<uf::stl::string>() : target["uid"].as<uf::stl::string>());
 			// counter statuses
 			if ( !repel ) {
-			//	for ( auto& status : metadata["battle"]["transients"][target["uid"].as<std::string>()]["statuses"] ) {
-				ext::json::forEach(metadata["battle"]["transients"][target["uid"].as<std::string>()]["statuses"], [&](ext::json::Value& status){
-					std::string statusId = status["id"].as<std::string>();
+			//	for ( auto& status : metadata["battle"]["transients"][target["uid"].as<uf::stl::string>()]["statuses"] ) {
+				ext::json::forEach(metadata["battle"]["transients"][target["uid"].as<uf::stl::string>()]["statuses"], [&](ext::json::Value& status){
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					if ( statusId != "19" ) return;
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
@@ -1281,8 +1281,8 @@ void ext::HousamoBattle::initialize() {
 					if ( statusData["proc"].is<double>() ) {
 						float r = (rand() % 100) / 100.0;
 						if ( r <= statusData["proc"].as<float>() / 100.0f ) {
-							applyDamage(json["uid"].as<std::string>());
-							payload["message"] = payload["message"].as<std::string>() + "\nCountered!";
+							applyDamage(json["uid"].as<uf::stl::string>());
+							payload["message"] = payload["message"].as<uf::stl::string>() + "\nCountered!";
 						}
 					}
 				});
@@ -1291,8 +1291,8 @@ void ext::HousamoBattle::initialize() {
 			{
 			//	for ( auto& status : skillData["statuses"] ) {
 				ext::json::forEach(skillData["statuses"], [&](ext::json::Value& status){
-					std::string target = status["target"].as<std::string>();
-					std::string statusId = status["id"].as<std::string>();
+					uf::stl::string target = status["target"].as<uf::stl::string>();
+					uf::stl::string statusId = status["id"].as<uf::stl::string>();
 					uf::Serializer statusData = masterDataGet("Status", statusId);
 					if ( skillData["type"].as<int>() == 16 ) return;
 					float r = (rand() % 100) / 100.0;
@@ -1309,16 +1309,16 @@ void ext::HousamoBattle::initialize() {
 
 					uf::Serializer targets;
 					if ( target == "self" ) {
-						targets.emplace_back(json["uid"].as<std::string>());
+						targets.emplace_back(json["uid"].as<uf::stl::string>());
 				//	} else if ( target == "enemy" || target == "ally" ) {
 					} else {
-						targets.emplace_back(targetId.as<std::string>());
+						targets.emplace_back(targetId.as<uf::stl::string>());
 					}
 				//	for ( auto& target : targets ) {
 					ext::json::forEach(targets, [&](ext::json::Value& target){
 						// remove status(es)
 						if ( status["type"] == "remove" ) {
-							for ( auto& statusC : metadata["battle"]["transients"][target.as<std::string>()]["statuses"] ) {
+							for ( auto& statusC : metadata["battle"]["transients"][target.as<uf::stl::string>()]["statuses"] ) {
 								if ( statusC["id"] == statusId ) {
 									statusC = ext::json::null();
 									statusC["id"] = 0;
@@ -1333,20 +1333,20 @@ void ext::HousamoBattle::initialize() {
 						statusPayload["modifier"] = status["modifier"];
 
 						statusPayload["turns"] = status["turns"].is<double>() ? status["turns"] : statusData["turns"];
-						metadata["battle"]["transients"][target.as<std::string>()]["statuses"].emplace_back(statusPayload);
+						metadata["battle"]["transients"][target.as<uf::stl::string>()]["statuses"].emplace_back(statusPayload);
 
 						for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 							statusData[it.key()] = *it;
 						}
 
-						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<std::string>()]["id"].as<std::string>() );
-						uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+						uf::Serializer cardData = masterDataGet( "Card", metadata["battle"]["transients"][target.as<uf::stl::string>()]["id"].as<uf::stl::string>() );
+						uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 
-					//	payload["message"] = payload["message"].as<std::string>() + "\nApplied "+colorString("FF0000") + "" + statusData["name"].as<std::string>() + ""+colorString("FFFFFF") + " to " + charaData["name"].as<std::string>();
+					//	payload["message"] = payload["message"].as<uf::stl::string>() + "\nApplied "+colorString("FF0000") + "" + statusData["name"].as<uf::stl::string>() + ""+colorString("FFFFFF") + " to " + charaData["name"].as<uf::stl::string>();
 						{
 							uf::Serializer payload;
 							payload["uid"] = targetId;
-							payload["message"] = skillData["name"].as<std::string>();
+							payload["message"] = skillData["name"].as<uf::stl::string>();
 							payload["color"] = "9900FF";
 							showMessage( payload );
 						}
@@ -1358,9 +1358,9 @@ void ext::HousamoBattle::initialize() {
 				float r = (rand() % 100) / 100.0;
 			//	if ( r < 0.5 ) {
 				if ( r < 1.0 ) {
-					playSound(*this, member["id"].as<std::string>(), r > 0.25 ? "attack" : "skill");
+					playSound(*this, member["id"].as<uf::stl::string>(), r > 0.25 ? "attack" : "skill");
 				} else {
-					playSound(*this, target["id"].as<std::string>(), r > 0.75 ? "damagedsmall" : "damagedlarge");
+					playSound(*this, target["id"].as<uf::stl::string>(), r > 0.75 ? "damagedsmall" : "damagedlarge");
 				}
 				for ( int i = 0; i < 16; ++i ) {
 					uf::Serializer payload;
@@ -1408,34 +1408,34 @@ void ext::HousamoBattle::initialize() {
 		payload["timeout"] = 2.0f;
 		return payload;
 	});
-	this->addHook( "world:Battle.Get.%UID%", [&](const std::string& event)->std::string{
+	this->addHook( "world:Battle.Get.%UID%", [&](const uf::stl::string& event)->uf::stl::string{
 		uf::Serializer json = event;
-		auto& member = metadata["battle"]["transients"][json["uid"].as<std::string>()];
+		auto& member = metadata["battle"]["transients"][json["uid"].as<uf::stl::string>()];
 	/*
 		ext::Housamo* transient = transients.at(uid);
 		uf::Serializer& member = transient->getComponent<uf::Serializer>();
 	*/
-		std::string message;
+		uf::stl::string message;
 
-		uf::Serializer cardData = masterDataGet("Card", member["id"].as<std::string>());
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
+		uf::Serializer cardData = masterDataGet("Card", member["id"].as<uf::stl::string>());
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 		uf::Serializer affinity = cardData["affinity"];
-		std::string name = charaData["name"].as<std::string>();
+		uf::stl::string name = charaData["name"].as<uf::stl::string>();
 		if ( member["type"] == "player" ) message += colorString("00FF00");
 		else if ( member["type"] == "enemy" ) message += colorString("FF0000");
 		else  message += colorString("AAAAAA");
 
 
-		message += name + colorString("FFFFFF") + ": " + member["type"].as<std::string>();
+		message += name + colorString("FFFFFF") + ": " + member["type"].as<uf::stl::string>();
 		
-		message += "\n" + colorString("FF0000") + "HP: " + member["hp"].as<std::string>();
-		message += "\n" + colorString("0000FF") + "MP: " + member["mp"].as<std::string>();
+		message += "\n" + colorString("FF0000") + "HP: " + member["hp"].as<uf::stl::string>();
+		message += "\n" + colorString("0000FF") + "MP: " + member["mp"].as<uf::stl::string>();
 
 
 		message += "\n" + colorString("9900FF") + "Ailments" + colorString("FFFFFF") + ":";
 	//	for ( auto& status : member["statuses"] ) {
 		ext::json::forEach(member["statuses"], [&](ext::json::Value& status){
-			std::string statusId = status["id"].as<std::string>();
+			uf::stl::string statusId = status["id"].as<uf::stl::string>();
 			uf::Serializer statusData = masterDataGet("Status", statusId);
 			for ( auto it = status["modifier"].begin(); it != status["modifier"].end(); ++it ) {
 				statusData[it.key()] = *it;
@@ -1445,17 +1445,17 @@ void ext::HousamoBattle::initialize() {
 			for ( auto it = statusData["affinity"].begin(); it != statusData["affinity"].end(); ++it ) {
 				affinity[it.key()] = *it;
 			}
-			message += "\n\t" + statusData["name"].as<std::string>() + (ext::json::isNull( status["turns"] ) ? "" : " (Turns: " + status["turns"].as<std::string>() + ")" );
+			message += "\n\t" + statusData["name"].as<uf::stl::string>() + (ext::json::isNull( status["turns"] ) ? "" : " (Turns: " + status["turns"].as<uf::stl::string>() + ")" );
 		});
 
 		message += "\n" + colorString("9900FF") + "Affinities" + colorString("FFFFFF") + ":";
 
 	//	for ( auto it = affinity.begin(); it != affinity.end(); ++it ) {
-	//		std::string elementId = it.key();
-	//		std::string value = it->as<std::string>();
-		ext::json::forEach(affinity, [&](const std::string& elementId, ext::json::Value& value){
+	//		uf::stl::string elementId = it.key();
+	//		uf::stl::string value = it->as<uf::stl::string>();
+		ext::json::forEach(affinity, [&](const uf::stl::string& elementId, ext::json::Value& value){
 			uf::Serializer elementData = masterDataGet("Element", elementId);
-			message += "\n\t" + elementData["name"].as<std::string>() + ": " + value.as<std::string>();
+			message += "\n\t" + elementData["name"].as<uf::stl::string>() + ": " + value.as<uf::stl::string>();
 		});
 
 		uf::Serializer payload;
@@ -1464,7 +1464,7 @@ void ext::HousamoBattle::initialize() {
 		payload["message"] = message;
 		return payload;
 	});	
-	this->addHook( "world:Battle.End.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "world:Battle.End.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		// play music
 	/*
@@ -1509,7 +1509,7 @@ void ext::HousamoBattle::initialize() {
 		payload["end"] = true;
 		return payload;
 	/*
-		if ( json["action"].as<std::string>() == "killed" ) {
+		if ( json["action"].as<uf::stl::string>() == "killed" ) {
 			// play death sound
 			playSound(*this, metadata["battle"]["enemy"]["uid"].as<size_t>(), "killed");
 			// kill

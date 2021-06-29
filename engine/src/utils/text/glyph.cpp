@@ -6,7 +6,7 @@ uf::Glyph::~Glyph() {
 }
 
 // 	OpenGL ops
-uint8_t* uf::Glyph::generate( const std::string& font, unsigned long c, uint size ) {
+uint8_t* uf::Glyph::generate( const uf::stl::string& font, unsigned long c, uint size ) {
 	ext::freetype::Glyph glyph = ext::freetype::initialize(font);
 	return this->generate( glyph, c );
 }
@@ -59,7 +59,7 @@ uint8_t* uf::Glyph::generate( ext::freetype::Glyph& glyph, unsigned long c, uint
 	if ( this->isSdf() ) this->generateSdf(this->m_buffer);
 	return this->m_buffer;
 }
-uint8_t* uf::Glyph::generate( const std::string& font, const uf::String& c, uint size ) {
+uint8_t* uf::Glyph::generate( const uf::stl::string& font, const uf::String& c, uint size ) {
 	ext::freetype::Glyph glyph = ext::freetype::initialize(font);
 	return this->generate( glyph, c );
 }

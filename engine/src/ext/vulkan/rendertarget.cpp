@@ -5,7 +5,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
 
-void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFlags access, const std::vector<size_t>& colors, const std::vector<size_t>& inputs, const std::vector<size_t>& resolves, size_t depth, size_t layer, bool autoBuildPipeline ) {
+void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFlags access, const uf::stl::vector<size_t>& colors, const uf::stl::vector<size_t>& inputs, const uf::stl::vector<size_t>& resolves, size_t depth, size_t layer, bool autoBuildPipeline ) {
 	Subpass pass;
 	pass.stage = stage;
 	pass.access = access;
@@ -166,7 +166,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 	// Create render pass
 	if ( !renderPass ) {
-		std::vector<VkAttachmentDescription> attachments; attachments.reserve( this->attachments.size() );
+		uf::stl::vector<VkAttachmentDescription> attachments; attachments.reserve( this->attachments.size() );
 		for ( size_t i = 0; i < this->views; ++i ) {
 			for ( auto& attachment : this->attachments ) {
 				VkAttachmentDescription description;
@@ -197,8 +197,8 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			pass.depth.attachment += pass.layer * this->attachments.size();
 		}
 
-		std::vector<VkSubpassDescription> descriptions;
-		std::vector<VkSubpassDependency> dependencies;
+		uf::stl::vector<VkSubpassDescription> descriptions;
+		uf::stl::vector<VkSubpassDependency> dependencies;
 
 		// dependency: transition from final
 		VkSubpassDependency dependency;
@@ -307,7 +307,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 
 /*
 		uint32_t mask = 0;
-		std::vector<uint32_t> masks;
+		uf::stl::vector<uint32_t> masks;
 		for ( size_t i = 0; i < this->views; ++i ) {
 			mask |= (0b00000001 << i);
 		}
@@ -336,7 +336,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		RenderMode& base = ext::vulkan::getRenderMode( "Swapchain", false );
 		framebuffers.resize(ext::vulkan::swapchain.buffers);
 		for ( size_t i = 0; i < framebuffers.size(); ++i ) {
-			std::vector<VkImageView> attachmentViews;										
+			uf::stl::vector<VkImageView> attachmentViews;										
 			for ( size_t j = 0; j < this->views; ++j ) {
 				for ( auto& attachment : this->attachments ) {
 					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {

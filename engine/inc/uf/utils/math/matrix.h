@@ -9,7 +9,11 @@
 #include "math.h"
 namespace pod {
 	template<typename T = pod::Math::num_t, size_t R = 4, size_t C = R> 
-	struct UF_API /*alignas(16)*/ Matrix {
+#if UF_MATRIX_ALIGNED
+	struct /*UF_API*/ alignas(16) Matrix {
+#else
+	struct /*UF_API*/ /*alignas(16)*/ Matrix {
+#endif
 	// 	n-dimensional/unspecialized matrix access
 		T components[R*C] = {};
 	//	T components[R][C] = {};
@@ -53,7 +57,7 @@ namespace uf {
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ identity();
 
 		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const T* );
-		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const std::vector<T>& );
+		template<typename T=pod::Math::num_t> pod::Matrix4t<T> /*UF_API*/ initialize( const uf::stl::vector<T>& );
 		template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> /*UF_API*/ identityi();
 
 	// 	Equality checking
@@ -104,7 +108,7 @@ namespace uf {
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, const T& source );
 		template<typename T=pod::Matrix4> T& /*UF_API*/ copy( T& destination, typename T::type_t* const source );
 
-		template<typename T, size_t R, size_t C = R> std::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
+		template<typename T, size_t R, size_t C = R> uf::stl::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
 		template<typename T, size_t R, size_t C> ext::json::Value /*UF_API*/ encode( const pod::Matrix<T,R,C>& v, const ext::json::EncodingSettings& = {} );
 		template<typename T, size_t R, size_t C> pod::Matrix<T,R,C>& /*UF_API*/ decode( const ext::json::Value& v, pod::Matrix<T,R,C>& );
 		template<typename T, size_t R, size_t C> pod::Matrix<T,R,C> /*UF_API*/ decode( const ext::json::Value& v, const pod::Matrix<T,R,C>& = uf::matrix::identity() );
@@ -131,7 +135,7 @@ namespace uf {
 		Matrix(const Matrix<T,R,C>::pod_t& pod); 										// copies POD altogether
 		Matrix(const T components[R][C]); 												// copies data into POD from 'components' (typed as C array)
 		Matrix(const T components[R*C]); 												// copies data into POD from 'components' (typed as C array)
-		Matrix(const std::vector<T>& components); 										// copies data into POD from 'components' (typed as std::matrix<T>)
+		Matrix(const uf::stl::vector<T>& components); 										// copies data into POD from 'components' (typed as std::matrix<T>)
 	// 	D-tor
 		// Unneccesary
 	// 	POD access
@@ -189,7 +193,7 @@ namespace uf {
 namespace uf {
 	namespace string {
 		template<typename T, size_t R, size_t C>
-		std::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
+		uf::stl::string /*UF_API*/ toString( const pod::Matrix<T,R,C>& v );
 	}
 }
 namespace ext {

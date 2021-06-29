@@ -11,7 +11,7 @@ namespace {
 		cont_state_t* state = NULL;
 	} controller;
 
-	std::string GetKeyName( uint32_t code ) {
+	uf::stl::string GetKeyName( uint32_t code ) {
 		switch ( code ) {
 			case CONT_C: return "C";
 			case CONT_B: return "B";
@@ -32,8 +32,8 @@ namespace {
 		}
 		return "";
 	}
-	uint32_t GetKeyCode( const std::string& _name ) {
-		std::string name = uf::string::uppercase( _name );
+	uint32_t GetKeyCode( const uf::stl::string& _name ) {
+		uf::stl::string name = uf::string::uppercase( _name );
 		if ( name == "C" ) return CONT_C;
 		else if ( name == "B" ) return CONT_B;
 		else if ( name == "A" ) return CONT_A;
@@ -65,7 +65,7 @@ void spec::dreamcast::controller::tick() {
 	if ( !::controller.device ) ::controller.device = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
 	if ( ::controller.device ) ::controller.state = (cont_state_t*) maple_dev_status(::controller.device);
 #if 0
-	std::vector<std::string> str;
+	uf::stl::vector<uf::stl::string> str;
 	pod::Vector2f joystick = { analog("L_JOYSTICK_X"), analog("L_JOYSTICK_Y") };
 	if ( joystick ) str.emplace_back("Joystick: " + uf::vector::toString(joystick));
 	if ( pressed("C") ) str.emplace_back("C");
@@ -92,11 +92,11 @@ void spec::dreamcast::controller::terminate() {
 bool spec::dreamcast::controller::connected( size_t i ) {
 	return ::controller.state;
 }
-bool spec::dreamcast::controller::pressed( const std::string& str, size_t i ) {
+bool spec::dreamcast::controller::pressed( const uf::stl::string& str, size_t i ) {
 	if ( !::controller.state ) return false;
 	return ::controller.state->buttons & GetKeyCode( str );
 }
-float spec::dreamcast::controller::analog( const std::string& str, size_t i ) {
+float spec::dreamcast::controller::analog( const uf::stl::string& str, size_t i ) {
 #define NORMALIZE(X) ((float) (X) / (float) std::numeric_limits<decltype(X)>::max())
 	if ( !::controller.state ) return false;
 	

@@ -19,12 +19,12 @@
 ext::opengl::RenderMode::~RenderMode() {
 	this->destroy();
 }
-const std::string ext::opengl::RenderMode::getType() const {
+const uf::stl::string ext::opengl::RenderMode::getType() const {
 	return "";
 }
-const std::string ext::opengl::RenderMode::getName() const {
+const uf::stl::string ext::opengl::RenderMode::getName() const {
 //	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-//	return metadata["name"].as<std::string>();
+//	return metadata["name"].as<uf::stl::string>();
 	return metadata.name;
 }
 ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget( size_t i ) {
@@ -40,7 +40,7 @@ const size_t ext::opengl::RenderMode::blitters() const {
 ext::opengl::Graphic* ext::opengl::RenderMode::getBlitter( size_t i ) {
 	return NULL;
 }
-std::vector<ext::opengl::Graphic*> ext::opengl::RenderMode::getBlitters() {
+uf::stl::vector<ext::opengl::Graphic*> ext::opengl::RenderMode::getBlitters() {
 	return {};
 }
 
@@ -57,7 +57,7 @@ void ext::opengl::RenderMode::bindGraphicPushConstants( ext::opengl::Graphic* po
 void ext::opengl::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
-	std::vector<ext::opengl::Graphic*> graphics;
+	uf::stl::vector<ext::opengl::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -84,13 +84,13 @@ ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands( std::thread::i
 	}
 	return commands;
 }
-void ext::opengl::RenderMode::createCommandBuffers( const std::vector<ext::opengl::Graphic*>& graphics ) {
+void ext::opengl::RenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 
 }
 void ext::opengl::RenderMode::bindPipelines() {
 	this->execute = true;
 
-	std::vector<ext::opengl::Graphic*> graphics;
+	uf::stl::vector<ext::opengl::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -103,7 +103,7 @@ void ext::opengl::RenderMode::bindPipelines() {
 	this->synchronize();
 	this->bindPipelines( graphics );
 }
-void ext::opengl::RenderMode::bindPipelines( const std::vector<ext::opengl::Graphic*>& graphics ) {
+void ext::opengl::RenderMode::bindPipelines( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
 		for ( size_t currentPass = 0; currentPass < renderTarget.passes.size(); ++currentPass ) {

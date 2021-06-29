@@ -9,7 +9,7 @@ namespace uf {
 	public:
 		typedef T type_t;
 		typedef std::thread::id id_t;
-		typedef std::unordered_map<id_t, type_t> container_t;
+		typedef uf::stl::unordered_map<id_t, type_t> container_t;
 	protected:
 		container_t m_container;
 	public:

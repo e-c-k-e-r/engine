@@ -6,32 +6,32 @@
 #include <cmath>
 #include <iostream>
 
-std::string UF_API uf::string::lowercase( const std::string& str ) {
-	std::string lower = str;
+uf::stl::string UF_API uf::string::lowercase( const uf::stl::string& str ) {
+	uf::stl::string lower = str;
 	std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 	return lower;
 }
-std::string UF_API uf::string::uppercase( const std::string& str ) {
-	std::string upper = str;
+uf::stl::string UF_API uf::string::uppercase( const uf::stl::string& str ) {
+	uf::stl::string upper = str;
 	std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
 	return upper;
 }
-std::vector<std::string> UF_API uf::string::split( const std::string& str, const std::string& delim ) {
-	std::vector<std::string> tokens;
+uf::stl::vector<uf::stl::string> UF_API uf::string::split( const uf::stl::string& str, const uf::stl::string& delim ) {
+	uf::stl::vector<uf::stl::string> tokens;
 	size_t prev = 0, pos = 0;
 	do {
 		pos = str.find(delim, prev);
-		if (pos == std::string::npos) pos = str.length();
-		std::string token = str.substr(prev, pos-prev);
+		if (pos == uf::stl::string::npos) pos = str.length();
+		uf::stl::string token = str.substr(prev, pos-prev);
 		if (!token.empty()) tokens.push_back(token);
 		prev = pos + delim.length();
 	} while (pos < str.length() && prev < str.length());
 	if ( tokens.empty() ) tokens.emplace_back(str);
     return tokens;
 /*
-	std::vector<std::string> cont;
+	uf::stl::vector<uf::stl::string> cont;
 	size_t last = 0, next = 0;
-	while ((next = str.find(needle, last)) != std::string::npos) {
+	while ((next = str.find(needle, last)) != uf::stl::string::npos) {
 		cont.push_back(str.substr(last, next-last));
 		last = next + 1;
 	}
@@ -40,8 +40,8 @@ std::vector<std::string> UF_API uf::string::split( const std::string& str, const
 */
 }
 /*
-std::string UF_API uf::string::join( const std::vector<std::string>& strings, const std::string& delim, bool trailing ) {
-	std::stringstream ss;
+uf::stl::string UF_API uf::string::join( const uf::stl::vector<uf::stl::string>& strings, const uf::stl::string& delim, bool trailing ) {
+	uf::stl::stringstream ss;
 	size_t len = strings.size();
 	for ( size_t i = 0; i < len; ++i ) {
 		ss << strings[i];
@@ -50,17 +50,17 @@ std::string UF_API uf::string::join( const std::vector<std::string>& strings, co
 	return ss.str();
 }
 */
-std::string UF_API uf::string::replace( const std::string& string, const std::string& search, const std::string& replace ) {
-	std::string result = string;
+uf::stl::string UF_API uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
+	uf::stl::string result = string;
 	size_t start_pos = string.find(search);
-	if( start_pos == std::string::npos ) return result;
+	if( start_pos == uf::stl::string::npos ) return result;
 	result.replace(start_pos, search.length(), replace);
 	return result;
 }
-bool UF_API uf::string::contains( const std::string& string, const std::string& search ) {
-	return string.find(search) != std::string::npos;
+bool UF_API uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {
+	return string.find(search) != uf::stl::string::npos;
 }
-std::string UF_API uf::string::si( double value, const std::string& unit, size_t precision ) {
+uf::stl::string UF_API uf::string::si( double value, const uf::stl::string& unit, size_t precision ) {
 	int power = floor(std::log10( value ));
 	double base = value / std::pow( 10, power );
 
@@ -103,9 +103,9 @@ std::string UF_API uf::string::si( double value, const std::string& unit, size_t
 
 	// std::cout << base << " x 10^" << power << std::endl;
 
-	std::stringstream ss;
+	uf::stl::stringstream ss;
 	ss << std::fixed << std::setprecision(precision) << base;
-	std::string string = ss.str();
+	uf::stl::string string = ss.str();
 
 	switch ( power ) {
 		case 24: string += "Y"; break;

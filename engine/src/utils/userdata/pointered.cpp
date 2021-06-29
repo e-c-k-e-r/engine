@@ -26,15 +26,15 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 	if ( len <= 0 ) return {};
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
+	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	pod::PointeredUserdata userdata = {
 		.len = requestedLen,
-		.data = memoryPool.alloc( data, requestedLen ),
+		.data = (uint8_t*) memoryPool.alloc( data, requestedLen ),
 	};
 #else
 	uf::MemoryPool* memoryPool = {};
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	pod::PointeredUserdata userdata = {};
 	if ( memoryPool )
 		userdata.data = (uint8_t*) memoryPool->alloc( data, requestedLen );
@@ -52,12 +52,12 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 }
 void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::PointeredUserdata& userdata ) {
 #if UF_MEMORYPOOL_INVALID_FREE
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
-	memoryPool.free( userdata, size(userdata.len) );
+	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
+	memoryPool.free( userdata.data, size(userdata.len) );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	
 	if ( memoryPool ) memoryPool->free( userdata.data, size(userdata.len) );
 	else {
@@ -77,11 +77,11 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( uf::MemoryPool& reque
 	return copied;
 }
 
-std::string UF_API uf::pointeredUserdata::toBase64( pod::PointeredUserdata& userdata ) {
+uf::stl::string UF_API uf::pointeredUserdata::toBase64( pod::PointeredUserdata& userdata ) {
 	return uf::base64::encode( userdata.data, userdata.len );
 }
-pod::PointeredUserdata UF_API uf::pointeredUserdata::fromBase64( const std::string& base64 ) {
-	std::vector<uint8_t> decoded = uf::base64::decode( base64 );
+pod::PointeredUserdata UF_API uf::pointeredUserdata::fromBase64( const uf::stl::string& base64 ) {
+	uf::stl::vector<uint8_t> decoded = uf::base64::decode( base64 );
 	return uf::pointeredUserdata::create( decoded.size(), decoded.data() );
 }
 // 	C-tor

@@ -47,16 +47,16 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 	{
 		bool loaded = true;
 		for ( auto it = metadata["hands"].begin(); it != metadata["hands"].end(); ++it ) {
-			std::string key = it.key();
-			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].as<std::string>()) ) loaded = false;
+			uf::stl::string key = it.key();
+			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].as<uf::stl::string>()) ) loaded = false;
 		}
 		if ( !loaded ) {
 			this->addHook( "VR:Model.Loaded", [&](ext::json::Value& json){
-				std::string name = json["name"].as<std::string>();
-				std::string side = "";
-				if ( name == metadata["hands"]["left"]["controller"]["model"].as<std::string>() ) {
+				uf::stl::string name = json["name"].as<uf::stl::string>();
+				uf::stl::string side = "";
+				if ( name == metadata["hands"]["left"]["controller"]["model"].as<uf::stl::string>() ) {
 					side = "left";
-				} else if ( name == metadata["hands"]["right"]["controller"]["model"].as<std::string>() ) {
+				} else if ( name == metadata["hands"]["right"]["controller"]["model"].as<uf::stl::string>() ) {
 					side = "right";
 				};
 				if ( side == "" ) return;
@@ -153,15 +153,15 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 				
 			});
 		}
-		std::vector<uf::Object*> vHands = { ::hands.left, ::hands.right };
+		uf::stl::vector<uf::Object*> vHands = { ::hands.left, ::hands.right };
 		for ( auto pointer : vHands ) {
 			auto& hand = *pointer;
 			hand.addHook("VR:Input.Digital", [&](ext::json::Value& json){
-				std::string side = &hand == hands.left ? "left" : "right";
-				if ( json["hand"].as<std::string>() != side ) return;
+				uf::stl::string side = &hand == hands.left ? "left" : "right";
+				if ( json["hand"].as<uf::stl::string>() != side ) return;
 
 				// fire mouse click
-				if ( json["name"].as<std::string>() == "click" ) {
+				if ( json["name"].as<uf::stl::string>() == "click" ) {
 
 					uf::Serializer payload;
 					payload["type"] = "window:Mouse.Click";
@@ -175,11 +175,11 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 					payload["mouse"]["button"] 			= side == "left" ? "Right" : "Left";
 					payload["mouse"]["state"] = json["state"].as<bool>() ? "Down": "Up";
 
-					uf::hooks.call( payload["type"].as<std::string>(), payload );
+					uf::hooks.call( payload["type"].as<uf::stl::string>(), payload );
 				}				
 			});
 			hand.addHook("world:Collision.%UID%", [&](ext::json::Value& json){
-				std::string side = &hand == hands.left ? "left" : "right";
+				uf::stl::string side = &hand == hands.left ? "left" : "right";
 
 				float mag = json["depth"].as<float>();
 				uf::Serializer payload;
@@ -386,9 +386,9 @@ void ext::PlayerHandBehavior::tick( uf::Object& self ) {
 	}
 	// raytrace pointer / hand collision
 	{
-		std::vector<uf::Object*> handPointers = { ::hands.left, ::hands.right };
+		uf::stl::vector<uf::Object*> handPointers = { ::hands.left, ::hands.right };
 		for ( auto pointer : handPointers ) { auto& hand = *pointer;
-			std::string side = &hand == ::hands.left ? "left" : "right";
+			uf::stl::string side = &hand == ::hands.left ? "left" : "right";
 			if ( !ext::openvr::controllerActive( side == "left" ? vr::Controller_Hand::Hand_Left : vr::Controller_Hand::Hand_Right ) ) continue;
 			{
 				pod::Transform<>& transform = (side == "left" ? ::lines.left : ::lines.right)->getComponent<pod::Transform<>>();

@@ -15,7 +15,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 
-const std::string ext::vulkan::ComputeRenderMode::getType() const {
+const uf::stl::string ext::vulkan::ComputeRenderMode::getType() const {
 	return "Compute";
 }
 const size_t ext::vulkan::ComputeRenderMode::blitters() const {
@@ -24,7 +24,7 @@ const size_t ext::vulkan::ComputeRenderMode::blitters() const {
 ext::vulkan::Graphic* ext::vulkan::ComputeRenderMode::getBlitter( size_t i ) {
 	return &this->blitter;
 }
-std::vector<ext::vulkan::Graphic*> ext::vulkan::ComputeRenderMode::getBlitters() {
+uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::ComputeRenderMode::getBlitters() {
 	return { &this->blitter };
 }
 

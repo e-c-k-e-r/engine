@@ -38,21 +38,21 @@ namespace ext {
 			void set( ALenum name, ALint x, ALint y, ALint z );
 			void set( ALenum name, const ALint* f );
 
-			void get( const std::string& name, ALfloat& x );
-			void get( const std::string& name, ALfloat& x, ALfloat& y, ALfloat& z );
-			void get( const std::string& name, ALfloat* f );
+			void get( const uf::stl::string& name, ALfloat& x );
+			void get( const uf::stl::string& name, ALfloat& x, ALfloat& y, ALfloat& z );
+			void get( const uf::stl::string& name, ALfloat* f );
 
-			void get( const std::string& name, ALint& x );
-			void get( const std::string& name, ALint& x, ALint& y, ALint& z );
-			void get( const std::string& name, ALint* f );
+			void get( const uf::stl::string& name, ALint& x );
+			void get( const uf::stl::string& name, ALint& x, ALint& y, ALint& z );
+			void get( const uf::stl::string& name, ALint* f );
 
-			void set( const std::string& name, ALfloat x );
-			void set( const std::string& name, ALfloat x, ALfloat y, ALfloat z );
-			void set( const std::string& name, const ALfloat* f );
+			void set( const uf::stl::string& name, ALfloat x );
+			void set( const uf::stl::string& name, ALfloat x, ALfloat y, ALfloat z );
+			void set( const uf::stl::string& name, const ALfloat* f );
 
-			void set( const std::string& name, ALint x );
-			void set( const std::string& name, ALint x, ALint y, ALint z );
-			void set( const std::string& name, const ALint* f );
+			void set( const uf::stl::string& name, ALint x );
+			void set( const uf::stl::string& name, ALint x, ALint y, ALint z );
+			void set( const uf::stl::string& name, const ALint* f );
 
 			void play();
 			void stop();

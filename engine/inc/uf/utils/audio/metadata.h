@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <fstream>
 
 #include <uf/ext/oal/source.h>
@@ -9,8 +9,8 @@
 namespace uf {
 	namespace audio {
 		struct UF_API Metadata {
-			std::string filename = "";
-			std::string extension = "";
+			uf::stl::string filename = "";
+			uf::stl::string extension = "";
 			struct {
 				std::ifstream* file = NULL;
 				void* handle = NULL;

@@ -2,7 +2,7 @@
 
 #include <uf/config.h>
 #include <uf/utils/math/vector.h>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 #include "pixel.h"
 
@@ -11,9 +11,9 @@ namespace uf {
 	public:
 		typedef pod::Vector2ui vec2_t;
 		typedef pod::PixelRgba8 pixel_t;
-		typedef std::vector<pixel_t::type_t> container_t;
+		typedef uf::stl::vector<pixel_t::type_t> container_t;
 	protected:
-		std::string m_filename;
+		uf::stl::string m_filename;
 		Image::container_t m_pixels;
 		Image::vec2_t m_dimensions;
 		std::size_t m_bpp;
@@ -28,7 +28,7 @@ namespace uf {
 		Image( Image::container_t&& move, const Image::vec2_t& size ); 							// Move from vector of pixels
 		Image( const Image::container_t& copy, const Image::vec2_t& size ); 					// Copy from vector of pixels
 
-		bool open( const std::string& filename, bool = true ); 									// from file
+		bool open( const uf::stl::string& filename, bool = true ); 									// from file
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels
 		void copy( const Image::container_t& copy,  const Image::vec2_t& size );				// copy from vector of pixels
@@ -40,7 +40,7 @@ namespace uf {
 		void loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		void loadFromBuffer( const Image::container_t& container, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );
 		
-		std::string getFilename() const;
+		uf::stl::string getFilename() const;
 
 		Image::container_t& getPixels();
 		const Image::container_t& getPixels() const;
@@ -57,16 +57,16 @@ namespace uf {
 		std::size_t& getChannels();
 		std::size_t getChannels() const;
 
-		std::string getHash() const;
+		uf::stl::string getHash() const;
 		size_t getFormat() const;
 
 		Image::pixel_t at( const Image::vec2_t& at );
 	// 	Modifiers
 		void flip();
 		void padToPowerOfTwo();
-		bool save( const std::string& filename, bool flip = false ) const; 				// to file
+		bool save( const uf::stl::string& filename, bool flip = false ) const; 				// to file
 		void save( std::ostream& stream ) const; 										// to stream
-		void convert( const std::string&, const std::string& = "rgba" );
+		void convert( const uf::stl::string&, const uf::stl::string& = "rgba" );
 		Image overlay(const Image& top, const Image::vec2_t& corner = {} ) const; 		// Merges one image on top of another
 		Image replace(const Image::pixel_t& from, const Image::pixel_t& to ) const; 	// Changes all pixel from one color (from), to another (to)
 		Image subImage( const Image::vec2_t& start, const Image::vec2_t& end) const; 	// Crops an image

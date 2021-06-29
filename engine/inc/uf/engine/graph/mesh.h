@@ -20,7 +20,7 @@ namespace uf {
 				/*alignas(16)*/ pod::Vector3f tangent;
 				/*alignas(8)*/ pod::Vector2ui id;
 
-				static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
+				static UF_API uf::stl::vector<uf::renderer::VertexDescriptor> descriptor;
 			};
 			struct Skinned {
 				/*alignas(16)*/ pod::Vector3f position;
@@ -32,7 +32,7 @@ namespace uf {
 				/*alignas(16)*/ pod::Vector4ui joints;
 				/*alignas(16)*/ pod::Vector4f weights;
 
-				static UF_API std::vector<uf::renderer::VertexDescriptor> descriptor;
+				static UF_API uf::stl::vector<uf::renderer::VertexDescriptor> descriptor;
 			};
 		}
 		typedef uf::BaseMesh<uf::graph::mesh::Skinned> mesh_t;

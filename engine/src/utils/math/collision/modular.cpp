@@ -10,7 +10,7 @@ UF_API uf::ModularCollider::ModularCollider( uint len, pod::Vector3* container, 
 UF_API uf::ModularCollider::~ModularCollider() {
 	if ( this->m_container != NULL && this->m_should_free ) delete[] this->m_container;
 }
-std::string UF_API uf::ModularCollider::type() const { return "Modular"; }
+uf::stl::string UF_API uf::ModularCollider::type() const { return "Modular"; }
 void UF_API uf::ModularCollider::setExpand( const uf::ModularCollider::function_expand_t& expand ) {
 	this->m_function_expand = expand;
 }

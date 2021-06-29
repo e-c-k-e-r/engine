@@ -16,13 +16,13 @@
 #endif
 
 #include <sol/sol.hpp>
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/singletons/pre_main.h>
 #include <uf/utils/string/ext.h>
 
 namespace pod {
 	struct UF_API LuaScript {
-		std::string file;
+		uf::stl::string file;
 		sol::environment env;
 	};
 }
@@ -30,23 +30,23 @@ namespace pod {
 namespace ext {
 	namespace lua {
 		extern UF_API sol::state state;
-		extern UF_API std::string main;
-		extern UF_API std::unordered_map<std::string, std::string> modules;
-		extern UF_API std::vector<std::function<void()>>* onInitializationFunctions;
+		extern UF_API uf::stl::string main;
+		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::stl::string> modules;
+		extern UF_API uf::stl::vector<std::function<void()>>* onInitializationFunctions;
 
 		void UF_API initialize();
 		void UF_API terminate();
 		void UF_API onInitialization( const std::function<void()>& );
 		
-		bool UF_API run( const std::string&, bool = true );
+		bool UF_API run( const uf::stl::string&, bool = true );
 		
-		pod::LuaScript UF_API script( const std::string& );
+		pod::LuaScript UF_API script( const uf::stl::string& );
 		bool UF_API run( const pod::LuaScript&, bool = true );
 
 		sol::table createTable();
-		std::string sanitize( const std::string& dirty, int index = -1 );
-		std::optional<std::string> encode( sol::table table );
-		std::optional<sol::table> decode( const std::string& string );
+		uf::stl::string sanitize( const uf::stl::string& dirty, int index = -1 );
+		std::optional<uf::stl::string> encode( sol::table table );
+		std::optional<sol::table> decode( const uf::stl::string& string );
 	}
 }
 

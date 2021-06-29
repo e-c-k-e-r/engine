@@ -1,17 +1,17 @@
 #pragma once
 
 #include <uf/config.h>
-#include <string>
+#include <uf/utils/memory/string.h>
 
 namespace uf {
 	struct UF_API Http {
-		std::string header;
-		std::string response;
+		uf::stl::string header;
+		uf::stl::string response;
 		char* effective;
 		long code;
 		double elapsed;
 	};
 	namespace http {
-		uf::Http UF_API get( const std::string& );
+		uf::Http UF_API get( const uf::stl::string& );
 	}
 }

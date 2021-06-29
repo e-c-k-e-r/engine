@@ -40,7 +40,7 @@ namespace binds {
 		float dot( const pod::Vector3f& left, const pod::Vector3f& right ) {
 			return uf::vector::dot( left, right );
 		}
-		std::string toString( pod::Vector3f& self ) {
+		uf::stl::string toString( pod::Vector3f& self ) {
 			return uf::string::toString( self );
 		}
 	}
@@ -81,7 +81,7 @@ namespace binds {
 		float dot( const pod::Vector4f& left, const pod::Vector4f& right ) {
 			return uf::vector::dot( left, right );
 		}
-		std::string toString( pod::Vector4f& self ) {
+		uf::stl::string toString( pod::Vector4f& self ) {
 			return uf::string::toString( self );
 		}
 	}

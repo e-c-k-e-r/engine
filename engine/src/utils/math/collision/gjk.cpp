@@ -19,7 +19,7 @@ void pod::Simplex::set( const pod::Vector3& b, const pod::Vector3& c, const pod:
 }
 */
 pod::Collider::~Collider(){}
-std::string UF_API pod::Collider::type() const { return ""; }
+uf::stl::string UF_API pod::Collider::type() const { return ""; }
 pod::Collider::Manifold UF_API pod::Collider::intersects( const pod::Collider& y ) const {
 	const pod::Collider& x = *this;
 	
@@ -165,8 +165,8 @@ EPA:
 	manifold.depth = 0.0f;
 	manifold.normal = { 0, 0, 0 };
 
-	std::vector<Triangle> triangles;
-	std::vector<Edge> edges;
+	uf::stl::vector<Triangle> triangles;
+	uf::stl::vector<Edge> edges;
 
 	triangles.emplace_back(         a, simplex.b, simplex.c );
 	triangles.emplace_back(         a, simplex.b, simplex.d );
@@ -186,7 +186,7 @@ EPA:
 	while ( iterations++ < iterations_cap ) {
 		// find closest triangle to origin
 		struct {
-			std::vector<Triangle>::iterator it;
+			uf::stl::vector<Triangle>::iterator it;
 			float distance = 9E9;
 			pod::Simplex::SupportPoint support;
 		} closest = { triangles.begin() };

@@ -3,17 +3,17 @@
 #include <uf/config.h>
 #include <uf/engine/behavior/behavior.h>
 #include <uf/utils/serialize/serializer.h>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <functional>
 
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 
 namespace uf {
 	class UF_API Object;
 	class UF_API Entity : public uf::Behaviors {
 	//friend class EntityBehavior;
 	public:
-		typedef std::vector<uf::Entity*> container_t;
+		typedef uf::stl::vector<uf::Entity*> container_t;
 		static uf::Entity null;
 		static bool deleteChildrenOnDestroy;
 		static bool deleteComponentsOnDestroy;
@@ -24,7 +24,7 @@ namespace uf {
 		uf::Entity::container_t m_children;
 
 		std::size_t m_uid = 0;
-		std::string m_name = "Entity";
+		uf::stl::string m_name = "Entity";
 
 	public:
 		static uf::MemoryPool memoryPool;
@@ -32,9 +32,9 @@ namespace uf {
 		~Entity();
 		// identifiers
 		bool isValid() const;
-		const std::string& getName() const;
+		const uf::stl::string& getName() const;
 		std::size_t getUid() const;
-		void setName( const std::string& );
+		void setName( const uf::stl::string& );
 		// cast to other Entity classes, avoid nasty shit like *((uf::Object*) &entity)
 		template<typename T=uf::Object> T& as();
 		template<typename T=uf::Object> const T& as() const;
@@ -58,19 +58,19 @@ namespace uf {
 		uf::Entity::container_t& getChildren();
 		const uf::Entity::container_t& getChildren() const;
 		// use instantiate to allocate
-		void* operator new(size_t, const std::string& = "");
+		void* operator new(size_t, const uf::stl::string& = "");
 		void operator delete(void*);
 		// search
-		uf::Entity* findByName( const std::string& name );
+		uf::Entity* findByName( const uf::stl::string& name );
 		uf::Entity* findByUid( std::size_t id );
-		const uf::Entity* findByName( const std::string& name ) const;
+		const uf::Entity* findByName( const uf::stl::string& name ) const;
 		const uf::Entity* findByUid( std::size_t id ) const;
 		// filters
 		void process( std::function<void(uf::Entity*)> );
 		void process( std::function<void(uf::Entity*, int)>, int depth = 0 );
 		// globals
 		static uf::Entity* globalFindByUid( size_t id );
-		static uf::Entity* globalFindByName( const std::string& name );
+		static uf::Entity* globalFindByName( const uf::stl::string& name );
 
 	};
 }

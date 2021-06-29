@@ -5,10 +5,10 @@
 namespace binds {
 	void load( uf::Asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();
-		std::string callback = "";
-		std::string uri = "";
-		std::string hash = "";
-		std::string category = "";
+		uf::stl::string callback = "";
+		uf::stl::string uri = "";
+		uf::stl::string hash = "";
+		uf::stl::string category = "";
 		if ( it != va.end() ) callback = *(it++);
 		if ( it != va.end() ) uri = *(it++);
 		if ( it != va.end() ) hash = *(it++);
@@ -18,10 +18,10 @@ namespace binds {
 	}
 	void cache( uf::Asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();
-		std::string callback = "";
-		std::string uri = "";
-		std::string hash = "";
-		std::string category = "";
+		uf::stl::string callback = "";
+		uf::stl::string uri = "";
+		uf::stl::string hash = "";
+		uf::stl::string category = "";
 		if ( it != va.end() ) callback = *(it++);
 		if ( it != va.end() ) uri = *(it++);
 		if ( it != va.end() ) hash = *(it++);
@@ -31,7 +31,7 @@ namespace binds {
 		else
 			asset.cache( callback, uri, hash, category );
 	}
-	std::string getOriginal( uf::Asset& asset, const std::string& n ) {
+	uf::stl::string getOriginal( uf::Asset& asset, const uf::stl::string& n ) {
 		return asset.getOriginal( n );
 	}
 }

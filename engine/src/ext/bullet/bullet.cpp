@@ -71,7 +71,7 @@ namespace ext {
 		btDiscreteDynamicsWorld* dynamicsWorld = NULL;
 		btAlignedObjectArray<btCollisionShape*> collisionShapes;
 
-		std::unordered_map<btRigidBody*, size_t> rigidBodyMap;
+		uf::stl::unordered_map<btRigidBody*, size_t> rigidBodyMap;
 
 		BulletDebugDrawer debugDrawer;
 	}
@@ -284,11 +284,11 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseGeometry& me
 	
 	size_t indices = mesh.attributes.index.length;
 	size_t indexStride = mesh.attributes.index.size;
-	void* indexPointer = (void*) mesh.attributes.index.pointer;
+	uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
 
 	size_t vertices = mesh.attributes.vertex.length;
 	size_t vertexStride = mesh.attributes.vertex.size;
-	void* vertexPointer = (void*) mesh.attributes.vertex.pointer;
+	uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
 
 	uf::renderer::VertexDescriptor vertexAttributePosition;
 	for ( auto& attribute : mesh.attributes.descriptor ) {
@@ -299,7 +299,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseGeometry& me
 	btTriangleMesh* bMesh = new btTriangleMesh( true, false );
 	bMesh->preallocateVertices( vertices );
 	for ( size_t currentIndex = 0; currentIndex < vertices; ++currentIndex ) {
-		void* vertexSrc = vertexPointer + (currentIndex * vertexStride);
+		uint8_t* vertexSrc = vertexPointer + (currentIndex * vertexStride);
 		const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
 		bMesh->findOrAddVertex( btVector3( position.x, position.y, position.z ), false );
 	}
@@ -307,7 +307,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseGeometry& me
 		bMesh->preallocateIndices( indices );
 		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
 			uint32_t index = 0;
-			void* indexSrc = indexPointer + (currentIndex * indexStride);
+			uint8_t* indexSrc = indexPointer + (currentIndex * indexStride);
 			switch ( indexStride ) {
 				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
 				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;

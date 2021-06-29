@@ -6,14 +6,14 @@
 namespace uf {
 	class UF_API MeshCollider : public pod::Collider {
 	protected:
-		std::vector<pod::Vector3> m_positions;
+		uf::stl::vector<pod::Vector3> m_positions;
 	public:
-		MeshCollider( const pod::Transform<>& = {}, const std::vector<pod::Vector3>& = {} );
+		MeshCollider( const pod::Transform<>& = {}, const uf::stl::vector<pod::Vector3>& = {} );
 
-	 	std::vector<pod::Vector3>& getPositions();
-	 	const std::vector<pod::Vector3>& getPositions() const;
+	 	uf::stl::vector<pod::Vector3>& getPositions();
+	 	const uf::stl::vector<pod::Vector3>& getPositions() const;
 		
-		void setPositions( const std::vector<pod::Vector3>& );
+		void setPositions( const uf::stl::vector<pod::Vector3>& );
 		
 		template<typename T, typename U>
 		void setPositions( const uf::BaseMesh<T, U>& mesh ) {
@@ -26,7 +26,7 @@ namespace uf {
 			}
 		}
 
-		virtual std::string type() const;
+		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const;
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 	};

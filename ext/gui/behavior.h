@@ -35,8 +35,8 @@ namespace ext {
 			std::function<void()> deserialize;
 		};
 		struct GlyphMetadata {
-			std::string font = "";
-			std::string string = "";
+			uf::stl::string font = "";
+			uf::stl::string string = "";
 			
 			float scale = 0;
 			pod::Vector2f padding = {0,0};
@@ -48,9 +48,9 @@ namespace ext {
 			bool shadowbox = false;
 			pod::Vector4f stroke = {0,0,0,0};
 
-			std::string origin = "";
-			std::string align = "";
-			std::string direction = "";
+			uf::stl::string origin = "";
+			uf::stl::string align = "";
+			uf::stl::string direction = "";
 
 			std::function<void()> serialize;
 			std::function<void()> deserialize;

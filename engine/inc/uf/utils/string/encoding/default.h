@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#include <string>
+#include <uf/utils/memory/string.h>
 
 namespace uf {
 	namespace locale {
@@ -37,7 +37,7 @@ namespace uf {
 			template<typename Input>
 			static Input UF_API_CALL length(Input begin, Input end);
 		// 	Encoding's name
-			static std::string UF_API_CALL getName() { return "UTF-32"; }
+			static uf::stl::string UF_API_CALL getName() { return "UTF-32"; }
 		};
 
 	}

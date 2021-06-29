@@ -39,7 +39,7 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 
-			static std::vector<ext::vulkan::Sampler> samplers;
+			static uf::stl::vector<ext::vulkan::Sampler> samplers;
 			static ext::vulkan::Sampler retrieve( const Descriptor& info );
 		};
 
@@ -84,13 +84,13 @@ namespace ext {
 				uint32_t mipLevels
 			);
 			void loadFromFile(
-				const std::string& filename, 
+				const uf::stl::string& filename, 
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromFile(
-				const std::string& filename, 
+				const uf::stl::string& filename, 
 				Device& device,
 				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,

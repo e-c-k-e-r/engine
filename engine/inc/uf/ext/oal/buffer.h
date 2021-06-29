@@ -11,7 +11,7 @@ namespace ext {
 	namespace al {
 		class UF_API Buffer {
 		protected:
-			std::vector<ALuint> m_indices;
+			uf::stl::vector<ALuint> m_indices;
 		public:
 		//	Buffer( size_t = 1 );
 		//	~Buffer();

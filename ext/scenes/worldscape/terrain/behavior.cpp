@@ -31,8 +31,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	std::size_t seed = 0;
 	if ( metadata["terrain"]["seed"].is<size_t>() ) {
 		seed = metadata["terrain"]["seed"].as<size_t>();
-	} else if ( metadata["terrain"]["seed"].is<std::string>() ) {
-		seed = std::hash<std::string>{}( metadata["terrain"]["seed"].as<std::string>() );
+	} else if ( metadata["terrain"]["seed"].is<uf::stl::string>() ) {
+		seed = std::hash<uf::stl::string>{}( metadata["terrain"]["seed"].as<uf::stl::string>() );
 	}
 	{
 		std::cout << "Seed: " << seed << std::endl;
@@ -45,11 +45,11 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 		modifiers["region"]["size"] = metadata["region"]["size"];
 		modifiers["region"]["subdivisions"] = metadata["region"]["subdivisions"];
 		modifiers["region"]["modulus"] = metadata["region"]["modulus"];
-		std::string input = modifiers;
+		uf::stl::string input = modifiers;
 		metadata["system"]["hash"] = uf::string::sha256( input );
 	
-		uf::io::mkdir(uf::io::root+"/save/" + metadata["system"]["hash"].as<std::string>() + "/");
-		uf::io::mkdir(uf::io::root+"/save/" + metadata["system"]["hash"].as<std::string>() + "/regions/");
+		uf::io::mkdir(uf::io::root+"/save/" + metadata["system"]["hash"].as<uf::stl::string>() + "/");
+		uf::io::mkdir(uf::io::root+"/save/" + metadata["system"]["hash"].as<uf::stl::string>() + "/regions/");
 	}
 
 	// setup maze
@@ -81,11 +81,11 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "terrain:Post-Initialize.%UID%", [&](ext::json::Value& json){
 		if ( metadata["terrain"]["unified"].as<bool>() ) {
-			std::string textureFilename = ""; {
+			uf::stl::string textureFilename = ""; {
 				uf::Asset assetLoader;
 				for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
 					if ( textureFilename != "" ) break;
-					std::string filename = this->grabURI( metadata["system"]["assets"][i].as<std::string>(), metadata["system"]["root"].as<std::string>() );
+					uf::stl::string filename = this->grabURI( metadata["system"]["assets"][i].as<uf::stl::string>(), metadata["system"]["root"].as<uf::stl::string>() );
 					textureFilename = assetLoader.cache( filename );
 				}
 			}
@@ -99,8 +99,8 @@ void ext::TerrainBehavior::initialize( uf::Object& self ) {
 			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			texture.loadFromFile( textureFilename );
 
-			std::string suffix = ""; {
-				std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<std::string>();
+			uf::stl::string suffix = ""; {
+				uf::stl::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<uf::stl::string>();
 				if ( _ != "" ) suffix = _ + ".";
 			}
 			graphic.material.initializeShaders({
@@ -124,24 +124,24 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	pod::Thread& mainThread = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false, true );
 	// lambda to transition from a resolving state
-	auto transitionState = [&]( ext::Terrain& that, const std::string& next, bool unresolved ){
+	auto transitionState = [&]( ext::Terrain& that, const uf::stl::string& next, bool unresolved ){
 		uf::Serializer& metadata = that.getComponent<uf::Serializer>();
 	//	uf::thread::add( mainThread, [&]() -> int {
-		//	std::cout << "Transitioning: " << metadata["system"]["state"].as<std::string>() << " -> ";
+		//	std::cout << "Transitioning: " << metadata["system"]["state"].as<uf::stl::string>() << " -> ";
 			metadata["system"]["state"] = unresolved ? next : "open";
 			metadata["system"]["modified"] = unresolved;
-		//	std::cout << metadata["system"]["state"].as<std::string>() << std::endl;
+		//	std::cout << metadata["system"]["state"].as<uf::stl::string>() << std::endl;
 	//	return 0;}, true );
 	};
 	// lambda to transition into a resolving state
 	auto transitionResolvingState = [&]( ext::Terrain& that ){
 		uf::Serializer& metadata = that.getComponent<uf::Serializer>();
-	//	std::cout << "Resolving: " << metadata["system"]["state"].as<std::string>() << " -> ";
-		metadata["system"]["state"] = "resolving:" + metadata["system"]["state"].as<std::string>();
-	//	std::cout << metadata["system"]["state"].as<std::string>() << std::endl;
+	//	std::cout << "Resolving: " << metadata["system"]["state"].as<uf::stl::string>() << " -> ";
+		metadata["system"]["state"] = "resolving:" + metadata["system"]["state"].as<uf::stl::string>();
+	//	std::cout << metadata["system"]["state"].as<uf::stl::string>() << std::endl;
 	};
 	// lambda for sorting regions, nearest to farthest, from the controller
-	auto sortRegions = [&]( uf::Object& controller, std::vector<uf::Object*>& regions ){
+	auto sortRegions = [&]( uf::Object& controller, uf::stl::vector<uf::Object*>& regions ){
 		const pod::Vector3& position = controller.getComponent<pod::Transform<>>().position;
 		std::sort( regions.begin(), regions.end(), [&]( const uf::Object* l, const uf::Object* r ){
 			if ( !l ) return false; if ( !r ) return true;
@@ -173,7 +173,7 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 		}
 		// remove regions too far
 		{
-			std::vector<pod::Vector3i> locations;
+			uf::stl::vector<pod::Vector3i> locations;
 			for ( uf::Entity* region : this->getChildren() ) { if ( !region || region->getName() != "Region" ) continue;
 				const pod::Transform<>& transform = region->getComponent<pod::Transform<>>();
 				pod::Vector3i location = { 
@@ -207,7 +207,7 @@ void ext::TerrainBehavior::tick( uf::Object& self ) {
 	// initialize new regions
 	if ( metadata["system"]["state"] == "initialize" ) { transitionResolvingState(*this);
 		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
-			std::vector<uf::Object*> regions;
+			uf::stl::vector<uf::Object*> regions;
 			// retrieve changed regions
 			for ( uf::Entity* region : this->getChildren() ) { if ( !region ) continue;
 				uf::Serializer& metadata = region->getComponent<uf::Serializer>();

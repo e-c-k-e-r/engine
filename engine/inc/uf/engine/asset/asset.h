@@ -4,7 +4,7 @@
 #include <uf/engine/entity/entity.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/hook/hook.h>
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 #include <functional>
 
 namespace uf {
@@ -15,17 +15,17 @@ namespace uf {
 		// URL or file path
 		void processQueue();
 
-		void cache( const std::string&, const std::string&, const std::string&, const std::string& );
-		void load( const std::string&, const std::string&, const std::string&, const std::string& );
+		void cache( const uf::stl::string&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		void load( const uf::stl::string&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
 
-		std::string cache( const std::string&, const std::string& = "", const std::string& = "" );
-		std::string load( const std::string&, const std::string& = "", const std::string& = "" );
+		uf::stl::string cache( const uf::stl::string&, const uf::stl::string& = "", const uf::stl::string& = "" );
+		uf::stl::string load( const uf::stl::string&, const uf::stl::string& = "", const uf::stl::string& = "" );
 
-		std::string getOriginal( const std::string& );
+		uf::stl::string getOriginal( const uf::stl::string& );
 
 		template<typename T>
-		std::vector<T>& getContainer() {
-			return this->getComponent<std::vector<T>>();
+		uf::stl::vector<T>& getContainer() {
+			return this->getComponent<uf::stl::vector<T>>();
 		}
 
 		template<typename T>
@@ -34,10 +34,10 @@ namespace uf {
 			return container.size() > i;
 		}
 		template<typename T>
-		bool has( const std::string& url ) {
+		bool has( const uf::stl::string& url ) {
 			auto& container = this->getContainer<T>();
 			if ( container.empty() ) return false;
-			std::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			if ( ext::json::isNull( map[extension] ) ) return false;
 			if ( ext::json::isNull( map[extension][url] ) ) return false;
@@ -50,16 +50,16 @@ namespace uf {
 			return container.at(i);
 		}
 		template<typename T>
-		T& get( const std::string& url ) {
-			std::string extension = uf::io::extension( url );
+		T& get( const uf::stl::string& url ) {
+			uf::stl::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			size_t index = map[extension][url]["index"].as<size_t>(0);
 			return this->get<T>(index);
 		}
 
 		template<typename T>
-		T& add( const std::string& url, const T& copy ) {
-			std::string extension = uf::io::extension( url );
+		T& add( const uf::stl::string& url, const T& copy ) {
+			uf::stl::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
@@ -68,8 +68,8 @@ namespace uf {
 			return container.back();
 		}
 		template<typename T>
-		T& add( const std::string& url, T&& move ) {
-			std::string extension = uf::io::extension( url );
+		T& add( const uf::stl::string& url, T&& move ) {
+			uf::stl::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
@@ -80,19 +80,19 @@ namespace uf {
 		}
 
 		template<typename T>
-		void remove( const std::string& url ) {
+		void remove( const uf::stl::string& url ) {
 			if ( !this->has<T>( url ) ) return;
 			auto& container = this->getContainer<T>();
 
-			std::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			std::size_t index = map[extension][url]["index"].as<size_t>();
 		//	container.erase( container.begin() + index );
 		//	map[extension][url] = ext::json::null();
 		//	map[extension][url]["erased"] = true;
 			
-			std::string key = "";
-			ext::json::forEach( map[extension], [&]( const std::string& k, ext::json::Value& v ) {
+			uf::stl::string key = "";
+			ext::json::forEach( map[extension], [&]( const uf::stl::string& k, ext::json::Value& v ) {
 				std::size_t i = v["index"].as<size_t>();
 				if ( index == i && key != url ) key = k;
 			});

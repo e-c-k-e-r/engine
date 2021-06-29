@@ -15,11 +15,11 @@ bool spec::win32::controller::connected( size_t i ) {
 #endif
 	return false;
 }
-bool spec::win32::controller::pressed( const std::string& _name, size_t i ) {
-	std::string name = uf::string::uppercase(_name);
+bool spec::win32::controller::pressed( const uf::stl::string& _name, size_t i ) {
+	uf::stl::string name = uf::string::uppercase(_name);
 #if UF_USE_OPENVR
 	if ( ext::openvr::context ) {
-		std::string key = "";
+		uf::stl::string key = "";
 		if ( name == "R_DPAD_UP" ) { i = vr::Controller_Hand::Hand_Right; key = "dpadUp"; }
 		else if ( name == "R_DPAD_DOWN" ) { i = vr::Controller_Hand::Hand_Right; key = "dpadDown"; }
 		else if ( name == "R_DPAD_LEFT" ) { i = vr::Controller_Hand::Hand_Right; key = "dpadLeft"; }
@@ -55,12 +55,12 @@ bool spec::win32::controller::pressed( const std::string& _name, size_t i ) {
 #endif
 	return false;
 }
-float spec::win32::controller::analog( const std::string& _name, size_t i ) {
-	std::string name = uf::string::uppercase(_name);
+float spec::win32::controller::analog( const uf::stl::string& _name, size_t i ) {
+	uf::stl::string name = uf::string::uppercase(_name);
 #if UF_USE_OPENVR
 	if ( ext::openvr::context ) {
 		size_t offset = 0;
-		std::string key = "";
+		uf::stl::string key = "";
 		if ( name == "R_JOYSTICK_X" ) { i = vr::Controller_Hand::Hand_Right; key = "thumbstick"; offset = 0; }
 		else if ( name == "JOYSTICK_X" && i == vr::Controller_Hand::Hand_Right ) { key = "thumbstick"; offset = 0;}
 		else if ( name == "R_JOYSTICK_Y" ) { i = vr::Controller_Hand::Hand_Right; key = "thumbstick"; offset = 1; }

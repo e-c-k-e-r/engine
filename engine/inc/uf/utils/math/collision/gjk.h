@@ -75,7 +75,7 @@ namespace pod {
 			}
 		};
 		virtual ~Collider();
-		virtual std::string type() const;
+		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const = 0;
 		virtual pod::Vector3 support( const pod::Vector3& ) const = 0;
 		pod::Collider::Manifold intersects( const pod::Collider& ) const;

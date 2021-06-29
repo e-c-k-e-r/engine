@@ -9,7 +9,7 @@ ext::vulkan::Texture2D ext::vulkan::Texture2D::empty;
 ext::vulkan::Texture3D ext::vulkan::Texture3D::empty;
 ext::vulkan::TextureCube ext::vulkan::TextureCube::empty;
 
-std::vector<ext::vulkan::Sampler> ext::vulkan::Sampler::samplers;
+uf::stl::vector<ext::vulkan::Sampler> ext::vulkan::Sampler::samplers;
 
 ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler::Descriptor& info ) {
 	ext::vulkan::Sampler sampler;
@@ -280,7 +280,7 @@ void ext::vulkan::Texture::setImageLayout(
 	setImageLayout(cmdbuffer, image, oldImageLayout, newImageLayout, subresourceRange);
 }
 void ext::vulkan::Texture::loadFromFile(
-	const std::string& filename, 
+	const uf::stl::string& filename, 
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
@@ -288,7 +288,7 @@ void ext::vulkan::Texture::loadFromFile(
 	return loadFromFile( filename, ext::vulkan::device, format, imageUsageFlags, imageLayout );
 }
 void ext::vulkan::Texture::loadFromFile(
-	const std::string& filename, 
+	const uf::stl::string& filename, 
 	Device& device,
 	VkFormat format,
 	VkImageUsageFlags imageUsageFlags,
@@ -321,7 +321,7 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
 				break;
 			}
 		break;
@@ -332,7 +332,7 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8G8B8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
 				break;
 			}
 		break;
@@ -343,12 +343,12 @@ void ext::vulkan::Texture::loadFromImage(
 					format = VK_FORMAT_R8G8B8A8_UNORM;
 				break;
 				default:
-					UF_EXCEPTION("Vulkan error: unsupported BPP of " + image.getBpp() );
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
 				break;
 			}
 		break;
 		default:
-			UF_EXCEPTION("Vulkan error: unsupported channels of " + image.getChannels() );
+			UF_EXCEPTION("Vulkan error: unsupported channels of " << image.getChannels() );
 		break;
 	}
 

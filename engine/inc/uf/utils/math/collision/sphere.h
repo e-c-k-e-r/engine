@@ -16,7 +16,7 @@ namespace uf {
 		void setRadius( float = 1.0f );
 		void setOrigin( const pod::Vector3& );
 
-		virtual std::string type() const;
+		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const;
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 		pod::Collider::Manifold intersects( const uf::SphereCollider& ) const;

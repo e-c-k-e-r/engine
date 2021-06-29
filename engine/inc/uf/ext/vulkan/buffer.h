@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/ext/vulkan/vk.h>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 namespace ext {
 	namespace vulkan {
@@ -60,7 +60,7 @@ namespace ext {
 			void aliasBuffer( const Buffer& );
 		};
 		struct UF_API Buffers {
-			std::vector<Buffer> buffers;
+			uf::stl::vector<Buffer> buffers;
 			Device* device;
 
 		//	~Buffers();

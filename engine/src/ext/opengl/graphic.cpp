@@ -94,11 +94,11 @@ void ext::opengl::Material::destroy() {
 	textures.clear();
 	samplers.clear();
 }
-void ext::opengl::Material::attachShader( const std::string& filename, enums::Shader::type_t stage, const std::string& pipeline ) {
+void ext::opengl::Material::attachShader( const uf::stl::string& filename, enums::Shader::type_t stage, const uf::stl::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
 	shader.initialize( *device, filename, stage );
 	
-	std::string type = "unknown";
+	uf::stl::string type = "unknown";
 	switch ( stage ) {
 		case uf::renderer::enums::Shader::VERTEX: type = "vertex"; break;
 		case uf::renderer::enums::Shader::FRAGMENT: type = "fragment"; break;
@@ -111,13 +111,13 @@ void ext::opengl::Material::attachShader( const std::string& filename, enums::Sh
 	metadata.json["shaders"][pipeline][type]["filename"] = filename;
 	metadata.shaders[pipeline+":"+type] = shaders.size() - 1;
 }
-void ext::opengl::Material::initializeShaders( const std::vector<std::pair<std::string, enums::Shader::type_t>>& layout, const std::string& pipeline ) {
+void ext::opengl::Material::initializeShaders( const uf::stl::vector<std::pair<uf::stl::string, enums::Shader::type_t>>& layout, const uf::stl::string& pipeline ) {
 	shaders.clear(); shaders.reserve( layout.size() );
 	for ( auto& request : layout ) {
 		attachShader( request.first, request.second, pipeline );
 	}
 }
-bool ext::opengl::Material::hasShader( const std::string& type, const std::string& pipeline ) {
+bool ext::opengl::Material::hasShader( const uf::stl::string& type, const uf::stl::string& pipeline ) {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 //	return !ext::json::isNull( metadata["shaders"][type] );
 	return metadata.shaders.count(pipeline+":"+type) > 0;
@@ -128,7 +128,7 @@ bool ext::opengl::Material::hasShader( const std::string& type, const std::strin
 	return (bool) shader.module;
 #endif
 }
-ext::opengl::Shader& ext::opengl::Material::getShader( const std::string& type, const std::string& pipeline ) {
+ext::opengl::Shader& ext::opengl::Material::getShader( const uf::stl::string& type, const uf::stl::string& pipeline ) {
 	UF_ASSERT( hasShader(type, pipeline) );
 	return shaders.at( metadata.shaders[pipeline+":"+type] );
 /*
@@ -148,7 +148,7 @@ bool ext::opengl::Material::validate() {
 ext::opengl::Graphic::~Graphic() {
 	this->destroy();
 }
-void ext::opengl::Graphic::initialize( const std::string& renderModeName ) {
+void ext::opengl::Graphic::initialize( const uf::stl::string& renderModeName ) {
 	RenderMode& renderMode = ext::opengl::getRenderMode(renderModeName, true);
 
 	this->descriptor.renderMode = renderModeName;
@@ -255,7 +255,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 	Buffer::Descriptor vertexBuffer = {};
 	Buffer::Descriptor indexBuffer = {};
 	Buffer::Descriptor uniformBuffer = {};
-	std::vector<Buffer::Descriptor> storageBuffers;
+	uf::stl::vector<Buffer::Descriptor> storageBuffers;
 
 	for ( auto& buffer : buffers ) {
 		if ( buffer.usage & uf::renderer::enums::Buffer::VERTEX ) { vertexBuffer = buffer.descriptor; }
@@ -311,7 +311,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescript
 			size_t offset = 0;
 			size_t range = 0;
 		};
-		std::vector<TextureMapping> mappings;
+		uf::stl::vector<TextureMapping> mappings;
 		TextureMapping currentMapping;
 	
 		pod::Texture::Storage* storageBufferTextures = NULL;
@@ -396,13 +396,13 @@ void ext::opengl::Graphic::destroy() {
 	ext::opengl::states::rebuild = true;
 }
 
-bool ext::opengl::Graphic::hasStorage( const std::string& name ) {
+bool ext::opengl::Graphic::hasStorage( const uf::stl::string& name ) {
 	for ( auto& shader : material.shaders ) {
 		if ( shader.hasStorage(name) ) return true;
 	}
 	return false;
 }
-ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const std::string& name ) {
+ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const uf::stl::string& name ) {
 	size_t storageIndex = -1;
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
@@ -417,14 +417,14 @@ ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const std::string& 
 	}
 	return NULL;
 }
-uf::Serializer ext::opengl::Graphic::getStorageJson( const std::string& name, bool cache ) {
+uf::Serializer ext::opengl::Graphic::getStorageJson( const uf::stl::string& name, bool cache ) {
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
 		return shader.getStorageJson(name, cache);
 	}
 	return ext::json::null();
 }
-ext::opengl::userdata_t ext::opengl::Graphic::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::opengl::userdata_t ext::opengl::Graphic::getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
 	for ( auto& shader : material.shaders ) {
 		if ( !shader.hasStorage(name) ) continue;
 		return shader.getStorageUserdata(name, payload);
@@ -472,21 +472,21 @@ void ext::opengl::Graphic::updateStorage( void* data, size_t size, size_t target
 
 #include <uf/utils/string/hash.h>
 void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
-	if ( metadata["front face"].is<std::string>() ) {
-		if ( metadata["front face"].as<std::string>() == "ccw" ) {
+	if ( metadata["front face"].is<uf::stl::string>() ) {
+		if ( metadata["front face"].as<uf::stl::string>() == "ccw" ) {
 			frontFace = uf::renderer::enums::Face::CCW;
-		} else if ( metadata["front face"].as<std::string>() == "cw" ) {
+		} else if ( metadata["front face"].as<uf::stl::string>() == "cw" ) {
 			frontFace = uf::renderer::enums::Face::CW;
 		}
 	}
-	if ( metadata["cull mode"].is<std::string>() ) {
-		if ( metadata["cull mode"].as<std::string>() == "back" ) {
+	if ( metadata["cull mode"].is<uf::stl::string>() ) {
+		if ( metadata["cull mode"].as<uf::stl::string>() == "back" ) {
 			cullMode = uf::renderer::enums::CullMode::BACK;
-		} else if ( metadata["cull mode"].as<std::string>() == "front" ) {
+		} else if ( metadata["cull mode"].as<uf::stl::string>() == "front" ) {
 			cullMode = uf::renderer::enums::CullMode::FRONT;
-		} else if ( metadata["cull mode"].as<std::string>() == "none" ) {
+		} else if ( metadata["cull mode"].as<uf::stl::string>() == "none" ) {
 			cullMode = uf::renderer::enums::CullMode::NONE;
-		} else if ( metadata["cull mode"].as<std::string>() == "both" ) {
+		} else if ( metadata["cull mode"].as<uf::stl::string>() == "both" ) {
 			cullMode = uf::renderer::enums::CullMode::BOTH;
 		}
 	}
@@ -586,7 +586,7 @@ ext::json::Value ext::opengl::definitionToJson(/*const*/ ext::json::Value& defin
 	// is object
 	if ( !ext::json::isNull(definition["members"]) ) {
 		ext::json::forEach(definition["members"], [&](/*const*/ ext::json::Value& value){
-			std::string key = uf::string::split(value["name"].as<std::string>(), " ").back();
+			uf::stl::string key = uf::string::split(value["name"].as<uf::stl::string>(), " ").back();
 			member[key] = ext::opengl::definitionToJson(value);
 		});
 	// is primitive
@@ -622,13 +622,13 @@ ext::opengl::userdata_t ext::opengl::jsonToUserdata( const ext::json::Value& pay
 	// JSON is ordered, we can just push directly
 #define UF_SHADER_TRACK_NAMES 0
 #if UF_SHADER_TRACK_NAMES
-	std::vector<std::string> variableName;	
+	uf::stl::vector<uf::stl::string> variableName;	
 #endif
 	std::function<void(const ext::json::Value&)> parse = [&]( const ext::json::Value& value ){
 		// is array or object
 	#if UF_SHADER_TRACK_NAMES
 		if ( ext::json::isObject(value) ) {
-			ext::json::forEach(value, [&]( const std::string& name, const ext::json::Value& member ){
+			ext::json::forEach(value, [&]( const uf::stl::string& name, const ext::json::Value& member ){
 			#if UF_SHADER_TRACK_NAMES
 				variableName.emplace_back(name);
 			#endif
@@ -656,7 +656,7 @@ ext::opengl::userdata_t ext::opengl::jsonToUserdata( const ext::json::Value& pay
 		}
 	#endif
 	#if UF_SHADER_TRACK_NAMES
-		std::string path = uf::string::join(variableName, ".");
+		uf::stl::string path = uf::string::join(variableName, ".");
 		path = uf::string::replace( path, ".[", "[" );
 		GL_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = " << value.dump());
 	#endif
@@ -693,7 +693,7 @@ ext::opengl::userdata_t ext::opengl::jsonToUserdata( const ext::json::Value& pay
 #endif
 
 #else
-	auto pushValue = [&]( const std::string& primitive, const ext::json::Value& input ){
+	auto pushValue = [&]( const uf::stl::string& primitive, const ext::json::Value& input ){
 		if ( primitive == "bool" ) {
 			size_t size = sizeof(bool); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
@@ -773,40 +773,40 @@ ext::opengl::userdata_t ext::opengl::jsonToUserdata( const ext::json::Value& pay
 	#define UF_SHADER_TRACK_NAMES 0
 	#if UF_SHADER_TRACK_NAMES
 		bool SKIP_ADD = false;
-		std::vector<std::string> variableName;
+		uf::stl::vector<uf::stl::string> variableName;
 	#endif
 	std::function<void(const ext::json::Value&, const ext::json::Value&)> parseDefinition = [&](const ext::json::Value& input, const ext::json::Value& definition ){
 	#if UF_SHADER_TRACK_NAMES
 		if ( SKIP_ADD ) {
 			SKIP_ADD = false;
 		} else {
-			auto split = uf::string::split(definition["name"].as<std::string>(), " ");
-			std::string type = split.front();
-			std::string name = split.back();
+			auto split = uf::string::split(definition["name"].as<uf::stl::string>(), " ");
+			uf::stl::string type = split.front();
+			uf::stl::string name = split.back();
 			variableName.emplace_back(name);
 		}
 	#endif
 		// is object
 		if ( !ext::json::isNull(definition["members"]) ) {
 			ext::json::forEach(definition["members"], [&](const ext::json::Value& member){
-				std::string key = uf::string::split(member["name"].as<std::string>(), " ").back();
+				uf::stl::string key = uf::string::split(member["name"].as<uf::stl::string>(), " ").back();
 				parseDefinition(input[key], member);
 			});
 		// is array or primitive
 		} else if ( !ext::json::isNull(definition["value"]) ) {
 			// is object
-			auto split = uf::string::split(definition["name"].as<std::string>(), " ");
-			std::string type = split.front();
-			std::string name = split.back();
+			auto split = uf::string::split(definition["name"].as<uf::stl::string>(), " ");
+			uf::stl::string type = split.front();
+			uf::stl::string name = split.back();
 			std::regex regex("^(?:(.+?)\\<)?(.+?)(?:\\>)?(?:\\[(\\d+)\\])?$");
 			std::smatch match;
 			if ( !std::regex_search( type, match, regex ) ) {
-				std::cout << "Ill formatted typename: " << definition["name"].as<std::string>() << std::endl;
+				std::cout << "Ill formatted typename: " << definition["name"].as<uf::stl::string>() << std::endl;
 				return;
 			}
-			std::string vectorMatrix = match[1].str();
-			std::string primitive = match[2].str();
-			std::string arraySize = match[3].str();	
+			uf::stl::string vectorMatrix = match[1].str();
+			uf::stl::string primitive = match[2].str();
+			uf::stl::string arraySize = match[3].str();	
 			if ( ext::json::isObject(input) ) {
 				ext::json::Value cloned;
 				cloned["name"] = definition["name"];
@@ -827,7 +827,7 @@ ext::opengl::userdata_t ext::opengl::jsonToUserdata( const ext::json::Value& pay
 			// is primitive
 			else {
 			#if UF_SHADER_TRACK_NAMES
-				std::string path = uf::string::join(variableName, ".");
+				uf::stl::string path = uf::string::join(variableName, ".");
 				path = uf::string::replace( path, ".[", "[" );
 				GL_VALIDATION_MESSAGE("[" << (byteBuffer - byteBufferStart) << " / "<< (byteBufferEnd - byteBuffer) <<"]\tInserting: " << path << " = (" << primitive << ") " << input.dump());
 			#endif

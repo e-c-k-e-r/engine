@@ -45,11 +45,11 @@
 	},
 	"metadata": {
 		"overlay": {
-		//	"position": [ 0, 0, -3 ],
-		//	"scale": [ -1.77778, -1, 1 ],
-			"position": [ 0, 0, -3 ],
-			"scale": [ 1.77778, -1, 1 ],
-			"orientation": [ 0, 0, 0, 1 ],
+			"transform": {
+				"position": [ 0, 0, -3 ],
+				"scale": [ 1.77778, -1, 1 ],
+				"orientation": [ 0, 0, 0, 1 ]
+			},
 			"floating": false,
 			"enabled": true,
 			"alpha": 1.0,

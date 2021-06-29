@@ -10,7 +10,7 @@
 namespace {
 	struct {
 		size_t current = 0;
-		std::vector<uf::Object*> lights;
+		uf::stl::vector<uf::Object*> lights;
 	} roundRobin;
 	const pod::Quaternion<> rotations[6] = {
 		uf::quaternion::axisAngle( { 0, 1, 0 }, 1 * 1.57079633f ), // right
@@ -47,7 +47,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 	if ( !metadataJson["light"]["bias"]["constant"].is<float>() ) {
 		metadataJson["light"]["bias"]["constant"] = 0.00005f;
 	}
-	if ( !metadataJson["light"]["type"].is<std::string>() ) {
+	if ( !metadataJson["light"]["type"].is<uf::stl::string>() ) {
 		metadataJson["light"]["type"] = "point";
 	}
 	if ( !ext::json::isArray( metadataJson["light"]["color"] ) ) {
@@ -74,7 +74,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.json["descriptor"]["depth bias"] = metadataJson["light"]["bias"];
 		renderMode.metadata.json["descriptor"]["renderMode"] = metadataJson["renderMode"];
 
-		if ( metadataJson["light"]["type"].as<std::string>() == "point" ) {
+		if ( metadataJson["light"]["type"].as<uf::stl::string>() == "point" ) {
 			metadataJson["light"]["fov"] = 90.0f;
 			renderMode.metadata.subpasses = 6;
 		}
@@ -94,7 +94,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
 		camera.update(true);
 		
-		std::string name = "RT:" + std::to_string((int) this->getUid());
+		uf::stl::string name = "RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
 		renderMode.blitter.process = false;
 		renderMode.width = size.x;
@@ -120,14 +120,14 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		metadata.power = metadataJson["light"]["power"].as<float>();
 		metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
 		metadata.shadows = metadataJson["light"]["shadows"].as<bool>();
-		metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<std::string>();
+		metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<uf::stl::string>();
 		metadata.renderer.rendered = false;
 		metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
 		metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
 		if ( metadataJson["light"]["type"].is<size_t>() ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
-		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
-			std::string lightType = metadataJson["light"]["type"].as<std::string>();
+		} else if ( metadataJson["light"]["type"].is<uf::stl::string>() ) {
+			uf::stl::string lightType = metadataJson["light"]["type"].as<uf::stl::string>();
 			if ( lightType == "point" ) metadata.type = 1;
 			else if ( lightType == "spot" ) metadata.type = 2;
 		}
@@ -151,14 +151,14 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	if ( !metadata.power ) metadata.power = metadataJson["light"]["power"].as<float>();
 	if ( !metadata.bias ) metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
 	if ( !metadata.shadows ) metadata.shadows = metadataJson["light"]["shadows"].as<bool>();
-	if (  metadata.renderer.mode == "" ) metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<std::string>();
+	if (  metadata.renderer.mode == "" ) metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<uf::stl::string>();
 	if ( !metadata.renderer.external ) metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
 	if ( !metadata.renderer.limiter ) metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
 	if ( !metadata.type) {
 		if ( metadataJson["light"]["type"].is<size_t>() ) {
 			metadata.type = metadataJson["light"]["type"].as<size_t>();
-		} else if ( metadataJson["light"]["type"].is<std::string>() ) {
-			std::string lightType = metadataJson["light"]["type"].as<std::string>();
+		} else if ( metadataJson["light"]["type"].is<uf::stl::string>() ) {
+			uf::stl::string lightType = metadataJson["light"]["type"].as<uf::stl::string>();
 			if ( lightType == "point" ) metadata.type = 1;
 			else if ( lightType == "spot" ) metadata.type = 2;
 		}

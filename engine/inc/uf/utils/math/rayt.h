@@ -27,9 +27,9 @@ namespace pod {
 
 namespace uf {
 	namespace primitive {
-		std::vector<pod::Tree> UF_API populate( const std::vector<pod::Primitive>& cubes );
-		std::vector<pod::Tree> UF_API populateEntirely( const std::vector<pod::Primitive>& cubes );
-		std::vector<pod::Tree> UF_API populateEntirely( const std::vector<pod::Tree>& trees, bool = false );
-		void UF_API test( const std::vector<pod::Primitive>& cubes, const std::vector<pod::Tree>& trees );
+		uf::stl::vector<pod::Tree> UF_API populate( const uf::stl::vector<pod::Primitive>& cubes );
+		uf::stl::vector<pod::Tree> UF_API populateEntirely( const uf::stl::vector<pod::Primitive>& cubes );
+		uf::stl::vector<pod::Tree> UF_API populateEntirely( const uf::stl::vector<pod::Tree>& trees, bool = false );
+		void UF_API test( const uf::stl::vector<pod::Primitive>& cubes, const uf::stl::vector<pod::Tree>& trees );
 	}
 }

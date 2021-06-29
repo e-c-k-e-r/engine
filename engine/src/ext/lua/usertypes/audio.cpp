@@ -3,7 +3,7 @@
 #include <uf/utils/audio/audio.h>
 UF_LUA_REGISTER_USERTYPE(uf::Audio,
 	sol::call_constructor, sol::initializers( []( uf::Audio& self ){},
-	[]( uf::Audio& self, const std::string& filename = "", double volume = 1 ){
+	[]( uf::Audio& self, const uf::stl::string& filename = "", double volume = 1 ){
 		if ( filename != "" ) self.load(filename);
 		self.setVolume(volume);
 	}),

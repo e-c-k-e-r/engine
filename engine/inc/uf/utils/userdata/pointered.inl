@@ -19,8 +19,8 @@ namespace uf {
 		template<typename T> const T& get(const pod::PointeredUserdata& userdata, bool validate = uf::userdata::autoValidate );
 		template<typename T> bool is(const pod::PointeredUserdata& userdata);
 
-		std::string UF_API toBase64( pod::PointeredUserdata& userdata );
-		pod::PointeredUserdata UF_API fromBase64( const std::string& base64 );
+		uf::stl::string UF_API toBase64( pod::PointeredUserdata& userdata );
+		pod::PointeredUserdata UF_API fromBase64( const uf::stl::string& base64 );
 
 	//	void move( pod::PointeredUserdata& to, pod::PointeredUserdata&& from );
 	//	void copy( pod::PointeredUserdata& to, const pod::PointeredUserdata& from );
@@ -98,22 +98,22 @@ pod::PointeredUserdata uf::pointeredUserdata::create( const T& data ) {
 }
 template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
-//	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : requestedMemoryPool;
+//	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
 	size_t len = sizeof(data);
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
+	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	pod::PointeredUserdata userdata;
 	userdata.len = len;
-	userdata.data = (uint8_t*) memoryPool.alloc( NULL, len );
+	userdata.data = (uint8_t*) memoryPool.alloc( nullptr, len );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	pod::PointeredUserdata userdata;
 	userdata.len = len;
 	userdata.data = NULL;
 	if ( memoryPool )
-		userdata.data = (uint8_t*) memoryPool->alloc( NULL, len );
+		userdata.data = (uint8_t*) memoryPool->alloc( nullptr, len );
 	else
 		userdata.data = (uint8_t*) operator new( len ); 	// allocate data for the userdata struct, and then some	}
 #endif

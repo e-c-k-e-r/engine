@@ -49,14 +49,14 @@ void UF_API uf::thread::tick( pod::Thread& thread ) {
 	}
 }
 
-pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
+pod::Thread& UF_API uf::thread::fetchWorker( const uf::stl::string& name ) {
 	static int current = 0;
 	static int limit = uf::thread::workers;
 	static uint threads = std::thread::hardware_concurrency();
 	int tries = 8;
 	while ( --tries >= 0 ) {
 		if ( ++current >= limit ) current = 0;
-		std::string thread = name;
+		uf::stl::string thread = name;
 		if ( current > 0 ) thread += " " + std::to_string(current);
 		bool exists = uf::thread::has(thread);
 		auto& pod = exists ? uf::thread::get(thread) : uf::thread::create(thread, true);
@@ -66,8 +66,8 @@ pod::Thread& UF_API uf::thread::fetchWorker( const std::string& name ) {
 	auto& pod = exists ? uf::thread::get("Main" ) : uf::thread::create("Main", true);
 	return pod;
 }
-void UF_API uf::thread::batchWorkers( const std::vector<pod::Thread::function_t>& functions, bool wait, const std::string& name ) {
-	std::vector<pod::Thread*> workers;
+void UF_API uf::thread::batchWorkers( const uf::stl::vector<pod::Thread::function_t>& functions, bool wait, const uf::stl::string& name ) {
+	uf::stl::vector<pod::Thread*> workers;
 	for ( auto& function : functions ) {
 		auto& worker = uf::thread::fetchWorker( name );
 		workers.emplace_back(&worker);
@@ -169,7 +169,7 @@ void UF_API uf::thread::wait( pod::Thread& thread ) {
 */
 }
 
-const std::string& UF_API uf::thread::name( const pod::Thread& thread ) {
+const uf::stl::string& UF_API uf::thread::name( const pod::Thread& thread ) {
 	return thread.name;
 }
 uint UF_API uf::thread::uid( const pod::Thread& thread ) {
@@ -185,7 +185,7 @@ void UF_API uf::thread::terminate() {
 		uf::thread::destroy( thread );
 	}
 }
-pod::Thread& UF_API uf::thread::create( const std::string& name, bool start, bool locks ) {
+pod::Thread& UF_API uf::thread::create( const uf::stl::string& name, bool start, bool locks ) {
 	pod::Thread* pointer = NULL;
 	uf::thread::threads.emplace_back(pointer = new pod::Thread);
 	pod::Thread& thread = *pointer;
@@ -228,7 +228,7 @@ bool UF_API uf::thread::has( uint uid ) {
 	for ( const pod::Thread* thread : uf::thread::threads ) if ( uf::thread::uid(*thread) == uid ) return true;
 	return false;
 }
-bool UF_API uf::thread::has( const std::string& name ) {
+bool UF_API uf::thread::has( const uf::stl::string& name ) {
 	for ( const pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return true;
 	return false;
 }
@@ -236,7 +236,7 @@ pod::Thread& UF_API uf::thread::get( uint uid ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::uid(*thread) == uid ) return *thread;
 	UF_EXCEPTION("Thread error: invalid call");
 }
-pod::Thread& UF_API uf::thread::get( const std::string& name ) {
+pod::Thread& UF_API uf::thread::get( const uf::stl::string& name ) {
 	for ( pod::Thread* thread : uf::thread::threads ) if ( uf::thread::name(*thread) == name ) return *thread;
 	UF_EXCEPTION("Thread error: invalid call");
 }

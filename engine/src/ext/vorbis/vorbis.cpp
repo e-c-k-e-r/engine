@@ -6,7 +6,7 @@
 #endif
 
 #include <uf/ext/vorbis/vorbis.h>
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 #include <iostream>
 #include <cstdio>
 
@@ -131,7 +131,7 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 
 	int32_t read;
 	char buffer[uf::audio::bufferSize];
-	std::vector<char> bytes;
+	uf::stl::vector<char> bytes;
 	do {
 		read = ov_read( &vorbisFile, buffer, uf::audio::bufferSize, endian, 2, 1, &metadata.stream.bitStream );
 		bytes.insert( bytes.end(), buffer, buffer + read );

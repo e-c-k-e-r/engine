@@ -103,7 +103,7 @@ namespace ext {
 
 			Device* device;
 			size_t state = 0;
-			std::vector<CommandBuffer::userdata_t> infos;
+			uf::stl::vector<CommandBuffer::userdata_t> infos;
 			std::mutex* mutex;
 			
 			void initialize( Device& device );
@@ -121,8 +121,8 @@ namespace ext {
 		protected:
 			pod::Matrix4f bindUniform( const Buffer::Descriptor& descriptor );
 			void drawIndexed( const InfoDraw& );
-		//	void draw( const InfoDraw&, const Info&, const std::vector<InfoTexture*>& = {} );
-		//	void drawIndexed( const InfoDraw&, const Info&, const Info&, const std::vector<InfoTexture*>& = {} );
+		//	void draw( const InfoDraw&, const Info&, const uf::stl::vector<InfoTexture*>& = {} );
+		//	void drawIndexed( const InfoDraw&, const Info&, const Info&, const uf::stl::vector<InfoTexture*>& = {} );
 		};
 	}
 }

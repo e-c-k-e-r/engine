@@ -14,7 +14,7 @@ namespace {
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 		if ( key == GLFW_KEY_W ) {
 			uf::Serializer json;
-			std::string hook = "window:Key.W";
+			uf::stl::string hook = "window:Key.W";
 			json["type"] = hook;
 			json["invoker"] = "os";
 			json["state"] = action != 0;
@@ -23,7 +23,7 @@ namespace {
 	}
 }
 
-void ext::glfw::Window::initialize( size_t width, size_t height, const std::string& title ) {
+void ext::glfw::Window::initialize( size_t width, size_t height, const uf::stl::string& title ) {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	this->m_window = glfwCreateWindow(this->m_width = width, this->m_height = height, (this->m_title = title).c_str(), nullptr, nullptr);
@@ -55,10 +55,10 @@ bool ext::glfw::Window::minimized() {
 ext::glfw::Window::operator GLFWwindow*(){
 	return this->m_window;
 }
-std::vector<const char*> ext::glfw::Window::getExtensions( bool enableValidationLayers ) {
+uf::stl::vector<const char*> ext::glfw::Window::getExtensions( bool enableValidationLayers ) {
 	uint32_t glfwExtensionCount = 0;
 	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-	std::vector<const char*> supportedExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+	uf::stl::vector<const char*> supportedExtensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 	
 	if ( enableValidationLayers ) supportedExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 /*

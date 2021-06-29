@@ -146,7 +146,7 @@ ifneq (,$(findstring bullet,$(REQ_DEPS)))
 	endif
 endif
 ifneq (,$(findstring simd,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_SIMD #-march=native
+	FLAGS 				+= -DUF_USE_SIMD -DUF_MATRIX_ALIGNED #-DUF_VECTOR_ALIGNED #-march=native
 
 endif
 ifneq (,$(findstring meshoptimizer,$(REQ_DEPS)))

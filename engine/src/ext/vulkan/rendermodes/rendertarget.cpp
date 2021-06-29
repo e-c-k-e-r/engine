@@ -8,12 +8,12 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 
-const std::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
+const uf::stl::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 //	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-//	return metadata["target"].as<std::string>();
+//	return metadata["target"].as<uf::stl::string>();
 	return metadata.target;
 }
-void ext::vulkan::RenderTargetRenderMode::setTarget( const std::string& target ) {
+void ext::vulkan::RenderTargetRenderMode::setTarget( const uf::stl::string& target ) {
 //	this->metadata["target"] = target;
 	metadata.target = target;
 }
@@ -21,7 +21,7 @@ void ext::vulkan::RenderTargetRenderMode::bindCallback( int32_t subpass, const e
 	commandBufferCallbacks[subpass] = callback;
 }
 
-const std::string ext::vulkan::RenderTargetRenderMode::getType() const {
+const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
 }
 const size_t ext::vulkan::RenderTargetRenderMode::blitters() const {
@@ -30,7 +30,7 @@ const size_t ext::vulkan::RenderTargetRenderMode::blitters() const {
 ext::vulkan::Graphic* ext::vulkan::RenderTargetRenderMode::getBlitter( size_t i ) {
 	return &this->blitter;
 }
-std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitters() {
+uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitters() {
 	return { &this->blitter };
 }
 
@@ -66,7 +66,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		renderTarget.views = metadata.subpasses;
 		struct {
 			size_t depth;
-		} attachments;
+		} attachments = {};
 
 		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */ ext::vulkan::settings::formats::depth,
@@ -91,7 +91,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
 				struct {
 					size_t depth;
-				} attachments;
+				} attachments = {};
 
 				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */ ext::vulkan::settings::formats::depth,
@@ -112,7 +112,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			} else if ( metadata.type == "single" ) {
 				struct {
 					size_t albedo, depth;
-				} attachments;
+				} attachments = {};
 
 				attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
@@ -141,7 +141,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			#if 0
 				struct {
 					size_t albedo, normals, position, depth;
-				} attachments;
+				} attachments = {};
 
 				attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */ ext::vulkan::settings::formats::color,
@@ -196,7 +196,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			#else
 				struct {
 					size_t id, normals, uvs, albedo, depth, output;
-				} attachments;
+				} attachments = {};
 
 				attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */VK_FORMAT_R16G16_UINT,
@@ -320,23 +320,23 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		if ( ext::json::isArray( metadata.json["shaders"] ) ) {
 			ext::json::forEach( metadata.json["shaders"], [&]( ext::json::Value& value ){
 				ext::vulkan::enums::Shader::type_t type{}; 
-				std::string filename = "";
-				std::string pipeline = "";
+				uf::stl::string filename = "";
+				uf::stl::string pipeline = "";
 
-				if ( value.is<std::string>() ) {
-					filename = value.as<std::string>();
+				if ( value.is<uf::stl::string>() ) {
+					filename = value.as<uf::stl::string>();
 					auto split = uf::string::split( filename, "." );
-					std::string extension = split.back(); split.pop_back();
-					std::string sType = split.back();
+					uf::stl::string extension = split.back(); split.pop_back();
+					uf::stl::string sType = split.back();
 					
 					if ( sType == "vert" ) type = ext::vulkan::enums::Shader::VERTEX;
 					else if ( sType == "frag" ) type = ext::vulkan::enums::Shader::FRAGMENT;
 					else if ( sType == "geom" ) type = ext::vulkan::enums::Shader::GEOMETRY;
 					else if ( sType == "comp" ) type = ext::vulkan::enums::Shader::COMPUTE;
 				} else {
-					filename = value["filename"].as<std::string>();
-					pipeline = value["pipeline"].as<std::string>();
-					std::string sType = value["type"].as<std::string>();
+					filename = value["filename"].as<uf::stl::string>();
+					pipeline = value["pipeline"].as<uf::stl::string>();
+					uf::stl::string sType = value["type"].as<uf::stl::string>();
 
 					if ( sType == "vertex" ) type = ext::vulkan::enums::Shader::VERTEX;
 					else if ( sType == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
@@ -356,15 +356,15 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				blitter.material.attachShader( uf::io::root+filename, type, pipeline );
 			});
 		} else if ( ext::json::isObject( metadata.json["shaders"] ) ) {
-			ext::json::forEach( metadata.json["shaders"], [&]( const std::string& key, ext::json::Value& value ){
+			ext::json::forEach( metadata.json["shaders"], [&]( const uf::stl::string& key, ext::json::Value& value ){
 				ext::vulkan::enums::Shader::type_t type{}; 
-				std::string filename = "";
-				std::string pipeline = "";
-				if ( value.is<std::string>() ) {
-					filename = value.as<std::string>();
+				uf::stl::string filename = "";
+				uf::stl::string pipeline = "";
+				if ( value.is<uf::stl::string>() ) {
+					filename = value.as<uf::stl::string>();
 				} else {
-					filename = value["filename"].as<std::string>();
-					pipeline = value["pipeline"].as<std::string>();
+					filename = value["filename"].as<uf::stl::string>();
+					pipeline = value["pipeline"].as<uf::stl::string>();
 				}
 				if ( key == "vertex" ) type = ext::vulkan::enums::Shader::VERTEX;
 				else if ( key == "fragment" ) type = ext::vulkan::enums::Shader::FRAGMENT;
@@ -386,8 +386,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
-			std::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
-			std::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv";
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv";
 			if ( msaa > 1 ) {
 				fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "msaa.frag" );
 			}
@@ -414,7 +414,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 			ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-				std::string name = sc["name"].as<std::string>();
+				uf::stl::string name = sc["name"].as<uf::stl::string>();
 				if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 				else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 				else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
@@ -422,7 +422,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 				size_t binding = t["binding"].as<size_t>();
-				std::string name = t["name"].as<std::string>();
+				uf::stl::string name = t["name"].as<uf::stl::string>();
 				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 					if ( layout.binding != binding ) continue;
 					if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
@@ -434,10 +434,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			});
 
-			std::vector<pod::Light::Storage> lights(maxLights);
-			std::vector<pod::Material::Storage> materials(maxTextures2D);
-			std::vector<pod::Texture::Storage> textures(maxTextures2D);
-			std::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
+			uf::stl::vector<pod::Light::Storage> lights(maxLights);
+			uf::stl::vector<pod::Material::Storage> materials(maxTextures2D);
+			uf::stl::vector<pod::Texture::Storage> textures(maxTextures2D);
+			uf::stl::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
@@ -628,7 +628,7 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 		attachment.descriptor.layout = imageMemoryBarrier.newLayout;
 	}
 }
-void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
 	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
@@ -640,7 +640,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const std::vecto
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		{
-			std::vector<VkClearValue> clearValues;
+			uf::stl::vector<VkClearValue> clearValues;
 			for ( size_t j = 0; j < renderTarget.views; ++j ) {
 				for ( auto& attachment : renderTarget.attachments ) {
 					VkClearValue clearValue;

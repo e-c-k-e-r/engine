@@ -5,7 +5,7 @@
 #include <uf/utils/math/vector.h>
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/string/string.h>
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <queue>
 
 namespace spec {
@@ -17,7 +17,7 @@ namespace spec {
 			typedef pod::Vector2i 							vector_t;
 
 			struct Event {
-				std::string name;
+				uf::stl::string name;
 				pod::Hook::userdata_t payload;
 			};
 		protected:
@@ -49,7 +49,7 @@ namespace spec {
 		// 	Update
 			void processEvents();/* = 0;*/
 
-			void pushEvent( const uf::Hooks::name_t& name, const std::string& payload );
+			void pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
@@ -57,7 +57,7 @@ namespace spec {
 			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
 
 			bool pollEvents( bool block = false );
-			static bool isKeyPressed( const std::string& );
+			static bool isKeyPressed( const uf::stl::string& );
 		};
 	}
 }

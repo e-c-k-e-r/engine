@@ -2,7 +2,7 @@
 #include <uf/utils/string/rle.h>
 
 #include <iostream>
-pod::RLE::string_t uf::rle::encode( const std::vector<uint16_t>& source ) {
+pod::RLE::string_t uf::rle::encode( const uf::stl::vector<uint16_t>& source ) {
 	pod::RLE::string_t destination;
 	destination.reserve( source.size() );
 
@@ -16,8 +16,8 @@ pod::RLE::string_t uf::rle::encode( const std::vector<uint16_t>& source ) {
 	return destination;
 }
 
-std::vector<uint16_t> uf::rle::decode( const pod::RLE::string_t& source ) {
-	std::vector<uint16_t> destination;
+uf::stl::vector<uint16_t> uf::rle::decode( const pod::RLE::string_t& source ) {
+	uf::stl::vector<uint16_t> destination;
 
 	for ( auto& s : source ) {
 		destination.reserve( destination.size() + s.length );
@@ -28,7 +28,7 @@ std::vector<uint16_t> uf::rle::decode( const pod::RLE::string_t& source ) {
 	return destination;
 }
 
-pod::RLE::string_t uf::rle::wrap( const std::vector<uint16_t>& source ) {
+pod::RLE::string_t uf::rle::wrap( const uf::stl::vector<uint16_t>& source ) {
 	pod::RLE::string_t destination;
 	destination.reserve( source.size() / 2 );
 
@@ -46,8 +46,8 @@ pod::RLE::string_t uf::rle::wrap( const std::vector<uint16_t>& source ) {
 	return destination;
 }
 
-std::vector<uint16_t> uf::rle::unwrap( const pod::RLE::string_t& source ) {
-	std::vector<uint16_t> destination;
+uf::stl::vector<uint16_t> uf::rle::unwrap( const pod::RLE::string_t& source ) {
+	uf::stl::vector<uint16_t> destination;
 	destination.reserve( source.size() * 2 );
 	for ( auto& s : source ) {
 		destination.push_back( s.length );

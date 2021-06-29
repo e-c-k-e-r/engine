@@ -4,10 +4,10 @@
 
 #include <uf/utils/userdata/userdata.h> 	// uf::Userdata
 
-#include <string> 							// std::string
+#include <uf/utils/memory/string.h> 							// uf::stl::string
 #include <functional> 						// std::function
-#include <vector> 							// std::vector
-#include <unordered_map> 					// std::unordered_map
+#include <uf/utils/memory/vector.h> 							// uf::vector
+#include <uf/utils/memory/unordered_map.h> 					// uf::unordered_map
 
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/serialize/serializer.h>
@@ -36,12 +36,12 @@ namespace pod {
 namespace uf {
 	class UF_API Hooks {
 	public:
-		typedef std::vector<pod::Hook> hooks_t;
-		typedef std::unordered_map<std::string, hooks_t> container_t;
+		typedef uf::stl::vector<pod::Hook> hooks_t;
+		typedef uf::stl::unordered_map<uf::stl::string, hooks_t> container_t;
 
-		typedef std::string name_t;
+		typedef uf::stl::string name_t;
 		typedef pod::Hook::userdata_t argument_t;
-		typedef std::vector<pod::Hook::userdata_t> return_t;
+		typedef uf::stl::vector<pod::Hook::userdata_t> return_t;
 	protected:
 		static size_t uids;
 		uf::Hooks::container_t m_container;
@@ -51,7 +51,7 @@ namespace uf {
 		void removeHook( const name_t& name, size_t uid );
 		return_t call( const name_t& name, const argument_t& payload );
 		
-		return_t call( const name_t& name, const std::string& = "" );
+		return_t call( const name_t& name, const uf::stl::string& = "" );
 		return_t call( const name_t& name, const ext::json::Value& );
 		return_t call( const name_t& name, const uf::Serializer& );
 
@@ -74,7 +74,7 @@ namespace uf {
 namespace uf {
 	namespace HookHandler {
 		namespace Readable {
-			typedef std::function<std::string(const std::string&)> function_t;
+			typedef std::function<uf::stl::string(const uf::stl::string&)> function_t;
 		}
 	}
 }

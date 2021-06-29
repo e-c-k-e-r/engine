@@ -5,10 +5,10 @@
 // compile-time assert to ensure objects are of same size, if using multiple types of objects
 
 // takes a vector of primitives and groups them under leaves (end point of a tree)
-std::vector<pod::Tree> UF_API uf::primitive::populate( const std::vector<pod::Primitive>& cubes ) { // assert(cubes.size() > 0);
-	std::vector<pod::Tree> trees;
-	std::vector<const pod::Primitive*> copy;
-	std::vector<const pod::Primitive*> alloced;
+uf::stl::vector<pod::Tree> UF_API uf::primitive::populate( const uf::stl::vector<pod::Primitive>& cubes ) { // assert(cubes.size() > 0);
+	uf::stl::vector<pod::Tree> trees;
+	uf::stl::vector<const pod::Primitive*> copy;
+	uf::stl::vector<const pod::Primitive*> alloced;
 	copy.reserve( cubes.size() );
 //	std::cout << "Size: " << cubes.size() << std::endl;
 	for ( const auto& cube : cubes ) {
@@ -78,11 +78,11 @@ std::vector<pod::Tree> UF_API uf::primitive::populate( const std::vector<pod::Pr
 }
 
 // takes a list of leaves (ends of trees) and properly populate an entire tree
-std::vector<pod::Tree> UF_API uf::primitive::populateEntirely( const std::vector<pod::Tree>& trees, bool rooted ) { // assert(trees.size() > 0);
+uf::stl::vector<pod::Tree> UF_API uf::primitive::populateEntirely( const uf::stl::vector<pod::Tree>& trees, bool rooted ) { // assert(trees.size() > 0);
 	// generate first layer
-	std::vector<pod::Tree> tree = trees;
-	std::vector<uint32_t> referred;
-	std::vector<uint32_t> queue;
+	uf::stl::vector<pod::Tree> tree = trees;
+	uf::stl::vector<uint32_t> referred;
+	uf::stl::vector<uint32_t> queue;
 	uint32_t iteration = 0;
 	uint32_t start = 0;
 /*
@@ -119,7 +119,7 @@ loop: {
 	}
 //	std::cout << std::endl;
 	// grab the branches' primitives
-	std::vector<pod::Primitive> enqueued; enqueued.reserve( queue.size() );
+	uf::stl::vector<pod::Primitive> enqueued; enqueued.reserve( queue.size() );
 	for ( uint32_t i : queue ) {
 		pod::Tree t = tree.at(i);
 		pod::Primitive primitive;
@@ -129,7 +129,7 @@ loop: {
 		enqueued.push_back( primitive );
 	}
 	// create a parent tree
-	std::vector<pod::Tree> newTree = populate( enqueued );
+	uf::stl::vector<pod::Tree> newTree = populate( enqueued );
 	// convert indices and type
 	for ( auto& branch : newTree ) {
 		branch.type = pod::Primitive::TREE;
@@ -264,7 +264,7 @@ namespace {
 	}
 }
 
-void uf::primitive::test( const std::vector<pod::Primitive>& cubes, const std::vector<pod::Tree>& trees ) {
+void uf::primitive::test( const uf::stl::vector<pod::Primitive>& cubes, const uf::stl::vector<pod::Tree>& trees ) {
 	pod::Vector3f rayO = { 0, 5, 0 };
 	pod::Vector3f rayD = uf::vector::normalize( pod::Vector3f{ 0, -1, -0.25 } );
 	pod::Vector3f rayDRecip = { 1.0f / rayD.x, 1.0f / rayD.y, 1.0f / rayD.z };

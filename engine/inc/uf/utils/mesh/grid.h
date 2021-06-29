@@ -14,13 +14,13 @@ namespace uf {
 			size_t count = 0;
 			uint32_t* indices = NULL;
 	#else
-			std::vector<uint32_t> indices;
+			uf::stl::vector<uint32_t> indices;
 	#endif
 		};
 		pod::Vector3ui m_size = {1,1,1};
 		pod::Vector3f m_center = {};
 		pod::Vector3f m_extent = {};
-		std::vector<Node> m_nodes;
+		uf::stl::vector<Node> m_nodes;
 
 		void initialize( const pod::Vector3f&, const pod::Vector3f&, const pod::Vector3ui& );
 		void destroy();
@@ -44,10 +44,10 @@ namespace uf {
 		void initialize( const uf::BaseMesh<T,U>& mesh, const pod::Vector3ui& );
 		
 		template<typename U = uint32_t>
-		std::vector<U> get() const;
+		uf::stl::vector<U> get() const;
 
 		template<typename U = uint32_t>
-		const std::vector<U>& get( const pod::Vector3f& ) const;
+		const uf::stl::vector<U>& get( const pod::Vector3f& ) const;
 
 		const pod::Vector3f& center() const;
 		const pod::Vector3f& extent() const;

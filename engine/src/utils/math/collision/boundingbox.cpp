@@ -65,7 +65,7 @@ pod::Vector3 uf::BoundingBox::closest( const pod::Vector3f& point ) const {
 
 	return vector;
 }
-std::string UF_API uf::BoundingBox::type() const { return "BoundingBox"; }
+uf::stl::string UF_API uf::BoundingBox::type() const { return "BoundingBox"; }
 pod::Vector3* UF_API uf::BoundingBox::expand() const {
 	pod::Vector3* raw = new pod::Vector3[8];
 	raw[0] = pod::Vector3{  this->m_corner.x,  this->m_corner.y,  this->m_corner.z};

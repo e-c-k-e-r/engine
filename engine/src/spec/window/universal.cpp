@@ -25,14 +25,14 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& na
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::argument_t& serialized ) {
 	if ( !uf::hooks.prefersReadable() ) return;
 	uf::Serializer json = serialized;
-	if ( !uf::hooks.exists(json["type"].as<std::string>()) ) return;
-	this->m_events.readable.push({json["type"].as<std::string>(), serialized});
+	if ( !uf::hooks.exists(json["type"].as<uf::stl::string>()) ) return;
+	this->m_events.readable.push({json["type"].as<uf::stl::string>(), serialized});
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t& userdata ) {
 	if ( uf::hooks.prefersReadable() ) return;
 	// Header userdata
 	struct Header {
-		std::string type;
+		uf::stl::string type;
 	};
 //	Header header = userdata.get<Header>();
 	const Header& header = uf::userdata::get<Header>(userdata);
@@ -44,7 +44,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 	this->m_events.optimal.back().argument = userdata;
 }
 */
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const std::string& payload ) {
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
@@ -65,7 +65,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, co
 }
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payload ) {
 	struct Header {
-		std::string type;
+		uf::stl::string type;
 	};
 	const Header& header = payload.get<Header>();
 	if ( !uf::hooks.exists(header.type) ) return;
@@ -73,7 +73,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payl
 }
 void UF_API_CALL spec::uni::Window::processEvents() {
 }
-bool UF_API_CALL spec::uni::Window::isKeyPressed(const std::string& key) {
+bool UF_API_CALL spec::uni::Window::isKeyPressed(const uf::stl::string& key) {
 	return false;
 }
 bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
@@ -85,8 +85,8 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 	// doesnt get used
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-		if ( event.payload.is<std::string>() ) {
-			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
+		if ( event.payload.is<uf::stl::string>() ) {
+			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {

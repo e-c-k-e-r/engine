@@ -1,7 +1,7 @@
 #include <uf/utils/string/string.h>
 #include <uf/utils/string/encoding.h>
 //uf::String uf::locale::current;
-std::string uf::locale::current;
+uf::stl::string uf::locale::current;
 UF_API_CALL uf::String::String() {
 }
 // 	ANSI literals/strings
@@ -186,11 +186,11 @@ uf::String& UF_API_CALL uf::String::operator -=( std::size_t i ) {
 	return *this;
 }
 // 
-UF_API_CALL uf::String::operator std::string() {
-	return std::string((char*) this->c_str());
+UF_API_CALL uf::String::operator uf::stl::string() {
+	return uf::stl::string((char*) this->c_str());
 }
-UF_API_CALL uf::String::operator std::string() const {
-	return std::string((const char*) this->c_str());
+UF_API_CALL uf::String::operator uf::stl::string() const {
+	return uf::stl::string((const char*) this->c_str());
 }
 // 
 UF_API_CALL uf::String::operator std::wstring() {

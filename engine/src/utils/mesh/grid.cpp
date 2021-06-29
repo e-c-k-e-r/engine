@@ -1,4 +1,4 @@
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/math/collision/mesh.h>
 #include <uf/utils/math/collision/boundingbox.h>
@@ -29,9 +29,9 @@ void uf::MeshGrid::destroy() {
 #if 0 
 	for ( auto& node : this->m_nodes ) {
 	#if UF_MEMORYPOOL_INVALID_FREE
-		uf::MemoryPool::global.free( node.indices );
+		uf::memoryPool::global.free( node.indices );
 	#else
-		uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;	
+		uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;	
 		if ( memoryPool ) memoryPool->free( node.indices );
 		else free( node.indices );
 	#endif
@@ -48,9 +48,9 @@ void uf::MeshGrid::allocate( uf::MeshGrid::Node& node, size_t indices ) {
 	uint32_t* buffer = NULL;
 
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	buffer = (void*) uf::MemoryPool::global.alloc( data, size );
+	buffer = (void*) uf::memoryPool::global.alloc( data, size );
 #else
-	uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;
+	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;
 	if ( memoryPool )
 		buffer = (void*) memoryPool->alloc( data, size );
 	else {

@@ -31,7 +31,7 @@ UF_API void ext::freetype::terminate() {
 	FT_Done_FreeType(ext::freetype::library.library);
 }
 
-UF_API ext::freetype::Glyph ext::freetype::initialize( const std::string& font ) {
+UF_API ext::freetype::Glyph ext::freetype::initialize( const uf::stl::string& font ) {
 	if ( !ext::freetype::initialized() ) ext::freetype::initialize();
 	ext::freetype::Glyph glyph;
 	int error = 0;
@@ -43,7 +43,7 @@ UF_API ext::freetype::Glyph ext::freetype::initialize( const std::string& font )
 	}
 	return glyph;
 }
-UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const std::string& font ) {
+UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const uf::stl::string& font ) {
 	if ( !ext::freetype::initialized() ) ext::freetype::initialize();
 	int error = 0;
 	if ( (error = FT_New_Face( ext::freetype::library.library, font.c_str(), 0, &glyph.face )) ) {
@@ -85,7 +85,7 @@ UF_API bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& 
 	return true;
 }
 
-UF_API std::string ext::freetype::getError( int error ) {
+UF_API uf::stl::string ext::freetype::getError( int error ) {
 	#undef FTERRORS_H_
 	#define FT_ERRORDEF( e, v, s )  { e, s },
 	#define FT_ERROR_START_LIST     {

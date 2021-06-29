@@ -39,7 +39,7 @@ void ext::meshopt::optimize( uf::BaseGeometry& mesh, size_t o ) {
 		memcpy( indices, mesh.attributes.index.pointer, indicesCount );
 	}
 
-	std::vector<uint32_t> remap(verticesCount);
+	uf::stl::vector<uint32_t> remap(verticesCount);
 	verticesCount = meshopt_generateVertexRemap(&remap[0], (uint32_t*) indices, indicesCount ? indicesCount : verticesCount, (float*) vertices, verticesCount, mesh.attributes.vertex.size);
 	
 	mesh.resizeIndices(indicesCount);
@@ -55,7 +55,7 @@ void ext::meshopt::optimize( uf::BaseGeometry& mesh, size_t o ) {
 	auto vertices = std::move( this->vertices );
 	size_t valueCount = vertices.size();
 
-	std::vector<uint32_t> remap(valueCount);
+	uf::stl::vector<uint32_t> remap(valueCount);
 	size_t verticesCount = meshopt_generateVertexRemap(&remap[0], NULL, valueCount, &vertices[0], valueCount, sizeof(T));
 	
 	this->indices.resize(valueCount);
@@ -71,7 +71,7 @@ void ext::meshopt::optimize( uf::BaseGeometry& mesh, size_t o ) {
 	auto vertices = std::move( this->vertices );
 	auto indices = std::move( this->indices );
 
-	std::vector<uint32_t> remap(indicesCount);
+	uf::stl::vector<uint32_t> remap(indicesCount);
 	verticesCount = meshopt_generateVertexRemap(&remap[0], &indices[0], indicesCount, &vertices[0], verticesCount, sizeof(T));
 	
 	this->indices.resize(indicesCount);
@@ -102,7 +102,7 @@ void ext::meshopt::optimize( uf::BaseGeometry& mesh, size_t o ) {
 auto vertices = std::move( this->vertices );
 U indices = vertices.size();
 
-std::vector<uint32_t> remap(indices);
+uf::stl::vector<uint32_t> remap(indices);
 size_t verticesCount = meshopt_generateVertexRemap(&remap[0], NULL, indices, &vertices[0], indices, sizeof(T));
 
 this->indices.resize(indices);

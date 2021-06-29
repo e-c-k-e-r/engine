@@ -14,7 +14,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 
-const std::string ext::vulkan::DeferredRenderMode::getType() const {
+const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
 const size_t ext::vulkan::DeferredRenderMode::blitters() const {
@@ -23,7 +23,7 @@ const size_t ext::vulkan::DeferredRenderMode::blitters() const {
 ext::vulkan::Graphic* ext::vulkan::DeferredRenderMode::getBlitter( size_t i ) {
 	return &this->blitter;
 }
-std::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters() {
+uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters() {
 	return { &this->blitter };
 }
 
@@ -44,7 +44,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 		struct {
 			size_t id, normals, uvs, albedo, depth, output, debug;
-		} attachments;
+		} attachments = {};
 
 		attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */VK_FORMAT_R16G16_UINT,
@@ -209,8 +209,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		blitter.initialize( this->getName() );
 		blitter.initializeMesh( mesh );
 
-		std::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
-		std::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv";
+		uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
+		uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv";
 		if ( uf::renderer::settings::experimental::vxgi ) {
 			fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "vxgi.frag" );
 		}
@@ -225,7 +225,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
 	/*
-		std::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
+		uf::stl::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
 		if ( ext::vulkan::settings::experimental::vxgi ) {
 			fragmentShaderFilename = ( msaa <= 1 ) ? "vxgi.no-msaa." : "vxgi.";
 		}
@@ -259,14 +259,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			*/
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					std::string name = sc["name"].as<std::string>();
+					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 					else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
 				});
 				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
-					std::string name = t["name"].as<std::string>();
+					uf::stl::string name = t["name"].as<uf::stl::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
 						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
@@ -289,14 +289,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			*/
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					std::string name = sc["name"].as<std::string>();
+					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 				});
 
 				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
-					std::string name = t["name"].as<std::string>();
+					uf::stl::string name = t["name"].as<uf::stl::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
 						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
@@ -305,10 +305,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				});
 			}
 
-			std::vector<pod::Light::Storage> lights(maxLights);
-			std::vector<pod::Material::Storage> materials(maxTextures2D);
-			std::vector<pod::Texture::Storage> textures(maxTextures2D);
-			std::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
+			uf::stl::vector<pod::Light::Storage> lights(maxLights);
+			uf::stl::vector<pod::Material::Storage> materials(maxTextures2D);
+			uf::stl::vector<pod::Texture::Storage> textures(maxTextures2D);
+			uf::stl::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
@@ -372,7 +372,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::DeferredRenderMode::bindGraphicDescr
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
 	return descriptor;
 }
-void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
 	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
@@ -389,7 +389,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	std::vector<RenderMode*> layers = ext::vulkan::getRenderModes(std::vector<std::string>{"RenderTarget", "Compute"}, false);
+	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute"}, false);
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
 	auto& commands = getCommands();
@@ -398,7 +398,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		// Fill GBuffer
 		{
-			std::vector<VkClearValue> clearValues;
+			uf::stl::vector<VkClearValue> clearValues;
 			for ( auto& attachment : renderTarget.attachments ) {
 				VkClearValue clearValue;
 				if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
@@ -504,7 +504,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const std::vector<ex
 					float width = renderTarget.width;
 					float height = renderTarget.height;
 
-					std::vector<VkClearValue> clearValues; clearValues.resize(2);
+					uf::stl::vector<VkClearValue> clearValues; clearValues.resize(2);
 					clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 					clearValues[1].depthStencil = { 1.0f, 0 };
 

@@ -4,7 +4,7 @@
 #include <uf/ext/opengl/commands.h>
 #include <uf/ext/opengl/graphic.h>
 
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <bitset>
 
 #include <uf/utils/graphic/mesh.h>
@@ -274,7 +274,7 @@ void ext::opengl::CommandBuffer::submit() {
 #if 0
 	CommandBuffer::Info* vertexBufferInfo = GL_NULL_HANDLE;
 	CommandBuffer::Info* indexBufferInfo = GL_NULL_HANDLE;
-	std::vector<CommandBuffer::InfoTexture*> textureInfos;
+	uf::stl::vector<CommandBuffer::InfoTexture*> textureInfos;
 	textureInfos.reserve(maxTextures);
 	if ( state == 2 && VERBOSE_SUBMIT ) std::cout << "==== ["<<this<<"] COMMAND BUFFER SUBMIT START ====\n";
 	// 50us each process
@@ -379,7 +379,7 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 #endif
 }
 #if 0
-void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const std::vector<InfoTexture*>& textureInfos ) {
+void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const uf::stl::vector<InfoTexture*>& textureInfos ) {
 	ext::opengl::Buffer::Descriptor vertexBuffer = {};
 
 	switch ( vertexBufferInfo.type ) {
@@ -464,7 +464,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			GL_BIND_POINTERS();
 			GL_ERROR_CHECK(glDrawArrays(GL_TRIANGLES, 0, vertices));
 		} else {
-			std::vector<std::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
+			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
 			for ( uf::renderer::index_t index = 0; index < vertices; ++index ) {
 				uint8_t* vertex = vertexPointer + (index * vertexStride);
 
@@ -513,7 +513,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
 			GL_DRAW_ARRAYS( vertexPointer, vertices );
 		} else {
-			std::vector<std::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
+			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
 			for ( uf::renderer::index_t index = 0; index < vertices; ++index ) {
 				uint8_t* vertex = vertexPointer + (index * vertexStride);
 
@@ -602,7 +602,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 	// frustrum culling
 	if ( ext::opengl::settings::experimental::frustrumCull ) {
-		std::vector<uf::renderer::index_t> unculled;
+		uf::stl::vector<uf::renderer::index_t> unculled;
 		unculled.reserve(indices);
 		for ( size_t currentIndex = 0; currentIndex < indices; currentIndex += 3 ) {
 			const pod::Vector3f& positionA = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+0] * vertexStride)) + drawInfo.attributes.position));
@@ -664,7 +664,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
 }
 #if 0
-void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const ext::opengl::CommandBuffer::Info& indexBufferInfo, const std::vector<InfoTexture*>& textureInfos ) {
+void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const ext::opengl::CommandBuffer::Info& indexBufferInfo, const uf::stl::vector<InfoTexture*>& textureInfos ) {
 	uf::Timer<long long> TIMER_TRACE;
 	long long prevTime = 0;
 	long long curTime = 0;
@@ -770,7 +770,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
 		} else {
 			bool lightMapped = false;
-			std::vector<std::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
+			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
 			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
 				auto index = indicesPointer[currentIndex];
 				void* vertices = vertexPointer + (index * vertexStride);
@@ -885,7 +885,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
 			GL_DRAW_ELEMENTS( indicesPointer, indices );
 		} else {
-			std::vector<std::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
+			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
 			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
 				uf::renderer::index_t index = indicesPointer[currentIndex];
 				void* vertices = vertexPointer + (index * vertexStride);

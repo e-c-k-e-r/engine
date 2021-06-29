@@ -8,10 +8,10 @@
 #include <uf/engine/object/behaviors/lua.h>
 
 namespace binds {
-	std::string formatHookName(uf::Object& self, const std::string n ){
+	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
 		return self.formatHookName(n);
 	}
-	sol::object getComponent( uf::Object& self, const std::string& type ) {
+	sol::object getComponent( uf::Object& self, const uf::stl::string& type ) {
 		#define UF_LUA_RETRIEVE_COMPONENT( T )\
 			else if ( type == UF_NS_GET_LAST(T) ) return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
 
@@ -29,7 +29,7 @@ namespace binds {
 		UF_LUA_RETRIEVE_COMPONENT(uf::Camera)
 		return sol::make_object( ext::lua::state, sol::lua_nil );
 	}
-	void setComponent(uf::Object& self, const std::string& type, sol::object value ) {
+	void setComponent(uf::Object& self, const uf::stl::string& type, sol::object value ) {
 		#define UF_LUA_UPDATE_COMPONENT( T )\
 			else if ( type == UF_NS_GET_LAST(T) ) self.getComponent<T>() = std::move(value.as<T>());
 
@@ -37,7 +37,7 @@ namespace binds {
 			auto encoded = ext::lua::encode( value.as<sol::table>() );
 			if ( encoded ) {
 				auto& metadata = self.getComponent<uf::Serializer>();
-				std::string str = encoded.value();
+				uf::stl::string str = encoded.value();
 				uf::Serializer hooks = metadata["system"]["hooks"];
 				metadata.merge( str, false );
 				metadata["system"]["hooks"] = hooks;
@@ -48,7 +48,7 @@ namespace binds {
 		UF_LUA_UPDATE_COMPONENT(uf::Asset)
 		UF_LUA_UPDATE_COMPONENT(uf::Camera)
 	}
-	bool bind(uf::Object& self, const std::string& type, sol::protected_function fun ) {
+	bool bind(uf::Object& self, const uf::stl::string& type, sol::protected_function fun ) {
 		if ( !self.hasBehavior({.type = uf::LuaBehavior::type}) ) uf::instantiator::bind( "LuaBehavior", self );
 		pod::Behavior* behaviorPointer = NULL;
 		auto& behaviors = self.getBehaviors();
@@ -84,7 +84,7 @@ namespace binds {
 		static uf::Object null;
 		return null;
 	}
-	uf::Object& findByName( uf::Object& self, const std::string& index ){
+	uf::Object& findByName( uf::Object& self, const uf::stl::string& index ){
 		auto* pointer = self.findByName( index );
 		if ( pointer ) return pointer->as<uf::Object>();
 		static uf::Object null;
@@ -98,7 +98,7 @@ namespace binds {
 		self.removeChild( child );
 		return self;
 	}
-	uf::Object& loadChild( uf::Object& self, const std::string& filename, bool init = true ) {
+	uf::Object& loadChild( uf::Object& self, const uf::stl::string& filename, bool init = true ) {
 		auto* pointer = self.loadChildPointer( filename, init );
 		if ( pointer ) return pointer->as<uf::Object>();
 		static uf::Object null;
@@ -114,9 +114,9 @@ namespace binds {
 	uf::Object& getParent( uf::Object& self ){
 		return self.getParent().as<uf::Object>();
 	}
-	void addHook( uf::Object& self, const std::string& name, const sol::function& function ) {
+	void addHook( uf::Object& self, const uf::stl::string& name, const sol::function& function ) {
 		self.addHook( name, [function](ext::json::Value& json){
-			std::string payload = json.dump();
+			uf::stl::string payload = json.dump();
 			auto decoded = ext::lua::decode( payload );
 			if ( !decoded ) return;
 			sol::table table = decoded.value();
@@ -128,27 +128,27 @@ namespace binds {
 			}
 		});
 	}
-	void callHook( uf::Object& self, const std::string& name, sol::table table = ext::lua::createTable() ) {
+	void callHook( uf::Object& self, const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
 		uf::Serializer payload = table;
 		self.callHook( name, (ext::json::Value&) payload );
 	}
-	void queueHook( uf::Object& self, const std::string& name, sol::table table, float delay = 0.0f ) {
+	void queueHook( uf::Object& self, const uf::stl::string& name, sol::table table, float delay = 0.0f ) {
 		uf::Serializer payload = table;
 		self.queueHook( name, (ext::json::Value&) payload, delay );
 	}
-	std::string toString( uf::Object& self ) {
+	uf::stl::string toString( uf::Object& self ) {
 		return self.getName() + ": " + std::to_string( self.getUid() );
 	}
 
 	size_t getUid( const uf::Object& o ) { return o.getUid(); }
-	std::string getName( const uf::Object& o ) { return o.getName(); }
+	uf::stl::string getName( const uf::Object& o ) { return o.getName(); }
 }
 
 UF_LUA_REGISTER_USERTYPE(uf::Object,
 	sol::call_constructor, sol::initializers(
 		[]( uf::Object& self, sol::object arg, bool init = true ){
-			if ( arg.is<std::string>() ) {
-				self.load( arg.as<std::string>() );
+			if ( arg.is<uf::stl::string>() ) {
+				self.load( arg.as<uf::stl::string>() );
 			} else if ( arg.is<sol::table>() ) {
 				auto encoded = ext::lua::encode( arg.as<sol::table>() );
 				if ( encoded ) {
@@ -183,8 +183,8 @@ namespace {
 		ext::lua::onInitialization( []{
 			ext::lua::state.new_usertype<uf::Object>(UF_NS_GET_LAST(uf::Object),
 				sol::call_constructor, sol::initializers( []( uf::Object& self, sol::object arg, bool init = true ){
-					if ( arg.is<std::string>() ) {
-						self.load( arg.as<std::string>() );
+					if ( arg.is<uf::stl::string>() ) {
+						self.load( arg.as<uf::stl::string>() );
 					} else if ( arg.is<sol::table>() ) {
 						auto encoded = ext::lua::encode( arg.as<sol::table>() );
 						if ( encoded ) {

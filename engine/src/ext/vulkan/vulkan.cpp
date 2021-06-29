@@ -19,10 +19,10 @@ bool ext::vulkan::settings::validation = true;
 // constexpr size_t ext::vulkan::settings::maxViews = 6;
 size_t ext::vulkan::settings::viewCount = 2;
 
-std::vector<std::string> ext::vulkan::settings::validationFilters;
-std::vector<std::string> ext::vulkan::settings::requestedDeviceFeatures;
-std::vector<std::string> ext::vulkan::settings::requestedDeviceExtensions;
-std::vector<std::string> ext::vulkan::settings::requestedInstanceExtensions;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceExtensions;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedInstanceExtensions;
 
 VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 
@@ -31,7 +31,7 @@ bool ext::vulkan::settings::experimental::waitOnRenderEnd = false;
 bool ext::vulkan::settings::experimental::individualPipelines = true;
 bool ext::vulkan::settings::experimental::multithreadedCommandRecording = true;
 bool ext::vulkan::settings::experimental::multithreadedCommandRendering = false;
-std::string ext::vulkan::settings::experimental::deferredMode = "";
+uf::stl::string ext::vulkan::settings::experimental::deferredMode = "";
 bool ext::vulkan::settings::experimental::deferredReconstructPosition = false;
 bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::vulkan::settings::experimental::multiview = true;
@@ -56,12 +56,12 @@ bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
 
-std::vector<uf::Scene*> ext::vulkan::scenes;
+uf::stl::vector<uf::Scene*> ext::vulkan::scenes;
 ext::vulkan::RenderMode* ext::vulkan::currentRenderMode = NULL;
-std::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
+uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
 };
-std::unordered_map<std::string, ext::vulkan::RenderMode*> ext::vulkan::renderModesMap;
+uf::stl::unordered_map<uf::stl::string, ext::vulkan::RenderMode*> ext::vulkan::renderModesMap;
 
 VkResult ext::vulkan::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -81,15 +81,15 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	void* pUserData
 ) {
 //	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ) return VK_FALSE;
-	std::string message = pCallbackData->pMessage;
+	uf::stl::string message = pCallbackData->pMessage;
 	for ( auto& filter : ext::vulkan::settings::validationFilters ) {
-		if ( message.find(filter) != std::string::npos ) return VK_FALSE;
+		if ( message.find(filter) != uf::stl::string::npos ) return VK_FALSE;
 	}
 	UF_MSG_ERROR("[Validation Layer] " << message);
 	return VK_FALSE;
 }
 
-std::string ext::vulkan::errorString( VkResult result ) {
+uf::stl::string ext::vulkan::errorString( VkResult result ) {
 	switch ( result ) {
 #define STR(r) case VK_ ##r: return #r
 		STR(NOT_READY);
@@ -152,7 +152,7 @@ void ext::vulkan::alignedFree(void* data) {
 #endif
 }
 
-bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
+bool ext::vulkan::hasRenderMode( const uf::stl::string& name, bool isName ) {
 	if ( isName && ext::vulkan::renderModesMap.count(name) > 0 ) return true;
 	for ( auto& renderMode: ext::vulkan::renderModes ) {
 		if ( isName && renderMode->getName() == name ) return true;
@@ -161,7 +161,7 @@ bool ext::vulkan::hasRenderMode( const std::string& name, bool isName ) {
 	return false;
 }
 
-ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const std::string& name ) {
+ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModesMap[name] = renderModes.emplace_back(mode);
 	VK_VALIDATION_MESSAGE("Adding RenderMode: " << name << ": " << mode->getType());
@@ -169,7 +169,7 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	ext::vulkan::states::rebuild = true;
 	return *mode;
 }
-ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bool isName ) {
+ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const uf::stl::string& name, bool isName ) {
 	if ( isName && renderModesMap.count(name) > 0 ) return *renderModesMap[name];
 	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
@@ -189,12 +189,12 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const std::string& name, bo
 //	VK_VALIDATION_MESSAGE("Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")");
 	return *target;
 }
-std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::string& name, bool isName ) {
+uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::string& name, bool isName ) {
 	if ( isName && renderModesMap.count(name) > 0 ) return { renderModesMap[name] };
 	return ext::vulkan::getRenderModes({name}, isName);
 }
-std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::vector<std::string>& names, bool isName ) {
-	std::vector<RenderMode*> targets;
+uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
+	uf::stl::vector<RenderMode*> targets;
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
@@ -204,7 +204,7 @@ std::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const std::ve
 }
 void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	if ( !mode ) return;
-	std::string name = mode->getName();
+	uf::stl::string name = mode->getName();
 	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
 	renderModesMap.erase( name );
 	mode->destroy();
@@ -216,7 +216,7 @@ void ext::vulkan::initialize() {
 	device.initialize();
 	swapchain.initialize( device );
 	{
-		std::vector<uint8_t> pixels = { 
+		uf::stl::vector<uint8_t> pixels = { 
 			255,   0, 255, 255,      0,   0,   0, 255,
 			  0,   0,   0, 255,    255,   0, 255, 255,
 		};
@@ -225,7 +225,7 @@ void ext::vulkan::initialize() {
 		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	{
-		std::vector<uint8_t> pixels = { 
+		uf::stl::vector<uint8_t> pixels = { 
 			255,   0, 255, 255,      0,   0,   0, 255,
 			  0,   0,   0, 255,    255,   0, 255, 255,
 
@@ -237,7 +237,7 @@ void ext::vulkan::initialize() {
 		Texture3D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 2, 1, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	{
-		std::vector<uint8_t> pixels = { 
+		uf::stl::vector<uint8_t> pixels = { 
 			255,   0, 255, 255,      0,   0,   0, 255,
 			  0,   0,   0, 255,    255,   0, 255, 255,
 			
@@ -264,7 +264,7 @@ void ext::vulkan::initialize() {
 		if ( !renderMode ) continue;
 		renderMode->initialize(device);
 	}
-	std::vector<std::function<int()>> jobs;
+	uf::stl::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
@@ -304,7 +304,7 @@ void ext::vulkan::tick() {
 		renderMode->tick();
 	}
 
-	std::vector<std::function<int()>> jobs;
+	uf::stl::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) {
@@ -345,7 +345,7 @@ void ext::vulkan::render() {
 	}
 
 #if 1
-	std::vector<std::function<int()>> jobs;
+	uf::stl::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
@@ -431,16 +431,16 @@ void ext::vulkan::synchronize( uint8_t flag ) {
 		vkDeviceWaitIdle( device );
 }
 
-std::string ext::vulkan::allocatorStats() {
+uf::stl::string ext::vulkan::allocatorStats() {
 	char* statsString = nullptr;
 	vmaBuildStatsString(ext::vulkan::allocator, &statsString, true);
-	std::string result = statsString;
+	uf::stl::string result = statsString;
 	vmaFreeStatsString(ext::vulkan::allocator, statsString);
 	return result;
 }
 
-ext::vulkan::enums::Format::type_t ext::vulkan::formatFromString( const std::string& string ) {
-	std::unordered_map<std::string,ext::vulkan::enums::Format::type_t> table = {
+ext::vulkan::enums::Format::type_t ext::vulkan::formatFromString( const uf::stl::string& string ) {
+	uf::stl::unordered_map<uf::stl::string,ext::vulkan::enums::Format::type_t> table = {
 		{ "UNDEFINED", ext::vulkan::enums::Format::UNDEFINED },
 		{ "R4G4_UNORM_PACK8", ext::vulkan::enums::Format::R4G4_UNORM_PACK8 },
 		{ "R4G4B4A4_UNORM_PACK16", ext::vulkan::enums::Format::R4G4B4A4_UNORM_PACK16 },

@@ -9,7 +9,7 @@
 #include <fstream>
 #include <functional>
 
-uf::Serializer::Serializer( const std::string& str ) { //: sol::table(ext::lua::state, sol::create) {
+uf::Serializer::Serializer( const uf::stl::string& str ) { //: sol::table(ext::lua::state, sol::create) {
 	this->deserialize(str);
 }
 #if UF_USE_LUA
@@ -31,14 +31,14 @@ uf::Serializer::output_t uf::Serializer::serialize( bool pretty ) const {
 uf::Serializer::output_t uf::Serializer::serialize( const ext::json::EncodingSettings& settings ) const {
 	return ext::json::encode( *this, settings );
 }
-void uf::Serializer::deserialize( const std::string& str ) {
+void uf::Serializer::deserialize( const uf::stl::string& str ) {
 	if ( str == "" ) return;
 	ext::json::decode( *this, str );
 }
 
-bool uf::Serializer::readFromFile( const std::string& filename, const std::string& hash ) {
+bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::stl::string& hash ) {
 	uf::String string;
-//	std::string filename = _filename + ( uf::io::exists(_filename + ".gz") ? ".gz" : "" );
+//	uf::stl::string filename = _filename + ( uf::io::exists(_filename + ".gz") ? ".gz" : "" );
 	bool exists = uf::io::exists( filename );
 	if ( !exists ) {
 		UF_MSG_ERROR("Failed to read JSON file `" << filename << "`: does not exist");
@@ -57,8 +57,8 @@ bool uf::Serializer::readFromFile( const std::string& filename, const std::strin
 	this->deserialize(string);
 	return true;
 }
-bool uf::Serializer::writeToFile( const std::string& filename, const ext::json::EncodingSettings& settings ) const {
-	std::string buffer = this->serialize( settings );
+bool uf::Serializer::writeToFile( const uf::stl::string& filename, const ext::json::EncodingSettings& settings ) const {
+	uf::stl::string buffer = this->serialize( settings );
 	size_t written = uf::io::write( filename + ( settings.compress ? ".gz" : "" ) , buffer.c_str(), buffer.size() );
 	if ( !written ) UF_MSG_ERROR("Failed to write JSON file `" << filename << "`");
 	return written;
@@ -86,7 +86,7 @@ void uf::Serializer::import( const uf::Serializer& other ) {
 	uf::Serializer diff = nlohmann::json::diff(*this, other);
 	uf::Serializer filtered;
 	for ( size_t i = 0; i < diff.size(); ++i ) {
-		if ( diff[i]["op"].as<std::string>() != "remove" )
+		if ( diff[i]["op"].as<uf::stl::string>() != "remove" )
 			filtered.emplace_back(diff[i]);
 	}
 	patch( filtered );
@@ -107,7 +107,7 @@ void uf::Serializer::import( const uf::Serializer& other ) {
 	};
 	update(*this, other);
 }
-ext::json::Value& uf::Serializer::path( const std::string& path ) {
+ext::json::Value& uf::Serializer::path( const uf::stl::string& path ) {
 	auto keys = uf::string::split(path, ".");
 	ext::json::Value* traversal = this;
 	for ( auto& key : keys ) {
@@ -123,7 +123,7 @@ uf::Serializer::operator Serializer::output_t() const {
 	return this->serialize();
 }
 
-uf::Serializer& uf::Serializer::operator=( const std::string& str ) {
+uf::Serializer& uf::Serializer::operator=( const uf::stl::string& str ) {
 	this->deserialize(str);
 	return *this;
 }
@@ -143,15 +143,15 @@ uf::Serializer& uf::Serializer::operator=( const ext::json::base_value& json ) {
 	ext::json::Value::operator=(json);
 	return *this;
 }
-uf::Serializer& uf::Serializer::operator<<( const std::string& str ) {
+uf::Serializer& uf::Serializer::operator<<( const uf::stl::string& str ) {
 	this->deserialize(str);
 	return *this;
 }
-uf::Serializer& uf::Serializer::operator>>( std::string& str ) {
+uf::Serializer& uf::Serializer::operator>>( uf::stl::string& str ) {
 	str = this->serialize();
 	return *this;
 }
-const uf::Serializer& uf::Serializer::operator>>( std::string& str ) const {
+const uf::Serializer& uf::Serializer::operator>>( uf::stl::string& str ) const {
 	str = this->serialize();
 	return *this;
 }

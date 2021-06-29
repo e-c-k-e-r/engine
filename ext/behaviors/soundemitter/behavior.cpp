@@ -24,7 +24,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		metadata["audio"]["epsilon"] = 0.001f;
 
 	this->addHook( "sound:Stop.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		for ( size_t i = 0; i < sounds.size(); ++i ) {
 			if ( sounds[i].getFilename() != filename ) continue;
 			sounds[i].destroy();
@@ -44,7 +44,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		if ( ext::json::isNull(json["unique"]) ) json["unique"] = metadata["audio"]["unique"];
 		metadata["sounds"].emplace_back(json);
 
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		bool unique = json["unique"].as<bool>();
 		bool exists = unique && emitter.has( filename );
 
@@ -66,8 +66,8 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		
 		float volume = 1.0f; 
 		if ( json["volume"].is<double>() ) volume = json["volume"].as<float>();
-		else if ( json["volume"].is<std::string>() ) {
-			std::string key = json["volume"].as<std::string>();
+		else if ( json["volume"].is<uf::stl::string>() ) {
+			uf::stl::string key = json["volume"].as<uf::stl::string>();
 			if ( sMetadata["volumes"][key].is<double>() ) volume = sMetadata["volumes"][key].as<float>();
 		}
 		audio.setVolume(volume);
@@ -75,8 +75,8 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		audio.play();
 	});
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
 
 		if ( category != "" && (category != "audio" && category != "audio-stream") ) return;
 		if ( category == "" && uf::io::extension(filename) != "ogg" ) return;

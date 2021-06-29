@@ -146,10 +146,14 @@ void client::tick() {
 		}
 	#endif
 		uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
-			"window:Mouse.Moved",
-			"client",
 			{
-				pod::Vector2ui{ size.x, size.y },
+				{
+					"window:Mouse.Moved",
+					"client",
+				},
+				{
+					pod::Vector2ui{ size.x, size.y },
+				},
 			},
 			{
 				current,

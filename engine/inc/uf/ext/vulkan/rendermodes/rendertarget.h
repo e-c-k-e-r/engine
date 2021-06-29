@@ -9,11 +9,11 @@ namespace ext {
 			ext::vulkan::Graphic blitter;
 			
 			typedef std::function<void(VkCommandBuffer)> callback_t;
-			std::unordered_map<int32_t, callback_t> commandBufferCallbacks;
+			uf::stl::unordered_map<int32_t, callback_t> commandBufferCallbacks;
 
 			//
-			const std::string getTarget() const;
-			void setTarget( const std::string& );
+			const uf::stl::string getTarget() const;
+			void setTarget( const uf::stl::string& );
 
 			void bindCallback( int32_t, const callback_t& );
 
@@ -21,14 +21,14 @@ namespace ext {
 			constexpr static int32_t CALLBACK_END = -2;
 
 			// RAII
-			virtual const std::string getType() const;
+			virtual const uf::stl::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
-			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
+			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
-			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void initialize( Device& device );
 			virtual void tick();
 			virtual void destroy();

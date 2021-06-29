@@ -13,8 +13,8 @@ template<typename T, std::size_t N> 											// copies data into POD from 'com
 uf::Vector<T,N>::Vector(const T components[N]) {
 	this->set(&components[0]);
 }
-template<typename T, std::size_t N> 											// copies data into POD from 'components' (typed as std::vector<T>)
-uf::Vector<T,N>::Vector(const std::vector<T>& components) {
+template<typename T, std::size_t N> 											// copies data into POD from 'components' (typed as uf::stl::vector<T>)
+uf::Vector<T,N>::Vector(const uf::stl::vector<T>& components) {
 	if ( components.size() >= N ) this->set(&components[0]);
 }
 // 	D-tor
@@ -65,9 +65,17 @@ template<typename T, std::size_t N> 											// 	Adds two vectors of same type
 inline uf::Vector<T,N>& uf::Vector<T,N>::add( const Vector<T, N>& vector ) {
 	return uf::vector::add( this->m_pod, vector.data() );
 }
+template<typename T, std::size_t N> 											// 	Multiplies this vector by a scalar
+inline uf::Vector<T,N>& uf::Vector<T,N>::add( T scalar ) {
+	return uf::vector::add( this->m_pod, scalar );
+}
 template<typename T, std::size_t N> 											// 	Subtracts two vectors of same type and size together
 inline uf::Vector<T,N>& uf::Vector<T,N>::subtract( const Vector<T, N>& vector ) {
 	return uf::vector::subtract( this->m_pod, vector.data() );
+}
+template<typename T, std::size_t N> 											// 	Multiplies this vector by a scalar
+inline uf::Vector<T,N>& uf::Vector<T,N>::subtract( T scalar ) {
+	return uf::vector::subtract( this->m_pod, scalar );
 }
 template<typename T, std::size_t N> 											// 	Multiplies two vectors of same type and size together
 inline uf::Vector<T,N>& uf::Vector<T,N>::multiply( const Vector<T, N>& vector ) {
@@ -142,7 +150,7 @@ uf::Vector<T,N> uf::Vector<T,N>::getNormalized() const {
 	return uf::vector::normalize( this->m_pod );
 }
 template<typename T, std::size_t N> 											// 	Return a string
-std::string uf::Vector<T,N>::toString() const {
+uf::stl::string uf::Vector<T,N>::toString() const {
 	return uf::vector::toString( this->m_pod );
 }
 // Overloaded ops
@@ -176,6 +184,14 @@ inline uf::Vector<T,N> uf::Vector<T,N>::operator/( const uf::Vector<T,N>& vector
 	return uf::vector::divide( this->m_pod, vector.data() );
 }
 template<typename T, std::size_t N>  												// 	Multiplication with scalar
+inline uf::Vector<T,N> uf::Vector<T,N>::operator+( T scalar ) const {
+	return uf::vector::add( this->m_pod, scalar );
+}
+template<typename T, std::size_t N>  												// 	Multiplication with scalar
+inline uf::Vector<T,N> uf::Vector<T,N>::operator-( T scalar ) const {
+	return uf::vector::subtract( this->m_pod, scalar );
+}
+template<typename T, std::size_t N>  												// 	Multiplication with scalar
 inline uf::Vector<T,N> uf::Vector<T,N>::operator*( T scalar ) const {
 	return uf::vector::multiply( this->m_pod, scalar );
 }
@@ -198,6 +214,14 @@ inline uf::Vector<T,N>& uf::Vector<T,N>::operator *=( const uf::Vector<T,N>& vec
 template<typename T, std::size_t N>  												// 	Division set between two vectors
 inline uf::Vector<T,N>& uf::Vector<T,N>::operator /=( const uf::Vector<T,N>& vector ) {
 	return uf::vector::divide( this->m_pod, vector.data() );
+}
+template<typename T, std::size_t N>  												// 	Multiplication set with scalar
+inline uf::Vector<T,N>& uf::Vector<T,N>::operator +=( T scalar ) {
+	return uf::vector::add( this->m_pod, scalar );
+}
+template<typename T, std::size_t N>  												// 	Multiplication set with scalar
+inline uf::Vector<T,N>& uf::Vector<T,N>::operator -=( T scalar ) {
+	return uf::vector::subtract( this->m_pod, scalar );
 }
 template<typename T, std::size_t N>  												// 	Multiplication set with scalar
 inline uf::Vector<T,N>& uf::Vector<T,N>::operator *=( T scalar ) {

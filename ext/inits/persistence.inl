@@ -3,7 +3,7 @@
 /* Read persistent data */ if ( false ) {
 	struct {
 		bool exists = false;
-		std::string filename = uf::io::root+"/persistent.json";
+		uf::stl::string filename = uf::io::root+"/persistent.json";
 	} file;
 	struct {
 		uf::Serializer file;
@@ -13,12 +13,12 @@
 	//	persistent.window.size.x = config.file["window"]["size"]["x"].as<size_t>();
 	//	persistent.window.size.y = config.file["window"]["size"]["y"].as<size_t>();
 		if ( config.file["window"]["title"] != "null" ) {
-			persistent.window.title = config.file["window"]["title"].as<std::string>();
+			persistent.window.title = config.file["window"]["title"].as<uf::stl::string>();
 		}
 
 		/* Update window size */ {
 			uf::Serializer json;
-			std::string hook = "window:Resized";
+			uf::stl::string hook = "window:Resized";
 			json["type"] = hook;
 			json["invoker"] = "ext";
 			json["window"]["size"] = uf::vector::encode( persistent.window.size );
@@ -29,10 +29,10 @@
 		}
 		/* Update window title */ {
 		uf::Serializer json;
-			std::string hook = "window:Title.Changed";
+			uf::stl::string hook = "window:Title.Changed";
 			json["type"] = hook;
 			json["invoker"] = "ext";
-			json["window"]["title"] = std::string(persistent.window.title);
+			json["window"]["title"] = uf::stl::string(persistent.window.title);
 			uf::hooks.call(hook, json);
 		}
 	}

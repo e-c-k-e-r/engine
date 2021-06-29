@@ -9,7 +9,7 @@
 #include <uf/utils/graphic/graphic.h>
 
 namespace {
-	std::vector<VkImage> images;
+	uf::stl::vector<VkImage> images;
 }
 
 /*
@@ -17,10 +17,10 @@ ext::vulkan::BaseRenderMode::~BaseRenderMode() {
 	this->destroy();
 }
 */
-const std::string ext::vulkan::BaseRenderMode::getType() const {
+const uf::stl::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
-void ext::vulkan::BaseRenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
 	auto windowSize = device->window->getSize();

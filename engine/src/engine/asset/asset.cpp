@@ -19,14 +19,14 @@
 #include <mutex>
 
 namespace {
-	bool retrieve( const std::string& url, const std::string& filename, const std::string& hash = "" ) {
+	bool retrieve( const uf::stl::string& url, const uf::stl::string& filename, const uf::stl::string& hash = "" ) {
 		uf::Http http = uf::http::get( url );
 		if ( http.code < 200 || http.code > 300 ) {
 			UF_MSG_ERROR("HTTP Error " << http.code << " on GET " << url);
 			return false;
 		}
 
-		std::string actual = hash;
+		uf::stl::string actual = hash;
 		if ( hash != "" && (actual = uf::string::sha256(url)) != hash ) {
 			UF_MSG_ERROR("HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual);
 			return false;
@@ -35,11 +35,11 @@ namespace {
 		uf::io::write( "./" + filename, http.response );
 		return true;
 	}
-	std::string hashed( const std::string& uri ) {
+	uf::stl::string hashed( const uf::stl::string& uri ) {
 		return uf::string::sha256(uri);
 	/*
-		std::size_t value = std::hash<std::string>{}( uri );
-		std::stringstream stream;
+		std::size_t value = std::hash<uf::stl::string>{}( uri );
+		uf::stl::stringstream stream;
 		stream << std::hex << value;
 		return stream.str();
 	*/
@@ -48,11 +48,11 @@ namespace {
 	std::mutex mutex;
 	uint64_t uid = 0;
 	struct Job {
-		std::string callback;
-		std::string type;
-		std::string uri;
-		std::string hash;
-		std::string category;
+		uf::stl::string callback;
+		uf::stl::string type;
+		uf::stl::string uri;
+		uf::stl::string hash;
+		uf::stl::string category;
 	};
 }
 
@@ -64,15 +64,15 @@ void uf::Asset::processQueue() {
 	while ( !jobs.empty() ) {
 		auto job = jobs.front();
 		jobs.pop();
-		std::string callback = job.callback;
-		std::string type = job.type;
-		std::string uri = job.uri;
-		std::string hash = job.hash;
-		std::string category = job.category;
+		uf::stl::string callback = job.callback;
+		uf::stl::string type = job.type;
+		uf::stl::string uri = job.uri;
+		uf::stl::string hash = job.hash;
+		uf::stl::string category = job.category;
 		if ( uri == "" || callback == "" ) {
 			continue;
 		}
-		std::string filename = type == "cache" ? this->cache(uri, hash, category) : this->load(uri, hash, category);
+		uf::stl::string filename = type == "cache" ? this->cache(uri, hash, category) : this->load(uri, hash, category);
 		if ( callback != "" && filename != "" ) {
 			uf::Serializer payload;
 			payload["filename"] = filename;
@@ -83,24 +83,24 @@ void uf::Asset::processQueue() {
 	}
 	mutex.unlock();
 }
-void uf::Asset::cache( const std::string& callback, const std::string& uri, const std::string& hash, const std::string& category ) {
+void uf::Asset::cache( const uf::stl::string& callback, const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
 	mutex.lock();
 	auto& jobs = this->getComponent<std::queue<Job>>();
 	jobs.push({ callback, "cache", uri, hash, category });
 	mutex.unlock();
 }
-void uf::Asset::load( const std::string& callback, const std::string& uri, const std::string& hash, const std::string& category ) {
+void uf::Asset::load( const uf::stl::string& callback, const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
 	mutex.lock();
 	auto& jobs = this->getComponent<std::queue<Job>>();
 	jobs.push({ callback, "load", uri, hash, category });
 	mutex.unlock();
 }
-std::string uf::Asset::cache( const std::string& uri, const std::string& hash, const std::string& category ) {
-	std::string filename = uri;
-	std::string extension = uf::io::extension( uri );
+uf::stl::string uf::Asset::cache( const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
+	uf::stl::string filename = uri;
+	uf::stl::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
-		std::string hash = hashed( uri );
-		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
+		uf::stl::string hash = hashed( uri );
+		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			UF_MSG_ERROR("Failed to preload `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
@@ -111,19 +111,19 @@ std::string uf::Asset::cache( const std::string& uri, const std::string& hash, c
 		UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
 		return "";
 	}
-	std::string actual = hash;
+	uf::stl::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
 		UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
 	return filename;
 }
-std::string uf::Asset::load( const std::string& uri, const std::string& hash, const std::string& category ) {
-	std::string filename = uri;
-	std::string extension = uf::io::extension( uri );
+uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
+	uf::stl::string filename = uri;
+	uf::stl::string extension = uf::io::extension( uri );
 	if ( uri.substr(0,5) == "https" ) {
-		std::string hash = hashed( uri );
-		std::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
+		uf::stl::string hash = hashed( uri );
+		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
 			UF_MSG_ERROR("Failed to load `" + uri + "` (`" + cached + "`): HTTP error");
 			return "";
@@ -134,7 +134,7 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 		UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
 		return "";
 	}
-	std::string actual = hash;
+	uf::stl::string actual = hash;
 	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
 		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
@@ -199,14 +199,14 @@ std::string uf::Asset::load( const std::string& uri, const std::string& hash, co
 	}
 	return filename;
 }
-std::string uf::Asset::getOriginal( const std::string& uri ) {
-	std::string extension = uf::io::extension( uri );
+uf::stl::string uf::Asset::getOriginal( const uf::stl::string& uri ) {
+	uf::stl::string extension = uf::io::extension( uri );
 	auto& map = this->getComponent<uf::Serializer>();
 	if ( ext::json::isNull( map[extension][uri]["index"] ) ) return uri;
 	std::size_t index = map[extension][uri]["index"].as<size_t>();
 
-	std::string key = uri;
-	ext::json::forEach( map[extension], [&]( const std::string& k, ext::json::Value& v ) {
+	uf::stl::string key = uri;
+	ext::json::forEach( map[extension], [&]( const uf::stl::string& k, ext::json::Value& v ) {
 		std::size_t i = v["index"].as<size_t>();
 		if ( index == i && key != uri ) key = k;
 	});

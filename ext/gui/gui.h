@@ -25,7 +25,7 @@ namespace ext {
 		typedef uf::BaseMesh<pod::Vertex_3F2F3F> mesh_t;
 		typedef uf::BaseMesh<pod::Vertex_3F2F3F> glyph_mesh_t;
 	//	Gui();
-		std::vector<pod::GlyphBox> generateGlyphs( const std::string& = "" );
+		uf::stl::vector<pod::GlyphBox> generateGlyphs( const uf::stl::string& = "" );
 		void load( const uf::Image& );
 	};
 	namespace gui {

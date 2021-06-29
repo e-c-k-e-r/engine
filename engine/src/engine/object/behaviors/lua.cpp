@@ -17,8 +17,8 @@ UF_BEHAVIOR_REGISTER_CPP(uf::LuaBehavior)
 void uf::LuaBehavior::initialize( uf::Object& self ) {	
 #if UF_USE_LUA
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
 		if ( category != "" && category != "scripts" ) return;
 		if ( category == "" && uf::io::extension(filename) != "lua" ) return;
 		uf::Scene& scene = uf::scene::getCurrentScene();

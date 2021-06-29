@@ -7,13 +7,13 @@ void uf::BaseMesh<T, U>::initialize( size_t o ) {
 template<typename T, typename U>
 void uf::BaseMesh<T, U>::expand( bool check ) {
 	if ( this->indices.empty() ) return;
-	std::vector<vertex_t> _vertices = std::move( this->vertices );
+	uf::stl::vector<vertex_t> _vertices = std::move( this->vertices );
 	this->vertices.clear();
 	this->vertices.reserve( this->indices.size() );
 	if ( !check ) {
 		for ( auto& index : this->indices ) this->vertices.emplace_back( _vertices[index] );
 	} else {
-		std::vector<vertex_t> cache;
+		uf::stl::vector<vertex_t> cache;
 		bool valid = true;
 		cache.reserve(3);
 		for ( auto& index : this->indices ) {

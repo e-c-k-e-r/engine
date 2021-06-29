@@ -3,7 +3,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
 
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 
 #if UF_NO_EXCEPTIONS
 	#define HANDLE_EXCEPTIONS 0

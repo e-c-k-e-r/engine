@@ -17,8 +17,8 @@ void uf::MeshGrid::initialize( const uf::BaseMesh<T,U>& mesh, const pod::Vector3
 		max.y = std::max( position.z, max.y );
 		max.z = std::max( position.y, max.z );
 	}
-	pod::Vector3f center = (max + min) / 2;
-	pod::Vector3f extent = (max - min) / 2;
+	pod::Vector3f center = (max + min) * 0.5f;
+	pod::Vector3f extent = (max - min) * 0.5f;
 	// pre-generate nodes
 	initialize( center, extent, size );
 	// fill our nodes
@@ -36,15 +36,15 @@ void uf::MeshGrid::initialize( const uf::BaseMesh<T,U>& mesh, const pod::Vector3
 	}
 }
 
-template<typename U = uint32_t>
-std::vector<U> uf::MeshGrid::get() const {
+template<typename U>
+uf::stl::vector<U> uf::MeshGrid::get() const {
 #if 0
 	auto& node = get( point );
-	std::vector<U> indices(node.count);
+	uf::stl::vector<U> indices(node.count);
 	for ( size_t i = 0; i < node.count; ++i ) indices[i] = node.indices[i];
 	return indices;
 #else
-	std::vector<U> indices;
+	uf::stl::vector<U> indices;
 	for ( auto& node : this->m_nodes ) {
 		indices.insert( indices.end(), node.indices.begin(), node.indices.end() );
 	}
@@ -52,11 +52,11 @@ std::vector<U> uf::MeshGrid::get() const {
 #endif
 }
 		
-template<typename U = uint32_t>
-const std::vector<U>& uf::MeshGrid::get( const pod::Vector3f& point ) const {
+template<typename U>
+const uf::stl::vector<U>& uf::MeshGrid::get( const pod::Vector3f& point ) const {
 #if 0
 	auto& node = get( point );
-	std::vector<U> indices(node.count);
+	uf::stl::vector<U> indices(node.count);
 	for ( size_t i = 0; i < node.count; ++i ) indices[i] = node.indices[i];
 	return indices;
 #else

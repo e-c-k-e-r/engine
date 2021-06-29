@@ -3,7 +3,7 @@ template<typename T> pod::Transform<T>& uf::physics::update( pod::Transform<T>& 
 	physics.previous = transform;
 
 	if ( physics.linear.acceleration != pod::Vector3t<T>{0,0,0} ) 
-		physics.linear.velocity += (physics.linear.acceleration*uf::physics::time::delta);
+		physics.linear.velocity += (physics.linear.acceleration * uf::physics::time::delta);
 	if ( physics.rotational.acceleration != pod::Quaternion<T>{0,0,0,0} ) {
 		physics.rotational.velocity = uf::quaternion::multiply(physics.rotational.velocity, physics.rotational.acceleration*uf::physics::time::delta);
 	}

@@ -13,12 +13,12 @@
 namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
 #if UF_USE_OPENGL_FIXED_FUNCTION
-	std::unordered_map<std::string, ext::opengl::Shader::module_t> modules;
+	uf::stl::unordered_map<uf::stl::string, ext::opengl::Shader::module_t> modules;
 #endif
 }
 
 #if UF_USE_OPENGL_FIXED_FUNCTION
-void ext::opengl::Shader::bind( const std::string& name, const module_t& module ) {
+void ext::opengl::Shader::bind( const uf::stl::string& name, const module_t& module ) {
 	::modules[name] = module;
 }
 void ext::opengl::Shader::execute( const ext::opengl::Graphic& graphic, void* userdata ) {
@@ -31,7 +31,7 @@ ext::opengl::Shader::~Shader() {
 	if ( !aliased ) destroy();
 }
 */
-void ext::opengl::Shader::initialize( ext::opengl::Device& device, const std::string& filename, enums::Shader::type_t stage ) {
+void ext::opengl::Shader::initialize( ext::opengl::Device& device, const uf::stl::string& filename, enums::Shader::type_t stage ) {
 	this->device = &device;
 	descriptor.stage = stage;
 
@@ -45,7 +45,7 @@ void ext::opengl::Shader::initialize( ext::opengl::Device& device, const std::st
 	}
 // GPU-based shader execution
 #if !UF_USE_OPENGL_FIXED_FUNCTION
-	std::string glsl;
+	uf::stl::string glsl;
 	{
 		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
@@ -124,11 +124,11 @@ bool ext::opengl::Shader::validate() {
 #endif
 	return valid;
 }
-bool ext::opengl::Shader::hasUniform( const std::string& name ) {
+bool ext::opengl::Shader::hasUniform( const uf::stl::string& name ) {
 //	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
 	return metadata.definitions.uniforms.count(name) > 0;
 }
-ext::opengl::Buffer* ext::opengl::Shader::getUniformBuffer( const std::string& name ) {
+ext::opengl::Buffer* ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) {
 	if ( !hasUniform(name) ) return NULL;
 //	size_t uniformIndex = metadata.json["definitions"]["uniforms"][name]["index"].as<size_t>();
 	size_t uniformIndex = metadata.definitions.uniforms[name].index;
@@ -139,7 +139,7 @@ ext::opengl::Buffer* ext::opengl::Shader::getUniformBuffer( const std::string& n
 	}
 	return NULL;
 }
-ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const std::string& name ) {
+ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
 	return uniforms[metadata.definitions.uniforms[name].index];
 /*
@@ -154,12 +154,12 @@ ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const std::string& nam
 	return userdata;
 */
 }
-bool ext::opengl::Shader::updateUniform( const std::string& name ) {
+bool ext::opengl::Shader::updateUniform( const uf::stl::string& name ) {
 	if ( !hasUniform(name) ) return false;
 	auto& uniform = getUniform(name);
 	return updateUniform(name, uniform);
 }
-bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::opengl::userdata_t& userdata ) {
+bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const ext::opengl::userdata_t& userdata ) {
 	if ( !hasUniform(name) ) return false;
 	auto* bufferObject = getUniformBuffer(name);
 	if ( !bufferObject ) return false;
@@ -169,18 +169,18 @@ bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::ope
 	return true;
 }
 
-uf::Serializer ext::opengl::Shader::getUniformJson( const std::string& name, bool cache ) {
+uf::Serializer ext::opengl::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasUniform(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["uniforms"][name]) ) return metadata.json["uniforms"][name];
 	auto& definition = metadata.json["definitions"]["uniforms"][name];
 	if ( cache ) return metadata.json["uniforms"][name] = definitionToJson(definition);
 	return definitionToJson(definition);
 }
-ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
 	if ( !hasUniform(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
 }
-bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::json::Value& payload ) {
+bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const ext::json::Value& payload ) {
 	if ( !hasUniform(name) ) return false;
 
 	auto* bufferObject = getUniformBuffer(name);
@@ -191,12 +191,12 @@ bool ext::opengl::Shader::updateUniform( const std::string& name, const ext::jso
 	return true;
 }
 
-bool ext::opengl::Shader::hasStorage( const std::string& name ) {
+bool ext::opengl::Shader::hasStorage( const uf::stl::string& name ) {
 //	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
 	return metadata.definitions.storage.count(name) > 0;
 }
 
-ext::opengl::Buffer* ext::opengl::Shader::getStorageBuffer( const std::string& name ) {
+ext::opengl::Buffer* ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) {
 	if ( !hasStorage(name) ) return NULL;
 //	size_t storageIndex = metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
 	size_t storageIndex = metadata.definitions.storage[name].index;
@@ -207,14 +207,14 @@ ext::opengl::Buffer* ext::opengl::Shader::getStorageBuffer( const std::string& n
 	}
 	return NULL;
 }
-uf::Serializer ext::opengl::Shader::getStorageJson( const std::string& name, bool cache ) {
+uf::Serializer ext::opengl::Shader::getStorageJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasStorage(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["storage"][name]) ) return metadata.json["storage"][name];
 	auto& definition = metadata.json["definitions"]["storage"][name];
 	if ( cache ) return metadata.json["storage"][name] = definitionToJson(definition);
 	return definitionToJson(definition);
 }
-ext::opengl::userdata_t ext::opengl::Shader::getStorageUserdata( const std::string& name, const ext::json::Value& payload ) {
+ext::opengl::userdata_t ext::opengl::Shader::getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
 	if ( !hasStorage(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["storage"][name]);
 }

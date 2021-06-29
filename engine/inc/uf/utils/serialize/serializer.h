@@ -6,16 +6,16 @@
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/json/json.h>
 
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <type_traits>
 
 namespace uf {
 	class UF_API Serializer : public ext::json::Document {
 	public:
-		typedef std::string output_t;
-		typedef std::string  input_t;
+		typedef uf::stl::string output_t;
+		typedef uf::stl::string  input_t;
 	
-		Serializer( const std::string& str = "{}" );
+		Serializer( const uf::stl::string& str = "{}" );
 		Serializer( const ext::json::base_value& );
 		Serializer( const ext::json::Value& );
 	#if UF_USE_LUA
@@ -24,7 +24,7 @@ namespace uf {
 		
 		Serializer::output_t serialize( bool pretty = false ) const;
 		Serializer::output_t serialize( const ext::json::EncodingSettings& ) const;
-		void deserialize( const std::string& );
+		void deserialize( const uf::stl::string& );
 
 		// serializeable
 		template<typename T>
@@ -40,7 +40,7 @@ namespace uf {
 		template<typename T>
 		static uf::Serializer toBase64( const T& input ) {
 			// ensure this is a safe type to serialize
-			if ( !serializeable(input) ) return std::string("");
+			if ( !serializeable(input) ) return uf::stl::string("");
 			pod::Userdata* userdata = uf::userdata::create(input);
 			uf::Serializer res;
 			res["base64"] = uf::userdata::toBase64( userdata );
@@ -53,31 +53,31 @@ namespace uf {
 			// ensure this is a safe type to serialize
 			if ( !serializeable(input) ) return T();
 			// ensure it's "proper"
-			if ( !input["base64"].is<std::string>() ) return T();
-			pod::Userdata* userdata = uf::userdata::fromBase64(input["base64"].as<std::string>());
+			if ( !input["base64"].is<uf::stl::string>() ) return T();
+			pod::Userdata* userdata = uf::userdata::fromBase64(input["base64"].as<uf::stl::string>());
 			T res = uf::userdata::get<T>( userdata );
 			uf::userdata::destroy( userdata );
 			return res;
 		}
 	
-		bool readFromFile( const std::string& from, const std::string& hash = "" );
-		bool writeToFile( const std::string& to, const ext::json::EncodingSettings& = {} ) const;
+		bool readFromFile( const uf::stl::string& from, const uf::stl::string& hash = "" );
+		bool writeToFile( const uf::stl::string& to, const ext::json::EncodingSettings& = {} ) const;
 		
 		void merge( const uf::Serializer& other, bool priority = true );
 		void import( const uf::Serializer& other );
-		ext::json::Value& path( const std::string& );
+		ext::json::Value& path( const uf::stl::string& );
 
 		operator Serializer::output_t();
 		operator Serializer::output_t() const;
-		uf::Serializer& operator=( const std::string& str );
+		uf::Serializer& operator=( const uf::stl::string& str );
 		uf::Serializer& operator=( const ext::json::base_value& json );
 		uf::Serializer& operator=( const ext::json::Value& json );
 	#if UF_USE_LUA
 		uf::Serializer& operator=( const sol::table& json );
 	#endif
-		uf::Serializer& operator<<( const std::string& str );
-		uf::Serializer& operator>>( std::string& str );
-		const uf::Serializer& operator>>( std::string& str ) const;
+		uf::Serializer& operator<<( const uf::stl::string& str );
+		uf::Serializer& operator>>( uf::stl::string& str );
+		const uf::Serializer& operator>>( uf::stl::string& str ) const;
 	};
 
 	typedef Serializer Metadata;

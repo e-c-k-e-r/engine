@@ -75,7 +75,7 @@ void ext::opengl::Texture::destroy() {
 	image = GL_NULL_HANDLE;
 }
 void ext::opengl::Texture::loadFromFile(
-	const std::string& filename, 
+	const uf::stl::string& filename, 
 	enums::Format::type_t format
 ) {
 	return loadFromFile( filename, ext::opengl::device, format );
@@ -87,7 +87,7 @@ void ext::opengl::Texture::loadFromImage(
 	return loadFromImage( image, ext::opengl::device, format );
 }
 void ext::opengl::Texture::loadFromFile(
-	const std::string& filename, 
+	const uf::stl::string& filename, 
 	Device& device,
 	enums::Format::type_t format
 ) {

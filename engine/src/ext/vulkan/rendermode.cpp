@@ -16,12 +16,12 @@
 ext::vulkan::RenderMode::~RenderMode() {
 	this->destroy();
 }
-const std::string ext::vulkan::RenderMode::getType() const {
+const uf::stl::string ext::vulkan::RenderMode::getType() const {
 	return "";
 }
-const std::string ext::vulkan::RenderMode::getName() const {
+const uf::stl::string ext::vulkan::RenderMode::getName() const {
 //	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-//	return metadata["name"].as<std::string>();
+//	return metadata["name"].as<uf::stl::string>();
 	return metadata.name;
 }
 ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
@@ -37,7 +37,7 @@ const size_t ext::vulkan::RenderMode::blitters() const {
 ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
 	return NULL;
 }
-std::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
+uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
 }
 
@@ -170,7 +170,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 void ext::vulkan::RenderMode::createCommandBuffers() {
 	this->execute = true;
 
-	std::vector<ext::vulkan::Graphic*> graphics;
+	uf::stl::vector<ext::vulkan::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -205,13 +205,13 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 	}
 	return commands;
 }
-void ext::vulkan::RenderMode::createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+void ext::vulkan::RenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 
 }
 void ext::vulkan::RenderMode::bindPipelines() {
 	this->execute = true;
 
-	std::vector<ext::vulkan::Graphic*> graphics;
+	uf::stl::vector<ext::vulkan::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -224,7 +224,7 @@ void ext::vulkan::RenderMode::bindPipelines() {
 	this->synchronize();
 	this->bindPipelines( graphics );
 }
-void ext::vulkan::RenderMode::bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics ) {
+void ext::vulkan::RenderMode::bindPipelines( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	for ( auto* pointer : graphics ) {
 		auto& graphic = *pointer;
 		for ( size_t currentPass = 0; currentPass < renderTarget.passes.size(); ++currentPass ) {

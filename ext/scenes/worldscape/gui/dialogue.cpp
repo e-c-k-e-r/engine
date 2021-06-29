@@ -12,7 +12,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/utils/math/physics.h>
 
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 
 //#include <uf/ext/renderer/renderer.h>
 
@@ -31,28 +31,28 @@ namespace {
 
 	ext::DialogueManager* dialogueManager;
 
-	uf::Serializer masterTableGet( const std::string& table ) {
+	uf::Serializer masterTableGet( const uf::stl::string& table ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
+	uf::Serializer masterDataGet( const uf::stl::string& table, const uf::stl::string& key ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
+	inline int64_t parseInt( const uf::stl::string& str ) {
 		return atoi(str.c_str());
 	}
 
-	void playSound( ext::GuiDialogue& entity, const std::string& id, const std::string& key ) {
+	void playSound( ext::GuiDialogue& entity, const uf::stl::string& id, const uf::stl::string& key ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string name = charaData["filename"].as<std::string>();
-		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string name = charaData["filename"].as<uf::stl::string>();
+		uf::stl::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 		if ( charaData["internal"].as<bool>() ) {
 			url = "/smtsamo/voice/voice_" + name + "_" + key + ".ogg";
 		}
@@ -60,7 +60,7 @@ namespace {
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.Voice." + std::to_string(entity.getUid()));
 	}
-	void playSound( ext::GuiDialogue& entity, std::size_t uid, const std::string& key ) {
+	void playSound( ext::GuiDialogue& entity, std::size_t uid, const uf::stl::string& key ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Serializer& pMetadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -68,29 +68,29 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].as<std::string>();
+		uf::stl::string id = metadata[""]["id"].as<uf::stl::string>();
 		playSound( entity, id, key );
 	}
-	void playSound( ext::GuiDialogue& entity, const std::string& key ) {
+	void playSound( ext::GuiDialogue& entity, const uf::stl::string& key ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
+		uf::stl::string url = uf::io::root+"/audio/ui/" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
 	}
-	void playMusic( ext::GuiDialogue& entity, const std::string& filename ) {
+	void playMusic( ext::GuiDialogue& entity, const uf::stl::string& filename ) {
 		auto& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		assetLoader.load(filename, "asset:Load." + std::to_string(scene.getUid()));
 	}
-	std::string getKeyFromIndex( uf::Serializer& object, uint64_t index ) {
+	uf::stl::string getKeyFromIndex( uf::Serializer& object, uint64_t index ) {
 		uint64_t i = 0;
-		std::string key = "";
+		uf::stl::string key = "";
 		for ( auto it = object.begin(); it != object.end(); ++it ) {
 			if ( i++ == index ) key = it.key();
 		}
@@ -104,11 +104,11 @@ namespace {
 		struct {
 			int selection = 0;
 			int selectionsMax = 3;
-			std::vector<std::string> invalids;
+			uf::stl::vector<uf::stl::string> invalids;
 			uf::Serializer current;
-			std::string index = "0";
+			uf::stl::string index = "0";
 		} actions;
-		std::string state = "open";
+		uf::stl::string state = "open";
 		bool initialized = false;
 	};
 	static DialogueStats stats;
@@ -122,10 +122,10 @@ void ext::GuiDialogue::initialize() {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	dialogueManager = (ext::DialogueManager*) this->getRootParent().findByName( "Dialogue Manager" );
 
-	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.SFX." + std::to_string(this->getUid()), [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -141,10 +141,10 @@ void ext::GuiDialogue::initialize() {
 		return "true";
 	});
 
-	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.Voice." + std::to_string(this->getUid()), [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -168,7 +168,7 @@ void ext::GuiDialogue::initialize() {
 		uf::hooks.call("window:Mouse.Lock");
 	}
 
-	this->addHook("menu:Close.%UID%", [&]( const std::string& event ) -> std::string {		
+	this->addHook("menu:Close.%UID%", [&]( const uf::stl::string& event ) -> uf::stl::string {		
 		// kill
 		this->getParent().removeChild(*this);
 		this->destroy();
@@ -194,7 +194,7 @@ void ext::GuiDialogue::tick() {
 		if ( result["end"].as<bool>() ) bMetadata["system"]["closing"] = true;
 		if ( !ext::json::isNull( result["timeout"] ) ) timeout = result["timeout"].as<float>();
 		else timeout = 1;
-		if ( result["message"].as<std::string>() != "" ) {
+		if ( result["message"].as<uf::stl::string>() != "" ) {
 			if ( dialogueMessage ) {
 				dialogueMessage->destroy();
 				this->removeChild(*dialogueMessage);
@@ -204,7 +204,7 @@ void ext::GuiDialogue::tick() {
 			this->addChild(*dialogueMessage);
 			uf::Serializer& pMetadata = dialogueMessage->getComponent<uf::Serializer>();
 			dialogueMessage->as<uf::Object>().load("./dialogue-text.json", true);
-			pMetadata["text settings"]["string"] = result["message"].as<std::string>();
+			pMetadata["text settings"]["string"] = result["message"].as<uf::stl::string>();
 			dialogueMessage->initialize();
 		}
 		timer.reset();
@@ -222,13 +222,13 @@ void ext::GuiDialogue::tick() {
 			return;
 		}
 		stats.actions.current = actions;
-		std::string string = "";
+		uf::stl::string string = "";
 		std::size_t counter = 0;
 		std::size_t start = stats.actions.selection;
 		auto keys = ext::json::keys( actions );
 		for ( int i = start; i < keys.size(); ++i ) {
-			std::string key = getKeyFromIndex( actions, i );
-			std::string text = actions[key].as<std::string>();
+			uf::stl::string key = getKeyFromIndex( actions, i );
+			uf::stl::string text = actions[key].as<uf::stl::string>();
 			if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 			if ( ++counter > stats.actions.selectionsMax ) break;
 			if ( i != stats.actions.selection ) text = "%#FFFFFF%" + text;
@@ -237,8 +237,8 @@ void ext::GuiDialogue::tick() {
 		}
 		if ( keys.size() > stats.actions.selectionsMax ) {
 			for ( int i = 0; i < keys.size(); ++i ) {
-				std::string key = getKeyFromIndex( actions, i );
-				std::string text = actions[key].as<std::string>();
+				uf::stl::string key = getKeyFromIndex( actions, i );
+				uf::stl::string text = actions[key].as<uf::stl::string>();
 				if ( std::find( stats.actions.invalids.begin(), stats.actions.invalids.end(), key ) != stats.actions.invalids.end() ) continue;
 				if ( ++counter > stats.actions.selectionsMax ) break;
 				if ( i != stats.actions.selection ) text = "%#FFFFFF%" + text;
@@ -260,7 +260,7 @@ void ext::GuiDialogue::tick() {
 
 	if ( !stats.initialized ) {
 		stats.initialized = true;
-		this->addHook("menu:Dialogue.Turn.%UID%", [&](const std::string& event) -> std::string {
+		this->addHook("menu:Dialogue.Turn.%UID%", [&](const uf::stl::string& event) -> uf::stl::string {
 			uf::Serializer json = event;
 			uf::Serializer payload;
 			payload["action"] = "dialogue-select";
@@ -268,7 +268,7 @@ void ext::GuiDialogue::tick() {
 			uf::Serializer result = dialogueManager->callHook("menu:Dialogue.Action.%UID%", payload)[0].as<uf::Serializer>();
 			postParseResult(result);
 
-			// renderDialogueOptions(std::string(""));
+			// renderDialogueOptions(uf::stl::string(""));
 			renderDialogueOptions(result["actions"]);
 
 			return "true";
@@ -281,7 +281,7 @@ void ext::GuiDialogue::tick() {
 		if ( metadata["system"]["closing"].as<bool>() ) {
 			if ( alpha >= 1.0f ) {
 				uf::Asset assetLoader;
-				std::string canonical = assetLoader.load(uf::io::root+"/audio/ui/menu close.ogg");
+				uf::stl::string canonical = assetLoader.load(uf::io::root+"/audio/ui/menu close.ogg");
 				uf::Audio& sfx = assetLoader.get<uf::Audio>(canonical);
 				sfx.setVolume(masterdata["volumes"]["sfx"].as<float>());
 				sfx.play();
@@ -369,12 +369,12 @@ void ext::GuiDialogue::tick() {
 		} else if ( keys.select && timer.elapsed().asDouble() >= timeout ) {
 			playSound(*this, "menu close");
 			uf::Serializer payload;
-			std::string action = getKeyFromIndex(stats.actions.current, stats.actions.selection);
+			uf::stl::string action = getKeyFromIndex(stats.actions.current, stats.actions.selection);
 			payload["action"] = "dialogue-select";
 			payload["index"] = action;
 			stats.actions.index = action;
 			
-			renderDialogueOptions(std::string(""));
+			renderDialogueOptions(uf::stl::string(""));
 
 			timer.reset();
 

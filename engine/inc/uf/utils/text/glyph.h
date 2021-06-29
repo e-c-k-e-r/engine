@@ -2,7 +2,7 @@
 
 #include <uf/config.h>
 #if UF_USE_FREETYPE
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 #include <uf/utils/math/vector.h>
 #include <uf/ext/freetype/freetype.h>
@@ -23,9 +23,9 @@ namespace uf {
 		~Glyph();
 
 		bool generated();
-		uint8_t* generate( const std::string&, unsigned long, uint = 48 );
+		uint8_t* generate( const uf::stl::string&, unsigned long, uint = 48 );
 		uint8_t* generate( ext::freetype::Glyph&, unsigned long, uint = 48 );
-		uint8_t* generate( const std::string&, const uf::String&, uint = 48 );
+		uint8_t* generate( const uf::stl::string&, const uf::String&, uint = 48 );
 		uint8_t* generate( ext::freetype::Glyph&, const uf::String&, uint = 48 );
 
 		void generateSdf( uint8_t* );

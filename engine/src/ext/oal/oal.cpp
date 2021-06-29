@@ -2,7 +2,7 @@
 #if defined(UF_USE_OPENAL)
 
 #include <uf/ext/oal/oal.h>
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
 #include <uf/ext/vorbis/vorbis.h>
 #include <iostream>
@@ -50,18 +50,18 @@ void ext::al::listener( ALenum name, ALfloat x ) { AL_CHECK_RESULT(alListenerf( 
 void ext::al::listener( ALenum name, ALfloat x, ALfloat y, ALfloat z ) { AL_CHECK_RESULT(alListener3f( name, x, y, z )); }
 void ext::al::listener( ALenum name, const ALfloat* f ) { AL_CHECK_RESULT(alListenerfv( name, f )); }
 
-void ext::al::listener( const std::string& string, ALfloat x ) {
+void ext::al::listener( const uf::stl::string& string, ALfloat x ) {
 	// alSourcef
 	if ( string == "GAIN" ) return ext::al::listener( AL_GAIN, x );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::listener( const std::string& string, ALfloat x, ALfloat y, ALfloat z ) {
+void ext::al::listener( const uf::stl::string& string, ALfloat x, ALfloat y, ALfloat z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return ext::al::listener( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return ext::al::listener( AL_VELOCITY, x, y, z );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::listener( const std::string& string, const ALfloat* f ) {
+void ext::al::listener( const uf::stl::string& string, const ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return ext::al::listener( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return ext::al::listener( AL_VELOCITY, f );
@@ -69,7 +69,7 @@ void ext::al::listener( const std::string& string, const ALfloat* f ) {
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
 #endif
-std::string ext::al::getError( ALCenum error ) {
+uf::stl::string ext::al::getError( ALCenum error ) {
 	if ( !error ) error = alGetError();
 	switch (error) {
 		case AL_NO_ERROR: return "AL_NO_ERROR";
@@ -81,11 +81,11 @@ std::string ext::al::getError( ALCenum error ) {
 	}
 	return "AL_UNKNOWN(" + std::to_string(error) + ")";
 }
-uf::audio::Metadata* ext::al::create( const std::string& filename, bool streamed, uint8_t buffers ) {
+uf::audio::Metadata* ext::al::create( const uf::stl::string& filename, bool streamed, uint8_t buffers ) {
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::audio::Metadata* pointer = &uf::MemoryPool::global.alloc<uf::audio::Metadata>();
+	uf::audio::Metadata* pointer = &uf::memoryPool::global.alloc<uf::audio::Metadata>();
 #else
-	uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;
+	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;
 	uf::audio::Metadata* pointer = (memoryPool) ? &memoryPool->alloc<uf::audio::Metadata>() : new uf::audio::Metadata;
 #endif
 	uf::audio::Metadata& metadata = *pointer;
@@ -101,13 +101,13 @@ uf::audio::Metadata* ext::al::create( const std::string& filename, bool streamed
 	metadata.al.source.set( AL_LOOPING, metadata.settings.loop ? AL_TRUE : AL_FALSE );
 	return pointer;
 }
-uf::audio::Metadata* ext::al::open( const std::string& filename ) {
+uf::audio::Metadata* ext::al::open( const uf::stl::string& filename ) {
 	return ext::al::open( filename, uf::audio::streamsByDefault );
 }
-uf::audio::Metadata* ext::al::open( const std::string& filename, bool streams ) {
+uf::audio::Metadata* ext::al::open( const uf::stl::string& filename, bool streams ) {
 	return streams ? ext::al::stream( filename ) : ext::al::load( filename );
 }
-uf::audio::Metadata* ext::al::load( const std::string& filename ) {
+uf::audio::Metadata* ext::al::load( const uf::stl::string& filename ) {
 	uf::audio::Metadata* pointer = ext::al::create( filename, false, 1 );
 	uf::audio::Metadata& metadata = *pointer;
 
@@ -115,7 +115,7 @@ uf::audio::Metadata* ext::al::load( const std::string& filename ) {
 	return pointer;
 }
 
-uf::audio::Metadata* ext::al::stream( const std::string& filename ) {
+uf::audio::Metadata* ext::al::stream( const uf::stl::string& filename ) {
 	uf::audio::Metadata* pointer = ext::al::create( filename, true, uf::audio::buffers );
 	uf::audio::Metadata& metadata = *pointer;
 
@@ -131,9 +131,9 @@ void ext::al::close( uf::audio::Metadata* metadata ) {
 	ext::al::close( *metadata );
 
 #if UF_MEMORYPOOL_INVALID_FREE
-	uf::MemoryPool::global.free( metadata );
+	uf::memoryPool::global.free( metadata );
 #else
-	uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;	
+	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;	
 	if ( memoryPool ) memoryPool->free( metadata );
 	else delete metadata;
 #endif
@@ -185,7 +185,7 @@ void ext::al::Source::get( ALenum name, ALint& x ) { AL_CHECK_RESULT(alGetSource
 void ext::al::Source::get( ALenum name, ALint& x, ALint& y, ALint& z ) { AL_CHECK_RESULT(alGetSource3i( this->m_index, name, &x, &y, &z )); }
 void ext::al::Source::get( ALenum name, ALint* f ) { AL_CHECK_RESULT(alGetSourceiv( this->m_index, name, f )); }
 
-void ext::al::Source::get( const std::string& string, ALfloat& x ) {
+void ext::al::Source::get( const uf::stl::string& string, ALfloat& x ) {
 	// alSourcef
 	if ( string == "PITCH" ) return this->get( AL_PITCH, x );
 	if ( string == "GAIN" ) return this->get( AL_GAIN, x );
@@ -200,21 +200,21 @@ void ext::al::Source::get( const std::string& string, ALfloat& x ) {
 	if ( string == "SEC_OFFSET" ) return this->get( AL_SEC_OFFSET, x );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::get( const std::string& string, ALfloat& x, ALfloat& y, ALfloat& z ) {
+void ext::al::Source::get( const uf::stl::string& string, ALfloat& x, ALfloat& y, ALfloat& z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, x, y, z );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::get( const std::string& string, ALfloat* f ) {
+void ext::al::Source::get( const uf::stl::string& string, ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, f );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::get( const std::string& string, ALint& x ) {
+void ext::al::Source::get( const uf::stl::string& string, ALint& x ) {
 	// alSourcei
 	if ( string == "SOURCE_RELATIVE" ) return this->get( AL_SOURCE_RELATIVE, x );
 	if ( string == "CONE_INNER_ANGLE" ) return this->get( AL_CONE_INNER_ANGLE, x );
@@ -224,14 +224,14 @@ void ext::al::Source::get( const std::string& string, ALint& x ) {
 	if ( string == "SOURCE_STATE" ) return this->get( AL_SOURCE_STATE, x );	
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::get( const std::string& string, ALint& x, ALint& y, ALint& z ) {
+void ext::al::Source::get( const uf::stl::string& string, ALint& x, ALint& y, ALint& z ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, x, y, z );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::get( const std::string& string, ALint* f ) {
+void ext::al::Source::get( const uf::stl::string& string, ALint* f ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, f );
@@ -246,7 +246,7 @@ void ext::al::Source::set( ALenum name, ALint x ) { AL_CHECK_RESULT(alSourcei( t
 void ext::al::Source::set( ALenum name, ALint x, ALint y, ALint z ) { AL_CHECK_RESULT(alSource3i( this->m_index, name, x, y, z )); }
 void ext::al::Source::set( ALenum name, const ALint* f ) { AL_CHECK_RESULT(alSourceiv( this->m_index, name, f )); }
 
-void ext::al::Source::set( const std::string& string, ALfloat x ) {
+void ext::al::Source::set( const uf::stl::string& string, ALfloat x ) {
 	// alSourcef
 	if ( string == "PITCH" ) return this->set( AL_PITCH, x );
 	if ( string == "GAIN" ) return this->set( AL_GAIN, x );
@@ -261,21 +261,21 @@ void ext::al::Source::set( const std::string& string, ALfloat x ) {
 	if ( string == "SEC_OFFSET" ) return this->set( AL_SEC_OFFSET, x );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( const std::string& string, ALfloat x, ALfloat y, ALfloat z ) {
+void ext::al::Source::set( const uf::stl::string& string, ALfloat x, ALfloat y, ALfloat z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, x, y, z );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( const std::string& string, const ALfloat* f ) {
+void ext::al::Source::set( const uf::stl::string& string, const ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, f );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( const std::string& string, ALint x ) {
+void ext::al::Source::set( const uf::stl::string& string, ALint x ) {
 	// alSourcei
 	if ( string == "SOURCE_RELATIVE" ) return this->set( AL_SOURCE_RELATIVE, x );
 	if ( string == "CONE_INNER_ANGLE" ) return this->set( AL_CONE_INNER_ANGLE, x );
@@ -285,14 +285,14 @@ void ext::al::Source::set( const std::string& string, ALint x ) {
 	if ( string == "SOURCE_STATE" ) return this->set( AL_SOURCE_STATE, x );	
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( const std::string& string, ALint x, ALint y, ALint z ) {
+void ext::al::Source::set( const uf::stl::string& string, ALint x, ALint y, ALint z ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, x, y, z );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( const std::string& string, const ALint* f ) {
+void ext::al::Source::set( const uf::stl::string& string, const ALint* f ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, f );
@@ -300,7 +300,7 @@ void ext::al::Source::set( const std::string& string, const ALint* f ) {
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
 #if 0
-void ext::al::Source::get( ALenum name, std::vector<ALfloat>& parameters ) {
+void ext::al::Source::get( ALenum name, uf::stl::vector<ALfloat>& parameters ) {
 	if ( !this->m_index ) this->initialize();
 	switch ( parameters.size() ) {
 		case 1: AL_CHECK_RESULT(alGetSourcef( this->m_index, name, &parameters[0] )); break;
@@ -308,7 +308,7 @@ void ext::al::Source::get( ALenum name, std::vector<ALfloat>& parameters ) {
 		default: AL_CHECK_RESULT(alGetSourcefv( this->m_index, name, &parameters[0] )); break;
 	}
 }
-void ext::al::Source::get( const std::string& string, std::vector<ALfloat>& parameters ) {
+void ext::al::Source::get( const uf::stl::string& string, uf::stl::vector<ALfloat>& parameters ) {
 	// alSourcef
 	if ( string == "PITCH" ) return this->get( AL_PITCH, parameters );
 	if ( string == "GAIN" ) return this->get( AL_GAIN, parameters );
@@ -327,7 +327,7 @@ void ext::al::Source::get( const std::string& string, std::vector<ALfloat>& para
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, parameters );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, parameters );
 }
-void ext::al::Source::get( ALenum name, std::vector<ALint>& parameters ) {
+void ext::al::Source::get( ALenum name, uf::stl::vector<ALint>& parameters ) {
 	if ( !this->m_index ) this->initialize();
 	switch ( parameters.size() ) {
 		case 1: AL_CHECK_RESULT(alGetSourcei( this->m_index, name, &parameters[0] )); break;
@@ -335,7 +335,7 @@ void ext::al::Source::get( ALenum name, std::vector<ALint>& parameters ) {
 		default: AL_CHECK_RESULT(alGetSourceiv( this->m_index, name, &parameters[0] )); break;
 	}
 }
-void ext::al::Source::get( const std::string& string, std::vector<ALint>& parameters ) {
+void ext::al::Source::get( const uf::stl::string& string, uf::stl::vector<ALint>& parameters ) {
 	// alSourcei
 	if ( string == "SOURCE_RELATIVE" ) return this->get( AL_SOURCE_RELATIVE, parameters );
 	if ( string == "CONE_INNER_ANGLE" ) return this->get( AL_CONE_INNER_ANGLE, parameters );
@@ -350,7 +350,7 @@ void ext::al::Source::get( const std::string& string, std::vector<ALint>& parame
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, parameters );
 }
 
-void ext::al::Source::set( ALenum name, const std::vector<ALfloat>& parameters ) {
+void ext::al::Source::set( ALenum name, const uf::stl::vector<ALfloat>& parameters ) {
 	if ( !this->m_index ) this->initialize();
 	switch ( parameters.size() ) {
 		case 1: AL_CHECK_RESULT(alSourcei( this->m_index, name, parameters[0] )); break;
@@ -358,7 +358,7 @@ void ext::al::Source::set( ALenum name, const std::vector<ALfloat>& parameters )
 		default: AL_CHECK_RESULT(alSourceiv( this->m_index, name, &parameters[0] )); break;
 	}
 }
-void ext::al::Source::set( const std::string& string, const std::vector<ALfloat>& parameters ) {
+void ext::al::Source::set( const uf::stl::string& string, const uf::stl::vector<ALfloat>& parameters ) {
 	// alSourcef
 	if ( string == "PITCH" ) return this->set( AL_PITCH, parameters );
 	if ( string == "GAIN" ) return this->set( AL_GAIN, parameters );
@@ -377,7 +377,7 @@ void ext::al::Source::set( const std::string& string, const std::vector<ALfloat>
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, parameters );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, parameters );
 }
-void ext::al::Source::set( ALenum name, const std::vector<ALint>& parameters ) {
+void ext::al::Source::set( ALenum name, const uf::stl::vector<ALint>& parameters ) {
 	if ( !this->m_index ) this->initialize();
 	switch ( parameters.size() ) {
 		case 1: AL_CHECK_RESULT(alSourcei( this->m_index, name, parameters[0] )); break;
@@ -385,7 +385,7 @@ void ext::al::Source::set( ALenum name, const std::vector<ALint>& parameters ) {
 		default: AL_CHECK_RESULT(alSourceiv( this->m_index, name, &parameters[0] )); break;
 	}
 }
-void ext::al::Source::set( const std::string& string, const std::vector<ALint>& parameters ) {
+void ext::al::Source::set( const uf::stl::string& string, const uf::stl::vector<ALint>& parameters ) {
 	// alSourcei
 	if ( string == "SOURCE_RELATIVE" ) return this->set( AL_SOURCE_RELATIVE, parameters );
 	if ( string == "CONE_INNER_ANGLE" ) return this->set( AL_CONE_INNER_ANGLE, parameters );

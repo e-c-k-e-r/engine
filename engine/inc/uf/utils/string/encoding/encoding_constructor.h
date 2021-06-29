@@ -26,7 +26,7 @@ namespace uf { \
 			template<typename Input> \
 			static Input UF_API_CALL length(Input begin, Input end); \
 		// 	Encoding's name \
-			static std::string name = ENCODING_NAME; \
+			static uf::stl::string name = ENCODING_NAME; \
 		}; \
 	} \
 }

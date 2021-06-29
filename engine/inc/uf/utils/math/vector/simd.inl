@@ -1,3 +1,5 @@
+#include <uf/utils/memory/alignment.h>
+
 template<typename T>
 inline uf::simd::value<T>::value() {}
 template<typename T>
@@ -82,14 +84,28 @@ inline pod::Vector<uint,N> uf::simd::vector( const uf::simd::value<uint> v ){
 }
 
 inline uf::simd::value<float> /*UF_API*/ uf::simd::load( const float* f ) {
-#if 1
-	return _mm_loadu_ps(f);
-#else
+#if UF_VECTOR_ALIGNED
 	return _mm_load_ps(f);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_load_ps(f);
+//	UF_MSG_DEBUG( "Realigning... " << uf::aligned(f, 16) << " (" << f[0] << ", " << f[1] << ", " << f[2] << ", " << f[3] << ")" );
+
+	alignas(16) float s[4];
+	memcpy( &s[0], f, sizeof(float) * 4 );
+	return _mm_loadu_ps(s);
 #endif
 }
 inline void /*UF_API*/ uf::simd::store( uf::simd::value<float> v, float* f ) {
-	_mm_store_ps(f, v);
+#if UF_VECTOR_ALIGNED
+	return _mm_store_ps(f, v);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_store_ps(f, v);
+//	UF_MSG_DEBUG( "Realigning... " << uf::aligned(f, 16) << " (" << f[0] << ", " << f[1] << ", " << f[2] << ", " << f[3] << ")" );
+
+	alignas(16) float s[4];
+	_mm_store_ps(&s[0], v);
+	memcpy( f, &s[0], sizeof(float) * 4 );
+#endif
 }
 inline uf::simd::value<float> /*UF_API*/ uf::simd::set( float f ) {
 	return _mm_set1_ps(f);
@@ -139,9 +155,32 @@ inline float /*UF_API*/ uf::simd::dot( uf::simd::value<float> x, uf::simd::value
 #endif
 }
 inline uf::simd::value<int32_t> /*UF_API*/ uf::simd::load( const int32_t* f ) {
+#if SSE_INSTR_SET >= 3
+#if UF_VECTOR_ALIGNED
+	return _mm_load_si128(f);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_load_si128(f);
+
+	alignas(16) int32_t s[4];
+	memcpy( &s[0], f, sizeof(int32_t) * 4 );
+	return _mm_load_si128(s);
+#endif
+#else
 	return uf::simd::value<int32_t>( f[0], f[1], f[2], f[3] );
+#endif
 }
 inline void /*UF_API*/ uf::simd::store( uf::simd::value<int32_t> v, int32_t* f ) {
+#if SSE_INSTR_SET >= 3
+#if UF_VECTOR_ALIGNED
+	return _mm_store_si128(f, v);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_store_si128(f, v);
+
+	alignas(16) int32_t s[4];
+	_mm_store_si128(&s[0], v);
+	memcpy( f, &s[0], sizeof(int32_t) * 4 );
+#endif
+#else
 	union {
 		__m128i x;
 		int32_t y[4];
@@ -151,6 +190,7 @@ inline void /*UF_API*/ uf::simd::store( uf::simd::value<int32_t> v, int32_t* f )
 	f[1] = kludge.y[1];
 	f[2] = kludge.y[2];
 	f[3] = kludge.y[3];
+#endif
 }
 inline uf::simd::value<int32_t> /*UF_API*/ uf::simd::set( int32_t f ) {
 	return _mm_set1_epi32(f);
@@ -206,9 +246,32 @@ inline int32_t /*UF_API*/ uf::simd::dot( uf::simd::value<int32_t> x, uf::simd::v
 }
 
 inline uf::simd::value<uint32_t> /*UF_API*/ uf::simd::load( const uint32_t* f ) {
+#if SSE_INSTR_SET >= 3
+#if UF_VECTOR_ALIGNED
+	return _mm_load_si128(f);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_load_si128(f);
+
+	alignas(16) uint32_t s[4];
+	memcpy( &s[0], f, sizeof(uint32_t) * 4 );
+	return _mm_load_si128(s);
+#endif
+#else
 	return uf::simd::value<uint32_t>( f[0], f[1], f[2], f[3] );
+#endif
 }
 inline void /*UF_API*/ uf::simd::store( uf::simd::value<uint32_t> v, uint32_t* f ) {
+#if SSE_INSTR_SET >= 3
+#if UF_VECTOR_ALIGNED
+	return _mm_store_si128(f, v);
+#else
+	if ( uf::aligned(f, 16) ) return _mm_store_si128(f, v);
+
+	alignas(16) uint32_t s[4];
+	_mm_store_si128(&s[0], v);
+	memcpy( f, &s[0], sizeof(uint32_t) * 4 );
+#endif
+#else
 	union {
 		__m128i x;
 		uint32_t y[4];
@@ -218,6 +281,7 @@ inline void /*UF_API*/ uf::simd::store( uf::simd::value<uint32_t> v, uint32_t* f
 	f[1] = kludge.y[1];
 	f[2] = kludge.y[2];
 	f[3] = kludge.y[3];
+#endif
 }
 inline uf::simd::value<uint32_t> /*UF_API*/ uf::simd::set( uint32_t f ) {
 #if 0

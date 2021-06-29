@@ -2,11 +2,11 @@
 
 #include <uf/config.h>
 
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 
 #include <stdint.h>
 #include <cstddef>
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <algorithm>
 #include <typeindex>
 
@@ -39,8 +39,8 @@ namespace uf {
 		template<typename T> const T& get(const pod::Userdata* userdata, bool validate = uf::userdata::autoValidate );
 		template<typename T> bool is(const pod::Userdata* userdata);
 
-		std::string UF_API toBase64( pod::Userdata* userdata );
-		pod::Userdata* UF_API fromBase64( const std::string& base64 );
+		uf::stl::string UF_API toBase64( pod::Userdata* userdata );
+		pod::Userdata* UF_API fromBase64( const uf::stl::string& base64 );
 
 	//	void move( pod::Userdata& to, pod::Userdata&& from );
 	//	void copy( pod::Userdata& to, const pod::Userdata& from );

@@ -28,7 +28,7 @@ namespace ext {
 			bool aliased = false;
 
 			Device* device = NULL;
-			std::string filename = "";
+			uf::stl::string filename = "";
 
 		#if !UF_USE_OPENGL_FIXED_FUNCTION
 			GLuint module = GL_NULL_HANDLE;
@@ -44,67 +44,67 @@ namespace ext {
 			struct Metadata {
 				uf::Serializer json;
 				
-				std::string pipeline = "";
-				std::string type = "";
+				uf::stl::string pipeline = "";
+				uf::stl::string type = "";
 
 				struct Definition {
 					struct Texture {
-						std::string name = "";
+						uf::stl::string name = "";
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
 						ext::opengl::enums::Image::viewType_t type{};
 					};
 					struct Uniform {
-						std::string name = "";
+						uf::stl::string name = "";
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
 					};
 					struct Storage {
-						std::string name = "";
+						uf::stl::string name = "";
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
 					};
 					struct PushConstant {
-						std::string name = "";
+						uf::stl::string name = "";
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
 					};
-					std::unordered_map<size_t, Texture> textures;
-					std::unordered_map<std::string, Uniform> uniforms;
-					std::unordered_map<std::string, Storage> storage;
-					std::unordered_map<std::string, PushConstant> pushConstants;
+					uf::stl::unordered_map<size_t, Texture> textures;
+					uf::stl::unordered_map<uf::stl::string, Uniform> uniforms;
+					uf::stl::unordered_map<uf::stl::string, Storage> storage;
+					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
 				} definitions;
 			} metadata;
 
 			ext::opengl::userdata_t specializationConstants;
-			std::vector<ext::opengl::userdata_t> pushConstants;
-			std::vector<ext::opengl::userdata_t> uniforms;
+			uf::stl::vector<ext::opengl::userdata_t> pushConstants;
+			uf::stl::vector<ext::opengl::userdata_t> uniforms;
 		//	~Shader();
-			void initialize( Device& device, const std::string&, enums::Shader::type_t stage );
+			void initialize( Device& device, const uf::stl::string&, enums::Shader::type_t stage );
 			void destroy();
 			bool validate();
 
-			bool hasUniform( const std::string& name );
+			bool hasUniform( const uf::stl::string& name );
 
-			Buffer* getUniformBuffer( const std::string& name );
-			ext::opengl::userdata_t& getUniform( const std::string& name );
-			uf::Serializer getUniformJson( const std::string& name, bool cache = true );
-			ext::opengl::userdata_t getUniformUserdata( const std::string& name, const ext::json::Value& payload );
-			bool updateUniform( const std::string& name );
-			bool updateUniform( const std::string& name, const ext::opengl::userdata_t& );
-			bool updateUniform( const std::string& name, const ext::json::Value& payload );
+			Buffer* getUniformBuffer( const uf::stl::string& name );
+			ext::opengl::userdata_t& getUniform( const uf::stl::string& name );
+			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
+			ext::opengl::userdata_t getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload );
+			bool updateUniform( const uf::stl::string& name );
+			bool updateUniform( const uf::stl::string& name, const ext::opengl::userdata_t& );
+			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );
 			
-			bool hasStorage( const std::string& name );
-			Buffer* getStorageBuffer( const std::string& name );
-			uf::Serializer getStorageJson( const std::string& name, bool cache = true );
-			ext::opengl::userdata_t getStorageUserdata( const std::string& name, const ext::json::Value& payload );
+			bool hasStorage( const uf::stl::string& name );
+			Buffer* getStorageBuffer( const uf::stl::string& name );
+			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
+			ext::opengl::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 
 		#if UF_USE_OPENGL_FIXED_FUNCTION
-			static void bind( const std::string& name, const module_t& module );
+			static void bind( const uf::stl::string& name, const module_t& module );
 			void execute( const Graphic& graphic, void* = NULL );
 		#endif
 		};

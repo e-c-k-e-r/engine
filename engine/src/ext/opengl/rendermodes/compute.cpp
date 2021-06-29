@@ -15,7 +15,7 @@
 
 #include <uf/ext/opengl/graphic.h>
 
-const std::string ext::opengl::ComputeRenderMode::getType() const {
+const uf::stl::string ext::opengl::ComputeRenderMode::getType() const {
 	return "Compute";
 }
 const size_t ext::opengl::ComputeRenderMode::blitters() const {
@@ -24,7 +24,7 @@ const size_t ext::opengl::ComputeRenderMode::blitters() const {
 ext::opengl::Graphic* ext::opengl::ComputeRenderMode::getBlitter( size_t i ) {
 	return &this->blitter;
 }
-std::vector<ext::opengl::Graphic*> ext::opengl::ComputeRenderMode::getBlitters() {
+uf::stl::vector<ext::opengl::Graphic*> ext::opengl::ComputeRenderMode::getBlitters() {
 	return { &this->blitter };
 }
 

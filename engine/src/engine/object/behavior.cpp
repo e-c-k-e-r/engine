@@ -36,7 +36,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "object:TransformReferenceController.%UID%", [&](ext::json::Value& json){
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& controller = scene.getController();
-		if ( json["target"].as<std::string>() == "camera" ) {
+		if ( json["target"].as<uf::stl::string>() == "camera" ) {
 			auto& camera = controller.getComponent<uf::Camera>();
 			transform.reference = &camera.getTransform();
 		} else {
@@ -45,21 +45,21 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		if ( ext::json::isNull( json ) ) return;
-		if ( json["type"].as<std::string>() == "merge" ) {
+		if ( json["type"].as<uf::stl::string>() == "merge" ) {
 			metadataJson.merge(json["value"], true);
-		} else if ( json["type"].as<std::string>() == "import" ) {
+		} else if ( json["type"].as<uf::stl::string>() == "import" ) {
 			metadataJson.import(json["value"]);
-		} else if ( json["path"].is<std::string>() ) {
-			metadataJson.path(json["path"].as<std::string>()) = json["value"];
+		} else if ( json["path"].is<uf::stl::string>() ) {
+			metadataJson.path(json["path"].as<uf::stl::string>()) = json["value"];
 		} else {
 			metadataJson.merge(json, true);
 		}
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string hash = json["hash"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
-		std::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string hash = json["hash"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
+		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
 		if ( json["single threaded"].as<bool>() ) {
 			assetLoader.load( filename, hash, category );
 			this->queueHook( callback, json );
@@ -72,8 +72,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		this->queueHook("asset:Parsed.%UID%", json);
 	});	
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
 		bool initialize = ext::json::isNull( json["initialize"] ) ? true : json["initialize"].as<bool>();
 		if ( category != "" && category != "entities" ) return;
 		if ( category == "" && uf::io::extension(filename) != "json" ) return;
@@ -108,7 +108,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	};
 	metadata.deserialize = [&](){
 		metadata.transform.initial = this->getComponent<pod::Transform<>>();
-		metadata.transform.trackParent = metadataJson["system"]["transform"]["track"].as<std::string>() == "parent";
+		metadata.transform.trackParent = metadataJson["system"]["transform"]["track"].as<uf::stl::string>() == "parent";
 	};
 	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
 	metadata.deserialize();
@@ -120,10 +120,10 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		if ( !ext::json::isNull( metadataJson["system"]["physics"]["inertia"] ) ) {
 			collider.inertia = uf::vector::decode( metadataJson["system"]["physics"]["inertia"], pod::Vector3f{} );
 		}
-		if ( metadataJson["system"]["physics"]["type"].as<std::string>() == "BoundingBox" ) {
+		if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "BoundingBox" ) {
 			pod::Vector3f corner = uf::vector::decode( metadataJson["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
 			ext::bullet::create( *this, corner, mass );
-		} else if ( metadataJson["system"]["physics"]["type"].as<std::string>() == "Capsule" ) {
+		} else if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "Capsule" ) {
 			float radius = metadataJson["system"]["physics"]["radius"].as<float>();
 			float height = metadataJson["system"]["physics"]["height"].as<float>();
 			ext::bullet::create( *this, radius, height, mass );
@@ -143,7 +143,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	auto& metadata = this->getComponent<uf::Serializer>();
-	ext::json::forEach( metadata["system"]["hooks"]["bound"], [&]( const std::string& key, ext::json::Value& value ){
+	ext::json::forEach( metadata["system"]["hooks"]["bound"], [&]( const uf::stl::string& key, ext::json::Value& value ){
 		ext::json::forEach( value, [&]( ext::json::Value& id ){
 			uf::hooks.removeHook(key, id.as<size_t>());
 		});
@@ -221,7 +221,7 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if !UF_ENV_DREAMCAST
 	if ( metadataJson["system"]["hot reload"]["enabled"].as<bool>() ) {
-		size_t mtime = uf::io::mtime( metadataJson["system"]["source"].as<std::string>() );
+		size_t mtime = uf::io::mtime( metadataJson["system"]["source"].as<uf::stl::string>() );
 		if ( metadataJson["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
 			metadataJson["system"]["hot reload"]["mtime"] = mtime;
 			this->reload();
@@ -238,7 +238,7 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 			ext::json::forEach(queue, [&](ext::json::Value& member){
 				if ( !ext::json::isObject(member) ) return;
 				uf::Serializer payload = member["payload"];
-				std::string name = member["name"].as<std::string>();
+				uf::stl::string name = member["name"].as<uf::stl::string>();
 				float timeout = member["timeout"].as<float>();
 				if ( timeout < curTime ) this->callHook( name, payload );
 				else newQueue.emplace_back(member);

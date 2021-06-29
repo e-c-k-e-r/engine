@@ -20,10 +20,10 @@ bool ext::opengl::settings::validation = true;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
 size_t ext::opengl::settings::viewCount = 2;
 
-std::vector<std::string> ext::opengl::settings::validationFilters;
-std::vector<std::string> ext::opengl::settings::requestedDeviceFeatures;
-std::vector<std::string> ext::opengl::settings::requestedDeviceExtensions;
-std::vector<std::string> ext::opengl::settings::requestedInstanceExtensions;
+uf::stl::vector<uf::stl::string> ext::opengl::settings::validationFilters;
+uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceFeatures;
+uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceExtensions;
+uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedInstanceExtensions;
 
 ext::opengl::enums::Filter::type_t ext::opengl::settings::swapchainUpscaleFilter = ext::opengl::enums::Filter::LINEAR;
 
@@ -32,7 +32,7 @@ bool ext::opengl::settings::experimental::waitOnRenderEnd = false;
 bool ext::opengl::settings::experimental::individualPipelines = true;
 bool ext::opengl::settings::experimental::multithreadedCommandRecording = true;
 bool ext::opengl::settings::experimental::multithreadedCommandRendering = false;
-std::string ext::opengl::settings::experimental::deferredMode = "";
+uf::stl::string ext::opengl::settings::experimental::deferredMode = "";
 bool ext::opengl::settings::experimental::deferredReconstructPosition = false;
 bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::opengl::settings::experimental::multiview = true;
@@ -56,17 +56,17 @@ bool ext::opengl::states::resized = false;
 bool ext::opengl::states::rebuild = false;
 uint32_t ext::opengl::states::currentBuffer = 0;
 
-std::vector<uf::Scene*> ext::opengl::scenes;
+uf::stl::vector<uf::Scene*> ext::opengl::scenes;
 ext::opengl::RenderMode* ext::opengl::currentRenderMode = NULL;
-std::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
+uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
 	new ext::opengl::BaseRenderMode,
 };
 
-std::string UF_API ext::opengl::errorString() {
+uf::stl::string UF_API ext::opengl::errorString() {
 	return ext::opengl::errorString(glGetError());
 }
-std::string UF_API ext::opengl::errorString( GLenum error ) {
-	std::string str = "";
+uf::stl::string UF_API ext::opengl::errorString( GLenum error ) {
+	uf::stl::string str = "";
 	if (error == GL_NO_ERROR) return str;
 #if UF_ENV_DREAMCAST
 #else
@@ -77,7 +77,7 @@ std::string UF_API ext::opengl::errorString( GLenum error ) {
 }
 
 /////
-bool ext::opengl::hasRenderMode( const std::string& name, bool isName ) {
+bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
 	for ( auto& renderMode: ext::opengl::renderModes ) {
 		if ( isName ) {
 			if ( renderMode->getName() == name ) return true;
@@ -88,7 +88,7 @@ bool ext::opengl::hasRenderMode( const std::string& name, bool isName ) {
 	return false;
 }
 
-ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const std::string& name ) {
+ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModes.push_back(mode);
 	if ( ext::opengl::settings::validation ) uf::iostream << "Adding RenderMode: " << name << ": " << mode->getType() << "\n";
@@ -96,7 +96,7 @@ ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mo
 	ext::opengl::states::rebuild = true;
 	return *mode;
 }
-ext::opengl::RenderMode& ext::opengl::getRenderMode( const std::string& name, bool isName ) {
+ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name, bool isName ) {
 	RenderMode* target = renderModes[0];
 	for ( auto& renderMode: renderModes ) {
 		if ( isName ) {
@@ -115,11 +115,11 @@ ext::opengl::RenderMode& ext::opengl::getRenderMode( const std::string& name, bo
 //	if ( ext::opengl::settings::validation ) uf::iostream << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << "\n";
 	return *target;
 }
-std::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const std::string& name, bool isName ) {
+uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::string& name, bool isName ) {
 	return ext::opengl::getRenderModes({name}, isName);
 }
-std::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const std::vector<std::string>& names, bool isName ) {
-	std::vector<RenderMode*> targets;
+uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
+	uf::stl::vector<RenderMode*> targets;
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
@@ -140,7 +140,7 @@ void UF_API ext::opengl::initialize() {
 	device.initialize();
 	// swapchain.initialize( device );
 	{
-		std::vector<uint8_t> pixels = { 
+		uf::stl::vector<uint8_t> pixels = { 
 			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
 			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
 			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
@@ -159,7 +159,7 @@ void UF_API ext::opengl::initialize() {
 		renderMode->initialize(device);
 	}
 	
-	std::vector<std::function<int()>> jobs;
+	uf::stl::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
@@ -321,7 +321,7 @@ void UF_API ext::opengl::tick(){
 		}
 		renderMode->tick();
 	}
-	std::vector<std::function<int()>> jobs;
+	uf::stl::vector<std::function<int()>> jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( ext::opengl::states::rebuild || renderMode->rebuild ) {
@@ -412,11 +412,11 @@ void UF_API ext::opengl::synchronize( uint8_t flag ) {
 	//	vkDeviceWaitIdle( device );
 	}
 }
-std::string UF_API ext::opengl::allocatorStats(){
+uf::stl::string UF_API ext::opengl::allocatorStats(){
 	return "";
 }
-ext::opengl::enums::Format::type_t ext::opengl::formatFromString( const std::string& string ) {
-	std::unordered_map<std::string,ext::opengl::enums::Format::type_t> table = {
+ext::opengl::enums::Format::type_t ext::opengl::formatFromString( const uf::stl::string& string ) {
+	uf::stl::unordered_map<uf::stl::string,ext::opengl::enums::Format::type_t> table = {
 		{ "UNDEFINED", ext::opengl::enums::Format::UNDEFINED },
 		{ "R4G4_UNORM_PACK8", ext::opengl::enums::Format::R4G4_UNORM_PACK8 },
 		{ "R4G4B4A4_UNORM_PACK16", ext::opengl::enums::Format::R4G4B4A4_UNORM_PACK16 },

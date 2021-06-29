@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <thread>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 #include <uf/utils/hook/hook.h>
 #include <uf/utils/serialize/serializer.h>
@@ -95,7 +95,7 @@ void UF_API ext::discord::initialize(){
 				::discord::ImageDimensions dims{};
 				state.core->ImageManager().GetDimensions(handle, &dims);
 				std::cout << "Fetched " << dims.GetWidth() << "x" << dims.GetHeight() << " avatar!\n";
-				std::vector<uint8_t> data;
+				uf::stl::vector<uint8_t> data;
 				data.reserve(dims.GetWidth() * dims.GetHeight() * 4);
 				uint8_t* d = data.data();
 				state.core->ImageManager().GetData(handle, d, data.size());
@@ -171,7 +171,7 @@ void UF_API ext::discord::initialize(){
 														  std::int64_t userId,
 														  std::uint8_t* payload,
 														  std::uint32_t payloadLength) {
-		std::vector<uint8_t> buffer{};
+		uf::stl::vector<uint8_t> buffer{};
 		buffer.resize(payloadLength);
 		memcpy(buffer.data(), payload, payloadLength);
 		std::cout << "Lobby message " << lobbyId << " from " << userId << " of length "
@@ -198,21 +198,21 @@ void UF_API ext::discord::initialize(){
 		}
 
 		{
-			if ( json["details"].is<std::string>() ) canonical["details"] = json["details"];
-			if ( json["state"].is<std::string>() ) canonical["state"] = json["state"];
-			if ( json["small image"].is<std::string>() ) canonical["small image"] = json["small image"];
-			if ( json["small text"].is<std::string>() ) canonical["small text"] = json["small text"];
-			if ( json["large image"].is<std::string>() ) canonical["large image"] = json["large image"];
-			if ( json["large text"].is<std::string>() ) canonical["large text"] = json["large text"];
+			if ( json["details"].is<uf::stl::string>() ) canonical["details"] = json["details"];
+			if ( json["state"].is<uf::stl::string>() ) canonical["state"] = json["state"];
+			if ( json["small image"].is<uf::stl::string>() ) canonical["small image"] = json["small image"];
+			if ( json["small text"].is<uf::stl::string>() ) canonical["small text"] = json["small text"];
+			if ( json["large image"].is<uf::stl::string>() ) canonical["large image"] = json["large image"];
+			if ( json["large text"].is<uf::stl::string>() ) canonical["large text"] = json["large text"];
 		}
 
 		::discord::Activity activity{};
-		if ( canonical["details"].is<std::string>() ) activity.SetDetails(canonical["details"].asCString());
-		if ( canonical["state"].is<std::string>() ) activity.SetState(canonical["state"].asCString());
-		if ( canonical["small image"].is<std::string>() ) activity.GetAssets().SetSmallImage(canonical["small image"].asCString());
-		if ( canonical["small text"].is<std::string>() ) activity.GetAssets().SetSmallText(canonical["small text"].asCString());
-		if ( canonical["large image"].is<std::string>() ) activity.GetAssets().SetLargeImage(canonical["large image"].asCString());
-		if ( canonical["large text"].is<std::string>() ) activity.GetAssets().SetLargeText(canonical["large text"].asCString());
+		if ( canonical["details"].is<uf::stl::string>() ) activity.SetDetails(canonical["details"].asCString());
+		if ( canonical["state"].is<uf::stl::string>() ) activity.SetState(canonical["state"].asCString());
+		if ( canonical["small image"].is<uf::stl::string>() ) activity.GetAssets().SetSmallImage(canonical["small image"].asCString());
+		if ( canonical["small text"].is<uf::stl::string>() ) activity.GetAssets().SetSmallText(canonical["small text"].asCString());
+		if ( canonical["large image"].is<uf::stl::string>() ) activity.GetAssets().SetLargeImage(canonical["large image"].asCString());
+		if ( canonical["large text"].is<uf::stl::string>() ) activity.GetAssets().SetLargeText(canonical["large text"].asCString());
 		activity.SetType(::discord::ActivityType::Playing);
 		state.core->ActivityManager().UpdateActivity(activity, [](::discord::Result result) {
 			std::cout << ((result == ::discord::Result::Ok) ? "Succeeded" : "Failed") << " updating activity!\n";

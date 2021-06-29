@@ -28,12 +28,12 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 	metadata["region"]["initialized"] = true;
 
 	if ( !metadata["terrain"]["unified"].as<bool>() ) {
-		std::string textureFilename = ""; {
+		uf::stl::string textureFilename = ""; {
 			uf::Serializer& metadata = this->getParent().getComponent<uf::Serializer>();
 			uf::Asset assetLoader;
 			for ( uint i = 0; i < metadata["system"]["assets"].size(); ++i ) {
 				if ( textureFilename != "" ) break;
-				std::string filename = this->grabURI( metadata["system"]["assets"][i].as<std::string>(), metadata["system"]["root"].as<std::string>() );
+				uf::stl::string filename = this->grabURI( metadata["system"]["assets"][i].as<uf::stl::string>(), metadata["system"]["root"].as<uf::stl::string>() );
 				textureFilename = assetLoader.cache( filename );
 			}
 		}
@@ -48,8 +48,8 @@ void ext::RegionBehavior::initialize( uf::Object& self ) {
 		texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 		texture.loadFromFile( textureFilename );
 
-		std::string suffix = ""; {
-			std::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<std::string>();
+		uf::stl::string suffix = ""; {
+			uf::stl::string _ = this->getRootParent<uf::Scene>().getComponent<uf::Serializer>()["shaders"]["region"]["suffix"].as<uf::stl::string>();
 			if ( _ != "" ) suffix = _ + ".";
 		}
 
@@ -303,7 +303,7 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 	}
 
 	auto function = [&]() -> int {
-		std::vector<uf::Object*> entities;
+		uf::stl::vector<uf::Object*> entities;
 		// update physics
 		if ( updatePhysics ) {
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
@@ -371,7 +371,7 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 			voxelPosition.y += size.y / 2.0f + 1;
 			voxelPosition.z += size.z / 2.0f;
 
-			std::vector<pod::Vector3ui> positions = {
+			uf::stl::vector<pod::Vector3ui> positions = {
 				{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
 				{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
 				{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
@@ -463,7 +463,7 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 		bool useWorkers = sMetadata["system"]["physics"]["use"]["worker"].as<bool>();
 		pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 		auto function = [&]() -> int {
-			std::vector<uf::Object*> entities;
+			uf::stl::vector<uf::Object*> entities;
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 				auto& metadata = entity->getComponent<uf::Serializer>();
 				if ( !ext::json::isNull( metadata["system"]["physics"]["collision"] ) && !metadata["system"]["physics"]["collision"].as<bool>() ) return;
@@ -516,7 +516,7 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 				voxelPosition.z += size.z / 2.0f;
 
 				uf::Collider collider;
-				std::vector<pod::Vector3ui> positions = {
+				uf::stl::vector<pod::Vector3ui> positions = {
 					{ voxelPosition.x, voxelPosition.y, voxelPosition.z },
 					{ voxelPosition.x - 1, voxelPosition.y, voxelPosition.z },
 					{ voxelPosition.x + 1, voxelPosition.y, voxelPosition.z },
@@ -567,14 +567,14 @@ void ext::RegionBehavior::tick( uf::Object& self ) {
 					uf::Object* a = NULL;
 					uf::Object* b = NULL;
 				};
-				std::unordered_map<std::string, Pair> queued;
+				uf::stl::unordered_map<uf::stl::string, Pair> queued;
 				for ( auto* _a : entities ) {
 					uf::Object& entityA = *_a;
 					if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
 					for ( auto* _b : entities ) { if ( _a == _b ) continue;
 						uf::Object& entityB = *_b;
 
-						std::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
+						uf::stl::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
 						if ( queued.count(hash) > 0 ) continue;
 						queued[hash] = {
 							.a = _a,

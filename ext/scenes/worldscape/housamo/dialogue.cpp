@@ -21,30 +21,30 @@
 namespace {
 	ext::Gui* gui;
 
-	uf::Serializer masterTableGet( const std::string& table ) {
+	uf::Serializer masterTableGet( const uf::stl::string& table ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
+	uf::Serializer masterDataGet( const uf::stl::string& table, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
+	inline int64_t parseInt( const uf::stl::string& str ) {
 		return atoi(str.c_str());
 	}
 }
 
 namespace {
-	void playSound( ext::DialogueManager& entity, const std::string& id, const std::string& key ) {
+	void playSound( ext::DialogueManager& entity, const uf::stl::string& id, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
 		uf::Serializer cardData = masterDataGet("Card", id);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string name = charaData["filename"].as<std::string>();
-		std::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string name = charaData["filename"].as<uf::stl::string>();
+		uf::stl::string url = "https://cdn..xyz//unity/Android/voice/voice_" + name + "_"+key+".ogg";
 
 		std::cout << url << std::endl;
 
@@ -55,7 +55,7 @@ namespace {
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.Voice." + std::to_string(entity.getUid()));
 	}
-	void playSound( ext::DialogueManager& entity, std::size_t uid, const std::string& key ) {
+	void playSound( ext::DialogueManager& entity, std::size_t uid, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& pMetadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -63,20 +63,20 @@ namespace {
 		uf::Entity*  = scene.findByUid(uid);
 		if ( ! ) return;
 		uf::Serializer& metadata = ->getComponent<uf::Serializer>();
-		std::string id = metadata[""]["id"].as<std::string>();
+		uf::stl::string id = metadata[""]["id"].as<uf::stl::string>();
 		playSound( entity, id, key );
 	}
-	void playSound( ext::DialogueManager& entity, const std::string& key ) {
+	void playSound( ext::DialogueManager& entity, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = entity.getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 
-		std::string url = "./" + key + ".ogg";
+		uf::stl::string url = "./" + key + ".ogg";
 
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.cache(url, "asset:Cache.SFX." + std::to_string(entity.getUid()));
 	}
-	void playMusic( ext::DialogueManager& entity, const std::string& filename ) {
+	void playMusic( ext::DialogueManager& entity, const uf::stl::string& filename ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
@@ -86,7 +86,7 @@ namespace {
 
 	uf::Audio sfx;
 	uf::Audio voice;
-	std::vector<ext::Housamo*> transients;
+	uf::stl::vector<ext::Housamo*> transients;
 }
 void ext::DialogueManager::initialize() {	
 	uf::Object::initialize();
@@ -95,18 +95,18 @@ void ext::DialogueManager::initialize() {
 	transients.clear();
 
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-//	std::vector<ext::Housamo>& transients = this->getComponent<std::vector<ext::Housamo>>();
+//	uf::stl::vector<ext::Housamo>& transients = this->getComponent<uf::stl::vector<ext::Housamo>>();
 
 	this->m_name = "Dialogue Manager";
 
 	// asset loading
-	this->addHook( "asset:Cache.Voice.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.Voice.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -119,13 +119,13 @@ void ext::DialogueManager::initialize() {
 
 		return "true";
 	});
-	this->addHook( "asset:Cache.SFX.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Cache.SFX.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = scene.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return "false";
 
@@ -138,24 +138,24 @@ void ext::DialogueManager::initialize() {
 
 		return "true";
 	});
-	this->addHook( "asset:Music.Load.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Music.Load.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
-		if ( json["music"].is<std::string>() ) playMusic(*this, json["music"].as<std::string>());
+		if ( json["music"].is<uf::stl::string>() ) playMusic(*this, json["music"].as<uf::stl::string>());
 		return "true";
 	});
-	this->addHook( "asset:Sfx.Load.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Sfx.Load.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
-		if ( json["sfx"].is<std::string>() ) playSound(*this, json["sfx"].as<std::string>());
+		if ( json["sfx"].is<uf::stl::string>() ) playSound(*this, json["sfx"].as<uf::stl::string>());
 		return "true";
 	});
-	this->addHook( "asset:Voice.Load.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "asset:Voice.Load.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
-		if ( ext::json::isObject( json["voice"] ) ) playSound(*this, json["voice"]["id"].as<std::string>(), json["voice"]["key"].as<std::string>());
+		if ( ext::json::isObject( json["voice"] ) ) playSound(*this, json["voice"]["id"].as<uf::stl::string>(), json["voice"]["key"].as<uf::stl::string>());
 		return "true";
 	});
 
 	// bind events
-	this->addHook( "menu:Dialogue.Start.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "menu:Dialogue.Start.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		{
 			metadata["dialogue"] = json["dialogue"];
@@ -173,7 +173,7 @@ void ext::DialogueManager::initialize() {
 		payload["dialogue"] = metadata["dialogue"];
 		return payload;
 	});
-	this->addHook( "menu:Dialogue.Gui.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "menu:Dialogue.Gui.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		ext::Gui* guiManager = (ext::Gui*) this->globalFindByName("Gui Manager");
 		ext::Gui* guiMenu = new ext::GuiDialogue;
 		guiManager->addChild(*guiMenu);
@@ -189,13 +189,13 @@ void ext::DialogueManager::initialize() {
 		return "true";
 	});
 	// json.action and json.uid
-	this->addHook( "menu:Dialogue.Action.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "menu:Dialogue.Action.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		
-		std::string hookName = "";
+		uf::stl::string hookName = "";
 		uf::Serializer payload;
 
-		std::string action = json["action"].as<std::string>();
+		uf::stl::string action = json["action"].as<uf::stl::string>();
 		
 		if ( action == "dialogue-select" ) {
 			payload = json;
@@ -212,21 +212,21 @@ void ext::DialogueManager::initialize() {
 		return result;
 	});
 
-	this->addHook( "menu:Dialogue.Turn.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "menu:Dialogue.Turn.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 
 		uf::Serializer payload;
-		std::string index = json["index"].as<std::string>();
+		uf::stl::string index = json["index"].as<uf::stl::string>();
 		uf::Serializer part = metadata["dialogue"][index];
 		if ( part["quit"].as<bool>() ) return this->callHook("menu:Dialogue.End.%UID%")[0].as<uf::Serializer>();
 		payload["message"] = part["message"];
 		payload["actions"] = part["actions"];
-		if ( part["music"].is<std::string>() ) {
+		if ( part["music"].is<uf::stl::string>() ) {
 			uf::Serializer pload;
 			pload["music"] =  part["music"];
 			this->queueHook( "asset:Music.Load.%UID%", pload );
 		}
-		if ( part["sfx"].is<std::string>() ) {
+		if ( part["sfx"].is<uf::stl::string>() ) {
 			uf::Serializer pload;
 			pload["sfx"] =  part["sfx"];
 			this->queueHook( "asset:Sfx.Load.%UID%", pload );
@@ -242,11 +242,11 @@ void ext::DialogueManager::initialize() {
 	//	for ( auto hook : part["hooks"] ) {
 		ext::json::forEach(part["hooks"], [&](ext::json::Value& hook){
 			hook["payload"]["uid"] = metadata["uid"];
-			this->queueHook( hook["name"].as<std::string>(), uf::Serializer{hook["payload"]}, hook["timeout"].as<float>() );
+			this->queueHook( hook["name"].as<uf::stl::string>(), uf::Serializer{hook["payload"]}, hook["timeout"].as<float>() );
 		});
 		return payload;
 	});
-	this->addHook( "menu:Dialogue.End.%UID%", [&](const std::string& event)->std::string{	
+	this->addHook( "menu:Dialogue.End.%UID%", [&](const uf::stl::string& event)->uf::stl::string{	
 		uf::Serializer json = event;
 		// play music
 		uf::Scene& scene = uf::scene::getCurrentScene();

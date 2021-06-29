@@ -30,29 +30,29 @@ namespace ext {
 		// cares not about breaking
 		void UF_API forEach( ext::json::Value& json, const std::function<void(ext::json::Value&)>& function );
 		void UF_API forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&)>& function );
-		void UF_API forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&)>& function );
+		void UF_API forEach( ext::json::Value& json, const std::function<void(const uf::stl::string&, ext::json::Value&)>& function );
 
 		// handles breaks
 		void UF_API forEach( ext::json::Value& json, const std::function<void(ext::json::Value&, bool&)>& function );
 		void UF_API forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&, bool&)>& function );
-		void UF_API forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&, bool&)>& function );
+		void UF_API forEach( ext::json::Value& json, const std::function<void(const uf::stl::string&, ext::json::Value&, bool&)>& function );
 
 		// const
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(const ext::json::Value&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(const ext::json::Value&, bool&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&)>& function );
-		void UF_API forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&)>& function );
+		void UF_API forEach( const ext::json::Value& json, const std::function<void(const uf::stl::string&, const ext::json::Value&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&, bool&)>& function );
-		void UF_API forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&, bool&)>& function );
+		void UF_API forEach( const ext::json::Value& json, const std::function<void(const uf::stl::string&, const ext::json::Value&, bool&)>& function );
 
 		ext::json::Value UF_API reencode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
 		ext::json::Value& UF_API reencode( ext::json::Value& json, const ext::json::EncodingSettings& settings );
 
-		std::string UF_API encode( const ext::json::Value& json, bool pretty = true );
-		std::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
-		ext::json::Value& UF_API decode( ext::json::Value& json, const std::string& str );
+		uf::stl::string UF_API encode( const ext::json::Value& json, bool pretty = true );
+		uf::stl::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
+		ext::json::Value& UF_API decode( ext::json::Value& json, const uf::stl::string& str );
 	#if UF_USE_LUA
-		std::string UF_API encode( const sol::table& table );
+		uf::stl::string UF_API encode( const sol::table& table );
 	#endif
 	}
 }

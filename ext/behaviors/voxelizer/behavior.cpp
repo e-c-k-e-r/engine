@@ -51,7 +51,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
 		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
 
-	//	std::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);	
+	//	uf::stl::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);	
 		const bool HDR = false;
 		for ( size_t i = 0; i < metadata.cascades; ++i ) {
 			auto& id = sceneTextures.voxels.id.emplace_back();
@@ -87,7 +87,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 
-		std::string computeShaderFilename = "/shaders/display/vxgi.comp.spv";
+		uf::stl::string computeShaderFilename = "/shaders/display/vxgi.comp.spv";
 		if ( renderMode.metadata.samples > 1 ) {
 			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "msaa.frag" );
 		}

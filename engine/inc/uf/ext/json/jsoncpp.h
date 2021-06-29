@@ -32,7 +32,7 @@ namespace ext {
 		inline Value object() { return Value(Json::objectValue); }
 		inline Value null() { return Value(Json::nullValue); }
 		
-		inline std::vector<std::string> keys( const Value& v ) { return v.getMemberNames(); }
+		inline uf::stl::vector<uf::stl::string> keys( const Value& v ) { return v.getMemberNames(); }
 	}
 }
 

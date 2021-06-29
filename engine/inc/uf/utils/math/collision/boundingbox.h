@@ -19,7 +19,7 @@ namespace uf {
 		pod::Vector3 max() const;
 		pod::Vector3 closest( const pod::Vector3f& ) const;
 
-		virtual std::string type() const;
+		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const;
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 		pod::Collider::Manifold intersects( const uf::BoundingBox& ) const;

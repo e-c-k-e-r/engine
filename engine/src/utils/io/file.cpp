@@ -18,28 +18,28 @@
 	#define GetCurrentDir getcwd
 #endif
 
-const std::string uf::io::root = UF_IO_ROOT;
+const uf::stl::string uf::io::root = UF_IO_ROOT;
 
-std::string UF_API uf::io::absolute( const std::string& path ) {
+uf::stl::string UF_API uf::io::absolute( const uf::stl::string& path ) {
 	char buff[FILENAME_MAX];
 	GetCurrentDir( buff, FILENAME_MAX );
-	return std::string(buff) + path;
+	return uf::stl::string(buff) + path;
 }
-std::string UF_API uf::io::filename( const std::string& str ) {
+uf::stl::string UF_API uf::io::filename( const uf::stl::string& str ) {
 	return str.substr( str.find_last_of('/') + 1 );
 }
-std::string UF_API uf::io::basename( const std::string& filename ) {
-	std::string str = uf::io::filename( filename );
-	std::string extension = uf::io::extension( filename );
+uf::stl::string UF_API uf::io::basename( const uf::stl::string& filename ) {
+	uf::stl::string str = uf::io::filename( filename );
+	uf::stl::string extension = uf::io::extension( filename );
 	return uf::string::replace( str, "." + extension, "" );
 }
-std::string UF_API uf::io::extension( const std::string& str ) {
-	std::string filename = uf::io::filename(str);
+uf::stl::string UF_API uf::io::extension( const uf::stl::string& str ) {
+	uf::stl::string filename = uf::io::filename(str);
 	return filename.substr( filename.find_last_of('.') + 1 );
 }
-std::string UF_API uf::io::extension( const std::string& str, int32_t count ) {
-	std::string filename = uf::io::filename(str);
-	std::string extension = "";
+uf::stl::string UF_API uf::io::extension( const uf::stl::string& str, int32_t count ) {
+	uf::stl::string filename = uf::io::filename(str);
+	uf::stl::string extension = "";
 	auto split = uf::string::split( filename, "." );
 	size_t offset = split.size() - 1;
 	if ( count < 0 ) {
@@ -53,37 +53,37 @@ std::string UF_API uf::io::extension( const std::string& str, int32_t count ) {
 	}
 	return extension;
 }
-std::string UF_API uf::io::directory( const std::string& str ) {
+uf::stl::string UF_API uf::io::directory( const uf::stl::string& str ) {
 	return str.substr( 0, str.find_last_of('/') ) + "/";
 }
-size_t UF_API uf::io::size( const std::string& filename ) {
+size_t UF_API uf::io::size( const uf::stl::string& filename ) {
 	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 	if ( !is.is_open() ) return 0;
 	is.seekg(0, std::ios::end);
 	return is.tellg();
 }
-std::string UF_API uf::io::sanitize( const std::string& str, const std::string& _root ) {
+uf::stl::string UF_API uf::io::sanitize( const uf::stl::string& str, const uf::stl::string& _root ) {
 	// resolve %root% to hard root
-	std::string path = str;
-	std::string root = _root;
+	uf::stl::string path = str;
+	uf::stl::string root = _root;
 	// append root to path
 	if ( path.find("%root%") == 0 ) {
 		path = uf::string::replace( path, "%root%", "" );
 		if ( root == "" ) root = uf::io::root;
 	}
-	if ( path.find(root) == std::string::npos ) {
+	if ( path.find(root) == uf::stl::string::npos ) {
 		path = root + "/" + path;
 	}
 	// flatten all "/./"
 	{
-		std::string tmp;
+		uf::stl::string tmp;
 		while ( path != (tmp = uf::string::replace(path, "/./", "/")) ) {
 			path = tmp;
 		}
 	}
 	// flatten all "//"
 	{
-		std::string tmp;
+		uf::stl::string tmp;
 		while ( path != (tmp = uf::string::replace(path, "//", "/")) ) {
 			path = tmp;
 		}
@@ -91,10 +91,10 @@ std::string UF_API uf::io::sanitize( const std::string& str, const std::string& 
 	return path;
 }
 // would just use readAsBuffer and convert to string, but that's double the memory cost
-std::string UF_API uf::io::readAsString( const std::string& _filename, const std::string& hash ) {
-	std::string buffer;
-	std::string filename = sanitize(_filename);
-	std::string extension = uf::io::extension( filename );
+uf::stl::string UF_API uf::io::readAsString( const uf::stl::string& _filename, const uf::stl::string& hash ) {
+	uf::stl::string buffer;
+	uf::stl::string filename = sanitize(_filename);
+	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) {
 		auto decompressed = uf::io::decompress( filename );
 		buffer.reserve(decompressed.size());
@@ -108,17 +108,17 @@ std::string UF_API uf::io::readAsString( const std::string& _filename, const std
 		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 		buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	}
-	std::string expected = "";
+	uf::stl::string expected = "";
 	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected);
 		return "";
 	}
 	return buffer;
 }
-std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& _filename, const std::string& hash ) {
-	std::vector<uint8_t> buffer;
-	std::string filename = sanitize(_filename);
-	std::string extension = uf::io::extension( filename );
+uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::string& hash ) {
+	uf::stl::vector<uint8_t> buffer;
+	uf::stl::string filename = sanitize(_filename);
+	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) {
 		buffer = uf::io::decompress( filename );
 	} else {
@@ -130,16 +130,16 @@ std::vector<uint8_t> UF_API uf::io::readAsBuffer( const std::string& _filename, 
 		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 		buffer.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	}
-	std::string expected = "";
+	uf::stl::string expected = "";
 	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
 		UF_MSG_ERROR("Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected);
-		return std::vector<uint8_t>();
+		return uf::stl::vector<uint8_t>();
 	}
 	return buffer;
 }
 
-size_t UF_API uf::io::write( const std::string& filename, const void* buffer, size_t size ) {
-	std::string extension = uf::io::extension( filename );
+size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
+	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return uf::io::compress( filename, buffer, size );
 
 	std::ofstream output;
@@ -150,52 +150,52 @@ size_t UF_API uf::io::write( const std::string& filename, const void* buffer, si
 }
 
 // indirection for different compression formats, currently only using zlib's gzFile shit
-std::vector<uint8_t> UF_API uf::io::decompress( const std::string& filename ) {
+uf::stl::vector<uint8_t> UF_API uf::io::decompress( const uf::stl::string& filename ) {
 	return ext::zlib::decompressFromFile( filename );
 }
-size_t UF_API uf::io::compress( const std::string& filename, const void* buffer, size_t size ) {
+size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	return ext::zlib::compressToFile( filename, buffer, size );
 }
 
-std::string UF_API uf::io::hash( const std::string& filename ) {
+uf::stl::string UF_API uf::io::hash( const uf::stl::string& filename ) {
 	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
 }
-bool UF_API uf::io::exists( const std::string& _filename ) {
-	std::string filename = sanitize(_filename);
+bool UF_API uf::io::exists( const uf::stl::string& _filename ) {
+	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
 	return stat(filename.c_str(), &buffer) == 0;
 }
-size_t UF_API uf::io::mtime( const std::string& _filename ) {
-	std::string filename = sanitize(_filename);
+size_t UF_API uf::io::mtime( const uf::stl::string& _filename ) {
+	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
 	if ( stat(filename.c_str(), &buffer) != 0 ) return -1;
 	return buffer.st_mtime;
 }
-bool UF_API uf::io::mkdir( const std::string& _filename ) {
+bool UF_API uf::io::mkdir( const uf::stl::string& _filename ) {
 #if UF_ENV_DREAMCAST
 	return false;
 #else
-	std::string filename = sanitize(_filename);
+	uf::stl::string filename = sanitize(_filename);
 	int status = ::mkdir(filename.c_str());
 	return status != -1;
 #endif
 }
-std::string UF_API uf::io::resolveURI( const std::string& filename, const std::string& _root ) {
-	std::string root = _root;
+uf::stl::string UF_API uf::io::resolveURI( const uf::stl::string& filename, const uf::stl::string& _root ) {
+	uf::stl::string root = _root;
 	if ( filename.substr(0,8) == "https://" ) return filename;
-	const std::string extension = uf::io::extension(filename);
+	const uf::stl::string extension = uf::io::extension(filename);
 	// just sanitize
 	if ( filename.find(uf::io::root) == 0 ) {
 		return uf::io::sanitize( uf::io::filename( filename ), uf::io::directory( filename ) );
 	}
 	if ( filename.find("%root%") == 0 ) {
-		const std::string f = uf::string::replace( filename, "%root%", uf::io::root );
+		const uf::stl::string f = uf::string::replace( filename, "%root%", uf::io::root );
 		return uf::io::sanitize( uf::io::filename( f ), uf::io::directory( f ) );
 	}
 	// if the filename contains an absolute path or if no root is provided
 	if ( filename[0] == '/' || root == "" ) {
-		const std::string basename = uf::io::filename( filename );
-		const std::string extensions = uf::io::extension( filename, -1 );
+		const uf::stl::string basename = uf::io::filename( filename );
+		const uf::stl::string extensions = uf::io::extension( filename, -1 );
 		if ( filename[0] == '/' && filename[1] == '/' ) root = uf::io::root;
 	//	else if ( uf::io::extension(filename, -1) == "graph.json" ) root = uf::io::root + "/models/";
 	//	else if ( uf::io::extension(filename, -1) == "scene.json" ) root = uf::io::root + "/scenes/";

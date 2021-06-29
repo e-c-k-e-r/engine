@@ -8,7 +8,7 @@ T uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
 	return this->loadChild(json, initialize);
 }
 template<typename T>
-T uf::Object::loadChild( const std::string& filename, bool initialize ) {
+T uf::Object::loadChild( const uf::stl::string& filename, bool initialize ) {
 	// T is size_t
 	if ( typeid(T) == typeid(std::size_t) ) return this->loadChildUid(filename, initialize);
 	// T is pointer
@@ -17,8 +17,8 @@ T uf::Object::loadChild( const std::string& filename, bool initialize ) {
 	return this->loadChild(filename, initialize);
 }
 template<typename T>
-size_t uf::Object::addHook( const std::string& name, T callback ) {
-	std::string parsed = this->formatHookName( name );
+size_t uf::Object::addHook( const uf::stl::string& name, T callback ) {
+	uf::stl::string parsed = this->formatHookName( name );
 	std::size_t id = uf::hooks.addHook( parsed, callback );
 #if UF_ENTITY_METADATA_USE_JSON
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -30,7 +30,7 @@ size_t uf::Object::addHook( const std::string& name, T callback ) {
 	return id;
 }
 template<typename T>
-uf::Hooks::return_t uf::Object::callHook( const std::string& name, const T& p ) {
+uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const T& p ) {
 	uf::Userdata payload;
 	payload.create<T>(p);
 	return uf::hooks.call( this->formatHookName( name ), payload );

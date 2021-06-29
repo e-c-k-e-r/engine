@@ -2,7 +2,7 @@
 #include "class.inl"
 
 template<typename T, size_t R, size_t C>
-std::string /*UF_API*/ uf::string::toString( const pod::Matrix<T,R,C>& m ) {
+uf::stl::string /*UF_API*/ uf::string::toString( const pod::Matrix<T,R,C>& m ) {
 	return uf::matrix::toString(m);
 }
 

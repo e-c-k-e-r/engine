@@ -3,7 +3,7 @@
 #include <uf/config.h>
 
 #include "encoding.h"
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <locale>
 #include <cstring>
 
@@ -99,15 +99,15 @@ namespace uf {
 		uf::String UF_API_CALL operator --(int);
 		uf::String& UF_API_CALL operator -=( std::size_t i );
 	// 	Convert to standard string
-		UF_API_CALL operator std::string();
-		UF_API_CALL operator std::string() const;
+		UF_API_CALL operator uf::stl::string();
+		UF_API_CALL operator uf::stl::string() const;
 	// 	Convert to standard wide string
 		UF_API_CALL operator std::wstring();
 		UF_API_CALL operator std::wstring() const;
 	// 	Write to an output stream
 		friend std::ostream& operator <<( std::ostream& os, const uf::String& string ) {
 			auto* pointer = string.getString().c_str();
-			std::string str = (const char*) pointer;
+			uf::stl::string str = (const char*) pointer;
 			return os << str;
 		}
 	};

@@ -25,7 +25,7 @@ namespace ext {
 
 				enums::Command::type_t type;
 				std::deque<handle_t> available;
-				std::vector<handle_t> pool;
+				uf::stl::vector<handle_t> pool;
 
 				void allocate();
 				void allocate(size_t);

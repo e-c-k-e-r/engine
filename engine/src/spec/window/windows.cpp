@@ -59,8 +59,8 @@ namespace {
 		return DefWindowProcW(handle, message, wParam, lParam);
 	}
 
-	std::vector<WPARAM> GetKeys() {
-		std::vector<WPARAM> keys;
+	uf::stl::vector<WPARAM> GetKeys() {
+		uf::stl::vector<WPARAM> keys;
 		keys.reserve(8);
 
 		if ( GetAsyncKeyState('A') & 0x8000 ) keys.push_back('A');
@@ -172,7 +172,7 @@ namespace {
 		if ( GetAsyncKeyState(VK_XBUTTON2) & 0x8000 ) keys.push_back(VK_XBUTTON2);
 		return keys;
 	}
-	std::string _GetKeyName( WPARAM key, LPARAM flags = 0 ) {
+	uf::stl::string _GetKeyName( WPARAM key, LPARAM flags = 0 ) {
 	#if 1
 		switch ( key ) {
 			// Check the scancode to distinguish between left and right shift
@@ -404,12 +404,12 @@ namespace {
 	#endif
 		return std::to_string((int) key);
 	}
-	std::string GetKeyName( WPARAM key, LPARAM flags = 0 ) {
+	uf::stl::string GetKeyName( WPARAM key, LPARAM flags = 0 ) {
 		return uf::string::uppercase( _GetKeyName( key, flags ) );
 	}
 
-	WPARAM GetKeyCode( const std::string& _name ) {
-		std::string name = uf::string::uppercase(_name);
+	WPARAM GetKeyCode( const uf::stl::string& _name ) {
+		uf::stl::string name = uf::string::uppercase(_name);
 		if ( name == "A" ) return 'A';
 		else if ( name == "B" ) return 'B';
 		else if ( name == "C" ) return 'C';
@@ -702,7 +702,7 @@ void UF_API_CALL spec::win32::Window::setTitle( const spec::win32::Window::title
 void UF_API_CALL spec::win32::Window::setIcon( const spec::win32::Window::vector_t& size, uint8_t* pixels ) {
 	// First destroy the previous one
 
-	std::vector<uint8_t> iconPixels(size.x * size.y * 4);
+	uf::stl::vector<uint8_t> iconPixels(size.x * size.y * 4);
 	for (std::size_t i = 0; i < iconPixels.size() / 4; ++i) {
 		iconPixels[i * 4 + 0] = pixels[i * 4 + 2];
 		iconPixels[i * 4 + 1] = pixels[i * 4 + 1];
@@ -718,7 +718,7 @@ void UF_API_CALL spec::win32::Window::setIcon( const spec::win32::Window::vector
 	if ( this->m_icon ) DestroyIcon(this->m_icon);
 	
 	// RGBA -> BGRA
-	std::vector<uint8_t> icon( uf::vector::product(size) * 4 );
+	uf::stl::vector<uint8_t> icon( uf::vector::product(size) * 4 );
 	for ( std::size_t i = 0; i < icon.size() / 4; ++i ) {
 		icon[i * 4 + 0] = pixels[i * 4 + 2];
 		icon[i * 4 + 1] = pixels[i * 4 + 1];
@@ -773,10 +773,12 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 		}
 	}
 	/* Key inputs */ if ( this->m_asyncParse ) {
-		std::vector<WPARAM> keys = GetKeys();
+		uf::stl::vector<WPARAM> keys = GetKeys();
 		pod::payloads::windowKey event{
-			"window:Key",
-			"os",
+			{
+				"window:Key",
+				"os",
+			},
 			{
 				"",
 				0,
@@ -831,8 +833,8 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-		if ( event.payload.is<std::string>() ) {
-			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
+		if ( event.payload.is<uf::stl::string>() ) {
+			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
@@ -912,9 +914,9 @@ void UF_API_CALL spec::win32::Window::registerWindowClass() {
 void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lParam) {
 	if (!this->m_handle) return;
 	
-	std::string hook = "window:Unknown";
-	std::string serialized = "";
-	std::stringstream serializer;
+	uf::stl::string hook = "window:Unknown";
+	uf::stl::string serialized = "";
+	uf::stl::stringstream serializer;
 	bool labelAsDelta = true;
 
 	uf::Serializer json;
@@ -946,8 +948,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->m_lastSize = this->getSize();
 
 			pod::payloads::windowResized event{
-				"window:Resized",
-				"os",
+				{
+					"window:Resized",
+					"os",
+				},
 				{ this->m_lastSize },
 			};
 		#if UF_USE_USERDATA
@@ -972,8 +976,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->m_lastSize = this->getSize();
 
 				pod::payloads::windowResized event = {
-					"window:Resized",
-					"os",
+					{
+						"window:Resized",
+						"os",
+					},
 					{ this->m_lastSize },
 				};
 			#if UF_USE_USERDATA
@@ -1018,14 +1024,20 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->grabMouse(this->m_mouseGrabbed);
 				SetCursor(this->m_cursor);
 			}
-			pod::payloads::windowFocusedChanged event{
-				"window:Focus.Changed",
-				"os",
-			};
+			int_fast8_t state{};
 			switch ( message ) {
-				case WM_SETFOCUS: event.window.state 	=  1; break;
-				case WM_KILLFOCUS: event.window.state 	= -1; break;
+				case WM_SETFOCUS: state 	=  1; break;
+				case WM_KILLFOCUS: state 	= -1; break;
 			}
+			pod::payloads::windowFocusedChanged event{
+				{
+					"window:Focus.Changed",
+					"os",
+				},
+				{
+					state
+				}
+			};
 		#if UF_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
@@ -1063,11 +1075,13 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					uf::Utf32::toUtf8(utf32.begin(), utf32.end(), std::back_inserter(utf8));
 
 					pod::payloads::windowTextEntered event{
-						"window:Text.Entered",
-						"os",
+						{
+							"window:Text.Entered",
+							"os",
+						},
 						{
 							character,
-							std::string(utf8.begin(), utf8.end()),
+							uf::stl::string(utf8.begin(), utf8.end()),
 						}
 					};
 				#if UF_USE_USERDATA
@@ -1098,21 +1112,23 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					case WM_SYSKEYUP: state 	=  1; break;
 				}
 				pod::payloads::windowKey event{
+					{
 						"window:Key",
 						"os",
-						{
-							this->getKey(wParam, lParam),
-							wParam,
-							state,
-							false,
-							{	
-								.alt		= HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
-								.ctrl 		= HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
-								.shift		= HIWORD(GetAsyncKeyState(VK_SHIFT))	!= 0,
-								.sys  		= HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
-							}
+					},
+					{
+						this->getKey(wParam, lParam),
+						wParam,
+						state,
+						false,
+						{	
+							.alt		= HIWORD(GetAsyncKeyState(VK_MENU))		!= 0,
+							.ctrl 		= HIWORD(GetAsyncKeyState(VK_CONTROL)) 	!= 0,
+							.shift		= HIWORD(GetAsyncKeyState(VK_SHIFT))	!= 0,
+							.sys  		= HIWORD(GetAsyncKeyState(VK_LWIN)) 	|| HIWORD(GetAsyncKeyState(VK_RWIN)),
 						}
-					};
+					}
+				};
 				#if UF_USE_USERDATA
 					this->pushEvent(event.type, event);
 					this->pushEvent(event.type + "." + event.key.code, event);
@@ -1144,8 +1160,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 
 			int16_t delta = static_cast<int16_t>(HIWORD(wParam));
 			pod::payloads::windowMouseWheel event{
-				"window:Mouse.Wheel",
-				"os",
+				{
+					"window:Mouse.Wheel",
+					"os",
+				},
 				{
 					pod::Vector2ui{ position.x, position.y },
 					delta,
@@ -1174,7 +1192,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			static pod::Vector2i lastPosition = {};
 			
 			const pod::Vector2i currentPosition = pod::Vector2ui{ static_cast<int16_t>(LOWORD(lParam)), static_cast<int16_t>(HIWORD(lParam)) };
-			std::string button = ""; 
+			uf::stl::string button = ""; 
 			int_fast8_t state = 0;
 
 			switch ( message ) {	
@@ -1205,8 +1223,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				default: 				state =  0; break; 
 			}
 			pod::payloads::windowMouseClick event{
-				"window:Mouse.Click",
-				"os",
+				{
+					"window:Mouse.Click",
+					"os",
+				},
 				{
 					currentPosition,
 					currentPosition - lastPosition,
@@ -1236,12 +1256,15 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 		case WM_MOUSELEAVE:
 			if ( this->m_mouseInside ) {
 				this->m_mouseInside = false;
-
 				pod::payloads::windowMouseMoved event{
-					"window:Mouse.Moved",
-					"os",
 					{
-						{}
+						{
+							"window:Mouse.Moved",
+							"client",
+						},
+						{
+							{},
+						},
 					},
 					{
 						{},
@@ -1300,17 +1323,20 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					state = 1;
 				}
 			}
-
 			pod::payloads::windowMouseMoved event{
-				"window:Mouse.Moved",
-				"os",
 				{
-					pod::Vector2ui{ area.right, area.bottom },
+					{
+						"window:Mouse.Moved",
+						"client",
+					},
+					{
+						pod::Vector2ui{ area.right, area.bottom },
+					},
 				},
 				{
 					currentPosition,
 					currentPosition - lastPosition,
-					state
+					0
 				}
 			};
 		#if UF_USE_USERDATA
@@ -1385,15 +1411,15 @@ void UF_API_CALL spec::win32::Window::switchToFullscreen( bool borderless ) {
 	fullscreenWindow = (void*) this;
 }
 
-bool UF_API_CALL spec::win32::Window::isKeyPressed(const std::string& key) {
+bool UF_API_CALL spec::win32::Window::isKeyPressed(const uf::stl::string& key) {
 	return GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000;
 }
-std::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
+uf::stl::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 	return GetKeyName( key, flags );
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-std::vector<std::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
-	std::vector<std::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME  };
+uf::stl::vector<uf::stl::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
+	uf::stl::vector<uf::stl::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME  };
 	if ( validationEnabled ) instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	return instanceExtensions;
 }

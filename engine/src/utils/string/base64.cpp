@@ -12,7 +12,7 @@ static const int B64index[256] = { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
 static const uint8_t base64_table[65] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-std::string uf::base64::encode( const uint8_t* src, size_t len ) {
+uf::stl::string uf::base64::encode( const uint8_t* src, size_t len ) {
     uint8_t *out, *pos;
     const uint8_t *end, *in;
 
@@ -21,9 +21,9 @@ std::string uf::base64::encode( const uint8_t* src, size_t len ) {
     olen = 4*((len + 2) / 3);
 
     if (olen < len)
-        return std::string();
+        return uf::stl::string();
 
-    std::string outStr;
+    uf::stl::string outStr;
     outStr.resize(olen);
     out = (uint8_t*)&outStr[0];
 
@@ -55,13 +55,13 @@ std::string uf::base64::encode( const uint8_t* src, size_t len ) {
     return outStr;
 }
 
-// std::vector<uint8_t> uf::base64::decode( const uint8_t* data, size_t len ) {
-std::vector<uint8_t> uf::base64::decode( const std::string& data ) {
+// uf::stl::vector<uint8_t> uf::base64::decode( const uint8_t* data, size_t len ) {
+uf::stl::vector<uint8_t> uf::base64::decode( const uf::stl::string& data ) {
 	size_t len = data.size();
     uint8_t* p = (uint8_t*) &data[0];
     int pad = len > 0 && (len % 4 || p[len - 1] == '=');
     const size_t L = ((len + 3) / 4 - pad) * 4;
-    std::vector<uint8_t> str(L / 4 * 3 + pad, '\0');
+    uf::stl::vector<uint8_t> str(L / 4 * 3 + pad, '\0');
 
     for (size_t i = 0, j = 0; i < L; i += 4)
     {
@@ -84,17 +84,17 @@ std::vector<uint8_t> uf::base64::decode( const std::string& data ) {
     return str;
 }
 
-std::string uf::string::base64::encode( const std::string& input ) {
+uf::stl::string uf::string::base64::encode( const uf::stl::string& input ) {
 	return uf::base64::encode( input );
 }
-std::string uf::string::base64::decode( const std::string& input ) {
+uf::stl::string uf::string::base64::decode( const uf::stl::string& input ) {
 	auto v = uf::base64::decode( input );
-	return std::string( v.begin(), v.end() );
+	return uf::stl::string( v.begin(), v.end() );
 }
 
 /*
 
-static const std::string base64_chars = 
+static const uf::stl::string base64_chars = 
              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
              "abcdefghijklmnopqrstuvwxyz"
              "0123456789+/";
@@ -104,8 +104,8 @@ static inline bool is_base64(uint8_t c) {
   return (isalnum(c) || (c == '+') || (c == '/'));
 }
 
-std::string uf::base64::encode(const uint8_t* buf, std::size_t bufLen) {
-  std::string ret;
+uf::stl::string uf::base64::encode(const uint8_t* buf, std::size_t bufLen) {
+  uf::stl::string ret;
   int i = 0;
   int j = 0;
   uint8_t char_array_3[3];
@@ -145,13 +145,13 @@ std::string uf::base64::encode(const uint8_t* buf, std::size_t bufLen) {
   return ret;
 }
 
-std::vector<uint8_t> uf::base64::decode(const std::string& encoded_string) {
+uf::stl::vector<uint8_t> uf::base64::decode(const uf::stl::string& encoded_string) {
   int in_len = encoded_string.size();
   int i = 0;
   int j = 0;
   int in_ = 0;
   uint8_t char_array_4[4], char_array_3[3];
-  std::vector<uint8_t> ret;
+  uf::stl::vector<uint8_t> ret;
 
   while (in_len-- && ( encoded_string[in_] != '=') && is_base64(encoded_string[in_])) {
     char_array_4[i++] = encoded_string[in_]; in_++;

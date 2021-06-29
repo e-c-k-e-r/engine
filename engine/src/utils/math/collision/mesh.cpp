@@ -1,19 +1,19 @@
 #include <uf/utils/math/collision/mesh.h>
 
-uf::MeshCollider::MeshCollider( const pod::Transform<>& transform, const std::vector<pod::Vector3>& positions ) : m_positions(positions) {
+uf::MeshCollider::MeshCollider( const pod::Transform<>& transform, const uf::stl::vector<pod::Vector3>& positions ) : m_positions(positions) {
 	this->setTransform(transform);
 }
-std::string UF_API uf::MeshCollider::type() const { return "Mesh"; }
+uf::stl::string UF_API uf::MeshCollider::type() const { return "Mesh"; }
 
-std::vector<pod::Vector3>& uf::MeshCollider::getPositions() {
+uf::stl::vector<pod::Vector3>& uf::MeshCollider::getPositions() {
 	return this->m_positions;
 }
 
-const std::vector<pod::Vector3>& uf::MeshCollider::getPositions() const {
+const uf::stl::vector<pod::Vector3>& uf::MeshCollider::getPositions() const {
 	return this->m_positions;
 }
 
-void uf::MeshCollider::setPositions( const std::vector<pod::Vector3>& positions ) {
+void uf::MeshCollider::setPositions( const uf::stl::vector<pod::Vector3>& positions ) {
 	this->m_positions = positions;
 }
 

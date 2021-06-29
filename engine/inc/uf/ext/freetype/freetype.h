@@ -29,8 +29,8 @@ namespace ext {
 		UF_API bool initialized();
 		UF_API void terminate();
 		
-		UF_API ext::freetype::Glyph initialize( const std::string& );
-		UF_API bool initialize( ext::freetype::Glyph&, const std::string& );
+		UF_API ext::freetype::Glyph initialize( const uf::stl::string& );
+		UF_API bool initialize( ext::freetype::Glyph&, const uf::stl::string& );
 		UF_API void destroy( ext::freetype::Glyph& );
 		
 		UF_API void setPixelSizes( ext::freetype::Glyph&, int ); 
@@ -39,7 +39,7 @@ namespace ext {
 		UF_API bool load( ext::freetype::Glyph&, unsigned long );
 		UF_API bool load( ext::freetype::Glyph&, const uf::String& );
 
-		UF_API std::string getError( int );
+		UF_API uf::stl::string getError( int );
 	}
 }
 

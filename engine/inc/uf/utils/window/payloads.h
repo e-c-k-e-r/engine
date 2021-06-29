@@ -2,14 +2,14 @@
 
 #include <uf/config.h>
 
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <uf/utils/math/vector.h>
 
 namespace pod {
 	namespace payloads {
 		struct windowEvent {
-			std::string type = "";
-			std::string invoker = "";
+			uf::stl::string type = "";
+			uf::stl::string invoker = "";
 		};
 		struct windowResized : public windowEvent {
 			struct {
@@ -24,12 +24,12 @@ namespace pod {
 		struct windowTextEntered : public windowEvent {
 			struct {
 				uint32_t utf32;
-				std::string unicode;
+				uf::stl::string unicode;
 			} text;
 		};
 		struct windowKey : public windowEvent {
 			struct {
-				std::string code;
+				uf::stl::string code;
 				uint32_t raw;
 				
 				int_fast8_t state = -1;
@@ -52,13 +52,13 @@ namespace pod {
 			struct {
 				pod::Vector2i 	position = {};
 				pod::Vector2i 	delta = {};
-				std::string 	button = "";
+				uf::stl::string 	button = "";
 				int_fast8_t 	state = 0;
 			} mouse;
 		};
 		struct windowMouseMoved : public windowResized {
 			struct {
-				pod::Vector2ui position{};
+				pod::Vector2i position{};
 				pod::Vector2i delta{};
 				int_fast8_t state{};
 			} mouse;

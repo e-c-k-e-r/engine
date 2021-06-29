@@ -18,15 +18,15 @@ UF_BEHAVIOR_REGISTER_CPP(uf::GltfBehavior)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
 	this->addHook( "animation:Set.%UID%", [&](ext::json::Value& json){
-		std::string name = json["name"].as<std::string>();
+		uf::stl::string name = json["name"].as<uf::stl::string>();
 
 		if ( !this->hasComponent<pod::Graph>() ) return;
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::animate( graph, name );
 	});
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
 		if ( category != "" && category != "models" ) return;
 		if ( category == "" && uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" && uf::io::extension(filename) != "graph" ) return;
 		auto& scene = uf::scene::getCurrentScene();
@@ -55,8 +55,8 @@ void uf::GltfBehavior::initialize( uf::Object& self ) {
 		uf::graph::initialize( graph );
 
 		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-			if ( metadata["model"]["animation"].is<std::string>() ) {
-				uf::graph::animate( graph, metadata["model"]["animation"].as<std::string>() );
+			if ( metadata["model"]["animation"].is<uf::stl::string>() ) {
+				uf::graph::animate( graph, metadata["model"]["animation"].as<uf::stl::string>() );
 			}
 		/*
 			if ( metadata["model"]["print animations"].as<bool>() ) {
@@ -101,7 +101,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& mesh = this->getComponent<pod::Graph::Mesh>();
 
 		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
 				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
@@ -118,7 +118,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 		auto& shader = graphic.material.getShader("vertex");
 
 		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-			std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
 				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
@@ -140,7 +140,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 #if 0
 	if ( graphic.material.hasShader("vertex") && !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
 		auto& shader = graphic.material.getShader("vertex");
-		std::vector<pod::Matrix4f> instances( graph.nodes.size() );
+		uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 		for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 			auto& node = graph.nodes[i];
 			instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );

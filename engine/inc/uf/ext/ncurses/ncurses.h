@@ -2,7 +2,7 @@
 
 #include <uf/config.h>
 
-#include <string>
+#include <uf/utils/memory/string.h>
 
 namespace ext {
 	class UF_API Ncurses {
@@ -34,7 +34,7 @@ namespace ext {
 		void UF_API_CALL delCh();
 		void UF_API_CALL addCh( char c );
 		void UF_API_CALL addStr(const char* c_str);
-		void UF_API_CALL addStr(const std::string str);
+		void UF_API_CALL addStr(const uf::stl::string str);
 
 		void UF_API_CALL attrOn(int att);
 		void UF_API_CALL attrOff(int att);
@@ -47,7 +47,7 @@ namespace ext {
 		inline  int UF_API_CALL getChar() { return this->getCh(); }
 		inline void UF_API_CALL delChar() { this->delCh(); }
 		inline void UF_API_CALL addChar( char c ) { this->addCh( c ); }
-		inline void UF_API_CALL addString( const std::string& str ) { this->addStr( str.c_str() ); }
+		inline void UF_API_CALL addString( const uf::stl::string& str ) { this->addStr( str.c_str() ); }
 		inline void UF_API_CALL attribute(int att, bool on = true) { on ? this->attrOn(att) : this->attrOff(att); }
 	};
 	extern UF_API ext::Ncurses ncurses;

@@ -95,7 +95,7 @@ void UF_API_CALL ext::Ncurses::addStr(const char* c_str) {
 //	if ( !this->m_initialized ) return;
 	waddstr((WINDOW*) this->m_window, c_str);
 }
-void UF_API_CALL ext::Ncurses::addStr(const std::string str) {
+void UF_API_CALL ext::Ncurses::addStr(const uf::stl::string str) {
 	if ( !this->m_initialized ) this->initialize();
 //	if ( !this->m_initialized ) return;
 	waddstr((WINDOW*) this->m_window, str.c_str());
@@ -146,7 +146,7 @@ void UF_API_CALL ext::Ncurses::clrToBot() {}
 void UF_API_CALL ext::Ncurses::delCh() {}
 void UF_API_CALL ext::Ncurses::addCh( char c ) {}
 void UF_API_CALL ext::Ncurses::addStr(const char* c_str) {}
-void UF_API_CALL ext::Ncurses::addStr(const std::string str) {}
+void UF_API_CALL ext::Ncurses::addStr(const uf::stl::string str) {}
 void UF_API_CALL ext::Ncurses::attrOn(int att) {}
 void UF_API_CALL ext::Ncurses::attrOff(int att) {}
 bool UF_API_CALL ext::Ncurses::hasColors() { return false; }

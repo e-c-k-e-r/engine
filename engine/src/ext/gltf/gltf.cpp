@@ -111,8 +111,8 @@ namespace {
 	}
 }
 
-pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t mode, const uf::Serializer& metadata ) {
-	std::string extension = uf::io::extension( filename );
+pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mode_t mode, const uf::Serializer& metadata ) {
+	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension != "glb" && extension != "gltf" ) {
 		return uf::graph::load( filename, mode, metadata );
 	}
@@ -120,7 +120,7 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
 
-	std::string warn, err;
+	uf::stl::string warn, err;
 	bool ret = extension == "glb" ? loader.LoadBinaryFromFile(&model, &err, &warn, filename) : loader.LoadASCIIFromFile(&model, &err, &warn, filename);
 
 	pod::Graph graph;
@@ -227,7 +227,7 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 			} else {
 				UF_MSG_WARNING("Unhandled alpha mode: " << material.alphaMode)
 			}
-			if ( m.doubleSided && graph.metadata["cull mode"].as<std::string>() == "auto" ) {
+			if ( m.doubleSided && graph.metadata["cull mode"].as<uf::stl::string>() == "auto" ) {
 				graph.metadata["cull mode"] = "none";
 			}
 		}
@@ -249,12 +249,12 @@ pod::Graph ext::gltf::load( const std::string& filename, uf::graph::load_mode_t 
 				dc.indicesIndex = mesh.indices.size();
 
 				struct Attribute {
-					std::string name = "";
+					uf::stl::string name = "";
 					size_t components = 1;
-					std::vector<float> buffer;
-					std::vector<uint16_t> indices;
+					uf::stl::vector<float> buffer;
+					uf::stl::vector<uint16_t> indices;
 				};
-				std::unordered_map<std::string, Attribute> attributes = {
+				uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
 					{"POSITION", {}},
 					{"TEXCOORD_0", {}},
 					{"NORMAL", {}},

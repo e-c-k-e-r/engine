@@ -31,7 +31,7 @@ namespace {\
 #define UF_OBJECT_REGISTER_BEGIN( OBJ )\
 namespace {\
 	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
-		std::string name = UF_NS_GET_LAST(OBJ);\
+		uf::stl::string name = UF_NS_GET_LAST(OBJ);\
 		uf::instantiator::registerObject<OBJ>( name );
 
 #define UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
@@ -39,7 +39,7 @@ namespace {\
 
 // uf::instantiator::registerBehavior<BEHAVIOR>( UF_NS_GET_LAST(BEHAVIOR) );
 #define UF_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
-		if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new std::unordered_map<std::string, pod::Behavior>;\
+		if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;\
 		uf::instantiator::registerBehavior(UF_NS_GET_LAST(BEHAVIOR), pod::Behavior{\
 			.type = BEHAVIOR::type,\
 			.initialize = BEHAVIOR::initialize,\
@@ -88,7 +88,7 @@ namespace {\
 #define UF_OBJECT_REGISTER_BEGIN( OBJ )\
 namespace {\
 	static uf::StaticInitialization REGISTER_EXT_ ## OBJ( []{\
-		std::string name = #OBJ;\
+		uf::stl::string name = #OBJ;\
 		uf::instantiator::registerObject<uf::OBJ>( name );
 
 #define UF_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\
@@ -105,7 +105,7 @@ namespace {\
 #define EXT_OBJECT_REGISTER_BEGIN( OBJ )\
 namespace {\
 	static uf::StaticInitialization REGISTER_EXT_ ## OBJ( []{\
-		std::string name = #OBJ;\
+		uf::stl::string name = #OBJ;\
 		uf::instantiator::registerObject<ext::OBJ>( name );
 
 #define EXT_OBJECT_BIND_BEHAVIOR( BEHAVIOR )\

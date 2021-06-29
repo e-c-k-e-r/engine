@@ -95,15 +95,15 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 		ambientLight.b *= tMetadata["region"]["light"]["ambient"][2].as<float>();
 	}
 */
-	std::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].as<std::string>();
-	std::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
+	uf::stl::string base = region.getParent().getComponent<uf::Serializer>()["system"]["hash"].as<uf::stl::string>();
+	uf::stl::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(location.x) + "." + std::to_string(location.y) + "." + std::to_string(location.z) + ".json";
 	// old region, load save
 	if ( uf::io::exists( filename ) ) {
 		uf::Serializer save; save.readFromFile(filename);
 
 		// ID
-		if ( save["voxels"]["id"]["base64"].is<std::string>() ) {
-			std::string base64 = save["voxels"]["id"]["base64"].as<std::string>();
+		if ( save["voxels"]["id"]["base64"].is<uf::stl::string>() ) {
+			uf::stl::string base64 = save["voxels"]["id"]["base64"].as<uf::stl::string>();
 			auto raw = uf::base64::decode( base64 );
 
 			if ( save["voxels"]["id"]["rle"].as<bool>() ) {
@@ -118,8 +118,8 @@ void ext::TerrainGenerator::generate( uf::Object& region ){
 			this->unwrapVoxel();
 		}
 		// Lighting
-		if ( save["voxels"]["lighting"]["base64"].is<std::string>() ) {
-			std::string base64 = save["voxels"]["lighting"]["base64"].as<std::string>();
+		if ( save["voxels"]["lighting"]["base64"].is<uf::stl::string>() ) {
+			uf::stl::string base64 = save["voxels"]["lighting"]["base64"].as<uf::stl::string>();
 			auto raw = uf::base64::decode( base64 );
 
 			if ( save["voxels"]["lighting"]["rle"].as<bool>() ) {
@@ -330,13 +330,13 @@ void ext::TerrainGenerator::writeToFile() {
 	this->wrapLight();
 
 	uf::Serializer serializer;
-	std::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].as<std::string>() : "UNKNOWN";
-	std::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
+	uf::stl::string base = this->m_terrain ? this->m_terrain->getComponent<uf::Serializer>()["system"]["hash"].as<uf::stl::string>() : "UNKNOWN";
+	uf::stl::string filename = uf::io::root+"/save/" + base + "/regions/" + std::to_string(this->m_location.x) + "." + std::to_string(this->m_location.y) + "." + std::to_string(this->m_location.z) + ".json";
 	{
 		// encode as base64, json safe
 		serializer["voxels"]["id"]["base64"] = uf::base64::encode( this->m_voxels.id.rle );
 		// hash of raw data for data integrity
-		serializer["voxels"]["id"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["id"]["rle"]["base64"].as<std::string>()) );
+		serializer["voxels"]["id"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["id"]["rle"]["base64"].as<uf::stl::string>()) );
 		serializer["voxels"]["id"]["rle"] = true;
 		serializer["voxels"]["id"]["swizzle"] = this->m_voxels.id.swizzle;
 	}
@@ -344,7 +344,7 @@ void ext::TerrainGenerator::writeToFile() {
 		// encode as base64, json safe
 		serializer["voxels"]["lighting"]["base64"] = uf::base64::encode( this->m_voxels.lighting.rle );
 		// hash of raw data for data integrity
-		serializer["voxels"]["lighting"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["lighting"]["rle"]["base64"].as<std::string>()) );
+		serializer["voxels"]["lighting"]["hash"] = uf::string::sha256( uf::base64::decode(serializer["voxels"]["lighting"]["rle"]["base64"].as<uf::stl::string>()) );
 		serializer["voxels"]["lighting"]["rle"] = true;
 		serializer["voxels"]["lighting"]["swizzle"] = this->m_voxels.lighting.swizzle;
 	}
@@ -354,7 +354,7 @@ void ext::TerrainGenerator::writeToFile() {
 	this->destroy();
 }
 
-std::vector<ext::TerrainVoxel::uid_t> ext::TerrainGenerator::getRawVoxels() {
+uf::stl::vector<ext::TerrainVoxel::uid_t> ext::TerrainGenerator::getRawVoxels() {
 	return this->m_voxels.id.raw;
 }
 const pod::RLE<ext::TerrainVoxel::uid_t>::string_t& ext::TerrainGenerator::getVoxels() const {
@@ -641,7 +641,7 @@ void ext::TerrainGenerator::wrapVoxel() { if ( this->m_voxels.id.raw.empty() ) r
 		raw_id[position.x][position.y][position.z] = this->m_voxels.id.raw[i];
 	}
 
-	std::vector<ext::TerrainVoxel::uid_t> buffer;
+	uf::stl::vector<ext::TerrainVoxel::uid_t> buffer;
 	buffer.reserve( this->m_size.x * this->m_size.y * this->m_size.z );
 
 	// use YZX
@@ -708,7 +708,7 @@ void ext::TerrainGenerator::wrapLight() { if ( this->m_voxels.lighting.raw.empty
 		raw_lighting[position.x][position.y][position.z] = this->m_voxels.lighting.raw[i];
 	}
 
-	std::vector<ext::TerrainVoxel::light_t> buffer;
+	uf::stl::vector<ext::TerrainVoxel::light_t> buffer;
 	buffer.reserve( this->m_size.x * this->m_size.y * this->m_size.z );
 
 	// use YZX
@@ -1006,7 +1006,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			light.g = (self.getLight( node.position ) >>  8) & 0xF;
 			light.b = (self.getLight( node.position ) >>  4) & 0xF;
 
-			std::vector<pod::Vector3i> positions = {
+			uf::stl::vector<pod::Vector3i> positions = {
 				node.position + pod::Vector3i{-1, 0, 0 },
 				node.position + pod::Vector3i{ 1, 0, 0 },
 				node.position + pod::Vector3i{ 0,-1, 0 },
@@ -1098,7 +1098,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			light.g = (this->getLight( node ) >>  8) & 0xF;
 			light.b = (this->getLight( node ) >>  4) & 0xF;
 
-			std::vector<int32_t> positions = {
+			uf::stl::vector<int32_t> positions = {
 				this->wrapPosition(node + pod::Vector3i{-1, 0, 0 }),
 				this->wrapPosition(node + pod::Vector3i{ 1, 0, 0 }),
 				this->wrapPosition(node + pod::Vector3i{ 0,-1, 0 }),
@@ -1150,7 +1150,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( this->getVoxel( node ) );
 			ext::TerrainVoxel::light_t light = (this->getLight( node ) >> 12) & 0xF;
 
-			std::vector<pod::Vector3i> positions = {
+			uf::stl::vector<pod::Vector3i> positions = {
 				node + pod::Vector3i{-1, 0, 0 },
 				node + pod::Vector3i{ 1, 0, 0 },
 				node + pod::Vector3i{ 0,-1, 0 },
@@ -1188,7 +1188,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( this->getVoxel( node ) );
 			ext::TerrainVoxel::light_t light = (this->getLight( node ) >> 8) & 0xF;
 
-			std::vector<pod::Vector3i> positions = {
+			uf::stl::vector<pod::Vector3i> positions = {
 				node + pod::Vector3i{-1, 0, 0 },
 				node + pod::Vector3i{ 1, 0, 0 },
 				node + pod::Vector3i{ 0,-1, 0 },
@@ -1226,7 +1226,7 @@ void ext::TerrainGenerator::light( int x, int y, int z, const ext::TerrainVoxel:
 			ext::TerrainVoxel voxel = ext::TerrainVoxel::atlas( this->getVoxel( node ) );
 			ext::TerrainVoxel::light_t light = (this->getLight( node ) >> 4) & 0xF;
 
-			std::vector<pod::Vector3i> positions = {
+			uf::stl::vector<pod::Vector3i> positions = {
 				node + pod::Vector3i{-1, 0, 0 },
 				node + pod::Vector3i{ 1, 0, 0 },
 				node + pod::Vector3i{ 0,-1, 0 },
@@ -1288,7 +1288,7 @@ void ext::TerrainGenerator::updateLight(){
 //	this->wrapLight();
 //	this->writeToFile();
 }
-void ext::TerrainGenerator::rasterize( std::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& region, bool applyTransform ){
+void ext::TerrainGenerator::rasterize( uf::stl::vector<ext::TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object& region, bool applyTransform ){
 	if ( this->m_voxels.id.rle.empty() ) return;
 
 	this->writeToFile();

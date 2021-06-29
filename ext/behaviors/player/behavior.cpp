@@ -180,7 +180,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	//	for ( auto& member : json[""]["transients"] ) {
 		ext::json::forEach(metadataJson[""]["transients"], [&](ext::json::Value& member){
 			if ( member["type"] != "player" ) return;
-			std::string id = member["id"].as<std::string>();
+			uf::stl::string id = member["id"].as<uf::stl::string>();
 			metadataJson[""]["transients"][id]["hp"] = member["hp"];
 			metadataJson[""]["transients"][id]["mp"] = member["mp"];
 		});
@@ -204,7 +204,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		if ( metadataJson["system"]["cooldown"].as<float>() > uf::physics::time::current ) return;
 		if ( !metadataJson["system"]["control"].as<bool>() ) return;
 		
-		std::string state = metadataJson["system"]["state"].as<std::string>();
+		uf::stl::string state = metadataJson["system"]["state"].as<uf::stl::string>();
 		if ( state != "" && state != "null" ) return;
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
@@ -214,7 +214,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 		uf::Serializer& pMetadata = entity->getComponent<uf::Serializer>();
 
-		std::string onCollision = pMetadata["system"]["onCollision"].as<std::string>();
+		uf::stl::string onCollision = pMetadata["system"]["onCollision"].as<uf::stl::string>();
 
 		if ( onCollision == "battle" ) {
 			uf::Serializer payload;
@@ -256,10 +256,10 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 #if UF_USE_DISCORD
 	// Discord Integration
 	this->addHook( "discord.Activity.Update.%UID%", [&](ext::json::Value& json){
-		std::string leaderId = metadataJson[""]["party"][0].as<std::string>();
+		uf::stl::string leaderId = metadataJson[""]["party"][0].as<uf::stl::string>();
 		uf::Serializer cardData = masterDataGet("Card", leaderId);
-		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<std::string>());
-		std::string leader = charaData["name"].as<std::string>();
+		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
+		uf::stl::string leader = charaData["name"].as<uf::stl::string>();
 
 		uf::Serializer payload = json;
 		payload["details"] = "Leader: " + leader;
@@ -301,7 +301,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		auto& metadataCamera = metadataJson["camera"];
 		auto& metadataCameraLimit = metadataCamera["limit"];
 
-		metadata.system.menu = metadataSystem["menu"].as<std::string>();
+		metadata.system.menu = metadataSystem["menu"].as<uf::stl::string>();
 		metadata.system.control = metadataSystem["control"].as<bool>();
 		metadata.system.crouching = metadataSystem["crouching"].as<bool>();
 		metadata.system.noclipped = metadataSystem["noclipped"].as<bool>();
@@ -402,8 +402,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool floored = true;
 		bool impulse = true;
 		bool noclipped = false;
-		std::string menu = "";
-		std::string targetAnimation = "";
+		uf::stl::string menu = "";
+		uf::stl::string targetAnimation = "";
 	} stats;
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
@@ -656,7 +656,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( stats.walking ) {
 			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 			int cycle = rand() % metadata.audio.footstep.list.size();
-			std::string filename = metadata.audio.footstep.list[cycle];
+			uf::stl::string filename = metadata.audio.footstep.list[cycle];
 			uf::Audio& footstep = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
 
 			bool playing = false;

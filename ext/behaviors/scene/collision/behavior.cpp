@@ -49,8 +49,8 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 	bool ignoreDuplicateTests = metadata["system"]["physics"]["optimizations"]["ignore duplicate tests"].as<bool>();
 	bool useWorkers = metadata["system"]["physics"]["use"]["worker"].as<bool>();
 
-	std::vector<std::function<int()>> jobs;
-	std::vector<uf::Object*> entities; {
+	uf::stl::vector<std::function<int()>> jobs;
+	uf::stl::vector<uf::Object*> entities; {
 		// update physics
 		if ( updatePhysics ) {
 			this->process([&]( uf::Entity* entity ) {
@@ -112,14 +112,14 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 				uf::Object* a = NULL;
 				uf::Object* b = NULL;
 			};
-			std::unordered_map<std::string, Pair> queued;
+			uf::stl::unordered_map<uf::stl::string, Pair> queued;
 			for ( auto* _a : entities ) {
 				uf::Object& entityA = *_a;
 				if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
 				for ( auto* _b : entities ) { if ( _a == _b ) continue;
 					uf::Object& entityB = *_b;
 
-					std::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
+					uf::stl::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
 					if ( queued.count(hash) > 0 ) continue;
 
 					queued[hash] = {
@@ -173,7 +173,7 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 /*
 	pod::Thread& thread = uf::thread::has("Physics") ? uf::thread::get("Physics") : uf::thread::create( "Physics", true, false );
 	auto function = [&]() -> int {
-		std::vector<uf::Object*> entities;
+		uf::stl::vector<uf::Object*> entities;
 		// update physics
 		if ( updatePhysics ) {
 			this->process([&]( uf::Entity* entity ) {
@@ -235,14 +235,14 @@ void ext::SceneCollisionBehavior::tick( uf::Object& self ) {
 				uf::Object* a = NULL;
 				uf::Object* b = NULL;
 			};
-			std::unordered_map<std::string, Pair> queued;
+			uf::stl::unordered_map<uf::stl::string, Pair> queued;
 			for ( auto* _a : entities ) {
 				uf::Object& entityA = *_a;
 				if ( ignoreStaticEntities && !entityA.hasComponent<pod::Physics>() ) continue;
 				for ( auto* _b : entities ) { if ( _a == _b ) continue;
 					uf::Object& entityB = *_b;
 
-					std::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
+					uf::stl::string hash = std::to_string(std::min( entityA.getUid(), entityB.getUid() )) + ":" + std::to_string(std::max( entityA.getUid(), entityB.getUid() ));
 					if ( queued.count(hash) > 0 ) continue;
 
 					queued[hash] = {

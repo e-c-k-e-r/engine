@@ -3,7 +3,7 @@
 #include <uf/config.h>
 
 #include <sstream>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <cmath>
 #include <stdint.h>
 
@@ -56,7 +56,7 @@ namespace uf {
 		template<typename T> pod::Transform<T> /*UF_API*/ fromMatrix( const pod::Matrix4t<T>& matrix );
 		template<typename T> pod::Transform<T>& /*UF_API*/ reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient = true );
 		
-		template<typename T> std::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );
+		template<typename T> uf::stl::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );
 		template<typename T> ext::json::Value /*UF_API*/ encode( const pod::Transform<T>&, bool flatten = true, const ext::json::EncodingSettings& = {} );
 		template<typename T> pod::Transform<T>& /*UF_API*/ decode( const ext::json::Value&, pod::Transform<T>& );
 		template<typename T> pod::Transform<T> /*UF_API*/ decode( const ext::json::Value&, const pod::Transform<T>& = {} );
@@ -67,7 +67,7 @@ namespace uf {
 namespace uf {
 	namespace string {
 		template<typename T>
-		std::string toString( const pod::Transform<T>& v, bool flatten = true );
+		uf::stl::string toString( const pod::Transform<T>& v, bool flatten = true );
 	}
 }
 namespace ext {

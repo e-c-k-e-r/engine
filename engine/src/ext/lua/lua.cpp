@@ -1,8 +1,8 @@
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 sol::state ext::lua::state;
-std::string ext::lua::main = uf::io::root + "/scripts/main.lua";
-std::unordered_map<std::string, std::string> ext::lua::modules;
+uf::stl::string ext::lua::main = uf::io::root + "/scripts/main.lua";
+uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
@@ -18,14 +18,14 @@ std::unordered_map<std::string, std::string> ext::lua::modules;
 sol::table ext::lua::createTable() {
 	return sol::table(ext::lua::state, sol::create);
 }
-std::string ext::lua::sanitize( const std::string& dirty, int index  ) {
+uf::stl::string ext::lua::sanitize( const uf::stl::string& dirty, int index  ) {
 	auto split = uf::string::split( dirty, "::" );
 	if ( index < 0 ) index = split.size() + index;
-	std::string part = split.at(index);
+	uf::stl::string part = split.at(index);
 	part = uf::string::replace( part, "<>", "" );
 	return part;
 }
-std::optional<std::string> ext::lua::encode( sol::table table ) {
+std::optional<uf::stl::string> ext::lua::encode( sol::table table ) {
 	sol::protected_function fun = ext::lua::state["json"]["encode"];
 	auto result = fun( table );
 	if ( !result.valid() ) {
@@ -35,7 +35,7 @@ std::optional<std::string> ext::lua::encode( sol::table table ) {
 	}
 	return result;
 }
-std::optional<sol::table> ext::lua::decode( const std::string& string ) {
+std::optional<sol::table> ext::lua::decode( const uf::stl::string& string ) {
 	sol::protected_function fun = ext::lua::state["json"]["decode"];
 	auto result = fun( string );
 	if ( !result.valid() ) {
@@ -46,10 +46,10 @@ std::optional<sol::table> ext::lua::decode( const std::string& string ) {
 	return result;
 }
 
-std::vector<std::function<void()>>* ext::lua::onInitializationFunctions = NULL;
+uf::stl::vector<std::function<void()>>* ext::lua::onInitializationFunctions = NULL;
 void ext::lua::onInitialization( const std::function<void()>& function ) {
 	if ( !ext::lua::onInitializationFunctions ) {
-		ext::lua::onInitializationFunctions = new std::vector<std::function<void()>>;
+		ext::lua::onInitializationFunctions = new uf::stl::vector<std::function<void()>>;
 	}
 	auto& functions = *ext::lua::onInitializationFunctions;
 	functions.emplace_back(function);
@@ -58,7 +58,7 @@ void ext::lua::onInitialization( const std::function<void()>& function ) {
 
 namespace binds {
 	namespace hook {
-		void add( const std::string& name, const sol::function& function ) {
+		void add( const uf::stl::string& name, const sol::function& function ) {
 			uf::hooks.addHook( name, [function](ext::json::Value& json){
 				sol::table table = ext::lua::state["json"]["decode"]( json.dump() );
 				auto result = function( table );
@@ -68,7 +68,7 @@ namespace binds {
 				}
 			});
 		};
-		void call( const std::string& name, sol::table table = ext::lua::createTable() ) {
+		void call( const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
 			uf::Serializer payload = table;
 			uf::hooks.call( name, (ext::json::Value&) payload );
 			return;
@@ -94,18 +94,18 @@ namespace binds {
 		};
 	}
 	namespace string {
-		std::string extension( const std::string& filename ) {
+		uf::stl::string extension( const uf::stl::string& filename ) {
 			return uf::io::extension( filename );
 		};
-		std::string resolveURI( const std::string& filename, sol::variadic_args va ) {
+		uf::stl::string resolveURI( const uf::stl::string& filename, sol::variadic_args va ) {
 			auto it = va.begin();
-			std::string root = it != va.end() ? *(it++) : std::string("");
+			uf::stl::string root = it != va.end() ? *(it++) : uf::stl::string("");
 			return uf::io::resolveURI( filename, root );
 		};
-		std::string si( sol::variadic_args va ) {
+		uf::stl::string si( sol::variadic_args va ) {
 			auto it = va.begin();
 			double value = *(it++);
-			std::string unit = *(it++);
+			uf::stl::string unit = *(it++);
 			size_t precision = va.size() > 2 ? *(it++) : 3;
 			return uf::string::si( value, unit, precision );
 		};
@@ -114,7 +114,7 @@ namespace binds {
 		void print( sol::variadic_args va ) {
 			size_t count = va.size();
 			for ( auto value : va ) {
-				std::string str = ext::lua::state["tostring"]( value );
+				uf::stl::string str = ext::lua::state["tostring"]( value );
 				uf::iostream << str;
 				if ( --count != 0 ) uf::iostream << "\t";
 			}
@@ -132,18 +132,18 @@ namespace binds {
 		double delta(){ return uf::physics::time::delta; };
 	}
 	namespace json {
-		std::string pretty( const std::string& json ){
+		uf::stl::string pretty( const uf::stl::string& json ){
 			uf::Serializer serializer = json;
 			return serializer.serialize();
 		};
-		sol::table readFromFile( const std::string& filename ){
+		sol::table readFromFile( const uf::stl::string& filename ){
 			uf::Serializer serializer;
 			serializer.readFromFile( filename );
-			std::string string = serializer.serialize(false);
+			uf::stl::string string = serializer.serialize(false);
 			auto decoded = ext::lua::decode( string );
 			return decoded ? decoded.value() : ext::lua::createTable();
 		};
-		bool writeToFile( sol::table table, const std::string& path ) {
+		bool writeToFile( sol::table table, const uf::stl::string& path ) {
 			if ( uf::io::extension(path) != "json" ) return false;
 			auto encoded = ext::lua::encode( table );
 			if ( encoded ) {
@@ -155,7 +155,7 @@ namespace binds {
 		};
 	}
 	namespace os {
-		std::string arch() {
+		uf::stl::string arch() {
 			return UF_ENV;
 		}
 	}
@@ -166,8 +166,8 @@ void ext::lua::initialize() {
 
 	// load modules
 	for ( auto pair : modules ) {
-		const std::string& name = pair.first;
-		const std::string& script = pair.second;
+		const uf::stl::string& name = pair.first;
+		const uf::stl::string& script = pair.second;
 		if ( uf::io::extension(script) == "lua" ) {
 			state.require_file(name, uf::io::resolveURI( script ), true);
 		} else {
@@ -238,7 +238,7 @@ void ext::lua::initialize() {
 	}
 	run(main);
 }
-bool ext::lua::run( const std::string& s, bool safe ) {
+bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 	// is file
 	if ( uf::io::extension(s) == "lua" ) {
 		if ( safe ) {
@@ -267,7 +267,7 @@ bool ext::lua::run( const std::string& s, bool safe ) {
 	return true;
 }
 
-pod::LuaScript ext::lua::script( const std::string& filename ) {
+pod::LuaScript ext::lua::script( const uf::stl::string& filename ) {
 	pod::LuaScript script;
 	script.file = filename;
 	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );

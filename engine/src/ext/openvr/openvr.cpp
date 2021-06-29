@@ -26,20 +26,20 @@ uint8_t ext::openvr::dominantEye = 0;
 
 // toPort
 namespace {
-	std::string GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL) {
+	uf::stl::string GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL) {
 		uint32_t requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, NULL, 0, peError);
 		if( requiredBufferLen == 0 ) return "";
 
 		char *pchBuffer = new char[requiredBufferLen];
 		requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice,prop,pchBuffer,requiredBufferLen,peError);
-		std::string sResult = pchBuffer;
+		uf::stl::string sResult = pchBuffer;
 		delete[] pchBuffer;
 
 		return sResult;
 	}
 
-	std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass klass) {
-		std::string str = "Unknown class";
+	uf::stl::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass klass) {
+		uf::stl::string str = "Unknown class";
 
 		switch ( klass ) {
 			case vr::TrackedDeviceClass_Invalid:			// = 0, the ID was not valid.
@@ -81,19 +81,19 @@ namespace {
 	} devices;
 
 	struct {
-		std::unordered_map<std::string, vr::VRActionHandle_t> actions;
-		std::unordered_map<std::string, vr::VRActionSetHandle_t> actionSets;
-	//	std::vector<vr::VRInputValueHandle_t> inputs;
-		std::vector<vr::VRActiveActionSet_t> activeActionSets;
+		uf::stl::unordered_map<uf::stl::string, vr::VRActionHandle_t> actions;
+		uf::stl::unordered_map<uf::stl::string, vr::VRActionSetHandle_t> actionSets;
+	//	uf::stl::vector<vr::VRInputValueHandle_t> inputs;
+		uf::stl::vector<vr::VRActiveActionSet_t> activeActionSets;
 	} handles;
 
 	struct QueuedRenderModel {
 		vr::RenderModel_t* model;
 		vr::RenderModel_TextureMap_t* texture;
 	};
-	std::unordered_map<std::string, QueuedRenderModel> queuedRenderModels;
-	std::unordered_map<std::string, uf::Graphic> renderModels;
-	std::vector<std::string> renderModelNames;
+	uf::stl::unordered_map<uf::stl::string, QueuedRenderModel> queuedRenderModels;
+	uf::stl::unordered_map<uf::stl::string, uf::Graphic> renderModels;
+	uf::stl::vector<uf::stl::string> renderModelNames;
 }
 
 bool ext::openvr::initialize( int stage ) {
@@ -126,7 +126,7 @@ bool ext::openvr::initialize( int stage ) {
 	for ( uint32_t i = vr::k_unTrackedDeviceIndex_Hmd; i < vr::k_unMaxTrackedDeviceCount; ++i ) {
 		if ( !ext::openvr::context->IsTrackedDeviceConnected(i) ) continue;
 		vr::ETrackedDeviceClass trackedDeviceClass = ext::openvr::context->GetTrackedDeviceClass(i);
-		std::string trackedDeviceType = ::GetTrackedDeviceClassString(trackedDeviceClass);
+		uf::stl::string trackedDeviceType = ::GetTrackedDeviceClassString(trackedDeviceClass);
 		ext::openvr::driver.types[i] = trackedDeviceType;
 
 		uf::iostream << "Tracking device " << i << " is connected " << "\n";
@@ -165,7 +165,7 @@ bool ext::openvr::initialize( int stage ) {
 			if ( DEBUG_MARKER ) UF_MSG_DEBUG(ext::openvr::driver.manifest);
 			for ( auto i = 0; i < manifest["action_sets"].size(); ++i ) {
 				if ( DEBUG_MARKER ) UF_MSG_DEBUG(manifest["action_sets"][i]);
-				std::string name = manifest["action_sets"][i]["name"].as<std::string>();
+				uf::stl::string name = manifest["action_sets"][i]["name"].as<uf::stl::string>();
 				vr::VRActionSetHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
 				handles.actionSets[name] = handle;
@@ -173,7 +173,7 @@ bool ext::openvr::initialize( int stage ) {
 				// handles.actionSets.push_back(handle);
 			}
 			for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
-				std::string name = manifest["actions"][i]["name"].as<std::string>();
+				uf::stl::string name = manifest["actions"][i]["name"].as<uf::stl::string>();
 				vr::VRActionHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
 				handles.actions[name] = handle;
@@ -182,8 +182,8 @@ bool ext::openvr::initialize( int stage ) {
 
 				// add haptics to hooks
 				{
-					std::vector<std::string> split = uf::string::split( name, "/" );
-					std::string shortname = split.back();
+					uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+					uf::stl::string shortname = split.back();
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "hapticVibration" ) {
 						if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered hook for haptic: " << ("VR:Haptics."+split.back()));
@@ -206,7 +206,7 @@ bool ext::openvr::initialize( int stage ) {
 			size_t strlen = vr::VRRenderModels()->GetRenderModelName( i, NULL, 0 );
 			char buffer[strlen];
 			vr::VRRenderModels()->GetRenderModelName( i, &buffer[0], strlen );
-			std::string name = buffer;
+			uf::stl::string name = buffer;
 			::renderModelNames.push_back( name );
 		}
 	}
@@ -241,7 +241,7 @@ void ext::openvr::tick() {
 	// load render model from api
 	for ( auto& pair : ::queuedRenderModels ) {
 		if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED: " << pair.first);
-		std::string name = pair.first;
+		uf::stl::string name = pair.first;
 		auto& queued = pair.second;
 		{
 			vr::EVRRenderModelError status = vr::VRRenderModels()->LoadRenderModel_Async( name.c_str(), &queued.model );
@@ -330,7 +330,7 @@ void ext::openvr::tick() {
 		}
 		vr::VRInput()->UpdateActionState( handles.activeActionSets.data(), sizeof(vr::VRActiveActionSet_t), handles.activeActionSets.size() );
 		for ( auto pair : handles.actions ) {
-			std::string name = pair.first;
+			uf::stl::string name = pair.first;
 			auto& handle = pair.second;
 			// analog data
 			{
@@ -341,8 +341,8 @@ void ext::openvr::tick() {
 					pod::Vector3f position = { data.x, data.y, data.z };
 					if ( data.bActive ) {
 						uf::Serializer payload;
-						std::vector<std::string> split = uf::string::split( name, "/" );
-						std::string shortname = split.back();
+						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+						uf::stl::string shortname = split.back();
 						split = uf::string::split( shortname, "." );
 						
 						payload["name"] = split.front();
@@ -369,8 +369,8 @@ void ext::openvr::tick() {
 				if ( vr::VRInputError_None == vr::VRInput()->GetDigitalActionData(handle, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
 					if ( data.bActive ) {
 						uf::Serializer payload;
-						std::vector<std::string> split = uf::string::split( name, "/" );
-						std::string shortname = split.back();
+						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+						uf::stl::string shortname = split.back();
 						split = uf::string::split( shortname, "." );
 						
 						payload["name"] = split.front();
@@ -390,8 +390,8 @@ void ext::openvr::tick() {
 			{
 				vr::InputPoseActionData_t data;
 				if ( vr::VRInputError_None == vr::VRInput()->GetPoseActionDataRelativeToNow(handle, vr::TrackingUniverseStanding,  fPredictedSecondsFromNow, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
-					std::vector<std::string> split = uf::string::split( name, "/" );
-					std::string shortname = split.back();
+					uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
+					uf::stl::string shortname = split.back();
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "handPose" ) {
 						if ( split.back() == "left" ) ::devices.controllers.left.active = data.bActive;
@@ -419,7 +419,7 @@ void ext::openvr::tick() {
 		}
 	}
 }
-bool ext::openvr::requestRenderModel( const std::string& name ) {
+bool ext::openvr::requestRenderModel( const uf::stl::string& name ) {
 	if ( DEBUG_MARKER ) UF_MSG_DEBUG("Requesting render model: " << name);
 	if ( std::find( renderModelNames.begin(), renderModelNames.end(), name ) == renderModelNames.end() ) return false;
 	if ( renderModels.count(name) == 1 ) return true;
@@ -659,7 +659,7 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 		} break;
 	}
 }
-uf::Serializer ext::openvr::controllerState( vr::Controller_Hand hand, const std::string& key ) {
+uf::Serializer ext::openvr::controllerState( vr::Controller_Hand hand, const uf::stl::string& key ) {
 	if ( hand == vr::Controller_Hand::Hand_Left ) return key == "" ? ::devices.controllers.left.state : ::devices.controllers.left.state[key];
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return key == "" ? ::devices.controllers.right.state : ::devices.controllers.right.state[key];
 	return uf::Serializer();
@@ -718,7 +718,7 @@ bool ext::openvr::controllerActive( vr::Controller_Hand hand ) {
 	else if ( hand == vr::Controller_Hand::Hand_Right ) return ::devices.controllers.right.active;
 	return false;
 }
-uf::Graphic& ext::openvr::getRenderModel( const std::string& name ) {
+uf::Graphic& ext::openvr::getRenderModel( const uf::stl::string& name ) {
 	return ::renderModels[name];
 }
 uf::Graphic& ext::openvr::controllerRenderModel( vr::Controller_Hand hand ) {

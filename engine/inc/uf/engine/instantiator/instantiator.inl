@@ -1,7 +1,7 @@
 #include <uf/utils/type/type.h>
 
 template<typename C>
-typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const std::string& name ) {
+typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const uf::stl::string& name ) {
 	for ( auto pair : names ) if ( pair.second == name ) return pair.first;
 	return getType<void>();
 }
@@ -10,23 +10,23 @@ template<typename T> typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::get
 	return std::type_index(typeid(T));
 }
 template<typename C>
-template<typename T> std::string pod::NamedTypes<C>::getName() {
+template<typename T> uf::stl::string pod::NamedTypes<C>::getName() {
 	return names[getType<T>()];	
 }
 template<typename C>
-bool pod::NamedTypes<C>::has( const std::string& name, bool useNames ) {
+bool pod::NamedTypes<C>::has( const uf::stl::string& name, bool useNames ) {
 	return useNames ? names.count(getType(name)) > 0 : map.count(name) > 0;
 }template<typename C>
 template<typename T> bool pod::NamedTypes<C>::has( bool useNames ) {
 	return useNames ? names.count(getType<T>()) > 0 : map.count(getName<T>()) > 0;
 }
 template<typename C>
-template<typename T> void pod::NamedTypes<C>::add( const std::string& name, const C& c ) {
+template<typename T> void pod::NamedTypes<C>::add( const uf::stl::string& name, const C& c ) {
 	names[getType<T>()] = name;
 	map[name] = c;
 }
 template<typename C>
-C& pod::NamedTypes<C>::get( const std::string& name ) {
+C& pod::NamedTypes<C>::get( const uf::stl::string& name ) {
 	return map[name];
 }
 template<typename C>
@@ -35,7 +35,7 @@ C& pod::NamedTypes<C>::get() {
 	return map[getName<T>()];
 }
 template<typename C>
-C& pod::NamedTypes<C>::operator[]( const std::string& name ) {
+C& pod::NamedTypes<C>::operator[]( const uf::stl::string& name ) {
 	return get(name);
 }
 
@@ -44,7 +44,7 @@ T* uf::instantiator::alloc() {
 	return (T*) alloc( sizeof(T) );
 }
 
-template<typename T> void uf::instantiator::registerObject( const std::string& name ) {
+template<typename T> void uf::instantiator::registerObject( const uf::stl::string& name ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
 	auto& container = *uf::instantiator::objects;
 	container.add<T>(name, {
@@ -57,7 +57,7 @@ template<typename T> void uf::instantiator::registerObject( const std::string& n
 	#endif
 }
 #if 0
-template<typename T> void uf::instantiator::registerBehavior( const std::string& name ) {
+template<typename T> void uf::instantiator::registerBehavior( const uf::stl::string& name ) {
 	if ( !behaviors ) behaviors = new pod::NamedTypes<pod::Behavior>;
 	auto& container = *uf::instantiator::behaviors;
 	container.add<T>(name, pod::Behavior{
@@ -73,7 +73,7 @@ template<typename T> void uf::instantiator::registerBehavior( const std::string&
 	#endif
 }
 #endif
-template<typename T> void uf::instantiator::registerBinding( const std::string& name ) {
+template<typename T> void uf::instantiator::registerBinding( const uf::stl::string& name ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
 	auto& container = *uf::instantiator::objects;
 	auto& instantiator = container.get<T>();

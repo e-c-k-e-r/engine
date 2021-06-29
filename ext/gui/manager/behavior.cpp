@@ -16,7 +16,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
 
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 #include <locale>
 #include <codecvt>
 
@@ -50,31 +50,26 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	// add gui render mode
 	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		std::string name = "Gui";
+		uf::stl::string name = "Gui";
 		uf::renderer::addRenderMode( &renderMode, name );
 		renderMode.blitter.descriptor.subpass = 1;
 	}
 
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-	auto& assetLoader = this->getComponent<uf::Asset>();
+	auto& scene = uf::scene::getCurrentScene();	
+	auto& controller = scene.getController();
+	auto& metadata = controller.getComponent<ext::GuiManagerBehavior::Metadata>();
+	auto& metadataJson = controller.getComponent<uf::Serializer>();
 
 	this->addHook( "window:Resized", [&](ext::json::Value& json){
-
-		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
-		//	size.x = json["window"]["size"]["x"].as<size_t>();
-		//	size.y = json["window"]["size"]["y"].as<size_t>();
-		}
+		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
 		ext::gui::size.current = size;
 	//	ext::gui::size.reference = size;
 	} );
 	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
-
-		bool down = json["mouse"]["state"].as<std::string>() == "Down";
 		bool clicked = false;
-		pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
-		//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-		//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
-		}
+		bool down = json["mouse"]["state"].as<uf::stl::string>() == "Down";
+		pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} );
+
 		pod::Vector2f click; {
 			click.x = (float) position.x / (float) ext::gui::size.current.x;
 			click.y = (float) position.y / (float) ext::gui::size.current.y;
@@ -83,27 +78,40 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 			float x = click.x;
 			float y = click.y;
 		}
-
-		{
-			auto& scene = uf::scene::getCurrentScene();
-			auto& controller = scene.getController();
-			auto& metadata = controller.getComponent<ext::GuiManagerBehavior::Metadata>();
-			auto& metadataJson = controller.getComponent<uf::Serializer>();
-		//	if ( metadata.cursor.type == "mouse" ) metadata.cursor.position = click;		
-			if ( metadataJson["overlay"]["cursor"]["type"].as<std::string>() == "mouse" ) {
-				metadataJson["overlay"]["cursor"]["position"] = uf::vector::encode( click );
-			}
+		if ( metadata.overlay.cursor.type == "mouse" ) {
+			metadata.overlay.cursor.position = click;
 		}
 	});
+
+	metadata.serialize = [&](){
+		metadataJson["overlay"]["enabled"] = metadata.overlay.enabled;
+		metadataJson["overlay"]["floating"] = metadata.overlay.floating;
+		metadataJson["overlay"]["transform"] = uf::transform::encode( metadata.overlay.transform );
+
+		metadataJson["overlay"]["cursor"]["type"] = metadata.overlay.cursor.type;
+		metadataJson["overlay"]["cursor"]["enabled"] = metadata.overlay.cursor.enabled;
+		metadataJson["overlay"]["cursor"]["position"] = uf::vector::encode( metadata.overlay.cursor.position );
+	 	metadataJson["overlay"]["cursor"]["radius"] = metadata.overlay.cursor.radius;
+	 	metadataJson["overlay"]["cursor"]["color"] = uf::vector::encode( metadata.overlay.cursor.color );
+	};
+	metadata.deserialize = [&](){
+		metadata.overlay.enabled = metadataJson["overlay"]["enabled"].as( metadata.overlay.enabled );
+		metadata.overlay.floating = metadataJson["overlay"]["floating"].as( metadata.overlay.floating );
+		metadata.overlay.transform = uf::transform::decode( metadataJson["overlay"]["transform"], metadata.overlay.transform );
+
+		metadata.overlay.cursor.type = metadataJson["overlay"]["cursor"]["type"].as( metadata.overlay.cursor.type );
+		metadata.overlay.cursor.enabled = metadataJson["overlay"]["cursor"]["enabled"].as( metadata.overlay.cursor.enabled );
+		metadata.overlay.cursor.position = uf::vector::decode( metadataJson["overlay"]["cursor"]["position"], metadata.overlay.cursor.position );
+	 	metadata.overlay.cursor.radius = metadataJson["overlay"]["cursor"]["radius"].as( metadata.overlay.cursor.radius );
+	 	metadata.overlay.cursor.color = uf::vector::decode( metadataJson["overlay"]["cursor"]["color"], metadata.overlay.cursor.color );
+	};
+	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
+	metadata.deserialize();
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 }
 void ext::GuiManagerBehavior::render( uf::Object& self ){
 #if UF_USE_VULKAN
-	auto& scene = uf::scene::getCurrentScene();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
-	auto& metadataJson = controller.getComponent<uf::Serializer>();
 
 	uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
@@ -117,6 +125,16 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 	if ( !blitter.initialized ) return;
 	if ( !blitter.material.hasShader("fragment") ) return;
 	
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& camera = controller.getComponent<uf::Camera>();
+	auto& metadata = this->getComponent<ext::GuiManagerBehavior::Metadata>();
+	auto& metadataJson = controller.getComponent<uf::Serializer>();
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize();
+#else
+	if ( metadata.overlay.cursor.type == "" && metadata.deserialize ) metadata.deserialize();
+#endif
 	struct UniformDescriptor {
 		struct {
 			/*alignas(16)*/ pod::Matrix4f models[2];
@@ -128,26 +146,22 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 		} cursor;
 	//	/*alignas(8)*/ pod::Vector2f alpha;
 	};
-
+	
 	auto& shader = blitter.material.getShader("vertex");
 	auto& uniform = shader.getUniform("UBO");
 	auto& uniforms = uniform.get<UniformDescriptor>();
 
 	for ( size_t i = 0; i < 2; ++i ) {
-		pod::Transform<> transform;
-		transform.position = uf::vector::decode( metadataJson["overlay"]["position"], transform.position );
-		transform.scale = uf::vector::decode( metadataJson["overlay"]["scale"], transform.scale );
-		transform.orientation = uf::vector::decode( metadataJson["overlay"]["orientation"], transform.orientation );
 	#if UF_USE_OPENVR
-		if ( ext::openvr::enabled && metadataJson["overlay"]["enabled"].as<bool>() ) {
-			if ( metadataJson["overlay"]["floating"].as<bool>() ) {
-				pod::Matrix4f model = uf::transform::model( transform );
+		if ( ext::openvr::enabled && metadata.overlay.enabled ) {
+			if ( metadata.overlay.floating ) {
+				pod::Matrix4f model = uf::transform::model( metadata.overlay.transform );
 				uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
 			} else {
 				auto translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
 				auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
 
-				pod::Matrix4f model = translation * rotation * uf::transform::model( transform );
+				pod::Matrix4f model = translation * rotation * uf::transform::model( metadata.overlay.transform );
 				uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
 			}
 		} else {
@@ -158,22 +172,11 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 			uniforms.matrices.models[i] = model;
 		}
 
-
-		pod::Vector3f cursorSize = { 0, 0 };
-		if ( metadataJson["overlay"]["cursor"]["enabled"].as<bool>() ) {
-			uniforms.cursor.position.x = (metadataJson["overlay"]["cursor"]["position"][0].as<float>() + 1.0f) * 0.5f; //(::mouse.position.x + 1.0f) * 0.5f;
-			uniforms.cursor.position.y = (metadataJson["overlay"]["cursor"]["position"][1].as<float>() + 1.0f) * 0.5f; //(::mouse.position.y + 1.0f) * 0.5f;
-
-			cursorSize.x = metadataJson["overlay"]["cursor"]["radius"].as<float>();
-			cursorSize.y = metadataJson["overlay"]["cursor"]["radius"].as<float>();
-			
-			cursorSize = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , transform.scale) ), cursorSize );
-		
-			uniforms.cursor.radius.x = cursorSize.x;
-			uniforms.cursor.radius.y = cursorSize.y;
+		if ( metadata.overlay.cursor.enabled ) {
+			uniforms.cursor.position = metadata.overlay.cursor.position * 0.5f + 0.5f;
+			uniforms.cursor.radius = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , metadata.overlay.transform.scale) ), pod::Vector3f{ metadata.overlay.cursor.radius, metadata.overlay.cursor.radius, 0 } );
 		}
-		
-		uniforms.cursor.color = uf::vector::decode( metadataJson["overlay"]["cursor"]["color"], pod::Vector4f{0,0,0,0} );
+		uniforms.cursor.color = metadata.overlay.cursor.color;
 	}
 
 	shader.updateUniform( "UBO", uniform );

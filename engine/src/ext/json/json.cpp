@@ -34,7 +34,7 @@ void ext::json::forEach( ext::json::Value& json, const std::function<void(size_t
 		function( i, (ext::json::Value&) json[i] );
 	}
 }
-void ext::json::forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&)>& function ) {
+void ext::json::forEach( ext::json::Value& json, const std::function<void(const uf::stl::string&, ext::json::Value&)>& function ) {
 //	UF_ASSERT_SAFE( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		function( it.key(), (ext::json::Value&) *it );
@@ -57,7 +57,7 @@ void ext::json::forEach( ext::json::Value& json, const std::function<void(size_t
 		if ( breaks ) break;
 	}
 }
-void ext::json::forEach( ext::json::Value& json, const std::function<void(const std::string&, ext::json::Value&, bool&)>& function ) {
+void ext::json::forEach( ext::json::Value& json, const std::function<void(const uf::stl::string&, ext::json::Value&, bool&)>& function ) {
 //	UF_ASSERT_SAFE( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		bool breaks = false;
@@ -72,7 +72,7 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 		function( i, (const ext::json::Value&) json[i] );
 	}
 }
-void ext::json::forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&)>& function ) {
+void ext::json::forEach( const ext::json::Value& json, const std::function<void(const uf::stl::string&, const ext::json::Value&)>& function ) {
 //	UF_ASSERT_SAFE( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		function( it.key(), (const ext::json::Value&) *it );
@@ -86,7 +86,7 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 		if ( breaks ) break;
 	}
 }
-void ext::json::forEach( const ext::json::Value& json, const std::function<void(const std::string&, const ext::json::Value&, bool&)>& function ) {
+void ext::json::forEach( const ext::json::Value& json, const std::function<void(const uf::stl::string&, const ext::json::Value&, bool&)>& function ) {
 //	UF_ASSERT_SAFE( ext::json::isObject(json) );
 	for ( auto it = json.begin(); it != json.end(); ++it ) {
 		bool breaks = false;
@@ -112,8 +112,8 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 }
 
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
-std::vector<std::string> ext::json::keys( const ext::json::Value& v ) {
-	std::vector<std::string> keys;
+uf::stl::vector<uf::stl::string> ext::json::keys( const ext::json::Value& v ) {
+	uf::stl::vector<uf::stl::string> keys;
 	if ( !ext::json::isObject( v ) ) return keys;
 	for ( auto it = v.begin(); it != v.end(); ++it ) {
 		keys.emplace_back(it.key());
@@ -128,7 +128,7 @@ ext::json::Value ext::json::reencode( const ext::json::Value& _x, const Encoding
 	if ( settings.precision == 0 ) return _x;
 	ext::json::Value x = _x;
 	if ( x.is<float>(true) ) {
-		std::stringstream str;
+		uf::stl::stringstream str;
 		str << std::setprecision(settings.precision) << x.as<float>();
 	//	ext::json::decode( x, str.str() );
 		x = nlohmann::json::parse(str);
@@ -140,7 +140,7 @@ ext::json::Value ext::json::reencode( const ext::json::Value& _x, const Encoding
 ext::json::Value& ext::json::reencode( ext::json::Value& x, const EncodingSettings& settings ) {
 	if ( settings.precision == 0 ) return x;
 	if ( x.is<float>(true) ) {
-		std::stringstream str;
+		uf::stl::stringstream str;
 		str << std::setprecision(settings.precision) << x.as<float>();
 	//	ext::json::decode( x, str.str() );
 		x = nlohmann::json::parse(str);
@@ -150,17 +150,17 @@ ext::json::Value& ext::json::reencode( ext::json::Value& x, const EncodingSettin
 	return x;
 }
 
-std::string ext::json::encode( const ext::json::Value& json, bool pretty ) {
+uf::stl::string ext::json::encode( const ext::json::Value& json, bool pretty ) {
 	return ext::json::encode( json, ext::json::EncodingSettings{ .pretty = true } );
 }
-std::string ext::json::encode( const ext::json::Value& _json, const ext::json::EncodingSettings& settings ) {
+uf::stl::string ext::json::encode( const ext::json::Value& _json, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json = ext::json::reencode( _json, settings );
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
 	return settings.pretty ? json.dump(1, '\t') : json.dump();
 #elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP
 	Json::FastWriter fast;
 	Json::StyledWriter styled;
-	std::string output = settings.pretty ? styled.write(json) : fast.write(json);
+	uf::stl::string output = settings.pretty ? styled.write(json) : fast.write(json);
 	if ( output.back() == '\n' ) output.pop_back();
 	return output;
 #elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
@@ -169,11 +169,11 @@ std::string ext::json::encode( const ext::json::Value& _json, const ext::json::E
 }
 
 #if UF_USE_LUA
-std::string ext::json::encode( const sol::table& table ) {
+uf::stl::string ext::json::encode( const sol::table& table ) {
 	return ext::lua::state["json"]["encode"]( table );
 }
 #endif
-ext::json::Value& ext::json::decode( ext::json::Value& json, const std::string& str ) {
+ext::json::Value& ext::json::decode( ext::json::Value& json, const uf::stl::string& str ) {
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
 #if UF_NO_EXCEPTIONS
 	json = nlohmann::json::parse(str, nullptr, true, true);

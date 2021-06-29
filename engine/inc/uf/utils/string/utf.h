@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <locale>
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <cstdlib>
 
 ////

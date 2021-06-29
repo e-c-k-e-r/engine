@@ -61,7 +61,7 @@ namespace spec {
 			/*virtual*/ bool UF_API_CALL hasFocus() const;
 		// 	Update
 			/*virtual*/ void UF_API_CALL processEvents();
-			static /*virtual*/ bool UF_API_CALL isKeyPressed(const std::string&);
+			static /*virtual*/ bool UF_API_CALL isKeyPressed(const uf::stl::string&);
 			bool UF_API_CALL pollEvents( bool block = false );
 		// 	Win32 specific functions
 			void UF_API_CALL registerWindowClass();
@@ -72,10 +72,10 @@ namespace spec {
 			static pod::Vector2ui UF_API_CALL getResolution();
 			void UF_API_CALL switchToFullscreen( bool borderless = false );
 		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-			std::vector<std::string> UF_API_CALL getExtensions( bool validationEnabled );
+			uf::stl::vector<uf::stl::string> UF_API_CALL getExtensions( bool validationEnabled );
 			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );
 		#endif
-			static std::string UF_API_CALL getKey(WPARAM key, LPARAM flags);
+			static uf::stl::string UF_API_CALL getKey(WPARAM key, LPARAM flags);
 		};
 	}
 	typedef spec::win32::Window Window;

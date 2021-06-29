@@ -17,10 +17,10 @@ namespace ext {
 			struct {			
 				uf::Serializer json;
 
-				std::string name = "";
-				std::string type = "";
-				std::string target = "";
-				std::vector<uint8_t> outputs;
+				uf::stl::string name = "";
+				uf::stl::string type = "";
+				uf::stl::string target = "";
+				uf::stl::vector<uint8_t> outputs;
 
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
@@ -36,21 +36,21 @@ namespace ext {
 			RenderTarget renderTarget;
 
 			GLhandle(VkSemaphore) renderCompleteSemaphore;
-			std::vector<GLhandle(VkFence)> fences;
+			uf::stl::vector<GLhandle(VkFence)> fences;
 			
 			std::thread::id mostRecentCommandPoolId;
 			uf::ThreadUnique<CommandBuffer> commands;
 
 			virtual ~RenderMode();
 			// RAII
-			virtual const std::string getName() const;
-			virtual const std::string getType() const;
+			virtual const uf::stl::string getName() const;
+			virtual const uf::stl::string getType() const;
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
 
 			virtual const size_t blitters() const;
 			virtual ext::opengl::Graphic* getBlitter(size_t = 0);
-			virtual std::vector<ext::opengl::Graphic*> getBlitters();
+			virtual uf::stl::vector<ext::opengl::Graphic*> getBlitters();
 
 			virtual CommandBuffer& getCommands();
 			virtual CommandBuffer& getCommands( std::thread::id );
@@ -60,9 +60,9 @@ namespace ext {
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();
-			virtual void createCommandBuffers( const std::vector<ext::opengl::Graphic*>& graphics );
+			virtual void createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics );
 			virtual void bindPipelines();
-			virtual void bindPipelines( const std::vector<ext::opengl::Graphic*>& graphics );
+			virtual void bindPipelines( const uf::stl::vector<ext::opengl::Graphic*>& graphics );
 			virtual void tick();
 			virtual void render();
 			virtual void destroy();

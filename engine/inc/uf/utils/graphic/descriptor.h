@@ -22,7 +22,7 @@ namespace ext {
 			size_t size = 0; // sizeof(Vertex::position::type_t)
 			size_t components = 0; // Vertex::position::size
 			ext::RENDERER::enums::Type::type_t type = 0; // ext::RENDERER::typeToEnum<Vertex::position::type_t>()
-			std::string name = "";
+			uf::stl::string name = "";
 		};
 	}
 }
@@ -36,7 +36,7 @@ namespace uf {
 				void* pointer = NULL;
 				size_t length = 0;
 			} vertex, index;
-			std::vector<ext::RENDERER::VertexDescriptor> descriptor;
+			uf::stl::vector<ext::RENDERER::VertexDescriptor> descriptor;
 		} attributes;
 
 		void generateIndices();
@@ -51,13 +51,13 @@ namespace ext {
 	namespace RENDERER {
 		struct UF_API GraphicDescriptor {
 		#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
-			typedef std::string hash_t;
+			typedef uf::stl::string hash_t;
 		#else
 			typedef size_t hash_t;
 		#endif
 
-			std::string renderMode = "";
-			std::string pipeline = "";
+			uf::stl::string renderMode = "";
+			uf::stl::string pipeline = "";
 
 			uint32_t renderTarget = 0;
 			uint32_t subpass = 0;
@@ -106,5 +106,5 @@ namespace ext {
 	},
 
 #define UF_VERTEX_DESCRIPTOR( TYPE, ... )\
-	std::vector<uf::renderer::VertexDescriptor> TYPE::descriptor = { __VA_ARGS__ };
+	uf::stl::vector<uf::renderer::VertexDescriptor> TYPE::descriptor = { __VA_ARGS__ };
 	

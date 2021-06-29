@@ -72,7 +72,7 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 
 }
 
-std::string uf::Image::getFilename() const {
+uf::stl::string uf::Image::getFilename() const {
 	return this->m_filename;
 }
 
@@ -86,11 +86,11 @@ std::string uf::Image::getFilename() const {
 	((((uint16_t)r & 0xf8) << 8) | (((uint16_t) g & 0xfc) << 3) | ((uint16_t) b >> 3))
 
 // from file
-bool uf::Image::open( const std::string& filename, bool flip ) {
+bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 #if UF_ENV_DREAMCAST
-	std::string extension = uf::io::extension(filename);
+	uf::stl::string extension = uf::io::extension(filename);
 	if ( extension != "dtex" ) {
-		std::string dtex = uf::string::replace( filename, ".png", ".dtex" );
+		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
 		if ( uf::io::exists(dtex) ) {
 			UF_MSG_DEBUG("Loading dtex instead for: " << filename);
 			return this->open(dtex, flip);
@@ -321,7 +321,7 @@ std::size_t uf::Image::getChannels() const {
 std::size_t uf::Image::getFormat() const {
 	return this->m_format;
 }
-std::string uf::Image::getHash() const {
+uf::stl::string uf::Image::getHash() const {
 	return uf::string::sha256( this->m_pixels );
 }
 uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
@@ -335,13 +335,13 @@ uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 }
 // 	Modifiers
 // to file
-bool uf::Image::save( const std::string& filename, bool flip ) const {
+bool uf::Image::save( const uf::stl::string& filename, bool flip ) const {
 	if ( this->m_pixels.empty() ) return false;
 	
 	uint w = this->m_dimensions.x;
 	uint h = this->m_dimensions.y;
 	auto* pixels = &this->m_pixels[0];
-	std::string extension = uf::io::extension(filename);
+	uf::stl::string extension = uf::io::extension(filename);
 	stbi_flip_vertically_on_write(flip);
 	if ( extension == "png" ) {
 		stbi_write_png(filename.c_str(), w, h, this->m_channels, &pixels[0], w * this->m_channels);
@@ -355,7 +355,7 @@ void uf::Image::save( std::ostream& stream ) const {
 
 }
 #include <uf/utils/string/ext.h>
-void uf::Image::convert( const std::string& from, const std::string& to ) {
+void uf::Image::convert( const uf::stl::string& from, const uf::stl::string& to ) {
 	uf::Image::container_t pixels = std::move(this->m_pixels);
 	if ( uf::string::lowercase(to) != "rgba" ) {
 	} else {

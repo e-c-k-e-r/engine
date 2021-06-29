@@ -32,9 +32,9 @@ uf::Quaternion<T>::Quaternion(const T components[4] ) :
 {
 
 }
-// copies data into POD from 'components' (typed as std::vector<T>)
+// copies data into POD from 'components' (typed as uf::stl::vector<T>)
 template<typename T>
-uf::Quaternion<T>::Quaternion(const std::vector<T>& components) {
+uf::Quaternion<T>::Quaternion(const uf::stl::vector<T>& components) {
 	memcpy( this->m_pod.components, &components[0], 4 );
 }
 // 	D-tor
@@ -203,7 +203,7 @@ inline uf::Quaternion<T> uf::Quaternion<T>::getInverse() const {
 	return uf::quaternion::inverse(this->m_pod);
 }
 template<typename T>
-inline std::string uf::Quaternion<T>::toString() const {
+inline uf::stl::string uf::Quaternion<T>::toString() const {
 	return uf::vector::toString(this->m_pod);
 }
 // 	Overloaded ops

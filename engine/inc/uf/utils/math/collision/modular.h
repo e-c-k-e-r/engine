@@ -27,7 +27,7 @@ namespace uf {
 		uint getSize() const;
 		void setContainer( pod::Vector3*, uint );
 
-		virtual std::string type() const;
+		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const;
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 	};

@@ -5,13 +5,13 @@
 #include <iostream>
 
 namespace {
-	size_t writeFunction(void *ptr, size_t size, size_t nmemb, std::string* data) {
+	size_t writeFunction(void *ptr, size_t size, size_t nmemb, uf::stl::string* data) {
     	data->append((char*) ptr, size * nmemb);
     	return size * nmemb;
 	}
 }
 
-uf::Http UF_API uf::http::get( const std::string& url ) {
+uf::Http UF_API uf::http::get( const uf::stl::string& url ) {
 	uf::Http http;
 
 #if UF_USE_CURL

@@ -6,12 +6,13 @@
 #define TIMER(x, ...) auto TOKEN_PASTE(TIMER, __LINE__) = []( double every = 1 ) {\
 		static uf::Timer<long long> timer(false);\
 		if ( !timer.running() ) {\
-			timer.start(uf::Time<long long>(-x, uf::Time<long long>::seconds));\
+			timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
 		}\
 		double time = 0;\
 		if ( (time = timer.elapsed().asDouble()) >= every ) {\
 			timer.reset();\
 		}\
+		static bool first = true; if ( first ) { first = false; return every; }\
 		return time;\
 	};\
 	double time = 0;\
@@ -39,9 +40,9 @@
 	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); }
 #else
 	#define UF_EXCEPTION(X) {\
-		std::stringstream str;\
+		uf::stl::stringstream str;\
 		str << X;\
-		std::string Y = str.str();\
+		uf::stl::string Y = str.str();\
 		UF_MSG_ERROR(Y);\
 		throw std::runtime_error(Y);\
 	}

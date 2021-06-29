@@ -3,7 +3,7 @@
 
 #include "Maze.h"
 #include <iostream>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <set>
 #include <tuple>
 #include <map>
@@ -115,7 +115,7 @@ void ext::Maze::build(){
 
 
     // The room sets
-    std::map<std::size_t, std::vector<pos>> room_set;
+    std::map<std::size_t, uf::stl::vector<pos>> room_set;
 
     // The mapping of connected rooms
     std::map<int, int> merged_room_sets;
@@ -176,7 +176,7 @@ void ext::Maze::build(){
                     //      EASTERN WALL REMOVED
 
                     // Get set of eastern room
-                    std::vector<pos> next_room_position_set = room_set[get(row, col+1, floor)];
+                    uf::stl::vector<pos> next_room_position_set = room_set[get(row, col+1, floor)];
 
                     // Add set of eastern room to this set.
                     room_set[room_value].insert(room_set[room_value].end(), next_room_position_set.begin(), next_room_position_set.end() );
@@ -377,10 +377,10 @@ void ext::Maze::print(){
      */
 
     // Maze map canvas
-    std::string map_drawing[2 * WIDTH + 1][HEIGHT];
+    uf::stl::string map_drawing[2 * WIDTH + 1][HEIGHT];
 
-    std::string wall_row = "+";
-    std::string room_row = "|";
+    uf::stl::string wall_row = "+";
+    uf::stl::string room_row = "|";
 
     // Make a row of walls and rooms
     for (int col = 0; col < LENGTH; col++){

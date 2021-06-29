@@ -15,7 +15,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/camera/camera.h>
 
-const std::string ext::opengl::DeferredRenderMode::getType() const {
+const uf::stl::string ext::opengl::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
 const size_t ext::opengl::DeferredRenderMode::blitters() const {
@@ -24,7 +24,7 @@ const size_t ext::opengl::DeferredRenderMode::blitters() const {
 ext::opengl::Graphic* ext::opengl::DeferredRenderMode::getBlitter( size_t i ) {
 	return &this->blitter;
 }
-std::vector<ext::opengl::Graphic*> ext::opengl::DeferredRenderMode::getBlitters() {
+uf::stl::vector<ext::opengl::Graphic*> ext::opengl::DeferredRenderMode::getBlitters() {
 	return { &this->blitter };
 }
 
@@ -37,7 +37,7 @@ void ext::opengl::DeferredRenderMode::tick() {
 void ext::opengl::DeferredRenderMode::destroy() {
 	ext::opengl::RenderMode::destroy();
 }
-void ext::opengl::DeferredRenderMode::createCommandBuffers( const std::vector<ext::opengl::Graphic*>& graphics ) {
+void ext::opengl::DeferredRenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
 	

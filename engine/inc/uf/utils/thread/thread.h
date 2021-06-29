@@ -4,22 +4,25 @@
 #include <uf/utils/time/time.h>
 #include <uf/utils/math/math.h>
 
-#include <queue>
 #include <mutex>
 #include <thread>
-#include <vector>
+
+#include <uf/utils/memory/vector.h>
+#include <uf/utils/memory/string.h>
+#include <uf/utils/memory/queue.h>
+
 #include <functional>
 #include <condition_variable>
 
 namespace pod {
 	struct UF_API Thread {
 		typedef std::function<int()> function_t;
-		typedef std::queue<pod::Thread::function_t> queue_t;
-		typedef std::vector<pod::Thread::function_t> container_t;
+		typedef uf::stl::queue<pod::Thread::function_t> queue_t;
+		typedef uf::stl::vector<pod::Thread::function_t> container_t;
 
 		uint uid;
 		double limiter;
-		std::string name;
+		uf::stl::string name;
 		bool running, terminates;
 
 		std::mutex* mutex;
@@ -47,30 +50,30 @@ namespace uf {
 		void UF_API tick( pod::Thread& );
 	//	void UF_API tick( pod::Thread&, const std::function<void()>& = NULL );
 
-		pod::Thread& UF_API fetchWorker( const std::string& name = "Aux" );
-		void UF_API batchWorkers( const std::vector<pod::Thread::function_t>&, bool = true, const std::string& name = "Aux" );
+		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
+		void UF_API batchWorkers( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
 		void UF_API assertExecute( pod::Thread&, const pod::Thread::function_t& );
 		void UF_API process( pod::Thread& );
 
 		void UF_API wait( pod::Thread& );
 
-		const std::string& UF_API name( const pod::Thread& );
+		const uf::stl::string& UF_API name( const pod::Thread& );
 		uint UF_API uid( const pod::Thread& );
 		bool UF_API running( const pod::Thread& );
 	/* Acts on global threads */
-		typedef std::vector<pod::Thread*> container_t;
+		typedef uf::stl::vector<pod::Thread*> container_t;
 		extern UF_API uf::thread::container_t threads;
 		
 
 		void UF_API terminate();
 
-		pod::Thread& UF_API create( const std::string& = "", bool = true, bool = true );
+		pod::Thread& UF_API create( const uf::stl::string& = "", bool = true, bool = true );
 		void UF_API destroy( pod::Thread& );
 		bool UF_API has( uint );
-		bool UF_API has( const std::string& );
+		bool UF_API has( const uf::stl::string& );
 		pod::Thread& UF_API get( uint );
-		pod::Thread& UF_API get( const std::string& );
+		pod::Thread& UF_API get( const uf::stl::string& );
 
 		bool UF_API isMain();
 	}
@@ -82,7 +85,7 @@ namespace uf {
 	public:
 		typedef std::function<int()> function_t;
 		typedef std::queue<uf::Thread::function_t> queue_t;
-		typedef std::vector<uf::Thread::function_t> container_t;
+		typedef uf::stl::vector<uf::Thread::function_t> container_t;
 
 		enum {
 			TEMP = 0,
@@ -95,14 +98,14 @@ namespace uf {
 		bool m_shouldLock;
 		bool m_terminateOnEmpty;
 		std::mutex m_mutex;
-		std::string m_name;
+		uf::stl::string m_name;
 		std::thread m_thread;
 		uf::Thread::queue_t m_temps;
 		uf::Thread::container_t m_consts;
 	public:
 		static uint fps;
 		static uint thread_count;
-		Thread( const std::string& = "", bool = true, uint = 0 );
+		Thread( const uf::stl::string& = "", bool = true, uint = 0 );
 		virtual ~Thread();
 
 		void start();
@@ -111,19 +114,19 @@ namespace uf {
 		void process();
 		void quit();
 
-		std::string toString() const;
-		const std::string& getName() const;
+		uf::stl::string toString() const;
+		const uf::stl::string& getName() const;
 		uint getUid() const;
 		const bool& isRunning() const;
 	};
 	namespace thread {
-		typedef std::unordered_map<std::string, uf::Thread*> container_t;
+		typedef uf::stl::unordered_map<uf::stl::string, uf::Thread*> container_t;
 		extern UF_API uf::thread::container_t threads;
 
 		void UF_API add( uf::Thread* );
-		uf::Thread& UF_API get( const std::string& );
-		bool UF_API add( const std::string&, const uf::Thread::function_t&, uint = 0 );
-		bool UF_API quit( const std::string& );
+		uf::Thread& UF_API get( const uf::stl::string& );
+		bool UF_API add( const uf::stl::string&, const uf::Thread::function_t&, uint = 0 );
+		bool UF_API quit( const uf::stl::string& );
 	};
 }
 */

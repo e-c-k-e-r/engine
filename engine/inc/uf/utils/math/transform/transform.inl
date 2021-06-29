@@ -152,9 +152,9 @@ template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::reference( pod
 }
 
 template<typename T> 														// Normalizes a vector
-std::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool flatten ) {
+uf::stl::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool flatten ) {
 	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;
-	std::stringstream ss;
+	uf::stl::stringstream ss;
 	ss << "Transform(" << uf::string::toString(transform.position) << "; " << uf::string::toString(transform.orientation) << ")";
 	return ss.str();
 }

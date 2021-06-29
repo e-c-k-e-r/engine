@@ -5,7 +5,7 @@
 #include "math.h"
 
 #include <sstream>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <cmath>
 #include <cstring>
 #include <stdint.h>
@@ -34,12 +34,16 @@ namespace pod {
 		Vector<T,N> operator-( const Vector<T,N>& vector ) const; 	// 	Subtraction between two vectors
 		Vector<T,N> operator*( const Vector<T,N>& vector ) const; 	// 	Multiplication between two vectors
 		Vector<T,N> operator/( const Vector<T,N>& vector ) const; 	// 	Division between two vectors
+		Vector<T,N> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		Vector<T,N> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		Vector<T,N> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		Vector<T,N> operator/( T scalar ) const; 					// 	Division with scalar
 		Vector<T,N>& operator +=( const Vector<T,N>& vector ); 		// 	Addition set between two vectors
 		Vector<T,N>& operator -=( const Vector<T,N>& vector ); 		// 	Subtraction set between two vectors
 		Vector<T,N>& operator *=( const Vector<T,N>& vector ); 		// 	Multiplication set between two vectors
 		Vector<T,N>& operator /=( const Vector<T,N>& vector ); 		// 	Division set between two vectors
+		Vector<T,N>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		Vector<T,N>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		Vector<T,N>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		Vector<T,N>& operator /=( T scalar ); 						// 	Division set with scalar
 		bool operator==( const Vector<T,N>& vector ) const; 		// 	Equality check between two vectors (equals)
@@ -51,7 +55,7 @@ namespace pod {
 
 		template<typename U, size_t M> Vector<T,N>& operator=( const Vector<U,M>& vector );
 		template<typename U, size_t M> operator Vector<U,M>();
-		inline operator bool() const;
+		explicit inline operator bool() const;
 	};
 	template<typename T = float> using Vector1t = Vector<T,1>;
 	typedef Vector1t<pod::Math::num_t> Vector1;
@@ -106,7 +110,9 @@ namespace uf {
 		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two vectors (equals)
 	// 	Basic arithmetic
 		template<typename T> T /*UF_API*/ add( const T& left, const T& right );								// 	Adds two vectors of same type and size together
+		template<typename T> T /*UF_API*/ add( const T& left, const typename T::type_t& scalar );			// 	Adds two vectors of same type and size together
 		template<typename T> T /*UF_API*/ subtract( const T& left, const T& right );						// 	Subtracts two vectors of same type and size together
+		template<typename T> T /*UF_API*/ subtract( const T& left, const typename T::type_t& scalar );		// 	Subtracts two vectors of same type and size together
 		template<typename T> T /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two vectors of same type and size together
 		template<typename T> T /*UF_API*/ multiply( const T& vector, const typename T::type_t& scalar );	// 	Multiplies this vector by a scalar
 		template<typename T> T /*UF_API*/ divide( const T& left, const T& right );							// 	Divides two vectors of same type and size together
@@ -116,7 +122,9 @@ namespace uf {
 		template<typename T> T /*UF_API*/ negate( const T& vector );										// 	Flip sign of all components
 	// 	Writes to first value
 		template<typename T> T& /*UF_API*/ add( T& left, const T& right );									// 	Adds two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ add( T& left, const typename T::type_t& scalar );				// 	Adds two vectors of same type and size together
 		template<typename T> T& /*UF_API*/ subtract( T& left, const T& right );								// 	Subtracts two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ subtract( T& left, const typename T::type_t& scalar );			// 	Subtracts two vectors of same type and size together
 		template<typename T> T& /*UF_API*/ multiply( T& left, const T& right );								// 	Multiplies two vectors of same type and size together
 		template<typename T> T& /*UF_API*/ multiply( T& vector, const typename T::type_t& scalar );			// 	Multiplies this vector by a scalar
 		template<typename T> T& /*UF_API*/ divide( T& left, const T& right );								// 	Divides two vectors of same type and size together
@@ -142,7 +150,7 @@ namespace uf {
 		template<typename T> void /*UF_API*/ orthonormalize( T& x, T& y ); 									// 	Normalizes a vector
 		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); 						// 	Normalizes a vector
 		
-		template<typename T> std::string /*UF_API*/ toString( const T& vector ); 							// 	Parses a vector as a string
+		template<typename T> uf::stl::string /*UF_API*/ toString( const T& vector ); 							// 	Parses a vector as a string
 		template<typename T, size_t N> ext::json::Value encode( const pod::Vector<T,N>& v, const ext::json::EncodingSettings& = {} ); 				// 	Parses a vector into a JSON value
 		
 		template<typename T, size_t N> pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); 							// 	Parses a JSON value into a vector
@@ -172,7 +180,7 @@ namespace uf {
 		Vector(const Vector<T,N-1>& v, T w);
 		Vector(const Vector<T,N>::pod_t& pod); 											// copies POD altogether
 		Vector(const T components[N]); 													// copies data into POD from 'components' (typed as C array)
-		Vector(const std::vector<T>& components); 										// copies data into POD from 'components' (typed as std::vector<T>)
+		Vector(const uf::stl::vector<T>& components); 										// copies data into POD from 'components' (typed as uf::stl::vector<T>)
 	// 	D-tor
 		// Unneccesary
 	// 	POD access
@@ -190,7 +198,9 @@ namespace uf {
 		bool isValid() const; 															// 	Checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
 		inline uf::Vector<T,N>& add( const Vector<T, N>& vector );						// 	Adds two vectors of same type and size together
+		inline uf::Vector<T,N>& add( T scalar );										// 	Adds two vectors of same type and size together
 		inline uf::Vector<T,N>& subtract( const Vector<T, N>& vector );					// 	Subtracts two vectors of same type and size together
+		inline uf::Vector<T,N>& subtract( T scalar );									// 	Subtracts two vectors of same type and size together
 		inline uf::Vector<T,N>& multiply( const Vector<T, N>& vector );					// 	Multiplies two vectors of same type and size together
 		inline uf::Vector<T,N>& multiply( T scalar );									// 	Multiplies this vector by a scalar
 		inline uf::Vector<T,N>& divide( const Vector<T, N>& vector );					// 	Divides two vectors of same type and size together
@@ -212,7 +222,7 @@ namespace uf {
 		
 		inline uf::Vector<T,N>& normalize(); 											// 	Normalizes a vector
 		uf::Vector<T,N> getNormalized() const; 											// 	Return a normalized vector
-		inline std::string toString() const;
+		inline uf::stl::string toString() const;
 	// 	Overloaded ops
 		// Accessing via subscripts
 		T& operator[](std::size_t i);
@@ -223,12 +233,16 @@ namespace uf {
 		inline Vector<T,N> operator-( const Vector<T,N>& vector ) const; 	// 	Subtraction between two vectors
 		inline Vector<T,N> operator*( const Vector<T,N>& vector ) const; 	// 	Multiplication between two vectors
 		inline Vector<T,N> operator/( const Vector<T,N>& vector ) const; 	// 	Division between two vectors
+		inline Vector<T,N> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		inline Vector<T,N> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,N> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,N> operator/( T scalar ) const; 					// 	Division with scalar
 		inline Vector<T,N>& operator +=( const Vector<T,N>& vector ); 		// 	Addition set between two vectors
 		inline Vector<T,N>& operator -=( const Vector<T,N>& vector ); 		// 	Subtraction set between two vectors
 		inline Vector<T,N>& operator *=( const Vector<T,N>& vector ); 		// 	Multiplication set between two vectors
 		inline Vector<T,N>& operator /=( const Vector<T,N>& vector ); 		// 	Division set between two vectors
+		inline Vector<T,N>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		inline Vector<T,N>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,N>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,N>& operator /=( T scalar ); 						// 	Division set with scalar
 		inline bool operator==( const Vector<T,N>& vector ) const; 			// 	Equality check between two vectors (equals)
@@ -285,7 +299,7 @@ namespace uf {
 namespace uf {
 	namespace string {
 		template<typename T, size_t N>
-		std::string toString( const pod::Vector<T,N>& v );
+		uf::stl::string toString( const pod::Vector<T,N>& v );
 	}
 }
 namespace ext {
@@ -318,12 +332,16 @@ namespace pod {
 		inline Vector<T,1> operator-( const Vector<T,1>& vector ) const; 	// 	Subtraction between two vectors
 		inline Vector<T,1> operator*( const Vector<T,1>& vector ) const; 	// 	Multiplication between two vectors
 		inline Vector<T,1> operator/( const Vector<T,1>& vector ) const; 	// 	Division between two vectors
+		inline Vector<T,1> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		inline Vector<T,1> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,1> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,1> operator/( T scalar ) const; 					// 	Division with scalar
 		inline Vector<T,1>& operator +=( const Vector<T,1>& vector ); 		// 	Addition set between two vectors
 		inline Vector<T,1>& operator -=( const Vector<T,1>& vector ); 		// 	Subtraction set between two vectors
 		inline Vector<T,1>& operator *=( const Vector<T,1>& vector ); 		// 	Multiplication set between two vectors
 		inline Vector<T,1>& operator /=( const Vector<T,1>& vector ); 		// 	Division set between two vectors
+		inline Vector<T,1>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		inline Vector<T,1>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,1>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,1>& operator /=( T scalar ); 						// 	Division set with scalar
 		inline bool operator==( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (equals)
@@ -334,7 +352,7 @@ namespace pod {
 		inline bool operator>=( const Vector<T,1>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
 		template<typename U, size_t M> Vector<T,1>& operator=( const Vector<U,M>& vector );
 		template<typename U, size_t M> operator Vector<U,M>();
-		inline operator bool() const;
+		explicit inline operator bool() const;
 	#if 0
 	#if UF_USE_SIMD
 		Vector<T,1>& operator=( const __m128 );
@@ -364,12 +382,16 @@ namespace pod {
 		inline Vector<T,2> operator-( const Vector<T,2>& vector ) const; 	// 	Subtraction between two vectors
 		inline Vector<T,2> operator*( const Vector<T,2>& vector ) const; 	// 	Multiplication between two vectors
 		inline Vector<T,2> operator/( const Vector<T,2>& vector ) const; 	// 	Division between two vectors
+		inline Vector<T,2> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		inline Vector<T,2> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,2> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,2> operator/( T scalar ) const; 					// 	Division with scalar
 		inline Vector<T,2>& operator +=( const Vector<T,2>& vector ); 		// 	Addition set between two vectors
 		inline Vector<T,2>& operator -=( const Vector<T,2>& vector ); 		// 	Subtraction set between two vectors
 		inline Vector<T,2>& operator *=( const Vector<T,2>& vector ); 		// 	Multiplication set between two vectors
 		inline Vector<T,2>& operator /=( const Vector<T,2>& vector ); 		// 	Division set between two vectors
+		inline Vector<T,2>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		inline Vector<T,2>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,2>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,2>& operator /=( T scalar ); 						// 	Division set with scalar
 		inline bool operator==( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (equals)
@@ -380,7 +402,7 @@ namespace pod {
 		inline bool operator>=( const Vector<T,2>& vector ) const; 			// 	Equality check between two vectors (greater than or equals)
 		template<typename U, size_t M> Vector<T,2>& operator=( const Vector<U,M>& vector );
 		template<typename U, size_t M> operator Vector<U,M>();
-		inline operator bool() const;
+		explicit inline operator bool() const;
 	#if 0
 	#if UF_USE_SIMD
 		Vector<T,2>& operator=( const __m128 );
@@ -411,12 +433,16 @@ namespace pod {
 		inline Vector<T,3> operator-( const Vector<T,3>& vector ) const; 	// 	Subtraction between two vectors
 		inline Vector<T,3> operator*( const Vector<T,3>& vector ) const; 	// 	Multiplication between two vectors
 		inline Vector<T,3> operator/( const Vector<T,3>& vector ) const; 	// 	Division between two vectors
+		inline Vector<T,3> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		inline Vector<T,3> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,3> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,3> operator/( T scalar ) const; 					// 	Division with scalar
 		inline Vector<T,3>& operator +=( const Vector<T,3>& vector ); 		// 	Addition set between two vectors
 		inline Vector<T,3>& operator -=( const Vector<T,3>& vector ); 		// 	Subtraction set between two vectors
 		inline Vector<T,3>& operator *=( const Vector<T,3>& vector ); 		// 	Multiplication set between two vectors
 		inline Vector<T,3>& operator /=( const Vector<T,3>& vector ); 		// 	Division set between two vectors
+		inline Vector<T,3>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		inline Vector<T,3>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,3>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,3>& operator /=( T scalar ); 						// 	Division set with scalar
 		inline bool operator==( const Vector<T,3>& vector ) const; 			// 	Equality check between two vectors (equals)
@@ -428,7 +454,7 @@ namespace pod {
 		
 		template<typename U, size_t M> Vector<T,3>& operator=( const Vector<U,M>& vector );
 		template<typename U, size_t M> operator Vector<U,M>();
-		inline operator bool() const;
+		explicit inline operator bool() const;
 	#if 0
 	#if UF_USE_SIMD
 		Vector<T,3>& operator=( const __m128 );
@@ -437,7 +463,11 @@ namespace pod {
 	#endif
 	};
 	template<typename T>
+#if UF_VECTOR_ALIGNED
+	struct /*UF_API*/ alignas(16) Vector<T,4> {
+#else
 	struct /*UF_API*/ /*alignas(16)*/ Vector<T,4> {
+#endif
 	// 	XYZW access
 		T x;
 		T y;
@@ -460,12 +490,16 @@ namespace pod {
 		inline Vector<T,4> operator-( const Vector<T,4>& vector ) const; 	// 	Subtraction between two vectors
 		inline Vector<T,4> operator*( const Vector<T,4>& vector ) const; 	// 	Multiplication between two vectors
 		inline Vector<T,4> operator/( const Vector<T,4>& vector ) const; 	// 	Division between two vectors
+		inline Vector<T,4> operator+( T scalar ) const; 					// 	Multiplication with scalar
+		inline Vector<T,4> operator-( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,4> operator*( T scalar ) const; 					// 	Multiplication with scalar
 		inline Vector<T,4> operator/( T scalar ) const; 					// 	Division with scalar
 		inline Vector<T,4>& operator +=( const Vector<T,4>& vector ); 		// 	Addition set between two vectors
 		inline Vector<T,4>& operator -=( const Vector<T,4>& vector ); 		// 	Subtraction set between two vectors
 		inline Vector<T,4>& operator *=( const Vector<T,4>& vector ); 		// 	Multiplication set between two vectors
 		inline Vector<T,4>& operator /=( const Vector<T,4>& vector ); 		// 	Division set between two vectors
+		inline Vector<T,4>& operator +=( T scalar ); 						// 	Multiplication set with scalar
+		inline Vector<T,4>& operator -=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,4>& operator *=( T scalar ); 						// 	Multiplication set with scalar
 		inline Vector<T,4>& operator /=( T scalar ); 						// 	Division set with scalar
 		inline bool operator==( const Vector<T,4>& vector ) const; 			// 	Equality check between two vectors (equals)
@@ -477,7 +511,7 @@ namespace pod {
 		
 		template<typename U, size_t M> Vector<T,4>& operator=( const Vector<U,M>& vector );
 		template<typename U, size_t M> operator Vector<U,M>();
-		inline operator bool() const;
+		explicit inline operator bool() const;
 	#if 0
 	#if UF_USE_SIMD
 		Vector<T,4>& operator=( const __m128 );

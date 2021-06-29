@@ -1,6 +1,6 @@
 template<typename T>
-std::string /*UF_API*/ uf::string::join( const T& container, const std::string& token, bool trailing ) {
-	std::stringstream ss;
+uf::stl::string /*UF_API*/ uf::string::join( const T& container, const uf::stl::string& token, bool trailing ) {
+	uf::stl::stringstream ss;
 	size_t len = container.size();
 	for ( size_t i = 0; i < len; ++i ) {
 		ss << container[i];
@@ -9,8 +9,8 @@ std::string /*UF_API*/ uf::string::join( const T& container, const std::string& 
 	return ss.str();
 }
 template<typename T>
-std::string /*UF_API*/ uf::string::toString( const T& var ) {
-	std::stringstream ss;
+uf::stl::string /*UF_API*/ uf::string::toString( const T& var ) {
+	uf::stl::stringstream ss;
 	ss << &var;
 	return ss.str();
 }

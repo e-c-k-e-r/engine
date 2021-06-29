@@ -35,7 +35,7 @@ namespace uf {
 		};
 
 		template<typename T>
-		class UF_API value {
+		class /**UF_API**/ alignas(16) value {
 		private:
 		//	__m128 m_value;
 			typedef typename traits<T>::value value_type;

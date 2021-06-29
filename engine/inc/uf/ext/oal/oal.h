@@ -7,8 +7,8 @@
 #include <AL/alc.h>
 #include <AL/alut.h>
 
-#include <string>
-#include <vector>
+#include <uf/utils/memory/string.h>
+#include <uf/utils/memory/vector.h>
 
 #define AL_CHECK_RESULT(f) {\
 	(f);\
@@ -16,7 +16,7 @@
 	if ( error != AL_NO_ERROR ) UF_MSG_ERROR("AL error: " << ext::al::getError(error) << ": " << #f);\
 }
 
-//	std::string errorString = alutGetErrorString(alutGetError());
+//	uf::stl::string errorString = alutGetErrorString(alutGetError());
 //	if ( errorString != "No ALUT error found" ) UF_MSG_ERROR("AL error: " << errorString);
 
 #include "source.h"
@@ -35,18 +35,18 @@ namespace ext {
 		void UF_API listener( ALenum name, ALfloat x, ALfloat y, ALfloat z );
 		void UF_API listener( ALenum name, const ALfloat* f );
 
-		void UF_API listener( const std::string& name, ALfloat x );
-		void UF_API listener( const std::string& name, ALfloat x, ALfloat y, ALfloat z );
-		void UF_API listener( const std::string& name, const ALfloat* f );
+		void UF_API listener( const uf::stl::string& name, ALfloat x );
+		void UF_API listener( const uf::stl::string& name, ALfloat x, ALfloat y, ALfloat z );
+		void UF_API listener( const uf::stl::string& name, const ALfloat* f );
 	*/
 
-		std::string UF_API getError( ALenum = 0 );
+		uf::stl::string UF_API getError( ALenum = 0 );
 
-		uf::audio::Metadata* UF_API create( const std::string&, bool, uint8_t );
-		uf::audio::Metadata* UF_API open( const std::string& );
-		uf::audio::Metadata* UF_API open( const std::string&, bool );
-		uf::audio::Metadata* UF_API load( const std::string& );
-		uf::audio::Metadata* UF_API stream( const std::string& );
+		uf::audio::Metadata* UF_API create( const uf::stl::string&, bool, uint8_t );
+		uf::audio::Metadata* UF_API open( const uf::stl::string& );
+		uf::audio::Metadata* UF_API open( const uf::stl::string&, bool );
+		uf::audio::Metadata* UF_API load( const uf::stl::string& );
+		uf::audio::Metadata* UF_API stream( const uf::stl::string& );
 		void UF_API update( uf::audio::Metadata& );
 
 		void UF_API close( uf::audio::Metadata* );

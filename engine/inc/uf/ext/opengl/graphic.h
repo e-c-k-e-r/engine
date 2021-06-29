@@ -19,7 +19,7 @@ namespace ext {
 		#if !UF_USE_OPENGL_FIXED_FUNCTION
 			GLuint pipeline;
 			GLuint vertexArray;
-			std::vector<Buffer::Descriptor> descriptorSet;
+			uf::stl::vector<Buffer::Descriptor> descriptorSet;
 		#endif
 
 			struct Descriptor {
@@ -30,7 +30,7 @@ namespace ext {
 			struct {
 				uf::Serializer json;
 				
-				std::string type = "";
+				uf::stl::string type = "";
 				bool process = true;
 			} metadata;
 
@@ -45,22 +45,22 @@ namespace ext {
 			bool aliased = false;
 			Device* device;
 
-			std::vector<Sampler> samplers;
-			std::vector<Texture> textures;
-			std::vector<Shader> shaders;
+			uf::stl::vector<Sampler> samplers;
+			uf::stl::vector<Texture> textures;
+			uf::stl::vector<Shader> shaders;
 			struct Metadata {
 				uf::Serializer json;
-				std::unordered_map<std::string, size_t> shaders;
+				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
 			} metadata;
 
 			void initialize( Device& device );
 			void destroy();
 
-			void attachShader( const std::string&, enums::Shader::type_t, const std::string& pipeline = "" );
-			void initializeShaders( const std::vector<std::pair<std::string, enums::Shader::type_t>>&, const std::string& pipeline = "" );
+			void attachShader( const uf::stl::string&, enums::Shader::type_t, const uf::stl::string& pipeline = "" );
+			void initializeShaders( const uf::stl::vector<std::pair<uf::stl::string, enums::Shader::type_t>>&, const uf::stl::string& pipeline = "" );
 
-			bool hasShader( const std::string& type, const std::string& pipeline = "" );
-			Shader& getShader( const std::string& type, const std::string& pipeline = "" );
+			bool hasShader( const uf::stl::string& type, const uf::stl::string& pipeline = "" );
+			Shader& getShader( const uf::stl::string& type, const uf::stl::string& pipeline = "" );
 
 			bool validate();
 		};
@@ -70,14 +70,14 @@ namespace ext {
 			bool initialized = false;
 			bool process = true;
 			Material material;
-			std::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
+			uf::stl::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
 
 			struct {
-				std::unordered_map<std::string, size_t> buffers;
+				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
 			} metadata;
 
 			~Graphic();
-			void initialize( const std::string& = "" );
+			void initialize( const uf::stl::string& = "" );
 			void destroy();
 			
 			template<typename T, typename U>
@@ -94,10 +94,10 @@ namespace ext {
 			void record( CommandBuffer& commandBuffer, size_t pass = 0, size_t draw = 0 );
 			void record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 );
 
-			bool hasStorage( const std::string& name );
-			Buffer* getStorageBuffer( const std::string& name );
-			uf::Serializer getStorageJson( const std::string& name, bool cache = true );
-			ext::opengl::userdata_t getStorageUserdata( const std::string& name, const ext::json::Value& payload );
+			bool hasStorage( const uf::stl::string& name );
+			Buffer* getStorageBuffer( const uf::stl::string& name );
+			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
+			ext::opengl::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 
 			Buffer::Descriptor getUniform( size_t = 0 ) const;
 			void updateUniform( void*, size_t, size_t = 0 );

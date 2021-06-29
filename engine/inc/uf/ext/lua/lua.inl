@@ -7,7 +7,7 @@
 namespace {\
 	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
 		ext::lua::onInitialization( []{\
-			std::string name = UF_NS_GET_LAST(type);\
+			uf::stl::string name = UF_NS_GET_LAST(type);\
 			auto usertype = ext::lua::state.new_usertype<type>(name);
 
 #define UF_LUA_REGISTER_USERTYPE_DEFINE_RT(k, v) usertype[#k] = v;

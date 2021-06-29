@@ -28,7 +28,7 @@ namespace ext {
 				} physics;
 
 				bool control = true;
-				std::string menu = "";
+				uf::stl::string menu = "";
 				bool crouching = false;
 				bool noclipped = false;
 			} system;
@@ -42,7 +42,7 @@ namespace ext {
 			} camera;
 			struct {
 				struct {
-					std::vector<std::string> list;
+					uf::stl::vector<uf::stl::string> list;
 					float volume;
 				} footstep;
 			} audio;

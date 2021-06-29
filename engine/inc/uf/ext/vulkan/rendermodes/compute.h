@@ -10,10 +10,10 @@ namespace ext {
 			pod::Vector2ui dispatchSize = { 32, 32 };
 
 			// RAII
-			virtual const std::string getType() const;
+			virtual const uf::stl::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
-			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
+			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 			
 			virtual void createCommandBuffers();
 			virtual void initialize( Device& device );

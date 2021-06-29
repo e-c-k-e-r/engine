@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 
 namespace {
-	std::unordered_map<pod::Vector3i, uf::Object*> region_table;
+	uf::stl::unordered_map<pod::Vector3i, uf::Object*> region_table;
 }
 
 UF_OBJECT_REGISTER_BEGIN(ext::Terrain)
@@ -31,7 +31,7 @@ UF_OBJECT_REGISTER_BEGIN(ext::Terrain)
 UF_OBJECT_REGISTER_END()
 void ext::Terrain::relocateChildren() {
 	uf::Scene& scene = uf::scene::getCurrentScene();
-	std::vector<uf::Entity*> entities;
+	uf::stl::vector<uf::Entity*> entities;
 	scene.process( [&]( uf::Entity* entity ) {
 		if ( !entity || entity->getUid() == 0 ) return;
 		uf::Serializer& metadata = entity->getComponent<uf::Serializer>();

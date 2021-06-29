@@ -17,7 +17,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/scene/scene.h>
 
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 #include <locale>
 #include <codecvt>
 
@@ -52,8 +52,8 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 	//	size.y = ext::config["window"]["size"]["y"].as<size_t>();
 		size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 	}
-	page = ext::ultralight::create( page, metadata["html"].as<std::string>(), size);
-	std::string onLoad = this->formatHookName("html:Load.%UID%");
+	page = ext::ultralight::create( page, metadata["html"].as<uf::stl::string>(), size);
+	uf::stl::string onLoad = this->formatHookName("html:Load.%UID%");
 	if ( metadata["wait for load"].as<bool>() ) {	
 		ext::ultralight::on(page, "load", onLoad);
 		this->addHook( onLoad, [&](ext::json::Value& json){
@@ -80,7 +80,7 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 	});
 	
 	this->addHook( "window:Key", [&](ext::json::Value& json){
-		if ( json["type"].as<std::string>() == "window:Text.Entered" ) return;
+		if ( json["type"].as<uf::stl::string>() == "window:Text.Entered" ) return;
 		if ( metadata["ignore inputs"].as<bool>() ) return;
 		ext::ultralight::input( page, json );
 	});

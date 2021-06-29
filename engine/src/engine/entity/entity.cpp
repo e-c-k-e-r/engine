@@ -60,24 +60,24 @@ uf::Entity::container_t& uf::Entity::getChildren() {
 const uf::Entity::container_t& uf::Entity::getChildren() const {
 	return this->m_children;
 }
-const std::string& uf::Entity::getName() const {
+const uf::stl::string& uf::Entity::getName() const {
 	return this->m_name;
 }
-void uf::Entity::setName( const std::string& name ) {
+void uf::Entity::setName( const uf::stl::string& name ) {
 	this->m_name = name;
 }
 std::size_t uf::Entity::getUid() const {
 	return this->m_uid;
 }
 
-void* uf::Entity::operator new(size_t size, const std::string& type ) {
+void* uf::Entity::operator new(size_t size, const uf::stl::string& type ) {
 	return type != "" && size == sizeof(uf::Entity) ? &uf::instantiator::instantiate( type ) : uf::instantiator::alloc( size );
 }
 void uf::Entity::operator delete( void* pointer ) {
 	uf::instantiator::free( (uf::Entity*) pointer );
 }
 
-uf::Entity* uf::Entity::findByName( const std::string& name ) {
+uf::Entity* uf::Entity::findByName( const uf::stl::string& name ) {
 	for ( uf::Entity* entity : this->m_children ) {
 		if ( entity->getName() == name ) return entity;
 		uf::Entity* p = entity->findByName(name);
@@ -94,7 +94,7 @@ uf::Entity* uf::Entity::findByUid( std::size_t id ) {
 	return (uf::Entity*) NULL;
 };
 
-const uf::Entity* uf::Entity::findByName( const std::string& name ) const {
+const uf::Entity* uf::Entity::findByName( const uf::stl::string& name ) const {
 	for ( uf::Entity* entity : this->m_children ) {
 		if ( entity->getName() == name ) return entity;
 		uf::Entity* p = entity->findByName(name);
@@ -132,7 +132,7 @@ uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 	}
 	return NULL;
 }
-uf::Entity* uf::Entity::globalFindByName( const std::string& name ) {
+uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 	for ( auto& allocation : uf::Entity::memoryPool.allocations() ) {
 		uf::Entity* entity = (uf::Entity*) allocation.pointer;
 		if ( !entity->isValid() ) continue;

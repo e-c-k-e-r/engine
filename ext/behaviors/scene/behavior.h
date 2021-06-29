@@ -63,6 +63,6 @@ namespace ext {
 			std::function<void()> deserialize;
 		};
 
-		void bindBuffers( uf::Object&, const std::string& = "", bool = false );
+		void bindBuffers( uf::Object&, const uf::stl::string& = "", bool = false );
 	}
 }

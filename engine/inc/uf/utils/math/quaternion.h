@@ -3,7 +3,7 @@
 #include <uf/config.h>
 
 #include <sstream>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <cmath>
 #include <stdint.h>
 
@@ -94,7 +94,7 @@ public:
 		Quaternion(T x, T y, T z, T w); 												// initializes POD to 'def'
 		Quaternion(const Quaternion<T>::pod_t& pod); 									// copies POD altogether
 		Quaternion(const T components[4]); 												// copies data into POD from 'components' (typed as C array)
-		Quaternion(const std::vector<T>& components); 									// copies data into POD from 'components' (typed as std::vector<T>)
+		Quaternion(const uf::stl::vector<T>& components); 									// copies data into POD from 'components' (typed as uf::stl::vector<T>)
 	// 	D-tor
 		// Unneccesary
 	// 	POD access
@@ -140,7 +140,7 @@ public:
 		
 		inline uf::Quaternion<T> getConjugate() const;
 		inline uf::Quaternion<T> getInverse() const;
-		inline std::string toString() const;
+		inline uf::stl::string toString() const;
 	// 	Overloaded ops
 		// Accessing via subscripts
 		T& operator[](std::size_t i);

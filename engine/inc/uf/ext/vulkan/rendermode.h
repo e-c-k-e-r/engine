@@ -17,10 +17,10 @@ namespace ext {
 			struct {			
 				uf::Serializer json;
 
-				std::string name = "";
-				std::string type = "";
-				std::string target = "";
-				std::vector<uint8_t> outputs;
+				uf::stl::string name = "";
+				uf::stl::string type = "";
+				uf::stl::string target = "";
+				uf::stl::vector<uint8_t> outputs;
 
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
@@ -36,22 +36,22 @@ namespace ext {
 			RenderTarget renderTarget;
 
 			VkSemaphore renderCompleteSemaphore;
-			std::vector<VkFence> fences;
+			uf::stl::vector<VkFence> fences;
 			
-			typedef std::vector<VkCommandBuffer> commands_container_t;
+			typedef uf::stl::vector<VkCommandBuffer> commands_container_t;
 			std::thread::id mostRecentCommandPoolId;
 			uf::ThreadUnique<commands_container_t> commands;
 
 			virtual ~RenderMode();
 			// RAII
-			virtual const std::string getName() const;
-			virtual const std::string getType() const;
+			virtual const uf::stl::string getName() const;
+			virtual const uf::stl::string getType() const;
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
 
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
-			virtual std::vector<ext::vulkan::Graphic*> getBlitters();
+			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 			
 			virtual uf::Image screenshot(size_t = 0);
 
@@ -62,9 +62,9 @@ namespace ext {
 			
 			virtual void initialize( Device& device );
 			virtual void createCommandBuffers();
-			virtual void createCommandBuffers( const std::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void bindPipelines();
-			virtual void bindPipelines( const std::vector<ext::vulkan::Graphic*>& graphics );
+			virtual void bindPipelines( const uf::stl::vector<ext::vulkan::Graphic*>& graphics );
 			virtual void tick();
 			virtual void render();
 			virtual void destroy();

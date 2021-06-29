@@ -5,7 +5,7 @@
 #include <uf/ext/opengl/initializers.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/string/ext.h>
-#include <uf/utils/mempool/mempool.h>
+#include <uf/utils/memory/pool.h>
 #include <uf/ext/openvr/openvr.h>
 
 #include <set>
@@ -15,7 +15,7 @@
 
 #if UF_USE_OPENGL_FIXED_FUNCTION
 namespace {
-	std::vector<void*> localBuffers;
+	uf::stl::vector<void*> localBuffers;
 }
 #endif
 
@@ -169,9 +169,9 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 	index = ::localBuffers.size();
 	auto& buffer = ::localBuffers.emplace_back();
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	buffer = (void*) uf::MemoryPool::global.alloc( data, size );
+	buffer = (void*) uf::memoryPool::global.alloc( data, size );
 #else
-	uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;
+	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;
 	if ( memoryPool )
 		buffer = (void*) memoryPool->alloc( data, size );
 	else {
@@ -200,9 +200,9 @@ void ext::opengl::Device::destroyBuffer( GLuint& index ) {
 	auto& buffer = ::localBuffers[index];
 	if ( buffer ) {
 	#if UF_MEMORYPOOL_INVALID_FREE
-		uf::MemoryPool::global.free( buffer );
+		uf::memoryPool::global.free( buffer );
 	#else
-		uf::MemoryPool* memoryPool = uf::MemoryPool::global.size() > 0 ? &uf::MemoryPool::global : NULL;	
+		uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;	
 		if ( memoryPool ) memoryPool->free( buffer );
 		else free( buffer );
 	#endif

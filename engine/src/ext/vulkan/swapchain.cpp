@@ -41,7 +41,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physicalDevice, device.surface, &presentModeCount, NULL));
 		assert(presentModeCount > 0);
 
-		std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+		uf::stl::vector<VkPresentModeKHR> presentModes(presentModeCount);
 		VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physicalDevice, device.surface, &presentModeCount, presentModes.data()));
 	#if 1
 		if ( settings::experimental::vsync ) {
@@ -125,7 +125,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		// Find a supported composite alpha format (not all devices support alpha opaque)
 		VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 		// Simply select the first composite alpha format available
-		std::vector<VkCompositeAlphaFlagBitsKHR> compositeAlphaFlags = {
+		uf::stl::vector<VkCompositeAlphaFlagBitsKHR> compositeAlphaFlags = {
 			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
 			VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
 			VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,

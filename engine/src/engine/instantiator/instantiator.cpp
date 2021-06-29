@@ -5,7 +5,7 @@
 
 pod::NamedTypes<pod::Instantiator>* uf::instantiator::objects = NULL;
 //pod::NamedTypes<pod::Behavior>* uf::instantiator::behaviors = NULL;
-std::unordered_map<std::string, pod::Behavior>* uf::instantiator::behaviors = NULL;
+uf::stl::unordered_map<uf::stl::string, pod::Behavior>* uf::instantiator::behaviors = NULL;
 
 uf::Entity* uf::instantiator::reuse( size_t size ) {
 	uf::Entity* laxed = NULL;
@@ -48,16 +48,16 @@ size_t uf::instantiator::collect( uint8_t level ) {
 uf::Entity* uf::instantiator::alloc( size_t size ) {
 	// auto* reused = reuse( size ); if ( reused ) return reused;
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
-	return (uf::Entity*) memoryPool.alloc( NULL, size );
+	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::memoryPool::global;
+	return (uf::Entity*) memoryPool.alloc( nullptr, size );
 #else
 	uf::Entity* pointer = NULL;
 	uf::MemoryPool* memoryPool = NULL;
 	if ( uf::Entity::memoryPool.size() > 0 )
 		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 )
-		memoryPool = &uf::MemoryPool::global;
-	if ( memoryPool ) pointer = (uf::Entity*) memoryPool->alloc( NULL, size );
+	else if ( uf::memoryPool::global.size() > 0 )
+		memoryPool = &uf::memoryPool::global;
+	if ( memoryPool ) pointer = (uf::Entity*) memoryPool->alloc( nullptr, size );
 	else pointer = (uf::Entity*) malloc( size );
 	return pointer;
 #endif
@@ -68,42 +68,42 @@ void uf::instantiator::free( uf::Entity* pointer ) {
 //	pointer->destroyComponents();
 
 #if UF_MEMORYPOOL_INVALID_FREE
-	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
+	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::memoryPool::global;
 	memoryPool.free( pointer );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( uf::Entity::memoryPool.size() > 0 )
 		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 )
-		memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 )
+		memoryPool = &uf::memoryPool::global;
 	if ( memoryPool ) memoryPool->free( pointer );
 	else ::free( pointer );
 #endif
 }
 bool uf::instantiator::valid( uf::Entity* pointer ) {
 #if UF_MEMORYPOOL_INVALID_FREE
-	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::MemoryPool::global;
+	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::memoryPool::global;
 	return memoryPool.exists( pointer );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( uf::Entity::memoryPool.size() > 0 )
 		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 )
-		memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 )
+		memoryPool = &uf::memoryPool::global;
 	return memoryPool ? memoryPool->exists( pointer ) : pointer && pointer->isValid();
 #endif
 }
 
-void uf::instantiator::registerBehavior( const std::string& name, const pod::Behavior& behavior ) {
-	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new std::unordered_map<std::string, pod::Behavior>;\
+void uf::instantiator::registerBehavior( const uf::stl::string& name, const pod::Behavior& behavior ) {
+	if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;\
 	(*uf::instantiator::behaviors)[name] = behavior;
 #if UF_INSTANTIATOR_ANNOUNCE
 	UF_MSG_DEBUG("Registered behavior for " << name << " | " << behavior.type);
 #endif
 }
-void uf::instantiator::registerBinding( const std::string& object, const std::string& behavior ) {
+void uf::instantiator::registerBinding( const uf::stl::string& object, const uf::stl::string& behavior ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
-	if ( !behaviors ) behaviors = new std::unordered_map<std::string, pod::Behavior>;
+	if ( !behaviors ) behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;
 	auto& instantiator = uf::instantiator::objects->get( object );
 	instantiator.behaviors.emplace_back( behavior );
 	
@@ -112,7 +112,7 @@ void uf::instantiator::registerBinding( const std::string& object, const std::st
 #endif
 }
 
-uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
+uf::Entity& uf::instantiator::instantiate( const uf::stl::string& name ) {
 	if ( !uf::instantiator::objects->has( name ) ) {
 		auto& object = uf::instantiator::instantiate<uf::Object>();
 		return *((uf::Entity*) &object);
@@ -123,7 +123,7 @@ uf::Entity& uf::instantiator::instantiate( const std::string& name ) {
 	return entity;
 }
 
-void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
+void uf::instantiator::bind( const uf::stl::string& name, uf::Entity& entity ) {
 	// was actually a behavior name, single bind
 	if ( !uf::instantiator::objects->has( name, false ) ) {
 		if ( uf::instantiator::behaviors->count( name ) == 0 ) return;
@@ -144,10 +144,10 @@ void uf::instantiator::bind( const std::string& name, uf::Entity& entity ) {
 	}
 }
 
-void uf::instantiator::unbind( const std::string& name, uf::Entity& entity ) {
+void uf::instantiator::unbind( const uf::stl::string& name, uf::Entity& entity ) {
 	// was actually a behavior name, single bind
 	if ( !uf::instantiator::objects->has( name, false ) ) {
-		if ( !uf::instantiator::behaviors->count( name ) == 0 ) return;
+		if ( uf::instantiator::behaviors->count( name ) > 0 ) return;
 		auto& behavior = (*uf::instantiator::behaviors)[name];
 		entity.removeBehavior(behavior);
 		return;

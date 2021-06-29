@@ -51,7 +51,7 @@ void uf::Scene::invalidateGraph() {
 	metadata.cached.renderMode = NULL;
 	metadata.cached.controller = NULL;
 }
-const std::vector<uf::Entity*>& uf::Scene::getGraph() {
+const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 //	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
@@ -64,18 +64,18 @@ const std::vector<uf::Entity*>& uf::Scene::getGraph() {
 	uf::renderer::states::rebuild = true;
 	return metadata.graph;
 }
-std::vector<uf::Entity*> uf::Scene::getGraph( bool reverse ) {
+uf::stl::vector<uf::Entity*> uf::Scene::getGraph( bool reverse ) {
 	auto graph = this->getGraph();
 	if ( reverse ) std::reverse( graph.begin(), graph.end() );
 	return graph;
 }
 
-std::vector<uf::Scene*> uf::scene::scenes;
-uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& _filename ) {
+uf::stl::vector<uf::Scene*> uf::scene::scenes;
+uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::string& _filename ) {
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 
-	const std::string filename = _filename != "" ? _filename : ("/" + uf::string::lowercase(name) + "/scene.json");
+	const uf::stl::string filename = _filename != "" ? _filename : ("/" + uf::string::lowercase(name) + "/scene.json");
 	scene->load(filename);
 	if ( uf::renderer::settings::experimental::vxgi ) {
 		uf::instantiator::bind( "VoxelizerBehavior", *scene );
@@ -83,7 +83,7 @@ uf::Scene& uf::scene::loadScene( const std::string& name, const std::string& _fi
 	scene->initialize();
 	return *scene;
 }
-uf::Scene& uf::scene::loadScene( const std::string& name, const uf::Serializer& data ) {
+uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializer& data ) {
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 	if ( data != "" ) scene->load(data);

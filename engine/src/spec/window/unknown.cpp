@@ -3,7 +3,7 @@
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/math/vector.h>
 
-#include <string>
+#include <uf/utils/memory/string.h>
 
 #ifdef UF_ENV_UNKNOWN
 

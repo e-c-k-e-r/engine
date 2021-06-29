@@ -4,13 +4,13 @@
 
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/hook/hook.h>
-// std::string ext::ultralight::resourcesDir = uf::io::root + "/resources/";
+// uf::stl::string ext::ultralight::resourcesDir = uf::io::root + "/resources/";
 
 namespace {
 	size_t uids = 0;
 	ULRenderer renderer;
 
-	std::vector<std::string> queue;
+	uf::stl::vector<uf::stl::string> queue;
 	void OnFinishLoading(void* user_data, ULView caller, unsigned long long frame_id, bool is_main_frame, ULString url) {
 		if ( !is_main_frame ) return;
 		pod::HTML& container = *((pod::HTML*) user_data);
@@ -21,8 +21,8 @@ namespace {
 		}
 	}
 	void ConsoleMessageCallback(void* user_data, ULView caller, ULMessageSource _source, ULMessageLevel _level, ULString _message, unsigned int line_number, unsigned int column_number, ULString source_id) {
-		std::string level = "?";
-		std::string source = "?";
+		uf::stl::string level = "?";
+		uf::stl::string source = "?";
 		switch ( _level ) {
 			case ULMessageLevel::kMessageLevel_Log: level = "Log"; break;
 			case ULMessageLevel::kMessageLevel_Warning: level = "Warning"; break;
@@ -55,7 +55,7 @@ namespace {
 namespace UL {
 	struct String {
 		ULString handle;
-		String( const std::string& str = "" ) {
+		String( const uf::stl::string& str = "" ) {
 			handle = ulCreateString( str.c_str() );
 		}
 		String( uint32_t c ) {
@@ -81,15 +81,15 @@ namespace UL {
 
 	struct KeyEvent {
 		ULKeyEvent handle;
-		KeyEvent( const std::string& payload ) {
+		KeyEvent( const uf::stl::string& payload ) {
 			uf::Serializer event = payload;
 			ULKeyEventType type;
-			if ( event["key"]["state"].is<std::string>() ) {
-				std::string s = event["key"]["state"].as<std::string>();
+			if ( event["key"]["state"].is<uf::stl::string>() ) {
+				uf::stl::string s = event["key"]["state"].as<uf::stl::string>();
 				if ( s == "Down" ) type = ULKeyEventType::kKeyEventType_RawKeyDown;
 				else if ( s == "Up" ) type = ULKeyEventType::kKeyEventType_KeyUp;
 			}
-			if ( event["type"].as<std::string>() == "window:Text.Entered" ) {
+			if ( event["type"].as<uf::stl::string>() == "window:Text.Entered" ) {
 				type = ULKeyEventType::kKeyEventType_Char;
 				uint32_t modifiers = 0;
 				int32_t virtualKeyCode = 0;
@@ -108,8 +108,8 @@ namespace UL {
 			uint32_t modifiers = getModifiers( event["key"]["modifier"] );
 			int32_t virtualKeyCode = event["key"]["raw"].as<size_t>();
 			int32_t nativeKeyCode = event["key"]["lparam"].as<size_t>();
-			std::string text = ""; //event["key"]["code"].as<std::string>();
-			std::string unmodifiedText = ""; //event["key"]["code"].as<std::string>();
+			uf::stl::string text = ""; //event["key"]["code"].as<uf::stl::string>();
+			uf::stl::string unmodifiedText = ""; //event["key"]["code"].as<uf::stl::string>();
 			bool isKeypad = false;
 			bool isAutoRepeat = false;
 			bool isSystemKey = event["key"]["modifier"]["system"].as<bool>();
@@ -127,18 +127,18 @@ namespace UL {
 	};
 	struct MouseEvent {
 		ULMouseEvent handle;
-		MouseEvent( const std::string& payload ) {
+		MouseEvent( const uf::stl::string& payload ) {
 			uf::Serializer event = payload;
 			ULMouseEventType type = ULMouseEventType::kMouseEventType_MouseMoved;
 			ULMouseButton button = ULMouseButton::kMouseButton_None;
 
-			if ( event["mouse"]["state"].is<std::string>() ) {
-				std::string s = event["mouse"]["state"].as<std::string>();
+			if ( event["mouse"]["state"].is<uf::stl::string>() ) {
+				uf::stl::string s = event["mouse"]["state"].as<uf::stl::string>();
 				if ( s == "Up" ) type = ULMouseEventType::kMouseEventType_MouseUp;
 				else if ( s == "Down" ) type = ULMouseEventType::kMouseEventType_MouseDown;
 			}
-			if ( event["mouse"]["button"].is<std::string>() ) {
-				std::string s = event["mouse"]["button"].as<std::string>();
+			if ( event["mouse"]["button"].is<uf::stl::string>() ) {
+				uf::stl::string s = event["mouse"]["button"].as<uf::stl::string>();
 				if ( s == "Left" ) button = ULMouseButton::kMouseButton_Left;
 				else if ( s == "Middle" ) button = ULMouseButton::kMouseButton_Middle;
 				else if ( s == "Right" ) button = ULMouseButton::kMouseButton_Right;
@@ -158,7 +158,7 @@ namespace UL {
 	};
 	struct ScrollEvent {
 		ULScrollEvent handle;
-		ScrollEvent( const std::string& payload ) {
+		ScrollEvent( const uf::stl::string& payload ) {
 			uf::Serializer event = payload;
 			ULScrollEventType type = ULScrollEventType::kScrollEventType_ScrollByPixel;
 			handle = ulCreateScrollEvent( type, 0, event["mouse"]["delta"].as<int>() );
@@ -204,21 +204,21 @@ void ext::ultralight::terminate() {
 	ulDestroyRenderer(renderer);
 }
 
-pod::HTML ext::ultralight::create( const std::string& html, const pod::Vector2ui& size ) {
+pod::HTML ext::ultralight::create( const uf::stl::string& html, const pod::Vector2ui& size ) {
 	pod::HTML container;
 	return create( container, html, size );
 }
-pod::HTML& ext::ultralight::create( pod::HTML& container, const std::string& html, const pod::Vector2ui& size ) {
+pod::HTML& ext::ultralight::create( pod::HTML& container, const uf::stl::string& html, const pod::Vector2ui& size ) {
 	container.uid = ++uids;
 	container.view = ulCreateView(::renderer, size.x, size.y, false, 0, false);
 	container.size = size;
 
 	// is URI
-	if ( html.find("://") != std::string::npos ) {
+	if ( html.find("://") != uf::stl::string::npos ) {
 		ulViewLoadURL(container.view, UL::String(html));
 	// is filename
 	} else if ( uf::io::extension(html) == "html" ) {
-		std::string html = uf::io::readAsString( uf::io::resolveURI( html ) );
+		uf::stl::string html = uf::io::readAsString( uf::io::resolveURI( html ) );
 		ulViewLoadHTML(container.view, UL::String(html));
 	// is HTML
 	} else {
@@ -233,7 +233,7 @@ pod::HTML& ext::ultralight::create( pod::HTML& container, const std::string& htm
 void ext::ultralight::destroy( pod::HTML& container ) {
 	ulDestroyView(container.view);
 }
-void ext::ultralight::on( pod::HTML& container, const std::string& name, const std::string& hook ) {
+void ext::ultralight::on( pod::HTML& container, const uf::stl::string& name, const uf::stl::string& hook ) {
 	if ( name == "load" ) container.callbacks.load = hook;
 }
 void ext::ultralight::resize( pod::HTML& container, const pod::Vector2ui& size ) {
@@ -241,15 +241,15 @@ void ext::ultralight::resize( pod::HTML& container, const pod::Vector2ui& size )
 	container.pending = true;
 	ulViewResize( container.view, size.x, size.y );
 }
-void ext::ultralight::input( pod::HTML& container, const std::string& payload ) {
+void ext::ultralight::input( pod::HTML& container, const uf::stl::string& payload ) {
 	uf::Serializer event = payload;
 
 	// std::cout << payload << std::endl;
-	if  ( event["type"].as<std::string>() == "window:Key.Pressed" || event["type"].as<std::string>() == "window:Key.Released" || event["type"].as<std::string>() == "window:Text.Entered" ) {
+	if  ( event["type"].as<uf::stl::string>() == "window:Key.Pressed" || event["type"].as<uf::stl::string>() == "window:Key.Released" || event["type"].as<uf::stl::string>() == "window:Text.Entered" ) {
 		ulViewFireKeyEvent( container.view, UL::KeyEvent( payload ) );
-	} else if ( event["type"].as<std::string>() == "window:Mouse.Moved" || event["type"].as<std::string>() == "window:Mouse.Click" ) {
+	} else if ( event["type"].as<uf::stl::string>() == "window:Mouse.Moved" || event["type"].as<uf::stl::string>() == "window:Mouse.Click" ) {
 		ulViewFireMouseEvent( container.view, UL::MouseEvent( payload ) );
-	} else if ( event["type"].as<std::string>() == "window:Mouse.Wheel" )	{
+	} else if ( event["type"].as<uf::stl::string>() == "window:Mouse.Wheel" )	{
 		ulViewFireScrollEvent( container.view, UL::ScrollEvent( payload ) );
 	} else {
 	//	std::cout << "Unknown event: " << event << std::endl;

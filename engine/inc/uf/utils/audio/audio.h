@@ -14,8 +14,8 @@
 	typedef float ALfloat;
 #endif
 
-#include <vector>
-#include <unordered_map>
+#include <uf/utils/memory/vector.h>
+#include <uf/utils/memory/unordered_map.h>
 
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/quaternion.h>
@@ -39,10 +39,10 @@ namespace uf {
 		bool initialized() const;
 		bool playing() const;
 
-		void open( const std::string& );
-		void open( const std::string&, bool );
-		void load( const std::string& );
-		void stream( const std::string& );
+		void open( const uf::stl::string& );
+		void open( const uf::stl::string&, bool );
+		void load( const uf::stl::string& );
+		void stream( const uf::stl::string& );
 		void update();
 		void destroy();
 
@@ -72,7 +72,7 @@ namespace uf {
 		float getVolume() const;
 		void setVolume( float );
 
-		const std::string& getFilename() const;
+		const uf::stl::string& getFilename() const;
 		float getDuration() const;
 	};
 	namespace audio {

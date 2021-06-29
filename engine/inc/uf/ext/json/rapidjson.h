@@ -39,7 +39,7 @@ namespace ext {
 		}
 		inline Value null() { return Value(); }
 		
-		std::vector<std::string> UF_API keys( const Value& v );
+		uf::stl::vector<uf::stl::string> UF_API keys( const Value& v );
 		static rapidjson::Document::AllocatorType allocator;
 
 		struct Document : public rapidjson::Document {
@@ -53,7 +53,7 @@ namespace ext {
 }
 
 template<typename... Args> ext::json::Value& ext::json::Value::operator[]( Args... args ) {
-	const std::string k(args...); 
+	const uf::stl::string k(args...); 
 	auto key = rapidjson::StringRef(k.c_str());
 	auto it = ext::json::base_value::FindMember(key);
 	if ( it != ext::json::base_value::MemberEnd() )
@@ -64,7 +64,7 @@ template<typename... Args> ext::json::Value& ext::json::Value::operator[]( Args.
 	return this->operator[](args...);
 }
 template<typename... Args> const ext::json::Value& ext::json::Value::operator[]( Args... args ) const {
-	const std::string k(args...); 
+	const uf::stl::string k(args...); 
 	auto key = rapidjson::StringRef(k.c_str());
 	auto it = ext::json::base_value::FindMember(key);
 	if ( it != ext::json::base_value::MemberEnd() )
@@ -72,7 +72,7 @@ template<typename... Args> const ext::json::Value& ext::json::Value::operator[](
 
 	return ext::json::base_value();
 }
-template<> inline ext::json::Value& ext::json::Value::operator=<std::string>( std::string v ) {
+template<> inline ext::json::Value& ext::json::Value::operator=<uf::stl::string>( uf::stl::string v ) {
 	ext::json::base_value::SetString( v.c_str(), ext::json::allocator );
 	return *this;
 }
@@ -98,7 +98,7 @@ template<> inline ext::json::Value& ext::json::Value::operator=<double>( double 
 }
 
 template<typename... Args> ext::json::Value& ext::json::Document::operator[]( Args... args ) {
-	const std::string k(args...); 
+	const uf::stl::string k(args...); 
 	auto key = rapidjson::StringRef(k.c_str());
 	auto it = rapidjson::Document::FindMember(key);
 	if ( it != rapidjson::Document::MemberEnd() )
@@ -109,7 +109,7 @@ template<typename... Args> ext::json::Value& ext::json::Document::operator[]( Ar
 	return this->operator[](args...);
 }
 template<typename... Args> const ext::json::Value& ext::json::Document::operator[]( Args... args ) const {
-	const std::string k(args...); 
+	const uf::stl::string k(args...); 
 	auto key = rapidjson::StringRef(k.c_str());
 	auto it = rapidjson::Document::FindMember(key);
 	if ( it != rapidjson::Document::MemberEnd() )
@@ -123,14 +123,14 @@ template<> inline bool ext::json::Value::is<int>() const { return IsInt64(); }
 template<> inline bool ext::json::Value::is<size_t>() const { return IsUint64(); }
 template<> inline bool ext::json::Value::is<float>() const { return IsDouble(); }
 template<> inline bool ext::json::Value::is<double>() const { return IsDouble(); }
-template<> inline bool ext::json::Value::is<std::string>() const { return IsString(); }
+template<> inline bool ext::json::Value::is<uf::stl::string>() const { return IsString(); }
 
 template<> inline bool ext::json::Value::get<bool>() const { return GetBool(); }
 template<> inline int ext::json::Value::get<int>() const { return GetInt(); }
 template<> inline size_t ext::json::Value::get<size_t>() const { return GetUint64(); }
 template<> inline float ext::json::Value::get<float>() const { return GetDouble(); }
 template<> inline double ext::json::Value::get<double>() const { return GetDouble(); }
-template<> inline std::string ext::json::Value::get<std::string>() const { return GetString(); }
+template<> inline uf::stl::string ext::json::Value::get<uf::stl::string>() const { return GetString(); }
 
 template<typename T> inline T ext::json::Value::as() const {
 	if ( !is<T>() ) return T();
@@ -140,7 +140,7 @@ template<> inline bool ext::json::Value::as<bool>() const {
 	if ( is<bool>() ) return get<bool>();
 	if ( IsNull() ) return false;
 	if ( IsNumber() ) return get<int>() != 0;
-	if ( IsString() ) return get<std::string>() != "";
+	if ( IsString() ) return get<uf::stl::string>() != "";
 	if ( IsObject() ) return !ext::json::keys( *this ).empty();
 	if ( IsArray() ) return size() > 0;
 	return false;

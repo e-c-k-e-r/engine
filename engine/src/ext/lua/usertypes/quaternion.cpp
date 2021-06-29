@@ -51,7 +51,7 @@ namespace binds {
 	pod::Matrix4f matrix( const pod::Quaternion<>& q ) {
 		return uf::quaternion::matrix( q );
 	}
-	std::string __tostring( const pod::Quaternion<>& self ) {
+	uf::stl::string __tostring( const pod::Quaternion<>& self ) {
 		return uf::string::toString( self );
 	}
 }

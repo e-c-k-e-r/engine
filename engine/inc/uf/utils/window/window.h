@@ -44,11 +44,11 @@ namespace uf {
 		void UF_API_CALL switchToFullscreen( bool borderless = false );
 	// 	Update
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-		std::vector<std::string> getExtensions( bool validationEnabled = true );
+		uf::stl::vector<uf::stl::string> getExtensions( bool validationEnabled = true );
 		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
 	#endif
 		static bool focused;
-		static bool UF_API_CALL isKeyPressed(const std::string&);
+		static bool UF_API_CALL isKeyPressed(const uf::stl::string&);
 		void UF_API_CALL processEvents();
 		bool UF_API_CALL pollEvents(bool block = false);
 		bool UF_API_CALL setActive( bool active = true );

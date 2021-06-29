@@ -3,7 +3,7 @@
 #include <uf/utils/component/component.h>
 
 #include <functional>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 #include <typeindex>
 
 namespace uf {
@@ -14,7 +14,7 @@ namespace uf {
 namespace pod {
 	struct UF_API Behavior {
 	//	typedef std::type_index type_t;
-		typedef std::string type_t;
+		typedef uf::stl::string type_t;
 		typedef std::function<void(uf::Object&)> function_t;
 
 		type_t type = ""; //std::type_index(typeid(pod::Behavior));
@@ -28,7 +28,7 @@ namespace pod {
 namespace uf {
 	class UF_API Behaviors : public uf::Component {
 	protected:
-		typedef std::vector<pod::Behavior> container_t;
+		typedef uf::stl::vector<pod::Behavior> container_t;
 		container_t m_behaviors;
 	public:
 		void initialize();

@@ -35,8 +35,8 @@ void ext::NoiseBehavior::initialize( uf::Object& self ) {
 	pod::Vector3ui size = uf::vector::decode(metadata["size"], pod::Vector3ui{512, 512, 1});
 	pod::Vector3d coefficients = uf::vector::decode(metadata["coefficients"], pod::Vector3d{3.0, 3.0, 3.0});
 
-	std::vector<uint8_t> pixels(size.x * size.y * size.z);
-	std::vector<float> perlins(size.x * size.y * size.z);
+	uf::stl::vector<uint8_t> pixels(size.x * size.y * size.z);
+	uf::stl::vector<float> perlins(size.x * size.y * size.z);
 #pragma omp parallel for
 	for ( size_t z = 0; z < size.z; ++z ) {
 	for ( size_t y = 0; y < size.y; ++y ) {

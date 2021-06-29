@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/ext/vulkan/vk.h>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 namespace ext {
 	namespace vulkan {
@@ -194,7 +194,7 @@ namespace ext {
 			}
 
 			inline VkDescriptorPoolCreateInfo descriptorPoolCreateInfo(
-				const std::vector<VkDescriptorPoolSize>& poolSizes,
+				const uf::stl::vector<VkDescriptorPoolSize>& poolSizes,
 				uint32_t maxSets)
 			{
 				VkDescriptorPoolCreateInfo descriptorPoolInfo{};
@@ -241,7 +241,7 @@ namespace ext {
 			}
 
 			inline VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(
-				const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+				const uf::stl::vector<VkDescriptorSetLayoutBinding>& bindings)
 			{
 				VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
 				descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -462,7 +462,7 @@ namespace ext {
 			}
 
 			inline VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo(
-				const std::vector<VkDynamicState>& pDynamicStates,
+				const uf::stl::vector<VkDynamicState>& pDynamicStates,
 				VkPipelineDynamicStateCreateFlags flags = 0)
 			{
 				VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};

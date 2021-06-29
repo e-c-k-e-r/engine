@@ -15,9 +15,9 @@ namespace ext {
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
 			struct {
-			//	std::unordered_map<std::thread::id, VkCommandPool> graphics;
-			//	std::unordered_map<std::thread::id, VkCommandPool> compute;
-			//	std::unordered_map<std::thread::id, VkCommandPool> transfer;
+			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> graphics;
+			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> compute;
+			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> transfer;
 				uf::ThreadUnique<VkCommandPool> graphics;
 				uf::ThreadUnique<VkCommandPool> compute;
 				uf::ThreadUnique<VkCommandPool> transfer;
@@ -34,23 +34,23 @@ namespace ext {
 			VkPhysicalDeviceMemoryProperties2 memoryProperties2;
 
 			struct {
-				std::vector<VkExtensionProperties> instance;
-				std::vector<VkExtensionProperties> device;
+				uf::stl::vector<VkExtensionProperties> instance;
+				uf::stl::vector<VkExtensionProperties> device;
 			} extensionProperties;
 			struct {
-				std::vector<std::string> instance;
-				std::vector<std::string> device;
+				uf::stl::vector<uf::stl::string> instance;
+				uf::stl::vector<uf::stl::string> device;
 			} supportedExtensions;
 			
 			VkPipelineCache pipelineCache;
 
-			std::vector<VkQueueFamilyProperties> queueFamilyProperties;
+			uf::stl::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			
 			struct {
-			//	std::unordered_map<std::thread::id,VkQueue> graphics;
-			//	std::unordered_map<std::thread::id,VkQueue> present;
-			//	std::unordered_map<std::thread::id,VkQueue> compute;
-			//	std::unordered_map<std::thread::id,VkQueue> transfer;
+			//	uf::stl::unordered_map<std::thread::id,VkQueue> graphics;
+			//	uf::stl::unordered_map<std::thread::id,VkQueue> present;
+			//	uf::stl::unordered_map<std::thread::id,VkQueue> compute;
+			//	uf::stl::unordered_map<std::thread::id,VkQueue> transfer;
 				uf::ThreadUnique<VkQueue> graphics;
 				uf::ThreadUnique<VkQueue> present;
 				uf::ThreadUnique<VkQueue> compute;

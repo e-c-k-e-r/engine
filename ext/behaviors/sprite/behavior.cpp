@@ -19,17 +19,17 @@
 #include "../../scenes/worldscape//.h"
 
 namespace {
-	uf::Serializer masterTableGet( const std::string& table ) {
+	uf::Serializer masterTableGet( const uf::stl::string& table ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table];
 	}
-	uf::Serializer masterDataGet( const std::string& table, const std::string& key ) {
+	uf::Serializer masterDataGet( const uf::stl::string& table, const uf::stl::string& key ) {
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Serializer& mastertable = scene.getComponent<uf::Serializer>();
 		return mastertable["system"]["mastertable"][table][key];
 	}
-	inline int64_t parseInt( const std::string& str ) {
+	inline int64_t parseInt( const uf::stl::string& str ) {
 		return atoi(str.c_str());
 	}
 }
@@ -44,8 +44,8 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 
 	this->addHook( "graphics:Assign.%UID%", [&](ext::json::Value& json){
 		metadata["system"]["control"] = false;
-		std::string filename = json["filename"].as<std::string>();
-		std::string category = json["category"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
+		uf::stl::string category = json["category"].as<uf::stl::string>();
 
 		if ( category != "" && category != "images" ) return;
 		if ( category == "" && uf::io::extension(filename) != "png" && uf::io::extension(filename) != "jpg" && uf::io::extension(filename) != "jpeg" ) return;
@@ -93,17 +93,17 @@ void ext::HousamoSpriteBehavior::initialize( uf::Object& self ) {
 	});
 
 	{
-		std::string id = metadata[""]["party"][0].as<std::string>();
+		uf::stl::string id = metadata[""]["party"][0].as<uf::stl::string>();
 		uf::Serializer member = metadata[""]["transients"][id];
 		uf::Serializer cardData = masterDataGet("Card", id);
-		std::string name = cardData["filename"].as<std::string>();
-		if ( member["skin"].is<std::string>() ) name += "_" + member["skin"].as<std::string>();
-		std::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
+		uf::stl::string name = cardData["filename"].as<uf::stl::string>();
+		if ( member["skin"].is<uf::stl::string>() ) name += "_" + member["skin"].as<uf::stl::string>();
+		uf::stl::string filename = "https://cdn..xyz//unity/Android/fg/fg_" + name + ".png";
 		if ( cardData["internal"].as<bool>() ) {
 			filename = uf::io::root+"/smtsamo/fg/fg_" + name + ".png";
 		}
 		
-		metadata["orientation"] = cardData["orientation"].as<std::string>() == "" ? "portrait" : "landscape";
+		metadata["orientation"] = cardData["orientation"].as<uf::stl::string>() == "" ? "portrait" : "landscape";
 		
 		assetLoader.load(filename, "asset:Load." + std::to_string(this->getUid()) );
 	}

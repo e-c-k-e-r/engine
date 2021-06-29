@@ -31,20 +31,20 @@ bool uf::Audio::playing() const {
 #endif
 }
 
-void uf::Audio::open( const std::string& filename ) {
+void uf::Audio::open( const uf::stl::string& filename ) {
 	this->open( filename, uf::audio::streamsByDefault );
 }
-void uf::Audio::open( const std::string& filename, bool streamed ) {
+void uf::Audio::open( const uf::stl::string& filename, bool streamed ) {
 	streamed ? stream( filename ) : load( filename );
 }
-void uf::Audio::load( const std::string& filename ) {
+void uf::Audio::load( const uf::stl::string& filename ) {
 	if ( uf::audio::muted ) return;
 #if UF_USE_OPENAL
 	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
 	this->m_metadata = ext::al::load( filename );
 #endif
 }
-void uf::Audio::stream( const std::string& filename ) {
+void uf::Audio::stream( const uf::stl::string& filename ) {
 	if ( uf::audio::muted ) return;
 #if UF_USE_OPENAL
 	if ( this->m_metadata ) ext::al::close( *this->m_metadata );
@@ -190,8 +190,8 @@ void uf::Audio::setMaxDistance( float v ) {
 
 float uf::Audio::getVolume() const { return this->getGain(); }
 void uf::Audio::setVolume( float v ) { return this->setGain( v ); }
-const std::string& uf::Audio::getFilename() const {
-	const std::string null = "";
+const uf::stl::string& uf::Audio::getFilename() const {
+	static const uf::stl::string null = "";
 	return this->m_metadata ? this->m_metadata->filename : null;
 }
 float uf::Audio::getDuration() const {

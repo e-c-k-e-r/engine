@@ -54,7 +54,7 @@ namespace spec {
 			/*virtual*/ bool UF_API hasFocus() const;
 		// 	Update
 			/*virtual*/ void UF_API processEvents();
-			static /*virtual*/ bool UF_API isKeyPressed(const std::string&);
+			static /*virtual*/ bool UF_API isKeyPressed(const uf::stl::string&);
 			bool UF_API pollEvents( bool block = false );
 		// 	Win32 specific functions
 			void UF_API registerWindowClass();

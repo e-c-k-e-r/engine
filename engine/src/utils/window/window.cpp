@@ -78,10 +78,10 @@ void UF_API_CALL uf::Window::setTitle( const spec::uni::Window::title_t& title )
 	this->m_window->setTitle(title);
 
 	uf::Serializer json;
-	std::string hook = "window:Title.Changed";
+	uf::stl::string hook = "window:Title.Changed";
 	json["type"] = hook;
 	json["invoker"] = "os";
-	json["window"]["title"] = std::string(title);
+	json["window"]["title"] = uf::stl::string(title);
 	uf::hooks.call( hook, json );
 }
 void UF_API_CALL uf::Window::setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels ) {
@@ -127,7 +127,7 @@ void UF_API_CALL uf::Window::processEvents() {
 bool UF_API_CALL uf::Window::pollEvents( bool block ) {
 	return this->m_window ? this->m_window->pollEvents(block) : false;
 }
-bool UF_API_CALL uf::Window::isKeyPressed( const std::string& key ) {
+bool UF_API_CALL uf::Window::isKeyPressed( const uf::stl::string& key ) {
 	return uf::Window::focused && uf::Window::window_t::isKeyPressed(key);
 }
 bool UF_API_CALL uf::Window::setActive(bool active) {
@@ -141,7 +141,7 @@ bool UF_API_CALL uf::Window::setActive(bool active) {
 	return false;
 }
 #if UF_USE_VULKAN
-std::vector<std::string> UF_API_CALL uf::Window::getExtensions( bool x ) {
+uf::stl::vector<uf::stl::string> UF_API_CALL uf::Window::getExtensions( bool x ) {
 	return this->m_window->getExtensions( x );
 }
 void UF_API_CALL uf::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {

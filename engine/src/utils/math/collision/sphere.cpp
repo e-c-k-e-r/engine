@@ -4,7 +4,7 @@ UF_API uf::SphereCollider::SphereCollider( float r, const pod::Vector3& origin )
 	this->m_radius = r;
 	this->m_origin = origin;
 }
-std::string UF_API uf::SphereCollider::type() const { return "Sphere"; }
+uf::stl::string UF_API uf::SphereCollider::type() const { return "Sphere"; }
 float UF_API uf::SphereCollider::getRadius() const {
 	return this->m_radius;
 }

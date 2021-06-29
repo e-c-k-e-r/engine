@@ -21,7 +21,7 @@ namespace ext {
 			bool shadows = false;
 			int32_t type = 1;
 			struct {
-				std::string mode = "in-range";
+				uf::stl::string mode = "in-range";
 				float limiter = 0.0f;
 				float timer = 0.0f;
 				bool rendered = false;

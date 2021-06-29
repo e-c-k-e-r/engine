@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 #if !defined(EXT_STATIC)
 	#if defined(UF_ENV_WINDOWS)
@@ -36,11 +36,11 @@
 	#define EXT_API EXT_API_IMPORT
 #endif
 
-#include <string>
+#include <uf/utils/memory/string.h>
 #include <uf/utils/serialize/serializer.h>
 namespace ext {
 	extern bool EXT_API ready;
-	extern std::vector<std::string> EXT_API arguments;
+	extern uf::stl::vector<uf::stl::string> EXT_API arguments;
 	extern uf::Serializer EXT_API config;
 	
 	extern void EXT_API load();

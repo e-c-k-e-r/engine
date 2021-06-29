@@ -6,12 +6,12 @@
 #include "./collision/boundingbox.h"
 #include "./collision/sphere.h"
 #include "./collision/mesh.h"
-#include <vector>
+#include <uf/utils/memory/vector.h>
 
 namespace uf {
 	class UF_API Collider {
 	public:
-		typedef std::vector<pod::Collider*> container_t;
+		typedef uf::stl::vector<pod::Collider*> container_t;
 	protected:
 		uf::Collider::container_t m_container;
 	public:
@@ -24,7 +24,7 @@ namespace uf {
 		
 		std::size_t getSize() const;
 
-		std::vector<pod::Collider::Manifold> intersects( const uf::Collider&, bool = false ) const;
-		std::vector<pod::Collider::Manifold> intersects( const pod::Collider&, bool = false ) const;
+		uf::stl::vector<pod::Collider::Manifold> intersects( const uf::Collider&, bool = false ) const;
+		uf::stl::vector<pod::Collider::Manifold> intersects( const pod::Collider&, bool = false ) const;
 	};
 }

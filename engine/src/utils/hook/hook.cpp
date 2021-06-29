@@ -23,7 +23,7 @@ void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& container = this->m_container[name];
-	std::vector<pod::Hook::userdata_t> results;
+	uf::stl::vector<pod::Hook::userdata_t> results;
 	results.reserve( container.size() );
 
 	for ( auto& hook : container ) {
@@ -40,24 +40,24 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 
 	return results;
 }
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const std::string& s ) {
+uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::stl::string& s ) {
 	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>();
 	auto& value = payload.get<ext::json::Value>();
 	value = uf::Serializer(s);
-//	payload.create<std::string>( s );
+//	payload.create<uf::stl::string>( s );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const ext::json::Value& s ) {
 	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( s );
-//	payload.create<std::string>( ext::json::encode( s ) );
+//	payload.create<uf::stl::string>( ext::json::encode( s ) );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
 	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( (const ext::json::Value&) s );
-//	payload.create<std::string>( s.serialize() );
+//	payload.create<uf::stl::string>( s.serialize() );
 	return call(name, payload);
 }
 // specialization: void function

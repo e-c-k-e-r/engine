@@ -14,7 +14,22 @@ namespace ext {
 		void render( uf::Object& );
 		void destroy( uf::Object& );
 		struct Metadata {
+			struct {
+				struct {
+					uf::stl::string type = "";
+					pod::Vector4f color{};
+					pod::Vector3f position{};
+					float radius{};
+					bool enabled{};
+				} cursor;
 
+				bool enabled{};
+				bool floating{};
+				pod::Transform<> transform;
+			} overlay;
+
+			std::function<void()> serialize;
+			std::function<void()> deserialize;
 		};
 	}
 }

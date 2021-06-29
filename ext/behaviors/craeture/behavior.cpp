@@ -89,7 +89,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 		uf::Scene& world = uf::scene::getCurrentScene();
 		uf::Serializer& masterdata = world.getComponent<uf::Serializer>();
 		
-		std::string filename = json["filename"].as<std::string>();
+		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 
 		if ( uf::io::extension(filename) != "ogg" ) return;
 

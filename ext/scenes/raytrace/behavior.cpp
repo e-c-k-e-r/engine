@@ -32,7 +32,7 @@ void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 
 	{
 		auto& renderMode = this->getComponent<uf::renderer::ComputeRenderMode>();
-		std::string name = "C:RT:" + std::to_string((int) this->getUid());
+		uf::stl::string name = "C:RT:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, name );
 		if ( ext::json::isArray( metadata["light"]["shadows"]["resolution"] ) ) {
 			renderMode.width = metadata["light"]["shadows"]["resolution"][0].as<size_t>();
@@ -50,7 +50,7 @@ void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 				pod::Vector3ui _pad;
 			};
 
-			std::vector<Shape> shapes;
+			uf::stl::vector<Shape> shapes;
 			{
 				shapes.push_back( {{1.75f, -0.5f, 0.0f, 1.0f },  { 0.0f, 1.0f,   0.0f}, 32.0f, 1} );
 				shapes.push_back( {{0.0f, 1.0f, -0.5f, 1.0f },  {0.65f, 0.77f, 0.97f}, 32.0f, 1} );
@@ -150,7 +150,7 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 				uniforms->fog.range.y = metadata["light"]["fog"]["range"][1].as<float>();
 			}
 		
-			std::vector<uf::Entity*> entities;
+			uf::stl::vector<uf::Entity*> entities;
 			std::function<void(uf::Entity*)> filter = [&]( uf::Entity* entity ) {
 				if ( !entity || entity->getName() != "Light" ) return;
 				entities.push_back(entity);

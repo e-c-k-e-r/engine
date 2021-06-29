@@ -19,12 +19,12 @@ namespace ext {
 				VkImage image;
 				VkDeviceMemory mem;
 				VkImageView view;
-				std::vector<VkImageView> views;
+				uf::stl::vector<VkImageView> views;
 				VmaAllocation allocation;
 				VmaAllocationInfo allocationInfo;
 				VkPipelineColorBlendAttachmentState blendState;
 			};
-			std::vector<Attachment> attachments;
+			uf::stl::vector<Attachment> attachments;
 
 			struct Subpass {
 				VkPipelineStageFlags stage;
@@ -32,24 +32,24 @@ namespace ext {
 				uint8_t layer;
 				bool autoBuildPipeline;
 
-				std::vector<VkAttachmentReference> colors;
-				std::vector<VkAttachmentReference> inputs;
-				std::vector<VkAttachmentReference> resolves;
+				uf::stl::vector<VkAttachmentReference> colors;
+				uf::stl::vector<VkAttachmentReference> inputs;
+				uf::stl::vector<VkAttachmentReference> resolves;
 				VkAttachmentReference depth;
 			};
-			std::vector<Subpass> passes;
+			uf::stl::vector<Subpass> passes;
 
 			bool initialized = false;
 			Device* device = VK_NULL_HANDLE;
 			VkRenderPass renderPass = VK_NULL_HANDLE;
-			std::vector<VkFramebuffer> framebuffers;
+			uf::stl::vector<VkFramebuffer> framebuffers;
 			uint32_t width = 0;
 			uint32_t height = 0;
 			uint8_t views = 1;
 			// RAII
 			void initialize( Device& device );
 			void destroy();
-			void addPass( VkPipelineStageFlags, VkAccessFlags, const std::vector<size_t>&, const std::vector<size_t>&, const std::vector<size_t>&, size_t, size_t = 0, bool = true  );
+			void addPass( VkPipelineStageFlags, VkAccessFlags, const uf::stl::vector<size_t>&, const uf::stl::vector<size_t>&, const uf::stl::vector<size_t>&, size_t, size_t = 0, bool = true  );
 			size_t attach( const Attachment::Descriptor& descriptor, Attachment* attachment = NULL );
 		};
 	}

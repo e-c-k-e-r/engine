@@ -76,11 +76,11 @@ namespace ext {
 			void destroy();
 			bool generated() const;
 			void loadFromFile(
-				const std::string& filename, 
+				const uf::stl::string& filename, 
 				enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM
 			);
 			void loadFromFile(
-				const std::string& filename, 
+				const uf::stl::string& filename, 
 				Device& device,
 				enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM
 			);

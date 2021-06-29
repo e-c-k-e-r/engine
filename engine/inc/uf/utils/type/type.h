@@ -2,18 +2,18 @@
 
 #include <uf/config.h>
 #include <typeindex>
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 
 #define UF_TYPE_REGISTER 1
 
-#include <string>
+#include <uf/utils/memory/string.h>
 namespace pod {
 	struct UF_API TypeInfo {
 		size_t hash;
 		size_t size;
 		struct {
-			std::string pretty;
-			std::string compiler;
+			uf::stl::string pretty;
+			uf::stl::string compiler;
 		} name;
 	};
 }
@@ -31,21 +31,21 @@ namespace uf {
 		typedef std::type_index index_t;
 		typedef pod::TypeInfo type_t;
 
-		extern UF_API std::unordered_map<index_t, pod::TypeInfo>* types;
+		extern UF_API uf::stl::unordered_map<index_t, pod::TypeInfo>* types;
 
-		void UF_API registerType( const index_t&, size_t = 0, const std::string& = "" );
+		void UF_API registerType( const index_t&, size_t = 0, const uf::stl::string& = "" );
 		const pod::TypeInfo& UF_API getType( size_t );
 		const pod::TypeInfo& UF_API getType( const index_t& );
 
 		template<typename T>
 		const std::type_index getIndex();
 		template<typename T>
-		void registerType( const std::string& pretty = "" );
+		void registerType( const uf::stl::string& pretty = "" );
 		template<typename T>
 		const pod::TypeInfo& getType();
 	/*
 		template<typename T> const index_t getIndex();
-		template<typename T> void registerType( const std::string& = "" );
+		template<typename T> void registerType( const uf::stl::string& = "" );
 		template<typename T> const pod::TypeInfo& getType();
 	*/
 	}

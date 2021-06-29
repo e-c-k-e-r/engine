@@ -14,37 +14,37 @@
 
 namespace {
 #if UF_USE_OPENVR
-	void VRInstanceExtensions( std::vector<std::string>& requested ) {
+	void VRInstanceExtensions( uf::stl::vector<uf::stl::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
 		int32_t nBufferSize = vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( nullptr, 0 );
 		if ( nBufferSize < 0 ) return;
 		char pExtensionStr[nBufferSize];
 		pExtensionStr[0] = 0;
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
-		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		uf::stl::vector<uf::stl::string> extensions = uf::string::split( pExtensionStr, " " );
 		for ( auto& str : extensions ) {
 			// uf::iostream << str << "\n";
 			requested.push_back(str);
 		}
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
 	}
-	void VRDeviceExtensions( VkPhysicalDevice_T* physicalDevice, std::vector<std::string>& requested ) {
+	void VRDeviceExtensions( VkPhysicalDevice_T* physicalDevice, uf::stl::vector<uf::stl::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
 		int32_t nBufferSize = vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice, nullptr, 0 );
 		if ( nBufferSize < 0 ) return;
 		char pExtensionStr[nBufferSize];
 		pExtensionStr[0] = 0;
 		vr::VRCompositor()->GetVulkanDeviceExtensionsRequired( physicalDevice , pExtensionStr, nBufferSize );
-		std::vector<std::string> extensions = uf::string::split( pExtensionStr, " " );
+		uf::stl::vector<uf::stl::string> extensions = uf::string::split( pExtensionStr, " " );
 		for ( auto& str : extensions ) requested.push_back(str);
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
 	}
 #endif
-	void validateRequestedExtensions( const std::vector<VkExtensionProperties>& extensionProperties, const std::vector<std::string>& requestedExtensions, std::vector<std::string>& supportedExtensions ) {
+	void validateRequestedExtensions( const uf::stl::vector<VkExtensionProperties>& extensionProperties, const uf::stl::vector<uf::stl::string>& requestedExtensions, uf::stl::vector<uf::stl::string>& supportedExtensions ) {
 		for ( auto& requestedExtension : requestedExtensions ) {
 			bool found = false;
 			for ( auto& extensionProperty : extensionProperties ) {
-				std::string extensionName = extensionProperty.extensionName;
+				uf::stl::string extensionName = extensionProperty.extensionName;
 				if ( requestedExtension != extensionName ) continue;
 				if ( std::find( supportedExtensions.begin(), supportedExtensions.end(), extensionName ) != supportedExtensions.end() ) {
 					found = true;
@@ -272,14 +272,14 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 	if ( !deviceFeatures.geometryShader ) return 0;
 	//
 	{
-		const std::vector<const char*> deviceExtensions = {
+		const uf::stl::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		uint32_t extensionCount;
 		vkEnumerateDeviceExtensionProperties( device, nullptr, &extensionCount, nullptr );
-		std::vector<VkExtensionProperties> availableExtensions( extensionCount );
+		uf::stl::vector<VkExtensionProperties> availableExtensions( extensionCount );
 		vkEnumerateDeviceExtensionProperties( device, nullptr, &extensionCount, availableExtensions.data() );
-		std::set<std::string> requiredExtensions( deviceExtensions.begin(), deviceExtensions.end() );
+		std::set<uf::stl::string> requiredExtensions( deviceExtensions.begin(), deviceExtensions.end() );
 
 		for ( const auto& extension : availableExtensions )
 			requiredExtensions.erase( extension.extensionName );
@@ -289,8 +289,8 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 	//
 	{
 		VkSurfaceCapabilitiesKHR capabilities;
-		std::vector<VkSurfaceFormatKHR> formats;
-		std::vector<VkPresentModeKHR> presentModes;
+		uf::stl::vector<VkSurfaceFormatKHR> formats;
+		uf::stl::vector<VkPresentModeKHR> presentModes;
 
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR( device, this->surface, &capabilities );
 
@@ -522,14 +522,14 @@ VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum
 }
 
 void ext::vulkan::Device::initialize() {	
-	const std::vector<const char*> validationLayers = {
+	const uf::stl::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 	};
 	// Assert validation layers
 	if ( ext::vulkan::settings::validation ) {
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-		std::vector<VkLayerProperties> availableLayers(layerCount);
+		uf::stl::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 		for ( const char* layerName : validationLayers ) {
 			bool layerFound = false;
@@ -543,7 +543,7 @@ void ext::vulkan::Device::initialize() {
 	}
 	// 
 	// Get extensions
-	std::vector<std::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
+	uf::stl::vector<uf::stl::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
 	// Load any requested extensions
 	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedInstanceExtensions.begin(), ext::vulkan::settings::requestedInstanceExtensions.end() );
 #if UF_USE_OPENVR
@@ -566,7 +566,7 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Create instance
 	{
-		std::vector<const char*> instanceExtensions;
+		uf::stl::vector<const char*> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
 			if ( ext::vulkan::settings::validation )
 				uf::iostream << "Enabled instance extension: " << s << "\n";
@@ -600,7 +600,7 @@ void ext::vulkan::Device::initialize() {
 		{
 			ext::json::Value payload = ext::json::array();
 			for ( auto* c_str : instanceExtensions ) {
-				payload.emplace_back( std::string(c_str) );
+				payload.emplace_back( uf::stl::string(c_str) );
 			}
 			uf::hooks.call("vulkan:Instance.ExtensionsEnabled", payload);
 		}
@@ -627,7 +627,7 @@ void ext::vulkan::Device::initialize() {
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, nullptr );
 		if ( deviceCount == 0 ) UF_EXCEPTION("Vulkan error: failed to find GPUs with Vulkan support!");
 
-		std::vector<VkPhysicalDevice> devices(deviceCount);
+		uf::stl::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, devices.data() );
 		// Use an ordered map to automatically sort candidates by increasing score
 		std::multimap<int, VkPhysicalDevice> candidates;
@@ -681,7 +681,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-		std::vector<std::string> requestedExtensions;
+		uf::stl::vector<uf::stl::string> requestedExtensions;
 		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
 	#if UF_USE_OPENVR		
 		// OpenVR Support
@@ -703,7 +703,7 @@ void ext::vulkan::Device::initialize() {
 			
 			validateRequestedExtensions( extensionProperties.device, requestedExtensions, supportedExtensions.device );
 		}
-		std::vector<const char*> deviceExtensions = {
+		uf::stl::vector<const char*> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
@@ -714,7 +714,7 @@ void ext::vulkan::Device::initialize() {
 		// Desired queues need to be requested upon logical device creation
 		// Due to differing queue family configurations of Vulkan implementations this can be a bit tricky, especially if the application
 		// requests different queue types
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
+		uf::stl::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
 		// Get queue family indices for the requested queue family types
 		// Note that the indices may overlap depending on the implementation
 		const float defaultQueuePriority(0.0f);
@@ -806,7 +806,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		{
 			uf::Serializer payload = ext::json::array();
-			for ( auto* c_str : deviceExtensions ) payload.emplace_back( std::string(c_str) );
+			for ( auto* c_str : deviceExtensions ) payload.emplace_back( uf::stl::string(c_str) );
 			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
 		}
 		{
@@ -861,7 +861,7 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Set formats
 	{
-		std::vector<VkSurfaceFormatKHR> formats;
+		uf::stl::vector<VkSurfaceFormatKHR> formats;
 		uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
 		formats.resize( formatCount );
 		vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
@@ -904,7 +904,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		// Since all depth formats may be optional, we need to find a suitable depth format to use
 		// Start with the highest precision packed format
-		std::vector<VkFormat> depthFormats = {
+		uf::stl::vector<VkFormat> depthFormats = {
 			VK_FORMAT_D32_SFLOAT_S8_UINT,
 			VK_FORMAT_D32_SFLOAT,
 			VK_FORMAT_D24_UNORM_S8_UINT,
@@ -927,7 +927,7 @@ void ext::vulkan::Device::initialize() {
 		VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
 		pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 		
-		std::vector<uint8_t> buffer;
+		uf::stl::vector<uint8_t> buffer;
 		// read from cache on disk
 		if ( uf::io::exists( uf::io::root + "/cache/vulkan/cache.bin" ) ) {
 			buffer = uf::io::readAsBuffer( uf::io::root + "/cache/vulkan/cache.bin" );
@@ -957,7 +957,7 @@ void ext::vulkan::Device::destroy() {
 			size_t size{};
 			VK_CHECK_RESULT(vkGetPipelineCacheData(this->logicalDevice, this->pipelineCache, &size, NULL));
 
-			std::vector<uint8_t> data(size);
+			uf::stl::vector<uint8_t> data(size);
 			VK_CHECK_RESULT(vkGetPipelineCacheData(this->logicalDevice, this->pipelineCache, &size, data.data()));
 
 			uf::io::write( uf::io::root + "/cache/vulkan/cache.bin", data );

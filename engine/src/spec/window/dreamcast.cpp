@@ -36,8 +36,8 @@ namespace {
 		if ( !::keyboard.state ) return false;
 		return ::keyboard.state->cond.modifiers & modifier;
 	}
-	std::vector<uint8_t> GetKeys() {
-		std::vector<uint8_t> keys;
+	uf::stl::vector<uint8_t> GetKeys() {
+		uf::stl::vector<uint8_t> keys;
 		keys.reserve(6);
 		for ( size_t i = 0; i < MAX_PRESSED_KEYS && ::keyboard.state; ++i ) keys.emplace_back(::keyboard.state->cond.keys[i]);
 		return keys;
@@ -46,7 +46,7 @@ namespace {
 		if ( !::keyboard.state || key < MAX_KBD_KEYS ) return 0;
 		return ::keyboard.state->matrix[key];
 	}
-	std::string GetKeyName( uint8_t key ) {
+	uf::stl::string GetKeyName( uint8_t key ) {
 		switch ( key ) {
 			case KBD_KEY_A: return "A";
 			case KBD_KEY_B: return "B";
@@ -151,8 +151,8 @@ namespace {
 		}
 		return "";
 	}
-	uint8_t GetKeyCode( const std::string& _key ) {
-		std::string key = uf::string::uppercase(_key);
+	uint8_t GetKeyCode( const uf::stl::string& _key ) {
+		uf::stl::string key = uf::string::uppercase(_key);
 
 		if ( key == "A" ) return KBD_KEY_A;
 		else if ( key == "B" ) return KBD_KEY_B;
@@ -363,7 +363,7 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 	if ( ::mouse.device ) ::mouse.state = (mouse_state_t*) maple_dev_status(::mouse.device);
 
 	/* Key inputs */ if ( this->m_asyncParse ) {
-		std::vector<uint8_t> keys = GetKeys();
+		uf::stl::vector<uint8_t> keys = GetKeys();
 		pod::payloads::windowKey event{
 			"window:Key",
 			"os",
@@ -421,8 +421,8 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-		if ( event.payload.is<std::string>() ) {
-			ext::json::Value payload = uf::Serializer( event.payload.as<std::string>() );
+		if ( event.payload.is<uf::stl::string>() ) {
+			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
@@ -465,7 +465,7 @@ pod::Vector2ui UF_API_CALL spec::dreamcast::Window::getResolution() {
 void UF_API_CALL spec::dreamcast::Window::switchToFullscreen( bool borderless ) {
 }
 
-bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const std::string& key) {
+bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
 	auto code = GetKeyCode(key);
 	auto keys = GetKeys();
 	for ( auto key : keys ) if ( key == code ) return true;

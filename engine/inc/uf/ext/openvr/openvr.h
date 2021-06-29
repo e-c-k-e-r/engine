@@ -25,11 +25,11 @@ namespace vr {
 namespace ext {
 	namespace openvr {
 		struct Driver {
-			std::string name;
-			std::string serial;
-			std::string manifest;
+			uf::stl::string name;
+			uf::stl::string serial;
+			uf::stl::string manifest;
 			vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
-			std::string types[vr::k_unMaxTrackedDeviceCount];
+			uf::stl::string types[vr::k_unMaxTrackedDeviceCount];
 			vr::IVRRenderModels* renderModels;
 		};
 		extern UF_API Driver driver;
@@ -61,7 +61,7 @@ namespace ext {
 		pod::Matrix4t<> UF_API hmdViewMatrix( vr::Hmd_Eye eye, const pod::Matrix4f& = uf::matrix::identity() );
 		pod::Matrix4t<> UF_API hmdProjectionMatrix( vr::Hmd_Eye, float = 0.1f, float = 1024.0f );
 
-		uf::Serializer UF_API controllerState( vr::Controller_Hand, const std::string& = "" );
+		uf::Serializer UF_API controllerState( vr::Controller_Hand, const uf::stl::string& = "" );
 		pod::Vector3f UF_API controllerPosition( vr::Controller_Hand, bool = false );
 		pod::Quaternion<> UF_API controllerQuaternion( vr::Controller_Hand, bool = false );
 		pod::Matrix4t<> UF_API controllerTranslationMatrix( vr::Controller_Hand, bool = false );
@@ -70,8 +70,8 @@ namespace ext {
 		pod::Matrix4t<> UF_API controllerMatrix( vr::Controller_Hand, bool = false );
 		bool UF_API controllerActive( vr::Controller_Hand );
 
-		bool UF_API requestRenderModel( const std::string& );
-		uf::Graphic& UF_API getRenderModel( const std::string& );
+		bool UF_API requestRenderModel( const uf::stl::string& );
+		uf::Graphic& UF_API getRenderModel( const uf::stl::string& );
 		uf::Graphic& UF_API controllerRenderModel( vr::Controller_Hand );
 
 		void UF_API resetPosition();

@@ -23,12 +23,12 @@ namespace ext {
 		};
 		struct {
 			struct {
-				std::vector<ext::TerrainVoxel::uid_t> raw;
+				uf::stl::vector<ext::TerrainVoxel::uid_t> raw;
 				pod::RLE<ext::TerrainVoxel::uid_t>::string_t rle;
 		 		Swizzle swizzle = Swizzle::YZX;
 			} id;
 			struct {
-				std::vector<ext::TerrainVoxel::light_t> raw;
+				uf::stl::vector<ext::TerrainVoxel::light_t> raw;
 				pod::RLE<ext::TerrainVoxel::light_t>::string_t rle;
 		 		Swizzle swizzle = Swizzle::YZX;
 			} lighting;
@@ -54,10 +54,10 @@ namespace ext {
 		void updateLight();
 
 		void generate( uf::Object& );
-		void rasterize( std::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object&, bool = false );
-	//	void vectorize( std::vector<uf::renderer::ComputeGraphic::Cube>&, const uf::Object& );
+		void rasterize( uf::stl::vector<TerrainGenerator::mesh_t::vertex_t>& vertices, const uf::Object&, bool = false );
+	//	void vectorize( uf::stl::vector<uf::renderer::ComputeGraphic::Cube>&, const uf::Object& );
 		
-		std::vector<ext::TerrainVoxel::uid_t> getRawVoxels();
+		uf::stl::vector<ext::TerrainVoxel::uid_t> getRawVoxels();
 		const pod::RLE<ext::TerrainVoxel::uid_t>::string_t& getVoxels() const;
 
 		pod::Vector3i unwrapIndex( int64_t, Swizzle = DEFAULT_SWIZZLE ) const;

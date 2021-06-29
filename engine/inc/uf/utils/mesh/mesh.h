@@ -6,7 +6,7 @@
 #include <uf/ext/meshopt/meshopt.h>
 
 #include <functional>
-#include <unordered_map>
+#include <uf/utils/memory/unordered_map.h>
 
 #if UF_USE_VULKAN
 	namespace uf {
@@ -26,8 +26,8 @@ namespace uf {
 		typedef U index_t;
 		typedef vertex_t vertices_t;
 		typedef index_t indices_t;
-		std::vector<vertex_t> vertices;
-		std::vector<index_t> indices;
+		uf::stl::vector<vertex_t> vertices;
+		uf::stl::vector<index_t> indices;
 
 		void initialize( size_t = SIZE_MAX );
 		void destroy();

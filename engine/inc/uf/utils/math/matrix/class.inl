@@ -21,7 +21,7 @@ uf::Matrix<T,R,C>::Matrix(const T components[R*C] ) {
 }
 // copies data into POD from 'components' (typed as std::matrix<T>)
 template<typename T, size_t R, size_t C>
-uf::Matrix<T,R,C>::Matrix(const std::vector<T>& components ) {
+uf::Matrix<T,R,C>::Matrix(const uf::stl::vector<T>& components ) {
 	this->m_pod = uf::matrix::initialize( components );
 }
 // 	D-tor

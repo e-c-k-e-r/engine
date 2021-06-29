@@ -23,13 +23,13 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		auto& metadataJson = this->getComponent<uf::Serializer>();
 		auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 
-		metadata.names.model = this->grabURI( metadataJson["baking"]["model"].as<std::string>(), metadataJson["system"]["root"].as<std::string>() );
-		if ( metadataJson["baking"]["output"]["model"].is<std::string>() )
-			metadata.names.output.model = this->grabURI( metadataJson["baking"]["output"]["model"].as<std::string>(), metadataJson["system"]["root"].as<std::string>() );
-		metadata.names.output.map = this->grabURI( metadataJson["baking"]["output"]["map"].as<std::string>(), metadataJson["system"]["root"].as<std::string>() );
+		metadata.names.model = this->grabURI( metadataJson["baking"]["model"].as<uf::stl::string>(), metadataJson["system"]["root"].as<uf::stl::string>() );
+		if ( metadataJson["baking"]["output"]["model"].is<uf::stl::string>() )
+			metadata.names.output.model = this->grabURI( metadataJson["baking"]["output"]["model"].as<uf::stl::string>(), metadataJson["system"]["root"].as<uf::stl::string>() );
+		metadata.names.output.map = this->grabURI( metadataJson["baking"]["output"]["map"].as<uf::stl::string>(), metadataJson["system"]["root"].as<uf::stl::string>() );
 		metadata.names.renderMode = "B:" + std::to_string((int) this->getUid());
-		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as<std::string>();
-		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as<std::string>();
+		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as<uf::stl::string>();
+		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as<uf::stl::string>();
 		if ( metadataJson["baking"]["resolution"].is<size_t>() )
 			metadata.size = { metadataJson["baking"]["resolution"].as<size_t>(), metadataJson["baking"]["resolution"].as<size_t>() };
 		metadata.shadows = metadataJson["baking"]["shadows"].as<bool>();
@@ -93,8 +93,8 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			texture.storage.remap = 0;
 			texture.storage.blend = 0;
 
-			if ( graph.metadata["filter"].is<std::string>() ) {
-				std::string filter = graph.metadata["filter"].as<std::string>();
+			if ( graph.metadata["filter"].is<uf::stl::string>() ) {
+				uf::stl::string filter = graph.metadata["filter"].as<uf::stl::string>();
 				if ( filter == "NEAREST" ) {
 					texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 					texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
@@ -119,8 +119,8 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 				auto& texture = graph.textures[i];
 				texture.bind = true;
 				texture.storage.index = i;
-				if ( graph.metadata["filter"].is<std::string>() ) {
-					std::string filter = graph.metadata["filter"].as<std::string>();
+				if ( graph.metadata["filter"].is<uf::stl::string>() ) {
+					uf::stl::string filter = graph.metadata["filter"].as<uf::stl::string>();
 					if ( filter == "NEAREST" ) {
 						texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 						texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
@@ -149,7 +149,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		for ( auto& m : graph.meshes ) mesh.insert(m);
 		
 		// Models storage buffer
-		std::vector<pod::Matrix4f> instances;
+		uf::stl::vector<pod::Matrix4f> instances;
 		instances.reserve( graph.nodes.size() );
 		for ( auto& node : graph.nodes ) {
 			instances.emplace_back( uf::transform::model( node.transform ) );
@@ -160,7 +160,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			uf::renderer::enums::Buffer::STORAGE
 		);
 		// Materials storage buffer
-		std::vector<pod::Material::Storage> materials( graph.materials.size() );
+		uf::stl::vector<pod::Material::Storage> materials( graph.materials.size() );
 		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 			materials[i] = graph.materials[i].storage;
 		}
@@ -170,7 +170,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			uf::renderer::enums::Buffer::STORAGE
 		);
 		// Texture storage buffer
-		std::vector<pod::Texture::Storage> textures( graph.textures.size() );
+		uf::stl::vector<pod::Texture::Storage> textures( graph.textures.size() );
 		for ( size_t i = 0; i < graph.textures.size(); ++i ) {
 			textures[i] = graph.textures[i].storage;
 		}
@@ -210,13 +210,13 @@ PREPARE: {
 	graphic.initialize( metadata.names.renderMode );
 	graphic.initializeMesh( mesh );
 
-	std::vector<uf::renderer::Texture> textures2D;
+	uf::stl::vector<uf::renderer::Texture> textures2D;
 	textures2D.reserve( metadata.max.textures2D );
 
-	std::vector<uf::renderer::Texture> textures3D;
+	uf::stl::vector<uf::renderer::Texture> textures3D;
 	textures3D.reserve( metadata.max.textures3D );
 	
-	std::vector<uf::renderer::Texture> texturesCube;
+	uf::stl::vector<uf::renderer::Texture> texturesCube;
 	texturesCube.reserve( metadata.max.texturesCube );
 
 	// attach lighting info
@@ -232,10 +232,10 @@ PREPARE: {
 			int32_t type = 0;
 			bool shadows = false;
 		};
-		std::vector<LightInfo> entities;
+		uf::stl::vector<LightInfo> entities;
 		entities.reserve(graph.size() / 2);
 
-		std::vector<pod::Light::Storage> lights;
+		uf::stl::vector<pod::Light::Storage> lights;
 		lights.reserve(1024);
 
 		int32_t shadowUpdateThreshold = metadata.max.shadows; // how many shadow maps we should update, based on range
@@ -372,9 +372,9 @@ PREPARE: {
 
 		// standard pipeline
 		{
-			std::string vertexShaderFilename = "/gltf/baking/bake.vert.spv";
-			std::string geometryShaderFilename = "";
-			std::string fragmentShaderFilename = "/gltf/baking/bake.frag.spv";
+			uf::stl::string vertexShaderFilename = "/gltf/baking/bake.vert.spv";
+			uf::stl::string geometryShaderFilename = "";
+			uf::stl::string fragmentShaderFilename = "/gltf/baking/bake.frag.spv";
 			if ( uf::renderer::settings::experimental::deferredSampling ) {
 				fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
 			}
@@ -396,7 +396,7 @@ PREPARE: {
 				auto& shader = graphic.material.getShader("vertex");
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					std::string name = sc["name"].as<std::string>();
+					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "PASSES" ) sc["value"] = (specializationConstants[i] = maxPasses);
 				});
 			}
@@ -409,14 +409,14 @@ PREPARE: {
 				auto& shader = graphic.material.getShader("fragment");
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					std::string name = sc["name"].as<std::string>();
+					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 					else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 					else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
 				});
 				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 					size_t binding = t["binding"].as<size_t>();
-					std::string name = t["name"].as<std::string>();
+					uf::stl::string name = t["name"].as<uf::stl::string>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding != binding ) continue;
 						if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
@@ -430,12 +430,12 @@ PREPARE: {
 			/*
 				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					std::string name = sc["name"].as<std::string>();
+					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTexture2Ds);
 				});
 
 				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
-					if ( t["name"].as<std::string>() != "samplerTextures" ) return;
+					if ( t["name"].as<uf::stl::string>() != "samplerTextures" ) return;
 					size_t binding = t["binding"].as<size_t>();
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
 						if ( layout.binding == binding ) layout.descriptorCount = maxTextures;
@@ -456,7 +456,7 @@ SAVE: {
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
 	auto image = renderMode.screenshot();
-	std::string filename = metadata.names.output.map;
+	uf::stl::string filename = metadata.names.output.map;
 	bool status = image.save(filename);
 	UF_MSG_DEBUG("Writing to " << filename << ": " << status);
 	UF_MSG_DEBUG("Baked.");

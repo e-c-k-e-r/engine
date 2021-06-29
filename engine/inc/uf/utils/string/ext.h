@@ -1,8 +1,8 @@
 #pragma once
 
 #include <uf/config.h>
-#include <string>
-#include <vector>
+#include <uf/utils/memory/string.h>
+#include <uf/utils/memory/vector.h>
 #include <sstream>
 
 #include "io.h"
@@ -10,17 +10,17 @@
 namespace uf {
 	namespace string {
 
-		std::string UF_API replace( const std::string&, const std::string&, const std::string& );
-		std::string UF_API lowercase( const std::string& );
-		std::string UF_API uppercase( const std::string& );
-		std::vector<std::string> UF_API split( const std::string&, const std::string& );
-		std::string UF_API si( double value, const std::string& unit, size_t precision = 3 );
-		bool UF_API contains( const std::string&, const std::string& );
+		uf::stl::string UF_API replace( const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		uf::stl::string UF_API lowercase( const uf::stl::string& );
+		uf::stl::string UF_API uppercase( const uf::stl::string& );
+		uf::stl::vector<uf::stl::string> UF_API split( const uf::stl::string&, const uf::stl::string& );
+		uf::stl::string UF_API si( double value, const uf::stl::string& unit, size_t precision = 3 );
+		bool UF_API contains( const uf::stl::string&, const uf::stl::string& );
 
 		template<typename T>
-		std::string /*UF_API*/ join( const T&, const std::string& = "\n", bool = false );
+		uf::stl::string /*UF_API*/ join( const T&, const uf::stl::string& = "\n", bool = false );
 		template<typename T>
-		std::string /*UF_API*/ toString( const T& );
+		uf::stl::string /*UF_API*/ toString( const T& );
 	}
 }
 

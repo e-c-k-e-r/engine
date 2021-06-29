@@ -2,6 +2,9 @@
 
 #include <uf/config.h>
 
+#include <uf/utils/memory/vector.h>
+#include <uf/utils/memory/string.h>
+
 #include <nlohmann/json.hpp>
 #include <nlohmann/fifo_map.hpp>
 
@@ -45,7 +48,7 @@ namespace ext {
 		inline Value null() { return Value(); }
 		Value& UF_API reserve( Value& value, size_t size );
 		
-		std::vector<std::string> UF_API keys( const Value& v );
+		uf::stl::vector<uf::stl::string> UF_API keys( const Value& v );
 	}
 }
 /*
@@ -90,7 +93,7 @@ template<> inline bool ext::json::Value::is<uint32_t>(bool strict) const { retur
 template<> inline bool ext::json::Value::is<uint64_t>(bool strict) const { return strict ? is_number_unsigned() : is_number(); }
 template<> inline bool ext::json::Value::is<float>(bool strict) const { return strict ? is_number_float() : is_number(); }
 template<> inline bool ext::json::Value::is<double>(bool strict) const { return strict ? is_number_float() : is_number(); }
-template<> inline bool ext::json::Value::is<std::string>(bool strict) const { return is_string(); }
+template<> inline bool ext::json::Value::is<uf::stl::string>(bool strict) const { return is_string(); }
 
 #if UF_ENV_DREAMCAST
 	template<> inline bool ext::json::Value::is<int>(bool strict) const { return strict ? is_number_integer() : is_number(); }
@@ -116,7 +119,7 @@ template<> inline bool ext::json::Value::as<bool>() const {
 	// implicit conversion
 	if ( is_null() ) return false; // always return falce
 	if ( is_number() ) return get<int>(); // implicit conversion to bool
-	if ( is_string() ) return get<std::string>() != ""; // true if not empty
+	if ( is_string() ) return get<uf::stl::string>() != ""; // true if not empty
 	if ( is_object() ) return !ext::json::keys( *this ).empty(); // true if not empty
 	if ( is_array() ) return size() > 0; // true if not empty
 	return false;

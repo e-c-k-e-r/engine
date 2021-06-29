@@ -7,19 +7,19 @@ pod::Userdata* uf::userdata::create( const T& data ) {
 }
 template<typename T>
 pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
-//	uf::MemoryPool& memoryPool = uf::MemoryPool::global.size() > 0 ? uf::MemoryPool::global : requestedMemoryPool;
+//	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
 	size_t len = sizeof(data);
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::MemoryPool::global;
-	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( NULL, requestedLen );
+	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
+	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( nullptr, requestedLen );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::MemoryPool::global.size() > 0 ) memoryPool = &uf::MemoryPool::global;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	pod::Userdata* userdata = NULL;
 	if ( memoryPool )
-		userdata = (pod::Userdata*) memoryPool->alloc( NULL, requestedLen );
+		userdata = (pod::Userdata*) memoryPool->alloc( nullptr, requestedLen );
 	else
 		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some	}
 #endif

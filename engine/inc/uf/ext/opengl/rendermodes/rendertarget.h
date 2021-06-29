@@ -8,18 +8,18 @@ namespace ext {
 		struct UF_API RenderTargetRenderMode : public RenderMode {
 			ext::opengl::Graphic blitter;		
 			//
-			const std::string getTarget() const;
-			void setTarget( const std::string& );
+			const uf::stl::string getTarget() const;
+			void setTarget( const uf::stl::string& );
 
 			// RAII
-			virtual const std::string getType() const;
+			virtual const uf::stl::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::opengl::Graphic* getBlitter(size_t = 0);
-			virtual std::vector<ext::opengl::Graphic*> getBlitters();
+			virtual uf::stl::vector<ext::opengl::Graphic*> getBlitters();
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
-			virtual void createCommandBuffers( const std::vector<ext::opengl::Graphic*>& graphics );
+			virtual void createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics );
 			virtual void initialize( Device& device );
 			virtual void tick();
 			virtual void destroy();

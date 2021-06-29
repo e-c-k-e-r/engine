@@ -107,3 +107,4 @@
 
 #include "macros.h"
 #include "simd.h"
+#include "helpers.inl"

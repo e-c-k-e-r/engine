@@ -7,7 +7,7 @@ namespace ext {
         protected:
             double EAST_WALL_THRESHOLD;
             double SOUTH_WALL_THRESHOLD;
-            std::vector< std::tuple<int, int, int, int, int, int> > passages;
+            uf::stl::vector< std::tuple<int, int, int, int, int, int> > passages;
             typedef std::tuple<int, int, int> pos;
 
             int get(int, int, int);
@@ -26,7 +26,7 @@ namespace ext {
             static const uint8_t SOUTH     = 16;   // 00 01 00 00;
             static const uint8_t CEIL      = 32;   // 00 10 00 00;
 
-            std::vector<int> cells;
+            uf::stl::vector<int> cells;
 
             int& operator()(int row, int col, int floor){
                 return cells.at(col + LENGTH*row + LENGTH*WIDTH*floor);

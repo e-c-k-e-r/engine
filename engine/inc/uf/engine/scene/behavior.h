@@ -9,7 +9,7 @@ namespace uf {
 		void UF_API render( uf::Object& );
 		void UF_API destroy( uf::Object& );
 		struct Metadata {
-			std::vector<uf::Entity*> graph;
+			uf::stl::vector<uf::Entity*> graph;
 			bool invalidationQueued = false;
 			struct {
 				uf::Entity* controller = NULL;

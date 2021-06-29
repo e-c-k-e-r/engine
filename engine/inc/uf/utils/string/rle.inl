@@ -1,5 +1,5 @@
 template<typename T, typename U>
-typename pod::RLE<T,U>::string_t uf::rle::encode( const std::vector<T>& source ) {
+typename pod::RLE<T,U>::string_t uf::rle::encode( const uf::stl::vector<T>& source ) {
 	typename pod::RLE<T,U>::string_t destination;
 	destination.reserve( source.size() );
 
@@ -13,8 +13,8 @@ typename pod::RLE<T,U>::string_t uf::rle::encode( const std::vector<T>& source )
 	return destination;
 }
 template<typename T, typename U>
-std::vector<T> uf::rle::decode( const pod::RLE<T,U>& source ) {
-	std::vector<T> destination;
+uf::stl::vector<T> uf::rle::decode( const pod::RLE<T,U>& source ) {
+	uf::stl::vector<T> destination;
 
 	for ( auto& s : source ) {
 		destination.reserve( destination.size() + s.length );

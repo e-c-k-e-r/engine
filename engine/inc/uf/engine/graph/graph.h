@@ -23,12 +23,12 @@ namespace pod {
 
 			/*alignas(16)*/ pod::Vector4f lerp = {0, 0, 1, 1};
 		} storage;
-		std::string name = "";
+		uf::stl::string name = "";
 		uf::renderer::Texture2D texture;
 		bool bind = false;
 	};
 	struct UF_API Node {
-		std::string name = "";
+		uf::stl::string name = "";
 
 		int32_t index = -1;
 		int32_t skin = -1;
@@ -36,7 +36,7 @@ namespace pod {
 		int32_t mesh = -1;
 
 		pod::Transform<> transform;
-		std::vector<int32_t> children;
+		uf::stl::vector<int32_t> children;
 
 		uf::Object* entity = NULL;
 		struct {
@@ -50,7 +50,7 @@ namespace pod {
 
 	//	Node* node = NULL;
 		pod::Node root;
-		std::vector<pod::Node> nodes;
+		uf::stl::vector<pod::Node> nodes;
 
 		uf::Object* entity = NULL;
 		
@@ -58,23 +58,23 @@ namespace pod {
 			int32_t instance = -1;
 		} buffers;
 
-		std::string name = "";
+		uf::stl::string name = "";
 		uf::graph::load_mode_t mode;
 		uf::Serializer metadata;
 
 		uf::Atlas atlas;
-		std::vector<uf::Image> images;
-		std::vector<uf::renderer::Sampler> samplers;
-		std::vector<pod::Texture> textures;
-		std::vector<pod::Material> materials;
-		std::vector<pod::Light> lights;
-		std::vector<pod::DrawCall> drawCalls;
+		uf::stl::vector<uf::Image> images;
+		uf::stl::vector<uf::renderer::Sampler> samplers;
+		uf::stl::vector<pod::Texture> textures;
+		uf::stl::vector<pod::Material> materials;
+		uf::stl::vector<pod::Light> lights;
+		uf::stl::vector<pod::DrawCall> drawCalls;
 
-		std::vector<Skin> skins;
-		std::vector<Mesh> meshes;
-		std::unordered_map<std::string, Animation> animations;
+		uf::stl::vector<Skin> skins;
+		uf::stl::vector<Mesh> meshes;
+		uf::stl::unordered_map<uf::stl::string, Animation> animations;
 
-		std::queue<std::string> sequence;
+		std::queue<uf::stl::string> sequence;
 		struct {
 			struct {
 				bool loop = true;
@@ -82,7 +82,7 @@ namespace pod {
 				struct {
 					float a = -std::numeric_limits<float>::max();
 					float speed = 1 / 0.125f;
-					std::unordered_map<int32_t, std::pair<pod::Transform<>, pod::Transform<>>> map;
+					uf::stl::unordered_map<int32_t, std::pair<pod::Transform<>, pod::Transform<>>> map;
 				} override;
 			} animations;
 		} settings;
@@ -93,17 +93,17 @@ namespace uf {
 	namespace graph {
 	/*
 		namespace {
-			extern UF_API std::vector<pod::Material::Storage> storage;
-			extern UF_API std::vector<std::string> indices;
+			extern UF_API uf::stl::vector<pod::Material::Storage> storage;
+			extern UF_API uf::stl::vector<uf::stl::string> indices;
 		} materials;
 		namespace {
-			extern UF_API std::vector<pod::Texture::Storage> storage;
-			extern UF_API std::vector<std::string> indices;
+			extern UF_API uf::stl::vector<pod::Texture::Storage> storage;
+			extern UF_API uf::stl::vector<uf::stl::string> indices;
 		} textures;
 	*/
 
 		pod::Node* UF_API find( pod::Graph& graph, int32_t index );
-		pod::Node* UF_API find( pod::Graph& graph, const std::string& name );
+		pod::Node* UF_API find( pod::Graph& graph, const uf::stl::string& name );
 
 		pod::Matrix4f UF_API local( pod::Graph&, int32_t );
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
@@ -115,17 +115,17 @@ namespace uf {
 		void UF_API initialize( pod::Graph& graph );
 
 		void UF_API override( pod::Graph& );
-		void UF_API animate( pod::Graph&, const std::string&, float = 1, bool = true );
+		void UF_API animate( pod::Graph&, const uf::stl::string&, float = 1, bool = true );
 		void UF_API update( pod::Graph& );
 		void UF_API update( pod::Graph&, float );
 		void UF_API update( pod::Graph&, pod::Node& );
 		
 		void UF_API destroy( pod::Graph& );
 
-		pod::Graph UF_API load( const std::string&, uf::graph::load_mode_t = 0, const uf::Serializer& = ext::json::null() );
-		void UF_API save( const pod::Graph&, const std::string& );
+		pod::Graph UF_API load( const uf::stl::string&, uf::graph::load_mode_t = 0, const uf::Serializer& = ext::json::null() );
+		void UF_API save( const pod::Graph&, const uf::stl::string& );
 
-		std::string UF_API print( const pod::Graph& graph );
+		uf::stl::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );
 	}
 }

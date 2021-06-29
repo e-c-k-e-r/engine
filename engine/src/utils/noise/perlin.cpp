@@ -72,8 +72,8 @@ double uf::PerlinNoise::grad(int hash, double x, double y, double z) const {
 	v = h < 4 ? y : h == 12 || h == 14 ? x : z;
 	return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
 }
-std::vector<double> uf::PerlinNoise::collect( uint size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
-	std::vector<double> res;
+uf::stl::vector<double> uf::PerlinNoise::collect( uint size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
+	uf::stl::vector<double> res;
 	res.reserve( size );
 	for(unsigned int i = 0; i < size; ++i) { // x
 		double x = (double)i/((double)size);
@@ -84,8 +84,8 @@ std::vector<double> uf::PerlinNoise::collect( uint size, const pod::Vector3d& no
 	}
 	return res;
 }
-std::vector<double> uf::PerlinNoise::collect( const pod::Vector2ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
-	std::vector<double> res;
+uf::stl::vector<double> uf::PerlinNoise::collect( const pod::Vector2ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
+	uf::stl::vector<double> res;
 	res.reserve( size.x * size.y );
 	for(unsigned int i = 0; i < size.y; ++i) { // y
 	for(unsigned int j = 0; j < size.x; ++j) { // x
@@ -99,8 +99,8 @@ std::vector<double> uf::PerlinNoise::collect( const pod::Vector2ui& size, const 
 	}
 	return res;
 }
-std::vector<double> uf::PerlinNoise::collect( const pod::Vector3ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
-	std::vector<double> res;
+uf::stl::vector<double> uf::PerlinNoise::collect( const pod::Vector3ui& size, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
+	uf::stl::vector<double> res;
 	res.reserve( size.x * size.y * size.z );
 	for(unsigned int Z = 0; Z < size.z; ++Z) { // z
 	for(unsigned int Y = 0; Y < size.y; ++Y) { // y
@@ -119,14 +119,14 @@ std::vector<double> uf::PerlinNoise::collect( const pod::Vector3ui& size, const 
 }
 
 double uf::PerlinNoise::sample( const pod::Vector3d& position, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
-	std::vector<double> res;
+	uf::stl::vector<double> res;
 	double n = this->noise(noiseCoeff.x * position.x, noiseCoeff.y * position.y, noiseCoeff.z * position.z);
 	callback(n);
 	return n;
 }
 
 double uf::PerlinNoise::sample( const pod::Vector3f& position, const pod::Vector3d& noiseCoeff, const callback_t& callback ) {
-	std::vector<double> res;
+	uf::stl::vector<double> res;
 	double n = this->noise(noiseCoeff.x * position.x, noiseCoeff.y * position.y, noiseCoeff.z * position.z);
 	callback(n);
 	return n;
