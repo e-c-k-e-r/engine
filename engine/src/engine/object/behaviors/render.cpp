@@ -14,16 +14,17 @@
 #define UF_UNIFORMS_UPDATE_WITH_JSON 0
 
 UF_BEHAVIOR_REGISTER_CPP(uf::RenderBehavior)
+UF_BEHAVIOR_TRAITS_CPP(uf::RenderBehavior, ticks = true, renders = true, multithread = false)
 #define this (&self)
 void uf::RenderBehavior::initialize( uf::Object& self ) {}
 void uf::RenderBehavior::tick( uf::Object& self ) {
 	if ( !this->hasComponent<uf::Graphic>() ) return;
-	auto& metadata = this->getComponent<uf::Serializer>();
-	auto& scene = uf::scene::getCurrentScene();
-	auto& graphic = this->getComponent<uf::Graphic>();
-	auto& transform = this->getComponent<pod::Transform<>>();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
+	const auto& metadata = this->getComponent<uf::Serializer>();
+	const auto& scene = uf::scene::getCurrentScene();
+	const auto& graphic = this->getComponent<uf::Graphic>();
+	const auto& transform = this->getComponent<pod::Transform<>>();
+	const auto& controller = scene.getController();
+	const auto& camera = controller.getComponent<uf::Camera>();
 	
 	if ( !graphic.initialized ) return;
 #if UF_USE_OPENGL
@@ -47,9 +48,16 @@ void uf::RenderBehavior::tick( uf::Object& self ) {
 		struct UniformDescriptor {
 			/*alignas(16)*/ pod::Matrix4f model;
 		};
+	/*
 		auto& uniforms = uniform.get<UniformDescriptor>();
-		uniforms.model = uf::transform::model( transform );
-	//	uniforms.color = uf::vector::decode( metadata["color"], pod::Vector4f{ 1, 1, 1, 1 } );
+		uniforms = {
+			.model = uf::transform::model( transform );
+	//		.color = uf::vector::decode( metadata["color"], pod::Vector4f{ 1, 1, 1, 1 } );
+		};
+	*/
+		UniformDescriptor uniforms = {
+			.model = uf::transform::model( transform ),
+		};
 		shader.updateUniform( "UBO", uniform );
 	#endif
 	}
@@ -57,12 +65,12 @@ void uf::RenderBehavior::tick( uf::Object& self ) {
 }
 void uf::RenderBehavior::render( uf::Object& self ) {
 	if ( !this->hasComponent<uf::Graphic>() ) return;
-	auto& metadata = this->getComponent<uf::Serializer>();
-	auto& scene = uf::scene::getCurrentScene();
-	auto& graphic = this->getComponent<uf::Graphic>();
-	auto& transform = this->getComponent<pod::Transform<>>();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
+	const auto& metadata = this->getComponent<uf::Serializer>();
+	const auto& scene = uf::scene::getCurrentScene();
+	const auto& graphic = this->getComponent<uf::Graphic>();
+	const auto& transform = this->getComponent<pod::Transform<>>();
+	const auto& controller = scene.getController();
+	const auto& camera = controller.getComponent<uf::Camera>();
 	
 	if ( !graphic.initialized ) return;
 #if UF_USE_OPENGL
@@ -86,8 +94,9 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 		}
 		shader.updateUniform("Camera", uniforms);
 	#else
-		auto& uniforms = uniform.get<pod::Camera::Viewports>();
-		uniforms = camera.data().viewport;
+	//	auto& uniforms = uniform.get<pod::Camera::Viewports>();
+	//	uniforms = camera.data().viewport;
+		pod::Camera::Viewports uniforms = camera.data().viewport;
 		shader.updateUniform("Camera", uniform);
 	#endif
 	}

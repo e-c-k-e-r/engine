@@ -62,8 +62,8 @@ namespace binds {
 
 		pod::Behavior::function_t* functionPointer = NULL;
 		if ( type == "initialize" ) functionPointer = &behavior.initialize;
-		else if ( type == "tick" ) functionPointer = &behavior.tick;
-		else if ( type == "render" ) functionPointer = &behavior.render;
+		else if ( type == "tick" ) { functionPointer = &behavior.tick; behavior.traits.ticks = true; }
+		else if ( type == "render" ) { functionPointer = &behavior.render; behavior.traits.renders = true; }
 		else if ( type == "destroy" ) functionPointer = &behavior.destroy;
 		
 		if ( !functionPointer ) return false;
@@ -76,6 +76,7 @@ namespace binds {
 				uf::iostream << err.what() << "\n";
 			}
 		};
+		self.generateGraph();
 		return true;
 	}
 	uf::Object& findByUid( uf::Object& self, const size_t& index ) {

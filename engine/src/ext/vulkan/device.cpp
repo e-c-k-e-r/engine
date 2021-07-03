@@ -349,7 +349,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, boo
 	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( QueueEnum::TRANSFER ), 1, &commandBuffer);
 }
 
-VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkDeviceSize size, VkBuffer* buffer, VkDeviceMemory* memory, void *data ) {
+VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkDeviceSize size,  VkBuffer* buffer, VkDeviceMemory* memory, const void* data ) {
 	// Create the buffer handle
 	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usage, size);
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -392,7 +392,7 @@ VkResult ext::vulkan::Device::createBuffer(
 	VkMemoryPropertyFlags memoryProperties,
 	ext::vulkan::Buffer& buffer,
 	VkDeviceSize size,
-	void *data
+	const void* data
 ) {
 	buffer.device = logicalDevice;
 	buffer.usage = usage;
@@ -402,34 +402,12 @@ VkResult ext::vulkan::Device::createBuffer(
 	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usage, size);
 	buffer.allocate( bufferCreateInfo );
 
-/*
-//	VK_CHECK_RESULT(vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, &buffer.buffer));
-	// Create the memory backing up the buffer handle
-	VkMemoryRequirements memReqs;
-	VkMemoryAllocateInfo memAlloc = ext::vulkan::initializers::memoryAllocateInfo();
-	vkGetBufferMemoryRequirements(logicalDevice, buffer.buffer, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	// Find a memory type index that fits the properties of the buffer
-	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryProperties);
-	VK_CHECK_RESULT(vkAllocateMemory(logicalDevice, &memAlloc, nullptr, &buffer.memory));
-
-	buffer.alignment = memReqs.alignment;
-	buffer.size = memAlloc.allocationSize;
-	buffer.usage = usage;
-	buffer.memoryProperties = memoryProperties;
-	buffer.memAlloc = memAlloc;
-	buffer.memReqs = memReqs;
-*/
-
-	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
-
-	if (data != nullptr) {
-		VK_CHECK_RESULT(buffer.map());
-		memcpy(buffer.mapped, data, size);
+	if ( data != nullptr ) {
+		void* map = buffer.map();
+		memcpy(map, data, size);
 		if ((memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
 		buffer.unmap();
 	}
-
 
 	// Initialize a default descriptor that covers the whole buffer size
 	buffer.setupDescriptor();

@@ -159,18 +159,13 @@ void UF_API ext::opengl::initialize() {
 		renderMode->initialize(device);
 	}
 	
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
 		if ( settings::experimental::multithreadedCommandRecording ) {
-			jobs.emplace_back([&]{
-				renderMode->createCommandBuffers();
-				return 0;
-			});
-		} else {
-			renderMode->createCommandBuffers();
-		}
+			jobs.emplace_back([&](){renderMode->createCommandBuffers();});
+		} else renderMode->createCommandBuffers();
 	}
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	// bind shaders
@@ -321,12 +316,12 @@ void UF_API ext::opengl::tick(){
 		}
 		renderMode->tick();
 	}
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( ext::opengl::states::rebuild || renderMode->rebuild ) {
 			if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&]{ renderMode->createCommandBuffers(); return 0; });
+			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&](){renderMode->createCommandBuffers();});
 			else renderMode->createCommandBuffers();
 		}
 	}

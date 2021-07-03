@@ -14,6 +14,7 @@
 #include "../scene/behavior.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::BakingBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
@@ -155,7 +156,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			instances.emplace_back( uf::transform::model( node.transform ) );
 		}
 		metadata.buffers.instance = graphic.initializeBuffer(
-			(void*) instances.data(),
+			(const void*) instances.data(),
 			instances.size() * sizeof(pod::Matrix4f),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -165,7 +166,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			materials[i] = graph.materials[i].storage;
 		}
 		metadata.buffers.material = graphic.initializeBuffer(
-			(void*) materials.data(),
+			(const void*) materials.data(),
 			materials.size() * sizeof(pod::Material::Storage),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -175,7 +176,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			textures[i] = graph.textures[i].storage;
 		}
 		metadata.buffers.texture = graphic.initializeBuffer(
-			(void*) textures.data(),
+			(const void*) textures.data(),
 			textures.size() * sizeof(pod::Texture::Storage),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -348,7 +349,7 @@ PREPARE: {
 		}
 		
 		graphic.initializeBuffer(
-			(void*) lights.data(),
+			(const void*) lights.data(),
 			lights.size() * sizeof(pod::Light::Storage),
 			uf::renderer::enums::Buffer::STORAGE
 		);

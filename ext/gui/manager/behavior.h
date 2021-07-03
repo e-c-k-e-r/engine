@@ -8,12 +8,9 @@
 namespace ext {
 	namespace GuiManagerBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
-		struct Metadata {
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			struct {
 				struct {
 					uf::stl::string type = "";
@@ -27,9 +24,6 @@ namespace ext {
 				bool floating{};
 				pod::Transform<> transform;
 			} overlay;
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

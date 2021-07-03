@@ -3,81 +3,97 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/thread/thread.h>
 
+#define UF_BEHAVIORS_REMOVE_STL_FIND 1
+
+uf::Behaviors::container_t& uf::Behaviors::getBehaviors() { return m_behaviors; }
+const uf::Behaviors::container_t& uf::Behaviors::getBehaviors() const { return m_behaviors; }
 bool uf::Behaviors::hasBehavior( const pod::Behavior& target ) {
-	for ( auto& behavior : this->m_behaviors ) {
-		if ( behavior.type == target.type ) return true;
-	}
+	auto& type = target.type;
+	for ( auto& behavior : m_behaviors ) if ( behavior.type == type ) return true;
 	return false;
 }
 void uf::Behaviors::addBehavior( const pod::Behavior& behavior ) {
 	if ( hasBehavior( behavior ) ) return;
-	this->m_behaviors.emplace_back(behavior);
+	m_behaviors.emplace_back(behavior);
+	generateGraph();
 }
 void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
-	//if ( hasBehavior( behavior ) ) return;
-	// this->m_behaviors.emplace_back(behavior);
-	auto it = this->m_behaviors.begin();
-	while ( it != this->m_behaviors.end() ) {
-		if ( it->type == behavior.type ) break;
-		++it;
+	auto& type = behavior.type;
+#if UF_BEHAVIORS_REMOVE_STL_FIND
+	auto it = std::find_if( m_behaviors.begin(), m_behaviors.end(), [&]( const pod::Behavior& b ) { return type == behavior.type; } );
+#else
+	auto it = m_behaviors.begin();
+	while ( it != m_behaviors.end() ) if ( (it++)->type == behavior.type ) break;
+#endif
+	if ( it == m_behaviors.end() ) return;
+	m_behaviors.erase(it);
+	generateGraph();
+}
+void uf::Behaviors::generateGraph() {
+	m_graph.initialize.clear();
+	m_graph.tick.clear();
+	m_graph.tickMT.clear();
+	m_graph.render.clear();
+	m_graph.destroy.clear();
+
+	m_graph.initialize.reserve( m_behaviors.size() );
+	m_graph.tick.reserve( m_behaviors.size() );
+	m_graph.tickMT.reserve( m_behaviors.size() );
+	m_graph.render.reserve( m_behaviors.size() );
+	m_graph.destroy.reserve( m_behaviors.size() );
+
+	const bool headLoopChildren = true;
+	const bool forwardIteration = true;
+	uf::Object* self = (uf::Object*) this;
+	for ( auto& behavior : m_behaviors ) {
+		m_graph.initialize.emplace_back(behavior.initialize);
+		if ( behavior.traits.ticks ) {
+			auto& f = behavior.tick;
+			if ( behavior.traits.multithread ) m_graph.tickMT.emplace_back([f, self](){f(*self);});
+			else m_graph.tick.emplace_back(f);
+		}
+		if ( behavior.traits.renders ) m_graph.render.emplace_back(behavior.render);
+		m_graph.destroy.emplace_back(behavior.destroy);
 	}
-	if ( it != this->m_behaviors.end() ) this->m_behaviors.erase(it);
+
+	// reverse order ticking (LIFO order iteration)
+	if ( !forwardIteration ) {
+		std::reverse( m_graph.initialize.begin(), m_graph.initialize.end() );
+		std::reverse( m_graph.tick.begin(), m_graph.tick.end() );
+		std::reverse( m_graph.tickMT.begin(), m_graph.tickMT.end() );
+		std::reverse( m_graph.render.begin(), m_graph.render.end() );
+		std::reverse( m_graph.destroy.begin(), m_graph.destroy.end() );
+	}
+	// EntityBehavior which ticks children is always the first behavior, so relocate accordingly
+	if ( !headLoopChildren && forwardIteration ) {
+		std::rotate( m_graph.initialize.begin(), m_graph.initialize.begin() + 1, m_graph.initialize.end() );
+		std::rotate( m_graph.tick.begin(), m_graph.tick.begin() + 1, m_graph.tick.end() );
+		std::rotate( m_graph.tickMT.begin(), m_graph.tickMT.begin() + 1, m_graph.tickMT.end() );
+		std::rotate( m_graph.render.begin(), m_graph.render.begin() + 1, m_graph.render.end() );
+		std::rotate( m_graph.destroy.begin(), m_graph.destroy.begin() + 1, m_graph.destroy.end() );
+	}
 }
 
-#define FUNCTION_AS_VARIABLE(x) x
-
 #define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_FAST
-/*
-//	if ( this->hasComponent<uf::Serializer>() ) {\
-//		auto& metadata = this->getComponent<uf::Serializer>();\
-//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["head loop children"] ) )\
-//			headLoopChildren = metadata["system"]["behavior"][#f]["head loop children"].as<bool>();\
-//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["forward iteration"] ) )\
-//			forwardIteration = metadata["system"]["behavior"][#f]["forward iteration"].as<bool>();\
-//		if ( !ext::json::isNull( metadata["system"]["behavior"][#f]["multithreading"] ) )\
-//			multithreading = metadata["system"]["behavior"][#f]["multithreading"].as<bool>();\
-//	}\
-*/
-
 #define UF_BEHAVIOR_POLYFILL_SAFE(f)\
-	bool headLoopChildren = true;\
-	bool forwardIteration = true;\
+	const bool headLoopChildren = true;\
+	const bool forwardIteration = true;\
 	if ( headLoopChildren ) {\
-		if ( forwardIteration )\
-			for ( auto& behavior : this->m_behaviors ){\
-				behavior.f(self);\
-			}\
-		else\
-			for ( auto it = this->m_behaviors.rbegin(); it != this->m_behaviors.rend(); ++it )\
-				it->f(self);\
+		if ( forwardIteration ) for ( auto& behavior : m_behaviors ) behavior.f(self);\
+		else for ( auto it = m_behaviors.rbegin(); it != m_behaviors.rend(); ++it ) it->f(self);\
 	} else {\
 		if ( forwardIteration ) {\
-			auto it = this->m_behaviors.begin();\
-			for ( ++it; it != this->m_behaviors.end(); ++it )\
-				it->f(self);\
-			if ( (it = this->m_behaviors.begin()) != this->m_behaviors.end() ) {\
-				it->f(self);\
-			}\
+			auto it = m_behaviors.begin();\
+			for ( ++it; it != m_behaviors.end(); ++it ) it->f(self);\
+			if ( (it = m_behaviors.begin()) != m_behaviors.end() ) it->f(self);\
 		} else {\
-			auto it = this->m_behaviors.rbegin();\
-			for ( ++it; it != this->m_behaviors.rend(); ++it )\
-				it->f(self);\
-			if ( (it = this->m_behaviors.rbegin()) != this->m_behaviors.rend() ) {\
-				it->f(self);\
-			}\
+			auto it = m_behaviors.rbegin();\
+			for ( ++it; it != m_behaviors.rend(); ++it ) it->f(self);\
+			if ( (it = m_behaviors.rbegin()) != m_behaviors.rend() ) it->f(self);\
 		}\
 	}
-
-#define UF_BEHAVIOR_POLYFILL_FAST(f)\
-	for ( auto& behavior : this->m_behaviors ) behavior.f(self);
-/*
-#define UF_BEHAVIOR_POLYFILL_FAST(f)\
-	for ( auto& behavior : this->m_behaviors ) {\
-		UF_TIMER_TRACE_INIT();\
-		behavior.f(self);\
-		UF_TIMER_TRACE(self.getName() << ": " << self.getUid() << " | " << behavior.type.name() );\
-	}
-*/
+#define UF_BEHAVIOR_POLYFILL_FAST(f) for ( auto& behavior : m_behaviors ) behavior.f(self);
+#define UF_BEHAVIOR_POLYFILL_GRAPH(f) for ( auto& fun : m_graph.f ) fun(self);
 
 void uf::Behaviors::initialize() {
 	uf::Object& self = *((uf::Object*) this);
@@ -87,23 +103,13 @@ void uf::Behaviors::initialize() {
 void uf::Behaviors::tick() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
-//	UF_TIMER_TRACE_INIT();
-//	UF_BEHAVIOR_POLYFILL(tick)
-//	UF_TIMER_TRACE(self.getName() << ": " << self.getUid());
-
-//	UF_TIMER_MULTITRACE_START("==== START TICKING BEHAVIORS ====");
-	for ( auto& behavior : this->m_behaviors ) {
-		behavior.tick(self);
-//		UF_TIMER_MULTITRACE(behavior.type);
-	}
-//	UF_TIMER_MULTITRACE_END("==== END TICKING BEHAVIORS ====");
+//	if ( !m_graph.tickMT.empty() ) uf::thread::batchWorkers(m_graph.tickMT, false);
+	UF_BEHAVIOR_POLYFILL(tick)
 }
 void uf::Behaviors::render() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
-//	UF_TIMER_TRACE_INIT();
 	UF_BEHAVIOR_POLYFILL(render)
-//	UF_TIMER_TRACE(self.getName() << ": " << self.getUid());
 }
 void uf::Behaviors::destroy() {
 	uf::Object& self = *((uf::Object*) this);

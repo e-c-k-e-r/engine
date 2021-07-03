@@ -9,12 +9,9 @@
 namespace ext {
 	namespace LightBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
-		struct Metadata {
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			pod::Vector3f color = {1,1,1};
 			float power = 0.0f;
 			float bias = 0.0f;
@@ -27,9 +24,6 @@ namespace ext {
 				bool rendered = false;
 				bool external = false;
 			} renderer;
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

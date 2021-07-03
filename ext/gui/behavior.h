@@ -9,12 +9,9 @@
 namespace ext {
 	namespace GuiBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
-		struct Metadata {
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			pod::Vector4f color = {1,1,1,1};
 			bool world = false;
 			pod::Vector2f size = {0,0};
@@ -30,11 +27,8 @@ namespace ext {
 			size_t shader = 0;
 			float depth = 0;
 			float alpha = -1;
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
-		struct GlyphMetadata {
+		struct GlyphMetadata : public pod::Behavior::Metadata {
 			uf::stl::string font = "";
 			uf::stl::string string = "";
 			
@@ -51,9 +45,6 @@ namespace ext {
 			uf::stl::string origin = "";
 			uf::stl::string align = "";
 			uf::stl::string direction = "";
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

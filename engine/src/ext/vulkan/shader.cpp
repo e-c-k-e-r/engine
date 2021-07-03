@@ -610,7 +610,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			specializationMapEntry.constantID = constant.constant_id;
 			specializationMapEntry.size = size;
 			specializationMapEntry.offset = specializationSize;
-			specializationMapEntries.push_back(specializationMapEntry);
+			specializationMapEntries.emplace_back(specializationMapEntry);
 			specializationSize += size;
 		}
 		if ( specializationSize > 0 ) {			
@@ -630,6 +630,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 				size_t size = 4;
 				uint8_t buffer[size];
+				auto& definition = metadata.definitions.specializationConstants[name];
+				definition.name = name;
+				definition.index = offset / size;
 				switch ( type.basetype ) {
 					case spirv_cross::SPIRType::UInt: {
 						auto v = value.scalar();
@@ -637,24 +640,40 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						member["value"] = v;
 						member["validate"] = true;
 						memcpy( &buffer[0], &v, sizeof(v) );
+
+						definition.type = "uint32_t";
+						definition.value.ui = v;
+						definition.validate = true;
 					} break;
 					case spirv_cross::SPIRType::Int: {
 						auto v = value.scalar_i32();
 						member["type"] = "int32_t";
 						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
+
+						definition.type = "int32_t";
+						definition.value.i = v;
+						definition.validate = false;
 					} break;
 					case spirv_cross::SPIRType::Float: {
 						auto v = value.scalar_f32();
 						member["type"] = "float";
 						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
+
+						definition.type = "float";
+						definition.value.f = v;
+						definition.validate = false;
 					} break;
 					case spirv_cross::SPIRType::Boolean: {
 						auto v = value.scalar()!=0;
 						member["type"] = "bool";
 						member["value"] = v;
 						memcpy( &buffer[0], &v, sizeof(v) );
+
+						definition.type = "bool";
+						definition.value.ui = v;
+						definition.validate = false;
 					} break;
 					default: {
 						VK_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
@@ -668,15 +687,6 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 				memcpy( &s[offset], &buffer, size );
 				offset += size;
-			}
-		
-			{
-				specializationInfo = {};
-				specializationInfo.dataSize = specializationSize;
-				specializationInfo.mapEntryCount = specializationMapEntries.size();
-				specializationInfo.pMapEntries = specializationMapEntries.data();
-				specializationInfo.pData = (void*) specializationConstants;
-				descriptor.pSpecializationInfo = &specializationInfo;
 			}
 		}
 	/*
@@ -696,11 +706,19 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	for ( auto& uniform : uniforms ) {
 		auto& userdata = uniform.data();
 		initializeBuffer(
-			(void*) userdata.data,
+			(const void*) userdata.data,
 			userdata.len,
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 		);
 	}
+
+	// set specialization info
+	specializationInfo = {};
+	specializationInfo.mapEntryCount = specializationMapEntries.size();
+	specializationInfo.pMapEntries = specializationMapEntries.data();
+	specializationInfo.dataSize = specializationConstants.size();
+	specializationInfo.pData = (void*) specializationConstants;
+	descriptor.pSpecializationInfo = &specializationInfo;
 }
 
 void ext::vulkan::Shader::destroy() {
@@ -722,63 +740,81 @@ void ext::vulkan::Shader::destroy() {
 bool ext::vulkan::Shader::validate() {
 	// check if uniforms match buffer size
 	bool valid = true;
-	{
-		auto it = uniforms.begin();
-		for ( auto& buffer : buffers ) {
-			if ( !(buffer.usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
-			if ( it == uniforms.end() ) break;
-			auto& uniform = *(it++);
-			if ( uniform.data().len != buffer.allocationInfo.size ) {
-				VK_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
-				uniform.destroy();
-				uniform.create(buffer.allocationInfo.size);
-				valid = false;
-			}
+	auto it = uniforms.begin();
+	for ( auto& buffer : buffers ) {
+		if ( !(buffer.usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( it == uniforms.end() ) break;
+		auto& uniform = *(it++);
+		if ( uniform.data().len != buffer.allocationInfo.size ) {
+			VK_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
+			uniform.destroy();
+			uniform.create(buffer.allocationInfo.size);
+			valid = false;
 		}
 	}
 	return valid;
 }
-bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) {
-//	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
+bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) const {
 	return metadata.definitions.uniforms.count(name) > 0;
 }
-ext::vulkan::Buffer* ext::vulkan::Shader::getUniformBuffer( const uf::stl::string& name ) {
-	if ( !hasUniform(name) ) return NULL;
-//	size_t uniformIndex = metadata.json["definitions"]["uniforms"][name]["index"].as<size_t>();
+ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl::string& name ) {
+	UF_ASSERT( hasUniform(name) );
 	size_t uniformIndex = metadata.definitions.uniforms[name].index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
-		return &buffers[bufferIndex];
+		return buffers[bufferIndex];
 	}
-	return NULL;
+	UF_EXCEPTION("buffer not found: " << name);
+}
+const ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT( hasUniform(name) );
+	size_t uniformIndex = metadata.definitions.uniforms.at(name).index;
+	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers.at(bufferIndex).usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( uniformCounter++ != uniformIndex ) continue;
+		return buffers.at(bufferIndex);
+	}
+	UF_EXCEPTION("buffer not found: " << name);
 }
 ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
 	return uniforms[metadata.definitions.uniforms[name].index];
-/*
-	auto& definition = metadata.json["definitions"]["uniforms"][name];
-	size_t uniformSize = definition["size"].as<size_t>();
-	size_t uniformIndex = definition["index"].as<size_t>();
-	auto& userdata = uniforms[uniformIndex];
-	return userdata;
-*/
 }
-bool ext::vulkan::Shader::updateUniform( const uf::stl::string& name ) {
-	if ( !hasUniform(name) ) return false;
-	auto& uniform = getUniform(name);
-	return updateUniform(name, uniform);
+const ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) const {
+	UF_ASSERT( hasUniform(name) );
+	return uniforms.at(metadata.definitions.uniforms.at(name).index);
 }
-bool ext::vulkan::Shader::updateUniform( const uf::stl::string& name, const ext::vulkan::userdata_t& userdata ) {
+bool ext::vulkan::Shader::updateUniform( const uf::stl::string& name, const void* data, size_t size ) const {
 	if ( !hasUniform(name) ) return false;
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-//	size_t size = std::max(metadata.json["definitions"]["uniforms"][name]["size"].as<size_t>(), bufferObject->allocationInfo.size);
-	size_t size = MAX(metadata.definitions.uniforms[name].size, bufferObject->allocationInfo.size);
-	updateBuffer( (void*) userdata, size, *bufferObject );
+	updateBuffer( data, size, getUniformBuffer(name) );
 	return true;
 }
 
+bool ext::vulkan::Shader::hasStorage( const uf::stl::string& name ) const {
+	return metadata.definitions.storage.count(name) > 0;
+}
+ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl::string& name ) {
+	UF_ASSERT( hasStorage(name) );
+	size_t storageIndex = metadata.definitions.storage[name].index;
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return buffers[bufferIndex];
+	}
+	UF_EXCEPTION("buffer not found: " << name);
+}
+const ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT( hasStorage(name) );
+	size_t storageIndex = metadata.definitions.storage.at(name).index;
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers.at(bufferIndex).usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return buffers.at(bufferIndex);
+	}
+	UF_EXCEPTION("buffer not found: " << name);
+}
+// JSON shit
 uf::Serializer ext::vulkan::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasUniform(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["uniforms"][name]) ) return metadata.json["uniforms"][name];
@@ -787,36 +823,14 @@ uf::Serializer ext::vulkan::Shader::getUniformJson( const uf::stl::string& name,
 	return definitionToJson(definition);
 }
 ext::vulkan::userdata_t ext::vulkan::Shader::getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
-	UF_ASSERT( hasUniform(name) );
+	if ( !hasUniform(name) ) return {};
 	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
 }
 bool ext::vulkan::Shader::updateUniform( const uf::stl::string& name, const ext::json::Value& payload ) {
 	if ( !hasUniform(name) ) return false;
-
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-
-	auto uniform = getUniformUserdata( name, payload );	
-	updateBuffer( (void*) uniform, uniform.data().len, *bufferObject );
-	return true;
+	return updateUniform( name, getUniformUserdata( name, payload ) );
 }
 
-bool ext::vulkan::Shader::hasStorage( const uf::stl::string& name ) {
-//	return !ext::json::isNull(metadata.json["definitions"]["storage"][name]);
-	return metadata.definitions.storage.count(name) > 0;
-}
-
-ext::vulkan::Buffer* ext::vulkan::Shader::getStorageBuffer( const uf::stl::string& name ) {
-	if ( !hasStorage(name) ) return NULL;
-//	size_t storageIndex = metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
-	size_t storageIndex = metadata.definitions.storage[name].index;
-	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
-		if ( storageCounter++ != storageIndex ) continue;
-		return &buffers[bufferIndex];
-	}
-	return NULL;
-}
 uf::Serializer ext::vulkan::Shader::getStorageJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasStorage(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["storage"][name]) ) return metadata.json["storage"][name];

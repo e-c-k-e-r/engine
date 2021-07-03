@@ -67,7 +67,7 @@ void ext::RayTracingSceneBehavior::initialize( uf::Object& self ) {
 			}
 			renderMode.compute.device = &uf::renderer::device;
 			renderMode.compute.initializeBuffer(
-				(void*) shapes.data(),
+				(const void*) shapes.data(),
 				shapes.size() * sizeof(Shape),
 				uf::renderer::enums::Buffer::STORAGE
 			);
@@ -196,7 +196,7 @@ void ext::RayTracingSceneBehavior::tick( uf::Object& self ) {
 				light.color.w = metadata["light"]["power"].as<float>();
 			}
 		
-			shader.updateBuffer( (void*) uniforms_buffer, uniforms_len, 0  );
+			shader.updateBuffer( (const void*) uniforms_buffer, uniforms_len, 0  );
 		}
 	}
 #endif

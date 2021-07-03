@@ -211,10 +211,19 @@ void uf::graph::process( uf::Object& entity ) {
 void uf::graph::process( pod::Graph& graph ) {
 	// using an atlas texture will not bind other textures
 	// load lightmap, if requested
-	if ( graph.metadata["lightmap"].is<uf::stl::string>() ) {
+
+	// for Dreamcast, implicitly load a lightmap so I don't have to keep commenting it out for the Vulkan version
+#if UF_ENV_DREAMCAST
+	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.min.png"
+#else
+	#define UF_GRAPH_DEFAULT_LIGHTMAP ""
+#endif
+	bool lightmapped = false;
+	const uf::stl::string defaultLightmap = UF_GRAPH_DEFAULT_LIGHTMAP;
+	if ( defaultLightmap != "" || graph.metadata["lightmap"].is<uf::stl::string>() ) {
 		// check if valid filename, if not it's a texture name
-		uf::stl::string f = uf::io::sanitize( graph.metadata["lightmap"].as<uf::stl::string>(), uf::io::directory( graph.name ) );
-		if ( uf::io::exists( f ) ) {
+		uf::stl::string f = uf::io::sanitize( graph.metadata["lightmap"].as<uf::stl::string>(defaultLightmap), uf::io::directory( graph.name ) );
+		if ( (lightmapped = uf::io::exists( f )) ) {
 			for ( auto& material : graph.materials ) {
 				material.storage.indexLightmap = graph.textures.size();
 			}
@@ -243,7 +252,8 @@ void uf::graph::process( pod::Graph& graph ) {
 			texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 		}
 	// invalidate our ST's if we're in OpenGL
-	} else {
+	}
+	if ( !lightmapped ) {
 	#if UF_USE_OPENGL
 		for ( auto& mesh : graph.meshes ) for ( auto& v : mesh.vertices ) v.st = pod::Vector2f{0,0};
 	#endif
@@ -320,7 +330,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 		// Models storage buffer
 		graph.buffers.instance = graphic.initializeBuffer(
-			(void*) instances.data(),
+			(const void*) instances.data(),
 			instances.size() * sizeof(pod::Matrix4f),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -330,7 +340,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				if ( node.skin < 0 ) continue;
 				auto& skin = graph.skins[node.skin];
 				node.buffers.joint = graphic.initializeBuffer(
-					(void*) skin.inverseBindMatrices.data(),
+					(const void*) skin.inverseBindMatrices.data(),
 					(1 + skin.inverseBindMatrices.size()) * sizeof(pod::Matrix4f),
 					uf::renderer::enums::Buffer::STORAGE
 				);
@@ -347,7 +357,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			materials[i] = graph.materials[i].storage;
 		}
 		graph.root.buffers.material = graphic.initializeBuffer(
-			(void*) materials.data(),
+			(const void*) materials.data(),
 			materials.size() * sizeof(pod::Material::Storage),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -357,7 +367,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			textures[i] = graph.textures[i].storage;
 		}
 		graph.root.buffers.texture = graphic.initializeBuffer(
-			(void*) textures.data(),
+			(const void*) textures.data(),
 			textures.size() * sizeof(pod::Texture::Storage),
 			uf::renderer::enums::Buffer::STORAGE
 		);
@@ -473,7 +483,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				}
 				if ( indexBuffer >= 0 && !indices.empty() && indices.size() % 3 == 0 ) {
 					graphic.updateBuffer(
-						(void*) indices.data(),
+						(const void*) indices.data(),
 						indices.size() * mesh.attributes.index.size,
 						indexBuffer
 					);
@@ -656,7 +666,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			if ( graph.metadata["flags"]["SKINNED"].as<bool>() && node.skin >= 0 ) {
 				auto& skin = graph.skins[node.skin];
 				node.buffers.joint = graphic.initializeBuffer(
-					(void*) skin.inverseBindMatrices.data(),
+					(const void*) skin.inverseBindMatrices.data(),
 					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
 					uf::renderer::enums::Buffer::STORAGE
 				);
@@ -667,7 +677,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				materials[i] = graph.materials[i].storage;
 			}
 			node.buffers.material = graphic.initializeBuffer(
-				(void*) materials.data(),
+				(const void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
 				uf::renderer::enums::Buffer::STORAGE
 			);
@@ -678,7 +688,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			//	textures[i].remap = -1;
 			}
 			graph.root.buffers.texture = graphic.initializeBuffer(
-				(void*) textures.data(),
+				(const void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
 				uf::renderer::enums::Buffer::STORAGE
 			);
@@ -836,7 +846,7 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 			auto& graphic = node.entity->getComponent<uf::Graphic>();
 			if ( node.buffers.joint < graphic.buffers.size() ) {
 				auto& buffer = graphic.buffers.at(node.buffers.joint);
-				graphic.updateBuffer( (void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer );
+				graphic.updateBuffer( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer );
 			}
 		}
 	}
@@ -1105,7 +1115,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 	graph.metadata = metadata; // serializer["metadata"];
 
 #if UF_GRAPH_LOAD_MULTITHREAD
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	jobs.emplace_back([&]{
 		// load mesh information
 		UF_DEBUG_TIMER_MULTITRACE("Reading meshes...");
@@ -1121,7 +1131,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 				decode( value, mesh, graph );
 			}
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 	#if !UF_ENV_DREAMCAST
@@ -1151,7 +1160,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 				decode( value, image, graph );
 			}
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load texture information
@@ -1160,7 +1168,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 		ext::json::forEach( serializer["textures"], [&]( ext::json::Value& value ){
 			decode( value, graph.textures.emplace_back(), graph );
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load sampler information
@@ -1169,7 +1176,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 		ext::json::forEach( serializer["samplers"], [&]( ext::json::Value& value ){
 			decode( value, graph.samplers.emplace_back(), graph );
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load material information
@@ -1178,7 +1184,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 		ext::json::forEach( serializer["materials"], [&]( ext::json::Value& value ){
 			decode( value, graph.materials.emplace_back(), graph );
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load light information
@@ -1187,7 +1192,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 		ext::json::forEach( serializer["lighting"], [&]( ext::json::Value& value ){
 			decode( value, graph.lights.emplace_back(), graph );
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load animation information
@@ -1204,7 +1208,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 				decode( value, graph.animations[key], graph );
 			}
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load skin information
@@ -1213,7 +1216,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 		ext::json::forEach( serializer["skins"], [&]( ext::json::Value& value ){
 			decode( value, graph.skins.emplace_back(), graph );
 		});
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// load node information
@@ -1223,7 +1225,6 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, uf::graph::load_mod
 			decode( value, graph.nodes.emplace_back(), graph );
 		});
 		decode( serializer["root"], graph.root, graph );
-		return 0;
 	});
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 #else
@@ -1530,7 +1531,7 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 	}
 
 #if UF_GRAPH_LOAD_MULTITHREAD
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	// store images
 	jobs.emplace_back([&]{
 		if ( graph.atlas.generated() ) {
@@ -1555,31 +1556,26 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		} else {
 			for ( auto& image : graph.images ) serializer["images"].emplace_back( encode(image, settings) );
 		}
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store texture information
 		ext::json::reserve( serializer["textures"], graph.textures.size() );
 		for ( auto& texture : graph.textures ) serializer["textures"].emplace_back( encode(texture, settings) );
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store sampler information
 		ext::json::reserve( serializer["samplers"], graph.samplers.size() );
 		for ( auto& sampler : graph.samplers ) serializer["samplers"].emplace_back( encode(sampler, settings) );
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store material information
 		ext::json::reserve( serializer["materials"], graph.materials.size() );
 		for ( auto& material : graph.materials ) serializer["materials"].emplace_back( encode(material, settings) );
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store light information
 		ext::json::reserve( serializer["lighting"], graph.lights.size() );
 		for ( auto& light : graph.lights ) serializer["lighting"].emplace_back( encode(light, settings) );
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store animation information
@@ -1593,13 +1589,11 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		} else {
 			for ( auto pair : graph.animations ) serializer["animations"][pair.first] = encode(pair.second, settings);
 		}
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store skin information
 		ext::json::reserve( serializer["skins"], graph.skins.size() );
 		for ( auto& skin : graph.skins ) serializer["skins"].emplace_back( encode(skin, settings) );
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store mesh information
@@ -1620,14 +1614,12 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		} else {
 			for ( auto& mesh : graph.meshes ) serializer["meshes"].emplace_back( encode(mesh, settings) );
 		}
-		return 0;
 	});
 	jobs.emplace_back([&]{
 		// store node information
 		ext::json::reserve( serializer["nodes"], graph.nodes.size() );
 		for ( auto& node : graph.nodes ) serializer["nodes"].emplace_back( encode(node, settings) );
 		serializer["root"] = encode(graph.root, settings);
-		return 0;
 	});
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 #else

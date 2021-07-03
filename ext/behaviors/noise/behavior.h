@@ -8,10 +8,10 @@
 namespace ext {
 	namespace NoiseBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
+
+		};
 	}
 }

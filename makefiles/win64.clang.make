@@ -1,4 +1,6 @@
-ARCH 		= win64
-PREFIX 		= clang
-CC 			= clang++
-FLAGS 		+= -Wno-unknown-pragmas -std=c++17 -O3 -Wall -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder-ctor -Wno-ignored-attributes -Wno-c++11-narrowing -fcolor-diagnostics -fansi-escape-codes
+ARCH 			= win64
+PREFIX 			= clang
+CC 				= clang++
+OPTIMIZATIONS 	= -O3 -fstrict-aliasing -flto
+WARNINGS 		= -Wall -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder-ctor -Wno-ignored-attributes -Wno-c++11-narrowing -Wno-unknown-pragmas
+FLAGS 			+= -std=c++17 $(OPTIMIZATIONS) $(WARNINGS) -fcolor-diagnostics -fansi-escape-codes

@@ -313,24 +313,24 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
 			metadata.lightBufferIndex = blitter.initializeBuffer(
-				(void*) lights.data(),
+				(const void*) lights.data(),
 				lights.size() * sizeof(pod::Light::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 			metadata.materialBufferIndex = blitter.initializeBuffer(
-				(void*) materials.data(),
+				(const void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
 			metadata.textureBufferIndex = blitter.initializeBuffer(
-				(void*) textures.data(),
+				(const void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
 			metadata.drawCallBufferIndex = blitter.initializeBuffer(
-				(void*) drawCalls.data(),
+				(const void*) drawCalls.data(),
 				drawCalls.size() * sizeof(pod::DrawCall::Storage),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);

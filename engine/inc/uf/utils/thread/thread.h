@@ -16,7 +16,7 @@
 
 namespace pod {
 	struct UF_API Thread {
-		typedef std::function<int()> function_t;
+		typedef std::function<void()> function_t;
 		typedef uf::stl::queue<pod::Thread::function_t> queue_t;
 		typedef uf::stl::vector<pod::Thread::function_t> container_t;
 
@@ -53,7 +53,6 @@ namespace uf {
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
 		void UF_API batchWorkers( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
-		void UF_API assertExecute( pod::Thread&, const pod::Thread::function_t& );
 		void UF_API process( pod::Thread& );
 
 		void UF_API wait( pod::Thread& );

@@ -7,28 +7,12 @@ pod::Userdata* uf::userdata::create( const T& data ) {
 }
 template<typename T>
 pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
-//	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
-	size_t len = sizeof(data);
-	size_t requestedLen = size( len );
-#if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
-	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( nullptr, requestedLen );
-#else
-	uf::MemoryPool* memoryPool = NULL;
-	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
-	pod::Userdata* userdata = NULL;
-	if ( memoryPool )
-		userdata = (pod::Userdata*) memoryPool->alloc( nullptr, requestedLen );
-	else
-		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some	}
-#endif
+	pod::Userdata* userdata = uf::userdata::create( requestedMemoryPool, sizeof(data), nullptr );
 #if UF_USERDATA_RTTI
 	userdata->type = typeid(T).hash_code();
 #endif
-	userdata->len = len;
 	union {
-		uint8_t* from;
+		void* from;
 		T* to;
 	} kludge;
 	kludge.from = userdata->data;
@@ -41,7 +25,7 @@ template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 	union {
-		uint8_t* original;
+		void* original;
 		T* casted;
 	} cast;
 	cast.original = userdata->data;
@@ -51,7 +35,7 @@ template<typename T>
 const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 	union {
-		const uint8_t* original;
+		const void* original;
 		const T* casted;
 	} cast;
 	cast.original = userdata->data;

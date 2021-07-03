@@ -10,9 +10,8 @@ uf::stl::unordered_map<uf::stl::string, pod::Behavior>* uf::instantiator::behavi
 uf::Entity* uf::instantiator::reuse( size_t size ) {
 	uf::Entity* laxed = NULL;
 	auto& allocations = uf::Entity::memoryPool.allocations();
-
 	for ( auto& allocation : allocations ) {
-		uf::Entity* e = (uf::Entity*) allocation.pointer;
+		uf::Entity* e = (uf::Entity*) (allocation.pointer);
 		// no scenes
 		if ( std::find( uf::scene::scenes.begin(), uf::scene::scenes.end(), (uf::Scene*) e ) != uf::scene::scenes.end() ) continue;
 		// only orphaned
@@ -29,7 +28,7 @@ size_t uf::instantiator::collect( uint8_t level ) {
 	auto& allocations = uf::Entity::memoryPool.allocations();
 	auto& scene = uf::scene::getCurrentScene();
 	for ( auto& allocation : allocations ) {
-		uf::Entity* e = (uf::Entity*) allocation.pointer;
+		uf::Entity* e = (uf::Entity*) (allocation.pointer);
 		// no scenes
 		// if ( std::find( uf::scene::scenes.begin(), uf::scene::scenes.end(), (uf::Scene*) e ) != uf::scene::scenes.end() ) continue;
 		// not current scene
@@ -49,16 +48,16 @@ uf::Entity* uf::instantiator::alloc( size_t size ) {
 	// auto* reused = reuse( size ); if ( reused ) return reused;
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = uf::Entity::memoryPool.size() > 0 ? uf::Entity::memoryPool : uf::memoryPool::global;
-	return (uf::Entity*) memoryPool.alloc( nullptr, size );
+	return (uf::Entity*) memoryPool.alloc( size );
 #else
 	uf::Entity* pointer = NULL;
 	uf::MemoryPool* memoryPool = NULL;
-	if ( uf::Entity::memoryPool.size() > 0 )
-		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::memoryPool::global.size() > 0 )
-		memoryPool = &uf::memoryPool::global;
-	if ( memoryPool ) pointer = (uf::Entity*) memoryPool->alloc( nullptr, size );
-	else pointer = (uf::Entity*) malloc( size );
+	if ( uf::Entity::memoryPool.size() > 0 ) memoryPool = &uf::Entity::memoryPool;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
+
+	if ( memoryPool ) pointer = (uf::Entity*) memoryPool->alloc( size );
+	else pointer = (uf::Entity*) uf::allocator::malloc_m( size );
+
 	return pointer;
 #endif
 }
@@ -72,12 +71,12 @@ void uf::instantiator::free( uf::Entity* pointer ) {
 	memoryPool.free( pointer );
 #else
 	uf::MemoryPool* memoryPool = NULL;
-	if ( uf::Entity::memoryPool.size() > 0 )
-		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::memoryPool::global.size() > 0 )
-		memoryPool = &uf::memoryPool::global;
+	if ( uf::Entity::memoryPool.size() > 0 ) memoryPool = &uf::Entity::memoryPool;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
+
 	if ( memoryPool ) memoryPool->free( pointer );
-	else ::free( pointer );
+	else uf::allocator::free_m( pointer );
+
 #endif
 }
 bool uf::instantiator::valid( uf::Entity* pointer ) {
@@ -86,10 +85,9 @@ bool uf::instantiator::valid( uf::Entity* pointer ) {
 	return memoryPool.exists( pointer );
 #else
 	uf::MemoryPool* memoryPool = NULL;
-	if ( uf::Entity::memoryPool.size() > 0 )
-		memoryPool = &uf::Entity::memoryPool;
-	else if ( uf::memoryPool::global.size() > 0 )
-		memoryPool = &uf::memoryPool::global;
+	if ( uf::Entity::memoryPool.size() > 0 ) memoryPool = &uf::Entity::memoryPool;
+	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
+
 	return memoryPool ? memoryPool->exists( pointer ) : pointer && pointer->isValid();
 #endif
 }

@@ -7,10 +7,10 @@
 namespace uf {
 	namespace GltfBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void UF_API attach( uf::Object& );
-		void UF_API initialize( uf::Object& );
-		void UF_API tick( uf::Object& );
-		void UF_API render( uf::Object& );
-		void UF_API destroy( uf::Object& );
+		UF_BEHAVIOR_DEFINE_TRAITS;
+		UF_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
+
+		};
 	}
 }

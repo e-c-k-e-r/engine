@@ -30,7 +30,7 @@ namespace uf {
 		extern UF_API bool autoDestruct;
 		extern UF_API bool autoValidate;
 
-		pod::Userdata* UF_API create( std::size_t len, void* data = NULL );
+		pod::Userdata* UF_API create( size_t len, void* data = NULL );
 		void UF_API destroy( pod::Userdata* userdata );
 		pod::Userdata* UF_API copy( const pod::Userdata* userdata );
 
@@ -46,7 +46,7 @@ namespace uf {
 	//	void copy( pod::Userdata& to, const pod::Userdata& from );
 
 		// usage with MemoryPool
-		pod::Userdata* UF_API create( uf::MemoryPool&, std::size_t len, void* data = NULL );
+		pod::Userdata* UF_API create( uf::MemoryPool&, size_t len, void* data = NULL );
 		template<typename T> pod::Userdata* create( uf::MemoryPool&, const T& data = T() );
 		void UF_API destroy( uf::MemoryPool&, pod::Userdata* userdata );
 		pod::Userdata* UF_API copy( uf::MemoryPool&, const pod::Userdata* userdata );
@@ -68,12 +68,12 @@ namespace uf {
 	public:
 	// 	C-tor
 	
-		Userdata(std::size_t len = 0, void* data = NULL); 	// initializes POD to default
+		Userdata( size_t len = 0, void* data = NULL ); 	// initializes POD to default
 		Userdata( pod::Userdata* ); 						// initializes from POD
 		Userdata( Userdata&& move ) noexcept ; 				// Move c-tor
 		Userdata( const Userdata& copy ); 		// Copy c-tor
 	
-		pod::Userdata* create( std::size_t len, void* data = NULL );
+		pod::Userdata* create( size_t len, void* data = NULL );
 		void move( Userdata& move );
 		void move( Userdata&& move );
 		void copy( const Userdata& copy );

@@ -9,13 +9,9 @@
 namespace ext {
 	namespace ExtSceneBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
-
-		struct Metadata {
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			struct {
 				uint32_t textures2D = 512;
 				uint32_t texturesCube = 128;
@@ -57,10 +53,6 @@ namespace ext {
 					float scale = 50.0f;
 				} density;
 			} fog;
-
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 
 		void bindBuffers( uf::Object&, const uf::stl::string& = "", bool = false );

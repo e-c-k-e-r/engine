@@ -44,6 +44,7 @@ ext::gui::Size ext::gui::size = {
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiManagerBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = false, multithread = false)
 UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::GuiManagerBehavior, ext::GuiManager)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
@@ -109,10 +110,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	metadata.deserialize();
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
-}
-void ext::GuiManagerBehavior::render( uf::Object& self ){
 #if UF_USE_VULKAN
-
 	uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
@@ -148,9 +146,11 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 	};
 	
 	auto& shader = blitter.material.getShader("vertex");
+/*
 	auto& uniform = shader.getUniform("UBO");
 	auto& uniforms = uniform.get<UniformDescriptor>();
-
+*/
+	UniformDescriptor uniforms;
 	for ( size_t i = 0; i < 2; ++i ) {
 	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled && metadata.overlay.enabled ) {
@@ -179,9 +179,12 @@ void ext::GuiManagerBehavior::render( uf::Object& self ){
 		uniforms.cursor.color = metadata.overlay.cursor.color;
 	}
 
-	shader.updateUniform( "UBO", uniform );
+//	shader.updateUniform( "UBO", uniform );
+//	blitter.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+	blitter.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 #endif
 }
+void ext::GuiManagerBehavior::render( uf::Object& self ){}
 void ext::GuiManagerBehavior::destroy( uf::Object& self ){
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();

@@ -15,8 +15,8 @@
 #include <uf/utils/renderer/renderer.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerModelBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::PlayerModelBehavior, ticks = true, renders = false, multithread = false)
 #define this ((uf::Scene*) &self)
-
 void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
@@ -58,17 +58,6 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	metadata.set = true;
 }
 
-void ext::PlayerModelBehavior::render( uf::Object& self ){
-/*
-	if ( this->getChildren().size() != 1 ) return;
-
-	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
-	if ( !metadata.hide ) return;
-	auto& transform = this->getComponent<pod::Transform<>>();
-	transform.scale = uf::renderer::currentRenderMode->getName() == "Gui" ? pod::Vector3f{ 0, 0, 0 } : metadata.scale;
-*/
-}
-void ext::PlayerModelBehavior::destroy( uf::Object& self ){
-
-}
+void ext::PlayerModelBehavior::render( uf::Object& self ){}
+void ext::PlayerModelBehavior::destroy( uf::Object& self ){}
 #undef this

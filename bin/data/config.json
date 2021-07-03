@@ -175,19 +175,16 @@
 			"streams by default": true
 		},
 		"memory pool": {
+			"enabled": true,
 			"subPools": true,
 			"alignment": 64,
+			"override": false,
 			"size": "1024 MiB",
-			"STL allocator": true,
 			"pools": {
 				"entity": "256 MiB",
 				"userdata": "256 MiB",
 				"component": "256 MiB"
-			},
-			"globalOverride": false
-		},
-		"hook" :  {
-			"mode" : "Readable"
+			}
 		},
 		"render modes": {
 			"gui": true,

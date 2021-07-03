@@ -21,7 +21,7 @@ namespace {
 void ext::opengl::Shader::bind( const uf::stl::string& name, const module_t& module ) {
 	::modules[name] = module;
 }
-void ext::opengl::Shader::execute( const ext::opengl::Graphic& graphic, void* userdata ) {
+void ext::opengl::Shader::execute( const ext::opengl::Graphic& graphic, void* userdata ) const {
 	if ( module ) module( *this, graphic, userdata );
 }
 #endif
@@ -124,88 +124,82 @@ bool ext::opengl::Shader::validate() {
 #endif
 	return valid;
 }
-bool ext::opengl::Shader::hasUniform( const uf::stl::string& name ) {
+bool ext::opengl::Shader::hasUniform( const uf::stl::string& name ) const {
 //	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
 	return metadata.definitions.uniforms.count(name) > 0;
 }
-ext::opengl::Buffer* ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) {
-	if ( !hasUniform(name) ) return NULL;
-//	size_t uniformIndex = metadata.json["definitions"]["uniforms"][name]["index"].as<size_t>();
+ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) {
+	UF_ASSERT( hasUniform(name) );
 	size_t uniformIndex = metadata.definitions.uniforms[name].index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
-		return &buffers[bufferIndex];
+		return buffers[bufferIndex];
 	}
-	return NULL;
+	UF_EXCEPTION("buffer not found: " << name);
+}
+const ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT( hasUniform(name) );
+	size_t uniformIndex = metadata.definitions.uniforms.at(name).index;
+	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
+		if ( uniformCounter++ != uniformIndex ) continue;
+		return buffers.at(bufferIndex);
+	}
+	UF_EXCEPTION("buffer not found: " << name);
 }
 ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
 	return uniforms[metadata.definitions.uniforms[name].index];
-/*
-	if ( !hasUniform(name) ) {
-		static ext::opengl::userdata_t null;
-		return null;
-	}
-	auto& definition = metadata["definitions"]["uniforms"][name];
-	size_t uniformSize = definition["size"].as<size_t>();
-	size_t uniformIndex = definition["index"].as<size_t>();
-	auto& userdata = uniforms[uniformIndex];
-	return userdata;
-*/
 }
-bool ext::opengl::Shader::updateUniform( const uf::stl::string& name ) {
-	if ( !hasUniform(name) ) return false;
-	auto& uniform = getUniform(name);
-	return updateUniform(name, uniform);
+const ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) const {
+	UF_ASSERT( hasUniform(name) );
+	return uniforms.at(metadata.definitions.uniforms.at(name).index);
 }
-bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const ext::opengl::userdata_t& userdata ) {
+bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const void* data, size_t size ) const {
 	if ( !hasUniform(name) ) return false;
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-	size_t size = MAX(metadata.definitions.uniforms[name].size, bufferObject->allocationInfo.size);
-//	size_t size = std::max(metadata["definitions"]["uniforms"][name]["size"].as<size_t>(), (size_t) bufferObject->allocationInfo.size);
-	updateBuffer( (void*) userdata, size, *bufferObject );
+	auto& bufferObject = getUniformBuffer(name);
+	size = MAX(metadata.definitions.uniforms.at(name).size, bufferObject.allocationInfo.size);
+	updateBuffer( data, size, bufferObject );
 	return true;
 }
 
+bool ext::opengl::Shader::hasStorage( const uf::stl::string& name ) const {
+//	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
+	return metadata.definitions.storage.count(name) > 0;
+}
+
+ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) {
+	UF_ASSERT( hasStorage(name) );
+	size_t storageIndex = metadata.definitions.storage[name].index;
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return buffers[bufferIndex];
+	}
+	UF_EXCEPTION("buffer not found: " << name);
+}
+const ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT( hasStorage(name) );
+	size_t storageIndex = metadata.definitions.storage.at(name).index;
+	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
+		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
+		if ( storageCounter++ != storageIndex ) continue;
+		return buffers.at(bufferIndex);
+	}
+	UF_EXCEPTION("buffer not found: " << name);
+}
+// JSON shit
+ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
+	if ( !hasUniform(name) ) return false;
+	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
+}
 uf::Serializer ext::opengl::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasUniform(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["uniforms"][name]) ) return metadata.json["uniforms"][name];
 	auto& definition = metadata.json["definitions"]["uniforms"][name];
 	if ( cache ) return metadata.json["uniforms"][name] = definitionToJson(definition);
 	return definitionToJson(definition);
-}
-ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
-	if ( !hasUniform(name) ) return false;
-	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
-}
-bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const ext::json::Value& payload ) {
-	if ( !hasUniform(name) ) return false;
-
-	auto* bufferObject = getUniformBuffer(name);
-	if ( !bufferObject ) return false;
-
-	auto uniform = getUniformUserdata( name, payload );	
-	updateBuffer( (void*) uniform, uniform.data().len, *bufferObject );
-	return true;
-}
-
-bool ext::opengl::Shader::hasStorage( const uf::stl::string& name ) {
-//	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
-	return metadata.definitions.storage.count(name) > 0;
-}
-
-ext::opengl::Buffer* ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) {
-	if ( !hasStorage(name) ) return NULL;
-//	size_t storageIndex = metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
-	size_t storageIndex = metadata.definitions.storage[name].index;
-	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
-		if ( storageCounter++ != storageIndex ) continue;
-		return &buffers[bufferIndex];
-	}
-	return NULL;
 }
 uf::Serializer ext::opengl::Shader::getStorageJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasStorage(name) ) return ext::json::null();

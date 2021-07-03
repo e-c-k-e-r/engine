@@ -264,22 +264,14 @@ void ext::vulkan::initialize() {
 		if ( !renderMode ) continue;
 		renderMode->initialize(device);
 	}
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-		if ( settings::experimental::multithreadedCommandRecording ) {
-			jobs.emplace_back([&]{
-				renderMode->createCommandBuffers();
-				return 0;
-			});
-		} else {
-			renderMode->createCommandBuffers();
-		}
+		if ( settings::experimental::multithreadedCommandRecording )  jobs.emplace_back([&](){renderMode->createCommandBuffers();});
+		else renderMode->createCommandBuffers();
 	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 }
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
@@ -304,24 +296,16 @@ void ext::vulkan::tick() {
 		renderMode->tick();
 	}
 
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) {
 			if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-			if ( settings::experimental::multithreadedCommandRecording ) {
-				jobs.emplace_back([&]{
-					renderMode->createCommandBuffers();
-					return 0;
-				});
-			} else {
-				renderMode->createCommandBuffers();
-			}
+			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&](){renderMode->createCommandBuffers();});
+			else renderMode->createCommandBuffers();
 		}
 	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
@@ -345,7 +329,7 @@ void ext::vulkan::render() {
 	}
 
 #if 1
-	uf::stl::vector<std::function<int()>> jobs;
+	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::vulkan::currentRenderMode = renderMode;
@@ -354,7 +338,6 @@ void ext::vulkan::render() {
 				uf::scene::render();
 				renderMode->render();
 				renderMode->executed = true;
-				return 0;
 			});
 		} else {
 			uf::scene::render();
@@ -362,9 +345,7 @@ void ext::vulkan::render() {
 			renderMode->executed = true;
 		}
 	}
-	if ( !jobs.empty() ) {
-		uf::thread::batchWorkers( jobs );
-	}
+	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 #else
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;

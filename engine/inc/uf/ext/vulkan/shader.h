@@ -64,10 +64,22 @@ namespace ext {
 						uint32_t binding = 0;
 						uint32_t size = 0;
 					};
+					struct SpecializationConstants {
+						uf::stl::string name = "";
+						uint32_t index = 0;
+						uf::stl::string type = "";
+						bool validate = false;
+						union {
+							int32_t i;
+							uint32_t ui;
+							float f;
+						} value;
+					};
 					uf::stl::unordered_map<size_t, Texture> textures;
 					uf::stl::unordered_map<uf::stl::string, Uniform> uniforms;
 					uf::stl::unordered_map<uf::stl::string, Storage> storage;
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
+					uf::stl::unordered_map<uf::stl::string, SpecializationConstants> specializationConstants;
 				} definitions;
 			} metadata;
 
@@ -79,18 +91,30 @@ namespace ext {
 			void destroy();
 			bool validate();
 
-			bool hasUniform( const uf::stl::string& name );
+			bool hasUniform( const uf::stl::string& name ) const;
 
-			Buffer* getUniformBuffer( const uf::stl::string& name );
+			Buffer& getUniformBuffer( const uf::stl::string& name );
+			const Buffer& getUniformBuffer( const uf::stl::string& name ) const;
+
 			ext::vulkan::userdata_t& getUniform( const uf::stl::string& name );
-			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
-			ext::vulkan::userdata_t getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload );
-			bool updateUniform( const uf::stl::string& name );
-			bool updateUniform( const uf::stl::string& name, const ext::vulkan::userdata_t& );
-			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );
+			const ext::vulkan::userdata_t& getUniform( const uf::stl::string& name ) const ;
 			
-			bool hasStorage( const uf::stl::string& name );
-			Buffer* getStorageBuffer( const uf::stl::string& name );
+			bool updateUniform( const uf::stl::string& name, const void*, size_t ) const;
+			inline bool updateUniform( const uf::stl::string& name ) const {
+				if ( !hasUniform(name) ) return false;
+				return updateUniform(name, getUniform(name));
+			}
+			inline bool updateUniform( const uf::stl::string& name, const ext::vulkan::userdata_t& userdata ) const {
+				return updateUniform(name, (const void*) userdata, userdata.size() );
+			}
+			
+			bool hasStorage( const uf::stl::string& name ) const;
+			Buffer& getStorageBuffer( const uf::stl::string& name );
+			const Buffer& getStorageBuffer( const uf::stl::string& name ) const;
+
+			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
+			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );
+			ext::vulkan::userdata_t getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
 			ext::vulkan::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 		};

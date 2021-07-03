@@ -89,14 +89,14 @@ namespace ext {
 				VkDeviceSize size,
 				VkBuffer* buffer, 
 				VkDeviceMemory *memory,
-				void *data = nullptr
+				const void* data = nullptr
 			);
 			VkResult createBuffer(
 				VkBufferUsageFlags usage,
 				VkMemoryPropertyFlags memoryProperties,
 				ext::vulkan::Buffer& buffer,
 				VkDeviceSize size,
-				void *data = nullptr
+				const void* data = nullptr
 			);
 
 			enum QueueEnum {

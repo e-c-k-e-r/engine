@@ -9,30 +9,37 @@
 #define UF_MEMORYPOOL_INVALID_MALLOC 1
 #define UF_MEMORYPOOL_INVALID_FREE 1
 
+#define UF_MEMORYPOOL_CACHED_ALLOCATIONS 0
+#define UF_MEMORYPOOL_STORE_ORPHANS 0
+
 namespace pod {
 	struct UF_API Userdata;
 
 	struct UF_API Allocation {
-		size_t index = 0;
 		size_t size = 0;
-		void* pointer = NULL;
+		uintptr_t pointer = 0;
 	};
 
 	struct UF_API MemoryPool {
-		typedef std::vector<pod::Allocation> allocations_t;
+		typedef std::vector<pod::Allocation, uf::Mallocator<pod::Allocation>> allocations_t;
 
-		size_t size;
-		uint8_t* pool;
+		size_t size = 0;
+		void* memory = 0;
 
 		std::mutex mutex;
 		allocations_t allocations;
+
+	#if UF_MEMORYPOOL_CACHED_ALLOCATIONS
 		allocations_t cachedFreeAllocations;
+	#endif
+	#if UF_MEMORYPOOL_STORE_ORPHANS
+		allocations_t orphaned;
+	#endif
 	};
 }
 
 namespace uf {
 	namespace memoryPool {
-		extern UF_API bool globalOverride;
 		extern UF_API bool subPool;
 		extern UF_API uint8_t alignment;
 
@@ -42,11 +49,13 @@ namespace uf {
 		void UF_API initialize( pod::MemoryPool&, size_t );
 		void UF_API destroy( pod::MemoryPool& );
 
-		pod::Allocation UF_API allocate( pod::MemoryPool&, void*, size_t, size_t alignment = uf::memoryPool::alignment );
-		void* UF_API alloc( pod::MemoryPool&, void*, size_t, size_t alignment = uf::memoryPool::alignment );
-		inline void* alloc( pod::MemoryPool& pool, size_t size, void* data = NULL, size_t alignment = uf::memoryPool::alignment ) { return uf::memoryPool::alloc(pool, data, size, alignment); }
+	//	pod::Allocation UF_API allocate( pod::MemoryPool&, void*, size_t, size_t alignment = uf::memoryPool::alignment );
+	//	void* UF_API alloc( pod::MemoryPool&, void*, size_t, size_t alignment = uf::memoryPool::alignment );
+	//	inline void* alloc( pod::MemoryPool& pool, size_t size, void* data = NULL, size_t alignment = uf::memoryPool::alignment ) { return uf::memoryPool::alloc(pool, data, size, alignment); }
+		pod::Allocation UF_API allocate( pod::MemoryPool&, size_t, size_t alignment = uf::memoryPool::alignment );
+		void* UF_API alloc( pod::MemoryPool&, size_t, size_t alignment = uf::memoryPool::alignment );
 
-		pod::Allocation& UF_API fetch( pod::MemoryPool&, size_t, size_t = 0 );
+		pod::Allocation& UF_API fetch( pod::MemoryPool&, void*, size_t = 0 );
 		bool UF_API exists( pod::MemoryPool&, void*, size_t = 0 );
 		bool UF_API free( pod::MemoryPool&, void*, size_t = 0 );
 
@@ -73,10 +82,12 @@ namespace uf {
 		inline void initialize( size_t size );
 		inline void destroy();
 
-		inline pod::Allocation allocate( void* data, size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
-		inline void* alloc( void* data, size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
-		inline void* alloc( size_t size, void* data = NULL/*, size_t alignment = uf::memoryPool::alignment*/ );
-		inline pod::Allocation& fetch( size_t index, size_t size = 0 );
+	//	inline pod::Allocation allocate( void* data, size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
+	//	inline void* alloc( void* data, size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
+	//	inline void* alloc( size_t size, void* data = NULL/*, size_t alignment = uf::memoryPool::alignment*/ );
+		inline pod::Allocation allocate( size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
+		inline void* alloc( size_t size/*, size_t alignment = uf::memoryPool::alignment*/ );
+		inline pod::Allocation& fetch( void* data, size_t size = 0 );
 		inline bool exists( void* data, size_t size = 0 );
 		inline bool free( void* data, size_t size = 0 );
 		

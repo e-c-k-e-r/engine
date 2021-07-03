@@ -9,20 +9,13 @@
 namespace ext {
 	namespace PlayerModelBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void attach( uf::Object& );
-		void initialize( uf::Object& );
-		void tick( uf::Object& );
-		void render( uf::Object& );
-		void destroy( uf::Object& );
-
-		struct Metadata {
+		EXT_BEHAVIOR_DEFINE_TRAITS;
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			bool hide = true;
 			bool track = true;
 			bool set = false;
 			pod::Vector3f scale = {1,1,1};
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

@@ -5,6 +5,7 @@
 
 #include <string>
 
+// strings with custom allocators really do not play nice with existing libraries
 namespace uf {
 	namespace stl {
 		template<

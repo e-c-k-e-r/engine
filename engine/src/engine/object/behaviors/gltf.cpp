@@ -14,6 +14,7 @@
 #include <uf/utils/string/hash.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::GltfBehavior)
+UF_BEHAVIOR_TRAITS_CPP(uf::GltfBehavior, ticks = true, renders = true, multithread = false)
 #define this (&self)
 void uf::GltfBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -78,16 +79,16 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 
-	auto& scene = uf::scene::getCurrentScene();
-	auto& metadata = this->getComponent<uf::Serializer>();
-	auto& graphic = this->getComponent<uf::Graphic>();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
-	auto& transform = this->getComponent<pod::Transform<>>();
+	const auto& scene = uf::scene::getCurrentScene();
+	const auto& metadata = this->getComponent<uf::Serializer>();
+	const auto& graphic = this->getComponent<uf::Graphic>();
+	const auto& controller = scene.getController();
+	const auto& camera = controller.getComponent<uf::Camera>();
+	const auto& transform = this->getComponent<pod::Transform<>>();
 
 	if ( !graphic.initialized ) return;
 
-	auto* objectWithGraph = this;
+	const auto* objectWithGraph = this;
 	while ( objectWithGraph != &scene ) {
 		if ( objectWithGraph->hasComponent<pod::Graph>() ) break;
 		objectWithGraph = &objectWithGraph->getParent().as<uf::Object>();
@@ -104,10 +105,9 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
-				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
+				instances[i] = uf::transform::model( node.entity ? node.entity->getComponent<pod::Transform<>>() : node.transform );
 			}
-
-			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance );
+			graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance );
 			shader.execute( graphic, &mesh.vertices[0] );
 		} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 			shader.execute( graphic, &mesh.vertices[0] );
@@ -121,20 +121,27 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
-				instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
+				instances[i] = uf::transform::model( node.entity ? node.entity->getComponent<pod::Transform<>>() : node.transform );
 			}
-		//	auto& storageBuffer = *graphic.getStorageBuffer("Models");
-			graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
+			graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
 		} else {
 			struct UniformDescriptor {
 				/*alignas(16)*/ pod::Matrix4f model;
 			};
-			
+		/*
 			auto& uniform = shader.getUniform("UBO");
 			auto& uniforms = uniform.get<UniformDescriptor>();
-			uniforms.model = uf::transform::model( transform );
-		//	uniforms.color = uf::vector::decode( metadata["color"], pod::Vector4f{1,1,1,1} );
+			uniforms = {
+				.model = uf::transform::model( transform );
+		//		.color = uf::vector::decode( metadata["color"], pod::Vector4f{1,1,1,1} );
+			};
 			shader.updateUniform( "UBO", uniform );
+		*/
+			UniformDescriptor uniforms = {
+				.model = uf::transform::model( transform ),
+			};
+		//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+			graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 		}
 	}
 #if 0
@@ -146,7 +153,7 @@ void uf::GltfBehavior::tick( uf::Object& self ) {
 			instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
 		}
 		auto& storageBuffer = *graphic.getStorageBuffer("Models");
-		graphic.updateBuffer( (void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
+		graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
 	}
 #endif
 #endif
@@ -155,17 +162,17 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 	/* Update uniforms */
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 
-	auto& scene = uf::scene::getCurrentScene();
-	auto& metadata = this->getComponent<uf::Serializer>();
-	auto& graphic = this->getComponent<uf::Graphic>();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
-	auto& transform = this->getComponent<pod::Transform<>>();
+	const auto& scene = uf::scene::getCurrentScene();
+	const auto& metadata = this->getComponent<uf::Serializer>();
+	const auto& graphic = this->getComponent<uf::Graphic>();
+	const auto& controller = scene.getController();
+	const auto& camera = controller.getComponent<uf::Camera>();
+	const auto& transform = this->getComponent<pod::Transform<>>();
 
 	if ( !graphic.initialized ) return;
 
 #if UF_USE_OPENGL
-	auto* objectWithGraph = this;
+	const auto* objectWithGraph = this;
 	while ( objectWithGraph != &scene ) {
 		if ( objectWithGraph->hasComponent<pod::Graph>() ) break;
 		objectWithGraph = &objectWithGraph->getParent().as<uf::Object>();
@@ -177,14 +184,19 @@ void uf::GltfBehavior::render( uf::Object& self ) {
 	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) uniform.modelView = camera.getView();
 	else uniform.modelView = camera.getView() * uf::transform::model( transform );
 	uniform.projection = camera.getProjection();
-	graphic.updateUniform( (void*) &uniform, sizeof(uniform) );
+	graphic.updateUniform( (const void*) &uniform, sizeof(uniform) );
 #elif UF_USE_VULKAN
 	if ( graphic.material.hasShader("vertex") ) {
 		auto& shader = graphic.material.getShader("vertex");
+	/*
 		auto& uniform = shader.getUniform("Camera");
-		auto& uniforms = uniform.get<pod::Camera::Viewports>();
-		uniforms = camera.data().viewport;
+	//	auto& uniforms = uniform.get<pod::Camera::Viewports>();
+	//	uniforms = camera.data().viewport;
 		shader.updateUniform("Camera", uniform);
+	*/
+		pod::Camera::Viewports uniforms = camera.data().viewport;
+	//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("Camera") );
+		graphic.updateBuffer( uniforms, shader.getUniformBuffer("Camera") );
 	}
 #if 0
 	if ( graphic.material.hasShader("vertex") ) {

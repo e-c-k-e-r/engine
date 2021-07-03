@@ -30,6 +30,7 @@
 #include "../../gui/gui.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false)
 #define this ((uf::Scene*) &self)
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	auto& assetLoader = this->getComponent<uf::Asset>();
@@ -799,20 +800,23 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		}
 		
 		// update lighting buffer
-		graphic.updateBuffer( (void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light::Storage), renderMode.metadata.lightBufferIndex, false );
+		graphic.updateBuffer( (const void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light::Storage), renderMode.metadata.lightBufferIndex, false );
 		//
 		if ( shouldUpdate ) {
-			graphic.updateBuffer( (void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material::Storage), renderMode.metadata.materialBufferIndex, false );
-			graphic.updateBuffer( (void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture::Storage), renderMode.metadata.textureBufferIndex, false );
-			graphic.updateBuffer( (void*) drawCalls.data(), uniforms.lengths.drawCalls * sizeof(pod::DrawCall::Storage), renderMode.metadata.drawCallBufferIndex, false );
+			graphic.updateBuffer( (const void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material::Storage), renderMode.metadata.materialBufferIndex, false );
+			graphic.updateBuffer( (const void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture::Storage), renderMode.metadata.textureBufferIndex, false );
+			graphic.updateBuffer( (const void*) drawCalls.data(), uniforms.lengths.drawCalls * sizeof(pod::DrawCall::Storage), renderMode.metadata.drawCallBufferIndex, false );
 
 			graphic.updatePipelines();
 		}
-		
+	
+	//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );	
+		graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+	/*
 		auto& uniform = shader.getUniform("UBO");
 		memcpy( (void*) uniform, &uniforms, sizeof(uniforms) );
-
 		shader.updateUniform( "UBO", uniform );	
+	*/
 	}
 #endif
 }

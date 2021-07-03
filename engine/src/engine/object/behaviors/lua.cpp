@@ -13,6 +13,7 @@
 #include <uf/ext/lua/lua.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::LuaBehavior)
+UF_BEHAVIOR_TRAITS_CPP(uf::LuaBehavior, ticks = false, renders = false, multithread = false)
 #define this (&self)
 void uf::LuaBehavior::initialize( uf::Object& self ) {	
 #if UF_USE_LUA

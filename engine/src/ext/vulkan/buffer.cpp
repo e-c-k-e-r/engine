@@ -7,35 +7,39 @@
 #include <uf/ext/vulkan/device.h>
 
 void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
-	this->buffer = buffer.buffer;
-	this->memory = buffer.memory;
-	this->descriptor = buffer.descriptor;
-	this->size = buffer.size;
-	this->alignment = buffer.alignment;
-	this->mapped = buffer.mapped;
-	this->usage = buffer.usage;
-	this->memoryProperties = buffer.memoryProperties;
-	this->memAlloc = buffer.memAlloc;
-	this->memReqs = buffer.memReqs;
-	this->allocation = buffer.allocation;
-	this->allocationInfo = buffer.allocationInfo;
+	*this = {
+		.device = NULL,
+		.buffer = buffer.buffer,
+		.memory = buffer.memory,
+		.descriptor = buffer.descriptor,
+		.alignment = buffer.alignment,
+		.mapped = buffer.mapped,
+		.usage = buffer.usage,
+		.memoryProperties = buffer.memoryProperties,
+		.allocation = buffer.allocation,
+		.allocationInfo = buffer.allocationInfo,
+	};
 }
 
-VkResult ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
-//	return vkMapMemory( device, memory, offset, size, 0, &mapped );
-	return vmaMapMemory( allocator, allocation, &mapped );
+void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
+	VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
+	return mapped;
 }
-
 void ext::vulkan::Buffer::unmap() {
 	if ( !mapped ) return;
-//	vkUnmapMemory( device, memory );
 	vmaUnmapMemory( allocator, allocation );
 	mapped = nullptr;
 }
+void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) const {
+	void* mapped{};
+	VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
+	return mapped;
+}
+void ext::vulkan::Buffer::unmap() const {
+	vmaUnmapMemory( allocator, allocation );
+}
 
 VkResult ext::vulkan::Buffer::bind( VkDeviceSize offset ) {
-//	return vkBindBufferMemory( device, buffer, memory, offset );
-//	return vmaBindBufferMemory( allocator, allocation, buffer );
 	return VK_SUCCESS;
 }
 
@@ -50,7 +54,7 @@ void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
 	memcpy(mapped, data, size);
 }
 
-VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) {
+VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) const {
 /*
 	VkMappedMemoryRange mappedRange = {};
 	mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -88,7 +92,7 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 //	VkMemoryPropertyFlags memFlags;
 //	vmaGetMemoryTypeProperties(allocator, allocationInfo.memoryType, &memFlags);
 //	memory = allocationInfo.deviceMemory;
-	size = allocationInfo.size;
+//	size = allocationInfo.size;
 }
 
 // RAII
@@ -105,10 +109,7 @@ void ext::vulkan::Buffer::destroy() {
 		vmaDestroyBuffer( allocator, buffer, allocation );
 //		vkDestroyBuffer(device, buffer, nullptr);
 	}
-
-	if ( memory ) {
-//		vkFreeMemory(device, memory, nullptr);
-	}
+//	if ( memory ) vkFreeMemory(device, memory, nullptr);
 
 	buffer = nullptr;
 	memory = nullptr;
@@ -126,14 +127,11 @@ ext::vulkan::Buffers::~Buffers() {
 }
 */
 void ext::vulkan::Buffers::destroy() {
-	for ( auto& buffer : buffers ) {
-		if ( buffer.device ) buffer.destroy();
-	}
+	for ( auto& buffer : buffers ) if ( buffer.device ) buffer.destroy();
 	buffers.clear();
 }
 
-size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
-//	Buffer buffer;
+size_t ext::vulkan::Buffers::initializeBuffer( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
 	size_t index = buffers.size();
 	Buffer& buffer = buffers.emplace_back();
 	
@@ -177,14 +175,9 @@ size_t ext::vulkan::Buffers::initializeBuffer( void* data, VkDeviceSize length, 
 	device->flushCommandBuffer(copyCmd, true);
 	staging.destroy();
 
-//	buffers.push_back( std::move(buffer) );
 	return index;
 }
-void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, size_t index, bool stage ) {
-	Buffer& buffer = buffers.at(index);
-	return updateBuffer( data, length, buffer, stage );
-}
-void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer& buffer, bool stage ) {
+void ext::vulkan::Buffers::updateBuffer( const void* data, VkDeviceSize length, const Buffer& buffer, bool stage ) const {
 //	assert(buffer.allocationInfo.size == length);
 
 	if ( length > buffer.allocationInfo.size ) {
@@ -196,15 +189,20 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 		}
 //		assert(buffer.allocationInfo.size > length);
 	}
-
-
 	if ( !stage ) {
-		VK_CHECK_RESULT(buffer.map());
-		memcpy(buffer.mapped, data, length);
+	#if UF_TESTING
+		void* map = buffer.map();
+		memcpy(map, data, length);
+		if ((buffer.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
 		buffer.unmap();
+	#else
+		void* map = buffer.map();
+		memcpy(map, data, length);
+		if ((buffer.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
+		buffer.unmap();
+	#endif
 		return;
 	}
-	// VkQueue queue = device->queues.transfer;
 	Buffer staging;
 	device->createBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -219,6 +217,7 @@ void ext::vulkan::Buffers::updateBuffer( void* data, VkDeviceSize length, Buffer
 	VkBufferCopy copyRegion = {};
 	copyRegion.size = length;
 	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
+
 	device->flushCommandBuffer(copyCmd, true);
 	staging.destroy();
 }

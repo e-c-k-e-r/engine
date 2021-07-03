@@ -18,7 +18,7 @@ int main(int argc, char** argv){
 	}
 
 	std::atexit([]{
-		uf::iostream << "Termination via std::atexit()!" << "\n";
+		UF_MSG_INFO("Termination via std::atexit()!");
 		ext::ready = false;
 		client::ready = false;
 		client::terminated = true;
@@ -36,7 +36,7 @@ int main(int argc, char** argv){
 		if ( !timer.running() ) timer.start();
 
 		if ( timer.elapsed().asDouble() >= next ) {
-			uf::iostream << "Waiting for " << ( client::ready ? "client" : "extension / engine" ) << " to initialize... Retrying in " << next << " seconds." << "\n";
+			UF_MSG_INFO("Waiting for " << ( client::ready ? "client" : "extension / engine" ) << " to initialize... Retrying in " << next << " seconds.");
 			next *= 2;
 		}
 	}
@@ -63,20 +63,20 @@ int main(int argc, char** argv){
 		#endif
 	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
-			uf::iostream << "RUNTIME ERROR: " << e.what() << "\n";
+			UF_MSG_ERROR("RUNTIME ERROR: " << e.what());
 			break;
 		} catch ( std::exception& e ) {
-			uf::iostream << "EXCEPTION ERROR: " << e.what() << "\n";
+			UF_MSG_ERROR("EXCEPTION ERROR: " << e.what());
 			throw e;
 		} catch ( bool handled ) {
-			if (!handled) uf::iostream << "UNHANDLED ERROR: " << "???" << "\n";
+			if (!handled) UF_MSG_ERROR("UNHANDLED ERROR: " << "???");
 		} catch ( ... ) {
-			uf::iostream << "UNKNOWN ERROR: " << "???" << "\n";
+			UF_MSG_ERROR("UNKNOWN ERROR: " << "???");
 		}
 	#endif
 	}
 	if ( !client::terminated ) {
-		uf::iostream << "Natural termination!" << "\n";
+		UF_MSG_INFO("Natural termination!");
 		ext::terminate();
 		client::terminate();
 	}

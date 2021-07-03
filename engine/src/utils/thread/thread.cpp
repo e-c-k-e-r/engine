@@ -23,11 +23,6 @@ void UF_API uf::thread::quit( pod::Thread& thread ) { // if ( !thread.running ) 
 
 }
 void UF_API uf::thread::tick( pod::Thread& thread ) {
-/*
-	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
-	if ( !res ) UF_THREAD_ANNOUNCE("Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")");
-	if ( !thread.timer.running() ) thread.timer.start();
-*/
 #if !UF_ENV_DREAMCAST
 	bool res = SetThreadAffinityMask(GetCurrentThread(), (1u << thread.affinity));
 	if ( !res ) UF_THREAD_ANNOUNCE("Failed to set affinity of Thread #" << thread.uid << " (" << thread.name << " on ID " << pthread_self() << "/" << thread.affinity << ")");
@@ -73,82 +68,39 @@ void UF_API uf::thread::batchWorkers( const uf::stl::vector<pod::Thread::functio
 		workers.emplace_back(&worker);
 		uf::thread::add( worker, function, true );
 	}
-	if ( wait )
-		for ( auto& worker : workers )
-			uf::thread::wait( *worker );
+	if ( wait ) for ( auto& worker : workers ) uf::thread::wait( *worker );
 }
-/*
-void UF_API uf::thread::tick( pod::Thread& thread, const std::function<void()>& callback ) {
-	while ( thread.running ) {
-		uf::thread::process( thread );
-		if ( callback ) callback();
-		if ( thread.terminates && thread.temps.empty() && thread.consts.empty() ) uf::thread::quit( thread );
-	}
-}
-*/
 void UF_API uf::thread::add( pod::Thread& thread, const pod::Thread::function_t& function, bool temporary ) {
 	if ( thread.mutex != NULL ) thread.mutex->lock();
 	temporary ? thread.temps.push( function ) : thread.consts.push_back( function );
 	if ( thread.mutex != NULL ) thread.mutex->unlock();
 }
-void UF_API uf::thread::assertExecute( pod::Thread& thread, const pod::Thread::function_t& f ) {
-	std::cout << "ASSERT EXECUTION: " << thread.name << "\t" << uf::thread::isMain() << "\t" << std::this_thread::get_id() << "\t" << thread.thread.get_id() << std::endl;
-	if ( thread.name == "Main" && uf::thread::isMain() ) f();
-	else if ( std::this_thread::get_id() == thread.thread.get_id() ) f();
-	else uf::thread::add( thread, f, true );
-}
 void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(uf::thread::uid(thread)) ) { UF_THREAD_ANNOUNCE("Bad Thread: " << thread.uid << " " << thread.name); return; } //ops
-/*
-	std::function<int()> temps = [&] {
-		int i = 0;
-		while ( !thread.temps.empty() ) {
-			auto& function = thread.temps.front();
-			if ( function ) function();
-			thread.temps.pop();
-			++i;
-		}
-		return i;
-	};
-	std::function<int()> consts = [&] {
-		int i = 0;
-		for ( auto function : thread.consts ) {
-			function();
-			++i;
-		}
-		return i;
-	};
-	if ( thread.mutex != NULL ) thread.mutex->lock();
-	temps();
-	consts();
-	if ( thread.mutex != NULL ) thread.mutex->unlock();
-*/
-	size_t temps = 0;
-	size_t consts = 0;
 	while ( !thread.temps.empty() ) {
 		auto& function = thread.temps.front();
+		if ( function )
 	#if UF_NO_EXCEPTIONS
-		if ( function ) function();
+			function();
 	#else
-		if ( function ) try {
+		try {
 			function();
 		} catch ( std::exception& e ) {
-			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
+			UF_MSG_ERROR("Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what());
 		}
 	#endif
 		thread.temps.pop();
-		++temps;
 	}
 	for ( auto function : thread.consts ) {
+		if ( function )
 	#if UF_NO_EXCEPTIONS
-		if ( function ) function();
+			function();
 	#else
-		if ( function ) try {
+		try {
 			function();
 		} catch ( std::exception& e ) {
-			uf::iostream << "Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what() << "\n";
+			UF_MSG_ERROR("Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what());
 		}
 	#endif
-		++consts;
 	}
 	thread.condition.notify_one();
 }
@@ -159,14 +111,6 @@ void UF_API uf::thread::wait( pod::Thread& thread ) {
     	return;
     }
 	while ( !thread.temps.empty() );
-/*
-	if ( thread.mutex != NULL ) {
-		thread.mutex->lock();
-		thread.mutex->unlock();
-		return;
-	}
-	while ( !thread.temps.empty() );
-*/
 }
 
 const uf::stl::string& UF_API uf::thread::name( const pod::Thread& thread ) {

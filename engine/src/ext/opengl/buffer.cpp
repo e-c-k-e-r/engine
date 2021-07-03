@@ -6,10 +6,15 @@
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/device.h>
 
-bool ext::opengl::Buffer::map( GLsizeiptr size, GLsizeiptr offset ) {
-	return false;
+void* ext::opengl::Buffer::map( GLsizeiptr size, GLsizeiptr offset ) {
+	return NULL;
 }
 void ext::opengl::Buffer::unmap() {
+}
+void* ext::opengl::Buffer::map( GLsizeiptr size, GLsizeiptr offset ) const {
+	return NULL;
+}
+void ext::opengl::Buffer::unmap() const {
 }
 
 bool ext::opengl::Buffer::bind( GLsizeiptr offset ) {
@@ -22,7 +27,7 @@ void ext::opengl::Buffer::setupDescriptor( GLsizeiptr size, GLsizeiptr offset ) 
 	descriptor.range = size;
 }
 
-void ext::opengl::Buffer::copyTo( void* data, GLsizeiptr len ) {
+void ext::opengl::Buffer::copyTo( const void* data, GLsizeiptr len ) const {
 	if ( !buffer || !data ) return;
 	if ( len >= size ) len = size;
 #if !UF_USE_OPENGL_FIXED_FUNCTION
@@ -98,7 +103,7 @@ void ext::opengl::Buffers::destroy() {
 	buffers.clear();
 }
 
-size_t ext::opengl::Buffers::initializeBuffer( void* data, GLsizeiptr length, GLenum usage, bool stage ) {
+size_t ext::opengl::Buffers::initializeBuffer( const void* data, GLsizeiptr length, GLenum usage, bool stage ) {
 	size_t index = buffers.size();
 	auto& buffer = buffers.emplace_back();
 	
@@ -112,12 +117,4 @@ size_t ext::opengl::Buffers::initializeBuffer( void* data, GLsizeiptr length, GL
 
 	return index;
 }
-void ext::opengl::Buffers::updateBuffer( void* data, GLsizeiptr length, size_t index, bool stage ) {
-	Buffer& buffer = buffers.at(index);
-	return updateBuffer( data, length, buffer, stage );
-}
-void ext::opengl::Buffers::updateBuffer( void* data, GLsizeiptr length, Buffer& buffer, bool stage ) {
-	buffer.copyTo( data, length );
-}
-
 #endif

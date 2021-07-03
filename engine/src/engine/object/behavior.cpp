@@ -13,6 +13,7 @@
 #include <uf/ext/bullet/bullet.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
+UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();

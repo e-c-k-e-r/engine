@@ -40,8 +40,8 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 #-Wl,-subsystem,windows
 
 LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
-INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I$(VULKAN_SDK_PATH)/include -I/mingw64/include
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX) -L$(VULKAN_SDK_PATH)/Lib
+INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I/mingw64/include
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(PREFIX)
 	
 ifneq (,$(findstring win64,$(ARCH)))
 	REQ_DEPS 			+= vulkan json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas simd # openvr draco discord
@@ -53,6 +53,8 @@ endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
 	DEPS 				+= -lvulkan -lspirv-cross
+	INCS 				+= -I$(VULKAN_SDK_PATH)/include
+	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
 endif
 ifneq (,$(findstring opengl,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_OPENGL_FIXED_FUNCTION
@@ -61,7 +63,7 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 			DEPS 		+= -lGLdc
 			FLAGS 		+= -DUF_USE_OPENGL_GLDC
 		else
-			DEPS 		+= -lGL #-lGLdc
+			DEPS 		+= -lGL
 		endif
 	else
 		DEPS 			+= -lglew32 -lopengl32 -lglu32
@@ -184,6 +186,7 @@ EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).$(TARGET_L
 EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION)
 # Client EXE
 SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
+# SRCS 					+= $(CLIENT_SRC_DIR)/smain.cpp
 OBJS 					+= $(patsubst %.cpp,%.$(ARCH).$(PREFIX).o,$(SRCS))
 TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX).$(TARGET_EXTENSION)
 # Shaders
@@ -219,7 +222,7 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	$(KOS_BASE)/utils/bin2o/bin2o ./bin/dreamcast/romdisk.img romdisk ./bin/dreamcast/romdisk.o
 
 $(TARGET): $(OBJS) ./bin/dreamcast/romdisk.o
-	$(CC) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -g -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) ./bin/dreamcast/romdisk.o -Wl,--start-group $(DEPS) -Wl,--end-group
+	$(CC) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) ./bin/dreamcast/romdisk.o -Wl,--start-group $(DEPS) -Wl,--end-group
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
@@ -232,16 +235,17 @@ $(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
 $(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
 $(EX_DLL): $(OBJS_DLL) 
-	$(CC) -shared -o $(EX_DLL) -g -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
+	$(CC) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_DLL).a
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS -DJSON_DLL_BUILD
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(CC) -shared -o $(EXT_EX_DLL) -g -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
+	$(CC) -shared -o $(EXT_EX_DLL) -Wl,--out-implib=$(EXT_IM_DLL) $(OBJS_EXT_DLL) $(EXT_LIBS) $(EXT_INCS) $(EXT_LINKS)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(ARCH)/$(PREFIX)/$(BASE_EXT_DLL).a
 
 $(TARGET): $(OBJS)
 	$(CC) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
+
 endif
 
 %.spv: %.glsl

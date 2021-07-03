@@ -413,6 +413,7 @@ UF_OBJECT_REGISTER_BEGIN(ext::Gui)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 	UF_OBJECT_REGISTER_BEHAVIOR(ext::GuiBehavior)
 UF_OBJECT_REGISTER_END()
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
@@ -882,25 +883,6 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	}
 #endif
 }
-void ext::GuiBehavior::tick( uf::Object& self ) {
-#if 0
-	uf::Serializer& metadataJson = this->getComponent<uf::Serializer>();
-	if ( metadataJson["text settings"]["fade in speed"].is<double>() && !metadataJson["system"]["faded in"].as<bool>() ) {
-		float speed = metadataJson["text settings"]["fade in speed"].as<float>();
-		float alpha = metadataJson["text settings"]["color"][3].as<float>();
-		speed *= uf::physics::time::delta;
-		if ( alpha < 1 && alpha + speed > 1 ) {
-			alpha = 1;
-			speed = 0;
-
-			metadataJson["system"]["faded in"] = true;
-		}
-		if ( alpha + speed <= 1 ) {
-			metadataJson["text settings"]["color"][3] = alpha + speed;
-		}
-	}
-#endif
-}
 template<size_t N = uf::renderer::settings::maxViews>
 struct UniformDescriptor {
 	struct Matrices {
@@ -927,7 +909,7 @@ struct GlyphUniformDescriptor : public ::UniformDescriptor<N> {
 		/*alignas(4)*/ float padding;
 	} glyph;
 };
-void ext::GuiBehavior::render( uf::Object& self ){
+void ext::GuiBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	/* Update uniforms */ if ( this->hasComponent<uf::Graphic>() ) {
@@ -981,7 +963,7 @@ void ext::GuiBehavior::render( uf::Object& self ){
 				flatten.model;
 		}
 		graphic.updateUniform( &uniform, sizeof(uniform) );
-	#else
+	#elif UF_USE_VULKAN
 		if ( !graphic.material.hasShader("vertex") ) return;
 
 		auto& shader = graphic.material.getShader("vertex");
@@ -1076,5 +1058,6 @@ void ext::GuiBehavior::render( uf::Object& self ){
 		metadata.box.max.y = max.y;
 	}
 }
+void ext::GuiBehavior::render( uf::Object& self ){}
 void ext::GuiBehavior::destroy( uf::Object& self ){}
 #undef this

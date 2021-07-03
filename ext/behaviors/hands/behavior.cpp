@@ -27,6 +27,7 @@ namespace {
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerHandBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::PlayerHandBehavior, ticks = true, renders = true, multithread = false)
 #define this (&self)
 void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENVR

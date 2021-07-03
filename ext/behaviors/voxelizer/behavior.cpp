@@ -16,6 +16,7 @@
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
@@ -219,6 +220,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						/*alignas(4)*/ float padding2;
 						/*alignas(4)*/ float padding3;
 					};
+				/*
 					auto& uniform = shader.getUniform("UBO");
 					auto& uniforms = uniform.get<UniformDescriptor>();
 					
@@ -227,6 +229,13 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.cascadePower = metadata.cascadePower,
 					};
 					shader.updateUniform( "UBO", uniform );
+				*/
+					UniformDescriptor uniforms = {
+						.matrix = metadata.extents.matrix,
+						.cascadePower = metadata.cascadePower,
+					};
+				//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+					graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 				}
 			}
 		}

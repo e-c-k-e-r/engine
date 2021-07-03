@@ -4,6 +4,7 @@
 #include <uf/utils/renderer/renderer.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Scene)
+UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, multithread = false)
 #define this ((uf::Scene*) &self)
 void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;

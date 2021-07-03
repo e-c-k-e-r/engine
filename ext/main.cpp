@@ -193,7 +193,10 @@ void EXT_API ext::initialize() {
 
 	/* Parse config */ {
 		/* Set memory pool sizes */ {
-			auto deduceSize = []( const ext::json::Value& value )->size_t{
+			// check if we are even allowed to use memory pools
+			bool enabled = ::config["engine"]["memory pool"]["enabled"].as(true);
+			auto deduceSize = [enabled]( const ext::json::Value& value )->size_t{
+				if ( !enabled ) return 0;
 				if ( value.is<size_t>() ) return value.as<size_t>();
 				if ( value.is<uf::stl::string>() ) {
 					uf::stl::string str = value.as<uf::stl::string>();
@@ -214,10 +217,8 @@ void EXT_API ext::initialize() {
 			};
 			// set memory pool alignment requirements
 			uf::memoryPool::alignment = ::config["engine"]["memory pool"]["alignment"].as( uf::memoryPool::alignment );
-		//	uf::allocator::useMemoryPool = ::config["engine"]["memory pool"]["STL allocator"].as<bool>( uf::allocator::useMemoryPool );
 			// set memory pool sizes
 			size_t size = deduceSize( ::config["engine"]["memory pool"]["size"] );
-			uf::memoryPool::globalOverride = ::config["engine"]["memory pool"]["globalOverride"].as( uf::memoryPool::globalOverride );
 			UF_MSG_DEBUG("Requesting " << (size_t) size << " bytes for global memory pool: " << &uf::memoryPool::global);
 			uf::memoryPool::global.initialize( size );
 			uf::memoryPool::subPool = ::config["engine"]["memory pool"]["subPools"].as( uf::memoryPool::subPool );
@@ -238,11 +239,12 @@ void EXT_API ext::initialize() {
 					uf::Entity::memoryPool.initialize( size );
 				}
 			}
+			uf::allocator::override = ::config["engine"]["memory pool"]["override"].as( uf::allocator::override );
 		}
 
 		/* Create initial scene (kludge) */ {
 			uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
-			uf::scene::scenes.push_back(&scene);
+			uf::scene::scenes.emplace_back(&scene);
 			auto& metadata = scene.getComponent<uf::Serializer>();
 			metadata["system"]["config"] = ::config;
 		}
@@ -492,7 +494,6 @@ void EXT_API ext::initialize() {
 	}
 #endif
 
-//	#define DEBUG_PRINT() std::cout << __FILE__ << ":" __FUNCTION__ << "@" << __LINE__ << std::endl;	
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			auto function = [json]() -> int {
@@ -559,18 +560,17 @@ void EXT_API ext::tick() {
 		ext::openvr::tick();
 	}
 #endif
-#if 0
-	/* Print Entity Information */  {
+	/* Print Memory Pool Information */  {
 		TIMER(1, uf::Window::isKeyPressed("P") && ) {
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
-			uf::iostream << "==== Memory Pool Information ====";
-			if ( uf::memoryPool::global.size() > 0 ) uf::iostream << "\nGlobal Memory Pool: " << uf::memoryPool::global.stats();
-			if ( uf::Entity::memoryPool.size() > 0 ) uf::iostream << "\nEntity Memory Pool: " << uf::Entity::memoryPool.stats();
-			if ( uf::component::memoryPool.size() > 0 ) uf::iostream << "\nComponents Memory Pool: " << uf::component::memoryPool.stats();
-			if ( uf::userdata::memoryPool.size() > 0 ) uf::iostream << "\nUserdata Memory Pool: " << uf::userdata::memoryPool.stats();
-			uf::iostream << "\n";
+			UF_MSG_DEBUG("==== Memory Pool Information ====");
+			if ( uf::memoryPool::global.size() > 0 ) UF_MSG_DEBUG("Global Memory Pool: " << uf::memoryPool::global.stats());
+			if ( uf::Entity::memoryPool.size() > 0 ) UF_MSG_DEBUG("Entity Memory Pool: " << uf::Entity::memoryPool.stats());
+			if ( uf::component::memoryPool.size() > 0 ) UF_MSG_DEBUG("Components Memory Pool: " << uf::component::memoryPool.stats());
+			if ( uf::userdata::memoryPool.size() > 0 ) UF_MSG_DEBUG("Userdata Memory Pool: " << uf::userdata::memoryPool.stats());
 		}
 	}
+#if 0
 	/* Attempt to reset VR position */  {
 		TIMER(1, uf::Window::isKeyPressed("Z") && ) {
 	    	uf::hooks.call("VR:Seat.Reset");

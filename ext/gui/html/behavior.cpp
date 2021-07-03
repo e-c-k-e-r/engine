@@ -33,6 +33,7 @@
 #include <uf/ext/ultralight/ultralight.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiHtmlBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiHtmlBehavior, ticks = true, renders = false, multithread = false)
 #define this ((uf::Object*) &self)
 void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 #if UF_USE_ULTRALIGHT

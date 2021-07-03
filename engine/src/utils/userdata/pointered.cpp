@@ -5,7 +5,7 @@
 #include <iostream> 						
 
 // Constructs a pod::PointeredUserdata struct
-pod::PointeredUserdata UF_API uf::pointeredUserdata::create( std::size_t len, void* data ) {
+pod::PointeredUserdata UF_API uf::pointeredUserdata::create( size_t len, void* data ) {
 	return uf::pointeredUserdata::create( uf::userdata::memoryPool, len, data );
 }
 void UF_API uf::pointeredUserdata::destroy( pod::PointeredUserdata& userdata ) {
@@ -16,34 +16,29 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( const pod::PointeredU
 }
 
 size_t uf::pointeredUserdata::size( size_t len, size_t padding ) {
-	// padding = 0;
-	// return sizeof(size_t) + len + ( sizeof(uint8_t) * padding );
 	return len;
 }
 
 //
-pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, std::size_t len, void* data ) {
+pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
 	if ( len <= 0 ) return {};
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	pod::PointeredUserdata userdata = {
 		.len = requestedLen,
-		.data = (uint8_t*) memoryPool.alloc( data, requestedLen ),
+		.data = memoryPool.alloc( requestedLen ),
 	};
 #else
 	uf::MemoryPool* memoryPool = {};
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
 	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	pod::PointeredUserdata userdata = {};
-	if ( memoryPool )
-		userdata.data = (uint8_t*) memoryPool->alloc( data, requestedLen );
-	else {
-		userdata.data = (uint8_t*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some
-		if ( data ) memcpy( userdata.data, data, len );
-		else memset( userdata.data, 0, len );
-	}
+	if ( memoryPool ) userdata.data = memoryPool->alloc( requestedLen );
+	else userdata.data = uf::allocator::malloc_m( requestedLen ); // allocate data for the userdata struct, and then some
 #endif
+	if ( data ) memcpy( userdata.data, data, len );
+	else memset( userdata.data, 0, len );
 	userdata.len = len;
 #if UF_USERDATA_RTTI
 	userdata.type = 0;
@@ -60,25 +55,22 @@ void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool,
 	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	
 	if ( memoryPool ) memoryPool->free( userdata.data, size(userdata.len) );
-	else {
-		// free(userdata);
-		delete[] userdata.data;
-	}
+	else uf::allocator::free_m(userdata.data);
 #endif
 	userdata.len = 0;
 	userdata.data = NULL;
 }
 pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::PointeredUserdata& userdata ) {
 	if ( !userdata.data || userdata.len <= 0 ) return {};
-	auto copied = uf::pointeredUserdata::create( userdata.len, const_cast<uint8_t*>(userdata.data) );
+	pod::PointeredUserdata copied = uf::pointeredUserdata::create( userdata.len, const_cast<void*>(userdata.data) );
 #if UF_USERDATA_RTTI
-//	copied->type = userdata.type;
+	copied.type = userdata.type;
 #endif
 	return copied;
 }
 
 uf::stl::string UF_API uf::pointeredUserdata::toBase64( pod::PointeredUserdata& userdata ) {
-	return uf::base64::encode( userdata.data, userdata.len );
+	return uf::base64::encode( static_cast<uint8_t*>(userdata.data), userdata.len );
 }
 pod::PointeredUserdata UF_API uf::pointeredUserdata::fromBase64( const uf::stl::string& base64 ) {
 	uf::stl::vector<uint8_t> decoded = uf::base64::decode( base64 );
@@ -87,7 +79,7 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::fromBase64( const uf::stl::
 // 	C-tor
 
 // 	Initializes POD
-uf::PointeredUserdata::PointeredUserdata(std::size_t len, void* data) : m_pod({}), autoDestruct(uf::userdata::autoDestruct) {
+uf::PointeredUserdata::PointeredUserdata(size_t len, void* data) : m_pod({}), autoDestruct(uf::userdata::autoDestruct) {
 	if ( len && data ) this->create(len, data);
 }
 
@@ -108,7 +100,7 @@ uf::PointeredUserdata::PointeredUserdata( const PointeredUserdata& userdata ) {
 }
 
 // 	Creates the POD
-pod::PointeredUserdata& uf::PointeredUserdata::create( std::size_t len, void* data ) {
+pod::PointeredUserdata& uf::PointeredUserdata::create( size_t len, void* data ) {
 	if ( len <= 0 ) return this->m_pod;
 	this->destroy();
 	return this->m_pod = uf::pointeredUserdata::create( len, data );

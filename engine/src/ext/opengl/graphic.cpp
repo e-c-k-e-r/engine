@@ -10,10 +10,10 @@
 #define GL_DEBUG_VALIDATION_MESSAGE(x)\
 	GL_VALIDATION_MESSAGE(x);
 
-void ext::opengl::Pipeline::initialize( Graphic& graphic ) {
+void ext::opengl::Pipeline::initialize( const Graphic& graphic ) {
 	return this->initialize( graphic, graphic.descriptor );
 }
-void ext::opengl::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& descriptor ) {
+void ext::opengl::Pipeline::initialize( const Graphic& graphic, const GraphicDescriptor& descriptor ) {
 	this->device = graphic.device;
 	//this->descriptor = descriptor;
 	Device& device = *graphic.device;
@@ -51,9 +51,9 @@ void ext::opengl::Pipeline::initialize( Graphic& graphic, GraphicDescriptor& des
 		descriptor.vertexArray = vertexArray;
 	}
 #endif
-	graphic.process = true;
+//	graphic.process = true;
 }
-void ext::opengl::Pipeline::record( Graphic& graphic, CommandBuffer& commandBuffer, size_t pass, size_t draw ) {
+void ext::opengl::Pipeline::record( const Graphic& graphic, CommandBuffer& commandBuffer, size_t pass, size_t draw ) const {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 	CommandBuffer::InfoPipeline pipelineCommandInfo = {};
 	pipelineCommandInfo.type = ext::opengl::enums::Command::BIND_BUFFER;
@@ -62,10 +62,10 @@ void ext::opengl::Pipeline::record( Graphic& graphic, CommandBuffer& commandBuff
 	commandBuffer.record(pipelineCommandInfo);
 #endif
 }
-void ext::opengl::Pipeline::update( Graphic& graphic ) {
+void ext::opengl::Pipeline::update( const Graphic& graphic ) {
 	return this->update( graphic, graphic.descriptor );
 }
-void ext::opengl::Pipeline::update( Graphic& graphic, GraphicDescriptor& descriptor ) {
+void ext::opengl::Pipeline::update( const Graphic& graphic, const GraphicDescriptor& descriptor ) {
 }
 void ext::opengl::Pipeline::destroy() {
 	if ( aliased ) return;
@@ -117,28 +117,24 @@ void ext::opengl::Material::initializeShaders( const uf::stl::vector<std::pair<u
 		attachShader( request.first, request.second, pipeline );
 	}
 }
-bool ext::opengl::Material::hasShader( const uf::stl::string& type, const uf::stl::string& pipeline ) {
+bool ext::opengl::Material::hasShader( const uf::stl::string& type, const uf::stl::string& pipeline ) const {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 //	return !ext::json::isNull( metadata["shaders"][type] );
 	return metadata.shaders.count(pipeline+":"+type) > 0;
 #else
 //	if ( ext::json::isNull( metadata["shaders"][type] ) ) return false;
 	if ( metadata.shaders.count(pipeline+":"+type) == 0 ) return false;
-	auto& shader = shaders.at(metadata.shaders[pipeline+":"+type]);
+	auto& shader = shaders.at(metadata.shaders.at(pipeline+":"+type));
 	return (bool) shader.module;
 #endif
 }
 ext::opengl::Shader& ext::opengl::Material::getShader( const uf::stl::string& type, const uf::stl::string& pipeline ) {
 	UF_ASSERT( hasShader(type, pipeline) );
 	return shaders.at( metadata.shaders[pipeline+":"+type] );
-/*
-	if ( !hasShader(type) ) {
-		static ext::opengl::Shader null;
-		return null;
-	}
-	size_t index = metadata["shaders"][type]["index"].as<size_t>();
-	return shaders.at(index);
-*/
+}
+const ext::opengl::Shader& ext::opengl::Material::getShader( const uf::stl::string& type, const uf::stl::string& pipeline ) const {
+	UF_ASSERT( hasShader(type, pipeline) );
+	return shaders.at( metadata.shaders.at(pipeline+":"+type) );
 }
 bool ext::opengl::Material::validate() {
 	bool was = true;
@@ -172,7 +168,7 @@ void ext::opengl::Graphic::initialize( const uf::stl::string& renderModeName ) {
 void ext::opengl::Graphic::initializePipeline() {
 	initializePipeline( this->descriptor, false );
 }
-ext::opengl::Pipeline& ext::opengl::Graphic::initializePipeline( GraphicDescriptor& descriptor, bool update ) {
+ext::opengl::Pipeline& ext::opengl::Graphic::initializePipeline( const GraphicDescriptor& descriptor, bool update ) {
 	auto& pipeline = pipelines[descriptor.hash()];
 
 //	auto previous = this->descriptor;
@@ -181,6 +177,7 @@ ext::opengl::Pipeline& ext::opengl::Graphic::initializePipeline( GraphicDescript
 	pipeline.update(*this, descriptor);
 //	if ( !update ) this->descriptor = previous;
 
+	process = true;
 	initialized = true;
 	material.validate();
 
@@ -230,26 +227,30 @@ void ext::opengl::Graphic::initializeGeometry( const uf::BaseGeometry& mesh ) {
 		uf::renderer::enums::Buffer::INDEX
 	);
 }
-bool ext::opengl::Graphic::hasPipeline( GraphicDescriptor& descriptor ) {
+bool ext::opengl::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
 	return pipelines.count( descriptor.hash() ) > 0;
 }
 ext::opengl::Pipeline& ext::opengl::Graphic::getPipeline() {
 	return getPipeline( descriptor );
 }
-ext::opengl::Pipeline& ext::opengl::Graphic::getPipeline( GraphicDescriptor& descriptor ) {
+ext::opengl::Pipeline& ext::opengl::Graphic::getPipeline( const GraphicDescriptor& descriptor ) {
 	if ( !hasPipeline(descriptor) ) return initializePipeline( descriptor );
 	return pipelines[descriptor.hash()];
+}
+const ext::opengl::Pipeline& ext::opengl::Graphic::getPipeline( const GraphicDescriptor& descriptor ) const {
+	UF_ASSERT( hasPipeline(descriptor) ); //return initializePipeline( descriptor );
+	return pipelines.at(descriptor.hash());
 }
 void ext::opengl::Graphic::updatePipelines() {
 	for ( auto pair : this->pipelines ) {
 		pair.second.update( *this );
 	}
 }
-void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, size_t draw ) {
+void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, size_t draw ) const {
 	return this->record( commandBuffer, descriptor, pass, draw );
 }
 
-void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, GraphicDescriptor& descriptor, size_t pass, size_t draw ) {
+void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw ) const {
 	if ( !process ) return;
 
 	Buffer::Descriptor vertexBuffer = {};
@@ -396,10 +397,8 @@ void ext::opengl::Graphic::destroy() {
 	ext::opengl::states::rebuild = true;
 }
 
-bool ext::opengl::Graphic::hasStorage( const uf::stl::string& name ) {
-	for ( auto& shader : material.shaders ) {
-		if ( shader.hasStorage(name) ) return true;
-	}
+bool ext::opengl::Graphic::hasStorage( const uf::stl::string& name ) const {
+	for ( auto& shader : material.shaders ) if ( shader.hasStorage(name) ) return true;
 	return false;
 }
 ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const uf::stl::string& name ) {
@@ -442,7 +441,7 @@ ext::opengl::Buffer::Descriptor ext::opengl::Graphic::getUniform( size_t target 
 	}
 	return {};
 }
-void ext::opengl::Graphic::updateUniform( void* data, size_t size, size_t target ) {
+void ext::opengl::Graphic::updateUniform( const void* data, size_t size, size_t target ) const {
 	size_t offset = 0;
 	for ( auto& buffer : buffers ) {
 		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
@@ -461,7 +460,7 @@ ext::opengl::Buffer::Descriptor ext::opengl::Graphic::getStorage( size_t target 
 	}
 	return {};
 }
-void ext::opengl::Graphic::updateStorage( void* data, size_t size, size_t target ) {
+void ext::opengl::Graphic::updateStorage( const void* data, size_t size, size_t target ) const {
 	size_t offset = 0;
 	for ( auto& buffer : buffers ) {
 		if ( !(buffer.usage & uf::renderer::enums::Buffer::STORAGE) ) continue;

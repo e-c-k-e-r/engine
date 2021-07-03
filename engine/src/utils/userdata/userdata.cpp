@@ -19,8 +19,6 @@ pod::Userdata* UF_API uf::userdata::copy( const pod::Userdata* userdata ) {
 }
 
 size_t uf::userdata::size( size_t len, size_t padding ) {
-	// padding = 0;
-	// return sizeof(size_t) + len + ( sizeof(uint8_t) * padding );
 	return sizeof(pod::Userdata) - sizeof(uint8_t) + len;
 }
 
@@ -30,20 +28,20 @@ pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool,
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
-	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( data, requestedLen );
+	pod::Userdata* userdata = (pod::Userdata*) memoryPool.alloc( requestedLen );
 #else
 	uf::MemoryPool* memoryPool = NULL;
 	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
 	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	pod::Userdata* userdata = NULL;
 	if ( memoryPool )
-		userdata = (pod::Userdata*) memoryPool->alloc( data, requestedLen );
+		userdata = (pod::Userdata*) memoryPool->alloc( requestedLen );
 	else {
-		userdata = (pod::Userdata*) operator new( requestedLen ); 	// allocate data for the userdata struct, and then some
-		if ( data ) memcpy( userdata->data, data, len );
-		else memset( userdata->data, 0, len );
+		userdata = (pod::Userdata*) uf::allocator::malloc_m( requestedLen ); 	// allocate data for the userdata struct, and then some
 	}
 #endif
+	if ( data ) memcpy( userdata->data, data, len );
+	else memset( userdata->data, 0, len );
 	userdata->len = len;
 #if UF_USERDATA_RTTI
 	userdata->type = 0;
@@ -60,17 +58,14 @@ void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Use
 	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
 	
 	if ( memoryPool ) memoryPool->free( userdata, size(userdata->len) );
-	else {
-		// free(userdata);
-		delete[] userdata;
-	}
+	else uf::allocator::free_m(userdata);
 #endif
 }
 pod::Userdata* UF_API uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
 	if ( !userdata || userdata->len <= 0 ) return NULL;
-	auto* copied = uf::userdata::create( userdata->len, const_cast<uint8_t*>(userdata->data) );
+	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) userdata->data[0]) );
 #if UF_USERDATA_RTTI
-//	copied->type = userdata->type;
+	copied->type = userdata->type;
 #endif
 	return copied;
 }

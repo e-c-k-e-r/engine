@@ -12,12 +12,9 @@
 namespace uf {
 	namespace ObjectBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void UF_API attach( uf::Entity& );
-		void UF_API initialize( uf::Object& );
-		void UF_API tick( uf::Object& );
-		void UF_API render( uf::Object& );
-		void UF_API destroy( uf::Object& );
-		struct Metadata {
+		UF_BEHAVIOR_DEFINE_TRAITS;
+		UF_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			struct Queued {
 				uf::stl::string name;
 				ext::json::Value payload;
@@ -39,9 +36,6 @@ namespace uf {
 				pod::Transform<> initial;
 				bool trackParent = false;
 			} transform;
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

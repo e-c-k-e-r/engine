@@ -88,24 +88,40 @@ namespace ext {
 			void destroy();
 			bool validate();
 
-			bool hasUniform( const uf::stl::string& name );
+			bool hasUniform( const uf::stl::string& name ) const;
 
-			Buffer* getUniformBuffer( const uf::stl::string& name );
+			Buffer& getUniformBuffer( const uf::stl::string& name );
+			const Buffer& getUniformBuffer( const uf::stl::string& name ) const;
+			
 			ext::opengl::userdata_t& getUniform( const uf::stl::string& name );
+			const ext::opengl::userdata_t& getUniform( const uf::stl::string& name ) const;
+
+			bool updateUniform( const uf::stl::string& name, const void*, size_t ) const;
+			inline bool updateUniform( const uf::stl::string& name ) const {
+				if ( !hasUniform(name) ) return false;
+				return updateUniform(name, getUniform(name));
+			}
+			inline bool updateUniform( const uf::stl::string& name, const ext::opengl::userdata_t& userdata ) const {
+				return updateUniform(name, (const void*) userdata, userdata.size() );
+			}
+
+			bool hasStorage( const uf::stl::string& name ) const;
+			Buffer& getStorageBuffer( const uf::stl::string& name );
+			const Buffer& getStorageBuffer( const uf::stl::string& name ) const;
+			
 			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
 			ext::opengl::userdata_t getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload );
-			bool updateUniform( const uf::stl::string& name );
-			bool updateUniform( const uf::stl::string& name, const ext::opengl::userdata_t& );
-			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );
-			
-			bool hasStorage( const uf::stl::string& name );
-			Buffer* getStorageBuffer( const uf::stl::string& name );
+			inline bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload ) {
+				if ( !hasUniform(name) ) return false;
+				return updateUniform( name, getUniformUserdata( name, payload ) );
+			}
+
 			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
 			ext::opengl::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 
 		#if UF_USE_OPENGL_FIXED_FUNCTION
 			static void bind( const uf::stl::string& name, const module_t& module );
-			void execute( const Graphic& graphic, void* = NULL );
+			void execute( const Graphic& graphic, void* = NULL ) const;
 		#endif
 		};
 	}

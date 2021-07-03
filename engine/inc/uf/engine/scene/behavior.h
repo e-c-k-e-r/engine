@@ -3,21 +3,15 @@
 namespace uf {
 	namespace SceneBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
-		void UF_API attach( uf::Entity& );
-		void UF_API initialize( uf::Object& );
-		void UF_API tick( uf::Object& );
-		void UF_API render( uf::Object& );
-		void UF_API destroy( uf::Object& );
-		struct Metadata {
+		UF_BEHAVIOR_DEFINE_TRAITS;
+		UF_BEHAVIOR_DEFINE_FUNCTIONS;
+		UF_BEHAVIOR_DEFINE_METADATA {
 			uf::stl::vector<uf::Entity*> graph;
 			bool invalidationQueued = false;
 			struct {
 				uf::Entity* controller = NULL;
 				void* renderMode = NULL;
 			} cached;
-
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
 		};
 	}
 }

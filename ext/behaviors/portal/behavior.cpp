@@ -155,7 +155,7 @@ void ext::PortalBehavior::render( uf::Object& self ){
 			uniforms.cursor.color.z = 0.0f;
 			uniforms.cursor.color.w = 0.0f;
 		}
-		shader.updateBuffer( (void*) &uniforms, sizeof(uniforms), 0 );
+		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), 0 );
 	}
 }
 void ext::PortalBehavior::destroy( uf::Object& self ){

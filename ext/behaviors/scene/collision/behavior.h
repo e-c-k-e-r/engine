@@ -8,6 +8,7 @@
 namespace ext {
 	namespace SceneCollisionBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE;
+		EXT_BEHAVIOR_DEFINE_TRAITS;
 		void attach( uf::Object& );
 		void initialize( uf::Object& );
 		void tick( uf::Object& );

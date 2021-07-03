@@ -4,13 +4,13 @@ namespace pod {
 	#if UF_USERDATA_RTTI
 		size_t type = 0;
 	#endif
-		uint8_t* data = NULL;
+		void* data = NULL;
 	};
 }
 
 namespace uf {
 	namespace pointeredUserdata {
-		pod::PointeredUserdata UF_API create( std::size_t len, void* data = NULL );
+		pod::PointeredUserdata UF_API create( size_t len, void* data = NULL );
 		void UF_API destroy( pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API copy( const pod::PointeredUserdata& userdata );
 
@@ -26,7 +26,7 @@ namespace uf {
 	//	void copy( pod::PointeredUserdata& to, const pod::PointeredUserdata& from );
 
 		// usage with MemoryPool
-		pod::PointeredUserdata UF_API create( uf::MemoryPool&, std::size_t len, void* data = NULL );
+		pod::PointeredUserdata UF_API create( uf::MemoryPool&, size_t len, void* data = NULL );
 		template<typename T> pod::PointeredUserdata create( uf::MemoryPool&, const T& data = T() );
 		void UF_API destroy( uf::MemoryPool&, pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API copy( uf::MemoryPool&, const pod::PointeredUserdata& userdata );
@@ -48,12 +48,12 @@ namespace uf {
 	public:
 	// 	C-tor
 	
-		PointeredUserdata(std::size_t len = 0, void* data = NULL); 	// initializes POD to default
+		PointeredUserdata( size_t len = 0, void* data = NULL); 	// initializes POD to default
 		PointeredUserdata( const pod::PointeredUserdata& ); 						// initializes from POD
 		PointeredUserdata( PointeredUserdata&& move ) noexcept; 					// Move c-tor
 		PointeredUserdata( const PointeredUserdata& copy ); 				// Copy c-tor
 	
-		pod::PointeredUserdata& create( std::size_t len, void* data = NULL );
+		pod::PointeredUserdata& create( size_t len, void* data = NULL );
 		void move( PointeredUserdata& move );
 		void move( PointeredUserdata&& move );
 		void copy( const PointeredUserdata& copy );
@@ -89,8 +89,6 @@ namespace uf {
 	};
 }
 
-#include <cstdlib> // malloc, free
-
 // Allows copy via assignment!
 template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( const T& data ) {
@@ -99,30 +97,12 @@ pod::PointeredUserdata uf::pointeredUserdata::create( const T& data ) {
 template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
 //	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
-	size_t len = sizeof(data);
-#if UF_MEMORYPOOL_INVALID_MALLOC
-	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
-	pod::PointeredUserdata userdata;
-	userdata.len = len;
-	userdata.data = (uint8_t*) memoryPool.alloc( nullptr, len );
-#else
-	uf::MemoryPool* memoryPool = NULL;
-	if ( requestedMemoryPool.size() > 0 ) memoryPool = &requestedMemoryPool;
-	else if ( uf::memoryPool::global.size() > 0 ) memoryPool = &uf::memoryPool::global;
-	pod::PointeredUserdata userdata;
-	userdata.len = len;
-	userdata.data = NULL;
-	if ( memoryPool )
-		userdata.data = (uint8_t*) memoryPool->alloc( nullptr, len );
-	else
-		userdata.data = (uint8_t*) operator new( len ); 	// allocate data for the userdata struct, and then some	}
-#endif
-	userdata.len = len;
+	pod::PointeredUserdata userdata = uf::pointeredUserdata::create( requestedMemoryPool, sizeof(data), nullptr );
 #if UF_USERDATA_RTTI
 	userdata.type = typeid(T).hash_code();
 #endif
 	union {
-		uint8_t* from;
+		void* from;
 		T* to;
 	} kludge;
 	kludge.from = userdata.data;
@@ -135,7 +115,7 @@ template<typename T>
 T& uf::pointeredUserdata::get( pod::PointeredUserdata& userdata, bool validate ) {
 	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
-		uint8_t* original;
+		void* original;
 		T* casted;
 	} cast;
 	cast.original = userdata.data;
@@ -145,7 +125,7 @@ template<typename T>
 const T& uf::pointeredUserdata::get( const pod::PointeredUserdata& userdata, bool validate ) {
 	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
-		const uint8_t* original;
+		const void* original;
 		const T* casted;
 	} cast;
 	cast.original = userdata.data;
