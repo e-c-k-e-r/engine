@@ -1,3 +1,4 @@
+#if 0
 #include <uf/utils/type/type.h>
 #include <uf/utils/io/iostream.h>
 
@@ -24,16 +25,19 @@ namespace {
 }
 
 uf::stl::unordered_map<uf::typeInfo::index_t, pod::TypeInfo>* uf::typeInfo::types = NULL;
-void uf::typeInfo::registerType( const index_t& index, size_t size, const uf::stl::string& pretty ) {
+void uf::typeInfo::registerType( const uf::typeInfo::index_t& index, size_t size, const uf::stl::string& pretty ) {
 	if ( !uf::typeInfo::types ) uf::typeInfo::types = new uf::stl::unordered_map<uf::typeInfo::index_t, pod::TypeInfo>;
 	bool exists = uf::typeInfo::types->count(index) > 0;
 	auto& type = (*uf::typeInfo::types)[index];
 	if ( !exists || type.size < size ) type.size = size;
+#if UF_CTTI
+	if ( !exists ) type.hash = index.hash();
+	if ( !exists ) type.name.compiler = index.name().str();
+#else
 	if ( !exists ) type.hash = index.hash_code();
 	if ( !exists ) type.name.compiler = index.name();
+#endif
 	if ( !exists || pretty != "" ) type.name.pretty = pretty != "" ? pretty : demangle( type.name.compiler );
-
-	// if ( !exists ) uf::iostream << "Registered type " << type.name.pretty << " (Mangled: " << type.name.compiler << ") of size " << size << "\n";
 }
 const pod::TypeInfo& UF_API uf::typeInfo::getType( size_t hash ) {
 	if ( !uf::typeInfo::types ) uf::typeInfo::types = new uf::stl::unordered_map<uf::typeInfo::index_t, pod::TypeInfo>;
@@ -48,3 +52,4 @@ const pod::TypeInfo& uf::typeInfo::getType( const index_t& index ) {
 	if ( !uf::typeInfo::types ) uf::typeInfo::types = new uf::stl::unordered_map<uf::typeInfo::index_t, pod::TypeInfo>;
 	return (*uf::typeInfo::types)[index];
 }
+#endif

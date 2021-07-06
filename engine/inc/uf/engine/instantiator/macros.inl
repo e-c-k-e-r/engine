@@ -11,7 +11,7 @@ namespace {\
 namespace {\
 	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{\
 		uf::instantiator::registerBehavior(UF_NS_GET_LAST(BEHAVIOR), pod::Behavior{\
-			.type = BEHAVIOR::type,\
+			.type = TYPE(BEHAVIOR::Metadata),\
 			.traits = {\
 				.ticks = BEHAVIOR::Traits::ticks,\
 				.renders = BEHAVIOR::Traits::renders,\
@@ -44,7 +44,7 @@ namespace {\
 #define UF_OBJECT_REGISTER_BEHAVIOR( BEHAVIOR )\
 		if ( !uf::instantiator::behaviors ) uf::instantiator::behaviors = new uf::stl::unordered_map<uf::stl::string, pod::Behavior>;\
 		uf::instantiator::registerBehavior(UF_NS_GET_LAST(BEHAVIOR), pod::Behavior{\
-			.type = BEHAVIOR::type,\
+			.type = TYPE(BEHAVIOR::Metadata),\
 			.traits = {\
 				.ticks = BEHAVIOR::Traits::ticks,\
 				.renders = BEHAVIOR::Traits::renders,\

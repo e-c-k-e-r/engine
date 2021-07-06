@@ -9,10 +9,10 @@
 
 namespace ext {
 	namespace VoxelizerBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		EXT_BEHAVIOR_DEFINE_TRAITS;
-		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		EXT_BEHAVIOR_DEFINE_TRAITS();
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector3ui fragmentSize = { 0, 0 };
 			pod::Vector3ui voxelSize = { 0, 0, 0 };
 			pod::Vector3ui dispatchSize = { 0, 0, 0 };
@@ -33,6 +33,6 @@ namespace ext {
 				float timer = 0.0f;
 			} renderer;
 			bool initialized = false;
-		};
+		);
 	}
 }

@@ -7,7 +7,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/ext/bullet/bullet.h>
@@ -104,15 +104,11 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	metadata.serialize = [&](){
-		if ( metadata.transform.trackParent ) metadataJson["system"]["transform"]["track"] = "parent";
-	};
-	metadata.deserialize = [&](){
-		metadata.transform.initial = this->getComponent<pod::Transform<>>();
-		metadata.transform.trackParent = metadataJson["system"]["transform"]["track"].as<uf::stl::string>() == "parent";
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	metadata.deserialize();
+
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 
 #if UF_USE_BULLET
 	if ( ext::json::isObject(metadataJson["system"]["physics"]) ) {
@@ -142,56 +138,40 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 #endif
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
-#if UF_ENTITY_METADATA_USE_JSON
-	auto& metadata = this->getComponent<uf::Serializer>();
-	ext::json::forEach( metadata["system"]["hooks"]["bound"], [&]( const uf::stl::string& key, ext::json::Value& value ){
-		ext::json::forEach( value, [&]( ext::json::Value& id ){
-			uf::hooks.removeHook(key, id.as<size_t>());
-		});
-	});
-
-#else
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	for ( auto pair : metadata.hooks.bound ) {
 		for ( auto id : pair.second ) uf::hooks.removeHook(pair.first, id);
 	}
-#endif
 
 	if ( this->hasComponent<uf::Audio>() ) {
 		auto& audio = this->getComponent<uf::Audio>();
 		audio.destroy();
 	//	this->deleteComponent<uf::Audio>();
-	//	UF_MSG_DEBUG("Destroying audio: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::SoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::SoundEmitter>();
 		audio.cleanup(true);
 	//	this->deleteComponent<uf::SoundEmitter>();
-	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::MappedSoundEmitter>() ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
 		audio.cleanup(true);
 	//	this->deleteComponent<uf::MappedSoundEmitter>();
-	//	UF_MSG_DEBUG("Destroying sound emitter: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Graphic>() ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		graphic.destroy();
 	//	this->deleteComponent<uf::Graphic>();
-	//	UF_MSG_DEBUG("Destroying graphic: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::destroy( graph );
 	//	this->deleteComponent<pod::Graph>();
-	//	UF_MSG_DEBUG("Destroying graph: " << this->getName() << ": " << this->getUid());
 	}
 	if ( this->hasComponent<uf::Atlas>() ) {
 		auto& atlas = this->getComponent<uf::Atlas>();
 		atlas.clear();
 	//	this->deleteComponent<uf::Atlas>();
-	//	UF_MSG_DEBUG("Destroying atlas: " << this->getName() << ": " << this->getUid());
 	}
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
@@ -199,7 +179,6 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		uf::renderer::removeRenderMode( &renderMode, false );
 		renderMode.destroy();
 	//	this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
-	//	UF_MSG_DEBUG("Destroying render mode: " << this->getName() << ": " << this->getUid());
 	}
 #endif
 }
@@ -217,39 +196,12 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
 		audio.update();
 	}
-	// listen for metadata file changes
-#if UF_ENTITY_METADATA_USE_JSON
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-#if !UF_ENV_DREAMCAST
-	if ( metadataJson["system"]["hot reload"]["enabled"].as<bool>() ) {
-		size_t mtime = uf::io::mtime( metadataJson["system"]["source"].as<uf::stl::string>() );
-		if ( metadataJson["system"]["hot reload"]["mtime"].as<size_t>() < mtime ) {
-			metadataJson["system"]["hot reload"]["mtime"] = mtime;
-			this->reload();
-		}
-	}
-#endif
-	// Call queued hooks
-	{
-		auto& queue = metadataJson["system"]["hooks"]["queue"];
-		if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-		float curTime = uf::Object::timer.elapsed().asDouble();
-		uf::Serializer newQueue = ext::json::array();
-		if ( !ext::json::isNull( queue ) ) {
-			ext::json::forEach(queue, [&](ext::json::Value& member){
-				if ( !ext::json::isObject(member) ) return;
-				uf::Serializer payload = member["payload"];
-				uf::stl::string name = member["name"].as<uf::stl::string>();
-				float timeout = member["timeout"].as<float>();
-				if ( timeout < curTime ) this->callHook( name, payload );
-				else newQueue.emplace_back(member);
-			});
-		}
-		if ( ext::json::isObject( metadataJson ) ) queue = newQueue;
-	}
-#else
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.deserialize(self, metadataJson);
+#endif
+	// listen for metadata file changes
 	if ( metadata.hotReload.enabled ) {
 		size_t mtime = uf::io::mtime( metadata.hotReload.source );
 		if ( metadata.hotReload.mtime < mtime ) {
@@ -268,6 +220,7 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	auto& queue = metadata.hooks.queue;
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 	float curTime = uf::Object::timer.elapsed().asDouble();
+
 #if 1
 	decltype(metadata.hooks.queue) unprocessed;
 	unprocessed.reserve( metadata.hooks.queue.size() );
@@ -285,8 +238,19 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		else ++it;
 	}
 #endif
+
+#if UF_ENTITY_METADATA_USE_JSON
+	metadata.serialize(self, metadataJson);
 #endif
 }
 void uf::ObjectBehavior::render( uf::Object& self ) {}
 #undef this
+
+void uf::ObjectBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
+	if ( /*this->*/transform.trackParent ) serializer["system"]["transform"]["track"] = "parent";
+}
+void uf::ObjectBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
+	/*this->*/transform.initial = self.getComponent<pod::Transform<>>();
+	/*this->*/transform.trackParent = serializer["system"]["transform"]["track"].as<uf::stl::string>() == "parent";
+}
 UF_BEHAVIOR_ENTITY_CPP_END(Object)

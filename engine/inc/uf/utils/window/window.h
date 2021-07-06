@@ -4,7 +4,6 @@
 #include <uf/spec/window/window.h>
 #include <uf/spec/context/context.h>
 
-#if !UF_USE_SFML
 namespace uf {
 	class UF_API Window : public spec::uni::Window {
 	public:
@@ -57,13 +56,3 @@ namespace uf {
 		const Window::window_t* UF_API_CALL getHandle() const;
 	};
 }
-#elif UF_USE_SFML
-namespace uf {
-	typedef ext::sfml::Window Window;	
-}
-#elif UF_USE_GLFW
-#include <uf/ext/glfw/glfw.h>
-namespace uf {
-	typedef ext::glfw::Window Window;
-}
-#endif

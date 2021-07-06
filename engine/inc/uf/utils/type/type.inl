@@ -1,6 +1,6 @@
 template<typename T>
-const std::type_index uf::typeInfo::getIndex() {
-	return typeid(T);
+const uf::typeInfo::index_t uf::typeInfo::getIndex() {
+	return TYPE(T);
 }
 template<typename T>
 void uf::typeInfo::registerType( const uf::stl::string& pretty ) {

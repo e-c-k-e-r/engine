@@ -7,7 +7,7 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/math/physics.h>
@@ -84,30 +84,10 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 		}
 	});
 
-	metadata.serialize = [&](){
-		metadataJson["overlay"]["enabled"] = metadata.overlay.enabled;
-		metadataJson["overlay"]["floating"] = metadata.overlay.floating;
-		metadataJson["overlay"]["transform"] = uf::transform::encode( metadata.overlay.transform );
-
-		metadataJson["overlay"]["cursor"]["type"] = metadata.overlay.cursor.type;
-		metadataJson["overlay"]["cursor"]["enabled"] = metadata.overlay.cursor.enabled;
-		metadataJson["overlay"]["cursor"]["position"] = uf::vector::encode( metadata.overlay.cursor.position );
-	 	metadataJson["overlay"]["cursor"]["radius"] = metadata.overlay.cursor.radius;
-	 	metadataJson["overlay"]["cursor"]["color"] = uf::vector::encode( metadata.overlay.cursor.color );
-	};
-	metadata.deserialize = [&](){
-		metadata.overlay.enabled = metadataJson["overlay"]["enabled"].as( metadata.overlay.enabled );
-		metadata.overlay.floating = metadataJson["overlay"]["floating"].as( metadata.overlay.floating );
-		metadata.overlay.transform = uf::transform::decode( metadataJson["overlay"]["transform"], metadata.overlay.transform );
-
-		metadata.overlay.cursor.type = metadataJson["overlay"]["cursor"]["type"].as( metadata.overlay.cursor.type );
-		metadata.overlay.cursor.enabled = metadataJson["overlay"]["cursor"]["enabled"].as( metadata.overlay.cursor.enabled );
-		metadata.overlay.cursor.position = uf::vector::decode( metadataJson["overlay"]["cursor"]["position"], metadata.overlay.cursor.position );
-	 	metadata.overlay.cursor.radius = metadataJson["overlay"]["cursor"]["radius"].as( metadata.overlay.cursor.radius );
-	 	metadata.overlay.cursor.color = uf::vector::decode( metadataJson["overlay"]["cursor"]["color"], metadata.overlay.cursor.color );
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	metadata.deserialize();
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #if UF_USE_VULKAN
@@ -131,7 +111,7 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize();
 #else
-	if ( metadata.overlay.cursor.type == "" && metadata.deserialize ) metadata.deserialize();
+//	if ( metadata.overlay.cursor.type == "" ) metadata.deserialize( self, metadataJson );
 #endif
 	struct UniformDescriptor {
 		struct {
@@ -146,11 +126,12 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 	};
 	
 	auto& shader = blitter.material.getShader("vertex");
-/*
+#if UF_UNIFORMS_REUSE
 	auto& uniform = shader.getUniform("UBO");
 	auto& uniforms = uniform.get<UniformDescriptor>();
-*/
+#else
 	UniformDescriptor uniforms;
+#endif
 	for ( size_t i = 0; i < 2; ++i ) {
 	#if UF_USE_OPENVR
 		if ( ext::openvr::enabled && metadata.overlay.enabled ) {
@@ -178,10 +159,11 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 		}
 		uniforms.cursor.color = metadata.overlay.cursor.color;
 	}
-
-//	shader.updateUniform( "UBO", uniform );
-//	blitter.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+#if UF_UNIFORMS_REUSE
+	blitter.updateUniform( "UBO", uniform );
+#else
 	blitter.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+#endif
 #endif
 }
 void ext::GuiManagerBehavior::render( uf::Object& self ){}
@@ -191,5 +173,27 @@ void ext::GuiManagerBehavior::destroy( uf::Object& self ){
 		uf::renderer::removeRenderMode( &renderMode, false );
 		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}
+}
+void ext::GuiManagerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
+	serializer["overlay"]["enabled"] = /*this->*/overlay.enabled;
+	serializer["overlay"]["floating"] = /*this->*/overlay.floating;
+	serializer["overlay"]["transform"] = uf::transform::encode( /*this->*/overlay.transform );
+
+	serializer["overlay"]["cursor"]["type"] = /*this->*/overlay.cursor.type;
+	serializer["overlay"]["cursor"]["enabled"] = /*this->*/overlay.cursor.enabled;
+	serializer["overlay"]["cursor"]["position"] = uf::vector::encode( /*this->*/overlay.cursor.position );
+ 	serializer["overlay"]["cursor"]["radius"] = /*this->*/overlay.cursor.radius;
+ 	serializer["overlay"]["cursor"]["color"] = uf::vector::encode( /*this->*/overlay.cursor.color );
+}
+void ext::GuiManagerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
+	/*this->*/overlay.enabled = serializer["overlay"]["enabled"].as( /*this->*/overlay.enabled );
+	/*this->*/overlay.floating = serializer["overlay"]["floating"].as( /*this->*/overlay.floating );
+	/*this->*/overlay.transform = uf::transform::decode( serializer["overlay"]["transform"], /*this->*/overlay.transform );
+
+	/*this->*/overlay.cursor.type = serializer["overlay"]["cursor"]["type"].as( /*this->*/overlay.cursor.type );
+	/*this->*/overlay.cursor.enabled = serializer["overlay"]["cursor"]["enabled"].as( /*this->*/overlay.cursor.enabled );
+	/*this->*/overlay.cursor.position = uf::vector::decode( serializer["overlay"]["cursor"]["position"], /*this->*/overlay.cursor.position );
+ 	/*this->*/overlay.cursor.radius = serializer["overlay"]["cursor"]["radius"].as( /*this->*/overlay.cursor.radius );
+ 	/*this->*/overlay.cursor.color = uf::vector::decode( serializer["overlay"]["cursor"]["color"], /*this->*/overlay.cursor.color );
 }
 #undef this

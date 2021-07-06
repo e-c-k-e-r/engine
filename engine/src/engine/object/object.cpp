@@ -7,7 +7,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
 uf::Timer<long long> uf::Object::timer(false);
@@ -274,7 +274,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		UF_OBJECT_LOAD_ASSET_HEADER(models)
 		for ( size_t i = 0; i < target.size(); ++i ) {
 			UF_OBJECT_LOAD_ASSET("gltf", "glb", "graph")
-			if ( bind ) uf::instantiator::bind("GltfBehavior", *this);
+			if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
 			
 			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
 			aMetadata[filename] = json["metadata"]["model"];

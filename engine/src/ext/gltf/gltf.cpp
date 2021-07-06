@@ -236,15 +236,46 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 	{
 		graph.meshes.reserve(model.meshes.size());
 		for ( auto& m : model.meshes ) {
+		//	auto& mesh = graph.meshes.emplace_back();
+
+		/*
+			struct {
+				uf::Mesh<uf::graph::mesh::Base> base;
+				uf::Mesh<uf::graph::mesh::ID> id;
+				uf::Mesh<uf::graph::mesh::Skinned> skinned;
+			} meshes;
+		*/
+		/*
+			// use skinned mesh
+			if ( mode & uf::graph::LoadMode::SKINNED ) {
+				mesh.set<uf::graph::mesh::Skinned>();
+			// use ID'd mesh
+			} else {
+				mesh.set<uf::graph::mesh::ID>();
+			}
+		*/
+			// we'll fill up the most feature complete mesh (skinned) and then convert down to what we need
+			// this is fine since we only really ever load gltf files once, and parse to an internal format for reuse
+		/*
+			uf::Mesh<uf::graph::mesh::Skinned, uint32_t> storageMesh;
+			// already here, just move it over
+			auto& MESH = graph.meshes.emplace_back();
+			auto& mesh = ( mode & uf::graph::LoadMode::SKINNED ) ? MESH.get<uf::graph::mesh::Skinned>() : storageMesh;
+		*/
+		#if UF_GRAPH_EXPERIMENTAL
+			uf::Mesh<uf::graph::mesh::Skinned, uint32_t> mesh;
+			auto& varyingMesh = graph.meshes.emplace_back();
+		#else
 			auto& mesh = graph.meshes.emplace_back();
-			pod::DrawCall drawCall; //auto& drawCall = graph.nodes[nodeIndex].drawCall;
-		//	drawCall.name = node.name;
+		#endif
+
+			pod::DrawCall drawCall;
 			drawCall.verticesIndex = mesh.vertices.size();
 			drawCall.indicesIndex = mesh.indices.size();
 			drawCall.vertices = 0;
 			drawCall.indices = 0;
 			for ( auto& primitive : m.primitives ) {
-				pod::DrawCall dc; //auto& dc = graph.nodes[nodeIndex].primitives.emplace_back();
+				pod::DrawCall dc;
 				dc.verticesIndex = mesh.vertices.size();
 				dc.indicesIndex = mesh.indices.size();
 
@@ -311,12 +342,11 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 					ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
 					ITERATE_ATTRIBUTE("NORMAL", normal);
 					ITERATE_ATTRIBUTE("TANGENT", tangent);
+					vertex.id = { 0, primitive.material };
 					ITERATE_ATTRIBUTE("JOINTS_0", joints);
 					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
 
 					#undef ITERATE_ATTRIBUTE
-					vertex.id.x = 0;
-					vertex.id.y = primitive.material;
 
 					// required due to reverse-Z projection matrix flipping the X axis as well
 					// default is to proceed with this
@@ -362,15 +392,47 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 
 				drawCall.vertices += dc.vertices;
 				drawCall.indices += dc.indices;
-				
-				mesh.updateDescriptor();
-			/*
-				UF_MSG_DEBUG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
-				size_t o = graph.metadata["mesh optimization"].is<size_t>() ? graph.metadata["mesh optimization"].as<size_t>() : SIZE_MAX;
-				if ( o > 0 ) mesh.optimize(o);
-				UF_MSG_DEBUG( "Indices: " << mesh.indices.size() << " | Vertices: " << mesh.vertices.size() );
-			*/
 			}
+			mesh.updateDescriptor();
+
+			// convert to a more optimal format
+		#if UF_GRAPH_EXPERIMENTAL
+			bool override = graph.metadata["debug"]["override varying mesh"].as<bool>();
+			// use skinned mesh
+			if ( override || (mode & uf::graph::LoadMode::SKINNED) ) {
+				auto& m = varyingMesh.get<uf::graph::mesh::Skinned>();
+				m.indices = std::move( mesh.indices );
+				m.vertices = std::move( mesh.vertices );
+		#if 0
+			// use barebone mesh
+			} else if ( UF_ENV_DREAMCAST ) {
+				auto& m = varyingMesh.get<uf::graph::mesh::Base>();
+				m.indices = std::move( mesh.indices );
+				m.vertices.reserve( mesh.vertices.size() );
+				for ( auto& v : mesh.vertices ) m.vertices.emplace_back(uf::graph::mesh::Base{
+					.position = v.position,
+					.uv = v.uv,
+					.st = v.st,
+					.normal = v.normal,
+				});			
+		#endif
+			// use ID'd mesh
+			} else {
+				auto& m = varyingMesh.get<uf::graph::mesh::ID>();
+				m.indices = std::move( mesh.indices );
+				m.vertices.reserve( mesh.vertices.size() );
+				for ( auto& v : mesh.vertices ) m.vertices.emplace_back(uf::graph::mesh::ID{
+					.position = v.position,
+					.uv = v.uv,
+					.st = v.st,
+					.normal = v.normal,
+					.tangent = v.tangent,
+					.id = v.id,
+				});
+			}
+			varyingMesh.updateDescriptor();
+		#else
+		#endif
 		}
 	}
 	// load node information/meshes
@@ -405,10 +467,18 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
 				const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 				const void* dataPtr = &buffer.data[accessor.byteOffset + view.byteOffset];
-				const pod::Matrix4f* buf = static_cast<const pod::Matrix4f*>(dataPtr);
-					
+
+			#if UF_MATRIX_ALIGNED	
+				skin.inverseBindMatrices.resize(accessor.count);
+				const float* buf = static_cast<const float*>(dataPtr);
+				for ( size_t i = 0; i < accessor.count; ++i ) {
+					memcpy( &skin.inverseBindMatrices[i], (const void*) &buf[i*16], sizeof(float) * 16 );
+				}
+			#else
 				skin.inverseBindMatrices.reserve(accessor.count);
+				const pod::Matrix4f* buf = static_cast<const pod::Matrix4f*>(dataPtr);
 				for ( size_t i = 0; i < accessor.count; ++i ) skin.inverseBindMatrices.emplace_back( buf[i] );
+			#endif
 			}
 
 			skin.joints.reserve( s.joints.size() );

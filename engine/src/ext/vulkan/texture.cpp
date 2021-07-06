@@ -153,6 +153,8 @@ void ext::vulkan::Texture::setImageLayout(
 	VkImageMemoryBarrier imageMemoryBarrier = ext::vulkan::initializers::imageMemoryBarrier();
 	imageMemoryBarrier.oldLayout = oldImageLayout;
 	imageMemoryBarrier.newLayout = newImageLayout;
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	imageMemoryBarrier.image = image;
 	imageMemoryBarrier.subresourceRange = subresourceRange;
 
@@ -412,6 +414,12 @@ void ext::vulkan::Texture::fromBuffers(
 		}
 	}
 
+	uf::stl::vector<uint32_t> queueFamilyIndices = {};
+	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.graphics ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.graphics);
+	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.present ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.present);
+	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.compute ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.compute);
+	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.transfer ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.transfer);
+
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
 	imageCreateInfo.imageType = this->type;
@@ -420,7 +428,10 @@ void ext::vulkan::Texture::fromBuffers(
 	imageCreateInfo.arrayLayers = this->layers;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+	imageCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+//	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.usage = imageUsageFlags;
@@ -721,6 +732,8 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.image = image;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseArrayLayer = layer;
 	barrier.subresourceRange.layerCount = 1;

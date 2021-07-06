@@ -3,17 +3,13 @@
 	"name": "MedSci",
 	"ignore": false,
 	"assets": [
-	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false }
-	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
-	
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/medsci.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/medsci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/medsci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"
@@ -57,18 +53,17 @@
 				"ATLAS": true,
 				"INVERT": false,
 				"TRANSFORM": false,
+				"SKINNED": false,
 				
 				"RENDER": true,
-				"COLLISION": false,
 				"SEPARATE": false,
-				"NORMALS": true,
-				"LOAD": false
+				"NORMALS": false
 			},
 			"lights": {
 				"shadows": true
 			},
 			"tags": {
-				"worldspawn_20": { 
+				"worldspawn": { 
 					"action": "attach",
 					"filename": "./baker.json",
 					"collision": { "type": "mesh", "static": true }

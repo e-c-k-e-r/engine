@@ -81,7 +81,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 		}
 	}
 	{
-		uf::BaseMesh<pod::Vertex_2F2F, uint32_t> mesh;
+		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
@@ -174,9 +174,10 @@ void ext::vulkan::ComputeRenderMode::destroy() {
 void ext::vulkan::ComputeRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
 	if ( compute.buffers.empty() ) return;
 	
-	VkImageMemoryBarrier imageMemoryBarrier = {};
-	imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
 	for ( auto& texture : compute.material.textures ) {
 		VkPipelineStageFlags srcStageMask, dstStageMask;

@@ -75,12 +75,27 @@
 	UF_MSG_DEBUG(X);\
 
 #define UF_TIMER_MULTITRACE(X) {\
-	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_MSG_DEBUG(std::setfill(' ') << std::setw(6) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(6) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
+	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMilliseconds();\
+	UF_MSG_DEBUG(std::setfill(' ') << std::setw(4) << TIMER_TRACE_CUR << " ms\t" << std::setfill(' ') << std::setw(4) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " ms\t" << X);\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 
 #define UF_TIMER_MULTITRACE_END(X) UF_MSG_DEBUG(X);
+
+#if UF_CTTI
+	#include <ctti/type_id.hpp>
+	#define TYPE_INDEX_T ctti::type_id_t
+	#define TYPE_HASH_T ctti::detail::hash_t
+	#define TYPE(T) ctti::type_id<T>()
+	#define TYPE_HASH(T) TYPE(T).hash()
+	#define TYPE_NAME(T) ctti::nameof<T>()
+#else
+	#define TYPE_INDEX_T std::type_index
+	#define TYPE_HASH_T std::size_t
+	#define TYPE(T) typeid(T)
+	#define TYPE_HASH(T) TYPE(T).hash_code()
+	#define TYPE_NAME(T) TYPE(T).name()
+#endif
 
 #define MIN(X, Y) X < Y ? X : Y 
 #define MAX(X, Y) X > Y ? X : Y 

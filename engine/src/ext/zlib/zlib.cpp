@@ -1,7 +1,11 @@
 #include <uf/ext/zlib/zlib.h>
 #include <uf/utils/io/file.h>
-#include <zlib.h>
 #include <cstring>
+#if UF_ENV_DREAMCAST
+#include <zlib/zlib.h>
+#else
+#include <zlib.h>
+#endif
 
 size_t ext::zlib::bufferSize = 2048;
 /*

@@ -193,76 +193,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	}
 	#endif
 
-	metadata.serialize = [&]() {
-		metadataJson["light"]["should"] = metadata.light.enabled;
-
-		metadataJson["light"]["ambient"] = uf::vector::encode( metadata.light.ambient );
-		metadataJson["light"]["specular"] = uf::vector::encode( metadata.light.specular );
-		metadataJson["light"]["exposure"] = metadata.light.exposure;
-		metadataJson["light"]["gamma"] = metadata.light.gamma;
-
-		metadataJson["light"]["fog"]["color"] = uf::vector::encode( metadata.fog.color );
-		metadataJson["light"]["fog"]["step scale"] = metadata.fog.stepScale;
-		metadataJson["light"]["fog"]["absorbtion"] = metadata.fog.absorbtion;
-		metadataJson["light"]["fog"]["range"] = uf::vector::encode( metadata.fog.range );
-		metadataJson["light"]["fog"]["density"]["offset"] = uf::vector::encode( metadata.fog.density.offset );
-		metadataJson["light"]["fog"]["density"]["timescale"] = metadata.fog.density.timescale;
-		metadataJson["light"]["fog"]["density"]["threshold"] = metadata.fog.density.threshold;
-		metadataJson["light"]["fog"]["density"]["multiplier"] = metadata.fog.density.multiplier;
-		metadataJson["light"]["fog"]["density"]["scale"] = metadata.fog.density.scale;
-
-		metadataJson["system"]["renderer"]["shader"]["mode"] = metadata.shader.mode;
-		metadataJson["system"]["renderer"]["shader"]["scalar"] = metadata.shader.scalar;
-		metadataJson["system"]["renderer"]["shader"]["parameters"] = uf::vector::encode( metadata.shader.parameters );
-	};
-	metadata.deserialize = [&](){
-		if ( !metadataJson["light"]["point light eye depth scale"].is<float>() )
-			metadataJson["light"]["point light eye depth scale"] = ext::config["engine"]["scenes"]["lights"]["point light eye depth scale"];
-
-		metadata.max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(metadata.max.textures2D);
-		metadata.max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(metadata.max.texturesCube);
-		metadata.max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(metadata.max.textures3D);
-		metadata.max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(metadata.max.lights);
-
-		metadata.light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && metadataJson["light"]["should"].as<bool>(true);
-
-		metadata.shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && metadataJson["light"]["shadows"].as<bool>(true);
-		metadata.shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
-		metadata.shadow.max = ext::config["engine"]["scenes"]["shadows"]["max"].as<uint32_t>();
-		metadata.shadow.update = ext::config["engine"]["scenes"]["shadows"]["update"].as<uint32_t>();
-		metadata.shadow.experimentalMode = ext::config["engine"]["scenes"]["shadows"]["experimental mode"].as<uint32_t>(0);
-	
-		metadata.light.ambient = uf::vector::decode( metadataJson["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
-		metadata.light.specular = uf::vector::decode( metadataJson["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
-		metadata.light.exposure = metadataJson["light"]["exposure"].as<float>(1.0f);
-		metadata.light.gamma = metadataJson["light"]["gamma"].as<float>(2.2f);
-
-		metadata.fog.color = uf::vector::decode( metadataJson["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
-		metadata.fog.stepScale = metadataJson["light"]["fog"]["step scale"].as<float>();
-		metadata.fog.absorbtion = metadataJson["light"]["fog"]["absorbtion"].as<float>();
-		metadata.fog.range = uf::vector::decode( metadataJson["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
-		metadata.fog.density.offset = uf::vector::decode( metadataJson["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
-		metadata.fog.density.timescale = metadataJson["light"]["fog"]["density"]["timescale"].as<float>();
-		metadata.fog.density.threshold = metadataJson["light"]["fog"]["density"]["threshold"].as<float>();
-		metadata.fog.density.multiplier = metadataJson["light"]["fog"]["density"]["multiplier"].as<float>();
-		metadata.fog.density.scale = metadataJson["light"]["fog"]["density"]["scale"].as<float>();
-
-		metadata.shader.mode = metadataJson["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
-		metadata.shader.scalar = metadataJson["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();
-		metadata.shader.parameters = uf::vector::decode( metadataJson["system"]["renderer"]["shader"]["parameters"], pod::Vector4f{0,0,0,0} );
-		ext::json::forEach( metadataJson["system"]["renderer"]["shader"]["parameters"], [&]( uint32_t i, const ext::json::Value& value ){
-			if ( value.as<uf::stl::string>() == "time" ) metadata.shader.time = i;
-		});
-		if ( 0 <= metadata.shader.time && metadata.shader.time < 4 ) {
-			metadata.shader.parameters[metadata.shader.time] = uf::physics::time::current;
-		}
-	#if UF_USE_OPENGL_FIXED_FUNCTION
-		uf::renderer::states::rebuild = true;
-	#endif
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	this->addHook( "object:Reload.%UID%", metadata.deserialize);
-	metadata.deserialize();
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -378,7 +312,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #endif
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.deserialize();
+	metadata.deserialize(self, metadataJson);
 #else
 	if ( 0 <= metadata.shader.time && metadata.shader.time < 4 ) {
 		metadata.shader.parameters[metadata.shader.time] = uf::physics::time::current;
@@ -410,6 +344,73 @@ void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
 		sceneTextures.noise.destroy();
 		sceneTextures.skybox.destroy();
 	}
+}
+void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
+	serializer["light"]["should"] = /*this->*/light.enabled;
+
+	serializer["light"]["ambient"] = uf::vector::encode( /*this->*/light.ambient );
+	serializer["light"]["specular"] = uf::vector::encode( /*this->*/light.specular );
+	serializer["light"]["exposure"] = /*this->*/light.exposure;
+	serializer["light"]["gamma"] = /*this->*/light.gamma;
+
+	serializer["light"]["fog"]["color"] = uf::vector::encode( /*this->*/fog.color );
+	serializer["light"]["fog"]["step scale"] = /*this->*/fog.stepScale;
+	serializer["light"]["fog"]["absorbtion"] = /*this->*/fog.absorbtion;
+	serializer["light"]["fog"]["range"] = uf::vector::encode( /*this->*/fog.range );
+	serializer["light"]["fog"]["density"]["offset"] = uf::vector::encode( /*this->*/fog.density.offset );
+	serializer["light"]["fog"]["density"]["timescale"] = /*this->*/fog.density.timescale;
+	serializer["light"]["fog"]["density"]["threshold"] = /*this->*/fog.density.threshold;
+	serializer["light"]["fog"]["density"]["multiplier"] = /*this->*/fog.density.multiplier;
+	serializer["light"]["fog"]["density"]["scale"] = /*this->*/fog.density.scale;
+
+	serializer["system"]["renderer"]["shader"]["mode"] = /*this->*/shader.mode;
+	serializer["system"]["renderer"]["shader"]["scalar"] = /*this->*/shader.scalar;
+	serializer["system"]["renderer"]["shader"]["parameters"] = uf::vector::encode( /*this->*/shader.parameters );
+}
+void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
+	if ( !serializer["light"]["point light eye depth scale"].is<float>() )
+		serializer["light"]["point light eye depth scale"] = ext::config["engine"]["scenes"]["lights"]["point light eye depth scale"];
+
+	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(/*this->*/max.textures2D);
+	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(/*this->*/max.texturesCube);
+	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(/*this->*/max.textures3D);
+	/*this->*/max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/max.lights);
+
+	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
+
+	/*this->*/shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && serializer["light"]["shadows"].as<bool>(true);
+	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
+	/*this->*/shadow.max = ext::config["engine"]["scenes"]["shadows"]["max"].as<uint32_t>();
+	/*this->*/shadow.update = ext::config["engine"]["scenes"]["shadows"]["update"].as<uint32_t>();
+	/*this->*/shadow.experimentalMode = ext::config["engine"]["scenes"]["shadows"]["experimental mode"].as<uint32_t>(0);
+
+	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
+	/*this->*/light.specular = uf::vector::decode( serializer["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
+	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
+	/*this->*/light.gamma = serializer["light"]["gamma"].as<float>(2.2f);
+
+	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
+	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as<float>();
+	/*this->*/fog.absorbtion = serializer["light"]["fog"]["absorbtion"].as<float>();
+	/*this->*/fog.range = uf::vector::decode( serializer["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
+	/*this->*/fog.density.offset = uf::vector::decode( serializer["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
+	/*this->*/fog.density.timescale = serializer["light"]["fog"]["density"]["timescale"].as<float>();
+	/*this->*/fog.density.threshold = serializer["light"]["fog"]["density"]["threshold"].as<float>();
+	/*this->*/fog.density.multiplier = serializer["light"]["fog"]["density"]["multiplier"].as<float>();
+	/*this->*/fog.density.scale = serializer["light"]["fog"]["density"]["scale"].as<float>();
+
+	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
+	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();
+	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], pod::Vector4f{0,0,0,0} );
+	ext::json::forEach( serializer["system"]["renderer"]["shader"]["parameters"], [&]( uint32_t i, const ext::json::Value& value ){
+		if ( value.as<uf::stl::string>() == "time" ) /*this->*/shader.time = i;
+	});
+	if ( 0 <= /*this->*/shader.time && /*this->*/shader.time < 4 ) {
+		/*this->*/shader.parameters[/*this->*/shader.time] = uf::physics::time::current;
+	}
+#if UF_USE_OPENGL_FIXED_FUNCTION
+	uf::renderer::states::rebuild = true;
+#endif
 }
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, bool isCompute ) {

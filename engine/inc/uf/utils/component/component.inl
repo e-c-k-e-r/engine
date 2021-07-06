@@ -1,5 +1,5 @@
 template<typename T> pod::Component::id_t uf::component::type() {
-	return typeid(T).hash_code();
+	return TYPE_HASH(T);
 }
 template<typename T> bool uf::component::is( const pod::Component& component ) {
 	return uf::component::type<T>() == component.id;

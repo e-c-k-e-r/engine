@@ -11,10 +11,10 @@
 
 namespace uf {
 	namespace ObjectBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		UF_BEHAVIOR_DEFINE_TRAITS;
-		UF_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		UF_BEHAVIOR_DEFINE_TRAITS();
+		UF_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			struct Queued {
 				uf::stl::string name;
 				ext::json::Value payload;
@@ -36,6 +36,6 @@ namespace uf {
 				pod::Transform<> initial;
 				bool trackParent = false;
 			} transform;
-		};
+		);
 	}
 }

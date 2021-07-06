@@ -1,19 +1,25 @@
 #pragma once
 
 #define UF_ENTITY_METADATA_USE_JSON 0
-#define UF_BEHAVIOR_DEFINE_TYPE static constexpr const char* type = __FILE__;
-#define UF_BEHAVIOR_DEFINE_TRAITS namespace Traits { extern UF_API bool ticks; extern UF_API bool renders; extern UF_API bool multithread; }
-#define UF_BEHAVIOR_DEFINE_METADATA struct Metadata : public pod::Behavior::Metadata
 
-#define UF_BEHAVIOR_DEFINE_FUNCTIONS\
+#define UF_BEHAVIOR_DEFINE_TYPE() // static constexpr const char* type = __FILE__;
+#define UF_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern UF_API bool ticks; extern UF_API bool renders; extern UF_API bool multithread; }
+#define UF_BEHAVIOR_DEFINE_METADATA(...) struct Metadata : public pod::Behavior::Metadata {\
+public:\
+	/*virtual*/ void serialize( uf::Object&, uf::Serializer& );\
+	/*virtual*/ void deserialize( uf::Object&, uf::Serializer& );\
+	__VA_ARGS__\
+}
+
+#define UF_BEHAVIOR_DEFINE_FUNCTIONS()\
 	void UF_API attach( uf::Entity& );\
 	void UF_API initialize( uf::Object& );\
 	void UF_API tick( uf::Object& );\
 	void UF_API render( uf::Object& );\
 	void UF_API destroy( uf::Object& );
 
-#define EXT_BEHAVIOR_DEFINE_TRAITS namespace Traits { extern bool ticks; extern bool renders; extern bool multithread; }
-#define EXT_BEHAVIOR_DEFINE_FUNCTIONS\
+#define EXT_BEHAVIOR_DEFINE_TRAITS() namespace Traits { extern bool ticks; extern bool renders; extern bool multithread; }
+#define EXT_BEHAVIOR_DEFINE_FUNCTIONS()\
 	void attach( uf::Entity& );\
 	void initialize( uf::Object& );\
 	void tick( uf::Object& );\
@@ -38,7 +44,7 @@
 #define UF_BEHAVIOR_ENTITY_CPP_BEGIN( OBJ )\
 	void OBJ ## Behavior::attach( uf::Entity& self ) {\
 		self.addBehavior(pod::Behavior{\
-			.type = OBJ ## Behavior::type,\
+			.type = TYPE(OBJ ## Behavior::Metadata)/*OBJ ## Behavior::type*/,\
 			.traits = {\
 				.ticks = OBJ ## Behavior::Traits::ticks,\
 				.renders = OBJ ## Behavior::Traits::renders,\

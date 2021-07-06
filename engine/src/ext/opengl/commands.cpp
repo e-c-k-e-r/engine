@@ -7,7 +7,7 @@
 #include <uf/utils/memory/vector.h>
 #include <bitset>
 
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/engine/graph/mesh.h>
 
 #define VERBOSE false
@@ -369,11 +369,11 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	pod::Uniform* uniform = (pod::Uniform*) (device->getBuffer( descriptor.buffer ) + descriptor.offset);
 
-	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-	GL_ERROR_CHECK(glLoadMatrixf( &uniform->projection[0] ));
-
 	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
 	GL_ERROR_CHECK(glLoadMatrixf( &uniform->modelView[0] ));
+
+	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+	GL_ERROR_CHECK(glLoadMatrixf( &uniform->projection[0] ));
 
 	return uniform->projection * uniform->modelView;
 #endif
@@ -394,7 +394,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 	}
 	if ( !vertexBuffer.buffer ) return;
 
-	size_t vertexStride = drawInfo.descriptor.geometry.attributes.vertex.size;
+	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	
 	uf::renderer::VertexDescriptor 	vertexAttributePosition, 
@@ -404,7 +404,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 									vertexAttributeSt,
 									vertexAttributeId;
 
-	for ( auto& attribute : drawInfo.descriptor.geometry.attributes.descriptor ) {
+	for ( auto& attribute : drawInfo.descriptor.attributes.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
@@ -468,7 +468,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			for ( uf::renderer::index_t index = 0; index < vertices; ++index ) {
 				uint8_t* vertex = vertexPointer + (index * vertexStride);
 
-				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertex + vertexAttributeId.offset));
+				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertex + vertexAttributeId.offset));
 				size_t textureId = id.y;
 				if ( textureInfos.size() < textureId ) continue;
 				sorted[textureId].emplace_back(index);
@@ -517,7 +517,7 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 			for ( uf::renderer::index_t index = 0; index < vertices; ++index ) {
 				uint8_t* vertex = vertexPointer + (index * vertexStride);
 
-				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertex + vertexAttributeId.offset));
+				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertex + vertexAttributeId.offset));
 				size_t textureId = id.y;
 				if ( textureInfos.size() < textureId ) continue;
 				sorted[textureId].emplace_back(index);
@@ -540,8 +540,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	auto projectionViewMatrix = bindUniform( drawInfo.uniformBuffer );
 
 	size_t indices = drawInfo.descriptor.indices;
-	size_t indicesStride = drawInfo.descriptor.geometry.attributes.index.size;
-	size_t vertexStride = drawInfo.descriptor.geometry.attributes.vertex.size;
+	size_t indicesStride = drawInfo.descriptor.attributes.index.size;
+	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
 	size_t vertices = drawInfo.vertexBuffer.range / vertexStride;
 
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
@@ -697,8 +697,8 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( !vertexBuffer.buffer || !indexBuffer.buffer ) return;
 
 	size_t indices = drawInfo.length;
-	size_t indicesStride = drawInfo.descriptor.geometry.attributes.index.size;
-	size_t vertexStride = drawInfo.descriptor.geometry.attributes.vertex.size;
+	size_t indicesStride = drawInfo.descriptor.attributes.index.size;
+	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	
 	uf::renderer::VertexDescriptor 	vertexAttributePosition, 
@@ -708,7 +708,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 									vertexAttributeSt,
 									vertexAttributeId;
 
-	for ( auto& attribute : drawInfo.descriptor.geometry.attributes.descriptor ) {
+	for ( auto& attribute : drawInfo.descriptor.attributes.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
@@ -776,7 +776,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 				void* vertices = vertexPointer + (index * vertexStride);
 
 				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
-				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
+				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
 
 				if ( st > pod::Vector2f{0,0} ) lightMapped = true; 
 
@@ -890,7 +890,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 				uf::renderer::index_t index = indicesPointer[currentIndex];
 				void* vertices = vertexPointer + (index * vertexStride);
 
-				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
+				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
 				size_t textureId = id.y;
 				if ( textureInfos.size() < textureId ) continue;
 				sorted[textureId].emplace_back(index);

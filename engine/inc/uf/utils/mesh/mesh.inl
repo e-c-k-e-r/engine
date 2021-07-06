@@ -1,11 +1,11 @@
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::initialize( size_t o ) {
+void uf::Mesh<T, U>::initialize( size_t o ) {
 	this->optimize(o);
 	if ( this->indices.empty() ) this->generateIndices();
 	this->updateDescriptor();
 }	
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::expand( bool check ) {
+void uf::Mesh<T, U>::expand( bool check ) {
 	if ( this->indices.empty() ) return;
 	uf::stl::vector<vertex_t> _vertices = std::move( this->vertices );
 	this->vertices.clear();
@@ -42,7 +42,7 @@ void uf::BaseMesh<T, U>::expand( bool check ) {
 	this->updateDescriptor();
 }
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::updateDescriptor() {
+void uf::Mesh<T, U>::updateDescriptor() {
 	attributes.vertex.size = sizeof(vertex_t);
 	attributes.index.size = sizeof(indices_t);
 	attributes.vertex.pointer = &this->vertices[0];
@@ -52,36 +52,31 @@ void uf::BaseMesh<T, U>::updateDescriptor() {
 	attributes.descriptor = vertex_t::descriptor;
 }
 template<typename T, typename U>
-void uf::BaseMesh<T, U>::destroy() {
+void uf::Mesh<T, U>::destroy() {
 	this->indices.clear();
 	this->vertices.clear();
 }
 
 template<typename T, typename U>
-uf::BaseMesh<T,U> uf::BaseMesh<T,U>::simplify( float threshold ) {
+uf::Mesh<T,U> uf::Mesh<T,U>::simplify( float threshold ) {
 	size_t target = size_t(this->indices.size() * threshold);
 	float error = 1e-2f;
-	uf::BaseMesh<T,U> lod;
-	lod.indices.resize(this->indices.size()); // note: simplify needs space for index_count elements in the destination array, not target
+	uf::Mesh<T,U> lod;
+	lod.indices.resize(this->indices.size());
 	lod.indices.resize(meshopt_simplify(&lod.indices[0], &this->indices[0], this->indices.size(), (float*) &this->vertices[0].position, this->vertices.size(), sizeof(T), target, error));
 	lod.vertices.resize(lod.indices.size() < this->vertices.size() ? lod.indices.size() : this->vertices.size()); // note: this is just to reduce the cost of resize()
 	lod.vertices.resize(meshopt_optimizeVertexFetch(&lod.vertices[0], &lod.indices[0], lod.indices.size(), &this->vertices[0], this->vertices.size(), sizeof(T)));
 	return lod;
 }
 template<typename T, typename U>
-void uf::BaseMesh<T,U>::optimize( size_t o ) {
+void uf::Mesh<T,U>::optimize( size_t o ) {
 #if UF_USE_MESHOPTIMIZER
 	ext::meshopt::optimize( *this, o );
-#else
-	this->indices.clear();
-	this->indices.reserve(vertices.size());
-	for ( size_t i = 0; i < vertices.size(); ++i )
-		this->indices.emplace_back(i);
 #endif
 	this->updateDescriptor();
 }
 template<typename T, typename U>
-void uf::BaseMesh<T,U>::insert( const uf::BaseMesh<T,U>& mesh ) {
+void uf::Mesh<T,U>::insert( const uf::Mesh<T,U>& mesh ) {
 	size_t startVertices = this->vertices.size();
 	size_t startIndices = this->indices.size();
 
@@ -89,15 +84,77 @@ void uf::BaseMesh<T,U>::insert( const uf::BaseMesh<T,U>& mesh ) {
 	this->indices.reserve( startIndices + mesh.indices.size() );
 	for ( auto& v : mesh.vertices ) this->vertices.emplace_back( v );
 	for ( auto& i : mesh.indices ) this->indices.emplace_back( i + startVertices );
+	this->updateDescriptor();
 }
 
 template<typename T, typename U>
-void uf::BaseMesh<T,U>::resizeVertices( size_t n ) {
+void uf::Mesh<T,U>::resizeVertices( size_t n ) {
 	this->vertices.resize(n);
 	this->updateDescriptor();
 }
 template<typename T, typename U>
-void uf::BaseMesh<T,U>::resizeIndices( size_t n ) {
+void uf::Mesh<T,U>::resizeIndices( size_t n ) {
 	this->indices.resize(n);
 	this->updateDescriptor();
+}
+
+//
+
+template<typename T, typename U>
+bool pod::VaryingMesh::is() const {
+#if 0
+	return uf::pointeredUserdata::is<uf::Mesh<T,U>>();
+#else
+	if ( attributes.descriptor.size() != T::descriptor.size() ||
+	// vertex types are the same size
+	attributes.vertex.size != sizeof(T) ||
+	// index types are the same size
+	attributes.index.size != sizeof(U) ) return false;
+
+	for ( size_t i = 0; i < attributes.descriptor.size(); ++i ) {
+		if ( attributes.descriptor[i].offset != attributes.descriptor[i].offset || attributes.descriptor[i].size != attributes.descriptor[i].size || attributes.descriptor[i].components != attributes.descriptor[i].components ) return false;
+	}
+	return true;
+#if 0
+return 
+	// descriptors are the same size
+	attributes.descriptor.size() == T::descriptor.size() && 
+	// vertex types are the same size
+	attributes.vertex.size == sizeof(T) && 
+	// index types are the same size
+	attributes.index.size == sizeof(U) && 
+	// attributes are the same
+	std::equal( attributes.descriptor.begin(), attributes.descriptor.end(), T::descriptor.begin() );
+#endif
+#endif
+}
+
+template<typename T, typename U>
+uf::Mesh<T,U>& pod::VaryingMesh::get() {
+	if ( !userdata.data ) set<T,U>();
+	return uf::pointeredUserdata::get<uf::Mesh<T,U>>( userdata );
+}
+
+template<typename T, typename U>
+const uf::Mesh<T,U>& pod::VaryingMesh::get() const {
+	UF_ASSERT( userdata.data );
+	return uf::pointeredUserdata::get<uf::Mesh<T,U>>( userdata );
+}
+
+template<typename T, typename U>
+void pod::VaryingMesh::set( const uf::Mesh<T, U>& mesh ) {
+	if ( userdata.data ) uf::pointeredUserdata::destroy( userdata );
+	userdata = uf::pointeredUserdata::create( mesh );
+	attributes = mesh.attributes;
+}
+
+template<typename T, typename U>
+void pod::VaryingMesh::insert( const pod::VaryingMesh& mesh ) {
+	get<T,U>().insert( mesh.get<T,U>() );
+	updateDescriptor();
+}
+template<typename T, typename U>
+void pod::VaryingMesh::insert( const uf::Mesh<T, U>& mesh ) {
+	get<T,U>().insert( mesh );
+	updateDescriptor();
 }

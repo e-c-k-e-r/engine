@@ -9,7 +9,7 @@
 			"resolution": 8192,
 		//	"model": "./models/mcdonalds.glb",
 			"model": "./models/mcdonalds/graph.json.gz",
-			"shadows": true,
+			"shadows": 1024,
 			"trigger": {
 				"mode": "rendered"
 			},

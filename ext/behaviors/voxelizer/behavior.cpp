@@ -220,7 +220,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						/*alignas(4)*/ float padding2;
 						/*alignas(4)*/ float padding3;
 					};
-				/*
+				#if UF_UNIFORMS_REUSE
 					auto& uniform = shader.getUniform("UBO");
 					auto& uniforms = uniform.get<UniformDescriptor>();
 					
@@ -229,13 +229,13 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.cascadePower = metadata.cascadePower,
 					};
 					shader.updateUniform( "UBO", uniform );
-				*/
+				#else
 					UniformDescriptor uniforms = {
 						.matrix = metadata.extents.matrix,
 						.cascadePower = metadata.cascadePower,
 					};
-				//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 					graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+				#endif
 				}
 			}
 		}
@@ -254,4 +254,6 @@ void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 	}
 #endif
 }
+void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}
+void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){}
 #undef this

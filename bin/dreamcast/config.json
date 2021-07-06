@@ -76,16 +76,16 @@
 			"streams by default": true
 		},
 		"memory pool": {
+			"enabled": false,
 			"subPools": true,
-			"alignment": 16,
-			"STL allocator": true,
-			"size": "8 MiB",
+			"alignment": 32,
+			"override": true,
+			"size": "6 MiB",
 			"pools": {
 				"entity": "96 KiB",
 				"userdata": "96 KiB",
 				"component": "96 KiB"
-			},
-			"globalOverride": false
+			}
 		},
 		"render modes": {
 			"gui": true,
@@ -94,7 +94,7 @@
 			"multiview stereo deferred": false
 		},
 		"limiters": {
-			"deltaTime": 10,
+			"deltaTime": 20,
 			"framerate": "auto"
 		},
 		"threads": {

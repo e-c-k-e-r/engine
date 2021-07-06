@@ -5,7 +5,7 @@
 #include <uf/engine/scene/scene.h>
 
 namespace uf {
-	namespace LuaBehavior {
+	namespace GraphBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE();
 		UF_BEHAVIOR_DEFINE_TRAITS();
 		UF_BEHAVIOR_DEFINE_FUNCTIONS();

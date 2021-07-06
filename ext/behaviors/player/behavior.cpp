@@ -15,28 +15,26 @@
 #include <uf/spec/controller/controller.h>
 
 #include <sstream>
+
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
-	auto& camera = this->getComponent<uf::Camera>();
-	auto& cameraTransform = camera.getTransform();
-	cameraTransform.reference = &transform;
 
 	auto& collider = this->getComponent<pod::Bullet>();
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
-
-#if 1
+	
+	auto& camera = this->getComponent<uf::Camera>();
+	auto& cameraTransform = camera.getTransform();
 	{
 		camera.setStereoscopic(true);
-		
-		pod::Transform<>& transform = camera.getTransform();
-		
-		transform.position = uf::vector::decode( metadataJson["camera"]["position"], transform.position );
-		transform.scale = uf::vector::decode( metadataJson["camera"]["scale"], transform.scale );
+				
+		cameraTransform.position = uf::vector::decode( metadataJson["camera"]["position"], cameraTransform.position );
+		cameraTransform.scale = uf::vector::decode( metadataJson["camera"]["scale"], cameraTransform.scale );
+		cameraTransform.reference = &transform;
 
 		if ( metadataJson["camera"]["ortho"].as<bool>() ) {
 			float l = metadataJson["camera"]["settings"]["left"].as<float>();
@@ -65,78 +63,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 				} );
 			}
 			camera.setProjection( uf::matrix::perspective( fov, raidou, znear, zfar ) );
-
-		}
-
-		camera.update(true);
-	}
-#else
-	/* Load Config */ {
-		struct {
-			int mode = 0;
-			struct {
-				pod::Vector2 lr, bt, nf;
-			} ortho;
-			struct {
-				pod::Math::num_t fov = 120;
-				pod::Vector2 size = {640, 480};
-				pod::Vector2 bounds = {0.5, 128.0};
-			} perspective;
-			pod::Vector3 offset = {0, 0, 0};
-			bool stereoscopic = true;
-		} settings;
-
-		settings.mode = metadataJson["camera"]["ortho"].as<bool>() ? -1 : 1;
-
-		settings.perspective.size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector3f{} );
-		// Update viewport
-		if ( settings.perspective.size.x <= 0 || settings.perspective.size.y <= 0 )  {
-			settings.perspective.size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
-			this->addHook( "window:Resized", [&](ext::json::Value& json){
-				// Update persistent window sized (size stored to JSON file)
-				pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
-				//	size.x = json["window"]["size"]["x"].as<size_t>();
-				//	size.y = json["window"]["size"]["y"].as<size_t>();
-				}
-				/* Update camera's viewport */ {
-					uf::Camera& camera = this->getComponent<uf::Camera>();
-					camera.setSize({(pod::Math::num_t)size.x, (pod::Math::num_t)size.y});
-				}
-			} );
-		}
-		camera.setSize(settings.perspective.size);
-		if ( settings.mode < 0 ) {
-			settings.ortho.lr.x 	= metadataJson["camera"]["settings"]["left"].as<double>();
-			settings.ortho.lr.y 	= metadataJson["camera"]["settings"]["right"].as<double>();
-			settings.ortho.bt.x 	= metadataJson["camera"]["settings"]["bottom"].as<double>();
-			settings.ortho.bt.y 	= metadataJson["camera"]["settings"]["top"].as<double>();
-			settings.ortho.nf.x 	= metadataJson["camera"]["settings"]["near"].as<double>();
-			settings.ortho.nf.y 	= metadataJson["camera"]["settings"]["far"].as<double>();
-
-			camera.ortho( settings.ortho.lr, settings.ortho.bt, settings.ortho.nf );
-		} else {
-			settings.perspective.fov 		= metadataJson["camera"]["settings"]["fov"].as<double>();
-			settings.perspective.bounds.x 	= metadataJson["camera"]["settings"]["clip"]["near"].as<double>();
-			settings.perspective.bounds.y 	= metadataJson["camera"]["settings"]["clip"]["far"].as<double>();
-
-			camera.setFov(settings.perspective.fov);
-			camera.setBounds(settings.perspective.bounds);
-		}
-		camera.setStereoscopic(true);
-
-		pod::Transform<>& transform = camera.getTransform();
-		/* Transform initialization */ {
-			transform.position.x = metadataJson["camera"]["position"][0].as<double>();
-			transform.position.y = metadataJson["camera"]["position"][1].as<double>();
-			transform.position.z = metadataJson["camera"]["position"][2].as<double>();
-
-			transform.scale.x = metadataJson["camera"]["scale"][0].as<double>();
-			transform.scale.y = metadataJson["camera"]["scale"][1].as<double>();
-			transform.scale.z = metadataJson["camera"]["scale"][2].as<double>();
 		}
 		camera.update(true);
 	}
-#endif
 	metadataJson["system"]["control"] = true;
 	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
 		metadata.system.control = !json["state"].as<bool>();
@@ -176,84 +105,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		}
 		if ( updateCamera ) camera.update(true);
 	});
-#if 0
-	this->addHook( ":Update.%UID%", [&](ext::json::Value& json){
-	//	for ( auto& member : json[""]["transients"] ) {
-		ext::json::forEach(metadataJson[""]["transients"], [&](ext::json::Value& member){
-			if ( member["type"] != "player" ) return;
-			uf::stl::string id = member["id"].as<uf::stl::string>();
-			metadataJson[""]["transients"][id]["hp"] = member["hp"];
-			metadataJson[""]["transients"][id]["mp"] = member["mp"];
-		});
-	});
-
-	// handle after battles and establishes cooldowns
-	this->addHook( "world:Battle.End.%UID%", [&](ext::json::Value& json){
-		// update
-		{
-			uf::Serializer payload;
-			payload[""]["transients"] = json["battle"]["transients"];
-			this->callHook( ":Update.%UID%", payload );
-		}
-		
-		metadataJson["system"].erase("battle");
-		metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
-	});
 	
-	// detect collision against transients, engage in battle
-	this->addHook( "world:Collision.%UID%", [&](ext::json::Value& json){
-		if ( metadataJson["system"]["cooldown"].as<float>() > uf::physics::time::current ) return;
-		if ( !metadataJson["system"]["control"].as<bool>() ) return;
-		
-		uf::stl::string state = metadataJson["system"]["state"].as<uf::stl::string>();
-		if ( state != "" && state != "null" ) return;
-
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Entity* entity = scene.findByUid(json["entity"].as<size_t>());
-
-		if ( !entity ) return;
-
-		uf::Serializer& pMetadata = entity->getComponent<uf::Serializer>();
-
-		uf::stl::string onCollision = pMetadata["system"]["onCollision"].as<uf::stl::string>();
-
-		if ( onCollision == "battle" ) {
-			uf::Serializer payload;
-			payload["battle"]["enemy"] = pMetadata[""];
-			payload["battle"]["enemy"]["uid"] = json["entity"].as<size_t>();
-			payload["battle"]["player"] = metadataJson[""];
-			payload["battle"]["player"]["uid"] = this->getUid();
-			payload["battle"]["music"] = pMetadata["music"];
-			
-			this->callHook("world:Battle.Start", payload);
-		} else if ( onCollision == "npc" ) {
-			if ( !uf::Window::isKeyPressed("E") ) return;
-			uf::Serializer payload;
-			payload["dialogue"] = pMetadata["dialogue"];
-			payload["uid"] = json["entity"].as<size_t>();
-			this->callHook("menu:Dialogue.Start", payload);
-		}
-	//	metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
-		metadataJson["system"]["control"] = false;
-		metadataJson["system"]["menu"] = onCollision;
-	});
-	this->addHook( "world:Battle.End", [&](ext::json::Value& json){
-		metadataJson["system"]["menu"] = "";
-		metadataJson["system"]["cooldown"] = uf::physics::time::current + 5;
-
-		// update
-		{
-			uf::Serializer payload;
-			payload[""]["transients"] = json["battle"]["transients"];
-			this->callHook( ":Update.%UID%", payload );
-		}
-	});
-	this->addHook( "menu:Dialogue.End", [&](ext::json::Value& json){
-		metadataJson["system"]["menu"] = "";
-		metadataJson["system"]["cooldown"] = uf::physics::time::current + 1;
-	});
-#endif
-#if 0
 #if UF_USE_DISCORD
 	// Discord Integration
 	this->addHook( "discord.Activity.Update.%UID%", [&](ext::json::Value& json){
@@ -268,68 +120,11 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	});
 	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
 #endif
-#endif
-	metadata.serialize = [&](){
-		auto& metadataSystem = metadataJson["system"];
-		auto& metadataSystemPhysics = metadataSystem["physics"];
-		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
-		auto& metadataCamera = metadataJson["camera"];
-		auto& metadataCameraLimit = metadataCamera["limit"];
-		
-		metadataSystem["menu"] = metadata.system.menu;
-		metadataSystem["control"] = metadata.system.control;
-		metadataSystem["crouching"] = metadata.system.crouching;
-		metadataSystem["noclipped"] = metadata.system.noclipped;
-		metadataSystemPhysics["impulse"] = metadata.system.physics.impulse;
-		metadataSystemPhysics["rotate"] = metadata.system.physics.rotate;
-		metadataSystemPhysics["move"] = metadata.system.physics.move;
-		metadataSystemPhysics["run"] = metadata.system.physics.run;
-		metadataSystemPhysics["walk"] = metadata.system.physics.walk;
-		metadataSystemPhysics["collision"] = metadata.system.physics.collision;
-		metadataSystemPhysics["jump"] = uf::vector::encode(metadata.system.physics.jump);
-		metadataSystemPhysics["crouch"] = metadata.system.physics.crouch;
-		metadataAudioFootstep["list"] = metadata.audio.footstep.list;
-		metadataAudioFootstep["volume"] = metadata.audio.footstep.volume;
-		metadataCamera["invert"] = uf::vector::encode(metadata.camera.invert);
-		metadataCameraLimit["current"] = uf::vector::encode(metadata.camera.limit.current);
-		metadataCameraLimit["minima"] = uf::vector::encode(metadata.camera.limit.min);
-		metadataCameraLimit["maxima"] = uf::vector::encode(metadata.camera.limit.max);
-	};
-	metadata.deserialize = [&](){
-		auto& metadataSystem = metadataJson["system"];
-		auto& metadataAudioFootstep = metadataJson["audio"]["footstep"];
-		auto& metadataSystemPhysics = metadataSystem["physics"];
-		auto& metadataCamera = metadataJson["camera"];
-		auto& metadataCameraLimit = metadataCamera["limit"];
 
-		metadata.system.menu = metadataSystem["menu"].as<uf::stl::string>();
-		metadata.system.control = metadataSystem["control"].as<bool>();
-		metadata.system.crouching = metadataSystem["crouching"].as<bool>();
-		metadata.system.noclipped = metadataSystem["noclipped"].as<bool>();
-		metadata.system.physics.impulse = metadataSystemPhysics["impulse"].as<bool>();
-		metadata.system.physics.rotate = metadataSystemPhysics["rotate"].as<float>();
-		metadata.system.physics.move = metadataSystemPhysics["move"].as<float>();
-		metadata.system.physics.run = metadataSystemPhysics["run"].as<float>();
-		metadata.system.physics.walk = metadataSystemPhysics["walk"].as<float>();
-		metadata.system.physics.collision = metadataSystemPhysics["collision"].as<bool>();
-		metadata.system.physics.jump = uf::vector::decode(metadataSystemPhysics["jump"], pod::Vector3f{});
-		metadata.system.physics.crouch = metadataSystemPhysics["crouch"].as<float>();
-		ext::json::forEach( metadataAudioFootstep["list"], [&]( const ext::json::Value& value ){
-			metadata.audio.footstep.list.emplace_back(value);
-		});
-		metadata.audio.footstep.volume = metadataAudioFootstep["volume"].as<float>();
-
-		metadata.camera.invert = uf::vector::decode( metadataCamera["invert"], pod::Vector3t<bool>{false, false, false} );
-		metadata.camera.limit.current = uf::vector::decode( metadataCameraLimit["current"], pod::Vector3f{NAN, NAN, NAN} );
-		metadata.camera.limit.min = uf::vector::decode( metadataCameraLimit["minima"], pod::Vector3f{NAN, NAN, NAN} );
-		metadata.camera.limit.max = uf::vector::decode( metadataCameraLimit["maxima"], pod::Vector3f{NAN, NAN, NAN} );
-
-	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.current[i] = metadataCameraLimit["current"][i].as<float>(NAN);
-	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.min[i] = metadataCameraLimit["minima"][i].as<float>(NAN);
-	//	for ( uint_fast8_t i = 0; i < 3; ++i ) metadata.camera.limit.max[i] = metadataCameraLimit["maxima"][i].as<float>(NAN);
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	metadata.deserialize();
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& camera = this->getComponent<uf::Camera>();
@@ -410,7 +205,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.deserialize();
+	metadata.deserialize(self, metadataJson);
 #endif
 	stats.menu = metadata.system.menu;
 	stats.impulse = metadata.system.physics.impulse;
@@ -734,10 +529,69 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( stats.updateCamera ) camera.update(true);
 
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.serialize();
+	metadata.serialize(self, metadataJson);
 #endif
 }
 
 void ext::PlayerBehavior::render( uf::Object& self ){}
 void ext::PlayerBehavior::destroy( uf::Object& self ){}
+void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
+	auto& serializerSystem = serializer["system"];
+	auto& serializerSystemPhysics = serializerSystem["physics"];
+	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
+	auto& serializerCamera = serializer["camera"];
+	auto& serializerCameraLimit = serializerCamera["limit"];
+	
+	serializerSystem["menu"] = /*this->*/system.menu;
+	serializerSystem["control"] = /*this->*/system.control;
+	serializerSystem["crouching"] = /*this->*/system.crouching;
+	serializerSystem["noclipped"] = /*this->*/system.noclipped;
+	serializerSystemPhysics["impulse"] = /*this->*/system.physics.impulse;
+	serializerSystemPhysics["rotate"] = /*this->*/system.physics.rotate;
+	serializerSystemPhysics["move"] = /*this->*/system.physics.move;
+	serializerSystemPhysics["run"] = /*this->*/system.physics.run;
+	serializerSystemPhysics["walk"] = /*this->*/system.physics.walk;
+	serializerSystemPhysics["collision"] = /*this->*/system.physics.collision;
+	serializerSystemPhysics["jump"] = uf::vector::encode(/*this->*/system.physics.jump);
+	serializerSystemPhysics["crouch"] = /*this->*/system.physics.crouch;
+	serializerAudioFootstep["list"] = /*this->*/audio.footstep.list;
+	serializerAudioFootstep["volume"] = /*this->*/audio.footstep.volume;
+	serializerCamera["invert"] = uf::vector::encode(/*this->*/camera.invert);
+	serializerCameraLimit["current"] = uf::vector::encode(/*this->*/camera.limit.current);
+	serializerCameraLimit["minima"] = uf::vector::encode(/*this->*/camera.limit.min);
+	serializerCameraLimit["maxima"] = uf::vector::encode(/*this->*/camera.limit.max);
+}
+void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
+	auto& serializerSystem = serializer["system"];
+	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
+	auto& serializerSystemPhysics = serializerSystem["physics"];
+	auto& serializerCamera = serializer["camera"];
+	auto& serializerCameraLimit = serializerCamera["limit"];
+
+	/*this->*/system.menu = serializerSystem["menu"].as<uf::stl::string>();
+	/*this->*/system.control = serializerSystem["control"].as<bool>();
+	/*this->*/system.crouching = serializerSystem["crouching"].as<bool>();
+	/*this->*/system.noclipped = serializerSystem["noclipped"].as<bool>();
+	/*this->*/system.physics.impulse = serializerSystemPhysics["impulse"].as<bool>();
+	/*this->*/system.physics.rotate = serializerSystemPhysics["rotate"].as<float>();
+	/*this->*/system.physics.move = serializerSystemPhysics["move"].as<float>();
+	/*this->*/system.physics.run = serializerSystemPhysics["run"].as<float>();
+	/*this->*/system.physics.walk = serializerSystemPhysics["walk"].as<float>();
+	/*this->*/system.physics.collision = serializerSystemPhysics["collision"].as<bool>();
+	/*this->*/system.physics.jump = uf::vector::decode(serializerSystemPhysics["jump"], pod::Vector3f{});
+	/*this->*/system.physics.crouch = serializerSystemPhysics["crouch"].as<float>();
+	ext::json::forEach( serializerAudioFootstep["list"], [&]( const ext::json::Value& value ){
+		/*this->*/audio.footstep.list.emplace_back(value);
+	});
+	/*this->*/audio.footstep.volume = serializerAudioFootstep["volume"].as<float>();
+
+	/*this->*/camera.invert = uf::vector::decode( serializerCamera["invert"], pod::Vector3t<bool>{false, false, false} );
+	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], pod::Vector3f{NAN, NAN, NAN} );
+	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], pod::Vector3f{NAN, NAN, NAN} );
+	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], pod::Vector3f{NAN, NAN, NAN} );
+
+//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.current[i] = serializerCameraLimit["current"][i].as<float>(NAN);
+//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.min[i] = serializerCameraLimit["minima"][i].as<float>(NAN);
+//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.max[i] = serializerCameraLimit["maxima"][i].as<float>(NAN);
+}
 #undef this

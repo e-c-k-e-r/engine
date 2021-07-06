@@ -3,7 +3,7 @@
 #include <uf/utils/image/atlas.h>
 #include <uf/engine/object/object.h>
 #include <uf/utils/math/transform.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/math/collision.h>
@@ -12,6 +12,8 @@
 #include "pod.h"
 
 #include <queue>
+
+#define UF_GRAPH_EXPERIMENTAL 1
 
 namespace pod {
 	struct UF_API Texture {
@@ -46,7 +48,11 @@ namespace pod {
 		} buffers;
 	};
 	struct UF_API Graph {
+	#if UF_GRAPH_EXPERIMENTAL
+		typedef pod::VaryingMesh Mesh;
+	#else
 		typedef uf::graph::skinned_mesh_t Mesh;
+	#endif
 
 	//	Node* node = NULL;
 		pod::Node root;

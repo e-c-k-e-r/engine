@@ -92,7 +92,7 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 	if ( extension != "dtex" ) {
 		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
 		if ( uf::io::exists(dtex) ) {
-			UF_MSG_DEBUG("Loading dtex instead for: " << filename);
+		//	UF_MSG_DEBUG("Loading dtex instead for: " << filename);
 			return this->open(dtex, flip);
 		}
 	}
@@ -285,6 +285,9 @@ uf::Image::~Image() {
 // empties pixel container
 void uf::Image::clear() {
 	this->m_pixels.clear();
+#if UF_ENV_DREAMCAST
+	this->m_pixels.shrink_to_fit();
+#endif
 }
 uf::Image::container_t& uf::Image::getPixels() {
 	return this->m_pixels;	

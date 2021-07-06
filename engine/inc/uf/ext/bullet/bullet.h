@@ -3,11 +3,11 @@
 #include <uf/config.h>
 #include <uf/engine/object/object.h>
 #include <uf/utils/math/transform.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/math/collision.h>
 
 #if UF_USE_BULLET
-#include "btBulletDynamicsCommon.h"
+#include <btBulletDynamicsCommon.h>
 #endif
 namespace pod {
 	struct UF_API Bullet {
@@ -53,11 +53,11 @@ namespace ext {
 		// collider from mesh
 	#if 0
 		template<typename T, typename U>
-		pod::Bullet& create( uf::Object&, const uf::BaseMesh<T, U>& mesh, bool );
+		pod::Bullet& create( uf::Object&, const uf::Mesh<T, U>& mesh, bool );
 	#endif
 
 		// collider for mesh (static or dynamic)
-		pod::Bullet& create( uf::Object&, const uf::BaseGeometry&, bool );
+		pod::Bullet& create( uf::Object&, const pod::Mesh&, bool );
 		// collider for boundingbox
 		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
 		// collider for capsule

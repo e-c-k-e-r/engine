@@ -49,11 +49,13 @@ namespace binds {
 		UF_LUA_UPDATE_COMPONENT(uf::Camera)
 	}
 	bool bind(uf::Object& self, const uf::stl::string& type, sol::protected_function fun ) {
-		if ( !self.hasBehavior({.type = uf::LuaBehavior::type}) ) uf::instantiator::bind( "LuaBehavior", self );
+	//	if ( !self.hasBehavior({.type = uf::LuaBehavior::type}) ) uf::instantiator::bind( "LuaBehavior", self );
+		if ( !self.hasBehavior({.type = TYPE(uf::LuaBehavior::Metadata)}) ) uf::instantiator::bind( "LuaBehavior", self );
 		pod::Behavior* behaviorPointer = NULL;
 		auto& behaviors = self.getBehaviors();
 		for ( auto& b : behaviors ) {
-			if ( b.type != uf::LuaBehavior::type ) continue;
+		//	if ( b.type != uf::LuaBehavior::type ) continue;
+			if ( b.type != TYPE(uf::LuaBehavior::Metadata) ) continue;
 			behaviorPointer = &b;
 			break;
 		}

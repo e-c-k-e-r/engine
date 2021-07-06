@@ -168,18 +168,17 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 // CPU-based buffer
 	index = ::localBuffers.size();
 	auto& buffer = ::localBuffers.emplace_back();
+	size_t requestedSize = (size_t) size;
+
 #if UF_MEMORYPOOL_INVALID_MALLOC
-	buffer = (void*) uf::memoryPool::global.alloc( data, size );
+	buffer = uf::memoryPool::global.alloc( requestedSize );
 #else
 	uf::MemoryPool* memoryPool = uf::memoryPool::global.size() > 0 ? &uf::memoryPool::global : NULL;
-	if ( memoryPool )
-		buffer = (void*) memoryPool->alloc( data, size );
-	else {
-		buffer = malloc( size );
-		if ( data ) memcpy( buffer, data, size );
-		else memset( buffer, 0, size );
-	}
+	if ( memoryPool ) buffer = memoryPool->alloc( requestedSize );
+	else buffer = uf::allocator::malloc_m( requestedSize ); // allocate data for the userdata struct, and then some
 #endif
+	if ( data ) memcpy( buffer, data, requestedSize );
+	else memset( buffer, 0, requestedSize );
 #endif
 	return index;
 }

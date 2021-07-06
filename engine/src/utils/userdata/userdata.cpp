@@ -43,9 +43,7 @@ pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool,
 	if ( data ) memcpy( userdata->data, data, len );
 	else memset( userdata->data, 0, len );
 	userdata->len = len;
-#if UF_USERDATA_RTTI
-	userdata->type = 0;
-#endif
+	userdata->type = UF_USERDATA_CTTI(void);
 	return userdata;
 }
 void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Userdata* userdata ) {
@@ -64,9 +62,7 @@ void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Use
 pod::Userdata* UF_API uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
 	if ( !userdata || userdata->len <= 0 ) return NULL;
 	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) userdata->data[0]) );
-#if UF_USERDATA_RTTI
 	copied->type = userdata->type;
-#endif
 	return copied;
 }
 
@@ -123,9 +119,7 @@ void uf::Userdata::copy( const Userdata& userdata ) {
 	this->destroy();
 //	this->m_pod = uf::userdata::copy( userdata.m_pod );
 	this->create( userdata.m_pod->len, userdata.m_pod->data );
-#if UF_USERDATA_RTTI
 //	this->m_pod->type = userdata.m_pod->type;
-#endif
 /*
 //	if ( this->m_pod && copy.m_pod ) uf::userdata::copy( *this->m_pod, *copy.m_pod );
 	if ( !userdata ) return;
@@ -153,9 +147,7 @@ const uf::Userdata::pod_t& uf::Userdata::data() const {
 	return this->m_pod ? *this->m_pod : null;
 }
 size_t uf::Userdata::size() const { return this->m_pod->len; }
-#if UF_USERDATA_RTTI
-size_t uf::Userdata::type() const { return this->m_pod->type; }
-#endif
+UF_USERDATA_CTTI_TYPE uf::Userdata::type() const { return this->m_pod->type; }
 // 	Validity checks
 bool uf::Userdata::initialized() const {
 	return this->m_pod != NULL;

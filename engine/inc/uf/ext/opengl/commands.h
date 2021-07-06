@@ -11,7 +11,7 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/thread/perthread.h>
 #include <uf/utils/userdata/userdata.h>
-#include <uf/utils/graphic/descriptor.h>
+#include <uf/utils/mesh/mesh.h>
 
 #define UF_COMMAND_BUFFER_POINTERED_USERDATA 1
 

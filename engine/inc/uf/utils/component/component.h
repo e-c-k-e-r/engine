@@ -11,7 +11,7 @@
 
 namespace pod {
 	struct UF_API Component {
-		typedef std::size_t id_t;
+		typedef TYPE_HASH_T id_t;
 		typedef uf::stl::unordered_map<pod::Component::id_t, pod::Component> container_t;
 	//	typedef uf::stl::unordered_map<pod::Component::id_t, pod::Component::id_t> alias_t;
 

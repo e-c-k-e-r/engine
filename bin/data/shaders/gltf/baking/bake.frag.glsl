@@ -123,5 +123,11 @@ void main() {
 		}
 	}
 
+#define EXPOSURE 1
+#define GAMMA 1
+
+	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * EXPOSURE);
+	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / GAMMA));
+
 	outAlbedo = vec4(surface.fragment.rgb, 1);
 }

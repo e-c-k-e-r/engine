@@ -367,11 +367,8 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				if ( name == "" ) name = comp.get_fallback_name(type_id);
 				if ( type.vecsize > 1 ) {
 					name = "<"+name+">";
-					if ( type.columns > 1 ) {
-						name = "Matrix"+std::to_string(type.vecsize)+"x"+std::to_string(type.columns)+name;
-					} else {
-						name = "Vector"+std::to_string(type.vecsize)+name;
-					}
+					if ( type.columns > 1 ) name = "Matrix"+std::to_string(type.vecsize)+"x"+std::to_string(type.columns)+name;
+					else name = "Vector"+std::to_string(type.vecsize)+name;
 				}
 				{
 					ext::json::Value source = value;
@@ -689,6 +686,14 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				offset += size;
 			}
 		}
+		// set specialization info
+		specializationInfo = {};
+		specializationInfo.mapEntryCount = specializationMapEntries.size();
+		specializationInfo.pMapEntries = specializationMapEntries.data();
+		specializationInfo.dataSize = specializationConstants.size();
+		specializationInfo.pData = (void*) specializationConstants;
+		
+		descriptor.pSpecializationInfo = &specializationInfo;
 	/*
 	*/
 	//	LOOP_RESOURCES( stage_inputs, VkVertexInputAttributeDescription );
@@ -711,14 +716,6 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
 		);
 	}
-
-	// set specialization info
-	specializationInfo = {};
-	specializationInfo.mapEntryCount = specializationMapEntries.size();
-	specializationInfo.pMapEntries = specializationMapEntries.data();
-	specializationInfo.dataSize = specializationConstants.size();
-	specializationInfo.pData = (void*) specializationConstants;
-	descriptor.pSpecializationInfo = &specializationInfo;
 }
 
 void ext::vulkan::Shader::destroy() {

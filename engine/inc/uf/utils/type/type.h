@@ -1,5 +1,5 @@
 #pragma once
-
+#if 0
 #include <uf/config.h>
 #include <typeindex>
 #include <uf/utils/memory/unordered_map.h>
@@ -25,10 +25,9 @@ namespace std {
 	};
 }
 
-
 namespace uf {
 	namespace typeInfo {
-		typedef std::type_index index_t;
+		typedef TYPE_INDEX_T index_t;
 		typedef pod::TypeInfo type_t;
 
 		extern UF_API uf::stl::unordered_map<index_t, pod::TypeInfo>* types;
@@ -43,12 +42,8 @@ namespace uf {
 		void registerType( const uf::stl::string& pretty = "" );
 		template<typename T>
 		const pod::TypeInfo& getType();
-	/*
-		template<typename T> const index_t getIndex();
-		template<typename T> void registerType( const uf::stl::string& = "" );
-		template<typename T> const pod::TypeInfo& getType();
-	*/
 	}
 }
 
 #include "type.inl"
+#endif

@@ -4,12 +4,49 @@
 #include <uf/utils/time/time.h>
 
 #include <uf/utils/memory/pool.h>
+#include <filesystem>
 
 #if UF_NO_EXCEPTIONS
 	#define HANDLE_EXCEPTIONS 0
 #else
-	#define HANDLE_EXCEPTIONS 0
+	#define HANDLE_EXCEPTIONS 1
 #endif
+
+#if UFENV_DREAMCAST
+	#include <arch/dreamcast/kernel/stack.h>
+#endif
+#include <signal.h>
+
+namespace {
+	namespace handlers {
+		void exit() {
+		#if UF_ENV_DREAMCAST
+			arch_stk_trace(1);
+		#endif
+			UF_MSG_INFO("Termination via std::atexit()!");
+			ext::ready = false;
+			client::ready = false;
+			client::terminated = true;
+			ext::terminate();
+			client::terminate();
+		}
+
+		void abrt( int sig ) {
+			UF_MSG_ERROR("Abort detected");
+		#if UF_ENV_DREAMCAST
+			arch_stk_trace(1);
+		#endif
+		}
+
+		void segv( int sig ) {
+			UF_MSG_ERROR("Segfault detected");
+		#if UF_ENV_DREAMCAST
+			arch_stk_trace(1);
+		#endif
+		}
+	}
+}
+
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -17,14 +54,9 @@ int main(int argc, char** argv){
 		ext::arguments.emplace_back(string);
 	}
 
-	std::atexit([]{
-		UF_MSG_INFO("Termination via std::atexit()!");
-		ext::ready = false;
-		client::ready = false;
-		client::terminated = true;
-		ext::terminate();
-		client::terminate();
-	});
+	std::atexit(::handlers::exit);
+	signal(SIGABRT, ::handlers::abrt);
+	signal(SIGSEGV, ::handlers::segv);
 
 	client::initialize();
 	ext::initialize();

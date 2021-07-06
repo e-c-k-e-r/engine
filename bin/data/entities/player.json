@@ -18,12 +18,6 @@
 		"./hands.json"
 	],
 	"system": {
-		"behavior-0": {
-			"tick": {
-				"head loop children": false,
-				"multithreading": false
-			}
-		},
 		"physics": {
 			"collision": 1.0,
 			"impulse": true,

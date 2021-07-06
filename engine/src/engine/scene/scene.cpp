@@ -12,12 +12,38 @@ UF_OBJECT_REGISTER_BEGIN(uf::Scene)
 UF_OBJECT_REGISTER_END()
 uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 
+#if UF_SCENE_GLOBAL_GRAPH
 namespace {
 	uf::SceneBehavior::Metadata metadata;
 }
-
+#endif
 uf::Entity& uf::Scene::getController() {
-//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#if !UF_SCENE_GLOBAL_GRAPH
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#endif
+#if 1
+	uf::Entity* controller = NULL;
+	if ( uf::renderer::currentRenderMode ) {
+		auto& renderMode = *uf::renderer::currentRenderMode;
+		auto& name = renderMode.getName();
+		if ( metadata.cache.count(name) > 0 ) {
+			controller = metadata.cache[name];
+			if ( controller->isValid() ) return *controller;
+		}
+
+		auto split = uf::string::split( name, ":" );
+		if ( split.front() == "RT" ) {
+			controller = this->findByUid( std::stoi( split.back() ) );
+			if ( controller->isValid() ) return *(metadata.cache[name] = controller);
+		}
+	}
+	if ( metadata.cache.count("") > 0 ) {
+		controller = metadata.cache[""];
+		if ( controller->isValid() ) return *controller;
+	}
+	controller = this->findByName("Player");
+	return *(metadata.cache[""] = controller ? controller : this);
+#else
 	if ( uf::renderer::currentRenderMode ) {
 		auto& renderMode = *uf::renderer::currentRenderMode;
 
@@ -37,6 +63,7 @@ uf::Entity& uf::Scene::getController() {
 	metadata.cached.controller = this->findByName("Player");
 	return metadata.cached.controller ? *metadata.cached.controller : *this;
 	// return this;
+#endif
 }
 const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
@@ -46,20 +73,30 @@ const uf::Entity& uf::Scene::getController() const {
 
 
 void uf::Scene::invalidateGraph() {
-//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#if !UF_SCENE_GLOBAL_GRAPH
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#endif
 	metadata.invalidationQueued = true;
+#if 1
+	metadata.cache.clear();
+#else
 	metadata.cached.renderMode = NULL;
 	metadata.cached.controller = NULL;
+#endif
 }
 const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
-//	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#if !UF_SCENE_GLOBAL_GRAPH
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#endif
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
 		metadata.graph.clear();
 	}
 	if ( !metadata.graph.empty() ) return metadata.graph;
 	this->process([&]( uf::Entity* entity ) {
-		if ( !entity->getComponent<uf::ObjectBehavior::Metadata>().system.ignoreGraph ) metadata.graph.emplace_back(entity);
+		if ( !entity->hasComponent<uf::ObjectBehavior::Metadata>() ) return;
+		auto& eMetadata = entity->getComponent<uf::ObjectBehavior::Metadata>();
+		if ( !eMetadata.system.ignoreGraph ) metadata.graph.emplace_back(entity);
 	});
 	uf::renderer::states::rebuild = true;
 	return metadata.graph;

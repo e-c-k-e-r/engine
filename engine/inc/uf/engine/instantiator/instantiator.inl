@@ -7,7 +7,7 @@ typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType( const uf::stl::
 }
 template<typename C>
 template<typename T> typename pod::NamedTypes<C>::type_t pod::NamedTypes<C>::getType() {
-	return std::type_index(typeid(T));
+	return TYPE(T);
 }
 template<typename C>
 template<typename T> uf::stl::string pod::NamedTypes<C>::getName() {
@@ -56,23 +56,6 @@ template<typename T> void uf::instantiator::registerObject( const uf::stl::strin
 		UF_MSG_DEBUG("Registered instantiation for " << name);
 	#endif
 }
-#if 0
-template<typename T> void uf::instantiator::registerBehavior( const uf::stl::string& name ) {
-	if ( !behaviors ) behaviors = new pod::NamedTypes<pod::Behavior>;
-	auto& container = *uf::instantiator::behaviors;
-	container.add<T>(name, pod::Behavior{
-		.type = uf::Behaviors::getType<T>(),
-		.initialize = T::initialize,
-		.tick = T::tick,
-		.render = T::render,
-		.destroy = T::destroy,
-	});
-
-	#if UF_INSTANTIATOR_ANNOUNCE
-		UF_MSG_DEBUG("Registered behavior for " << name);
-	#endif
-}
-#endif
 template<typename T> void uf::instantiator::registerBinding( const uf::stl::string& name ) {
 	if ( !objects ) objects = new pod::NamedTypes<pod::Instantiator>;
 	auto& container = *uf::instantiator::objects;

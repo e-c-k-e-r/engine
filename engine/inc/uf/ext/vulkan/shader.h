@@ -4,8 +4,7 @@
 #include <uf/ext/vulkan/swapchain.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
-#include <uf/utils/graphic/descriptor.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 

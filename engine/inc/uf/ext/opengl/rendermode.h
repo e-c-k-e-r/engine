@@ -2,7 +2,7 @@
 
 #include <uf/ext/opengl/device.h>
 #include <uf/ext/opengl/commands.h>
-#include <uf/utils/graphic/descriptor.h>
+#include <uf/utils/mesh/mesh.h>
 
 namespace ext {
 	namespace opengl {

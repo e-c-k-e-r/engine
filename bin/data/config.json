@@ -175,7 +175,7 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": true,
+			"enabled": false,
 			"subPools": true,
 			"alignment": 64,
 			"override": false,

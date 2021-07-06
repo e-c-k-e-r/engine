@@ -8,10 +8,10 @@
 
 namespace ext {
 	namespace GuiBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		EXT_BEHAVIOR_DEFINE_TRAITS;
-		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		EXT_BEHAVIOR_DEFINE_TRAITS();
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector4f color = {1,1,1,1};
 			bool world = false;
 			pod::Vector2f size = {0,0};
@@ -27,8 +27,11 @@ namespace ext {
 			size_t shader = 0;
 			float depth = 0;
 			float alpha = -1;
-		};
+		);
 		struct GlyphMetadata : public pod::Behavior::Metadata {
+			void serialize( uf::Object&, uf::Serializer& );
+			void deserialize( uf::Object&, uf::Serializer& );
+
 			uf::stl::string font = "";
 			uf::stl::string string = "";
 			

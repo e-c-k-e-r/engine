@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gjk.h"
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 
 namespace uf {
 	class UF_API MeshCollider : public pod::Collider {
@@ -16,7 +16,7 @@ namespace uf {
 		void setPositions( const uf::stl::vector<pod::Vector3>& );
 		
 		template<typename T, typename U>
-		void setPositions( const uf::BaseMesh<T, U>& mesh ) {
+		void setPositions( const uf::Mesh<T, U>& mesh ) {
 			this->m_positions.clear();
 			this->m_positions.reserve( std::max( mesh.vertices.size(), mesh.indices.size() ) );
 			if ( !mesh.indices.empty() ) {

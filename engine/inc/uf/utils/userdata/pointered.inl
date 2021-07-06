@@ -1,9 +1,7 @@
 namespace pod {
 	struct UF_API PointeredUserdata {
 		size_t len = 0;
-	#if UF_USERDATA_RTTI
-		size_t type = 0;
-	#endif
+		UF_USERDATA_CTTI_TYPE type = UF_USERDATA_CTTI(void);
 		void* data = NULL;
 	};
 }
@@ -21,9 +19,6 @@ namespace uf {
 
 		uf::stl::string UF_API toBase64( pod::PointeredUserdata& userdata );
 		pod::PointeredUserdata UF_API fromBase64( const uf::stl::string& base64 );
-
-	//	void move( pod::PointeredUserdata& to, pod::PointeredUserdata&& from );
-	//	void copy( pod::PointeredUserdata& to, const pod::PointeredUserdata& from );
 
 		// usage with MemoryPool
 		pod::PointeredUserdata UF_API create( uf::MemoryPool&, size_t len, void* data = NULL );
@@ -64,9 +59,7 @@ namespace uf {
 		PointeredUserdata::pod_t& data(); 								// 	Returns a reference of POD
 		const PointeredUserdata::pod_t& data() const; 					// 	Returns a const-reference of POD
 		size_t size() const;
-	#if UF_USERDATA_RTTI
-		size_t type() const;
-	#endif
+		UF_USERDATA_CTTI_TYPE type() const;
 	// 	Validity checks
 		bool initialized() const;
 	// 	Variadic construction
@@ -98,9 +91,7 @@ template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
 //	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
 	pod::PointeredUserdata userdata = uf::pointeredUserdata::create( requestedMemoryPool, sizeof(data), nullptr );
-#if UF_USERDATA_RTTI
-	userdata.type = typeid(T).hash_code();
-#endif
+	userdata.type = UF_USERDATA_CTTI(T);
 	union {
 		void* from;
 		T* to;
@@ -113,7 +104,7 @@ pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedM
 #include <stdexcept>
 template<typename T>
 T& uf::pointeredUserdata::get( pod::PointeredUserdata& userdata, bool validate ) {
-	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
+	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch"); // : Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
 		void* original;
 		T* casted;
@@ -123,7 +114,7 @@ T& uf::pointeredUserdata::get( pod::PointeredUserdata& userdata, bool validate )
 }
 template<typename T>
 const T& uf::pointeredUserdata::get( const pod::PointeredUserdata& userdata, bool validate ) {
-	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
+	if ( validate && !uf::pointeredUserdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch"); // : Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata.type << ", " << userdata.len << "}" );
 	union {
 		const void* original;
 		const T* casted;
@@ -134,9 +125,7 @@ const T& uf::pointeredUserdata::get( const pod::PointeredUserdata& userdata, boo
 
 template<typename T>
 bool uf::pointeredUserdata::is( const pod::PointeredUserdata& userdata ) {
-#if UF_USERDATA_RTTI
-	if ( userdata.type ) return userdata.type == typeid(T).hash_code() && userdata.len == sizeof(T);
-#endif
+	if ( userdata.type != UF_USERDATA_CTTI(void) ) return userdata.type == UF_USERDATA_CTTI(T) && userdata.len == sizeof(T);
 	return userdata.len == sizeof(T);
 }
 

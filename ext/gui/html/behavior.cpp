@@ -8,7 +8,7 @@
 #include <uf/utils/userdata/userdata.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/math/physics.h>
@@ -49,8 +49,6 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 		size = ext::gui::size.current;
 	}
 	if ( size.x <= 0 && size.y <= 0 ) {
-	//	size.x = ext::config["window"]["size"]["x"].as<size_t>();
-	//	size.y = ext::config["window"]["size"]["y"].as<size_t>();
 		size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 	}
 	page = ext::ultralight::create( page, metadata["html"].as<uf::stl::string>(), size);
@@ -69,11 +67,8 @@ void ext::GuiHtmlBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Resized", [&](ext::json::Value& json){
 		if ( !this->hasComponent<uf::GuiMesh>() ) return;
 
-		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} ); {
-		//	size.x = json["window"]["size"]["x"].as<size_t>();
-		//	size.y = json["window"]["size"]["y"].as<size_t>();
-		};
-
+		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
+		
 		metadata["size"][0] = size.x;
 		metadata["size"][1] = size.y;
 
@@ -117,9 +112,9 @@ void ext::GuiHtmlBehavior::tick( uf::Object& self ) {
 //	page.pending = false;
 #endif
 }
-void ext::GuiHtmlBehavior::render( uf::Object& self ){
-}
-void ext::GuiHtmlBehavior::destroy( uf::Object& self ){
-}
+void ext::GuiHtmlBehavior::render( uf::Object& self ){}
+void ext::GuiHtmlBehavior::destroy( uf::Object& self ){}
+void ext::GuiHtmlBehavior::Metadata::serializer( uf::Object& self, uf::Serializer& serializer ){}
+void ext::GuiHtmlBehavior::Metadata::deserializer( uf::Object& self, uf::Serializer& serializer ){}
 #undef this
 #endif

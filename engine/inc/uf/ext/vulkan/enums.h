@@ -140,14 +140,14 @@ namespace ext {
 		}
 		template<typename T>
 		ext::vulkan::enums::Type::type_t typeToEnum() {
-			if ( typeid(T) == typeid(int8_t) ) return ext::vulkan::enums::Type::BYTE;
-			if ( typeid(T) == typeid(uint8_t) ) return ext::vulkan::enums::Type::UBYTE;
-			if ( typeid(T) == typeid(int16_t) ) return ext::vulkan::enums::Type::SHORT;
-			if ( typeid(T) == typeid(uint16_t) ) return ext::vulkan::enums::Type::USHORT;
-			if ( typeid(T) == typeid(int32_t) ) return ext::vulkan::enums::Type::INT;
-			if ( typeid(T) == typeid(uint32_t) ) return ext::vulkan::enums::Type::UINT;
-			if ( typeid(T) == typeid(float) ) return ext::vulkan::enums::Type::FLOAT;
-			if ( typeid(T) == typeid(double) ) return ext::vulkan::enums::Type::DOUBLE;
+			if ( TYPE(T) == TYPE(int8_t) ) return ext::vulkan::enums::Type::BYTE;
+			if ( TYPE(T) == TYPE(uint8_t) ) return ext::vulkan::enums::Type::UBYTE;
+			if ( TYPE(T) == TYPE(int16_t) ) return ext::vulkan::enums::Type::SHORT;
+			if ( TYPE(T) == TYPE(uint16_t) ) return ext::vulkan::enums::Type::USHORT;
+			if ( TYPE(T) == TYPE(int32_t) ) return ext::vulkan::enums::Type::INT;
+			if ( TYPE(T) == TYPE(uint32_t) ) return ext::vulkan::enums::Type::UINT;
+			if ( TYPE(T) == TYPE(float) ) return ext::vulkan::enums::Type::FLOAT;
+			if ( TYPE(T) == TYPE(double) ) return ext::vulkan::enums::Type::DOUBLE;
 			return 0;
 		}
 	}

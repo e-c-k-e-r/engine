@@ -113,4 +113,6 @@ void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
 
 void ext::SoundEmitterBehavior::render( uf::Object& self ){}
 void ext::SoundEmitterBehavior::destroy( uf::Object& self ){}
+void ext::SoundEmitterBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}
+void ext::SoundEmitterBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){}
 #undef this

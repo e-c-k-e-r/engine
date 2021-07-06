@@ -8,10 +8,10 @@
 
 namespace ext {
 	namespace BakingBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		EXT_BEHAVIOR_DEFINE_TRAITS;
-		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		EXT_BEHAVIOR_DEFINE_TRAITS();
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector2ui size = {};
 			struct {
 				uf::stl::string model = "";
@@ -46,7 +46,7 @@ namespace ext {
 				bool renderMode = false;
 				bool map = false;
 			} initialized;
-			bool shadows = false;
-		};
+			bool cull = false;
+		);
 	}
 }

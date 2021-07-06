@@ -8,9 +8,7 @@ pod::Userdata* uf::userdata::create( const T& data ) {
 template<typename T>
 pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
 	pod::Userdata* userdata = uf::userdata::create( requestedMemoryPool, sizeof(data), nullptr );
-#if UF_USERDATA_RTTI
-	userdata->type = typeid(T).hash_code();
-#endif
+	userdata->type = UF_USERDATA_CTTI(T);
 	union {
 		void* from;
 		T* to;
@@ -23,7 +21,7 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 #include <stdexcept>
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
+	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch"); // : Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 	union {
 		void* original;
 		T* casted;
@@ -33,7 +31,7 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 }
 template<typename T>
 const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
-	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch: Expecting {" << typeid(T).hash_code() << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
+	if ( validate && !uf::userdata::is<T>( userdata ) ) UF_EXCEPTION("PointeredUserdata size|type mismatch"); // : Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 	union {
 		const void* original;
 		const T* casted;
@@ -44,9 +42,7 @@ const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
 
 template<typename T>
 bool uf::userdata::is( const pod::Userdata* userdata ) {
-#if UF_USERDATA_RTTI
-	if ( userdata && userdata->type ) return userdata && userdata->type == typeid(T).hash_code() && userdata->len == sizeof(T);
-#endif
+	if ( userdata && userdata->type != UF_USERDATA_CTTI(void) ) return userdata && userdata->type == UF_USERDATA_CTTI(T) && userdata->len == sizeof(T);
 	return userdata && userdata->len == sizeof(T);
 }
 

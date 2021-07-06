@@ -1,7 +1,7 @@
 #include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #if 0
 template<typename T, typename U>
-pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseMesh<T, U>& mesh, bool dynamic ) {
+pod::Bullet& ext::bullet::create( uf::Object& object, const uf::Mesh<T, U>& mesh, bool dynamic ) {
 	auto& transform = object.getComponent<pod::Transform<>>();
 	auto model = uf::transform::model( transform );
 

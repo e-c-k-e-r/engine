@@ -10,7 +10,7 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/math/physics.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/renderer/renderer.h>
 
@@ -26,20 +26,12 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	transform.reference = &controllerTransform;
 
-	metadata.serialize = [&]() {
-		metadataJson["track"] = metadata.track;
-		metadataJson["hide"] = metadata.hide;
-	};
-	metadata.deserialize = [&](){
-		metadata.track = metadataJson["track"].as<bool>();
-		metadata.hide = metadataJson["hide"].as<bool>();
-		metadata.scale = transform.scale;
+	metadata.reference = &controllerTransform;
 
-		transform.reference = metadata.track ? &controllerTransform : NULL;
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	this->addHook( "object:Reload.%UID%", metadata.deserialize);
-	metadata.deserialize();
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 }
 void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
@@ -60,4 +52,17 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){}
 void ext::PlayerModelBehavior::destroy( uf::Object& self ){}
+void ext::PlayerModelBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
+	auto& transform = this->getComponent<pod::Transform<>>();
+
+	/*this->*/track = serializer["track"].as<bool>();
+	/*this->*/hide = serializer["hide"].as<bool>();
+	/*this->*/scale = transform.scale;
+
+	transform.reference = /*this->*/track ? /*this->*/reference : NULL;
+}
+void ext::PlayerModelBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
+	serializer["track"] = /*this->*/track;
+	serializer["hide"] = /*this->*/hide;
+}
 #undef this

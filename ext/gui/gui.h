@@ -22,8 +22,8 @@ namespace pod {
 namespace ext {
 	class EXT_API Gui : public uf::Object {
 	public:
-		typedef uf::BaseMesh<pod::Vertex_3F2F3F> mesh_t;
-		typedef uf::BaseMesh<pod::Vertex_3F2F3F> glyph_mesh_t;
+		typedef uf::Mesh<pod::Vertex_3F2F3F, uint16_t> mesh_t;
+		typedef uf::Mesh<pod::Vertex_3F2F3F, uint16_t> glyph_mesh_t;
 	//	Gui();
 		uf::stl::vector<pod::GlyphBox> generateGlyphs( const uf::stl::string& = "" );
 		void load( const uf::Image& );

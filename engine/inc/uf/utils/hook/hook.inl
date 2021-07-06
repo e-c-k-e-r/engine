@@ -1,6 +1,7 @@
 template<typename Arg>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void(Arg)>& callback ) {
 	typedef typename std::remove_reference<Arg>::type Argument;
+
 	return addHook(name, [=]( const pod::Hook::userdata_t& userdata ){
 		pod::Hook::userdata_t ret;
 		
@@ -9,11 +10,12 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<vo
 		callback( unconst_payload );
 		
 		return ret;
-	}, pod::Hook::Type{typeid(Argument).hash_code(), sizeof(Argument)});
+	}, pod::Hook::Type{UF_USERDATA_CTTI(Argument), sizeof(Argument)});
 }
 template<typename R, typename Arg>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(Arg)>& callback ) {
 	typedef typename std::remove_reference<Arg>::type Argument;
+
 	return addHook(name, [=]( const pod::Hook::userdata_t& userdata ){
 		pod::Hook::userdata_t ret;
 		const Argument& payload = userdata.is<Argument>() ? userdata.get<Argument>() : Argument{};
@@ -21,7 +23,7 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(
 		R res = callback( unconst_payload );
 		ret.create<R>(res);
 		return ret;
-	}, pod::Hook::Type{typeid(Argument).hash_code(), sizeof(Argument)});
+	}, pod::Hook::Type{UF_USERDATA_CTTI(Argument), sizeof(Argument)});
 }
 
 template<typename Function>

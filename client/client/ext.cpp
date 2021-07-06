@@ -79,28 +79,28 @@ void client::initialize() {
 	#endif
 	
 	/* Initialize hooks */ {
-		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&](const ext::json::Value& json){
+		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( ext::json::Value& json ){
 			client::window.setCursorVisible(json["state"].as<bool>());
 			client::window.setMouseGrabbed(!json["state"].as<bool>());
 			client::config["mouse"]["visible"] = json["state"].as<bool>();
 			client::config["window"]["mouse"]["center"] = !json["state"].as<bool>();
 		});
-		uf::hooks.addHook( "window:Mouse.Lock", [&](const ext::json::Value& json){
+		uf::hooks.addHook( "window:Mouse.Lock", [&]( ext::json::Value& json ){
 			if ( client::window.hasFocus() ) {
 				client::window.setMousePosition(client::window.getSize()/2);
 			}
 		});
-		uf::hooks.addHook( "window:Closed", [&](const ext::json::Value& json){
+		uf::hooks.addHook( "window:Closed", [&]( ext::json::Value& json ){
 			client::ready = false;
 		} );
-		uf::hooks.addHook( "window:Title.Changed", [&](const ext::json::Value& json){
+		uf::hooks.addHook( "window:Title.Changed", [&]( ext::json::Value& json ){
 			if ( json["invoker"] != "os" ) {
 				if ( !ext::json::isObject( json["window"] ) ) return;
 				uf::String title = json["window"]["title"].as<std::string>();
 				client::window.setTitle(title);
 			}
 		} );
-		uf::hooks.addHook( "window:Resized", [&](const ext::json::Value& json){
+		uf::hooks.addHook( "window:Resized", [&]( ext::json::Value& json ){
 			pod::Vector2i size = uf::vector::decode( json["window"]["size"], pod::Vector2i{} );
 			if ( size.x == uf::renderer::settings::width && size.y == uf::renderer::settings::height ) return;
 			

@@ -8,10 +8,10 @@
 
 namespace ext {
 	namespace LightBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		EXT_BEHAVIOR_DEFINE_TRAITS;
-		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		EXT_BEHAVIOR_DEFINE_TRAITS();
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector3f color = {1,1,1};
 			float power = 0.0f;
 			float bias = 0.0f;
@@ -24,6 +24,6 @@ namespace ext {
 				bool rendered = false;
 				bool external = false;
 			} renderer;
-		};
+		);
 	}
 }

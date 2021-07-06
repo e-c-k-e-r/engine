@@ -10,9 +10,6 @@
 #include <uf/utils/math/angle.h>
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/matrix.h>
-#ifdef UF_USE_GLM
-	#include "glm.h"
-#endif
 
 #include "math.h"
 namespace pod {

@@ -27,7 +27,8 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 	results.reserve( container.size() );
 
 	for ( auto& hook : container ) {
-	#if UF_USERDATA_RTTI
+	#if UF_USERDATA_USE_CTTI
+	//	UF_MSG_DEBUG( name << ": " << payload.type() << " == " << hook.type.hash << "\t\t" << payload.size() << " == " << hook.type.size );
 		if ( payload.type() != hook.type.hash ) continue;
 	#endif
 		if ( payload.size() != hook.type.size ) continue;
@@ -45,19 +46,16 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::st
 	payload.create<ext::json::Value>();
 	auto& value = payload.get<ext::json::Value>();
 	value = uf::Serializer(s);
-//	payload.create<uf::stl::string>( s );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const ext::json::Value& s ) {
 	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( s );
-//	payload.create<uf::stl::string>( ext::json::encode( s ) );
 	return call(name, payload);
 }
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const uf::Serializer& s ) {
 	pod::Hook::userdata_t payload;
 	payload.create<ext::json::Value>( (const ext::json::Value&) s );
-//	payload.create<uf::stl::string>( s.serialize() );
 	return call(name, payload);
 }
 // specialization: void function

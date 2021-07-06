@@ -35,23 +35,23 @@
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
-				"unwrap": false
+				"unwrap": true
 			},
-			"cull mode": "none",
+		//	"cull mode": "none",
 
 		//	"lightmap": "./lightmap.png",
-		//	"ambient": [ 0.25, 0.25, 0.25 ],
+		//	"ambient": [ 0.5, 0.5, 0.5 ],
 
+		//	"filter": "NEAREST",
 			"flags": {
 				"ATLAS": true,
 				"INVERT": false,
 				"TRANSFORM": false,
+				"SKINNED": false,
 				
 				"RENDER": true,
-				"COLLISION": false,
 				"SEPARATE": false,
-				"NORMALS": false,
-				"LOAD": false
+				"NORMALS": false
 			},
 			"lights": {
 				"shadows": true

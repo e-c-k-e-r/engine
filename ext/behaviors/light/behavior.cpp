@@ -41,16 +41,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		});
 	}
 /*
-	if ( !metadataJson["light"]["bias"]["shader"].is<float>() ) {
-		metadataJson["light"]["bias"]["shader"] = 0.000000005f;
-	}
+	if ( !metadataJson["light"]["bias"]["shader"].is<float>() ) metadataJson["light"]["bias"]["shader"] = 0.000000005f;
 */
-	if ( !metadataJson["light"]["bias"]["constant"].is<float>() ) {
-		metadataJson["light"]["bias"]["constant"] = 0.00005f;
-	}
-	if ( !metadataJson["light"]["type"].is<uf::stl::string>() ) {
-		metadataJson["light"]["type"] = "point";
-	}
+	if ( !metadataJson["light"]["bias"]["constant"].is<float>() ) metadataJson["light"]["bias"]["constant"] = 0.00005f;
+	if ( !metadataJson["light"]["type"].is<uf::stl::string>() ) metadataJson["light"]["type"] = "point";
 	if ( !ext::json::isArray( metadataJson["light"]["color"] ) ) {
 		metadataJson["light"]["color"][0] = 1; //metadataJson["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 		metadataJson["light"]["color"][1] = 1; //metadataJson["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
@@ -59,9 +53,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) ) {
+	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) )
 		metadataJson["light"]["shadows"] = false;
-	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {
 		auto& cameraTransform = camera.getTransform();
 		cameraTransform.reference = &transform;
@@ -70,7 +63,6 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		::roundRobin.lights.emplace_back(this);
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-	//	renderMode.metadata["type"] = "depth";
 		renderMode.metadata.type = "depth";
 		renderMode.metadata.json["descriptor"]["depth bias"] = metadataJson["light"]["bias"];
 		renderMode.metadata.json["descriptor"]["renderMode"] = metadataJson["renderMode"];
@@ -102,40 +94,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		renderMode.height = size.y;
 	}
 
-	metadata.serialize = [&](){
-		metadataJson["light"]["color"] = uf::vector::encode( metadata.color );
-		metadataJson["light"]["power"] = metadata.power;
-		metadataJson["light"]["bias"]["shader"] = metadata.bias;
-		metadataJson["light"]["shadows"] = metadata.shadows;
-		metadataJson["system"]["renderer"]["mode"] = metadata.renderer.mode;
-		metadataJson["light"]["external update"] = metadata.renderer.external;
-		metadataJson["system"]["renderer"]["timer"] = metadata.renderer.limiter;
-		switch ( metadata.type ) {
-			case 0: metadataJson["light"]["type"] = "point"; break;
-			case 1: metadataJson["light"]["type"] = "spot"; break;
-			case 2: metadataJson["light"]["type"] = "spot"; break;
-		}
-	};
-	metadata.deserialize = [&](){
-		metadata.color = uf::vector::decode( metadataJson["light"]["color"], pod::Vector3f{1,1,1} );
-		metadata.power = metadataJson["light"]["power"].as<float>();
-		metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
-		metadata.shadows = metadataJson["light"]["shadows"].as<bool>();
-		metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<uf::stl::string>();
-		metadata.renderer.rendered = false;
-		metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
-		metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
-		if ( metadataJson["light"]["type"].is<size_t>() ) {
-			metadata.type = metadataJson["light"]["type"].as<size_t>();
-		} else if ( metadataJson["light"]["type"].is<uf::stl::string>() ) {
-			uf::stl::string lightType = metadataJson["light"]["type"].as<uf::stl::string>();
-			if ( lightType == "point" ) metadata.type = 1;
-			else if ( lightType == "spot" ) metadata.type = 2;
-		}
-		if ( metadataJson["light"]["dynamic"].as<bool>() ) metadata.type = -metadata.type;
-	};
-	this->addHook( "object:UpdateMetadata.%UID%", metadata.deserialize);
-	metadata.deserialize();
+	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		metadata.deserialize(self, metadataJson);
+	});
+	metadata.deserialize(self, metadataJson);
 }
 void ext::LightBehavior::tick( uf::Object& self ) {
 #if !UF_ENV_DREAMCAST
@@ -146,25 +108,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		renderMode.setTarget("");
 	}
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.deserialize();
-#elif 0
-	if ( !metadata.color ) metadata.color = uf::vector::decode( metadataJson["light"]["color"], pod::Vector3f{1,1,1} );
-	if ( !metadata.power ) metadata.power = metadataJson["light"]["power"].as<float>();
-	if ( !metadata.bias ) metadata.bias = metadataJson["light"]["bias"]["shader"].as<float>();
-	if ( !metadata.shadows ) metadata.shadows = metadataJson["light"]["shadows"].as<bool>();
-	if (  metadata.renderer.mode == "" ) metadata.renderer.mode = metadataJson["system"]["renderer"]["mode"].as<uf::stl::string>();
-	if ( !metadata.renderer.external ) metadata.renderer.external = metadataJson["light"]["external update"].as<bool>();
-	if ( !metadata.renderer.limiter ) metadata.renderer.limiter = metadataJson["system"]["renderer"]["timer"].as<float>();
-	if ( !metadata.type) {
-		if ( metadataJson["light"]["type"].is<size_t>() ) {
-			metadata.type = metadataJson["light"]["type"].as<size_t>();
-		} else if ( metadataJson["light"]["type"].is<uf::stl::string>() ) {
-			uf::stl::string lightType = metadataJson["light"]["type"].as<uf::stl::string>();
-			if ( lightType == "point" ) metadata.type = 1;
-			else if ( lightType == "spot" ) metadata.type = 2;
-		}
-		if ( metadataJson["light"]["dynamic"].as<bool>() ) metadata.type = -metadata.type;
-	}
+	metadata.deserialize(self, metadataJson);
 #endif
 #if 0
 	// light fade action
@@ -270,13 +214,11 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 		}
 	}
 #if UF_ENTITY_METADATA_USE_JSON
-	metadata.serialize();
+	metadata.serialize(self, metadataJson);
 #endif
 #endif
 }
-void ext::LightBehavior::render( uf::Object& self ){
-
-}
+void ext::LightBehavior::render( uf::Object& self ){}
 void ext::LightBehavior::destroy( uf::Object& self ){
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -286,5 +228,37 @@ void ext::LightBehavior::destroy( uf::Object& self ){
 
 	::roundRobin.lights.erase(std::remove(::roundRobin.lights.begin(), ::roundRobin.lights.end(), this), ::roundRobin.lights.end());
 	::roundRobin.current = 0;
+}
+void ext::LightBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
+	serializer["light"]["color"] = uf::vector::encode( /*this->*/color );
+	serializer["light"]["power"] = /*this->*/power;
+	serializer["light"]["bias"]["shader"] = /*this->*/bias;
+	serializer["light"]["shadows"] = /*this->*/shadows;
+	serializer["system"]["renderer"]["mode"] = /*this->*/renderer.mode;
+	serializer["light"]["external update"] = /*this->*/renderer.external;
+	serializer["system"]["renderer"]["timer"] = /*this->*/renderer.limiter;
+	switch ( /*this->*/type ) {
+		case 0: serializer["light"]["type"] = "point"; break;
+		case 1: serializer["light"]["type"] = "spot"; break;
+		case 2: serializer["light"]["type"] = "spot"; break;
+	}
+}
+void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){	
+	/*this->*/color = uf::vector::decode( serializer["light"]["color"], pod::Vector3f{1,1,1} );
+	/*this->*/power = serializer["light"]["power"].as<float>();
+	/*this->*/bias = serializer["light"]["bias"]["shader"].as<float>();
+	/*this->*/shadows = serializer["light"]["shadows"].as<bool>();
+	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as<uf::stl::string>();
+	/*this->*/renderer.rendered = false;
+	/*this->*/renderer.external = serializer["light"]["external update"].as<bool>();
+	/*this->*/renderer.limiter = serializer["system"]["renderer"]["timer"].as<float>();
+	if ( serializer["light"]["type"].is<size_t>() ) {
+		/*this->*/type = serializer["light"]["type"].as<size_t>();
+	} else if ( serializer["light"]["type"].is<uf::stl::string>() ) {
+		uf::stl::string lightType = serializer["light"]["type"].as<uf::stl::string>();
+		if ( lightType == "point" ) /*this->*/type = 1;
+		else if ( lightType == "spot" ) /*this->*/type = 2;
+	}
+	if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 }
 #undef this

@@ -5,8 +5,7 @@
 #include <uf/ext/opengl/initializers.h>
 #include <uf/ext/opengl/texture.h>
 #include <uf/ext/opengl/shader.h>
-#include <uf/utils/graphic/mesh.h>
-#include <uf/utils/graphic/descriptor.h>
+#include <uf/utils/mesh/mesh.h>
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 

@@ -26,7 +26,7 @@ namespace pod {
 
 		size_t uid;
 		struct Type {
-			size_t hash;
+			UF_USERDATA_CTTI_TYPE hash;
 			size_t size;
 		} type;
 		function_t callback;
@@ -47,7 +47,7 @@ namespace uf {
 		uf::Hooks::container_t m_container;
 	public:
 		bool exists( const name_t& name );
-		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, const pod::Hook::Type& = {0, 0} );
+		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, const pod::Hook::Type& = {UF_USERDATA_CTTI(void), 0} );
 		void removeHook( const name_t& name, size_t uid );
 		return_t call( const name_t& name, const argument_t& payload );
 		

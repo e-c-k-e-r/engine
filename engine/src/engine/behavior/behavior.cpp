@@ -42,7 +42,6 @@ void uf::Behaviors::generateGraph() {
 	m_graph.render.reserve( m_behaviors.size() );
 	m_graph.destroy.reserve( m_behaviors.size() );
 
-	const bool headLoopChildren = true;
 	const bool forwardIteration = true;
 	uf::Object* self = (uf::Object*) this;
 	for ( auto& behavior : m_behaviors ) {
@@ -64,34 +63,14 @@ void uf::Behaviors::generateGraph() {
 		std::reverse( m_graph.render.begin(), m_graph.render.end() );
 		std::reverse( m_graph.destroy.begin(), m_graph.destroy.end() );
 	}
-	// EntityBehavior which ticks children is always the first behavior, so relocate accordingly
-	if ( !headLoopChildren && forwardIteration ) {
-		std::rotate( m_graph.initialize.begin(), m_graph.initialize.begin() + 1, m_graph.initialize.end() );
-		std::rotate( m_graph.tick.begin(), m_graph.tick.begin() + 1, m_graph.tick.end() );
-		std::rotate( m_graph.tickMT.begin(), m_graph.tickMT.begin() + 1, m_graph.tickMT.end() );
-		std::rotate( m_graph.render.begin(), m_graph.render.begin() + 1, m_graph.render.end() );
-		std::rotate( m_graph.destroy.begin(), m_graph.destroy.begin() + 1, m_graph.destroy.end() );
-	}
 }
 
 #define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_FAST
 #define UF_BEHAVIOR_POLYFILL_SAFE(f)\
-	const bool headLoopChildren = true;\
 	const bool forwardIteration = true;\
-	if ( headLoopChildren ) {\
-		if ( forwardIteration ) for ( auto& behavior : m_behaviors ) behavior.f(self);\
-		else for ( auto it = m_behaviors.rbegin(); it != m_behaviors.rend(); ++it ) it->f(self);\
-	} else {\
-		if ( forwardIteration ) {\
-			auto it = m_behaviors.begin();\
-			for ( ++it; it != m_behaviors.end(); ++it ) it->f(self);\
-			if ( (it = m_behaviors.begin()) != m_behaviors.end() ) it->f(self);\
-		} else {\
-			auto it = m_behaviors.rbegin();\
-			for ( ++it; it != m_behaviors.rend(); ++it ) it->f(self);\
-			if ( (it = m_behaviors.rbegin()) != m_behaviors.rend() ) it->f(self);\
-		}\
-	}
+	if ( forwardIteration ) for ( auto& behavior : m_behaviors ) behavior.f(self);\
+	else for ( auto it = m_behaviors.rbegin(); it != m_behaviors.rend(); ++it ) it->f(self);
+
 #define UF_BEHAVIOR_POLYFILL_FAST(f) for ( auto& behavior : m_behaviors ) behavior.f(self);
 #define UF_BEHAVIOR_POLYFILL_GRAPH(f) for ( auto& fun : m_graph.f ) fun(self);
 
@@ -116,3 +95,10 @@ void uf::Behaviors::destroy() {
 	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(destroy)
 }
+
+#if 0
+void pod::Behavior::Metadata::serialize( uf::Object&, uf::Serializer& ) {}
+void pod::Behavior::Metadata::serialize( uf::Object& self ) { return serialize( self, self.getComponent<uf::Serializer>() ); }
+void pod::Behavior::Metadata::deserialize( uf::Object&, uf::Serializer& ) {}
+void pod::Behavior::Metadata::deserialize( uf::Object& self ) { return deserialize( self, self.getComponent<uf::Serializer>() ); }
+#endif

@@ -18,7 +18,7 @@ uint32_t ext::opengl::settings::height = 720;
 uint8_t ext::opengl::settings::msaa = 1;
 bool ext::opengl::settings::validation = true;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
-size_t ext::opengl::settings::viewCount = 2;
+size_t ext::opengl::settings::viewCount = 1;
 
 uf::stl::vector<uf::stl::string> ext::opengl::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceFeatures;
@@ -173,8 +173,7 @@ void UF_API ext::opengl::initialize() {
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
-
-			pod::Graph::Mesh::vertex_t* verticesSrc = (pod::Graph::Mesh::vertex_t*) userdata;
+			uint8_t* verticesSrc = (uint8_t*) userdata;
 
 			uf::renderer::Buffer::Descriptor vertexBuffer = {};
 			uf::renderer::Buffer::Descriptor instancesBuffer = graphic.getStorage(0);
@@ -187,7 +186,7 @@ void UF_API ext::opengl::initialize() {
 
 			if ( !vertexBuffer.buffer || !instancesBuffer.buffer ) return;
 
-			size_t vertexStride = graphic.descriptor.geometry.attributes.vertex.size;
+			size_t vertexStride = graphic.descriptor.attributes.vertex.size;
 			size_t vertices = vertexBuffer.range / vertexStride;
 			
 			uf::renderer::VertexDescriptor 	vertexAttributePosition,
@@ -195,13 +194,14 @@ void UF_API ext::opengl::initialize() {
 											vertexAttributeNormal,
 											vertexAttributeId;
 
-			for ( auto& attribute : graphic.descriptor.geometry.attributes.descriptor ) {
+			for ( auto& attribute : graphic.descriptor.attributes.descriptor ) {
 				if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 				else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 				else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 				else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 			}
 			if ( vertexAttributePosition.name == "" ||  vertexAttributeUv.name == "" || vertexAttributeId.name == "" ) return;
+			bool hasNormals = vertexAttributeNormal.name != "";
 			// GPU-buffer based command dispatching
 
 			// CPU-buffer based command dispatching
@@ -221,12 +221,10 @@ void UF_API ext::opengl::initialize() {
 				uint8_t* vertexDst = vertexDstPointer + (currentIndex * vertexStride);
 			
 				const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-				const pod::Vector2ui& id = *((pod::Vector2ui*) (vertexSrc + vertexAttributeId.offset));
-				const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
+				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertexSrc + vertexAttributeId.offset));
 				const pod::Vector2f& uv = *((pod::Vector2f*) (vertexSrc + vertexAttributeUv.offset));
 
 				pod::Vector3f& positionDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributePosition.offset));
-				pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
 				pod::Vector2f& uvDst 		= *((pod::Vector2f*) (vertexDst + vertexAttributeUv.offset));
 
 				auto& model = instances[id.x];
@@ -234,13 +232,17 @@ void UF_API ext::opengl::initialize() {
 				auto& texture = textures[material.indexAlbedo];
 
 				positionDst = uf::matrix::multiply<float>( model, position, 1.0f );
-				normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
+				
+				if ( hasNormals ) {
+					const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
+					pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
+					normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
+				}
 			}
 		});
 		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
-
-			pod::Graph::Mesh::vertex_t* verticesSrc = (pod::Graph::Mesh::vertex_t*) userdata;
+			uint8_t* verticesSrc = (uint8_t*) userdata;
 
 			uf::renderer::Buffer::Descriptor vertexBuffer = {};
 			uf::renderer::Buffer::Descriptor jointsBuffer = graphic.getStorage(0);
@@ -250,7 +252,7 @@ void UF_API ext::opengl::initialize() {
 			}
 			if ( !vertexBuffer.buffer || !jointsBuffer.buffer ) return;
 
-			size_t vertexStride = graphic.descriptor.geometry.attributes.vertex.size;
+			size_t vertexStride = graphic.descriptor.attributes.vertex.size;
 			size_t vertices = vertexBuffer.range / vertexStride;
 			
 			uf::renderer::VertexDescriptor 	vertexAttributePosition,
@@ -258,13 +260,14 @@ void UF_API ext::opengl::initialize() {
 											vertexAttributeJoints,
 											vertexAttributeWeights;
 
-			for ( auto& attribute : graphic.descriptor.geometry.attributes.descriptor ) {
+			for ( auto& attribute : graphic.descriptor.attributes.descriptor ) {
 				if ( attribute.name == "position" ) 		vertexAttributePosition = attribute;
 				else if ( attribute.name == "normal" ) 		vertexAttributeNormal = attribute;
 				else if ( attribute.name == "joints" ) 		vertexAttributeJoints = attribute;
 				else if ( attribute.name == "weights" ) 	vertexAttributeWeights = attribute;
 			}
 			if ( vertexAttributePosition.name == "" || vertexAttributeJoints.name == "" || vertexAttributeWeights.name == "" ) return;
+			bool hasNormals = vertexAttributeNormal.name != "";
 			// GPU-buffer based command dispatching
 
 			// CPU-buffer based command dispatching
@@ -279,16 +282,18 @@ void UF_API ext::opengl::initialize() {
 				uint8_t* vertexDst = vertexDstPointer + (currentIndex * vertexStride);
 			
 				const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-				const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
 				const pod::Vector4ui& joints = *((pod::Vector4ui*) (vertexSrc + vertexAttributeJoints.offset));
 				const pod::Vector4f& weights = *((pod::Vector4f*) (vertexSrc + vertexAttributeWeights.offset));
 
 				pod::Vector3f& positionDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributePosition.offset));
-				pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
 				pod::Matrix4f model = jointMatrices[joints[0]] * weights[0] + jointMatrices[joints[1]] * weights[1] + jointMatrices[joints[2]] * weights[2] + jointMatrices[joints[3]] * weights[3];
 				
 				positionDst = uf::matrix::multiply<float>( model, position, 1.0f );
-				normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
+				if ( hasNormals ) {
+					const pod::Vector3f& normal = *((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset));
+					pod::Vector3f& normalDst 	= *((pod::Vector3f*) (vertexDst + vertexAttributeNormal.offset));
+					normalDst = uf::vector::normalize( uf::matrix::multiply<float>( model, normal, 0.0f ) );
+				}
 			}
 		});
 	}

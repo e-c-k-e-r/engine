@@ -192,7 +192,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 
 	{
-		uf::BaseMesh<pod::Vertex_2F2F> mesh;
+		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },

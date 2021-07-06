@@ -187,6 +187,7 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 		LOAD_FLAG(ATLAS) 		//			= 0x1 << 1,
 		LOAD_FLAG(INVERT) 		//			= 0x1 << 2,
 		LOAD_FLAG(TRANSFORM) 	//			= 0x1 << 3,
+		LOAD_FLAG(SKINNED) 		//			= 0x1 << 4,
 
 		asset = uf::graph::load( filename, LOAD_FLAGS, metadata[uri] );
 		uf::graph::process( asset );

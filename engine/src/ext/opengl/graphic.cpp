@@ -38,11 +38,11 @@ void ext::opengl::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	{
 		GL_ERROR_CHECK(glGenVertexArrays(1, &vertexArray));
 		GL_ERROR_CHECK(glBindVertexArray(vertexArray));
-		for ( size_t i = 0; i < descriptor.geometry.attributes.descriptor.size(); ++i ) {
-			auto& attribute = descriptor.geometry.attributes.descriptor[i];
+		for ( size_t i = 0; i < descriptor.attributes.descriptor.size(); ++i ) {
+			auto& attribute = descriptor.attributes.descriptor[i];
 
 			GL_ERROR_CHECK(glEnableVertexAttribArray(i));
-			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.components, attribute.type, false, descriptor.geometry.attributes.vertex.size, attribute.offset));
+			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.components, attribute.type, false, descriptor.attributes.vertex.size, attribute.offset));
 		}
 		GL_ERROR_CHECK(glBindVertexArray(0));
 	}
@@ -183,12 +183,12 @@ ext::opengl::Pipeline& ext::opengl::Graphic::initializePipeline( const GraphicDe
 
 	return pipeline;
 }
-void ext::opengl::Graphic::initializeGeometry( const uf::BaseGeometry& mesh ) {
+void ext::opengl::Graphic::initializeAttributes( const pod::Mesh::Attributes& attributes ) {
 	// already generated, check if we can just update
 	if ( descriptor.indices > 0 ) {
-		if ( descriptor.geometry.attributes.vertex.size == mesh.attributes.vertex.size && descriptor.geometry.attributes.index.size == mesh.attributes.index.size && descriptor.indices == mesh.attributes.index.length ) {
+		if ( descriptor.attributes.vertex.size == attributes.vertex.size && descriptor.attributes.index.size == attributes.index.size && descriptor.indices == attributes.index.length ) {
 			// too lazy to check if this equals, only matters in pipeline creation anyways
-			descriptor.geometry = mesh;
+			descriptor.attributes = attributes;
 
 			int32_t vertexBuffer = -1;
 			int32_t indexBuffer = -1;
@@ -199,13 +199,13 @@ void ext::opengl::Graphic::initializeGeometry( const uf::BaseGeometry& mesh ) {
 
 			if ( vertexBuffer > 0 && indexBuffer > 0 ) {
 				updateBuffer(
-					(void*) mesh.attributes.vertex.pointer,
-					mesh.attributes.vertex.size * mesh.attributes.vertex.length,
+					(void*) attributes.vertex.pointer,
+					attributes.vertex.size * attributes.vertex.length,
 					vertexBuffer
 				);
 				updateBuffer(
-					(void*) mesh.attributes.index.pointer,
-					mesh.attributes.index.size * mesh.attributes.index.length,
+					(void*) attributes.index.pointer,
+					attributes.index.size * attributes.index.length,
 					indexBuffer
 				);
 				return;
@@ -213,17 +213,17 @@ void ext::opengl::Graphic::initializeGeometry( const uf::BaseGeometry& mesh ) {
 		}
 	}
 
-	descriptor.geometry = mesh;
-	descriptor.indices = mesh.attributes.index.length;
+	descriptor.attributes = attributes;
+	descriptor.indices = attributes.index.length;
 
 	initializeBuffer(
-		(void*) mesh.attributes.vertex.pointer,
-		mesh.attributes.vertex.size * mesh.attributes.vertex.length,
+		(void*) attributes.vertex.pointer,
+		attributes.vertex.size * attributes.vertex.length,
 		uf::renderer::enums::Buffer::VERTEX
 	);
 	initializeBuffer(
-		(void*) mesh.attributes.index.pointer,
-		mesh.attributes.index.size * mesh.attributes.index.length,
+		(void*) attributes.index.pointer,
+		attributes.index.size * attributes.index.length,
 		uf::renderer::enums::Buffer::INDEX
 	);
 }
@@ -273,7 +273,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 									vertexAttributeSt,
 									vertexAttributeId;
 
-	for ( auto& attribute : descriptor.geometry.attributes.descriptor ) {
+	for ( auto& attribute : descriptor.attributes.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 //		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 //		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
@@ -285,8 +285,8 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	if ( vertexAttributePosition.name == "" ) return;
 
 	size_t indices = descriptor.indices;
-	size_t indicesStride = descriptor.geometry.attributes.index.size;
-	size_t vertexStride = descriptor.geometry.attributes.vertex.size;
+	size_t indicesStride = descriptor.attributes.index.size;
+	size_t vertexStride = descriptor.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	void* vertexPointer = (void*) ( device->getBuffer( vertexBuffer.buffer ) + vertexBuffer.offset );
 	void* indicesPointer = (void*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
@@ -342,14 +342,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
 			}
 			void* vertices = vertexPointer + (index * vertexStride);
-			const pod::Vector2ui& id = *((pod::Vector2ui*) (vertices + vertexAttributeId.offset));
+			const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
 			// check if we're using a lightmap, having a lightmap means we have provided ST attributes
 			if ( !useLightmap && vertexAttributeSt.name != "" ) {
 				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
 				if ( st > pod::Vector2f{0,0} ) useLightmap = true;
 			}
-			size_t materialId = id.y;
-			size_t textureId = id.y;
+			uf::graph::id_t materialId = id.y;
+			uf::graph::id_t textureId = id.y;
 			if ( storageBufferMaterials && 0 <= materialId && materialId < storageBufferMaterialsSize ) {
 				auto& material = storageBufferMaterials[materialId];
 				size_t textureIndex = material.indexAlbedo;
@@ -518,15 +518,15 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 		serializer["renderMode"] = renderMode;
 
 	serializer["renderTarget"] = renderTarget;
-	serializer["geometry"]["sizes"]["vertex"] = geometry.attributes.vertex.size;
-	serializer["geometry"]["sizes"]["indices"] = geometry.attributes.index.size;
+	serializer["geometry"]["sizes"]["vertex"] = attributes.vertex.size;
+	serializer["geometry"]["sizes"]["indices"] = attributes.index.size;
 	serializer["indices"] = indices;
 	serializer["offsets"]["vertex"] = offsets.vertex;
 	serializer["offsets"]["index"] = offsets.index;
 
-	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
-		serializer["geometry"]["attributes"][i]["format"] = geometry.attributes.descriptor[i].format;
-		serializer["geometry"]["attributes"][i]["offset"] = geometry.attributes.descriptor[i].offset;
+	for ( uint8_t i = 0; i < attributes.descriptor.size(); ++i ) {
+		serializer["geometry"]["attributes"][i]["format"] = attributes.descriptor[i].format;
+		serializer["geometry"]["attributes"][i]["offset"] = attributes.descriptor[i].offset;
 	}
 
 	serializer["topology"] = topology;
@@ -552,15 +552,15 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 		hash += std::hash<decltype(renderMode)>{}(renderMode);
 	
 	hash += std::hash<decltype(renderTarget)>{}(renderTarget);
-	hash += std::hash<decltype(geometry.attributes.vertex.size)>{}(geometry.attributes.vertex.size);
-	hash += std::hash<decltype(geometry.attributes.index.size)>{}(geometry.attributes.index.size);
+	hash += std::hash<decltype(attributes.vertex.size)>{}(attributes.vertex.size);
+	hash += std::hash<decltype(attributes.index.size)>{}(attributes.index.size);
 	hash += std::hash<decltype(indices)>{}(indices);
 	hash += std::hash<decltype(offsets.vertex)>{}(offsets.vertex);
 	hash += std::hash<decltype(offsets.index)>{}(offsets.index);
 
-	for ( uint8_t i = 0; i < geometry.attributes.descriptor.size(); ++i ) {
-		hash += std::hash<decltype(geometry.attributes.descriptor[i].format)>{}(geometry.attributes.descriptor[i].format);
-		hash += std::hash<decltype(geometry.attributes.descriptor[i].offset)>{}(geometry.attributes.descriptor[i].offset);
+	for ( uint8_t i = 0; i < attributes.descriptor.size(); ++i ) {
+		hash += std::hash<decltype(attributes.descriptor[i].format)>{}(attributes.descriptor[i].format);
+		hash += std::hash<decltype(attributes.descriptor[i].offset)>{}(attributes.descriptor[i].offset);
 	}
 
 	hash += std::hash<decltype(topology)>{}(topology);

@@ -5,8 +5,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/ext/vulkan/shader.h>
-#include <uf/utils/graphic/descriptor.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 
 namespace ext {
 	namespace vulkan {
@@ -82,8 +81,9 @@ namespace ext {
 			void destroy();
 			
 			template<typename T, typename U>
-			void initializeMesh( uf::BaseMesh<T, U>& mesh, size_t = SIZE_MAX );
-			void initializeGeometry( const uf::BaseGeometry& mesh );
+			void initializeMesh( uf::Mesh<T, U>& mesh, size_t = SIZE_MAX );
+			
+			void initializeAttributes( const pod::Mesh::Attributes& mesh );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();

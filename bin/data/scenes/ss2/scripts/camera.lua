@@ -67,12 +67,13 @@ ent:bind( "tick", function(self)
 	local distance = cameraPosition:distance(controllerPosition)
 	local direction = cameraPosition - controllerPosition
 
-	local lightTransform = light and light:getComponent("Transform") or Transform()
+	local lightTransform = light and light:getComponent("Transform") or nil
 	local lightMetadata = light and light:getComponent("Metadata") or {}
-
-	lightTransform.position = transform.orientation:rotate( lightOffset );
-	if lightMetadata and lightMetadata["light"] and lightMetadata["light"]["static"] then
-		lightTransform.position = lightTransform.position + transform.position
+	if lightTransform ~= nil then
+		lightTransform.position = transform.orientation:rotate( lightOffset );
+		if lightMetadata and lightMetadata["light"] and lightMetadata["light"]["static"] then
+			lightTransform.position = lightTransform.position + transform.position
+		end
 	end
 
 	local angle = math.acos(transform.orientation:rotate( Vector3f(0,0,1):normalize() ):dot( direction:normalize() )) * 180.0 / 3.1415926

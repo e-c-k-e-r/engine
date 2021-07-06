@@ -9,7 +9,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/thread/thread.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::LoadingBehavior)
@@ -19,7 +19,8 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
 	this->addHook( "system:Load.Finished.%UID%", [&](ext::json::Value& json){
 		metadata["system"]["loaded"] = true;
-		this->removeBehavior(pod::Behavior{.type = uf::LoadingBehavior::type});
+	//	this->removeBehavior(pod::Behavior{.type = uf::LoadingBehavior::type});
+		this->removeBehavior(pod::Behavior{.type = TYPE(uf::LoadingBehavior::Metadata)});
 
 		auto& parent = this->getParent();
 		auto& scene = uf::scene::getCurrentScene();
@@ -60,4 +61,6 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 }
 void uf::LoadingBehavior::render( uf::Object& self ) {}
 void uf::LoadingBehavior::destroy( uf::Object& self ) {}
+void uf::LoadingBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
+void uf::LoadingBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this

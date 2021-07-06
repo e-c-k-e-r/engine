@@ -7,9 +7,9 @@ layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec2 inSt;
 layout (location = 3) in vec3 inNormal;
 layout (location = 4) in vec4 inTangent;
-layout (location = 5) in ivec2 inId;
+layout (location = 5) in uvec2 inId;
 #if SKINNED
-	layout (location = 6) in ivec4 inJoints;
+	layout (location = 6) in uvec4 inJoints;
 	layout (location = 7) in vec4 inWeights;
 #endif
 

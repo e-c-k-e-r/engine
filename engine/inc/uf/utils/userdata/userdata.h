@@ -12,14 +12,14 @@
 
 #define UF_USERDATA_POOLED 0
 #define UF_USERDATA_KLUDGE 0
-#define UF_USERDATA_RTTI 1
+
+#define UF_USERDATA_CTTI_TYPE TYPE_HASH_T // size_t
+#define UF_USERDATA_CTTI(T) TYPE_HASH(T)
 
 namespace pod {
 	struct UF_API Userdata {
 		size_t len = 0;
-	#if UF_USERDATA_RTTI
-		size_t type = 0;
-	#endif
+		UF_USERDATA_CTTI_TYPE type = UF_USERDATA_CTTI(void);
 		uint8_t data[1];
 	};
 }
@@ -84,9 +84,8 @@ namespace uf {
 		Userdata::pod_t& data(); 								// 	Returns a reference of POD
 		const Userdata::pod_t& data() const; 					// 	Returns a const-reference of POD
 		size_t size() const;
-	#if UF_USERDATA_RTTI
-		size_t type() const;
-	#endif	// 	Validity checks
+		UF_USERDATA_CTTI_TYPE type() const;
+		// 	Validity checks
 		bool initialized() const;
 	// 	Variadic construction
 		template<typename T> pod::Userdata* create( const T& data = T() );

@@ -3,7 +3,7 @@
 	#include <meshoptimizer.h>
 #endif
 
-void ext::meshopt::optimize( uf::BaseGeometry& mesh, size_t o ) {
+void ext::meshopt::optimize( pod::Mesh& mesh, size_t o ) {
 #if 0
 	mesh.updateDescriptor();
 

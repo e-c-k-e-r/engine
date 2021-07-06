@@ -10,7 +10,7 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/utils/math/physics.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/collision.h>
@@ -522,8 +522,8 @@ void ext::PlayerHandBehavior::render( uf::Object& self ){
 	}
 #endif
 }
-void ext::PlayerHandBehavior::destroy( uf::Object& self ){
-
-}
+void ext::PlayerHandBehavior::destroy( uf::Object& self ){}
+void ext::PlayerHandBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
+void ext::PlayerHandBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this
 #endif

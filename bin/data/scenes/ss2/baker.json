@@ -7,15 +7,15 @@
 	"metadata": {
 		"baking": {
 			"resolution": 8192,
-		//	"model": "./models/medsci.glb",
-			"model": "./models/medsci/graph.json.gz",
-			"shadows": true,
+		//	"model": "./models/msci.glb",
+			"model": "./models/msci/graph.json.gz",
+			"shadows": 1024,
 			"trigger": {
 				"mode": "rendered"
 			},
 			"output": {
-				"model": "./models/medsci.glb",
-				"map": "./models/medsci/lightmap.png"
+				"model": "./models/msci.glb",
+				"map": "./models/msci/lightmap.png"
 			},
 			"export": {
 				"should": true,

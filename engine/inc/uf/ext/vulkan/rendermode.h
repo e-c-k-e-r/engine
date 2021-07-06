@@ -1,6 +1,6 @@
 #pragma once
 
-#include <uf/utils/graphic/descriptor.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/utils/image/image.h>
 #include <uf/ext/vulkan/device.h>
 

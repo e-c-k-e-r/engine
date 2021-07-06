@@ -2,9 +2,6 @@
 
 #include <uf/config.h>
 #include <uf/utils/math/vector.h>
-#ifdef UF_USE_GLM
-	#include "glm.h"
-#endif
 
 #include "math.h"
 namespace pod {

@@ -1,7 +1,7 @@
 template<typename T>
 T uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
 	// T is size_t
-	if ( typeid(T) == typeid(std::size_t) ) return this->loadChildUid(json, initialize);
+	if ( TYPE(T) == TYPE(size_t) ) return this->loadChildUid(json, initialize);
 	// T is pointer
 	if ( std::is_pointer<T>::value ) return this->loadChildPointer(json, initialize);
 	// T is reference
@@ -10,7 +10,7 @@ T uf::Object::loadChild( const uf::Serializer& json, bool initialize ) {
 template<typename T>
 T uf::Object::loadChild( const uf::stl::string& filename, bool initialize ) {
 	// T is size_t
-	if ( typeid(T) == typeid(std::size_t) ) return this->loadChildUid(filename, initialize);
+	if ( TYPE(T) == TYPE(size_t) ) return this->loadChildUid(filename, initialize);
 	// T is pointer
 	if ( std::is_pointer<T>::value ) return this->loadChildPointer(filename, initialize);
 	// T is reference

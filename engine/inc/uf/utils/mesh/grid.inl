@@ -1,9 +1,9 @@
 template<typename T, typename U>
-void uf::MeshGrid::initialize( const uf::BaseMesh<T,U>& mesh, size_t divisions ) {
+void uf::MeshGrid::initialize( const uf::Mesh<T,U>& mesh, size_t divisions ) {
 	return initialize<T,U>( mesh, pod::Vector3ui{ divisions, divisions, divisions } );
 }
 template<typename T, typename U>
-void uf::MeshGrid::initialize( const uf::BaseMesh<T,U>& mesh, const pod::Vector3ui& size ) {
+void uf::MeshGrid::initialize( const uf::Mesh<T,U>& mesh, const pod::Vector3ui& size ) {
 	// calculate our extents
 	pod::Vector3f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
 	pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };

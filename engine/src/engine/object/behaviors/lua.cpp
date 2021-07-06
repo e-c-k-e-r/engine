@@ -8,7 +8,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
-#include <uf/utils/graphic/mesh.h>
+#include <uf/utils/mesh/mesh.h>
 #include <uf/engine/asset/asset.h>
 #include <uf/ext/lua/lua.h>
 
@@ -37,4 +37,6 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 void uf::LuaBehavior::destroy( uf::Object& self ) {}
 void uf::LuaBehavior::tick( uf::Object& self ) {}
 void uf::LuaBehavior::render( uf::Object& self ) {}
+void uf::LuaBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
+void uf::LuaBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this

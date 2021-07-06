@@ -4,7 +4,7 @@
 
 namespace pod {
 	struct UF_API Uniform {
-		pod::Matrix4f projection = uf::matrix::identity();
 		pod::Matrix4f modelView = uf::matrix::identity();
+		pod::Matrix4f projection = uf::matrix::identity();
 	};
 }

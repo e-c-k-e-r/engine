@@ -8,10 +8,10 @@
 
 namespace ext {
 	namespace PlayerBehavior {
-		UF_BEHAVIOR_DEFINE_TYPE;
-		EXT_BEHAVIOR_DEFINE_TRAITS;
-		EXT_BEHAVIOR_DEFINE_FUNCTIONS;
-		UF_BEHAVIOR_DEFINE_METADATA {
+		UF_BEHAVIOR_DEFINE_TYPE();
+		EXT_BEHAVIOR_DEFINE_TRAITS();
+		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
+		UF_BEHAVIOR_DEFINE_METADATA(
 			struct {
 				struct {
 					bool collision = true;
@@ -43,6 +43,6 @@ namespace ext {
 					float volume;
 				} footstep;
 			} audio;
-		};
+		);
 	}
 }

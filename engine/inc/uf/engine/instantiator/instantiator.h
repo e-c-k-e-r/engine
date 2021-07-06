@@ -20,7 +20,7 @@ namespace pod {
 
 	template<typename C>
 	struct UF_API NamedTypes {
-		typedef std::type_index type_t;
+		typedef TYPE_INDEX_T type_t;
 		typedef uf::stl::unordered_map<type_t, uf::stl::string> container_t;
 		typedef uf::stl::unordered_map<uf::stl::string, C> map_t;
 		container_t names;

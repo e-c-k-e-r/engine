@@ -14,19 +14,26 @@ namespace uf {
 
 namespace pod {
 	struct UF_API Behavior {
-	//	typedef std::type_index type_t;
-		typedef uf::stl::string type_t;
+		typedef TYPE_INDEX_T type_t;
+	//	typedef uf::stl::string type_t;
 		struct Traits {
 			bool ticks = true;
 			bool renders = true;
 			bool multithread = false;
 		};
 		struct Metadata {
-			std::function<void()> serialize;
-			std::function<void()> deserialize;
+		public:
+		#if 0
+			virtual void serialize( uf::Object&, uf::Serializer& );
+			virtual void deserialize( uf::Object&, uf::Serializer& );
+
+			inline void serialize( uf::Object& self );
+			inline void deserialize( uf::Object& self );
+		#endif
 		};
 	//	struct Header {
-			type_t type = ""; //std::type_index(typeid(pod::Behavior));
+		//	type_t type = ""; 
+			type_t type = TYPE(void);
 			Traits traits{};
 	//	} header;
 		typedef std::function<void(uf::Object&)> function_t;
@@ -78,7 +85,7 @@ namespace uf {
 		}
 		template<typename T>
 		static pod::Behavior::type_t getType() {
-			return T::type; //std::type_index(typeid(T));
+			return T::type; // TYPE(T);
 		}
 		template<typename T>
 		void addBehavior() {

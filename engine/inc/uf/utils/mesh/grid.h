@@ -38,10 +38,10 @@ namespace uf {
 		~MeshGrid();
 
 		template<typename T, typename U>
-		void initialize( const uf::BaseMesh<T,U>& mesh, size_t = 1 );
+		void initialize( const uf::Mesh<T,U>& mesh, size_t = 1 );
 
 		template<typename T, typename U>
-		void initialize( const uf::BaseMesh<T,U>& mesh, const pod::Vector3ui& );
+		void initialize( const uf::Mesh<T,U>& mesh, const pod::Vector3ui& );
 		
 		template<typename U = uint32_t>
 		uf::stl::vector<U> get() const;

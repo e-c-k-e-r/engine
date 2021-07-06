@@ -28,5 +28,7 @@ void uf::SceneBehavior::render( uf::Object& self ) {}
 void uf::SceneBehavior::destroy( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;
 }
+void uf::SceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
+void uf::SceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef self
 UF_BEHAVIOR_ENTITY_CPP_END(Scene)

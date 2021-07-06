@@ -13,9 +13,6 @@
 #include <uf/utils/math/matrix.h>
 #include <uf/utils/time/time.h>
 #include <uf/utils/io/iostream.h>
-#ifdef UF_USE_GLM
-	#include "glm.h"
-#endif
 #include "math.h"
 namespace pod {
 	// Simple transforms (designed [to store in arrays] with minimal headaches)

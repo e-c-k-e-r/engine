@@ -8,13 +8,8 @@ UF_BEHAVIOR_TRAITS_CPP(uf::EntityBehavior, ticks = true, renders = false, multit
 void uf::EntityBehavior::initialize( uf::Object& self ) {
 	if ( !this->isValid() ) this->setUid();
 }
-
-void uf::EntityBehavior::tick( uf::Object& self ) {
-//	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->tick();
-}
-void uf::EntityBehavior::render( uf::Object& self ) {
-//	if ( !uf::scene::useGraph ) for ( uf::Entity* kv : this->getChildren() ) if ( kv->isValid() ) kv->render();
-}
+void uf::EntityBehavior::tick( uf::Object& self ) {}
+void uf::EntityBehavior::render( uf::Object& self ) {} 
 void uf::EntityBehavior::destroy( uf::Object& self ) {
 	for ( uf::Entity* kv : this->getChildren() ) {
 		if ( !kv->isValid() ) continue;
@@ -26,5 +21,7 @@ void uf::EntityBehavior::destroy( uf::Object& self ) {
 	this->unsetUid();
 	if ( uf::Entity::deleteComponentsOnDestroy ) this->destroyComponents();
 }
+void uf::EntityBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
+void uf::EntityBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this
 UF_BEHAVIOR_ENTITY_CPP_END(Entity)

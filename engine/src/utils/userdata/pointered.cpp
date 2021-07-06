@@ -40,12 +40,11 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 	if ( data ) memcpy( userdata.data, data, len );
 	else memset( userdata.data, 0, len );
 	userdata.len = len;
-#if UF_USERDATA_RTTI
-	userdata.type = 0;
-#endif
+	userdata.type = UF_USERDATA_CTTI(void);
 	return userdata;
 }
 void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::PointeredUserdata& userdata ) {
+	if ( !userdata.data ) return;
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	memoryPool.free( userdata.data, size(userdata.len) );
@@ -63,9 +62,7 @@ void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool,
 pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::PointeredUserdata& userdata ) {
 	if ( !userdata.data || userdata.len <= 0 ) return {};
 	pod::PointeredUserdata copied = uf::pointeredUserdata::create( userdata.len, const_cast<void*>(userdata.data) );
-#if UF_USERDATA_RTTI
 	copied.type = userdata.type;
-#endif
 	return copied;
 }
 
@@ -124,9 +121,7 @@ void uf::PointeredUserdata::copy( const PointeredUserdata& userdata ) {
 	this->destroy();
 //	this->m_pod = uf::pointeredUserdata::copy( userdata.m_pod );
 	this->create( userdata.m_pod.len, userdata.m_pod.data );
-#if UF_USERDATA_RTTI
 //	this->m_pod.type = userdata.m_pod.type;
-#endif
 /*
 //	if ( this->m_pod && copy.m_pod ) uf::pointeredUserdata::copy( *this->m_pod, *copy.m_pod );
 	if ( !userdata ) return;
@@ -152,9 +147,7 @@ const uf::PointeredUserdata::pod_t& uf::PointeredUserdata::data() const {
 	return this->m_pod;
 }
 size_t uf::PointeredUserdata::size() const { return this->m_pod.len; }
-#if UF_USERDATA_RTTI
-size_t uf::PointeredUserdata::type() const { return this->m_pod.type; }
-#endif
+UF_USERDATA_CTTI_TYPE uf::PointeredUserdata::type() const { return this->m_pod.type; }
 // 	Validity checks
 bool uf::PointeredUserdata::initialized() const {
 	return this->m_pod.len > 0 && this->m_pod.data;

@@ -10,7 +10,7 @@
 class BulletDebugDrawer : public btIDebugDraw {
 protected:
 	int m;
-	uf::BaseMesh<pod::Vertex_3F2F3F4F> mesh;
+	uf::Mesh<pod::Vertex_3F2F3F4F> mesh;
 public:
 	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& color ) {
 		drawLine( from, to, color, color );
@@ -48,8 +48,8 @@ public:
 	}
 	int getDebugMode(void) const { return m; }
 
-	uf::BaseMesh<pod::Vertex_3F2F3F4F>& getMesh() { return mesh; }
-	const uf::BaseMesh<pod::Vertex_3F2F3F4F>& getMesh() const { return mesh; }
+	uf::Mesh<pod::Vertex_3F2F3F4F>& getMesh() { return mesh; }
+	const uf::Mesh<pod::Vertex_3F2F3F4F>& getMesh() const { return mesh; }
 };
 
 bool ext::bullet::debugDrawEnabled = false;
@@ -276,7 +276,7 @@ void ext::bullet::detach( pod::Bullet& collider ) {
 	ext::bullet::dynamicsWorld->removeCollisionObject( collider.body );
 }
 
-pod::Bullet& ext::bullet::create( uf::Object& object, const uf::BaseGeometry& mesh, bool dynamic ) {
+pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Mesh& mesh, bool dynamic ) {
 	auto& transform = object.getComponent<pod::Transform<>>();
 
 	auto& collider = ext::bullet::create( object );

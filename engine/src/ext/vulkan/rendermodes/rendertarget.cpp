@@ -303,7 +303,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 
 	if ( blitter.process ) {
-		uf::BaseMesh<pod::Vertex_2F2F, uint32_t> mesh;
+		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
