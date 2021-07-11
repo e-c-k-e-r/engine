@@ -10,6 +10,7 @@
 namespace ext {
 	namespace vulkan {
 		struct Graphic;
+
 		struct UF_API Pipeline {
 			bool aliased = false;
 
@@ -39,6 +40,7 @@ namespace ext {
 			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>& );
 			uf::stl::vector<const Shader*> getShaders( const uf::stl::vector<Shader>& ) const;
 		};
+
 		struct UF_API Material {
 			bool aliased = false;
 			Device* device;
@@ -64,6 +66,7 @@ namespace ext {
 
 			bool validate();
 		};
+
 		struct UF_API Graphic : public Buffers {
 			GraphicDescriptor descriptor;
 
@@ -76,14 +79,28 @@ namespace ext {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
 			} metadata;
 
+			struct Layout {
+				uf::stl::vector<VkDescriptorBufferInfo> uniform;
+				uf::stl::vector<VkDescriptorBufferInfo> storage;
+				
+				uf::stl::vector<VkDescriptorImageInfo> image;
+				uf::stl::vector<VkDescriptorImageInfo> image2D;
+				uf::stl::vector<VkDescriptorImageInfo> imageCube;
+				uf::stl::vector<VkDescriptorImageInfo> image3D;
+
+				uf::stl::vector<VkDescriptorImageInfo> sampler;
+				uf::stl::vector<VkDescriptorImageInfo> input;
+			} layout;
+
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );
 			void destroy();
 			
-			template<typename T, typename U>
-			void initializeMesh( uf::Mesh<T, U>& mesh, size_t = SIZE_MAX );
-			
-			void initializeAttributes( const pod::Mesh::Attributes& mesh );
+		//	template<typename T, typename U>
+		//	void initializeMesh( uf::Mesh<T, U>& mesh );
+		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
+
+			void initializeMesh( uf::Mesh& mesh, bool buffer = true );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();
@@ -99,13 +116,6 @@ namespace ext {
 			
 			void record( VkCommandBuffer commandBuffer, size_t pass = 0, size_t draw = 0 ) const;
 			void record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 ) const;
-
-			bool hasStorage( const uf::stl::string& name ) const;
-			Buffer& getStorageBuffer( const uf::stl::string& name );
-			const Buffer& getStorageBuffer( const uf::stl::string& name ) const;
-
-			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
-			ext::vulkan::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 		};
 	}
 }

@@ -43,7 +43,7 @@ layout (binding = 4) uniform UBO {
 	uint lights;
 	uint materials;
 	uint textures;
-	uint drawCalls;
+	uint drawCommands;
 	
 	vec3 ambient;
 	float gamma;
@@ -63,8 +63,8 @@ layout (std140, binding = 6) readonly buffer Materials {
 layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 8) readonly buffer DrawCalls {
-	DrawCall drawCalls[];
+layout (std140, binding = 8) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
 };
 
 layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
@@ -168,8 +168,8 @@ void populateSurface() {
 		return;
 	}
 	const uint drawId = ID.x - 1;
-	const DrawCall drawCall = drawCalls[drawId];
-	surface.material.id = ID.y + drawCall.materialIndex - 1;
+	const DrawCommand drawCommand = drawCommands[drawId];
+	surface.material.id = ID.y + drawCommand.materialID - 1;
 	const Material material = materials[surface.material.id];
 	surface.material.albedo = material.colorBase;
 	surface.fragment = material.colorEmissive;
@@ -180,8 +180,10 @@ void populateSurface() {
 	surface.uv = resolve(samplerUv, ubo.msaa).xy;
 #endif
 	const float mip = mipLevel(inUv.xy);
-	if ( validTextureIndex( drawCall.textureIndex, material.indexAlbedo ) ) {
-		surface.material.albedo = sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexAlbedo, material.indexAtlas, mip );
+//	if ( validTextureIndex( drawCommand.textureIndex, material.indexAlbedo ) ) {
+//		surface.material.albedo = sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexAlbedo, material.indexAtlas, mip );
+	if ( validTextureIndex( material.indexAlbedo ) ) {
+		surface.material.albedo = sampleTexture( material.indexAlbedo, mip );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
@@ -194,8 +196,10 @@ void populateSurface() {
 
 	}
 	// Emissive textures
-	if ( validTextureIndex( drawCall.textureIndex, material.indexEmissive ) ) {
-		surface.fragment += sampleTexture( drawCall.textureIndex, drawCall.textureSlot, material.indexEmissive, material.indexAtlas, mip );
+//	if ( validTextureIndex( drawCommand.textureIndex, material.indexEmissive ) ) {
+//		surface.fragment += sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexEmissive, material.indexAtlas, mip );
+	if ( validTextureIndex( material.indexEmissive ) ) {
+		surface.fragment += sampleTexture( material.indexEmissive, mip );
 	}
 #else
 #if !MULTISAMPLING

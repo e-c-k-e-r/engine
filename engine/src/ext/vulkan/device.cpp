@@ -394,7 +394,7 @@ VkResult ext::vulkan::Device::createBuffer(
 	VkDeviceSize size,
 	const void* data
 ) {
-	buffer.device = logicalDevice;
+	buffer.device = this;
 	buffer.usage = usage;
 	buffer.memoryProperties = memoryProperties;
 

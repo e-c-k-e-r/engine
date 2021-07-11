@@ -189,12 +189,12 @@ void UF_API ext::opengl::initialize() {
 			size_t vertexStride = graphic.descriptor.attributes.vertex.size;
 			size_t vertices = vertexBuffer.range / vertexStride;
 			
-			uf::renderer::VertexDescriptor 	vertexAttributePosition,
+			uf::renderer::AttributeDescriptor 	vertexAttributePosition,
 											vertexAttributeUv,
 											vertexAttributeNormal,
 											vertexAttributeId;
 
-			for ( auto& attribute : graphic.descriptor.attributes.descriptor ) {
+			for ( auto& attribute : graphic.descriptor.attributes.vertex.descriptor ) {
 				if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 				else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 				else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
@@ -255,12 +255,12 @@ void UF_API ext::opengl::initialize() {
 			size_t vertexStride = graphic.descriptor.attributes.vertex.size;
 			size_t vertices = vertexBuffer.range / vertexStride;
 			
-			uf::renderer::VertexDescriptor 	vertexAttributePosition,
+			uf::renderer::AttributeDescriptor 	vertexAttributePosition,
 											vertexAttributeNormal,
 											vertexAttributeJoints,
 											vertexAttributeWeights;
 
-			for ( auto& attribute : graphic.descriptor.attributes.descriptor ) {
+			for ( auto& attribute : graphic.descriptor.attributes.vertex.descriptor ) {
 				if ( attribute.name == "position" ) 		vertexAttributePosition = attribute;
 				else if ( attribute.name == "normal" ) 		vertexAttributeNormal = attribute;
 				else if ( attribute.name == "joints" ) 		vertexAttributeJoints = attribute;

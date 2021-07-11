@@ -99,8 +99,8 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 ext::vulkan::Buffer::~Buffer() {
 //	this->destroy();
 }
-void ext::vulkan::Buffer::initialize( VkDevice device ) {
-	this->device = device;
+void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device ) {
+	this->device = &device;
 }
 void ext::vulkan::Buffer::destroy() {
 	if ( !device ) return;
@@ -113,6 +113,50 @@ void ext::vulkan::Buffer::destroy() {
 
 	buffer = nullptr;
 	memory = nullptr;
+}
+void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
+	if ( stage ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
+	VK_CHECK_RESULT(device->createBuffer(
+		usage,
+		memoryProperties,
+		*this,
+		length
+	));
+	if ( data ) update( data, length, stage );
+}
+void ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
+	if ( length > allocationInfo.size ) {
+		UF_MSG_DEBUG("LENGTH OF " << length << " EXCEEDS BUFFER SIZE " << allocationInfo.size );
+		Buffer& b = *const_cast<Buffer*>(this);
+		b.destroy();
+		b.initialize( data, length, usage, memoryProperties, stage );
+		return;
+	}
+	if ( !stage ) {
+		void* map = this->map();
+		memcpy(map, data, length);
+		if ((this->memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) this->flush();
+		this->unmap();
+		return;
+	}
+
+	Buffer staging;
+	device->createBuffer(
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		staging,
+		length,
+		data
+	);
+
+	// Copy to staging buffer
+	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	VkBufferCopy region = {};
+	region.size = length;
+	vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
+
+	device->flushCommandBuffer(copyCommand, true);
+	staging.destroy();
 }
 
 //
@@ -133,93 +177,13 @@ void ext::vulkan::Buffers::destroy() {
 
 size_t ext::vulkan::Buffers::initializeBuffer( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
 	size_t index = buffers.size();
-	Buffer& buffer = buffers.emplace_back();
-	
-	// Stage
-	if ( !stage ) {
-		VK_CHECK_RESULT(device->createBuffer(
-			usage,
-			memoryProperties,
-			buffer,
-			length
-		));
-		this->updateBuffer( data, length, buffer, stage );
-		return index;
-	}
-
-	// implicitly set properties
-	usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-
-	Buffer staging;
-	VkDeviceSize storageBufferSize = length;
-	device->createBuffer(
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging,
-		storageBufferSize,
-		data
-	);
-
-	device->createBuffer(
-		usage,
-		memoryProperties,
-		buffer,
-		storageBufferSize
-	);
-
-	// Copy to staging buffer
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	VkBufferCopy copyRegion = {};
-	copyRegion.size = storageBufferSize;
-	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
-	device->flushCommandBuffer(copyCmd, true);
-	staging.destroy();
-
+	auto& buffer = buffers.emplace_back();
+	buffer.initialize( *device );
+	buffer.initialize( data, length, usage, memoryProperties, stage );
 	return index;
 }
 void ext::vulkan::Buffers::updateBuffer( const void* data, VkDeviceSize length, const Buffer& buffer, bool stage ) const {
-//	assert(buffer.allocationInfo.size == length);
-
-	if ( length > buffer.allocationInfo.size ) {
-		if ( !true ) {
-			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length << "; Userdata might've been corrupted, please try validating with shader.validate() before updating buffer");
-		} else {
-			VK_VALIDATION_MESSAGE("Mismatch buffer update: Requesting " << buffer.allocationInfo.size << ", got " << length << ", resetting for safety");
-			length = buffer.allocationInfo.size;
-		}
-//		assert(buffer.allocationInfo.size > length);
-	}
-	if ( !stage ) {
-	#if UF_TESTING
-		void* map = buffer.map();
-		memcpy(map, data, length);
-		if ((buffer.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
-		buffer.unmap();
-	#else
-		void* map = buffer.map();
-		memcpy(map, data, length);
-		if ((buffer.memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
-		buffer.unmap();
-	#endif
-		return;
-	}
-	Buffer staging;
-	device->createBuffer(
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging,
-		length,
-		data
-	);
-
-	// Copy to staging buffer
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	VkBufferCopy copyRegion = {};
-	copyRegion.size = length;
-	vkCmdCopyBuffer(copyCmd, staging.buffer, buffer.buffer, 1, &copyRegion);
-
-	device->flushCommandBuffer(copyCmd, true);
-	staging.destroy();
+	buffer.update( data, length, stage );
 }
 
 #endif

@@ -5,6 +5,7 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/graphic/graphic.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/engine/asset/asset.h>
 
@@ -234,7 +235,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.matrix = metadata.extents.matrix,
 						.cascadePower = metadata.cascadePower,
 					};
-					graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 				#endif
 				}
 			}

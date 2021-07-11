@@ -523,7 +523,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			alignas(4) uint32_t lights = 0;
 			alignas(4) uint32_t materials = 0;
 			alignas(4) uint32_t textures = 0;
-			alignas(4) uint32_t drawCalls = 0;
+			alignas(4) uint32_t drawCommands = 0;
 		} lengths;
 
 		pod::Vector3f ambient;
@@ -559,41 +559,59 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	texturesCube.reserve( metadata.max.texturesCube );
 
 	// lighting information
-	uf::stl::vector<pod::Light::Storage> lights;
+	uf::stl::vector<pod::Light> lights;
 	lights.reserve( metadata.max.lights );
 
 	// material information
-	uf::stl::vector<pod::Material::Storage> materials;
+	uf::stl::vector<pod::Material> materials;
 	materials.reserve( metadata.max.textures2D );
 	materials.emplace_back().colorBase = {0,0,0,0}; // setup our fallback material information
 	// texture information
-	uf::stl::vector<pod::Texture::Storage> textures;
+	uf::stl::vector<pod::Texture> textures;
 	textures.reserve( metadata.max.textures2D );
 	// drawcall information
-	uf::stl::vector<pod::DrawCall::Storage> drawCalls;
-	drawCalls.reserve( metadata.max.textures2D );
+	uf::stl::vector<pod::DrawCommand> drawCommands;
+	drawCommands.reserve( metadata.max.textures2D );
+
+	// bind materials
+	for ( auto pair : uf::graph::storage.materials ) materials.emplace_back(pair.second);
+	for ( auto pair : uf::graph::storage.textures ) textures.emplace_back(pair.second);
+	// bind textures
+	// bind texture2Ds
+	for ( auto pair : uf::graph::storage.images ) {
+		auto& image = pair.second;
+		auto& texture2D = uf::graph::storage.texture2Ds[pair.first];
+		if ( !texture2D.generated() ) texture2D.loadFromImage( pair.second );
+		textures2D.emplace_back().aliasTexture(texture2D);
+	}
 
 	// traverse scene graph
 	for ( auto entity : graph ) {
 		// needed to grab our necessary materials/texture information, until i add it globally
+	#if 0
 		if ( entity->hasComponent<pod::Graph>() ) {
 			auto& graph = entity->getComponent<pod::Graph>();
 			// pass our draw call information, necessary in shader
-			drawCalls.emplace_back(pod::DrawCall::Storage{
+		/*
+			drawCommands.emplace_back(pod::DrawCall{
 				materials.size(),
 				textures.size(),
 				textures2D.size(),
 				0,
 			});
+		*/
 			// pass material information
-			for ( auto& material : graph.materials ) materials.emplace_back( material.storage );
+			for ( auto& material : graph.materials ) {
+				materials.emplace_back( uf::graph::storage.materials[material] );
+			}
 			// pass texture information
 			for ( auto& texture : graph.textures ) {
-				textures.emplace_back( texture.storage );
+				textures.emplace_back( uf::graph::storage.textures[texture] );
 				// attach the actual texture if the texture information requests it
-				if ( texture.bind ) textures2D.emplace_back().aliasTexture(texture.texture);
+			//	if ( texture.bind ) textures2D.emplace_back().aliasTexture(texture.texture);
 			}
 		}
+	#endif
 		// ignore this scene, our controller, and anything that isn't actually a light
 		if ( entity == this || entity == &controller || !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
 		auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
@@ -637,15 +655,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		uf::Entity* entity = info.entity;
 
 		if ( !info.shadows ) {
-			lights.emplace_back(pod::Light::Storage{
+			lights.emplace_back(pod::Light{
+				.view = uf::matrix::identity(),
+				.projection = uf::matrix::identity(),
 				.position = info.position,
 				.color = info.color,
 				.type = info.type,
 				.typeMap = 0,
 				.indexMap = -1,
 				.depthBias = info.bias,
-				.view = uf::matrix::identity(),
-				.projection = uf::matrix::identity(),
 			});
 		} else {
 			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -676,15 +694,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 						break;
 					}
 				}
-				lights.emplace_back(pod::Light::Storage{
+				lights.emplace_back(pod::Light{
+					.view = lightCamera.getView(0),
+					.projection = lightCamera.getProjection(0),
 					.position = info.position,
 					.color = info.color,
 					.type = info.type,
 					.typeMap = metadata.shadow.experimentalMode,
 					.indexMap = index,
 					.depthBias = info.bias,
-					.view = lightCamera.getView(0),
-					.projection = lightCamera.getProjection(0),
 				});
 			// any other shadowing light, even point lights, are split by shadow maps
 			} else {
@@ -692,15 +710,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 					if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
 					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
 					for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
-						lights.emplace_back(pod::Light::Storage{
+						lights.emplace_back(pod::Light{
+							.view = lightCamera.getView(view),
+							.projection = lightCamera.getProjection(view),
 							.position = info.position,
 							.color = info.color,
 							.type = info.type,
 							.typeMap = 0,
 							.indexMap = textures2D.size(),
 							.depthBias = info.bias,
-							.view = lightCamera.getView(view),
-							.projection = lightCamera.getProjection(view),
 						});
 						textures2D.emplace_back().aliasAttachment(attachment, view);
 					}
@@ -766,7 +784,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			.lights = MIN( lights.size(), metadata.max.lights ),
 			.materials = MIN( materials.size(), metadata.max.textures2D ),
 			.textures = MIN( textures.size(), metadata.max.textures2D ),
-			.drawCalls = MIN( drawCalls.size(), metadata.max.textures2D ),
+		//	.drawCommands = MIN( drawCommands.size(), metadata.max.textures2D ),
 		};
 
 		uniforms.ambient = metadata.light.ambient;
@@ -801,24 +819,24 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		}
 		
 		// update lighting buffer
-		graphic.updateBuffer( (const void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light::Storage), renderMode.metadata.lightBufferIndex, false );
+		shader.updateBuffer( (const void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light), renderMode.metadata.lightBufferIndex, false );
 		//
 		if ( shouldUpdate ) {
-			graphic.updateBuffer( (const void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material::Storage), renderMode.metadata.materialBufferIndex, false );
-			graphic.updateBuffer( (const void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture::Storage), renderMode.metadata.textureBufferIndex, false );
-			graphic.updateBuffer( (const void*) drawCalls.data(), uniforms.lengths.drawCalls * sizeof(pod::DrawCall::Storage), renderMode.metadata.drawCallBufferIndex, false );
+			shader.updateBuffer( (const void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material), renderMode.metadata.materialBufferIndex, false );
+			shader.updateBuffer( (const void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture), renderMode.metadata.textureBufferIndex, false );
+			shader.updateBuffer( (const void*) drawCommands.data(), uniforms.lengths.drawCommands * sizeof(pod::DrawCommand), renderMode.metadata.drawCallBufferIndex, false );
 
 			graphic.updatePipelines();
 		}
 	
-	//	graphic.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );	
-		graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+	//	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );	
+		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 	/*
 		auto& uniform = shader.getUniform("UBO");
 		memcpy( (void*) uniform, &uniforms, sizeof(uniforms) );
 		shader.updateUniform( "UBO", uniform );	
 	*/
 	}
-#endif
 }
+#endif
 #undef this

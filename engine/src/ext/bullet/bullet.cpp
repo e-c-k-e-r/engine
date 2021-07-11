@@ -10,28 +10,27 @@
 class BulletDebugDrawer : public btIDebugDraw {
 protected:
 	int m;
-	uf::Mesh<pod::Vertex_3F2F3F4F> mesh;
+	uf::Mesh mesh;
 public:
 	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& color ) {
 		drawLine( from, to, color, color );
 	}
 	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor ) {
-		auto& A = mesh.vertices.emplace_back();
-		A.position = { from.getX(), from.getY(), from.getZ() };
-		//{0.0f, 0.0f},
-		//{0.0f, 0.0f, 0.0f},
-		A.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ(), 1.0f };
-		auto& B = mesh.vertices.emplace_back();
-		B.position = { to.getX(), to.getY(), to.getZ() };
-		//{0.0f, 0.0f},
-		//{0.0f, 0.0f, 0.0f},
-		B.color = { toColor.getX(), toColor.getY(), toColor.getZ(), 1.0f };
+		pod::Vertex_3F2F3F4F vertex;
+
+		vertex.position = { from.getX(), from.getY(), from.getZ() };
+		vertex.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ(), 1.0f };
+		mesh.insertVertex(vertex);
+
+		vertex.position = { to.getX(), to.getY(), to.getZ() };
+		vertex.color = { toColor.getX(), toColor.getY(), toColor.getZ(), 1.0f };
+		mesh.insertVertex(vertex);
 	}
 	virtual void drawContactPoint(const btVector3&, const btVector3&, btScalar, int, const btVector3&) {
 
 	}
 	virtual void reportErrorWarning(const char* str ) {
-		uf::iostream << "[Bullet] " << str << "\n";
+		UF_MSG_WARNING("[Bullet] " << str);
 	}
 	virtual void draw3dText(const btVector3& , const char* str ) {
 
@@ -48,8 +47,8 @@ public:
 	}
 	int getDebugMode(void) const { return m; }
 
-	uf::Mesh<pod::Vertex_3F2F3F4F>& getMesh() { return mesh; }
-	const uf::Mesh<pod::Vertex_3F2F3F4F>& getMesh() const { return mesh; }
+	uf::Mesh& getMesh() { return mesh; }
+	const uf::Mesh& getMesh() const { return mesh; }
 };
 
 bool ext::bullet::debugDrawEnabled = false;
@@ -112,7 +111,7 @@ void ext::bullet::initialize() {
 	ext::bullet::dynamicsWorld->setGravity(btVector3(0, -9.81, 0));
 
 	ext::bullet::debugDrawer.setDebugMode(btIDebugDraw::DBG_DrawWireframe);
-    ext::bullet::dynamicsWorld->setDebugDrawer(&ext::bullet::debugDrawer);
+ 	ext::bullet::dynamicsWorld->setDebugDrawer(&ext::bullet::debugDrawer);
 
 #if !UF_ENV_DREAMCAST
 	gContactAddedCallback = contactCallback;
@@ -276,46 +275,38 @@ void ext::bullet::detach( pod::Bullet& collider ) {
 	ext::bullet::dynamicsWorld->removeCollisionObject( collider.body );
 }
 
-pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Mesh& mesh, bool dynamic ) {
+pod::Bullet& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh, bool dynamic ) {
 	auto& transform = object.getComponent<pod::Transform<>>();
 
 	auto& collider = ext::bullet::create( object );
 	auto model = uf::transform::model( collider.transform );
 	
-	size_t indices = mesh.attributes.index.length;
-	size_t indexStride = mesh.attributes.index.size;
-	uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
-
-	size_t vertices = mesh.attributes.vertex.length;
-	size_t vertexStride = mesh.attributes.vertex.size;
-	uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
-
-	uf::renderer::VertexDescriptor vertexAttributePosition;
-	for ( auto& attribute : mesh.attributes.descriptor ) {
-		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-	}
-	if ( vertexAttributePosition.name == "" ) return collider;
-	
 	btTriangleMesh* bMesh = new btTriangleMesh( true, false );
-	bMesh->preallocateVertices( vertices );
-	for ( size_t currentIndex = 0; currentIndex < vertices; ++currentIndex ) {
-		uint8_t* vertexSrc = vertexPointer + (currentIndex * vertexStride);
-		const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-		bMesh->findOrAddVertex( btVector3( position.x, position.y, position.z ), false );
-	}
-	if ( mesh.attributes.index.pointer ) {
-		bMesh->preallocateIndices( indices );
-		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-			uint32_t index = 0;
-			uint8_t* indexSrc = indexPointer + (currentIndex * indexStride);
-			switch ( indexStride ) {
-				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
-				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;
-				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
-			}
-			bMesh->addIndex( index );
+	for ( auto& attribute : mesh.vertex.attributes ) {
+		if ( attribute.descriptor.name != "position" ) continue;
+
+		const pod::Vector3f* pointer = (const pod::Vector3f*) attribute.descriptor.pointer;
+		bMesh->preallocateVertices( mesh.vertex.count );
+		for ( auto i = 0; i < mesh.vertex.count; ++i ) {
+			bMesh->findOrAddVertex( btVector3( pointer[i].x, pointer[i].y, pointer[i].z ), false );
 		}
-		bMesh->getIndexedMeshArray()[0].m_numTriangles = indices / 3;
+		break;
+	}
+	if ( mesh.index.count ) {
+		bMesh->preallocateIndices( mesh.index.count );
+		for ( auto& attribute : mesh.index.attributes ) {
+			size_t count = attribute.descriptor.length / attribute.descriptor.size;
+			const uint8_t* pointer = (const uint8_t*) attribute.descriptor.pointer;
+			for ( auto i = 0; i < count; ++i ) {
+				uint32_t index = 0;
+				switch ( attribute.descriptor.size ) {
+					case sizeof( uint8_t): index = (( uint8_t*) pointer)[i]; break;
+					case sizeof(uint16_t): index = ((uint16_t*) pointer)[i]; break;
+					case sizeof(uint32_t): index = ((uint32_t*) pointer)[i]; break;
+				}
+				bMesh->addIndex( index );
+			}
+		}
 	}
 
 	collider.shape = new btBvhTriangleMeshShape(bMesh, true);
@@ -332,7 +323,6 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Mesh& mesh, boo
 	triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
 	if ( !false ) btGenerateInternalEdgeInfo( triangleMeshShape, triangleInfoMap );
 	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
-
 	return collider;
 }
 pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Vector3f& corner, float mass ) {
@@ -453,7 +443,10 @@ void UF_API ext::bullet::activateCollision( pod::Bullet& collider, bool enabled 
 
 void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 	auto& mesh = ext::bullet::debugDrawer.getMesh();
-	if ( mesh.vertices.empty() ) return;
+	mesh.bind<pod::Vertex_3F2F3F4F>();
+
+	if ( !mesh.vertex.count ) return;
+
 	bool create = !object.hasComponent<uf::Graphic>();
 	auto& graphic = object.getComponent<uf::Graphic>();
 	graphic.process = false;
@@ -468,14 +461,14 @@ void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 		graphic.material.attachShader(uf::io::root + "/shaders/base/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
 
 		graphic.initialize();
-		graphic.initializeMesh( mesh, 0 );
+		graphic.initializeMesh( mesh );
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
 		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 		graphic.descriptor.lineWidth = 8.0f;
 	} else {
 		graphic.process = true;
 
-		graphic.initializeMesh( mesh, 0 );
+		graphic.initializeMesh( mesh );
 		graphic.getPipeline().update( graphic );
 	}
 }

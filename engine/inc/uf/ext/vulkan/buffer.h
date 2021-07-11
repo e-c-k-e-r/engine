@@ -8,7 +8,7 @@ namespace ext {
 		struct Device;
 
 		struct UF_API Buffer {
-			VkDevice device;
+			ext::vulkan::Device* device = NULL;
 			VkBuffer buffer = VK_NULL_HANDLE;
 			VkDeviceMemory memory = VK_NULL_HANDLE;
 			VkDescriptorBufferInfo descriptor = {
@@ -40,7 +40,9 @@ namespace ext {
 
 			// RAII
 			~Buffer();
-			void initialize( VkDevice device );
+			void initialize( ext::vulkan::Device& device );
+			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
+			void update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
 			void destroy();
 
 			void aliasBuffer( const Buffer& );

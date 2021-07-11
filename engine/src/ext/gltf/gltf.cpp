@@ -75,7 +75,7 @@ namespace {
 		} else {
 			transform.position = { 0, 0, 0 };
 		}
-		if ( !(graph.mode & uf::graph::LoadMode::INVERT) ) {
+		if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ) {
 			transform.position.x *= -1;
 		}
 		if ( node.rotation.size() == 4 ) {
@@ -111,10 +111,10 @@ namespace {
 	}
 }
 
-pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mode_t mode, const uf::Serializer& metadata ) {
+pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension != "glb" && extension != "gltf" ) {
-		return uf::graph::load( filename, mode, metadata );
+		return uf::graph::load( filename, metadata );
 	}
 
 	tinygltf::Model model;
@@ -125,7 +125,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 
 	pod::Graph graph;
 	graph.name = filename;
-	graph.mode = mode;
 	graph.metadata = metadata;
 
 	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: " << warn);
@@ -136,9 +135,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 
 	// load samplers
 	{
-		graph.samplers.reserve(model.samplers.size());
+		uf::graph::storage.samplers.reserve(model.samplers.size());
 		for ( auto& s : model.samplers ) {
-			auto& sampler = graph.samplers.emplace_back();
+			auto& sampler = uf::graph::storage.samplers[graph.samplers.emplace_back(s.name)];
 			sampler.descriptor.filter.min = getFilterMode( s.minFilter );
 			sampler.descriptor.filter.mag = getFilterMode( s.magFilter );
 			sampler.descriptor.addressMode.u = getWrapMode( s.wrapS );
@@ -149,84 +148,69 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 
 	// load images
 	{
-		graph.images.reserve(model.images.size());
+		uf::graph::storage.images.reserve(model.images.size());
 		for ( auto& i : model.images ) {
-			size_t index = graph.images.size();
-			auto& image = graph.images.emplace_back();
+			auto& image = uf::graph::storage.images[graph.images.emplace_back(i.name)];
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
 		}
 	}
 	// generate atlas
-	if ( mode & uf::graph::LoadMode::ATLAS ) {
-		graph.atlas.generate( graph.images );
+	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) {
+	//	uf::graph::storage.atlases[filename].generate();
 	}
 	// load textures
 	{
-		graph.textures.reserve(model.textures.size());
+		uf::graph::storage.textures.reserve(model.textures.size());
 		for ( auto& t : model.textures ) {
-			auto& texture = graph.textures.emplace_back();
-			texture.name = t.name;
-
-			texture.storage.index = t.source;
-			texture.storage.sampler = t.sampler;
-			if ( 0 <= t.source && graph.atlas.generated() ) {
-				size_t index = t.source;
-				const auto& hash = graph.images[index].getHash();
-				auto atlasMin = graph.atlas.mapUv( {0, 0}, hash );
-				auto atlasMax = graph.atlas.mapUv( {1, 1}, hash );
-
-				texture.storage.lerp = {
-					atlasMin.x,
-					atlasMin.y,
-
-					atlasMax.x,
-					atlasMax.y,
-				};
+			auto& texture = uf::graph::storage.textures[graph.textures.emplace_back(t.name)];
+			texture.index = t.source;
+			texture.sampler = t.sampler;
+			if ( 0 <= t.source && uf::graph::storage.atlases[filename].generated() ) {
+				auto& image = graph.images[t.source];
+				const auto& hash = uf::graph::storage.images[image].getHash();
+				auto atlasMin = uf::graph::storage.atlases[filename].mapUv( {0, 0}, hash );
+				auto atlasMax = uf::graph::storage.atlases[filename].mapUv( {1, 1}, hash );
+				texture.lerp = { atlasMin.x, atlasMin.y, atlasMax.x, atlasMax.y, };
 			}
 		}
 	}
-	if ( graph.atlas.generated() ) {
-		graph.atlas.clear(false);
+	// clear source images
+	if ( uf::graph::storage.atlases[filename].generated() ) {
+		uf::graph::storage.atlases[filename].clear(false);
 	}
 	// load materials
 	{
-		graph.materials.reserve(model.materials.size());
+		uf::graph::storage.materials.reserve(model.materials.size());
 		for ( auto& m : model.materials ) {
-			auto& material = graph.materials.emplace_back();
-			material.name = m.name;
-			material.storage.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
-			material.storage.indexNormal = m.normalTexture.index;
-			material.storage.indexEmissive = m.emissiveTexture.index;
-			material.storage.indexOcclusion = m.occlusionTexture.index;
-			material.storage.indexMetallicRoughness = m.pbrMetallicRoughness.metallicRoughnessTexture.index;
-			material.storage.colorBase = {
+			auto& material = uf::graph::storage.materials[graph.materials.emplace_back(m.name)];
+			material.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
+			material.indexNormal = m.normalTexture.index;
+			material.indexEmissive = m.emissiveTexture.index;
+			material.indexOcclusion = m.occlusionTexture.index;
+			material.indexMetallicRoughness = m.pbrMetallicRoughness.metallicRoughnessTexture.index;
+			material.colorBase = {
 				m.pbrMetallicRoughness.baseColorFactor[0],
 				m.pbrMetallicRoughness.baseColorFactor[1],
 				m.pbrMetallicRoughness.baseColorFactor[2],
 				m.pbrMetallicRoughness.baseColorFactor[3],
 			};
-			material.storage.colorEmissive = {
+			material.colorEmissive = {
 				m.emissiveFactor[0],
 				m.emissiveFactor[1],
 				m.emissiveFactor[2],
 				0
 			};
 
-			material.storage.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
-			material.storage.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
-			material.storage.factorOcclusion = m.occlusionTexture.strength;
-			material.storage.factorAlphaCutoff = m.alphaCutoff;
+			material.factorMetallic = m.pbrMetallicRoughness.metallicFactor;
+			material.factorRoughness = m.pbrMetallicRoughness.roughnessFactor;
+			material.factorOcclusion = m.occlusionTexture.strength;
+			material.factorAlphaCutoff = m.alphaCutoff;
 
-			material.alphaMode = m.alphaMode;
-			if ( material.alphaMode == "OPAQUE" ) {
-				material.storage.modeAlpha = 0;
-			} else if ( material.alphaMode == "BLEND" ) {
-				material.storage.modeAlpha = 1;
-			} else if ( material.alphaMode == "MASK" ) {
-				material.storage.modeAlpha = 2;
-			} else {
-				UF_MSG_WARNING("Unhandled alpha mode: " << material.alphaMode)
-			}
+			if ( m.alphaMode == "OPAQUE" ) material.modeAlpha = 0;
+			else if ( m.alphaMode == "BLEND" ) material.modeAlpha = 1;
+			else if ( m.alphaMode == "MASK" ) material.modeAlpha = 2;
+			else UF_MSG_WARNING("Unhandled alpha mode: " << m.alphaMode);
+
 			if ( m.doubleSided && graph.metadata["cull mode"].as<uf::stl::string>() == "auto" ) {
 				graph.metadata["cull mode"] = "none";
 			}
@@ -236,54 +220,19 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 	{
 		graph.meshes.reserve(model.meshes.size());
 		for ( auto& m : model.meshes ) {
-		//	auto& mesh = graph.meshes.emplace_back();
+			auto& pair = uf::graph::storage.meshes[graph.meshes.emplace_back(m.name)];
+			auto& mesh = pair.mesh;
+			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
 
-		/*
-			struct {
-				uf::Mesh<uf::graph::mesh::Base> base;
-				uf::Mesh<uf::graph::mesh::ID> id;
-				uf::Mesh<uf::graph::mesh::Skinned> skinned;
-			} meshes;
-		*/
-		/*
-			// use skinned mesh
-			if ( mode & uf::graph::LoadMode::SKINNED ) {
-				mesh.set<uf::graph::mesh::Skinned>();
-			// use ID'd mesh
-			} else {
-				mesh.set<uf::graph::mesh::ID>();
-			}
-		*/
-			// we'll fill up the most feature complete mesh (skinned) and then convert down to what we need
-			// this is fine since we only really ever load gltf files once, and parse to an internal format for reuse
-		/*
-			uf::Mesh<uf::graph::mesh::Skinned, uint32_t> storageMesh;
-			// already here, just move it over
-			auto& MESH = graph.meshes.emplace_back();
-			auto& mesh = ( mode & uf::graph::LoadMode::SKINNED ) ? MESH.get<uf::graph::mesh::Skinned>() : storageMesh;
-		*/
-		#if UF_GRAPH_EXPERIMENTAL
-			uf::Mesh<uf::graph::mesh::Skinned, uint32_t> mesh;
-			auto& varyingMesh = graph.meshes.emplace_back();
-		#else
-			auto& mesh = graph.meshes.emplace_back();
-		#endif
-
-			pod::DrawCall drawCall;
-			drawCall.verticesIndex = mesh.vertices.size();
-			drawCall.indicesIndex = mesh.indices.size();
-			drawCall.vertices = 0;
-			drawCall.indices = 0;
-			for ( auto& primitive : m.primitives ) {
-				pod::DrawCall dc;
-				dc.verticesIndex = mesh.vertices.size();
-				dc.indicesIndex = mesh.indices.size();
+			for ( auto& p : m.primitives ) {
+				uf::stl::vector<uf::graph::mesh::Skinned> vertices;
+				uf::stl::vector<uint32_t> indices;
 
 				struct Attribute {
 					uf::stl::string name = "";
 					size_t components = 1;
-					uf::stl::vector<float> buffer;
-					uf::stl::vector<uint16_t> indices;
+					uf::stl::vector<float> floats;
+					uf::stl::vector<uint16_t> ints;
 				};
 				uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
 					{"POSITION", {}},
@@ -297,14 +246,14 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 				for ( auto& kv : attributes ) {
 					auto& attribute = kv.second;
 					attribute.name = kv.first;
-					auto it = primitive.attributes.find(attribute.name);
-					if ( it == primitive.attributes.end() ) continue;
+					auto it = p.attributes.find(attribute.name);
+					if ( it == p.attributes.end() ) continue;
 
 					auto& accessor = model.accessors[it->second];
 					auto& view = model.bufferViews[accessor.bufferView];
 					
 					if ( attribute.name == "POSITION" ) {
-						dc.vertices = accessor.count;
+						vertices.resize(accessor.count);
 						pod::Vector3f minCorner = { accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
 						pod::Vector3f maxCorner = { accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
@@ -315,34 +264,30 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 						auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 						attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
 						size_t len = accessor.count * attribute.components;
-						attribute.indices.reserve( len );
-						attribute.indices.insert( attribute.indices.end(), &buffer[0], &buffer[len] );
+						attribute.ints.assign( &buffer[0], &buffer[len] );
 					} else {
 						auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 						attribute.components = accessor.ByteStride(view) / sizeof(float);
 						size_t len = accessor.count * attribute.components;
-						attribute.buffer.reserve( len );
-						attribute.buffer.insert( attribute.buffer.end(), &buffer[0], &buffer[len] );
+						attribute.floats.assign( &buffer[0], &buffer[len] );
 					}
 				}
 
-				mesh.vertices.reserve( dc.vertices + dc.verticesIndex );
-				for ( size_t i = 0; i < dc.vertices; ++i ) {
+				for ( size_t i = 0; i < vertices.size(); ++i ) {
 					#define ITERATE_ATTRIBUTE( name, member )\
-						if ( !attributes[name].indices.empty() ) { \
+						if ( !attributes[name].ints.empty() ) { \
 							for ( size_t j = 0; j < attributes[name].components; ++j )\
-								vertex.member[j] = attributes[name].indices[i * attributes[name].components + j];\
-						} else if ( !attributes[name].buffer.empty() ) { \
+								vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
+						} else if ( !attributes[name].floats.empty() ) { \
 							for ( size_t j = 0; j < attributes[name].components; ++j )\
-								vertex.member[j] = attributes[name].buffer[i * attributes[name].components + j];\
+								vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\
 						}
 
-					auto& vertex = mesh.vertices.emplace_back();
+					auto& vertex = vertices[i];
 					ITERATE_ATTRIBUTE("POSITION", position);
 					ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
 					ITERATE_ATTRIBUTE("NORMAL", normal);
 					ITERATE_ATTRIBUTE("TANGENT", tangent);
-					vertex.id = { 0, primitive.material };
 					ITERATE_ATTRIBUTE("JOINTS_0", joints);
 					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
 
@@ -350,26 +295,27 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 
 					// required due to reverse-Z projection matrix flipping the X axis as well
 					// default is to proceed with this
-					if ( !(graph.mode & uf::graph::LoadMode::INVERT) ){
+					if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
 						vertex.position.x *= -1;
 						vertex.normal.x *= -1;
 						vertex.tangent.x *= -1;
 					}
+
+
 				}
 
-				if ( primitive.indices > -1 ) {
-					auto& accessor = model.accessors[primitive.indices];
+				if ( p.indices > -1 ) {
+					auto& accessor = model.accessors[p.indices];
 					auto& view = model.bufferViews[accessor.bufferView];
 					auto& buffer = model.buffers[view.buffer];
 
-					dc.indices = static_cast<uint32_t>(accessor.count);
-					mesh.indices.reserve( dc.indices + dc.indicesIndex );
-					const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
+					indices.reserve( static_cast<uint32_t>(accessor.count) );
 
 					#define COPY_INDICES()\
-						for (size_t index = 0; index < dc.indices; index++)\
-								mesh.indices.emplace_back(buf[index] + dc.verticesIndex);
+						for (size_t index = 0; index < indices.size(); index++)\
+								indices.emplace_back(buf[index]);
 
+					const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 					switch (accessor.componentType) {
 						case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
 							auto* buf = static_cast<const uint32_t*>( pointer );
@@ -390,49 +336,22 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 					#undef COPY_INDICES
 				}
 
-				drawCall.vertices += dc.vertices;
-				drawCall.indices += dc.indices;
+				pair.drawCommands.emplace_back(pod::DrawCommand{	
+					.indices = indices.size(),
+					.instances = 1,
+					.indexID = mesh.index.count,
+					.vertexID = mesh.vertex.count,
+
+					.instanceID = mesh.instance.count,
+					.materialID = p.material,
+					.objectID = 0,
+					.vertices = vertices.size(),
+				});
+
+				mesh.insertVertices(vertices);
+				mesh.insertIndices(indices);
 			}
 			mesh.updateDescriptor();
-
-			// convert to a more optimal format
-		#if UF_GRAPH_EXPERIMENTAL
-			bool override = graph.metadata["debug"]["override varying mesh"].as<bool>();
-			// use skinned mesh
-			if ( override || (mode & uf::graph::LoadMode::SKINNED) ) {
-				auto& m = varyingMesh.get<uf::graph::mesh::Skinned>();
-				m.indices = std::move( mesh.indices );
-				m.vertices = std::move( mesh.vertices );
-		#if 0
-			// use barebone mesh
-			} else if ( UF_ENV_DREAMCAST ) {
-				auto& m = varyingMesh.get<uf::graph::mesh::Base>();
-				m.indices = std::move( mesh.indices );
-				m.vertices.reserve( mesh.vertices.size() );
-				for ( auto& v : mesh.vertices ) m.vertices.emplace_back(uf::graph::mesh::Base{
-					.position = v.position,
-					.uv = v.uv,
-					.st = v.st,
-					.normal = v.normal,
-				});			
-		#endif
-			// use ID'd mesh
-			} else {
-				auto& m = varyingMesh.get<uf::graph::mesh::ID>();
-				m.indices = std::move( mesh.indices );
-				m.vertices.reserve( mesh.vertices.size() );
-				for ( auto& v : mesh.vertices ) m.vertices.emplace_back(uf::graph::mesh::ID{
-					.position = v.position,
-					.uv = v.uv,
-					.st = v.st,
-					.normal = v.normal,
-					.tangent = v.tangent,
-					.id = v.id,
-				});
-			}
-			varyingMesh.updateDescriptor();
-		#else
-		#endif
 		}
 	}
 	// load node information/meshes
@@ -449,8 +368,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 	// load lights
 	{
 		for ( auto& l : model.lights ) {
-			auto& light = graph.lights.emplace_back();
-			light.name = l.name;
+			auto& light = graph.lights[l.name];
 			light.color = { l.color[0], l.color[1], l.color[2], };
 			light.intensity = l.intensity;
 			light.range = l.range;
@@ -542,19 +460,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, uf::graph::load_mod
 			}
 		}
 	}
-	{
-		if ( graph.metadata["export"]["should"].as<bool>() ) uf::graph::save( graph, filename );
-	/*
-		bool shouldExport = false;
-		if ( graph.metadata["debug"]["export"].is<bool>() ) shouldExport = graph.metadata["debug"]["export"].as<bool>();
-		else if ( ext::json::isObject( graph.metadata["debug"]["export"] ) ) {
-			if ( graph.metadata["debug"]["export"]["should"].is<bool>() )
-				shouldExport = graph.metadata["debug"]["export"]["should"].as<bool>();
-			else
-				shouldExport = true;
-		}
-		if ( shouldExport ) uf::graph::save( graph, filename );
-	*/
-	}
+	if ( graph.metadata["export"]["should"].as<bool>() ) uf::graph::save( graph, filename );
 	return graph;
 }

@@ -7,7 +7,7 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/engine/asset/asset.h>
-
+#include <uf/utils/graphic/graphic.h>
 #include <uf/ext/xatlas/xatlas.h>
 
 #include "../light/behavior.h"
@@ -17,6 +17,7 @@ UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::BakingBehavior::initialize( uf::Object& self ) {
+#if 0
 #if UF_USE_VULKAN
 	UF_MSG_DEBUG("Ping");
 
@@ -316,7 +317,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			for ( auto& node : graph.nodes ) {
 				instances.emplace_back( uf::transform::model( node.transform ) );
 			}
-			metadata.buffers.instance = graphic.initializeBuffer(
+			metadata.buffers.instance = shader.initializeBuffer(
 				(const void*) instances.data(),
 				instances.size() * sizeof(pod::Matrix4f),
 				uf::renderer::enums::Buffer::STORAGE
@@ -326,7 +327,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
 				materials[i] = graph.materials[i].storage;
 			}
-			metadata.buffers.material = graphic.initializeBuffer(
+			metadata.buffers.material = shader.initializeBuffer(
 				(const void*) materials.data(),
 				materials.size() * sizeof(pod::Material::Storage),
 				uf::renderer::enums::Buffer::STORAGE
@@ -336,13 +337,13 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			for ( size_t i = 0; i < graph.textures.size(); ++i ) {
 				textures[i] = graph.textures[i].storage;
 			}
-			metadata.buffers.texture = graphic.initializeBuffer(
+			metadata.buffers.texture = shader.initializeBuffer(
 				(const void*) textures.data(),
 				textures.size() * sizeof(pod::Texture::Storage),
 				uf::renderer::enums::Buffer::STORAGE
 			);
 			// Light storage buffer
-			metadata.buffers.light = graphic.initializeBuffer(
+			metadata.buffers.light = shader.initializeBuffer(
 				(const void*) lights.data(),
 				lights.size() * sizeof(pod::Light::Storage),
 				uf::renderer::enums::Buffer::STORAGE
@@ -431,8 +432,10 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 	this->queueHook( "entity:PostInitialization.%UID%", ext::json::null(), 1 );
 #endif
+#endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {
+#if 0
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
@@ -482,6 +485,7 @@ SAVE: {
 	uf::scene::getCurrentScene().queueHook("system:Destroy", payload);
 	return;
 }
+#endif
 #endif
 }
 void ext::BakingBehavior::render( uf::Object& self ){}

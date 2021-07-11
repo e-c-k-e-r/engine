@@ -303,16 +303,17 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	renderTarget.initialize( device );
 
 	if ( blitter.process ) {
-		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
-		mesh.vertices = {
+		uf::Mesh mesh;
+		mesh.bind<pod::Vertex_2F2F, uint16_t>();
+		mesh.insertVertices<pod::Vertex_2F2F>({
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
 			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
 			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
 			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
-		};
-		mesh.indices = {
+		});
+		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 2, 3, 0
-		};
+		});
 
 		blitter.device = &device;
 		blitter.material.device = &device;
@@ -434,33 +435,33 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			});
 
-			uf::stl::vector<pod::Light::Storage> lights(maxLights);
-			uf::stl::vector<pod::Material::Storage> materials(maxTextures2D);
-			uf::stl::vector<pod::Texture::Storage> textures(maxTextures2D);
-			uf::stl::vector<pod::DrawCall::Storage> drawCalls(maxTextures2D);
+			uf::stl::vector<pod::Light> lights(maxLights);
+			uf::stl::vector<pod::Material> materials(maxTextures2D);
+			uf::stl::vector<pod::Texture> textures(maxTextures2D);
+			uf::stl::vector<pod::DrawCommand> drawCalls(maxTextures2D);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
 
-			metadata.lightBufferIndex = blitter.initializeBuffer(
+			metadata.lightBufferIndex = shader.initializeBuffer(
 				(const void*) lights.data(),
-				lights.size() * sizeof(pod::Light::Storage),
+				lights.size() * sizeof(pod::Light),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
-			metadata.materialBufferIndex = blitter.initializeBuffer(
+			metadata.materialBufferIndex = shader.initializeBuffer(
 				(const void*) materials.data(),
-				materials.size() * sizeof(pod::Material::Storage),
+				materials.size() * sizeof(pod::Material),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			metadata.textureBufferIndex = blitter.initializeBuffer(
+			metadata.textureBufferIndex = shader.initializeBuffer(
 				(const void*) textures.data(),
-				textures.size() * sizeof(pod::Texture::Storage),
+				textures.size() * sizeof(pod::Texture),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 
-			metadata.drawCallBufferIndex = blitter.initializeBuffer(
+			metadata.drawCallBufferIndex = shader.initializeBuffer(
 				(const void*) drawCalls.data(),
-				drawCalls.size() * sizeof(pod::DrawCall::Storage),
+				drawCalls.size() * sizeof(pod::DrawCommand),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
 		} else {

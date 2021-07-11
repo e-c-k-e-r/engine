@@ -36,12 +36,24 @@ bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < CUBEMAPS;
 }
 #if DEFERRED || COMPUTE
+bool validTextureIndex( uint id ) {
+	return 0 <= id && id < MAX_TEXTURES;
+}
 bool validTextureIndex( uint start, int offset ) {
 	return 0 <= offset && start + offset < MAX_TEXTURES;
 }
 uint textureIndex( uint start, int offset ) {
 	return start + offset;
 }
+vec4 sampleTexture( uint id ) {
+	const Texture t = textures[id];
+	return texture( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, surface.uv ) );
+}
+vec4 sampleTexture( uint id, float mip ) {
+	const Texture t = textures[id];
+	return textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, surface.uv ), mip );
+}
+#if 0
 vec4 sampleTexture( uint start, uint slot, int offset, int atlas ) {
 	Texture a;
 	const bool useAtlas = 0 <= atlas && validTextureIndex( start, atlas );
@@ -60,6 +72,7 @@ vec4 sampleTexture( uint start, uint slot, int offset, int atlas, float mip ) {
 	const uint i = slot + ( useAtlas ? a.index : t.index );
 	return textureLod( samplerTextures[nonuniformEXT(i)], uv, mip );
 }
+#endif
 #endif
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const vec3 t0 = (boundsMin - ray.origin) / ray.direction;

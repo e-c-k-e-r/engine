@@ -46,7 +46,7 @@ namespace {
 		}
 	}
 }
-
+#include <uf/utils/mesh/mesh.h>
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -57,6 +57,46 @@ int main(int argc, char** argv){
 	std::atexit(::handlers::exit);
 	signal(SIGABRT, ::handlers::abrt);
 	signal(SIGSEGV, ::handlers::segv);
+
+	{
+		uf::Mesh mesh;
+		mesh.bind<pod::Vertex_2F2F, uint16_t>();
+		mesh.insertVertices<pod::Vertex_2F2F>({
+			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
+		});
+		mesh.insertIndices<uint16_t>({
+			0, 1, 2, 2, 3, 0
+		});
+	/*
+		mesh.bind<pod::Vertex_3F2F3F>();
+		mesh.insertVertices<pod::Vertex_3F2F3F>({
+			{{0.0f, 1.0f, 2.0f}, {3.0f, 4.0f}, {5.0f, 6.0f, 7.0f}},
+			{{8.0f, 9.0f, 10.0f}, {11.0f, 12.0f}, {13.0f, 14.0f, 15.0f}},
+			{{16.0f, 17.0f, 18.0f}, {19.0f, 20.0f}, {21.0f, 22.0f, 23.0f}},
+		});
+		mesh.insertIndices<uint32_t>({
+			0, 1, 2
+		});
+	*/
+
+		mesh.print();
+	/*
+		auto& buffer = mesh.buffers[0 <= mesh.vertex.interleaved && mesh.vertex.interleaved < mesh.buffers.size() ? mesh.vertex.interleaved :];
+		uint8_t* pointer = (uint8_t*) buffer.data();
+		while ( pointer < (uint8_t*) buffer.data() + buffer.size() ) {
+			for ( auto& attribute : mesh.vertex.attributes ) {
+				float* vector = pointer + attrribute.descriptor.offset;
+				for ( auto i = 0; i < attribute.descriptor.components; ++i ) {
+					UF_MSG_DEBUG( attribute.descriptor.name << ": " << vector[i] );
+				}
+				pointer += attribute.descriptor.size;
+			}
+		}
+	*/
+	}
 
 	client::initialize();
 	ext::initialize();

@@ -80,10 +80,10 @@ namespace ext {
 			void initialize( const uf::stl::string& = "" );
 			void destroy();
 			
-			template<typename T, typename U>
-			void initializeMesh( uf::Mesh<T, U>& mesh, size_t = SIZE_MAX );
-			
-			void initializeAttributes( const pod::Mesh::Attributes& mesh );
+		//	template<typename T, typename U>
+		//	void initializeMesh( uf::Mesh<T, U>& mesh, size_t = SIZE_MAX );
+		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
+			void initializeMesh( uf::Mesh& mesh );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();

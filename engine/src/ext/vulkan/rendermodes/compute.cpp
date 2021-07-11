@@ -81,6 +81,18 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 		}
 	}
 	{
+		uf::Mesh mesh;
+		mesh.bind<pod::Vertex_2F2F, uint16_t>();
+		mesh.insertVertices<pod::Vertex_2F2F>({
+			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
+			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
+			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
+			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
+		});
+		mesh.insertIndices<uint16_t>({
+			0, 1, 2, 2, 3, 0
+		});
+	/*
 		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
 		mesh.vertices = {
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
@@ -91,6 +103,7 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 		mesh.indices = {
 			0, 1, 2, 2, 3, 0
 		};
+	*/
 		blitter.device = &device;
 		blitter.material.device = &device;
 		blitter.descriptor.subpass = 1;

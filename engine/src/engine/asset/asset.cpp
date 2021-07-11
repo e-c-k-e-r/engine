@@ -139,6 +139,7 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
 		return "";
 	}
+
 	#define UF_ASSET_REGISTER(type)\
 		auto& container = this->getContainer<type>();\
 		if ( !ext::json::isNull( map[extension][uri]["index"] ) ) return filename;\
@@ -172,29 +173,17 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 		auto& metadata = this->getComponent<uf::Serializer>();
 
 	#if UF_USE_OPENGL_FIXED_FUNCTION
-		// force disable use of a texture atlas, for now
 		metadata[uri]["flags"]["ATLAS"] = false;
 		metadata[uri]["flags"]["SEPARATE"] = true;
-	//	metadata[uri]["flags"]["NORMALS"] = true;
-	#else
-	//	metadata[uri]["flags"]["ATLAS"] = true;
+	#elif UF_GRAPH_INDIRECT_DRAW
+		metadata[uri]["flags"]["ATLAS"] = false;
+		metadata[uri]["flags"]["SEPARATE"] = false;
 	#endif
-		uf::graph::load_mode_t LOAD_FLAGS = 0;
-		#define LOAD_FLAG(name)\
-			if ( metadata[uri]["flags"][#name].as<bool>() )\
-				LOAD_FLAGS |= uf::graph::LoadMode::name;
-
-		LOAD_FLAG(ATLAS) 		//			= 0x1 << 1,
-		LOAD_FLAG(INVERT) 		//			= 0x1 << 2,
-		LOAD_FLAG(TRANSFORM) 	//			= 0x1 << 3,
-		LOAD_FLAG(SKINNED) 		//			= 0x1 << 4,
-
-		asset = uf::graph::load( filename, LOAD_FLAGS, metadata[uri] );
+		asset = uf::graph::load( filename, metadata[uri] );
 		uf::graph::process( asset );
 		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO(uf::graph::stats( asset ).dump(1,'\t'));
 		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO(uf::graph::print( asset ));
 		if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
-		//uf::graph::process( asset );
 	} else {
 		UF_MSG_ERROR("Failed to parse `" + filename + "`: Unimplemented extension: " + extension + " or category: " + category );
 	}

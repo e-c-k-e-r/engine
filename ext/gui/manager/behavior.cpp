@@ -160,9 +160,9 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 		uniforms.cursor.color = metadata.overlay.cursor.color;
 	}
 #if UF_UNIFORMS_REUSE
-	blitter.updateUniform( "UBO", uniform );
+	shader.updateUniform( "UBO", uniform );
 #else
-	blitter.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+	shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 #endif
 #endif
 }

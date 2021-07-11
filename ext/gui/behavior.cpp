@@ -317,9 +317,9 @@ void ext::Gui::load( const uf::Image& image ) {
 	auto& texture = graphic.material.textures.emplace_back();
 	texture.loadFromImage( image );
 
-	auto& mesh = this->getComponent<ext::Gui::mesh_t>();
+//	auto& mesh = this->getComponent<ext::Gui::mesh_t>();
 	auto& transform = this->getComponent<pod::Transform<>>();
-	mesh.vertices = {
+	uf::stl::vector<pod::Vertex_3F2F3F> vertices = {
 		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, metadata.color },
 		{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, metadata.color },
 		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, metadata.color },
@@ -350,11 +350,9 @@ void ext::Gui::load( const uf::Image& image ) {
 	metadataJson["cull mode"] = "none";
 	graphic.descriptor.parse( metadataJson );
 	
-	if ( metadataJson["flip uv"].as<bool>() ) {
-		for ( auto& v : mesh.vertices ) v.uv.y = 1 - v.uv.y;
-	}
-	if ( metadata.depth != 0.0f )
-		for ( auto& v : mesh.vertices ) v.position.z = metadata.depth;
+	if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
+	if ( metadata.depth != 0.0f ) for ( auto& v : vertices ) v.position.z = metadata.depth;
+
 	if ( metadataJson["scaling"].is<uf::stl::string>() ) {
 		uf::stl::string mode = metadataJson["scaling"].as<uf::stl::string>();
 		if ( mode == "mesh" ) {
@@ -379,7 +377,13 @@ void ext::Gui::load( const uf::Image& image ) {
 	} else {
 		graphic.initialize( ::defaultRenderMode );
 	}
+
+	auto& mesh = this->getComponent<uf::Mesh>();
+	mesh.bind<pod::Vertex_3F2F3F>();
+	mesh.insertVertices( vertices );
+
 	graphic.initializeMesh( mesh );
+
 	struct {
 		uf::stl::string vertex = uf::io::root+"/shaders/gui/base.vert.spv";
 		uf::stl::string fragment = uf::io::root+"/shaders/gui/base.frag.spv";
@@ -524,7 +528,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		});
 		this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
 			if ( this->getUid() == 0 ) return;
-			if ( !this->hasComponent<ext::Gui::mesh_t>() ) return;
+			if ( !this->hasComponent<uf::Mesh>() ) return;
 
 			if ( metadata.world ) return;
 			if ( !metadata.box.min && !metadata.box.max ) return;
@@ -596,19 +600,17 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				key += std::to_string(metadataGlyph.sdf);
 			}
 			auto& scene = uf::scene::getCurrentScene();
-			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
+			auto& mesh = this->getComponent<uf::Mesh>();
 			auto& graphic = this->getComponent<uf::Graphic>();
 			auto& atlas = this->getComponent<uf::Atlas>();
 			auto& images = atlas.getImages();
 			if ( !first ) {
 				atlas.clear();
-				mesh.vertices.clear();
-				mesh.indices.clear();
+				mesh.destroy();
 				
 				for ( auto& texture : graphic.material.textures ) texture.destroy();
 				graphic.material.textures.clear();
 			}
-			mesh.vertices.reserve( glyphs.size() * 6 );
 
 			uf::stl::unordered_map<uf::stl::string, uf::stl::string> glyphHashMap;
 			for ( auto& g : glyphs ) {
@@ -637,26 +639,31 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			transform.scale.x = scale;
 			transform.scale.y = scale;
 
+			uf::stl::vector<pod::Vertex_3F2F3F> vertices;
+			vertices.reserve( glyphs.size() * 6 );
+			
 			for ( auto& g : glyphs ) {
 				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
 				auto& glyph = ::glyphs.cache[font][glyphKey];
 				auto hash = glyphHashMap[glyphKey];
 				// add vertices
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
-				mesh.vertices.push_back({pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
+				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), g.color});
 			}
-			for ( size_t i = 0; i < mesh.vertices.size(); i += 6 ) {
+			for ( size_t i = 0; i < vertices.size(); i += 6 ) {
 				for ( size_t j = 0; j < 6; ++j ) {
-					auto& vertex = mesh.vertices[i+j];
+					auto& vertex = vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
 					vertex.position.z = metadata.depth;
 				}
 			}
+			mesh.bind<pod::Vertex_3F2F3F>();
+			mesh.insertVertices( vertices );
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
@@ -809,15 +816,13 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			.color = metadata.color,
 
 			.mode = metadata.shader,
-			.depth = metadata.depth,
+			.depth = 1 - metadata.depth,
 		};
 		// set glyph-based uniforms
 		if ( isGlyph && uniform.size() == sizeof(::GlyphUniformDescriptor<>) ) {
 			auto& uniforms = uniform.get<::GlyphUniformDescriptor<>>();
 			auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
 
-		//	uniforms.gui.sdf = metadataGlyph.sdf;
-		//	uniforms.gui.shadowbox = metadataGlyph.shadowbox;
 			if ( metadataGlyph.sdf ) uniforms.gui.mode &= 1 << 1;
 			if ( metadataGlyph.shadowbox ) uniforms.gui.mode &= 1 << 2;
 
@@ -826,6 +831,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			uniforms.glyph.weight = metadataGlyph.weight;
 			uniforms.glyph.scale = metadataGlyph.scale;
 		}
+	//	shader.updateBuffer( uniform, shader.getUniformBuffer("UBO") );
 		shader.updateUniform( "UBO", uniform );
 
 		// calculate click box
@@ -834,6 +840,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		pod::Vector2f min = {  1,  1 };
 		pod::Vector2f max = { -1, -1 };
 
+	/*
 		if ( this->hasComponent<ext::Gui::mesh_t>() ) {
 			auto& mesh = this->getComponent<ext::Gui::mesh_t>();
 			for ( auto& vertex : mesh.vertices ) {
@@ -859,6 +866,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 				max.y = std::max( max.y, translated.y );
 			}
 		}
+	*/
 		
 		metadata.box.min.x = min.x;
 		metadata.box.min.y = min.y;

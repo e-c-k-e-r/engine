@@ -4,82 +4,48 @@
 #include <uf/engine/object/object.h>
 #include <uf/utils/math/transform.h>
 #include <uf/utils/mesh/mesh.h>
-#include <uf/utils/graphic/graphic.h>
 #include <uf/utils/renderer/renderer.h>
-#include <uf/utils/math/collision.h>
-
-#include "mesh.h"
-#include "pod.h"
+#include <uf/utils/memory/fifo_map.h>
 
 #include <queue>
 
-#define UF_GRAPH_EXPERIMENTAL 1
+#define UF_GRAPH_VARYING_MESH 1
+#define UF_GRAPH_INDIRECT_DRAW 1
+
+#include "pod.inl"
+#include "mesh.inl"
+#include "scene.inl"
+
 
 namespace pod {
-	struct UF_API Texture {
-		struct Storage {
-			/*alignas(4)*/ int32_t index = -1;
-			/*alignas(4)*/ int32_t sampler = -1;
-			/*alignas(4)*/ int32_t remap = -1;
-			/*alignas(4)*/ float blend = 0;
-
-			/*alignas(16)*/ pod::Vector4f lerp = {0, 0, 1, 1};
-		} storage;
-		uf::stl::string name = "";
-		uf::renderer::Texture2D texture;
-		bool bind = false;
-	};
-	struct UF_API Node {
-		uf::stl::string name = "";
-
-		int32_t index = -1;
-		int32_t skin = -1;
-		int32_t parent = -1;
-		int32_t mesh = -1;
-
-		pod::Transform<> transform;
-		uf::stl::vector<int32_t> children;
-
-		uf::Object* entity = NULL;
-		struct {
-			int32_t material = -1;
-			int32_t texture = -1;
-			int32_t joint = -1;
-		} buffers;
-	};
 	struct UF_API Graph {
-	#if UF_GRAPH_EXPERIMENTAL
-		typedef pod::VaryingMesh Mesh;
-	#else
-		typedef uf::graph::skinned_mesh_t Mesh;
-	#endif
-
-	//	Node* node = NULL;
-		pod::Node root;
-		uf::stl::vector<pod::Node> nodes;
-
-		uf::Object* entity = NULL;
-		
-		struct {
-			int32_t instance = -1;
-		} buffers;
-
 		uf::stl::string name = "";
-		uf::graph::load_mode_t mode;
 		uf::Serializer metadata;
 
-		uf::Atlas atlas;
-		uf::stl::vector<uf::Image> images;
-		uf::stl::vector<uf::renderer::Sampler> samplers;
-		uf::stl::vector<pod::Texture> textures;
-		uf::stl::vector<pod::Material> materials;
-		uf::stl::vector<pod::Light> lights;
-		uf::stl::vector<pod::DrawCall> drawCalls;
+		pod::Node root;
+		uf::stl::vector<pod::Node> nodes; // node's position corresponds to its drawCommand and instance
 
+		// Render information
+		uf::stl::vector<uf::stl::vector<pod::DrawCommand>> drawCommands; // draws to dispatch, one per primitive, gets copied per rendermode
+
+		uf::stl::vector<pod::Instance> instances; // instance data to use, gets copied per rendermode
+
+		uf::stl::vector<uf::stl::string> meshes; // collection of primitives (stored as meshes, by material)
+
+		uf::stl::vector<uf::stl::string> images; // references global pool of images
+		uf::stl::vector<uf::stl::string> materials; // references global pool of materials
+		uf::stl::vector<uf::stl::string> textures; // references global pool of textures
+
+		uf::stl::vector<uf::stl::string> texture2Ds; // references global pool of texture2Ds
+		uf::stl::vector<uf::stl::string> samplers; // references global pool of samplers
+
+		// Lighting information
+		uf::stl::unordered_map<uf::stl::string, pod::Light> lights;
+
+		// Animations
 		uf::stl::vector<Skin> skins;
-		uf::stl::vector<Mesh> meshes;
 		uf::stl::unordered_map<uf::stl::string, Animation> animations;
-
+		// Animation queue
 		std::queue<uf::stl::string> sequence;
 		struct {
 			struct {
@@ -92,22 +58,29 @@ namespace pod {
 				} override;
 			} animations;
 		} settings;
+
+		// Local storage, used for save/load
+		struct Storage {
+			uf::stl::fifo_map<uf::stl::string, uf::Atlas> atlases;
+			uf::stl::fifo_map<uf::stl::string, uf::Image> images;
+			uf::stl::fifo_map<uf::stl::string, pod::Mesh> meshes;
+			uf::stl::fifo_map<uf::stl::string, pod::Material> materials;
+			uf::stl::fifo_map<uf::stl::string, pod::Texture> textures;
+
+			uf::stl::fifo_map<uf::stl::string, uf::renderer::Texture2D> texture2Ds;
+			uf::stl::fifo_map<uf::stl::string, uf::renderer::Sampler> samplers;
+		};
 	};
 }
 
 namespace uf {
 	namespace graph {
-	/*
-		namespace {
-			extern UF_API uf::stl::vector<pod::Material::Storage> storage;
-			extern UF_API uf::stl::vector<uf::stl::string> indices;
-		} materials;
-		namespace {
-			extern UF_API uf::stl::vector<pod::Texture::Storage> storage;
-			extern UF_API uf::stl::vector<uf::stl::string> indices;
-		} textures;
-	*/
+		extern UF_API pod::Graph::Storage storage;
+	}
+}
 
+namespace uf {
+	namespace graph {
 		pod::Node* UF_API find( pod::Graph& graph, int32_t index );
 		pod::Node* UF_API find( pod::Graph& graph, const uf::stl::string& name );
 
@@ -128,7 +101,7 @@ namespace uf {
 		
 		void UF_API destroy( pod::Graph& );
 
-		pod::Graph UF_API load( const uf::stl::string&, uf::graph::load_mode_t = 0, const uf::Serializer& = ext::json::null() );
+		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
 		void UF_API save( const pod::Graph&, const uf::stl::string& );
 
 		uf::stl::string UF_API print( const pod::Graph& graph );

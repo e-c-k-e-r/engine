@@ -38,6 +38,14 @@ namespace ext {
 				uf::stl::string type = "";
 
 				struct Definition {
+					struct InOut {
+						uf::stl::string name = "";
+						uint32_t index = 0;
+						uint32_t binding = 0;
+						uint32_t size = 0;
+					//	 int32_t buffer = -1;
+						ext::vulkan::enums::Image::viewType_t type{};
+					};
 					struct Texture {
 						uf::stl::string name = "";
 						uint32_t index = 0;
@@ -50,12 +58,14 @@ namespace ext {
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
+					//	 int32_t buffer = -1;
 					};
 					struct Storage {
 						uf::stl::string name = "";
 						uint32_t index = 0;
 						uint32_t binding = 0;
 						uint32_t size = 0;
+					//	 int32_t buffer = -1;
 					};
 					struct PushConstant {
 						uf::stl::string name = "";
@@ -75,6 +85,8 @@ namespace ext {
 						} value;
 					};
 					uf::stl::unordered_map<size_t, Texture> textures;
+					uf::stl::unordered_map<uf::stl::string, InOut> inputs;
+					uf::stl::unordered_map<uf::stl::string, InOut> outputs;
 					uf::stl::unordered_map<uf::stl::string, Uniform> uniforms;
 					uf::stl::unordered_map<uf::stl::string, Storage> storage;
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
@@ -106,16 +118,25 @@ namespace ext {
 			inline bool updateUniform( const uf::stl::string& name, const ext::vulkan::userdata_t& userdata ) const {
 				return updateUniform(name, (const void*) userdata, userdata.size() );
 			}
-			
+
 			bool hasStorage( const uf::stl::string& name ) const;
+
 			Buffer& getStorageBuffer( const uf::stl::string& name );
 			const Buffer& getStorageBuffer( const uf::stl::string& name ) const;
+			
+			bool updateStorage( const uf::stl::string& name, const void*, size_t ) const;
+			inline bool updateStorage( const uf::stl::string& name, const ext::vulkan::userdata_t& userdata ) const {
+				return updateStorage(name, (const void*) userdata, userdata.size() );
+			}
 
+		/*
 			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
 			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );
 			ext::vulkan::userdata_t getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload );
+
 			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
 			ext::vulkan::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
+		*/
 		};
 	}
 }

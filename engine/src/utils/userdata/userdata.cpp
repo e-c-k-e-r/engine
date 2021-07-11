@@ -61,7 +61,7 @@ void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Use
 }
 pod::Userdata* UF_API uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
 	if ( !userdata || userdata->len <= 0 ) return NULL;
-	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) userdata->data[0]) );
+	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) &userdata->data[0]) );
 	copied->type = userdata->type;
 	return copied;
 }

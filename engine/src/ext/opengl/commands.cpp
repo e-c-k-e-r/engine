@@ -8,7 +8,7 @@
 #include <bitset>
 
 #include <uf/utils/mesh/mesh.h>
-#include <uf/engine/graph/mesh.h>
+#include <uf/engine/graph/graph.h>
 
 #define VERBOSE false
 #define VERBOSE_SUBMIT false
@@ -397,14 +397,14 @@ void ext::opengl::CommandBuffer::draw( const ext::opengl::CommandBuffer::InfoDra
 	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	
-	uf::renderer::VertexDescriptor 	vertexAttributePosition, 
+	uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
 									vertexAttributeNormal,
 									vertexAttributeColor,
 									vertexAttributeUv,
 									vertexAttributeSt,
 									vertexAttributeId;
 
-	for ( auto& attribute : drawInfo.descriptor.attributes.descriptor ) {
+	for ( auto& attribute : drawInfo.descriptor.attributes.vertex.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
@@ -701,14 +701,14 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
 	size_t vertices = vertexBuffer.range / vertexStride;
 	
-	uf::renderer::VertexDescriptor 	vertexAttributePosition, 
+	uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
 									vertexAttributeNormal,
 									vertexAttributeColor,
 									vertexAttributeUv,
 									vertexAttributeSt,
 									vertexAttributeId;
 
-	for ( auto& attribute : drawInfo.descriptor.attributes.descriptor ) {
+	for ( auto& attribute : drawInfo.descriptor.attributes.vertex.descriptor ) {
 		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;

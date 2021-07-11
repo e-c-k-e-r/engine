@@ -57,7 +57,7 @@ namespace ext {
 	#endif
 
 		// collider for mesh (static or dynamic)
-		pod::Bullet& create( uf::Object&, const pod::Mesh&, bool );
+		pod::Bullet& create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
 		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
 		// collider for capsule

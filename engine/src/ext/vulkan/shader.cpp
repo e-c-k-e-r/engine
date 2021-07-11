@@ -399,7 +399,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			};
 			uf::Serializer payload = ext::json::array();
 			const auto& type = comp.get_type(type_id);
-			for ( auto& member_type_id : type.member_types ) {
+			if ( type.member_types.empty() ) {
+				payload = parseMember( type_id );
+			} else for ( auto& member_type_id : type.member_types ) {
 				const auto& member_type = comp.get_type(member_type_id);
 				uf::stl::string name = comp.get_member_name(type.type_alias, payload.size());
 				if ( name == "" ) name = comp.get_member_name(type.parent_type, payload.size());
@@ -545,16 +547,74 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	
 		{
 			uniforms.reserve( metadata.definitions.uniforms.size() );
-			uf::stl::vector<size_t> sizes( metadata.definitions.uniforms.size() );
+			uf::stl::vector<uf::stl::string> remap( metadata.definitions.uniforms.size() );
 			for ( auto pair : metadata.definitions.uniforms ) {
-				sizes[pair.second.index] = pair.second.size;
+				remap[pair.second.index] = pair.second.name;
 			}
-			for ( auto size : sizes ) {
-				auto& uniform = uniforms.emplace_back();
-				uniform.create( size );
+			for ( auto& name : remap ) {
+				auto& definition = metadata.definitions.uniforms[name];
+
+				auto& userdata = uniforms.emplace_back();
+				userdata.create( definition.size, nullptr );
+
+				initializeBuffer(
+					(const void*) userdata.data().data,
+					userdata.data().len,
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+				);
 			}
 		}
 	
+		for ( auto i = 0; i < res.stage_inputs.size(); ++i ) {
+			const auto& resource = res.stage_inputs[i];
+			const auto& type = comp.get_type(resource.type_id);
+			const auto& base_type = comp.get_type(resource.base_type_id);
+			const size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+			const uf::stl::string name = resource.name;
+			size_t size = 0; // comp.get_declared_struct_size(type);
+			// generate definition to JSON
+			{
+				metadata.json["definitions"]["inputs"][name]["name"] = name;
+				metadata.json["definitions"]["inputs"][name]["index"] = i;
+				metadata.json["definitions"]["inputs"][name]["binding"] = binding;
+				metadata.json["definitions"]["inputs"][name]["size"] = size;
+				metadata.json["definitions"]["inputs"][name]["members"] = parseMembers(resource.type_id);
+			}
+			// generate definition to unordered_map
+			{
+				metadata.definitions.inputs[name] = Shader::Metadata::Definition::InOut{
+					name,
+					i,
+					binding,
+					size,
+				};
+			}
+		}
+		for ( auto i = 0; i < res.stage_outputs.size(); ++i ) {
+			const auto& resource = res.stage_outputs[i];
+			const auto& type = comp.get_type(resource.type_id);
+			const auto& base_type = comp.get_type(resource.base_type_id);
+			const size_t binding = comp.get_decoration(resource.id, spv::DecorationBinding);
+			const uf::stl::string name = resource.name;
+			size_t size = 0; // comp.get_declared_struct_size(type);
+			// generate definition to JSON
+			{
+				metadata.json["definitions"]["outputs"][name]["name"] = name;
+				metadata.json["definitions"]["outputs"][name]["index"] = i;
+				metadata.json["definitions"]["outputs"][name]["binding"] = binding;
+				metadata.json["definitions"]["outputs"][name]["size"] = size;
+				metadata.json["definitions"]["outputs"][name]["members"] = parseMembers(resource.type_id);
+			}
+			// generate definition to unordered_map
+			{
+				metadata.definitions.outputs[name] = Shader::Metadata::Definition::InOut{
+					name,
+					i,
+					binding,
+					size
+				};
+			}
+		}
 		for ( const auto& resource : res.push_constant_buffers ) {
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
@@ -701,21 +761,9 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	}
 
 	// organize layouts
-	{
-		std::sort( descriptorSetLayoutBindings.begin(), descriptorSetLayoutBindings.end(), [&]( const VkDescriptorSetLayoutBinding& l, const VkDescriptorSetLayoutBinding& r ){
-			return l.binding < r.binding;
-		} );
-	}
-
-	// update uniform buffers
-	for ( auto& uniform : uniforms ) {
-		auto& userdata = uniform.data();
-		initializeBuffer(
-			(const void*) userdata.data,
-			userdata.len,
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-		);
-	}
+	std::sort( descriptorSetLayoutBindings.begin(), descriptorSetLayoutBindings.end(), [&]( const VkDescriptorSetLayoutBinding& l, const VkDescriptorSetLayoutBinding& r ){
+		return l.binding < r.binding;
+	} );
 }
 
 void ext::vulkan::Shader::destroy() {
@@ -739,7 +787,7 @@ bool ext::vulkan::Shader::validate() {
 	bool valid = true;
 	auto it = uniforms.begin();
 	for ( auto& buffer : buffers ) {
-		if ( !(buffer.usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( it == uniforms.end() ) break;
 		auto& uniform = *(it++);
 		if ( uniform.data().len != buffer.allocationInfo.size ) {
@@ -758,7 +806,7 @@ ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl::strin
 	UF_ASSERT( hasUniform(name) );
 	size_t uniformIndex = metadata.definitions.uniforms[name].index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers[bufferIndex];
 	}
@@ -768,7 +816,7 @@ const ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl:
 	UF_ASSERT( hasUniform(name) );
 	size_t uniformIndex = metadata.definitions.uniforms.at(name).index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers.at(bufferIndex).usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) ) continue;
+		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
@@ -787,7 +835,7 @@ bool ext::vulkan::Shader::updateUniform( const uf::stl::string& name, const void
 	updateBuffer( data, size, getUniformBuffer(name) );
 	return true;
 }
-
+//
 bool ext::vulkan::Shader::hasStorage( const uf::stl::string& name ) const {
 	return metadata.definitions.storage.count(name) > 0;
 }
@@ -795,7 +843,7 @@ ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl::strin
 	UF_ASSERT( hasStorage(name) );
 	size_t storageIndex = metadata.definitions.storage[name].index;
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers[bufferIndex];
 	}
@@ -805,13 +853,19 @@ const ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl:
 	UF_ASSERT( hasStorage(name) );
 	size_t storageIndex = metadata.definitions.storage.at(name).index;
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers.at(bufferIndex).usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ) continue;
+		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
 	UF_EXCEPTION("buffer not found: " << name);
 }
+bool ext::vulkan::Shader::updateStorage( const uf::stl::string& name, const void* data, size_t size ) const {
+	if ( !hasStorage(name) ) return false;
+	updateBuffer( data, size, getStorageBuffer(name) );
+	return true;
+}
 // JSON shit
+/*
 uf::Serializer ext::vulkan::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasUniform(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["uniforms"][name]) ) return metadata.json["uniforms"][name];
@@ -839,5 +893,5 @@ ext::vulkan::userdata_t ext::vulkan::Shader::getStorageUserdata( const uf::stl::
 	if ( !hasStorage(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["storage"][name]);
 }
-
+*/
 #endif

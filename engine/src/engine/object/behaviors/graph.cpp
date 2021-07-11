@@ -66,6 +66,7 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
 void uf::GraphBehavior::tick( uf::Object& self ) {
+#if 0
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 	//	if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) uf::graph::update( graph );
@@ -101,7 +102,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 				auto& node = graph.nodes[i];
 				instances[i] = uf::transform::model( node.entity ? node.entity->getComponent<pod::Transform<>>() : node.transform );
 			}
-			graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance );
+			shader.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance );
 			shader.execute( graphic, mesh.attributes.vertex.pointer );
 		} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 			shader.execute( graphic, mesh.attributes.vertex.pointer );
@@ -117,7 +118,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 				auto& node = graph.nodes[i];
 				instances[i] = uf::transform::model( node.entity ? node.entity->getComponent<pod::Transform<>>() : node.transform );
 			}
-			graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
+			shader.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
 		} else {
 			struct UniformDescriptor {
 				/*alignas(16)*/ pod::Matrix4f model;
@@ -135,7 +136,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 				.model = uf::transform::model( transform ),
 		//		.color = uf::vector::decode( metadata["color"], pod::Vector4f{1,1,1,1} ),
 			};
-			graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+			shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 		#endif
 		}
 	}
@@ -148,12 +149,14 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 			instances[i] = node.entity ? uf::transform::model( node.entity->getComponent<pod::Transform<>>() ) : uf::transform::model( node.transform );
 		}
 		auto& storageBuffer = *graphic.getStorageBuffer("Models");
-		graphic.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
+		shader.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
 	}
+#endif
 #endif
 #endif
 }
 void uf::GraphBehavior::render( uf::Object& self ) {
+#if 0
 	/* Update uniforms */
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 
@@ -199,9 +202,10 @@ void uf::GraphBehavior::render( uf::Object& self ) {
 		shader.updateUniform("Camera", uniform);
 	#else
 		pod::Camera::Viewports uniforms = camera.data().viewport;
-		graphic.updateBuffer( uniforms, shader.getUniformBuffer("Camera") );
+		shader.updateBuffer( uniforms, shader.getUniformBuffer("Camera") );
 	#endif
 	}
+#endif
 #endif
 }
 void uf::GraphBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}

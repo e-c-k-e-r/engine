@@ -2,7 +2,7 @@
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/math/collision/mesh.h>
 #include <uf/utils/math/collision/boundingbox.h>
-
+#if 0
 uf::MeshGrid::~MeshGrid() {
 	this->destroy();
 }
@@ -271,4 +271,5 @@ pod::Vector3i uf::MeshGrid::unwrapIndex( size_t i ) {
 		break;
 	}
 }
+#endif
 #endif

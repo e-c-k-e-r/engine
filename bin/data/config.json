@@ -37,7 +37,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": false,
+					"enabled": true,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
@@ -66,7 +66,7 @@
 					"deferred alias output to swapchain": true,
 					"vsync": true,
 					"hdr": false,
-					"vxgi": true,
+					"vxgi": false,
 					"deferred sampling": false
 				},
 				"formats": {

@@ -1,3 +1,4 @@
+#if 0
 #pragma once
 
 #include <uf/config.h>
@@ -36,7 +37,6 @@ namespace uf {
 		void insert( uint32_t, uint32_t, uint32_t, const pod::Vector3f&, const pod::Vector3f&, const pod::Vector3f& );
 	public:
 		~MeshGrid();
-
 		template<typename T, typename U>
 		void initialize( const uf::Mesh<T,U>& mesh, size_t = 1 );
 
@@ -57,3 +57,4 @@ namespace uf {
 };
 
 #include "grid.inl"
+#endif

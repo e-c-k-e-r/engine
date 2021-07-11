@@ -62,7 +62,7 @@ void uf::RenderBehavior::tick( uf::Object& self ) {
 			.model = uf::transform::model( transform ),
 	//		.color = uf::vector::decode( metadata["color"], pod::Vector4f{ 1, 1, 1, 1 } ),
 		};
-		graphic.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 	#endif
 	#endif
 	}
@@ -115,7 +115,7 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 		shader.updateUniform("Camera", uniform);
 	#else
 		pod::Camera::Viewports uniforms = camera.data().viewport;
-		graphic.updateBuffer( uniforms, shader.getUniformBuffer("Camera") );
+		shader.updateBuffer( uniforms, shader.getUniformBuffer("Camera") );
 	#endif
 	#endif
 	}

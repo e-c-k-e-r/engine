@@ -56,6 +56,9 @@ struct Mode {
 };
 
 struct Light {
+	mat4 view;
+	mat4 projection;
+	
 	vec3 position;
 	float radius;
 	
@@ -66,9 +69,6 @@ struct Light {
 	int typeMap;
 	int indexMap;
 	float depthBias;
-
-	mat4 view;
-	mat4 projection;
 };
 
 struct Material {
@@ -100,11 +100,16 @@ struct Texture {
 	vec4 lerp;
 };
 
-struct DrawCall {
-	int materialIndex;
-	int textureIndex;
-	uint textureSlot;
-	uint padding;
+struct DrawCommand {
+	uint indices; // triangle count
+	uint instances; // instance count
+	uint indexID; // starting triangle position
+	 int vertexID; // starting vertex position
+
+	uint instanceID; // starting instance position
+	uint materialID; // material used for draw
+	uint objectID; // 
+	uint vertices; //
 };
 
 struct SurfaceMaterial {

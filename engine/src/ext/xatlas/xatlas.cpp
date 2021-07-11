@@ -5,7 +5,9 @@
 pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 #if UF_USE_XATLAS
 	::xatlas::Atlas* atlas = ::xatlas::Create();
-	for ( auto& mesh : graph.meshes ) {
+#if 0
+	for ( auto& name : graph.meshes ) {
+		auto& mesh = uf::graph::storage.meshes[name];
 		mesh.updateDescriptor();
 
 		size_t indices = mesh.attributes.index.length;
@@ -16,13 +18,13 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		size_t vertexStride = mesh.attributes.vertex.size;
 		uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
 
-		uf::renderer::VertexDescriptor 	vertexAttributePosition, 
+		uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
 										vertexAttributeNormal,
 										vertexAttributeUv,
 										vertexAttributeSt,
 										vertexAttributeId;
 
-		for ( auto& attribute : mesh.attributes.descriptor ) {
+		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
 			if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 			else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 			else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
@@ -68,10 +70,9 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 
 	::xatlas::Generate(atlas, chartOptions, packOptions);
 
-#if UF_GRAPH_EXPERIMENTAL
 	for ( size_t i = 0; i < atlas->meshCount; i++ ) {
 		auto& xmesh = atlas->meshes[i];
-		auto& mesh = graph.meshes[i];
+		auto& mesh = uf::graph::storage.meshes[graph.meshes[i]];
 
 		size_t indices = mesh.attributes.index.length;
 		size_t indexStride = mesh.attributes.index.size;
@@ -87,18 +88,16 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		uint8_t* oldVertexPointer = oldVertexBuffer.data();
 		uint8_t* newvertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
 
-		uf::renderer::VertexDescriptor 	vertexAttributePosition, 
+		uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
 										vertexAttributeNormal,
 										vertexAttributeUv,
-										vertexAttributeSt,
-										vertexAttributeId;
+										vertexAttributeSt;
 
-		for ( auto& attribute : mesh.attributes.descriptor ) {
+		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
 			if ( attribute.name == "position" ) vertexAttributePosition = attribute;
 			else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
 			else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
 			else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
-			else if ( attribute.name == "id" ) vertexAttributeId = attribute;
 		}
 		UF_ASSERT( vertexAttributePosition.name != "" );
 
@@ -126,58 +125,8 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 
 	pod::Vector2ui size = pod::Vector2ui{ atlas->width, atlas->height };
 	::xatlas::Destroy(atlas);
-#else
-#if 0
-	for (size_t i = 0; i < atlas->meshCount; i++) {
-		auto& mesh = graph.meshes[i];
-		auto& xmesh = atlas->meshes[i];
-		for ( size_t v = 0; v < xmesh.vertexCount; v++) {
-			auto& xvertex = xmesh.vertexArray[v];
-			auto& vertex = mesh.vertices[xvertex.xref];
-			vertex.st = { xvertex.uv[0] / atlas->width, xvertex.uv[1] / atlas->height };
-		}
-	}
-#else
-	auto oldMeshes = std::move( graph.meshes );
-	graph.meshes.resize( oldMeshes.size() );
-	for (size_t i = 0; i < atlas->meshCount; i++) {
-		auto& xmesh = atlas->meshes[i];
-		auto& oldMesh = oldMeshes[i];
-		auto& newMesh = graph.meshes[i];		
-		newMesh.vertices.reserve( xmesh.vertexCount );
-		newMesh.indices.reserve( xmesh.indexCount );
-		for ( size_t v = 0; v < xmesh.vertexCount; v++) {
-			auto& xvertex = xmesh.vertexArray[v];
-			auto& oldVertex = oldMesh.vertices[xvertex.xref];
-			auto& newVertex = newMesh.vertices.emplace_back(oldVertex);
-			newVertex.st = { xvertex.uv[0] / atlas->width, xvertex.uv[1] / atlas->height };
-		}
-		for ( size_t i = 0; i < xmesh.indexCount; ++i ) newMesh.indices.emplace_back( xmesh.indexArray[i] );
-		newMesh.updateDescriptor();
-	}
-#endif
-
-	pod::Vector2ui size = pod::Vector2ui{ atlas->width, atlas->height };
-	::xatlas::Destroy(atlas);
-
-	for ( auto& node : graph.nodes ) {
-		if ( !(0 <= node.mesh && node.mesh < graph.meshes.size()) ) continue;
-		auto& nodeMesh = graph.meshes[node.mesh];
-		for ( auto& vertex : nodeMesh.vertices ) {
-			vertex.id.x = node.index;
-		// in almost-software mode, material ID is actually its albedo ID, as we can't use any other forms of mapping
-		#if UF_USE_OPENGL_FIXED_FUNCTION
-			if ( !(graph.mode & uf::graph::LoadMode::ATLAS) ) {
-				auto& material = graph.materials[vertex.id.y];
-				auto& texture = graph.textures[material.storage.indexAlbedo];
-				vertex.id.y = texture.storage.index;
-			}
-		#endif
-		}
-	}
-#endif
+	
 	return size;
-#else
-	return pod::Vector2ui{};
+#endif
 #endif
 }

@@ -1,3 +1,4 @@
+#if 0
 template<typename T, typename U>
 void uf::Mesh<T, U>::initialize( size_t o ) {
 	this->optimize(o);
@@ -44,12 +45,13 @@ void uf::Mesh<T, U>::expand( bool check ) {
 template<typename T, typename U>
 void uf::Mesh<T, U>::updateDescriptor() {
 	attributes.vertex.size = sizeof(vertex_t);
-	attributes.index.size = sizeof(indices_t);
-	attributes.vertex.pointer = &this->vertices[0];
-	attributes.index.pointer = &this->indices[0];
 	attributes.vertex.length = this->vertices.size();
+	attributes.vertex.pointer = &this->vertices[0];
+	attributes.vertex.descriptor = vertex_t::descriptor;
+
+	attributes.index.size = sizeof(indices_t);
 	attributes.index.length = this->indices.size();
-	attributes.descriptor = vertex_t::descriptor;
+	attributes.index.pointer = &this->indices[0];
 }
 template<typename T, typename U>
 void uf::Mesh<T, U>::destroy() {
@@ -105,26 +107,26 @@ bool pod::VaryingMesh::is() const {
 #if 0
 	return uf::pointeredUserdata::is<uf::Mesh<T,U>>();
 #else
-	if ( attributes.descriptor.size() != T::descriptor.size() ||
+	if ( attributes.vertex.descriptor.size() != T::descriptor.size() ||
 	// vertex types are the same size
 	attributes.vertex.size != sizeof(T) ||
 	// index types are the same size
 	attributes.index.size != sizeof(U) ) return false;
 
-	for ( size_t i = 0; i < attributes.descriptor.size(); ++i ) {
-		if ( attributes.descriptor[i].offset != attributes.descriptor[i].offset || attributes.descriptor[i].size != attributes.descriptor[i].size || attributes.descriptor[i].components != attributes.descriptor[i].components ) return false;
+	for ( size_t i = 0; i < attributes.vertex.descriptor.size(); ++i ) {
+		if ( attributes.vertex.descriptor[i].offset != attributes.vertex.descriptor[i].offset || attributes.vertex.descriptor[i].size != attributes.vertex.descriptor[i].size || attributes.vertex.descriptor[i].components != attributes.vertex.descriptor[i].components ) return false;
 	}
 	return true;
 #if 0
 return 
 	// descriptors are the same size
-	attributes.descriptor.size() == T::descriptor.size() && 
+	attributes.vertex.descriptor.size() == T::descriptor.size() && 
 	// vertex types are the same size
 	attributes.vertex.size == sizeof(T) && 
 	// index types are the same size
 	attributes.index.size == sizeof(U) && 
 	// attributes are the same
-	std::equal( attributes.descriptor.begin(), attributes.descriptor.end(), T::descriptor.begin() );
+	std::equal( attributes.vertex.descriptor.begin(), attributes.vertex.descriptor.end(), T::descriptor.begin() );
 #endif
 #endif
 }
@@ -158,3 +160,4 @@ void pod::VaryingMesh::insert( const uf::Mesh<T, U>& mesh ) {
 	get<T,U>().insert( mesh );
 	updateDescriptor();
 }
+#endif

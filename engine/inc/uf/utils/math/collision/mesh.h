@@ -15,6 +15,7 @@ namespace uf {
 		
 		void setPositions( const uf::stl::vector<pod::Vector3>& );
 		
+	#if 0
 		template<typename T, typename U>
 		void setPositions( const uf::Mesh<T, U>& mesh ) {
 			this->m_positions.clear();
@@ -25,6 +26,7 @@ namespace uf {
 				for ( auto& vertex : mesh.vertices ) this->m_positions.push_back( vertex.position );
 			}
 		}
+	#endif
 
 		virtual uf::stl::string type() const;
 		virtual pod::Vector3* expand() const;
