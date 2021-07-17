@@ -37,7 +37,7 @@
 #define UF_MSG_ERROR(X) 				UF_MSG(X, "  ERROR  ");
 
 #if UF_NO_EXCEPTIONS
-	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); }
+	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); std::abort(); }
 #else
 	#define UF_EXCEPTION(X) {\
 		uf::stl::stringstream str;\

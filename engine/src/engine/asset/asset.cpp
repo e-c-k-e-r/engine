@@ -176,8 +176,8 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 		metadata[uri]["flags"]["ATLAS"] = false;
 		metadata[uri]["flags"]["SEPARATE"] = true;
 	#elif UF_GRAPH_INDIRECT_DRAW
-		metadata[uri]["flags"]["ATLAS"] = false;
-		metadata[uri]["flags"]["SEPARATE"] = false;
+	//	metadata[uri]["flags"]["ATLAS"] = false;
+	//	metadata[uri]["flags"]["SEPARATE"] = false;
 	#endif
 		asset = uf::graph::load( filename, metadata[uri] );
 		uf::graph::process( asset );

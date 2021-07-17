@@ -131,6 +131,11 @@ namespace uf {
 		template<typename T> T& /*UF_API*/ divide( T& left, const typename T::type_t& scalar );				// 	Divides this vector by a scalar
 		template<typename T> T& /*UF_API*/ negate( T& vector );												// 	Flip sign of all components
 		template<typename T> T& /*UF_API*/ normalize( T& vector ); 											// 	Normalizes a vector
+		template<typename T> T  /*UF_API*/ min( const T& left, const T& right ); 							// 	
+		template<typename T> T  /*UF_API*/ max( const T& left, const T& right ); 							// 	
+		template<typename T> T  /*UF_API*/ ceil( const T& vector ); 										// 	
+		template<typename T> T  /*UF_API*/ floor( const T& vector ); 										// 	
+		template<typename T> T  /*UF_API*/ round( const T& vector ); 										// 	
 	// 	Complex arithmetic
 		template<typename T> typename T::type_t /*UF_API*/ dot( const T& left, const T& right ); 			// 	Compute the dot product between two vectors
 		template<typename T> pod::Angle /*UF_API*/ angle( const T& a, const T& b ); 						// 	Compute the angle between two vectors

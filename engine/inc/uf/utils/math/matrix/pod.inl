@@ -570,15 +570,15 @@ pod::Matrix4t<T> /*UF_API*/ uf::matrix::perspective( T fov, T raidou, T znear, T
 		});
 	#elif UF_USE_VULKAN
 		return pod::Matrix4t<T>({
-			f / raidou, 	0.0f, 	 0.0f, 	0.0f,
-			0.0f, 			-f, 	 0.0f, 	0.0f,
-			0.0f,       	0.0f,    0.0f, 	1.0f,
-			0.0f,       	0.0f,   znear, 	0.0f
+			f / raidou, 	0, 	 	0, 		0,
+			0, 				-f, 	0, 		0,
+			0,       		0,    	0, 		1,
+			0,       		0,   znear, 	0
 		});
 	#endif
 	} else {
 		T range = znear - zfar;
-		T f = tanf( static_cast<T>(0.5) * fov );
+		T f = tan( static_cast<T>(0.5) * fov );
 
 		T Sx = static_cast<T>(1) / (f * raidou);
 		T Sy = static_cast<T>(1) / f;

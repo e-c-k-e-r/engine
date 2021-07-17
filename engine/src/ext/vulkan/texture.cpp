@@ -81,6 +81,7 @@ void ext::vulkan::Texture::initialize( Device& device, size_t width, size_t heig
 	this->height = height;
 	this->depth = depth;
 	this->layers = layers;
+
 	// implicitly set type
 	if ( width > 1 && height > 1 && depth > 1 ) {
 		this->type = ext::vulkan::enums::Image::TYPE_3D;
@@ -361,8 +362,8 @@ void ext::vulkan::Texture::loadFromImage(
 		(void*) image.getPixelsPtr(),
 		image.getPixels().size(),
 		format,
-		image.getDimensions()[0],
-		image.getDimensions()[1],
+		image.getDimensions().x,
+		image.getDimensions().y,
 		1,
 		1,
 		device,
@@ -500,29 +501,8 @@ void ext::vulkan::Texture::fromBuffers(
 		device.flushCommandBuffer(commandBuffer);
 
 		this->imageLayout = imageLayout;
-		this->updateDescriptors();
 	}
-/*	
-	if ( this->layers > 1 ) {
-		// Create image view
-		VkImageSubresourceRange subresourceRange = {};
-		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresourceRange.baseMipLevel = 0;
-		subresourceRange.baseArrayLayer = 1;
-		subresourceRange.levelCount = this->mips;
-		subresourceRange.layerCount = this->layers - 1;
 
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-		setImageLayout(
-			commandBuffer,
-			image,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			imageLayout,
-			subresourceRange
-		);
-		device.flushCommandBuffer(commandBuffer);
-	}
-*/
 	this->updateDescriptors();
 }
 
@@ -588,20 +568,31 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	this->updateDescriptors();
 }
 void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
-	image = texture.image;
-	view = texture.view;
-	type = texture.type;
-	viewType = texture.viewType;
-	imageLayout = texture.imageLayout;
-	deviceMemory = texture.deviceMemory;
-	width = texture.width;
-	height = texture.height;
-	depth = texture.depth;
-	layers = texture.layers;
-	
-	sampler = texture.sampler;
-	sampler.device = NULL;
-	
+	*this = {
+		.device = nullptr,
+		.image = texture.image,
+		.view = texture.view,
+		.type = texture.type,
+	 	.viewType = texture.viewType,
+		.imageLayout = texture.imageLayout,
+		.deviceMemory = texture.deviceMemory, 
+		.descriptor = texture.descriptor, 
+		.format = texture.format,
+		
+		.sampler = texture.sampler,
+
+		.allocation = texture.allocation,
+		.allocationInfo = texture.allocationInfo,
+
+		.width = texture.width,
+		.height = texture.height,
+		.depth = texture.depth,
+		.layers = texture.layers,
+		.mips = texture.mips,
+	};
+
+	sampler.device = nullptr;
+
 	this->updateDescriptors();
 }
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {

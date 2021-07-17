@@ -5,6 +5,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/ext/vulkan/rendermode.h>
 #include <uf/utils/graphic/graphic.h>
+#include <uf/engine/graph/graph.h>
 
 #include <uf/ext/openvr/openvr.h>
 
@@ -37,9 +38,9 @@ bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::vulkan::settings::experimental::multiview = true;
 bool ext::vulkan::settings::experimental::vsync = true;
 bool ext::vulkan::settings::experimental::hdr = true;
-bool ext::vulkan::settings::experimental::frustrumCull = false;
 bool ext::vulkan::settings::experimental::vxgi = true;
 bool ext::vulkan::settings::experimental::deferredSampling = true;
+bool ext::vulkan::settings::experimental::culling = false;
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;
@@ -213,6 +214,7 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 }
 
 void ext::vulkan::initialize() {
+	ext::vulkan::mutex.lock();
 	device.initialize();
 	swapchain.initialize( device );
 	{
@@ -260,6 +262,9 @@ void ext::vulkan::initialize() {
 		TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 		TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
+	
+	uf::graph::initialize();
+
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->initialize(device);
@@ -272,6 +277,7 @@ void ext::vulkan::initialize() {
 		else renderMode->createCommandBuffers();
 	}
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
+	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::tick() {
 	ext::vulkan::mutex.lock();
@@ -335,11 +341,13 @@ void ext::vulkan::render() {
 		ext::vulkan::currentRenderMode = renderMode;
 		if ( settings::experimental::multithreadedCommandRendering ) {
 			jobs.emplace_back([&]{
+				uf::graph::render();
 				uf::scene::render();
 				renderMode->render();
 				renderMode->executed = true;
 			});
 		} else {
+			uf::graph::render();
 			uf::scene::render();
 			renderMode->render();
 			renderMode->executed = true;

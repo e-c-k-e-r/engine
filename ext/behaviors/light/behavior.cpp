@@ -64,6 +64,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		renderMode.metadata.type = "depth";
+		renderMode.metadata.pipeline = "depth";
+		if ( uf::renderer::settings::experimental::culling ) {
+			renderMode.metadata.pipelines.emplace_back("culling");
+		}
 		renderMode.metadata.json["descriptor"]["depth bias"] = metadataJson["light"]["bias"];
 		renderMode.metadata.json["descriptor"]["renderMode"] = metadataJson["renderMode"];
 
@@ -84,6 +88,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		} else {
 			size = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 		}
+		if ( radius.y < radius.x ) radius.y = 256;
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
 		camera.update(true);
 		

@@ -86,9 +86,9 @@ struct Material {
 	int indexOcclusion;
 	
 	int indexMetallicRoughness;
-	int indexAtlas;
 	int indexLightmap;
 	int modeAlpha;
+	int padding;
 };
 
 struct Texture {
@@ -107,9 +107,28 @@ struct DrawCommand {
 	 int vertexID; // starting vertex position
 
 	uint instanceID; // starting instance position
-	uint materialID; // material used for draw
-	uint objectID; // 
-	uint vertices; //
+	uint padding; //
+	uint materialID; // material to use for this draw call
+	uint vertices; // number of vertices used
+};
+
+struct Bounds {
+	vec3 min;
+	float padding1;
+	vec3 max;
+	float padding2;
+};
+
+struct Instance {
+	mat4 model;
+	vec4 color;
+
+	uint materialID;
+	uint primitiveID;
+	uint meshID;
+	uint objectID;
+
+	Bounds bounds;
 };
 
 struct SurfaceMaterial {
@@ -122,7 +141,6 @@ struct SurfaceMaterial {
 	float roughness;
 	float occlusion;
 	int indexLightmap;
-
 };
 
 struct Surface {

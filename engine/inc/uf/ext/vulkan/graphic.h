@@ -16,18 +16,19 @@ namespace ext {
 
 			Device* device = NULL;
 
-			VkPipeline pipeline;
-			VkPipelineLayout pipelineLayout;
-			VkDescriptorSetLayout descriptorSetLayout;
-			VkDescriptorPool descriptorPool;
-			VkDescriptorSet descriptorSet;
-			GraphicDescriptor descriptor;
+			VkPipeline pipeline = VK_NULL_HANDLE;
+			VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+			VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+			VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+			VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+			GraphicDescriptor descriptor = {};
 
 			struct {
 				uf::Serializer json;
 				
 				uf::stl::string type = "";
 				bool process = true;
+				bool rebuild = false;
 			} metadata;
 
 			void initialize( const Graphic& graphic );
@@ -43,7 +44,7 @@ namespace ext {
 
 		struct UF_API Material {
 			bool aliased = false;
-			Device* device;
+			Device* device = NULL;
 
 			uf::stl::vector<Sampler> samplers;
 			uf::stl::vector<Texture2D> textures;
@@ -51,6 +52,7 @@ namespace ext {
 
 			struct Metadata {
 				uf::Serializer json;
+				bool autoInitializeUniforms = true;
 				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
 			} metadata;
 
@@ -68,29 +70,16 @@ namespace ext {
 		};
 
 		struct UF_API Graphic : public Buffers {
-			GraphicDescriptor descriptor;
+			GraphicDescriptor descriptor = {};
 
 			bool initialized = false;
 			bool process = true;
-			Material material;
+			Material material = {};
 			uf::stl::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
 
 			struct {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
 			} metadata;
-
-			struct Layout {
-				uf::stl::vector<VkDescriptorBufferInfo> uniform;
-				uf::stl::vector<VkDescriptorBufferInfo> storage;
-				
-				uf::stl::vector<VkDescriptorImageInfo> image;
-				uf::stl::vector<VkDescriptorImageInfo> image2D;
-				uf::stl::vector<VkDescriptorImageInfo> imageCube;
-				uf::stl::vector<VkDescriptorImageInfo> image3D;
-
-				uf::stl::vector<VkDescriptorImageInfo> sampler;
-				uf::stl::vector<VkDescriptorImageInfo> input;
-			} layout;
 
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );
@@ -101,6 +90,7 @@ namespace ext {
 		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
 
 			void initializeMesh( uf::Mesh& mesh, bool buffer = true );
+			void updateMesh( uf::Mesh& mesh );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();

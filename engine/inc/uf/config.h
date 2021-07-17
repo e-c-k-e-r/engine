@@ -20,8 +20,12 @@
 	#if defined(__CYGWIN__)
 		#define to_string(var) string(var)
 	#endif
-	#define _WIN32_WINNT 0x0600
-	#define WINVER 0x0600
+	#ifndef _WIN32_WINNT
+		#define _WIN32_WINNT 0x0600
+	#endif
+	#ifndef WINVER
+		#define WINVER 0x0600
+	#endif
 	
 	#define UF_IO_ROOT "./data/"
 #elif defined(linux) || defined(__linux)

@@ -5,7 +5,20 @@
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/engine/scene/scene.h>
+#include <uf/engine/graph/graph.h>
 #include <BulletCollision/CollisionShapes/btTriangleShape.h>
+
+struct VertexLine {
+	pod::Vector3f position;
+	pod::Vector3f color;
+
+	static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+};
+
+UF_VERTEX_DESCRIPTOR(VertexLine,
+	UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, color)
+);
 
 class BulletDebugDrawer : public btIDebugDraw {
 protected:
@@ -16,15 +29,19 @@ public:
 		drawLine( from, to, color, color );
 	}
 	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor ) {
-		pod::Vertex_3F2F3F4F vertex;
-
-		vertex.position = { from.getX(), from.getY(), from.getZ() };
-		vertex.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ(), 1.0f };
-		mesh.insertVertex(vertex);
-
-		vertex.position = { to.getX(), to.getY(), to.getZ() };
-		vertex.color = { toColor.getX(), toColor.getY(), toColor.getZ(), 1.0f };
-		mesh.insertVertex(vertex);
+		uf::stl::vector<VertexLine> vertices;
+		{
+			auto& vertex = vertices.emplace_back();
+			vertex.position = { from.getX(), from.getY(), from.getZ() };
+			vertex.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ() };
+		}
+		{
+			auto& vertex = vertices.emplace_back();
+			vertex.position = { to.getX(), to.getY(), to.getZ() };
+			vertex.color = { toColor.getX(), toColor.getY(), toColor.getZ() };
+		}
+		if ( !mesh.hasVertex<VertexLine>() ) mesh.bind<VertexLine>();
+		mesh.insertVertices(vertices);
 	}
 	virtual void drawContactPoint(const btVector3&, const btVector3&, btScalar, int, const btVector3&) {
 
@@ -39,7 +56,9 @@ public:
 		m = p;
 	}
 	virtual void clearLines() {
-		mesh.destroy();
+		for ( auto& buffer : mesh.buffers ) buffer.clear();
+		mesh.vertex.count = 0;
+		mesh.index.count = 0;
 	}
 	virtual void flushLines() {
 		auto& scene = uf::scene::getCurrentScene();
@@ -112,6 +131,9 @@ void ext::bullet::initialize() {
 
 	ext::bullet::debugDrawer.setDebugMode(btIDebugDraw::DBG_DrawWireframe);
  	ext::bullet::dynamicsWorld->setDebugDrawer(&ext::bullet::debugDrawer);
+
+	auto& mesh = ext::bullet::debugDrawer.getMesh();
+	mesh.bind<VertexLine>();
 
 #if !UF_ENV_DREAMCAST
 	gContactAddedCallback = contactCallback;
@@ -276,42 +298,110 @@ void ext::bullet::detach( pod::Bullet& collider ) {
 }
 
 pod::Bullet& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh, bool dynamic ) {
-	auto& transform = object.getComponent<pod::Transform<>>();
+	btTriangleIndexVertexArray* bMesh = new btTriangleIndexVertexArray();
+
+	if ( mesh.index.count ) {
+		uf::Mesh::Attribute vertexAttribute;
+		for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
+		UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+
+		auto& indexAttribute = mesh.index.attributes.front();
+		PHY_ScalarType indexType = PHY_INTEGER;
+		PHY_ScalarType vertexType = PHY_FLOAT;
+		switch ( mesh.index.stride ) {
+			case sizeof(uint8_t): indexType = PHY_UCHAR; break;
+			case sizeof(uint16_t): indexType = PHY_SHORT; break;
+			case sizeof(uint32_t): indexType = PHY_INTEGER; break;
+			default: UF_EXCEPTION("unsupported index type"); break;
+		}
+
+		btIndexedMesh iMesh;
+		if ( mesh.indirect.count ) {
+			uf::Mesh::Attribute remappedVertexAttribute;
+			uf::Mesh::Attribute remappedIndexAttribute;
+			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+				remappedVertexAttribute = mesh.remapVertexAttribute( vertexAttribute, i );
+				remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
+
+				iMesh.m_numTriangles        = remappedIndexAttribute.length / 3;
+				iMesh.m_triangleIndexBase   = (const uint8_t*) remappedIndexAttribute.pointer;
+				iMesh.m_triangleIndexStride = remappedIndexAttribute.stride * 3;
+
+				iMesh.m_numVertices         = remappedVertexAttribute.length;
+				iMesh.m_vertexBase          = (const uint8_t*) remappedVertexAttribute.pointer;
+				iMesh.m_vertexStride        = remappedVertexAttribute.stride;
+				iMesh.m_indexType 			= indexType;
+				iMesh.m_vertexType 			= vertexType;
+
+				bMesh->addIndexedMesh( iMesh, indexType );
+			}
+		} else {
+			iMesh.m_numTriangles        = indexAttribute.length / 3;
+			iMesh.m_triangleIndexBase   = (const uint8_t*) indexAttribute.pointer;
+			iMesh.m_triangleIndexStride = indexAttribute.stride * 3;
+
+			iMesh.m_numVertices         = vertexAttribute.length;
+			iMesh.m_vertexBase          = (const uint8_t*) vertexAttribute.pointer;
+			iMesh.m_vertexStride        = vertexAttribute.stride;
+			iMesh.m_indexType 			= indexType;
+			iMesh.m_vertexType 			= vertexType;
+			bMesh->addIndexedMesh( iMesh, indexType );
+		}
+	} else UF_EXCEPTION("to-do: not require indices for meshes");
 
 	auto& collider = ext::bullet::create( object );
-	auto model = uf::transform::model( collider.transform );
-	
-	btTriangleMesh* bMesh = new btTriangleMesh( true, false );
-	for ( auto& attribute : mesh.vertex.attributes ) {
-		if ( attribute.descriptor.name != "position" ) continue;
-
-		const pod::Vector3f* pointer = (const pod::Vector3f*) attribute.descriptor.pointer;
-		bMesh->preallocateVertices( mesh.vertex.count );
-		for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-			bMesh->findOrAddVertex( btVector3( pointer[i].x, pointer[i].y, pointer[i].z ), false );
-		}
-		break;
-	}
-	if ( mesh.index.count ) {
-		bMesh->preallocateIndices( mesh.index.count );
-		for ( auto& attribute : mesh.index.attributes ) {
-			size_t count = attribute.descriptor.length / attribute.descriptor.size;
-			const uint8_t* pointer = (const uint8_t*) attribute.descriptor.pointer;
-			for ( auto i = 0; i < count; ++i ) {
-				uint32_t index = 0;
-				switch ( attribute.descriptor.size ) {
-					case sizeof( uint8_t): index = (( uint8_t*) pointer)[i]; break;
-					case sizeof(uint16_t): index = ((uint16_t*) pointer)[i]; break;
-					case sizeof(uint32_t): index = ((uint32_t*) pointer)[i]; break;
-				}
-				bMesh->addIndex( index );
-			}
-		}
-	}
-
-	collider.shape = new btBvhTriangleMeshShape(bMesh, true);
+	collider.shape = new btBvhTriangleMeshShape( bMesh, true, true );
 	ext::bullet::attach( collider );
 
+	auto& transform = object.getComponent<pod::Transform<>>();
+	auto model = uf::transform::model( collider.transform );
+	btTransform t = collider.body->getWorldTransform();
+	t.setFromOpenGLMatrix(&model[0]);
+	collider.body->setWorldTransform(t);
+	collider.body->setCenterOfMassTransform(t);
+
+	btBvhTriangleMeshShape* triangleMeshShape = (btBvhTriangleMeshShape*) collider.shape;
+	btTriangleInfoMap* triangleInfoMap = new btTriangleInfoMap();
+	triangleInfoMap->m_edgeDistanceThreshold = 0.01f;
+	triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
+	if ( !false ) btGenerateInternalEdgeInfo( triangleMeshShape, triangleInfoMap );
+	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+	return collider;
+}
+pod::Bullet& ext::bullet::create( uf::Object& object, const void* verticesPointer, size_t verticesCount, size_t verticesStride, const void* indicesPointer, size_t indicesCount, size_t indicesStride, bool dynamic ) {
+	btTriangleIndexVertexArray* bMesh = new btTriangleIndexVertexArray();
+
+	if ( indicesCount ) {
+		PHY_ScalarType indexType = PHY_INTEGER;
+		PHY_ScalarType vertexType = PHY_FLOAT;
+		switch ( indicesStride ) {
+			case 1: indexType = PHY_UCHAR; break;
+			case 2: indexType = PHY_SHORT; break;
+			case 4: indexType = PHY_INTEGER; break;
+		}
+
+		const uint8_t* indicesBuffer = (const uint8_t*) indicesPointer;
+		const uint8_t* verticesBuffer = (const uint8_t*) verticesPointer;
+
+		btIndexedMesh iMesh;
+		iMesh.m_numTriangles        = indicesCount / 3;
+		iMesh.m_triangleIndexBase   = indicesBuffer;
+		iMesh.m_triangleIndexStride = 3 * indicesStride;
+		iMesh.m_numVertices         = verticesCount;
+		iMesh.m_vertexBase          = verticesBuffer;
+		iMesh.m_vertexStride        = verticesStride;
+		iMesh.m_indexType 			= indexType;
+		iMesh.m_vertexType 			= vertexType;
+		bMesh->addIndexedMesh( iMesh, indexType );
+	} else UF_EXCEPTION("to-do: not require indices for meshes");
+
+
+	auto& collider = ext::bullet::create( object );
+	collider.shape = new btBvhTriangleMeshShape( bMesh, true, true );
+	ext::bullet::attach( collider );
+
+	auto& transform = object.getComponent<pod::Transform<>>();
+	auto model = uf::transform::model( collider.transform );
 	btTransform t = collider.body->getWorldTransform();
 	t.setFromOpenGLMatrix(&model[0]);
 	collider.body->setWorldTransform(t);
@@ -443,33 +533,32 @@ void UF_API ext::bullet::activateCollision( pod::Bullet& collider, bool enabled 
 
 void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 	auto& mesh = ext::bullet::debugDrawer.getMesh();
-	mesh.bind<pod::Vertex_3F2F3F4F>();
-
 	if ( !mesh.vertex.count ) return;
 
 	bool create = !object.hasComponent<uf::Graphic>();
 	auto& graphic = object.getComponent<uf::Graphic>();
 	graphic.process = false;
 	if ( create ) {
-		graphic.process = true;
-
 		graphic.device = &uf::renderer::device;
 		graphic.material.device = &uf::renderer::device;
 		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
-		graphic.material.attachShader(uf::io::root + "/shaders/base/colored.vert.spv", uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader(uf::io::root + "/shaders/base/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.metadata.json["shader"]["autoInitializeUniformBuffers"] = false;
 
-		graphic.initialize();
+		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+
+		graphic.material.getShader("vertex").buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+
+		graphic.initialize("Gui");
 		graphic.initializeMesh( mesh );
+
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
 		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 		graphic.descriptor.lineWidth = 8.0f;
 	} else {
-		graphic.process = true;
-
-		graphic.initializeMesh( mesh );
-		graphic.getPipeline().update( graphic );
+		graphic.updateMesh( mesh );
 	}
+	graphic.process = true;
 }
 #endif

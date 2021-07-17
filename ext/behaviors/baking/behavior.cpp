@@ -369,9 +369,9 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 			// standard pipeline
 			{
-				uf::stl::string vertexShaderFilename = "/gltf/baking/bake.vert.spv";
+				uf::stl::string vertexShaderFilename = "/graph/baking/bake.vert.spv";
 				uf::stl::string geometryShaderFilename = "";
-				uf::stl::string fragmentShaderFilename = "/gltf/baking/bake.frag.spv";
+				uf::stl::string fragmentShaderFilename = "/graph/baking/bake.frag.spv";
 				if ( uf::renderer::settings::experimental::deferredSampling ) {
 					fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
 				}

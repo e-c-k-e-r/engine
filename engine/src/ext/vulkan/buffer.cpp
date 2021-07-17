@@ -55,31 +55,14 @@ void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
 }
 
 VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) const {
-/*
-	VkMappedMemoryRange mappedRange = {};
-	mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	mappedRange.memory = memory;
-	mappedRange.offset = offset;
-	mappedRange.size = size;
-	return vkFlushMappedMemoryRanges(device, 1, &mappedRange);
-*/
 	return VK_SUCCESS;
 }
 
 VkResult ext::vulkan::Buffer::invalidate( VkDeviceSize size, VkDeviceSize offset ) {
-/*
-	VkMappedMemoryRange mappedRange = {};
-	mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	mappedRange.memory = memory;
-	mappedRange.offset = offset;
-	mappedRange.size = size;
-	return vkInvalidateMappedMemoryRanges(device, 1, &mappedRange);
-*/
 	return VK_SUCCESS;
 }
 
 void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
-//	VK_CHECK_RESULT(vkCreateBuffer( device, &bufferCreateInfo, nullptr, &buffer));
 	VmaAllocationCreateInfo allocCreateInfo = {};
 	
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -89,10 +72,6 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 	}
 
 	vmaCreateBuffer( allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, &allocationInfo );
-//	VkMemoryPropertyFlags memFlags;
-//	vmaGetMemoryTypeProperties(allocator, allocationInfo.memoryType, &memFlags);
-//	memory = allocationInfo.deviceMemory;
-//	size = allocationInfo.size;
 }
 
 // RAII
@@ -107,14 +86,13 @@ void ext::vulkan::Buffer::destroy() {
 
 	if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
-//		vkDestroyBuffer(device, buffer, nullptr);
 	}
-//	if ( memory ) vkFreeMemory(device, memory, nullptr);
 
 	buffer = nullptr;
 	memory = nullptr;
 }
 void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
+	if ( !device ) device = &ext::vulkan::device;
 	if ( stage ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
 	VK_CHECK_RESULT(device->createBuffer(
 		usage,
@@ -122,9 +100,11 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 		*this,
 		length
 	));
-	if ( data ) update( data, length, stage );
+	if ( data && length ) update( data, length, stage );
 }
 void ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
+	if ( !data || !length ) return;
+
 	if ( length > allocationInfo.size ) {
 		UF_MSG_DEBUG("LENGTH OF " << length << " EXCEEDS BUFFER SIZE " << allocationInfo.size );
 		Buffer& b = *const_cast<Buffer*>(this);
@@ -141,6 +121,8 @@ void ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	}
 
 	Buffer staging;
+
+	ext::vulkan::Device* device = this->device ? this->device : &ext::vulkan::device;
 	device->createBuffer(
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,

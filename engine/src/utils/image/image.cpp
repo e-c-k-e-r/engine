@@ -14,6 +14,7 @@
 
 // 	C-tor
 // Default
+/*
 uf::Image::Image() :
 	m_bpp(8),
 	m_channels(4),
@@ -71,7 +72,7 @@ uf::Image::Image( const Image::container_t& copy, const Image::vec2_t& size ) :
 {
 
 }
-
+*/
 uf::stl::string uf::Image::getFilename() const {
 	return this->m_filename;
 }

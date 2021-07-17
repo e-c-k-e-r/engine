@@ -19,11 +19,11 @@ namespace ext {
 			VkDeviceSize alignment = 0;
 			void* mapped = nullptr;
 
-			VkBufferUsageFlags usage;
-			VkMemoryPropertyFlags memoryProperties;
+			VkBufferUsageFlags usage = 0;
+			VkMemoryPropertyFlags memoryProperties = 0;
 
-			VmaAllocation allocation;
-			VmaAllocationInfo allocationInfo;
+			VmaAllocation allocation = {};
+			VmaAllocationInfo allocationInfo = {};
 
 			void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 			void unmap();
@@ -49,7 +49,7 @@ namespace ext {
 		};
 		struct UF_API Buffers {
 			uf::stl::vector<Buffer> buffers;
-			Device* device;
+			Device* device = NULL;
 
 		//	~Buffers();
 			//

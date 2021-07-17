@@ -5,7 +5,7 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/renderer/renderer.h>
-#include <uf/utils/memory/fifo_map.h>
+#include <uf/utils/memory/unordered_map.h>
 
 #include <queue>
 
@@ -23,28 +23,27 @@ namespace pod {
 		uf::Serializer metadata;
 
 		pod::Node root;
-		uf::stl::vector<pod::Node> nodes; // node's position corresponds to its drawCommand and instance
+		uf::stl::vector<pod::Node> nodes; //
 
 		// Render information
-		uf::stl::vector<uf::stl::vector<pod::DrawCommand>> drawCommands; // draws to dispatch, one per primitive, gets copied per rendermode
+		uf::stl::vector<uf::stl::string> instances; //
+		uf::stl::vector<uf::stl::string> primitives; //
+		uf::stl::vector<uf::stl::string> drawCommands; //
+		uf::stl::vector<uf::stl::string> meshes; //
 
-		uf::stl::vector<pod::Instance> instances; // instance data to use, gets copied per rendermode
+		uf::stl::vector<uf::stl::string> images; //
+		uf::stl::vector<uf::stl::string> materials; //
+		uf::stl::vector<uf::stl::string> textures; //
 
-		uf::stl::vector<uf::stl::string> meshes; // collection of primitives (stored as meshes, by material)
-
-		uf::stl::vector<uf::stl::string> images; // references global pool of images
-		uf::stl::vector<uf::stl::string> materials; // references global pool of materials
-		uf::stl::vector<uf::stl::string> textures; // references global pool of textures
-
-		uf::stl::vector<uf::stl::string> texture2Ds; // references global pool of texture2Ds
-		uf::stl::vector<uf::stl::string> samplers; // references global pool of samplers
+		uf::stl::vector<uf::stl::string> texture2Ds; //
+		uf::stl::vector<uf::stl::string> samplers; //
 
 		// Lighting information
 		uf::stl::unordered_map<uf::stl::string, pod::Light> lights;
 
 		// Animations
-		uf::stl::vector<Skin> skins;
-		uf::stl::unordered_map<uf::stl::string, Animation> animations;
+		uf::stl::vector<uf::stl::string> skins;
+		uf::stl::vector<uf::stl::string> animations;
 		// Animation queue
 		std::queue<uf::stl::string> sequence;
 		struct {
@@ -61,15 +60,55 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
-			uf::stl::fifo_map<uf::stl::string, uf::Atlas> atlases;
-			uf::stl::fifo_map<uf::stl::string, uf::Image> images;
-			uf::stl::fifo_map<uf::stl::string, pod::Mesh> meshes;
-			uf::stl::fifo_map<uf::stl::string, pod::Material> materials;
-			uf::stl::fifo_map<uf::stl::string, pod::Texture> textures;
+			template<typename T, typename Key = uf::stl::string>
+			struct KeyMap {
+			public:
+				uf::stl::vector<Key> keys;
+				uf::stl::unordered_map<Key, T> map;
 
-			uf::stl::fifo_map<uf::stl::string, uf::renderer::Texture2D> texture2Ds;
-			uf::stl::fifo_map<uf::stl::string, uf::renderer::Sampler> samplers;
-		};
+				T& operator[]( const Key& key ) {
+					if ( map.count( key ) == 0 ) keys.emplace_back( key );
+					return map[key];
+				}
+
+				void reserve( size_t i ) {
+					keys.reserve(i);
+					map.reserve(i);
+				}
+			};
+
+			KeyMap<pod::Instance> instances;
+			KeyMap<uf::stl::vector<pod::Primitive>> primitives;
+			KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands;
+			KeyMap<uf::Mesh> meshes;
+
+			KeyMap<uf::Image> images;
+			KeyMap<pod::Material> materials;
+			KeyMap<pod::Texture> textures;
+			KeyMap<uf::renderer::Sampler> samplers;
+			uf::stl::vector<pod::Light> lights;
+			KeyMap<pod::Skin> skins;
+			KeyMap<pod::Animation> animations;
+
+			// maps without direct analogues
+			KeyMap<uf::Atlas> atlases;
+			KeyMap<pod::Matrix4f> joints;
+			KeyMap<uf::renderer::Texture2D> texture2Ds;
+			KeyMap<uf::Entity*> entities;
+			
+			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
+			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
+
+			struct Buffer {
+				uf::renderer::Buffer camera;
+				uf::renderer::Buffer drawCommands;
+				uf::renderer::Buffer instance;
+				uf::renderer::Buffer joint;
+				uf::renderer::Buffer material;
+				uf::renderer::Buffer texture;
+				uf::renderer::Buffer light;
+			} buffers;
+		} storage;
 	};
 }
 
@@ -100,6 +139,11 @@ namespace uf {
 		void UF_API update( pod::Graph&, pod::Node& );
 		
 		void UF_API destroy( pod::Graph& );
+		
+		void UF_API initialize();
+		void UF_API tick();
+		void UF_API render();
+		void UF_API destroy();
 
 		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
 		void UF_API save( const pod::Graph&, const uf::stl::string& );

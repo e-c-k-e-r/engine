@@ -6,6 +6,7 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/string/base64.h>
 #include <uf/utils/graphic/graphic.h>
+#include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST
@@ -13,6 +14,10 @@
 #else
 	#define UF_GRAPH_LOAD_MULTITHREAD 1
 #endif
+
+namespace {
+	bool newGraphAdded = true;
+}
 
 pod::Graph::Storage uf::graph::storage;
 
@@ -52,17 +57,18 @@ namespace {
 		}
 
 		// standard pipeline
+		uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
+		uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
+		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base.frag.spv");
 		{
-			uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/gltf/base.vert.spv");
-			uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
-			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/gltf/base.frag.spv");
+			graphic.material.metadata.autoInitializeUniforms = false;
 			if ( uf::renderer::settings::experimental::deferredSampling ) {
 				fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
 			}
 			{
 				if ( !graph.metadata["flags"]["SEPARATE"].as<bool>() ) {
-					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/gltf/skinned.instanced.vert.spv" : "/gltf/instanced.vert.spv";
-				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/gltf/skinned.vert.spv";
+					vertexShaderFilename = graph.metadata["flags"]["SKINNED"].as<bool>() ? "/graph/skinned.instanced.vert.spv" : "/graph/instanced.vert.spv";
+				} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) vertexShaderFilename = "/graph/skinned.vert.spv";
 				vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
 				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX);
 			}
@@ -71,6 +77,7 @@ namespace {
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT);
 			}
 		#if UF_USE_VULKAN
+			graphic.material.metadata.autoInitializeUniforms = true;
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
 				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
@@ -79,37 +86,122 @@ namespace {
 				uint32_t maxPasses = 6;
 
 				auto& shader = graphic.material.getShader("vertex");
-				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
-				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					uf::stl::string name = sc["name"].as<uf::stl::string>();
-					if ( name == "PASSES" ) sc["value"] = (specializationConstants[i] = maxPasses);
-				});
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
+				}
+
+				uf::renderer::Buffer* indirect = NULL;
+				for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.drawCommands );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
 			}
 			{
-				uint32_t maxTextures = texture2Ds;
+				uint32_t maxTextures = graph.textures.size(); // texture2Ds;
 
 				auto& shader = graphic.material.getShader("fragment");
-				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
-				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-					uf::stl::string name = sc["name"].as<uf::stl::string>();
-					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures);
-				});
-
-				ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
-					if ( t["name"].as<uf::stl::string>() != "samplerTextures" ) return;
-					size_t binding = t["binding"].as<size_t>();
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
 					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding == binding ) layout.descriptorCount = maxTextures;
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
 					}
-				});
+				}
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
 			}
 		#endif
 		}
+		// culling pipeline
+		if ( uf::renderer::settings::experimental::culling ) {
+			graphic.material.metadata.autoInitializeUniforms = false;
+			uf::stl::string compShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/cull.comp.spv");
+			{
+				compShaderFilename = entity.grabURI( compShaderFilename, root );
+				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "culling");
+			}
+			graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
+
+			auto& shader = graphic.material.getShader("compute", "culling");
+
+			uf::renderer::Buffer* indirect = NULL;
+			for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
+			UF_ASSERT( indirect );
+
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+			shader.buffers.emplace_back().aliasBuffer( *indirect );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+		}
+		// depth only pipeline
+		#if UF_USE_VULKAN
+		{
+			graphic.material.metadata.autoInitializeUniforms = false;
+			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/depth.frag.spv");
+			{
+				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "depth");
+			}
+			{
+				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
+			}
+			{
+				uint32_t maxPasses = 6;
+
+				auto& shader = graphic.material.getShader("vertex", "depth");
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
+				}
+
+				uf::renderer::Buffer* indirect = NULL;
+				for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.drawCommands );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
+			}
+			{
+				uint32_t maxTextures = graph.textures.size(); // texture2Ds;
+
+				auto& shader = graphic.material.getShader("fragment", "depth");
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+					}
+				}
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
+			}
+		}
 		// vxgi pipeline
 		if ( uf::renderer::settings::experimental::vxgi ) {
-			uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/gltf/base.vert.spv");
-			uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("/gltf/voxelize.geom.spv");
-			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/gltf/voxelize.frag.spv");
+		//	graphic.material.metadata.json["shader"]["autoInitializeUniformBuffers"] = false;
+			graphic.material.metadata.autoInitializeUniforms = false;
+			uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
+			uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("/graph/voxelize.geom.spv");
+			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
 			if ( uf::renderer::settings::experimental::deferredSampling ) {
 			//	fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", "deferredSampling.frag" );
 			}
@@ -117,7 +209,8 @@ namespace {
 				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vxgi");
 			}
-		#if UF_USE_VULKAN
+		//	graphic.material.metadata.json["shader"]["autoInitializeUniformBuffers"] = true;
+			graphic.material.metadata.autoInitializeUniforms = true;
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
 				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
@@ -136,8 +229,26 @@ namespace {
 				uint32_t maxCascades = texture3Ds / voxelTypes;
 
 				auto& shader = graphic.material.getShader("fragment", "vxgi");
-				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
+					else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+						else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
+					}
+				}
 
+			/*
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures);
@@ -156,9 +267,14 @@ namespace {
 						else if ( name == "voxelDepth" ) layout.descriptorCount = maxCascades;
 					}
 				});
+			*/
+				
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
 			}
-		#endif
 		}
+		#endif
 	//	graphic.process = true;
 	}
 	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
@@ -179,13 +295,8 @@ namespace {
 			}
 		}
 		{
-			for ( auto& t : graph.textures ) {
-				auto& texture2D = uf::graph::storage.texture2Ds[t];
-				graphic.material.textures.emplace_back().aliasTexture(uf::graph::storage.texture2Ds[t]);
-			}
-			for ( auto& s : graph.samplers ) {
-				graphic.material.samplers.emplace_back( uf::graph::storage.samplers[s] );
-			}
+			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
+			for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
 			// bind scene's voxel texture
 			if ( uf::renderer::settings::experimental::vxgi ) {
 				auto& scene = uf::scene::getCurrentScene();
@@ -233,6 +344,20 @@ void uf::graph::process( uf::Object& entity ) {
 	for ( auto index : graph.root.children ) process( graph, index, entity );
 }
 void uf::graph::process( pod::Graph& graph ) {
+	// copy our local storage to global storage
+	{
+		for ( auto& name : graph.storage.atlases.keys ) uf::graph::storage.atlases[name] = graph.storage.atlases[name];
+		for ( auto& name : graph.storage.images.keys ) uf::graph::storage.images[name] = graph.storage.images[name];
+		for ( auto& name : graph.storage.primitives.keys ) uf::graph::storage.primitives[name] = graph.storage.primitives[name];
+		for ( auto& name : graph.storage.meshes.keys ) uf::graph::storage.meshes[name] = graph.storage.meshes[name];
+		for ( auto& name : graph.storage.joints.keys ) uf::graph::storage.joints[name] = graph.storage.joints[name];
+		for ( auto& name : graph.storage.materials.keys ) uf::graph::storage.materials[name] = graph.storage.materials[name];
+		for ( auto& name : graph.storage.textures.keys ) uf::graph::storage.textures[name] = graph.storage.textures[name];
+		for ( auto& name : graph.storage.samplers.keys ) uf::graph::storage.samplers[name] = graph.storage.samplers[name];
+		for ( auto& name : graph.storage.skins.keys ) uf::graph::storage.skins[name] = graph.storage.skins[name];
+		for ( auto& name : graph.storage.animations.keys ) uf::graph::storage.animations[name] = graph.storage.animations[name];
+		for ( auto& name : graph.storage.entities.keys ) uf::graph::storage.entities[name] = graph.storage.entities[name];
+	}
 	//
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 
@@ -241,480 +366,91 @@ void uf::graph::process( pod::Graph& graph ) {
 	// add atlas
 
 	// setup textures
+	uf::graph::storage.texture2Ds.reserve( uf::graph::storage.images.map.size() );
+	for ( auto& keyName : graph.images ) {
+		auto& image = uf::graph::storage.images[keyName];
+		auto& texture = uf::graph::storage.texture2Ds[keyName];
+		if ( !texture.generated() ) texture.loadFromImage( image );
+	}	
+
 	
 	// process nodes
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
 
-	// setup meshes
+	// remap materials->texture IDs
+	for ( auto& name : graph.materials ) {
+		auto& material = uf::graph::storage.materials[name];
+		auto& keys = uf::graph::storage.textures.keys;
+		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
+		for ( auto* pointer : IDs ) {
+			auto& ID = *pointer;
+			if ( !(0 <= ID && ID < graph.materials.size()) ) continue;
+			auto it = std::find( keys.begin(), keys.end(), graph.textures[ID] );
+			UF_ASSERT( it != keys.end() );
+			ID = it - keys.begin();
+		}
+	}
+	// remap textures->images IDs
+	for ( auto& name : graph.textures ) {
+		auto& texture = uf::graph::storage.textures[name];
+		auto& keys = uf::graph::storage.images.keys;
+		
+		if ( !(0 <= texture.index && texture.index < graph.textures.size()) ) continue;
+		auto it = std::find( keys.begin(), keys.end(), graph.images[texture.index] );
+		UF_ASSERT( it != keys.end() );
+		texture.index = it - keys.begin();
+	}
+	// remap instance materials
+	for ( auto& name : graph.instances ) {
+		auto& instance = uf::graph::storage.instances[name];
+		
+		if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) continue;
+		auto& keys = graph.storage.materials.keys;
+		auto it = std::find( keys.begin(), keys.end(), graph.materials[instance.materialID] );
+		UF_ASSERT( it != keys.end() );
+		instance.materialID = it - keys.begin();
+	}
+	::newGraphAdded = true;
+
+	// setup combined mesh if requested
 	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-		initializeGraphics( graph, *graph.root.entity );
-	}
+		graph.root.mesh = graph.meshes.size();
+		auto keyName = graph.name + "/" + graph.root.name;
+		auto& mesh = uf::graph::storage.meshes[graph.meshes.emplace_back(keyName)];
+		for ( auto& name : graph.meshes ) {
+			if ( name == keyName ) continue;
 
-	// setup collision
-#if 0
-	graph.root.entity->process([&]( uf::Entity* entity ) {
-		auto& metadata = entity->getComponent<uf::Serializer>();
-		size_t index = metadata["system"]["graph"]["index"].as<size_t>();
-		auto& node = graph.nodes[nodeName];
-		auto& nodeName = node.name;
-
-		uf::Mesh* mesh = NULL;
-		if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-			mesh = &uf::graphs::storage[graph.meshes[node.mesh]];
+			auto& m = uf::graph::storage.meshes.map[name];
+			mesh.bindIndirect<pod::DrawCommand>();
+			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+			mesh.insert( m );
 		}
+		// fix up draw command for combined mesh
+		{
+			auto& attribute = mesh.indirect.attributes.front();
+			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 
-		if ( !ext::json::isNull( graph.metadata["tags"][nodeName] ) ) {
-			auto& info = graph.metadata["tags"][nodeName];
-			if ( ext::json::isObject( info["collision"] ) ) {
-				uf::stl::string type = info["collision"]["type"].as<uf::stl::string>();
-				float mass = info["collision"]["mass"].as<float>();
-				bool dynamic = !info["collision"]["static"].as<bool>();
-				bool recenter = info["collision"]["recenter"].as<bool>();
-				pod::Vector3f corner = (max - min) * 0.5f;
-				pod::Vector3f center = (max + min) * 0.5f;
-			#if UF_USE_BULLET
-				if ( type == "mesh" && mesh ) {
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, dynamic );
-					if ( recenter ) collider.transform.position = center;
-				} else if ( type == "bounding box" ) {
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), corner, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				} else if ( type == "capsule" ) {
-					float radius = info["collision"]["radius"].as<float>();
-					float height = info["collision"]["height"].as<float>();
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), radius, height, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				}
-			#endif
+			size_t totalIndices = 0;
+			size_t totalVertices = 0;
+			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+				auto& drawCommand = drawCommands[i];
+				drawCommand.indexID = totalIndices;
+				drawCommand.vertexID = totalVertices;
+
+				totalIndices += drawCommand.indices;
+				totalVertices += drawCommand.vertices;
 			}
 		}
-	});
-#endif
-
-#if 0
-	//UF_MSG_DEBUG( "Processing graph..." );
-	// for OpenGL (immediate mode), implicitly load a lightmap so I don't have to keep commenting it out for the Vulkan version
-#if UF_USE_OPENGL
-	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.min.png"
-#else
-	#define UF_GRAPH_DEFAULT_LIGHTMAP ""
-#endif
-	bool lightmapped = false;
-	const uf::stl::string defaultLightmap = UF_GRAPH_DEFAULT_LIGHTMAP;
-	// load lightmap, if requested
-	if ( defaultLightmap != "" || graph.metadata["lightmap"].is<uf::stl::string>() ) {
-		// check if valid filename, if not it's a texture name
-		uf::stl::string f = uf::io::sanitize( graph.metadata["lightmap"].as<uf::stl::string>(defaultLightmap), uf::io::directory( graph.name ) );
-		if ( (lightmapped = uf::io::exists( f )) ) {
-			for ( auto& material : graph.materials ) {
-				material.storage.indexLightmap = graph.textures.size();
-			}
-			
-			auto& texture = graph.textures.emplace_back();
-			texture.name = "lightmap";
-			texture.bind = true;
-			texture.storage.index = graph.images.size();
-			texture.storage.sampler = -1;
-			texture.storage.remap = graph.images.size();
-			texture.storage.blend = 0;
-			auto& image = graph.images.emplace_back();
-		#if UF_USE_VULKAN
-			bool flip = false;
-		#elif UF_USE_OPENGL
-			bool flip = false;
-		#endif
-			image.open( f, flip );
-
-			graph.metadata["lightmap"] = texture.name;
-			graph.metadata["lightmapped"] = true;
-
-			texture.texture.loadFromImage( image );
-
-			texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-			texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-		}
-	// invalidate our ST's if we're in OpenGL
-	}
-	
-	// using an atlas texture will not bind other textures
-	if ( graph.metadata["flags"]["ATLAS"].as<bool>() && graph.atlas.generated() ) {
-		//UF_MSG_DEBUG( "Processing atlas..." );
-
-		auto& image = *graph.images.emplace(graph.images.begin(), graph.atlas.getAtlas());
-		auto& texture = *graph.textures.emplace(graph.textures.begin());
-		texture.name = "atlas";
-		texture.bind = true;
-		texture.storage.index = 0;
-		texture.storage.sampler = 0;
-		texture.storage.remap = -1;
-		texture.storage.blend = 0;
-
-		if ( graph.metadata["filter"].is<uf::stl::string>() ) {
-			uf::stl::string filter = graph.metadata["filter"].as<uf::stl::string>();
-			if ( filter == "NEAREST" ) {
-				texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-				texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-			} else if ( filter == "LINEAR" ) {
-				texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
-				texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
-			}
-		}
-		for ( auto& material : graph.materials ) {
-			if ( 0 <= material.storage.indexAlbedo ) ++material.storage.indexAlbedo;
-			if ( 0 <= material.storage.indexNormal ) ++material.storage.indexNormal;
-			if ( 0 <= material.storage.indexEmissive ) ++material.storage.indexEmissive;
-			if ( 0 <= material.storage.indexOcclusion ) ++material.storage.indexOcclusion;
-			if ( 0 <= material.storage.indexMetallicRoughness ) ++material.storage.indexMetallicRoughness;
-			material.storage.indexAtlas = texture.storage.index;
-			if ( 0 <= material.storage.indexLightmap ) ++material.storage.indexLightmap;
-		}
-		texture.texture.loadFromImage( image );
-
-		// remap texture slots
-		size_t textureSlot = 0;
-		for ( auto& texture : graph.textures ) {
-			texture.storage.index = -1;
-			if ( !texture.bind ) continue;
-			texture.storage.index = textureSlot++;
-		}
-	} else {
-		//UF_MSG_DEBUG( "Processing textures..." );
-		for ( size_t i = 0; i < graph.textures.size() && i < graph.images.size(); ++i ) {
-			auto& image = graph.images[i];
-			auto& texture = graph.textures[i];
-			texture.bind = true;
-			if ( graph.metadata["filter"].is<uf::stl::string>() ) {
-				uf::stl::string filter = graph.metadata["filter"].as<uf::stl::string>();
-				if ( filter == "NEAREST" ) {
-					texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-					texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-				} else if ( filter == "LINEAR" ) {
-					texture.texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
-					texture.texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
-				}
-			}
-			UF_MSG_DEBUG("image: " << i);
-			texture.texture.loadFromImage( image );
-			image.clear();
-		}
-	}
-
-	//UF_MSG_DEBUG( "Processing nodes..." );
-	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
-	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
-
-	//UF_MSG_DEBUG( "Processing graphics..." );
-	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-		initializeGraphics( graph, *graph.root.entity );
-
-		auto& graphic = graph.root.entity->getComponent<uf::Graphic>();
-		
-		uf::stl::vector<pod::Matrix4f> instances;
-		instances.reserve( graph.nodes.size() );
-		for ( auto& node : graph.nodes ) {
-			instances.emplace_back( uf::transform::model( node.transform ) );
-		}
-		// Models storage buffer
-		graph.buffers.instance = graphic.initializeBuffer(
-			(const void*) instances.data(),
-			instances.size() * sizeof(pod::Matrix4f),
-			uf::renderer::enums::Buffer::STORAGE
-		);
-		// Joints storage buffer
-		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-			for ( auto& node : graph.nodes ) {
-				if ( node.skin < 0 ) continue;
-				auto& skin = graph.skins[node.skin];
-				node.buffers.joint = graphic.initializeBuffer(
-					(const void*) skin.inverseBindMatrices.data(),
-					(1 + skin.inverseBindMatrices.size()) * sizeof(pod::Matrix4f),
-					uf::renderer::enums::Buffer::STORAGE
-				);
-				break;
-			}
-		}
-		// Failsafe
-		if ( graph.materials.empty() ) graph.materials.emplace_back();
-		if ( graph.textures.empty() ) graph.textures.emplace_back();
-		
-		// Materials storage buffer
-		uf::stl::vector<pod::Material::Storage> materials( graph.materials.size() );
-		for ( size_t i = 0; i < graph.materials.size(); ++i ) {
-			materials[i] = graph.materials[i].storage;
-		}
-		graph.root.buffers.material = graphic.initializeBuffer(
-			(const void*) materials.data(),
-			materials.size() * sizeof(pod::Material::Storage),
-			uf::renderer::enums::Buffer::STORAGE
-		);
-		// Texture storage buffer
-		uf::stl::vector<pod::Texture::Storage> textures( graph.textures.size() );
-		for ( size_t i = 0; i < graph.textures.size(); ++i ) {
-			textures[i] = graph.textures[i].storage;
-		}
-		graph.root.buffers.texture = graphic.initializeBuffer(
-			(const void*) textures.data(),
-			textures.size() * sizeof(pod::Texture::Storage),
-			uf::renderer::enums::Buffer::STORAGE
-		);
-	}
-
-	// calculate extents
-	pod::Vector3f extentMin = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-	pod::Vector3f extentMax = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-
-	//UF_MSG_DEBUG( "Post-processing nodes..." );
-	graph.root.entity->process([&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Mesh>() ) return;
-		//UF_MSG_DEBUG( "Post-processing node...: " << uf::string::toString( entity->as<uf::Object>() ) );
-		
-		auto& metadata = entity->getComponent<uf::Serializer>();
-		uf::stl::string nodeName = metadata["system"]["graph"]["name"].as<uf::stl::string>( entity->getName() );
-	
-		auto& transform = entity->getComponent<pod::Transform<>>();
-	#if UF_GRAPH_VARYING_MESH
-		auto& mesh = entity->getComponent<uf::Mesh>().get();
-		mesh.updateDescriptor();
-	#else
-		auto& mesh = entity->getComponent<uf::Mesh>();
-	#endif
-
-		pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-		pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-
-		auto model = uf::transform::model( transform );
-
-	#if UF_GRAPH_VARYING_MESH
-		size_t indices = mesh.attributes.index.length;
-		size_t indexStride = mesh.attributes.index.size;
-		uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
-
-		size_t vertices = mesh.attributes.vertex.length;
-		size_t vertexStride = mesh.attributes.vertex.size;
-		uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
-
-		uf::renderer::AttributeDescriptor vertexAttributePosition;
-		uf::renderer::AttributeDescriptor vertexAttributeNormal;
-
-		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
-			if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-			else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-		}
-		UF_ASSERT( vertexAttributePosition.name != "" );
-		
-		for ( size_t currentIndex = 0; currentIndex < vertices; ++currentIndex ) {
-			uint8_t* vertexSrc = vertexPointer + (currentIndex * vertexStride);
-			const pod::Vector3f& position = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));	
-			min.x = std::min( min.x, position.x );
-			min.y = std::min( min.y, position.y );
-			min.z = std::min( min.z, position.z );
-
-			max.x = std::max( max.x, position.x );
-			max.y = std::max( max.y, position.y );
-			max.z = std::max( max.z, position.z );
-		}
-	#else
-		for ( auto& vertex : mesh.vertices ) {
-		//	auto position = uf::matrix::multiply<float>( model, vertex.position, 1.0f );
-			min.x = std::min( min.x, vertex.position.x );
-			min.y = std::min( min.y, vertex.position.y );
-			min.z = std::min( min.z, vertex.position.z );
-
-			max.x = std::max( max.x, vertex.position.x );
-			max.y = std::max( max.y, vertex.position.y );
-			max.z = std::max( max.z, vertex.position.z );
-		}
-	#endif
-
-		min = uf::matrix::multiply<float>( model, min, 1.0f );
-		max = uf::matrix::multiply<float>( model, max, 1.0f );
-
-		extentMin.x = std::min( min.x, extentMin.x );
-		extentMin.y = std::min( min.y, extentMin.y );
-		extentMin.z = std::min( min.z, extentMin.z );
-
-		extentMax.x = std::max( max.x, extentMax.x );
-		extentMax.y = std::max( max.y, extentMax.y );
-		extentMax.z = std::max( max.z, extentMax.z );
-
-		if ( graph.metadata["flags"]["NORMALS"].as<bool>() ) {
-			// bool invert = false;
-			bool INVERTED = graph.metadata["flags"]["INVERT"].as<bool>();
-		#if UF_GRAPH_VARYING_MESH
-			if ( mesh.attributes.index.pointer ) {
-				uint32_t indexes[3] = {};
-				pod::Vector3f positions[3] = {};
-				pod::Vector3f normal = {};
-
-				for ( size_t currentIndex = 0; currentIndex < indices; currentIndex += 3 ) {
-					for ( auto i = 0; i < 3; ++i ) {
-						uint8_t* indexSrc = indexPointer + ((currentIndex + i) * indexStride);
-						switch ( indexStride ) {
-							case sizeof( uint8_t): indexes[i] = *(( uint8_t*) indexSrc); break;
-							case sizeof(uint16_t): indexes[i] = *((uint16_t*) indexSrc); break;
-							case sizeof(uint32_t): indexes[i] = *((uint32_t*) indexSrc); break;
-						}
-						
-						uint8_t* vertexSrc = vertexPointer + (indexes[i] * vertexStride);
-						positions[i] = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-					}
-
-				//	if ( INVERTED ) std::swap( positions[1], positions[2] );
-				//	normal = uf::vector::normalize( uf::vector::cross( positions[2] - positions[0], positions[1] - positions[0] ) );
-					normal = uf::vector::normalize( uf::vector::cross( positions[INVERTED ? 1 : 2] - positions[INVERTED ? 0 : 0], positions[INVERTED ? 2 : 1] - positions[INVERTED ? 0 : 0] ) );
-				//	if ( INVERTED ) normal *= -1;
-
-					for ( auto i = 0; i < 3; ++i ) {
-						uint8_t* vertexSrc = vertexPointer + (indexes[i] * vertexStride);
-						*((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset)) = normal;
-					}
-				}
-			} else {
-				pod::Vector3f positions[3] = {};
-				pod::Vector3f normal = {};
-				for ( size_t currentIndex = 0; currentIndex < vertices; currentIndex+=3 ) {
-					for ( auto i = 0; i < 3; ++i ) {
-						uint8_t* vertexSrc = vertexPointer + ((currentIndex + i) * vertexStride);
-						positions[i] = *((pod::Vector3f*) (vertexSrc + vertexAttributePosition.offset));
-					}
-
-				//	if ( INVERTED ) std::swap( positions[1], positions[2] );
-				//	normal = uf::vector::normalize( uf::vector::cross( positions[2] - positions[0], positions[1] - positions[0] ) );
-					normal = uf::vector::normalize( uf::vector::cross( positions[INVERTED ? 1 : 2] - positions[INVERTED ? 0 : 0], positions[INVERTED ? 2 : 1] - positions[INVERTED ? 0 : 0] ) );
-				//	if ( INVERTED ) normal *= -1;
-
-					for ( auto i = 0; i < 3; ++i ) {
-						uint8_t* vertexSrc = vertexPointer + ((currentIndex + i) * vertexStride);
-						*((pod::Vector3f*) (vertexSrc + vertexAttributeNormal.offset)) = normal;
-					}
-				}
-			}
-		#else
-			if ( mesh.indices.empty() ) {
-				for ( size_t i = 0; i < mesh.vertices.size(); i+=3 ) {
-					auto& a = mesh.vertices[i+(INVERTED ? 0 : 0)].position;
-					auto& b = mesh.vertices[i+(INVERTED ? 1 : 2)].position;
-					auto& c = mesh.vertices[i+(INVERTED ? 2 : 1)].position;
-
-					pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
-
-					mesh.vertices[i+0].normal = normal;
-					mesh.vertices[i+1].normal = normal;
-					mesh.vertices[i+2].normal = normal;
-				}
-			} else {
-				for ( size_t i = 0; i < mesh.indices.size(); i+=3 ) {
-					auto& A = mesh.vertices[mesh.indices[i+(INVERTED ? 0 : 0)]];
-					auto& B = mesh.vertices[mesh.indices[i+(INVERTED ? 1 : 2)]];
-					auto& C = mesh.vertices[mesh.indices[i+(INVERTED ? 2 : 1)]];
-
-					auto& a = A.position;
-					auto& b = B.position;
-					auto& c = C.position;
-
-					pod::Vector3f normal = uf::vector::normalize( uf::vector::cross( b - a, c - a ) );
-					
-					A.normal = normal;
-					B.normal = normal;
-					C.normal = normal;
-				}
-			}
-		#endif
-		}
-		if ( entity->hasComponent<uf::Graphic>() ) {
-			auto& graphic = entity->getComponent<uf::Graphic>();
+		{
+			auto& graphic = graph.root.entity->getComponent<uf::Graphic>();
 			graphic.initialize();
-		#if 1
-		#if UF_GRAPH_VARYING_MESH
-			graphic.initializeAttributes( mesh.attributes );
-		#else
 			graphic.initializeMesh( mesh );
 			graphic.process = true;
-		#endif
-		#else
-		#if 1
-			if ( entity->getName() == "worldspawn_20" && ext::json::isObject( graph.metadata["grid"] ) ) {
-				auto sliced = mesh;
-				auto& grid = entity->getComponent<uf::MeshGrid>();
-				grid.initialize( sliced, uf::vector::decode( graph.metadata["grid"]["size"], pod::Vector3ui{1,1,1} ) );
-				grid.analyze();
 
-				auto center = uf::vector::decode( graph.metadata["grid"]["center"], grid.center() );
-				sliced.indices = grid.get<>( center );
-				graphic.initializeMesh( sliced );
-			} else {
-				graphic.initializeMesh( mesh );
-			}
-		#elif 0
-			graphic.initialize();
-			graphic.initializeMesh( mesh, 0 );
-			if ( ext::json::isObject( graph.metadata["grid"] ) ) {
-				auto& grid = entity->getComponent<uf::MeshGrid>();
-				grid.initialize( mesh, uf::vector::decode( graph.metadata["grid"]["size"], pod::Vector3ui{1,1,1} ) );
-				grid.analyze();
-
-				auto center = uf::vector::decode( graph.metadata["grid"]["center"], grid.center() );
-				auto indices = grid.get<>( center );
-				graphic.descriptor.indices = indices.size();
-				UF_MSG_DEBUG("Center: " << uf::vector::toString(center) << " | Indices: " << indices.size());
-				int32_t indexBuffer = -1;
-				for ( size_t i = 0; i < graphic.buffers.size(); ++i ) {
-					if ( graphic.buffers[i].usage & uf::renderer::enums::Buffer::INDEX ) indexBuffer = i;
-				}
-				if ( indexBuffer >= 0 && !indices.empty() && indices.size() % 3 == 0 ) {
-					shader.updateBuffer(
-						(const void*) indices.data(),
-						indices.size() * mesh.attributes.index.size,
-						indexBuffer
-					);
-				}
-			}
-		#endif
-		#endif
+			initializeGraphics( graph, *graph.root.entity );
 		}
-		if ( entity->hasComponent<uf::Mesh>() ) {
-			auto& mesh = entity->getComponent<uf::Mesh>();
-			auto& meshAttributes = entity->getComponent<pod::Mesh>();
-			meshAttributes = mesh;
-		}
-		
-		if ( !ext::json::isNull( graph.metadata["tags"][nodeName] ) ) {
-			auto& info = graph.metadata["tags"][nodeName];
-			if ( ext::json::isObject( info["collision"] ) ) {
-				uf::stl::string type = info["collision"]["type"].as<uf::stl::string>();
-				float mass = info["collision"]["mass"].as<float>();
-				bool dynamic = !info["collision"]["static"].as<bool>();
-				bool recenter = info["collision"]["recenter"].as<bool>();
-				pod::Vector3f corner = (max - min) * 0.5f;
-				pod::Vector3f center = (max + min) * 0.5f;
-			#if UF_USE_BULLET
-				if ( type == "mesh" ) {
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), mesh, dynamic );
-					if ( recenter ) collider.transform.position = center;
-				} else if ( type == "bounding box" ) {
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), corner, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				} else if ( type == "capsule" ) {
-					float radius = info["collision"]["radius"].as<float>();
-					float height = info["collision"]["height"].as<float>();
-					auto& collider = ext::bullet::create( entity->as<uf::Object>(), radius, height, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				}
-			#endif
-			}
-		}
-
-		//UF_MSG_DEBUG( "Post-processed node...: " << uf::string::toString( entity->as<uf::Object>() ) );
-	});
-
-	graph.metadata["extents"]["min"] = uf::vector::encode( extentMin * graph.metadata["extents"]["scale"].as<float>(1.0f) );
-	graph.metadata["extents"]["max"] = uf::vector::encode( extentMax * graph.metadata["extents"]["scale"].as<float>(1.0f) );
-	//UF_MSG_DEBUG( "Processed graph" );
-#endif
+	}
 }
 void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) {
 	auto& node = graph.nodes[index];
@@ -782,9 +518,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			metadataLight["color"][1] = l.color.y;
 			metadataLight["color"][2] = l.color.z;
 			metadataLight["shadows"] = graph.metadata["lights"]["shadows"].as<bool>();
-			if ( metadataLight["shadows"].as<bool>() ) {
-				metadataLight["radius"][1] = 0;
-			}
+
+		//	if ( metadataLight["shadows"].as<bool>() ) metadataLight["radius"][1] = 0;
 			if ( ext::json::isArray( graph.metadata["lights"]["radius"] ) ) {
 				metadataLight["radius"] = graph.metadata["lights"]["radius"];
 			}
@@ -811,8 +546,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	if ( setName ) entity.setName( node.name );
 
 	// reference transform to parent
+	auto& transform = entity.getComponent<pod::Transform<>>();
 	{
-		auto& transform = entity.getComponent<pod::Transform<>>();
 		transform = node.transform;
 		transform.reference = &parent.getComponent<pod::Transform<>>();
 		// override transform
@@ -842,101 +577,88 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 	}
+
+	size_t objectID = uf::graph::storage.entities.keys.size();
+	uf::graph::storage.entities[std::to_string(objectID)] = &entity;
+
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		auto& nodeMesh = graph.meshes[node.mesh];
-		auto& mesh = entity.getComponent<uf::Mesh>();
+		auto model = uf::transform::model( transform );
+		auto& mesh = uf::graph::storage.meshes.map[graph.meshes[node.mesh]];
+		auto& primitives = uf::graph::storage.primitives.map[graph.primitives[node.mesh]];
 
-	}
+		pod::Instance::Bounds bounds;
+		// setup instances
+		for ( auto i = 0; i < primitives.size(); ++i ) {
+			auto& primitive = primitives[i];
 
-#if 0
-	// copy mesh
-	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		auto& nodeMesh = graph.meshes[node.mesh];
-		auto& mesh = entity.getComponent<uf::Mesh>();
-		// preprocess mesh
-	#if UF_GRAPH_VARYING_MESH
-		{
-			size_t vertices = nodeMesh.attributes.vertex.length;
-			size_t vertexStride = nodeMesh.attributes.vertex.size;
-			uint8_t* vertexPointer = (uint8_t*) nodeMesh.attributes.vertex.pointer;
+			size_t instanceID = uf::graph::storage.instances.keys.size();
+			auto& instance = uf::graph::storage.instances[graph.instances.emplace_back(std::to_string(instanceID))];
+			instance = primitive.instance;
 
-			uf::renderer::AttributeDescriptor vertexAttributeId;
+			instance.model = model;
+			instance.objectID = objectID;
 
-			for ( auto& attribute : nodeMesh.attributes.vertex.descriptor ) if ( attribute.name == "id" ) vertexAttributeId = attribute;
-			UF_ASSERT( vertexAttributeId.name != "" );
-			
-			for ( size_t currentIndex = 0; currentIndex < vertices; ++currentIndex ) {
-				uint8_t* vertexSrc = vertexPointer + (currentIndex * vertexStride);
-				pod::Vector<uf::graph::mesh::id_t,2>& id = *((pod::Vector<uf::graph::mesh::id_t,2>*) (vertexSrc + vertexAttributeId.offset));	
-				id.x = node.index;
+			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
+			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
+
+			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
+				auto& attribute = mesh.indirect.attributes.front();
+				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
+				auto& drawCommand = drawCommands[i];
+				drawCommand.instanceID = instanceID;
 			}
+		}
+		if ( (graph.metadata["flags"]["SEPARATE"].as<bool>()) && graph.metadata["flags"]["RENDER"].as<bool>() ) {
+			uf::instantiator::bind("RenderBehavior", entity);
+
+			auto& graphic = entity.getComponent<uf::Graphic>();
+			graphic.initialize();
+			graphic.initializeMesh( mesh );
+			graphic.process = true;
+			
+			initializeGraphics( graph, entity );
 		}
 		
-		if ( nodeMesh.is<uf::graph::mesh::Base>() ) mesh.insert<uf::graph::mesh::Base>( nodeMesh );
-		else if ( nodeMesh.is<uf::graph::mesh::ID>() ) mesh.insert<uf::graph::mesh::ID>( nodeMesh );
-		else if ( nodeMesh.is<uf::graph::mesh::Skinned>() ) mesh.insert<uf::graph::mesh::Skinned>( nodeMesh );
-		else UF_EXCEPTION("unrecognized mesh type encountered...");
-	#else
-		for ( auto& vertex : nodeMesh.vertices ) vertex.id.x = node.index;
-		mesh.insert( nodeMesh );
-	#endif
+	#if 1
+		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
+			auto& info = graph.metadata["tags"][node.name];
+			if ( ext::json::isObject( info["collision"] ) ) {
+				uf::stl::string type = info["collision"]["type"].as<uf::stl::string>();
+				float mass = info["collision"]["mass"].as<float>();
+				bool dynamic = !info["collision"]["static"].as<bool>();
+				bool recenter = info["collision"]["recenter"].as<bool>();
 
-		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
-			auto& mesh = graph.root.entity->getComponent<uf::Mesh>();
-		#if UF_GRAPH_VARYING_MESH
-			if ( nodeMesh.is<uf::graph::mesh::Base>() ) mesh.insert<uf::graph::mesh::Base>( nodeMesh );
-			else if ( nodeMesh.is<uf::graph::mesh::ID>() ) mesh.insert<uf::graph::mesh::ID>( nodeMesh );
-			else if ( nodeMesh.is<uf::graph::mesh::Skinned>() ) mesh.insert<uf::graph::mesh::Skinned>( nodeMesh );
-			else UF_EXCEPTION("unrecognized mesh type encountered...");
-		#else
-			mesh.insert( nodeMesh );
-		#endif
-		} else if ( graph.metadata["flags"]["RENDER"].as<bool>() ) {
-			uf::instantiator::bind("RenderBehavior", entity);
-			initializeGraphics( graph, entity );
-			auto& graphic = entity.getComponent<uf::Graphic>();
-			// Joints storage buffer
-			if ( graph.metadata["flags"]["SKINNED"].as<bool>() && node.skin >= 0 ) {
-				auto& skin = graph.skins[node.skin];
-				node.buffers.joint = graphic.initializeBuffer(
-					(const void*) skin.inverseBindMatrices.data(),
-					skin.inverseBindMatrices.size() * sizeof(pod::Matrix4f),
-					uf::renderer::enums::Buffer::STORAGE
-				);
+				auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
+				auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
+
+				pod::Vector3f center = (max + min) * 0.5f;
+				pod::Vector3f corner = (max - min) * 0.5f;
+		
+			#if UF_USE_BULLET
+				if ( type == "mesh" ) {
+					auto& collider = ext::bullet::create( entity.as<uf::Object>(), mesh, dynamic );
+					if ( recenter ) collider.transform.position = center;
+				} else if ( type == "bounding box" ) {
+					auto& collider = ext::bullet::create( entity.as<uf::Object>(), corner, mass );
+					collider.shared = true;
+					if ( recenter ) collider.transform.position = center - transform.position;
+				} else if ( type == "capsule" ) {
+					float radius = info["collision"]["radius"].as<float>();
+					float height = info["collision"]["height"].as<float>();
+					auto& collider = ext::bullet::create( entity.as<uf::Object>(), radius, height, mass );
+					collider.shared = true;
+					if ( recenter ) collider.transform.position = center - transform.position;
+				}
+			#endif
 			}
-			// Materials storage buffer
-			uf::stl::vector<pod::Material::Storage> materials( graph.materials.size() );
-			for ( size_t i = 0; i < graph.materials.size(); ++i ) {
-				materials[i] = graph.materials[i].storage;
-			}
-			node.buffers.material = graphic.initializeBuffer(
-				(const void*) materials.data(),
-				materials.size() * sizeof(pod::Material::Storage),
-				uf::renderer::enums::Buffer::STORAGE
-			);
-			// Texture storage buffer
-			uf::stl::vector<pod::Texture::Storage> textures( graph.textures.size() );
-			for ( size_t i = 0; i < graph.textures.size(); ++i ) {
-				textures[i] = graph.textures[i].storage;
-			//	textures[i].remap = -1;
-			}
-			graph.root.buffers.texture = graphic.initializeBuffer(
-				(const void*) textures.data(),
-				textures.size() * sizeof(pod::Texture::Storage),
-				uf::renderer::enums::Buffer::STORAGE
-			);
 		}
+	#endif
 	}
-#endif
 	//UF_MSG_DEBUG( "Loaded " << node.name );
 	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
 }
 void uf::graph::cleanup( pod::Graph& graph ) {
-//	for ( auto& m : graph.meshes ) m.destroy();
-
-//	graph.images.clear();
-//	graph.meshes.clear();
-//	graph.atlas.clear();
 }
 void uf::graph::override( pod::Graph& graph ) {
 	graph.settings.animations.override.a = 0;
@@ -955,7 +677,7 @@ void uf::graph::override( pod::Graph& graph ) {
 	// set our destination transform per node
 	if ( !toNeutralPose ) {
 		uf::stl::string name = graph.sequence.front();
-		pod::Animation& animation = graph.animations[name];
+		pod::Animation& animation = uf::graph::storage.animations.map[name]; // graph.animations[name];
 		for ( auto& channel : animation.channels ) {
 			auto& override = graph.settings.animations.override.map[channel.node];
 			auto& sampler = animation.samplers[channel.sampler];
@@ -977,7 +699,6 @@ void uf::graph::override( pod::Graph& graph ) {
 void uf::graph::initialize( pod::Graph& graph ) {
 	graph.root.entity->initialize();
 	graph.root.entity->process([&]( uf::Entity* entity ) {
-	#if 0
 		//UF_MSG_DEBUG( "Initializing... " << uf::string::toString( entity->as<uf::Object>() ) );
 		if ( !entity->hasComponent<uf::Graphic>() ) {
 			if ( entity->getUid() == 0 ) entity->initialize();
@@ -988,15 +709,14 @@ void uf::graph::initialize( pod::Graph& graph ) {
 
 		uf::instantiator::bind( "GraphBehavior", *entity );
 		uf::instantiator::unbind( "RenderBehavior", *entity );
-	#endif
 		if ( entity->getUid() == 0 ) entity->initialize();
 		//UF_MSG_DEBUG( "Initialized " << uf::string::toString( entity->as<uf::Object>() ) );
 	});
 }
-
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& name, float speed, bool immediate ) {
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
-	if ( graph.animations.count( name ) > 0 ) {
+//	if ( graph.animations.count( name ) > 0 ) {
+	if ( uf::graph::storage.animations.map.count( name ) > 0 ) {
 		// if already playing, ignore it
 		if ( !graph.sequence.empty() && graph.sequence.front() == name ) return;
 		if ( immediate ) {
@@ -1013,13 +733,21 @@ void uf::graph::update( pod::Graph& graph ) {
 	return update( graph, uf::physics::time::delta );
 }
 void uf::graph::update( pod::Graph& graph, float delta ) {
-	// no override
+	// update our instances
+	for ( auto& name : uf::graph::storage.instances.keys ) {
+		auto& instance = uf::graph::storage.instances[name];
+		auto& entity = *uf::graph::storage.entities[std::to_string(instance.objectID)];
+		auto& transform = entity.getComponent<pod::Transform<>>();
+		instance.model = uf::transform::model( transform );
+	}
+
+	// no skins
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
 	{
 		uf::stl::string name = graph.sequence.front();
-		pod::Animation* animation = &graph.animations[name];
+		pod::Animation* animation = &uf::graph::storage.animations.map[name]; // &graph.animations[name];
 	//	std::cout << "ANIMATION: " << name << "\t" << animation->cur << std::endl;
 		animation->cur += delta * graph.settings.animations.speed; // * graph.settings.animations.override.speed;
 		if ( animation->end < animation->cur ) {
@@ -1033,7 +761,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 					goto OVERRIDE;
 				}
 				name = graph.sequence.front();
-				animation = &graph.animations[name];
+				animation = &uf::graph::storage.animations.map[name]; // &graph.animations[name];
 			}
 		}
 		for ( auto& channel : animation->channels ) {
@@ -1106,59 +834,112 @@ void uf::graph::destroy( pod::Graph& graph ) {
 #endif
 }
 
-namespace {
-	uf::stl::string decodeImage( ext::json::Value& json, const pod::Graph& graph ) {
-		if ( json.is<uf::stl::string>() ) {
-			const uf::stl::string directory = uf::io::directory( graph.name );
-			const uf::stl::string filename = uf::io::filename( json.as<uf::stl::string>() );
-			const uf::stl::string name = directory + "/" + filename;
+void uf::graph::initialize() {
+	uf::graph::storage.buffers.camera.initialize( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+	uf::graph::storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand), uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * 1024, uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * 1024, uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * 1024, uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * 1024, uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.light.initialize( (const void*) nullptr, sizeof(pod::Light) * 1024, uf::renderer::enums::Buffer::STORAGE );
+}
+void uf::graph::tick() {
+	uf::stl::vector<pod::Instance> instances; instances.reserve(uf::graph::storage.instances.map.size());
+	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(uf::graph::storage.joints.map.size());
 
-			uf::Image& image = uf::graph::storage.images[name];
+	for ( auto key : uf::graph::storage.instances.keys ) {
+		auto& instance = instances.emplace_back( uf::graph::storage.instances.map[key] );
+	//	instance.bounds.min = uf::matrix::multiply<float>( instance.model, instance.bounds.min, 1.0f );
+	//	instance.bounds.max = uf::matrix::multiply<float>( instance.model, instance.bounds.max, 1.0f );
+	/*
+		pod::Vector3f min = uf::matrix::multiply<float>( instance.model, instance.bounds.min, 1.0f );
+		pod::Vector3f max = uf::matrix::multiply<float>( instance.model, instance.bounds.max, 1.0f );
+
+		instance.bounds.min = (max + min) * 0.5f; // center
+		instance.bounds.max = (max - min) * 0.5f; // extent
+	*/
+	}
+	for ( auto key : uf::graph::storage.joints.keys ) joints.emplace_back( uf::graph::storage.joints.map[key] );
+
+	uf::graph::storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) );
+	uf::graph::storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) );
+
+	if ( ::newGraphAdded ) {
+		uf::stl::vector<pod::DrawCommand> drawCommands; drawCommands.reserve(uf::graph::storage.drawCommands.map.size());
+		uf::stl::vector<pod::Material> materials; materials.reserve(uf::graph::storage.materials.map.size());
+		uf::stl::vector<pod::Texture> textures; textures.reserve(uf::graph::storage.textures.map.size());
+
+		for ( auto key : uf::graph::storage.drawCommands.keys ) drawCommands.insert( drawCommands.end(), uf::graph::storage.drawCommands.map[key].begin(), uf::graph::storage.drawCommands.map[key].end() );
+		for ( auto key : uf::graph::storage.materials.keys ) materials.emplace_back( uf::graph::storage.materials.map[key] );
+		for ( auto key : uf::graph::storage.textures.keys ) textures.emplace_back( uf::graph::storage.textures.map[key] );
+
+		uf::graph::storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) );
+		uf::graph::storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) );
+		uf::graph::storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) );
+		::newGraphAdded = false;
+	}
+}
+void uf::graph::render() {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& controller = scene.getController();
+	auto& camera = controller.getComponent<uf::Camera>();
+	uf::graph::storage.buffers.camera.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
+}
+void uf::graph::destroy() {
+	for ( auto pair : uf::graph::storage.texture2Ds.map ) pair.second.destroy();
+	for ( auto& t : uf::graph::storage.shadow2Ds ) t.destroy();
+	for ( auto& t : uf::graph::storage.shadowCubes ) t.destroy();
+
+	for ( auto pair : uf::graph::storage.atlases.map ) pair.second.clear();
+	for ( auto pair : uf::graph::storage.images.map ) pair.second.clear();
+	for ( auto pair : uf::graph::storage.meshes.map ) pair.second.destroy();
+}
+namespace {
+	uf::Image decodeImage( ext::json::Value& json, pod::Graph& graph ) {
+		uf::Image image;
+
+		if ( json["filename"].is<uf::stl::string>() ) {
+			const uf::stl::string directory = uf::io::directory( graph.name );
+			const uf::stl::string filename = uf::io::filename( json["filename"].as<uf::stl::string>() );
+			const uf::stl::string name = directory + "/" + filename;
 			image.open(name, false);
-			return name;
+		} else {
+			auto size = uf::vector::decode( json["size"], pod::Vector2ui{} );
+			size_t bpp = json["bpp"].as<size_t>();
+			size_t channels = json["channels"].as<size_t>();
+			auto pixels = uf::base64::decode( json["data"].as<uf::stl::string>() );
+			image.loadFromBuffer( &pixels[0], size, bpp, channels, true );
 		}
-		auto name = json["name"].as<uf::stl::string>();
-		
-		uf::Image& image = uf::graph::storage.images[name];
-		auto size = uf::vector::decode( json["size"], pod::Vector2ui{} );
-		size_t bpp = json["bpp"].as<size_t>();
-		size_t channels = json["channels"].as<size_t>();
-		auto pixels = uf::base64::decode( json["data"].as<uf::stl::string>() );
-		image.loadFromBuffer( &pixels[0], size, bpp, channels, true );
-		
-		return name;
+		return image;
 	}
 
-	uf::stl::string decodeTexture( ext::json::Value& json, const pod::Graph& graph ) {
-		auto name = json["name"].as<uf::stl::string>();
+	pod::Texture decodeTexture( ext::json::Value& json, pod::Graph& graph ) {
+		pod::Texture texture;
 
-		pod::Texture& texture = uf::graph::storage.textures[name];
 		texture.index = json["index"].as(texture.index);
 		texture.sampler = json["sampler"].as(texture.sampler);
 		texture.remap = json["remap"].as(texture.remap);
 		texture.blend = json["blend"].as(texture.blend);
 		texture.lerp = uf::vector::decode( json["lerp"], pod::Vector4f{} );
 		
-		return name;
+		return texture;
 	}
 
-	uf::stl::string decodeSampler( ext::json::Value& json, const pod::Graph& graph ) {
-		auto name = json["name"].as<uf::stl::string>();
+	uf::renderer::Sampler decodeSampler( ext::json::Value& json, pod::Graph& graph ) {
+		uf::renderer::Sampler sampler;
 
-		uf::renderer::Sampler& sampler = uf::graph::storage.samplers[name];
 		sampler.descriptor.filter.min = (uf::renderer::enums::Filter::type_t) json["min"].as<size_t>();
 		sampler.descriptor.filter.mag = (uf::renderer::enums::Filter::type_t) json["mag"].as<size_t>();
 		sampler.descriptor.addressMode.u = (uf::renderer::enums::AddressMode::type_t) json["u"].as<size_t>();
 		sampler.descriptor.addressMode.v = (uf::renderer::enums::AddressMode::type_t) json["v"].as<size_t>();
 		sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
 		
-		return name;
+		return sampler;
 	}
 
-	uf::stl::string decodeMaterial( ext::json::Value& json, const pod::Graph& graph ) {
-		auto name = json["name"].as<uf::stl::string>();
+	pod::Material decodeMaterial( ext::json::Value& json, pod::Graph& graph ) {
+		pod::Material material;
 
-		pod::Material& material = uf::graph::storage.materials[name];
 		material.colorBase = uf::vector::decode( json["base"], material.colorBase );
 		material.colorEmissive = uf::vector::decode( json["emissive"], material.colorEmissive );
 		material.factorMetallic = json["fMetallic"].as(material.factorMetallic);
@@ -1172,10 +953,10 @@ namespace {
 		material.indexMetallicRoughness = json["iMetallicRoughness"].as(material.indexMetallicRoughness);
 		material.modeAlpha = json["modeAlpha"].as(material.modeAlpha);
 		
-		return name;
+		return material;
 	}
 
-	pod::Light decodeLight( ext::json::Value& json, const pod::Graph& graph ) {
+	pod::Light decodeLight( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Light light;
 		light.color = uf::vector::decode( json["color"], light.color );
 		light.intensity = json["intensity"].as(light.intensity);
@@ -1183,8 +964,9 @@ namespace {
 		return light;
 	}
 
-	pod::Animation decodeAnimation( ext::json::Value& json, const pod::Graph& graph ) {
+	pod::Animation decodeAnimation( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Animation animation;
+
 		animation.name = json["name"].as(animation.name);
 		animation.start = json["start"].as(animation.start);
 		animation.end = json["end"].as(animation.end);
@@ -1210,11 +992,13 @@ namespace {
 			channel.node = value["node"].as(channel.node);
 			channel.sampler = value["sampler"].as(channel.sampler);
 		});
+		
 		return animation;
 	}
 
-	pod::Skin decodeSkin( ext::json::Value& json, const pod::Graph& graph ) {
+	pod::Skin decodeSkin( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Skin skin;
+
 		skin.name = json["name"].as(skin.name);
 		
 		skin.joints.reserve( json["joints"].size() );
@@ -1230,96 +1014,147 @@ namespace {
 		return skin;
 	}
 
-	uf::stl::vector<pod::DrawCommand> decodeDrawCommand( ext::json::Value& json, const pod::Graph& graph ) {
-		uf::stl::vector<pod::DrawCommand> drawCommands;
-		drawCommands.reserve( json.size() );
-		ext::json::forEach( json, [&]( ext::json::Value& value ){
-			auto& drawCommand = drawCommands.emplace_back();
-			drawCommand.indices = value["indices"].as(drawCommand.indices);
-			drawCommand.instances = value["instances"].as(drawCommand.instances);
-			drawCommand.indexID = value["indexID"].as(drawCommand.indexID);
-			drawCommand.vertexID = value["vertexID"].as(drawCommand.vertexID);
+	pod::Instance decodeInstance( ext::json::Value& json, pod::Graph& graph ) {
+		pod::Instance instance;
+		instance.model = uf::matrix::decode( json["model"], instance.model );
+		instance.color = uf::vector::decode( json["color"], instance.color );
+		instance.materialID = json["materialID"].as( instance.materialID );
+		instance.primitiveID = json["primitiveID"].as( instance.primitiveID );
+		instance.meshID = json["meshID"].as( instance.meshID );
+		instance.objectID = json["objectID"].as( instance.objectID );
+		instance.bounds.min = uf::vector::decode( json["bounds"]["min"], instance.bounds.min );
+		instance.bounds.max = uf::vector::decode( json["bounds"]["max"], instance.bounds.max );
+		return instance;
+	}
 
-			drawCommand.instanceID = value["instanceID"].as(drawCommand.instanceID);
-			drawCommand.materialID = value["materialID"].as(drawCommand.materialID);
-			drawCommand.objectID = value["objectID"].as(drawCommand.objectID);
-			drawCommand.vertices = value["vertices"].as(drawCommand.vertices);
+	pod::DrawCommand decodeDrawCommand( ext::json::Value& json, pod::Graph& graph ) {
+		pod::DrawCommand drawCommand;
+		drawCommand.indices = json["indices"].as( drawCommand.indices );
+		drawCommand.instances = json["instances"].as( drawCommand.instances );
+		drawCommand.indexID = json["indexID"].as( drawCommand.indexID );
+		drawCommand.vertexID = json["vertexID"].as( drawCommand.vertexID );
+		drawCommand.instanceID = json["instanceID"].as( drawCommand.instanceID );
+	//	drawCommand.padding1 = json["padding1"].as( drawCommand.padding1 );
+	//	drawCommand.padding2 = json["padding2"].as( drawCommand.padding2 );
+		drawCommand.vertices = json["vertices"].as( drawCommand.vertices );
+		return drawCommand;
+	}
+
+	pod::Primitive decodePrimitive( ext::json::Value& json, pod::Graph& graph ) {
+		pod::Primitive prim;
+		prim.instance = decodeInstance( json["instance"], graph );
+		prim.drawCommand = decodeDrawCommand( json["drawCommand"], graph );
+		return prim;
+	}
+
+	uf::stl::vector<pod::Primitive> decodePrimitives( ext::json::Value& json, pod::Graph& graph ) {
+		uf::stl::vector<pod::Primitive> primitives;
+		auto name = json["name"].as<uf::stl::string>();
+		ext::json::forEach( json["primitives"], [&]( ext::json::Value& value ){
+			primitives.emplace_back( decodePrimitive( value, graph ) );
+		});
+		return primitives;
+	}
+	uf::stl::vector<pod::DrawCommand> decodeDrawCommands( ext::json::Value& json, pod::Graph& graph ) {
+		uf::stl::vector<pod::DrawCommand> drawCommands;
+		auto name = json["name"].as<uf::stl::string>();
+		ext::json::forEach( json["drawCommands"], [&]( ext::json::Value& value ){
+			drawCommands.emplace_back( decodeDrawCommand( value, graph ) );
 		});
 		return drawCommands;
 	}
 
-	pod::Instance decodeInstance( ext::json::Value& json, const pod::Graph& graph ) {
-		pod::Instance instance;
+	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph ) {
+		uf::Mesh mesh;
 
-		return instance;
-	}
-
-	uf::stl::string decodeMesh( ext::json::Value& json, const pod::Graph& graph ) {
-		auto name = json["name"].as<uf::stl::string>();
-		auto& pair = uf::graph::storage.meshes[name];
-		pair.drawCommands = decodeDrawCommand( json["drawCommands"], graph );
-
-		auto& mesh = pair.mesh;
 		mesh.vertex.attributes.reserve( json["inputs"]["vertex"]["attributes"].size() );
+		mesh.vertex.count = json["inputs"]["vertex"]["count"].as( mesh.vertex.count );
+		mesh.vertex.first = json["inputs"]["vertex"]["first"].as( mesh.vertex.first );
+		mesh.vertex.stride = json["inputs"]["vertex"]["stride"].as( mesh.vertex.stride );
+		mesh.vertex.offset = json["inputs"]["vertex"]["stride"].as( mesh.vertex.offset );
+		mesh.vertex.interleaved = json["inputs"]["vertex"]["interleaved"].as( mesh.vertex.interleaved );
 		ext::json::forEach( json["inputs"]["vertex"]["attributes"], [&]( ext::json::Value& value ){
 			auto& attribute = mesh.vertex.attributes.emplace_back();
 
-			attribute.descriptor.offset = value["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["components"].as(attribute.descriptor.components);
+			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
+			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
+			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
+			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
+			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
+			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
 			attribute.buffer = value["buffer"].as(attribute.buffer);
+			attribute.offset = value["offset"].as(attribute.offset);
+			attribute.stride = value["stride"].as(attribute.stride);
 		});
 		mesh.index.attributes.reserve( json["inputs"]["index"]["attributes"].size() );
+		mesh.index.count = json["inputs"]["index"]["count"].as( mesh.index.count );
+		mesh.index.first = json["inputs"]["index"]["first"].as( mesh.index.first );
+		mesh.index.stride = json["inputs"]["index"]["stride"].as( mesh.index.stride );
+		mesh.index.offset = json["inputs"]["index"]["stride"].as( mesh.index.offset );
+		mesh.index.interleaved = json["inputs"]["index"]["interleaved"].as( mesh.index.interleaved );
 		ext::json::forEach( json["inputs"]["index"]["attributes"], [&]( ext::json::Value& value ){
 			auto& attribute = mesh.index.attributes.emplace_back();
 
-			attribute.descriptor.offset = value["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["components"].as(attribute.descriptor.components);
+			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
+			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
+			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
+			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
+			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
+			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
 			attribute.buffer = value["buffer"].as(attribute.buffer);
+			attribute.offset = value["offset"].as(attribute.offset);
+			attribute.stride = value["stride"].as(attribute.stride);
 		});
 		mesh.instance.attributes.reserve( json["inputs"]["instance"]["attributes"].size() );
+		mesh.instance.count = json["inputs"]["instance"]["count"].as( mesh.instance.count );
+		mesh.instance.first = json["inputs"]["instance"]["first"].as( mesh.instance.first );
+		mesh.instance.stride = json["inputs"]["instance"]["stride"].as( mesh.instance.stride );
+		mesh.instance.offset = json["inputs"]["instance"]["stride"].as( mesh.instance.offset );
+		mesh.instance.interleaved = json["inputs"]["instance"]["interleaved"].as( mesh.instance.interleaved );
 		ext::json::forEach( json["inputs"]["instance"]["attributes"], [&]( ext::json::Value& value ){
 			auto& attribute = mesh.instance.attributes.emplace_back();
 
-			attribute.descriptor.offset = value["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["components"].as(attribute.descriptor.components);
+			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
+			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
+			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
+			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
+			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
+			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
 			attribute.buffer = value["buffer"].as(attribute.buffer);
+			attribute.offset = value["offset"].as(attribute.offset);
+			attribute.stride = value["stride"].as(attribute.stride);
 		});
 		mesh.indirect.attributes.reserve( json["inputs"]["indirect"]["attributes"].size() );
+		mesh.indirect.count = json["inputs"]["indirect"]["count"].as( mesh.indirect.count );
+		mesh.indirect.first = json["inputs"]["indirect"]["first"].as( mesh.indirect.first );
+		mesh.indirect.stride = json["inputs"]["indirect"]["stride"].as( mesh.indirect.stride );
+		mesh.indirect.offset = json["inputs"]["indirect"]["stride"].as( mesh.indirect.offset );
+		mesh.indirect.interleaved = json["inputs"]["indirect"]["interleaved"].as( mesh.indirect.interleaved );
 		ext::json::forEach( json["inputs"]["indirect"]["attributes"], [&]( ext::json::Value& value ){
 			auto& attribute = mesh.indirect.attributes.emplace_back();
 
-			attribute.descriptor.offset = value["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["components"].as(attribute.descriptor.components);
+			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
+			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
+			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
+			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
+			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
+			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
 			attribute.buffer = value["buffer"].as(attribute.buffer);
+			attribute.offset = value["offset"].as(attribute.offset);
+			attribute.stride = value["stride"].as(attribute.stride);
 		});
 
 		mesh.buffers.reserve( json["buffers"].size() );
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
 			const uf::stl::string filename = value.as<uf::stl::string>();
 			const uf::stl::string directory = uf::io::directory( graph.name );
-			mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
+			auto& buffer = mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 		});
-		
-		return name;
+		mesh.updateDescriptor();
+		return mesh;
 	}
 
-	pod::Node decodeNode( ext::json::Value& json, const pod::Graph& graph ) {
+	pod::Node decodeNode( ext::json::Value& json, pod::Graph& graph ) {
 		pod::Node node = pod::Node{
 			.name = json["name"].as<uf::stl::string>(),
 			.index = json["index"].as<int32_t>(),
@@ -1360,20 +1195,35 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	graph.metadata = metadata; // serializer["metadata"];
 
 	pod::Thread::container_t jobs;
+
 	jobs.emplace_back([&]{
-		// load draw command information
-		UF_DEBUG_TIMER_MULTITRACE("Reading draw commands..."); 
-		graph.drawCommands.reserve( serializer["drawCommands"].size() );
-		ext::json::forEach( serializer["drawCommands"], [&]( ext::json::Value& value ){
-			graph.drawCommands.emplace_back(decodeDrawCommand( value, graph ));
+		// load images
+		UF_DEBUG_TIMER_MULTITRACE("Reading instances...");
+		graph.instances.reserve( serializer["instances"].size() );
+		ext::json::forEach( serializer["instances"], [&]( ext::json::Value& value ){
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.instances[name] = decodeInstance( value, graph );
+			graph.instances.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
-		// load draw command information
-		UF_DEBUG_TIMER_MULTITRACE("Reading instances..."); 
-		graph.instances.reserve( serializer["instances"].size() );
-		ext::json::forEach( serializer["instances"], [&]( ext::json::Value& value ){
-			graph.instances.emplace_back(decodeInstance( value, graph ));
+		// load images
+		UF_DEBUG_TIMER_MULTITRACE("Reading primitives...");
+		graph.primitives.reserve( serializer["primitives"].size() );
+		ext::json::forEach( serializer["primitives"], [&]( ext::json::Value& value ){
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.primitives[name] = decodePrimitives( value, graph );
+			graph.primitives.emplace_back(name);
+		});
+	});
+	jobs.emplace_back([&]{
+		// load images
+		UF_DEBUG_TIMER_MULTITRACE("Reading drawCommands...");
+		graph.drawCommands.reserve( serializer["drawCommands"].size() );
+		ext::json::forEach( serializer["drawCommands"], [&]( ext::json::Value& value ){
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.drawCommands[name] = decodeDrawCommands( value, graph );
+			graph.drawCommands.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
@@ -1381,19 +1231,21 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		UF_DEBUG_TIMER_MULTITRACE("Reading meshes..."); 
 		graph.meshes.reserve( serializer["meshes"].size() );
 		ext::json::forEach( serializer["meshes"], [&]( ext::json::Value& value ){
-			if ( value.is<uf::stl::string>() ) {
-				UF_DEBUG_TIMER_MULTITRACE(directory + "/" + value.as<uf::stl::string>());
-				uf::Serializer json;
-				json.readFromFile( directory + "/" + value.as<uf::stl::string>() );
-				graph.meshes.emplace_back(decodeMesh( json, graph ));
-			} else {
-				graph.meshes.emplace_back(decodeMesh( value, graph ));
-			}
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.meshes[name] = decodeMesh( value, graph );
+			graph.meshes.emplace_back(name);
 		});
 	});
-	#if 0
-	#if !UF_ENV_DREAMCAST
 	jobs.emplace_back([&]{
+		// load images
+		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
+		graph.images.reserve( serializer["images"].size() );
+		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.images[name] = decodeImage( value, graph );
+			graph.images.emplace_back(name);
+		});
+	#if 0 && !UF_ENV_DREAMCAST
 		if ( !ext::json::isNull( serializer["atlas"] ) ) {
 			UF_DEBUG_TIMER_MULTITRACE("Reading atlas...");
 			auto& image = graph.atlas.getAtlas();
@@ -1406,23 +1258,16 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 				decode( value, image, graph );
 			}
 		}
+	#endif
 	});
-	#endif
-	#endif
 	jobs.emplace_back([&]{
 		// load texture information
 		UF_DEBUG_TIMER_MULTITRACE("Reading texture information...");
 		graph.textures.reserve( serializer["textures"].size() );
 		ext::json::forEach( serializer["textures"], [&]( ext::json::Value& value ){
-			graph.textures.emplace_back(decodeTexture( value, graph ));
-		});
-	});
-	jobs.emplace_back([&]{
-		// load images
-		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
-		graph.images.reserve( serializer["images"].size() );
-		ext::json::forEach( serializer["images"], [&]( ext::json::Value& value ){
-			graph.images.emplace_back(decodeImage( value, graph ));
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.textures[name] = decodeTexture( value, graph );
+			graph.textures.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
@@ -1430,7 +1275,9 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		UF_DEBUG_TIMER_MULTITRACE("Reading sampler information...");
 		graph.samplers.reserve( serializer["samplers"].size() );
 		ext::json::forEach( serializer["samplers"], [&]( ext::json::Value& value ){
-			graph.samplers.emplace_back(decodeSampler( value, graph ));
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.samplers[name] = decodeSampler( value, graph );
+			graph.samplers.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
@@ -1438,14 +1285,16 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		UF_DEBUG_TIMER_MULTITRACE("Reading material information...");
 		graph.materials.reserve( serializer["materials"].size() );
 		ext::json::forEach( serializer["materials"], [&]( ext::json::Value& value ){
-			graph.materials.emplace_back(decodeMaterial( value, graph ));
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.materials[name] = decodeMaterial( value, graph );
+			graph.materials.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
 		// load light information
 		UF_DEBUG_TIMER_MULTITRACE("Reading lighting information...");
-		graph.lights.reserve( serializer["lighting"].size() );
-		ext::json::forEach( serializer["lighting"], [&]( ext::json::Value& value ){
+		graph.lights.reserve( serializer["lights"].size() );
+		ext::json::forEach( serializer["lights"], [&]( ext::json::Value& value ){
 			auto name = value["name"].as<uf::stl::string>();
 			graph.lights[name] = decodeLight( value, graph );
 		});
@@ -1453,17 +1302,17 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	jobs.emplace_back([&]{
 		// load animation information
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
-		graph.animations.reserve( serializer["animations"].size() );
+		graph.storage.animations.map.reserve( serializer["animations"].size() );
 		ext::json::forEach( serializer["animations"], [&]( ext::json::Value& value ){
-			if ( value.is<uf::stl::string>() ) {
+			auto name = value["name"].as<uf::stl::string>();
+			if ( value["filename"].is<uf::stl::string>() ) {
 				uf::Serializer json;
-				json.readFromFile( directory + "/" + value.as<uf::stl::string>() );
-				uf::stl::string key = json["name"].as<uf::stl::string>();
-				graph.animations[key] = decodeAnimation( json, graph );
+				json.readFromFile( directory + "/" + value["filename"].as<uf::stl::string>() );
+				graph.storage.animations[name] = decodeAnimation( json, graph );
 			} else {
-				uf::stl::string key = value["name"].as<uf::stl::string>();
-				graph.animations[key] = decodeAnimation( value, graph );
+				graph.storage.animations[name] = decodeAnimation( value, graph );
 			}
+			graph.animations.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
@@ -1471,7 +1320,9 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		UF_DEBUG_TIMER_MULTITRACE("Reading skinning information...");
 		graph.skins.reserve( serializer["skins"].size() );
 		ext::json::forEach( serializer["skins"], [&]( ext::json::Value& value ){
-			graph.skins.emplace_back(decodeSkin( value, graph ));
+			auto name = value["name"].as<uf::stl::string>();
+			graph.storage.skins[name] = decodeSkin( value, graph );
+			graph.skins.emplace_back(name);
 		});
 	});
 	jobs.emplace_back([&]{
@@ -1595,39 +1446,46 @@ namespace {
 			json["inverseBindMatrices"].emplace_back( uf::matrix::encode(inverseBindMatrix, settings) );
 		return json;
 	}
-	uf::Serializer encode( const uf::stl::vector<pod::DrawCommand>& drawCommands, const EncodingSettings& settings ) {
-		uf::Serializer json;
-		ext::json::reserve( json, drawCommands.size() );
-
-		for ( auto& drawCommand : drawCommands ) {
-			auto& d = json.emplace_back();
-			d["indices"] = drawCommand.indices;
-			d["instances"] = drawCommand.instances;
-			d["indexID"] = drawCommand.indexID;
-			d["vertexID"] = drawCommand.vertexID;
-
-			d["instanceID"] = drawCommand.instanceID;
-			d["materialID"] = drawCommand.materialID;
-			d["objectID"] = drawCommand.objectID;
-			d["vertices"] = drawCommand.vertices;
-		}
-
-		return json;
-	}
 	uf::Serializer encode( const pod::Instance& instance, const EncodingSettings& settings ) {
 		uf::Serializer json;
+		json["model"] = uf::matrix::encode( instance.model, settings );
+		json["color"] = uf::vector::encode( instance.color, settings );
+		json["materialID"] = instance.materialID;
+		json["primitiveID"] = instance.primitiveID;
+		json["meshID"] = instance.meshID;
+		json["objectID"] = instance.objectID;
+
+		json["bounds"]["min"] = uf::vector::encode( instance.bounds.min, settings );
+		json["bounds"]["max"] = uf::vector::encode( instance.bounds.max, settings );
+
 		return json;
 	}
-	uf::Serializer encode( const pod::Mesh& pair, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::DrawCommand& drawCommand, const EncodingSettings& settings ) {
 		uf::Serializer json;
-		json["drawCommands"] = encode( pair.drawCommands, settings );
+		json["indices"] = drawCommand.indices;
+		json["instances"] = drawCommand.instances;
+		json["indexID"] = drawCommand.indexID;
+		json["vertexID"] = drawCommand.vertexID;
+		json["instanceID"] = drawCommand.instanceID;
+	//	json["padding1"] = drawCommand.padding1;
+	//	json["padding2"] = drawCommand.padding2;
+		json["vertices"] = drawCommand.vertices;
+		return json;
+	}
+	uf::Serializer encode( const pod::Primitive& primitive, const EncodingSettings& settings ) {
+		uf::Serializer json;
+		json["drawCommand"] = encode( primitive.drawCommand, settings );
+		json["instance"] = encode( primitive.instance, settings );
+		return json;
+	}
+	uf::Serializer encode( const uf::Mesh& mesh, const EncodingSettings& settings ) {
+		uf::Serializer json;
 
-
-		auto& mesh = pair.mesh;
 		json["inputs"]["vertex"]["count"] = mesh.vertex.count;
 		json["inputs"]["vertex"]["first"] = mesh.vertex.first;
 		json["inputs"]["vertex"]["stride"] = mesh.vertex.stride;
 		json["inputs"]["vertex"]["offset"] = mesh.vertex.offset;
+		json["inputs"]["vertex"]["interleaved"] = mesh.vertex.interleaved;
 		ext::json::reserve( json["inputs"]["vertex"]["attributes"], mesh.vertex.attributes.size() );
 		for ( auto& attribute : mesh.vertex.attributes ) {
 			auto& a = json["inputs"]["vertex"]["attributes"].emplace_back();
@@ -1638,12 +1496,15 @@ namespace {
 			a["descriptor"]["type"] = attribute.descriptor.type;
 			a["descriptor"]["components"] = attribute.descriptor.components;
 			a["buffer"] = attribute.buffer;
+			a["offset"] = attribute.offset;
+			a["stride"] = attribute.stride;
 		}
 
 		json["inputs"]["index"]["count"] = mesh.index.count;
 		json["inputs"]["index"]["first"] = mesh.index.first;
 		json["inputs"]["index"]["stride"] = mesh.index.stride;
 		json["inputs"]["index"]["offset"] = mesh.index.offset;
+		json["inputs"]["index"]["interleaved"] = mesh.index.interleaved;
 		ext::json::reserve( json["inputs"]["index"]["attributes"], mesh.index.attributes.size() );
 		for ( auto& attribute : mesh.index.attributes ) {
 			auto& a = json["inputs"]["index"]["attributes"].emplace_back();
@@ -1654,12 +1515,15 @@ namespace {
 			a["descriptor"]["type"] = attribute.descriptor.type;
 			a["descriptor"]["components"] = attribute.descriptor.components;
 			a["buffer"] = attribute.buffer;
+			a["offset"] = attribute.offset;
+			a["stride"] = attribute.stride;
 		}
 
 		json["inputs"]["instance"]["count"] = mesh.instance.count;
 		json["inputs"]["instance"]["first"] = mesh.instance.first;
 		json["inputs"]["instance"]["stride"] = mesh.instance.stride;
 		json["inputs"]["instance"]["offset"] = mesh.instance.offset;
+		json["inputs"]["instance"]["interleaved"] = mesh.instance.interleaved;
 		ext::json::reserve( json["inputs"]["instance"]["attributes"], mesh.instance.attributes.size() );
 		for ( auto& attribute : mesh.instance.attributes ) {
 			auto& a = json["inputs"]["instance"]["attributes"].emplace_back();
@@ -1670,12 +1534,15 @@ namespace {
 			a["descriptor"]["type"] = attribute.descriptor.type;
 			a["descriptor"]["components"] = attribute.descriptor.components;
 			a["buffer"] = attribute.buffer;
+			a["offset"] = attribute.offset;
+			a["stride"] = attribute.stride;
 		}
 
 		json["inputs"]["indirect"]["count"] = mesh.indirect.count;
 		json["inputs"]["indirect"]["first"] = mesh.indirect.first;
 		json["inputs"]["indirect"]["stride"] = mesh.indirect.stride;
 		json["inputs"]["indirect"]["offset"] = mesh.indirect.offset;
+		json["inputs"]["indirect"]["interleaved"] = mesh.indirect.interleaved;
 		ext::json::reserve( json["inputs"]["indirect"]["attributes"], mesh.indirect.attributes.size() );
 		for ( auto& attribute : mesh.indirect.attributes ) {
 			auto& a = json["inputs"]["indirect"]["attributes"].emplace_back();
@@ -1686,6 +1553,8 @@ namespace {
 			a["descriptor"]["type"] = attribute.descriptor.type;
 			a["descriptor"]["components"] = attribute.descriptor.components;
 			a["buffer"] = attribute.buffer;
+			a["offset"] = attribute.offset;
+			a["stride"] = attribute.stride;
 		}
 
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
@@ -1694,128 +1563,6 @@ namespace {
 			uf::io::write( filename, mesh.buffers[i] );
 			json["buffers"].emplace_back(uf::io::filename( filename ));
 		}
-
-	#if 0
-		ext::json::reserve( json["attributes"], mesh.attributes.vertex.descriptor.size() );
-		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
-			auto& a = json["attributes"].emplace_back();
-			a["name"] = attribute.name;
-			a["size"] = attribute.size;
-			a["type"] = attribute.type;
-			a["format"] = attribute.format;
-			a["offset"] = attribute.offset;
-			a["components"] = attribute.components;
-		}
-
-		// validation metadata
-		json["metadata"]["vertices"]["size"] = mesh.attributes.vertex.size;
-		json["metadata"]["vertices"]["count"] = mesh.attributes.vertex.length;
-
-		json["metadata"]["indices"]["size"] = mesh.attributes.index.size;
-		json["metadata"]["indices"]["count"] = mesh.attributes.index.length;
-
-		if ( !settings.encodeBuffers ){
-		#if UF_GRAPH_VARYING_MESH
-			size_t indices = mesh.attributes.index.length;
-			size_t indexStride = mesh.attributes.index.size;
-			uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
-
-			size_t vertices = mesh.attributes.vertex.length;
-			size_t vertexStride = mesh.attributes.vertex.size;
-			uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
-			
-			ext::json::reserve( json["vertices"], mesh.attributes.vertex.length );
-			ext::json::reserve( json["indices"], indices );
-			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-				uint32_t index {};
-				uint8_t* indexSrc = indexPointer + (currentIndex * indexStride);
-				switch ( indexStride ) {
-					case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
-					case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;
-					case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
-				}
-				json["indices"].emplace_back( index );
-
-				auto& v = json["vertices"].emplace_back();
-				for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
-					uint8_t* vertexSrc = (vertexPointer + (index * vertexStride)) + attribute.offset;
-					if (  attribute.name == "id" || attribute.name == "joints" )
-						switch ( attribute.components ) {
-							case 1: v.emplace_back( uf::vector::encode( *((pod::Vector<uint32_t, 1>*) vertexSrc), settings ) ); break;
-							case 2: v.emplace_back( uf::vector::encode( *((pod::Vector<uint32_t, 2>*) vertexSrc), settings ) ); break;
-							case 3: v.emplace_back( uf::vector::encode( *((pod::Vector<uint32_t, 3>*) vertexSrc), settings ) ); break;
-							case 4: v.emplace_back( uf::vector::encode( *((pod::Vector<uint32_t, 4>*) vertexSrc), settings ) ); break;
-						}
-					else
-						switch ( attribute.components ) {
-							case 1: v.emplace_back( uf::vector::encode( *((pod::Vector<float, 1>*) vertexSrc), settings ) ); break;
-							case 2: v.emplace_back( uf::vector::encode( *((pod::Vector<float, 2>*) vertexSrc), settings ) ); break;
-							case 3: v.emplace_back( uf::vector::encode( *((pod::Vector<float, 3>*) vertexSrc), settings ) ); break;
-							case 4: v.emplace_back( uf::vector::encode( *((pod::Vector<float, 4>*) vertexSrc), settings ) ); break;
-						}
-				}
-			}
-		#if 0
-			if ( mesh.is<uf::graph::mesh::Base>() ) {
-				auto& m = mesh.get<uf::graph::mesh::Base>();
-				for ( auto& vertex : m.vertices ) {
-					auto& v = json["vertices"].emplace_back();
-					v.emplace_back(!vertex.position ? ext::json::array() : uf::vector::encode(vertex.position, settings));
-					v.emplace_back(!vertex.uv ? ext::json::array() : uf::vector::encode(vertex.uv, settings));
-					v.emplace_back(!vertex.st ? ext::json::array() : uf::vector::encode(vertex.st, settings));
-					v.emplace_back(!vertex.normal ? ext::json::array() : uf::vector::encode(vertex.normal, settings));
-				}
-			} else if ( mesh.is<uf::graph::mesh::ID>() ) {
-				auto& m = mesh.get<uf::graph::mesh::ID>();
-				for ( auto& vertex : m.vertices ) {
-					auto& v = json["vertices"].emplace_back();
-					v.emplace_back(!vertex.position ? ext::json::array() : uf::vector::encode(vertex.position, settings));
-					v.emplace_back(!vertex.uv ? ext::json::array() : uf::vector::encode(vertex.uv, settings));
-					v.emplace_back(!vertex.st ? ext::json::array() : uf::vector::encode(vertex.st, settings));
-					v.emplace_back(!vertex.normal ? ext::json::array() : uf::vector::encode(vertex.normal, settings));
-					v.emplace_back(!vertex.tangent ? ext::json::array() : uf::vector::encode(vertex.tangent, settings));
-					v.emplace_back(!vertex.id ? ext::json::array() : uf::vector::encode(vertex.id, settings));
-				}
-			} else if ( mesh.is<uf::graph::mesh::Skinned>() ) {
-				auto& m = mesh.get<uf::graph::mesh::Skinned>();
-				for ( auto& vertex : m.vertices ) {
-					auto& v = json["vertices"].emplace_back();
-					v.emplace_back(!vertex.position ? ext::json::array() : uf::vector::encode(vertex.position, settings));
-					v.emplace_back(!vertex.uv ? ext::json::array() : uf::vector::encode(vertex.uv, settings));
-					v.emplace_back(!vertex.st ? ext::json::array() : uf::vector::encode(vertex.st, settings));
-					v.emplace_back(!vertex.normal ? ext::json::array() : uf::vector::encode(vertex.normal, settings));
-					v.emplace_back(!vertex.tangent ? ext::json::array() : uf::vector::encode(vertex.tangent, settings));
-					v.emplace_back(!vertex.id ? ext::json::array() : uf::vector::encode(vertex.id, settings));
-					v.emplace_back(!vertex.joints ? ext::json::array() : uf::vector::encode(vertex.joints, settings));
-					v.emplace_back(!vertex.weights ? ext::json::array() : uf::vector::encode(vertex.weights, settings));
-				}
-			}
-		#endif
-		#else
-			for ( auto& vertex : mesh.vertices ) {
-				auto& v = json["vertices"].emplace_back();
-				v.emplace_back(!vertex.position ? ext::json::array() : uf::vector::encode(vertex.position, settings));
-				v.emplace_back(!vertex.uv ? ext::json::array() : uf::vector::encode(vertex.uv, settings));
-				v.emplace_back(!vertex.st ? ext::json::array() : uf::vector::encode(vertex.st, settings));
-				v.emplace_back(!vertex.normal ? ext::json::array() : uf::vector::encode(vertex.normal, settings));
-				v.emplace_back(!vertex.tangent ? ext::json::array() : uf::vector::encode(vertex.tangent, settings));
-				v.emplace_back(!vertex.id ? ext::json::array() : uf::vector::encode(vertex.id, settings));
-				v.emplace_back(!vertex.joints ? ext::json::array() : uf::vector::encode(vertex.joints, settings));
-				v.emplace_back(!vertex.weights ? ext::json::array() : uf::vector::encode(vertex.weights, settings));
-			}
-		#endif
-		} else {
-			const uf::stl::string verticesFilename = settings.filename + ".vertices." + ( settings.compress ? "gz" : "bin" );
-			uf::io::write( verticesFilename, mesh.attributes.vertex.pointer, mesh.attributes.vertex.size * mesh.attributes.vertex.length );
-			json["vertices"] = uf::io::filename( verticesFilename );
-
-			if ( mesh.attributes.index.length > 0 ) {
-				const uf::stl::string indicesFilename = settings.filename + ".indices." + ( settings.compress ? "gz" : "bin" );
-				uf::io::write( indicesFilename, mesh.attributes.index.pointer, mesh.attributes.index.size * mesh.attributes.index.length );
-				json["indices"] = uf::io::filename( indicesFilename );
-			}
-		}
-	#endif
 		return json;
 	}
 	uf::Serializer encode( const pod::Node& node, const EncodingSettings& settings ) {
@@ -1852,118 +1599,48 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		/*.filename = */directory + "/graph.json",
 	};
 	if ( !settings.combined ) uf::io::mkdir(directory);
-	if ( settings.unwrap ) {
+	if ( !true && settings.unwrap ) {
 		pod::Graph& g = const_cast<pod::Graph&>(graph);
 		auto size = ext::xatlas::unwrap( g );
 		serializer["wrapped"] = uf::vector::encode( size );
 	}
 
 	pod::Thread::container_t jobs;
-	// store images
 	jobs.emplace_back([&]{
-	#if 0
-		if ( graph.atlas.generated() ) {
-			auto& image = graph.atlas.getAtlas();
-			if ( !settings.combined ) {
-				image.save(directory + "/atlas.png");
-				serializer["atlas"] = "atlas.png";
-			} else {
-				serializer["atlas"] = encode(image, settings);
-			}
-		}
-	#endif
-	});
-	jobs.emplace_back([&]{
-		ext::json::reserve( serializer["images"], graph.images.size() );
-		if ( !settings.combined ) {
-			for ( size_t i = 0; i < graph.images.size(); ++i ) {
-				auto& name = graph.images[i];
-				auto& image = uf::graph::storage.images[name];
-				uf::stl::string f = "image."+std::to_string(i)+".png";
-
-				image.save(directory + "/" + f);
-				uf::Serializer json;
-				json["name"] = name;
-				json["filename"] = f;
-				serializer["images"].emplace_back( json );
-			}
-		} else {
-			for ( auto& name : graph.images ) {
-				auto& image = uf::graph::storage.images[name];
-				auto json = encode(image, settings);
-				json["name"] = name;
-				serializer["images"].emplace_back( json );
-			}
-		}
-	});
-	jobs.emplace_back([&]{
-		// store texture information
-		ext::json::reserve( serializer["textures"], graph.textures.size() );
-		for ( auto& name : graph.textures ) {
-			auto& texture = uf::graph::storage.textures[name];
-			auto json = encode(texture, settings);
-			json["name"] = name;
-			serializer["textures"].emplace_back(json);
-		}
-	});
-	jobs.emplace_back([&]{
-		// store sampler information
-		ext::json::reserve( serializer["samplers"], graph.samplers.size() );
-		for ( auto& name : graph.samplers ) {
-			auto& sampler = uf::graph::storage.samplers[name];
-			auto json = encode(sampler, settings);
-			json["name"] = name;
-			serializer["samplers"].emplace_back(json);
-		}
-	});
-	jobs.emplace_back([&]{
-		// store material information
-		ext::json::reserve( serializer["materials"], graph.materials.size() );
-		for ( auto& name : graph.materials ) {
-			auto& material = uf::graph::storage.materials[name];
-			auto json = encode(material, settings);
-			json["name"] = name;
-			serializer["materials"].emplace_back(json);
-		}
-	});
-	jobs.emplace_back([&]{
-		// store light information
-		ext::json::reserve( serializer["lighting"], graph.lights.size() );
-		for ( auto pair : graph.lights ) {
-			auto& name = pair.first;
-			auto& light = pair.second;
-			auto json = encode(light, settings);
-			json["name"] = name;
-			serializer["lighting"].emplace_back(json);
-		}
-	});
-	jobs.emplace_back([&]{
-		// store animation information
-		ext::json::reserve( serializer["animations"], graph.animations.size() );
-		if ( !settings.combined ) {
-			for ( auto pair : graph.animations ) {
-				uf::stl::string f = "animation."+pair.first+".json";
-				encode(pair.second, settings).writeToFile(directory+"/animation."+pair.first+".json", settings);
-				serializer["animations"].emplace_back("animation."+pair.first+".json" + (settings.compress ? ".gz" : ""));
-			}
-		} else {
-			for ( auto pair : graph.animations ) serializer["animations"][pair.first] = encode(pair.second, settings);
-		}
-	});
-	jobs.emplace_back([&]{
-		// store skin information
-		ext::json::reserve( serializer["skins"], graph.skins.size() );
-		for ( auto& skin : graph.skins ) serializer["skins"].emplace_back( encode(skin, settings) );
-	});
-	jobs.emplace_back([&]{
-		// store draw command information
-		ext::json::reserve( serializer["drawCommands"], graph.drawCommands.size() );
-		for ( auto& drawCommand : graph.drawCommands ) serializer["drawCommands"].emplace_back( encode(drawCommand, settings) );
-	});
-	jobs.emplace_back([&]{
-		// store instance information
 		ext::json::reserve( serializer["instances"], graph.instances.size() );
-		for ( auto& instance : graph.instances ) serializer["instances"].emplace_back( encode(instance, settings) );
+		for ( size_t i = 0; i < graph.instances.size(); ++i ) {
+			auto& name = graph.instances[i];
+			auto& instance = graph.storage.instances.map.at(name);
+			uf::Serializer json = encode( instance, settings );
+			json["name"] = name;
+			serializer["instances"].emplace_back( json );
+		}
+	});
+	jobs.emplace_back([&]{
+		ext::json::reserve( serializer["primitives"], graph.primitives.size() );
+		for ( size_t i = 0; i < graph.primitives.size(); ++i ) {
+			auto& name = graph.primitives[i];
+			auto& primitives = graph.storage.primitives.map.at(name);
+			auto& json = serializer["primitives"].emplace_back();
+			json["name"] = name;
+		//	ext::json::reserve( json["primitives"], primitives.size() );
+			for ( auto& primitive : primitives ) {
+				json["primitives"].emplace_back( encode( primitive, settings ) );
+			}
+		}
+	});
+	jobs.emplace_back([&]{
+		ext::json::reserve( serializer["drawCommands"], graph.drawCommands.size() );
+		for ( size_t i = 0; i < graph.drawCommands.size(); ++i ) {
+			auto& name = graph.drawCommands[i];
+			auto& drawCommands = graph.storage.drawCommands.map.at(name);
+			auto& json = serializer["drawCommands"].emplace_back();
+			json["name"] = name;
+		//	ext::json::reserve( json["drawCommands"], drawCommands.size() );
+			for ( auto& drawCommand : drawCommands ) {
+				json["drawCommands"].emplace_back( encode( drawCommand, settings ) );
+			}
+		}
 	});
 	jobs.emplace_back([&]{
 		// store mesh information
@@ -1972,7 +1649,7 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 			::EncodingSettings s = settings;
 			for ( size_t i = 0; i < graph.meshes.size(); ++i ) {
 				auto& name = graph.meshes[i];
-				auto& mesh = uf::graph::storage.meshes[name];
+				auto& mesh = graph.storage.meshes.map.at(name);
 				if ( !s.encodeBuffers ) {
 					s.filename = directory+"/mesh."+std::to_string(i)+".json";
 					encode(mesh, s).writeToFile(s.filename, settings);
@@ -1989,11 +1666,115 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 			}
 		} else {
 			for ( auto& name : graph.meshes ) {
-				auto& mesh = uf::graph::storage.meshes[name];
+				auto& mesh = graph.storage.meshes.map.at(name);
 				auto json = encode(mesh, settings);
 				json["name"] = name;
 				serializer["meshes"].emplace_back(json);
 			}
+		}
+	});
+#if 0
+	jobs.emplace_back([&]{
+		if ( uf::graphs::storage.atlases[graph.atlas].generated() ) {
+			auto atlasName = filename + "/" + "atlas";
+			auto& atlas = graph.storage.atlases[atlasName];
+			auto& image = atlas.getAtlas();
+			if ( !settings.combined ) {
+				image.save(directory + "/atlas.png");
+				serializer["atlas"] = "atlas.png";
+			} else {
+				serializer["atlas"] = encode(image, settings);
+			}
+		}
+	});
+#endif
+	jobs.emplace_back([&]{
+		ext::json::reserve( serializer["images"], graph.images.size() );
+		if ( !settings.combined ) {
+			for ( size_t i = 0; i < graph.images.size(); ++i ) {
+				auto& name = graph.images[i];
+				auto& image = graph.storage.images.map.at(name);
+				uf::stl::string f = "image."+std::to_string(i)+".png";
+
+				image.save(directory + "/" + f);
+				uf::Serializer json;
+				json["name"] = name;
+				json["filename"] = f;
+				serializer["images"].emplace_back( json );
+			}
+		} else {
+			for ( auto& name : graph.images ) {
+				auto& image = graph.storage.images.map.at(name);
+				auto json = encode(image, settings);
+				json["name"] = name;
+				serializer["images"].emplace_back( json );
+			}
+		}
+	});
+	jobs.emplace_back([&]{
+		// store texture information
+		ext::json::reserve( serializer["textures"], graph.textures.size() );
+		for ( auto& name : graph.textures ) {
+			auto& texture = graph.storage.textures.map.at(name);
+			auto json = encode(texture, settings);
+			json["name"] = name;
+			serializer["textures"].emplace_back(json);
+		}
+	});
+	jobs.emplace_back([&]{
+		// store sampler information
+		ext::json::reserve( serializer["samplers"], graph.samplers.size() );
+		for ( auto& name : graph.samplers ) {
+			auto& sampler = graph.storage.samplers.map.at(name);
+			auto json = encode(sampler, settings);
+			json["name"] = name;
+			serializer["samplers"].emplace_back(json);
+		}
+	});
+	jobs.emplace_back([&]{
+		// store material information
+		ext::json::reserve( serializer["materials"], graph.materials.size() );
+		for ( auto& name : graph.materials ) {
+			auto& material = graph.storage.materials.map.at(name);
+			auto json = encode(material, settings);
+			json["name"] = name;
+			serializer["materials"].emplace_back(json);
+		}
+	});
+	jobs.emplace_back([&]{
+		// store light information
+		ext::json::reserve( serializer["lights"], graph.lights.size() );
+		for ( auto pair : graph.lights ) {
+			auto& name = pair.first;
+			auto& light = pair.second;
+			auto json = encode(light, settings);
+			json["name"] = name;
+			serializer["lights"].emplace_back(json);
+		}
+	});
+	jobs.emplace_back([&]{
+		// store animation information
+		ext::json::reserve( serializer["animations"], graph.animations.size() );
+		if ( !settings.combined ) {
+			for ( auto& name : graph.animations ) {
+				uf::stl::string f = "animation."+name+".json";
+				auto& animation = graph.storage.animations.map.at(name);
+				encode(animation, settings).writeToFile(directory+"/animation."+name+".json", settings);
+				serializer["animations"].emplace_back("animation."+name+".json" + (settings.compress ? ".gz" : ""));
+			}
+		} else {
+			for ( auto& name : graph.animations ) {
+				auto& animation = graph.storage.animations.map.at(name);
+				serializer["animations"][name] = encode(animation, settings);
+			}
+		}
+	});
+	jobs.emplace_back([&]{
+		// store skin information
+		ext::json::reserve( serializer["skins"], graph.skins.size() );
+		for ( auto& name : graph.skins ) {
+			auto& skin = graph.storage.skins.map.at(name);
+			serializer["skins"].emplace_back( encode(skin, settings) );
 		}
 	});
 	jobs.emplace_back([&]{

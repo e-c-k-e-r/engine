@@ -18,6 +18,7 @@ UF_BEHAVIOR_TRAITS_CPP(uf::RenderBehavior, ticks = true, renders = true, multith
 #define this (&self)
 void uf::RenderBehavior::initialize( uf::Object& self ) {}
 void uf::RenderBehavior::tick( uf::Object& self ) {
+#if 0
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 	const auto& metadata = this->getComponent<uf::Serializer>();
 	const auto& scene = uf::scene::getCurrentScene();
@@ -67,8 +68,10 @@ void uf::RenderBehavior::tick( uf::Object& self ) {
 	#endif
 	}
 #endif
+#endif
 }
 void uf::RenderBehavior::render( uf::Object& self ) {
+#if 0
 	if ( !this->hasComponent<uf::Graphic>() ) return;
 	const auto& metadata = this->getComponent<uf::Serializer>();
 	const auto& scene = uf::scene::getCurrentScene();
@@ -119,7 +122,7 @@ void uf::RenderBehavior::render( uf::Object& self ) {
 	#endif
 	#endif
 	}
-
+#endif
 #endif
 }
 void uf::RenderBehavior::destroy( uf::Object& self ) {}

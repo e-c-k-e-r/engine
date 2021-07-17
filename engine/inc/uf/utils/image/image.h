@@ -21,13 +21,14 @@ namespace uf {
 		std::size_t m_format;
 	public:
 	// 	C-tor
+	/*
 		Image(); 																				// Default
 		Image( const Image::vec2_t& size ); 													// Just Size
 		Image( Image&& move ); 																	// Move pixels
 		Image( const Image& copy ); 															// Copy pixels
 		Image( Image::container_t&& move, const Image::vec2_t& size ); 							// Move from vector of pixels
 		Image( const Image::container_t& copy, const Image::vec2_t& size ); 					// Copy from vector of pixels
-
+	*/
 		bool open( const uf::stl::string& filename, bool = true ); 									// from file
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels

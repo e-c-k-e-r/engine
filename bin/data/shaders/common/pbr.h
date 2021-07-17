@@ -24,6 +24,7 @@ void pbr() {
 		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 		const vec3 Liu = vec3(ubo.eyes[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;
 		const vec3 Li = normalize(Liu);
+		const bool reverseZ = light.projection[2][2] < 0.00001;
 		const float Ls = shadowFactor( light, 0.0 );
 		const float La = 1.0 / (PI * pow(length(Liu), 2.0));
 		if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;

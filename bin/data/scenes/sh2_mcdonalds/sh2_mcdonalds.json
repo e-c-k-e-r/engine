@@ -5,9 +5,9 @@
 	"assets": [
 	//	{ "filename": "./static.json", "delay": 8 },
 	
-	//	{ "filename": "./models/sh_mcd.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/sh_mcd.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/sh_mcd/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/sh_mcd/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/sh_mcd/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"

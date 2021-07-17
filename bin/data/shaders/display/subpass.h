@@ -53,9 +53,13 @@ layout (binding = 4) uniform UBO {
 	uint shadowSamples;
 	uint indexSkybox;
 } ubo;
-
-layout (std140, binding = 5) readonly buffer Lights {
-	Light lights[];
+/*
+layout (std140, binding = 5) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
+};
+*/
+layout (std140, binding = 5) readonly buffer Instances {
+	Instance instances[];
 };
 layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
@@ -63,8 +67,8 @@ layout (std140, binding = 6) readonly buffer Materials {
 layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 8) readonly buffer DrawCommands {
-	DrawCommand drawCommands[];
+layout (std140, binding = 8) readonly buffer Lights {
+	Light lights[];
 };
 
 layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
@@ -161,15 +165,17 @@ void populateSurface() {
 #endif
 	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 
+	const uint drawID = ID.x - 1;
+	const uint instanceID = ID.y - 1;
 	if ( ID.x == 0 || ID.y == 0 ) {
 		surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
 		surface.fragment.a = 0.0;
 		postProcess();
 		return;
 	}
-	const uint drawId = ID.x - 1;
-	const DrawCommand drawCommand = drawCommands[drawId];
-	surface.material.id = ID.y + drawCommand.materialID - 1;
+//	const DrawCommand drawCommand = drawCommands[drawID];
+	const Instance instance = instances[instanceID];
+	surface.material.id = instance.materialID;
 	const Material material = materials[surface.material.id];
 	surface.material.albedo = material.colorBase;
 	surface.fragment = material.colorEmissive;
@@ -180,8 +186,6 @@ void populateSurface() {
 	surface.uv = resolve(samplerUv, ubo.msaa).xy;
 #endif
 	const float mip = mipLevel(inUv.xy);
-//	if ( validTextureIndex( drawCommand.textureIndex, material.indexAlbedo ) ) {
-//		surface.material.albedo = sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexAlbedo, material.indexAtlas, mip );
 	if ( validTextureIndex( material.indexAlbedo ) ) {
 		surface.material.albedo = sampleTexture( material.indexAlbedo, mip );
 	}
@@ -196,8 +200,6 @@ void populateSurface() {
 
 	}
 	// Emissive textures
-//	if ( validTextureIndex( drawCommand.textureIndex, material.indexEmissive ) ) {
-//		surface.fragment += sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexEmissive, material.indexAtlas, mip );
 	if ( validTextureIndex( material.indexEmissive ) ) {
 		surface.fragment += sampleTexture( material.indexEmissive, mip );
 	}
@@ -217,7 +219,7 @@ void populateSurface() {
 void directLighting() {
 	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
 	surface.fragment.rgb += (0 <= surface.material.indexLightmap) ? (surface.material.albedo.rgb + ambient) : (surface.material.albedo.rgb * ambient);
-
+	if ( ubo.lights == 0 ) { surface.fragment.rgb = surface.material.albedo.rgb; return; }
 #if PBR
 	pbr();
 #elif LAMBERT

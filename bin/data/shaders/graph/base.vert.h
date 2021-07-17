@@ -1,5 +1,5 @@
 layout (constant_id = 0) const uint PASSES = 6;
-
+#extension GL_ARB_shader_draw_parameters : enable
 #include "../common/structs.h"
 
 layout (location = 0) in vec3 inPos;
@@ -7,10 +7,9 @@ layout (location = 1) in vec2 inUv;
 layout (location = 2) in vec2 inSt;
 layout (location = 3) in vec3 inNormal;
 layout (location = 4) in vec4 inTangent;
-layout (location = 5) in uvec2 inId;
 #if SKINNED
-	layout (location = 6) in uvec4 inJoints;
-	layout (location = 7) in vec4 inWeights;
+	layout (location = 5) in uvec4 inJoints;
+	layout (location = 6) in vec4 inWeights;
 #endif
 
 layout( push_constant ) uniform PushBlock {
@@ -18,31 +17,23 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-
 layout (binding = 3) uniform Camera {
 	Viewport viewport[PASSES];
 } camera;
 
-#if SKINNED && INSTANCED
-	layout (std140, binding = 4) readonly buffer Models {
-		mat4 models[];
-	};
+/*
+layout (std140, binding = 4) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
+};
+*/
+layout (std140, binding = 4) readonly buffer Instances {
+	Instance instances[];
+};
+
+#if SKINNED
 	layout (std140, binding = 5) readonly buffer Joints {
 		mat4 joints[];
 	};
-#else
-	layout (binding = 4) uniform UBO {
-		mat4 model;
-	} ubo;
-	#if SKINNED
-		layout (std140, binding = 5) readonly buffer Joints {
-			mat4 joints[];
-		};
-	#elif INSTANCED
-		layout (std140, binding = 5) readonly buffer Models {
-			mat4 models[];
-		};
-	#endif
 #endif
 
 layout (location = 0) out vec2 outUv;
@@ -64,21 +55,23 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 void main() {
 	outUv = inUv;
 	outSt = inSt;
-	outColor = vec4(1); // ubo.color;
-	outId = ivec4(inId, PushConstant.pass, PushConstant.draw);
-
+	
 	const mat4 view = camera.viewport[PushConstant.pass].view;
 	const mat4 projection = camera.viewport[PushConstant.pass].projection;
 #if SKINNED 
-	mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[int(inJoints.x)] + inWeights.y * joints[int(inJoints.y)] + inWeights.z * joints[int(inJoints.z)] + inWeights.w * joints[int(inJoints.w)];
+	const mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[int(inJoints.x)] + inWeights.y * joints[int(inJoints.y)] + inWeights.z * joints[int(inJoints.z)] + inWeights.w * joints[int(inJoints.w)];
 #else
-	mat4 skinned = mat4(1.0);
+	const mat4 skinned = mat4(1.0);
 #endif
-#if INSTANCED
-	mat4 model = models.length() <= 0 ? skinned : (models[int(inId.x)] * skinned);
-#else
-	mat4 model = ubo.model * skinned;
-#endif
+	const uint drawID = gl_DrawIDARB;
+//	const DrawCommand drawCommand = drawCommands[drawID];
+	const uint instanceID = gl_InstanceIndex;
+	const Instance instance = instances[instanceID];
+	const uint materialID = instance.materialID;
+	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
+
+	outId = ivec4(drawID, instanceID, materialID, PushConstant.pass);
+	outColor = instance.color;
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(model * vec4(inNormal.xyz, 0.0));
 	outNormal = normalize(outNormal);

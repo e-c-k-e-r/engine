@@ -58,6 +58,12 @@ namespace ext {
 
 		// collider for mesh (static or dynamic)
 		pod::Bullet& create( uf::Object&, const uf::Mesh&, bool );
+		pod::Bullet& create( uf::Object&, const void* verticesPointer, size_t verticesCount, size_t verticesStride, const void* indicesPointer, size_t indicesCount, size_t indicesStride, bool );
+
+		template<typename T, typename U>
+		pod::Bullet& create( uf::Object& o, const uf::Mesh_T<T,U>& m, bool b ) {
+			return create( o, m.vertices.data() + offsetof(T, position), m.vertices.size(), sizeof(T), m.indices.data(), m.indices.size(), sizeof(U), b );
+		}
 		// collider for boundingbox
 		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
 		// collider for capsule

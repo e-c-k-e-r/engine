@@ -82,6 +82,11 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 
 		renderMode.metadata.type = "vxgi";
+		renderMode.metadata.pipeline = "vxgi";
+		renderMode.metadata.pipelines.emplace_back("vxgi");
+		if ( uf::renderer::settings::experimental::culling ) {
+			renderMode.metadata.pipelines.emplace_back("culling");
+		}
 		renderMode.metadata.samples = 1;
 		renderMode.metadata.subpasses = metadata.cascades;
 
@@ -99,6 +104,11 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
+		renderMode.blitter.descriptor.inputs.dispatch = {
+			(metadata.voxelSize.x / metadata.dispatchSize.x),
+			(metadata.voxelSize.y / metadata.dispatchSize.y),
+			(metadata.voxelSize.z / metadata.dispatchSize.z),
+		};
 		renderMode.blitter.process = true;
 
 		size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -136,7 +146,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			if ( renderMode.blitter.initialized ) {
 				auto& pipeline = renderMode.blitter.getPipeline();
 				pipeline.record(renderMode.blitter, commandBuffer);
-				vkCmdDispatch(commandBuffer, metadata.voxelSize.x / metadata.dispatchSize.x, metadata.voxelSize.y / metadata.dispatchSize.y, metadata.voxelSize.z / metadata.dispatchSize.z);
+			//	vkCmdDispatch(commandBuffer, metadata.voxelSize.x / metadata.dispatchSize.x, metadata.voxelSize.y / metadata.dispatchSize.y, metadata.voxelSize.z / metadata.dispatchSize.z);
 			}
 			
 			// generate mipmaps
@@ -198,7 +208,6 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			controllerPosition.y = floor(controllerPosition.y);
 			controllerPosition.z = floor(controllerPosition.z);
 			controllerPosition += metadata.extents.min;
-
 			controllerPosition.x = floor(controllerPosition.x);
 			controllerPosition.y = floor(controllerPosition.y);
 			controllerPosition.z = -floor(controllerPosition.z);

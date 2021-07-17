@@ -1,6 +1,7 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #define CUBEMAPS 1
+// #define MAX_TEXTURES TEXTURES
 #define MAX_TEXTURES textures.length()
 layout (constant_id = 0) const uint TEXTURES = 1;
 
@@ -8,7 +9,6 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../common/structs.h"
 
 layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
-
 layout (std140, binding = 1) readonly buffer Materials {
 	Material materials[];
 };
@@ -35,28 +35,28 @@ layout (location = 1) out vec2 outNormals;
 #endif
 
 void main() {
+	const uint drawID = uint(inId.x);
+	const uint instanceID = uint(inId.y);
+	const uint materialID = uint(inId.z);
 	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 	const vec3 P = inPosition;
 	vec3 N = inNormal;
 	vec4 A = vec4(0, 0, 0, 0);
+
 #if DEFERRED_SAMPLING
 	vec4 outAlbedo = vec4(0,0,0,0);
 #endif
 #if !DEFERRED_SAMPLING || CAN_DISCARD
-	const int materialId = int(inId.y);
-	Material material = materials[materialId];
+	Material material = materials[materialID];
 	
 	float M = material.factorMetallic;
 	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
 	
 	// sample albedo
-	const bool useAtlas = validTextureIndex( material.indexAtlas );
-	Texture textureAtlas;
-	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		Texture t = textures[material.indexAlbedo];
+		const Texture t = textures[material.indexAlbedo];
 		A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
@@ -110,5 +110,5 @@ void main() {
 	outUvs = wrap(inUv.xy);
 #endif
 	outNormals = encodeNormals( N );
-	outId = ivec2(inId.w+1, inId.y+1);
+	outId = uvec2(drawID + 1, instanceID + 1);
 }

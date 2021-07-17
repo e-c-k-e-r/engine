@@ -10,7 +10,7 @@ namespace ext {
 		struct UF_API Sampler {
 			Device* device = NULL;
 
-			VkSampler sampler;
+			VkSampler sampler = VK_NULL_HANDLE;
 			struct Descriptor {
 				struct {
 					VkFilter min = VK_FILTER_LINEAR;
@@ -34,7 +34,7 @@ namespace ext {
 					float max = 16.0f;
 				} anisotropy;
 				VkDescriptorImageInfo info;
-			} descriptor;
+			} descriptor = {};
 
 			void initialize( Device& device );
 			void destroy();
@@ -46,21 +46,24 @@ namespace ext {
 		struct UF_API Texture {
 			Device* device = nullptr;
 
-			VkImage image;
-			VkImageView view;
+			VkImage image = VK_NULL_HANDLE;
+			VkImageView view = VK_NULL_HANDLE;
 			VkImageType type = enums::Image::TYPE_2D;
 			VkImageViewType viewType = enums::Image::VIEW_TYPE_2D;
 			VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			VkDeviceMemory deviceMemory;
-			VkDescriptorImageInfo descriptor;
-			VkFormat format = enums::Format::R8G8B8A8_UNORM;;
+			VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+			VkDescriptorImageInfo descriptor = {};
+			VkFormat format = enums::Format::R8G8B8A8_UNORM;
 			
-			Sampler sampler;
+			Sampler sampler = {};
 
-			VmaAllocation allocation;
-			VmaAllocationInfo allocationInfo;
+			VmaAllocation allocation = {};
+			VmaAllocationInfo allocationInfo = {};
 
-			uint32_t width, height, depth, layers;
+			uint32_t width = 0;
+			uint32_t height = 0;
+			uint32_t depth = 0;
+			uint32_t layers = 0;
 			uint32_t mips = 1;
 			// RAII
 			void initialize( Device& device, size_t width, size_t height, size_t depth = 1, size_t layers = 1 );

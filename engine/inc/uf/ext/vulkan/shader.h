@@ -26,14 +26,15 @@ namespace ext {
 			uf::stl::string filename = "";
 
 			VkShaderModule module = VK_NULL_HANDLE;
-			VkPipelineShaderStageCreateInfo descriptor;
+			VkPipelineShaderStageCreateInfo descriptor = {};
 			uf::stl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 			uf::stl::vector<VkSpecializationMapEntry> specializationMapEntries;
-			VkSpecializationInfo specializationInfo;
+			VkSpecializationInfo specializationInfo = {};
 
 			struct Metadata {
 				uf::Serializer json;
 				
+				bool autoInitializeUniforms = true;
 				uf::stl::string pipeline = "";
 				uf::stl::string type = "";
 

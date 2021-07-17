@@ -193,6 +193,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	{
 		uf::Mesh mesh;
+		mesh.vertex.count = 3;
+	/*
 		mesh.bind<pod::Vertex_2F2F, uint16_t>();
 		mesh.insertVertices<pod::Vertex_2F2F>({
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
@@ -203,18 +205,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 2, 3, 0
 		});
-	/*
-		uf::Mesh<pod::Vertex_2F2F, uint16_t> mesh;
-		mesh.vertices = {
-			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
-			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
-			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
-		};
-		mesh.indices = {
-			0, 1, 2, 0, 2, 3
-		};
 	*/
+
 		blitter.descriptor.subpass = 1;
 		blitter.descriptor.depth.test = false;
 		blitter.descriptor.depth.write = false;
@@ -237,20 +229,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},
 			{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 		});
-	/*
-		uf::stl::string fragmentShaderFilename = ( msaa <= 1 ) ? "no-msaa." : "";
-		if ( ext::vulkan::settings::experimental::vxgi ) {
-			fragmentShaderFilename = ( msaa <= 1 ) ? "vxgi.no-msaa." : "vxgi.";
-		}
-		blitter.material.initializeShaders({
-			{uf::io::root+"/shaders/display/subpass.vert.spv", VK_SHADER_STAGE_VERTEX_BIT},
-			{uf::io::root+"/shaders/display/subpass." + fragmentShaderFilename + "frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT}
-		});
-	*/
 		{
 			auto& scene = uf::scene::getCurrentScene();
 
-			auto& shader = blitter.material.shaders.back();
+			auto& shader = blitter.material.getShader("fragment");
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
 			size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -258,19 +240,35 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
+		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
+
 			if ( ext::vulkan::settings::experimental::vxgi ) {
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
+					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
+					else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
+						else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+						else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
+					}
+				}
 			/*
-				struct SpecializationConstant {
-					uint32_t maxTextures2D = 512;
-					uint32_t maxTexturesCube = 128;
-					uint32_t maxCascades = 16;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.maxTextures2D = maxTextures2D;
-				specializationConstants.maxTexturesCube = maxTexturesCube;
-				specializationConstants.maxCascades = maxCascades;
-			*/
-				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
@@ -290,17 +288,24 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 						else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 					}
 				});
-			} else {
-			/*
-				struct SpecializationConstant {
-					uint32_t maxTextures2D = 512;
-					uint32_t maxTexturesCube = 128;
-				};
-				auto& specializationConstants = shader.specializationConstants.get<SpecializationConstant>();
-				specializationConstants.maxTextures2D = maxTextures2D;
-				specializationConstants.maxTexturesCube = maxTexturesCube;
 			*/
-				uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+			} else {
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
+					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
+					}
+				}
+			/*
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 				ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 					uf::stl::string name = sc["name"].as<uf::stl::string>();
 					if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
@@ -316,15 +321,15 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 						else if ( name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
 					}
 				});
+			*/
 			}
-
+		/*
 			uf::stl::vector<pod::Light> lights(maxLights);
 			uf::stl::vector<pod::Material> materials(maxTextures2D);
 			uf::stl::vector<pod::Texture> textures(maxTextures2D);
 			uf::stl::vector<pod::DrawCommand> drawCommands(maxTextures2D);
 
 			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
-
 			metadata.lightBufferIndex = shader.initializeBuffer(
 				(const void*) lights.data(),
 				lights.size() * sizeof(pod::Light),
@@ -347,6 +352,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				drawCommands.size() * sizeof(pod::DrawCommand),
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
 			);
+		*/
 		}
 	//	blitter.initializePipeline();
 		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
@@ -427,10 +433,16 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						clearValue.color = { { 0, 0, 0, 0 } };
 					}
 				} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-					clearValue.depthStencil = { 0.0f, 0 };
+					if ( uf::matrix::reverseInfiniteProjection ) {
+						clearValue.depthStencil = { 0.0f, 0 };
+					} else {
+						clearValue.depthStencil = { 1.0f, 0 };
+					}
 				}
 				clearValues.push_back(clearValue);
 			}
+			// uf::matrix::reverseInfiniteProjection
+			// descriptor.depth.operation ext::RENDERER::enums::Compare::GREATER_OR_EQUAL
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -462,8 +474,19 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 0 );
 			}
-
+			
 			size_t currentSubpass = 0;
+
+			for ( auto& pipeline : metadata.pipelines ) {
+				if ( pipeline == metadata.pipeline ) continue;
+				for ( auto graphic : graphics ) {
+					if ( graphic->descriptor.renderMode != this->getName() ) continue;
+					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+					descriptor.pipeline = pipeline;
+					graphic->record( commands[i], descriptor, 0, metadata.eyes );
+				}
+			}
+
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
 				vkCmdSetScissor(commands[i], 0, 1, &scissor);

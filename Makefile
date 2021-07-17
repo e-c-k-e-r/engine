@@ -1,5 +1,5 @@
 ARCH 					= win64
-CC					= $(shell cat "./bin/exe/default.config")
+CC						= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll

@@ -241,7 +241,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( stats.menu == "" && keys.paused ) {
 		stats.menu = "paused";
 		metadata.system.control = false;
-		uf::hooks.call("menu:Pause");
+		uf::Serializer payload;
+		uf::hooks.call("menu:Pause", payload);
 	}
 	else if ( !metadata.system.control ) {
 		stats.menu = "menu";

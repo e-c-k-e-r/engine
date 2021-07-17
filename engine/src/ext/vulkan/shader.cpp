@@ -557,7 +557,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				auto& userdata = uniforms.emplace_back();
 				userdata.create( definition.size, nullptr );
 
-				initializeBuffer(
+				if ( metadata.autoInitializeUniforms ) initializeBuffer(
 					(const void*) userdata.data().data,
 					userdata.data().len,
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
@@ -658,19 +658,26 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		}
 		
 		size_t specializationSize = 0;
+		uf::stl::vector<VkSpecializationMapEntry> specializationRemap;
+		specializationRemap.resize( comp.get_specialization_constants().size() );
+
 		for ( const auto& constant : comp.get_specialization_constants() ) {
 			const auto& value = comp.get_constant(constant.id);
 			const auto& type = comp.get_type(value.constant_type);
+			uf::stl::string name = comp.get_name (constant.id);
 			size_t size = 4; //comp.get_declared_struct_size(type);
 
-			VkSpecializationMapEntry specializationMapEntry;
+			auto& specializationMapEntry = specializationRemap[constant.constant_id];
 			specializationMapEntry.constantID = constant.constant_id;
 			specializationMapEntry.size = size;
 			specializationMapEntry.offset = specializationSize;
-			specializationMapEntries.emplace_back(specializationMapEntry);
 			specializationSize += size;
 		}
 		if ( specializationSize > 0 ) {			
+			specializationRemap.reserve( specializationRemap.size() );
+			for ( auto& specializationMapEntry : specializationRemap ) {
+				specializationMapEntries.emplace_back(specializationMapEntry);
+			}
 			specializationConstants.create( specializationSize );
 			VK_DEBUG_VALIDATION_MESSAGE("Specialization constants size of " << specializationSize << " for shader " << filename);
 

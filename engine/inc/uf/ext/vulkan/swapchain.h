@@ -11,7 +11,7 @@ namespace ext {
 			VkSwapchainKHR swapChain = VK_NULL_HANDLE;
 
 			bool initialized = false;
-			uint32_t buffers;
+			uint32_t buffers = {};
 
 			VkSemaphore presentCompleteSemaphore;
 			VkSemaphore renderCompleteSemaphore;

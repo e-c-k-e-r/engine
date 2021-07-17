@@ -36,9 +36,13 @@ layout (binding = 4) uniform UBO {
 	uint shadowSamples;
 	uint indexSkybox;
 } ubo;
-
-layout (std140, binding = 5) readonly buffer Lights {
-	Light lights[];
+/*
+layout (std140, binding = 5) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
+};
+*/
+layout (std140, binding = 5) readonly buffer Instances {
+	Instance instances[];
 };
 layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
@@ -46,8 +50,8 @@ layout (std140, binding = 6) readonly buffer Materials {
 layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 8) readonly buffer DrawCommands {
-	DrawCommand drawCommands[];
+layout (std140, binding = 8) readonly buffer Lights {
+	Light lights[];
 };
 
 layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
@@ -76,21 +80,21 @@ void main() {
 		surface.position.world = vec3( inverse(ubo.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
+		const uint drawID = ID.x - 1;
+		const uint instanceID = ID.y - 1;
 		if ( ID.x == 0 || ID.y == 0 ) {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
 			continue;
 		}
-		const uint drawId = ID.x - 1;
-		const DrawCommand drawCommand = drawCommands[drawId];
-		surface.material.id = ID.y + drawCommand.materialID - 1;
+	//	const DrawCommand drawCommand = drawCommands[drawID];
+		const Instance instance = instances[instanceID];
+		surface.material.id = instance.materialID;
 		const Material material = materials[surface.material.id];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
 
 	#if DEFERRED_SAMPLING
 		surface.uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) ).xy;
-	//	if ( validTextureIndex( drawCommand.textureIndex, material.indexAlbedo ) ) {
-	//		surface.material.albedo = sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexAlbedo, material.indexAtlas );
 		if ( validTextureIndex( material.indexAlbedo ) ) {
 			surface.material.albedo = sampleTexture( material.indexAlbedo );
 		}
@@ -106,8 +110,6 @@ void main() {
 
 		}
 		// Emissive textures
-	//	if ( validTextureIndex( drawCommand.textureIndex, material.indexEmissive ) ) {
-	//		surface.fragment += sampleTexture( drawCommand.textureIndex, drawCommand.textureSlot, material.indexEmissive, material.indexAtlas );
 		if ( validTextureIndex( material.indexEmissive ) ) {
 			surface.fragment += sampleTexture( material.indexEmissive );
 		}

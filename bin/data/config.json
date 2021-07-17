@@ -1,46 +1,52 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "McDonalds",
 			"lights": {
-				"max": 512,
+				"max": 64,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 4,
+				"update": 2,
 				"max": 8,
 				"samples": 2,
 				"experimental mode": 1
 			},
 			"textures": {
 				"max": {
-					"2D": 512,
+					"2D": 1024,
 					"cube": 128,
 					"3D": 1
 				}
 			},
+			"meshes": {
+				"interleave": false
+			},
+			"matrix": {
+				"reverseInfinite": true
+			},
 			"vxgi": {
 				"limiter": 0.125,
-				"size": 64,
+				"size": 96,
 				"dispatch": 8,
-				"cascades": 4,
+				"cascades": 6,
 				"cascadePower": 4,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
-					"min": [ -2.5, -2.5, -2.5 ],
-					"max": [  2.5,  2.5,  2.5 ]
+					"min": [ -1.5, -1.5, -1.5 ],
+					"max": [  1.5,  1.5,  1.5 ]
 				}
 			}
 		},
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": true,
+					"enabled": false,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
-						"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
+					//	"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
 						"MessageID = 0x23e43bb7" // UNASSIGNED-CoreValidation-Shader-InputNotProduced (from depth-only calls)
 					//	"MessageID = 0xe91b58a0" // VUID-vkCmdDrawIndexed-None-02686 (?)
@@ -66,8 +72,9 @@
 					"deferred alias output to swapchain": true,
 					"vsync": true,
 					"hdr": false,
-					"vxgi": false,
-					"deferred sampling": false
+					"vxgi": true,
+					"deferred sampling": true,
+					"culling": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -76,6 +83,10 @@
 					"position": "R16G16B16A16_SFLOAT"
 				},
 				"features": [
+					"shaderDrawParameters",
+					"multiDrawIndirect",
+					"fillModeNonSolid",
+					"wideLines",
 					"independentBlend",
 					"deviceCoherentMemory",
 					"robustBufferAccess",
@@ -117,7 +128,8 @@
 				//	"deferred mode": "deferredSampling",
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": true,
-					"hdr": false
+					"hdr": false,
+					"culling": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -159,7 +171,7 @@
 				},
 				"debug draw": {
 					"enabled": false,
-					"rate": 1.0
+					"rate": 0.0125
 				}
 			},
 			"discord": {
@@ -175,7 +187,7 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": false,
+			"enabled": true,
 			"subPools": true,
 			"alignment": 64,
 			"override": false,
@@ -212,8 +224,8 @@
 				"announce": true
 			},
 			"entity": {
-				"delete children on destroy": false,
-				"delete components on destroy": false
+				"delete children on destroy": true,
+				"delete components on destroy": true
 			}
 		}
 	},

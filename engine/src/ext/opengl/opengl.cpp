@@ -38,9 +38,9 @@ bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;
 bool ext::opengl::settings::experimental::multiview = true;
 bool ext::opengl::settings::experimental::vsync = true;
 bool ext::opengl::settings::experimental::hdr = true;
-bool ext::opengl::settings::experimental::frustrumCull = false;
 bool ext::opengl::settings::experimental::vxgi = true;
 bool ext::opengl::settings::experimental::deferredSampling = true;
+bool ext::opengl::settings::experimental::culling = false;
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;
@@ -171,7 +171,7 @@ void UF_API ext::opengl::initialize() {
 	// bind shaders
 #if !UF_ENV_DREAMCAST
 	{
-		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
+		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 			uint8_t* verticesSrc = (uint8_t*) userdata;
 
@@ -240,7 +240,7 @@ void UF_API ext::opengl::initialize() {
 				}
 			}
 		});
-		ext::opengl::Shader::bind( uf::io::root + "shaders/gltf/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
+		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/skinned.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
 			uint8_t* verticesSrc = (uint8_t*) userdata;
 

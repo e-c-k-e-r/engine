@@ -66,6 +66,10 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
 void uf::GraphBehavior::tick( uf::Object& self ) {
+	if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::graph::update( graph );
+	}
 #if 0
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();

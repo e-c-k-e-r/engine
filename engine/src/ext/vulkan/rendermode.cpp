@@ -163,6 +163,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 	ext::vulkan::GraphicDescriptor descriptor = reference;
 //	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
+	descriptor.pipeline = metadata.pipeline;
 	descriptor.parse( metadata.json["descriptor"] );
 	return descriptor;
 }
@@ -177,7 +178,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		if ( !graphic.initialized || !graphic.process ) continue;
-		graphics.push_back(&graphic);
+		graphics.emplace_back(&graphic);
 	}
 
 	this->synchronize();
@@ -196,7 +197,7 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 		commands.resize( swapchain.buffers );
 
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			this->getType() == "Compute" ? device->getCommandPool(Device::QueueEnum::COMPUTE) : device->getCommandPool(Device::QueueEnum::GRAPHICS),
+			device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS),
 			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			static_cast<uint32_t>(commands.size())
 		);
@@ -219,7 +220,7 @@ void ext::vulkan::RenderMode::bindPipelines() {
 		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		if ( !graphic.initialized || !graphic.process ) continue;
 	//	if ( graphic.descriptor.renderMode != "" && graphic.descriptor.renderMode != this->getName() ) continue;
-		graphics.push_back(&graphic);
+		graphics.emplace_back(&graphic);
 	}
 	this->synchronize();
 	this->bindPipelines( graphics );
@@ -230,42 +231,26 @@ void ext::vulkan::RenderMode::bindPipelines( const uf::stl::vector<ext::vulkan::
 		for ( size_t currentPass = 0; currentPass < renderTarget.passes.size(); ++currentPass ) {
 			auto& subpass = renderTarget.passes[currentPass];
 			if ( !subpass.autoBuildPipeline ) continue;
+
 			// bind to this render mode
-			ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
-			// ignore invalidated descriptors
-			if ( descriptor.invalidated ) continue;
-			// ignore if pipeline exists for this render mode
-			if ( graphic.hasPipeline( descriptor ) ) continue;
-			// if pipeline name is specified for the rendermode, check if we have shaders for it
-			size_t shaders = 0;
-			for ( auto& shader : graphic.material.shaders ) {
-				if ( shader.metadata.pipeline == descriptor.pipeline ) ++shaders;
+			for ( auto& pipeline : metadata.pipelines ) {
+				ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
+				descriptor.pipeline = pipeline;
+				// ignore invalidated descriptors
+				if ( descriptor.invalidated ) continue;
+				// ignore if pipeline exists for this render mode
+				if ( graphic.hasPipeline( descriptor ) ) continue;
+				// if pipeline name is specified for the rendermode, check if we have shaders for it
+				size_t shaders = 0;
+				for ( auto& shader : graphic.material.shaders ) if ( shader.metadata.pipeline == descriptor.pipeline ) ++shaders;
+				if ( shaders == 0 ) continue;
+				graphic.initializePipeline( descriptor );
 			}
-			if ( shaders == 0 ) continue;
-			graphic.initializePipeline( descriptor );
 		}
 	}
-/*
-	size_t subpasses = metadata["subpasses"].as<size_t>();
-	for ( auto* pointer : graphics ) {
-		auto& graphic = *pointer;
-		for ( size_t currentPass = 0; currentPass < subpasses; ++currentPass ) {
-			// bind to this render mode
-			ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic.descriptor, currentPass);
-			// ignore if pipeline exists for this render mode
-			if ( graphic.hasPipeline( descriptor ) ) continue;
-			graphic.initializePipeline( descriptor );
-		}
-	}
-*/
 }
 
 void ext::vulkan::RenderMode::render() {
-/*
-	if ( ext::openvr::context ) {
-		ext::openvr::submit();
-	}
-*/
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Get next image in the swap chain (back/front buffer)
 	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
@@ -308,20 +293,6 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 		if ( this->height > 0 ) renderTarget.height = this->height;
 	}
 
-	// Create command buffers
-/*
-	{
-		commands.resize( swapchain.buffers );
-
-		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			this->getType() == "Compute" ? device.getCommandPool(Device::QueueEnum::COMPUTE) : device.getCommandPool(Device::QueueEnum::GRAPHICS),
-			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			static_cast<uint32_t>(commands.size())
-		);
-
-		VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, commands.data()));
-	}
-*/
 	// Set sync objects
 	{
 		// Fences (Used to check draw command buffer completion)
@@ -343,6 +314,11 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 			VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore));
 		}
 	}
+
+	if ( std::find( metadata.pipelines.begin(), metadata.pipelines.end(), metadata.pipeline ) == metadata.pipelines.end() ) {
+		metadata.pipelines.emplace_back(metadata.pipeline);
+	}
+
 }
 
 void ext::vulkan::RenderMode::tick() {

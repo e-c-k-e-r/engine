@@ -4,60 +4,93 @@
 #endif
 pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 #if UF_USE_XATLAS
+	struct Pair {
+		size_t index = 0;
+		size_t command = 0;
+		::xatlas::MeshDecl decl;
+	};
+
+	uf::stl::vector<Pair> entries;
+	entries.reserve(graph.meshes.size());
+	
+	uf::stl::vector<uf::Mesh> sources;
+	sources.reserve(graph.meshes.size());
+
 	::xatlas::Atlas* atlas = ::xatlas::Create();
-#if 0
-	for ( auto& name : graph.meshes ) {
+	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
+		auto& name = graph.meshes[index];
 		auto& mesh = uf::graph::storage.meshes[name];
-		mesh.updateDescriptor();
+		sources.emplace_back(mesh);
 
-		size_t indices = mesh.attributes.index.length;
-		size_t indexStride = mesh.attributes.index.size;
-		uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
+		if ( mesh.index.count ) {
+			uf::Mesh::Attribute positionAttribute;
+			uf::Mesh::Attribute uvAttribute;
+			uf::Mesh::Attribute stAttribute;
+			for ( auto& attribute : mesh.vertex.attributes ) {
+				if ( attribute.descriptor.name == "position" ) positionAttribute = attribute;
+				else if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
+				else if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
+			}
+			UF_ASSERT( positionAttribute.descriptor.name == "position" && uvAttribute.descriptor.name == "uv" && uvAttribute.descriptor.name == "st" );
 
-		size_t vertices = mesh.attributes.vertex.length;
-		size_t vertexStride = mesh.attributes.vertex.size;
-		uint8_t* vertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
+			auto& indexAttribute = mesh.index.attributes.front();
+			::xatlas::IndexFormat indexType = ::xatlas::IndexFormat::UInt32;
+			switch ( mesh.index.stride ) {
+				case sizeof(uint16_t): indexType = ::xatlas::IndexFormat::UInt16; break;
+				case sizeof(uint32_t): indexType = ::xatlas::IndexFormat::UInt32; break;
+				default: UF_EXCEPTION("unsupported index type"); break;
+			}
 
-		uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
-										vertexAttributeNormal,
-										vertexAttributeUv,
-										vertexAttributeSt,
-										vertexAttributeId;
+			if ( mesh.indirect.count ) {
+				uf::Mesh::Attribute remappedPositionAttribute;
+				uf::Mesh::Attribute remappedUvAttribute;
+				uf::Mesh::Attribute remappedIndexAttribute;
+				for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+					remappedPositionAttribute = mesh.remapVertexAttribute( positionAttribute, i );
+					remappedUvAttribute = mesh.remapVertexAttribute( uvAttribute, i );
+					remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
 
-		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
-			if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-			else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-			else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
-			else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
-			else if ( attribute.name == "id" ) vertexAttributeId = attribute;
-		}
-		UF_ASSERT( vertexAttributePosition.name != "" );
+					auto& entry = entries.emplace_back();
+					entry.index = index;
+					entry.command = i;
 
-		::xatlas::MeshDecl meshDecl;
-		meshDecl.vertexCount = vertices; // mesh.vertices.size();
-		meshDecl.vertexPositionData = (uint8_t*) mesh.attributes.vertex.pointer + vertexAttributePosition.offset; /*((uint8_t*) mesh.vertices.data()) + vertexAttributePosition.offset*/
-		meshDecl.vertexPositionStride = vertexStride;
-		if ( vertexAttributeUv.name != "" ) {
-			meshDecl.vertexUvData = (uint8_t*) mesh.attributes.vertex.pointer + vertexAttributeUv.offset;// ((uint8_t*) mesh.vertices.data()) + vertexAttributeUv.offset;
-			meshDecl.vertexUvStride = vertexStride;
-		}
-	/*
-		if ( vertexAttributeNormal.name != "" ) {
-			meshDecl.vertexNormalData = ((uint8_t*) mesh.vertices.data()) + vertexAttributeNormal.offset;
-			meshDecl.vertexNormalStride = mesh.attributes.vertex.size;
-		}
-	*/
-		meshDecl.indexCount = indices; // mesh.indices.size();
-		meshDecl.indexData = mesh.attributes.index.pointer; // mesh.indices.data();
-		meshDecl.indexFormat = indexStride == 4 ? ::xatlas::IndexFormat::UInt32 : ::xatlas::IndexFormat::UInt16;
+					auto& decl = entry.decl;
+					decl.vertexCount = remappedUvAttribute.length;
+					decl.vertexPositionData = remappedPositionAttribute.pointer;
+					decl.vertexPositionStride = remappedPositionAttribute.stride;
+					decl.vertexUvData = remappedUvAttribute.pointer;
+					decl.vertexUvStride = remappedUvAttribute.stride;
 
-		::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas, meshDecl, graph.meshes.size());
+					decl.indexCount = remappedIndexAttribute.length;
+					decl.indexData = remappedIndexAttribute.pointer;
+					decl.indexFormat = indexType;
+				}
+			} else {
+				auto& entry = entries.emplace_back();
+				entry.index = index;
+
+				auto& decl = entry.decl;
+				decl.vertexCount = uvAttribute.length;
+				decl.vertexPositionData = positionAttribute.pointer;
+				decl.vertexPositionStride = positionAttribute.stride;
+				decl.vertexUvData = uvAttribute.pointer;
+				decl.vertexUvStride = uvAttribute.stride;
+
+				decl.indexCount = indexAttribute.length;
+				decl.indexData = indexAttribute.pointer;
+				decl.indexFormat = indexType;
+				decl.indexFormat = indexType;
+
+			}
+		} else UF_EXCEPTION("to-do: not require indices for meshes");
+	}
+	for ( auto& mesh : entries ) {
+		::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas, mesh.decl, entries.size());
 		if (error != ::xatlas::AddMeshError::Success) {
 			::xatlas::Destroy(atlas);
-			UF_MSG_ERROR(::xatlas::StringForEnum(error));
-			return {};
+			UF_EXCEPTION(::xatlas::StringForEnum(error));
 		}
-	}		
+	}
 
 	::xatlas::ChartOptions chartOptions{};
 //	chartOptions.useInputMeshUvs = true;
@@ -72,61 +105,79 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 
 	for ( size_t i = 0; i < atlas->meshCount; i++ ) {
 		auto& xmesh = atlas->meshes[i];
-		auto& mesh = uf::graph::storage.meshes[graph.meshes[i]];
+		auto& entry = entries[i];
+		auto& mesh = graph.meshes[entry.index];
+		auto& source = sources[entry.index];
+		source.updateDescriptor();
 
-		size_t indices = mesh.attributes.index.length;
-		size_t indexStride = mesh.attributes.index.size;
-		uint8_t* indexPointer = (uint8_t*) mesh.attributes.index.pointer;
 
-		uf::stl::vector<uint8_t> oldVertexBuffer( (uint8_t*) mesh.attributes.vertex.pointer, (uint8_t*) mesh.attributes.vertex.pointer + mesh.attributes.vertex.length * mesh.attributes.vertex.size );
+	}
 
-		size_t vertices = xmesh.vertexCount;
-		size_t vertexStride = mesh.attributes.vertex.size;
-		
-		mesh.resizeVertices( vertices );
+#if 0
+	for ( size_t i = 0; i < atlas->meshCount; i++ ) {
+		auto& xmesh = atlas->meshes[i];
+		auto& mesh = *meshes[i];
 
-		uint8_t* oldVertexPointer = oldVertexBuffer.data();
-		uint8_t* newvertexPointer = (uint8_t*) mesh.attributes.vertex.pointer;
+		uf::Mesh src;
+		src.buffers = mesh.buffers;
+		src.vertex = mesh.vertex;
+		src.index = mesh.index;
+		src.instance = mesh.instance;
+		src.indirect = mesh.indirect;
 
-		uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
-										vertexAttributeNormal,
-										vertexAttributeUv,
-										vertexAttributeSt;
+		mesh.resizeVertices( xmesh.vertexCount );
 
-		for ( auto& attribute : mesh.attributes.vertex.descriptor ) {
-			if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-			else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-			else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
-			else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
+		if ( mesh.isInterleaved( mesh.vertex.interleaved ) ) {
+			for ( auto& attribute : mesh.vertex.attributes ) {
+				if ( attribute.descriptor.name != "st" ) continue;
+
+				uint8_t* srcBuffer = src.buffers[mesh.vertex.interleaved].data();
+				uint8_t* dstBuffer = mesh.buffers[mesh.vertex.interleaved].data();
+				for ( auto v = 0; v < xmesh.vertexCount; ++v ) {
+					auto& vertex = xmesh.vertexArray[v];
+					auto ref = vertex.xref;
+
+					memcpy( dstBuffer + v * mesh.vertex.stride, srcBuffer + ref * mesh.vertex.stride, mesh.vertex.stride );
+
+					pod::Vector2f& st = *((pod::Vector2f*) dstBuffer + v * mesh.vertex.stride + attribute.descriptor.offset);
+					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
+				}
+
+				break;
+			}
+		} else for ( auto& attribute : mesh.vertex.attributes ) {
+			uint8_t* srcBuffer = src.buffers[attribute.buffer].data();
+			uint8_t* dstBuffer = mesh.buffers[attribute.buffer].data();
+			for ( auto v = 0; v < xmesh.vertexCount; ++v ) {
+				auto& vertex = xmesh.vertexArray[v];
+				auto ref = vertex.xref;
+
+				if ( attribute.descriptor.name == "st" ) {
+					pod::Vector2f& st = *((pod::Vector2f*) dstBuffer + v * attribute.descriptor.size);
+					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
+				} else {
+					memcpy( dstBuffer + v * attribute.descriptor.size, srcBuffer + ref * attribute.descriptor.size, attribute.descriptor.size );
+				}
+			}
 		}
-		UF_ASSERT( vertexAttributePosition.name != "" );
 
-		for ( size_t v = 0; v < xmesh.vertexCount; v++) {
-			auto& xvertex = xmesh.vertexArray[v];
-			uint8_t* oldVertexSrc = oldVertexPointer + (xvertex.xref * vertexStride);
-			uint8_t* newVertexSrc = newvertexPointer + (v * vertexStride);
-
-			memcpy( newVertexSrc, oldVertexSrc, vertexStride );
-
-			pod::Vector2f& st = *((pod::Vector2f*) (newVertexSrc + vertexAttributeSt.offset));
-			st = { xvertex.uv[0] / atlas->width, xvertex.uv[1] / atlas->height };
-		}
-
-		for ( size_t currentIndex = 0; currentIndex < xmesh.indexCount; ++currentIndex ) {
-			uint32_t index = xmesh.indexArray[currentIndex];
-			uint8_t* indexSrc = indexPointer + (currentIndex * indexStride);
-			switch ( indexStride ) {
-				case sizeof( uint8_t): *(( uint8_t*) indexSrc) = index; break;
-				case sizeof(uint16_t): *((uint16_t*) indexSrc) = index; break;
-				case sizeof(uint32_t): *((uint32_t*) indexSrc) = index; break;
+		{
+			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.index.interleaved) ? mesh.index.interleaved : mesh.index.attributes.front().buffer];
+			uint8_t* pointer = (uint8_t*) buffer.data();
+			for ( auto index = 0; index < mesh.index.count; ++index ) {
+				switch ( mesh.index.stride ) {
+					case 1: *( uint8_t*) pointer = xmesh.indexArray[index]; break;
+					case 2: *(uint16_t*) pointer = xmesh.indexArray[index]; break;
+					case 4: *(uint32_t*) pointer = xmesh.indexArray[index]; break;
+				}
 			}
 		}
 	}
+#endif
 
 	pod::Vector2ui size = pod::Vector2ui{ atlas->width, atlas->height };
 	::xatlas::Destroy(atlas);
 	
 	return size;
-#endif
 #endif
 }

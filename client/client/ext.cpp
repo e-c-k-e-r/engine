@@ -90,6 +90,11 @@ void client::initialize() {
 				client::window.setMousePosition(client::window.getSize()/2);
 			}
 		});
+		uf::hooks.addHook( "window:Mouse.Lock", [&](){
+			if ( client::window.hasFocus() ) {
+				client::window.setMousePosition(client::window.getSize()/2);
+			}
+		});
 		uf::hooks.addHook( "window:Closed", [&]( ext::json::Value& json ){
 			client::ready = false;
 		} );

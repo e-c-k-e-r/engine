@@ -349,7 +349,10 @@ void ext::Gui::load( const uf::Image& image ) {
 	}
 	metadataJson["cull mode"] = "none";
 	graphic.descriptor.parse( metadataJson );
-	
+	if ( uf::matrix::reverseInfiniteProjection ) {
+	} else {
+		metadata.depth = -metadata.depth;
+	}
 	if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
 	if ( metadata.depth != 0.0f ) for ( auto& v : vertices ) v.position.z = metadata.depth;
 
@@ -816,7 +819,8 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			.color = metadata.color,
 
 			.mode = metadata.shader,
-			.depth = 1 - metadata.depth,
+		//	.depth = 1 - metadata.depth,
+			.depth = uf::matrix::reverseInfiniteProjection ? 1 - metadata.depth : metadata.depth,
 		};
 		// set glyph-based uniforms
 		if ( isGlyph && uniform.size() == sizeof(::GlyphUniformDescriptor<>) ) {

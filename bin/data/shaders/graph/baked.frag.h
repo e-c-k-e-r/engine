@@ -45,5 +45,5 @@ void main() {
 	A = textureLod( samplerTextures[0], inSt, mip );
 #endif
 	outNormals = encodeNormals( N );
-	outId = ivec2(inId.w+1, inId.y+1);
+	outId = ivec2(inId.x+1, inId.y+1);
 }

@@ -49,7 +49,7 @@ layout (location = 1) out vec2 outNormals;
 #endif
 
 void main() {
-	const uint CASCADE = inId.z;
+	const uint CASCADE = inId.w;
 	if ( CASCADES <= CASCADE ) discard;
 	const vec3 P = inPosition.xzy * 0.5 + 0.5;
 	if ( abs(P.x) > 1 || abs(P.y) > 1 || abs(P.z) > 1 ) discard;
@@ -58,20 +58,19 @@ void main() {
 	const vec3 N = inNormal;
 	const vec2 uv = wrap(inUv.xy);
 	const float mip = 0; // mipLevel(inUv.xy);
-	const int materialId = int(inId.y);
-	const Material material = materials[materialId];
+	const uint drawID = int(inId.x);
+	const uint instanceID = int(inId.y);
+	const uint materialID = int(inId.z);
+	Material material = materials[materialID];
 
 	const float M = material.factorMetallic;
 	const float R = material.factorRoughness;
 	const float AO = material.factorOcclusion;
 	
 	// sample albedo
-	const bool useAtlas = validTextureIndex( material.indexAtlas );
-	Texture textureAtlas;
-	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+		const Texture t = textures[material.indexAlbedo];
+		A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -107,7 +106,7 @@ void main() {
 	imageStore(voxelDepth[CASCADE], uvw, vec4(inDepth, 0, 0, 0));
 #endif
 
-	imageStore(voxelId[CASCADE], uvw, uvec4(uvec2(inId.w+1, inId.y+1), 0, 0));
+	imageStore(voxelId[CASCADE], uvw, uvec4(uvec2(drawID + 1, instanceID + 1), 0, 0));
 	imageStore(voxelNormal[CASCADE], uvw, vec4(encodeNormals( normalize( N ) ), 0, 0));
 #if BLEND
 	// GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA

@@ -42,7 +42,6 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
-		descriptor.pipeline = "vxgi";
 	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 	}
@@ -304,6 +303,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 	if ( blitter.process ) {
 		uf::Mesh mesh;
+		mesh.vertex.count = 3;
+	/*
 		mesh.bind<pod::Vertex_2F2F, uint16_t>();
 		mesh.insertVertices<pod::Vertex_2F2F>({
 			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
@@ -314,6 +315,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 2, 3, 0
 		});
+	*/
 
 		blitter.device = &device;
 		blitter.material.device = &device;
@@ -412,15 +414,39 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			auto& shader = blitter.material.getShader("compute");
+		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
 
-			uint32_t* specializationConstants = (uint32_t*) (void*) &shader.specializationConstants;
+			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+				auto& sc = pair.second;
+				if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
+				else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
+				else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
+			}
+			for ( auto pair : shader.metadata.definitions.textures ) {
+				auto& tx = pair.second;
+				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+					if ( layout.binding != tx.binding ) continue;
+					if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+					else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
+					else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
+					else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
+					else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+					else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
+				}
+			}
+		/*
 			ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
 				uf::stl::string name = sc["name"].as<uf::stl::string>();
 				if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
 				else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
 				else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
 			});
-
 			ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
 				size_t binding = t["binding"].as<size_t>();
 				uf::stl::string name = t["name"].as<uf::stl::string>();
@@ -434,36 +460,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 				}
 			});
+		*/
 
-			uf::stl::vector<pod::Light> lights(maxLights);
-			uf::stl::vector<pod::Material> materials(maxTextures2D);
-			uf::stl::vector<pod::Texture> textures(maxTextures2D);
-			uf::stl::vector<pod::DrawCommand> drawCalls(maxTextures2D);
-
-			for ( auto& material : materials ) material.colorBase = {0,0,0,0};
-
-			metadata.lightBufferIndex = shader.initializeBuffer(
-				(const void*) lights.data(),
-				lights.size() * sizeof(pod::Light),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-			);
-			metadata.materialBufferIndex = shader.initializeBuffer(
-				(const void*) materials.data(),
-				materials.size() * sizeof(pod::Material),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-			);
-
-			metadata.textureBufferIndex = shader.initializeBuffer(
-				(const void*) textures.data(),
-				textures.size() * sizeof(pod::Texture),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-			);
-
-			metadata.drawCallBufferIndex = shader.initializeBuffer(
-				(const void*) drawCalls.data(),
-				drawCalls.size() * sizeof(pod::DrawCommand),
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-			);
 		} else {
 			for ( auto& attachment : renderTarget.attachments ) {
 				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
@@ -648,7 +646,11 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 					if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
 						clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 					} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-						clearValue.depthStencil = { 0.0f, 0 };
+						if ( uf::matrix::reverseInfiniteProjection ) {
+							clearValue.depthStencil = { 0.0f, 0 };
+						} else {
+							clearValue.depthStencil = { 1.0f, 0 };
+						}
 					}
 					clearValues.push_back(clearValue);
 				}
@@ -684,6 +686,16 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			size_t currentPass = 0;
 			// pre-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+			
+			for ( auto& pipeline : metadata.pipelines ) {
+				if ( pipeline == metadata.pipeline ) continue;
+				for ( auto graphic : graphics ) {
+					if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
+					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
+					descriptor.pipeline = pipeline;
+					graphic->record( commands[i], descriptor, 0, metadata.type == "vxgi" ? 0 : MIN(subpasses,6) );
+				}
+			}
 
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);

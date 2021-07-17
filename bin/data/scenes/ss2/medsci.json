@@ -50,12 +50,13 @@
 		//	"lightmap": "./lightmap.png",
 			"filter": "NEAREST",
 			"flags": {
-				"ATLAS": true,
+				"ATLAS": false,
 				"INVERT": false,
 				"TRANSFORM": false,
 				"SKINNED": false,
 				
 				"RENDER": true,
+			//	"SEPARATE": false,
 				"SEPARATE": false,
 				"NORMALS": false
 			},

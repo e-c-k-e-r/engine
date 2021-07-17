@@ -19,10 +19,6 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-out gl_PerVertex {
-    vec4 gl_Position;
-};
-
 struct Matrices {
 	mat4 model[2];
 };
@@ -34,9 +30,8 @@ layout (binding = 0) uniform UBO {
 } ubo;
 
 void main() {
-	outUv = inUv;
+	outUv = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
 	outCursor = ubo.cursor;
 	outAlpha = 1;
-
-	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, 0.0, 1.0);
+	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(outUv * 2.0f + -1.0f, 0.0f, 1.0f);
 }

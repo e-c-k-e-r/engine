@@ -12,24 +12,23 @@ namespace ext {
 			bool execute = false;
 			bool executed = false;
 			bool rebuild = false;
+			
 			uint32_t width = 0;
 			uint32_t height = 0;
+
 			struct {			
 				uf::Serializer json;
 
 				uf::stl::string name = "";
 				uf::stl::string type = "";
 				uf::stl::string target = "";
+				uf::stl::string pipeline = "";
+				uf::stl::vector<uf::stl::string> pipelines;
 				uf::stl::vector<uint8_t> outputs;
 
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
 				uint8_t eyes = 1;
-
-				size_t lightBufferIndex = 0;
-				size_t materialBufferIndex = 0;
-				size_t textureBufferIndex = 0;
-				size_t drawCallBufferIndex = 0;
 			} metadata;
 			
 			Device* device = VK_NULL_HANDLE;

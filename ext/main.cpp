@@ -24,6 +24,7 @@
 #include <uf/utils/http/http.h>
 
 #include <uf/engine/entity/entity.h>
+#include <uf/engine/graph/graph.h>
 
 #include <sys/stat.h>
 
@@ -241,6 +242,10 @@ void EXT_API ext::initialize() {
 			}
 			uf::allocator::override = ::config["engine"]["memory pool"]["override"].as( uf::allocator::override );
 		}
+		{
+			uf::Mesh::defaultInterleaved = ::config["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
+			uf::matrix::reverseInfiniteProjection = ::config["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
+		}
 
 		/* Create initial scene (kludge) */ {
 			uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
@@ -348,6 +353,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::hdr = ::config["engine"]["ext"][RENDERER]["experimental"]["hdr"].as( uf::renderer::settings::experimental::hdr );
 		uf::renderer::settings::experimental::vxgi = ::config["engine"]["ext"][RENDERER]["experimental"]["vxgi"].as( uf::renderer::settings::experimental::vxgi );
 		uf::renderer::settings::experimental::deferredSampling = ::config["engine"]["ext"][RENDERER]["experimental"]["deferred sampling"].as( uf::renderer::settings::experimental::deferredSampling );
+		uf::renderer::settings::experimental::culling = ::config["engine"]["ext"][RENDERER]["experimental"]["culling"].as( uf::renderer::settings::experimental::culling );
 	#define JSON_TO_VKFORMAT( key ) if ( ::config["engine"]["ext"][RENDERER]["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = ::config["engine"]["ext"][RENDERER]["formats"][#key].as<uf::stl::string>();\
 			format = uf::string::replace( uf::string::uppercase(format), " ", "_" );\
@@ -408,7 +414,12 @@ void EXT_API ext::initialize() {
 		if ( ::config["engine"]["render modes"]["deferred"].as<bool>() ) {
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
 			auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
-			if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() ) renderMode.metadata.eyes = 2;
+			if ( ::config["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
+				renderMode.metadata.eyes = 2;
+			}
+			if ( uf::renderer::settings::experimental::culling ) {
+				renderMode.metadata.pipelines.emplace_back("culling");
+			}
 		}
 	#endif
 
@@ -470,7 +481,6 @@ void EXT_API ext::initialize() {
 			});
 		}
 	#endif
-
 		uf::renderer::initialize();
 	}
 
@@ -622,6 +632,9 @@ void EXT_API ext::tick() {
 	}
 #endif
 	//UF_TIMER_TRACE("ticking physics");
+	/* Update graph */ {
+		uf::graph::tick();
+	}
 	/* Update entities */ {
 		uf::scene::tick();
 	}
@@ -740,7 +753,12 @@ void EXT_API ext::terminate() {
 		ext::lua::terminate();
 	}
 #endif
-	uf::scene::destroy();
+	{
+		uf::graph::destroy();
+	}
+	{
+		uf::scene::destroy();
+	}
 
 	/* Garbage collection */ if ( false ) {
 		uint8_t mode = ::config["engine"]["debug"]["garbage collection"]["mode"].as<uint64_t>();

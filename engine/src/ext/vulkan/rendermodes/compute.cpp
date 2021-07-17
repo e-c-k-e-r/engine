@@ -104,9 +104,11 @@ void ext::vulkan::ComputeRenderMode::initialize( Device& device ) {
 			0, 1, 2, 2, 3, 0
 		};
 	*/
+
 		blitter.device = &device;
 		blitter.material.device = &device;
 		blitter.descriptor.subpass = 1;
+		blitter.descriptor.inputs.dispatch = { (width / 32) + 1, (height / 32) + 1, 1 };
 
 		blitter.descriptor.depth.test = false;
 		blitter.descriptor.depth.write = false;
@@ -246,7 +248,6 @@ void ext::vulkan::ComputeRenderMode::createCommandBuffers( ) {
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 			pipeline.record(compute, commands[i]);
-			vkCmdDispatch(commands[i], width / dispatchSize.x, height / dispatchSize.y, 1);
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
 	

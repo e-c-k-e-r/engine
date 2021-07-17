@@ -266,6 +266,36 @@ T& /*UF_API*/ uf::vector::normalize( T& vector ) {
 	if ( norm == 0 ) return vector;	
 	return uf::vector::divide(vector, norm);
 }
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::min( const T& left, const T& right ) {
+	T res = left;
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::min( left[i], right[i] );
+	return res;
+}
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::max( const T& left, const T& right ) {
+	T res;
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::max( left[i], right[i] );
+	return res;
+}
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::ceil( const T& vector ) {
+	T res;
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::ceil( vector[i] );
+	return res;
+}
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::floor( const T& vector ) {
+	T res;
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::floor( vector[i] );
+	return res;
+}
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::round( const T& vector ) {
+	T res;
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::round( vector[i] );
+	return res;
+}
 // Complex arithmetic
 template<typename T> 														// Compute the dot product between two vectors
 typename T::type_t /*UF_API*/ uf::vector::dot( const T& left, const T& right ) {

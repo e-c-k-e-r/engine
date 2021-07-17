@@ -48,7 +48,6 @@ UF_VERTEX_DESCRIPTOR(pod::Vertex_3F,
 )
 
 bool uf::Mesh::defaultInterleaved = false;
-
 void uf::Mesh::initialize() {
 }
 void uf::Mesh::destroy() {
@@ -82,23 +81,26 @@ void uf::Mesh::updateDescriptor() {
 	_updateDescriptor(instance);
 	_updateDescriptor(indirect);
 }
-void uf::Mesh::insert( const uf::Mesh& mesh ) {
-	insertVertex(mesh);
-	insertIndex(mesh);
-	insertInstance(mesh);
-	insertIndirect(mesh);
-}
-/*
-uint32_t indices = 0; // triangle count
-uint32_t instances = 0; // instance count
-uint32_t indexID = 0; // starting triangle position
- int32_t vertexID = 0; // starting vertex position
+void uf::Mesh::bind( const uf::Mesh& mesh ) {
+	vertex.attributes = mesh.vertex.attributes;
+	vertex.interleaved = mesh.vertex.interleaved;
+	index.attributes = mesh.index.attributes;
+	index.interleaved = mesh.index.interleaved;
+	instance.attributes = mesh.instance.attributes;
+	instance.interleaved = mesh.instance.interleaved;
+	indirect.attributes = mesh.indirect.attributes;
+	indirect.interleaved = mesh.indirect.interleaved;
 
-uint32_t instanceID = 0; // starting instance position
-uint32_t materialID = 0;
-uint32_t objectID = 0;
-uint32_t vertices = 0;
-*/
+	_bind();
+}
+void uf::Mesh::insert( const uf::Mesh& mesh ) {
+	if ( vertex.attributes.empty() && index.attributes.empty() && instance.attributes.empty() && indirect.attributes.empty() ) bind( mesh );
+	
+	insertVertices(mesh);
+	insertIndices(mesh);
+	insertInstances(mesh);
+	insertIndirects(mesh);
+}
 void uf::Mesh::generateIndices() {
 	// deduce type
 	size_t size = sizeof(uint32_t);
@@ -125,14 +127,16 @@ void uf::Mesh::generateIndirect() {
 	uf::stl::vector<pod::DrawCommand> commands;
 	for ( auto& attribute : index.attributes ) {
 		auto& buffer = buffers[isInterleaved(index.interleaved) ? index.interleaved : attribute.buffer];
-		auto& command = commands.emplace_back();
-		command.indices = buffer.size() / attribute.descriptor.size;
-		command.instances = instance.count == 0 && instance.attributes.empty() ? 1 : instance.count;
-		command.indexID = 0;
-		command.vertexID = 0;
-		command.instanceID = 0;
-		command.objectID = 0;
-		command.vertices = vertex.count;
+		commands.emplace_back(pod::DrawCommand{
+			.indices = buffer.size() / attribute.descriptor.size,
+			.instances = instance.count == 0 && instance.attributes.empty() ? 1 : instance.count,
+			.indexID = 0,
+			.vertexID = 0,
+			.instanceID = 0,
+		//	.materialID = 0,
+		//	.objectID = 0,
+		//	.vertices = vertex.count,
+		});
 	}
 
 	_destroy( indirect );
@@ -234,8 +238,8 @@ void uf::Mesh::print() const {
 //
 void uf::Mesh::_destroy( uf::Mesh::Input& input ) {
 	for ( auto& attribute : input.attributes ) {
-		attribute.descriptor.length = 0;
-		attribute.descriptor.pointer = NULL;
+		attribute.length = 0;
+		attribute.pointer = NULL;
 		attribute.buffer = 0;
 	}
 	input.attributes.clear();
@@ -262,13 +266,33 @@ void uf::Mesh::_bind( bool interleave ) {
 void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	input.stride = 0;
 	for ( auto& attribute : input.attributes ) {
-		auto& buffer = buffers[isInterleaved(input.interleaved) ? input.interleaved : attribute.buffer];
-		attribute.descriptor.length = buffer.size();
-		attribute.descriptor.pointer = (void*) (buffer.data());
+		const bool interleaved = isInterleaved(input.interleaved);
+		auto& buffer = buffers[interleaved ? input.interleaved : attribute.buffer];
+		attribute.length = buffer.size();
+		attribute.pointer = (void*) (buffer.data());
+		if ( !interleaved ) attribute.stride = attribute.descriptor.size;
 		input.stride += attribute.descriptor.size;
 	}
+	for ( auto& attribute : input.attributes ) {
+		const bool interleaved = isInterleaved(input.interleaved);
+		if ( interleaved ) attribute.stride = input.stride;
+	}
 }
-void uf::Mesh::_insertV( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput ) {
+uf::Mesh::Attribute uf::Mesh::_remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i ) const {
+	uf::Mesh::Attribute res = attribute;
+	if ( i < indirect.count ) {
+		auto& drawCommand = ((const pod::DrawCommand*) buffers[isInterleaved(indirect.interleaved) ? indirect.interleaved : indirect.attributes.front().buffer].data())[i];
+		if ( &input == &vertex ) {
+			res.pointer = (void*) ((uint8_t*) res.pointer + drawCommand.vertexID * res.stride);
+			res.length = drawCommand.vertices;
+		} else if ( &input == &index ) {
+			res.pointer = (void*) ((uint8_t*) res.pointer + drawCommand.indexID * res.stride);
+			res.length = drawCommand.indices;
+		}
+	}
+	return res;
+}
+void uf::Mesh::_insertVs( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput ) {
 	if ( !_hasV( input, srcInput ) ) return;
 	_reserveVs( input, input.count += srcInput.count );
 
@@ -292,7 +316,7 @@ void uf::Mesh::_insertV( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf:
 	}
 	_updateDescriptor( input );
 }
-void uf::Mesh::_insertI( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput ) {
+void uf::Mesh::_insertIs( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput ) {
 //	if ( !_hasI( source ) ) return;
 	_reserveIs( input, input.count += srcInput.count );
 
@@ -339,26 +363,26 @@ void uf::Mesh::_reserveVs( uf::Mesh::Input& input, size_t count ) {
 	if ( isInterleaved(input.interleaved) ) {
 		buffers[input.interleaved].reserve( count * input.stride );
 		for ( auto& attribute : input.attributes ) {
-			attribute.descriptor.length = buffers[input.interleaved].size();
-			attribute.descriptor.pointer = (void*) (buffers[input.interleaved].data());
+			attribute.length = buffers[input.interleaved].size();
+			attribute.pointer = (void*) (buffers[input.interleaved].data());
 		}
 	} else for ( auto& attribute : input.attributes ) {
 		buffers[attribute.buffer].reserve( count * attribute.descriptor.size );
-		attribute.descriptor.length = buffers[attribute.buffer].size();
-		attribute.descriptor.pointer = (void*) (buffers[attribute.buffer].data());
+		attribute.length = buffers[attribute.buffer].size();
+		attribute.pointer = (void*) (buffers[attribute.buffer].data());
 	}
 }
 void uf::Mesh::_resizeVs( uf::Mesh::Input& input, size_t count ) {
 	if ( isInterleaved(input.interleaved) ) {
 		buffers[input.interleaved].resize( count * input.stride );
 		for ( auto& attribute : input.attributes ) {
-			attribute.descriptor.length = buffers[input.interleaved].size();
-			attribute.descriptor.pointer = (void*) (buffers[input.interleaved].data());
+			attribute.length = buffers[input.interleaved].size();
+			attribute.pointer = (void*) (buffers[input.interleaved].data());
 		}
 	} else for ( auto& attribute : input.attributes ) {
 		buffers[attribute.buffer].resize( count * attribute.descriptor.size );
-		attribute.descriptor.length = buffers[attribute.buffer].size();
-		attribute.descriptor.pointer = (void*) (buffers[attribute.buffer].data());
+		attribute.length = buffers[attribute.buffer].size();
+		attribute.pointer = (void*) (buffers[attribute.buffer].data());
 	}
 }
 void uf::Mesh::_insertV( uf::Mesh::Input& input, const void* data ) {
@@ -400,14 +424,14 @@ void uf::Mesh::_bindI( uf::Mesh::Input& input, size_t size, ext::RENDERER::enums
 void uf::Mesh::_reserveIs( uf::Mesh::Input& input, size_t count, size_t i ) {
 	auto& attribute = input.attributes[i];
 	buffers[attribute.buffer].reserve( count * attribute.descriptor.size );
-	attribute.descriptor.length = buffers[attribute.buffer].size();
-	attribute.descriptor.pointer = (void*) (buffers[attribute.buffer].data());
+	attribute.length = buffers[attribute.buffer].size();
+	attribute.pointer = (void*) (buffers[attribute.buffer].data());
 }
 void uf::Mesh::_resizeIs( uf::Mesh::Input& input, size_t count, size_t i ) {
 	auto& attribute = input.attributes[i];
 	buffers[attribute.buffer].resize( count * attribute.descriptor.size );
-	attribute.descriptor.length = buffers[attribute.buffer].size();
-	attribute.descriptor.pointer = (void*) (buffers[attribute.buffer].data());
+	attribute.length = buffers[attribute.buffer].size();
+	attribute.pointer = (void*) (buffers[attribute.buffer].data());
 }
 void uf::Mesh::_insertI( uf::Mesh::Input& input, const void* data, size_t i ) {			
 	auto& attribute = input.attributes[i];

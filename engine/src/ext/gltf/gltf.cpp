@@ -133,11 +133,26 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		return graph;
 	}
 
+	// load images
+	{
+		graph.images.reserve(model.images.size());
+		graph.storage.images.reserve(model.images.size());
+
+		for ( auto& i : model.images ) {
+			auto imageID = graph.images.size();
+			auto keyName = graph.images.emplace_back(filename + "/" + i.name);
+			auto& image = graph.storage.images[keyName];
+			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
+		}
+	}
 	// load samplers
 	{
-		uf::graph::storage.samplers.reserve(model.samplers.size());
+		graph.storage.samplers.reserve(model.samplers.size());
 		for ( auto& s : model.samplers ) {
-			auto& sampler = uf::graph::storage.samplers[graph.samplers.emplace_back(s.name)];
+			auto samplerID = graph.samplers.size();
+			auto keyName = graph.samplers.emplace_back(filename + "/" + s.name);
+			auto& sampler = graph.storage.samplers[keyName];
+
 			sampler.descriptor.filter.min = getFilterMode( s.minFilter );
 			sampler.descriptor.filter.mag = getFilterMode( s.magFilter );
 			sampler.descriptor.addressMode.u = getWrapMode( s.wrapS );
@@ -145,44 +160,30 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			sampler.descriptor.addressMode.w = sampler.descriptor.addressMode.v;
 		}
 	}
-
-	// load images
-	{
-		uf::graph::storage.images.reserve(model.images.size());
-		for ( auto& i : model.images ) {
-			auto& image = uf::graph::storage.images[graph.images.emplace_back(i.name)];
-			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
-		}
-	}
-	// generate atlas
-	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) {
-	//	uf::graph::storage.atlases[filename].generate();
-	}
 	// load textures
 	{
-		uf::graph::storage.textures.reserve(model.textures.size());
+		graph.textures.reserve(model.textures.size());
+		graph.storage.textures.reserve(model.textures.size());
+
 		for ( auto& t : model.textures ) {
-			auto& texture = uf::graph::storage.textures[graph.textures.emplace_back(t.name)];
+			auto textureID = graph.textures.size();
+			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (filename + "/" + t.name)));
+			auto& texture = graph.storage.textures[keyName];
+
 			texture.index = t.source;
 			texture.sampler = t.sampler;
-			if ( 0 <= t.source && uf::graph::storage.atlases[filename].generated() ) {
-				auto& image = graph.images[t.source];
-				const auto& hash = uf::graph::storage.images[image].getHash();
-				auto atlasMin = uf::graph::storage.atlases[filename].mapUv( {0, 0}, hash );
-				auto atlasMax = uf::graph::storage.atlases[filename].mapUv( {1, 1}, hash );
-				texture.lerp = { atlasMin.x, atlasMin.y, atlasMax.x, atlasMax.y, };
-			}
 		}
-	}
-	// clear source images
-	if ( uf::graph::storage.atlases[filename].generated() ) {
-		uf::graph::storage.atlases[filename].clear(false);
 	}
 	// load materials
 	{
-		uf::graph::storage.materials.reserve(model.materials.size());
+		graph.materials.reserve(model.materials.size());
+		graph.storage.materials.reserve(model.materials.size());
+
 		for ( auto& m : model.materials ) {
-			auto& material = uf::graph::storage.materials[graph.materials.emplace_back(m.name)];
+			auto materialID = graph.materials.size();
+			auto keyName = graph.materials.emplace_back(filename + "/" + m.name);
+			auto& material = graph.storage.materials[keyName];
+
 			material.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
 			material.indexNormal = m.normalTexture.index;
 			material.indexEmissive = m.emissiveTexture.index;
@@ -219,14 +220,28 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load meshes
 	{
 		graph.meshes.reserve(model.meshes.size());
-		for ( auto& m : model.meshes ) {
-			auto& pair = uf::graph::storage.meshes[graph.meshes.emplace_back(m.name)];
-			auto& mesh = pair.mesh;
-			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+		graph.storage.meshes.reserve(model.meshes.size());
 
+		for ( auto& m : model.meshes ) {
+			auto meshID = graph.meshes.size();
+			auto keyName = graph.meshes.emplace_back(filename + "/" + m.name);
+			graph.primitives.emplace_back(keyName);
+			graph.drawCommands.emplace_back(keyName);
+
+			auto& drawCommands = graph.storage.drawCommands[keyName];
+			auto& primitives = graph.storage.primitives[keyName];
+			auto& mesh = graph.storage.meshes[keyName];
+			mesh.bindIndirect<pod::DrawCommand>();
+			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+		/*
+			size_t primitiveID = 0;
+		*/
+			uf::stl::vector<uf::graph::mesh::Skinned> vertices;
+			uf::stl::vector<uint32_t> indices;
 			for ( auto& p : m.primitives ) {
-				uf::stl::vector<uf::graph::mesh::Skinned> vertices;
-				uf::stl::vector<uint32_t> indices;
+				vertices.clear();
+				indices.clear();
+				auto& primitive = primitives.emplace_back();
 
 				struct Attribute {
 					uf::stl::string name = "";
@@ -234,6 +249,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 					uf::stl::vector<float> floats;
 					uf::stl::vector<uint16_t> ints;
 				};
+
 				uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
 					{"POSITION", {}},
 					{"TEXCOORD_0", {}},
@@ -254,11 +270,8 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 					
 					if ( attribute.name == "POSITION" ) {
 						vertices.resize(accessor.count);
-						pod::Vector3f minCorner = { accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
-						pod::Vector3f maxCorner = { accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
-
-						pod::Vector3f origin = (maxCorner + minCorner) * 0.5f;
-						pod::Vector3f size = (maxCorner - minCorner) * 0.5f;
+						primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+						primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 					}
 					if ( attribute.name == "JOINTS_0" ) {
 						auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
@@ -300,8 +313,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 						vertex.normal.x *= -1;
 						vertex.tangent.x *= -1;
 					}
-
-
 				}
 
 				if ( p.indices > -1 ) {
@@ -311,9 +322,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 					indices.reserve( static_cast<uint32_t>(accessor.count) );
 
-					#define COPY_INDICES()\
-						for (size_t index = 0; index < indices.size(); index++)\
-								indices.emplace_back(buf[index]);
+				#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) indices.emplace_back(buf[index]);
 
 					const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 					switch (accessor.componentType) {
@@ -336,49 +345,46 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 					#undef COPY_INDICES
 				}
 
-				pair.drawCommands.emplace_back(pod::DrawCommand{	
+				primitive.instance.materialID = p.material;
+				primitive.instance.primitiveID = primitives.size() - 1;
+				primitive.instance.meshID = meshID;
+				primitive.instance.objectID = 0;
+
+				primitive.drawCommand.indices = indices.size();
+				primitive.drawCommand.instances = 1;
+				primitive.drawCommand.indexID = 0;
+				primitive.drawCommand.vertexID = 0;
+				primitive.drawCommand.instanceID = 0;
+				primitive.drawCommand.vertices = vertices.size();
+
+				auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
 					.indices = indices.size(),
 					.instances = 1,
 					.indexID = mesh.index.count,
 					.vertexID = mesh.vertex.count,
-
-					.instanceID = mesh.instance.count,
-					.materialID = p.material,
-					.objectID = 0,
+					.instanceID = 0,
+				//	.meshID = meshID,
+				//	.objectID = materialID,
 					.vertices = vertices.size(),
 				});
-
+				
 				mesh.insertVertices(vertices);
 				mesh.insertIndices(indices);
 			}
+			mesh.insertIndirects(drawCommands);
 			mesh.updateDescriptor();
-		}
-	}
-	// load node information/meshes
-	{
-		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
-		graph.nodes.resize( model.nodes.size() );
-		graph.root.index = -1;
-		graph.root.children.reserve( scene.nodes.size() );
-		for ( auto i : scene.nodes ) {
-			size_t childIndex = loadNode( model, graph, i, -1 );
-			graph.root.children.emplace_back(childIndex);
-		}
-	}
-	// load lights
-	{
-		for ( auto& l : model.lights ) {
-			auto& light = graph.lights[l.name];
-			light.color = { l.color[0], l.color[1], l.color[2], };
-			light.intensity = l.intensity;
-			light.range = l.range;
 		}
 	}
 	// load skins
 	{
 		graph.skins.reserve( model.skins.size() );
+		graph.storage.skins.reserve( model.skins.size() );
+
 		for ( auto& s : model.skins ) {
-			auto& skin = graph.skins.emplace_back();
+			auto skinID = graph.skins.size();
+			auto keyName = graph.skins.emplace_back(filename + "/" + s.name);
+			auto& skin = graph.storage.skins[keyName];
+
 			skin.name = s.name;			
 			if ( s.inverseBindMatrices > -1 ) {
 				const tinygltf::Accessor& accessor = model.accessors[s.inverseBindMatrices];
@@ -406,8 +412,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	// load animations
 	{
 		graph.animations.reserve( model.animations.size() );
+		graph.storage.animations.reserve( model.animations.size() );
+
 		for ( auto& a : model.animations ) {
-			auto& animation = graph.animations[a.name];
+			auto animationID = graph.animations.size();
+			auto keyName = graph.animations.emplace_back(filename + "/" + a.name);
+			auto& animation = graph.storage.animations[keyName];
 			animation.name = a.name;
 
 			// load samplers
@@ -460,6 +470,62 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			}
 		}
 	}
+		// load lights
+	{
+		for ( auto& l : model.lights ) {
+			auto& light = graph.lights[l.name];
+			light.color = { l.color[0], l.color[1], l.color[2], };
+			light.intensity = l.intensity;
+			light.range = l.range;
+		}
+	}
+	// load node information/meshes
+	{
+		const auto& scene = model.scenes[model.defaultScene > -1 ? model.defaultScene : 0];
+		graph.nodes.resize( model.nodes.size() );
+
+		graph.root.name = "%ROOT%";
+		graph.root.index = -1;
+		graph.root.children.reserve( scene.nodes.size() );
+		for ( auto i : scene.nodes ) {
+			size_t childIndex = loadNode( model, graph, i, -1 );
+			graph.root.children.emplace_back(childIndex);
+		}
+	}
+	// generate atlas
+	if ( graph.metadata["flags"]["ATLAS"].as<bool>() ) {
+		auto atlasName = filename + "/" + "atlas";
+		auto& atlas = graph.storage.atlases[atlasName];
+		auto atlasImageIndex = graph.images.size();
+		auto atlasTextureIndex = graph.textures.size();
+	
+		for ( auto& keyName : graph.images ) atlas.addImage( graph.storage.images[keyName] );
+		atlas.generate();
+
+		for ( auto& keyName : graph.images ) {
+			auto& texture = graph.storage.textures[keyName];
+			if ( texture.index < 0 ) continue;
+			auto& image = graph.storage.images[keyName];
+
+			const auto& hash = image.getHash();
+			auto min = atlas.mapUv( {0, 0}, hash );
+			auto max = atlas.mapUv( {1, 1}, hash );
+			
+			texture.lerp = pod::Vector4f{ min.x, min.y, max.x, max.y, };
+			texture.index = atlasImageIndex;
+		}
+
+		{
+			graph.images.emplace_back(atlasName);
+			auto& image = graph.storage.images[atlasName];
+			image = atlas.getAtlas();
+
+			graph.textures.emplace_back(atlasName);
+			auto& texture = graph.storage.textures[atlasName];
+			texture.index = atlasImageIndex;
+		}
+	}
+
 	if ( graph.metadata["export"]["should"].as<bool>() ) uf::graph::save( graph, filename );
 	return graph;
 }

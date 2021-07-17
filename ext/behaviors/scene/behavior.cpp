@@ -67,17 +67,14 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		if ( !timer.running() ) timer.start( uf::Time<>(-1000000) );
 		if ( timer.elapsed().asDouble() < 1 ) return;
 		timer.reset();
-
 		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !manager ) return;
 		uf::Serializer payload;
-		uf::stl::string config = metadataJson["menus"]["pause"].is<uf::stl::string>() ? metadataJson["menus"]["pause"].as<uf::stl::string>() : "/scenes/worldscape/gui/pause/menu.json";
+		uf::stl::string config = metadataJson["menus"]["pause"].as<uf::stl::string>("/entites/gui/pause/menu.json");
 		uf::Object& gui = manager->loadChild(config, false);
 		payload["uid"] = gui.getUid();
-
 		uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
 		metadataJson["menu"] = json["menu"];
-		
 		gui.initialize();
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](ext::json::Value& json){
@@ -318,6 +315,159 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.parameters[metadata.shader.time] = uf::physics::time::current;
 	}
 #endif
+
+	{
+		auto& graph = this->getGraph();
+		auto& controller = this->getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
+		auto& metadataVxgi = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+		auto& metadataJson = this->getComponent<uf::Serializer>();
+
+		struct LightInfo {
+			uf::Entity* entity = NULL;
+			pod::Vector3f position = {0,0,0};
+			float range = 0.0f;
+			pod::Vector3f color = {0,0,0};
+			float intensity = 0.0f;
+			float distance = 0;
+			float bias = 0;
+			int32_t type = 0;
+			bool shadows = false;
+		};
+		
+		uf::stl::vector<LightInfo> entities; entities.reserve(graph.size() / 2);
+
+		uf::graph::storage.lights.clear(); uf::graph::storage.lights.reserve(metadata.max.lights);
+		uf::graph::storage.shadow2Ds.clear(); uf::graph::storage.shadow2Ds.reserve(metadata.max.lights);
+		uf::graph::storage.shadowCubes.clear(); uf::graph::storage.shadowCubes.reserve(metadata.max.lights);
+
+		// traverse scene graph
+		for ( auto entity : graph ) {
+			// ignore this scene, our controller, and anything that isn't actually a light
+			if ( entity == this || entity == &controller || !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
+			// disables shadow mappers that activate when in range
+			bool hasRT = entity->hasComponent<uf::renderer::RenderTargetRenderMode>();
+			if ( hasRT ) {
+				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+				if ( metadata.renderer.mode == "in-range" ) renderMode.execute = false;
+			}
+			if ( metadata.power <= 0 ) continue;
+			auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
+			LightInfo& info = entities.emplace_back(LightInfo{
+				.entity = entity,
+				.position = flatten.position,
+				.range = 0,
+				.color = pod::Vector4f{ metadata.color.x, metadata.color.y, metadata.color.z },
+				.intensity = metadata.power,
+				.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
+				.bias = metadata.bias,
+				.type = metadata.type,
+				.shadows = metadata.shadows && hasRT,
+			});
+		}
+		// prioritize closer lights; it would be nice to also prioritize lights in view, but because of VXGI it's not really something to do
+		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
+			return l.distance < r.distance;
+		});
+
+		int32_t shadowUpdateThreshold = metadata.shadow.update; // how many shadow maps we should update, based on range
+		int32_t shadowCount = metadata.shadow.max; // how many shadow maps we should pass, based on range
+		if ( shadowCount <= 0 ) shadowCount = std::numeric_limits<int32_t>::max();
+
+		// disable shadows if that light is outside our threshold
+		for ( auto& info : entities ) if ( info.shadows && shadowCount-- <= 0 ) info.shadows = false;
+
+		// bind lighting and requested shadow maps
+		for ( uint32_t i = 0; i < entities.size() && uf::graph::storage.lights.size() < metadata.max.lights; ++i ) {
+			auto& info = entities[i];
+			uf::Entity* entity = info.entity;
+
+			if ( !info.shadows ) {
+				uf::graph::storage.lights.emplace_back(pod::Light{
+					.view = uf::matrix::identity(),
+					.projection = uf::matrix::identity(),
+					.position = info.position,
+					.range = info.range,
+					.color = info.color,
+					.intensity = info.intensity,
+					.type = info.type,
+					.typeMap = 0,
+					.indexMap = -1,
+					.depthBias = info.bias,
+				});
+			} else {
+				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
+				auto& lightCamera = entity->getComponent<uf::Camera>();
+				auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
+				lightMetadata.renderer.rendered = true;
+				// activate our shadow mapper if it's range-basedd
+				if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) renderMode.execute = true;
+				// if point light, and combining is requested
+				if ( metadata.shadow.experimentalMode > 0 && renderMode.renderTarget.views == 6 ) {
+					int32_t index = -1;
+					// separated texture2Ds
+					if ( metadata.shadow.experimentalMode == 2 ) {
+						index = uf::graph::storage.shadow2Ds.size();
+						for ( auto& attachment : renderMode.renderTarget.attachments ) {
+							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+							for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {			
+								uf::graph::storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
+							}
+							break;
+						}
+					// cubemapped
+					} else {
+						index = uf::graph::storage.shadowCubes.size();
+						for ( auto& attachment : renderMode.renderTarget.attachments ) {
+							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+							uf::graph::storage.shadowCubes.emplace_back().aliasAttachment(attachment);
+							break;
+						}
+					}
+					uf::graph::storage.lights.emplace_back(pod::Light{
+						.view = lightCamera.getView(0),
+						.projection = lightCamera.getProjection(0),
+						.position = info.position,
+						.range = info.range,
+						.color = info.color,
+						.intensity = info.intensity,
+						.type = info.type,
+						.typeMap = metadata.shadow.experimentalMode,
+						.indexMap = index,
+						.depthBias = info.bias,
+					});
+				// any other shadowing light, even point lights, are split by shadow maps
+				} else {
+					for ( auto& attachment : renderMode.renderTarget.attachments ) {
+						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+						if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
+						for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
+							uf::graph::storage.lights.emplace_back(pod::Light{
+								.view = lightCamera.getView(view),
+								.projection = lightCamera.getProjection(view),
+								.position = info.position,
+								.range = info.range,
+								.color = info.color,
+								.intensity = info.intensity,
+								.type = info.type,
+								.typeMap = 0,
+								.indexMap = uf::graph::storage.shadow2Ds.size(),
+								.depthBias = info.bias,
+							});
+							uf::graph::storage.shadow2Ds.emplace_back().aliasAttachment(attachment, view);
+						}
+					}
+				}
+			}
+		}
+		
+		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
+	}
+
 	/* Update lights */ if ( !uf::renderer::settings::experimental::vxgi ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
@@ -535,18 +685,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		alignas(4) uint32_t indexSkybox;
 	};
 
-	struct LightInfo {
-		uf::Entity* entity = NULL;
-		pod::Vector4f color = {0,0,0,0};
-		pod::Vector3f position = {0,0,0};
-		float distance = 0;
-		float bias = 0;
-		int32_t type = 0;
-		bool shadows = false;
-	};
-	uf::stl::vector<LightInfo> entities;
-	entities.reserve(graph.size() / 2);
-
 	// struct that contains our skybox cubemap, noise texture, and VXGI voxels
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 	uf::stl::vector<uf::renderer::Texture> textures2D;
@@ -558,174 +696,19 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	uf::stl::vector<uf::renderer::Texture> texturesCube;
 	texturesCube.reserve( metadata.max.texturesCube );
 
-	// lighting information
-	uf::stl::vector<pod::Light> lights;
-	lights.reserve( metadata.max.lights );
-
-	// material information
-	uf::stl::vector<pod::Material> materials;
-	materials.reserve( metadata.max.textures2D );
-	materials.emplace_back().colorBase = {0,0,0,0}; // setup our fallback material information
-	// texture information
-	uf::stl::vector<pod::Texture> textures;
-	textures.reserve( metadata.max.textures2D );
-	// drawcall information
-	uf::stl::vector<pod::DrawCommand> drawCommands;
-	drawCommands.reserve( metadata.max.textures2D );
-
-	// bind materials
-	for ( auto pair : uf::graph::storage.materials ) materials.emplace_back(pair.second);
-	for ( auto pair : uf::graph::storage.textures ) textures.emplace_back(pair.second);
-	// bind textures
-	// bind texture2Ds
-	for ( auto pair : uf::graph::storage.images ) {
-		auto& image = pair.second;
-		auto& texture2D = uf::graph::storage.texture2Ds[pair.first];
-		if ( !texture2D.generated() ) texture2D.loadFromImage( pair.second );
-		textures2D.emplace_back().aliasTexture(texture2D);
-	}
-
-	// traverse scene graph
-	for ( auto entity : graph ) {
-		// needed to grab our necessary materials/texture information, until i add it globally
-	#if 0
-		if ( entity->hasComponent<pod::Graph>() ) {
-			auto& graph = entity->getComponent<pod::Graph>();
-			// pass our draw call information, necessary in shader
-		/*
-			drawCommands.emplace_back(pod::DrawCall{
-				materials.size(),
-				textures.size(),
-				textures2D.size(),
-				0,
-			});
-		*/
-			// pass material information
-			for ( auto& material : graph.materials ) {
-				materials.emplace_back( uf::graph::storage.materials[material] );
-			}
-			// pass texture information
-			for ( auto& texture : graph.textures ) {
-				textures.emplace_back( uf::graph::storage.textures[texture] );
-				// attach the actual texture if the texture information requests it
-			//	if ( texture.bind ) textures2D.emplace_back().aliasTexture(texture.texture);
-			}
-		}
-	#endif
-		// ignore this scene, our controller, and anything that isn't actually a light
-		if ( entity == this || entity == &controller || !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
-		auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-		// disables shadow mappers that activate when in range
-		bool hasRT = entity->hasComponent<uf::renderer::RenderTargetRenderMode>();
-		if ( hasRT ) {
-			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-			if ( metadata.renderer.mode == "in-range" ) renderMode.execute = false;
-		}
-		if ( metadata.power <= 0 ) continue;
-		auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
-		LightInfo& info = entities.emplace_back(LightInfo{
-			.entity = entity,
-			.color = pod::Vector4f{ metadata.color.x, metadata.color.y, metadata.color.z, metadata.power },
-			.position = flatten.position,
-			.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
-			.bias = metadata.bias,
-			.type = metadata.type,
-			.shadows = metadata.shadows && hasRT,
-		});
-	}
-	// prioritize closer lights; it would be nice to also prioritize lights in view, but because of VXGI it's not really something to do
-	std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
-		return l.distance < r.distance;
-	});
-
-	int32_t shadowUpdateThreshold = metadata.shadow.update; // how many shadow maps we should update, based on range
-	int32_t shadowCount = metadata.shadow.max; // how many shadow maps we should pass, based on range
-	if ( shadowCount <= 0 ) shadowCount = std::numeric_limits<int32_t>::max();
-
-	// disable shadows if that light is outside our threshold
-	for ( auto& info : entities ) if ( info.shadows && shadowCount-- <= 0 ) info.shadows = false;
+	// bind scene textures
+	for ( auto& key : uf::graph::storage.texture2Ds.keys ) textures2D.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
+	
+	// bind shadow maps
+	for ( auto& texture : uf::graph::storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
+	for ( auto& texture : uf::graph::storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
 	// bind skybox
+	size_t indexSkybox = texturesCube.size();
 	texturesCube.emplace_back().aliasTexture(sceneTextures.skybox);
 	// bind noise texture
+	size_t indexNoise = textures3D.size();
 	textures3D.emplace_back().aliasTexture(sceneTextures.noise);
-	// bind lighting and requested shadow maps
-	for ( uint32_t i = 0; i < entities.size() && lights.size() < metadata.max.lights; ++i ) {
-		auto& info = entities[i];
-		uf::Entity* entity = info.entity;
-
-		if ( !info.shadows ) {
-			lights.emplace_back(pod::Light{
-				.view = uf::matrix::identity(),
-				.projection = uf::matrix::identity(),
-				.position = info.position,
-				.color = info.color,
-				.type = info.type,
-				.typeMap = 0,
-				.indexMap = -1,
-				.depthBias = info.bias,
-			});
-		} else {
-			auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-			auto& lightCamera = entity->getComponent<uf::Camera>();
-			auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
-			lightMetadata.renderer.rendered = true;
-			// activate our shadow mapper if it's range-basedd
-			if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) renderMode.execute = true;
-			// if point light, and combining is requested
-			if ( metadata.shadow.experimentalMode > 0 && renderMode.renderTarget.views == 6 ) {
-				int32_t index = -1;
-				// separated texture2Ds
-				if ( metadata.shadow.experimentalMode == 2 ) {
-					index = textures2D.size();
-					for ( auto& attachment : renderMode.renderTarget.attachments ) {
-						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {			
-							textures2D.emplace_back().aliasAttachment(attachment, view);
-						}
-						break;
-					}
-				// cubemapped
-				} else {
-					index = texturesCube.size();
-					for ( auto& attachment : renderMode.renderTarget.attachments ) {
-						if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-						texturesCube.emplace_back().aliasAttachment(attachment);
-						break;
-					}
-				}
-				lights.emplace_back(pod::Light{
-					.view = lightCamera.getView(0),
-					.projection = lightCamera.getProjection(0),
-					.position = info.position,
-					.color = info.color,
-					.type = info.type,
-					.typeMap = metadata.shadow.experimentalMode,
-					.indexMap = index,
-					.depthBias = info.bias,
-				});
-			// any other shadowing light, even point lights, are split by shadow maps
-			} else {
-				for ( auto& attachment : renderMode.renderTarget.attachments ) {
-					if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-					if ( attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) continue;
-					for ( size_t view = 0; view < renderMode.renderTarget.views; ++view ) {
-						lights.emplace_back(pod::Light{
-							.view = lightCamera.getView(view),
-							.projection = lightCamera.getProjection(view),
-							.position = info.position,
-							.color = info.color,
-							.type = info.type,
-							.typeMap = 0,
-							.indexMap = textures2D.size(),
-							.depthBias = info.bias,
-						});
-						textures2D.emplace_back().aliasAttachment(attachment, view);
-					}
-				}
-			}
-		}
-	}
 
 	// attach VXGI voxels
 	if ( uf::renderer::settings::experimental::vxgi ) {
@@ -781,10 +764,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		};
 	
 		uniforms.lengths = UniformDescriptor::Lengths{
-			.lights = MIN( lights.size(), metadata.max.lights ),
-			.materials = MIN( materials.size(), metadata.max.textures2D ),
-			.textures = MIN( textures.size(), metadata.max.textures2D ),
-		//	.drawCommands = MIN( drawCommands.size(), metadata.max.textures2D ),
+			.lights = MIN( uf::graph::storage.lights.size(), metadata.max.lights ),
+			.materials = MIN( uf::graph::storage.materials.keys.size(), metadata.max.textures2D ),
+			.textures = MIN( uf::graph::storage.textures.keys.size(), metadata.max.textures2D ),
+			.drawCommands = MIN( 0, metadata.max.textures2D ),
 		};
 
 		uniforms.ambient = metadata.light.ambient;
@@ -793,7 +776,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		uniforms.exposure = metadata.light.exposure;
 		uniforms.msaa = ext::vulkan::settings::msaa;
 		uniforms.shadowSamples = std::min( 0, metadata.shadow.samples );
-		uniforms.indexSkybox = 0;
+		uniforms.indexSkybox = indexSkybox;
 	}
 
 	for ( auto* blitter : blitters ) {
@@ -817,25 +800,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			if ( previousTextures[i] != graphic.material.textures[i].image )
 				shouldUpdate = true;
 		}
-		
-		// update lighting buffer
-		shader.updateBuffer( (const void*) lights.data(), uniforms.lengths.lights * sizeof(pod::Light), renderMode.metadata.lightBufferIndex, false );
-		//
-		if ( shouldUpdate ) {
-			shader.updateBuffer( (const void*) materials.data(), uniforms.lengths.materials * sizeof(pod::Material), renderMode.metadata.materialBufferIndex, false );
-			shader.updateBuffer( (const void*) textures.data(), uniforms.lengths.textures * sizeof(pod::Texture), renderMode.metadata.textureBufferIndex, false );
-			shader.updateBuffer( (const void*) drawCommands.data(), uniforms.lengths.drawCommands * sizeof(pod::DrawCommand), renderMode.metadata.drawCallBufferIndex, false );
-
-			graphic.updatePipelines();
-		}
+		if ( shouldUpdate ) graphic.updatePipelines();
 	
-	//	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );	
 		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
-	/*
-		auto& uniform = shader.getUniform("UBO");
-		memcpy( (void*) uniform, &uniforms, sizeof(uniforms) );
-		shader.updateUniform( "UBO", uniform );	
-	*/
 	}
 }
 #endif

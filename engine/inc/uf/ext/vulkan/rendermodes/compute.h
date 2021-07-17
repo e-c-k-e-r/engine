@@ -7,7 +7,6 @@ namespace ext {
 	namespace vulkan {
 		struct UF_API ComputeRenderMode : public ext::vulkan::RenderMode {
 			ext::vulkan::Graphic blitter, compute;
-			pod::Vector2ui dispatchSize = { 32, 32 };
 
 			// RAII
 			virtual const uf::stl::string getType() const;

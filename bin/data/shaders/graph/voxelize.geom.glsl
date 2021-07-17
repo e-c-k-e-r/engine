@@ -47,7 +47,7 @@ void main(){
  	A = N.z > N[A] ? 2 : A;
 #endif
 	
-	const uint CASCADE = inId[0].z;
+	const uint CASCADE = inId[0].w;
 	vec3 P[3] = {
 		vec3( ubo.voxel * vec4( inPosition[0], 1 ) ) / cascadePower(CASCADE),
 		vec3( ubo.voxel * vec4( inPosition[1], 1 ) ) / cascadePower(CASCADE),
