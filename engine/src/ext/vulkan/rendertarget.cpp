@@ -11,15 +11,15 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	pass.access = access;
 	pass.layer = layer;
 	pass.autoBuildPipeline = autoBuildPipeline;
-	for ( auto& i : colors )  pass.colors.push_back(  { (uint32_t) i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
-	for ( auto& i : inputs )  pass.inputs.push_back(  { (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
-	for ( auto& i : resolves ) pass.resolves.push_back( { (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+	for ( auto& i : colors )  pass.colors.emplace_back( VkAttachmentReference{ (uint32_t) i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
+	for ( auto& i : inputs )  pass.inputs.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+	for ( auto& i : resolves ) pass.resolves.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
 	if ( depth < attachments.size() ) pass.depth = { (uint32_t) depth, attachments[depth].descriptor.layout };
 
 	if ( !resolves.empty() && resolves.size() != colors.size() )
 		VK_VALIDATION_MESSAGE("Mismatching resolves count: Expecting " << colors.size() << ", got " << resolves.size());
 
-	passes.push_back(pass);
+	passes.emplace_back(pass);
 }
 size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descriptor, Attachment* attachment ) {
 	if ( this->views == 0 ) this->views = 1;
@@ -180,7 +180,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 				description.finalLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
 				description.flags = 0;
 
-				attachments.push_back(description);
+				attachments.emplace_back(description);
 			}
 		}
 
@@ -208,7 +208,9 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 		size_t i = 0;
-	//	std::cout << this << ": " << std::endl;
+	#if 0
+		UF_MSG_DEBUG(this << ": ");
+	#endif
 		for ( auto& pass : passes ) {
 			VkSubpassDescription description;
 			// describe renderpass
@@ -228,13 +230,12 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 					break;
 				}
 			}
-			descriptions.push_back(description);
+			descriptions.emplace_back(description);
 		
 		#if 0
 			UF_MSG_DEBUG("Pass: " << descriptions.size() - 1);
 			for ( auto& color : pass.colors ) UF_MSG_DEBUG("Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image);
 			for ( auto& input : pass.inputs ) UF_MSG_DEBUG("Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image);
-			std::cout << std::endl;
 		#endif
 			// transition dependency between subpasses
 			dependency.srcSubpass = dependency.dstSubpass;
@@ -243,7 +244,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependency.dstSubpass = i++;
 			dependency.dstStageMask = pass.stage;
 			dependency.dstAccessMask = pass.access;
-			dependencies.push_back(dependency);
+			dependencies.emplace_back(dependency);
 		}
 		// dependency: transition to final
 		{
@@ -253,7 +254,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependency.dstSubpass = VK_SUBPASS_EXTERNAL;
 			dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 			dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-			dependencies.push_back(dependency);
+			dependencies.emplace_back(dependency);
 		}
 
 		// depth dependency
@@ -270,7 +271,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 			dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 			
-			dependencies.push_back(dependency);
+			dependencies.emplace_back(dependency);
 		}
 		{
 			VkSubpassDependency dependency;
@@ -284,7 +285,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			dependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 			
-			dependencies.push_back(dependency);
+			dependencies.emplace_back(dependency);
 		}
 	
 	#if 0
@@ -293,7 +294,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			UF_MSG_DEBUG("\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask);
 			UF_MSG_DEBUG("\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask);
 		}
-		std::cout << std::endl;
 	#endif
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -327,7 +327,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 */
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 
-	//	std::cout << renderPass << ": " << attachments.size() << std::endl;
+	//	UF_MSG_DEBUG(renderPass << ": " << attachments.size());
 	}
 	{	
 		// destroy previous framebuffers
@@ -340,8 +340,8 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			for ( size_t j = 0; j < this->views; ++j ) {
 				for ( auto& attachment : this->attachments ) {
 					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
-						attachmentViews.push_back(base.renderTarget.attachments[i].view);
-					} else attachmentViews.push_back(attachment.views[j]);
+						attachmentViews.emplace_back(base.renderTarget.attachments[i].view);
+					} else attachmentViews.emplace_back(attachment.views[j]);
 				}
 			}
 

@@ -15,6 +15,9 @@ vec3 orthogonal(vec3 u){
 vec4 blend( vec4 source, vec4 dest, float a ) {
     return source * a + dest * (1.0 - a);
 }
+float gauss( float x, float sigma )  {
+	return (1.0 / (2.0 * 3.14157 * sigma) * exp(-(x*x) / (2.0 * sigma)));
+}
 bool enabled( uint flag, uint bit ) {
 	return (flag & (1 << bit)) != 0;
 }
@@ -35,7 +38,7 @@ bool validTextureIndex( int textureIndex ) {
 bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < CUBEMAPS;
 }
-#if DEFERRED || COMPUTE
+#if !BLOOM && (DEFERRED || COMPUTE)
 bool validTextureIndex( uint id ) {
 	return 0 <= id && id < MAX_TEXTURES;
 }

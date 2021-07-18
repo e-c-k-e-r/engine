@@ -84,7 +84,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 		}
 	});
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		metadata.deserialize(self, metadataJson);
 	});
 	metadata.deserialize(self, metadataJson);

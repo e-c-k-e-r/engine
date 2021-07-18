@@ -40,6 +40,7 @@ namespace ext {
 				extern UF_API bool vxgi;
 				extern UF_API bool deferredSampling;
 				extern UF_API bool culling;
+				extern UF_API bool bloom;
 			}
 
 			namespace formats {

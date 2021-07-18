@@ -121,7 +121,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
 #endif
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		metadata.deserialize(self, metadataJson);
 	});
 	metadata.deserialize(self, metadataJson);

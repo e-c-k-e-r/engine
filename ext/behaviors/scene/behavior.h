@@ -24,7 +24,14 @@ namespace ext {
 				pod::Vector4f specular = {1,1,1,1};
 				float exposure = 1.0f;
 				float gamma = 1.0f;
+				float brightnessThreshold = 1.0f;
 			} light;
+			struct {
+				float scale = 1.0f;
+				float strength = 1.0f;
+				float sigma = 0.8f;
+				uint32_t samples = 1;
+			} bloom;
 			struct {
 				bool enabled = true;
 				int samples = 4;

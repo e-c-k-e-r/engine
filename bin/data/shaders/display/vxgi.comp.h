@@ -32,9 +32,14 @@ layout (binding = 4) uniform UBO {
 	float gamma;
 
 	float exposure;
+	float brightnessThreshold;
 	uint msaa;
 	uint shadowSamples;
+
 	uint indexSkybox;
+	uint padding1;
+	uint padding2;
+	uint padding3;
 } ubo;
 /*
 layout (std140, binding = 5) readonly buffer DrawCommands {

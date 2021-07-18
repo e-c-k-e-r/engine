@@ -36,6 +36,7 @@ namespace ext {
 			void update( const Graphic& graphic );
 			void update( const Graphic& graphic, const GraphicDescriptor& descriptor );
 			void record( const Graphic& graphic, VkCommandBuffer, size_t = 0, size_t = 0 ) const;
+			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer, size_t = 0, size_t = 0 ) const;
 			void destroy();
 
 			uf::stl::vector<Shader*> getShaders( uf::stl::vector<Shader>& );

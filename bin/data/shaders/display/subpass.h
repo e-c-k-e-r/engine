@@ -49,9 +49,14 @@ layout (binding = 4) uniform UBO {
 	float gamma;
 
 	float exposure;
+	float brightnessThreshold;
 	uint msaa;
 	uint shadowSamples;
+
 	uint indexSkybox;
+	uint padding1;
+	uint padding2;
+	uint padding3;
 } ubo;
 /*
 layout (std140, binding = 5) readonly buffer DrawCommands {
@@ -81,9 +86,10 @@ layout (binding = 11) uniform sampler3D samplerNoise;
 #endif
 
 layout (location = 0) in vec2 inUv;
-layout (location = 1) in flat uint inPushConstantPass;
+layout (location = 1) in flat uvec2 inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
+layout (location = 1) out vec4 outFragBright;
 
 #include "../common/functions.h"
 #include "../common/fog.h"
@@ -94,6 +100,9 @@ layout (location = 0) out vec4 outFragColor;
 #endif
 
 void postProcess() {
+	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
+	outFragBright = brightness > ubo.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
@@ -106,12 +115,12 @@ void postProcess() {
 #if WHITENOISE
 	if ( enabled(ubo.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.mode.parameters);
 #endif
-
-	outFragColor = vec4(surface.fragment.rgb,1);
+	
+	outFragColor = vec4(surface.fragment.rgb, 1.0);
 }
 
 void populateSurface() {
-	surface.pass = inPushConstantPass;
+	surface.pass = inPushConstantPass.x;
 	{
 	#if !MULTISAMPLING
 		const float depth = subpassLoad(samplerDepth).r;

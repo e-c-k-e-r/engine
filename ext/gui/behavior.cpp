@@ -426,7 +426,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		metadata.deserialize(self, metadataJson);
 	});
 	metadata.deserialize(self, metadataJson);
@@ -570,7 +570,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		});
 		auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
 
-		this->addHook( "object:UpdateMetadata.%UID%", [&](){
+		this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 			metadataGlyph.deserialize(self, metadataJson);
 		});
 	//	metadataGlyph.deserialize(self, metadataJson);

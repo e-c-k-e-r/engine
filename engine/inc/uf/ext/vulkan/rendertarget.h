@@ -27,15 +27,15 @@ namespace ext {
 			uf::stl::vector<Attachment> attachments;
 
 			struct Subpass {
-				VkPipelineStageFlags stage;
-				VkAccessFlags access;
-				uint8_t layer;
+				VkPipelineStageFlags stage = {};
+				VkAccessFlags access = {};
+				uint8_t layer = 0;
 				bool autoBuildPipeline;
 
-				uf::stl::vector<VkAttachmentReference> colors;
-				uf::stl::vector<VkAttachmentReference> inputs;
-				uf::stl::vector<VkAttachmentReference> resolves;
-				VkAttachmentReference depth;
+				uf::stl::vector<VkAttachmentReference> colors = {};
+				uf::stl::vector<VkAttachmentReference> inputs = {};
+				uf::stl::vector<VkAttachmentReference> resolves = {};
+				VkAttachmentReference depth = {};
 			};
 			uf::stl::vector<Subpass> passes;
 

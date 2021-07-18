@@ -47,6 +47,14 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 			sceneMetadataJson["light"]["fog"] = graph.metadata["fog"];
 			shouldUpdate = true;	
 		}
+		if ( !ext::json::isNull(graph.metadata["gamma"]) ) {
+			sceneMetadataJson["light"]["gamma"] = graph.metadata["gamma"];
+			shouldUpdate = true;	
+		}
+		if ( !ext::json::isNull(graph.metadata["brightnessThreshold"]) ) {
+			sceneMetadataJson["light"]["brightnessThreshold"] = graph.metadata["brightnessThreshold"];
+			shouldUpdate = true;	
+		}
 		if ( shouldUpdate ) scene.callHook("object:UpdateMetadata.%UID%");
 
 		// deferred shader loading

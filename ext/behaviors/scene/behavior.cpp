@@ -190,7 +190,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	}
 	#endif
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+	this->addHook( "object:UpdateMetadata.%UID%", [&]( ext::json::Value& json ){
 		metadata.deserialize(self, metadataJson);
 	});
 	metadata.deserialize(self, metadataJson);
@@ -502,6 +502,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["specular"] = uf::vector::encode( /*this->*/light.specular );
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
+	serializer["light"]["brightnessThreshold"] = /*this->*/light.brightnessThreshold;
 
 	serializer["light"]["fog"]["color"] = uf::vector::encode( /*this->*/fog.color );
 	serializer["light"]["fog"]["step scale"] = /*this->*/fog.stepScale;
@@ -518,15 +519,10 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["system"]["renderer"]["shader"]["parameters"] = uf::vector::encode( /*this->*/shader.parameters );
 }
 void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
-	if ( !serializer["light"]["point light eye depth scale"].is<float>() )
-		serializer["light"]["point light eye depth scale"] = ext::config["engine"]["scenes"]["lights"]["point light eye depth scale"];
-
 	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(/*this->*/max.textures2D);
 	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(/*this->*/max.texturesCube);
 	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(/*this->*/max.textures3D);
 	/*this->*/max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/max.lights);
-
-	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
 
 	/*this->*/shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && serializer["light"]["shadows"].as<bool>(true);
 	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
@@ -534,10 +530,19 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shadow.update = ext::config["engine"]["scenes"]["shadows"]["update"].as<uint32_t>();
 	/*this->*/shadow.experimentalMode = ext::config["engine"]["scenes"]["shadows"]["experimental mode"].as<uint32_t>(0);
 
+	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
 	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
 	/*this->*/light.specular = uf::vector::decode( serializer["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
 	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as<float>(2.2f);
+	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as<float>(ext::config["engine"]["scenes"]["bloom"]["brightnessThreshold"].as<float>(1.0f));
+
+	UF_MSG_DEBUG( serializer["bloom"] );
+
+	/*this->*/bloom.scale = serializer["bloom"]["scale"].as(ext::config["engine"]["scenes"]["bloom"]["scale"].as(bloom.scale));
+	/*this->*/bloom.strength = serializer["bloom"]["strength"].as(ext::config["engine"]["scenes"]["bloom"]["strength"].as(bloom.strength));
+	/*this->*/bloom.sigma = serializer["bloom"]["sigma"].as(ext::config["engine"]["scenes"]["bloom"]["sigma"].as(bloom.sigma));
+	/*this->*/bloom.samples = serializer["bloom"]["samples"].as(ext::config["engine"]["scenes"]["bloom"]["samples"].as(bloom.samples));
 
 	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
 	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as<float>();
@@ -561,6 +566,39 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	uf::renderer::states::rebuild = true;
 #endif
+
+	if ( uf::renderer::settings::experimental::bloom ) {
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+		auto& blitter = *renderMode.getBlitters().front();
+		auto& shader = blitter.material.getShader("compute", "bloom");
+
+		struct UniformDescriptor {
+			float scale;
+			float strength;
+			float threshold;
+			float sigma;
+
+			float gamma;
+			float exposure;
+			uint32_t samples;
+			uint32_t padding;
+		};
+
+		UniformDescriptor uniforms = {
+			.scale = bloom.scale,
+			.strength = bloom.strength,
+			.threshold = light.brightnessThreshold,
+			.sigma = bloom.sigma,
+
+			.gamma = light.gamma,
+			.exposure = light.exposure,
+			.samples = bloom.samples,
+		};
+
+		UF_MSG_DEBUG( bloom.scale << " " << bloom.strength << " " << light.brightnessThreshold << " " << bloom.sigma << " " << light.gamma << " " << light.exposure << " " << bloom.samples );
+
+		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+	}
 }
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, bool isCompute ) {
@@ -574,7 +612,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
-	uf::stl::vector<uf::Graphic*> blitters = renderMode.getBlitters();
+	auto blitters = renderMode.getBlitters();
 	
 #if UF_USE_OPENGL
 	struct LightInfo {
@@ -680,9 +718,14 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		alignas(4) float gamma;
 
 		alignas(4) float exposure;
+		alignas(4) float brightnessThreshold;
 		alignas(4) uint32_t msaa;
-		alignas(4) uint32_t shadowSamples;		
+		alignas(4) uint32_t shadowSamples;
+
 		alignas(4) uint32_t indexSkybox;
+		alignas(4) uint32_t padding1;
+		alignas(4) uint32_t padding2;
+		alignas(4) uint32_t padding3;
 	};
 
 	// struct that contains our skybox cubemap, noise texture, and VXGI voxels
@@ -774,8 +817,10 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		uniforms.gamma = metadata.light.gamma;
 
 		uniforms.exposure = metadata.light.exposure;
+		uniforms.brightnessThreshold = metadata.light.brightnessThreshold;
 		uniforms.msaa = ext::vulkan::settings::msaa;
 		uniforms.shadowSamples = std::min( 0, metadata.shadow.samples );
+
 		uniforms.indexSkybox = indexSkybox;
 	}
 

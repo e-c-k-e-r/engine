@@ -44,6 +44,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			transform.reference = &controller.getComponent<pod::Transform<>>();
 		}
 	});
+	this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
+		this->callHook("object:UpdateMetadata.%UID%", json);
+	});
 	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
 		if ( ext::json::isNull( json ) ) return;
 		if ( json["type"].as<uf::stl::string>() == "merge" ) {
@@ -105,7 +108,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](){
+	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){
 		metadata.deserialize(self, metadataJson);
 	});
 	metadata.deserialize(self, metadataJson);

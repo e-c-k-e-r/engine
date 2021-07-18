@@ -41,6 +41,7 @@ bool ext::opengl::settings::experimental::hdr = true;
 bool ext::opengl::settings::experimental::vxgi = true;
 bool ext::opengl::settings::experimental::deferredSampling = true;
 bool ext::opengl::settings::experimental::culling = false;
+bool ext::opengl::settings::experimental::bloom = false;
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;

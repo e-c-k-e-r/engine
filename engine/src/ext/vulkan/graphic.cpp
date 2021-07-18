@@ -325,6 +325,9 @@ PIPELINE_INITIALIZATION_INVALID:
 	return;
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
+	return record( graphic, descriptor, commandBuffer, pass, draw );
+}
+void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
 	auto bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	auto shaders = getShaders( graphic.material.shaders );
 	for ( auto* shader : shaders ) {
@@ -424,7 +427,8 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}
 		}
 
-		for ( auto& texture : graphic.material.textures ) {
+		auto& textures = !shader->textures.empty() ? shader->textures : graphic.material.textures;
+		for ( auto& texture : textures ) {
 			infos.image.emplace_back(texture.descriptor);
 			switch ( texture.viewType ) {
 				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
@@ -957,7 +961,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		return;
 	}
 	if ( !pipeline.metadata.process ) return;
-	pipeline.record(*this, commandBuffer, pass, draw);
+	pipeline.record(*this, descriptor, commandBuffer, pass, draw);
 
 	auto shaders = pipeline.getShaders( material.shaders );
 	for ( auto* shader : shaders ) if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;

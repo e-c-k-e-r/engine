@@ -98,6 +98,10 @@ namespace ext {
 			ext::vulkan::userdata_t specializationConstants;
 			uf::stl::vector<ext::vulkan::userdata_t> pushConstants;
 			uf::stl::vector<ext::vulkan::userdata_t> uniforms;
+
+			// for per-shader texture allotment, needed for our bloom pipeline
+			uf::stl::vector<Texture2D> textures;
+
 		//	~Shader();
 			void initialize( Device& device, const uf::stl::string&, VkShaderStageFlagBits );
 			void destroy();
