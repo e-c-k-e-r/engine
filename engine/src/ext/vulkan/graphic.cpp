@@ -34,7 +34,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	uint32_t subpass = descriptor.subpass;
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
-	auto& renderTarget = renderMode.getRenderTarget(  descriptor.renderTarget );
+	auto& renderTarget = renderMode.getRenderTarget( descriptor.renderTarget );
 	
 	uf::stl::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
 	uf::stl::vector<VkPushConstantRange> pushConstantRanges;
@@ -80,9 +80,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			poolSizes.data(),
 			1
 		);
-		
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
-
 
 		VkDescriptorSetLayoutCreateInfo descriptorLayout = ext::vulkan::initializers::descriptorSetLayoutCreateInfo(
 			descriptorSetLayoutBindings.data(),
@@ -103,7 +101,6 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		);
 		pPipelineLayoutCreateInfo.pushConstantRangeCount = pushConstantRanges.size();
 		pPipelineLayoutCreateInfo.pPushConstantRanges = pushConstantRanges.data();
-
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 	}
 	// Compute
@@ -261,38 +258,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 		vertexInputState.vertexAttributeDescriptionCount = attributeDescriptions.size();
 		vertexInputState.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-	#if 0
-		for ( auto* SHADER : shaders ) {
-			ext::vulkan::Shader* shader = const_cast<ext::vulkan::Shader*>(SHADER);
-			void* s = (void*) shader->specializationConstants;
-			size_t len = shader->specializationConstants.data().len;
-			bool invalidated = true;
-			for ( auto pair : shader->metadata.definitions.specializationConstants ) {
-				auto& name = pair.first;
-				auto& payload = pair.second;
-				uf::stl::string type = payload.type;
-				if ( type == "int32_t" ) {
-					int32_t& v = ((int32_t*) s)[payload.index];
-					UF_MSG_DEBUG("SC " << payload.name << " = " << v << " = " << payload.value.i << "`" << shader->filename << "`");
-					if ( payload.validate && v != payload.value.i ) v = payload.value.i;
-					payload.value.i = v;
-				} else if ( type == "uint32_t" ) {
-					uint32_t& v = ((uint32_t*) s)[payload.index];
-					UF_MSG_DEBUG("SC " << payload.name << " = " << v << " = " << payload.value.ui << "`" << shader->filename << "`");
-					if ( payload.validate && v != payload.value.ui ) v = payload.value.ui;
-					payload.value.ui = v;
-				} else if ( type == "float" ) {
-					float& v = ((float*) s)[payload.index];
-					UF_MSG_DEBUG("SC " << payload.name << " = " << v << " = " << payload.value.f << "`" << shader->filename << "`");
-					if ( payload.validate && v != payload.value.f ) v = payload.value.f;
-					payload.value.f = v;
-				}
-			}
-			shaderDescriptors.push_back(shader->descriptor);
-		}
-	#else
 		for ( auto* shader : shaders ) shaderDescriptors.emplace_back(shader->descriptor);
-	#endif
 
 		VkGraphicsPipelineCreateInfo pipelineCreateInfo = ext::vulkan::initializers::pipelineCreateInfo(
 			pipelineLayout,
@@ -877,7 +843,7 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		descriptor.inputs.instance.count = 1;
 	}
 }
-void ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
+bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	// generate indices if not found
 //	if ( mesh.index.count == 0 ) mesh.generateIndices();
 	// generate indirect data if not found
@@ -916,14 +882,16 @@ void ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
 
 	// allocate buffers
+	bool rebuild = false;
 	for ( auto i = 0; i < queue.size(); ++i ) {
 		auto& q = queue[i];
-		updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i );
+		rebuild = rebuild || updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i );
 	}
 
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
 		descriptor.inputs.instance.count = 1;
 	}
+	return rebuild;
 }
 bool ext::vulkan::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
 	return pipelines.count( descriptor.hash() ) > 0;

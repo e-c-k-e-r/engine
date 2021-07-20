@@ -35,9 +35,14 @@ namespace ext {
 
 			void initialize( const Graphic& graphic );
 			void initialize( const Graphic& graphic, const GraphicDescriptor& descriptor );
+
+			uf::stl::vector<ext::opengl::Shader*> getShaders( uf::stl::vector<ext::opengl::Shader>& shaders );
+			uf::stl::vector<const ext::opengl::Shader*> getShaders( const uf::stl::vector<ext::opengl::Shader>& shaders ) const;
+
 			void update( const Graphic& graphic );
 			void update( const Graphic& graphic, const GraphicDescriptor& descriptor );
 			void record( const Graphic& graphic, CommandBuffer&, size_t = 0, size_t = 0 ) const;
+			void record( const Graphic& graphic, const GraphicDescriptor& descriptor, CommandBuffer&, size_t = 0, size_t = 0 ) const;
 			void destroy();
 		};
 		struct UF_API Material {
@@ -50,6 +55,7 @@ namespace ext {
 			struct Metadata {
 				uf::Serializer json;
 				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
+				bool autoInitializeUniforms = true;
 			} metadata;
 
 			void initialize( Device& device );
@@ -74,16 +80,15 @@ namespace ext {
 
 			struct {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
+				pod::Uniform* uniforms = NULL;
 			} metadata;
 
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );
 			void destroy();
 			
-		//	template<typename T, typename U>
-		//	void initializeMesh( uf::Mesh<T, U>& mesh, size_t = SIZE_MAX );
-		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
-			void initializeMesh( uf::Mesh& mesh );
+			void initializeMesh( uf::Mesh& mesh, bool = true );
+			bool updateMesh( uf::Mesh& mesh );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();
@@ -96,19 +101,6 @@ namespace ext {
 			
 			void record( CommandBuffer& commandBuffer, size_t pass = 0, size_t draw = 0 ) const;
 			void record( CommandBuffer& commandBuffer, const GraphicDescriptor& descriptor, size_t pass = 0, size_t draw = 0 ) const;
-
-			bool hasStorage( const uf::stl::string& name ) const;
-			Buffer* getStorageBuffer( const uf::stl::string& name );
-			const Buffer* getStorageBuffer( const uf::stl::string& name ) const;
-
-			Buffer::Descriptor getUniform( size_t = 0 ) const;
-			void updateUniform( const void*, size_t, size_t = 0 ) const;
-
-			Buffer::Descriptor getStorage( size_t = 0 ) const;
-			void updateStorage( const void*, size_t, size_t = 0 ) const;
-			
-			uf::Serializer getStorageJson( const uf::stl::string& name, bool cache = true );
-			ext::opengl::userdata_t getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload );
 		};
 	}
 }

@@ -47,22 +47,20 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			camera.setProjection( uf::matrix::orthographic( l, r, b, t, n, f ) );
 		} else {
 			float fov = metadataJson["camera"]["settings"]["fov"].as<float>(120) * (3.14159265358f / 180.0f);
-			float znear = metadataJson["camera"]["settings"]["clip"]["near"].as<float>();
-			float zfar = metadataJson["camera"]["settings"]["clip"]["far"].as<float>();
-			
+			pod::Vector2f range = uf::vector::decode( metadataJson["camera"]["settings"]["clip"], pod::Vector2f{ 0.1, 64.0f } );
 			pod::Vector2ui size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector2ui{} );
 			float raidou = (float) size.x / (float) size.y;
 
 			if ( size.x == 0 || size.y == 0 )  {
 				size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 				raidou = (float) size.x / (float) size.y;
-				this->addHook( "window:Resized", [&, fov, znear, zfar](ext::json::Value& json){
+				this->addHook( "window:Resized", [&, fov, range](ext::json::Value& json){
 					pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
 					float raidou = (float) size.x / (float) size.y;
-					camera.setProjection( uf::matrix::perspective( fov, raidou, znear, zfar ) );
+					camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 				} );
 			}
-			camera.setProjection( uf::matrix::perspective( fov, raidou, znear, zfar ) );
+			camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 		}
 		camera.update(true);
 	}

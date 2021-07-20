@@ -91,7 +91,7 @@ namespace ext {
 		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
 
 			void initializeMesh( uf::Mesh& mesh, bool buffer = true );
-			void updateMesh( uf::Mesh& mesh );
+			bool updateMesh( uf::Mesh& mesh );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();

@@ -34,9 +34,9 @@ namespace ext {
 			struct Metadata {
 				uf::Serializer json;
 				
-				bool autoInitializeUniforms = true;
 				uf::stl::string pipeline = "";
 				uf::stl::string type = "";
+				bool autoInitializeUniforms = true;
 
 				struct Definition {
 					struct InOut {

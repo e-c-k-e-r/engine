@@ -13,14 +13,10 @@ namespace ext {
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			pod::Vector2ui size = {};
-			struct {
-				uf::stl::string model = "";
-				struct{
-					uf::stl::string model = "";
-					uf::stl::string map = "./lightmap.png";
-				} output;
-				uf::stl::string renderMode = "Baker";
-			} names;
+
+			uf::stl::string output = "./lightmap.png";
+			uf::stl::string renderModeName = "Baker";
+			
 			struct {
 				size_t instance = 0;
 				size_t material = 0;

@@ -2,17 +2,30 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
+			"meshes": {
+				"interleave": false
+			},
+			"matrix": {
+				"reverseInfinite": false
+			},
 			"lights": {
-				"max": 512,
+				"max": 64,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 4,
+				"update": 2,
 				"max": 8,
 				"samples": 2,
 				"experimental mode": 1
-			}
+			},
+			"textures": {
+				"max": {
+					"2D": 256,
+					"cube": 16,
+					"3D": 1
+				}
+			},
 		},
 		"ext": {
 			"opengl": {

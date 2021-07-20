@@ -92,7 +92,7 @@ namespace pod {
 
 			// maps without direct analogues
 			KeyMap<uf::Atlas> atlases;
-			KeyMap<pod::Matrix4f> joints;
+			KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
 			KeyMap<uf::renderer::Texture2D> texture2Ds;
 			KeyMap<uf::Entity*> entities;
 			
@@ -108,7 +108,7 @@ namespace pod {
 				uf::renderer::Buffer texture;
 				uf::renderer::Buffer light;
 			} buffers;
-		} storage;
+		}/* storage*/;
 	};
 }
 
@@ -152,3 +152,19 @@ namespace uf {
 		uf::Serializer UF_API stats( const pod::Graph& graph );
 	}
 }
+
+/*
+{
+	for ( auto& name : graph.storage.atlases.keys ) uf::graph::storage.atlases[name] = graph.storage.atlases[name];
+	for ( auto& name : graph.storage.images.keys ) uf::graph::storage.images[name] = graph.storage.images[name];
+	for ( auto& name : graph.storage.primitives.keys ) uf::graph::storage.primitives[name] = graph.storage.primitives[name];
+	for ( auto& name : graph.storage.meshes.keys ) uf::graph::storage.meshes[name] = graph.storage.meshes[name];
+	for ( auto& name : graph.storage.joints.keys ) uf::graph::storage.joints[name] = graph.storage.joints[name];
+	for ( auto& name : graph.storage.materials.keys ) uf::graph::storage.materials[name] = graph.storage.materials[name];
+	for ( auto& name : graph.storage.textures.keys ) uf::graph::storage.textures[name] = graph.storage.textures[name];
+	for ( auto& name : graph.storage.samplers.keys ) uf::graph::storage.samplers[name] = graph.storage.samplers[name];
+	for ( auto& name : graph.storage.skins.keys ) uf::graph::storage.skins[name] = graph.storage.skins[name];
+	for ( auto& name : graph.storage.animations.keys ) uf::graph::storage.animations[name] = graph.storage.animations[name];
+	for ( auto& name : graph.storage.entities.keys ) uf::graph::storage.entities[name] = graph.storage.entities[name];
+}
+*/

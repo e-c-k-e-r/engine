@@ -8,11 +8,14 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 1) readonly buffer Materials {
+layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 5) readonly buffer Instances {
+	Instance instances[];
+};
+layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 2) readonly buffer Textures {
+layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
 
@@ -24,7 +27,7 @@ layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec3 inNormal;
 layout (location = 4) in mat3 inTBN;
 layout (location = 7) in vec3 inPosition;
-layout (location = 8) flat in ivec4 inId;
+layout (location = 8) flat in uvec4 inId;
 
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
@@ -48,8 +51,9 @@ void main() {
 	vec4 outAlbedo = vec4(0,0,0,0);
 #endif
 #if !DEFERRED_SAMPLING || CAN_DISCARD
-	Material material = materials[materialID];
-	
+	const Instance instance = instances[instanceID];
+	const Material material = materials[materialID];
+
 	float M = material.factorMetallic;
 	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
@@ -72,11 +76,11 @@ void main() {
 		if ( A.a == 0 ) discard;
 	}
 #if USE_LIGHTMAP
-	if ( validTextureIndex( material.indexLightmap ) ) {
+	if ( validTextureIndex( instance.lightmapID ) ) {
 	#if DEFERRED_SAMPLING
 		outUvs = inSt;
 	#else
-		Texture t = textures[material.indexLightmap];
+		const Texture t = textures[instance.lightmapID];
 		const float gamma = LIGHTMAP_GAMMA;
 		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
 		A *= L;

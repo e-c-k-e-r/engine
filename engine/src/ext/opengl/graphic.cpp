@@ -5,7 +5,8 @@
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/commands.h>
 #include <uf/ext/openvr/openvr.h>
-#include <uf/ext/gltf/gltf.h>
+#include <uf/engine/graph/graph.h>
+#include <uf/utils/camera/camera.h>
 
 #define GL_DEBUG_VALIDATION_MESSAGE(x)\
 	GL_VALIDATION_MESSAGE(x);
@@ -38,11 +39,11 @@ void ext::opengl::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	{
 		GL_ERROR_CHECK(glGenVertexArrays(1, &vertexArray));
 		GL_ERROR_CHECK(glBindVertexArray(vertexArray));
-		for ( size_t i = 0; i < descriptor.attributes.vertex.descriptor.size(); ++i ) {
-			auto& attribute = descriptor.attributes.vertex.descriptor[i];
+		for ( size_t i = 0; i < descriptor.inputs.vertex.attributes.size(); ++i ) {
+			auto& attribute = descriptor.inputs.vertex.attributes[i];
 
 			GL_ERROR_CHECK(glEnableVertexAttribArray(i));
-			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.components, attribute.type, false, descriptor.attributes.vertex.size, attribute.offset));
+			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.descriptor.components, attribute.descriptor.type, false, descriptor.inputs.vertex.stride, attribute.descriptor.offset));
 		}
 		GL_ERROR_CHECK(glBindVertexArray(0));
 	}
@@ -54,6 +55,11 @@ void ext::opengl::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 //	graphic.process = true;
 }
 void ext::opengl::Pipeline::record( const Graphic& graphic, CommandBuffer& commandBuffer, size_t pass, size_t draw ) const {
+#if !UF_USE_OPENGL_FIXED_FUNCTION
+	return record( graphic, descriptor, commandBuffer, pass, draw );
+#endif
+}
+void ext::opengl::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, CommandBuffer& commandBuffer, size_t pass, size_t draw ) const {
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 	CommandBuffer::InfoPipeline pipelineCommandInfo = {};
 	pipelineCommandInfo.type = ext::opengl::enums::Command::BIND_BUFFER;
@@ -79,7 +85,38 @@ void ext::opengl::Pipeline::destroy() {
 #endif
 	descriptor = {};
 }
-
+uf::stl::vector<ext::opengl::Shader*> ext::opengl::Pipeline::getShaders( uf::stl::vector<ext::opengl::Shader>& shaders ) {
+	uf::stl::unordered_map<uf::stl::string, ext::opengl::Shader*> map;
+	uf::stl::vector<ext::opengl::Shader*> res;
+	bool isCompute = false;
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+	//	if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
+	}
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+	//	if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+		map[shader.metadata.type] = &shader;
+	}
+	for ( auto pair : map ) res.insert( res.begin(), pair.second);
+	return res;
+}
+uf::stl::vector<const ext::opengl::Shader*> ext::opengl::Pipeline::getShaders( const uf::stl::vector<ext::opengl::Shader>& shaders ) const {
+	uf::stl::unordered_map<uf::stl::string, const ext::opengl::Shader*> map;
+	uf::stl::vector<const ext::opengl::Shader*> res;
+	bool isCompute = false;
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+	//	if ( shader.descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) isCompute = true;
+	}
+	for ( auto& shader : shaders ) {
+		if ( shader.metadata.pipeline != "" && shader.metadata.pipeline != metadata.type ) continue;
+	//	if ( isCompute && shader.descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+		map[shader.metadata.type] = &shader;
+	}
+	for ( auto pair : map ) res.insert( res.begin(), pair.second);
+	return res;
+}
 void ext::opengl::Material::initialize( Device& device ) {
 	this->device = &device;
 }
@@ -96,6 +133,7 @@ void ext::opengl::Material::destroy() {
 }
 void ext::opengl::Material::attachShader( const uf::stl::string& filename, enums::Shader::type_t stage, const uf::stl::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
+	shader.metadata.autoInitializeUniforms = metadata.autoInitializeUniforms;
 	shader.initialize( *device, filename, stage );
 	
 	uf::stl::string type = "unknown";
@@ -118,6 +156,9 @@ void ext::opengl::Material::initializeShaders( const uf::stl::vector<std::pair<u
 	}
 }
 bool ext::opengl::Material::hasShader( const uf::stl::string& type, const uf::stl::string& pipeline ) const {
+#if 1
+	return metadata.shaders.count(pipeline+":"+type) > 0;
+#else
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 //	return !ext::json::isNull( metadata["shaders"][type] );
 	return metadata.shaders.count(pipeline+":"+type) > 0;
@@ -126,6 +167,7 @@ bool ext::opengl::Material::hasShader( const uf::stl::string& type, const uf::st
 	if ( metadata.shaders.count(pipeline+":"+type) == 0 ) return false;
 	auto& shader = shaders.at(metadata.shaders.at(pipeline+":"+type));
 	return (bool) shader.module;
+#endif
 #endif
 }
 ext::opengl::Shader& ext::opengl::Material::getShader( const uf::stl::string& type, const uf::stl::string& pipeline ) {
@@ -154,16 +196,6 @@ void ext::opengl::Graphic::initialize( const uf::stl::string& renderModeName ) {
 	material.initialize( *device );
 
 	ext::opengl::Buffers::initialize( *device );
-
-	// attach our "uniform"
-	{
-		pod::Uniform uniform;
-		initializeBuffer(
-			(void*) &uniform,
-			sizeof(pod::Uniform),
-			uf::renderer::enums::Buffer::UNIFORM
-		);
-	}
 }
 void ext::opengl::Graphic::initializePipeline() {
 	initializePipeline( this->descriptor, false );
@@ -183,49 +215,108 @@ ext::opengl::Pipeline& ext::opengl::Graphic::initializePipeline( const GraphicDe
 
 	return pipeline;
 }
-void ext::opengl::Graphic::initializeAttributes( const uf::Mesh::Attributes& attributes ) {
-	// already generated, check if we can just update
-	if ( descriptor.indices > 0 ) {
-		if ( descriptor.attributes.vertex.size == attributes.vertex.size && descriptor.attributes.index.size == attributes.index.size && descriptor.indices == attributes.index.length ) {
-			// too lazy to check if this equals, only matters in pipeline creation anyways
-			descriptor.attributes = attributes;
+void ext::opengl::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
+	// generate indices if not found
+//	if ( mesh.index.count == 0 ) mesh.generateIndices();
+	// generate indirect data if not found
+//	if ( mesh.indirect.count == 0  ) mesh.generateIndirect();
+	// ensure our descriptors are proper
+	mesh.updateDescriptor();
 
-			int32_t vertexBuffer = -1;
-			int32_t indexBuffer = -1;
-			for ( size_t i = 0; i < buffers.size(); ++i ) {
-				if ( buffers[i].usage & uf::renderer::enums::Buffer::VERTEX ) vertexBuffer = i;
-				if ( buffers[i].usage & uf::renderer::enums::Buffer::INDEX ) indexBuffer = i;
-			}
+	// copy descriptors
+	descriptor.inputs.vertex = mesh.vertex;
+	descriptor.inputs.index = mesh.index;
+	descriptor.inputs.instance = mesh.instance;
+	descriptor.inputs.indirect = mesh.indirect;
 
-			if ( vertexBuffer > 0 && indexBuffer > 0 ) {
-				updateBuffer(
-					(void*) attributes.vertex.pointer,
-					attributes.vertex.size * attributes.vertex.length,
-					vertexBuffer
-				);
-				updateBuffer(
-					(void*) attributes.index.pointer,
-					attributes.index.size * attributes.index.length,
-					indexBuffer
-				);
-				return;
-			}
+	bool alias = false;
+	buffer = false;
+	// create buffer if not set and requested
+	if ( buffer ) {
+		// ensures each buffer index reflects nicely
+		struct Queue {
+			void* data;
+			size_t size;
+			GLenum usage;
+		};
+		uf::stl::vector<Queue> queue;
+		descriptor.inputs.bufferOffset = buffers.empty() ? 0 : buffers.size() - 1;
+
+		#define PARSE_ATTRIBUTE(i, usage) {\
+			auto& buffer = mesh.buffers[i];\
+			if ( queue.size() <= i ) queue.resize( i );\
+			if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
+		}
+		#define PARSE_INPUT(name, usage){\
+			if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
+			else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
+		}
+
+		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
+		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
+		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
+		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
+
+		// allocate buffers
+		for ( auto i = 0; i < queue.size(); ++i ) {
+			auto& q = queue[i];
+			initializeBuffer( q.data, q.size, q.usage, alias );
 		}
 	}
 
-	descriptor.attributes = attributes;
-	descriptor.indices = attributes.index.length;
+	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
+		descriptor.inputs.instance.count = 1;
+	}
+}
+bool ext::opengl::Graphic::updateMesh( uf::Mesh& mesh ) {
+	// generate indices if not found
+//	if ( mesh.index.count == 0 ) mesh.generateIndices();
+	// generate indirect data if not found
+//	if ( mesh.indirect.count == 0  ) mesh.generateIndirect();
+	// ensure our descriptors are proper
+	mesh.updateDescriptor();
 
-	initializeBuffer(
-		(void*) attributes.vertex.pointer,
-		attributes.vertex.size * attributes.vertex.length,
-		uf::renderer::enums::Buffer::VERTEX
-	);
-	initializeBuffer(
-		(void*) attributes.index.pointer,
-		attributes.index.size * attributes.index.length,
-		uf::renderer::enums::Buffer::INDEX
-	);
+	// copy descriptors
+	descriptor.inputs.vertex = mesh.vertex;
+	descriptor.inputs.index = mesh.index;
+	descriptor.inputs.instance = mesh.instance;
+	descriptor.inputs.indirect = mesh.indirect;
+
+	// create buffer if not set and requested
+	// ensures each buffer index reflects nicely
+	struct Queue {
+		void* data;
+		size_t size;
+		uf::renderer::enums::Buffer::type_t usage;
+	};
+	uf::stl::vector<Queue> queue;
+
+	#define PARSE_ATTRIBUTE(i, usage) {\
+		auto& buffer = mesh.buffers[i];\
+		if ( queue.size() <= i ) queue.resize( i );\
+		if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
+	}
+	#define PARSE_INPUT(name, usage){\
+		if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
+		else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
+	}
+
+	PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
+	PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
+	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
+
+	bool rebuild = false;
+	// allocate buffers
+	for ( auto i = 0; i < queue.size(); ++i ) {
+		auto& q = queue[i];
+		rebuild = rebuild || updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i, true );
+	}
+
+	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
+		descriptor.inputs.instance.count = 1;
+	}
+	return rebuild;
 }
 bool ext::opengl::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
 	return pipelines.count( descriptor.hash() ) > 0;
@@ -252,139 +343,115 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, size_t pass, si
 
 void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw ) const {
 	if ( !process ) return;
+	uf::stl::vector<ext::opengl::Buffer::Descriptor> uniformBuffers;
+	uf::stl::vector<ext::opengl::Buffer::Descriptor> storageBuffers;
 
-	Buffer::Descriptor vertexBuffer = {};
-	Buffer::Descriptor indexBuffer = {};
-	Buffer::Descriptor uniformBuffer = {};
-	uf::stl::vector<Buffer::Descriptor> storageBuffers;
+	auto& pipeline = this->getPipeline( descriptor );
+	auto shaders = pipeline.getShaders( material.shaders );
 
-	for ( auto& buffer : buffers ) {
-		if ( buffer.usage & uf::renderer::enums::Buffer::VERTEX ) { vertexBuffer = buffer.descriptor; }
-		if ( buffer.usage & uf::renderer::enums::Buffer::INDEX ) { indexBuffer = buffer.descriptor; }
-		if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffer = buffer.descriptor; }
-		if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) { storageBuffers.emplace_back(buffer.descriptor); }
-	}
-	if ( !vertexBuffer.buffer || !indexBuffer.buffer ) return;
-
-	uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
-									vertexAttributeNormal,
-									vertexAttributeColor,
-									vertexAttributeUv,
-									vertexAttributeSt,
-									vertexAttributeId;
-
-	for ( auto& attribute : descriptor.attributes.vertex.descriptor ) {
-		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-//		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-//		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
-		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
-		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
-		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
+	for ( auto shader : shaders ) {
+		for ( auto& buffer : shader->buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) { uniformBuffers.emplace_back(buffer.descriptor); }
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) { storageBuffers.emplace_back(buffer.descriptor); }
+		}
 	}
 
-	if ( vertexAttributePosition.name == "" ) return;
+#if 1
+	if ( descriptor.inputs.indirect.count ) {
+		auto& indirectAttribute = descriptor.inputs.indirect.attributes.front();
 
-	size_t indices = descriptor.indices;
-	size_t indicesStride = descriptor.attributes.index.size;
-	size_t vertexStride = descriptor.attributes.vertex.size;
-	size_t vertices = vertexBuffer.range / vertexStride;
-	void* vertexPointer = (void*) ( device->getBuffer( vertexBuffer.buffer ) + vertexBuffer.offset );
-	void* indicesPointer = (void*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
+		auto uniformBufferIt = uniformBuffers.begin();
+		auto storageBufferIt = storageBuffers.begin();
 
-	CommandBuffer::InfoDraw drawCommandInfo = {};
-	drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
-	drawCommandInfo.descriptor = descriptor;
-	drawCommandInfo.vertexBuffer = vertexBuffer;
-	drawCommandInfo.indexBuffer = indexBuffer;
-	drawCommandInfo.uniformBuffer = uniformBuffer;
+		auto uniformBuffer = (*uniformBufferIt++).buffer;
 
-	if ( vertexAttributePosition.name != "" ) drawCommandInfo.attributes.position = vertexAttributePosition.offset;
-	if ( vertexAttributeUv.name != "" ) drawCommandInfo.attributes.uv = vertexAttributeUv.offset;
-	if ( vertexAttributeSt.name != "" ) drawCommandInfo.attributes.st = vertexAttributeSt.offset;
-	if ( vertexAttributeNormal.name != "" ) drawCommandInfo.attributes.normal = vertexAttributeNormal.offset;
-	if ( vertexAttributeColor.name != "" ) drawCommandInfo.attributes.color = vertexAttributeColor.offset;
+		storageBufferIt++;
+		storageBufferIt++;
+		
+		auto instanceBuffer = (*storageBufferIt++).buffer;
+		auto materialBuffer = (*storageBufferIt++).buffer;
+		auto textureBuffer = (*storageBufferIt++).buffer;
 
+		pod::Camera::Viewports* viewports = (pod::Camera::Viewports*) device->getBuffer( uniformBuffer );
+		pod::DrawCommand* drawCommands = (pod::DrawCommand*) indirectAttribute.pointer;
+		pod::Instance* instances = (pod::Instance*) device->getBuffer( instanceBuffer );
+		pod::Material* materials = (pod::Material*) device->getBuffer( materialBuffer );
+		pod::Texture* textures = (pod::Texture*) device->getBuffer( textureBuffer );
 
-	// split up our mesh by textures, if the right attribute exists
-	if ( vertexAttributeId.name != "" ) {
-		struct TextureMapping {
-			size_t texture = 0;
-			size_t offset = 0;
-			size_t range = 0;
-		};
-		uf::stl::vector<TextureMapping> mappings;
-		TextureMapping currentMapping;
-	
-		pod::Texture::Storage* storageBufferTextures = NULL;
-		pod::Material::Storage* storageBufferMaterials = NULL;
-		size_t storageBufferTexturesSize = 0;
-		size_t storageBufferMaterialsSize = 0;
+		const bool optimize = false;
+		uf::stl::unordered_map<size_t, uf::stl::vector<CommandBuffer::InfoDraw>> pool;
+		for ( auto i = 0; i < descriptor.inputs.indirect.count; ++i ) {
+			auto& drawCommand = drawCommands[i];
+			auto instanceID = drawCommand.instanceID;
+			auto& instance = instances[instanceID];
+			auto materialID = instance.materialID;
+			auto& material = materials[materialID];
+			auto textureID = material.indexAlbedo;
+			auto& infos = pool[textureID];
 
-		if ( storageBuffers.size() >= 2 ) {
-			Buffer::Descriptor storageBufferTexturesDescriptor = storageBuffers[storageBuffers.size() - 1];
-			Buffer::Descriptor storageBufferMaterialsDescriptor = storageBuffers[storageBuffers.size() - 2];
+			CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back();
+			drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
+			drawCommandInfo.descriptor = descriptor;
+			drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
 
-			storageBufferTextures = (pod::Texture::Storage*) ( device->getBuffer( storageBufferTexturesDescriptor.buffer ) + storageBufferTexturesDescriptor.offset );
-			storageBufferMaterials = (pod::Material::Storage*) ( device->getBuffer( storageBufferMaterialsDescriptor.buffer ) + storageBufferMaterialsDescriptor.offset );
+			drawCommandInfo.attributes.index.pointer = (void*) ((uint8_t*) drawCommandInfo.attributes.index.pointer + drawCommand.indexID * drawCommandInfo.attributes.index.stride);
+			drawCommandInfo.attributes.index.length = drawCommand.indices;
 
-			storageBufferTexturesSize = storageBufferTexturesDescriptor.range / sizeof(pod::Texture::Storage);
-			storageBufferMaterialsSize = storageBufferMaterialsDescriptor.range / sizeof(pod::Material::Storage);
-		}
+			for ( auto attribute : descriptor.inputs.vertex.attributes ) {
+				attribute.pointer = (void*) ((uint8_t*) attribute.pointer + drawCommand.vertexID * attribute.stride);
+				attribute.length = drawCommand.vertices;
 
-		bool useLightmap = false;
-		for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-		//	auto index = indicesPointer[currentIndex];
-			uint32_t index = 0;
-			void* indexSrc = indicesPointer + (currentIndex * indicesStride);
-			switch ( indicesStride ) {
-				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;
-				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;
-				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;
+				if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
+				else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
+				else if ( attribute.descriptor.name == "st" ) drawCommandInfo.attributes.st = attribute;
+				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
+				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
 			}
-			void* vertices = vertexPointer + (index * vertexStride);
-			const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
-			// check if we're using a lightmap, having a lightmap means we have provided ST attributes
-			if ( !useLightmap && vertexAttributeSt.name != "" ) {
-				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
-				if ( st > pod::Vector2f{0,0} ) useLightmap = true;
+
+			drawCommandInfo.matrices.model = &instance.model;
+			drawCommandInfo.matrices.view = &viewports->matrices[0].view;
+			drawCommandInfo.matrices.projection = &viewports->matrices[0].projection;
+			
+			if ( 0 <= material.indexAlbedo ) {
+				auto texture2DID = textures[material.indexAlbedo].index;
+				drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
 			}
-			uf::graph::id_t materialId = id.y;
-			uf::graph::id_t textureId = id.y;
-			if ( storageBufferMaterials && 0 <= materialId && materialId < storageBufferMaterialsSize ) {
-				auto& material = storageBufferMaterials[materialId];
-				size_t textureIndex = material.indexAlbedo;
-				if ( 0 <= textureIndex && textureIndex < storageBufferTexturesSize ) {
-					auto& texture = storageBufferTextures[textureIndex];
-					if ( 0 <= texture.index && texture.index < this->material.textures.size() ) {
-						textureId = texture.index;
-					}
-				}
+			if ( 0 <= instance.lightmapID ) {
+				auto textureID = instance.lightmapID;
+				auto texture2DID = textures[instance.lightmapID].index;
+				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 			}
-			if ( currentMapping.texture != textureId ) {
-				if ( currentMapping.range > 0 ) mappings.emplace_back(currentMapping);
-				currentMapping.offset += currentMapping.range;
-				currentMapping.range = 0;
-			}
-			currentMapping.texture = textureId;
-			++currentMapping.range;
+			if ( !optimize ) commandBuffer.record(drawCommandInfo);
 		}
-		if ( currentMapping.range > 0 ) mappings.emplace_back(currentMapping);
-		// if we have ST values and an extra, unused texture, bind it
-		if ( useLightmap && currentMapping.texture < material.textures.size() - 1 ) {
-			drawCommandInfo.auxTexture = material.textures.back().descriptor;
-		}
-		for ( auto& mapping : mappings ) {
-			if ( mapping.range == 0 || !( 0 <= mapping.texture && mapping.texture < material.textures.size()) ) continue;
-			drawCommandInfo.texture = material.textures[mapping.texture].descriptor;
-			drawCommandInfo.descriptor.indices = mapping.range;
-			drawCommandInfo.indexBuffer.offset = indexBuffer.offset + sizeof(uf::renderer::index_t) * mapping.offset;
-			drawCommandInfo.indexBuffer.range = indexBuffer.range + sizeof(uf::renderer::index_t) * mapping.range;
-			commandBuffer.record(drawCommandInfo);
-		}
+		if ( optimize ) for ( auto pair : pool ) for ( auto& info : pair.second ) commandBuffer.record(info);
 	} else {
-		drawCommandInfo.texture = material.textures.front().descriptor;
+		auto uniformBufferIt = uniformBuffers.begin();
+		auto uniformBuffer = (*uniformBufferIt++).buffer;
+		auto uniformOffset = (size_t) 0;
+
+		pod::Uniform* uniforms = (pod::Uniform*) device->getBuffer( uniformBuffer );
+
+		CommandBuffer::InfoDraw drawCommandInfo = {};
+		drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
+		drawCommandInfo.descriptor = descriptor;
+		drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
+		for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
+			if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
+			else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
+			else if ( attribute.descriptor.name == "st" ) drawCommandInfo.attributes.st = attribute;
+			else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
+			else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
+		}
+
+		drawCommandInfo.textures.primary = this->material.textures.front().descriptor;
+
+		drawCommandInfo.matrices.model = NULL;
+		drawCommandInfo.matrices.view = &uniforms->modelView;
+		drawCommandInfo.matrices.projection = &uniforms->projection;
+		
 		commandBuffer.record(drawCommandInfo);
 	}
+#endif
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();
@@ -397,111 +464,19 @@ void ext::opengl::Graphic::destroy() {
 	ext::opengl::states::rebuild = true;
 }
 
-bool ext::opengl::Graphic::hasStorage( const uf::stl::string& name ) const {
-	for ( auto& shader : material.shaders ) if ( shader.hasStorage(name) ) return true;
-	return false;
-}
-ext::opengl::Buffer* ext::opengl::Graphic::getStorageBuffer( const uf::stl::string& name ) {
-	size_t storageIndex = -1;
-	for ( auto& shader : material.shaders ) {
-		if ( !shader.hasStorage(name) ) continue;
-	//	storageIndex = shader.metadata.json["definitions"]["storage"][name]["index"].as<size_t>();
-		storageIndex = shader.metadata.definitions.storage[name].index;
-		break;
-	}
-	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
-		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
-		if ( storageCounter++ != storageIndex ) continue;
-		return &buffers[bufferIndex];
-	}
-	return NULL;
-}
-uf::Serializer ext::opengl::Graphic::getStorageJson( const uf::stl::string& name, bool cache ) {
-	for ( auto& shader : material.shaders ) {
-		if ( !shader.hasStorage(name) ) continue;
-		return shader.getStorageJson(name, cache);
-	}
-	return ext::json::null();
-}
-ext::opengl::userdata_t ext::opengl::Graphic::getStorageUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
-	for ( auto& shader : material.shaders ) {
-		if ( !shader.hasStorage(name) ) continue;
-		return shader.getStorageUserdata(name, payload);
-	}
-	return ext::opengl::userdata_t();
-}
-
-ext::opengl::Buffer::Descriptor ext::opengl::Graphic::getUniform( size_t target ) const {
-	size_t offset = 0;
-	for ( auto& buffer : buffers ) {
-		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
-		if ( offset++ != target ) continue;
-	//	return device->getBuffer( buffer.buffer );
-		return buffer.descriptor;
-	}
-	return {};
-}
-void ext::opengl::Graphic::updateUniform( const void* data, size_t size, size_t target ) const {
-	size_t offset = 0;
-	for ( auto& buffer : buffers ) {
-		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
-		if ( offset++ != target ) continue;
-		updateBuffer( data, size, buffer );
-	}
-}
-
-ext::opengl::Buffer::Descriptor ext::opengl::Graphic::getStorage( size_t target ) const {
-	size_t offset = 0;
-	for ( auto& buffer : buffers ) {
-		if ( !(buffer.usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
-		if ( offset++ != target ) continue;
-	//	return device->getBuffer( buffer.buffer );
-		return buffer.descriptor;
-	}
-	return {};
-}
-void ext::opengl::Graphic::updateStorage( const void* data, size_t size, size_t target ) const {
-	size_t offset = 0;
-	for ( auto& buffer : buffers ) {
-		if ( !(buffer.usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
-		if ( offset++ != target ) continue;
-		updateBuffer( data, size, buffer );
-	}
-}
-
 #include <uf/utils/string/hash.h>
 void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 	if ( metadata["front face"].is<uf::stl::string>() ) {
-		if ( metadata["front face"].as<uf::stl::string>() == "ccw" ) {
-			frontFace = uf::renderer::enums::Face::CCW;
-		} else if ( metadata["front face"].as<uf::stl::string>() == "cw" ) {
-			frontFace = uf::renderer::enums::Face::CW;
-		}
+		if ( metadata["front face"].as<uf::stl::string>() == "ccw" ) frontFace = uf::renderer::enums::Face::CCW;
+		else if ( metadata["front face"].as<uf::stl::string>() == "cw" ) frontFace = uf::renderer::enums::Face::CW;
 	}
 	if ( metadata["cull mode"].is<uf::stl::string>() ) {
-		if ( metadata["cull mode"].as<uf::stl::string>() == "back" ) {
-			cullMode = uf::renderer::enums::CullMode::BACK;
-		} else if ( metadata["cull mode"].as<uf::stl::string>() == "front" ) {
-			cullMode = uf::renderer::enums::CullMode::FRONT;
-		} else if ( metadata["cull mode"].as<uf::stl::string>() == "none" ) {
-			cullMode = uf::renderer::enums::CullMode::NONE;
-		} else if ( metadata["cull mode"].as<uf::stl::string>() == "both" ) {
-			cullMode = uf::renderer::enums::CullMode::BOTH;
-		}
+		if ( metadata["cull mode"].as<uf::stl::string>() == "back" ) cullMode = uf::renderer::enums::CullMode::BACK;
+		else if ( metadata["cull mode"].as<uf::stl::string>() == "front" ) cullMode = uf::renderer::enums::CullMode::FRONT;
+		else if ( metadata["cull mode"].as<uf::stl::string>() == "none" ) cullMode = uf::renderer::enums::CullMode::NONE;
+		else if ( metadata["cull mode"].as<uf::stl::string>() == "both" ) cullMode = uf::renderer::enums::CullMode::BOTH;
 	}
 
-	if ( ext::json::isObject(metadata["depth test"]) ) {
-		if ( metadata["depth test"]["test"].is<bool>() ) depth.test = metadata["depth test"]["test"].as<bool>();
-		if ( metadata["depth test"]["write"].is<bool>() ) depth.write = metadata["depth test"]["write"].as<bool>();
-	}
-
-	if ( metadata["indices"].is<size_t>() ) {
-		indices = metadata["indices"].as<size_t>();
-	}
-	if ( ext::json::isObject( metadata["offsets"] ) ) {
-		offsets.vertex = metadata["offsets"]["vertex"].as<size_t>();
-		offsets.index = metadata["offsets"]["index"].as<size_t>();
-	}
 	if ( ext::json::isObject(metadata["depth bias"]) ) {
 		depth.bias.enable = true;
 		depth.bias.constant = metadata["depth bias"]["constant"].as<float>();
@@ -510,41 +485,6 @@ void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 	}
 }
 ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() const {
-#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
-	uf::Serializer serializer;
-
-	serializer["subpass"] = subpass;
-	if ( settings::experimental::individualPipelines )
-		serializer["renderMode"] = renderMode;
-
-	serializer["renderTarget"] = renderTarget;
-	serializer["geometry"]["sizes"]["vertex"] = attributes.vertex.size;
-	serializer["geometry"]["sizes"]["indices"] = attributes.index.size;
-	serializer["indices"] = indices;
-	serializer["offsets"]["vertex"] = offsets.vertex;
-	serializer["offsets"]["index"] = offsets.index;
-
-	for ( uint8_t i = 0; i < attributes.vertex.descriptor.size(); ++i ) {
-		serializer["geometry"]["attributes"][i]["format"] = attributes.vertex.descriptor[i].format;
-		serializer["geometry"]["attributes"][i]["offset"] = attributes.vertex.descriptor[i].offset;
-	}
-
-	serializer["topology"] = topology;
-	serializer["cullMode"] = cullMode;
-	serializer["fill"] = fill;
-	serializer["lineWidth"] = lineWidth;
-	serializer["frontFace"] = frontFace;
-	serializer["depth"]["test"] = depth.test;
-	serializer["depth"]["write"] = depth.write;
-	serializer["depth"]["operation"] = depth.operation;
-	serializer["depth"]["bias"]["enable"] = depth.bias.enable;
-	serializer["depth"]["bias"]["constant"] = depth.bias.constant;
-	serializer["depth"]["bias"]["slope"] = depth.bias.slope;
-	serializer["depth"]["bias"]["clamp"] = depth.bias.clamp;
-
-	return uf::string::sha256( serializer.serialize() );
-//	return serializer.dump();
-#else
 	size_t hash{};
 
 	hash += std::hash<decltype(subpass)>{}(subpass);
@@ -552,16 +492,26 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 		hash += std::hash<decltype(renderMode)>{}(renderMode);
 	
 	hash += std::hash<decltype(renderTarget)>{}(renderTarget);
-	hash += std::hash<decltype(attributes.vertex.size)>{}(attributes.vertex.size);
-	hash += std::hash<decltype(attributes.index.size)>{}(attributes.index.size);
-	hash += std::hash<decltype(indices)>{}(indices);
-	hash += std::hash<decltype(offsets.vertex)>{}(offsets.vertex);
-	hash += std::hash<decltype(offsets.index)>{}(offsets.index);
+	hash += std::hash<decltype(pipeline)>{}(pipeline);
 
-	for ( uint8_t i = 0; i < attributes.vertex.descriptor.size(); ++i ) {
-		hash += std::hash<decltype(attributes.vertex.descriptor[i].format)>{}(attributes.vertex.descriptor[i].format);
-		hash += std::hash<decltype(attributes.vertex.descriptor[i].offset)>{}(attributes.vertex.descriptor[i].offset);
+	for ( auto i = 0; i < inputs.vertex.attributes.size(); ++i ) {
+		hash += std::hash<decltype(inputs.vertex.attributes[i].descriptor.format)>{}(inputs.vertex.attributes[i].descriptor.format);
+		hash += std::hash<decltype(inputs.vertex.attributes[i].descriptor.offset)>{}(inputs.vertex.attributes[i].descriptor.offset);
 	}
+	for ( auto i = 0; i < inputs.index.attributes.size(); ++i ) {
+		hash += std::hash<decltype(inputs.index.attributes[i].descriptor.format)>{}(inputs.index.attributes[i].descriptor.format);
+		hash += std::hash<decltype(inputs.index.attributes[i].descriptor.offset)>{}(inputs.index.attributes[i].descriptor.offset);
+	}
+	for ( auto i = 0; i < inputs.instance.attributes.size(); ++i ) {
+		hash += std::hash<decltype(inputs.instance.attributes[i].descriptor.format)>{}(inputs.instance.attributes[i].descriptor.format);
+		hash += std::hash<decltype(inputs.instance.attributes[i].descriptor.offset)>{}(inputs.instance.attributes[i].descriptor.offset);
+	}
+/*
+	for ( auto i = 0; i < inputs.indirect.attributes.size(); ++i ) {
+		hash += std::hash<decltype(inputs.indirect.attributes[i].descriptor.format)>{}(inputs.indirect.attributes[i].descriptor.format);
+		hash += std::hash<decltype(inputs.indirect.attributes[i].descriptor.offset)>{}(inputs.indirect.attributes[i].descriptor.offset);
+	}
+*/
 
 	hash += std::hash<decltype(topology)>{}(topology);
 	hash += std::hash<decltype(cullMode)>{}(cullMode);
@@ -577,7 +527,6 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 	hash += std::hash<decltype(depth.bias.clamp)>{}(depth.bias.clamp);
 
 	return hash;
-#endif
 }
 
 ext::json::Value ext::opengl::definitionToJson(/*const*/ ext::json::Value& definition ) {

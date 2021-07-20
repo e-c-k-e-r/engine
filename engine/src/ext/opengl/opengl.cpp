@@ -39,7 +39,7 @@ bool ext::opengl::settings::experimental::multiview = true;
 bool ext::opengl::settings::experimental::vsync = true;
 bool ext::opengl::settings::experimental::hdr = true;
 bool ext::opengl::settings::experimental::vxgi = true;
-bool ext::opengl::settings::experimental::deferredSampling = true;
+bool ext::opengl::settings::experimental::deferredSampling = false;
 bool ext::opengl::settings::experimental::culling = false;
 bool ext::opengl::settings::experimental::bloom = false;
 
@@ -80,11 +80,8 @@ uf::stl::string UF_API ext::opengl::errorString( GLenum error ) {
 /////
 bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
 	for ( auto& renderMode: ext::opengl::renderModes ) {
-		if ( isName ) {
-			if ( renderMode->getName() == name ) return true;
-		} else {
-			if ( renderMode->getType() == name ) return true;
-		}
+		if ( isName ) { if ( renderMode->getName() == name ) return true;
+		} else if ( renderMode->getType() == name ) return true;
 	}
 	return false;
 }
@@ -92,7 +89,7 @@ bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
 ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModes.push_back(mode);
-	if ( ext::opengl::settings::validation ) uf::iostream << "Adding RenderMode: " << name << ": " << mode->getType() << "\n";
+	if ( ext::opengl::settings::validation ) UF_MSG_DEBUG("Adding RenderMode: " << name << ": " << mode->getType());
 	// reorder
 	ext::opengl::states::rebuild = true;
 	return *mode;
@@ -113,7 +110,6 @@ ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name
 			}
 		}
 	}
-//	if ( ext::opengl::settings::validation ) uf::iostream << "Requesting RenderMode `" << name << "`, got `" << target->getName() << "` (" << target->getType() << ")" << "\n";
 	return *target;
 }
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::string& name, bool isName ) {
@@ -124,7 +120,6 @@ uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf:
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
-//			if ( ext::opengl::settings::validation ) uf::iostream << "Requestings RenderMode `" << name << "`, got `" << renderMode->getName() << "` (" << renderMode->getType() << ")" << "\n";
 		}
 	}
 	return targets;
@@ -155,10 +150,14 @@ void UF_API ext::opengl::initialize() {
 		Texture2D::empty.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 		Texture2D::empty.fromBuffers( (void*) &pixels[0], pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, 2, 2 );
 	}
+
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
+		UF_MSG_DEBUG( renderMode << " " << renderMode->getName() << " " << renderMode->getType() );
 		renderMode->initialize(device);
 	}
+	
+	uf::graph::initialize();
 	
 	pod::Thread::container_t jobs;
 	for ( auto& renderMode : renderModes ) {
@@ -170,7 +169,7 @@ void UF_API ext::opengl::initialize() {
 	}
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	// bind shaders
-#if !UF_ENV_DREAMCAST
+#if 0
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
@@ -367,11 +366,10 @@ void UF_API ext::opengl::render(){
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::opengl::currentRenderMode = renderMode;
+		uf::graph::render();
 		uf::scene::render();
-	//	UF_TIMER_TRACE_INIT();
 		renderMode->render();
 		renderMode->executed = true;
-	//	UF_TIMER_TRACE("==== RENDER TIME ==== ");
 	}
 	ext::opengl::currentRenderMode = NULL;
 	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) synchronize();

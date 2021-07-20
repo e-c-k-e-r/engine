@@ -10,7 +10,7 @@ layout (location = 2) in vec4 inColor[];
 layout (location = 3) in vec3 inNormal[];
 layout (location = 4) in mat3 inTBN[];
 layout (location = 7) in vec3 inPosition[];
-layout (location = 8) flat in ivec4 inId[];
+layout (location = 8) flat in uvec4 inId[];
 
 layout (location = 0) out vec2 outUv;
 layout (location = 1) out vec2 outSt;
@@ -18,9 +18,9 @@ layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec3 outNormal;
 layout (location = 4) out mat3 outTBN;
 layout (location = 7) out vec3 outPosition;
-layout (location = 8) flat out ivec4 outId;
+layout (location = 8) flat out uvec4 outId;
 
-layout (binding = 6) uniform UBO {
+layout (binding = 3) uniform UBO {
 	mat4 voxel;
 	float cascadePower;
 	float padding1;

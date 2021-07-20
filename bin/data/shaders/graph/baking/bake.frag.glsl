@@ -6,8 +6,8 @@
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
 
-layout (binding = 1) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 2) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 5) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
 
@@ -18,32 +18,40 @@ layout (binding = 2) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/functions.h"
 #include "../../common/shadows.h"
 
-layout (std140, binding = 3) readonly buffer Materials {
+layout (std140, binding = 6) readonly buffer Instances {
+	Instance instances[];
+};
+layout (std140, binding = 7) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 4) readonly buffer Textures {
+layout (std140, binding = 8) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 5) readonly buffer Lights {
+layout (std140, binding = 9) readonly buffer Lights {
 	Light lights[];
 };
 
 layout (location = 0) in vec2 inUv;
-layout (location = 1) in vec4 inColor;
-layout (location = 2) in vec3 inNormal;
-layout (location = 3) in mat3 inTBN;
-layout (location = 6) in vec3 inPosition;
-layout (location = 7) flat in ivec4 inId;
+layout (location = 1) in vec2 inSt;
+layout (location = 2) in vec4 inColor;
+layout (location = 3) in vec3 inNormal;
+layout (location = 4) in mat3 inTBN;
+layout (location = 7) in vec3 inPosition;
+layout (location = 8) flat in uvec4 inId;
 
 layout (location = 0) out vec4 outAlbedo;
 
 void main() {
+	const float mip = mipLevel(inUv.xy);
+	const uint drawID = uint(inId.x);
+	const uint instanceID = uint(inId.y);
+	const uint materialID = uint(inId.z);
+
 	vec4 A = vec4(1, 1, 1, 1);
 	surface.normal.world = normalize( inNormal );
-	const float mip = mipLevel(inUv.xy);
 	surface.uv = wrap(inUv.xy);
 	surface.position.world = inPosition;
-	surface.material.id = int(inId.y);
+	surface.material.id = materialID;
 	const Material material = materials[surface.material.id];
 	
 	surface.material.metallic = material.factorMetallic;
@@ -51,43 +59,7 @@ void main() {
 	surface.material.occlusion = 1.0f - material.factorOcclusion;
 
 	surface.fragment = material.colorEmissive;
-#if 0
-	// sample albedo
-	const bool useAtlas = validTextureIndex( material.indexAtlas );
-	Texture textureAtlas;
-	if ( useAtlas ) textureAtlas = textures[material.indexAtlas];
-	if ( !validTextureIndex( material.indexAlbedo ) ) discard;
-	{
-		const Texture t = textures[material.indexAlbedo];
-		surface.material.albedo = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
-		// alpha mode OPAQUE
-		if ( material.modeAlpha == 0 ) {
-			surface.material.albedo.a = 1;
-		// alpha mode BLEND
-		} else if ( material.modeAlpha == 1 ) {
-
-		// alpha mode MASK
-		} else if ( material.modeAlpha == 2 ) {
-			if ( surface.material.albedo.a < abs(material.factorAlphaCutoff) ) discard;
-			surface.material.albedo.a = 1;
-		}
-		if ( surface.material.albedo.a == 0 ) discard;
-	}
-
-	// sample normal
-	if ( validTextureIndex( material.indexNormal ) ) {
-		const Texture t = textures[material.indexNormal];
-		surfacem.normal.world = inTBN * normalize( textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip ).xyz * 2.0 - vec3(1.0));
-	}
-
-	// sample emissive
-	if ( validTextureIndex( material.indexEmissive ) ) {
-		const Texture t = textures[material.indexEmissive];
-		surface.fragment = textureLod( samplerTextures[nonuniformEXT((useAtlas) ? textureAtlas.index : t.index)], (useAtlas) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
-	}
-#else
 	surface.material.albedo = vec4(1);
-#endif
 
 	{
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 

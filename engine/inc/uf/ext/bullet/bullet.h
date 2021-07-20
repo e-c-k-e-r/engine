@@ -5,6 +5,7 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/math/collision.h>
+#include <uf/engine/graph/graph.h>
 
 #if UF_USE_BULLET
 #include <btBulletDynamicsCommon.h>
@@ -30,8 +31,6 @@ namespace pod {
 #if UF_USE_BULLET
 namespace ext {
 	namespace bullet {
-		extern UF_API bool debugDrawEnabled;
-		extern UF_API float debugDrawRate;
 		extern UF_API size_t iterations;
 		extern UF_API size_t substeps;
 		extern UF_API float timescale;
@@ -39,33 +38,35 @@ namespace ext {
 		extern UF_API size_t defaultMaxCollisionAlgorithmPoolSize;
 		extern UF_API size_t defaultMaxPersistentManifoldPoolSize;
 
+		extern UF_API bool debugDrawEnabled;
+		extern UF_API float debugDrawRate;
+		extern UF_API uf::stl::string debugDrawLayer;
+
 		void UF_API initialize();
 		void UF_API tick( float = 0 );
 		void UF_API terminate();
 
 		// base collider creation
 		pod::Bullet& create( uf::Object& );
+
 		void destroy( uf::Object& );
+		void destroy( pod::Bullet& );
 
 		void UF_API attach( pod::Bullet& );
 		void UF_API detach( pod::Bullet& );
 
-		// collider from mesh
-	#if 0
-		template<typename T, typename U>
-		pod::Bullet& create( uf::Object&, const uf::Mesh<T, U>& mesh, bool );
-	#endif
-
-		// collider for mesh (static or dynamic)
-		pod::Bullet& create( uf::Object&, const uf::Mesh&, bool );
+	/*
 		pod::Bullet& create( uf::Object&, const void* verticesPointer, size_t verticesCount, size_t verticesStride, const void* indicesPointer, size_t indicesCount, size_t indicesStride, bool );
-
 		template<typename T, typename U>
 		pod::Bullet& create( uf::Object& o, const uf::Mesh_T<T,U>& m, bool b ) {
 			return create( o, m.vertices.data() + offsetof(T, position), m.vertices.size(), sizeof(T), m.indices.data(), m.indices.size(), sizeof(U), b );
 		}
+	*/
+		// collider for mesh (static or dynamic)
+		pod::Bullet& create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
 		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
+		uf::stl::vector<pod::Bullet>& UF_API create( uf::Object&, const uf::stl::vector<pod::Instance::Bounds>&, float );
 		// collider for capsule
 		pod::Bullet& UF_API create( uf::Object&, float, float, float );
 

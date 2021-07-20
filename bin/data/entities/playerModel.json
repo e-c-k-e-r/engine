@@ -3,9 +3,9 @@
 	"name": "Player: Model",
 	"ignore": true,
 	"assets": [
-	//	"/player/bear.glb"
+		"/player/bear.glb"
 	//	{ "filename": "/player/bear/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "/player/bear/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "/player/bear/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"PlayerModelBehavior"
@@ -33,7 +33,7 @@
 				"print stats": false
 			},
 			"export": {
-				"should": true,
+				"should": false,
 				"pretty": false,
 				"compress": true,
 				"quantize": false,
@@ -45,7 +45,7 @@
 			"animation": "wank",
 		//	"print animations": true,
 			"flags": {
-				"ATLAS": true,
+				"ATLAS": false,
 				"SKINNED": true,
 				"INVERT": true,
 				"TRANSFORM": false,

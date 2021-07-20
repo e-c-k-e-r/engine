@@ -45,8 +45,30 @@ namespace ext {
 			struct UF_API InfoDraw : public Info {
 				GraphicDescriptor descriptor = {};
 
+				struct {
+					uf::Mesh::Attribute index = {};
+					uf::Mesh::Attribute position = {};
+					uf::Mesh::Attribute uv = {};
+					uf::Mesh::Attribute st = {};
+					uf::Mesh::Attribute normal = {};
+					uf::Mesh::Attribute color = {};
+				} attributes;
+				
+				struct {
+					const pod::Matrix4f* model = NULL;
+					const pod::Matrix4f* view = NULL;
+					const pod::Matrix4f* projection = NULL;
+				} matrices;
+				
+				struct {
+					ext::opengl::Texture::Descriptor primary = {};
+					ext::opengl::Texture::Descriptor secondary = {};
+				} textures;
+			/*
+				GraphicDescriptor descriptor = {};
 				ext::opengl::Buffer::Descriptor vertexBuffer = {};
 				ext::opengl::Buffer::Descriptor indexBuffer = {};
+				ext::opengl::Buffer::Descriptor indirectBuffer = {};
 				ext::opengl::Buffer::Descriptor uniformBuffer = {};
 				ext::opengl::Texture::Descriptor texture = {};
 				ext::opengl::Texture::Descriptor auxTexture = {};
@@ -58,6 +80,7 @@ namespace ext {
 					uint8_t normal = 0;
 					uint8_t color = 0;
 				} attributes;
+			*/
 			};
 		/*
 			struct UF_API InfoBuffer : public Info {

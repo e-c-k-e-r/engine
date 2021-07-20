@@ -293,7 +293,7 @@ T /*UF_API*/ uf::vector::floor( const T& vector ) {
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::round( const T& vector ) {
 	T res;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::round( vector[i] );
+	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = ::round( vector[i] );
 	return res;
 }
 // Complex arithmetic

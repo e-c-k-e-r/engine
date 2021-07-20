@@ -174,7 +174,7 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 
 	#if UF_USE_OPENGL_FIXED_FUNCTION
 		metadata[uri]["flags"]["ATLAS"] = false;
-		metadata[uri]["flags"]["SEPARATE"] = true;
+	//	metadata[uri]["flags"]["SEPARATE"] = true;
 	#elif UF_GRAPH_INDIRECT_DRAW
 	//	metadata[uri]["flags"]["ATLAS"] = false;
 	//	metadata[uri]["flags"]["SEPARATE"] = false;

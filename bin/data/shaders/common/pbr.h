@@ -45,7 +45,7 @@ void pbr() {
 		const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 	#endif
 		// lightmapped, compute only specular
-		if ( light.type >= 0 && 0 <= surface.material.indexLightmap ) surface.fragment.rgb += (specular) * Lr * cosLi;
+		if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
 		// point light, compute only diffuse
 		// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 		else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;

@@ -21,6 +21,11 @@ namespace pod {
 		alignas(4) uint32_t meshID = 0;
 		alignas(4) uint32_t objectID = 0;
 
+		alignas(4)  int32_t jointID = -1;
+		alignas(4)  int32_t lightmapID = -1;
+		alignas(4) uint32_t padding2 = 0;
+		alignas(4) uint32_t padding3 = 0;
+
 		struct Bounds {
 			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
 			alignas(4) float padding1 = 0;
@@ -49,8 +54,8 @@ namespace pod {
 		int32_t indexOcclusion = -1;
 
 		int32_t indexMetallicRoughness = -1;
-		int32_t indexAtlas = -1;
-		int32_t indexLightmap = -1;
+		int32_t padding1 = -1;
+		int32_t padding2 = -1;
 		int32_t modeAlpha = -1;
 	};
 	

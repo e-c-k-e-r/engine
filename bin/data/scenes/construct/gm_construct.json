@@ -3,9 +3,9 @@
 	"name": "gm_construct",
 	"ignore": false,
 	"assets": [
-	//	{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/gm_construct/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/gm_construct/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/gm_construct/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"
@@ -32,20 +32,27 @@
 				"quantize": false,
 				"precision": 4,
 				"combined": false,
-				"encode buffers": true
+				"encode buffers": true,
+				"unwrap": true
 			},
-		//	"filter": "NEAREST",
+			"baking": {
+				"enabled": false,
+				"resolution": 8192,
+				"shadows": 1024,
+				"trigger": { "mode": "rendered" },
+				"output": "./lightmap.png"
+			},
 			"flags": {
-				"ATLAS": true,
+				"ATLAS": false,
 				"INVERT": false,
 				"TRANSFORM": false,
+				"SKINNED": false,
 				
 				"RENDER": true,
-				"COLLISION": false,
 				"SEPARATE": false,
-				"NORMALS": false,
-				"LOAD": false
+				"NORMALS": false
 			},
+		//	"filter": "NEAREST",
 			"lights": {
 				"shadows": true
 			},

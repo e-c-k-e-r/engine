@@ -20,16 +20,14 @@ namespace ext {
 				uf::stl::string name = "";
 				uf::stl::string type = "";
 				uf::stl::string target = "";
+				uf::stl::string pipeline = "";
+				uf::stl::vector<uf::stl::string> pipelines;
+				
 				uf::stl::vector<uint8_t> outputs;
 
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
 				uint8_t eyes = 1;
-
-				size_t lightBufferIndex = 0;
-				size_t materialBufferIndex = 0;
-				size_t textureBufferIndex = 0;
-				size_t drawCallBufferIndex = 0;
 			} metadata;
 			
 			Device* device = GL_NULL_HANDLE;

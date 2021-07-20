@@ -551,7 +551,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 				auto& shader = blitter.material.getShader("compute", "bloom");
 
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 				imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;

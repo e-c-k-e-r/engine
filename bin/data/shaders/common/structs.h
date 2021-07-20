@@ -86,9 +86,9 @@ struct Material {
 	int indexOcclusion;
 	
 	int indexMetallicRoughness;
-	int indexLightmap;
+	int padding1;
+	int padding2;
 	int modeAlpha;
-	int padding;
 };
 
 struct Texture {
@@ -128,6 +128,11 @@ struct Instance {
 	uint meshID;
 	uint objectID;
 
+	 int jointID;
+	 int lightmapID;
+	uint padding1;
+	uint padding2;
+
 	Bounds bounds;
 };
 
@@ -140,7 +145,7 @@ struct SurfaceMaterial {
 	float metallic;
 	float roughness;
 	float occlusion;
-	int indexLightmap;
+	uint lightmapID;
 };
 
 struct Surface {

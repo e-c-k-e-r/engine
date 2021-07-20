@@ -62,6 +62,7 @@ bool frustumCull( uint id ) {
 	vec3 camPos = vec3( inverse(camera.viewport[pass].view)[3] );
 	if ( instance.bounds.min.x <= camPos.x && camPos.x <= instance.bounds.max.x && instance.bounds.min.y <= camPos.y && camPos.y <= instance.bounds.max.y && instance.bounds.min.z <= camPos.z && camPos.z <= instance.bounds.max.z ) return true;
 	// sphere based one, source of this block uses reverse infinite Z, but would be nice if it used AABB
+	// doesn't work
 	#if 0
 		vec3 min = vec3(camera.viewport[pass].view * instance.model * vec4(instance.bounds.min, 1));
 		vec3 max = vec3(camera.viewport[pass].view * instance.model * vec4(instance.bounds.max, 1));
@@ -78,13 +79,14 @@ bool frustumCull( uint id ) {
 		visible = visible && center.z * frustum[1] - abs(center.x) * frustum[0] > -radius;
 		visible = visible && center.z * frustum[3] - abs(center.y) * frustum[2] > -radius;
 	// optimized version of the below blocks
-	#elif 1
+	// doesn't work
+	#elif 0
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
 		vec3 min = vec3(mat * vec4(instance.bounds.min, 1));
 		vec3 max = vec3(mat * vec4(instance.bounds.max, 1));
-
 		vec3 center = (max + min) * 0.5;
 		vec3 extent = (max - min) * 0.5;
+
 		vec4 planes[6]; {
 			for (int i = 0; i < 3; ++i)
 			for (int j = 0; j < 2; ++j) {
@@ -100,9 +102,10 @@ bool frustumCull( uint id ) {
 		}
 	// transforms each corner into clip space
 	// an AABB is not visible if a plane has all 8 corners outside of it
+	// doesn't work
 	#elif 0
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
-		vec4 corners[9] = {
+		vec4 corners[8] = {
 			vec4( instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0 ),
@@ -112,16 +115,14 @@ bool frustumCull( uint id ) {
 			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
 			vec4( instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
-
-			vec4( (instance.bounds.max + instance.bounds.min) * 0.5, 1.0 ),
 		};
-		for ( uint p = 0; p < 9; ++p ) {
+		for ( uint p = 0; p < 8; ++p ) {
 			vec4 t = mat * corners[p];
-			if ( -t.w <= t.x && t.x <= t.w && -t.w <= t.y && t.y <= t.w ) return true;
+			if ( -t.w <= t.x && t.x <= t.w && -t.w <= t.y && t.y <= t.w && -t.w <= t.z && t.z <= t.w ) return true;
 		}
 	// "optimized" version of the next block, compares bounds to each plane
 	// an AABB is not visible if a plane has all 8 corners outside of it
-	#elif 0
+	#elif 1
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
 		vec4 planes[6]; {
 			for (int i = 0; i < 3; ++i)
@@ -141,7 +142,7 @@ bool frustumCull( uint id ) {
 		}
 	#else
 		mat4 mat = camera.viewport[pass].projection * camera.viewport[pass].view * instance.model;
-		vec4 corners[9] = {
+		vec4 corners[8] = {
 			vec4( instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0 ),
@@ -151,8 +152,6 @@ bool frustumCull( uint id ) {
 			vec4( instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0 ),
 			vec4( instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
 			vec4( instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
-
-			vec4( (instance.bounds.max + instance.bounds.min) * 0.5, 1.0 ),
 		};
 		vec4 planes[6]; {
 			for (int i = 0; i < 3; ++i)
@@ -164,9 +163,9 @@ bool frustumCull( uint id ) {
 				planes[i*2+j] = normalizePlane( planes[i*2+j] );
 			}
 		}
-		for ( uint p = 0; p < 9; ++p ) corners[p] = mat * corners[p];
+		for ( uint p = 0; p < 8; ++p ) corners[p] = mat * corners[p];
 		for ( uint p = 0; p < 6; ++p ) {
-			for ( uint q = 0; q < 9; ++q ) {
+			for ( uint q = 0; q < 8; ++q ) {
 				if ( dot( corners[q], planes[p] ) > 0 ) return true;
 			}
 			return false;

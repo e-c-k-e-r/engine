@@ -41,7 +41,7 @@ namespace ext {
 			void initialize();
 			void destroy();
 
-			GLuint createBuffer( enums::Buffer::type_t usage, GLsizeiptr size, void* data = NULL );
+			GLuint createBuffer( enums::Buffer::type_t usage, GLsizeiptr size, void* data = NULL, bool aliased = false );
 			void* getBuffer( GLuint );
 			void destroyBuffer( GLuint& );
 

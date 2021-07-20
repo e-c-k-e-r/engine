@@ -293,10 +293,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	
 	{
 		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
-		if ( !is.is_open() ) {
-			VK_VALIDATION_MESSAGE("Error: Could not open shader file \"" << filename << "\"");
-			return;
-		}
+		if ( !is.is_open() ) UF_EXCEPTION("Error: Could not open shader file \"" << filename << "\"");
 		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 		spirv.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	

@@ -45,6 +45,7 @@ namespace ext {
 				
 				uf::stl::string pipeline = "";
 				uf::stl::string type = "";
+				bool autoInitializeUniforms = true;
 
 				struct Definition {
 					struct Texture {
@@ -82,6 +83,8 @@ namespace ext {
 			ext::opengl::userdata_t specializationConstants;
 			uf::stl::vector<ext::opengl::userdata_t> pushConstants;
 			uf::stl::vector<ext::opengl::userdata_t> uniforms;
+
+			uf::stl::vector<Texture> textures;
 		//	~Shader();
 			void initialize( Device& device, const uf::stl::string&, enums::Shader::type_t stage );
 			void destroy();

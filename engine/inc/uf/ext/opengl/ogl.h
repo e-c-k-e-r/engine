@@ -38,7 +38,7 @@
 
 #include <typeinfo>
 
-#define GL_NULL_HANDLE NULL
+#define GL_NULL_HANDLE 0
 #define GL_WHOLE_SIZE -1
 #define GLhandle(x) size_t
 #define GLenumerator(x) 0

@@ -37,32 +37,33 @@
 				"encode buffers": true,
 				"unwrap": true
 			},
-		//	"cull mode": "none",
+			"baking": {
+				"enabled": false,
+				"resolution": 8192,
+				"shadows": 1024,
+				"trigger": { "mode": "rendered" },
+				"output": "./lightmap.png"
+			},
+			"flags": {
+				"ATLAS": false,
+				"INVERT": false,
+				"TRANSFORM": false,
+				"SKINNED": false,
+				
+				"RENDER": true,
+				"SEPARATE": false,
+				"NORMALS": false
+			},
+			"cull mode": "none",
 
 		//	"lightmap": "./lightmap.png",
 		//	"ambient": [ 0.25, 0.25, 0.25 ],
-
-			"flags": {
-				"ATLAS": true,
-				"INVERT": false,
-				"TRANSFORM": false,
-				
-				"RENDER": true,
-				"COLLISION": false,
-				"SEPARATE": false,
-				"NORMALS": false,
-				"LOAD": false
-			},
 			"lights": {
 			//	"renderMode": { "target": "worldspawn_1" },
 				"shadows": true
 			},
 			"tags": {
-				"worldspawn": {
-					"action": "attach",
-					"filename": "./baker.json",
-					"collision": { "type": "mesh", "static": true }
-				},
+				"worldspawn": { "collision": { "type": "mesh", "static": true } },
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
 
 				"func_door_rotating_5409": { "collision": { "type": "bounding box", "recenter": true }, "action": "load", "payload": { "assets": ["./scripts/door.lua"], "metadata": { "angle":-1.570795 } } },

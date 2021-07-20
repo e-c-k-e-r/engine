@@ -15,7 +15,15 @@
 
 #if UF_USE_OPENGL_FIXED_FUNCTION
 namespace {
-	uf::stl::vector<void*> localBuffers;
+	namespace buffers {
+		struct Pair {
+			bool aliased = false;
+			size_t index = 0;
+		};
+		uf::stl::vector<void*> local;
+		uf::stl::vector<void*> aliases;
+		uf::stl::vector<::buffers::Pair> type;
+	}
 }
 #endif
 
@@ -93,15 +101,12 @@ void ext::opengl::Device::initialize() {
 #else
 	glewExperimental = GL_TRUE;
 	GLenum error;
-	if ( (error = glewInit()) != GLEW_OK ) {
-		std::cout << "ERROR: " << glewGetErrorString(error) << std::endl;
-		std::exit(EXIT_FAILURE);
-		return;
-	}
+	if ( (error = glewInit()) != GLEW_OK ) UF_EXCEPTION("ERROR: " << glewGetErrorString(error));
 #endif
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	{
-		::localBuffers.emplace_back((void*) NULL);
+		::buffers::type.emplace_back(::buffers::Pair{.aliased = false, .index = 0});
+		::buffers::local.emplace_back((void*) NULL);
 	}
 #endif
 	{
@@ -138,7 +143,7 @@ spec::Context& ext::opengl::Device::activateContext( std::thread::id id ) {
 	return *context;
 }
 
-GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeiptr size, void* data ) {
+GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeiptr size, void* data, bool aliased ) {
 	GLuint index = 0;
 // GPU-based buffer
 #if !UF_USE_OPENGL_FIXED_FUNCTION
@@ -166,10 +171,16 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 	GL_ERROR_CHECK(glBindBuffer(GL_COPY_WRITE_BUFFER, 0));
 #else
 // CPU-based buffer
-	index = ::localBuffers.size();
-	auto& buffer = ::localBuffers.emplace_back();
-	size_t requestedSize = (size_t) size;
+	index = ::buffers::type.size();
+	::buffers::type.emplace_back( ::buffers::Pair{.aliased = aliased, .index = index} );
+	
+	if ( aliased ) {
+		::buffers::aliases.emplace_back( data );
+		return index;
+	}
 
+	auto& buffer = ::buffers::local.emplace_back();
+	size_t requestedSize = (size_t) size;
 #if UF_MEMORYPOOL_INVALID_MALLOC
 	buffer = uf::memoryPool::global.alloc( requestedSize );
 #else
@@ -184,7 +195,9 @@ GLuint ext::opengl::Device::createBuffer( enums::Buffer::type_t usage, GLsizeipt
 }
 #if UF_USE_OPENGL_FIXED_FUNCTION
 void* ext::opengl::Device::getBuffer( GLuint index ) {
-	return !index || index >= ::localBuffers.size() ? NULL : ::localBuffers[index];
+	if ( !index || index >= ::buffers::type.size() ) return NULL;
+	const auto& type = ::buffers::type.at(index);
+	return type.aliased ? ::buffers::aliases[type.index] : ::buffers::local[type.index];
 }
 #endif
 void ext::opengl::Device::destroyBuffer( GLuint& index ) {
@@ -195,8 +208,11 @@ void ext::opengl::Device::destroyBuffer( GLuint& index ) {
 #else
 // CPU-based buffer
 	// invalid index
-	if ( !index || index >= ::localBuffers.size() ) return;
-	auto& buffer = ::localBuffers[index];
+	if ( !index || index >= ::buffers::type.size() ) return;
+	const auto& type = ::buffers::type.at(index);
+	if ( type.aliased ) return;
+
+	auto& buffer = ::buffers::local[type.index];
 	if ( buffer ) {
 	#if UF_MEMORYPOOL_INVALID_FREE
 		uf::memoryPool::global.free( buffer );

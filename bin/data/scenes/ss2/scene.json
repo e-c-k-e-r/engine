@@ -32,6 +32,12 @@
 			"bgm": 0.15,
 			"voice": 1.0
 		},
+		"bloom": {
+			"scale": 1.0,
+			"strength": 0.125,
+			"sigma": 0.8,
+			"samples": 5
+		},
 		"light": {
 			"exposure": 1.0,
 			"gamma": 1.0,

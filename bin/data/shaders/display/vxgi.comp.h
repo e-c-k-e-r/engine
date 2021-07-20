@@ -97,7 +97,7 @@ void main() {
 		const Material material = materials[surface.material.id];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
-
+		surface.material.lightmapID = instance.lightmapID;
 	#if DEFERRED_SAMPLING
 		surface.uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) ).xy;
 		if ( validTextureIndex( material.indexAlbedo ) ) {
@@ -126,7 +126,8 @@ void main() {
 		surface.material.occlusion = material.factorOcclusion;
 
 		float litFactor = 1.0;
-		if ( 0 <= material.indexLightmap ) {
+		if ( validTextureIndex( surface.material.lightmapID ) ) {
+		//	surface.fragment.rgb += sampleTexture( surface.material.lightmapID ).rgb;
 			surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
 		} else {
 			surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
@@ -140,7 +141,7 @@ void main() {
 			for ( uint i = 0; i < ubo.lights; ++i ) {
 				const Light light = lights[i];
 				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-				if ( light.type >= 0 && 0 <= material.indexLightmap ) continue;
+				if ( light.type >= 0 && validTextureIndex( instance.lightmapID ) ) continue;
 				const vec3 Lp = light.position;
 				const vec3 Liu = light.position - surface.position.world;
 				const vec3 Li = normalize(Liu);
@@ -164,7 +165,7 @@ void main() {
 				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			#endif
 				// lightmapped, compute only specular
-				if ( light.type >= 0 && 0 <= material.indexLightmap ) surface.fragment.rgb += (specular) * Lr * cosLi;
+				if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
 				// point light, compute only diffuse
 				// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 				else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;

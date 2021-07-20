@@ -63,7 +63,11 @@ void ext::opengl::Texture::updateDescriptors() {
 	descriptor.layers = layers;
 }
 bool ext::opengl::Texture::generated() const {
+#if UF_ENV_DREAMCAST
+	return image;
+#else
 	return glIsTexture(image);
+#endif
 }
 void ext::opengl::Texture::destroy() {
 	if ( !device ) return;

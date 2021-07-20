@@ -13,70 +13,6 @@
 #define VERBOSE false
 #define VERBOSE_SUBMIT false
 
-#define GL_DRAW_ARRAYS( vertexPointer, vertices )\
-	GL_ERROR_CHECK(glBegin(GL_TRIANGLES)); {\
-		for ( size_t i = 0; i < vertices; i++ ) {\
-			uint8_t* vertex = vertexPointer + (i * vertexStride);\
-			if ( vertexAttributeNormal.name != "" ) {\
-				float* normal = (float*) (vertex + vertexAttributeNormal.offset);\
-				GL_ERROR_CHECK(glNormal3f(normal[0], normal[1], normal[2]));\
-			}\
-			if ( vertexAttributeColor.name != "" ) {\
-				float* color = (float*) (vertex + vertexAttributeColor.offset);\
-				GL_ERROR_CHECK(glColor3f(color[0], color[1], color[2]));\
-			}\
-			if ( vertexAttributeUv.name != "" ) {\
-				float* uv = (float*) (vertex + vertexAttributeUv.offset);\
-				GL_ERROR_CHECK(glTexCoord2f(uv[0], uv[1]));\
-			}\
-			{\
-				float* position = (float*) (vertex + vertexAttributePosition.offset);\
-				GL_ERROR_CHECK(glVertex3f(position[0], position[1], position[2]));\
-			}\
-		}\
-	} GL_ERROR_CHECK(glEnd());
-
-#define GL_DRAW_ELEMENTS( indicesPointer, indices )\
-	GL_ERROR_CHECK(glBegin(GL_TRIANGLES)); {\
-		for ( size_t i = 0; i < indices; ++i ) {\
-			uint32_t index = 0;\
-			void* indexSrc = indexPointer + (currentIndex * indexStride);\
-			switch ( indexStride ) {\
-				case sizeof( uint8_t): index = *(( uint8_t*) indexSrc); break;\
-				case sizeof(uint16_t): index = *((uint16_t*) indexSrc); break;\
-				case sizeof(uint32_t): index = *((uint32_t*) indexSrc); break;\
-			}\
-			void* vertex = vertexPointer + (index * vertexStride);\
-			if ( vertexAttributeNormal.name != "" ) {\
-				float* normal = (float*) (vertex + vertexAttributeNormal.offset);\
-				GL_ERROR_CHECK(glNormal3f(normal[0], normal[1], normal[2]));\
-			}\
-			if ( vertexAttributeColor.name != "" ) {\
-				float* color = (float*) (vertex + vertexAttributeColor.offset);\
-				GL_ERROR_CHECK(glColor3f(color[0], color[1], color[2]));\
-			}\
-			if ( vertexAttributeUv.name != "" ) {\
-				float* uv = (float*) (vertex + vertexAttributeUv.offset);\
-				GL_ERROR_CHECK(glTexCoord2f(uv[0], uv[1]));\
-			}\
-			{\
-				float* position = (float*) (vertex + vertexAttributePosition.offset);\
-				GL_ERROR_CHECK(glVertex3f(position[0], position[1], position[2]));\
-			}\
-		}\
-	} GL_ERROR_CHECK(glEnd());
-
-#define GL_BIND_POINTERS()\
-	if ( vertexAttributeNormal.name != "" ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + vertexAttributeNormal.offset));\
-	if ( vertexAttributeColor.name != "" ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeColor.offset));\
-	if ( vertexAttributeUv.name != "" ) GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeUv.offset));\
-	if ( vertexAttributeSt.name != "" ) {\
-		glClientActiveTexture(GL_TEXTURE1);\
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeSt.offset));\
-		glClientActiveTexture(GL_TEXTURE0);\
-	}\
-	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributePosition.offset));
-
 size_t ext::opengl::CommandBuffer::preallocate = 8;
 
 void ext::opengl::CommandBuffer::initialize( Device& device ) {
@@ -91,36 +27,15 @@ void ext::opengl::CommandBuffer::destroy() {
 	this->mutex = NULL;
 }
 void ext::opengl::CommandBuffer::start() {
-	if ( state == 1 ) {
-		std::cout << "ERROR: COMMAND BUFFER " << this << " NOT READY FOR RECORDING" << std::endl;
-		return;
-	}
+	if ( state == 1 ) return;
 	flush();
 	state = 1;
-//	if ( VERBOSE ) std::cout << "==== ["<<this<<"] COMMAND BUFFER RECORDING START ====\n";
 	mutex->lock();
 }
 void ext::opengl::CommandBuffer::end() {
-	if ( state != 1 ) {
-		std::cout << "ERROR: COMMAND BUFFER " << this << " WAS NOT RECORDING" << std::endl;
-		return;
-	}
-	if ( !infos.empty() ) {
-		if ( VERBOSE ) std::cout << "==== ["<<this<<"] COMMAND BUFFER RECORDING END ==== " << std::endl;
-	}
+	if ( state != 1 ) return;
 	state = 2;
 	mutex->unlock();
-
-	// traverse list chain
-/*
-	Info* currentInfo = (Info*) (void*) startInfo;
-	while ( currentInfo ) {
-		std::cout << "COMMAND: " << currentInfo << "[" << currentInfo->type << "]";
-		currentInfo = currentInfo->next;
-		if ( currentInfo ) std::cout << " -> ";
-	}
-	std::cout << std::endl;
-*/
 }
 void ext::opengl::CommandBuffer::record( const CommandBuffer::Info& header ) {
 	if ( state != 1 ) return;
@@ -209,8 +124,6 @@ void ext::opengl::CommandBuffer::submit() {
 			case ext::opengl::enums::Command::DRAW: {
 				InfoDraw* info = (InfoDraw*) header;
 				drawIndexed( *info );
-			//	if ( info->indexBuffer.buffer ) drawIndexed( *info );
-			//	else draw( *info );
 			} break;
 			default: {
 			} break;
@@ -232,7 +145,7 @@ size_t ext::opengl::CommandBuffer::size() const {
 
 pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer::Descriptor& descriptor ) {
 #if UF_USE_OPENGL_FIXED_FUNCTION
-	pod::Uniform* uniform = (pod::Uniform*) (device->getBuffer( descriptor.buffer ) + descriptor.offset);
+	pod::Uniform* uniform = (pod::Uniform*) ((uint8_t*) device->getBuffer( descriptor.buffer ) + descriptor.offset);
 
 	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
 	GL_ERROR_CHECK(glLoadMatrixf( &uniform->modelView[0] ));
@@ -244,12 +157,27 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 #endif
 }
 void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
-	auto projectionViewMatrix = bindUniform( drawInfo.uniformBuffer );
+	if ( drawInfo.matrices.model && drawInfo.matrices.view && drawInfo.matrices.projection ) {
+		pod::Matrix4f modelView = uf::matrix::multiply( *drawInfo.matrices.view, *drawInfo.matrices.model );
 
-	size_t indices = drawInfo.descriptor.indices;
-	size_t indicesStride = drawInfo.descriptor.attributes.index.size;
-	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
-	size_t vertices = drawInfo.vertexBuffer.range / vertexStride;
+		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+		GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
+
+		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
+	} else if ( drawInfo.matrices.model && drawInfo.matrices.projection ) {
+		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.model ));
+
+		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
+	} else if ( drawInfo.matrices.view && drawInfo.matrices.projection ) {
+		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.view ));
+
+		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
+	}
 
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
 		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
@@ -266,383 +194,74 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
 
 	// CPU-buffer based command dispatching
-	void* vertexPointer = (void*) ( device->getBuffer( drawInfo.vertexBuffer.buffer ) + drawInfo.vertexBuffer.offset );
-	uf::renderer::index_t* indicesPointer = (uf::renderer::index_t*) ( device->getBuffer( drawInfo.indexBuffer.buffer ) + drawInfo.indexBuffer.offset );
-
-	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
-	if ( drawInfo.attributes.uv ) GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
+	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
 
 	GLenum indicesType = GL_UNSIGNED_INT;
-	switch ( indicesStride ) {
+	switch ( drawInfo.attributes.index.stride ) {
 		case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
 		case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
 		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 	}
 
-	if ( drawInfo.texture.image && drawInfo.attributes.uv ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glEnable(drawInfo.texture.viewType));
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.texture.viewType, drawInfo.texture.image));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.uv));
+	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
+		static GLuint previous = 0;
+		if ( previous != drawInfo.textures.primary.image ) {
+			previous = drawInfo.textures.primary.image;
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		}
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, drawInfo.attributes.uv.pointer));
 	}
-	if ( drawInfo.auxTexture.image && drawInfo.attributes.st ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glEnable(drawInfo.auxTexture.viewType));
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.auxTexture.viewType, drawInfo.auxTexture.image));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.st));
+	if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+		static GLuint previous = 0;
+		if ( previous != drawInfo.textures.secondary.image ) {
+			previous = drawInfo.textures.secondary.image;
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, drawInfo.attributes.st.pointer));
+		}
 	#if UF_ENV_DREAMCAST
 		GL_ERROR_CHECK(glDisable(GL_BLEND));
 	#endif
 	}
 	
-	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.normal));
-	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.color));
-	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + drawInfo.attributes.position));
+	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, drawInfo.attributes.normal.pointer));
+	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, drawInfo.attributes.color.stride, drawInfo.attributes.color.pointer));
+	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, drawInfo.attributes.position.pointer));
+	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.attributes.index.length, indicesType, drawInfo.attributes.index.pointer));
 
-	// frustrum culling
 #if 0
-	if ( ext::opengl::settings::experimental::culling ) {
-		uf::stl::vector<uf::renderer::index_t> unculled;
-		unculled.reserve(indices);
-		for ( size_t currentIndex = 0; currentIndex < indices; currentIndex += 3 ) {
-			const pod::Vector3f& positionA = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+0] * vertexStride)) + drawInfo.attributes.position));
-			const pod::Vector3f& positionB = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+2] * vertexStride)) + drawInfo.attributes.position));
-			const pod::Vector3f& positionC = *((pod::Vector3f*) ((vertexPointer + (indicesPointer[currentIndex+1] * vertexStride)) + drawInfo.attributes.position));
-
-			bool inside = false;
-			pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionA, 1, true );
-			static constexpr pod::Vector3f min{-1.5,-1.5,-1.5};
-			static constexpr pod::Vector3f max{ 1.5, 1.5, 1.5};
-			if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
-		//	if ( min <= translated && translated <= max ) inside = true;
-			else {
-				pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionB, 1, true );
-				if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
-			//	if ( min <= translated && translated <= max ) inside = true;
-				else {
-					pod::Vector3f translated = uf::matrix::multiply<float>( projectionViewMatrix, positionC, 1, true );
-					if ( min.x <= translated.x && min.y <= translated.y && min.z <= translated.z && translated.x <= max.x && translated.y <= max.y && translated.z <= max.z ) inside = true;
-				//	if ( min <= translated && translated <= max ) inside = true;
-				}
-			}
-			if ( inside ) {
-				unculled.emplace_back(indicesPointer[currentIndex+0]);
-				unculled.emplace_back(indicesPointer[currentIndex+1]);
-				unculled.emplace_back(indicesPointer[currentIndex+2]);
-			}
-		}
-		GLenum indicesType = GL_UNSIGNED_INT;
-		switch ( sizeof(uf::renderer::index_t) ) {
-			case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
-			case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
-			case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
-		}
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, unculled.size(), indicesType, &unculled[0]));
-	} else {
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
-	}
-#else
-	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
-#endif
-
-	if ( drawInfo.auxTexture.image ) {
+	if ( drawInfo.textures.secondary.image ) {
 	#if UF_ENV_DREAMCAST
 		GL_ERROR_CHECK(glEnable(GL_BLEND));
 	#endif
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.auxTexture.viewType, 0));
-		GL_ERROR_CHECK(glDisable(drawInfo.auxTexture.viewType));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, 0));
+		GL_ERROR_CHECK(glDisable(drawInfo.textures.secondary.viewType));
 	}
-	if ( drawInfo.texture.image ) {
+	if ( drawInfo.textures.primary.image ) {
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.texture.viewType, 0));
-		GL_ERROR_CHECK(glDisable(drawInfo.texture.viewType));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, 0));
+		GL_ERROR_CHECK(glDisable(drawInfo.textures.primary.viewType));
 	}
+#endif
 
-	if ( drawInfo.attributes.normal ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
-	if ( drawInfo.attributes.uv ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
+	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
+	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
 }
-#if 0
-void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo, const ext::opengl::CommandBuffer::Info& vertexBufferInfo, const ext::opengl::CommandBuffer::Info& indexBufferInfo, const uf::stl::vector<InfoTexture*>& textureInfos ) {
-	uf::Timer<long long> TIMER_TRACE;
-	long long prevTime = 0;
-	long long curTime = 0;
-	UF_MSG_DEBUG("==== START RENDER ====");
-
-	ext::opengl::Buffer::Descriptor vertexBuffer = {};
-	ext::opengl::Buffer::Descriptor indexBuffer = {};
-
-	switch ( vertexBufferInfo.type ) {
-		case ext::opengl::enums::Command::BIND_BUFFER: {
-			ext::opengl::CommandBuffer::InfoBuffer* info = (ext::opengl::CommandBuffer::InfoBuffer*) &vertexBufferInfo;
-			vertexBuffer = info->descriptor;
-		} break;
-		case ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER: {
-			ext::opengl::CommandBuffer::InfoGraphicBuffer* info = (ext::opengl::CommandBuffer::InfoGraphicBuffer*) &vertexBufferInfo;
-			vertexBuffer = info->graphic->buffers[info->bufferIndex].descriptor;
-		} break;
-	}
-	switch ( indexBufferInfo.type ) {
-		case ext::opengl::enums::Command::BIND_BUFFER: {
-			ext::opengl::CommandBuffer::InfoBuffer* info = (ext::opengl::CommandBuffer::InfoBuffer*) &indexBufferInfo;
-			indexBuffer = info->descriptor;
-		} break;
-		case ext::opengl::enums::Command::BIND_GRAPHIC_BUFFER: {
-			ext::opengl::CommandBuffer::InfoGraphicBuffer* info = (ext::opengl::CommandBuffer::InfoGraphicBuffer*) &indexBufferInfo;
-			indexBuffer = info->graphic->buffers[info->bufferIndex].descriptor;
-		} break;
-	}
-
-	if ( !vertexBuffer.buffer || !indexBuffer.buffer ) return;
-
-	size_t indices = drawInfo.length;
-	size_t indicesStride = drawInfo.descriptor.attributes.index.size;
-	size_t vertexStride = drawInfo.descriptor.attributes.vertex.size;
-	size_t vertices = vertexBuffer.range / vertexStride;
-	
-	uf::renderer::AttributeDescriptor 	vertexAttributePosition, 
-									vertexAttributeNormal,
-									vertexAttributeColor,
-									vertexAttributeUv,
-									vertexAttributeSt,
-									vertexAttributeId;
-
-	for ( auto& attribute : drawInfo.descriptor.attributes.vertex.descriptor ) {
-		if ( attribute.name == "position" ) vertexAttributePosition = attribute;
-		else if ( attribute.name == "normal" ) vertexAttributeNormal = attribute;
-		else if ( attribute.name == "color" ) vertexAttributeColor = attribute;
-		else if ( attribute.name == "uv" ) vertexAttributeUv = attribute;
-		else if ( attribute.name == "st" ) vertexAttributeSt = attribute;
-		else if ( attribute.name == "id" ) vertexAttributeId = attribute;
-	}
-	if ( vertexAttributePosition.name == "" ) return;
-
-	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
-		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
-	} else {
-		GL_ERROR_CHECK(glEnable(GL_CULL_FACE));
-		GL_ERROR_CHECK(glFrontFace(drawInfo.descriptor.frontFace));
-		GL_ERROR_CHECK(glCullFace(drawInfo.descriptor.cullMode));
-	}
-#if !UF_USE_OPENGL_FIXED_FUNCTION
-	// GPU-buffer based command dispatching
-	{
-
-	}
-#else
-	// CPU-buffer based command dispatching
-	void* vertexPointer = (void*) ( device->getBuffer( vertexBuffer.buffer ) + vertexBuffer.offset );
-	uf::renderer::index_t* indicesPointer = (uf::renderer::index_t*) ( device->getBuffer( indexBuffer.buffer ) + indexBuffer.offset );
-
-	// vertices do not need to be transformed
-	//if ( vertexAttributeId.name == "" )
-#if !UF_USE_OPENGL_IMMEDIATE_MODE
-	if ( vertexAttributeNormal.name != "" )	GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
-	if ( vertexAttributeColor.name != "" )GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
-	if ( vertexAttributeUv.name != "" )	GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
-
-	GLenum indicesType = GL_UNSIGNED_INT;
-	switch ( indicesStride ) {
-		case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
-		case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
-		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
-	}
-	// no ID attribute found, fallback
-	if ( vertexAttributeId.name == "" ) {
-		if ( !textureInfos.empty() ) {
-			InfoTexture* info = textureInfos.front();
-			GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-		}
-		GL_BIND_POINTERS();
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
-	} else {
-		if ( textureInfos.empty() ) {
-			GL_BIND_POINTERS();
-			GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
-		} else if ( textureInfos.size() == 1 ) {
-			InfoTexture* info = textureInfos.front();
-			GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-			GL_BIND_POINTERS();
-			GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices, indicesType, indicesPointer));
-		} else {
-			bool lightMapped = false;
-			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
-			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-				auto index = indicesPointer[currentIndex];
-				void* vertices = vertexPointer + (index * vertexStride);
-
-				const pod::Vector2f& st = *((pod::Vector2f*) (vertices + vertexAttributeSt.offset));
-				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
-
-				if ( st > pod::Vector2f{0,0} ) lightMapped = true; 
-
-				size_t textureId = id.y;
-				if ( textureInfos.size() < textureId ) continue;
-				sorted[textureId].emplace_back(index);
-			}
-			GLenum indicesType = GL_UNSIGNED_INT;
-			switch ( sizeof(uf::renderer::index_t) ) {
-				case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
-				case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
-				case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
-			}
-			// assume if the last texture is unused, and we have ST's, it's lightmapped
-			InfoTexture* textureLightmapInfo = NULL;
-			if ( lightMapped && sorted.back().empty() ) {
-				textureLightmapInfo = textureInfos.back();
-				sorted.pop_back();
-			} else vertexAttributeSt.name = "";
-			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
-				auto& indices = sorted[textureId];
-				if ( indices.empty() ) continue;
-				InfoTexture* info = textureInfos[textureId];
-				if ( textureLightmapInfo ) {
-				#if UF_ENV_DREAMCAST
-					GL_ERROR_CHECK(glDisable(GL_BLEND));
-				#endif
-					if ( vertexAttributeUv.name != "" ) {
-						GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-						GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-						GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-						GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-						GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-						GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-						GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeUv.offset));
-					}
-
-					if ( vertexAttributeSt.name != "" ) {
-						GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-						GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-						GL_ERROR_CHECK(glEnable(textureLightmapInfo->descriptor.viewType));
-						GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-						GL_ERROR_CHECK(glBindTexture(textureLightmapInfo->descriptor.viewType, textureLightmapInfo->descriptor.image));
-						GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-						GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeSt.offset));
-					}
-					
-					GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-
-					if ( vertexAttributeNormal.name != "" ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, vertexStride, vertexPointer + vertexAttributeNormal.offset));
-					if ( vertexAttributeColor.name != "" ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributeColor.offset));
-					GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, vertexStride, vertexPointer + vertexAttributePosition.offset));
-				
-					GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), indicesType, &indices[0]));
-
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-					GL_ERROR_CHECK(glBindTexture(textureLightmapInfo->descriptor.viewType, 0));
-					GL_ERROR_CHECK(glDisable(textureLightmapInfo->descriptor.viewType));
-
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
-					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
-				#if UF_ENV_DREAMCAST
-					GL_ERROR_CHECK(glEnable(GL_BLEND));
-				#endif
-				} else {
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-					GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-					GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-				
-					GL_BIND_POINTERS();
-					
-					GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), indicesType, &indices[0]));
-
-					GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-					GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, 0));
-					GL_ERROR_CHECK(glDisable(info->descriptor.viewType));
-				}
-				curTime = TIMER_TRACE.elapsed().asMicroseconds();
-				UF_MSG_DEBUG(curTime << " us\t" << (curTime - prevTime) << " us\t" << textureId);
-				prevTime = curTime;
-			}
-		}
-	}
-
-    if ( vertexAttributeNormal.name != "" )	GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
-	if ( vertexAttributeColor.name != "" )	GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
-	if ( vertexAttributeUv.name != "" )	GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
-	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
-#else
-	// no ID attribute found, fallback
-	if ( vertexAttributeId.name == "" ) {
-		if ( !textureInfos.empty() ) {
-			InfoTexture* info = textureInfos.front();
-			GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-		}
-		GL_DRAW_ELEMENTS( indicesPointer, indices );
-	} else {
-		if ( textureInfos.empty() ) {
-			GL_DRAW_ELEMENTS( indicesPointer, indices );
-		} else if ( textureInfos.size() == 1 ) {
-			InfoTexture* info = textureInfos.front();
-			GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-			GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-			GL_DRAW_ELEMENTS( indicesPointer, indices );
-		} else {
-			uf::stl::vector<uf::stl::vector<uf::renderer::index_t>> sorted( textureInfos.size() );
-			for ( size_t currentIndex = 0; currentIndex < indices; ++currentIndex ) {
-				uf::renderer::index_t index = indicesPointer[currentIndex];
-				void* vertices = vertexPointer + (index * vertexStride);
-
-				const pod::Vector<uf::graph::id_t,2>& id = *((pod::Vector<uf::graph::id_t,2>*) (vertices + vertexAttributeId.offset));
-				size_t textureId = id.y;
-				if ( textureInfos.size() < textureId ) continue;
-				sorted[textureId].emplace_back(index);
-			}
-			for ( size_t textureId = 0; textureId < sorted.size(); ++textureId ) {
-				auto& indices = sorted[textureId];
-				if ( indices.empty() ) continue;
-				InfoTexture* info = textureInfos[textureId];
-				GL_ERROR_CHECK(glEnable(info->descriptor.viewType));
-				GL_ERROR_CHECK(glBindTexture(info->descriptor.viewType, info->descriptor.image));
-				GL_DRAW_ELEMENTS( (&indices[0]) , (indices.size()) );
-			}
-		}
-	}
-#endif
-#if 0
-	GL_ERROR_CHECK(glBegin(GL_TRIANGLES)); {
-		for ( size_t i = 0; i < indices; ++i ) {
-			size_t index = indicesPointer[i];
-			void* vertex = vertexPointer + (index * vertexStride);
-			if ( vertexAttributeNormal.name != "" ) {
-				float* normal = (float*) (vertex + vertexAttributeNormal.offset);
-				GL_ERROR_CHECK(glNormal3f(normal[0], normal[1], normal[2]));
-			}
-			if ( vertexAttributeColor.name != "" ) {
-				float* color = (float*) (vertex + vertexAttributeColor.offset);
-				GL_ERROR_CHECK(glColor3f(color[0], color[1], color[2]));
-			}
-			if ( vertexAttributeUv.name != "" ) {
-				float* uv = (float*) (vertex + vertexAttributeUv.offset);
-				GL_ERROR_CHECK(glTexCoord2f(uv[0], uv[1]));
-			}
-			{
-				float* position = (float*) (vertex + vertexAttributePosition.offset);
-				GL_ERROR_CHECK(glVertex3f(position[0], position[1], position[2]));
-			}
-		}
-	} GL_ERROR_CHECK(glEnd());
-#endif
-#endif
-}
-#endif
-
 #endif

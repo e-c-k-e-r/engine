@@ -1,15 +1,21 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SH2_McDonalds",
+			"meshes": {
+				"interleave": false
+			},
+			"matrix": {
+				"reverseInfinite": true
+			},
 			"lights": {
-				"max": 64,
+				"max": 32,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
 				"update": 2,
-				"max": 8,
+				"max": 6,
 				"samples": 2,
 				"experimental mode": 1
 			},
@@ -20,18 +26,12 @@
 					"3D": 1
 				}
 			},
-			"meshes": {
-				"interleave": false
-			},
-			"matrix": {
-				"reverseInfinite": true
-			},
 			"vxgi": {
 				"limiter": 0.125,
-				"size": 96,
+				"size": 64,
 				"dispatch": 8,
 				"cascades": 6,
-				"cascadePower": 4,
+				"cascadePower": 2,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
@@ -41,10 +41,10 @@
 			},
 			"bloom": {
 				"scale": 1.0,
-				"strength": 1.0,
-				"threshold": 1.0,
+				"strength": 0.125,
 				"sigma": 0.8,
-				"samples": 5
+				"samples": 5,
+				"threshold": 1.0
 			}
 		},
 		"ext": {
@@ -80,8 +80,8 @@
 					"vsync": true,
 					"hdr": false,
 					"vxgi": true,
-					"deferred sampling": false,
-					"culling": false,
+					"deferred sampling": true,
+					"culling": true,
 					"bloom": true
 				},
 				"formats": {
@@ -130,7 +130,7 @@
 					"rebuild on tick begin": false,
 					"wait on render end": false,
 					"individual pipelines": true,
-					"multithreaded command recording": true,
+					"multithreaded command recording": false, //
 					"multithreaded command rendering": false,
 					"deferred mode": "",
 				//	"deferred mode": "deferredSampling",
@@ -179,6 +179,7 @@
 				},
 				"debug draw": {
 					"enabled": false,
+				//	"layer": "Gui",
 					"rate": 0.0125
 				}
 			},
@@ -251,10 +252,10 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-		"size" :  [ 1920, 1080 ],
+	//	"size" :  [ 1920, 1080 ],
 	//	"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
-	//	"size" :  [ 640, 480 ],
+		"size" :  [ 640, 480 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}

@@ -17,21 +17,22 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-layout (binding = 3) uniform Camera {
+#if !BAKING
+layout (binding = 0) uniform Camera {
 	Viewport viewport[PASSES];
 } camera;
-
+#endif
 /*
-layout (std140, binding = 4) readonly buffer DrawCommands {
+layout (std140, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
 */
-layout (std140, binding = 4) readonly buffer Instances {
+layout (std140, binding = 1) readonly buffer Instances {
 	Instance instances[];
 };
 
 #if SKINNED
-	layout (std140, binding = 5) readonly buffer Joints {
+	layout (std140, binding = 2) readonly buffer Joints {
 		mat4 joints[];
 	};
 #endif
@@ -42,7 +43,7 @@ layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec3 outNormal;
 layout (location = 4) out mat3 outTBN;
 layout (location = 7) out vec3 outPosition;
-layout (location = 8) out ivec4 outId;
+layout (location = 8) out uvec4 outId;
 
 vec4 snap(vec4 vertex, vec2 resolution) {
     vec4 snappedPos = vertex;
@@ -55,19 +56,25 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 void main() {
 	outUv = inUv;
 	outSt = inSt;
-	
-	const mat4 view = camera.viewport[PushConstant.pass].view;
-	const mat4 projection = camera.viewport[PushConstant.pass].projection;
-#if SKINNED 
-	const mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[int(inJoints.x)] + inWeights.y * joints[int(inJoints.y)] + inWeights.z * joints[int(inJoints.z)] + inWeights.w * joints[int(inJoints.w)];
-#else
-	const mat4 skinned = mat4(1.0);
-#endif
 	const uint drawID = gl_DrawIDARB;
 //	const DrawCommand drawCommand = drawCommands[drawID];
 	const uint instanceID = gl_InstanceIndex;
 	const Instance instance = instances[instanceID];
 	const uint materialID = instance.materialID;
+	const uint jointID = instance.jointID;
+
+#if BAKING
+	const mat4 view = mat4(1);
+	const mat4 projection = mat4(1);
+#else
+	const mat4 view = camera.viewport[PushConstant.pass].view;
+	const mat4 projection = camera.viewport[PushConstant.pass].projection;
+#endif
+#if SKINNED 
+	const mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[jointID + int(inJoints.x)] + inWeights.y * joints[jointID + int(inJoints.y)] + inWeights.z * joints[jointID + int(inJoints.z)] + inWeights.w * joints[jointID + int(inJoints.w)];
+#else
+	const mat4 skinned = mat4(1.0);
+#endif
 	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
 
 	outId = ivec4(drawID, instanceID, materialID, PushConstant.pass);
@@ -80,6 +87,9 @@ void main() {
 	vec3 N = outNormal;
 	vec3 B = cross(N, T) * inTangent.w;
 	outTBN = mat3( T, B, N );
-
+#if BAKING
+	gl_Position = vec4(inSt * 2.0 - 1.0, 0.0, 1.0);
+#else
 	gl_Position = projection * view * model * vec4(inPos.xyz, 1.0);
+#endif
 }

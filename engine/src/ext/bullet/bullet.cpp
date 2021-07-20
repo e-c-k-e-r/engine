@@ -70,14 +70,16 @@ public:
 	const uf::Mesh& getMesh() const { return mesh; }
 };
 
-bool ext::bullet::debugDrawEnabled = false;
-float ext::bullet::debugDrawRate = 1.0f;
 size_t ext::bullet::iterations = 1;
 size_t ext::bullet::substeps = 12;
 float ext::bullet::timescale = 1.0f;
 
 size_t ext::bullet::defaultMaxCollisionAlgorithmPoolSize = 65535;
 size_t ext::bullet::defaultMaxPersistentManifoldPoolSize = 65535;
+
+bool ext::bullet::debugDrawEnabled = false;
+float ext::bullet::debugDrawRate = 1.0f;
+uf::stl::string ext::bullet::debugDrawLayer = "";
 
 namespace ext {
 	namespace bullet {
@@ -184,7 +186,6 @@ void ext::bullet::syncToBullet() {
 		if ( !entity || !entity->isValid() || !entity->hasComponent<pod::Bullet>() ) continue;
 
 		auto& collider = entity->getComponent<pod::Bullet>();
-	//	auto& transform = entity->getComponent<pod::Transform<>>();
 				
 		if ( !collider.shared ) continue;
 		{
@@ -192,7 +193,6 @@ void ext::bullet::syncToBullet() {
 			body->setLinearVelocity( btVector3( physics.linear.velocity.x, physics.linear.velocity.y, physics.linear.velocity.z ) );
 		}
 		{
-		//	auto model = uf::transform::model( transform );
 			auto model = uf::transform::model( collider.transform );
 			
 			btTransform t;
@@ -204,9 +204,6 @@ void ext::bullet::syncToBullet() {
 
 			body->setWorldTransform(t);
 			body->setCenterOfMassTransform(t);
-
-		//	auto T = uf::transform::flatten( transform );
-		//	UF_MSG_DEBUG( entity->getName() << ": " << entity->getUid() << " " << uf::vector::toString( T.position ) );
 		}
 	}
 }
@@ -235,10 +232,6 @@ void ext::bullet::syncFromBullet() {
 		transform.orientation.z = t.getRotation().getZ();
 		transform.orientation.w = t.getRotation().getW();
 
-		// unoffset by our transform
-	//	transform.position -= collider.transform.position;
-	//	transform.orientation = transform.orientation * uf::quaternion::inverse( collider.transform.orientation );
-
 		{
 			auto& physics = entity->getComponent<pod::Physics>();
 			physics.linear.velocity.x = body->getLinearVelocity().getX();
@@ -259,7 +252,6 @@ pod::Bullet& ext::bullet::create( uf::Object& object ) {
 
 	collider.uid = object.getUid();
 	collider.pointer = &object;
-//	collider.transform = &object.getComponent<pod::Transform<>>();
 	collider.transform.reference = &object.getComponent<pod::Transform<>>();
 	collider.shared = false;
 	return collider;
@@ -280,7 +272,6 @@ void ext::bullet::attach( pod::Bullet& collider ) {
 	btRigidBody::btRigidBodyConstructionInfo info(collider.mass, motion, collider.shape, inertia);
 	
 	collider.body = new btRigidBody(info);
-//	collider.body->setUserPointer((void*) collider.uid);
 	collider.body->setUserPointer((void*) collider.pointer);
 
 	if ( collider.mass > 0 ) {
@@ -368,6 +359,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh, bool
 	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
 	return collider;
 }
+/*
 pod::Bullet& ext::bullet::create( uf::Object& object, const void* verticesPointer, size_t verticesCount, size_t verticesStride, const void* indicesPointer, size_t indicesCount, size_t indicesStride, bool dynamic ) {
 	btTriangleIndexVertexArray* bMesh = new btTriangleIndexVertexArray();
 
@@ -415,6 +407,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const void* verticesPointe
 	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
 	return collider;
 }
+*/
 pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Vector3f& corner, float mass ) {
 	auto& collider = ext::bullet::create( object );
 	collider.mass = mass;
@@ -424,18 +417,60 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const pod::Vector3f& corne
 	auto& transform = object.getComponent<pod::Transform<>>();
 	auto model = uf::transform::model( collider.transform );
 
-/*
-	btTransform t = collider.body->getWorldTransform();
-	t.setFromOpenGLMatrix(&model[0]);
-	collider.body->setWorldTransform(t);
-	collider.body->setCenterOfMassTransform(t);
-*/
-
 	collider.body->setContactProcessingThreshold(0.0);
 	collider.body->setAngularFactor(0.0);
 	collider.body->setCcdMotionThreshold(1e-7);
 	collider.body->setCcdSweptSphereRadius(0.25 * 0.2);
 	return collider;
+}
+uf::stl::vector<pod::Bullet>& ext::bullet::create( uf::Object& object, const uf::stl::vector<pod::Instance::Bounds>& bounds, float mass ) {
+	auto& colliders = object.getComponent<uf::stl::vector<pod::Bullet>>();
+	colliders.reserve(colliders.size() + bounds.size());
+
+	auto& transform = object.getComponent<pod::Transform<>>();
+	auto flatten = uf::transform::flatten( transform );
+	auto model = uf::transform::model( transform );
+	for ( auto bound : bounds ) {
+	/*
+		pod::Vector3f corners[8] = {
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.min.x, bound.min.y, bound.min.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.max.x, bound.min.y, bound.min.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.max.x, bound.max.y, bound.min.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.min.x, bound.max.y, bound.min.z }, 1.0f ),
+
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.min.x, bound.min.y, bound.max.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.max.x, bound.min.y, bound.max.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.max.x, bound.max.y, bound.max.z }, 1.0f ),
+			uf::matrix::multiply<float>( model, pod::Vector3f{ -bound.min.x, bound.max.y, bound.max.z }, 1.0f ),
+		};
+		bound = {};
+
+		FOR_ARRAY( corners ) {
+			bound.min = uf::vector::min( bound.min, corners[i] );
+			bound.max = uf::vector::max( bound.max, corners[i] );
+		}
+	*/
+		pod::Vector3f center = (bound.max + bound.min) * 0.5f;
+		pod::Vector3f corner = (bound.max - bound.min) * 0.5f;
+		center.x = -center.x;
+
+		center = uf::matrix::multiply<float>( model, center, 1.0f );
+		corner = uf::matrix::multiply<float>( model, corner, 0.0f );
+
+		auto& collider = colliders.emplace_back();
+		collider.transform = flatten;
+		collider.transform.position = center;
+		collider.transform.reference = NULL;
+		collider.mass = mass;
+		collider.shape = new btBoxShape(btVector3(corner.x, corner.y, corner.z));
+		ext::bullet::attach( collider );
+
+		collider.body->setContactProcessingThreshold(0.0);
+		collider.body->setAngularFactor(0.0);
+		collider.body->setCcdMotionThreshold(1e-7);
+		collider.body->setCcdSweptSphereRadius(0.25 * 0.2);
+	}
+	return colliders;
 }
 
 pod::Bullet& ext::bullet::create( uf::Object& object, float radius, float height, float mass ) {
@@ -446,47 +481,18 @@ pod::Bullet& ext::bullet::create( uf::Object& object, float radius, float height
 
 	auto& transform = object.getComponent<pod::Transform<>>();
 	auto model = uf::transform::model( collider.transform );
-	
-/*
-	btTransform t = collider.body->getWorldTransform();
-	t.setFromOpenGLMatrix(&model[0]);
-	collider.body->setWorldTransform(t);
-	collider.body->setCenterOfMassTransform(t);
-*/
 
 	collider.body->setContactProcessingThreshold(0.0);
 	collider.body->setAngularFactor(0.0);
 	collider.body->setCcdMotionThreshold(1e-7);
 	collider.body->setCcdSweptSphereRadius(0.25 * 0.2);
 
-//	UF_MSG_DEBUG( collider.body->getLinearDamping() << " " << collider.body->getAngularDamping() );
-//	collider.body->setDamping( 0.8, 0.8 );
-
 	return collider;
 }
 
 void UF_API ext::bullet::move( pod::Bullet& collider, const pod::Vector3f& v, bool override ) {
 	if ( !collider.body ) return;
-/*	
-	float x = collider.body->getLinearVelocity().getX();
-	float y = collider.body->getLinearVelocity().getY();
-	float z = collider.body->getLinearVelocity().getZ();
-	if ( fabs(x) < 0.001f ) x = v.x;
-	if ( fabs(y) < 0.001f ) y = v.y;
-	if ( fabs(z) < 0.001f ) z = v.z;
-	if ( override ) {
-		x = v.x;
-		y = v.y;
-		z = v.z;
-	}
-	collider.body->setLinearVelocity( btVector3( x, y, z ) );
-*/
 	collider.body->setLinearVelocity( btVector3( v.x, v.y, v.z ) );
-
-//	btTransform transform = collider.body->getWorldTransform();
-//	transform.setOrigin( transform.getOrigin() + btVector3( v.x, v.y, v.z ) * uf::physics::time::delta );
-//	collider.body->setWorldTransform(transform);
-//	collider.body->setCenterOfMassTransform(transform);
 }
 void UF_API ext::bullet::applyImpulse( pod::Bullet& collider, const pod::Vector3f& v ) {
 	if ( !collider.body ) return;
@@ -543,21 +549,23 @@ void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 		graphic.material.device = &uf::renderer::device;
 		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
-		graphic.material.metadata.json["shader"]["autoInitializeUniformBuffers"] = false;
-
+		graphic.material.metadata.autoInitializeUniforms = false;
 		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
 		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+		graphic.material.metadata.autoInitializeUniforms = true;
 
 		graphic.material.getShader("vertex").buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
 
-		graphic.initialize("Gui");
+		graphic.initialize(ext::bullet::debugDrawLayer);
 		graphic.initializeMesh( mesh );
 
 		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
 		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
 		graphic.descriptor.lineWidth = 8.0f;
 	} else {
-		graphic.updateMesh( mesh );
+		if ( graphic.updateMesh( mesh ) ) {
+			graphic.getPipeline().update( graphic );
+		}
 	}
 	graphic.process = true;
 }

@@ -102,22 +102,22 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 	));
 	if ( data && length ) update( data, length, stage );
 }
-void ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
-	if ( !data || !length ) return;
+bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
+	if ( !data || !length ) return false;
 
 	if ( length > allocationInfo.size ) {
 		UF_MSG_DEBUG("LENGTH OF " << length << " EXCEEDS BUFFER SIZE " << allocationInfo.size );
 		Buffer& b = *const_cast<Buffer*>(this);
 		b.destroy();
 		b.initialize( data, length, usage, memoryProperties, stage );
-		return;
+		return true;
 	}
 	if ( !stage ) {
 		void* map = this->map();
 		memcpy(map, data, length);
 		if ((this->memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) this->flush();
 		this->unmap();
-		return;
+		return false;
 	}
 
 	Buffer staging;
@@ -139,6 +139,7 @@ void ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 
 	device->flushCommandBuffer(copyCommand, true);
 	staging.destroy();
+	return false;
 }
 
 //
@@ -164,8 +165,7 @@ size_t ext::vulkan::Buffers::initializeBuffer( const void* data, VkDeviceSize le
 	buffer.initialize( data, length, usage, memoryProperties, stage );
 	return index;
 }
-void ext::vulkan::Buffers::updateBuffer( const void* data, VkDeviceSize length, const Buffer& buffer, bool stage ) const {
-	buffer.update( data, length, stage );
+bool ext::vulkan::Buffers::updateBuffer( const void* data, VkDeviceSize length, const Buffer& buffer, bool stage ) const {
+	return buffer.update( data, length, stage );
 }
-
 #endif

@@ -738,7 +738,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		if ( !graphic.initialized ) return;
 
 		bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
-	#if UF_USE_OPENGL
+	#if 0 && UF_USE_OPENGL
 		auto model = uf::matrix::identity();
 		auto uniformBuffer = graphic.getUniform();
 		pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniformBuffer.buffer));

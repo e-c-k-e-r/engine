@@ -315,7 +315,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.parameters[metadata.shader.time] = uf::physics::time::current;
 	}
 #endif
-
+#if UF_USE_VULKAN
 	{
 		auto& graph = this->getGraph();
 		auto& controller = this->getController();
@@ -467,7 +467,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		
 		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
 	}
-
+#endif
 	/* Update lights */ if ( !uf::renderer::settings::experimental::vxgi ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
@@ -594,8 +594,6 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 			.exposure = light.exposure,
 			.samples = bloom.samples,
 		};
-
-		UF_MSG_DEBUG( bloom.scale << " " << bloom.strength << " " << light.brightnessThreshold << " " << bloom.sigma << " " << light.gamma << " " << light.exposure << " " << bloom.samples );
 
 		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 	}
@@ -849,6 +847,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	
 		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 	}
-}
 #endif
+}
 #undef this

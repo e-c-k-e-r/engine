@@ -293,13 +293,15 @@ void EXT_API ext::initialize() {
 
 	#if UF_USE_BULLET
 		// set bullet parameters
-		ext::bullet::debugDrawEnabled = ::config["engine"]["ext"]["bullet"]["debug draw"]["enabled"].as( ext::bullet::debugDrawEnabled );
-		ext::bullet::debugDrawRate = ::config["engine"]["ext"]["bullet"]["debug draw"]["rate"].as( ext::bullet::debugDrawRate );
 		ext::bullet::iterations = ::config["engine"]["ext"]["bullet"]["iterations"].as( ext::bullet::iterations );
 		ext::bullet::substeps = ::config["engine"]["ext"]["bullet"]["substeps"].as( ext::bullet::substeps );
 		ext::bullet::timescale = ::config["engine"]["ext"]["bullet"]["timescale"].as( ext::bullet::timescale );
 		ext::bullet::defaultMaxCollisionAlgorithmPoolSize = ::config["engine"]["ext"]["bullet"]["pool size"]["max collision algorithm"].as( ext::bullet::defaultMaxCollisionAlgorithmPoolSize );
 		ext::bullet::defaultMaxPersistentManifoldPoolSize = ::config["engine"]["ext"]["bullet"]["pool size"]["max persistent manifold"].as( ext::bullet::defaultMaxPersistentManifoldPoolSize );
+		
+		ext::bullet::debugDrawEnabled = ::config["engine"]["ext"]["bullet"]["debug draw"]["enabled"].as( ext::bullet::debugDrawEnabled );
+		ext::bullet::debugDrawRate = ::config["engine"]["ext"]["bullet"]["debug draw"]["rate"].as( ext::bullet::debugDrawRate );
+		ext::bullet::debugDrawLayer = ::config["engine"]["ext"]["bullet"]["debug draw"]["layer"].as( ext::bullet::debugDrawLayer );
 	#endif
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 	{

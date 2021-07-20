@@ -3,9 +3,13 @@
 	"name": "MedSci",
 	"ignore": false,
 	"assets": [
-	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+
+		{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/medsci.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
@@ -39,6 +43,13 @@
 				"encode buffers": true,
 				"unwrap": true
 			},
+			"baking": {
+				"enabled": false,
+				"resolution": 8192,
+				"shadows": 1024,
+				"trigger": { "mode": "rendered" },
+				"output": "./lightmap.png"
+			},
 			"ambient": [ 0, 0, 0 ],
 		/*
 			"grid": {
@@ -47,7 +58,7 @@
 			},
 		*/
 		//	"lightmap": "./lightmap.min.png",
-		//	"lightmap": "./lightmap.png",
+			"lightmap": "./lightmap.png",
 			"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,
@@ -56,7 +67,6 @@
 				"SKINNED": false,
 				
 				"RENDER": true,
-			//	"SEPARATE": false,
 				"SEPARATE": false,
 				"NORMALS": false
 			},
@@ -64,11 +74,8 @@
 				"shadows": true
 			},
 			"tags": {
-				"worldspawn": { 
-					"action": "attach",
-					"filename": "./baker.json",
-					"collision": { "type": "mesh", "static": true }
-				},
+				"worldspawn": {  "collision": { "type": "mesh", "static": true } },
+			//	"worldspawn": {  "collision": { "type": "bounding boxes", "static": true } },
 				"info_player_spawn": {
 					"action": "attach",
 					"filename": "./player.json",

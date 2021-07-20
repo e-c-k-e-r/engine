@@ -11,11 +11,14 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (binding = 0) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 1) readonly buffer Materials {
+layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 5) readonly buffer Instances {
+	Instance instances[];
+};
+layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 2) readonly buffer Textures {
+layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
 
@@ -27,7 +30,7 @@ layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec3 inNormal;
 layout (location = 4) in mat3 inTBN;
 layout (location = 7) in vec3 inPosition;
-layout (location = 8) flat in ivec4 inId;
+layout (location = 8) flat in uvec4 inId;
 
 void main() {
 	const uint drawID = uint(inId.x);

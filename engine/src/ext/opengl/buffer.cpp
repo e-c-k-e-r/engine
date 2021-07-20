@@ -6,6 +6,18 @@
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/device.h>
 
+void ext::opengl::Buffer::aliasBuffer( const ext::opengl::Buffer& buffer ) {
+	*this = {
+		.device = NULL,
+		.buffer = buffer.buffer,
+		.descriptor = buffer.descriptor,
+		.size = buffer.size,
+		.alignment = buffer.alignment,
+		.usage = buffer.usage,
+		.allocationInfo = buffer.allocationInfo,
+	};
+}
+
 void* ext::opengl::Buffer::map( GLsizeiptr size, GLsizeiptr offset ) {
 	return NULL;
 }
@@ -26,9 +38,17 @@ void ext::opengl::Buffer::setupDescriptor( GLsizeiptr size, GLsizeiptr offset ) 
 	descriptor.offset = offset;
 	descriptor.range = size;
 }
-
-void ext::opengl::Buffer::copyTo( const void* data, GLsizeiptr len ) const {
-	if ( !buffer || !data ) return;
+void ext::opengl::Buffer::initialize( const void* data, GLsizeiptr length, GLenum usage, bool alias ) {
+	this->allocate( Buffer::CreateInfo{ 
+		.flags = 0,
+		.size = length,
+		.usage = usage,
+		.aliased = alias,
+	} );
+	if ( !alias ) this->update( data, length );
+}
+bool ext::opengl::Buffer::update( const void* data, GLsizeiptr len ) const {
+	if ( !buffer || !data ) return false;
 	if ( len >= size ) len = size;
 #if !UF_USE_OPENGL_FIXED_FUNCTION
 // GPU-bound buffer
@@ -54,8 +74,9 @@ void ext::opengl::Buffer::copyTo( const void* data, GLsizeiptr len ) const {
 #else
 // CPU-bound buffer
 	void* pointer = device->getBuffer( buffer );
-	if ( pointer ) memcpy( pointer, data, len );
+	if ( pointer && pointer != data ) memcpy( pointer, data, len );
 #endif
+	return false;
 }
 
 bool ext::opengl::Buffer::flush( GLsizeiptr size, GLsizeiptr offset ) {
@@ -69,7 +90,7 @@ void ext::opengl::Buffer::allocate( const CreateInfo& bufferCreateInfo ) {
 	this->destroy();
 	if ( !device ) device = &ext::opengl::device;
 
-	this->buffer = device->createBuffer( bufferCreateInfo.usage, bufferCreateInfo.size );
+	this->buffer = device->createBuffer( bufferCreateInfo.usage, bufferCreateInfo.size, nullptr, bufferCreateInfo.aliased );
 	this->usage = bufferCreateInfo.usage;
 
 	this->size = bufferCreateInfo.size;
@@ -103,18 +124,16 @@ void ext::opengl::Buffers::destroy() {
 	buffers.clear();
 }
 
-size_t ext::opengl::Buffers::initializeBuffer( const void* data, GLsizeiptr length, GLenum usage, bool stage ) {
+size_t ext::opengl::Buffers::initializeBuffer( const void* data, GLsizeiptr length, GLenum usage, bool alias ) {
 	size_t index = buffers.size();
 	auto& buffer = buffers.emplace_back();
 	
 	buffer.initialize( *device );
-	buffer.allocate( Buffer::CreateInfo{ 
-		.flags = 0,
-		.size = length,
-		.usage = usage,
-	} );
-	buffer.copyTo( data, length );
+	buffer.initialize( data, length, usage, alias );
 
 	return index;
+}
+bool ext::opengl::Buffers::updateBuffer( const void* data, GLsizeiptr length, const Buffer& buffer, bool alias ) const {
+	return buffer.update( data, length );
 }
 #endif

@@ -8,24 +8,16 @@ layout (constant_id = 1) const uint CASCADES = 16;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (std140, binding = 0) readonly buffer Materials {
+layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 5) readonly buffer Instances {
+	Instance instances[];
+};
+layout (std140, binding = 6) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 1) readonly buffer Textures {
+layout (std140, binding = 7) readonly buffer Textures {
 	Texture textures[];
 };
-
-#include "../common/functions.h"
-
-layout (location = 0) in vec2 inUv;
-layout (location = 1) in vec2 inSt;
-layout (location = 2) in vec4 inColor;
-layout (location = 3) in vec3 inNormal;
-layout (location = 4) in mat3 inTBN;
-layout (location = 7) in vec3 inPosition;
-layout (location = 8) flat in ivec4 inId;
-
-layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
 
 layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
 layout (binding = 9, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
@@ -37,6 +29,16 @@ layout (binding = 9, rg16f) uniform volatile coherent image3D voxelNormal[CASCAD
 #if DEPTH_TEST
 	layout (binding = 11, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
 #endif
+
+layout (location = 0) in vec2 inUv;
+layout (location = 1) in vec2 inSt;
+layout (location = 2) in vec4 inColor;
+layout (location = 3) in vec3 inNormal;
+layout (location = 4) in mat3 inTBN;
+layout (location = 7) in vec3 inPosition;
+layout (location = 8) flat in uvec4 inId;
+
+#include "../common/functions.h"
 
 #if 0
 layout (location = 0) out uvec2 outId;
@@ -61,7 +63,8 @@ void main() {
 	const uint drawID = int(inId.x);
 	const uint instanceID = int(inId.y);
 	const uint materialID = int(inId.z);
-	Material material = materials[materialID];
+	const Instance instance = instances[instanceID];
+	const Material material = materials[materialID];
 
 	const float M = material.factorMetallic;
 	const float R = material.factorRoughness;
@@ -85,11 +88,11 @@ void main() {
 		if ( A.a == 0 ) discard;
 	}
 #if USE_LIGHTMAP
-	if ( validTextureIndex( material.indexLightmap ) ) {
+	if ( validTextureIndex( instance.lightmapID ) ) {
 	#if DEFERRED_SAMPLING
 		outUvs = inSt;
 	#else
-		Texture t = textures[material.indexLightmap];
+		Texture t = textures[instance.lightmapID];
 		const float gamma = LIGHTMAP_GAMMA;
 		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
 		A *= L;

@@ -26,6 +26,7 @@ namespace ext {
 				GLenum flags = 0;
 				GLsizeiptr size = 0;
 				GLenum usage = 0;
+				bool aliased = false;
 			};
 
 			GLsizeiptr size = 0;
@@ -42,6 +43,8 @@ namespace ext {
 				void* pUserData = NULL;
 			} allocationInfo;
 
+			void aliasBuffer( const Buffer& buffer );
+
 			void* map( GLsizeiptr size = GL_WHOLE_SIZE, GLsizeiptr offset = 0 );
 			void unmap();
 
@@ -50,8 +53,10 @@ namespace ext {
 
 			bool bind( GLsizeiptr offset = 0 );
 
+			void initialize( const void* data, GLsizeiptr size, GLenum, bool = false );
+			bool update( const void* data, GLsizeiptr size ) const;
+
 			void setupDescriptor( GLsizeiptr size = GL_WHOLE_SIZE, GLsizeiptr offset = 0 );
-			void copyTo( const void* data, GLsizeiptr size ) const;
 			bool flush( GLsizeiptr size = GL_WHOLE_SIZE, GLsizeiptr offset = 0 );
 			bool invalidate( GLsizeiptr size = GL_WHOLE_SIZE, GLsizeiptr offset = 0 );
 			void allocate( const CreateInfo& );
@@ -70,24 +75,23 @@ namespace ext {
 			void initialize( Device& device );
 			void destroy();
 			//
-			size_t initializeBuffer( const void* data, GLsizeiptr length, GLenum usage, bool stage = GL_DEFAULT_STAGE_BUFFERS );
-			inline void updateBuffer( const void* data, GLsizeiptr length, const Buffer& buffer, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return buffer.copyTo( data, length ); }
 
-			inline size_t initializeBuffer( void* data, GLsizeiptr length, GLenum usage, bool stage = GL_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (const void*) data, length, usage, stage ); }
+			size_t initializeBuffer( const void*, GLsizeiptr, GLenum, bool = false );
+			bool updateBuffer( const void*, GLsizeiptr, const Buffer&, bool = false ) const;
 
-			template<typename T> inline size_t initializeBuffer( const T& data, GLsizeiptr length, GLenum usage, bool stage = GL_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (const void*) &data, length, usage, stage ); }
-			template<typename T> inline size_t initializeBuffer( const T& data, GLenum usage, bool stage = GL_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), usage, stage ); }
+			inline size_t initializeBuffer( void* data, GLsizeiptr length, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) data, length, usage, alias ); }
+			template<typename T> inline size_t initializeBuffer( const T& data, GLsizeiptr length, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) &data, length, usage, alias ); }
+			template<typename T> inline size_t initializeBuffer( const T& data, GLenum usage, bool alias = false ) { return initializeBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), usage, alias ); }
 
-			inline void updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( data, length, buffers.at(index), stage ); }
-			inline void updateBuffer( void* data, GLsizeiptr length, size_t index = 0, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) data, length, index, stage ); }
-			inline void updateBuffer( void* data, GLsizeiptr length, const Buffer& buffer, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) data, length, buffer, stage ); }
-
-			template<typename T> inline void updateBuffer( const T& data, size_t index = 0, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), index, stage ); }
-			template<typename T> inline void updateBuffer( const T& data, GLsizeiptr length, size_t index = 0, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, length, index, stage ); }
+			inline bool updateBuffer( const void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( data, length, buffers.at(index), alias ); }
+			inline bool updateBuffer( void* data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) data, length, index, alias ); }
+			inline bool updateBuffer( void* data, GLsizeiptr length, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) data, length, buffer, alias ); }
 			
-			template<typename T> inline void updateBuffer( const T& data, const Buffer& buffer, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), buffer, stage ); }
-			template<typename T> inline void updateBuffer( const T& data, GLsizeiptr length, const Buffer& buffer, bool stage = GL_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, length, buffer, stage ); }
-		
+			template<typename T> inline bool updateBuffer( const T& data, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), index, alias ); }
+			template<typename T> inline bool updateBuffer( const T& data, GLsizeiptr length, size_t index = 0, bool alias = false ) const { return updateBuffer( (const void*) &data, length, index, alias ); }
+			
+			template<typename T> inline bool updateBuffer( const T& data, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) &data, static_cast<GLsizeiptr>(sizeof(T)), buffer, alias ); }
+			template<typename T> inline bool updateBuffer( const T& data, GLsizeiptr length, const Buffer& buffer, bool alias = false ) const { return updateBuffer( (const void*) &data, length, buffer, alias ); }
 		};
 	}
 }

@@ -185,6 +185,8 @@ void populateSurface() {
 //	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	surface.material.id = instance.materialID;
+	surface.material.lightmapID = instance.lightmapID;
+
 	const Material material = materials[surface.material.id];
 	surface.material.albedo = material.colorBase;
 	surface.fragment = material.colorEmissive;
@@ -222,12 +224,16 @@ void populateSurface() {
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = material.factorOcclusion;
-	surface.material.indexLightmap = material.indexLightmap;
 }
 
 void directLighting() {
 	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
-	surface.fragment.rgb += (0 <= surface.material.indexLightmap) ? (surface.material.albedo.rgb + ambient) : (surface.material.albedo.rgb * ambient);
+	if ( validTextureIndex( surface.material.lightmapID ) ) {
+	//	surface.fragment.rgb += sampleTexture( surface.material.lightmapID ).rgb;
+		surface.fragment.rgb += surface.material.albedo.rgb + ambient;
+	} else {
+		surface.fragment.rgb += surface.material.albedo.rgb * ambient;
+	}
 	if ( ubo.lights == 0 ) { surface.fragment.rgb = surface.material.albedo.rgb; return; }
 #if PBR
 	pbr();
