@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "SS2",
 			"meshes": {
 				"interleave": false
 			},
@@ -28,10 +28,10 @@
 			},
 			"vxgi": {
 				"limiter": 0.125,
-				"size": 64,
+				"size": 128,
 				"dispatch": 8,
-				"cascades": 6,
-				"cascadePower": 2,
+				"cascades": 3,
+				"cascadePower": 3,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
@@ -80,7 +80,7 @@
 					"vsync": true,
 					"hdr": false,
 					"vxgi": true,
-					"deferred sampling": true,
+					"deferred sampling": false,
 					"culling": true,
 					"bloom": true
 				},
@@ -152,6 +152,7 @@
 				}
 			},
 			"lua": {
+				"enabled": true,
 				"main": "/main.lua",
 				"modules": {
 					"json": "/json.lua"
@@ -192,6 +193,11 @@
 			"buffers": {
 				"size": 32768,
 				"count": 4
+			},
+			"volumes": {
+				"sfx": 0.25,
+				"bgm": 0.15,
+				"voice": 1.0
 			},
 			"streams by default": true
 		},
@@ -252,10 +258,10 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-	//	"size" :  [ 1920, 1080 ],
+		"size" :  [ 1920, 1080 ],
 	//	"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
-		"size" :  [ 640, 480 ],
+	//	"size" :  [ 640, 480 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}

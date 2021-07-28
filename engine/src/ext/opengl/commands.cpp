@@ -13,8 +13,10 @@
 #define VERBOSE false
 #define VERBOSE_SUBMIT false
 
+namespace {
+	size_t culled = 0;
+}
 size_t ext::opengl::CommandBuffer::preallocate = 8;
-
 void ext::opengl::CommandBuffer::initialize( Device& device ) {
 	this->device = &device;
 	if ( !this->mutex ) this->mutex = new std::mutex;
@@ -93,16 +95,8 @@ void ext::opengl::CommandBuffer::record( const CommandBuffer& commandBuffer ) {
 }
 void ext::opengl::CommandBuffer::submit() {
 	if ( infos.empty() ) return;
-
 	mutex->lock();
-#if UF_ENV_DREAMCAST
-	static GLint maxTextures = 80;
-#else
-	static GLint maxTextures = 0;
-	if ( maxTextures <= 0 ) {
-		glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextures);
-	}
-#endif
+	//UF_TIMER_MULTITRACE_START("Starting command buffer submission: " << this);
 	for ( auto& info : infos ) {
 		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
 		switch ( header->type ) {
@@ -112,23 +106,32 @@ void ext::opengl::CommandBuffer::submit() {
 				GL_ERROR_CHECK(glClearDepth(info->depth));
 				GL_ERROR_CHECK(glClear(info->bits));
 			//	GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
+				//UF_TIMER_MULTITRACE("Command::CLEAR");
 			} break;
 			case ext::opengl::enums::Command::VIEWPORT: {
 				InfoViewport* info = (InfoViewport*) header;
 				GL_ERROR_CHECK(glViewport(info->corner[0], info->corner[1], info->size[0], info->size[1]));
+				//UF_TIMER_MULTITRACE("Command::VIEWPORT");
 			} break;
 			case ext::opengl::enums::Command::VARIANT: {
 				InfoVariant* info = (InfoVariant*) header;
 				if ( info->lambda ) info->lambda();
+				//UF_TIMER_MULTITRACE("Command::VARIANT");
 			} break;
 			case ext::opengl::enums::Command::DRAW: {
 				InfoDraw* info = (InfoDraw*) header;
 				drawIndexed( *info );
+				//UF_TIMER_MULTITRACE("Command::DRAW");
 			} break;
 			default: {
 			} break;
 		}
 	}
+	if ( ::culled ) {
+	//	UF_MSG_DEBUG("Culled " << ::culled << " meshes.");
+		::culled = 0;
+	}
+	//UF_TIMER_MULTITRACE_END("Finished command buffer submission: " << this);
 	state = 3;
 	mutex->unlock();
 }
@@ -156,28 +159,106 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 	return uniform->projection * uniform->modelView;
 #endif
 }
-void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
-	if ( drawInfo.matrices.model && drawInfo.matrices.view && drawInfo.matrices.projection ) {
-		pod::Matrix4f modelView = uf::matrix::multiply( *drawInfo.matrices.view, *drawInfo.matrices.model );
 
-		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-		GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
+namespace {
+	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
+		bool visible = false;
+		#if 1
+			pod::Vector4f corners[8] = {
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
 
-		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
-	} else if ( drawInfo.matrices.model && drawInfo.matrices.projection ) {
-		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.model ));
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
+			};
+			//#pragma unroll
+			for ( uint p = 0; p < 8; ++p ) {
+				pod::Vector4f t = uf::matrix::multiply( mat, corners[p] );
+				float w = t.w * 1.25f;
+				if ( -w <= t.x && t.x <= w && -w <= t.y && t.y <= w && -w <= t.z && t.z <= w ) return true;
+			}
+		#else
+			pod::Vector4f planes[6]; {
+				//#pragma unroll
+				for ( auto i = 0; i < 3; ++i )
+				//#pragma unroll
+				for ( auto j = 0; j < 2; ++j) {
+					float x = mat[4*0+3] + (j == 0 ? mat[4*0+i] : -mat[4*0+i]);
+					float y = mat[4*1+3] + (j == 0 ? mat[4*1+i] : -mat[4*1+i]);
+					float z = mat[4*2+3] + (j == 0 ? mat[4*2+i] : -mat[4*2+i]);
+					float w = mat[4*3+3] + (j == 0 ? mat[4*3+i] : -mat[4*3+i]);
+					float length = 1.0f / sqrt( x * x + y * y + z * z );
+					
+					planes[i*2+j] = pod::Vector4f{ x * length, y * length, z * length, w * length };
+				}
+			}
+		#if 0
+			//#pragma unroll
+			for ( auto p = 0; p < 6; ++p ) {
+				float d = std::max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
+						+ std::max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y);
+						+ std::max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
+				if ( d > -planes[p].w ) return true;
+			}
+		#else
+			pod::Vector4f corners[8] = {
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.min.z, 1.0f },
 
-		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
-	} else if ( drawInfo.matrices.view && drawInfo.matrices.projection ) {
-		GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.view ));
-
-		GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-		GL_ERROR_CHECK(glLoadMatrixf( (float*) drawInfo.matrices.projection ));
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
+				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
+			};
+			//#pragma unroll
+			for ( uint p = 0; p < 8; ++p ) corners[p] = uf::matrix::multiply( mat, corners[p] );
+			//#pragma unroll
+			for ( uint p = 0; p < 6; ++p ) {
+				//#pragma unroll
+				for ( uint q = 0; q < 8; ++q ) {
+					if ( uf::vector::dot( corners[q], planes[p] ) > 0 ) return true;
+				}
+				return false;
+			}
+		#endif
+		#endif
+		return visible;
 	}
+}
+
+void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
+	pod::Matrix4f modelView = uf::matrix::identity(), projection = uf::matrix::identity();
+	if ( drawInfo.matrices.model && drawInfo.matrices.view ) modelView = uf::matrix::multiply( *drawInfo.matrices.view, *drawInfo.matrices.model );
+	else if ( drawInfo.matrices.model ) modelView = *drawInfo.matrices.model;
+	else if ( drawInfo.matrices.view ) modelView = *drawInfo.matrices.view;
+	if ( drawInfo.matrices.projection ) projection = *drawInfo.matrices.projection;
+
+	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
+		pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
+		if ( ext::opengl::settings::experimental::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
+			pod::Instance& instance = *(pod::Instance*) drawInfo.attributes.instance.pointer;
+			pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (*drawInfo.matrices.model);
+		//	pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (instance.model);
+		//	pod::Matrix4f mat = uf::matrix::multiply( projection, modelView );
+			
+			bool visible = inside( instance, mat );
+			drawCommand.instances = visible ? 1 : 0;
+			if ( !visible ) ++::culled;
+		}
+		if ( drawCommand.instances == 0 ) return;
+	}
+
+	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+	GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
+
+	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
 
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
 		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
@@ -207,37 +288,35 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	}
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
-		static GLuint previous = 0;
-		if ( previous != drawInfo.textures.primary.image ) {
-			previous = drawInfo.textures.primary.image;
-			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-			GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
-			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-		}
+	//	static GLuint previous = 0;
+	//	if ( previous != drawInfo.textures.primary.image ) previous = drawInfo.textures.primary.image;
+		
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, drawInfo.attributes.uv.pointer));
 	}
 	if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
-		static GLuint previous = 0;
-		if ( previous != drawInfo.textures.secondary.image ) {
-			previous = drawInfo.textures.secondary.image;
-			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
-			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, drawInfo.attributes.st.pointer));
-		}
+	//	static GLuint previous = 0;
+	//	if ( previous != drawInfo.textures.secondary.image ) previous = drawInfo.textures.secondary.image;
+		
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+		GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, drawInfo.attributes.st.pointer));
 	#if UF_ENV_DREAMCAST
 		GL_ERROR_CHECK(glDisable(GL_BLEND));
 	#endif
 	}
 	
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, drawInfo.attributes.normal.pointer));
-	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(3, GL_FLOAT, drawInfo.attributes.color.stride, drawInfo.attributes.color.pointer));
+	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(4, GL_UNSIGNED_BYTE, drawInfo.attributes.color.stride, drawInfo.attributes.color.pointer));
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, drawInfo.attributes.position.pointer));
 	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.attributes.index.length, indicesType, drawInfo.attributes.index.pointer));
 

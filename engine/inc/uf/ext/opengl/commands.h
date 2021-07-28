@@ -52,6 +52,8 @@ namespace ext {
 					uf::Mesh::Attribute st = {};
 					uf::Mesh::Attribute normal = {};
 					uf::Mesh::Attribute color = {};
+					uf::Mesh::Attribute instance = {};
+					uf::Mesh::Attribute indirect = {};
 				} attributes;
 				
 				struct {

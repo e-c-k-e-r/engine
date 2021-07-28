@@ -22,7 +22,7 @@ template<typename T, size_t N, typename U>
 pod::Vector<T, N> /*UF_API*/ uf::vector::cast( const U& from ) {
 	alignas(16) pod::Vector<T, N> to;
 	#pragma unroll // GCC unroll N
-	for ( uint_fast8_t i = 0; i < N && i < U::size; ++i )
+	for ( auto i = 0; i < N && i < U::size; ++i )
 		to[i] = from[i];
 	return to;
 }
@@ -35,7 +35,7 @@ template<typename T> 														// 	Equality check between two vectors (equal
 bool /*UF_API*/ uf::vector::equals( const T& left, const T& right ) {
 //	return uf::vector::compareTo(left, right) == 0;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		if ( left[i] != right[i] ) return false;
 	return true;
 }
@@ -47,18 +47,18 @@ T /*UF_API*/ uf::vector::add( const T& left, const T& right ) {
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = left[i] + right[i];
 	return res;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::add( const T& vector, const typename T::type_t& scalar ) {
+T /*UF_API*/ uf::vector::add( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return uf::simd::add( vector, scalar );
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = vector[i] + scalar;
 	return res;
 }
@@ -69,18 +69,18 @@ T /*UF_API*/ uf::vector::subtract( const T& left, const T& right ) {
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = left[i] - right[i];
 	return res;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::subtract( const T& vector, const typename T::type_t& scalar ) {
+T /*UF_API*/ uf::vector::subtract( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return uf::simd::sub( vector, scalar );
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = vector[i] - scalar;
 	return res;
 }
@@ -91,18 +91,18 @@ T /*UF_API*/ uf::vector::multiply( const T& left, const T& right ) {
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = left[i] * right[i];
 	return res;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T /*UF_API*/ uf::vector::multiply( const T& vector, const typename T::type_t& scalar ) {
+T /*UF_API*/ uf::vector::multiply( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return uf::simd::mul( vector, scalar );
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = vector[i] * scalar;
 	return res;
 }
@@ -113,32 +113,34 @@ T /*UF_API*/ uf::vector::divide( const T& left, const T& right ) {
 #elif UF_ENV_DREAMCAST
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = MATH_Fast_Divide(left[i], right[i]);
 	return res;
 #else
 	alignas(16) T res;
+	scalar = 1.0 / scalar;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
-		res[i] = left[i] / right[i];
+	for ( auto i = 0; i < T::size; ++i )
+		res[i] = left[i] * right[i];
 	return res;
 #endif
 }
 template<typename T> 														// Divides this vector by a scalar
-T /*UF_API*/ uf::vector::divide( const T& vector, const typename T::type_t& scalar ) {
+T /*UF_API*/ uf::vector::divide( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return uf::simd::div( vector, scalar );
 #elif UF_ENV_DREAMCAST
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = MATH_Fast_Divide(vector[i], scalar);
 	return res;
 #else
 	alignas(16) T res;
+	scalar = 1.0 / scalar;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
-		res[i] = vector[i] / scalar;
+	for ( auto i = 0; i < T::size; ++i )
+		res[i] = vector[i] * scalar;
 	return res;
 #endif
 }
@@ -146,7 +148,7 @@ template<typename T> 														// Compute the sum of all components
 typename T::type_t /*UF_API*/ uf::vector::sum( const T& vector ) {
 	typename T::type_t res = 0;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res += vector[i];
 	return res;
 }
@@ -154,7 +156,7 @@ template<typename T> 														// Compute the product of all components
 typename T::type_t /*UF_API*/ uf::vector::product( const T& vector ) {
 	typename T::type_t res = 0;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res *= vector[i];
 	return res;
 }
@@ -165,135 +167,135 @@ T /*UF_API*/ uf::vector::negate( const T& vector ) {
 #endif
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = -vector[i];
 	return res;
 }
 // Writes to first value
 template<typename T> 														// Adds two vectors of same type and size together
-T& /*UF_API*/ uf::vector::add( T& left, const T& right ) {
+T& /*UF_API*/ uf::vector::add_( T& left, const T& right ) {
 #if UF_USE_SIMD
 	return left = uf::vector::add( (const T&) left, right );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		left[i] += right[i];
 	return left;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::add( T& vector, const typename T::type_t& scalar ) {
+T& /*UF_API*/ uf::vector::add_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return vector = uf::vector::add( (const T&) vector, scalar );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		vector[i] += scalar;
 	return vector;
 }
 template<typename T> 														// Subtracts two vectors of same type and size together
-T& /*UF_API*/ uf::vector::subtract( T& left, const T& right ) {
+T& /*UF_API*/ uf::vector::subtract_( T& left, const T& right ) {
 #if UF_USE_SIMD
 	return left = uf::vector::subtract( (const T&) left, right );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		left[i] -= right[i];
 	return left;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::subtract( T& vector, const typename T::type_t& scalar ) {
+T& /*UF_API*/ uf::vector::subtract_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return vector = uf::vector::subtract( (const T&) vector, scalar );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		vector[i] -= scalar;
 	return vector;
 }
 template<typename T> 														// Multiplies two vectors of same type and size together
-T& /*UF_API*/ uf::vector::multiply( T& left, const T& right ) {
+T& /*UF_API*/ uf::vector::multiply_( T& left, const T& right ) {
 #if UF_USE_SIMD
 	return left = uf::vector::multiply( (const T&) left, right );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		left[i] *= right[i];
 	return left;
 }
 template<typename T> 														// Multiplies this vector by a scalar
-T& /*UF_API*/ uf::vector::multiply( T& vector, const typename T::type_t& scalar ) {
+T& /*UF_API*/ uf::vector::multiply_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return vector = uf::vector::multiply( (const T&) vector, scalar );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		vector[i] *= scalar;
 	return vector;
 }
 template<typename T> 														// Divides two vectors of same type and size together
-T& /*UF_API*/ uf::vector::divide( T& left, const T& right ) {
+T& /*UF_API*/ uf::vector::divide_( T& left, const T& right ) {
 #if UF_USE_SIMD
 	return left = uf::vector::divide( (const T&) left, right );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		left[i] /= right[i];
 	return left;
 }
 template<typename T> 														// Divides this vector by a scalar
-T& /*UF_API*/ uf::vector::divide( T& vector, const typename T::type_t& scalar ) {
+T& /*UF_API*/ uf::vector::divide_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar ) {
 #if UF_USE_SIMD
 	return vector = uf::vector::divide( (const T&) vector, scalar );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		vector[i] /= scalar;
 	return vector;
 }
 template<typename T> 														// Flip sign of all components
-T& /*UF_API*/ uf::vector::negate( T& vector ) {
+T& /*UF_API*/ uf::vector::negate_( T& vector ) {
 #if UF_USE_SIMD
 	return vector = uf::vector::negate( (const T&) vector );
 #endif
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		vector[i] = -vector[i];
 	return vector;
 }
 template<typename T> 														// Normalizes a vector
-T& /*UF_API*/ uf::vector::normalize( T& vector ) {
+T& /*UF_API*/ uf::vector::normalize_( T& vector ) {
 	typename T::type_t norm = uf::vector::norm(vector);
 	if ( norm == 0 ) return vector;	
-	return uf::vector::divide(vector, norm);
+	return vector = uf::vector::divide((const T&) vector, norm);
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::min( const T& left, const T& right ) {
 	T res = left;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::min( left[i], right[i] );
+	for ( auto i = 0; i < T::size; ++i ) res[i] = std::min( left[i], right[i] );
 	return res;
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::max( const T& left, const T& right ) {
 	T res;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::max( left[i], right[i] );
+	for ( auto i = 0; i < T::size; ++i ) res[i] = std::max( left[i], right[i] );
 	return res;
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::ceil( const T& vector ) {
 	T res;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::ceil( vector[i] );
+	for ( auto i = 0; i < T::size; ++i ) res[i] = std::ceil( vector[i] );
 	return res;
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::floor( const T& vector ) {
 	T res;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = std::floor( vector[i] );
+	for ( auto i = 0; i < T::size; ++i ) res[i] = std::floor( vector[i] );
 	return res;
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::round( const T& vector ) {
 	T res;
-	for ( uint_fast8_t i = 0; i < T::size; ++i ) res[i] = ::round( vector[i] );
+	for ( auto i = 0; i < T::size; ++i ) res[i] = ::round( vector[i] );
 	return res;
 }
 // Complex arithmetic
@@ -317,7 +319,7 @@ T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta, bool cl
 #if UF_ENV_DREAMCAST
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = MATH_Lerp( from[i], to[i], delta );
 	return res;
 #elif UF_USE_SIMD
@@ -332,7 +334,7 @@ T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, const T& delta, bool 
 #if UF_ENV_DREAMCAST
 	alignas(16) T res;
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < T::size; ++i )
+	for ( auto i = 0; i < T::size; ++i )
 		res[i] = MATH_Lerp( from[i], to[i], delta[i] );
 	return res;
 #elif UF_USE_SIMD
@@ -370,11 +372,16 @@ typename T::type_t /*UF_API*/ uf::vector::distanceSquared( const T& a, const T& 
 	return MATH_Sum_of_Squares( UF_EZ_VEC4( delta, T::size ) );
 #elif UF_USE_SIMD
 	uf::simd::value<typename T::type_t> delta = uf::simd::sub( b, a );
-	return uf::vector::sum( uf::simd::vector( uf::simd::mul( delta, delta ) ) );
+//	return uf::vector::sum( uf::simd::vector( uf::simd::mul( delta, delta ) ) );
+	return uf::simd::dot( delta, delta );
 #else
+	alignas(16) T delta = uf::vector::subtract(b, a);
+	return uf::vector::dot( delta, delta );
+/*
 	alignas(16) T delta = uf::vector::subtract(b, a);
 	uf::vector::multiply( delta, delta );
 	return uf::vector::sum(delta);
+*/
 #endif
 }
 template<typename T> 														// Compute the distance between two vectors
@@ -455,7 +462,7 @@ uf::stl::string /*UF_API*/ uf::vector::toString( const T& v ) {
 	uf::stl::stringstream ss;
 	ss << "Vector(";
 	#pragma unroll // GCC unroll T::size
-	for ( uint_fast8_t i = 0; i < size; ++i ) {
+	for ( auto i = 0; i < size; ++i ) {
 		ss << v[i];
 		if ( i + 1 < size ) ss << ", ";
 	}
@@ -468,11 +475,11 @@ ext::json::Value /*UF_API*/ uf::vector::encode( const pod::Vector<T,N>& v, const
 	ext::json::Value json;
 	if ( settings.quantize )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < N; ++i )
+		for ( auto i = 0; i < N; ++i )
 			json[i] = uf::math::quantizeShort( v[i] );
 	else
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < N; ++i )
+		for ( auto i = 0; i < N; ++i )
 			json[i] = v[i];
 	return json;
 }
@@ -480,10 +487,10 @@ template<typename T, size_t N>
 pod::Vector<T,N>& /*UF_API*/ uf::vector::decode( const ext::json::Value& json, pod::Vector<T,N>& v ) {
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < N; ++i )
+		for ( auto i = 0; i < N; ++i )
 			v[i] = json[i].as<T>(v[i]);
 	else if ( ext::json::isObject(json) ) {
-		uint_fast8_t i = 0;
+		auto i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
 			if ( i >= N ) return;
 			v[i] = uf::math::unquantize( c.as<T>(v[i]) );
@@ -497,10 +504,10 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	pod::Vector<T,N> v = _v;
 	if ( ext::json::isArray(json) )
 		#pragma unroll // GCC unroll T::size
-		for ( uint_fast8_t i = 0; i < N; ++i )
+		for ( auto i = 0; i < N; ++i )
 			v[i] = json[i].as<T>(_v[i]);
 	else if ( ext::json::isObject(json) ) {
-		uint_fast8_t i = 0;
+		auto i = 0;
 		ext::json::forEach(json, [&](const ext::json::Value& c){
 			if ( i >= N ) return;
 			v[i] = c.as<T>(_v[i]);

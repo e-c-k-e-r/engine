@@ -17,7 +17,6 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& sounds = emitter.get();
 	
 	auto& scene = uf::scene::getCurrentScene();
-	auto& sMetadata = scene.getComponent<uf::Serializer>();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
 
 	if ( !metadata["audio"]["epsilon"].is<float>() )
@@ -68,7 +67,13 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		if ( json["volume"].is<double>() ) volume = json["volume"].as<float>();
 		else if ( json["volume"].is<uf::stl::string>() ) {
 			uf::stl::string key = json["volume"].as<uf::stl::string>();
-			if ( sMetadata["volumes"][key].is<double>() ) volume = sMetadata["volumes"][key].as<float>();
+		#if UF_AUDIO_MAPPED_VOLUMES
+			if ( uf::audio::volumes.count(key) > 0 ) volume = uf::audio::volumes.at(key);
+		#else
+			if ( key == "bgm" ) volume = uf::audio::volumes::bgm;
+			else if ( key == "sfx" ) volume = uf::audio::volumes::sfx;
+			else if ( key == "voice" ) volume = uf::audio::volumes::voice;
+		#endif
 		}
 		audio.setVolume(volume);
 		

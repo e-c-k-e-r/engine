@@ -15,6 +15,8 @@
 #define VK_DEBUG_VALIDATION_MESSAGE(x)\
 //	VK_VALIDATION_MESSAGE(x);
 
+#define UF_SHADER_PARSE_AS_JSON 0
+#if UF_SHADER_PARSE_AS_JSON
 ext::json::Value ext::vulkan::definitionToJson(/*const*/ ext::json::Value& definition ) {
 	ext::json::Value member;
 	// is object
@@ -284,7 +286,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 #endif
 	return userdata;
 }
-
+#endif
 void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl::string& filename, VkShaderStageFlagBits stage ) {
 	this->device = &device;
 	ext::vulkan::Buffers::initialize( device );
@@ -327,7 +329,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	{
 		spirv_cross::Compiler comp( (uint32_t*) &spirv[0], spirv.size() / 4 );
 		spirv_cross::ShaderResources res = comp.get_shader_resources();
-
+	#if UF_SHADER_PARSE_AS_JSON
 		std::function<ext::json::Value(spirv_cross::TypeID)> parseMembers = [&]( spirv_cross::TypeID type_id ) {
 			auto parseMember = [&]( auto type_id ){
 				uf::Serializer payload;
@@ -434,7 +436,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			}
 			return payload;
 		};
-
+	#endif
 		auto parseResource = [&]( const spirv_cross::Resource& resource, VkDescriptorType descriptorType, size_t index ) {			
 			const auto& type = comp.get_type(resource.type_id);
 			const auto& base_type = comp.get_type(resource.base_type_id);
@@ -461,11 +463,13 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						case spv::Dim::DimSubpassData: tname = "SubpassData"; break;
 					}
 					uf::stl::string key = std::to_string(binding);
+				#if UF_SHADER_PARSE_AS_JSON
 					metadata.json["definitions"]["textures"][key]["name"] = name;
 					metadata.json["definitions"]["textures"][key]["index"] = index;
 					metadata.json["definitions"]["textures"][key]["binding"] = binding;
 					metadata.json["definitions"]["textures"][key]["size"] = arraySize;
 					metadata.json["definitions"]["textures"][key]["type"] = tname;
+				#endif
 
 					metadata.definitions.textures[binding] = Shader::Metadata::Definition::Texture{
 						name,
@@ -493,6 +497,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					//	uniform.create( bufferSize );
 					}
 					// generate definition to JSON
+				#if UF_SHADER_PARSE_AS_JSON
 					{
 						metadata.json["definitions"]["uniforms"][name]["name"] = name;
 						metadata.json["definitions"]["uniforms"][name]["index"] = index;
@@ -500,6 +505,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						metadata.json["definitions"]["uniforms"][name]["size"] = bufferSize;
 						metadata.json["definitions"]["uniforms"][name]["members"] = parseMembers(resource.type_id);
 					}
+				#endif
 					// generate definition to unordered_map
 					metadata.definitions.uniforms[name] = Shader::Metadata::Definition::Uniform{
 						name,
@@ -510,12 +516,14 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
 					// generate definition to JSON
+				#if UF_SHADER_PARSE_AS_JSON
 					{
 						metadata.json["definitions"]["storage"][name]["name"] = name;
 						metadata.json["definitions"]["storage"][name]["index"] = index;
 						metadata.json["definitions"]["storage"][name]["binding"] = binding;
 						metadata.json["definitions"]["storage"][name]["members"] = parseMembers(resource.type_id);
 					}
+				#endif
 					metadata.definitions.storage[name] = Shader::Metadata::Definition::Storage{
 						name,
 						index,
@@ -524,10 +532,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				} break;
 			}
 			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
-		};
-		
+		};	
 
 		//for ( const auto& resource : res.key ) {
+
 		#define LOOP_RESOURCES( key, type ) for ( size_t i = 0; i < res.key.size(); ++i ) {\
 			const auto& resource = res.key[i];\
 			VK_DEBUG_VALIDATION_MESSAGE("["<<filename<<"] Found resource: "#type " with binding: " << comp.get_decoration(resource.id, spv::DecorationBinding));\
@@ -570,6 +578,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			const uf::stl::string name = resource.name;
 			size_t size = 0; // comp.get_declared_struct_size(type);
 			// generate definition to JSON
+		#if UF_SHADER_PARSE_AS_JSON
 			{
 				metadata.json["definitions"]["inputs"][name]["name"] = name;
 				metadata.json["definitions"]["inputs"][name]["index"] = i;
@@ -577,6 +586,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				metadata.json["definitions"]["inputs"][name]["size"] = size;
 				metadata.json["definitions"]["inputs"][name]["members"] = parseMembers(resource.type_id);
 			}
+		#endif
 			// generate definition to unordered_map
 			{
 				metadata.definitions.inputs[name] = Shader::Metadata::Definition::InOut{
@@ -595,6 +605,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			const uf::stl::string name = resource.name;
 			size_t size = 0; // comp.get_declared_struct_size(type);
 			// generate definition to JSON
+		#if UF_SHADER_PARSE_AS_JSON
 			{
 				metadata.json["definitions"]["outputs"][name]["name"] = name;
 				metadata.json["definitions"]["outputs"][name]["index"] = i;
@@ -602,6 +613,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				metadata.json["definitions"]["outputs"][name]["size"] = size;
 				metadata.json["definitions"]["outputs"][name]["members"] = parseMembers(resource.type_id);
 			}
+		#endif
 			// generate definition to unordered_map
 			{
 				metadata.definitions.outputs[name] = Shader::Metadata::Definition::InOut{
@@ -636,6 +648,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				pushConstant.create( size );
 			}
 			// generate definition to JSON
+		#if UF_SHADER_PARSE_AS_JSON
 			{
 				metadata.json["definitions"]["pushConstants"][name]["name"] = name;
 				metadata.json["definitions"]["pushConstants"][name]["index"] = pushConstants.size() - 1;
@@ -643,6 +656,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 				metadata.json["definitions"]["pushConstants"][name]["size"] = size;
 				metadata.json["definitions"]["pushConstants"][name]["members"] = parseMembers(resource.type_id);
 			}
+		#endif
 			// generate definition to unordered_map
 			{
 				metadata.definitions.pushConstants[name] = Shader::Metadata::Definition::PushConstant{
@@ -680,26 +694,31 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 			uint8_t* s = (uint8_t*) (void*) specializationConstants;
 			size_t offset = 0;
-
+		#if UF_SHADER_PARSE_AS_JSON
 			metadata.json["specializationConstants"] = ext::json::array();
+		#endif
 			for ( const auto& constant : comp.get_specialization_constants() ) {
 				const auto& value = comp.get_constant(constant.id);
 				const auto& type = comp.get_type(value.constant_type);
 				uf::stl::string name = comp.get_name (constant.id);
 
-				ext::json::Value member;
 
 				size_t size = 4;
 				uint8_t buffer[size];
 				auto& definition = metadata.definitions.specializationConstants[name];
 				definition.name = name;
 				definition.index = offset / size;
+			#if UF_SHADER_PARSE_AS_JSON
+				ext::json::Value member;
+			#endif
 				switch ( type.basetype ) {
 					case spirv_cross::SPIRType::UInt: {
 						auto v = value.scalar();
+					#if UF_SHADER_PARSE_AS_JSON
 						member["type"] = "uint32_t";
 						member["value"] = v;
 						member["validate"] = true;
+					#endif
 						memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "uint32_t";
@@ -708,8 +727,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					} break;
 					case spirv_cross::SPIRType::Int: {
 						auto v = value.scalar_i32();
+					#if UF_SHADER_PARSE_AS_JSON
 						member["type"] = "int32_t";
 						member["value"] = v;
+					#endif
 						memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "int32_t";
@@ -718,8 +739,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					} break;
 					case spirv_cross::SPIRType::Float: {
 						auto v = value.scalar_f32();
+					#if UF_SHADER_PARSE_AS_JSON
 						member["type"] = "float";
 						member["value"] = v;
+					#endif
 						memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "float";
@@ -728,8 +751,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 					} break;
 					case spirv_cross::SPIRType::Boolean: {
 						auto v = value.scalar()!=0;
+					#if UF_SHADER_PARSE_AS_JSON
 						member["type"] = "bool";
 						member["value"] = v;
+					#endif
 						memcpy( &buffer[0], &v, sizeof(v) );
 
 						definition.type = "bool";
@@ -740,11 +765,13 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						VK_DEBUG_VALIDATION_MESSAGE("Unregistered specialization constant type at offset " << offset << " for shader " << filename );
 					} break;
 				}
+			#if UF_SHADER_PARSE_AS_JSON
 				member["name"] = name;
 				member["size"] = size;
 				member["default"] = member["value"];
-				VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<uf::stl::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
 				metadata.json["specializationConstants"].emplace_back(member);
+				VK_DEBUG_VALIDATION_MESSAGE("Specialization constant: " << member["type"].as<uf::stl::string>() << " " << name << " = " << member["value"].dump() << "; at offset " << offset << " for shader " << filename );
+			#endif
 
 				memcpy( &s[offset], &buffer, size );
 				offset += size;
@@ -869,7 +896,7 @@ bool ext::vulkan::Shader::updateStorage( const uf::stl::string& name, const void
 	return true;
 }
 // JSON shit
-/*
+#if 0 && UF_SHADER_PARSE_AS_JSON
 uf::Serializer ext::vulkan::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {
 	if ( !hasUniform(name) ) return ext::json::null();
 	if ( cache && !ext::json::isNull(metadata.json["uniforms"][name]) ) return metadata.json["uniforms"][name];
@@ -897,5 +924,5 @@ ext::vulkan::userdata_t ext::vulkan::Shader::getStorageUserdata( const uf::stl::
 	if ( !hasStorage(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["storage"][name]);
 }
-*/
+#endif
 #endif

@@ -29,6 +29,7 @@ namespace pod {
 
 namespace ext {
 	namespace lua {
+		extern UF_API bool enabled;
 		extern UF_API sol::state state;
 		extern UF_API uf::stl::string main;
 		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::stl::string> modules;

@@ -16,6 +16,14 @@ uint8_t uf::audio::buffers = 4;
 size_t uf::audio::bufferSize = 1024 * 16;
 uf::Audio uf::audio::null;
 
+#if UF_AUDIO_MAPPED_VOLUMES
+	uf::stl::unordered_map<uf::stl::string, float> uf::audio::volumes;
+#else
+	float uf::audio::volumes::bgm = 1.0f;
+	float uf::audio::volumes::sfx = 1.0f;
+	float uf::audio::volumes::voice = 1.0f;
+#endif
+
 bool uf::Audio::initialized() const {
 #if UF_USE_OPENAL
 	return this->m_metadata && this->m_metadata->al.source.getIndex();
@@ -116,7 +124,7 @@ void uf::Audio::setTime( float v ) {
 void uf::Audio::setPosition( const pod::Vector3f& v ) {
 #if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
-	this->m_metadata->al.source.set( AL_POSITION, &v[0] );
+	this->m_metadata->al.source.set( AL_POSITION, v[0], v[1], v[2] );
 #endif
 }
 void uf::Audio::setOrientation( const pod::Quaternion<>& v ) {

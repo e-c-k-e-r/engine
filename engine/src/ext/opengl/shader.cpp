@@ -193,6 +193,7 @@ const ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl:
 	UF_EXCEPTION("buffer not found: " << name);
 }
 // JSON shit
+#if 0
 ext::opengl::userdata_t ext::opengl::Shader::getUniformUserdata( const uf::stl::string& name, const ext::json::Value& payload ) {
 	if ( !hasUniform(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["uniforms"][name]);
@@ -215,4 +216,5 @@ ext::opengl::userdata_t ext::opengl::Shader::getStorageUserdata( const uf::stl::
 	if ( !hasStorage(name) ) return false;
 	return jsonToUserdata(payload, metadata.json["definitions"]["storage"][name]);
 }
+#endif
 #endif

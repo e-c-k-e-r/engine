@@ -85,8 +85,12 @@ int main(int argc, char** argv){
 				uf::hooks.call(hook, json);
 			}
 		#if UF_ENV_DREAMCAST
+		//	UF_TIMER_MULTITRACE_START("Starting");
 			ext::render();
+		//	UF_TIMER_MULTITRACE("render");
 			ext::tick();
+		//	UF_TIMER_MULTITRACE("tick");
+		//	UF_TIMER_MULTITRACE_END("Finished");
 		#else
 			client::tick();
 			client::render();
@@ -96,14 +100,18 @@ int main(int argc, char** argv){
 	#if HANDLE_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			UF_MSG_ERROR("RUNTIME ERROR: " << e.what());
-			break;
+			abort();
 		} catch ( std::exception& e ) {
 			UF_MSG_ERROR("EXCEPTION ERROR: " << e.what());
-			throw e;
+			abort();
 		} catch ( bool handled ) {
-			if (!handled) UF_MSG_ERROR("UNHANDLED ERROR: " << "???");
+			if (!handled) {
+				UF_MSG_ERROR("UNHANDLED ERROR: " << "???");
+				abort();
+			}
 		} catch ( ... ) {
 			UF_MSG_ERROR("UNKNOWN ERROR: " << "???");
+			abort();
 		}
 	#endif
 	}

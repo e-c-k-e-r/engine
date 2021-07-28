@@ -490,7 +490,7 @@ pod::Bullet& ext::bullet::create( uf::Object& object, float radius, float height
 	return collider;
 }
 
-void UF_API ext::bullet::move( pod::Bullet& collider, const pod::Vector3f& v, bool override ) {
+void UF_API ext::bullet::setVelocity( pod::Bullet& collider, const pod::Vector3f& v ) {
 	if ( !collider.body ) return;
 	collider.body->setLinearVelocity( btVector3( v.x, v.y, v.z ) );
 }
@@ -535,6 +535,21 @@ void UF_API ext::bullet::applyRotation( pod::Bullet& collider, const pod::Quater
 void UF_API ext::bullet::activateCollision( pod::Bullet& collider, bool enabled ) {
 	if ( !collider.body ) return;
 	collider.body->activate(enabled);
+}
+
+float UF_API ext::bullet::rayCast( const pod::Vector3f& from, const pod::Vector3f& to ) {
+	btVector3 _from(from.x, from.y, from.z);
+	btVector3 _to(to.x, to.y, to.z);
+
+	btCollisionWorld::ClosestRayResultCallback res(_from, _to);
+	ext::bullet::dynamicsWorld->rayTest(_from, _to, res);
+	if ( !res.hasHit() ) return -1.0;
+/*
+	float length = uf::vector::distanceSquared( from, to );
+	float depth = uf::vector::distanceSquared( from, pod::Vector3f{ res.m_hitPointWorld.getX(), res.m_hitPointWorld.getY(), res.m_hitPointWorld.getZ() } );
+	return depth / length;
+*/
+	return uf::vector::distance( from, pod::Vector3f{ res.m_hitPointWorld.getX(), res.m_hitPointWorld.getY(), res.m_hitPointWorld.getZ() } );
 }
 
 void UF_API ext::bullet::debugDraw( uf::Object& object ) {

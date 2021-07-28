@@ -24,11 +24,11 @@
 			"gravity": [ 0, -9.81, 0 ],
 			"inertia": [ 10, 10, 10 ],
 			"walk": 1,
-			"move": 4,
-			"run": 8,
-			"rotate": 1.25,
+			"move": 8,
+			"run": 12,
+			"rotate": 2,
 			"crouch": 1,
-			"jump": [ 0, 4, 0 ],
+			"jump": [ 0, 6, 0 ],
 
 			"type": "Capsule",
 			"radius": 1,
@@ -62,8 +62,8 @@
 			"footstep": {
 				"volume": 0.5,
 				"list": [
-					"./data/audio/footstep/1.ogg",
-					"./data/audio/footstep/2.ogg"
+					"/footstep/1.ogg",
+					"/footstep/2.ogg"
 				]
 			}
 		},

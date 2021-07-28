@@ -5,9 +5,9 @@
 	"assets": [
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
-		{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
@@ -58,7 +58,7 @@
 			},
 		*/
 		//	"lightmap": "./lightmap.min.png",
-			"lightmap": "./lightmap.png",
+		//	"lightmap": "./lightmap.png",
 			"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,

@@ -22,6 +22,8 @@ namespace ext {
 					float run = 1.0f;
 					float walk = 1.0f;
 					pod::Vector3f jump = {0,8,0};
+
+					pod::Vector3f velocity = {0,0,0};
 				} physics;
 
 				bool control = true;

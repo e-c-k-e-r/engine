@@ -79,13 +79,17 @@ namespace ext {
 		// directly move a transform
 		void UF_API applyMovement( pod::Bullet&, const pod::Vector3f& );
 		// directly apply a velocity
+		void UF_API setVelocity( pod::Bullet&, const pod::Vector3f& );
 		void UF_API applyVelocity( pod::Bullet&, const pod::Vector3f& );
 		// directly rotate a transform
 		void UF_API applyRotation( pod::Bullet&, const pod::Quaternion<>& );
 		void UF_API applyRotation( pod::Bullet&, const pod::Vector3f&, float );
 
 		// picks an appropriate movement option
-		void UF_API move( pod::Bullet&, const pod::Vector3f&, bool = false );
+	//	void UF_API move( pod::Bullet&, const pod::Vector3f&, bool = false );
+
+		// ray casting
+		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f& );
 
 		// allows noclip
 		void UF_API activateCollision( pod::Bullet&, bool = true );

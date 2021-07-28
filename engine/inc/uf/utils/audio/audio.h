@@ -29,6 +29,15 @@ namespace uf {
 		extern UF_API bool streamsByDefault;
 		extern UF_API uint8_t buffers;
 		extern UF_API size_t bufferSize;
+	#if UF_AUDIO_MAPPED_VOLUMES
+		extern UF_API uf::stl::unordered_map<uf::stl::string, float> volumes;
+	#else
+		namespace volumes {
+			extern UF_API float bgm;
+			extern UF_API float sfx;
+			extern UF_API float voice;
+		};
+	#endif
 	}
 	class UF_API Audio {
 	public:

@@ -31,13 +31,15 @@ namespace ext {
 			ext::RENDERER::enums::Type::type_t type = 0;
 			size_t components = 0;
 			
-			bool operator==( const AttributeDescriptor& right ) const { return 
+			bool operator==( const AttributeDescriptor& right ) const { return name == right.name;
+			/*
 				offset == right.offset && 
 				size == right.size && 
 				format == right.format &&
 				name == right.name &&
 				type == right.type && 
 				components == right.components;
+			*/
 			}
 			bool operator!=( const AttributeDescriptor& right ) const { return !(*this == right); };
 		};
@@ -324,7 +326,3 @@ namespace pod {
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
 }
-
-
-#include <uf/ext/meshopt/meshopt.h>
-#include "mesh.inl"

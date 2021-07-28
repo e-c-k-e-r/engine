@@ -3,6 +3,7 @@ CC						= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll
+RENDERER 				= vulkan
 
 include makefiles/$(ARCH).$(CC).make
 
@@ -44,11 +45,11 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= vulkan json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas simd ctti # openvr draco discord
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas simd ctti # openvr draco discord
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png zlib ctti # ogg openal meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png zlib ctti ogg openal aldc # ogg openal meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -82,12 +83,16 @@ ifneq (,$(findstring png,$(REQ_DEPS)))
 	DEPS 				+= -lpng -lz
 endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_OPENAL
+	FLAGS 				+= -DUF_USE_OPENAL -DUF_USE_ALUT
 	ifneq (,$(findstring dreamcast,$(ARCH)))
-		DEPS 				+= -lAL
+		ifneq (,$(findstring aldc,$(REQ_DEPS)))
+			DEPS 		+= -lALdc
+			FLAGS 		+= -DUF_USE_OPENGL_ALDC
+		else
+			DEPS 		+= -lAL
+		endif
 	else
-		FLAGS 				+= -DUF_USE_ALUT
-		DEPS 				+= -lopenal -lalut
+		DEPS 			+= -lopenal -lalut
 	endif
 endif
 ifneq (,$(findstring ogg,$(REQ_DEPS)))

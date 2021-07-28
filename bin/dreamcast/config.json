@@ -21,11 +21,11 @@
 			},
 			"textures": {
 				"max": {
-					"2D": 256,
-					"cube": 16,
+					"2D": 192,
+					"cube": 8,
 					"3D": 1
 				}
-			},
+			}
 		},
 		"ext": {
 			"opengl": {
@@ -45,11 +45,12 @@
 					"deferred mode": "",
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": true,
-					"hdr": false
+					"hdr": false,
+					"culling": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
-					"color": "R8G8B8A8_UNORM", // "R32G32B32A32_SFLOAT",
+					"color": "R8G8B8A8_UNORM",
 					"normal": "R16G16B16A16_SFLOAT",
 					"position": "R16G16B16A16_SFLOAT"
 				},
@@ -60,6 +61,7 @@
 				}
 			},
 			"lua": {
+				"enabled": false,
 				"main": "/main.lua",
 				"modules": {
 					"json": "/json.lua"
@@ -83,17 +85,22 @@
 		"audio": {
 			"mute": false,
 			"buffers": {
-				"size": 32768,
-				"count": 4
+				"size": 16384,
+				"count": 2
+			},
+			"volumes": {
+				"sfx": 1.0,
+				"bgm": 1.0,
+				"voice": 1.0
 			},
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": false,
+			"enabled": true,
 			"subPools": true,
 			"alignment": 32,
 			"override": true,
-			"size": "6 MiB",
+			"size": "8 MiB",
 			"pools": {
 				"entity": "96 KiB",
 				"userdata": "96 KiB",
@@ -107,7 +114,7 @@
 			"multiview stereo deferred": false
 		},
 		"limiters": {
-			"deltaTime": 20,
+			"deltaTime": 5,
 			"framerate": "auto"
 		},
 		"threads": {
@@ -143,7 +150,7 @@
 			"visible" : true,
 			"center" : false
 		},
-		"mode" : "windowed", // fullscreen, borderless, windowed
+		"mode" : "windowed",
 		"icon" : "./data/textures/icon.png",
 		"size" :  [ 640, 480 ],
 		"title" : "Grimgram",

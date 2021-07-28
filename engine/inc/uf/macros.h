@@ -3,20 +3,37 @@
 
 #define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
 
-#define TIMER(x, ...) auto TOKEN_PASTE(TIMER, __LINE__) = []( double every = 1 ) {\
+/*
+#define TIMER(x, ...) auto TOKEN_PASTE(TIMER, __LINE__) = []( uf::physics::num_t every = 1 ) {\
 		static uf::Timer<long long> timer(false);\
 		if ( !timer.running() ) {\
 			timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
 		}\
-		double time = 0;\
-		if ( (time = timer.elapsed().asDouble()) >= every ) {\
+		uf::physics::num_t time = 0;\
+		if ( (time = timer.elapsed()) >= every ) {\
 			timer.reset();\
 		}\
 		static bool first = true; if ( first ) { first = false; return every; }\
 		return time;\
 	};\
-	double time = 0;\
+	uf::physics::num_t time = 0;\
 	if ( __VA_ARGS__ (time = TOKEN_PASTE(TIMER, __LINE__)(x)) >= x )
+*/
+#define TIMER_LAMBDA(x) []() {\
+	static uf::Timer<long long> timer(false);\
+	if ( !timer.running() ) timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
+	uf::physics::num_t time = timer.elapsed();\
+	if ( time >= every ) timer.reset();\
+	static bool first = true; if ( first ) { first = false; return every; }\
+	return time;\
+};
+
+#define TIMER(x, ...)\
+	static uf::Timer<long long> timer(false);\
+	if ( !timer.running() ) timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
+	uf::physics::num_t time = timer.elapsed();\
+	if ( time >= x ) timer.reset();\
+	if ( __VA_ARGS__ time >= x )
 
 #define UF_DEBUG 1
 #if UF_DEBUG
@@ -97,7 +114,7 @@
 	#define TYPE_NAME(T) TYPE(T).name()
 #endif
 
-#define MIN(X, Y) X < Y ? X : Y 
-#define MAX(X, Y) X > Y ? X : Y 
+#define MIN(X, Y) (X) < (Y) ? (X) : (Y)
+#define MAX(X, Y) (X) > (Y) ? (X) : (Y)
 #define LENGTH_OF(X) *(&X + 1) - X
 #define FOR_ARRAY(X) for ( auto i = 0; i < LENGTH_OF(X); ++i )

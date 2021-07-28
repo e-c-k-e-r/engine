@@ -5,6 +5,7 @@
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/string/io.h>
 #include <uf/ext/vorbis/vorbis.h>
+#include <uf/utils/audio/audio.h>
 #include <iostream>
 
 namespace {
@@ -13,37 +14,51 @@ namespace {
 }
 
 void ext::al::initialize() {
-/*
-	this->m_device = alcOpenDevice(NULL);
-	if ( !this->m_device ) { this->checkError(__LINE__);
-		return false;
+#if UF_USE_ALUT
+	::device = alcOpenDevice(alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER));
+	assert(::device);
+
+	::context = alcCreateContext(::device, NULL);
+	assert(::context);
+	alcMakeContextCurrent(::context);
+
+	if ( alutInit(NULL, NULL) != AL_TRUE ) {
+		uf::audio::muted = true;
+		UF_EXCEPTION("AL error: " << alutGetErrorString( alutGetError() ) );
+	}
+#else
+	::device = alcOpenDevice(NULL);
+	if ( !::device ) {
+		UF_EXCEPTION(ext::al::getError());
 	}
 
 	ALboolean enumeration = alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT");
-	if (enumeration == AL_FALSE) { this->checkError(__LINE__);
+	if (enumeration == AL_FALSE) {
 		// do something
-		std::cout << "Device enumeration not available" << std::endl;
+		UF_EXCEPTION("Device enumeration not available");
 	}
 
-	this->m_context = alcCreateContext(this->m_device, NULL);
-	if ( !alcMakeContextCurrent(this->m_context) ) {
-		this->checkError(__LINE__);
-		return false;
+	::context = alcCreateContext(::device, NULL);
+	if ( !alcMakeContextCurrent(::context) ) {
+		UF_EXCEPTION(ext::al::getError());
 	}
-	return this->m_initialized = true;
-*/
-	if ( alutInit(NULL, NULL) != AL_TRUE ) {
-		UF_EXCEPTION("AL error: " << alutGetErrorString( alutGetError() ) );
-	}
+#endif
 }
 void ext::al::destroy() {
-/*
-	this->m_device = alcGetContextsDevice(this->m_context);
+#if UF_USE_ALUT
+	::context = alcGetCurrentContext();
 	alcMakeContextCurrent(NULL);
-	alcDestroyContext(this->m_context);
-	alcCloseDevice(this->m_device);
-*/
+	alcDestroyContext(::context);
+	alcCloseDevice(::device);
+
+
 	alutExit();
+#else
+	::device = alcGetContextsDevice(::context);
+	alcMakeContextCurrent(NULL);
+	alcDestroyContext(::context);
+	alcCloseDevice(::device);
+#endif
 }
 #if 0
 void ext::al::listener( ALenum name, ALfloat x ) { AL_CHECK_RESULT(alListenerf( name, x )); }
@@ -89,7 +104,7 @@ uf::audio::Metadata* ext::al::create( const uf::stl::string& filename, bool stre
 	uf::audio::Metadata* pointer = (memoryPool) ? &memoryPool->alloc<uf::audio::Metadata>() : new uf::audio::Metadata;
 #endif
 	uf::audio::Metadata& metadata = *pointer;
-	metadata.filename = filename;
+	metadata.filename = uf::io::resolveURI(filename);
 	metadata.settings.streamed = streamed;
 	metadata.settings.buffers = buffers;
 	metadata.extension = uf::io::extension( metadata.filename );

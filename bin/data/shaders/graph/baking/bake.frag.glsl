@@ -11,12 +11,16 @@ layout (binding = 5) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
 
-#define PBR 0
-#define LAMBERT 1
+#define BAKING 1
+#define PBR 1
+#define LAMBERT 0
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 #include "../../common/functions.h"
 #include "../../common/shadows.h"
+#if PBR
+#include "../../common/pbr.h"
+#endif
 
 layout (std140, binding = 6) readonly buffer Instances {
 	Instance instances[];
@@ -60,13 +64,16 @@ void main() {
 
 	surface.fragment = material.colorEmissive;
 	surface.material.albedo = vec4(1);
-
 	{
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
-		const vec3 Lo = normalize( -surface.position.world );
-		const float cosLo = max(0.0, dot(surface.normal.world, Lo));
 		for ( uint i = 0; i < lights.length(); ++i ) {
 			const Light light = lights[i];
+			const mat4 mat = light.view; // inverse(light.view);
+			const vec3 position = surface.position.world;
+		//	const vec3 position = vec3( mat * vec4(surface.position.world, 1.0) );
+			const vec3 normal = surface.normal.world;
+		//	const vec3 normal = vec3( mat * vec4(surface.normal.world, 0.0) );
+
 			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 			const vec3 Lp = light.position;
 			const vec3 Liu = light.position - surface.position.world;
@@ -74,18 +81,23 @@ void main() {
 			const float Ls = shadowFactor( light, 0.0 );
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
+			const vec3 Lo = normalize( -position );
+			const float cosLo = max(0.0, dot(normal, Lo));
+
 			const vec3 Li = normalize(Liu);
 			const vec3 Lr = light.color.rgb * light.power * La * Ls;
-			const float cosLi = abs(dot(surface.normal.world, Li));// max(0.0, dot(N, Li));
+		//	const float cosLi = max(0.0, dot(normal, Li));
+			const float cosLi = abs(dot(normal, Li));
 		#if LAMBERT
 			const vec3 diffuse = surface.material.albedo.rgb;
 			const vec3 specular = vec3(0);
 		#elif PBR
 			const vec3 Lh = normalize(Li + Lo);
-			const float cosLh = max(0.0, dot(N, Lh));
+		//	const float cosLh = max(0.0, dot(normal, Lh));
+			const float cosLh = abs(dot(normal, Lh));
 			
 			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
-			const float D = ndfGGX( cosLh, surface.material.roughness );
+			const float D = 1; // ndfGGX( cosLh, surface.material.roughness );
 			const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
 			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
 			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
@@ -98,8 +110,8 @@ void main() {
 #define EXPOSURE 1
 #define GAMMA 1
 
-	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * EXPOSURE);
-	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / GAMMA));
+//	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * EXPOSURE);
+//	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / GAMMA));
 
 	outAlbedo = vec4(surface.fragment.rgb, 1);
 }

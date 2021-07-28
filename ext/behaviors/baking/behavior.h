@@ -31,7 +31,8 @@ namespace ext {
 				size_t shadows = 1024;
 			} max;
 			struct {
-				size_t max = 0;
+				size_t lights = 0;
+				size_t shadows = 0;
 				size_t update = 0;
 			} previous;
 			struct {

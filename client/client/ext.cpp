@@ -64,19 +64,6 @@ void client::initialize() {
 		client::window.setTitle(title);
 	#endif
 	}
-
-	#if UF_USE_OPENAL
-	/* Initialize OpenAL */ {
-		ext::al::initialize();
-	/*
-		if ( !ext::al::initialize() ) {
-			std::cerr << "[ERROR] AL failed to initialize!" << std::endl;
-			std::exit(EXIT_SUCCESS);
-			return;
-		}
-	*/
-	}
-	#endif
 	
 	/* Initialize hooks */ {
 		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( ext::json::Value& json ){
@@ -179,15 +166,4 @@ void client::terminate() {
 	}
 
 	client::window.terminate();
-
-	#if UF_USE_OPENAL
-	ext::al::destroy();
-/*
-	if ( !ext::al::destroy() ) {
-		std::cerr << "[ERROR] AL failed to terminate!" << std::endl;
-		std::exit(EXIT_SUCCESS);
-		return;
-	}
-*/
-	#endif
 }

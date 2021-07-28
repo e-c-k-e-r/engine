@@ -35,15 +35,16 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		if ( metadataJson["baking"]["resolution"].is<size_t>() )
 			metadata.size = { metadataJson["baking"]["resolution"].as<size_t>(), metadataJson["baking"]["resolution"].as<size_t>() };
 
-		metadata.max.lights = metadataJson["baking"]["lights"].as<size_t>(metadata.max.lights);
 		metadata.max.shadows = metadataJson["baking"]["shadows"].as<size_t>(metadata.max.shadows);
 
 		metadata.cull = metadataJson["baking"]["cull"].as<bool>();
 
-		metadata.previous.max = sceneMetadata.shadow.max;
+		metadata.previous.lights = sceneMetadata.light.max;
+		metadata.previous.shadows = sceneMetadata.shadow.max;
 		metadata.previous.update = sceneMetadata.shadow.update;
-		sceneMetadata.shadow.max = 1024;
-		sceneMetadata.shadow.update = 1024;
+		sceneMetadata.light.max = metadata.max.shadows;
+		sceneMetadata.shadow.max = metadata.max.shadows;
+		sceneMetadata.shadow.update = metadata.max.shadows;
 		UF_MSG_DEBUG("Temporarily altering shadow limits...");
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -172,7 +173,8 @@ SAVE: {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
 
-	sceneMetadata.shadow.max = metadata.previous.max;
+	sceneMetadata.light.max = metadata.previous.lights;
+	sceneMetadata.shadow.max = metadata.previous.shadows;
 	sceneMetadata.shadow.update = metadata.previous.update;
 
 	UF_MSG_DEBUG("Reverted shadow limits");

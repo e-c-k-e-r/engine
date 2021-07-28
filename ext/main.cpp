@@ -244,7 +244,11 @@ void EXT_API ext::initialize() {
 		}
 		{
 			uf::Mesh::defaultInterleaved = ::config["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
+		#if 0 && UF_USE_OPENGL
+			uf::matrix::reverseInfiniteProjection = false;
+		#else
 			uf::matrix::reverseInfiniteProjection = ::config["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
+		#endif
 		}
 
 		/* Create initial scene (kludge) */ {
@@ -278,11 +282,6 @@ void EXT_API ext::initialize() {
 			double limit = ::config["engine"]["limiters"]["deltaTime"].as<double>();
 			uf::physics::time::clamp = limit != 0 ? 1.0 / limit : 0;
 		}
-		// Mute audio
-		uf::audio::muted = ::config["engine"]["audio"]["mute"].as( uf::audio::muted );
-		uf::audio::streamsByDefault = ::config["engine"]["audio"]["streams by default"].as( uf::audio::streamsByDefault );
-		uf::audio::bufferSize = ::config["engine"]["audio"]["buffers"]["size"].as( uf::audio::bufferSize );
-		uf::audio::buffers = ::config["engine"]["audio"]["buffers"]["count"].as( uf::audio::buffers );
 
 		// Set worker threads
 		if ( ::config["engine"]["threads"]["workers"].as<uf::stl::string>() == "auto" ) {
@@ -290,6 +289,26 @@ void EXT_API ext::initialize() {
 			::config["engine"]["threads"]["workers"] = threads;
 			UF_MSG_DEBUG("Using " << threads << " worker threads");
 		}
+		// Mute audio
+		uf::audio::muted = ::config["engine"]["audio"]["mute"].as( uf::audio::muted );
+		uf::audio::streamsByDefault = ::config["engine"]["audio"]["streams by default"].as( uf::audio::streamsByDefault );
+		uf::audio::bufferSize = ::config["engine"]["audio"]["buffers"]["size"].as( uf::audio::bufferSize );
+		uf::audio::buffers = ::config["engine"]["audio"]["buffers"]["count"].as( uf::audio::buffers );
+	#if UF_AUDIO_MAPPED_VOLUMES
+		ext::json::forEach( ::config["engine"]["audio"]["volumes"], []( const uf::stl::string& key, ext::json::Value& value ){
+			float volume; volume = value.as(volume);
+			uf::audio::volumes[key] = volume;
+		});
+	#else
+		uf::audio::volumes::bgm = ::config["engine"]["audio"]["volumes"]["bgm"].as(uf::audio::volumes::bgm);
+		uf::audio::volumes::sfx = ::config["engine"]["audio"]["volumes"]["sfx"].as(uf::audio::volumes::sfx);
+		uf::audio::volumes::voice = ::config["engine"]["audio"]["volumes"]["voice"].as(uf::audio::volumes::voice);
+	#endif
+	#if UF_USE_OPENAL
+		/* Initialize OpenAL */ {
+			ext::al::initialize();
+		}
+	#endif
 
 	#if UF_USE_BULLET
 		// set bullet parameters
@@ -375,11 +394,11 @@ void EXT_API ext::initialize() {
 
 #if UF_USE_LUA
 	/* Lua */ {
-		ext::lua::main = ::config["engine"]["ext"]["lua"]["main"].as<uf::stl::string>();
-		for ( auto it  = ::config["engine"]["ext"]["lua"]["modules"].begin(); it != ::config["engine"]["ext"]["lua"]["modules"].end(); ++it ) {
-			uf::stl::string key = it.key();
-			ext::lua::modules[key] = ::config["engine"]["ext"]["lua"]["modules"][key].as<uf::stl::string>();
-		}
+		ext::lua::enabled = ::config["engine"]["ext"]["lua"]["enabled"].as(ext::lua::enabled);
+		ext::lua::main = ::config["engine"]["ext"]["lua"]["main"].as(ext::lua::main);
+		ext::json::forEach( ::config["engine"]["ext"]["lua"]["modules"], []( const uf::stl::string& key, ext::json::Value& value ){
+			ext::lua::modules[key] = value.as<uf::stl::string>();
+		});
 		ext::lua::initialize();
 	}
 #endif
@@ -544,18 +563,17 @@ void EXT_API ext::initialize() {
 		payload["scene"] = ::config["engine"]["scenes"]["start"];
 		payload["immediate"] = true;
 		uf::hooks.call("game:Scene.Load", payload);
-	}
-	
-	ext::ready = true;
-	UF_MSG_INFO("EXT took " << times.sys.elapsed().asDouble() << " seconds to initialize!");
 
-	{
 		uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& assetLoader = scene.getComponent<uf::Asset>();
 			assetLoader.processQueue();
 		return 0;}, false );
 	}
+	
+	ext::ready = true;
+	UF_MSG_INFO("EXT took " << times.sys.elapsed().asDouble() << " seconds to initialize!");
+
 }
 
 void EXT_API ext::tick() {
@@ -773,6 +791,12 @@ void EXT_API ext::terminate() {
 	/* Close vulkan */ {
 		uf::renderer::destroy();
 	}
+
+	#if UF_USE_OPENAL
+		/* Initialize OpenAL */ {
+			ext::al::destroy();
+		}
+	#endif
 
 	/* Print system stats */ {
 		::times.total.time = times.sys.elapsed().asDouble();

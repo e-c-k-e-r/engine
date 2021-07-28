@@ -3,13 +3,14 @@ layout (constant_id = 0) const uint PASSES = 6;
 #include "../common/structs.h"
 
 layout (location = 0) in vec3 inPos;
-layout (location = 1) in vec2 inUv;
-layout (location = 2) in vec2 inSt;
-layout (location = 3) in vec3 inNormal;
-layout (location = 4) in vec4 inTangent;
+layout (location = 1) in vec4 inColor;
+layout (location = 2) in vec2 inUv;
+layout (location = 3) in vec2 inSt;
+layout (location = 4) in vec3 inNormal;
+layout (location = 5) in vec4 inTangent;
 #if SKINNED
-	layout (location = 5) in uvec4 inJoints;
-	layout (location = 6) in vec4 inWeights;
+	layout (location = 6) in uvec4 inJoints;
+	layout (location = 7) in vec4 inWeights;
 #endif
 
 layout( push_constant ) uniform PushBlock {

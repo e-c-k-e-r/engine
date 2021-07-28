@@ -5,9 +5,9 @@
 	"assets": [
 	//	{ "filename": "./static.json", "delay": 8 },
 	
-		{ "filename": "./models/mcdonalds.glb", "delay": 0, "single threaded": false }
+	//	{ "filename": "./models/mcdonalds.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/mcdonalds/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"behaviors": [
 		"LoadingBehavior"
@@ -54,10 +54,9 @@
 				"SEPARATE": false,
 				"NORMALS": false
 			},
-			"lightmap": "",
-		//	"lightmap": "./lightmap.png",
+			"lightmap": "./lightmap.png",
 		//	"cull mode": "none",
-		//	"filter": "NEAREST",
+			"filter": "NEAREST",
 			"lights": {
 				"shadows": true
 			},

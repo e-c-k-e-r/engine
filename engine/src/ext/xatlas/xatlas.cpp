@@ -2,6 +2,7 @@
 #if UF_USE_XATLAS
 	#include <xatlas/xatlas.h>
 #endif
+#if 0
 pod::Vector2ui UF_API ext::xatlas::unwrap( uf::stl::vector<uf::graph::mesh::Skinned>& vertices, uf::stl::vector<uint32_t>& indices ) {
 #if UF_USE_XATLAS
 	uf::stl::vector<uf::graph::mesh::Skinned> source = std::move(vertices);
@@ -41,6 +42,7 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( uf::stl::vector<uf::graph::mesh::Skin
 	return size;
 #endif
 }
+#endif
 pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 #if UF_USE_XATLAS
 	struct Pair {
@@ -135,11 +137,11 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 //	chartOptions.useInputMeshUvs = true;
 
 	::xatlas::PackOptions packOptions{};
-//	packOptions.bruteForce = true;
+	packOptions.bruteForce = true;
 //	packOptions.resolution = resolution;
 //	packOptions.texelsPerUnit = 64.0f;
-//	packOptions.blockAlign = true;
-//	packOptions.bilinear = true;
+	packOptions.blockAlign = true;
+	packOptions.bilinear = true;
 
 	::xatlas::Generate(atlas, chartOptions, packOptions);
 

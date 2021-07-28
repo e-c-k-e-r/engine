@@ -20,12 +20,14 @@ namespace pod {
 
 namespace uf {
 	namespace physics {
+		typedef pod::Math::num_t num_t;
 		namespace time {
+
 			extern UF_API uf::Timer<> timer;
-			extern UF_API double current;
-			extern UF_API double previous;
-			extern UF_API double delta;
-			extern UF_API double clamp;
+			extern UF_API uf::physics::num_t current;
+			extern UF_API uf::physics::num_t previous;
+			extern UF_API uf::physics::num_t delta;
+			extern UF_API uf::physics::num_t clamp;
 		}
 		void UF_API tick();
 		template<typename T> pod::Transform<T>& update( pod::Transform<T>& transform, pod::Physics& physics );

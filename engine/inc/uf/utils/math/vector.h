@@ -15,18 +15,18 @@
 
 namespace pod {
 	// Simple vectors (designed [to store in arrays] with minimal headaches)
-	template<typename T = pod::Math::num_t, std::size_t N = 3>
+	template<typename T = pod::Math::num_t, size_t N = 3>
 	struct /*UF_API*/ Vector {
 	// 	n-dimensional/unspecialized vector access
 		T components[N];
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = N;
+		static const size_t size = N;
 	// 	Overload access
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		Vector<T,N> operator()() const; 								// 	Negation
 		Vector<T,N> operator-() const; 								// 	Negation
@@ -110,27 +110,28 @@ namespace uf {
 		template<typename T> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two vectors (equals)
 	// 	Basic arithmetic
 		template<typename T> T /*UF_API*/ add( const T& left, const T& right );								// 	Adds two vectors of same type and size together
-		template<typename T> T /*UF_API*/ add( const T& left, const typename T::type_t& scalar );			// 	Adds two vectors of same type and size together
+		template<typename T> T /*UF_API*/ add( const T& left, /*const typename T::type_t&*/ typename T::type_t scalar );			// 	Adds two vectors of same type and size together
 		template<typename T> T /*UF_API*/ subtract( const T& left, const T& right );						// 	Subtracts two vectors of same type and size together
-		template<typename T> T /*UF_API*/ subtract( const T& left, const typename T::type_t& scalar );		// 	Subtracts two vectors of same type and size together
+		template<typename T> T /*UF_API*/ subtract( const T& left, /*const typename T::type_t&*/ typename T::type_t scalar );		// 	Subtracts two vectors of same type and size together
 		template<typename T> T /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two vectors of same type and size together
-		template<typename T> T /*UF_API*/ multiply( const T& vector, const typename T::type_t& scalar );	// 	Multiplies this vector by a scalar
+		template<typename T> T /*UF_API*/ multiply( const T& vector, /*const typename T::type_t&*/ typename T::type_t scalar );	// 	Multiplies this vector by a scalar
 		template<typename T> T /*UF_API*/ divide( const T& left, const T& right );							// 	Divides two vectors of same type and size together
-		template<typename T> T /*UF_API*/ divide( const T& left, const typename T::type_t& scalar );		// 	Divides this vector by a scalar
+		template<typename T> T /*UF_API*/ divide( const T& left, /*const typename T::type_t&*/ typename T::type_t scalar );		// 	Divides this vector by a scalar
 		template<typename T> typename T::type_t /*UF_API*/ sum( const T& vector );							// 	Compute the sum of all components 
 		template<typename T> typename T::type_t /*UF_API*/ product( const T& vector );						// 	Compute the product of all components 
 		template<typename T> T /*UF_API*/ negate( const T& vector );										// 	Flip sign of all components
 	// 	Writes to first value
-		template<typename T> T& /*UF_API*/ add( T& left, const T& right );									// 	Adds two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ add( T& left, const typename T::type_t& scalar );				// 	Adds two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ subtract( T& left, const T& right );								// 	Subtracts two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ subtract( T& left, const typename T::type_t& scalar );			// 	Subtracts two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ multiply( T& left, const T& right );								// 	Multiplies two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ multiply( T& vector, const typename T::type_t& scalar );			// 	Multiplies this vector by a scalar
-		template<typename T> T& /*UF_API*/ divide( T& left, const T& right );								// 	Divides two vectors of same type and size together
-		template<typename T> T& /*UF_API*/ divide( T& left, const typename T::type_t& scalar );				// 	Divides this vector by a scalar
-		template<typename T> T& /*UF_API*/ negate( T& vector );												// 	Flip sign of all components
-		template<typename T> T& /*UF_API*/ normalize( T& vector ); 											// 	Normalizes a vector
+		template<typename T> T& /*UF_API*/ add_( T& left, const T& right );									// 	Adds two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ add_( T& left, /*const typename T::type_t&*/ typename T::type_t scalar );				// 	Adds two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ subtract_( T& left, const T& right );								// 	Subtracts two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ subtract_( T& left, /*const typename T::type_t&*/ typename T::type_t scalar );			// 	Subtracts two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ multiply_( T& left, const T& right );								// 	Multiplies two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ multiply_( T& vector, /*const typename T::type_t&*/ typename T::type_t scalar );			// 	Multiplies this vector by a scalar
+		template<typename T> T& /*UF_API*/ divide_( T& left, const T& right );								// 	Divides two vectors of same type and size together
+		template<typename T> T& /*UF_API*/ divide_( T& left, /*const typename T::type_t&*/ typename T::type_t scalar );				// 	Divides this vector by a scalar
+		template<typename T> T& /*UF_API*/ negate_( T& vector );												// 	Flip sign of all components
+		template<typename T> T& /*UF_API*/ normalize_( T& vector ); 											// 	Normalizes a vector
+
 		template<typename T> T  /*UF_API*/ min( const T& left, const T& right ); 							// 	
 		template<typename T> T  /*UF_API*/ max( const T& left, const T& right ); 							// 	
 		template<typename T> T  /*UF_API*/ ceil( const T& vector ); 										// 	
@@ -149,8 +150,8 @@ namespace uf {
 		
 		template<typename T> typename T::type_t /*UF_API*/ distanceSquared( const T& a, const T& b ); 		// 	Compute the distance between two vectors (doesn't sqrt)
 		template<typename T> typename T::type_t /*UF_API*/ distance( const T& a, const T& b ); 				// 	Compute the distance between two vectors
-		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> typename T::type_t /*UF_API*/ norm( const T& vector ); 						// 	Compute the norm of the vector
+		template<typename T> typename T::type_t /*UF_API*/ magnitude( const T& vector ); 					// 	Gets the magnitude of the vector
 		template<typename T> T /*UF_API*/ normalize( const T& vector ); 									// 	Normalizes a vector
 		template<typename T> void /*UF_API*/ orthonormalize( T& x, T& y ); 									// 	Normalizes a vector
 		template<typename T> T /*UF_API*/ orthonormalize( const T& x, const T& y ); 						// 	Normalizes a vector
@@ -166,7 +167,7 @@ namespace uf {
 
 namespace uf {
 	// Provides operations for POD vector
-	template<typename T = pod::Math::num_t, std::size_t N = 3> 
+	template<typename T = pod::Math::num_t, size_t N = 3> 
 	class /*UF_API*/ Vector {
 	public:
 	// 	Easily access POD's type
@@ -174,7 +175,7 @@ namespace uf {
 	// 	Replicate POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = N;
+		static const size_t size = N;
 	protected:
 	// 	POD storage
 		Vector<T,N>::pod_t m_pod;
@@ -194,11 +195,11 @@ namespace uf {
 	// 	Alternative POD access
 		T* get();																		// 	Returns a pointer to the entire array
 		const T* get() const; 															// 	Returns a const-pointer to the entire array
-		T& getComponent( std::size_t i );												// 	Returns a reference to a single element
-		const T& getComponent( std::size_t i ) const; 									// 	Returns a const-reference to a single element
+		T& getComponent( size_t i );												// 	Returns a reference to a single element
+		const T& getComponent( size_t i ) const; 									// 	Returns a const-reference to a single element
 	// 	POD manipulation
 		T* set(const T components[N]);													// 	Sets the entire array
-		T& setComponent( std::size_t i, const T& value );								// 	Sets a single element
+		T& setComponent( size_t i, const T& value );								// 	Sets a single element
 	// 	Validation
 		bool isValid() const; 															// 	Checks if all components are valid (non NaN, inf, etc.)
 	// 	Basic arithmetic
@@ -230,8 +231,8 @@ namespace uf {
 		inline uf::stl::string toString() const;
 	// 	Overloaded ops
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		inline Vector<T,N> operator-() const; 								// 	Negation
 		inline Vector<T,N> operator+( const Vector<T,N>& vector ) const; 	// 	Addition between two vectors
@@ -325,11 +326,11 @@ namespace pod {
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = 1;
+		static const size_t size = 1;
 	// 	Overload access
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		inline Vector<T,1> operator()() const; 								// 	Creation
 		inline Vector<T,1> operator-() const; 								// 	Negation
@@ -375,11 +376,11 @@ namespace pod {
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = 2;
+		static const size_t size = 2;
 	// 	Overload access
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		inline Vector<T,2> operator()() const; 								// 	Creation
 		inline Vector<T,2> operator-() const; 								// 	Negation
@@ -426,11 +427,11 @@ namespace pod {
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = 3;
+		static const size_t size = 3;
 	// 	Overload access
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		inline Vector<T,3> operator()() const; 								// 	Creation
 		inline Vector<T,3> operator-() const; 								// 	Negation
@@ -483,11 +484,11 @@ namespace pod {
 	// 	POD information
 		typedef T type_t;
 		typedef T* container_t;
-		static const std::size_t size = 4;
+		static const size_t size = 4;
 	// 	Overload access
 		// Accessing via subscripts
-		T& operator[](std::size_t i);
-		const T& operator[](std::size_t i) const;
+		T& operator[](size_t i);
+		const T& operator[](size_t i) const;
 		// Arithmetic
 		inline Vector<T,4> operator()() const; 								// 	Creation
 		inline Vector<T,4> operator-() const; 								// 	Negation

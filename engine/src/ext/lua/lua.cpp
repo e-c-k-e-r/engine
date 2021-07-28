@@ -1,5 +1,6 @@
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
+bool ext::lua::enabled = true;
 sol::state ext::lua::state;
 uf::stl::string ext::lua::main = uf::io::root + "/scripts/main.lua";
 uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
@@ -162,6 +163,8 @@ namespace binds {
 }
 
 void ext::lua::initialize() {
+	if ( !ext::lua::enabled ) return;
+
 	state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table, sol::lib::math, sol::lib::string, sol::lib::ffi, sol::lib::jit);
 
 	// load modules
@@ -269,6 +272,8 @@ bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 
 pod::LuaScript ext::lua::script( const uf::stl::string& filename ) {
 	pod::LuaScript script;
+	if ( !ext::lua::enabled ) return script;
+	
 	script.file = filename;
 	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
 	return script;

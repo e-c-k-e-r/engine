@@ -44,7 +44,7 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
 		auto& graphic = entity->getComponent<uf::Graphic>();
 		auto& pipeline = graphic.getPipeline();
-		pipeline.metadata.process = false;
+		pipeline.metadata.process = !metadata.hide;
 		metadata.set = true;
 	});
 	metadata.set = true;
@@ -53,16 +53,17 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 void ext::PlayerModelBehavior::render( uf::Object& self ){}
 void ext::PlayerModelBehavior::destroy( uf::Object& self ){}
 void ext::PlayerModelBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
+	serializer["track"] = /*this->*/track;
+	serializer["hide"] = /*this->*/hide;
+}
+void ext::PlayerModelBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& transform = this->getComponent<pod::Transform<>>();
 
 	/*this->*/track = serializer["track"].as<bool>();
 	/*this->*/hide = serializer["hide"].as<bool>();
 	/*this->*/scale = transform.scale;
+	/*this->*/set = false;
 
 	transform.reference = /*this->*/track ? /*this->*/reference : NULL;
-}
-void ext::PlayerModelBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
-	serializer["track"] = /*this->*/track;
-	serializer["hide"] = /*this->*/hide;
 }
 #undef this

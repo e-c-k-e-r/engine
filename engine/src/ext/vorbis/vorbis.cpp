@@ -252,7 +252,8 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	if ( metadata.settings.loopMode == 1 ) metadata.al.source.set( AL_LOOPING, AL_FALSE );
 
 	ALint state;
-	metadata.al.source.get( AL_SOURCE_STATE, &state );
+//	metadata.al.source.get( AL_SOURCE_STATE, &state );
+	metadata.al.source.get( AL_SOURCE_STATE, state );
 	if ( state != AL_PLAYING ) {
 		if ( !metadata.settings.loop && metadata.stream.consumed >= metadata.info.size ) {
 			// UF_MSG_INFO("Vorbis stream finished: " << metadata.filename);
@@ -264,7 +265,8 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	}
 
 	ALint processed = 0;
-	metadata.al.source.get(AL_BUFFERS_PROCESSED, &processed);
+//	metadata.al.source.get(AL_BUFFERS_PROCESSED, &processed);
+	metadata.al.source.get(AL_BUFFERS_PROCESSED, processed);
 	// no work need to be done
 	if ( processed <= 0 ) return;
 

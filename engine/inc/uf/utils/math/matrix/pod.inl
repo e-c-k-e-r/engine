@@ -424,11 +424,6 @@ template<typename T> T uf::matrix::inverse( const T& matrix ) {
 
 	return inverted;
 }
-// 	Writes to first value
-// 	Multiplies two matrices of same type and size together
-template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply( T& left, const T& right ) {
-	return left = uf::matrix::multiply((const T&) left, right);
-}
 template<typename T> pod::Vector3t<T> uf::matrix::multiply( const pod::Matrix4t<T>& mat, const pod::Vector3t<T>& vector, T w, bool div ) {
 	return uf::matrix::multiply( mat, pod::Vector4t<T>{ vector[0], vector[1], vector[2], w }, div );
 }
@@ -450,9 +445,50 @@ template<typename T> pod::Vector4t<T> uf::matrix::multiply( const pod::Matrix4t<
 	return res;
 #endif
 }
+// 	Writes to first value
+// 	Multiplies two matrices of same type and size together
 // 	Flip sign of all components
 template<typename T> T& uf::matrix::invert( T& matrix ) {
 	return matrix = uf::matrix::inverse((const T&) matrix);
+}
+
+template<typename T> pod::Matrix<typename T::type_t, T::columns, T::columns> uf::matrix::multiply_( T& left, const T& right ) {
+	return left = uf::matrix::multiply((const T&) left, right);
+}
+template<typename T> T& uf::matrix::translate_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+	matrix[12] = vector.x;
+	matrix[13] = vector.y;
+	matrix[14] = vector.z;
+	return matrix;
+}
+template<typename T> T& uf::matrix::rotate_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+	if ( vector.x != 0 ) {	
+		matrix[5] = cos( vector.x );
+		matrix[6] = sin( vector.x );
+		matrix[9] = -1 * sin( vector.x );
+		matrix[10] = cos( vector.x );
+	}
+	
+	if ( vector.y != 0 ) {	
+		matrix[0] = cos( vector.y );
+		matrix[2] = -1 * sin( vector.y );
+		matrix[8] = sin( vector.y );
+		matrix[10] = cos( vector.y );
+	}
+
+	if ( vector.z != 0 ) {	
+		matrix[0] = cos( vector.z );
+		matrix[1] = sin( vector.z );
+		matrix[4] = -1 * sin( vector.z );
+		matrix[5] = cos( vector.z );
+	}
+	return matrix;
+}
+template<typename T> T& uf::matrix::scale_( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
+	matrix[0] = vector.x;
+	matrix[5] = vector.y;
+	matrix[10] = vector.z;
+	return matrix;
 }
 // 	Complex arithmetic
 template<typename T> T uf::matrix::translate( const T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
@@ -492,41 +528,6 @@ template<typename T> T uf::matrix::scale( const T& matrix, const pod::Vector3t<t
 	res[5] = vector.y;
 	res[10] = vector.z;
 	return res;
-}
-template<typename T> T& uf::matrix::translate( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	matrix[12] = vector.x;
-	matrix[13] = vector.y;
-	matrix[14] = vector.z;
-	return matrix;
-}
-template<typename T> T& uf::matrix::rotate( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	if ( vector.x != 0 ) {	
-		matrix[5] = cos( vector.x );
-		matrix[6] = sin( vector.x );
-		matrix[9] = -1 * sin( vector.x );
-		matrix[10] = cos( vector.x );
-	}
-	
-	if ( vector.y != 0 ) {	
-		matrix[0] = cos( vector.y );
-		matrix[2] = -1 * sin( vector.y );
-		matrix[8] = sin( vector.y );
-		matrix[10] = cos( vector.y );
-	}
-
-	if ( vector.z != 0 ) {	
-		matrix[0] = cos( vector.z );
-		matrix[1] = sin( vector.z );
-		matrix[4] = -1 * sin( vector.z );
-		matrix[5] = cos( vector.z );
-	}
-	return matrix;
-}
-template<typename T> T& uf::matrix::scale( T& matrix, const pod::Vector3t<typename T::type_t>& vector ) {
-	matrix[0] = vector.x;
-	matrix[5] = vector.y;
-	matrix[10] = vector.z;
-	return matrix;
 }
 template<typename T>
 pod::Matrix4t<T> /*UF_API*/ uf::matrix::orthographic( T l, T r, T b, T t, T f, T n ) {

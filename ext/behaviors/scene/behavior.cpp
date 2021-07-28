@@ -57,7 +57,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		audio = std::move(asset);
 		assetLoader.remove<uf::Audio>(filename);
 
-		audio.setVolume(metadataJson["volumes"]["bgm"].as<float>());
+	#if UF_AUDIO_MAPPED_VOLUMES
+		audio.setVolume(uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0);
+	#else
+		audio.setVolume(uf::audio::volumes::bgm);
+	#endif
 		audio.loop( true );
 		audio.play();
 	});
@@ -175,11 +179,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			image.open(filename);
 			image.flip();
 
-			if ( size.x == 0 && size.y == 0 ) {
-				size = image.getDimensions();
-			} else if ( size != image.getDimensions() ) {
-				UF_MSG_ERROR("ERROR: MISMATCH CUBEMAP FACE SIZE");
-			}
+			if ( size.x == 0 && size.y == 0 ) size = image.getDimensions();
+			else if ( size != image.getDimensions() ) UF_EXCEPTION("ERROR: MISMATCH CUBEMAP FACE SIZE");
 
 			auto& p = image.getPixels();
 			pixels.reserve( pixels.size() + p.size() );
@@ -340,9 +341,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		
 		uf::stl::vector<LightInfo> entities; entities.reserve(graph.size() / 2);
 
-		uf::graph::storage.lights.clear(); uf::graph::storage.lights.reserve(metadata.max.lights);
-		uf::graph::storage.shadow2Ds.clear(); uf::graph::storage.shadow2Ds.reserve(metadata.max.lights);
-		uf::graph::storage.shadowCubes.clear(); uf::graph::storage.shadowCubes.reserve(metadata.max.lights);
+		uf::graph::storage.lights.clear(); uf::graph::storage.lights.reserve(metadata.light.max);
+		uf::graph::storage.shadow2Ds.clear(); uf::graph::storage.shadow2Ds.reserve(metadata.light.max);
+		uf::graph::storage.shadowCubes.clear(); uf::graph::storage.shadowCubes.reserve(metadata.light.max);
 
 		// traverse scene graph
 		for ( auto entity : graph ) {
@@ -382,7 +383,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		for ( auto& info : entities ) if ( info.shadows && shadowCount-- <= 0 ) info.shadows = false;
 
 		// bind lighting and requested shadow maps
-		for ( uint32_t i = 0; i < entities.size() && uf::graph::storage.lights.size() < metadata.max.lights; ++i ) {
+		for ( uint32_t i = 0; i < entities.size() && uf::graph::storage.lights.size() < metadata.light.max; ++i ) {
 			auto& info = entities[i];
 			uf::Entity* entity = info.entity;
 
@@ -522,7 +523,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(/*this->*/max.textures2D);
 	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(/*this->*/max.texturesCube);
 	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(/*this->*/max.textures3D);
-	/*this->*/max.lights = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/max.lights);
+	/*this->*/light.max = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/light.max);
 
 	/*this->*/shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && serializer["light"]["shadows"].as<bool>(true);
 	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
@@ -536,8 +537,6 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as<float>(2.2f);
 	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as<float>(ext::config["engine"]["scenes"]["bloom"]["brightnessThreshold"].as<float>(1.0f));
-
-	UF_MSG_DEBUG( serializer["bloom"] );
 
 	/*this->*/bloom.scale = serializer["bloom"]["scale"].as(ext::config["engine"]["scenes"]["bloom"]["scale"].as(bloom.scale));
 	/*this->*/bloom.strength = serializer["bloom"]["strength"].as(ext::config["engine"]["scenes"]["bloom"]["strength"].as(bloom.strength));
@@ -642,12 +641,12 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 
 	static GLint glMaxLights = 0;
 	if ( !glMaxLights ) glGetIntegerv(GL_MAX_LIGHTS, &glMaxLights);
-	metadata.max.lights = std::min( (uint32_t) glMaxLights, metadata.max.lights );
+	metadata.light.max = std::min( (uint32_t) glMaxLights, metadata.light.max );
 
 	// add lighting
 	{
 		uint32_t i = 0;	
-		for ( ; i < entities.size() && i < metadata.max.lights; ++i ) {
+		for ( ; i < entities.size() && i < metadata.light.max; ++i ) {
 			auto& info = entities[i];
 			uf::Entity* entity = info.entity;
 			GLenum target = GL_LIGHT0+i;
@@ -660,7 +659,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			GL_ERROR_CHECK(glLightf(target, GL_LINEAR_ATTENUATION, 0));
 			GL_ERROR_CHECK(glLightf(target, GL_QUADRATIC_ATTENUATION, 1.0f / info.power));
 		}
-		for ( ; i < metadata.max.lights; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
+		for ( ; i < metadata.light.max; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
 	}
 #elif UF_USE_VULKAN
 	struct UniformDescriptor {
@@ -805,7 +804,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		};
 	
 		uniforms.lengths = UniformDescriptor::Lengths{
-			.lights = MIN( uf::graph::storage.lights.size(), metadata.max.lights ),
+			.lights = MIN( uf::graph::storage.lights.size(), metadata.light.max ),
 			.materials = MIN( uf::graph::storage.materials.keys.size(), metadata.max.textures2D ),
 			.textures = MIN( uf::graph::storage.textures.keys.size(), metadata.max.textures2D ),
 			.drawCommands = MIN( 0, metadata.max.textures2D ),

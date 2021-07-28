@@ -16,10 +16,10 @@ namespace ext {
 				uint32_t textures2D = 512;
 				uint32_t texturesCube = 128;
 				uint32_t textures3D = 128;
-				uint32_t lights = 256;
 			} max;
 			struct {
 				bool enabled = true;
+				uint32_t max = 256;
 				pod::Vector4f ambient = {0,0,0,1};
 				pod::Vector4f specular = {1,1,1,1};
 				float exposure = 1.0f;

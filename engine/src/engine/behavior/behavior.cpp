@@ -65,7 +65,7 @@ void uf::Behaviors::generateGraph() {
 	}
 }
 
-#define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_FAST
+#define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_GRAPH
 #define UF_BEHAVIOR_POLYFILL_SAFE(f)\
 	const bool forwardIteration = true;\
 	if ( forwardIteration ) for ( auto& behavior : m_behaviors ) behavior.f(self);\
@@ -82,12 +82,30 @@ void uf::Behaviors::initialize() {
 void uf::Behaviors::tick() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
+	if ( m_graph.tick.empty() ) return;
 //	if ( !m_graph.tickMT.empty() ) uf::thread::batchWorkers(m_graph.tickMT, false);
+/*
+	UF_TIMER_MULTITRACE_START("Starting " << self.getName() << ": " << self.getUid());
+	for ( auto& fun : m_graph.tick ) {
+		fun(self);
+		UF_TIMER_MULTITRACE("");
+	}
+	UF_TIMER_MULTITRACE_END("Finished " << self.getName() << ": " << self.getUid())
+*/
 	UF_BEHAVIOR_POLYFILL(tick)
 }
 void uf::Behaviors::render() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
+	if ( m_graph.render.empty() ) return;
+/*
+	UF_TIMER_MULTITRACE_START("Starting " << self.getName() << ": " << self.getUid());
+	for ( auto& fun : m_graph.render ) {
+		fun(self);
+		UF_TIMER_MULTITRACE("");
+	}
+	UF_TIMER_MULTITRACE_END("Finished " << self.getName() << ": " << self.getUid())
+*/
 	UF_BEHAVIOR_POLYFILL(render)
 }
 void uf::Behaviors::destroy() {

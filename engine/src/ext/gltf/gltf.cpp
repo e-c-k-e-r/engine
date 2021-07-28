@@ -232,149 +232,288 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
 			mesh.bindIndirect<pod::DrawCommand>();
-			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-		/*
-			size_t primitiveID = 0;
-		*/
-			uf::stl::vector<uf::graph::mesh::Skinned> vertices;
-			uf::stl::vector<uint32_t> indices;
-			for ( auto& p : m.primitives ) {
-				vertices.clear();
-				indices.clear();
-				auto& primitive = primitives.emplace_back();
+		#if UF_USE_VULKAN
+			bool full = true;
+		#else
+			bool full = graph.metadata["flags"]["SKINNED"].as<bool>();
+		#endif
+			if ( full ) {
+				mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+				uf::stl::vector<uf::graph::mesh::Skinned> vertices;
+				uf::stl::vector<uint32_t> indices;
+				for ( auto& p : m.primitives ) {
+					vertices.clear();
+					indices.clear();
+					auto& primitive = primitives.emplace_back();
 
-				struct Attribute {
-					uf::stl::string name = "";
-					size_t components = 1;
-					uf::stl::vector<float> floats;
-					uf::stl::vector<uint16_t> ints;
-				};
+					struct Attribute {
+						uf::stl::string name = "";
+						size_t components = 1;
+						uf::stl::vector<float> floats;
+						uf::stl::vector<uint16_t> ints;
+					};
 
-				uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
-					{"POSITION", {}},
-					{"TEXCOORD_0", {}},
-					{"NORMAL", {}},
-					{"TANGENT", {}},
-					{"JOINTS_0", {}},
-					{"WEIGHTS_0", {}},
-				};
+					uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
+						{"POSITION", {}},
+						{"TEXCOORD_0", {}},
+						{"NORMAL", {}},
+						{"TANGENT", {}},
+						{"JOINTS_0", {}},
+						{"WEIGHTS_0", {}},
+					};
 
-				for ( auto& kv : attributes ) {
-					auto& attribute = kv.second;
-					attribute.name = kv.first;
-					auto it = p.attributes.find(attribute.name);
-					if ( it == p.attributes.end() ) continue;
+					for ( auto& kv : attributes ) {
+						auto& attribute = kv.second;
+						attribute.name = kv.first;
+						auto it = p.attributes.find(attribute.name);
+						if ( it == p.attributes.end() ) continue;
 
-					auto& accessor = model.accessors[it->second];
-					auto& view = model.bufferViews[accessor.bufferView];
-					
-					if ( attribute.name == "POSITION" ) {
-						vertices.resize(accessor.count);
-						primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
-						primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
+						auto& accessor = model.accessors[it->second];
+						auto& view = model.bufferViews[accessor.bufferView];
+						
+						if ( attribute.name == "POSITION" ) {
+							vertices.resize(accessor.count);
+							primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+							primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
+							if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
+								primitive.instance.bounds.min.x = -primitive.instance.bounds.min.x;
+								primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
+							}
+						}
+						if ( attribute.name == "JOINTS_0" ) {
+							auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+							attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
+							size_t len = accessor.count * attribute.components;
+							attribute.ints.assign( &buffer[0], &buffer[len] );
+						} else {
+							auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+							attribute.components = accessor.ByteStride(view) / sizeof(float);
+							size_t len = accessor.count * attribute.components;
+							attribute.floats.assign( &buffer[0], &buffer[len] );
+						}
+					}
+
+					for ( size_t i = 0; i < vertices.size(); ++i ) {
+						#define ITERATE_ATTRIBUTE( name, member )\
+							if ( !attributes[name].ints.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
+							} else if ( !attributes[name].floats.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\
+							}
+
+						auto& vertex = vertices[i];
+						ITERATE_ATTRIBUTE("POSITION", position);
+						ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
+						ITERATE_ATTRIBUTE("NORMAL", normal);
+						ITERATE_ATTRIBUTE("TANGENT", tangent);
+						ITERATE_ATTRIBUTE("JOINTS_0", joints);
+						ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
+
+						#undef ITERATE_ATTRIBUTE
+
+						// required due to reverse-Z projection matrix flipping the X axis as well
+						// default is to proceed with this
 						if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
-							primitive.instance.bounds.min.x = -primitive.instance.bounds.min.x;
-							primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
+							vertex.position.x = -vertex.position.x;
+							vertex.normal.x = -vertex.normal.x;
+							vertex.tangent.x = -vertex.tangent.x;
 						}
 					}
-					if ( attribute.name == "JOINTS_0" ) {
-						auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-						attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
-						size_t len = accessor.count * attribute.components;
-						attribute.ints.assign( &buffer[0], &buffer[len] );
-					} else {
-						auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-						attribute.components = accessor.ByteStride(view) / sizeof(float);
-						size_t len = accessor.count * attribute.components;
-						attribute.floats.assign( &buffer[0], &buffer[len] );
+
+					if ( p.indices > -1 ) {
+						auto& accessor = model.accessors[p.indices];
+						auto& view = model.bufferViews[accessor.bufferView];
+						auto& buffer = model.buffers[view.buffer];
+
+						indices.reserve( static_cast<uint32_t>(accessor.count) );
+
+					#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) indices.emplace_back(buf[index]);
+
+						const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
+						switch (accessor.componentType) {
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+								auto* buf = static_cast<const uint32_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+								auto* buf = static_cast<const uint16_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+								auto* buf = static_cast<const uint8_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+						}
+						#undef COPY_INDICES
 					}
+
+					primitive.instance.materialID = p.material;
+					primitive.instance.primitiveID = primitives.size() - 1;
+					primitive.instance.meshID = meshID;
+					primitive.instance.objectID = 0;
+
+					primitive.drawCommand.indices = indices.size();
+					primitive.drawCommand.instances = 1;
+					primitive.drawCommand.indexID = 0;
+					primitive.drawCommand.vertexID = 0;
+					primitive.drawCommand.instanceID = 0;
+					primitive.drawCommand.vertices = vertices.size();
+
+					auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
+						.indices = indices.size(),
+						.instances = 1,
+						.indexID = mesh.index.count,
+						.vertexID = mesh.vertex.count,
+						.instanceID = 0,
+
+
+						.vertices = vertices.size(),
+					});
+					
+					mesh.insertVertices(vertices);
+					mesh.insertIndices(indices);
 				}
+			} else {
+				mesh.bind<uf::graph::mesh::Base, uint32_t>();
+				uf::stl::vector<uf::graph::mesh::Base> vertices;
+				uf::stl::vector<uint32_t> indices;
+				for ( auto& p : m.primitives ) {
+					vertices.clear();
+					indices.clear();
+					auto& primitive = primitives.emplace_back();
 
-				for ( size_t i = 0; i < vertices.size(); ++i ) {
-					#define ITERATE_ATTRIBUTE( name, member )\
-						if ( !attributes[name].ints.empty() ) { \
-							for ( size_t j = 0; j < attributes[name].components; ++j )\
-								vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
-						} else if ( !attributes[name].floats.empty() ) { \
-							for ( size_t j = 0; j < attributes[name].components; ++j )\
-								vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\
+					struct Attribute {
+						uf::stl::string name = "";
+						size_t components = 1;
+						uf::stl::vector<float> floats;
+						uf::stl::vector<uint16_t> ints;
+					};
+
+					uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
+						{"POSITION", {}},
+						{"TEXCOORD_0", {}},
+						{"NORMAL", {}},
+					};
+
+					for ( auto& kv : attributes ) {
+						auto& attribute = kv.second;
+						attribute.name = kv.first;
+						auto it = p.attributes.find(attribute.name);
+						if ( it == p.attributes.end() ) continue;
+
+						auto& accessor = model.accessors[it->second];
+						auto& view = model.bufferViews[accessor.bufferView];
+						
+						if ( attribute.name == "POSITION" ) {
+							vertices.resize(accessor.count);
+							primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+							primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
+
+							if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
+								primitive.instance.bounds.min.x = -primitive.instance.bounds.min.x;
+								primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
+							}
 						}
-
-					auto& vertex = vertices[i];
-					ITERATE_ATTRIBUTE("POSITION", position);
-					ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
-					ITERATE_ATTRIBUTE("NORMAL", normal);
-					ITERATE_ATTRIBUTE("TANGENT", tangent);
-					ITERATE_ATTRIBUTE("JOINTS_0", joints);
-					ITERATE_ATTRIBUTE("WEIGHTS_0", weights);
-
-					#undef ITERATE_ATTRIBUTE
-
-					// required due to reverse-Z projection matrix flipping the X axis as well
-					// default is to proceed with this
-					if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
-						vertex.position.x = -vertex.position.x;
-						vertex.normal.x = -vertex.normal.x;
-						vertex.tangent.x = -vertex.tangent.x;
-					}
-				}
-
-				if ( p.indices > -1 ) {
-					auto& accessor = model.accessors[p.indices];
-					auto& view = model.bufferViews[accessor.bufferView];
-					auto& buffer = model.buffers[view.buffer];
-
-					indices.reserve( static_cast<uint32_t>(accessor.count) );
-
-				#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) indices.emplace_back(buf[index]);
-
-					const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
-					switch (accessor.componentType) {
-						case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
-							auto* buf = static_cast<const uint32_t*>( pointer );
-							COPY_INDICES()
-							break;
-						}
-						case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
-							auto* buf = static_cast<const uint16_t*>( pointer );
-							COPY_INDICES()
-							break;
-						}
-						case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
-							auto* buf = static_cast<const uint8_t*>( pointer );
-							COPY_INDICES()
-							break;
+						if ( attribute.name == "JOINTS_0" ) {
+							auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+							attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
+							size_t len = accessor.count * attribute.components;
+							attribute.ints.assign( &buffer[0], &buffer[len] );
+						} else {
+							auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+							attribute.components = accessor.ByteStride(view) / sizeof(float);
+							size_t len = accessor.count * attribute.components;
+							attribute.floats.assign( &buffer[0], &buffer[len] );
 						}
 					}
-					#undef COPY_INDICES
+
+					for ( size_t i = 0; i < vertices.size(); ++i ) {
+						#define ITERATE_ATTRIBUTE( name, member )\
+							if ( !attributes[name].ints.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
+							} else if ( !attributes[name].floats.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\
+							}
+
+						auto& vertex = vertices[i];
+						ITERATE_ATTRIBUTE("POSITION", position);
+						ITERATE_ATTRIBUTE("TEXCOORD_0", uv);
+						ITERATE_ATTRIBUTE("NORMAL", normal);
+
+						#undef ITERATE_ATTRIBUTE
+
+						// required due to reverse-Z projection matrix flipping the X axis as well
+						// default is to proceed with this
+						if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
+							vertex.position.x = -vertex.position.x;
+							vertex.normal.x = -vertex.normal.x;
+						}
+					}
+
+					if ( p.indices > -1 ) {
+						auto& accessor = model.accessors[p.indices];
+						auto& view = model.bufferViews[accessor.bufferView];
+						auto& buffer = model.buffers[view.buffer];
+
+						indices.reserve( static_cast<uint32_t>(accessor.count) );
+
+					#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) indices.emplace_back(buf[index]);
+
+						const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
+						switch (accessor.componentType) {
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+								auto* buf = static_cast<const uint32_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+								auto* buf = static_cast<const uint16_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+							case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+								auto* buf = static_cast<const uint8_t*>( pointer );
+								COPY_INDICES()
+								break;
+							}
+						}
+						#undef COPY_INDICES
+					}
+
+					primitive.instance.materialID = p.material;
+					primitive.instance.primitiveID = primitives.size() - 1;
+					primitive.instance.meshID = meshID;
+					primitive.instance.objectID = 0;
+
+					primitive.drawCommand.indices = indices.size();
+					primitive.drawCommand.instances = 1;
+					primitive.drawCommand.indexID = 0;
+					primitive.drawCommand.vertexID = 0;
+					primitive.drawCommand.instanceID = 0;
+					primitive.drawCommand.vertices = vertices.size();
+
+					auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
+						.indices = indices.size(),
+						.instances = 1,
+						.indexID = mesh.index.count,
+						.vertexID = mesh.vertex.count,
+						.instanceID = 0,
+
+
+						.vertices = vertices.size(),
+					});
+					
+					mesh.insertVertices(vertices);
+					mesh.insertIndices(indices);
 				}
-
-				primitive.instance.materialID = p.material;
-				primitive.instance.primitiveID = primitives.size() - 1;
-				primitive.instance.meshID = meshID;
-				primitive.instance.objectID = 0;
-
-				primitive.drawCommand.indices = indices.size();
-				primitive.drawCommand.instances = 1;
-				primitive.drawCommand.indexID = 0;
-				primitive.drawCommand.vertexID = 0;
-				primitive.drawCommand.instanceID = 0;
-				primitive.drawCommand.vertices = vertices.size();
-
-				auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
-					.indices = indices.size(),
-					.instances = 1,
-					.indexID = mesh.index.count,
-					.vertexID = mesh.vertex.count,
-					.instanceID = 0,
-
-
-					.vertices = vertices.size(),
-				});
-				
-				mesh.insertVertices(vertices);
-				mesh.insertIndices(indices);
 			}
 			mesh.insertIndirects(drawCommands);
 			mesh.updateDescriptor();

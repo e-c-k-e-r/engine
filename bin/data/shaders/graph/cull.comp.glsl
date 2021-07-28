@@ -32,20 +32,6 @@ struct Frustum {
 	vec4 planes[6];
 };
 
-float inside( vec3 v, vec3 min, vec3 max ) {
-	vec3 s = step(min, v) - step(max, v);
-	return s.x * s.y * s.z; 
-}
-/*
-	T f = 1 / tan( fov / 2 );
-	return pod::Matrix4t<T>({
-		f / raidou, 	0, 	 	0, 		0,
-		0, 				-f, 	0, 		0,
-		0,       		0,    	0, 		1,
-		0,       		0,   znear, 	0
-	});
-*/
-
 vec4 normalizePlane( vec4 p ) {
 	return p / length(p.xyz);
 }
@@ -59,8 +45,8 @@ bool frustumCull( uint id ) {
 	bool visible = false;
 	for ( uint pass = 0; pass < PushConstant.passes; ++pass ) {
 	// return if our camera position is inside the AABB
-	vec3 camPos = vec3( inverse(camera.viewport[pass].view)[3] );
-	if ( instance.bounds.min.x <= camPos.x && camPos.x <= instance.bounds.max.x && instance.bounds.min.y <= camPos.y && camPos.y <= instance.bounds.max.y && instance.bounds.min.z <= camPos.z && camPos.z <= instance.bounds.max.z ) return true;
+//	vec3 camPos = vec3( inverse(camera.viewport[pass].view)[3] );
+//	if ( instance.bounds.min.x <= camPos.x && camPos.x <= instance.bounds.max.x && instance.bounds.min.y <= camPos.y && camPos.y <= instance.bounds.max.y && instance.bounds.min.z <= camPos.z && camPos.z <= instance.bounds.max.z ) return true;
 	// sphere based one, source of this block uses reverse infinite Z, but would be nice if it used AABB
 	// doesn't work
 	#if 0

@@ -95,7 +95,7 @@ void main() {
 		Texture t = textures[instance.lightmapID];
 		const float gamma = LIGHTMAP_GAMMA;
 		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
-		A *= L;
+		A.rgb *= L.rgb;
 	#endif
 	}
 #endif

@@ -47,35 +47,35 @@ inline pod::Vector<T,N> pod::Vector<T,N>::operator/( T scalar ) const {
 }
 template<typename T, std::size_t N> 												// 	Addition set between two vectors
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator +=( const pod::Vector<T,N>& vector ) {
-	return uf::vector::add( *this, vector );
+	return uf::vector::add_( *this, vector );
 }
 template<typename T, std::size_t N> 												// 	Subtraction set between two vectors
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator -=( const pod::Vector<T,N>& vector ) {
-	return uf::vector::subtract( *this, vector );
+	return uf::vector::subtract_( *this, vector );
 }
 template<typename T, std::size_t N> 												// 	Multiplication set between two vectors
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator *=( const pod::Vector<T,N>& vector ) {
-	return uf::vector::multiply( *this, vector );
+	return uf::vector::multiply_( *this, vector );
 }
 template<typename T, std::size_t N> 												// 	Division set between two vectors
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator /=( const pod::Vector<T,N>& vector ) {
-	return uf::vector::divide( *this, vector );
+	return uf::vector::divide_( *this, vector );
 }
 template<typename T, std::size_t N> 												// 	Multiplication set with scalar
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator +=( T scalar ) {
-	return uf::vector::add( *this, scalar );
+	return uf::vector::add_( *this, scalar );
 }
 template<typename T, std::size_t N> 												// 	Multiplication set with scalar
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator -=( T scalar ) {
-	return uf::vector::subtract( *this, scalar );
+	return uf::vector::subtract_( *this, scalar );
 }
 template<typename T, std::size_t N> 												// 	Multiplication set with scalar
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator *=( T scalar ) {
-	return uf::vector::multiply( *this, scalar );
+	return uf::vector::multiply_( *this, scalar );
 }
 template<typename T, std::size_t N> 												// 	Division set with scalar
 inline pod::Vector<T,N>& pod::Vector<T,N>::operator /=( T scalar ) {
-	return uf::vector::divide( *this, scalar );
+	return uf::vector::divide_( *this, scalar );
 }
 template<typename T, std::size_t N> 												// 	Equality check between two vectors (equals)
 inline bool pod::Vector<T,N>::operator==( const pod::Vector<T,N>& vector ) const {
@@ -170,35 +170,35 @@ inline pod::Vector<T,1> pod::Vector<T,1>::operator/( T scalar ) const {
 }
 template<typename T> 												// 	Addition set between two vectors
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator +=( const pod::Vector<T,1>& vector ) {
-	return uf::vector::add( *this, vector );
+	return uf::vector::add_( *this, vector );
 }
 template<typename T> 												// 	Subtraction set between two vectors
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator -=( const pod::Vector<T,1>& vector ) {
-	return uf::vector::subtract( *this, vector );
+	return uf::vector::subtract_( *this, vector );
 }
 template<typename T> 												// 	Multiplication set between two vectors
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator *=( const pod::Vector<T,1>& vector ) {
-	return uf::vector::multiply( *this, vector );
+	return uf::vector::multiply_( *this, vector );
 }
 template<typename T> 												// 	Division set between two vectors
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator /=( const pod::Vector<T,1>& vector ) {
-	return uf::vector::divide( *this, vector );
+	return uf::vector::divide_( *this, vector );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator +=( T scalar ) {
-	return uf::vector::add( *this, scalar );
+	return uf::vector::add_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator -=( T scalar ) {
-	return uf::vector::subtract( *this, scalar );
+	return uf::vector::subtract_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication set with scalar
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator *=( T scalar ) {
-	return uf::vector::multiply( *this, scalar );
+	return uf::vector::multiply_( *this, scalar );
 }
 template<typename T> 												// 	Division set with scalar
 inline pod::Vector<T,1>& pod::Vector<T,1>::operator /=( T scalar ) {
-	return uf::vector::divide( *this, scalar );
+	return uf::vector::divide_( *this, scalar );
 }
 template<typename T> 												// 	Equality check between two vectors (equals)
 inline bool pod::Vector<T,1>::operator==( const pod::Vector<T,1>& vector ) const {
@@ -292,35 +292,35 @@ inline pod::Vector<T,2> pod::Vector<T,2>::operator/( T scalar ) const {
 }
 template<typename T> 												// 	Addition set between two vectors
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator +=( const pod::Vector<T,2>& vector ) {
-	return uf::vector::add( *this, vector );
+	return uf::vector::add_( *this, vector );
 }
 template<typename T> 												// 	Subtraction set between two vectors
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator -=( const pod::Vector<T,2>& vector ) {
-	return uf::vector::subtract( *this, vector );
+	return uf::vector::subtract_( *this, vector );
 }
 template<typename T> 												// 	Multiplication set between two vectors
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator *=( const pod::Vector<T,2>& vector ) {
-	return uf::vector::multiply( *this, vector );
+	return uf::vector::multiply_( *this, vector );
 }
 template<typename T> 												// 	Division set between two vectors
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator /=( const pod::Vector<T,2>& vector ) {
-	return uf::vector::divide( *this, vector );
+	return uf::vector::divide_( *this, vector );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator+=( T scalar ) {
-	return uf::vector::add( *this, scalar );
+	return uf::vector::add_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator-=( T scalar ) {
-	return uf::vector::subtract( *this, scalar );
+	return uf::vector::subtract_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication set with scalar
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator *=( T scalar ) {
-	return uf::vector::multiply( *this, scalar );
+	return uf::vector::multiply_( *this, scalar );
 }
 template<typename T> 												// 	Division set with scalar
 inline pod::Vector<T,2>& pod::Vector<T,2>::operator /=( T scalar ) {
-	return uf::vector::divide( *this, scalar );
+	return uf::vector::divide_( *this, scalar );
 }
 template<typename T> 												// 	Equality check between two vectors (equals)
 inline bool pod::Vector<T,2>::operator==( const pod::Vector<T,2>& vector ) const {
@@ -414,35 +414,35 @@ inline pod::Vector<T,3> pod::Vector<T,3>::operator/( T scalar ) const {
 }
 template<typename T> 												// 	Addition set between two vectors
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator +=( const pod::Vector<T,3>& vector ) {
-	return uf::vector::add( *this, vector );
+	return uf::vector::add_( *this, vector );
 }
 template<typename T> 												// 	Subtraction set between two vectors
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator -=( const pod::Vector<T,3>& vector ) {
-	return uf::vector::subtract( *this, vector );
+	return uf::vector::subtract_( *this, vector );
 }
 template<typename T> 												// 	Multiplication set between two vectors
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator *=( const pod::Vector<T,3>& vector ) {
-	return uf::vector::multiply( *this, vector );
+	return uf::vector::multiply_( *this, vector );
 }
 template<typename T> 												// 	Division set between two vectors
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator /=( const pod::Vector<T,3>& vector ) {
-	return uf::vector::divide( *this, vector );
+	return uf::vector::divide_( *this, vector );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator +=( T scalar ) {
-	return uf::vector::add( *this, scalar );
+	return uf::vector::add_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator -=( T scalar ) {
-	return uf::vector::subtract( *this, scalar );
+	return uf::vector::subtract_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication set with scalar
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator *=( T scalar ) {
-	return uf::vector::multiply( *this, scalar );
+	return uf::vector::multiply_( *this, scalar );
 }
 template<typename T> 												// 	Division set with scalar
 inline pod::Vector<T,3>& pod::Vector<T,3>::operator /=( T scalar ) {
-	return uf::vector::divide( *this, scalar );
+	return uf::vector::divide_( *this, scalar );
 }
 template<typename T> 												// 	Equality check between two vectors (equals)
 inline bool pod::Vector<T,3>::operator==( const pod::Vector<T,3>& vector ) const {
@@ -549,35 +549,35 @@ inline pod::Vector<T,4> pod::Vector<T,4>::operator/( T scalar ) const {
 }
 template<typename T> 												// 	Addition set between two vectors
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator +=( const pod::Vector<T,4>& vector ) {
-	return uf::vector::add( *this, vector );
+	return uf::vector::add_( *this, vector );
 }
 template<typename T> 												// 	Subtraction set between two vectors
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator -=( const pod::Vector<T,4>& vector ) {
-	return uf::vector::subtract( *this, vector );
+	return uf::vector::subtract_( *this, vector );
 }
 template<typename T> 												// 	Multiplication set between two vectors
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator *=( const pod::Vector<T,4>& vector ) {
-	return uf::vector::multiply( *this, vector );
+	return uf::vector::multiply_( *this, vector );
 }
 template<typename T> 												// 	Division set between two vectors
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator /=( const pod::Vector<T,4>& vector ) {
-	return uf::vector::divide( *this, vector );
+	return uf::vector::divide_( *this, vector );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator+=( T scalar ) {
-	return uf::vector::add( *this, scalar );
+	return uf::vector::add_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication with scalar
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator-=( T scalar ) {
-	return uf::vector::subtract( *this, scalar );
+	return uf::vector::subtract_( *this, scalar );
 }
 template<typename T> 												// 	Multiplication set with scalar
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator *=( T scalar ) {
-	return uf::vector::multiply( *this, scalar );
+	return uf::vector::multiply_( *this, scalar );
 }
 template<typename T> 												// 	Division set with scalar
 inline pod::Vector<T,4>& pod::Vector<T,4>::operator /=( T scalar ) {
-	return uf::vector::divide( *this, scalar );
+	return uf::vector::divide_( *this, scalar );
 }
 template<typename T> 												// 	Equality check between two vectors (equals)
 inline bool pod::Vector<T,4>::operator==( const pod::Vector<T,4>& vector ) const {

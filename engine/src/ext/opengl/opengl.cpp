@@ -169,6 +169,15 @@ void UF_API ext::opengl::initialize() {
 	}
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 	// bind shaders
+/*
+	{
+		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/cull.comp.spv", []( const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic ) {
+			uf::Mesh::Attribute position = {};
+			uf::Mesh::Attribute index = {};
+			uf::Mesh::Attribute indirect = {};
+		});
+	}
+*/
 #if 0
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {

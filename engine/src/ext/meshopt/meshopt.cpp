@@ -1,4 +1,4 @@
-#include <uf/utils/mesh/mesh.h>
+#include <uf/ext/meshopt/meshopt.h>
 #if UF_USE_MESHOPTIMIZER
 	#include <meshoptimizer.h>
 #endif

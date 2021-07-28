@@ -17,6 +17,8 @@ UF_BEHAVIOR_TRAITS_CPP(uf::LuaBehavior, ticks = false, renders = false, multithr
 #define this (&self)
 void uf::LuaBehavior::initialize( uf::Object& self ) {	
 #if UF_USE_LUA
+	if ( !ext::lua::enabled ) return;
+	
 	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
 		uf::stl::string filename = json["filename"].as<uf::stl::string>();
 		uf::stl::string category = json["category"].as<uf::stl::string>();

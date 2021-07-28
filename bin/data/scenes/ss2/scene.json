@@ -2,7 +2,6 @@
 	"import": "/scene.json",
 	"assets": [
 		{ "filename": "./audio/music/medsci1.ogg", "category": "audio-stream", "override": true, "streamed": true },
-	//	"./audio/music/medsci1.ogg",
 		"./loading.json"
 	],
 	"system": {
@@ -21,16 +20,8 @@
 		}
 	},
 	"metadata": {
-		"debug": {
-			"target": 0
-		},
 		"menus": {
 			"pause": "/gui/pause/menu.json"
-		},
-		"volumes": {
-			"sfx": 0.25,
-			"bgm": 0.15,
-			"voice": 1.0
 		},
 		"bloom": {
 			"scale": 1.0,

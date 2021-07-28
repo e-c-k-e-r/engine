@@ -12,6 +12,7 @@
 	],
 	"transform": {
 		"position": [ 0, -2.0, 0 ],
+	//	"position": [ 12.5715, 3.53811, 7.6238 ],
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0

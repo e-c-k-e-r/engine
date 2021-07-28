@@ -23,18 +23,14 @@ pod::Graph::Storage uf::graph::storage;
 
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, uv)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, st)
-);
-UF_VERTEX_DESCRIPTOR(uf::graph::mesh::ID,
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::ID, R32G32B32_SFLOAT, position)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::ID, R32G32_SFLOAT, uv)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::ID, R32G32_SFLOAT, st)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::ID, R32G32B32_SFLOAT, normal)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::ID, R32G32B32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, normal)
 );
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, uv)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, normal)
@@ -355,14 +351,14 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& image = uf::graph::storage.images[keyName];
 		auto& texture = uf::graph::storage.texture2Ds[keyName];
 		if ( !texture.generated() ) {
-			texture.loadFromImage( image );
-		#if UF_ENV_DREAMCAST
-			image.clear();
-		#endif
 			if ( graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" ) {
 				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			}
+			texture.loadFromImage( image );
+		#if UF_ENV_DREAMCAST
+			image.clear();
+		#endif
 		}
 	}	
 
@@ -468,7 +464,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	if ( uf::string::split( node.name, "_" ).back() == "Orientation" ) return;
 	// for dreamcast, ignore lights if we're baked
 #if UF_USE_OPENGL
-	if ( graph.metadata["lightmapped"].as<bool>() ) if ( graph.lights.count(node.name) > 0 ) return;
+//	if ( graph.metadata["lightmapped"].as<bool>() )
+		if ( graph.lights.count(node.name) > 0 ) return;
 #endif
 	//UF_MSG_DEBUG( "Loading " << node.name );
 	// create child if requested
@@ -814,8 +811,10 @@ void uf::graph::initialize( pod::Graph& graph ) {
 	});
 
 }
-void uf::graph::animate( pod::Graph& graph, const uf::stl::string& name, float speed, bool immediate ) {
+void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
+	const uf::stl::string name = graph.name + "/" + _name;
+//	UF_MSG_DEBUG( graph.name << " " << name );
 //	if ( graph.animations.count( name ) > 0 ) {
 	if ( uf::graph::storage.animations.map.count( name ) > 0 ) {
 		// if already playing, ignore it
@@ -844,12 +843,13 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 
 	// no skins
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
+
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
 	{
 		uf::stl::string name = graph.sequence.front();
 		pod::Animation* animation = &uf::graph::storage.animations.map[name]; // &graph.animations[name];
-	//	std::cout << "ANIMATION: " << name << "\t" << animation->cur << std::endl;
+	//	UF_MSG_DEBUG("ANIMATION: " << name << "\t" << animation->cur);
 		animation->cur += delta * graph.settings.animations.speed; // * graph.settings.animations.override.speed;
 		if ( animation->end < animation->cur ) {
 			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
@@ -884,7 +884,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 		goto UPDATE;
 	}
 OVERRIDE:
-	// std::cout << "OVERRIDED: " << graph.settings.animations.override.a << "\t" << -std::numeric_limits<float>::max() << std::endl;
+//	UF_MSG_DEBUG("OVERRIDED: " << graph.settings.animations.override.a << "\t" << -std::numeric_limits<float>::max());
 	for ( auto pair : graph.settings.animations.override.map ) {
 		graph.nodes[pair.first].transform.position = uf::vector::mix( pair.second.first.position, pair.second.second.position, graph.settings.animations.override.a );
 		graph.nodes[pair.first].transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(pair.second.first.orientation, pair.second.second.orientation, graph.settings.animations.override.a) );

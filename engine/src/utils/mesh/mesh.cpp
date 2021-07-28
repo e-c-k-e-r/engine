@@ -293,22 +293,36 @@ uf::Mesh::Attribute uf::Mesh::_remapAttribute( const uf::Mesh::Input& input, con
 	return res;
 }
 void uf::Mesh::_insertVs( uf::Mesh::Input& input, const uf::Mesh& mesh, const uf::Mesh::Input& srcInput ) {
-	if ( !_hasV( input, srcInput ) ) return;
 	_reserveVs( input, input.count += srcInput.count );
 
 	// both meshes are interleaved, just copy directly
 	if ( isInterleaved(input.interleaved) && isInterleaved(srcInput.interleaved) ) {
+		if ( !_hasV( input, srcInput ) ) return;
 		auto& src = mesh.buffers[srcInput.interleaved];
 		auto& dst = buffers[input.interleaved];
 		dst.insert( dst.end(), src.begin(), src.end() );
 	// both meshes are de-interleaved, just copy directly
 	} else if ( !isInterleaved(input.interleaved) && !isInterleaved(srcInput.interleaved) ) {
-		for ( auto i = 0; i < input.attributes.size(); ++i ) {
-			auto& srcAttribute = srcInput.attributes[i];
-			auto& dstAttribute = input.attributes[i];
-			auto& src = mesh.buffers[srcAttribute.buffer];
-			auto& dst = buffers[dstAttribute.buffer];
-			dst.insert( dst.end(), src.begin(), src.end() );
+		if ( _hasV( input, srcInput ) ) {	
+			for ( auto i = 0; i < input.attributes.size(); ++i ) {
+				auto& srcAttribute = srcInput.attributes[i];
+				auto& dstAttribute = input.attributes[i];
+				auto& src = mesh.buffers[srcAttribute.buffer];
+				auto& dst = buffers[dstAttribute.buffer];
+				dst.insert( dst.end(), src.begin(), src.end() );
+			}
+		} else {
+			for ( auto& dstAttribute : input.attributes ) {
+				for ( auto& srcAttribute : srcInput.attributes ) {
+					if ( srcAttribute.descriptor != dstAttribute.descriptor ) continue;
+
+					auto& src = mesh.buffers[srcAttribute.buffer];
+					auto& dst = buffers[dstAttribute.buffer];
+					dst.insert( dst.end(), src.begin(), src.end() );
+
+					break;
+				}
+			}
 		}
 	// not easy to convert, will implement later
 	} else {
