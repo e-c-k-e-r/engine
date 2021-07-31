@@ -2,7 +2,7 @@
 	"name": "Gui: Loading",
 	"type": "Object",
 	"behaviors": [
-	//	"GuiBehavior"
+		"GuiBehavior"
 	],
 	"assets": [
 		{ "filename": "./medsci.json", "delay": 0 }

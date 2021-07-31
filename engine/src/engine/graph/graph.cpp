@@ -40,10 +40,43 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 );
 
 namespace {
-	void initializeShaders( pod::Graph& graph, uf::Object& entity ) {
+	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		
 		auto& graphic = entity.getComponent<uf::Graphic>();
-		if ( graphic.material.shaders.size() > 0 ) return;
 
+		graphic.device = &uf::renderer::device;
+		graphic.material.device = &uf::renderer::device;
+		graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
+		graphic.descriptor.cullMode = !(graph.metadata["flags"]["INVERT"].as<bool>()) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
+		if ( graph.metadata["cull mode"].is<uf::stl::string>() ) {
+			if ( graph.metadata["cull mode"].as<uf::stl::string>() == "back" ) {
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
+			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "front" ) {
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
+			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "none" ) {
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "both" ) {
+				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
+			}
+		}
+		{
+			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
+			for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
+			// bind scene's voxel texture
+			if ( uf::renderer::settings::experimental::vxgi ) {
+				auto& scene = uf::scene::getCurrentScene();
+				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
+				for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
+				for ( auto& t : sceneTextures.voxels.depth ) graphic.material.textures.emplace_back().aliasTexture(t);
+			}
+		}
+		
 		uf::stl::string root = uf::io::directory( graph.name );
 		size_t texture2Ds = 0;
 		size_t texture3Ds = 0;
@@ -189,8 +222,6 @@ namespace {
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
 			}
 			{
-				auto& scene = uf::scene::getCurrentScene();
-				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 				uint32_t voxelTypes = 0;
 				if ( !sceneTextures.voxels.id.empty() ) ++voxelTypes;
 				if ( !sceneTextures.voxels.normal.empty() ) ++voxelTypes;
@@ -226,41 +257,62 @@ namespace {
 				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
 			}
 		}
+		// baking pipeline
+		if ( graph.metadata["baking"]["enabled"].as<bool>() ) {
+			{
+				graphic.material.metadata.autoInitializeUniforms = false;
+				uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/bake.vert.spv");
+				uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/bake.frag.spv");
+				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
+				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
+				graphic.material.metadata.autoInitializeUniforms = true;
+			}
+			{
+				uint32_t maxPasses = 6;
+
+				auto& shader = graphic.material.getShader("vertex", "baking");
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
+				}
+
+			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.drawCommands );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
+			}
+			{
+				size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+				size_t maxCubemaps = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+				size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+
+				auto& shader = graphic.material.getShader("fragment", "baking");
+				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+					auto& sc = pair.second;
+					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
+					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxCubemaps);
+				}
+				for ( auto pair : shader.metadata.definitions.textures ) {
+					auto& tx = pair.second;
+					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+						if ( layout.binding != tx.binding ) continue;
+						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
+						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxCubemaps;
+					}
+				}
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
+			}
+		}
 	#endif
-	}
-	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
-		auto& graphic = entity.getComponent<uf::Graphic>();
-		graphic.device = &uf::renderer::device;
-		graphic.material.device = &uf::renderer::device;
-		graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
-		graphic.descriptor.cullMode = !(graph.metadata["flags"]["INVERT"].as<bool>()) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
-		if ( graph.metadata["cull mode"].is<uf::stl::string>() ) {
-			if ( graph.metadata["cull mode"].as<uf::stl::string>() == "back" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "front" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "none" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "both" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
-			}
-		}
-		{
-			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
-			for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
-			// bind scene's voxel texture
-			if ( uf::renderer::settings::experimental::vxgi ) {
-				auto& scene = uf::scene::getCurrentScene();
-				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-				for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
-				for ( auto& t : sceneTextures.voxels.normal ) graphic.material.textures.emplace_back().aliasTexture(t);
-				for ( auto& t : sceneTextures.voxels.uv ) graphic.material.textures.emplace_back().aliasTexture(t);
-				for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
-				for ( auto& t : sceneTextures.voxels.depth ) graphic.material.textures.emplace_back().aliasTexture(t);
-			}
-		}
-		
-		initializeShaders( graph, entity );
+
+		uf::instantiator::bind( "GraphBehavior", entity );
+		uf::instantiator::unbind( "RenderBehavior", entity );
 	}
 }
 
@@ -310,13 +362,15 @@ void uf::graph::process( pod::Graph& graph ) {
 #else
 	#define UF_GRAPH_DEFAULT_LIGHTMAP ""
 #endif
-	bool lightmapped = false; {
+	{
 		const uf::stl::string lightmapFilename = graph.metadata["lightmap"].as<uf::stl::string>(UF_GRAPH_DEFAULT_LIGHTMAP);
 		// load lightmap, if requested
 		if ( lightmapFilename != "" && !uf::renderer::settings::experimental::deferredSampling ) {
 			// check if valid filename, if not it's a texture name
 			uf::stl::string f = uf::io::sanitize( lightmapFilename, uf::io::directory( graph.name ) );
-			if ( (lightmapped = uf::io::exists( f )) ) {
+			if ( uf::io::exists( f ) ) {
+				graph.metadata["baking"]["enabled"] = false;
+
 			//	auto materialID = graph.materials.size();
 				auto textureID = graph.textures.size();
 				auto imageID = graph.images.size();
@@ -585,7 +639,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 	size_t objectID = uf::graph::storage.entities.keys.size();
 	uf::graph::storage.entities[std::to_string(objectID)] = &entity;
-#if 1
+
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		auto model = uf::transform::model( transform );
 		auto& mesh = uf::graph::storage.meshes.map[graph.meshes[node.mesh]];
@@ -625,126 +679,38 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			initializeGraphics( graph, entity );
 		}
 		
-	#if 1
 		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
-			auto& info = graph.metadata["tags"][node.name];
-			if ( ext::json::isObject( info["collision"] ) ) {
-				uf::stl::string type = info["collision"]["type"].as<uf::stl::string>();
-				float mass = info["collision"]["mass"].as<float>();
-				bool dynamic = !info["collision"]["static"].as<bool>();
-				bool recenter = info["collision"]["recenter"].as<bool>();
-
-				auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
-				auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
-
-				pod::Vector3f center = (max + min) * 0.5f;
-				pod::Vector3f corner = (max - min) * 0.5f;
-		
-			#if UF_USE_BULLET
-				if ( type == "mesh" ) {
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), mesh, dynamic );
-					if ( recenter ) collider.transform.position = center;
-				} else if ( type == "bounding box" ) {
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), corner, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				} else if ( type == "capsule" ) {
-					float radius = info["collision"]["radius"].as<float>();
-					float height = info["collision"]["height"].as<float>();
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), radius, height, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				}
-			#endif
-			}
-		}
-	#endif
-	}
-#else
-	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
-		auto model = uf::transform::model( transform );
-		auto flatten = uf::transform::flatten( transform );
-		auto& mesh = uf::graph::storage.meshes.map[graph.meshes[node.mesh]];
-		auto& primitives = uf::graph::storage.primitives.map[graph.primitives[node.mesh]];
-
-		pod::Instance::Bounds bounds;
-		uf::stl::vector<pod::Instance::Bounds> corners;
-		// setup instances
-		for ( auto i = 0; i < primitives.size(); ++i ) {
-			auto& primitive = primitives[i];
-
-			size_t instanceID = uf::graph::storage.instances.keys.size();
-			auto& instance = uf::graph::storage.instances[graph.instances.emplace_back(std::to_string(instanceID))];
-			instance = primitive.instance;
-
-			instance.model = model;
-			instance.objectID = objectID;
-			instance.jointID = node.skin;
-
-			auto& corner = corners.emplace_back(instance.bounds);
-
-			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
-			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
-
-			if ( mesh.indirect.count && mesh.indirect.count <= primitives.size() ) {
-				auto& attribute = mesh.indirect.attributes.front();
-				auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
-				pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-				auto& drawCommand = drawCommands[i];
-				drawCommand.instanceID = instanceID;
-			}
-		}
-		if ( (graph.metadata["flags"]["SEPARATE"].as<bool>()) && graph.metadata["flags"]["RENDER"].as<bool>() ) {
-			uf::instantiator::bind("RenderBehavior", entity);
-
-			auto& graphic = entity.getComponent<uf::Graphic>();
-			graphic.initialize();
-			graphic.initializeMesh( mesh );
-			graphic.process = true;
+			auto info = graph.metadata["tags"][node.name]["physics"];
+			if ( !ext::json::isObject( info ) ) info = metadataJson["system"]["physics"];
+			else metadataJson["system"]["physics"] = info;
 			
-			initializeGraphics( graph, entity );
-		}
-		
-	#if 1
-		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
-			auto& info = graph.metadata["tags"][node.name];
-			if ( ext::json::isObject( info["collision"] ) ) {
-				uf::stl::string type = info["collision"]["type"].as<uf::stl::string>();
-				float mass = info["collision"]["mass"].as<float>();
-				bool dynamic = !info["collision"]["static"].as<bool>();
-				bool recenter = info["collision"]["recenter"].as<bool>();
-
-				auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
-				auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
-
-				pod::Vector3f center = (max + min) * 0.5f;
-				pod::Vector3f corner = (max - min) * 0.5f;
-
-			//	center = uf::matrix::multiply<float>( model, center, 1.0f );
-			//	corner = uf::matrix::multiply<float>( model, corner, 0.0f );
+			if ( ext::json::isObject( info ) ) {
+				uf::stl::string type = info["type"].as<uf::stl::string>();		
 			#if UF_USE_BULLET
+
 				if ( type == "mesh" ) {
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), mesh, dynamic );
-					if ( recenter ) collider.transform.position = center;
-				} else if ( type == "bounding box" ) {
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), corner, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				} else if ( type == "capsule" ) {
-					float radius = info["collision"]["radius"].as<float>();
-					float height = info["collision"]["height"].as<float>();
-					auto& collider = ext::bullet::create( entity.as<uf::Object>(), radius, height, mass );
-					collider.shared = true;
-					if ( recenter ) collider.transform.position = center - transform.position;
-				} else if ( type == "bounding boxes" ) {
-				//	auto& colliders = ext::bullet::create( entity.as<uf::Object>(), corners, mass );
+					auto& collider = entity.getComponent<pod::Bullet>();
+					collider.stats.mass = info["mass"].as(collider.stats.mass);
+					collider.stats.friction = info["friction"].as(collider.stats.friction);
+					collider.stats.restitution = info["restitution"].as(collider.stats.restitution);
+					collider.stats.inertia = uf::vector::decode( info["inertia"], collider.stats.inertia );
+					collider.stats.gravity = uf::vector::decode( info["gravity"], collider.stats.gravity );
+
+					ext::bullet::create( entity.as<uf::Object>(), mesh, !info["static"].as<bool>(true) );
+				} else {
+					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
+					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
+
+					pod::Vector3f center = (max + min) * 0.5f;
+					pod::Vector3f corner = (max - min) * 0.5f;
+					
+					metadataJson["system"]["physics"]["center"] = uf::vector::encode( center );
+					metadataJson["system"]["physics"]["corner"] = uf::vector::encode( corner );
 				}
 			#endif
 			}
 		}
-	#endif
 	}
-#endif
 	//UF_MSG_DEBUG( "Loaded " << node.name );
 	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
 }
@@ -796,6 +762,8 @@ void uf::graph::initialize( pod::Graph& graph ) {
 
 	graph.root.entity->initialize();
 	graph.root.entity->process([&]( uf::Entity* entity ) {
+		if ( entity->getUid() == 0 ) entity->initialize();
+	/*
 		//UF_MSG_DEBUG( "Initializing... " << uf::string::toString( entity->as<uf::Object>() ) );
 		if ( !entity->hasComponent<uf::Graphic>() ) {
 			if ( entity->getUid() == 0 ) entity->initialize();
@@ -808,6 +776,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 		uf::instantiator::unbind( "RenderBehavior", *entity );
 		if ( entity->getUid() == 0 ) entity->initialize();
 		//UF_MSG_DEBUG( "Initialized " << uf::string::toString( entity->as<uf::Object>() ) );
+	*/
 	});
 
 }

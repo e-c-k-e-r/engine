@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "Construct",
 			"meshes": {
 				"interleave": false
 			},
@@ -18,7 +18,7 @@
 				"max": 6,
 				"samples": 2,
 				"experimental mode": 1
-			},
+			},		
 			"textures": {
 				"max": {
 					"2D": 1024,

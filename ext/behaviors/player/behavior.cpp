@@ -79,9 +79,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			if ( metadata.camera.invert.x ) relta.x *= -1;
 			metadata.camera.limit.current.x += relta.x;
 			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-			#if UF_USE_BULLET
-				if ( collider.body && !collider.shared ) ext::bullet::applyRotation( collider, transform.up, relta.x ); else
-			#endif
+		#if UF_USE_BULLET
+			if ( collider.body ) ext::bullet::applyRotation( collider, transform.up, relta.x ); else
+		#endif
 				uf::transform::rotate( transform, transform.up, relta.x );
 			} else metadata.camera.limit.current.x -= relta.x;
 		}
@@ -188,7 +188,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool deltaCrouch = false;
 		bool walking = false;
 		bool floored = true;
-		bool impulse = true;
 		bool noclipped = false;
 		uf::stl::string menu = "";
 		uf::stl::string targetAnimation = "";
@@ -200,7 +199,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	metadata.deserialize(self, metadataJson);
 #endif
 	stats.menu = metadata.system.menu;
-	stats.impulse = metadata.system.physics.impulse;
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
 #if UF_USE_BULLET
@@ -215,11 +213,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		float run = 8;
 		float rotate = 1;
 		float friction = 0.8f;
+		float air = 1.0f;
 	} speed; {
-		speed.rotate = metadata.system.physics.rotate * uf::physics::time::delta;
-		speed.move = metadata.system.physics.move;
-		speed.run = metadata.system.physics.run;
-		speed.walk = metadata.system.physics.walk;
+		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
+		speed.move = metadata.movement.move;
+		speed.run = metadata.movement.run;
+		speed.walk = metadata.movement.walk;
+		speed.friction = metadata.movement.friction;
+		speed.air = metadata.movement.air;
 		
 		if ( stats.noclipped ) {
 			speed.move *= 4.0;
@@ -227,9 +228,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		if ( !stats.floored || stats.noclipped ) speed.friction = 1;
 		if ( stats.noclipped ) physics.linear.velocity = {};
-	}
-	if ( !metadata.system.physics.collision ) {
-		stats.impulse = true;
 	}
 	if ( keys.running ) speed.move = speed.run;
 	else if ( keys.walk ) speed.move = speed.walk;
@@ -252,6 +250,31 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 	metadata.system.menu = stats.menu;
 
+	pod::Transform<> translator = transform;
+#if UF_USE_OPENVR
+	// use the orientation of our controller to determine our target
+	if ( ext::openvr::context ) {
+		bool useController = true;
+		translator.orientation = uf::quaternion::multiply( transform.orientation, useController ? ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) : ext::openvr::hmdQuaternion() );
+		translator = uf::transform::reorient( translator );
+		
+		// flatten if not noclipped
+		if ( !stats.noclipped ) {
+			translator.forward *= { 1, 0, 1 };
+			translator.right *= { 1, 0, 1 };
+		}
+
+		translator.forward = uf::vector::normalize( translator.forward );
+		translator.right = uf::vector::normalize( translator.right );
+	} else
+#endif
+		// un-flatted if noclipped
+		if ( stats.noclipped ){
+			auto& cameraTransform = camera.getTransform();
+			translator.forward.y += cameraTransform.forward.y;
+			translator.forward = uf::vector::normalize( translator.forward );
+		}
+
 	if ( metadata.system.control ) {
 		// noclip handler
 		TIMER(0.25, keys.vee && ) {
@@ -264,7 +287,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( collider.body ) {
 					collider.body->setGravity(btVector3(0,0.0,0));
 					collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
-					collider.body->setActivationState(DISABLE_SIMULATION);
 				}
 			#endif
 			} else {
@@ -272,64 +294,32 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				if ( collider.body ) {
 					collider.body->setGravity(btVector3(0,-9.81,0));
 					collider.body->setCollisionFlags(collider.body->getCollisionFlags() & ~btCollisionObject::CF_NO_CONTACT_RESPONSE);
-					collider.body->setActivationState(DISABLE_DEACTIVATION);
 				}
 			#endif
 			}
 			stats.noclipped = state;
 		}
 		// movement handler
-		{
-			pod::Transform<> translator = transform;
+		// setup desired direction
+		pod::Vector3f target = {};
+		if ( keys.forward ^ keys.backwards ) target += translator.forward * (keys.forward ? 1 : -1);
+		if ( keys.left ^ keys.right ) target += translator.right * (keys.right ? 1 : -1);
+		target = uf::vector::normalize( target );
 
-		#if UF_USE_OPENVR
-			// use the orientation of our controller to determine our target
-			if ( ext::openvr::context ) {
-				bool useController = true;
-				translator.orientation = uf::quaternion::multiply( transform.orientation, useController ? ext::openvr::controllerQuaternion( vr::Controller_Hand::Hand_Right ) : ext::openvr::hmdQuaternion() );
-				translator = uf::transform::reorient( translator );
-				
-				// flatten if not noclipped
-				if ( !stats.noclipped ) {
-					translator.forward *= { 1, 0, 1 };
-					translator.right *= { 1, 0, 1 };
-				}
+		physics.linear.velocity *= { speed.friction, 1, speed.friction };
 
-				translator.forward = uf::vector::normalize( translator.forward );
-				translator.right = uf::vector::normalize( translator.right );
-			} else
-		#endif
-			// un-flatted if noclipped
-			if ( stats.noclipped ){
-				auto& cameraTransform = camera.getTransform();
-				translator.forward.y += cameraTransform.forward.y;
-				translator.forward = uf::vector::normalize( translator.forward );
-			}
-
-			// setup desired direction
-			pod::Vector3f target = {};
-			if ( keys.forward ^ keys.backwards ) target += translator.forward * (keys.forward ? 1 : -1);
-			if ( keys.left ^ keys.right ) target += translator.right * (keys.right ? 1 : -1);
-			target = uf::vector::normalize( target );
-
-			physics.linear.velocity *= { speed.friction, 1, speed.friction };
-
-			stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
-			if ( stats.walking ) {
-				if ( !true && stats.noclipped ) {
-					physics.linear.velocity = target * speed.move;
-				} else {
-					physics.linear.velocity += target * std::clamp( speed.move * (stats.floored ? 1.0f : 0.5f) - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
-				}
-			}
-			if ( !stats.floored ) stats.walking = false;		
+		stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
+		if ( stats.walking ) {
+			float factor = stats.floored || stats.noclipped ? 1.0f : speed.air;
+			physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
 		}
+		if ( !stats.floored ) stats.walking = false;		
 	}
 	if ( stats.floored && keys.jump ) {
-		physics.linear.velocity += metadata.system.physics.jump;
+		physics.linear.velocity += translator.up * metadata.movement.jump;
 	}
 	if ( keys.crouch ) {
-		if ( stats.noclipped ) physics.linear.velocity -= metadata.system.physics.jump;
+		if ( stats.noclipped ) physics.linear.velocity -= translator.up * metadata.movement.jump;
 		else {
 			if ( !metadata.system.crouching )  stats.deltaCrouch = true;
 			metadata.system.crouching = true;
@@ -341,20 +331,20 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 	if ( keys.lookRight ^ keys.lookLeft ) {
 	#if UF_USE_BULLET
-		if ( collider.body && !collider.shared ) ext::bullet::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+		if ( collider.body ) ext::bullet::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
 	#endif
-		uf::transform::rotate( transform, transform.up, speed.rotate );
+		uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 	}
 	{
 	#if UF_USE_BULLET
-		if ( collider.body && !collider.shared ) ext::bullet::setVelocity( collider, physics.linear.velocity ); else 
+		if ( collider.body ) ext::bullet::setVelocity( collider, physics.linear.velocity ); else 
 	#endif
 		transform.position += physics.linear.velocity * uf::physics::time::delta;
 	}
 
 
 	if ( stats.deltaCrouch ) {
-		float delta = metadata.system.physics.crouch;
+		float delta = metadata.movement.crouch;
 		if ( metadata.system.crouching ) camera.getTransform().position.y -= delta;
 		else camera.getTransform().position.y += delta;
 	}
@@ -450,6 +440,7 @@ void ext::PlayerBehavior::destroy( uf::Object& self ){}
 void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& serializerSystem = serializer["system"];
 	auto& serializerSystemPhysics = serializerSystem["physics"];
+	auto& serializerSystemPhysicsMovement = serializerSystemPhysics["movement"];
 	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
@@ -458,14 +449,14 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerSystem["control"] = /*this->*/system.control;
 	serializerSystem["crouching"] = /*this->*/system.crouching;
 	serializerSystem["noclipped"] = /*this->*/system.noclipped;
-	serializerSystemPhysics["impulse"] = /*this->*/system.physics.impulse;
-	serializerSystemPhysics["rotate"] = /*this->*/system.physics.rotate;
-	serializerSystemPhysics["move"] = /*this->*/system.physics.move;
-	serializerSystemPhysics["run"] = /*this->*/system.physics.run;
-	serializerSystemPhysics["walk"] = /*this->*/system.physics.walk;
-	serializerSystemPhysics["collision"] = /*this->*/system.physics.collision;
-	serializerSystemPhysics["jump"] = uf::vector::encode(/*this->*/system.physics.jump);
-	serializerSystemPhysics["crouch"] = /*this->*/system.physics.crouch;
+	serializerSystemPhysics["friction"] = /*this->*/movement.friction;
+	serializerSystemPhysicsMovement["rotate"] = /*this->*/movement.rotate;
+	serializerSystemPhysicsMovement["move"] = /*this->*/movement.move;
+	serializerSystemPhysicsMovement["run"] = /*this->*/movement.run;
+	serializerSystemPhysicsMovement["walk"] = /*this->*/movement.walk;
+	serializerSystemPhysicsMovement["air"] = /*this->*/movement.air;
+	serializerSystemPhysicsMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
+	serializerSystemPhysicsMovement["crouch"] = /*this->*/movement.crouch;
 	serializerAudioFootstep["list"] = /*this->*/audio.footstep.list;
 	serializerAudioFootstep["volume"] = /*this->*/audio.footstep.volume;
 	serializerCamera["invert"] = uf::vector::encode(/*this->*/camera.invert);
@@ -477,6 +468,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	auto& serializerSystem = serializer["system"];
 	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
 	auto& serializerSystemPhysics = serializerSystem["physics"];
+	auto& serializerSystemPhysicsMovement = serializerSystemPhysics["movement"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
 
@@ -484,14 +476,14 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/system.control = serializerSystem["control"].as<bool>();
 	/*this->*/system.crouching = serializerSystem["crouching"].as<bool>();
 	/*this->*/system.noclipped = serializerSystem["noclipped"].as<bool>();
-	/*this->*/system.physics.impulse = serializerSystemPhysics["impulse"].as<bool>();
-	/*this->*/system.physics.rotate = serializerSystemPhysics["rotate"].as<float>();
-	/*this->*/system.physics.move = serializerSystemPhysics["move"].as<float>();
-	/*this->*/system.physics.run = serializerSystemPhysics["run"].as<float>();
-	/*this->*/system.physics.walk = serializerSystemPhysics["walk"].as<float>();
-	/*this->*/system.physics.collision = serializerSystemPhysics["collision"].as<bool>();
-	/*this->*/system.physics.jump = uf::vector::decode(serializerSystemPhysics["jump"], pod::Vector3f{});
-	/*this->*/system.physics.crouch = serializerSystemPhysics["crouch"].as<float>();
+	/*this->*/movement.friction = serializerSystemPhysics["friction"].as<float>();
+	/*this->*/movement.rotate = serializerSystemPhysicsMovement["rotate"].as<float>();
+	/*this->*/movement.move = serializerSystemPhysicsMovement["move"].as<float>();
+	/*this->*/movement.run = serializerSystemPhysicsMovement["run"].as<float>();
+	/*this->*/movement.walk = serializerSystemPhysicsMovement["walk"].as<float>();
+	/*this->*/movement.air = serializerSystemPhysicsMovement["air"].as<float>();
+	/*this->*/movement.jump = uf::vector::decode(serializerSystemPhysicsMovement["jump"], pod::Vector3f{});
+	/*this->*/movement.crouch = serializerSystemPhysicsMovement["crouch"].as<float>();
 	ext::json::forEach( serializerAudioFootstep["list"], [&]( const ext::json::Value& value ){
 		/*this->*/audio.footstep.list.emplace_back(value);
 	});
@@ -501,9 +493,5 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], pod::Vector3f{NAN, NAN, NAN} );
 	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], pod::Vector3f{NAN, NAN, NAN} );
 	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], pod::Vector3f{NAN, NAN, NAN} );
-
-//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.current[i] = serializerCameraLimit["current"][i].as<float>(NAN);
-//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.min[i] = serializerCameraLimit["minima"][i].as<float>(NAN);
-//	for ( uint_fast8_t i = 0; i < 3; ++i ) this->camera.limit.max[i] = serializerCameraLimit["maxima"][i].as<float>(NAN);
 }
 #undef this

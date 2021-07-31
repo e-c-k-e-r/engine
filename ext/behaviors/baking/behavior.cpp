@@ -18,14 +18,22 @@ UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multi
 #define this (&self)
 void ext::BakingBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
-	this->addHook( "entity:PostInitialization.%UID%", [&]( ext::json::Value& ){
-		auto& metadataJson = this->getComponent<uf::Serializer>();
-		auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
-		auto& scene = uf::scene::getCurrentScene();
-		auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
-		auto& controller = scene.getController();
-		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
+	auto& controller = scene.getController();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 
+	metadata.previous.lights = sceneMetadata.light.max;
+	metadata.previous.shadows = sceneMetadata.shadow.max;
+	metadata.previous.update = sceneMetadata.shadow.update;
+	sceneMetadata.light.max = metadata.max.shadows;
+	sceneMetadata.shadow.max = metadata.max.shadows;
+	sceneMetadata.shadow.update = metadata.max.shadows;
+	UF_MSG_DEBUG("Temporarily altering shadow limits...");
+
+	this->addHook( "entity:PostInitialization.%UID%", [&]( ext::json::Value& ){
 		metadata.output = this->grabURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
 		metadata.renderModeName = "B:" + std::to_string((int) this->getUid());
 
@@ -38,14 +46,6 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		metadata.max.shadows = metadataJson["baking"]["shadows"].as<size_t>(metadata.max.shadows);
 
 		metadata.cull = metadataJson["baking"]["cull"].as<bool>();
-
-		metadata.previous.lights = sceneMetadata.light.max;
-		metadata.previous.shadows = sceneMetadata.shadow.max;
-		metadata.previous.update = sceneMetadata.shadow.update;
-		sceneMetadata.light.max = metadata.max.shadows;
-		sceneMetadata.shadow.max = metadata.max.shadows;
-		sceneMetadata.shadow.update = metadata.max.shadows;
-		UF_MSG_DEBUG("Temporarily altering shadow limits...");
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
@@ -72,62 +72,11 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 		scene.process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
-
 			auto& graphic = entity->getComponent<uf::Graphic>();
-			{
-				graphic.material.metadata.autoInitializeUniforms = false;
-				uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/bake.vert.spv");
-				uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/bake.frag.spv");
-				graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
-				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
-				graphic.material.metadata.autoInitializeUniforms = true;
-			}
-			{
-				uint32_t maxPasses = 6;
+			auto& shader = graphic.material.getShader("fragment", "baking");
 
-				auto& shader = graphic.material.getShader("vertex", "baking");
-				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-					auto& sc = pair.second;
-					if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
-				}
-
-			//	uf::renderer::Buffer* indirect = NULL;
-			//	for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
-
-			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
-			//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.drawCommands );
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
-			}
-			{
-				uint32_t maxTextures = textures2D.size();
-				uint32_t maxCubemaps = texturesCube.size();
-
-				auto& shader = graphic.material.getShader("fragment", "baking");
-				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-					auto& sc = pair.second;
-					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
-					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxCubemaps);
-				}
-				for ( auto pair : shader.metadata.definitions.textures ) {
-					auto& tx = pair.second;
-					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding != tx.binding ) continue;
-						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
-						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxCubemaps;
-					}
-				}
-
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
-				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
-
-				for ( auto& t : textures2D ) shader.textures.emplace_back().aliasTexture( t );
-				for ( auto& t : texturesCube ) shader.textures.emplace_back().aliasTexture( t );
-			}
+			for ( auto& t : textures2D ) shader.textures.emplace_back().aliasTexture( t );
+			for ( auto& t : texturesCube ) shader.textures.emplace_back().aliasTexture( t );
 		});
 		UF_MSG_DEBUG("Finished initialiation.");
 	});

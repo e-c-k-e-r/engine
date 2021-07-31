@@ -1,0 +1,8 @@
+{
+	"assets": ["./scripts/door.lua"],
+	"system": {
+		"physics": {
+			"type": "bounding box"
+		}
+	}
+}

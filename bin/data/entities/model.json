@@ -1,0 +1,51 @@
+{
+	"name": "Graph",
+	"type": "Object",
+	"ignore": false,
+	"behaviors": [ "LoadingBehavior" ],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": { "axis": [ 0, 1, 0 ], "angle": 0 },
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"model": {
+			"debug": {
+				"no cleanup": false,
+				"print tree": false,
+				"print stats": false
+			},
+			"export": {
+				"should": true,
+				"pretty": false,
+				"compress": true,
+				"quantize": false,
+				"precision": 4,
+				"combined": false,
+				"encode buffers": true,
+				"unwrap": true
+			},
+			"baking": {
+				"enabled": false,
+				"resolution": 8192,
+				"shadows": 1024,
+				"trigger": { "mode": "rendered" },
+				"output": "./lightmap.png"
+			},
+		//	"lightmap": "./lightmap.min.png",
+			"lightmap": "./lightmap.png",
+			"filter": "NEAREST",
+			"flags": {
+				"ATLAS": false,
+				"INVERT": false,
+				"TRANSFORM": false,
+				"SKINNED": false,
+				
+				"RENDER": true,
+				"SEPARATE": false,
+				"NORMALS": false
+			},
+			"lights": { "shadows": true }
+		}
+	}
+}

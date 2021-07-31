@@ -523,7 +523,6 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(/*this->*/max.textures2D);
 	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(/*this->*/max.texturesCube);
 	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(/*this->*/max.textures3D);
-	/*this->*/light.max = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/light.max);
 
 	/*this->*/shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && serializer["light"]["shadows"].as<bool>(true);
 	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
@@ -532,6 +531,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shadow.experimentalMode = ext::config["engine"]["scenes"]["shadows"]["experimental mode"].as<uint32_t>(0);
 
 	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
+	/*this->*/light.max = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/light.max);
 	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
 	/*this->*/light.specular = uf::vector::decode( serializer["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
 	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
@@ -825,8 +825,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		auto& graphic = *blitter;
 		if ( !graphic.initialized ) continue;
 
-		auto& shader = graphic.material.getShader(isCompute ? "compute" : "fragment");
-		
 		uf::stl::vector<VkImage> previousTextures;
 		for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
 		graphic.material.textures.clear();
@@ -839,11 +837,11 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		// trigger an update when we have differing bound texture sizes
 		bool shouldUpdate = metadata.shader.invalidated || graphic.material.textures.size() != previousTextures.size();
 		for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
-			if ( previousTextures[i] != graphic.material.textures[i].image )
-				shouldUpdate = true;
+			if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 		}
 		if ( shouldUpdate ) graphic.updatePipelines();
 	
+		auto& shader = graphic.material.getShader(isCompute ? "compute" : "fragment");
 		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 	}
 #endif

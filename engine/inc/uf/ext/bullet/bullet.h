@@ -9,16 +9,15 @@
 
 #if UF_USE_BULLET
 #include <btBulletDynamicsCommon.h>
+#include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
 #endif
 namespace pod {
 	struct UF_API Bullet {
 		size_t uid = 0;
 		uf::Object* pointer = NULL;
-		float mass = 0.0f;
-		pod::Vector3f inertia = {};
 		pod::Transform<> transform;
-
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
+		
 	#if UF_USE_BULLET
 		btRigidBody* body = NULL;
 		btCollisionShape* shape = NULL;
@@ -26,6 +25,14 @@ namespace pod {
 		void* body = NULL;
 		void* shape = NULL;
 	#endif
+
+		struct {
+			float mass = 0.0f;
+			float friction = 0.8f;
+			float restitution = 0.0f;
+			pod::Vector3f inertia = {};
+			pod::Vector3f gravity = {};
+		} stats;
 	};
 }
 #if UF_USE_BULLET
@@ -65,10 +72,10 @@ namespace ext {
 		// collider for mesh (static or dynamic)
 		pod::Bullet& create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
-		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f&, float );
-		uf::stl::vector<pod::Bullet>& UF_API create( uf::Object&, const uf::stl::vector<pod::Instance::Bounds>&, float );
+		pod::Bullet& UF_API create( uf::Object&, const pod::Vector3f& );
+		uf::stl::vector<pod::Bullet>& UF_API create( uf::Object&, const uf::stl::vector<pod::Instance::Bounds>& );
 		// collider for capsule
-		pod::Bullet& UF_API create( uf::Object&, float, float, float );
+		pod::Bullet& UF_API create( uf::Object&, float, float );
 
 		// synchronize engine transforms to bullet transforms
 		void UF_API syncToBullet();
@@ -98,6 +105,4 @@ namespace ext {
 		void UF_API debugDraw( uf::Object& );
 	}
 }
-
-#include "bullet.inl"
 #endif

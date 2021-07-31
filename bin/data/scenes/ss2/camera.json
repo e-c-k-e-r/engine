@@ -1,0 +1,13 @@
+{
+	"assets": [
+		"./scripts/camera.lua",
+		"./audio/soundscape/camera.ogg"
+	],
+	"metadata": {
+		"audio": {
+			"rolloffFactor": 4,
+			"volume": 1.0
+		},
+		"sensitivity": 10
+	}
+}

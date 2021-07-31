@@ -1,66 +1,14 @@
 {
-	"type": "Object",
-	"name": "gm_construct",
-	"ignore": false,
+	"import": "/model.json",
 	"assets": [
 		{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/gm_construct/graph.json", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/gm_construct/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
-	"behaviors": [
-		"LoadingBehavior"
-	],
-	"transform": {
-		"position": [ 0, 0, 0 ],
-		"rotation": {
-			"axis": [ 0, 1, 0 ],
-			"angle": 0
-		},
-		"scale": [ 1, 1, 1 ]
-	},
 	"metadata": {
 		"model": {
-			"debug": {
-				"no cleanup": false,
-				"print tree": false,
-				"print stats": false
-			},
-			"export": {
-				"should": true,
-				"pretty": false,
-				"compress": true,
-				"quantize": false,
-				"precision": 4,
-				"combined": false,
-				"encode buffers": true,
-				"unwrap": true
-			},
-			"baking": {
-				"enabled": false,
-				"resolution": 8192,
-				"shadows": 1024,
-				"trigger": { "mode": "rendered" },
-				"output": "./lightmap.png"
-			},
-			"flags": {
-				"ATLAS": false,
-				"INVERT": false,
-				"TRANSFORM": false,
-				"SKINNED": false,
-				
-				"RENDER": true,
-				"SEPARATE": false,
-				"NORMALS": false
-			},
-		//	"filter": "NEAREST",
-			"lights": {
-				"shadows": true
-			},
-			"lights": {
-				"shadows": false
-			},
 			"tags": {
-				"worldspawn_2": { "collision": { "type": "mesh", "dynamic": false } },
+				"worldspawn_2": { "physics": { "type": "mesh", "dynamic": false } },
 				"info_player_spawn": {
 					"action": "attach",
 					"filename": "./player.json",

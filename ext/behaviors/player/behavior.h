@@ -13,24 +13,21 @@ namespace ext {
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			struct {
-				struct {
-					bool collision = true;
-					bool impulse = true;
-					float crouch = -1.0f;
-					float rotate = 1.0f;
-					float move = 1.0f;
-					float run = 1.0f;
-					float walk = 1.0f;
-					pod::Vector3f jump = {0,8,0};
-
-					pod::Vector3f velocity = {0,0,0};
-				} physics;
-
 				bool control = true;
 				uf::stl::string menu = "";
 				bool crouching = false;
 				bool noclipped = false;
 			} system;
+			struct {
+				float crouch = -1.0f;
+				float rotate = 1.0f;
+				float move = 1.0f;
+				float run = 1.0f;
+				float walk = 1.0f;
+				float friction = 0.8f;
+				float air = 1.0f;
+				pod::Vector3f jump = {0,8,0};
+			} movement;
 			struct {
 				struct {
 					pod::Vector3f current = {NAN, NAN, NAN};

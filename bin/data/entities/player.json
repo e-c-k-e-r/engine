@@ -19,22 +19,32 @@
 	],
 	"system": {
 		"physics": {
-			"collision": 1.0,
-			"impulse": true,
+			"movement": {
+				"walk": 1,
+				"move": 8,
+				"run": 16,
+				"rotate": 1.5,
+				"air": 0.1,
+
+				"crouch": 1,
+				"jump": [ 0, 4, 0 ]
+			},
+			
 			"gravity": [ 0, -9.81, 0 ],
 			"inertia": [ 10, 10, 10 ],
-			"walk": 1,
-			"move": 8,
-			"run": 12,
-			"rotate": 2,
-			"crouch": 1,
-			"jump": [ 0, 6, 0 ],
 
-			"type": "Capsule",
+			"type": "capsule",
 			"radius": 1,
 			"height": 2,
+			
 			"mass": 100,
+			"friction": 0.8,
+			"restitution": 0.0,
+			
 			"shared": false
+		},
+		"hot reload": {
+			"enabled": true
 		}
 	},
 	"metadata": {
@@ -53,10 +63,6 @@
 				"color": [ 0.2, 0.2, 1.0, 1.0 ],
 				"enabled": false
 			}
-		},
-		"region": {
-			"track": true,
-			"persist": true
 		},
 		"audio": {
 			"footstep": {

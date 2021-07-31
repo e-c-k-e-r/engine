@@ -1,0 +1,12 @@
+{
+	"assets": [ "./scripts/lift.lua" ],
+	"system": {
+		"physics": {
+			"type": "bounding box",
+
+			"mass": 100,
+			"restitution": 0,
+			"friction": 1
+		}
+	}
+}

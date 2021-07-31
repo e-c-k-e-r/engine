@@ -9,6 +9,9 @@ end
 local target = Vector3f(0,0,0)
 local transform = ent:getComponent("Transform")
 local metadata = ent:getComponent("Metadata")
+local physics = ent:getComponent("Physics")
+local bullet = ent:getComponent("Bullet")
+local velocty = physics:linearVelocity()
 local speed = metadata["speed"] or 1.0
 local starting = transform.position + Vector3f(0,0,0)
 local ending = transform.position + Vector3f( metadata["delta"][1], metadata["delta"][2], metadata["delta"][3] )
@@ -54,6 +57,7 @@ end
 soundEmitter:getComponent("Transform"):setReference( transform )
 -- on tick
 ent:bind( "tick", function(self)
+
 	if wait > 0 then
 		wait = wait - time.delta()
 	else
@@ -69,8 +73,12 @@ ent:bind( "tick", function(self)
 			stopSound("lift_start")
 			playSound("lift_stop")
 			startingSound = true
+		--	bullet:setVelocity( Vector3f(0,0,0) )
+		--	physics:setLinearVelocity( Vector3f(0,0,0) )
+		else
+		--	bullet:setVelocity( Vector3f(0,direction,0) )
+		--	physics:setLinearVelocity( Vector3f(0,direction / math.abs(direction),0) )
 		end
 	end
 	transform.position = Vector3f.lerp( starting, ending, alpha )
-
 end )
