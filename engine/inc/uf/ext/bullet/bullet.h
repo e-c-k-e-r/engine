@@ -97,6 +97,8 @@ namespace ext {
 
 		// ray casting
 		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f& );
+		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, size_t& );
+		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*& );
 
 		// allows noclip
 		void UF_API activateCollision( pod::Bullet&, bool = true );

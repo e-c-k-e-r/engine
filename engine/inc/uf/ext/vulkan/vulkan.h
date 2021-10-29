@@ -32,8 +32,6 @@ namespace ext {
 
 		uf::stl::string errorString( VkResult result );
 		VkSampleCountFlagBits sampleCount( uint8_t );
-		void* alignedAlloc( size_t size, size_t alignment );
-		void alignedFree(void* data);
 
 		typedef VmaAllocator Allocator;
 

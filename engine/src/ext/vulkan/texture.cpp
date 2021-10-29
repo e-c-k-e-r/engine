@@ -421,6 +421,7 @@ void ext::vulkan::Texture::fromBuffers(
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.compute ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.compute);
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.transfer ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.transfer);
 
+	bool exclusive = device.queueFamilyIndices.graphics == 0 && device.queueFamilyIndices.present == 0 && device.queueFamilyIndices.compute == 0 && device.queueFamilyIndices.transfer == 0;
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
 	imageCreateInfo.imageType = this->type;
@@ -432,7 +433,7 @@ void ext::vulkan::Texture::fromBuffers(
 	imageCreateInfo.queueFamilyIndexCount = queueFamilyIndices.size();
 	imageCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 //	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+	imageCreateInfo.sharingMode = exclusive ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.usage = imageUsageFlags;

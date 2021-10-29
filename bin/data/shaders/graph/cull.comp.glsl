@@ -1,7 +1,7 @@
 #version 450
 #pragma shader_stage(compute)
 
-#extension GL_EXT_nonuniform_qualifier : enable
+//#extension GL_EXT_nonuniform_qualifier : enable
 
 layout (constant_id = 0) const uint PASSES = 6;
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;

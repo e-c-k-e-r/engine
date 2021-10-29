@@ -1,3 +1,8 @@
+#ifndef NO_NONUNIFORM_EXT
+	#define NO_NONUNIFORM_EXT 0
+	// enable if shaderNonUniform is not supported
+	// Nvidia hardware does not require nonuniformEXT, but AMD does
+#endif
 #ifndef MULTISAMPLING
 	#define MULTISAMPLING 1
 #endif
@@ -38,6 +43,10 @@
 #endif
 #ifndef PBR
 	#define PBR 1
+#endif
+
+#if NO_NONUNIFORM_EXT
+	#define nonuniformEXT(X) X
 #endif
 
 const float PI = 3.14159265359;

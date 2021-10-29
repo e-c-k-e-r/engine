@@ -15,6 +15,7 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/engine/asset/masterdata.h>
 
+#include <uf/utils/io/inputs.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/noise/noise.h>
 
@@ -197,6 +198,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	metadata.deserialize(self, metadataJson);
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
+	auto& assetLoader = this->getComponent<uf::Asset>();
+	assetLoader.processQueue();
+	
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if 1
@@ -204,7 +208,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	metadata.shader.invalidated = false;
 
 	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && ) {
+		TIMER(1, uf::inputs::kbm::states::U && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
@@ -224,7 +228,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 #if 0
 	/* Print World Tree */ {
-		TIMER(1, uf::Window::isKeyPressed("U") && false && ) {
+		TIMER(1, uf::inputs::kbm::states::U && false && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
@@ -255,8 +259,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		}
 	}
 #endif
+
 #if UF_USE_OPENAL
-	auto& assetLoader = this->getComponent<uf::Asset>();
 	/* check if audio needs to loop */ {
 		auto& audio = this->getComponent<uf::Audio>();
 		if ( !audio.playing() ) audio.play();

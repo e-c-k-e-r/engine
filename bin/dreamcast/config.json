@@ -2,18 +2,14 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": {
-				"interleave": false
-			},
-			"matrix": {
-				"reverseInfinite": false
-			},
+			"meshes": { "interleave": false },
+			"matrix": { "reverseInfinite": false },
 			"lights": {
-				"max": 64,
+				"max": 8,
 				"enabled": true
 			},
 			"shadows": {
-				"enabled": true,
+				"enabled": false,
 				"update": 2,
 				"max": 8,
 				"samples": 2,
@@ -21,8 +17,8 @@
 			},
 			"textures": {
 				"max": {
-					"2D": 192,
-					"cube": 8,
+					"2D": 128,
+					"cube": 1,
 					"3D": 1
 				}
 			}
@@ -69,7 +65,7 @@
 			},
 			"bullet": {
 				"iterations": 1,
-				"substeps": 1,
+				"substeps": 6,
 				"timescale": 1,
 				"multithreaded": false,
 				"pool size": {
@@ -83,7 +79,7 @@
 			}
 		},
 		"audio": {
-			"mute": false,
+			"mute": true,
 			"buffers": {
 				"size": 16384,
 				"count": 2
@@ -96,7 +92,7 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": true,
+			"enabled": false,
 			"subPools": true,
 			"alignment": 32,
 			"override": true,

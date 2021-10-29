@@ -21,7 +21,7 @@ namespace pod {
 		typedef uf::stl::vector<pod::Thread::function_t> container_t;
 
 		uint uid;
-		double limiter;
+		float limiter;
 		uf::stl::string name;
 		bool running, terminates;
 
@@ -39,9 +39,10 @@ namespace pod {
 
 namespace uf {
 	namespace thread {
-		extern UF_API double limiter;
+		extern UF_API float limiter;
 		extern UF_API uint workers;
 		extern UF_API std::thread::id mainThreadId;
+		extern UF_API bool async;
 
 	/* Acts on thread */
 		void UF_API start( pod::Thread& );
@@ -51,6 +52,7 @@ namespace uf {
 	//	void UF_API tick( pod::Thread&, const std::function<void()>& = NULL );
 
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
+		void UF_API batchWorker( const pod::Thread::function_t&, const uf::stl::string& name = "Aux" );
 		void UF_API batchWorkers( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
 		void UF_API process( pod::Thread& );

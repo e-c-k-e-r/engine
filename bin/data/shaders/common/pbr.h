@@ -47,6 +47,7 @@ void pbr() {
 		// point light, compute only diffuse
 		// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 		else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
+		surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
 		surface.fragment.a += light.power * La * Ls;
 	}
 }

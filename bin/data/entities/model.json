@@ -33,7 +33,7 @@
 				"output": "./lightmap.png"
 			},
 		//	"lightmap": "./lightmap.min.png",
-			"lightmap": "./lightmap.png",
+		//	"lightmap": "./lightmap.png",
 			"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,
@@ -45,7 +45,10 @@
 				"SEPARATE": false,
 				"NORMALS": false
 			},
-			"lights": { "shadows": true }
+			"lights": {
+			//	"disable if lightmapped": false,
+				"shadows": true
+			}
 		}
 	}
 }

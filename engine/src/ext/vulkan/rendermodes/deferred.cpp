@@ -49,6 +49,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		size_t id, normals, uvs, albedo, depth, color, bright, scratch, output;
 	} attachments = {};
 
+	bool blend = true; // !ext::vulkan::settings::experimental::deferredSampling;
 	attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format = */VK_FORMAT_R16G16_UINT,
 		/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -57,7 +58,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.samples = */msaa,
 	});
 	attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format = */VK_FORMAT_R16G16_SFLOAT,
+	//	/*.format = */VK_FORMAT_R16G16_SFLOAT,
+		/*.format = */VK_FORMAT_R16G16_SNORM,
 		/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 		/*.blend = */false,
@@ -65,7 +67,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	});
 	if ( ext::vulkan::settings::experimental::deferredSampling ) {
 		attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */VK_FORMAT_R16G16_UNORM,
+		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
+			/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			/*.blend = */false,
@@ -73,10 +76,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		});
 	} else {
 		attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
+			/*.format = */ext::vulkan::settings::experimental::hdr ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-			/*.blend = */true,
+			/*.blend = */blend,
 			/*.samples = */msaa,
 		});
 	}
@@ -91,21 +94,21 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		/*.blend =*/ true,
+		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		/*.blend =*/ true,
+		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-		/*.blend =*/ true,
+		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 
@@ -118,7 +121,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		swapchainAttachment.descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		swapchainAttachment.descriptor.aliased = true;
 		{
-			VkBool32 blendEnabled = VK_TRUE;
+			VkBool32 blendEnabled = blend;
 			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 				writeMask,
@@ -139,7 +142,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
 			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-			/*.blend =*/ true,
+			/*.blend =*/ blend,
 			/*.samples =*/ 1,
 		});
 	}
@@ -172,20 +175,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					/*.autoBuildPipeline =*/ false
 				);
 			}
-		#if 0
-			// Third pass: solely to transition
-			if ( settings::experimental::bloom ) {
-				renderTarget.addPass(
-					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ {},
-					/*.inputs =*/ { attachments.color, attachments.bright, attachments.scratch, attachments.output, attachments.depth },
-					/*.resolve =*/{},
-					/*.depth = */ attachments.depth,
-					/*.layer = */eye,
-					/*.autoBuildPipeline =*/ false
-				);
-			}
-		#endif
 		} else {
 			// First pass: fill the G-Buffer
 			{
@@ -211,20 +200,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					/*.autoBuildPipeline =*/ false
 				);
 			}
-		#if 0
-			// Third pass: solely to transition
-			if ( settings::experimental::bloom ) {
-				renderTarget.addPass(
-					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-					/*.colors =*/ {},
-					/*.inputs =*/ { attachments.color, attachments.bright, attachments.scratch, attachments.output, attachments.depth },
-					/*.resolve =*/{},
-					/*.depth = */ attachments.depth,
-					/*.layer = */eye,
-					/*.autoBuildPipeline =*/ false
-				);
-			}
-		#endif
 		}
 	}
 

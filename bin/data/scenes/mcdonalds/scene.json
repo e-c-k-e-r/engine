@@ -25,15 +25,15 @@
 			"pause": "/gui/pause/menu.json"
 		},
 		"bloom": {
-			"scale": 1.0,
-			"strength": 0.5,
-			"sigma": 0.75,
+			"scale": 2.0,
+			"strength": 0.125,
+			"sigma": 0.125,
 			"samples": 8
 		},
 		"light": {
 			"exposure": 1.0,
 			"gamma": 1.0,
-			"brightnessThreshold": 1.0,
+			"brightnessThreshold": 1.2,
 			"ambient": [ 0.1, 0.1, 0.1 ],
 
 			"fog": {

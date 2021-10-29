@@ -189,13 +189,21 @@ void populateSurface() {
 
 	const Material material = materials[surface.material.id];
 	surface.material.albedo = material.colorBase;
+	surface.material.metallic = material.factorMetallic;
+	surface.material.roughness = material.factorRoughness;
+	surface.material.occlusion = material.factorOcclusion;
 	surface.fragment = material.colorEmissive;
+
 #if DEFERRED_SAMPLING
-#if !MULTISAMPLING
-	surface.uv = subpassLoad(samplerUv).xy;
-#else
-	surface.uv = resolve(samplerUv, ubo.msaa).xy;
-#endif
+	{
+	#if !MULTISAMPLING
+		vec4 uv = subpassLoad(samplerUv);
+	#else
+		vec4 uv = resolve(samplerUv, ubo.msaa);
+	#endif
+		surface.uv = uv.xy;
+		surface.st = uv.zw;
+	}
 	const float mip = mipLevel(inUv.xy);
 	if ( validTextureIndex( material.indexAlbedo ) ) {
 		surface.material.albedo = sampleTexture( material.indexAlbedo, mip );
@@ -210,9 +218,23 @@ void populateSurface() {
 	} else if ( material.modeAlpha == 2 ) {
 
 	}
+	// Lightmap
+	if ( validTextureIndex( surface.material.lightmapID ) ) {
+		surface.material.albedo.rgb *= sampleTexture( surface.material.lightmapID, surface.st ).rgb;
+	}
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
-		surface.fragment += sampleTexture( material.indexEmissive, mip );
+		surface.material.albedo += sampleTexture( material.indexEmissive, mip );
+	}
+	// Occlusion map
+	if ( validTextureIndex( material.indexOcclusion ) ) {
+	 	surface.material.occlusion = sampleTexture( material.indexOcclusion, mip ).r;
+	}
+	// Metallic/Roughness map
+	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
+	 	vec4 samp = sampleTexture( material.indexMetallicRoughness, mip );
+	 	surface.material.metallic = samp.r;
+		surface.material.roughness = samp.g;
 	}
 #else
 #if !MULTISAMPLING
@@ -221,20 +243,18 @@ void populateSurface() {
 	surface.material.albedo = resolve(samplerAlbedo, ubo.msaa);
 #endif
 #endif
-	surface.material.metallic = material.factorMetallic;
-	surface.material.roughness = material.factorRoughness;
-	surface.material.occlusion = material.factorOcclusion;
 }
 
 void directLighting() {
 	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
+//	surface.fragment.rgb += surface.material.albedo.rgb * ambient;
+
 	if ( validTextureIndex( surface.material.lightmapID ) ) {
-	//	surface.fragment.rgb += sampleTexture( surface.material.lightmapID ).rgb;
 		surface.fragment.rgb += surface.material.albedo.rgb + ambient;
 	} else {
 		surface.fragment.rgb += surface.material.albedo.rgb * ambient;
 	}
-	if ( ubo.lights == 0 ) { surface.fragment.rgb = surface.material.albedo.rgb; return; }
+//	if ( ubo.lights == 0 ) { surface.fragment.rgb = surface.material.albedo.rgb; return; }
 #if PBR
 	pbr();
 #elif LAMBERT

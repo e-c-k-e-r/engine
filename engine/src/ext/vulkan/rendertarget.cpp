@@ -123,19 +123,14 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	}
 
 	{
-		VkBool32 blendEnabled = VK_FALSE;
-		VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
-
-		if ( attachment->descriptor.blend ) {
-			blendEnabled = VK_TRUE;
-			writeMask |= VK_COLOR_COMPONENT_A_BIT;
-		}
+		VkBool32 blendEnabled = attachment->descriptor.blend ? VK_TRUE : VK_FALSE;
+		VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 		VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 			writeMask,
 			blendEnabled
 		);
-		if ( blendEnabled == VK_TRUE ) {
+		if ( attachment->descriptor.blend ) {
 			blendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
 			blendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 			blendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;

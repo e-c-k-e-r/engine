@@ -47,6 +47,7 @@ namespace spec {
 			void requestFocus();/* = 0;*/
 			bool hasFocus() const;/* = 0;*/
 		// 	Update
+			void bufferInputs();/* = 0;*/
 			void processEvents();/* = 0;*/
 
 			void pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload );

@@ -1,7 +1,7 @@
 #version 450
 #pragma shader_stage(fragment)
 
-#extension GL_EXT_nonuniform_qualifier : enable
+//#extension GL_EXT_nonuniform_qualifier : enable
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -10,17 +10,13 @@ layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 5) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
-
+#define FRAGMENT 1
 #define BAKING 1
 #define PBR 1
 #define LAMBERT 0
+
 #include "../../common/macros.h"
 #include "../../common/structs.h"
-#include "../../common/functions.h"
-#include "../../common/shadows.h"
-#if PBR
-#include "../../common/pbr.h"
-#endif
 
 layout (std140, binding = 6) readonly buffer Instances {
 	Instance instances[];
@@ -34,6 +30,12 @@ layout (std140, binding = 8) readonly buffer Textures {
 layout (std140, binding = 9) readonly buffer Lights {
 	Light lights[];
 };
+
+#include "../../common/functions.h"
+#include "../../common/shadows.h"
+#if PBR
+#include "../../common/pbr.h"
+#endif
 
 layout (location = 0) in vec2 inUv;
 layout (location = 1) in vec2 inSt;

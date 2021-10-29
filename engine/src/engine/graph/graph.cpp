@@ -365,22 +365,17 @@ void uf::graph::process( pod::Graph& graph ) {
 	{
 		const uf::stl::string lightmapFilename = graph.metadata["lightmap"].as<uf::stl::string>(UF_GRAPH_DEFAULT_LIGHTMAP);
 		// load lightmap, if requested
-		if ( lightmapFilename != "" && !uf::renderer::settings::experimental::deferredSampling ) {
+		if ( lightmapFilename != "" ) {
 			// check if valid filename, if not it's a texture name
 			uf::stl::string f = uf::io::sanitize( lightmapFilename, uf::io::directory( graph.name ) );
 			if ( uf::io::exists( f ) ) {
-				graph.metadata["baking"]["enabled"] = false;
-
-			//	auto materialID = graph.materials.size();
 				auto textureID = graph.textures.size();
 				auto imageID = graph.images.size();
 
-			//	auto& material = /*graph.storage*/uf::graph::storage.materials[graph.materials.emplace_back(f)];
 				auto& texture = /*graph.storage*/uf::graph::storage.textures[graph.textures.emplace_back(f)];
 				auto& image = /*graph.storage*/uf::graph::storage.images[graph.images.emplace_back(f)];
 				image.open( f, false );
 
-			//	material.indexAlbedo = textureID;
 				texture.index = imageID;
 
 				for ( auto& name : graph.instances ) {
@@ -393,10 +388,12 @@ void uf::graph::process( pod::Graph& graph ) {
 						primitive.instance.lightmapID = textureID;
 					}
 				}
+				
+				graph.metadata["lightmapped"] = f;
+				graph.metadata["baking"]["enabled"] = false;
 			}
 		}
 	}
-
 	// add atlas
 
 	// setup textures
@@ -405,7 +402,8 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& image = uf::graph::storage.images[keyName];
 		auto& texture = uf::graph::storage.texture2Ds[keyName];
 		if ( !texture.generated() ) {
-			if ( graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" ) {
+			bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == keyName;
+			if ( graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ) {
 				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
 			}
@@ -517,10 +515,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// ignore pesky light_Orientation nodes
 	if ( uf::string::split( node.name, "_" ).back() == "Orientation" ) return;
 	// for dreamcast, ignore lights if we're baked
-#if UF_USE_OPENGL
-//	if ( graph.metadata["lightmapped"].as<bool>() )
-		if ( graph.lights.count(node.name) > 0 ) return;
-#endif
+	if ( graph.metadata["lightmapped"].as<bool>() && graph.metadata["lights"]["disable if lightmapped"].as<bool>(true) ) if ( graph.lights.count(node.name) > 0 ) return;
+
+
 	//UF_MSG_DEBUG( "Loading " << node.name );
 	// create child if requested
 	uf::Object* pointer = new uf::Object;

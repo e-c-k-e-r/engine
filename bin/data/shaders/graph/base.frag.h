@@ -1,6 +1,7 @@
-#extension GL_EXT_nonuniform_qualifier : enable
+//#extension GL_EXT_nonuniform_qualifier : enable
 
 #define CUBEMAPS 1
+#define FRAGMENT 1
 // #define MAX_TEXTURES TEXTURES
 #define MAX_TEXTURES textures.length()
 layout (constant_id = 0) const uint TEXTURES = 1;
@@ -32,7 +33,7 @@ layout (location = 8) flat in uvec4 inId;
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
 #if DEFERRED_SAMPLING
-	layout (location = 2) out vec2 outUvs;
+	layout (location = 2) out vec4 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif
@@ -44,6 +45,9 @@ void main() {
 	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 	const vec3 P = inPosition;
+
+	surface.uv = uv;
+	surface.st = inSt;
 	vec3 N = inNormal;
 	vec4 A = vec4(0, 0, 0, 0);
 
@@ -60,8 +64,7 @@ void main() {
 	
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		const Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+		A = sampleTexture( material.indexAlbedo, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -75,16 +78,9 @@ void main() {
 		}
 		if ( A.a == 0 ) discard;
 	}
-#if USE_LIGHTMAP
+#if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
-	#if DEFERRED_SAMPLING
-		outUvs = inSt;
-	#else
-		const Texture t = textures[instance.lightmapID];
-		const float gamma = LIGHTMAP_GAMMA;
-		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
-		A.rgb *= L.rgb;
-	#endif
+		A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
 	}
 #endif
 #endif
@@ -92,7 +88,7 @@ void main() {
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
 		Texture t = textures[material.indexNormal];
-		N = inTBN * normalize( textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip ).xyz * 2.0 - vec3(1.0));
+		N = inTBN * normalize( sampleTexture( material.indexNormal, mip ).xyz * 2.0 - vec3(1.0));
 	}
 	#if 0
 		// sample metallic/roughness
@@ -111,7 +107,8 @@ void main() {
 	#endif
 	outAlbedo = A * inColor;
 #else
-	outUvs = wrap(inUv.xy);
+	outUvs.xy = surface.uv;
+	outUvs.zw = surface.st;
 #endif
 	outNormals = encodeNormals( N );
 	outId = uvec2(drawID + 1, instanceID + 1);

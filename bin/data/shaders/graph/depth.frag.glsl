@@ -1,8 +1,7 @@
 #version 450
 #pragma shader_stage(fragment)
 
-#extension GL_EXT_nonuniform_qualifier : enable
-
+#define FRAGMENT 1
 #define CUBEMAPS 1
 // #define MAX_TEXTURES TEXTURES
 #define MAX_TEXTURES textures.length()
@@ -39,12 +38,14 @@ void main() {
 	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 	vec4 A = vec4(0, 0, 0, 0);
+	surface.uv = uv;
 
 	const Material material = materials[materialID];
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		const Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+	//	const Texture t = textures[material.indexAlbedo];
+	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+		A = sampleTexture( material.indexAlbedo, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;

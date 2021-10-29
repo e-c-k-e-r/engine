@@ -59,6 +59,28 @@ namespace {
 uf::Asset uf::Asset::masterAssetLoader;
 
 void uf::Asset::processQueue() {
+#if 0
+	auto& jobs = this->getComponent<std::queue<Job>>();
+	mutex.lock();
+	uf::stl::vector<std::function<void()>> tasks;
+	while ( !jobs.empty() ) {
+		auto job = jobs.front();
+		jobs.pop();
+		if ( job.uri == "" || job.callback == "" ) continue;
+
+		tasks.emplace_back([=](){
+			auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.category) : this->load(job.uri, job.hash, job.category);
+			if ( filename == "" ) return;
+			uf::Serializer payload;
+			payload["filename"] = filename;
+			payload["hash"] = job.hash;
+			payload["category"] = job.category;
+			uf::hooks.call(job.callback, payload);
+		});
+	}
+	uf::thread::batchWorkers( tasks, false );
+	mutex.unlock();
+#elif 0
 	auto& jobs = this->getComponent<std::queue<Job>>();
 	mutex.lock();
 	while ( !jobs.empty() ) {
@@ -82,6 +104,56 @@ void uf::Asset::processQueue() {
 		}
 	}
 	mutex.unlock();
+#elif 1
+	uf::thread::batchWorker( [&](){
+		mutex.lock();
+		auto jobs = std::move(this->getComponent<std::queue<Job>>());
+		while ( !jobs.empty() ) {
+			auto job = jobs.front();
+			jobs.pop();
+			uf::stl::string callback = job.callback;
+			uf::stl::string type = job.type;
+			uf::stl::string uri = job.uri;
+			uf::stl::string hash = job.hash;
+			uf::stl::string category = job.category;
+			if ( uri == "" || callback == "" ) {
+				continue;
+			}
+			uf::stl::string filename = type == "cache" ? this->cache(uri, hash, category) : this->load(uri, hash, category);
+			if ( callback != "" && filename != "" ) {
+				uf::Serializer payload;
+				payload["filename"] = filename;
+				payload["hash"] = hash;
+				payload["category"] = category;
+				uf::hooks.call(callback, payload);
+			}
+		}
+		mutex.unlock();
+	});
+#elif 0
+	uf::thread::batchWorker( [&](){
+		mutex.lock();
+		auto jobs = std::move(this->getComponent<std::queue<Job>>());
+		uf::stl::vector<std::function<void()>> tasks;
+		while ( !jobs.empty() ) {
+			auto job = jobs.front();
+			jobs.pop();
+			if ( job.uri == "" || job.callback == "" ) continue;
+
+			tasks.emplace_back([=](){
+				auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.category) : this->load(job.uri, job.hash, job.category);
+				if ( filename == "" ) return;
+				uf::Serializer payload;
+				payload["filename"] = filename;
+				payload["hash"] = job.hash;
+				payload["category"] = job.category;
+				uf::hooks.call(job.callback, payload);
+			});
+		}
+		uf::thread::batchWorkers( tasks, false );
+		mutex.unlock();
+	});
+#endif
 }
 void uf::Asset::cache( const uf::stl::string& callback, const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
 	mutex.lock();

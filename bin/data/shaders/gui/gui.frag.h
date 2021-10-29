@@ -16,7 +16,7 @@ layout (location = 7) in flat Glyph inGlyph;
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
 #if DEFERRED_SAMPLING
-	layout (location = 2) out vec2 outUvs;
+	layout (location = 2) out vec4 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif

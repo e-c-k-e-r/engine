@@ -552,6 +552,24 @@ float UF_API ext::bullet::rayCast( const pod::Vector3f& from, const pod::Vector3
 */
 	return uf::vector::distance( from, pod::Vector3f{ res.m_hitPointWorld.getX(), res.m_hitPointWorld.getY(), res.m_hitPointWorld.getZ() } );
 }
+float UF_API ext::bullet::rayCast( const pod::Vector3f& from, const pod::Vector3f& to, uf::Object*& uid ) {
+	float pen = -1.0;
+	uid = 0;
+	btVector3 _from(from.x, from.y, from.z);
+	btVector3 _to(to.x, to.y, to.z);
+
+	btCollisionWorld::ClosestRayResultCallback res(_from, _to);
+	ext::bullet::dynamicsWorld->rayTest(_from, _to, res);
+	if ( !res.hasHit() ) return pen;
+
+	pen = uf::vector::distance( from, pod::Vector3f{ res.m_hitPointWorld.getX(), res.m_hitPointWorld.getY(), res.m_hitPointWorld.getZ() } );
+	
+	const btCollisionObject* obj = res.m_collisionObject;	
+	const btRigidBody* body = btRigidBody::upcast(obj);
+	if ( !body || !body->getMotionState() ) return pen;
+	uid = (uf::Object*) body->getUserPointer();
+	return pen;
+}
 
 void UF_API ext::bullet::debugDraw( uf::Object& object ) {
 	auto& mesh = ext::bullet::debugDrawer.getMesh();

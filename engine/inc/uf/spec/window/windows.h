@@ -60,6 +60,7 @@ namespace spec {
 			/*virtual*/ void UF_API_CALL requestFocus();
 			/*virtual*/ bool UF_API_CALL hasFocus() const;
 		// 	Update
+			/*virtual*/ void UF_API_CALL bufferInputs();
 			/*virtual*/ void UF_API_CALL processEvents();
 			static /*virtual*/ bool UF_API_CALL isKeyPressed(const uf::stl::string&);
 			bool UF_API_CALL pollEvents( bool block = false );

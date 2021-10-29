@@ -151,6 +151,7 @@ struct SurfaceMaterial {
 struct Surface {
 	uint pass;
 	vec2 uv;
+	vec2 st;
 	Space position;
 	Space normal;
 	

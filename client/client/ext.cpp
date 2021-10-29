@@ -118,6 +118,7 @@ void client::initialize() {
 }
 
 void client::tick() {
+	client::window.bufferInputs();
 	client::window.pollEvents();
 
 	if ( client::window.hasFocus() && client::config["window"]["mouse"]["center"].as<bool>() ) {

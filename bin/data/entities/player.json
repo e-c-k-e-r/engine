@@ -75,7 +75,7 @@
 		},
 		"camera": {
 			"offset": [ 0, 0, 0 ],
-			"position" :  [ 0, 2, 0 ],
+			"position" :  [ 0, 1.8, 0 ],
 			"scale": [ 1, 1, 1 ],
 			"invert": [ false, false, false ],
 			"limit": {

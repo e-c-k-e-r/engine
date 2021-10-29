@@ -1,21 +1,17 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "Construct",
-			"meshes": {
-				"interleave": false
-			},
-			"matrix": {
-				"reverseInfinite": true
-			},
+			"start": "McDonalds",
+			"meshes": { "interleave": false },
+			"matrix": { "reverseInfinite": true },
 			"lights": {
-				"max": 32,
+				"max": 24,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 2,
-				"max": 6,
+				"update": 4,
+				"max": 12,
 				"samples": 2,
 				"experimental mode": 1
 			},		
@@ -27,7 +23,7 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0.125,
+				"limiter": 0.5,
 				"size": 128,
 				"dispatch": 8,
 				"cascades": 3,
@@ -61,12 +57,8 @@
 				},
 				"framebuffer": {
 					"size": 1,
-				//	"size": [ 1280, 720 ],
-				//	"size": [ 1920, 1080 ],
 				//	"size": [ 640, 480, "NEAREST" ],
-				//	"size": [ 256, 224, "NEAREST" ],
-				//	"msaa": 16
-					"msaa": 4
+					"msaa": 12
 				},
 				"experimental": {
 					"rebuild on tick begin": false,
@@ -80,7 +72,7 @@
 					"vsync": true,
 					"hdr": false,
 					"vxgi": true,
-					"deferred sampling": false,
+					"deferred sampling": true,
 					"culling": true,
 					"bloom": true
 				},
@@ -113,19 +105,12 @@
 						"VK_KHR_get_physical_device_properties2",
 						"VK_KHR_get_surface_capabilities2"
 					],
-					"device": [
-
-					]
+					"device": []
 				}
 			},
 			"opengl": {
-				"validation": {
-					"enabled": true
-				},
-				"framebuffer": {
-					"size": 1,
-					"msaa": 1
-				},
+				"validation": { "enabled": true },
+				"framebuffer": { "size": 1, "msaa": 1 },
 				"experimental": {
 					"rebuild on tick begin": false,
 					"wait on render end": false,
@@ -146,10 +131,7 @@
 					"position": "R16G16B16A16_SFLOAT"
 				},
 				"features": [],
-				"extensions": {
-					"instance": [],
-					"device": []
-				}
+				"extensions": { "instance": [], "device": [] }
 			},
 			"lua": {
 				"enabled": true,
@@ -157,17 +139,6 @@
 				"modules": {
 					"json": "/json.lua"
 				}
-			},
-			"vr" :  {
-				"enable" : false,
-				"manifest": "./data/openvr_manifest.json",
-				"swap eyes": false,
-				"dominant eye": 0,
-				"scale": 1.0
-			},
-			"ultralight": {
-				"enabled": true,
-				"scale": 1.5
 			},
 			"bullet": {
 				"iterations": 1,
@@ -184,9 +155,15 @@
 					"rate": 0.0125
 				}
 			},
-			"discord": {
-				"enabled": false
-			}
+			"vr" :  {
+				"enable" : false,
+				"manifest": "./data/openvr_manifest.json",
+				"swap eyes": false,
+				"dominant eye": 0,
+				"scale": 1.0
+			},
+			"ultralight": { "enabled": true, "scale": 1.5 },
+			"discord": { "enabled": false }
 		},
 		"audio": {
 			"mute": false,
@@ -213,18 +190,13 @@
 				"component": "256 MiB"
 			}
 		},
-		"render modes": {
-			"gui": true,
-			"deferred": true,
-			"stereo deferred": false,
-			"multiview stereo deferred": false
-		},
+		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 10,
 			"framerate": "auto"
 		},
 		"threads": {
-			"workers" : "auto",
+			"workers" : "async", // "auto"
 			"frame limiter": "auto"
 		},
 		"debug": {
@@ -258,10 +230,11 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-		"size" :  [ 1920, 1080 ],
-	//	"size" :  [ 1280, 720 ],
+	//	"size" :  [ 1920, 1080 ],
+		"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
+	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}

@@ -29,7 +29,8 @@ EXT_LIB_NAME 			+= ext
 
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
 
 #GLSL_VALIDATOR 		+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslc

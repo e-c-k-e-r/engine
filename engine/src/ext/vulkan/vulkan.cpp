@@ -134,26 +134,6 @@ VkSampleCountFlagBits ext::vulkan::sampleCount( uint8_t count ) {
 	if ( counts & VK_SAMPLE_COUNT_2_BIT  ) return VK_SAMPLE_COUNT_2_BIT;
 	return VK_SAMPLE_COUNT_1_BIT;
 }
-void* ext::vulkan::alignedAlloc( size_t size, size_t alignment ) {
-	void *data = nullptr;
-#if defined(_MSC_VER) || defined(__MINGW32__)
-	data = _aligned_malloc(size, alignment);
-#else 
-	int res = posix_memalign(&data, alignment, size);
-	if (res != 0)
-		data = nullptr;
-#endif
-	return data;
-}
-
-void ext::vulkan::alignedFree(void* data) {
-#if	defined(_MSC_VER) || defined(__MINGW32__)
-	_aligned_free(data);
-#else 
-	free(data);
-#endif
-}
-
 bool ext::vulkan::hasRenderMode( const uf::stl::string& name, bool isName ) {
 	if ( isName && ext::vulkan::renderModesMap.count(name) > 0 ) return true;
 	for ( auto& renderMode: ext::vulkan::renderModes ) {

@@ -26,13 +26,14 @@
 		},
 		"bloom": {
 			"scale": 1.0,
-			"strength": 0.5,
+			"strength": 0.125,
 			"sigma": 0.75,
 			"samples": 8
 		},
 		"light": {
 			"exposure": 1.0,
 			"gamma": 1.0,
+			"brightnessThreshold": 1.2,
 
 			"ambient": [ 0.15, 0.15, 0.15 ],
 

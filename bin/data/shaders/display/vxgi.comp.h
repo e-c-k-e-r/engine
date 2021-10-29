@@ -99,7 +99,11 @@ void main() {
 		surface.fragment = material.colorEmissive;
 		surface.material.lightmapID = instance.lightmapID;
 	#if DEFERRED_SAMPLING
-		surface.uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) ).xy;
+		{
+			vec4 uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) );
+			surface.uv = uv.xy;
+			surface.st = uv.zw;
+		}
 		if ( validTextureIndex( material.indexAlbedo ) ) {
 			surface.material.albedo = sampleTexture( material.indexAlbedo );
 		}
@@ -114,9 +118,13 @@ void main() {
 		} else if ( material.modeAlpha == 2 ) {
 
 		}
+		// Lightmap
+		if ( validTextureIndex( surface.material.lightmapID ) ) {
+			surface.material.albedo.rgb *= sampleTexture( surface.material.lightmapID, surface.st ).rgb;
+		}
 		// Emissive textures
 		if ( validTextureIndex( material.indexEmissive ) ) {
-			surface.fragment += sampleTexture( material.indexEmissive );
+			surface.material.albedo += sampleTexture( material.indexEmissive, mip );
 		}
 	#else
 		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
@@ -127,13 +135,13 @@ void main() {
 
 		float litFactor = 1.0;
 		if ( validTextureIndex( surface.material.lightmapID ) ) {
-		//	surface.fragment.rgb += sampleTexture( surface.material.lightmapID ).rgb;
 			surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
 		} else {
 			surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
 		}
 		// corrections
 		surface.material.roughness *= 4.0;
+		if ( !validTextureIndex( surface.material.lightmapID ) )
 		{
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
@@ -141,7 +149,7 @@ void main() {
 			for ( uint i = 0; i < ubo.lights; ++i ) {
 				const Light light = lights[i];
 				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-				if ( light.type >= 0 && validTextureIndex( instance.lightmapID ) ) continue;
+				if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) continue;
 				const vec3 Lp = light.position;
 				const vec3 Liu = light.position - surface.position.world;
 				const vec3 Li = normalize(Liu);

@@ -1,3 +1,4 @@
+#define FRAGMENT 1
 #define BLEND 1
 #define DEPTH_TEST 0
 #define CUBEMAPS 1
@@ -44,7 +45,7 @@ layout (location = 8) flat in uvec4 inId;
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
 #if DEFERRED_SAMPLING
-	layout (location = 2) out vec2 outUvs;
+	layout (location = 2) out vec4 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif
@@ -65,6 +66,8 @@ void main() {
 	const uint materialID = int(inId.z);
 	const Instance instance = instances[instanceID];
 	const Material material = materials[materialID];
+	surface.uv = uv;
+	surface.st = inSt.xy;
 
 	const float M = material.factorMetallic;
 	const float R = material.factorRoughness;
@@ -72,8 +75,9 @@ void main() {
 	
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		const Texture t = textures[material.indexAlbedo];
-		A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+	//	const Texture t = textures[material.indexAlbedo];
+	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+		A = sampleTexture( material.indexAlbedo, mip );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -87,16 +91,9 @@ void main() {
 		}
 		if ( A.a == 0 ) discard;
 	}
-#if USE_LIGHTMAP
+#if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
-	#if DEFERRED_SAMPLING
-		outUvs = inSt;
-	#else
-		Texture t = textures[instance.lightmapID];
-		const float gamma = LIGHTMAP_GAMMA;
-		const vec4 L = pow(textureLod( samplerTextures[nonuniformEXT(t.index)], inSt, mip ), vec4(1.0 / gamma));
-		A.rgb *= L.rgb;
-	#endif
+		A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
 	}
 #endif
 

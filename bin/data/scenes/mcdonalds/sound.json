@@ -1,0 +1,34 @@
+{
+	"type": "Object",
+	"name": "Sound Emitter",
+	"ignore": false,
+	"assets": [
+	],
+	"behaviors": [
+		"SoundEmitterBehavior"
+	],
+	"transform": {
+		"reference": true
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"defaults": {
+			"render": true,
+			"asset load": true
+		},
+		"load": {
+			"ignore": true
+		}
+	},
+	"metadata": {
+		"audio": {
+			"spatial": true,
+			"loop": false,
+			"volume": 1,
+			"rolloffFactor": 0.5,
+			"epsilon": 0.5
+		}
+	}
+}

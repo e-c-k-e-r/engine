@@ -355,6 +355,9 @@ bool UF_API_CALL spec::dreamcast::Window::hasFocus() const {
 
 
 #include <uf/utils/serialize/serializer.h>
+void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
+	
+}
 void UF_API_CALL spec::dreamcast::Window::processEvents() {	
 	if ( !::keyboard.device ) ::keyboard.device = maple_enum_type(0, MAPLE_FUNC_KEYBOARD);
 	if ( ::keyboard.device ) ::keyboard.state = (kbd_state_t*) maple_dev_status(::keyboard.device);

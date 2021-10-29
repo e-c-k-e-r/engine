@@ -213,7 +213,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				});
 				if ( !true && ext::vulkan::settings::experimental::deferredMode != "" ) {
 					attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-						/*.format = */VK_FORMAT_R16G16_UNORM,
+						/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
 						/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 						/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 						/*.blend = */false,

@@ -13,6 +13,7 @@
 #include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
+#include <uf/utils/io/inputs.h>
 
 #include <sstream>
 
@@ -121,6 +122,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& camera = this->getComponent<uf::Camera>();
+	auto& cameraTransform = camera.getTransform();
+
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& physics = this->getComponent<pod::Physics>();
 	auto& scene = uf::scene::getCurrentScene();
@@ -139,48 +142,50 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool crouch;
 		bool paused;
 		bool vee;
+		bool use;
 	} keys = {
-		.forward = uf::Window::isKeyPressed("W"),
-		.backwards = uf::Window::isKeyPressed("S"),
-		.left = uf::Window::isKeyPressed("A"),
-		.right = uf::Window::isKeyPressed("D"),
-		.lookLeft = uf::Window::isKeyPressed("Left"),
-		.lookRight = uf::Window::isKeyPressed("Right"),
-		.running = uf::Window::isKeyPressed("LShift"),
-		.walk = uf::Window::isKeyPressed("LAlt"),
-		.jump = uf::Window::isKeyPressed(" "),
-		.crouch = uf::Window::isKeyPressed("LControl"),
-		.paused = uf::Window::isKeyPressed("Escape"),
-		.vee = uf::Window::isKeyPressed("V"),
+		.forward = uf::inputs::kbm::states::W,
+		.backwards = uf::inputs::kbm::states::S,
+		.left = uf::inputs::kbm::states::A,
+		.right = uf::inputs::kbm::states::D,
+		.lookLeft = uf::inputs::kbm::states::Left,
+		.lookRight = uf::inputs::kbm::states::Right,
+		.running = uf::inputs::kbm::states::LShift,
+		.walk = uf::inputs::kbm::states::LAlt,
+		.jump = uf::inputs::kbm::states::Space,
+		.crouch = uf::inputs::kbm::states::LControl,
+		.paused = uf::inputs::kbm::states::Escape,
+		.vee = uf::inputs::kbm::states::V,
+		.use = uf::inputs::kbm::states::E,
 	};
 
 	if ( spec::controller::connected() ) {
 	#if UF_USE_OPENVR
-		if ( spec::controller::pressed( "R_DPAD_UP" ) ) keys.forward = true;
-		if ( spec::controller::pressed( "R_DPAD_DOWN" ) ) keys.backwards = true;
-		if ( spec::controller::pressed( "R_DPAD_LEFT" ) ) keys.lookLeft = true; // keys.left = true;
-		if ( spec::controller::pressed( "R_DPAD_RIGHT" ) ) keys.lookRight = true; // keys.right = true;
-		if ( spec::controller::pressed( "R_JOYSTICK" ) ) keys.running = true;
-		if ( spec::controller::pressed( "R_A" ) ) keys.jump = true;
+		if ( uf::inputs::controller::states::R_DPAD_UP ) keys.forward = true;
+		if ( uf::inputs::controller::states::R_DPAD_DOWN ) keys.backwards = true;
+		if ( uf::inputs::controller::states::R_DPAD_LEFT ) keys.lookLeft = true; // keys.left = true;
+		if ( uf::inputs::controller::states::R_DPAD_RIGHT ) keys.lookRight = true; // keys.right = true;
+		if ( uf::inputs::controller::states::R_JOYSTICK ) keys.running = true;
+		if ( uf::inputs::controller::states::R_A ) keys.jump = true;
 
-		if ( spec::controller::pressed( "L_DPAD_UP" ) ) keys.forward = true;
-		if ( spec::controller::pressed( "L_DPAD_DOWN" ) ) keys.backwards = true;
-		if ( spec::controller::pressed( "L_DPAD_LEFT" ) ) keys.lookLeft = true;
-		if ( spec::controller::pressed( "L_DPAD_RIGHT" ) ) keys.lookRight = true;
-		if ( spec::controller::pressed( "L_JOYSTICK" ) ) keys.crouch = true, keys.walk = true;
-		if ( spec::controller::pressed( "L_A" ) ) keys.paused = true;
+		if ( uf::inputs::controller::states::L_DPAD_UP ) keys.forward = true;
+		if ( uf::inputs::controller::states::L_DPAD_DOWN ) keys.backwards = true;
+		if ( uf::inputs::controller::states::L_DPAD_LEFT ) keys.lookLeft = true;
+		if ( uf::inputs::controller::states::L_DPAD_RIGHT ) keys.lookRight = true;
+		if ( uf::inputs::controller::states::L_JOYSTICK ) keys.crouch = true, keys.walk = true;
+		if ( uf::inputs::controller::states::L_A ) keys.paused = true;
 	#else
-		if ( spec::controller::pressed( "DPAD_UP" ) ) keys.forward = true;
-		if ( spec::controller::pressed( "DPAD_DOWN" ) ) keys.backwards = true;
-		if ( spec::controller::pressed( "DPAD_LEFT" ) ) keys.lookLeft = true;
-		if ( spec::controller::pressed( "DPAD_RIGHT" ) ) keys.lookRight = true;
-		if ( spec::controller::pressed( "A" ) ) keys.jump = true;
-		if ( spec::controller::pressed( "B" ) ) keys.running = true;
-		if ( spec::controller::pressed( "X" ) ) keys.crouch = true, keys.walk = true;
-		if ( spec::controller::pressed( "Y" ) ) keys.vee = true;
-		if ( spec::controller::pressed( "L_TRIGGER" ) ) keys.left = true;
-		if ( spec::controller::pressed( "R_TRIGGER" ) ) keys.right = true;
-		if ( spec::controller::pressed( "START" ) ) keys.paused = true;
+		if ( uf::inputs::controller::states::DPAD_UP ) keys.forward = true;
+		if ( uf::inputs::controller::states::DPAD_DOWN ) keys.backwards = true;
+		if ( uf::inputs::controller::states::DPAD_LEFT ) keys.lookLeft = true;
+		if ( uf::inputs::controller::states::DPAD_RIGHT ) keys.lookRight = true;
+		if ( uf::inputs::controller::states::A ) keys.jump = true;
+		if ( uf::inputs::controller::states::B ) keys.running = true;
+		if ( uf::inputs::controller::states::X ) keys.crouch = true, keys.walk = true;
+		if ( uf::inputs::controller::states::Y ) keys.vee = true;
+		if ( uf::inputs::controller::states::L_TRIGGER ) keys.left = true;
+		if ( uf::inputs::controller::states::R_TRIGGER ) keys.right = true;
+		if ( uf::inputs::controller::states::START ) keys.paused = true;
 	#endif
 	}
 
@@ -206,6 +211,41 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( !stats.floored && collider.body && ext::bullet::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true; else
 #endif
 	stats.floored |= fabs(physics.linear.velocity.y) < 0.01f;
+
+#if UF_USE_BULLET
+
+	TIMER(0.125, keys.use && ) {
+		size_t uid = 0;
+		uf::Object* pointer = NULL;
+		float length = 4.0f;
+		pod::Vector3f pos = transform.position + cameraTransform.position;
+		pod::Vector3f dir = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
+
+		float depth = ext::bullet::rayCast( pos, pos + dir, pointer );
+		if ( pointer ) { 
+			uf::Serializer payload;
+			payload["uid"] = this->getUid();
+			payload["depth"] = depth;
+			pointer->callHook( "entity:Use.%UID%", payload );
+		} else {
+			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
+			uf::stl::string filename = "./ui/deny.ogg";
+			uf::Audio& sfx = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
+
+			bool playing = false;
+			if ( !sfx.playing() )  {
+			#if UF_AUDIO_MAPPED_VOLUMES
+				sfx.setVolume(uf::audio::volumes.count("sfx") > 0 ? uf::audio::volumes.at("sfx") : 1.0);
+			#else
+				sfx.setVolume(uf::audio::volumes::sfx);
+			#endif
+				sfx.setPosition( transform.position );
+				sfx.setTime( 0 );
+				sfx.play();
+			}
+		}
+	}
+#endif
 
 	struct {
 		float move = 4;
@@ -268,12 +308,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		translator.right = uf::vector::normalize( translator.right );
 	} else
 #endif
-		// un-flatted if noclipped
-		if ( stats.noclipped ){
-			auto& cameraTransform = camera.getTransform();
-			translator.forward.y += cameraTransform.forward.y;
-			translator.forward = uf::vector::normalize( translator.forward );
-		}
+	// un-flatted if noclipped
+	if ( stats.noclipped ){
+		translator.forward.y += cameraTransform.forward.y;
+		translator.forward = uf::vector::normalize( translator.forward );
+	}
 
 	if ( metadata.system.control ) {
 		// noclip handler
@@ -310,8 +349,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
 		if ( stats.walking ) {
-			float factor = stats.floored || stats.noclipped ? 1.0f : speed.air;
-			physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+			float factor = stats.floored ? 1.0f : speed.air;
+			if ( stats.noclipped ) {
+				physics.linear.velocity += target * speed.move;
+			} else {
+				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+			}
 		}
 		if ( !stats.floored ) stats.walking = false;		
 	}

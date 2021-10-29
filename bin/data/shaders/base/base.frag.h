@@ -15,7 +15,7 @@ layout (location = 3) in vec3 inPosition;
 layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
 #if DEFERRED_SAMPLING
-	layout (location = 2) out vec2 outUvs;
+	layout (location = 2) out vec4 outUvs;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif
@@ -27,7 +27,8 @@ void main() {
 	vec3 P = inPosition;
 	vec3 N = inNormal;
 #if DEFERRED_SAMPLING
-	outUvs = wrap(inUv.xy);
+	outUvs.xy = wrap(inUv.xy);
+	outUvs.zw = vec2(0,0);
 	vec4 outAlbedo = vec4(0,0,0,0);
 #endif
 #if !DEFERRED_SAMPLING || CAN_DISCARD

@@ -1,9 +1,9 @@
 {
 	"import": "/model.json",
 	"assets": [
-		{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
+	//	{ "filename": "./models/gm_construct.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/gm_construct/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/gm_construct/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/gm_construct/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"metadata": {
 		"model": {

@@ -120,6 +120,10 @@ void UF_API_CALL uf::Window::switchToFullscreen( bool borderless ) {
 	this->m_window->switchToFullscreen( borderless );
 }
 // 	Update
+void UF_API_CALL uf::Window::bufferInputs() {
+	if ( !this->m_window ) return;
+	this->m_window->bufferInputs();
+}
 void UF_API_CALL uf::Window::processEvents() {
 	if ( !this->m_window ) return;
 	this->m_window->processEvents();

@@ -1,11 +1,13 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/io/iostream.h>
 #include <iostream>
+#include <future>
 
 uf::thread::container_t uf::thread::threads;
-double uf::thread::limiter = 1.0f / 120.0f;
+float uf::thread::limiter = 1.0f / 120.0f;
 uint uf::thread::workers = 1;
 std::thread::id uf::thread::mainThreadId = std::this_thread::get_id();
+bool uf::thread::async = false;
 
 #define UF_THREAD_ANNOUNCE(x)\
 	//uf::iostream << x << "\n";
@@ -57,11 +59,21 @@ pod::Thread& UF_API uf::thread::fetchWorker( const uf::stl::string& name ) {
 		auto& pod = exists ? uf::thread::get(thread) : uf::thread::create(thread, true);
 		if ( std::this_thread::get_id() != pod.thread.get_id() ) return pod;
 	}
-	bool exists = uf::thread::has("Main");
-	auto& pod = exists ? uf::thread::get("Main" ) : uf::thread::create("Main", true);
-	return pod;
+	
+	return uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create("Main", true);
+}
+void UF_API uf::thread::batchWorker( const pod::Thread::function_t& function, const uf::stl::string& name ) {
+	return batchWorkers( { function }, false, name );
 }
 void UF_API uf::thread::batchWorkers( const uf::stl::vector<pod::Thread::function_t>& functions, bool wait, const uf::stl::string& name ) {
+	if ( uf::thread::async ) {
+		uf::stl::vector<std::future<void>> futures;
+		futures.reserve(functions.size());
+		for ( auto& function : functions ) futures.emplace_back(std::async( std::launch::async, function ));
+		if ( wait ) for ( auto& future : futures ) future.wait();
+		return;
+	}
+
 	uf::stl::vector<pod::Thread*> workers;
 	for ( auto& function : functions ) {
 		auto& worker = uf::thread::fetchWorker( name );

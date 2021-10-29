@@ -153,13 +153,8 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			}
 		} else {
 			subpass = 0;
-			VkBool32 blendEnabled = VK_FALSE;
-			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
-
-			if ( true ) {
-				blendEnabled = VK_TRUE;
-				writeMask |= VK_COLOR_COMPONENT_A_BIT;
-			}
+			VkBool32 blendEnabled = VK_TRUE;
+			VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 			VkPipelineColorBlendAttachmentState blendAttachmentState = ext::vulkan::initializers::pipelineColorBlendAttachmentState(
 				writeMask,

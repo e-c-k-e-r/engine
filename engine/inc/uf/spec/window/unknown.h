@@ -41,6 +41,7 @@ namespace spec {
 			/*virtual*/ void UF_API_CALL requestFocus() {}
 			/*virtual*/ bool UF_API_CALL hasFocus() const { return false; }
 		// 	Update
+			/*virtual*/ void UF_API_CALL bufferInputs() {}
 			/*virtual*/ void UF_API_CALL processEvents() {}
 		};
 	}

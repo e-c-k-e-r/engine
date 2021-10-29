@@ -41,13 +41,16 @@ namespace uf {
 		bool UF_API_CALL hasFocus() const;
 		static pod::Vector2ui UF_API_CALL getResolution();
 		void UF_API_CALL switchToFullscreen( bool borderless = false );
-	// 	Update
+
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 		uf::stl::vector<uf::stl::string> getExtensions( bool validationEnabled = true );
 		void createSurface( VkInstance instance, VkSurfaceKHR& surface );
 	#endif
+
 		static bool focused;
 		static bool UF_API_CALL isKeyPressed(const uf::stl::string&);
+
+		void UF_API_CALL bufferInputs();
 		void UF_API_CALL processEvents();
 		bool UF_API_CALL pollEvents(bool block = false);
 		bool UF_API_CALL setActive( bool active = true );
