@@ -2,7 +2,8 @@
 	"assets": ["./scripts/door.lua"],
 	"system": {
 		"physics": {
-			"type": "bounding box"
+			"type": "bounding box",
+			"recenter": true
 		}
 	}
 }

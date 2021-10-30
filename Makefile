@@ -174,7 +174,8 @@ else
 	FLAGS 				+= -DUF_RTTI -rtti
 endif
 
-SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+# SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
 IM_DLL 					+= $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a
@@ -197,7 +198,6 @@ EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_EXT_DLL).$(TARGET_LIB_E
 EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(ARCH)/$(CC)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION)
 # Client EXE
 SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
-# SRCS 					+= $(CLIENT_SRC_DIR)/smain.cpp
 OBJS 					+= $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS))
 TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(CC).$(TARGET_EXTENSION)
 # Shaders
@@ -214,17 +214,11 @@ DEPS 					+= -lkallisti -lc -lm -lgcc -lstdc++ # -l$(LIB_NAME) -l$(EXT_LIB_NAME)
 %.$(ARCH).$(CC).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
+$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS -DJSON_DLL_BUILD
 $(EX_DLL): $(OBJS_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
 	cp $@ $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_DLL).a
-
-$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS -DJSON_DLL_BUILD
-$(EXT_EX_DLL): $(OBJS_EXT_DLL) 
-	$(KOS_AR) cru $@ $^
-	$(KOS_RANLIB) $@
-	cp $@ $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_EXT_DLL).a
 
 ./bin/dreamcast/romdisk.img:
 	$(KOS_GENROMFS) -f ./bin/dreamcast/romdisk.img -d ./bin/dreamcast/romdisk/ -v
@@ -239,15 +233,17 @@ $(TARGET): $(OBJS) ./bin/dreamcast/romdisk.o
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)
 
 else
-$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) $(TARGET_SHADERS)
+$(ARCH): $(EX_DLL) $(TARGET) $(TARGET_SHADERS)
 
 %.$(ARCH).$(CC).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
+$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS -DJSON_DLL_BUILD
+#$(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
 $(EX_DLL): $(OBJS_DLL) 
 	$(CXX) -shared -o $(EX_DLL) -Wl,--out-implib=$(IM_DLL) $(OBJS_DLL) $(LIBS) $(INCS) $(LINKS)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_DLL).a
+
 
 $(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS -DJSON_DLL_BUILD
 $(EXT_EX_DLL): $(OBJS_EXT_DLL) 
@@ -255,7 +251,8 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	cp $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_EXT_DLL).a
 
 $(TARGET): $(OBJS)
-	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
+	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -o $(TARGET)
+#	$(CXX) $(FLAGS) $(OBJS) $(LIBS) $(INCS) $(LINKS) -l$(LIB_NAME) -l$(EXT_LIB_NAME) -o $(TARGET)
 
 endif
 

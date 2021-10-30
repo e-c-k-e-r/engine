@@ -57,8 +57,7 @@ void main() {
 	surface.normal.world = normalize( inNormal );
 	surface.uv = wrap(inUv.xy);
 	surface.position.world = inPosition;
-	surface.material.id = materialID;
-	const Material material = materials[surface.material.id];
+	const Material material = materials[materialID];
 	
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;

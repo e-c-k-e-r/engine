@@ -2,6 +2,7 @@
 #define BLEND 1
 #define DEPTH_TEST 0
 #define CUBEMAPS 1
+#define TEXTURE_WORKAROUND 1
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CASCADES = 16;
 
@@ -57,27 +58,33 @@ void main() {
 	const vec3 P = inPosition.xzy * 0.5 + 0.5;
 	if ( abs(P.x) > 1 || abs(P.y) > 1 || abs(P.z) > 1 ) discard;
 
-	vec4 A = vec4(0, 0, 0, 0);
-	const vec3 N = inNormal;
+	const uint drawID = uint(inId.x);
+	const uint instanceID = uint(inId.y);
+	const uint materialID = uint(inId.z);
+	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
-	const float mip = 0; // mipLevel(inUv.xy);
-	const uint drawID = int(inId.x);
-	const uint instanceID = int(inId.y);
-	const uint materialID = int(inId.z);
+
+	surface.uv = uv;
+	surface.st = inSt;
+	vec3 N = inNormal;
+	vec4 A = vec4(0, 0, 0, 0);
+
 	const Instance instance = instances[instanceID];
 	const Material material = materials[materialID];
-	surface.uv = uv;
-	surface.st = inSt.xy;
+	surface.instance = instance;
 
-	const float M = material.factorMetallic;
-	const float R = material.factorRoughness;
-	const float AO = material.factorOcclusion;
+	float M = material.factorMetallic;
+	float R = material.factorRoughness;
+	float AO = material.factorOcclusion;
 	
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-	//	const Texture t = textures[material.indexAlbedo];
-	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-		A = sampleTexture( material.indexAlbedo, mip );
+		if ( surface.instance.imageID <= 0 ) {
+			A = sampleTexture( material.indexAlbedo, mip );
+		} else {
+			const Texture t = textures[material.indexAlbedo];
+			A = texture( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ) );
+		}
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -93,7 +100,7 @@ void main() {
 	}
 #if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
-		A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
+	//	A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
 	}
 #endif
 
@@ -114,6 +121,6 @@ void main() {
 	const vec4 dst = imageLoad(voxelRadiance[CASCADE], uvw);
 	imageStore(voxelRadiance[CASCADE], uvw, blend( src, dst, src.a ) );
 #else
-	imageStore(voxelRadiance[CASCADE], uvw, A * inColor );
+	imageStore(voxelRadiance[CASCADE], uvw, A );
 #endif
 }

@@ -92,12 +92,10 @@ void main() {
 			continue;
 		}
 	//	const DrawCommand drawCommand = drawCommands[drawID];
-		const Instance instance = instances[instanceID];
-		surface.material.id = instance.materialID;
-		const Material material = materials[surface.material.id];
+		surface.instance = instances[instanceID];
+		const Material material = materials[surface.instance.materialID];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
-		surface.material.lightmapID = instance.lightmapID;
 	#if DEFERRED_SAMPLING
 		{
 			vec4 uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) );
@@ -119,8 +117,8 @@ void main() {
 
 		}
 		// Lightmap
-		if ( validTextureIndex( surface.material.lightmapID ) ) {
-			surface.material.albedo.rgb *= sampleTexture( surface.material.lightmapID, surface.st ).rgb;
+		if ( validTextureIndex( surface.instance.lightmapID ) ) {
+			surface.material.albedo.rgb *= sampleTexture( surface.instance.lightmapID, surface.st ).rgb;
 		}
 		// Emissive textures
 		if ( validTextureIndex( material.indexEmissive ) ) {
@@ -134,14 +132,14 @@ void main() {
 		surface.material.occlusion = material.factorOcclusion;
 
 		float litFactor = 1.0;
-		if ( validTextureIndex( surface.material.lightmapID ) ) {
+		if ( validTextureIndex( surface.instance.lightmapID ) ) {
 			surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
 		} else {
 			surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
 		}
 		// corrections
 		surface.material.roughness *= 4.0;
-		if ( !validTextureIndex( surface.material.lightmapID ) )
+		if ( !validTextureIndex( surface.instance.lightmapID ) )
 		{
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
@@ -149,7 +147,7 @@ void main() {
 			for ( uint i = 0; i < ubo.lights; ++i ) {
 				const Light light = lights[i];
 				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-				if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) continue;
+				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;
 				const vec3 Lp = light.position;
 				const vec3 Liu = light.position - surface.position.world;
 				const vec3 Li = normalize(Liu);
@@ -173,7 +171,7 @@ void main() {
 				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			#endif
 				// lightmapped, compute only specular
-				if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
+				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
 				// point light, compute only diffuse
 				// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 				else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;

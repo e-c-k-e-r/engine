@@ -72,7 +72,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
-		float sensitivity = 2;
+		float sensitivity = metadata.movement.look;
 		pod::Vector2 relta = { (float) sensitivity * payload.mouse.delta.x / payload.window.size.x, (float) sensitivity * payload.mouse.delta.y / payload.window.size.y };
 		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
@@ -129,64 +129,67 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 
 	struct {
-		bool forward;
-		bool backwards;
-		bool left;
-		bool right;
+		bool forward = false;
+		bool backwards = false;
+		bool left = false;
+		bool right = false;
 	
-		bool lookLeft;
-		bool lookRight;
-		bool running;
-		bool walk;
-		bool jump;
-		bool crouch;
-		bool paused;
-		bool vee;
-		bool use;
-	} keys = {
-		.forward = uf::inputs::kbm::states::W,
-		.backwards = uf::inputs::kbm::states::S,
-		.left = uf::inputs::kbm::states::A,
-		.right = uf::inputs::kbm::states::D,
-		.lookLeft = uf::inputs::kbm::states::Left,
-		.lookRight = uf::inputs::kbm::states::Right,
-		.running = uf::inputs::kbm::states::LShift,
-		.walk = uf::inputs::kbm::states::LAlt,
-		.jump = uf::inputs::kbm::states::Space,
-		.crouch = uf::inputs::kbm::states::LControl,
-		.paused = uf::inputs::kbm::states::Escape,
-		.vee = uf::inputs::kbm::states::V,
-		.use = uf::inputs::kbm::states::E,
-	};
+		bool lookLeft = false;
+		bool lookRight = false;
+		bool running = false;
+		bool walk = false;
+		bool jump = false;
+		bool crouch = false;
+		bool paused = false;
+		bool vee = false;
+		bool use = false;
+	} keys;
 
-	if ( spec::controller::connected() ) {
-	#if UF_USE_OPENVR
-		if ( uf::inputs::controller::states::R_DPAD_UP ) keys.forward = true;
-		if ( uf::inputs::controller::states::R_DPAD_DOWN ) keys.backwards = true;
-		if ( uf::inputs::controller::states::R_DPAD_LEFT ) keys.lookLeft = true; // keys.left = true;
-		if ( uf::inputs::controller::states::R_DPAD_RIGHT ) keys.lookRight = true; // keys.right = true;
-		if ( uf::inputs::controller::states::R_JOYSTICK ) keys.running = true;
-		if ( uf::inputs::controller::states::R_A ) keys.jump = true;
+	if ( uf::Window::focused ) {
+		keys = {
+			.forward = uf::inputs::kbm::states::W,
+			.backwards = uf::inputs::kbm::states::S,
+			.left = uf::inputs::kbm::states::A,
+			.right = uf::inputs::kbm::states::D,
+			.lookLeft = uf::inputs::kbm::states::Left,
+			.lookRight = uf::inputs::kbm::states::Right,
+			.running = uf::inputs::kbm::states::LShift,
+			.walk = uf::inputs::kbm::states::LAlt,
+			.jump = uf::inputs::kbm::states::Space,
+			.crouch = uf::inputs::kbm::states::LControl,
+			.paused = uf::inputs::kbm::states::Escape,
+			.vee = uf::inputs::kbm::states::V,
+			.use = uf::inputs::kbm::states::E,
+		};
+		if ( spec::controller::connected() ) {
+		#if UF_USE_OPENVR
+			if ( uf::inputs::controller::states::R_DPAD_UP ) keys.forward = true;
+			if ( uf::inputs::controller::states::R_DPAD_DOWN ) keys.backwards = true;
+			if ( uf::inputs::controller::states::R_DPAD_LEFT ) keys.lookLeft = true; // keys.left = true;
+			if ( uf::inputs::controller::states::R_DPAD_RIGHT ) keys.lookRight = true; // keys.right = true;
+			if ( uf::inputs::controller::states::R_JOYSTICK ) keys.running = true;
+			if ( uf::inputs::controller::states::R_A ) keys.jump = true;
 
-		if ( uf::inputs::controller::states::L_DPAD_UP ) keys.forward = true;
-		if ( uf::inputs::controller::states::L_DPAD_DOWN ) keys.backwards = true;
-		if ( uf::inputs::controller::states::L_DPAD_LEFT ) keys.lookLeft = true;
-		if ( uf::inputs::controller::states::L_DPAD_RIGHT ) keys.lookRight = true;
-		if ( uf::inputs::controller::states::L_JOYSTICK ) keys.crouch = true, keys.walk = true;
-		if ( uf::inputs::controller::states::L_A ) keys.paused = true;
-	#else
-		if ( uf::inputs::controller::states::DPAD_UP ) keys.forward = true;
-		if ( uf::inputs::controller::states::DPAD_DOWN ) keys.backwards = true;
-		if ( uf::inputs::controller::states::DPAD_LEFT ) keys.lookLeft = true;
-		if ( uf::inputs::controller::states::DPAD_RIGHT ) keys.lookRight = true;
-		if ( uf::inputs::controller::states::A ) keys.jump = true;
-		if ( uf::inputs::controller::states::B ) keys.running = true;
-		if ( uf::inputs::controller::states::X ) keys.crouch = true, keys.walk = true;
-		if ( uf::inputs::controller::states::Y ) keys.vee = true;
-		if ( uf::inputs::controller::states::L_TRIGGER ) keys.left = true;
-		if ( uf::inputs::controller::states::R_TRIGGER ) keys.right = true;
-		if ( uf::inputs::controller::states::START ) keys.paused = true;
-	#endif
+			if ( uf::inputs::controller::states::L_DPAD_UP ) keys.forward = true;
+			if ( uf::inputs::controller::states::L_DPAD_DOWN ) keys.backwards = true;
+			if ( uf::inputs::controller::states::L_DPAD_LEFT ) keys.lookLeft = true;
+			if ( uf::inputs::controller::states::L_DPAD_RIGHT ) keys.lookRight = true;
+			if ( uf::inputs::controller::states::L_JOYSTICK ) keys.crouch = true, keys.walk = true;
+			if ( uf::inputs::controller::states::L_A ) keys.paused = true;
+		#else
+			if ( uf::inputs::controller::states::DPAD_UP ) keys.forward = true;
+			if ( uf::inputs::controller::states::DPAD_DOWN ) keys.backwards = true;
+			if ( uf::inputs::controller::states::DPAD_LEFT ) keys.lookLeft = true;
+			if ( uf::inputs::controller::states::DPAD_RIGHT ) keys.lookRight = true;
+			if ( uf::inputs::controller::states::A ) keys.jump = true;
+			if ( uf::inputs::controller::states::B ) keys.running = true;
+			if ( uf::inputs::controller::states::X ) keys.crouch = true, keys.walk = true;
+			if ( uf::inputs::controller::states::Y ) keys.vee = true;
+			if ( uf::inputs::controller::states::L_TRIGGER ) keys.left = true;
+			if ( uf::inputs::controller::states::R_TRIGGER ) keys.right = true;
+			if ( uf::inputs::controller::states::START ) keys.paused = true;
+		#endif
+		}
 	}
 
 	struct {
@@ -500,6 +503,7 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerSystemPhysicsMovement["air"] = /*this->*/movement.air;
 	serializerSystemPhysicsMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
 	serializerSystemPhysicsMovement["crouch"] = /*this->*/movement.crouch;
+	serializerSystemPhysicsMovement["look"] = /*this->*/movement.look;
 	serializerAudioFootstep["list"] = /*this->*/audio.footstep.list;
 	serializerAudioFootstep["volume"] = /*this->*/audio.footstep.volume;
 	serializerCamera["invert"] = uf::vector::encode(/*this->*/camera.invert);
@@ -527,6 +531,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/movement.air = serializerSystemPhysicsMovement["air"].as<float>();
 	/*this->*/movement.jump = uf::vector::decode(serializerSystemPhysicsMovement["jump"], pod::Vector3f{});
 	/*this->*/movement.crouch = serializerSystemPhysicsMovement["crouch"].as<float>();
+	/*this->*/movement.look = serializerSystemPhysicsMovement["look"].as<float>(1.0f);
 	ext::json::forEach( serializerAudioFootstep["list"], [&]( const ext::json::Value& value ){
 		/*this->*/audio.footstep.list.emplace_back(value);
 	});

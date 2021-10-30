@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SH2_McDonalds",
 			"meshes": { "interleave": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
@@ -26,8 +26,8 @@
 				"limiter": 0.5,
 				"size": 128,
 				"dispatch": 8,
-				"cascades": 3,
-				"cascadePower": 3,
+				"cascades": 4,
+				"cascadePower": 2,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
@@ -58,7 +58,8 @@
 				"framebuffer": {
 					"size": 1,
 				//	"size": [ 640, 480, "NEAREST" ],
-					"msaa": 12
+				//	"size": [ 1280, 720 ],
+					"msaa": 16
 				},
 				"experimental": {
 					"rebuild on tick begin": false,

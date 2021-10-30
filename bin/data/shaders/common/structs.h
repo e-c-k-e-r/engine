@@ -130,22 +130,20 @@ struct Instance {
 
 	 int jointID;
 	 int lightmapID;
-	uint padding1;
+	uint imageID;
 	uint padding2;
 
 	Bounds bounds;
 };
 
 struct SurfaceMaterial {
-	uint id;
-
 	vec4 albedo;
 	vec4 indirect;
 
 	float metallic;
 	float roughness;
 	float occlusion;
-	uint lightmapID;
+	uint padding;
 };
 
 struct Surface {
@@ -158,6 +156,7 @@ struct Surface {
 	Ray ray;
 	
 	SurfaceMaterial material;
+	Instance instance;
 
 	vec4 fragment;
 } surface;

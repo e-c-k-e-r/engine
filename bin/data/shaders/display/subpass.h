@@ -184,10 +184,11 @@ void populateSurface() {
 	}
 //	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
-	surface.material.id = instance.materialID;
-	surface.material.lightmapID = instance.lightmapID;
+	surface.instance = instance;
+//	surface.instance.materialID = instance.materialID;
+//	surface.instance.lightmapID = instance.lightmapID;
 
-	const Material material = materials[surface.material.id];
+	const Material material = materials[surface.instance.materialID];
 	surface.material.albedo = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
@@ -219,8 +220,8 @@ void populateSurface() {
 
 	}
 	// Lightmap
-	if ( validTextureIndex( surface.material.lightmapID ) ) {
-		surface.material.albedo.rgb *= sampleTexture( surface.material.lightmapID, surface.st ).rgb;
+	if ( validTextureIndex( surface.instance.lightmapID ) ) {
+		surface.material.albedo.rgb *= sampleTexture( surface.instance.lightmapID, surface.st ).rgb;
 	}
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
@@ -249,7 +250,7 @@ void directLighting() {
 	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
 //	surface.fragment.rgb += surface.material.albedo.rgb * ambient;
 
-	if ( validTextureIndex( surface.material.lightmapID ) ) {
+	if ( validTextureIndex( surface.instance.lightmapID ) ) {
 		surface.fragment.rgb += surface.material.albedo.rgb + ambient;
 	} else {
 		surface.fragment.rgb += surface.material.albedo.rgb * ambient;

@@ -142,7 +142,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto imageID = graph.images.size();
 			auto keyName = graph.images.emplace_back(filename + "/" + i.name);
 			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
-			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, true );
+			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["flip textures"].as<bool>(true) );
 		}
 	}
 	// load samplers
@@ -207,10 +207,11 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			material.factorOcclusion = m.occlusionTexture.strength;
 			material.factorAlphaCutoff = m.alphaCutoff;
 
-			if ( m.alphaMode == "OPAQUE" ) material.modeAlpha = 0;
-			else if ( m.alphaMode == "BLEND" ) material.modeAlpha = 1;
-			else if ( m.alphaMode == "MASK" ) material.modeAlpha = 2;
-			else UF_MSG_WARNING("Unhandled alpha mode: " << m.alphaMode);
+			const uf::stl::string mode = graph.metadata["alpha mode"].as<uf::stl::string>(m.alphaMode);
+			if ( mode == "OPAQUE" ) material.modeAlpha = 0;
+			else if ( mode == "BLEND" ) material.modeAlpha = 1;
+			else if ( mode == "MASK" ) material.modeAlpha = 2;
+			else UF_MSG_WARNING("Unhandled alpha mode: " << mode);
 
 			if ( m.doubleSided && graph.metadata["cull mode"].as<uf::stl::string>() == "auto" ) {
 				graph.metadata["cull mode"] = "none";
@@ -248,9 +249,15 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 					struct Attribute {
 						uf::stl::string name = "";
-						size_t components = 1;
+						size_t components = 0;
+						size_t length = 0;
+						size_t stride = 0;
+						uint8_t* buffer = NULL;
+
 						uf::stl::vector<float> floats;
-						uf::stl::vector<uint16_t> ints;
+						uf::stl::vector<uint8_t> int8s;
+						uf::stl::vector<uint16_t> int16s;
+						uf::stl::vector<uint32_t> int32s;
 					};
 
 					uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
@@ -281,28 +288,87 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 								primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
 							}
 						}
-						if ( attribute.name == "JOINTS_0" ) {
-							auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-							attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
-							size_t len = accessor.count * attribute.components;
-							attribute.ints.assign( &buffer[0], &buffer[len] );
-						} else {
-							auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-							attribute.components = accessor.ByteStride(view) / sizeof(float);
-							size_t len = accessor.count * attribute.components;
-							attribute.floats.assign( &buffer[0], &buffer[len] );
+
+					#if 0
+						switch ( accessor.componentType ) {
+							case TINYGLTF_COMPONENT_TYPE_BYTE:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+								attribute.stride = sizeof(uint8_t);
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_SHORT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+								attribute.stride = sizeof(uint16_t);
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_INT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+								attribute.stride = sizeof(uint32_t);
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_FLOAT: {
+								attribute.stride = sizeof(float);
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_DOUBLE: {
+								attribute.stride = sizeof(double);
+							} break;
+							default: UF_MSG_ERROR("Unsupported component type");
 						}
+
+						attribute.buffer = &(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]);
+						attribute.components = accessor.ByteStride(view) / attribute.stride;
+						attribute.length = accessor.count * attribute.components;
+					#else
+						switch ( accessor.componentType ) {
+							case TINYGLTF_COMPONENT_TYPE_BYTE:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+								auto* buffer = reinterpret_cast<const uint8_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint8_t);
+								attribute.length = accessor.count * attribute.components;
+								attribute.int8s.assign( &buffer[0], &buffer[attribute.length] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_SHORT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+								auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
+								attribute.length = accessor.count * attribute.components;
+								attribute.int16s.assign( &buffer[0], &buffer[attribute.length] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_INT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+								auto* buffer = reinterpret_cast<const uint32_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint32_t);
+								attribute.length = accessor.count * attribute.components;
+								attribute.int32s.assign( &buffer[0], &buffer[attribute.length] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_FLOAT: {
+								auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(float);
+								attribute.length = accessor.count * attribute.components;
+								attribute.floats.assign( &buffer[0], &buffer[attribute.length] );
+							} break;
+							default: UF_MSG_ERROR("Unsupported component type");
+						}
+					#endif
 					}
 
 					for ( size_t i = 0; i < vertices.size(); ++i ) {
+					#if 0
 						#define ITERATE_ATTRIBUTE( name, member )\
-							if ( !attributes[name].ints.empty() ) { \
+							memcpy( &vertex.member[0], &attributes[name].buffer[i * attributes[name].components], attributes[name].stride );
+					#else
+						#define ITERATE_ATTRIBUTE( name, member )\
+							if ( !attributes[name].int8s.empty() ) { \
 								for ( size_t j = 0; j < attributes[name].components; ++j )\
-									vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
+									vertex.member[j] = attributes[name].int8s[i * attributes[name].components + j];\
+							} else if ( !attributes[name].int16s.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].int16s[i * attributes[name].components + j];\
+							} else if ( !attributes[name].int32s.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].int32s[i * attributes[name].components + j];\
 							} else if ( !attributes[name].floats.empty() ) { \
 								for ( size_t j = 0; j < attributes[name].components; ++j )\
 									vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\
 							}
+					#endif
 
 						auto& vertex = vertices[i];
 						ITERATE_ATTRIBUTE("POSITION", position);
@@ -392,7 +458,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 						uf::stl::string name = "";
 						size_t components = 1;
 						uf::stl::vector<float> floats;
-						uf::stl::vector<uint16_t> ints;
+						uf::stl::vector<uint8_t> int8s;
+						uf::stl::vector<uint16_t> int16s;
+						uf::stl::vector<uint32_t> int32s;
 					};
 
 					uf::stl::unordered_map<uf::stl::string, Attribute> attributes = {
@@ -420,24 +488,49 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 								primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
 							}
 						}
-						if ( attribute.name == "JOINTS_0" ) {
-							auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-							attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
-							size_t len = accessor.count * attribute.components;
-							attribute.ints.assign( &buffer[0], &buffer[len] );
-						} else {
-							auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-							attribute.components = accessor.ByteStride(view) / sizeof(float);
-							size_t len = accessor.count * attribute.components;
-							attribute.floats.assign( &buffer[0], &buffer[len] );
+						switch ( accessor.componentType ) {
+							case TINYGLTF_COMPONENT_TYPE_BYTE:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
+								auto* buffer = reinterpret_cast<const uint8_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint8_t);
+								size_t len = accessor.count * attribute.components;
+								attribute.int8s.assign( &buffer[0], &buffer[len] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_SHORT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+								auto* buffer = reinterpret_cast<const uint16_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint16_t);
+								size_t len = accessor.count * attribute.components;
+								attribute.int16s.assign( &buffer[0], &buffer[len] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_INT:
+							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+								auto* buffer = reinterpret_cast<const uint32_t*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(uint32_t);
+								size_t len = accessor.count * attribute.components;
+								attribute.int32s.assign( &buffer[0], &buffer[len] );
+							} break;
+							case TINYGLTF_COMPONENT_TYPE_FLOAT: {
+								auto* buffer = reinterpret_cast<const float*>(&(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+								attribute.components = accessor.ByteStride(view) / sizeof(float);
+								size_t len = accessor.count * attribute.components;
+								attribute.floats.assign( &buffer[0], &buffer[len] );
+							} break;
+							default: UF_MSG_ERROR("Unsupported component type");
 						}
 					}
 
 					for ( size_t i = 0; i < vertices.size(); ++i ) {
 						#define ITERATE_ATTRIBUTE( name, member )\
-							if ( !attributes[name].ints.empty() ) { \
+							if ( !attributes[name].int8s.empty() ) { \
 								for ( size_t j = 0; j < attributes[name].components; ++j )\
-									vertex.member[j] = attributes[name].ints[i * attributes[name].components + j];\
+									vertex.member[j] = attributes[name].int8s[i * attributes[name].components + j];\
+							} else if ( !attributes[name].int16s.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].int16s[i * attributes[name].components + j];\
+							} else if ( !attributes[name].int32s.empty() ) { \
+								for ( size_t j = 0; j < attributes[name].components; ++j )\
+									vertex.member[j] = attributes[name].int32s[i * attributes[name].components + j];\
 							} else if ( !attributes[name].floats.empty() ) { \
 								for ( size_t j = 0; j < attributes[name].components; ++j )\
 									vertex.member[j] = attributes[name].floats[i * attributes[name].components + j];\

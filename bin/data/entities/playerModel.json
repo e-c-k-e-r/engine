@@ -13,6 +13,7 @@
 	"transform": {
 		"position": [ 0, -2.0, 0 ],
 	//	"position": [ 12.5715, 3.53811, 7.6238 ],
+	//	"position": [ 1.635, -0.384, -20.409 ], // -0.384
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0
@@ -34,7 +35,7 @@
 				"print stats": false
 			},
 			"export": {
-				"should": false,
+				"should": true,
 				"pretty": false,
 				"compress": true,
 				"quantize": false,
@@ -44,18 +45,18 @@
 				"unwrap": false
 			},
 			"animation": "wank",
-		//	"print animations": true,
+			"print animations": true,
+		//	"filter": "NEAREST",
+			"cull mode": "none",
 			"flags": {
 				"ATLAS": false,
-				"SKINNED": true,
 				"INVERT": true,
 				"TRANSFORM": false,
+				"SKINNED": true,
 				
 				"RENDER": true,
-				"COLLISION": false,
-				"SEPARATE": true,
-				"NORMALS": true,
-				"LOAD": false
+				"SEPARATE": false,
+				"NORMALS": false
 			}
 		}
 	}

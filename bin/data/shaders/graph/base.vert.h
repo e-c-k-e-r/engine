@@ -72,7 +72,7 @@ void main() {
 	const mat4 projection = camera.viewport[PushConstant.pass].projection;
 #endif
 #if SKINNED 
-	const mat4 skinned = joints.length() <= 0 ? mat4(1.0) : inWeights.x * joints[jointID + int(inJoints.x)] + inWeights.y * joints[jointID + int(inJoints.y)] + inWeights.z * joints[jointID + int(inJoints.z)] + inWeights.w * joints[jointID + int(inJoints.w)];
+	const mat4 skinned = joints.length() <= 0 || jointID < 0 ? mat4(1.0) : inWeights.x * joints[jointID + int(inJoints.x)] + inWeights.y * joints[jointID + int(inJoints.y)] + inWeights.z * joints[jointID + int(inJoints.z)] + inWeights.w * joints[jointID + int(inJoints.w)];
 #else
 	const mat4 skinned = mat4(1.0);
 #endif

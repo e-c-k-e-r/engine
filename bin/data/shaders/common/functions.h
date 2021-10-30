@@ -53,6 +53,16 @@ bool validTextureIndex( uint start, int offset ) {
 uint textureIndex( uint start, int offset ) {
 	return start + offset;
 }
+#if TEXTURE_WORKAROUND
+vec4 sampleTexture( uint id, vec2 uv ) {
+	const Texture t = textures[id];
+	return texture( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ) );
+}
+vec4 sampleTexture( uint id, vec2 uv, float mip ) {
+	const Texture t = textures[id];
+	return textureLod( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
+}
+#else
 vec4 sampleTexture( uint id, vec2 uv ) {
 	const Texture t = textures[id];
 	return texture( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ) );
@@ -61,6 +71,7 @@ vec4 sampleTexture( uint id, vec2 uv, float mip ) {
 	const Texture t = textures[id];
 	return textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
 }
+#endif
 vec4 sampleTexture( uint id ) { return sampleTexture( id, surface.uv ); }
 vec4 sampleTexture( uint id, float mip ) { return sampleTexture( id, surface.uv, mip ); }
 #endif

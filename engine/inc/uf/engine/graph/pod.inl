@@ -23,7 +23,7 @@ namespace pod {
 
 		alignas(4)  int32_t jointID = -1;
 		alignas(4)  int32_t lightmapID = -1;
-		alignas(4) uint32_t padding2 = 0;
+		alignas(4) uint32_t imageID = 0;
 		alignas(4) uint32_t padding3 = 0;
 
 		struct Bounds {

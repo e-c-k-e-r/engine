@@ -26,6 +26,7 @@ namespace ext {
 				float walk = 1.0f;
 				float friction = 0.8f;
 				float air = 1.0f;
+				float look = 1.0f;
 				pod::Vector3f jump = {0,8,0};
 			} movement;
 			struct {

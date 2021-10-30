@@ -65,6 +65,10 @@ namespace {
 		{
 			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
 			for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
+		
+		//	for ( auto pair : uf::graph::storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
+		//	for ( auto pair : uf::graph::storage.samplers.map ) graphic.material.samplers.emplace_back( pair.second );
+
 			// bind scene's voxel texture
 			if ( uf::renderer::settings::experimental::vxgi ) {
 				auto& scene = uf::scene::getCurrentScene();
@@ -441,7 +445,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		UF_ASSERT( it != keys.end() );
 		texture.index = it - keys.begin();
 	}
-	// remap instance materials
+	// remap instance variables
 	for ( auto& name : graph.instances ) {
 		auto& instance = uf::graph::storage.instances[name];
 		
@@ -450,6 +454,12 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto it = std::find( keys.begin(), keys.end(), graph.materials[instance.materialID] );
 			UF_ASSERT( it != keys.end() );
 			instance.materialID = it - keys.begin();
+		}
+		if ( 0 <= instance.imageID && instance.imageID < graph.images.size() ) {
+			auto& keys = /*graph.storage*/uf::graph::storage.images.keys;
+			auto it = std::find( keys.begin(), keys.end(), graph.images[instance.imageID] );
+			UF_ASSERT( it != keys.end() );
+			instance.imageID = it - keys.begin();
 		}
 		// remap a skinID as an actual jointID
 		if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
@@ -653,6 +663,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 			instance.model = model;
 			instance.objectID = objectID;
+			instance.jointID = graph.metadata["flags"]["SKINNED"].as<bool>() ? 0 : -1;
 
 			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );

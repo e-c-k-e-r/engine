@@ -139,7 +139,7 @@ void ext::bullet::initialize() {
 	mesh.bind<VertexLine>();
 
 #if !UF_ENV_DREAMCAST
-//	gContactAddedCallback = contactCallback;
+	gContactAddedCallback = contactCallback;
 #endif
 }
 void ext::bullet::tick( float delta ) { if ( delta == 0.0f ) delta = uf::physics::time::delta;
@@ -355,8 +355,10 @@ pod::Bullet& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh, bool
 	btTriangleInfoMap* triangleInfoMap = new btTriangleInfoMap();
 	triangleInfoMap->m_edgeDistanceThreshold = 0.01f;
 	triangleInfoMap->m_maxEdgeAngleThreshold = SIMD_HALF_PI*0.25;
-	if ( !false ) btGenerateInternalEdgeInfo( triangleMeshShape, triangleInfoMap );
-	collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+	if ( !false ) {
+		btGenerateInternalEdgeInfo( triangleMeshShape, triangleInfoMap );
+		collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
+	}
 	return collider;
 }
 /*

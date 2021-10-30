@@ -15,7 +15,7 @@ float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
 vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
 #if !BAKING
 void pbr() {
-	if ( validTextureIndex( surface.material.lightmapID ) ) return;
+	if ( validTextureIndex( surface.instance.lightmapID ) ) return;
 
 	const float Rs = 4.0; // specular lighting looks gross without this
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
@@ -43,7 +43,7 @@ void pbr() {
 		const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
 		const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 		// lightmapped, compute only specular
-		if ( light.type >= 0 && validTextureIndex( surface.material.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
+		if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
 		// point light, compute only diffuse
 		// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
 		else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
