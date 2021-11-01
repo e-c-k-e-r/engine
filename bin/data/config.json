@@ -141,14 +141,22 @@
 					"json": "/json.lua"
 				}
 			},
+			"reactphysics": {
+				"timescale": 0.01666666666,
+				"debug draw": {
+					"enabled": false,
+				//	"layer": "Gui",
+					"rate": 0.0125
+				}
+			},
 			"bullet": {
 				"iterations": 1,
-				"substeps": 12,
+				"substeps": 4,
 				"timescale": 1,
 				"multithreaded": false,
 				"pool size": {
-					"max collision algorithm": 1024,
-					"max persistent manifold": 1024
+					"max collision algorithm": 65535,
+					"max persistent manifold": 65535
 				},
 				"debug draw": {
 					"enabled": false,

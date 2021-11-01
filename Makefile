@@ -46,7 +46,7 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype ncurses curl luajit bullet meshoptimizer xatlas simd ctti # openvr draco discord
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype ncurses curl luajit reactphysics meshoptimizer xatlas simd ctti # openvr draco discord bullet
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
@@ -152,6 +152,10 @@ ifneq (,$(findstring bullet,$(REQ_DEPS)))
 		DEPS 				+= -lBulletDynamics -lBulletCollision -lLinearMath
 		INCS 				+= -I./dep/bullet/
 	endif
+endif
+ifneq (,$(findstring reactphysics,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_REACTPHYSICS
+	DEPS 				+= -lreactphysics3d
 endif
 ifneq (,$(findstring simd,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_SIMD -DUF_MATRIX_ALIGNED #-DUF_VECTOR_ALIGNED #-march=native

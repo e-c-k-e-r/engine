@@ -86,7 +86,7 @@ ent:bind( "tick", function(self)
 end )
 -- on use
 ent:addHook( "entity:Use.%UID%", function( payload )
-	if state == 0 then
+	if state == 0 or state == 3 then
 		state = 1
 		playSound("default_move")
 		if payload.uid ~= nil then
@@ -100,11 +100,8 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 				polarity = -1
 			end
 		end
-		io.print(ent:name())
-	end
-	if state == 2 then
+	elseif state == 2 or state == 1 then
 		state = 3
 		playSound("default_move")
 	end
-	io.print( state, json.encode( payload ) )
 end )

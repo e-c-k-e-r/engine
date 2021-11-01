@@ -1,5 +1,4 @@
 #include <uf/engine/graph/graph.h>
-#include <uf/ext/bullet/bullet.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/mesh/grid.h>
@@ -7,6 +6,7 @@
 #include <uf/utils/string/base64.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/math/physics.h>
 #include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST
@@ -694,17 +694,16 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			
 			if ( ext::json::isObject( info ) ) {
 				uf::stl::string type = info["type"].as<uf::stl::string>();		
-			#if UF_USE_BULLET
 
 				if ( type == "mesh" ) {
-					auto& collider = entity.getComponent<pod::Bullet>();
+					auto& collider = entity.getComponent<pod::PhysicsState>();
 					collider.stats.mass = info["mass"].as(collider.stats.mass);
 					collider.stats.friction = info["friction"].as(collider.stats.friction);
 					collider.stats.restitution = info["restitution"].as(collider.stats.restitution);
 					collider.stats.inertia = uf::vector::decode( info["inertia"], collider.stats.inertia );
 					collider.stats.gravity = uf::vector::decode( info["gravity"], collider.stats.gravity );
 
-					ext::bullet::create( entity.as<uf::Object>(), mesh, !info["static"].as<bool>(true) );
+					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !info["static"].as<bool>(true) );
 				} else {
 					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
 					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
@@ -715,7 +714,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					metadataJson["system"]["physics"]["center"] = uf::vector::encode( center );
 					metadataJson["system"]["physics"]["corner"] = uf::vector::encode( corner );
 				}
-			#endif
 			}
 		}
 	}

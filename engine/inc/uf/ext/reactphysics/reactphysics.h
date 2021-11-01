@@ -7,22 +7,21 @@
 #include <uf/utils/math/collision.h>
 #include <uf/engine/graph/graph.h>
 
-#if UF_USE_BULLET
-#include <btBulletDynamicsCommon.h>
-#include "BulletCollision/CollisionDispatch/btInternalEdgeUtility.h"
-#endif
+#if UF_USE_REACTPHYSICS
+#include <reactphysics3d/reactphysics3d.h>
+
+namespace rp3d = reactphysics3d;
+
 namespace pod {
 	struct UF_API Physics {
 		size_t uid = 0;
-		uf::Object* pointer = NULL;
-		
-		pod::Transform<> transform;
-		pod::Transform<> previous;
-
+		uf::Object* object = NULL;
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
-		
-		btRigidBody* body = NULL;
-		btCollisionShape* shape = NULL;
+		rp3d::RigidBody* body = NULL;	
+		rp3d::CollisionShape* shape = NULL;	
+	
+		pod::Transform<> transform = {};
+		pod::Transform<> previous = {};
 
 		struct {
 			pod::Vector3 velocity;
@@ -36,6 +35,7 @@ namespace pod {
 
 		struct {
 			uint32_t flags = 0;
+
 			float mass = 0.0f;
 			float friction = 0.8f;
 			float restitution = 0.0f;
@@ -46,24 +46,18 @@ namespace pod {
 
 	typedef Physics PhysicsState;
 }
-#if UF_USE_BULLET
-namespace ext {
-	namespace bullet {
-		extern UF_API size_t iterations;
-		extern UF_API size_t substeps;
-		extern UF_API float timescale;
-		
-		extern UF_API size_t defaultMaxCollisionAlgorithmPoolSize;
-		extern UF_API size_t defaultMaxPersistentManifoldPoolSize;
 
+namespace ext {
+	namespace reactphysics {
+		void UF_API initialize();
+		void UF_API tick( float = 0 );
+		void UF_API terminate();
+
+		extern UF_API float timescale;
 		extern UF_API bool debugDrawEnabled;
 		extern UF_API float debugDrawRate;
 		extern UF_API uf::stl::string debugDrawLayer;
 		extern UF_API float debugDrawLineWidth;
-
-		void UF_API initialize();
-		void UF_API tick( float = 0 );
-		void UF_API terminate();
 
 		// base collider creation
 		pod::PhysicsState& UF_API create( uf::Object& );
@@ -78,7 +72,6 @@ namespace ext {
 		pod::PhysicsState& create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
 		pod::PhysicsState& UF_API create( uf::Object&, const pod::Vector3f& );
-		uf::stl::vector<pod::PhysicsState>& UF_API create( uf::Object&, const uf::stl::vector<pod::Instance::Bounds>& );
 		// collider for capsule
 		pod::PhysicsState& UF_API create( uf::Object&, float, float );
 

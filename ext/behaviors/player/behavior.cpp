@@ -10,7 +10,6 @@
 #include <uf/utils/audio/audio.h>
 #include <uf/ext/openvr/openvr.h>
 #include <uf/engine/graph/graph.h>
-#include <uf/ext/bullet/bullet.h>
 #include <uf/utils/math/physics.h>
 #include <uf/spec/controller/controller.h>
 #include <uf/utils/io/inputs.h>
@@ -23,7 +22,7 @@ UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multi
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 
-	auto& collider = this->getComponent<pod::Bullet>();
+	auto& collider = this->getComponent<pod::PhysicsState>();
 
 	auto& metadata = this->getComponent<ext::PlayerBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -80,9 +79,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			if ( metadata.camera.invert.x ) relta.x *= -1;
 			metadata.camera.limit.current.x += relta.x;
 			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-		#if UF_USE_BULLET
-			if ( collider.body ) ext::bullet::applyRotation( collider, transform.up, relta.x ); else
-		#endif
+			if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, relta.x ); else
 				uf::transform::rotate( transform, transform.up, relta.x );
 			} else metadata.camera.limit.current.x -= relta.x;
 		}
@@ -91,7 +88,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			metadata.camera.limit.current.y += relta.y;
 			if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
 			//	if ( collider.body && !collider.shared ) {
-			//		ext::bullet::applyRotation( collider, cameraTransform.right, relta.y );
+			//		uf::physics::impl::applyRotation( collider, cameraTransform.right, relta.y );
 			//	} else {
 					uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y );
 			//	}
@@ -209,13 +206,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.menu = metadata.system.menu;
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
-#if UF_USE_BULLET
-	auto& collider = this->getComponent<pod::Bullet>();
-	if ( !stats.floored && collider.body && ext::bullet::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true; else
-#endif
+	auto& collider = this->getComponent<pod::PhysicsState>();
+	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true; else
 	stats.floored |= fabs(physics.linear.velocity.y) < 0.01f;
-
-#if UF_USE_BULLET
 
 	TIMER(0.125, keys.use && ) {
 		size_t uid = 0;
@@ -224,7 +217,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		pod::Vector3f pos = transform.position + cameraTransform.position;
 		pod::Vector3f dir = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
 
-		float depth = ext::bullet::rayCast( pos, pos + dir, pointer );
+		float depth = uf::physics::impl::rayCast( pos, pos + dir, pointer );
 		if ( pointer ) { 
 			uf::Serializer payload;
 			payload["uid"] = this->getUid();
@@ -248,7 +241,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
-#endif
 
 	struct {
 		float move = 4;
@@ -324,21 +316,19 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			metadata.system.noclipped = state;
 			
 			UF_MSG_DEBUG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
+		#if 0
 			if ( state ) {
-			#if UF_USE_BULLET
 				if ( collider.body ) {
 					collider.body->setGravity(btVector3(0,0.0,0));
 					collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
 				}
-			#endif
 			} else {
-			#if UF_USE_BULLET
 				if ( collider.body ) {
 					collider.body->setGravity(btVector3(0,-9.81,0));
 					collider.body->setCollisionFlags(collider.body->getCollisionFlags() & ~btCollisionObject::CF_NO_CONTACT_RESPONSE);
 				}
-			#endif
 			}
+		#endif
 			stats.noclipped = state;
 		}
 		// movement handler
@@ -376,15 +366,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 
 	if ( keys.lookRight ^ keys.lookLeft ) {
-	#if UF_USE_BULLET
-		if ( collider.body ) ext::bullet::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
-	#endif
+		if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
 		uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 	}
 	{
-	#if UF_USE_BULLET
-		if ( collider.body ) ext::bullet::setVelocity( collider, physics.linear.velocity ); else 
-	#endif
+		if ( collider.body ) uf::physics::impl::setVelocity( collider, physics.linear.velocity ); else 
 		transform.position += physics.linear.velocity * uf::physics::time::delta;
 	}
 

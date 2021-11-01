@@ -1,5 +1,4 @@
 #include <uf/engine/graph/graph.h>
-#include <uf/ext/bullet/bullet.h>
 #include <uf/ext/gltf/gltf.h>
 #include <uf/utils/math/physics.h>
 #include <uf/utils/mesh/grid.h>
@@ -7,6 +6,7 @@
 #include <uf/utils/string/base64.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
+#include <uf/utils/math/physics.h>
 #include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST

@@ -9,8 +9,8 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/math/physics.h>
 #include <uf/ext/gltf/gltf.h>
-#include <uf/ext/bullet/bullet.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Object)
 UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multithread = false)
@@ -114,9 +114,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	metadata.deserialize(self, metadataJson);
 
-#if UF_USE_BULLET
 	if ( ext::json::isObject(metadataJson["system"]["physics"]) ) {
-		auto& collider = this->getComponent<pod::Bullet>();
+		auto& collider = this->getComponent<pod::PhysicsState>();
+		collider.stats.flags = metadataJson["system"]["physics"]["flags"].as(collider.stats.flags);
 		collider.stats.mass = metadataJson["system"]["physics"]["mass"].as(collider.stats.mass);
 		collider.stats.restitution = metadataJson["system"]["physics"]["restitution"].as(collider.stats.restitution);
 		collider.stats.friction = metadataJson["system"]["physics"]["friction"].as(collider.stats.friction);
@@ -127,18 +127,16 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			pod::Vector3f center = uf::vector::decode( metadataJson["system"]["physics"]["center"], pod::Vector3f{} );
 			pod::Vector3f corner = uf::vector::decode( metadataJson["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
 
-			ext::bullet::create( *this, corner );
+			if ( metadataJson["system"]["physics"]["recenter"].as<bool>() ) collider.transform.position = (center - transform.position) * 0.5f;
 
-			if ( metadataJson["system"]["physics"]["recenter"].as<bool>() ) collider.transform.position = center - transform.position;
-
+			uf::physics::impl::create( *this, corner );
 		} else if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "capsule" ) {
 			float radius = metadataJson["system"]["physics"]["radius"].as<float>();
 			float height = metadataJson["system"]["physics"]["height"].as<float>();
 
-			ext::bullet::create( *this, radius, height );
+			uf::physics::impl::create( *this, radius, height );
 		}
 	}
-#endif
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
@@ -221,8 +219,8 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	}
 
 /*
-	if ( this->hasComponent<pod::Bullet>() && this->hasComponent<pod::Physics>() ) {
-		auto& collider = this->getComponent<pod::Bullet>();
+	if ( this->hasComponent<pod::PhysicsState>() && this->hasComponent<pod::Physics>() ) {
+		auto& collider = this->getComponent<pod::PhysicsState>();
 		auto& transform = this->getComponent<pod::Transform<>>();
 		auto& physics = this->getComponent<pod::Physics>();
 		UF_MSG_DEBUG( this->getName() << ": " << this->getUid() << " " << uf::vector::toString( physics.linear.velocity ) << " " << uf::vector::toString( transform.position ) );

@@ -1,5 +1,5 @@
 {
-	"assets": ["./scripts/door.lua"],
+	"assets": [],
 	"system": {
 		"physics": {
 			"mass": 0,

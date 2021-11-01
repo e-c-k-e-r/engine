@@ -45,7 +45,6 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/ultralight/ultralight.h>
-#include <uf/ext/bullet/bullet.h>
 
 bool ext::ready = false;
 uf::stl::vector<uf::stl::string> ext::arguments;
@@ -216,11 +215,18 @@ void EXT_API ext::initialize() {
 	// Set worker threads
 	if ( ::config["engine"]["threads"]["workers"].as<uf::stl::string>() == "async" ) {
 		uf::thread::async = true;
+		auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
+		::config["engine"]["threads"]["workers"] = threads;
+		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
 		UF_MSG_DEBUG("Using async worker threads");
 	} else if ( ::config["engine"]["threads"]["workers"].as<uf::stl::string>() == "auto" ) {
 		auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
 		::config["engine"]["threads"]["workers"] = threads;
 		uf::thread::workers = ::config["engine"]["threads"]["workers"].as<size_t>();
+		UF_MSG_DEBUG("Using " << threads << " worker threads");
+	} else if ( ::config["engine"]["threads"]["workers"].is<size_t>() ) {
+		auto threads = ::config["engine"]["threads"]["workers"].as<size_t>();
+		uf::thread::workers = threads;
 		UF_MSG_DEBUG("Using " << threads << " worker threads");
 	}
 	// Audio settings
@@ -259,6 +265,15 @@ void EXT_API ext::initialize() {
 		ext::bullet::debugDrawEnabled = ::config["engine"]["ext"]["bullet"]["debug draw"]["enabled"].as( ext::bullet::debugDrawEnabled );
 		ext::bullet::debugDrawRate = ::config["engine"]["ext"]["bullet"]["debug draw"]["rate"].as( ext::bullet::debugDrawRate );
 		ext::bullet::debugDrawLayer = ::config["engine"]["ext"]["bullet"]["debug draw"]["layer"].as( ext::bullet::debugDrawLayer );
+		ext::bullet::debugDrawLineWidth = ::config["engine"]["ext"]["bullet"]["debug draw"]["line width"].as( ext::bullet::debugDrawLineWidth );
+	}
+#elif UF_USE_REACTPHYSICS
+	{
+		ext::reactphysics::timescale = ::config["engine"]["ext"]["reactphysics"]["timescale"].as( ext::reactphysics::timescale );
+		ext::reactphysics::debugDrawEnabled = ::config["engine"]["ext"]["reactphysics"]["debug draw"]["enabled"].as( ext::reactphysics::debugDrawEnabled );
+		ext::reactphysics::debugDrawRate = ::config["engine"]["ext"]["reactphysics"]["debug draw"]["rate"].as( ext::reactphysics::debugDrawRate );
+		ext::reactphysics::debugDrawLayer = ::config["engine"]["ext"]["reactphysics"]["debug draw"]["layer"].as( ext::reactphysics::debugDrawLayer );
+		ext::reactphysics::debugDrawLineWidth = ::config["engine"]["ext"]["reactphysics"]["debug draw"]["line width"].as( ext::reactphysics::debugDrawLineWidth );
 	}
 #endif
 
@@ -341,12 +356,9 @@ void EXT_API ext::initialize() {
 	}
 #endif
 
-#if UF_USE_BULLET
-	/* Bullet */ {
-		ext::bullet::initialize();
+	/* Physics */ {
+		uf::physics::initialize();
 	}
-#endif
-
 #if UF_USE_OPENVR
 	{	
 		ext::openvr::enabled = ::config["engine"]["ext"]["vr"]["enable"].as( ext::openvr::enabled );
@@ -409,13 +421,13 @@ void EXT_API ext::initialize() {
 	#if UF_USE_VULKAN
 		/* Callbacks for 2KHR stuffs */ {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
-				UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);
+			//	UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);
 			});
 			uf::hooks.addHook("vulkan:Device.ExtensionsEnabled", []( const ext::json::Value& json ) {
-				UF_MSG_DEBUG("vulkan:Device.ExtensionsEnabled: " << json);
+			//	UF_MSG_DEBUG("vulkan:Device.ExtensionsEnabled: " << json);
 			});
 			uf::hooks.addHook("vulkan:Device.FeaturesEnabled", []( const ext::json::Value& json ) {
-				UF_MSG_DEBUG("vulkan:Device.FeaturesEnabled: " << json);
+			//	UF_MSG_DEBUG("vulkan:Device.FeaturesEnabled: " << json);
 
 				VkPhysicalDeviceFeatures2KHR deviceFeatures2{};
 				VkPhysicalDeviceMultiviewFeaturesKHR extFeatures{};
@@ -424,10 +436,10 @@ void EXT_API ext::initialize() {
 				deviceFeatures2.pNext = &extFeatures;
 				PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFeatures2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceFeatures2KHR"));
 				vkGetPhysicalDeviceFeatures2KHR(uf::renderer::device.physicalDevice, &deviceFeatures2);
-				UF_MSG_DEBUG("Multiview features:" );
-				UF_MSG_DEBUG("\tmultiview = " << extFeatures.multiview );
-				UF_MSG_DEBUG("\tmultiviewGeometryShader = " << extFeatures.multiviewGeometryShader );
-				UF_MSG_DEBUG("\tmultiviewTessellationShader = " << extFeatures.multiviewTessellationShader );
+			//	UF_MSG_DEBUG("Multiview features:" );
+			//	UF_MSG_DEBUG("\tmultiview = " << extFeatures.multiview );
+			//	UF_MSG_DEBUG("\tmultiviewGeometryShader = " << extFeatures.multiviewGeometryShader );
+			//	UF_MSG_DEBUG("\tmultiviewTessellationShader = " << extFeatures.multiviewTessellationShader );
 
 				VkPhysicalDeviceProperties2KHR deviceProps2{};
 				VkPhysicalDeviceMultiviewPropertiesKHR extProps{};
@@ -436,9 +448,9 @@ void EXT_API ext::initialize() {
 				deviceProps2.pNext = &extProps;
 				PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2KHR>(vkGetInstanceProcAddr(uf::renderer::device.instance, "vkGetPhysicalDeviceProperties2KHR"));
 				vkGetPhysicalDeviceProperties2KHR(uf::renderer::device.physicalDevice, &deviceProps2);
-				UF_MSG_DEBUG("Multiview properties:");
-				UF_MSG_DEBUG("\tmaxMultiviewViewCount = " << extProps.maxMultiviewViewCount);
-				UF_MSG_DEBUG("\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex);
+			//	UF_MSG_DEBUG("Multiview properties:");
+			//	UF_MSG_DEBUG("\tmaxMultiviewViewCount = " << extProps.maxMultiviewViewCount);
+			//	UF_MSG_DEBUG("\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex);
 			});
 		}
 	#endif
@@ -561,11 +573,6 @@ void EXT_API ext::tick() {
 	/* Update physics timer */ {
 		uf::physics::tick();
 	}
-#if UF_USE_BULLET
-	/* Update bullet */ {
-		ext::bullet::tick();
-	}
-#endif
 	/* Update graph */ {
 		uf::graph::tick();
 	}
@@ -659,11 +666,9 @@ void EXT_API ext::terminate() {
 	/* Terminate controllers */ {
 		spec::controller::terminate();
 	}
-#if UF_USE_BULLET
-	/* Kill bullet */ {
-		ext::bullet::terminate();
+	/* Kill physics */ {
+		uf::physics::terminate();
 	}
-#endif
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config["engine"]["ext"]["ultralight"]["enabled"].as<bool>() ) {
 		ext::ultralight::terminate();

@@ -17,4 +17,14 @@ UF_LUA_REGISTER_USERTYPE(pod::Physics,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setLinearVelocity, UF_LUA_C_FUN(::binds::setLinearVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setRotationalVelocity, UF_LUA_C_FUN(::binds::setRotationalVelocity) )
 )
+
+UF_LUA_REGISTER_USERTYPE(pod::PhysicsState,
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(uf::physics::impl::setVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyMovement, UF_LUA_C_FUN(uf::physics::impl::applyMovement) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(uf::physics::impl::applyVelocity) ),
+//	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(uf::physics::impl::applyRotation) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) )
+)
+
 #endif

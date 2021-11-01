@@ -2,8 +2,8 @@
 	"import": "/scene.json",
 	"assets": [
 		"./audio/soundscape/ambience.ogg",
-		"./loading.json",
-		"./static.json"
+		"./loading.json"
+	//	"./static.json"
 	],
 	"system": {
 		"hot reload": {

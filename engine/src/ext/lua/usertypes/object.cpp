@@ -7,9 +7,6 @@
 #include <uf/engine/asset/asset.h>
 #include <uf/utils/math/physics.h>
 #include <uf/engine/object/behaviors/lua.h>
-#if UF_USE_BULLET
-	#include <uf/ext/bullet/bullet.h>
-#endif
 
 namespace binds {
 	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
@@ -32,9 +29,7 @@ namespace binds {
 		UF_LUA_RETRIEVE_COMPONENT(uf::Asset)
 		UF_LUA_RETRIEVE_COMPONENT(uf::Camera)
 		UF_LUA_RETRIEVE_COMPONENT(pod::Physics)
-	#if UF_USE_BULLET
-		UF_LUA_RETRIEVE_COMPONENT(pod::Bullet)
-	#endif
+		UF_LUA_RETRIEVE_COMPONENT(pod::PhysicsState)
 		return sol::make_object( ext::lua::state, sol::lua_nil );
 	}
 	void setComponent(uf::Object& self, const uf::stl::string& type, sol::object value ) {
@@ -56,9 +51,7 @@ namespace binds {
 		UF_LUA_UPDATE_COMPONENT(uf::Asset)
 		UF_LUA_UPDATE_COMPONENT(uf::Camera)
 		UF_LUA_UPDATE_COMPONENT(pod::Physics)
-	#if UF_USE_BULLET
-		UF_LUA_UPDATE_COMPONENT(pod::Bullet)
-	#endif
+		UF_LUA_UPDATE_COMPONENT(pod::PhysicsState)
 	}
 	bool bind(uf::Object& self, const uf::stl::string& type, sol::protected_function fun ) {
 	//	if ( !self.hasBehavior({.type = uf::LuaBehavior::type}) ) uf::instantiator::bind( "LuaBehavior", self );

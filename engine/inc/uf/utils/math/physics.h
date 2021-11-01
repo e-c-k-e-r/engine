@@ -4,22 +4,20 @@
 #include <uf/utils/math/transform.h>
 #include <uf/utils/time/time.h>
 
-namespace pod {
-	struct UF_API Physics {
-		struct {
-			pod::Vector3 velocity;
-			pod::Vector3 acceleration;
-		} linear;
-		struct {
-			pod::Quaternion<> velocity;
-			pod::Quaternion<> acceleration;
-		} rotational;
-		pod::Transform<> previous;
-	};
-}
+#if UF_USE_BULLET
+#include <uf/ext/bullet/bullet.h>
+#elif UF_USE_REACTPHYSICS
+#include <uf/ext/reactphysics/reactphysics.h>
+#endif
 
 namespace uf {
 	namespace physics {
+	#if UF_USE_BULLET
+		namespace impl = ext::bullet;
+	#elif UF_USE_REACTPHYSICS
+		namespace impl = ext::reactphysics;
+	#endif
+
 		typedef pod::Math::num_t num_t;
 		namespace time {
 
@@ -29,7 +27,9 @@ namespace uf {
 			extern UF_API uf::physics::num_t delta;
 			extern UF_API uf::physics::num_t clamp;
 		}
+		void UF_API initialize();
 		void UF_API tick();
+		void UF_API terminate();
 		template<typename T> pod::Transform<T>& update( pod::Transform<T>& transform, pod::Physics& physics );
 		template<typename T> pod::Transform<T>& update( pod::Physics& physics, pod::Transform<T>& transform );
 	}
