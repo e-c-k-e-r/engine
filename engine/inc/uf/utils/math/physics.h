@@ -20,12 +20,11 @@ namespace uf {
 
 		typedef pod::Math::num_t num_t;
 		namespace time {
-
 			extern UF_API uf::Timer<> timer;
-			extern UF_API uf::physics::num_t current;
-			extern UF_API uf::physics::num_t previous;
-			extern UF_API uf::physics::num_t delta;
-			extern UF_API uf::physics::num_t clamp;
+			extern UF_API double current;
+			extern UF_API double previous;
+			extern UF_API float delta;
+			extern UF_API float clamp;
 		}
 		void UF_API initialize();
 		void UF_API tick();

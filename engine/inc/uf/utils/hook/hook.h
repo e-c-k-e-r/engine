@@ -13,6 +13,8 @@
 #include <uf/utils/serialize/serializer.h>
 #include <type_traits>
 
+#include "payloads.h"
+
 #define UF_HOOK_POINTERED_USERDATA 1
 
 namespace pod {

@@ -17,18 +17,20 @@
 #include <uf/engine/scene/scene.h>
 
 #include <uf/utils/memory/unordered_map.h>
-#include <locale>
-#include <codecvt>
 
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
 #include <uf/utils/http/http.h>
 #include <uf/utils/audio/audio.h>
+
+#include <uf/utils/window/payloads.h>
+
 #include <sys/stat.h>
 #include <fstream>
-
 #include <regex>
+#include <locale>
+#include <codecvt>
 
 ext::gui::Size ext::gui::size = {
 	.current = {
@@ -61,19 +63,16 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	auto& metadata = controller.getComponent<ext::GuiManagerBehavior::Metadata>();
 	auto& metadataJson = controller.getComponent<uf::Serializer>();
 
-	this->addHook( "window:Resized", [&](ext::json::Value& json){
-		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
-		ext::gui::size.current = size;
-	//	ext::gui::size.reference = size;
+	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
+		ext::gui::size.current = payload.window.size;
+	//	ext::gui::size.reference = payload.window.size;
 	} );
-	this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
+	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 		bool clicked = false;
-		bool down = json["mouse"]["state"].as<uf::stl::string>() == "Down";
-		pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} );
 
 		pod::Vector2f click; {
-			click.x = (float) position.x / (float) ext::gui::size.current.x;
-			click.y = (float) position.y / (float) ext::gui::size.current.y;
+			click.x = (float) payload.mouse.position.x / (float) ext::gui::size.current.x;
+			click.y = (float) payload.mouse.position.y / (float) ext::gui::size.current.y;
 			click.x = (click.x * 2.0f) - 1.0f;
 			click.y = (click.y * 2.0f) - 1.0f;
 			float x = click.x;

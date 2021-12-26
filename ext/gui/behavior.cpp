@@ -18,18 +18,20 @@
 #include <uf/engine/scene/scene.h>
 
 #include <uf/utils/memory/unordered_map.h>
-#include <locale>
-#include <codecvt>
 
 #include <uf/utils/renderer/renderer.h>
 #include <uf/ext/openvr/openvr.h>
 
 #include <uf/utils/http/http.h>
 #include <uf/utils/audio/audio.h>
+
+#include <uf/utils/window/payloads.h>
+
 #include <sys/stat.h>
 #include <fstream>
-
 #include <regex>
+#include <locale>
+#include <codecvt>
 
 namespace {
 #if UF_USE_FREETYPE
@@ -431,30 +433,27 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	});
 	metadata.deserialize(self, metadataJson);
 
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
-
-		if ( category != "" && category != "images" ) return;
-		if ( category == "" && uf::io::extension(filename) != "png" && uf::io::extension(filename) != "jpg" && uf::io::extension(filename) != "jpeg" ) return;
+	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
+		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-		if ( !assetLoader.has<uf::Image>(filename) ) return;
-		auto& image = assetLoader.get<uf::Image>(filename);
+		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
+		auto& image = assetLoader.get<uf::Image>(payload.filename);
 		this->as<ext::Gui>().load( image );
 	});		
 	if ( metadataJson["system"]["clickable"].as<bool>() ) {
 		uf::Timer<long long> clickTimer(false);
 		clickTimer.start( uf::Time<>(-1000000) );
 		if ( !clickTimer.running() ) clickTimer.start();
-		this->addHook( "gui:Clicked.%UID%", [&](ext::json::Value& json){
+
+		this->addHook( "gui:Clicked.%UID%", [&](pod::payloads::windowMouseClick& payload){
 			if ( ext::json::isObject( metadataJson["events"]["click"] ) ) {
 				uf::Serializer event = metadataJson["events"]["click"];
 				metadataJson["events"]["click"] = ext::json::array(); //Json::arrayValue;
 				metadataJson["events"]["click"][0] = event;
 			} else if ( !ext::json::isArray( metadataJson["events"]["click"] ) ) {
-				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", json);
+				this->getParent().as<uf::Object>().callHook("gui:Clicked.%UID%", payload);
 				return;
 			}
 			for ( int i = 0; i < metadataJson["events"]["click"].size(); ++i ) {
@@ -467,19 +466,15 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				}
 			}
 		});
-		this->addHook( "window:Mouse.Click", [&](ext::json::Value& json){
+		this->addHook( "window:Mouse.Click", [&](pod::payloads::windowMouseClick& payload){
 			if ( metadata.world ) return;
 			if ( !metadata.box.min && !metadata.box.max ) return;
-			bool down = json["mouse"]["state"].as<uf::stl::string>() == "Down";
+			
 			bool clicked = false;
-			if ( down ) {
-				pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} ); {
-				//	position.x = json["mouse"]["position"]["x"].as<int>() > 0 ? json["mouse"]["position"]["x"].as<size_t>() : 0;
-				//	position.y = json["mouse"]["position"]["y"].as<int>() > 0 ? json["mouse"]["position"]["y"].as<size_t>() : 0;
-				}
+			if ( payload.mouse.state == -1 ) {
 				pod::Vector2f click; {
-					click.x = (float) position.x / (float) ext::gui::size.current.x;
-					click.y = (float) position.y / (float) ext::gui::size.current.y;
+					click.x = (float) payload.mouse.position.x / (float) ext::gui::size.current.x;
+					click.y = (float) payload.mouse.position.y / (float) ext::gui::size.current.y;
 
 					click.x = (click.x * 2.0f) - 1.0f;
 					click.y = (click.y * 2.0f) - 1.0f;
@@ -487,13 +482,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					float x = click.x;
 					float y = click.y;
 
-
-					if (json["invoker"] == "vr" ) {
-						pod::Vector3f xy = uf::vector::decode( json["mouse"]["position"], pod::Vector2i{} );
-						x = xy.x;
-						y = xy.y;
-					//	x = json["mouse"]["position"]["x"].as<float>();
-					//	y = json["mouse"]["position"]["y"].as<float>();
+					if (payload.invoker == "vr" ) {
+						x = payload.mouse.position.x;
+						y = payload.mouse.position.y;
 					}
 					clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
 				}
@@ -501,8 +492,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			metadata.clicked = clicked;
 			metadataJson["clicked"] = clicked;
-			if ( clicked ) this->callHook("gui:Clicked.%UID%", json);
-			this->callHook("gui:Mouse.Clicked.%UID%", json);
+			if ( clicked ) this->callHook("gui:Clicked.%UID%", payload);
+			this->callHook("gui:Mouse.Clicked.%UID%", payload);
 		} );
 	}
 	if ( metadataJson["system"]["hoverable"].as<bool>() ) {
@@ -529,7 +520,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			}
 			return;
 		});
-		this->addHook( "window:Mouse.Moved", [&](ext::json::Value& json){
+		this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 			if ( this->getUid() == 0 ) return;
 			if ( !this->hasComponent<uf::Mesh>() ) return;
 
@@ -537,11 +528,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			if ( !metadata.box.min && !metadata.box.max ) return;
 
 			bool clicked = false;
-			bool down = json["mouse"]["state"].as<uf::stl::string>() == "Down";
-			pod::Vector2ui position = uf::vector::decode( json["mouse"]["position"], pod::Vector2ui{} );
+			bool down = payload.mouse.state == -1;
 			pod::Vector2f click; {
-				click.x = (float) position.x / (float) ext::gui::size.current.x;
-				click.y = (float) position.y / (float) ext::gui::size.current.y;
+				click.x = (float) payload.mouse.position.x / (float) ext::gui::size.current.x;
+				click.y = (float) payload.mouse.position.y / (float) ext::gui::size.current.y;
 
 				click.x = (click.x * 2.0f) - 1.0f;
 				click.y = (click.y * 2.0f) - 1.0f;
@@ -551,13 +541,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				clicked = ( metadata.box.min.x <= x && metadata.box.min.y <= y && metadata.box.max.x >= x && metadata.box.max.y >= y );
 			}
 			metadata.hovered = clicked;
-			metadataJson["hovered"] = clicked;
 
 			if ( clicked && hoverTimer.elapsed().asDouble() >= 1 ) {
 				hoverTimer.reset();
-				this->callHook("gui:Hovered.%UID%", json);
+				this->callHook("gui:Hovered.%UID%", payload);
 			}
-			this->callHook("gui:Mouse.Moved.%UID%", json);
+			this->callHook("gui:Mouse.Moved.%UID%", payload);
 		} );
 	}
 #if UF_USE_FREETYPE

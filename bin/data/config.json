@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "SS2",
 			"meshes": { "interleave": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
@@ -72,9 +72,9 @@
 					"deferred alias output to swapchain": false,
 					"vsync": true,
 					"hdr": false,
-					"vxgi": true,
-					"deferred sampling": true,
-					"culling": true,
+					"vxgi": false,
+					"deferred sampling": false,
+					"culling": false,
 					"bloom": true
 				},
 				"formats": {
@@ -235,7 +235,8 @@
 		},
 		"cursor" :  {
 			"visible" : true,
-			"center" : false
+			"center" : false,
+			"sensitivity": [ 2, 2 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

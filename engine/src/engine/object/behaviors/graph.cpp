@@ -25,16 +25,14 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::animate( graph, name );
 	});
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
-		if ( category != "" && category != "models" ) return;
-		if ( category == "" && uf::io::extension(filename) != "gltf" && uf::io::extension(filename) != "glb" && uf::io::extension(filename) != "graph" ) return;
+	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
+		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::GRAPH ) ) return;
+
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
-		if ( !assetLoader.has<pod::Graph>(filename) ) return;
-		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(filename) ));
-		assetLoader.remove<pod::Graph>(filename);
+		if ( !assetLoader.has<pod::Graph>(payload.filename) ) return;
+		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(payload.filename) ));
+		assetLoader.remove<pod::Graph>(payload.filename);
 
 		bool shouldUpdate = false;
 

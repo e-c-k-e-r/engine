@@ -8,28 +8,36 @@ namespace binds {
 		uf::stl::string callback = "";
 		uf::stl::string uri = "";
 		uf::stl::string hash = "";
-		uf::stl::string category = "";
+		uf::stl::string mime = "";
 		if ( it != va.end() ) callback = *(it++);
 		if ( it != va.end() ) uri = *(it++);
 		if ( it != va.end() ) hash = *(it++);
-		if ( it != va.end() ) category = *(it++);
-		if ( callback == "" ) asset.load( uri, hash, category );
-		else asset.load( callback, uri, hash, category );
+		if ( it != va.end() ) mime = *(it++);
+
+		auto payload = uf::Asset::resolveToPayload( uri, mime );
+		payload.hash = hash;
+
+		if ( callback == "" ) asset.load( payload );
+		else asset.load( callback, payload );
 	}
 	void cache( uf::Asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();
 		uf::stl::string callback = "";
 		uf::stl::string uri = "";
 		uf::stl::string hash = "";
-		uf::stl::string category = "";
+		uf::stl::string mime = "";
 		if ( it != va.end() ) callback = *(it++);
 		if ( it != va.end() ) uri = *(it++);
 		if ( it != va.end() ) hash = *(it++);
-		if ( it != va.end() ) category = *(it++);
+		if ( it != va.end() ) mime = *(it++);
+
+		auto payload = uf::Asset::resolveToPayload( uri, mime );
+		payload.hash = hash;
+
 		if ( callback == "" )
-			asset.cache( uri, hash, category );
+			asset.cache( payload );
 		else
-			asset.cache( callback, uri, hash, category );
+			asset.cache( callback, payload );
 	}
 	uf::stl::string getOriginal( uf::Asset& asset, const uf::stl::string& n ) {
 		return asset.getOriginal( n );

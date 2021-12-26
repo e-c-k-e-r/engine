@@ -39,8 +39,33 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
 );
 
-namespace {
-	void initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
+pod::Matrix4f uf::graph::local( pod::Graph& graph, int32_t index ) {
+	auto& node = 0 < index && index <= graph.nodes.size() ? graph.nodes[index] : graph.root;
+	return
+		uf::matrix::translate( uf::matrix::identity(), node.transform.position ) *
+		uf::quaternion::matrix(node.transform.orientation) *
+		uf::matrix::scale( uf::matrix::identity(), node.transform.scale ) *
+		node.transform.model;
+}
+pod::Matrix4f uf::graph::matrix( pod::Graph& graph, int32_t index ) {
+	pod::Matrix4f matrix = local( graph, index );
+	auto& node = *uf::graph::find( graph, index );
+	int32_t parent = node.parent;
+	while ( 0 < parent && parent <= graph.nodes.size() ) {
+		matrix = local( graph, parent ) * matrix;
+		parent = graph.nodes[parent].parent;
+	}
+	return matrix;
+}
+pod::Node* uf::graph::find( pod::Graph& graph, int32_t index ) {
+	return 0 <= index && index < graph.nodes.size() ? &graph.nodes[index] : NULL;
+}
+pod::Node* uf::graph::find( pod::Graph& graph, const uf::stl::string& name ) {
+	for ( auto& node : graph.nodes ) if ( node.name == name ) return &node;
+	return NULL;
+}
+
+void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -52,15 +77,11 @@ namespace {
 		graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
 		graphic.descriptor.cullMode = !(graph.metadata["flags"]["INVERT"].as<bool>()) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
 		if ( graph.metadata["cull mode"].is<uf::stl::string>() ) {
-			if ( graph.metadata["cull mode"].as<uf::stl::string>() == "back" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "front" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "none" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
-			} else if ( graph.metadata["cull mode"].as<uf::stl::string>() == "both" ) {
-				graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
-			}
+			const auto mode = graph.metadata["cull mode"].as<uf::stl::string>();
+			if ( mode == "back" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
+			else if ( mode == "front" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
+			else if ( mode == "none" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+			else if ( mode == "both" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
 		}
 		{
 			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
@@ -159,21 +180,22 @@ namespace {
 			uf::renderer::Buffer* indirect = NULL;
 			for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 			UF_ASSERT( indirect );
+			if ( indirect ) {
+				uf::stl::string compShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/cull.comp.spv");
+				{
+					graphic.material.metadata.autoInitializeUniforms = false;
+					compShaderFilename = entity.grabURI( compShaderFilename, root );
+					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "culling");
+					graphic.material.metadata.autoInitializeUniforms = true;
+				}
+				graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
 
-			uf::stl::string compShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/cull.comp.spv");
-			{
-				graphic.material.metadata.autoInitializeUniforms = false;
-				compShaderFilename = entity.grabURI( compShaderFilename, root );
-				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "culling");
-				graphic.material.metadata.autoInitializeUniforms = true;
+				auto& shader = graphic.material.getShader("compute", "culling");
+
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+				shader.buffers.emplace_back().aliasBuffer( *indirect );
+				shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
 			}
-			graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
-
-			auto& shader = graphic.material.getShader("compute", "culling");
-
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
-			shader.buffers.emplace_back().aliasBuffer( *indirect );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
 		}
 		if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
 			geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
@@ -318,38 +340,7 @@ namespace {
 		uf::instantiator::bind( "GraphBehavior", entity );
 		uf::instantiator::unbind( "RenderBehavior", entity );
 	}
-}
 
-pod::Matrix4f uf::graph::local( pod::Graph& graph, int32_t index ) {
-	auto& node = 0 < index && index <= graph.nodes.size() ? graph.nodes[index] : graph.root;
-	return
-		uf::matrix::translate( uf::matrix::identity(), node.transform.position ) *
-		uf::quaternion::matrix(node.transform.orientation) *
-		uf::matrix::scale( uf::matrix::identity(), node.transform.scale ) *
-		node.transform.model;
-}
-pod::Matrix4f uf::graph::matrix( pod::Graph& graph, int32_t index ) {
-	pod::Matrix4f matrix = local( graph, index );
-	auto& node = *uf::graph::find( graph, index );
-	int32_t parent = node.parent;
-	while ( 0 < parent && parent <= graph.nodes.size() ) {
-		matrix = local( graph, parent ) * matrix;
-		parent = graph.nodes[parent].parent;
-	}
-	return matrix;
-}
-pod::Node* uf::graph::find( pod::Graph& graph, int32_t index ) {
-	return 0 <= index && index < graph.nodes.size() ? &graph.nodes[index] : NULL;
-}
-pod::Node* uf::graph::find( pod::Graph& graph, const uf::stl::string& name ) {
-	for ( auto& node : graph.nodes ) if ( node.name == name ) return &node;
-	return NULL;
-}
-
-void uf::graph::process( uf::Object& entity ) {
-	auto& graph = entity.getComponent<pod::Graph>();
-	for ( auto index : graph.root.children ) process( graph, index, entity );
-}
 void uf::graph::process( pod::Graph& graph ) {
 	// copy our local storage to global storage
 
@@ -478,7 +469,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			instance.lightmapID = it - keys.begin();
 		}
 	}
-	::newGraphAdded = true;
+	uf::graph::reload();
 
 	// setup combined mesh if requested
 	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
@@ -516,7 +507,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			graphic.initializeMesh( mesh );
 			graphic.process = true;
 
-			initializeGraphics( graph, *graph.root.entity );
+			uf::graph::initializeGraphics( graph, *graph.root.entity );
 		}
 	}
 }
@@ -684,7 +675,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			graphic.initializeMesh( mesh );
 			graphic.process = true;
 			
-			initializeGraphics( graph, entity );
+			uf::graph::initializeGraphics( graph, entity );
 		}
 		
 		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
@@ -977,4 +968,7 @@ void uf::graph::destroy() {
 	for ( auto pair : uf::graph::storage.atlases.map ) pair.second.clear();
 	for ( auto pair : uf::graph::storage.images.map ) pair.second.clear();
 	for ( auto pair : uf::graph::storage.meshes.map ) pair.second.destroy();
+}
+void uf::graph::reload() {
+	::newGraphAdded = true;
 }

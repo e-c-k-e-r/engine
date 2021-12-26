@@ -2,10 +2,10 @@
 #include <iostream>
 
 uf::Timer<> uf::physics::time::timer;
-uf::physics::num_t uf::physics::time::current;
-uf::physics::num_t uf::physics::time::previous;
-uf::physics::num_t uf::physics::time::delta;
-uf::physics::num_t uf::physics::time::clamp;
+double uf::physics::time::current = 0;
+double uf::physics::time::previous = 0;
+float uf::physics::time::delta = 0;
+float uf::physics::time::clamp = 0;
 
 
 void UF_API uf::physics::initialize() {
@@ -14,6 +14,7 @@ void UF_API uf::physics::initialize() {
 void UF_API uf::physics::tick() {
 	uf::physics::time::previous = uf::physics::time::current;
 	uf::physics::time::current = uf::physics::time::timer.elapsed();
+	
 	uf::physics::time::delta = uf::physics::time::current - uf::physics::time::previous;
 	if ( uf::physics::time::delta > uf::physics::time::clamp ) {
 		uf::physics::time::delta = uf::physics::time::clamp;

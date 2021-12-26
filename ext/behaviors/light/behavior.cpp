@@ -36,7 +36,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 
 	if ( !sceneMetadata["system"]["lights"]["round robin hook bound"].as<bool>() ) {
 		sceneMetadata["system"]["lights"]["round robin hook bound"] = true;
-		scene.addHook("game:Frame.Start", [&]( const ext::json::Value& payload ){
+		scene.addHook("game:Frame.Start", [&]( ext::json::Value& payload ){
 			if ( ++::roundRobin.current >= ::roundRobin.lights.size() ) ::roundRobin.current = 0;
 		});
 	}

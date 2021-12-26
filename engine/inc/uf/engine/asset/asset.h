@@ -12,14 +12,37 @@ namespace uf {
 	protected:
 		static uf::Asset masterAssetLoader;
 	public:
+		enum Type {
+			UNKNOWN,
+			IMAGE,
+			AUDIO,
+			LUA,
+			JSON,
+			GRAPH,
+		};
+
+		struct Payload {
+			uf::Asset::Type type = {};
+			uf::stl::string filename = "";
+			uf::stl::string mime = "";
+			uf::stl::string hash = "";
+
+			bool initialize = true;
+			bool monoThreaded = false;
+			size_t uid = 0;
+		};
+
+		static uf::Asset::Payload resolveToPayload( const uf::stl::string&, const uf::stl::string& = "" );
+		static bool isExpected( const uf::Asset::Payload&, uf::Asset::Type expected );
+
 		// URL or file path
 		void processQueue();
 
-		void cache( const uf::stl::string&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
-		void load( const uf::stl::string&, const uf::stl::string&, const uf::stl::string&, const uf::stl::string& );
+		void cache( const uf::stl::string&, const uf::Asset::Payload& );
+		void load( const uf::stl::string&, const uf::Asset::Payload& );
 
-		uf::stl::string cache( const uf::stl::string&, const uf::stl::string& = "", const uf::stl::string& = "" );
-		uf::stl::string load( const uf::stl::string&, const uf::stl::string& = "", const uf::stl::string& = "" );
+		uf::stl::string cache( const uf::Asset::Payload& );
+		uf::stl::string load( const uf::Asset::Payload& );
 
 		uf::stl::string getOriginal( const uf::stl::string& );
 
@@ -37,7 +60,7 @@ namespace uf {
 		bool has( const uf::stl::string& url ) {
 			auto& container = this->getContainer<T>();
 			if ( container.empty() ) return false;
-			uf::stl::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url, -1 );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			if ( ext::json::isNull( map[extension] ) ) return false;
 			if ( ext::json::isNull( map[extension][url] ) ) return false;
@@ -51,7 +74,7 @@ namespace uf {
 		}
 		template<typename T>
 		T& get( const uf::stl::string& url ) {
-			uf::stl::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url, -1 );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			size_t index = map[extension][url]["index"].as<size_t>(0);
 			return this->get<T>(index);
@@ -59,7 +82,7 @@ namespace uf {
 
 		template<typename T>
 		T& add( const uf::stl::string& url, const T& copy ) {
-			uf::stl::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url, -1 );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
@@ -69,7 +92,7 @@ namespace uf {
 		}
 		template<typename T>
 		T& add( const uf::stl::string& url, T&& move ) {
-			uf::stl::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url, -1 );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			auto& container = this->getContainer<T>();
 
@@ -84,7 +107,7 @@ namespace uf {
 			if ( !this->has<T>( url ) ) return;
 			auto& container = this->getContainer<T>();
 
-			uf::stl::string extension = uf::io::extension( url );
+			uf::stl::string extension = uf::io::extension( url, -1 );
 			uf::Serializer& map = this->getComponent<uf::Serializer>();
 			std::size_t index = map[extension][url]["index"].as<size_t>();
 		//	container.erase( container.begin() + index );
@@ -101,4 +124,10 @@ namespace uf {
 			return;
 		}
 	};
+}
+
+namespace pod {
+	namespace payloads {
+		typedef uf::Asset::Payload assetLoad;
+	}
 }

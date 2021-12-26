@@ -2,8 +2,7 @@
 
 #include <uf/config.h>
 
-#include <uf/utils/memory/string.h>
-#include <uf/utils/math/vector.h>
+#include <uf/utils/hook/payloads.h>
 
 namespace pod {
 	namespace payloads {
@@ -44,16 +43,16 @@ namespace pod {
 		};
 		struct windowMouseWheel : public windowEvent {
 			struct {
-				pod::Vector2ui 	position{};
-				float			delta = 0;
+				pod::Vector2ui 		position{};
+				float				delta = 0;
 			} mouse;
 		};
 		struct windowMouseClick : public windowEvent {
 			struct {
-				pod::Vector2i 	position = {};
-				pod::Vector2i 	delta = {};
+				pod::Vector2i 		position = {};
+				pod::Vector2i 		delta = {};
 				uf::stl::string 	button = "";
-				int_fast8_t 	state = 0;
+				int_fast8_t 		state = 0;
 			} mouse;
 		};
 		struct windowMouseMoved : public windowResized {
@@ -61,6 +60,12 @@ namespace pod {
 				pod::Vector2i position{};
 				pod::Vector2i delta{};
 				int_fast8_t state{};
+			} mouse;
+		};
+
+		struct windowMouseCursorVisibility : public windowEvent {
+			struct {
+				bool visible;
 			} mouse;
 		};
 	}

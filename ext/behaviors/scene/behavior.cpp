@@ -22,6 +22,7 @@
 #include <uf/ext/gltf/gltf.h>
 
 #include <uf/utils/math/collision.h>
+#include <uf/utils/window/payloads.h>
 
 #include <uf/ext/ext.h>
 
@@ -38,25 +39,20 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	this->addHook( "system:Quit.%UID%", [&](ext::json::Value& json){
-		UF_MSG_DEBUG(json);
+	this->addHook( "system:Quit.%UID%", [&](ext::json::Value& payload){
 		ext::ready = false;
 	});
 
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
+	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
+		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::AUDIO ) ) return;
 
-		if ( category != "" && (category != "audio" && category != "audio-stream") ) return;
-		if ( category == "" && uf::io::extension(filename) != "ogg" ) return;
-
-		if ( !assetLoader.has<uf::Audio>(filename) ) return;
-		auto& asset = assetLoader.get<uf::Audio>(filename);
+		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
+		auto& asset = assetLoader.get<uf::Audio>(payload.filename);
 		auto& audio = this->getComponent<uf::Audio>();
 
 		audio.destroy();
 		audio = std::move(asset);
-		assetLoader.remove<uf::Audio>(filename);
+		assetLoader.remove<uf::Audio>(payload.filename);
 
 	#if UF_AUDIO_MAPPED_VOLUMES
 		audio.setVolume(uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0);
@@ -67,26 +63,35 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		audio.play();
 	});
 
-	this->addHook( "menu:Pause", [&](ext::json::Value& json){
+	this->addHook( "menu:Open", [&](pod::payloads::menuOpen& payload){
+		TIMER(1, true && ) {
+			uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
+			if ( !manager ) return;
+
+			uf::stl::string key = payload.name;
+			uf::Object& gui = manager->loadChild(metadataJson["menus"][key].as<uf::stl::string>("/entites/gui/"+key+"/menu.json"), false);
+			uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
+			gui.initialize();
+		};
+	/*
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start( uf::Time<>(-1000000) );
 		if ( timer.elapsed().asDouble() < 1 ) return;
 		timer.reset();
 		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !manager ) return;
+
 		uf::Serializer payload;
 		uf::stl::string config = metadataJson["menus"]["pause"].as<uf::stl::string>("/entites/gui/pause/menu.json");
 		uf::Object& gui = manager->loadChild(config, false);
 		payload["uid"] = gui.getUid();
 		uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
-		metadataJson["menu"] = json["menu"];
+		metadataJson["menu"] = payload.menu;
 		gui.initialize();
+	*/
 	});
-	this->addHook( "world:Entity.LoadAsset", [&](ext::json::Value& json){
-		uf::stl::string asset = json["asset"].as<uf::stl::string>();
-		uf::stl::string uid = json["uid"].as<uf::stl::string>();
-
-		assetLoader.load(asset, "asset:Load." + uid);
+	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){
+		assetLoader.load("asset:Load." + payload.uid, payload);
 	});
 	this->addHook( "shader:Update.%UID%", [&](ext::json::Value& json){
 		metadata.shader.mode = json["mode"].as<uint32_t>();
@@ -100,16 +105,13 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		}
 	});
 	/* store viewport size */	
-	this->addHook( "window:Resized", [&](ext::json::Value& json){
-		pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2i{} );
-
-		metadataJson["system"]["window"] = json["system"]["window"];
-		ext::gui::size.current = size;
+	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
+		ext::gui::size.current = payload.window.size;
 	});
 	// lock control
 	{
-		uf::Serializer payload;
-		payload["state"] = false;
+		pod::payloads::windowMouseCursorVisibility payload;
+		payload.mouse.visible = false;
 		uf::hooks.call("window:Mouse.CursorVisibility", payload);
 		uf::hooks.call("window:Mouse.Lock");
 	}
@@ -301,16 +303,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 #if !UF_ENV_DREAMCAST
 	/* Regain control if nothing requests it */ {
-		if ( !this->globalFindByName("Gui: Menu") ) {
-			uf::Serializer payload;
-			payload["state"] = false;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-			uf::hooks.call("window:Mouse.Lock");
-		} else {
-			uf::Serializer payload;
-			payload["state"] = true;
-			uf::hooks.call("window:Mouse.CursorVisibility", payload);
-		}
+		pod::payloads::windowMouseCursorVisibility payload;
+		payload.mouse.visible = this->globalFindByName("Gui: Menu");
+		if ( !payload.mouse.visible ) uf::hooks.call("window:Mouse.Lock");
+		uf::hooks.call("window:Mouse.CursorVisibility", payload);
 	}
 #endif
 #if UF_ENTITY_METADATA_USE_JSON

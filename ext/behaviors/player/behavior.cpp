@@ -29,6 +29,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	
 	auto& camera = this->getComponent<uf::Camera>();
 	auto& cameraTransform = camera.getTransform();
+	
+	auto& scene = uf::scene::getCurrentScene();
 	{
 		camera.setStereoscopic(true);
 				
@@ -36,27 +38,29 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		cameraTransform.scale = uf::vector::decode( metadataJson["camera"]["scale"], cameraTransform.scale );
 		cameraTransform.reference = &transform;
 
+		auto& cameraSettingsJson = metadataJson["camera"]["settings"];
+
 		if ( metadataJson["camera"]["ortho"].as<bool>() ) {
-			float l = metadataJson["camera"]["settings"]["left"].as<float>();
-			float r = metadataJson["camera"]["settings"]["right"].as<float>();
-			float b = metadataJson["camera"]["settings"]["bottom"].as<float>();
-			float t = metadataJson["camera"]["settings"]["top"].as<float>();
-			float n = metadataJson["camera"]["settings"]["near"].as<float>();
-			float f = metadataJson["camera"]["settings"]["far"].as<float>();
+			float l = cameraSettingsJson["left"].as<float>();
+			float r = cameraSettingsJson["right"].as<float>();
+			float b = cameraSettingsJson["bottom"].as<float>();
+			float t = cameraSettingsJson["top"].as<float>();
+			float n = cameraSettingsJson["near"].as<float>();
+			float f = cameraSettingsJson["far"].as<float>();
 			
 			camera.setProjection( uf::matrix::orthographic( l, r, b, t, n, f ) );
 		} else {
-			float fov = metadataJson["camera"]["settings"]["fov"].as<float>(120) * (3.14159265358f / 180.0f);
-			pod::Vector2f range = uf::vector::decode( metadataJson["camera"]["settings"]["clip"], pod::Vector2f{ 0.1, 64.0f } );
-			pod::Vector2ui size = uf::vector::decode( metadataJson["camera"]["settings"]["size"], pod::Vector2ui{} );
+			float fov = cameraSettingsJson["fov"].as<float>(120) * (3.14159265358f / 180.0f);
+			pod::Vector2f range = uf::vector::decode( cameraSettingsJson["clip"], pod::Vector2f{ 0.1, 64.0f } );
+			pod::Vector2ui size = uf::vector::decode( cameraSettingsJson["size"], pod::Vector2ui{} );
 			float raidou = (float) size.x / (float) size.y;
 
 			if ( size.x == 0 || size.y == 0 )  {
 				size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 				raidou = (float) size.x / (float) size.y;
-				this->addHook( "window:Resized", [&, fov, range](ext::json::Value& json){
-					pod::Vector2ui size = uf::vector::decode( json["window"]["size"], pod::Vector2ui{} );
-					float raidou = (float) size.x / (float) size.y;
+
+				this->addHook( "window:Resized", [&, fov, range](pod::payloads::windowResized& payload){
+					float raidou = (float) payload.window.size.x / (float) payload.window.size.y;
 					camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 				} );
 			}
@@ -64,15 +68,17 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		}
 		camera.update(true);
 	}
-	metadataJson["system"]["control"] = true;
-	this->addHook( "window:Mouse.CursorVisibility", [&](ext::json::Value& json){
-		metadata.system.control = !json["state"].as<bool>();
+	
+	// sloppy
+	metadata.mouse.sensitivity = uf::vector::decode( ext::config["window"]["cursor"]["sensitivity"], metadata.mouse.sensitivity );
+
+	this->addHook( "window:Mouse.CursorVisibility", [&](pod::payloads::windowMouseCursorVisibility& payload){
+		metadata.system.control = !payload.mouse.visible;
 	});
 
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
-		float sensitivity = metadata.movement.look;
-		pod::Vector2 relta = { (float) sensitivity * payload.mouse.delta.x / payload.window.size.x, (float) sensitivity * payload.mouse.delta.y / payload.window.size.y };
+		pod::Vector2 relta = { (float) metadata.mouse.sensitivity.x * payload.mouse.delta.x / payload.window.size.x, (float) metadata.mouse.sensitivity.y * payload.mouse.delta.y / payload.window.size.y };
 		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
 
 		if ( payload.mouse.delta.x != 0 ) {
@@ -273,8 +279,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( stats.menu == "" && keys.paused ) {
 		stats.menu = "paused";
 		metadata.system.control = false;
-		uf::Serializer payload;
-		uf::hooks.call("menu:Pause", payload);
+		pod::payloads::menuOpen payload;
+		payload.name = "pause";
+		uf::hooks.call("menu:Open", payload);
 	}
 	else if ( !metadata.system.control ) {
 		stats.menu = "menu";
@@ -489,7 +496,7 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerSystemPhysicsMovement["air"] = /*this->*/movement.air;
 	serializerSystemPhysicsMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
 	serializerSystemPhysicsMovement["crouch"] = /*this->*/movement.crouch;
-	serializerSystemPhysicsMovement["look"] = /*this->*/movement.look;
+//	serializerSystemPhysicsMovement["look"] = /*this->*/movement.look;
 	serializerAudioFootstep["list"] = /*this->*/audio.footstep.list;
 	serializerAudioFootstep["volume"] = /*this->*/audio.footstep.volume;
 	serializerCamera["invert"] = uf::vector::encode(/*this->*/camera.invert);
@@ -517,7 +524,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/movement.air = serializerSystemPhysicsMovement["air"].as<float>();
 	/*this->*/movement.jump = uf::vector::decode(serializerSystemPhysicsMovement["jump"], pod::Vector3f{});
 	/*this->*/movement.crouch = serializerSystemPhysicsMovement["crouch"].as<float>();
-	/*this->*/movement.look = serializerSystemPhysicsMovement["look"].as<float>(1.0f);
+//	/*this->*/movement.look = serializerSystemPhysicsMovement["look"].as<float>(1.0f);
 	ext::json::forEach( serializerAudioFootstep["list"], [&]( const ext::json::Value& value ){
 		/*this->*/audio.footstep.list.emplace_back(value);
 	});

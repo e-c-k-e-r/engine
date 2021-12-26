@@ -20,13 +20,13 @@ UF_OBJECT_REGISTER_BEGIN(uf::Object)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 UF_OBJECT_REGISTER_END()
 uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
-void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, double timeout ) {
+void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& json, float timeout ) {
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 	double start = uf::Object::timer.elapsed().asDouble();
 #if UF_ENTITY_METADATA_USE_JSON
 	uf::Serializer queue;
 	queue["name"] = name;
-	queue["payload"] = payload;
+	queue["payload"] = json;
 	queue["timeout"] = start + timeout;
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	metadata["system"]["hooks"]["queue"].emplace_back(queue);
@@ -34,7 +34,7 @@ void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value&
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
-		.payload = payload,
+		.json = json,
 		.timeout = start + timeout,
 	});
 #endif
@@ -78,6 +78,9 @@ uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const ext
 }
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const uf::Serializer& serializer ) {
 	return uf::hooks.call( this->formatHookName( name ), (const ext::json::Value&) serializer );
+}
+uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
+	return uf::hooks.call( this->formatHookName( name ), payload );
 }
 bool uf::Object::load( const uf::stl::string& f, bool inheritRoot ) {
 	uf::Serializer json;
@@ -214,66 +217,47 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	}
 
 	#define UF_OBJECT_LOAD_ASSET_HEADER(type)\
-		uf::stl::string assetCategory = #type;\
+		uf::Asset::Type assetType = uf::Asset::Type::type;\
+		uf::stl::string assetTypeString = uf::string::lowercase( #type );\
 		uf::Serializer target;\
 		bool override = false;\
 		if ( ext::json::isObject( metadata["system"]["assets"] ) ) {\
 			target = metadata["system"]["assets"];\
 		} else if ( ext::json::isArray( json["assets"] ) ) {\
 			target = json["assets"];\
-		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][#type] )  ) {\
-			target = json["assets"][#type];\
+		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][assetTypeString] )  ) {\
+			target = json["assets"][assetTypeString];\
 		}
 
 	uf::stl::vector<ext::json::Value> rejects;
-	#define UF_OBJECT_LOAD_ASSET(...)\
+	#define UF_OBJECT_LOAD_ASSET()\
 		bool isObject = ext::json::isObject( target[i] );\
-		uf::stl::string canonical = "";\
-		uf::stl::string hash = isObject ? target[i]["hash"].as<uf::stl::string>() : "";\
 		uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();\
-		float delay = isObject ? target[i]["delay"].as<float>() : 0;\
-		uf::stl::string category = isObject ? target[i]["category"].as<uf::stl::string>() : "";\
-		bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
 		uf::stl::string filename = uf::io::resolveURI( f, json["root"].as<uf::stl::string>() );\
-		bool singleThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;\
-		bool overriden = isObject ? target[i]["override"].as<bool>() : false;\
-		uf::stl::vector<uf::stl::string> allowedExtensions = {__VA_ARGS__};\
-		uf::stl::string extension = uf::io::extension(filename);\
-		if ( override && overriden ) {\
-			if ( category == "" ) continue;\
-		} else {\
-			if ( category != "" && category != assetCategory ) continue;\
-			if ( category == "" && std::find( allowedExtensions.begin(), allowedExtensions.end(), extension ) == allowedExtensions.end() ) continue;\
-		}\
-		uf::Serializer payload;\
-		if ( isObject ) payload = target[i];\
-		payload["filename"] = filename;\
-		if ( hash != "" ) payload["hash"] = hash;\
-		payload["category"] = assetCategory != "" ? assetCategory : category;\
-		payload["single threaded"] = singleThreaded;\
-		this->queueHook( "asset:QueueLoad.%UID%", payload, delay );\
+		uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";\
+		uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );\
+		if ( !uf::Asset::isExpected( payload, assetType ) ) continue;\
+		payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";\
+		payload.monoThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;\
+		this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );\
+		bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
 
-	// Audio
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(audio)
+		UF_OBJECT_LOAD_ASSET_HEADER(AUDIO)
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET("ogg")
+			UF_OBJECT_LOAD_ASSET()
 		}
 	}
-
-	// Images
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(images)
+		UF_OBJECT_LOAD_ASSET_HEADER(IMAGE)
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET("png", "jpg", "jpeg")
+			UF_OBJECT_LOAD_ASSET()
 		}
 	}
-
-	// GLTf models
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(models)
+		UF_OBJECT_LOAD_ASSET_HEADER(GRAPH)
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET("gltf", "glb", "graph")
+			UF_OBJECT_LOAD_ASSET()
 			if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
 			
 			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
@@ -281,14 +265,14 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			aMetadata[filename]["root"] = json["root"];
 		}
 	}
-	// Lua scripts
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(scripts)
+		UF_OBJECT_LOAD_ASSET_HEADER(LUA)
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET("lua")
+			UF_OBJECT_LOAD_ASSET()
 			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 		}
 	}
+/*
 	// Override
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER()
@@ -297,6 +281,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			UF_OBJECT_LOAD_ASSET()
 		}
 	}
+*/
+
 	// Bind behaviors
 	{
 		if ( json["type"].is<uf::stl::string>() ) uf::instantiator::bind( json["type"].as<uf::stl::string>(), *this );
@@ -329,22 +315,22 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 
 	// check for children
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(entities)
+		UF_OBJECT_LOAD_ASSET_HEADER(JSON)
 		for ( size_t i = 0; i < target.size(); ++i ) {
-			uf::stl::string canonical = "";
-			uf::stl::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<uf::stl::string>() : "";
 			uf::stl::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
-			float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : -1;
-			uf::stl::string category = ext::json::isObject( target[i] ) ? target[i]["category"].as<uf::stl::string>() : "";\
 			uf::stl::string filename = uf::io::resolveURI( f, json["root"].as<uf::stl::string>() );
-			if ( category != "" && category != assetCategory ) continue;
-			if ( category == "" && uf::io::extension(filename) != "json" ) continue;
-			if ( (canonical = assetLoader.load( filename, hash )) == "" ) continue;
+			uf::stl::string mime = ext::json::isObject( target[i] ) ? target[i]["mime"].as<uf::stl::string>() : "";
+			uf::stl::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<uf::stl::string>() : "";
+			
+			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
+			if ( !uf::Asset::isExpected( payload, uf::Asset::Type::JSON ) ) continue;
+			if ( (filename = assetLoader.load( payload )) == "" ) continue;
+			
+			float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : -1;
 			if ( delay > -1 ) {
-				uf::Serializer payload;
-				payload["filename"] = canonical;
-				if ( hash != "" ) payload["hash"] = hash;
-				payload["category"] = assetCategory;
+				payload.filename = filename;
+				payload.hash = hash;
+				payload.mime = mime;
 				this->queueHook( "asset:Load.%UID%", payload, delay );
 				continue;
 			}
@@ -357,10 +343,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			#if UF_ENTITY_METADATA_USE_JSON
 				json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
 			#else
-				{
-					auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-					metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
-				}
+				auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+				metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
 			#endif
 
 				if ( this->loadChildUid(json) == -1 ) continue;

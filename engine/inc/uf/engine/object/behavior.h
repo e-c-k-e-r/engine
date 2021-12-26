@@ -8,6 +8,7 @@
 #include <uf/utils/memory/string.h>
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/memory/unordered_map.h>
+#include <uf/utils/hook/hook.h>
 
 namespace uf {
 	namespace ObjectBehavior {
@@ -17,8 +18,10 @@ namespace uf {
 		UF_BEHAVIOR_DEFINE_METADATA(
 			struct Queued {
 				uf::stl::string name;
-				ext::json::Value payload;
-				double timeout;
+				pod::Hook::userdata_t userdata;
+				ext::json::Value json;
+				double timeout = 0;
+				int_fast8_t type = 0;
 			};
 			struct {
 				size_t mtime = 0;

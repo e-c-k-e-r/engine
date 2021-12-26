@@ -26,7 +26,6 @@ namespace ext {
 				float walk = 1.0f;
 				float friction = 0.8f;
 				float air = 1.0f;
-				float look = 1.0f;
 				pod::Vector3f jump = {0,8,0};
 			} movement;
 			struct {
@@ -37,6 +36,9 @@ namespace ext {
 				} limit;
 				pod::Vector3t<bool> invert;
 			} camera;
+			struct {
+				pod::Vector2f sensitivity;
+			} mouse;
 			struct {
 				struct {
 					uf::stl::vector<uf::stl::string> list;

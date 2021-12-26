@@ -66,11 +66,11 @@ void client::initialize() {
 	}
 	
 	/* Initialize hooks */ {
-		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( ext::json::Value& json ){
-			client::window.setCursorVisible(json["state"].as<bool>());
-			client::window.setMouseGrabbed(!json["state"].as<bool>());
-			client::config["mouse"]["visible"] = json["state"].as<bool>();
-			client::config["window"]["mouse"]["center"] = !json["state"].as<bool>();
+		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( pod::payloads::windowMouseCursorVisibility& payload ){
+			client::window.setCursorVisible(payload.mouse.visible);
+			client::window.setMouseGrabbed(!payload.mouse.visible);
+			client::config["mouse"]["visible"] = payload.mouse.visible;
+			client::config["window"]["mouse"]["center"] = !payload.mouse.visible;
 		});
 		uf::hooks.addHook( "window:Mouse.Lock", [&]( ext::json::Value& json ){
 			if ( client::window.hasFocus() ) {
@@ -92,16 +92,15 @@ void client::initialize() {
 				client::window.setTitle(title);
 			}
 		} );
-		uf::hooks.addHook( "window:Resized", [&]( ext::json::Value& json ){
-			pod::Vector2i size = uf::vector::decode( json["window"]["size"], pod::Vector2i{} );
-			if ( size.x == uf::renderer::settings::width && size.y == uf::renderer::settings::height ) return;
+		uf::hooks.addHook( "window:Resized", [&]( pod::payloads::windowResized& payload ){
+			if ( payload.window.size.x == uf::renderer::settings::width && payload.window.size.y == uf::renderer::settings::height ) return;
 			
-			if ( json["invoker"] != "os" ) client::window.setSize(size);
+			if ( payload.invoker != "os" ) client::window.setSize(payload.window.size);
 			// Update viewport
 			if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
 				float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<double>() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>() : 1;
-				uf::renderer::settings::width = size.x * scale;
-				uf::renderer::settings::height = size.y * scale;
+				uf::renderer::settings::width = payload.window.size.x * scale;
+				uf::renderer::settings::height = payload.window.size.y * scale;
 			}
 			uf::renderer::states::resized = true;
 		} );

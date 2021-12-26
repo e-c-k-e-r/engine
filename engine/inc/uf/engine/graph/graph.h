@@ -126,10 +126,12 @@ namespace uf {
 		pod::Matrix4f UF_API local( pod::Graph&, int32_t );
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
 
-		void UF_API process( uf::Object& entity );
+	//	void UF_API process( uf::Object& entity );
+		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity );
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 		void UF_API cleanup( pod::Graph& graph );
+		void UF_API reload( pod::Graph& );
 		void UF_API initialize( pod::Graph& graph );
 
 		void UF_API override( pod::Graph& );
@@ -146,10 +148,12 @@ namespace uf {
 		void UF_API destroy();
 
 		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
+		pod::Graph& UF_API convert( uf::Object&, bool = false );
 		void UF_API save( const pod::Graph&, const uf::stl::string& );
 
 		uf::stl::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );
+		void UF_API reload();
 	}
 }
 

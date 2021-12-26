@@ -3,7 +3,8 @@
 	"assets": [
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" },
+		{ "filename": "./craeture.json", "delay": 1 }
 
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }

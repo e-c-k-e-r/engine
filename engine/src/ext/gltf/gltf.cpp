@@ -289,33 +289,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 							}
 						}
 
-					#if 0
-						switch ( accessor.componentType ) {
-							case TINYGLTF_COMPONENT_TYPE_BYTE:
-							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
-								attribute.stride = sizeof(uint8_t);
-							} break;
-							case TINYGLTF_COMPONENT_TYPE_SHORT:
-							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
-								attribute.stride = sizeof(uint16_t);
-							} break;
-							case TINYGLTF_COMPONENT_TYPE_INT:
-							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
-								attribute.stride = sizeof(uint32_t);
-							} break;
-							case TINYGLTF_COMPONENT_TYPE_FLOAT: {
-								attribute.stride = sizeof(float);
-							} break;
-							case TINYGLTF_COMPONENT_TYPE_DOUBLE: {
-								attribute.stride = sizeof(double);
-							} break;
-							default: UF_MSG_ERROR("Unsupported component type");
-						}
-
-						attribute.buffer = &(model.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]);
-						attribute.components = accessor.ByteStride(view) / attribute.stride;
-						attribute.length = accessor.count * attribute.components;
-					#else
 						switch ( accessor.componentType ) {
 							case TINYGLTF_COMPONENT_TYPE_BYTE:
 							case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE: {
@@ -346,7 +319,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 							} break;
 							default: UF_MSG_ERROR("Unsupported component type");
 						}
-					#endif
 					}
 
 					for ( size_t i = 0; i < vertices.size(); ++i ) {

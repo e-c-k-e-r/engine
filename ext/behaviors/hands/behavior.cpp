@@ -52,8 +52,8 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 			if ( !ext::openvr::requestRenderModel(metadata["hands"][key]["controller"]["model"].as<uf::stl::string>()) ) loaded = false;
 		}
 		if ( !loaded ) {
-			this->addHook( "VR:Model.Loaded", [&](ext::json::Value& json){
-				uf::stl::string name = json["name"].as<uf::stl::string>();
+			this->addHook( "VR:Model.Loaded", [&](pod::payloads::assetLoad& payload){
+				uf::stl::string name = payload.filename; // json["name"].as<uf::stl::string>();
 				uf::stl::string side = "";
 				if ( name == metadata["hands"]["left"]["controller"]["model"].as<uf::stl::string>() ) {
 					side = "left";
@@ -157,38 +157,33 @@ void ext::PlayerHandBehavior::initialize( uf::Object& self ) {
 		uf::stl::vector<uf::Object*> vHands = { ::hands.left, ::hands.right };
 		for ( auto pointer : vHands ) {
 			auto& hand = *pointer;
-			hand.addHook("VR:Input.Digital", [&](ext::json::Value& json){
-				uf::stl::string side = &hand == hands.left ? "left" : "right";
-				if ( json["hand"].as<uf::stl::string>() != side ) return;
+			hand.addHook("VR:Input.Digital", [&]( pod::payloads::vrInputDigital& payload){
+				int_fast8_t side = &hand == hands.left ? -1 : 1;
+				if ( payload.side != side ) return;
 
 				// fire mouse click
-				if ( json["name"].as<uf::stl::string>() == "click" ) {
+				if ( payload.name == "click" ) {
+					pod::payloads::windowMouseClick pload;
+					pload.type = "window:Mouse.Click";
+					pload.invoker = "vr";
+					pload.mouse.position = uf::vector::encode( metadata["hands"][side]["cursor"]["position"], pload.mouse.position );
+					pload.mouse.delta = {};
+					pload.mouse.button = side == -1 ? "Right" : "Left";
+					pload.mouse.state = payload.state;
 
-					uf::Serializer payload;
-					payload["type"] = "window:Mouse.Click";
-					payload["invoker"] = "vr";
-				//	payload["mouse"]["position"]["x"]	= metadata["hands"][side]["cursor"]["position"][0].as<float>();
-				//	payload["mouse"]["position"]["y"]	= metadata["hands"][side]["cursor"]["position"][1].as<float>();
-				//	payload["mouse"]["delta"]["x"] 		= 0;
-				//	payload["mouse"]["delta"]["y"] 		= 0;
-					payload["mouse"]["position"]		= metadata["hands"][side]["cursor"]["position"];
-					payload["mouse"]["delta"] 			= uf::vector::encode( pod::Vector2i{0,0} );
-					payload["mouse"]["button"] 			= side == "left" ? "Right" : "Left";
-					payload["mouse"]["state"] = json["state"].as<bool>() ? "Down": "Up";
-
-					uf::hooks.call( payload["type"].as<uf::stl::string>(), payload );
+					uf::hooks.call( pload.type, payload );
 				}				
 			});
-			hand.addHook("world:Collision.%UID%", [&](ext::json::Value& json){
+		
+			hand.addHook("world:Collision.%UID%", [&]( pod::payloads::worldCollision& payload){
 				uf::stl::string side = &hand == hands.left ? "left" : "right";
 
-				float mag = json["depth"].as<float>();
-				uf::Serializer payload;
-				payload["delay"] = 0.0f;
-				payload["duration"] = uf::physics::time::delta;
-				payload["frequency"] = 1.0f;
-				payload["amplitude"] = fmin(1.0f, 1000.0f * mag);
-				payload["side"] = side;
+				pod::payloads::vrHaptics pload;	
+				pload.delay = 0;
+				pload.duration = uf::physics::time::delta;
+				pload.frequency = 1;
+				pload.amplitude = fmin(1.0f, 1000.0f * payload.depth);
+				plaod.side = &hand == hands.left ? -1 : 1;;
 				uf::hooks.call( "VR:Haptics." + side, payload );
 			});
 

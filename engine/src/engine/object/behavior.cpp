@@ -29,8 +29,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		metadataJson["system"]["load"]["total"] = assets;
 		if ( assets == 0 )  {
 			auto& parent = this->getParent().as<uf::Object>();
-			uf::Serializer payload;
-			payload["uid"] = this->getUid();
+			pod::payloads::assetLoad payload;
+			payload.uid = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	}
@@ -60,40 +60,31 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			metadataJson.merge(json, true);
 		}
 	});
-	this->addHook( "asset:QueueLoad.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string hash = json["hash"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
+	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
-		if ( json["single threaded"].as<bool>() ) {
-			assetLoader.load( filename, hash, category );
-			this->queueHook( callback, json );
+		if ( payload.monoThreaded ) {
+			if ( assetLoader.load( payload ) != "" ) this->queueHook( callback, payload );
 		} else {
-			assetLoader.load( callback, filename, hash, category );
+			assetLoader.load( callback, payload );
 		}
 	});
-	this->addHook( "asset:FinishedLoad.%UID%", [&](ext::json::Value& json){
-		this->queueHook("asset:Load.%UID%", json);
-		this->queueHook("asset:Parsed.%UID%", json);
+	this->addHook( "asset:FinishedLoad.%UID%", [&](pod::payloads::assetLoad& payload){
+		this->queueHook("asset:Load.%UID%", payload);
+		this->queueHook("asset:Parsed.%UID%", payload);
 	});	
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
-		bool initialize = ext::json::isNull( json["initialize"] ) ? true : json["initialize"].as<bool>();
-		if ( category != "" && category != "entities" ) return;
-		if ( category == "" && uf::io::extension(filename) != "json" ) return;
-		{
-			uf::Serializer json;
-			if ( !json.readFromFile(filename) ) return;
+	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
+		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::JSON ) ) return;
 
-			json["root"] = uf::io::directory(filename);
-			json["source"] = filename;
-			json["hot reload"]["mtime"] = uf::io::mtime( filename ) + 10;
+		uf::Serializer json;
+		if ( !json.readFromFile(payload.filename) ) return;
 
-			if ( this->loadChildUid(json, initialize) == -1 ) return;
-		}
+		json["root"] = uf::io::directory(payload.filename);
+		json["source"] = payload.filename;
+		json["hot reload"]["mtime"] = uf::io::mtime( payload.filename ) + 10;
+
+		if ( this->loadChildUid(json, payload.initialize) == -1 ) return;
 	});
-	this->addHook( "asset:Parsed.%UID%", [&](ext::json::Value& json){	
+	this->addHook( "asset:Parsed.%UID%", [&](pod::payloads::assetLoad& payload){	
 		int portion = 1;
 		auto& total = metadataJson["system"]["load"]["total"];
 		auto& progress = metadataJson["system"]["load"]["progress"];
@@ -101,8 +92,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		if ( progress.as<int>() == total.as<int>() ) {
 			auto& parent = this->getParent().as<uf::Object>();
 
-			uf::Serializer payload;
-			payload["uid"] = this->getUid();
+			payload.uid = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	});
@@ -218,18 +208,9 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		transform.position = uf::transform::flatten( parentTransform ).position + metadata.transform.initial.position;
 	}
 
-/*
-	if ( this->hasComponent<pod::PhysicsState>() && this->hasComponent<pod::Physics>() ) {
-		auto& collider = this->getComponent<pod::PhysicsState>();
-		auto& transform = this->getComponent<pod::Transform<>>();
-		auto& physics = this->getComponent<pod::Physics>();
-		UF_MSG_DEBUG( this->getName() << ": " << this->getUid() << " " << uf::vector::toString( physics.linear.velocity ) << " " << uf::vector::toString( transform.position ) );
-	}
-*/
-
 	auto& queue = metadata.hooks.queue;
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	float curTime = uf::Object::timer.elapsed().asDouble();
+	double curTime = uf::Object::timer.elapsed().asDouble();
 
 #if 1
 	decltype(metadata.hooks.queue) unprocessed;
@@ -239,7 +220,13 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	executeQueue.reserve( metadata.hooks.queue.size() );
 
 	for ( auto& q : queue ) if ( q.timeout < curTime ) executeQueue.emplace_back(q); else unprocessed.emplace_back(q);
-	for ( auto& q : executeQueue ) this->callHook( q.name, q.payload );
+	for ( auto& q : executeQueue ) {
+		if ( q.type == 0 ) {
+			this->callHook( q.name, q.json );
+		} else {
+			this->callHook( q.name, q.userdata );
+		}
+	}
 	queue = std::move(unprocessed);
 #else
 	for ( auto it = queue.begin(); it != queue.end(); ) {

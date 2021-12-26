@@ -35,30 +35,39 @@ namespace {
 		uf::io::write( "./" + filename, http.response );
 		return true;
 	}
-	uf::stl::string hashed( const uf::stl::string& uri ) {
-		return uf::string::sha256(uri);
-	/*
-		std::size_t value = std::hash<uf::stl::string>{}( uri );
-		uf::stl::stringstream stream;
-		stream << std::hex << value;
-		return stream.str();
-	*/
-	}
 
 	std::mutex mutex;
 	uint64_t uid = 0;
 	struct Job {
 		uf::stl::string callback;
 		uf::stl::string type;
-		uf::stl::string uri;
-		uf::stl::string hash;
-		uf::stl::string category;
+		uf::Asset::Payload payload;
 	};
 }
 
 uf::Asset uf::Asset::masterAssetLoader;
 
 void uf::Asset::processQueue() {
+	uf::thread::batchWorker( [&](){
+		mutex.lock();
+		auto jobs = std::move(this->getComponent<std::queue<Job>>());
+		while ( !jobs.empty() ) {
+			auto job = jobs.front();
+			jobs.pop();
+
+			uf::stl::string callback = job.callback;
+			uf::stl::string type = job.type;
+			uf::Asset::Payload payload = job.payload;
+
+			if ( payload.filename == "" || callback == "" ) continue;
+
+			uf::stl::string filename = type == "cache" ? this->cache(payload) : this->load(payload);
+			
+			if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
+		}
+		mutex.unlock();
+	});
+
 #if 0
 	auto& jobs = this->getComponent<std::queue<Job>>();
 	mutex.lock();
@@ -69,12 +78,12 @@ void uf::Asset::processQueue() {
 		if ( job.uri == "" || job.callback == "" ) continue;
 
 		tasks.emplace_back([=](){
-			auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.category) : this->load(job.uri, job.hash, job.category);
+			auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
 			if ( filename == "" ) return;
 			uf::Serializer payload;
 			payload["filename"] = filename;
 			payload["hash"] = job.hash;
-			payload["category"] = job.category;
+			payload["mime"] = job.mime;
 			uf::hooks.call(job.callback, payload);
 		});
 	}
@@ -90,21 +99,21 @@ void uf::Asset::processQueue() {
 		uf::stl::string type = job.type;
 		uf::stl::string uri = job.uri;
 		uf::stl::string hash = job.hash;
-		uf::stl::string category = job.category;
+		uf::stl::string mime = job.mime;
 		if ( uri == "" || callback == "" ) {
 			continue;
 		}
-		uf::stl::string filename = type == "cache" ? this->cache(uri, hash, category) : this->load(uri, hash, category);
+		uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
 		if ( callback != "" && filename != "" ) {
 			uf::Serializer payload;
 			payload["filename"] = filename;
 			payload["hash"] = hash;
-			payload["category"] = category;
+			payload["mime"] = mime;
 			uf::hooks.call(callback, payload);
 		}
 	}
 	mutex.unlock();
-#elif 1
+#elif 0
 	uf::thread::batchWorker( [&](){
 		mutex.lock();
 		auto jobs = std::move(this->getComponent<std::queue<Job>>());
@@ -115,16 +124,16 @@ void uf::Asset::processQueue() {
 			uf::stl::string type = job.type;
 			uf::stl::string uri = job.uri;
 			uf::stl::string hash = job.hash;
-			uf::stl::string category = job.category;
+			uf::stl::string mime = job.mime;
 			if ( uri == "" || callback == "" ) {
 				continue;
 			}
-			uf::stl::string filename = type == "cache" ? this->cache(uri, hash, category) : this->load(uri, hash, category);
+			uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
 			if ( callback != "" && filename != "" ) {
 				uf::Serializer payload;
 				payload["filename"] = filename;
 				payload["hash"] = hash;
-				payload["category"] = category;
+				payload["mime"] = mime;
 				uf::hooks.call(callback, payload);
 			}
 		}
@@ -141,12 +150,12 @@ void uf::Asset::processQueue() {
 			if ( job.uri == "" || job.callback == "" ) continue;
 
 			tasks.emplace_back([=](){
-				auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.category) : this->load(job.uri, job.hash, job.category);
+				auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
 				if ( filename == "" ) return;
 				uf::Serializer payload;
 				payload["filename"] = filename;
 				payload["hash"] = job.hash;
-				payload["category"] = job.category;
+				payload["mime"] = job.mime;
 				uf::hooks.call(job.callback, payload);
 			});
 		}
@@ -155,26 +164,61 @@ void uf::Asset::processQueue() {
 	});
 #endif
 }
-void uf::Asset::cache( const uf::stl::string& callback, const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
+void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();
 	auto& jobs = this->getComponent<std::queue<Job>>();
-	jobs.push({ callback, "cache", uri, hash, category });
+	jobs.push({ callback, "cache", payload });
 	mutex.unlock();
 }
-void uf::Asset::load( const uf::stl::string& callback, const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
+void uf::Asset::load( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();
 	auto& jobs = this->getComponent<std::queue<Job>>();
-	jobs.push({ callback, "load", uri, hash, category });
+	jobs.push({ callback, "load", payload });
 	mutex.unlock();
 }
-uf::stl::string uf::Asset::cache( const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
-	uf::stl::string filename = uri;
-	uf::stl::string extension = uf::io::extension( uri );
-	if ( uri.substr(0,5) == "https" ) {
-		uf::stl::string hash = hashed( uri );
+
+uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, const uf::stl::string& mime ) {
+	uf::stl::string extension = uf::string::lowercase( uf::io::extension( uri, -1 ) );
+	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( uri ), ".gz", "" ) );
+	uf::Asset::Payload payload;
+
+	static uf::stl::unordered_map<uf::stl::string,uf::Asset::Type> typemap = {
+		{ "jpg", uf::Asset::Type::IMAGE },
+		{ "jpeg", uf::Asset::Type::IMAGE },
+		{ "png", uf::Asset::Type::IMAGE },
+		
+		{ "ogg", uf::Asset::Type::AUDIO },
+
+		{ "json", uf::Asset::Type::JSON },
+
+		{ "lua", uf::Asset::Type::LUA },
+
+		{ "mdl", uf::Asset::Type::GRAPH },
+	};
+
+	payload.filename = uri;
+	payload.mime = mime;
+
+	if ( typemap.count( extension ) == 1 ) payload.type = typemap[extension];
+	if ( basename == "graph.json" ) payload.type = uf::Asset::Type::GRAPH;
+
+	return payload;
+}
+
+bool uf::Asset::isExpected( const uf::Asset::Payload& payload, uf::Asset::Type expected ) {
+	if ( payload.filename == "" ) return false;
+	if ( payload.type != expected ) return false;
+	return true;
+}
+
+uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
+	uf::stl::string filename = payload.filename;
+	uf::stl::string extension = uf::io::extension( filename );
+	if ( filename.substr(0,5) == "https" ) {
+		uf::stl::string hash = uf::string::sha256( filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
-		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			UF_MSG_ERROR("Failed to preload `" + uri + "` (`" + cached + "`): HTTP error");
+		if ( !uf::io::exists( cached ) && !retrieve( filename, cached, hash ) ) {
+			UF_MSG_ERROR("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
@@ -183,21 +227,22 @@ uf::stl::string uf::Asset::cache( const uf::stl::string& uri, const uf::stl::str
 		UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
 		return "";
 	}
-	uf::stl::string actual = hash;
-	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
+	uf::stl::string actual = payload.hash;
+	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
+		UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
 		return "";
 	}
 	return filename;
 }
-uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::string& hash, const uf::stl::string& category ) {
-	uf::stl::string filename = uri;
-	uf::stl::string extension = uf::io::extension( uri );
-	if ( uri.substr(0,5) == "https" ) {
-		uf::stl::string hash = hashed( uri );
+uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
+	uf::stl::string filename = payload.filename;
+	uf::stl::string extension = uf::string::lowercase(uf::io::extension( payload.filename, -1 ));
+	uf::stl::string basename = uf::string::replace( uf::io::filename( payload.filename ), ".gz", "" );
+	if ( payload.filename.substr(0,5) == "https" ) {
+		uf::stl::string hash = uf::string::sha256( payload.filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
-		if ( !uf::io::exists( cached ) && !retrieve( uri, cached, hash ) ) {
-			UF_MSG_ERROR("Failed to load `" + uri + "` (`" + cached + "`): HTTP error");
+		if ( !uf::io::exists( cached ) && !retrieve( payload.filename, cached, hash ) ) {
+			UF_MSG_ERROR("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
 			return "";
 		}
 		filename = cached;
@@ -206,59 +251,61 @@ uf::stl::string uf::Asset::load( const uf::stl::string& uri, const uf::stl::stri
 		UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
 		return "";
 	}
-	uf::stl::string actual = hash;
-	if ( hash != "" && (actual = uf::io::hash( filename )) != hash ) {
-		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << hash <<  ", got " << actual);
+	uf::stl::string actual = payload.hash;
+	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
+		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
 		return "";
 	}
 
+	auto& map = this->getComponent<uf::Serializer>();
 	#define UF_ASSET_REGISTER(type)\
 		auto& container = this->getContainer<type>();\
-		if ( !ext::json::isNull( map[extension][uri]["index"] ) ) return filename;\
+		if ( !ext::json::isNull( map[extension][payload.filename]["index"] ) ) return filename;\
 		if ( !ext::json::isNull( map[extension][filename]["index"] ) ) return filename;\
-		map[extension][uri]["index"] = container.size();\
+		map[extension][payload.filename]["index"] = container.size();\
 		map[extension][filename]["index"] = container.size();\
 		type& asset = container.emplace_back();
 
 
-	auto& map = this->getComponent<uf::Serializer>();
-	// deduce PNG, load as texture
-	if ( category == "images" || (category == "" && extension == "png") ) {
-		UF_ASSET_REGISTER(uf::Image)
-		asset.open(filename);
-	} else if ( category == "audio" || (category == "" && extension == "ogg") ) {
-		UF_ASSET_REGISTER(uf::Audio)
-		asset.open(filename);
-	} else if ( category == "audio-stream" || (category == "" && extension == "ogg") ) {
-		UF_ASSET_REGISTER(uf::Audio)
-		asset.stream(filename);
-	} else if ( category == "entities" || (category == "" && extension == "json") ) {
-		UF_ASSET_REGISTER(uf::Serializer)
-		asset.readFromFile(filename);
-	#if UF_USE_LUA
-	} else if ( category == "scripts" || (category == "" && extension == "lua") ) {
-		UF_ASSET_REGISTER(pod::LuaScript)
-		asset = ext::lua::script( filename );
-	#endif
-	} else if ( category == "models" || (category == "" && (extension == "gltf" || extension == "glb" || extension == "graph" ) ) ) {
-		UF_ASSET_REGISTER(pod::Graph)
-		auto& metadata = this->getComponent<uf::Serializer>();
+	switch ( payload.type ) {
+		case uf::Asset::Type::IMAGE: {
+			UF_ASSET_REGISTER(uf::Image)
+			asset.open(filename);
+		} break;
+		case uf::Asset::Type::AUDIO: {
+			UF_ASSET_REGISTER(uf::Audio)
+			asset.stream(filename);
+		} break;
+		case uf::Asset::Type::JSON: {
+			UF_ASSET_REGISTER(uf::Serializer)
+			asset.readFromFile(filename);
+		} break;
+		case uf::Asset::Type::LUA: {
+			UF_ASSET_REGISTER(pod::LuaScript)
+			asset = ext::lua::script( filename );
+		} break;
+		case uf::Asset::Type::GRAPH: {
+			UF_ASSET_REGISTER(pod::Graph)
+			auto& metadata = this->getComponent<uf::Serializer>();
 
-	#if UF_USE_OPENGL_FIXED_FUNCTION
-		metadata[uri]["flags"]["ATLAS"] = false;
-	//	metadata[uri]["flags"]["SEPARATE"] = true;
-	#elif UF_GRAPH_INDIRECT_DRAW
-	//	metadata[uri]["flags"]["ATLAS"] = false;
-	//	metadata[uri]["flags"]["SEPARATE"] = false;
-	#endif
-		asset = uf::graph::load( filename, metadata[uri] );
-		uf::graph::process( asset );
-		if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO(uf::graph::stats( asset ).dump(1,'\t'));
-		if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO(uf::graph::print( asset ));
-		if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
-	} else {
-		UF_MSG_ERROR("Failed to parse `" + filename + "`: Unimplemented extension: " + extension + " or category: " + category );
+		#if UF_USE_OPENGL_FIXED_FUNCTION
+			metadata[payload.filename]["flags"]["ATLAS"] = false;
+		//	metadata[payload.filename]["flags"]["SEPARATE"] = true;
+		#elif UF_GRAPH_INDIRECT_DRAW
+		//	metadata[payload.filename]["flags"]["ATLAS"] = false;
+		//	metadata[payload.filename]["flags"]["SEPARATE"] = false;
+		#endif
+			asset = uf::graph::load( filename, metadata[payload.filename] );
+			uf::graph::process( asset );
+			if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO(uf::graph::stats( asset ).dump(1,'\t'));
+			if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO(uf::graph::print( asset ));
+			if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
+		} break;
+		default: {
+			UF_MSG_ERROR("Failed to parse `" + filename + "`: Unimplemented extension: " + extension );
+		}
 	}
+
 	return filename;
 }
 uf::stl::string uf::Asset::getOriginal( const uf::stl::string& uri ) {

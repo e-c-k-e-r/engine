@@ -13,8 +13,8 @@ uf::Serializer uf::MasterData::load( const uf::stl::string& table, const uf::stl
 	this->m_key = key;
 
 	uf::stl::string url = uf::string::replace( root, "%TABLE%", table );
-	url = uf::string::replace( url, "%KEY%", key );
-	uf::stl::string filename = assetLoader.cache(url);
+	auto payload = uf::Asset::resolveToPayload( uf::string::replace( url, "%KEY%", key ) );
+	uf::stl::string filename = assetLoader.cache(payload);
 	if ( filename != "" ) this->m_data.readFromFile(filename);
 	return this->get();
 }

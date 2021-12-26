@@ -79,17 +79,15 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		
 		audio.play();
 	});
-	this->addHook( "asset:Load.%UID%", [&](ext::json::Value& json){
-		uf::stl::string filename = json["filename"].as<uf::stl::string>();
-		uf::stl::string category = json["category"].as<uf::stl::string>();
+	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
+		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::AUDIO ) ) return;
+		UF_MSG_DEBUG( "AUDIO: " << payload.filename );
 
-		if ( category != "" && (category != "audio" && category != "audio-stream") ) return;
-		if ( category == "" && uf::io::extension(filename) != "ogg" ) return;
-
-		if ( !assetLoader.has<uf::Audio>(filename) ) return;
-		uf::Serializer payload = metadata["audio"];
-		payload["filename"] = filename;
-		this->callHook("sound:Emit.%UID%", payload);
+		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
+		
+		uf::Serializer json = metadata["audio"];
+		json["filename"] = payload.filename;
+		this->callHook("sound:Emit.%UID%", json);
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {
