@@ -5,8 +5,8 @@
 #include <uf/utils/window/payloads.h>
 #include <uf/utils/io/inputs.h>
 
-#define UF_USE_USERDATA 1
-#define UF_USE_JSON 1
+#define UF_HOOK_USE_USERDATA 1
+#define UF_HOOK_USE_JSON 0
 
 #if UF_ENV_WINDOWS && (!UF_USE_SFML || (UF_USE_SFML && UF_USE_SFML == 0))
 namespace {
@@ -805,7 +805,7 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 				}
 			}
 		};
-	#if UF_USE_JSON			
+	#if UF_HOOK_USE_JSON			
 		uf::Serializer json;	
 		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 		json["invoker"] 						= event.invoker;
@@ -823,11 +823,11 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 			event.key.code 	= code;
 			event.key.raw  	= key;
 
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 			this->pushEvent(event.type + "." + code, event);
 		#endif
-		#if UF_USE_JSON			
+		#if UF_HOOK_USE_JSON			
 			json["key"]["code"] = code;
 			json["key"]["raw"] = key;
 			this->pushEvent(event.type, json);
@@ -847,14 +847,18 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 		auto& event = this->m_events.front();
 		if ( event.payload.is<uf::stl::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
+			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
+			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<ext::json::Value>() ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
+			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else {
+			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}
 		this->m_events.pop();
@@ -945,10 +949,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				"window:Closed",
 				"os",
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
@@ -966,10 +970,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				},
 				{ this->m_lastSize },
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
@@ -994,10 +998,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					},
 					{ this->m_lastSize },
 				};
-			#if UF_USE_USERDATA
+			#if UF_HOOK_USE_USERDATA
 				this->pushEvent(event.type, event);
 			#endif
-			#if UF_USE_JSON
+			#if UF_HOOK_USE_JSON
 				uf::Serializer json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
@@ -1009,10 +1013,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					"window:Moved",
 					"os",
 				};
-			#if UF_USE_USERDATA
+			#if UF_HOOK_USE_USERDATA
 				this->pushEvent(event.type, event);
 			#endif
-			#if UF_USE_JSON
+			#if UF_HOOK_USE_JSON
 				uf::Serializer json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
@@ -1050,10 +1054,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					state
 				}
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
@@ -1096,10 +1100,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 							uf::stl::string(utf8.begin(), utf8.end()),
 						}
 					};
-				#if UF_USE_USERDATA
+				#if UF_HOOK_USE_USERDATA
 					this->pushEvent(event.type, event);
 				#endif
-				#if UF_USE_JSON
+				#if UF_HOOK_USE_JSON
 					uf::Serializer json;
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
@@ -1141,11 +1145,11 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 						}
 					}
 				};
-				#if UF_USE_USERDATA
+				#if UF_HOOK_USE_USERDATA
 					this->pushEvent(event.type, event);
 					this->pushEvent(event.type + "." + event.key.code, event);
 				#endif
-				#if UF_USE_JSON
+				#if UF_HOOK_USE_JSON
 					uf::Serializer json;
 					json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 					json["invoker"] 						= event.invoker;
@@ -1181,10 +1185,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					delta,
 				}
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
@@ -1246,10 +1250,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					state
 				}
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
@@ -1284,10 +1288,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 						-1
 					}
 				};
-			#if UF_USE_USERDATA
+			#if UF_HOOK_USE_USERDATA
 				this->pushEvent(event.type, event);
 			#endif
-			#if UF_USE_JSON
+			#if UF_HOOK_USE_JSON
 				uf::Serializer json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
@@ -1351,10 +1355,10 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					0
 				}
 			};
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 		#endif
-		#if UF_USE_JSON
+		#if UF_HOOK_USE_JSON
 			uf::Serializer json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;

@@ -46,10 +46,11 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	});
 	this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
-		this->callHook("object:UpdateMetadata.%UID%", json);
+		this->callHook("object:Deserialize.%UID%", json);
 	});
-	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	
 		if ( ext::json::isNull( json ) ) return;
+
 		if ( json["type"].as<uf::stl::string>() == "merge" ) {
 			metadataJson.merge(json["value"], true);
 		} else if ( json["type"].as<uf::stl::string>() == "import" ) {
@@ -99,9 +100,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){
-		metadata.deserialize(self, metadataJson);
-	});
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	metadata.deserialize(self, metadataJson); });
 	metadata.deserialize(self, metadataJson);
 
 	if ( ext::json::isObject(metadataJson["system"]["physics"]) ) {

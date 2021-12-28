@@ -53,7 +53,7 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 			sceneMetadataJson["light"]["brightnessThreshold"] = graph.metadata["brightnessThreshold"];
 			shouldUpdate = true;	
 		}
-		if ( shouldUpdate ) scene.callHook("object:UpdateMetadata.%UID%");
+		if ( shouldUpdate ) scene.callHook("object:Deserialize.%UID%");
 
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();

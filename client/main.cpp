@@ -2,6 +2,8 @@
 
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/time/time.h>
+#include <uf/utils/mesh/mesh.h>
+#include <uf/utils/window/payloads.h>
 
 #include <uf/utils/memory/pool.h>
 #include <filesystem>
@@ -46,7 +48,7 @@ namespace {
 		}
 	}
 }
-#include <uf/utils/mesh/mesh.h>
+
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -76,14 +78,18 @@ int main(int argc, char** argv){
 	#if HANDLE_EXCEPTIONS
 		try {	
 	#endif
+		/*
 			static bool first = false; if ( !first ) { first = true;
 				uf::Serializer json;
-				std::string hook = "window:Resized";
-				json["type"] = hook;
-				json["invoker"] = "ext";
-				json["window"]["size"] = client::config["window"]["size"];
-				uf::hooks.call(hook, json);
+				uf::hooks.call("window:Resized", pod::payloads::windowResized{
+					{
+						"window:Resized",
+						"os",
+					},
+					{ uf::vector::decode( client::config["window"]["size"], pod::Vector2ui{} ) },
+				});
 			}
+		*/
 		#if UF_ENV_DREAMCAST
 		//	UF_TIMER_MULTITRACE_START("Starting");
 			ext::render();

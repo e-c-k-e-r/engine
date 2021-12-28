@@ -51,7 +51,6 @@ namespace {
 void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
-		UF_MSG_DEBUG( "IMAGE: " << payload.filename );
 
 		uf::Scene& scene = uf::scene::getCurrentScene();
 		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
@@ -63,18 +62,13 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::CraetureBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
-		metadata.deserialize(self, metadataJson);
-	});
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
 	metadata.deserialize(self, metadataJson);
 }
 void ext::CraetureBehavior::tick( uf::Object& self ) {}
 void ext::CraetureBehavior::render( uf::Object& self ){}
 void ext::CraetureBehavior::destroy( uf::Object& self ){}
-void ext::CraetureBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
-	
-}
-void ext::CraetureBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
-	
-}
+void ext::CraetureBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}
+void ext::CraetureBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){}
 #undef this

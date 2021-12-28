@@ -20,7 +20,9 @@ namespace ext {
 				pod::Vector2f min = {  1,  1 };
 				pod::Vector2f max = { -1, -1 };
 			} box;
+			bool clickable = false;
 			bool clicked = false;
+			bool hoverable = false;
 			bool hovered = false;
 
 			pod::Vector4f uv = {0, 0, 1, 1};

@@ -92,10 +92,10 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 	uf::stl::string extension = uf::io::extension(filename);
 	if ( extension != "dtex" ) {
 		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
-		if ( uf::io::exists(dtex) ) {
-		//	UF_MSG_DEBUG("Loading dtex instead for: " << filename);
-			return this->open(dtex, flip);
-		}
+		if ( uf::io::exists(dtex) ) return this->open(dtex, flip);
+
+		UF_EXCEPTION("non-dtex loading is highly discouraged on this platform:" << filename);
+		return false;
 	}
 #endif
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: " + filename);
@@ -148,18 +148,6 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 				}
 			}
 		} else { UF_EXCEPTION("Image error: not a compressed texture: " << filename); return false; }
-	/*
-		UF_MSG_DEBUG("DTEX Header: " << header.id[0] << header.id[1] << header.id[2] << header.id[3] << " | " 
-			<< header.width << " x " << header.height << " | " 
-			<< twiddled << " | "
-			<< compressed << " | "
-			<< mipmapped << " | "
-			<< strided << " | "
-			<< header.size << " | "
-			<< std::bitset<32>(format) << " | " 
-			<< std::bitset<32>(this->m_format)
-		);
-	*/
 	} else 
 #endif
 	{

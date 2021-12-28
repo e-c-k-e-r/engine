@@ -6,10 +6,6 @@
 	"behaviors": [
 		"GuiHtmlBehavior"
 	],
-	"system": {
-		"clickable": true,
-		"hoverable": true
-	},
 	"transform": {
 		"position": [ 0, 4, 0 ],
 		"rotation": {
@@ -19,6 +15,9 @@
 		"scale": [ 2, 2, 2 ]
 	},
 	"metadata": {
+		"clickable": true,
+		"hoverable": true,
+
 		"uv": [ 0, 0, 1, 1 ],
 		"color": [ 1, 1, 1, 1 ],
 		"location": "",

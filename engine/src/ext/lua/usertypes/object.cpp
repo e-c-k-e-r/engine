@@ -17,6 +17,7 @@ namespace binds {
 			else if ( type == UF_NS_GET_LAST(T) ) return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
 
 		if ( type == "Metadata" ) {
+			self.callHook( "object:Serialize.%UID%" );
 			auto& metadata = self.getComponent<uf::Serializer>();
 			auto decoded = ext::lua::decode( metadata );
 			if ( decoded ) {
@@ -39,11 +40,13 @@ namespace binds {
 		if ( type == "Metadata" ) {
 			auto encoded = ext::lua::encode( value.as<sol::table>() );
 			if ( encoded ) {
+				self.callHook( "object:Serialize.%UID%" );
 				auto& metadata = self.getComponent<uf::Serializer>();
 				uf::stl::string str = encoded.value();
 				uf::Serializer hooks = metadata["system"]["hooks"];
 				metadata.merge( str, false );
 				metadata["system"]["hooks"] = hooks;
+				self.callHook( "object:Deserialize.%UID%" );
 			}
 		}
 		UF_LUA_UPDATE_COMPONENT(pod::Transform<>)

@@ -6,10 +6,6 @@
 		"./scripts/menu.lua",
 		"./textures/menu.png"
 	],
-	"system": {
-		"clickable": true,
-		"hoverable": true
-	},
 	"transform": {
 		"position": [ 0, 0, 0 ],
 		"rotation": {
@@ -19,7 +15,9 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"experimental": true,
+		"clickable": true,
+		"hoverable": true,
+
 		"uv": [ 0, 0, 1, 1 ],
 		"color": [ 1, 1, 1, 1 ],
 		"location": "",

@@ -81,7 +81,6 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::AUDIO ) ) return;
-		UF_MSG_DEBUG( "AUDIO: " << payload.filename );
 
 		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
 		

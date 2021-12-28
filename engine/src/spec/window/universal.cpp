@@ -59,11 +59,13 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, co
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload ) {
+void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
+	event.payload = payload;
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payload ) {
+/*
+void UF_API_CALL spec::uni::Window::pushEvent( const pod::Hook::userdata_t& payload ) {
 	struct Header {
 		uf::stl::string type;
 	};
@@ -71,6 +73,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::argument_t& payl
 	if ( !uf::hooks.exists(header.type) ) return;
 	this->m_events.push({ header.type, std::move(payload) });
 }
+*/
 void UF_API_CALL spec::uni::Window::processEvents() {
 }
 bool UF_API_CALL spec::uni::Window::isKeyPressed(const uf::stl::string& key) {

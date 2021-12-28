@@ -53,8 +53,8 @@ namespace spec {
 			void pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
-			void pushEvent( const uf::Hooks::name_t& name, const uf::Hooks::argument_t& payload );
-			void pushEvent( const uf::Hooks::argument_t& payload );
+			void pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload );
+			void pushEvent( const pod::Hook::userdata_t& payload );
 			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
 
 			bool pollEvents( bool block = false );

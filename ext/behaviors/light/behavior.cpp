@@ -99,9 +99,8 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		renderMode.height = size.y;
 	}
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
-		metadata.deserialize(self, metadataJson);
-	});
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
 	metadata.deserialize(self, metadataJson);
 }
 void ext::LightBehavior::tick( uf::Object& self ) {

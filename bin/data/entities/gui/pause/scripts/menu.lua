@@ -141,7 +141,7 @@ ent:bind( "tick", function(self)
 	if child:uid() > 0 then
 		local transform = child:getComponent("Transform")
 		local metadata = child:getComponent("Metadata")
-		local speed = metadata["hovered"] and 0.75 or 0.5
+		local speed = metadata["gui"]["hovered"] and 0.75 or 0.5
 		transform.position.y = transform.position.y + time.delta() * speed
 		if transform.position.y > 2 then
 			transform.position.y = -2
@@ -155,7 +155,7 @@ ent:bind( "tick", function(self)
 		local metadata = children.circleIn:getComponent("Metadata")
 
 		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local speed = metadata["gui"]["hovered"] and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * -speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end
@@ -167,7 +167,7 @@ ent:bind( "tick", function(self)
 		local metadata = children.circleOut:getComponent("Metadata")
 
 		-- rotation
-		local speed = metadata["hovered"] and 0.25 or 0.0125
+		local speed = metadata["gui"]["hovered"] and 0.25 or 0.0125
 		static.time = (static.time or 0) + time.delta() * speed
 		transform.orientation = Quaternion.axisAngle( Vector3f(0, 0, 1), static.time )
 	end

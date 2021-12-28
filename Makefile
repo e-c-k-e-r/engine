@@ -30,7 +30,8 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.154.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
 
 #GLSL_VALIDATOR 		+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
 GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslc
@@ -50,7 +51,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann bullet lua freetype png zlib ctti ogg openal aldc # ogg openal meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann lua reactphysics freetype png zlib ctti ogg openal aldc # bullet ogg openal meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -211,18 +212,27 @@ TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 ifneq (,$(findstring dreamcast,$(ARCH)))
 #$(ARCH): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 $(ARCH): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
-OBJS = $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS))
+
+SRCS_DLL 				= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+OBJS_DLL 				= $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_DLL))
+OBJS 					= $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(ARCH).$(CC).o,$(SRCS))
 
 DEPS 					+= -lkallisti -lc -lm -lgcc -lstdc++ # -l$(LIB_NAME) -l$(EXT_LIB_NAME)
 
 %.$(ARCH).$(CC).o: %.cpp
 	$(CXX) $(FLAGS) $(INCS) -c $< -o $@
 
-$(EX_DLL): FLAGS += -DUF_EXPORTS -DEXT_EXPORTS -DJSON_DLL_BUILD
+$(EX_DLL): FLAGS += -DUF_EXPORTS -DJSON_DLL_BUILD
 $(EX_DLL): $(OBJS_DLL) 
 	$(KOS_AR) cru $@ $^
 	$(KOS_RANLIB) $@
 	cp $@ $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_DLL).a
+
+$(EXT_EX_DLL): FLAGS += -DEXT_EXPORTS -DJSON_DLL_BUILD
+$(EXT_EX_DLL): $(OBJS_EXT_DLL) 
+	$(KOS_AR) cru $@ $^
+	$(KOS_RANLIB) $@
+	cp $@ $(ENGINE_LIB_DIR)/$(ARCH)/$(CC)/$(BASE_EXT_DLL).a
 
 ./bin/dreamcast/romdisk.img:
 	$(KOS_GENROMFS) -f ./bin/dreamcast/romdisk.img -d ./bin/dreamcast/romdisk/ -v
@@ -261,7 +271,6 @@ $(TARGET): $(OBJS)
 endif
 
 %.spv: %.glsl
-#	$(GLSL_VALIDATOR) -V -o $@ $<
 	$(GLSL_VALIDATOR) -std=450 -o $@ $<
 	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 

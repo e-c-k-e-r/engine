@@ -63,6 +63,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	auto& metadata = controller.getComponent<ext::GuiManagerBehavior::Metadata>();
 	auto& metadataJson = controller.getComponent<uf::Serializer>();
 
+	ext::gui::size.current = uf::vector::decode( ext::config["window"]["size"], pod::Vector2f{} );
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
 	//	ext::gui::size.reference = payload.window.size;
@@ -70,22 +71,20 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 		bool clicked = false;
 
-		pod::Vector2f click; {
-			click.x = (float) payload.mouse.position.x / (float) ext::gui::size.current.x;
-			click.y = (float) payload.mouse.position.y / (float) ext::gui::size.current.y;
-			click.x = (click.x * 2.0f) - 1.0f;
-			click.y = (click.y * 2.0f) - 1.0f;
-			float x = click.x;
-			float y = click.y;
-		}
+		pod::Vector2f click;
+		click.x = (float) payload.mouse.position.x / (float) ext::gui::size.current.x;
+		click.y = (float) payload.mouse.position.y / (float) ext::gui::size.current.y;
+		click.x = (click.x * 2.0f) - 1.0f;
+		click.y = (click.y * 2.0f) - 1.0f;
+		float x = click.x;
+		float y = click.y;
 		if ( metadata.overlay.cursor.type == "mouse" ) {
 			metadata.overlay.cursor.position = click;
 		}
 	});
 
-	this->addHook( "object:UpdateMetadata.%UID%", [&](ext::json::Value& json){	
-		metadata.deserialize(self, metadataJson);
-	});
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
 	metadata.deserialize(self, metadataJson);
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {

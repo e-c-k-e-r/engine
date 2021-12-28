@@ -82,7 +82,7 @@ void client::initialize() {
 				client::window.setMousePosition(client::window.getSize()/2);
 			}
 		});
-		uf::hooks.addHook( "window:Closed", [&]( ext::json::Value& json ){
+		uf::hooks.addHook( "window:Closed", [&]( pod::payloads::windowEvent& json ){
 			client::ready = false;
 		} );
 		uf::hooks.addHook( "window:Title.Changed", [&]( ext::json::Value& json ){
@@ -98,16 +98,17 @@ void client::initialize() {
 			if ( payload.invoker != "os" ) client::window.setSize(payload.window.size);
 			// Update viewport
 			if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
-				float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<double>() ? client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>() : 1;
+				float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>( 1 );
 				uf::renderer::settings::width = payload.window.size.x * scale;
 				uf::renderer::settings::height = payload.window.size.y * scale;
+				
 			}
 			uf::renderer::states::resized = true;
 		} );
 	}
 #if !UF_ENV_DREAMCAST
 	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
-	if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
+	else if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
 #endif
 
 	client::ready = true;
@@ -125,18 +126,7 @@ void client::tick() {
 		client::window.setMousePosition(client::window.getSize()/2);
 		auto current = client::window.getMousePosition();
 		auto size = client::window.getSize();
-	#if 0
-		{
-			uf::Serializer payload;
-			payload["invoker"] = "client";
-			payload["mouse"]["delta"] = uf::vector::encode( previous - current );
-			payload["mouse"]["position"] = uf::vector::encode( current );
-			payload["mouse"]["size"] = uf::vector::encode( size );
-			payload["mouse"]["state"] = "???";
-			payload["type"] = "window:Mouse.Moved";
-			uf::hooks.call("window:Mouse.Moved", payload);
-		}
-	#endif
+
 		uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
 			{
 				{
