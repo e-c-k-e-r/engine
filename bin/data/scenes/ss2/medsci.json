@@ -1,10 +1,13 @@
 {
 	"import": "/model.json",
 	"assets": [
+	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" },
-		{ "filename": "./craeture.json", "delay": 1 }
+	//	{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./craeture.json", "delay": 1 }
 
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
@@ -16,6 +19,13 @@
 	],
 	"metadata": {
 		"model": {
+			"baking": {
+				"enabled": true,
+				"resolution": 8192,
+				"shadows": 1024,
+				"trigger": { "mode": "rendered" },
+				"output": "./lightmap.png"
+			},
 			"tags": {
 				"worldspawn": {  "physics": { "type": "mesh", "static": true } },
 			//	"worldspawn": {  "physics": { "type": "bounding boxes", "static": true } },

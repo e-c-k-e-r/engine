@@ -109,31 +109,16 @@ void ext::opengl::Shader::destroy() {
 bool ext::opengl::Shader::validate() {
 	// check if uniforms match buffer size
 	bool valid = true;
-#if 0
-	{
-		auto it = uniforms.begin();
-		for ( auto& buffer : buffers ) {
-			if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
-			if ( it == uniforms.end() ) break;
-			auto& uniform = *(it++);
-			if ( uniform.data().len != buffer.allocationInfo.size ) {
-				GL_DEBUG_VALIDATION_MESSAGE("Uniform size mismatch: Expected " << buffer.allocationInfo.size << ", got " << uniform.data().len << "; fixing...");
-				uniform.destroy();
-				uniform.create(buffer.allocationInfo.size);
-				valid = false;
-			}
-		}
-	}
-#endif
+
 	return valid;
 }
 bool ext::opengl::Shader::hasUniform( const uf::stl::string& name ) const {
-//	return !ext::json::isNull(metadata.json["definitions"]["uniforms"][name]);
-	return metadata.definitions.uniforms.count(name) > 0;
+//	return metadata.definitions.uniforms.count(name) > 0;
+	return true;
 }
 ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
-	size_t uniformIndex = metadata.definitions.uniforms[name].index;
+	size_t uniformIndex = 0; // metadata.definitions.uniforms[name].index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
@@ -143,7 +128,7 @@ ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::strin
 }
 const ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasUniform(name) );
-	size_t uniformIndex = metadata.definitions.uniforms.at(name).index;
+	size_t uniformIndex = 0; // metadata.definitions.uniforms.at(name).index;
 	for ( size_t bufferIndex = 0, uniformCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( uniformCounter++ != uniformIndex ) continue;
@@ -153,28 +138,28 @@ const ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl:
 }
 ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
-	return uniforms[metadata.definitions.uniforms[name].index];
+	return uniforms[0/*metadata.definitions.uniforms[name].index*/];
 }
 const ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) const {
 	UF_ASSERT( hasUniform(name) );
-	return uniforms.at(metadata.definitions.uniforms.at(name).index);
+	return uniforms.at(0/*metadata.definitions.uniforms.at(name).index*/);
 }
 bool ext::opengl::Shader::updateUniform( const uf::stl::string& name, const void* data, size_t size ) const {
 	if ( !hasUniform(name) ) return false;
 	auto& bufferObject = getUniformBuffer(name);
-	size = MAX(metadata.definitions.uniforms.at(name).size, bufferObject.allocationInfo.size);
+//	size = MAX(metadata.definitions.uniforms.at(name).size, bufferObject.allocationInfo.size);
 	updateBuffer( data, size, bufferObject );
 	return true;
 }
 
 bool ext::opengl::Shader::hasStorage( const uf::stl::string& name ) const {
-//	return !ext::json::isNull(metadata["definitions"]["storage"][name]);
-	return metadata.definitions.storage.count(name) > 0;
+//	return metadata.definitions.storage.count(name) > 0;
+	return true;
 }
 
 ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) {
 	UF_ASSERT( hasStorage(name) );
-	size_t storageIndex = metadata.definitions.storage[name].index;
+	size_t storageIndex = 0; // metadata.definitions.storage[name].index;
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers[bufferIndex].usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
 		if ( storageCounter++ != storageIndex ) continue;
@@ -184,7 +169,7 @@ ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::strin
 }
 const ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasStorage(name) );
-	size_t storageIndex = metadata.definitions.storage.at(name).index;
+	size_t storageIndex = 0; // metadata.definitions.storage.at(name).index;
 	for ( size_t bufferIndex = 0, storageCounter = 0; bufferIndex < buffers.size(); ++bufferIndex ) {
 		if ( !(buffers.at(bufferIndex).usage & uf::renderer::enums::Buffer::STORAGE) ) continue;
 		if ( storageCounter++ != storageIndex ) continue;

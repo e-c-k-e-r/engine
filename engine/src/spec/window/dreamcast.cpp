@@ -3,6 +3,7 @@
 #include <uf/utils/string/utf.h>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/window/payloads.h>
+#include <uf/utils/io/inputs.h>
 
 #if UF_ENV_DREAMCAST
 
@@ -31,6 +32,8 @@ namespace {
 		maple_device_t* device = NULL;
 		mouse_state_t* state = NULL;
 	} mouse;
+
+	pod::Vector2ui resolution = { 640, 480 };
 
 	bool GetModifier( uint8_t modifier ) {
 		if ( !::keyboard.state ) return false;
@@ -303,6 +306,8 @@ UF_API_CALL spec::dreamcast::Window::Window( const spec::dreamcast::Window::vect
 }
 void UF_API_CALL spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
 	::keyboard.device = maple_enum_type(1, MAPLE_FUNC_KEYBOARD);
+
+	this->setSize(_size);
 }
 
 spec::dreamcast::Window::~Window() {
@@ -317,7 +322,7 @@ spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getPositi
 	return { 0, 0 };
 }
 spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getSize() const {
-	return { 640, 480 };
+	return ::resolution;
 }
 size_t UF_API_CALL spec::dreamcast::Window::getRefreshRate() const {
 	return 60;
@@ -330,9 +335,27 @@ void UF_API_CALL spec::dreamcast::Window::setPosition( const spec::dreamcast::Wi
 void UF_API_CALL spec::dreamcast::Window::setMousePosition( const spec::dreamcast::Window::vector_t& position ) {
 }
 spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getMousePosition( ) {
-	return { 320, 240 };
+	return { ::resolution.x / 2, ::resolution.y / 2 };
 }
 void UF_API_CALL spec::dreamcast::Window::setSize( const spec::dreamcast::Window::vector_t& size ) {
+	int e = 0;
+	int p = PM_RGB565;
+
+	if ( size.x == 320 && size.y == 240 ) e = DM_320x240;
+	else if ( size.x == 640 && size.y == 480 ) e = DM_640x480;
+	else if ( size.x == 800 && size.y == 608 ) e = DM_800x608;
+	else if ( size.x == 256 && size.y == 256 ) e = DM_256x256;
+	else if ( size.x == 768 && size.y == 480 ) e = DM_768x480;
+	else if ( size.x == 768 && size.y == 576 ) e = DM_768x576;
+
+	if ( !e ) {
+		UF_MSG_ERROR("invalid resolution set");
+		return;
+	}
+
+	::resolution = size;
+	vid_set_mode(e, p);
+	UF_MSG_DEBUG("Changing resolution to " << uf::vector::toString( size ));
 }
 
 void UF_API_CALL spec::dreamcast::Window::setTitle( const spec::dreamcast::Window::title_t& title ) {
@@ -356,7 +379,119 @@ bool UF_API_CALL spec::dreamcast::Window::hasFocus() const {
 
 #include <uf/utils/serialize/serializer.h>
 void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
+	uf::inputs::kbm::states::LShift = GetModifier(KBD_MOD_LSHIFT);
+	uf::inputs::kbm::states::RShift = GetModifier(KBD_MOD_RSHIFT);
+
+	uf::inputs::kbm::states::LAlt = GetModifier(KBD_MOD_LALT);
+	uf::inputs::kbm::states::RAlt = GetModifier(KBD_MOD_RALT);
+
+	uf::inputs::kbm::states::LControl = GetModifier(KBD_MOD_LCTRL);
+	uf::inputs::kbm::states::RControl = GetModifier(KBD_MOD_RCTRL);
+
+	uf::inputs::kbm::states::LSystem = GetModifier(KBD_MOD_S1);
+	uf::inputs::kbm::states::RSystem = GetModifier(KBD_MOD_S2);
+
+//	uf::inputs::kbm::states::Menu = KBD_KEY_APPS;
+	uf::inputs::kbm::states::SemiColon = KBD_KEY_SEMICOLON;
+	uf::inputs::kbm::states::Slash = KBD_KEY_SLASH;
+//	uf::inputs::kbm::states::Equal = KBD_KEY_EQUAL;
+	uf::inputs::kbm::states::Dash = KBD_KEY_MINUS;
+	uf::inputs::kbm::states::LBracket = KBD_KEY_LBRACKET;
+	uf::inputs::kbm::states::RBracket = KBD_KEY_RBRACKET;
+	uf::inputs::kbm::states::Comma = KBD_KEY_COMMA;
+	uf::inputs::kbm::states::Period = KBD_KEY_PERIOD;
+	uf::inputs::kbm::states::Quote = KBD_KEY_QUOTE;
+	uf::inputs::kbm::states::BackSlash = KBD_KEY_BACKSLASH;
+	uf::inputs::kbm::states::Tilde = KBD_KEY_TILDE;
+
+	uf::inputs::kbm::states::Escape = KBD_KEY_ESCAPE;
+	uf::inputs::kbm::states::Space = KBD_KEY_SPACE;
+	uf::inputs::kbm::states::Enter = KBD_KEY_ENTER;
+	uf::inputs::kbm::states::BackSpace = KBD_KEY_BACKSPACE;
+	uf::inputs::kbm::states::Tab = KBD_KEY_TAB;
+	uf::inputs::kbm::states::PageUp = KBD_KEY_PGUP;
+	uf::inputs::kbm::states::PageDown = KBD_KEY_PGDOWN;
+	uf::inputs::kbm::states::End = KBD_KEY_END;
+	uf::inputs::kbm::states::Home = KBD_KEY_HOME;
+	uf::inputs::kbm::states::Insert = KBD_KEY_INSERT;
+	uf::inputs::kbm::states::Delete = KBD_KEY_DEL;
+	uf::inputs::kbm::states::Add = KBD_KEY_PAD_PLUS;
+	uf::inputs::kbm::states::Subtract = KBD_KEY_PAD_MINUS;
+	uf::inputs::kbm::states::Multiply = KBD_KEY_PAD_MULTIPLY;
+	uf::inputs::kbm::states::Divide = KBD_KEY_PAD_DIVIDE;
+	uf::inputs::kbm::states::Pause = KBD_KEY_PAUSE;
 	
+	uf::inputs::kbm::states::F1 = KBD_KEY_F1;
+	uf::inputs::kbm::states::F2 = KBD_KEY_F2;
+	uf::inputs::kbm::states::F3 = KBD_KEY_F3;
+	uf::inputs::kbm::states::F4 = KBD_KEY_F4;
+	uf::inputs::kbm::states::F5 = KBD_KEY_F5;
+	uf::inputs::kbm::states::F6 = KBD_KEY_F6;
+	uf::inputs::kbm::states::F7 = KBD_KEY_F7;
+	uf::inputs::kbm::states::F8 = KBD_KEY_F8;
+	uf::inputs::kbm::states::F9 = KBD_KEY_F9;
+	uf::inputs::kbm::states::F10 = KBD_KEY_F10;
+	uf::inputs::kbm::states::F11 = KBD_KEY_F11;
+	uf::inputs::kbm::states::F12 = KBD_KEY_F12;
+//	uf::inputs::kbm::states::F13 = KBD_KEY_F13;
+//	uf::inputs::kbm::states::F14 = KBD_KEY_F14;
+//	uf::inputs::kbm::states::F15 = KBD_KEY_F15;
+	
+	uf::inputs::kbm::states::Left = KBD_KEY_LEFT;
+	uf::inputs::kbm::states::Right = KBD_KEY_RIGHT;
+	uf::inputs::kbm::states::Up = KBD_KEY_UP;
+	uf::inputs::kbm::states::Down = KBD_KEY_DOWN;
+
+	uf::inputs::kbm::states::Numpad0 = KBD_KEY_PAD_0;
+	uf::inputs::kbm::states::Numpad1 = KBD_KEY_PAD_1;
+	uf::inputs::kbm::states::Numpad2 = KBD_KEY_PAD_2;
+	uf::inputs::kbm::states::Numpad3 = KBD_KEY_PAD_3;
+	uf::inputs::kbm::states::Numpad4 = KBD_KEY_PAD_4;
+	uf::inputs::kbm::states::Numpad5 = KBD_KEY_PAD_5;
+	uf::inputs::kbm::states::Numpad6 = KBD_KEY_PAD_6;
+	uf::inputs::kbm::states::Numpad7 = KBD_KEY_PAD_7;
+	uf::inputs::kbm::states::Numpad8 = KBD_KEY_PAD_8;
+	uf::inputs::kbm::states::Numpad9 = KBD_KEY_PAD_9;
+
+	uf::inputs::kbm::states::Q = KBD_KEY_Q;
+	uf::inputs::kbm::states::W = KBD_KEY_W;
+	uf::inputs::kbm::states::E = KBD_KEY_E;
+	uf::inputs::kbm::states::R = KBD_KEY_R;
+	uf::inputs::kbm::states::T = KBD_KEY_T;
+	uf::inputs::kbm::states::Y = KBD_KEY_Y;
+	uf::inputs::kbm::states::U = KBD_KEY_U;
+	uf::inputs::kbm::states::I = KBD_KEY_I;
+	uf::inputs::kbm::states::O = KBD_KEY_O;
+	uf::inputs::kbm::states::P = KBD_KEY_P;
+	
+	uf::inputs::kbm::states::A = KBD_KEY_A;
+	uf::inputs::kbm::states::S = KBD_KEY_S;
+	uf::inputs::kbm::states::D = KBD_KEY_D;
+	uf::inputs::kbm::states::F = KBD_KEY_F;
+	uf::inputs::kbm::states::G = KBD_KEY_G;
+	uf::inputs::kbm::states::H = KBD_KEY_H;
+	uf::inputs::kbm::states::J = KBD_KEY_J;
+	uf::inputs::kbm::states::K = KBD_KEY_K;
+	uf::inputs::kbm::states::L = KBD_KEY_L;
+	
+	uf::inputs::kbm::states::Z = KBD_KEY_Z;
+	uf::inputs::kbm::states::X = KBD_KEY_X;
+	uf::inputs::kbm::states::C = KBD_KEY_C;
+	uf::inputs::kbm::states::V = KBD_KEY_V;
+	uf::inputs::kbm::states::B = KBD_KEY_B;
+	uf::inputs::kbm::states::N = KBD_KEY_N;
+	uf::inputs::kbm::states::M = KBD_KEY_M;
+	
+	uf::inputs::kbm::states::Num1 = KBD_KEY_1;
+	uf::inputs::kbm::states::Num2 = KBD_KEY_2;
+	uf::inputs::kbm::states::Num3 = KBD_KEY_3;
+	uf::inputs::kbm::states::Num4 = KBD_KEY_4;
+	uf::inputs::kbm::states::Num5 = KBD_KEY_5;
+	uf::inputs::kbm::states::Num6 = KBD_KEY_6;
+	uf::inputs::kbm::states::Num7 = KBD_KEY_7;
+	uf::inputs::kbm::states::Num8 = KBD_KEY_8;
+	uf::inputs::kbm::states::Num9 = KBD_KEY_9;
+	uf::inputs::kbm::states::Num0 = KBD_KEY_0;
 }
 void UF_API_CALL spec::dreamcast::Window::processEvents() {	
 	if ( !::keyboard.device ) ::keyboard.device = maple_enum_type(0, MAPLE_FUNC_KEYBOARD);
@@ -426,24 +561,20 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 		auto& event = this->m_events.front();
 		if ( event.payload.is<uf::stl::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
+			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<uf::Serializer>() ) {
 			uf::Serializer& payload = event.payload.as<uf::Serializer>();
+			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
 		} else if ( event.payload.is<ext::json::Value>() ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
-			uf::hooks.call( event.name, payload );
-		} else {
-			uf::hooks.call( event.name, event.payload );
-		}
-	/*
-		try {
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
-		} catch ( ... ) {
-			// Let the hook handler handle the exceptions
+		} else {
+			uf::hooks.call( "window:Event", event.payload );
+			uf::hooks.call( event.name, event.payload );
 		}
-	*/
 		this->m_events.pop();
 	}
 	return true;
@@ -463,7 +594,7 @@ void UF_API_CALL spec::dreamcast::Window::setMouseGrabbed(bool state) {
 void UF_API_CALL spec::dreamcast::Window::grabMouse(bool state) {
 }
 pod::Vector2ui UF_API_CALL spec::dreamcast::Window::getResolution() {
-	return { 640, 480 };
+	return ::resolution;
 }
 void UF_API_CALL spec::dreamcast::Window::switchToFullscreen( bool borderless ) {
 }

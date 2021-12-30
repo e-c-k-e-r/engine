@@ -99,6 +99,7 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 	}
 #endif
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: " + filename);
+	
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	int width = 0, height = 0, channelsDud = 0, bit_depth = 8, channels = 4;

@@ -4,10 +4,12 @@
 #define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
 
 /*
+-x * 1000, uf::Time<long long>::milliseconds
+
 #define TIMER(x, ...) auto TOKEN_PASTE(TIMER, __LINE__) = []( uf::physics::num_t every = 1 ) {\
 		static uf::Timer<long long> timer(false);\
 		if ( !timer.running() ) {\
-			timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
+			timer.start(uf::Time<long long>(-1000000));\
 		}\
 		uf::physics::num_t time = 0;\
 		if ( (time = timer.elapsed()) >= every ) {\
@@ -21,7 +23,7 @@
 */
 #define TIMER_LAMBDA(x) []() {\
 	static uf::Timer<long long> timer(false);\
-	if ( !timer.running() ) timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
+	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
 	uf::physics::num_t time = timer.elapsed();\
 	if ( time >= every ) timer.reset();\
 	static bool first = true; if ( first ) { first = false; return every; }\
@@ -30,7 +32,7 @@
 
 #define TIMER(x, ...)\
 	static uf::Timer<long long> timer(false);\
-	if ( !timer.running() ) timer.start(uf::Time<long long>(-x * 1000, uf::Time<long long>::milliseconds));\
+	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
 	uf::physics::num_t time = timer.elapsed();\
 	if ( time >= x ) timer.reset();\
 	if ( __VA_ARGS__ time >= x )

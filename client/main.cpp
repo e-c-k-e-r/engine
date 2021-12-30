@@ -63,6 +63,7 @@ int main(int argc, char** argv){
 	client::initialize();
 	ext::initialize();
 
+
 	// For Multithreaded initialization
 	while ( !client::ready || !ext::ready ) {
 		static uf::Timer<long long> timer(false);

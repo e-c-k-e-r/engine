@@ -183,17 +183,19 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 	uf::Asset::Payload payload;
 
 	static uf::stl::unordered_map<uf::stl::string,uf::Asset::Type> typemap = {
-		{ "jpg", uf::Asset::Type::IMAGE },
-		{ "jpeg", uf::Asset::Type::IMAGE },
-		{ "png", uf::Asset::Type::IMAGE },
+		{ "jpg", 	uf::Asset::Type::IMAGE },
+		{ "jpeg", 	uf::Asset::Type::IMAGE },
+		{ "png", 	uf::Asset::Type::IMAGE },
 		
-		{ "ogg", uf::Asset::Type::AUDIO },
+		{ "ogg", 	uf::Asset::Type::AUDIO },
 
-		{ "json", uf::Asset::Type::JSON },
+		{ "json", 	uf::Asset::Type::JSON },
 
-		{ "lua", uf::Asset::Type::LUA },
+		{ "lua", 	uf::Asset::Type::LUA },
 
-		{ "mdl", uf::Asset::Type::GRAPH },
+		{ "glb",  	uf::Asset::Type::GRAPH },
+		{ "gltf", 	uf::Asset::Type::GRAPH },
+		{ "mdl",  	uf::Asset::Type::GRAPH },
 	};
 
 	payload.filename = uri;
@@ -274,7 +276,7 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 		} break;
 		case uf::Asset::Type::AUDIO: {
 			UF_ASSET_REGISTER(uf::Audio)
-			asset.stream(filename);
+			asset.open(filename, true);
 		} break;
 		case uf::Asset::Type::JSON: {
 			UF_ASSET_REGISTER(uf::Serializer)

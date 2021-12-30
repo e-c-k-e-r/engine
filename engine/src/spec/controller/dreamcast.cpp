@@ -5,6 +5,11 @@
 #include <limits>
 #include <uf/utils/string/ext.h>
 #include <uf/utils/math/vector.h>
+
+#include <uf/utils/io/inputs.h>
+
+#define NORMALIZE(X) ((float) (X) / (float) std::numeric_limits<decltype(X)>::max())
+
 namespace {
 	struct {
 		maple_device_t* device = NULL;
@@ -64,6 +69,54 @@ void spec::dreamcast::controller::initialize() {
 void spec::dreamcast::controller::tick() {
 	if ( !::controller.device ) ::controller.device = maple_enum_type(0, MAPLE_FUNC_CONTROLLER);
 	if ( ::controller.device ) ::controller.state = (cont_state_t*) maple_dev_status(::controller.device);
+
+	if ( !::controller.state ) return;
+
+//	uf::inputs::controller::states::C = ::controller.state->buttons & CONT_C;
+	uf::inputs::controller::states::B = ::controller.state->buttons & CONT_B;
+	uf::inputs::controller::states::A = ::controller.state->buttons & CONT_A;
+	uf::inputs::controller::states::START = ::controller.state->buttons & CONT_START;
+	uf::inputs::controller::states::DPAD_UP = ::controller.state->buttons & CONT_DPAD_UP;
+	uf::inputs::controller::states::DPAD_DOWN = ::controller.state->buttons & CONT_DPAD_DOWN;
+	uf::inputs::controller::states::DPAD_LEFT = ::controller.state->buttons & CONT_DPAD_LEFT;
+	uf::inputs::controller::states::DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD_RIGHT;
+//	uf::inputs::controller::states::Z = ::controller.state->buttons & CONT_Z;
+	uf::inputs::controller::states::Y = ::controller.state->buttons & CONT_Y;
+	uf::inputs::controller::states::X = ::controller.state->buttons & CONT_X;
+//	uf::inputs::controller::states::D = ::controller.state->buttons & CONT_D;
+
+	uf::inputs::controller::states::L_DPAD_UP = ::controller.state->buttons & CONT_DPAD_UP;
+	uf::inputs::controller::states::L_DPAD_DOWN = ::controller.state->buttons & CONT_DPAD_DOWN;
+	uf::inputs::controller::states::L_DPAD_LEFT = ::controller.state->buttons & CONT_DPAD_LEFT;
+	uf::inputs::controller::states::L_DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD_RIGHT;
+
+	uf::inputs::controller::states::R_DPAD_UP = ::controller.state->buttons & CONT_DPAD2_UP;
+	uf::inputs::controller::states::R_DPAD_DOWN = ::controller.state->buttons & CONT_DPAD2_DOWN;
+	uf::inputs::controller::states::R_DPAD_LEFT = ::controller.state->buttons & CONT_DPAD2_LEFT;
+	uf::inputs::controller::states::R_DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD2_RIGHT;
+
+/*
+	if ( uf::inputs::controller::states::B ) UF_MSG_DEBUG("[Pressed] B");
+	if ( uf::inputs::controller::states::A ) UF_MSG_DEBUG("[Pressed] A");
+	if ( uf::inputs::controller::states::START ) UF_MSG_DEBUG("[Pressed] START");
+	if ( uf::inputs::controller::states::DPAD_UP ) UF_MSG_DEBUG("[Pressed] DPAD_UP");
+	if ( uf::inputs::controller::states::DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] DPAD_DOWN");
+	if ( uf::inputs::controller::states::DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] DPAD_LEFT");
+	if ( uf::inputs::controller::states::DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] DPAD_RIGHT");
+	if ( uf::inputs::controller::states::Y ) UF_MSG_DEBUG("[Pressed] Y");
+	if ( uf::inputs::controller::states::X ) UF_MSG_DEBUG("[Pressed] X");
+
+	if ( uf::inputs::controller::states::L_DPAD_UP ) UF_MSG_DEBUG("[Pressed] L_DPAD_UP");
+	if ( uf::inputs::controller::states::L_DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] L_DPAD_DOWN");
+	if ( uf::inputs::controller::states::L_DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] L_DPAD_LEFT");
+	if ( uf::inputs::controller::states::L_DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] L_DPAD_RIGHT");
+
+	if ( uf::inputs::controller::states::R_DPAD_UP ) UF_MSG_DEBUG("[Pressed] R_DPAD_UP");
+	if ( uf::inputs::controller::states::R_DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] R_DPAD_DOWN");
+	if ( uf::inputs::controller::states::R_DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] R_DPAD_LEFT");
+	if ( uf::inputs::controller::states::R_DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] R_DPAD_RIGHT");
+*/
+
 #if 0
 	uf::stl::vector<uf::stl::string> str;
 	pod::Vector2f joystick = { analog("L_JOYSTICK_X"), analog("L_JOYSTICK_Y") };
@@ -97,7 +150,6 @@ bool spec::dreamcast::controller::pressed( const uf::stl::string& str, size_t i 
 	return ::controller.state->buttons & GetKeyCode( str );
 }
 float spec::dreamcast::controller::analog( const uf::stl::string& str, size_t i ) {
-#define NORMALIZE(X) ((float) (X) / (float) std::numeric_limits<decltype(X)>::max())
 	if ( !::controller.state ) return false;
 	
 	if ( str == "L_TRIGGER" ) return NORMALIZE(::controller.state->ltrig); 

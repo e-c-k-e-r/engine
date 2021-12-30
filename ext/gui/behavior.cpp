@@ -752,6 +752,49 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
 	#if UF_USE_OPENGL
 		auto model = uf::matrix::identity();
+		auto& shader = graphic.material.getShader("vertex");
+		pod::Uniform uniform;
+		if ( metadata.mode == 1 ) {
+			uniform.modelView = transform.model; 
+			uniform.projection = uf::matrix::identity();
+		} else if ( metadata.mode == 2 ) {
+			auto& scene = uf::scene::getCurrentScene();
+			auto& controller = scene.getController();
+			auto& camera = controller.getComponent<uf::Camera>();
+			uniform.modelView = camera.getView() * uf::transform::model( transform );
+			uniform.projection = camera.getProjection();
+			model = uniform.modelView;
+		} else if ( metadata.mode == 3 ) {
+			pod::Transform<> flatten = uf::transform::flatten( transform );
+			uniform.modelView = 
+				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+				uf::quaternion::matrix( flatten.orientation ) *
+				flatten.model;
+			uniform.projection = camera.getProjection();
+			model = uniform.modelView;
+		} else {
+			pod::Transform<> flatten = uf::transform::flatten( transform );
+			model = 
+				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+				uf::quaternion::matrix( flatten.orientation ) *
+				flatten.model;
+			
+			flatten.position.y = -flatten.position.y;
+			if ( isGlyph ) flatten.scale.y = -flatten.scale.y;
+
+			flatten.position.z = 1;
+			uniform.modelView = 
+				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+				uf::quaternion::matrix( flatten.orientation ) *
+				flatten.model;
+			uniform.projection = uf::matrix::identity();
+		}
+		shader.updateUniform( "UBO", (const void*) &uniform, sizeof(uniform) );
+	/*
+		auto model = uf::matrix::identity();
 		auto uniformBuffer = graphic.getUniform();
 		pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniformBuffer.buffer));
 		if ( metadata.mode == 1 ) {
@@ -793,6 +836,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			uniform.projection = uf::matrix::identity();
 		}
 		graphic.updateUniform( &uniform, sizeof(uniform) );
+	*/
 	#elif UF_USE_VULKAN
 		if ( !graphic.material.hasShader("vertex") ) return;
 

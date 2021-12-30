@@ -206,7 +206,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if 1
 	uf::hooks.call("game:Frame.Start");
-	metadata.shader.invalidated = false;
 
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U && ) {

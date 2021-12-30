@@ -255,10 +255,15 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		float friction = 0.8f;
 		float air = 1.0f;
 	} speed; {
+		float scale = 1;
+	#if UF_USE_OPENGL
+		scale = 10;
+	#endif
+
 		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
-		speed.move = metadata.movement.move;
-		speed.run = metadata.movement.run;
-		speed.walk = metadata.movement.walk;
+		speed.move = metadata.movement.move * scale;
+		speed.run = metadata.movement.run * scale;
+		speed.walk = metadata.movement.walk * scale;
 		speed.friction = metadata.movement.friction;
 		speed.air = metadata.movement.air;
 		

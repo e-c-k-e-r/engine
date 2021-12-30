@@ -13,8 +13,8 @@
 #include <fstream>
 #include <atomic>
 
-uint32_t ext::opengl::settings::width = 1280;
-uint32_t ext::opengl::settings::height = 720;
+uint32_t ext::opengl::settings::width = 640;
+uint32_t ext::opengl::settings::height = 480;
 uint8_t ext::opengl::settings::msaa = 1;
 bool ext::opengl::settings::validation = true;
 // constexpr size_t ext::opengl::settings::maxViews = 6;

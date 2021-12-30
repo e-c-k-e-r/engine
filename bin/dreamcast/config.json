@@ -149,6 +149,7 @@
 		"mode" : "windowed",
 		"icon" : "./data/textures/icon.png",
 		"size" :  [ 640, 480 ],
+	//	"size" :  [ 320, 240 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}
