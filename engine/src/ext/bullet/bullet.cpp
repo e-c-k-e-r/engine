@@ -198,11 +198,11 @@ void ext::bullet::syncTo() {
 		uf::Object* entity = (uf::Object*) body->getUserPointer();
 		if ( !entity || !entity->isValid() || !entity->hasComponent<pod::PhysicsState>() ) continue;
 
-		auto& collider = entity->getComponent<pod::PhysicsState>();
-		if ( !collider.shared ) continue;
+		auto& state = entity->getComponent<pod::PhysicsState>();
+		if ( !state.shared ) continue;
 				
 		auto& physics = entity->getComponent<pod::Physics>();
-		auto model = uf::transform::model( collider.transform );
+		auto model = uf::transform::model( state.transform );
 		
 		btTransform t = body->getWorldTransform();
 		t.setFromOpenGLMatrix(&model[0]);
@@ -222,32 +222,34 @@ void ext::bullet::syncFrom() {
 		btTransform t = body->getWorldTransform();
 	//	body->getMotionState()->getWorldTransform(t);
 
-		uf::Object* entity = (uf::Object*) body->getUserPointer();
-		if ( !entity || !entity->isValid() || !entity->hasComponent<pod::PhysicsState>() ) continue;
+		uf::Object* object = (uf::Object*) body->getUserPointer();
+		if ( !object || !object->isValid() || !object->hasComponent<pod::PhysicsState>() ) continue;
 
-		auto& collider = entity->getComponent<pod::PhysicsState>();
+		auto& state = object->getComponent<pod::PhysicsState>();;
+		auto& transform = object->getComponent<pod::Transform<>>();
+		auto& physics = object->getComponent<pod::Physics>();
 
-		auto& transform = entity->getComponent<pod::Transform<>>();
-		transform.position.x = t.getOrigin().getX();
-		transform.position.y = t.getOrigin().getY();
-		transform.position.z = t.getOrigin().getZ();
+		/*state.*/transform.position.x = t.getOrigin().getX();
+		/*state.*/transform.position.y = t.getOrigin().getY();
+		/*state.*/transform.position.z = t.getOrigin().getZ();
 
-		transform.orientation.x = t.getRotation().getX();
-		transform.orientation.y = t.getRotation().getY();
-		transform.orientation.z = t.getRotation().getZ();
-		transform.orientation.w = t.getRotation().getW();
-
-		{
-			auto& physics = entity->getComponent<pod::Physics>();
-			physics.linear.velocity.x = body->getLinearVelocity().getX();
-			physics.linear.velocity.y = body->getLinearVelocity().getY();
-			physics.linear.velocity.z = body->getLinearVelocity().getZ();
-
-			physics.rotational.velocity.x = body->getAngularVelocity().getX();
-			physics.rotational.velocity.y = body->getAngularVelocity().getY();
-			physics.rotational.velocity.z = body->getAngularVelocity().getZ();
+		// state transform is an offset, un-offset
+		if ( state.transform.reference ) {
+			transform.position -= state.transform.position;
 		}
+		
+		/*state.*/transform.orientation.x = t.getRotation().getX();
+		/*state.*/transform.orientation.y = t.getRotation().getY();
+		/*state.*/transform.orientation.z = t.getRotation().getZ();
+		/*state.*/transform.orientation.w = t.getRotation().getW();
 
+		physics.linear.velocity.x = body->getLinearVelocity().getX();
+		physics.linear.velocity.y = body->getLinearVelocity().getY();
+		physics.linear.velocity.z = body->getLinearVelocity().getZ();
+
+		physics.rotational.velocity.x = body->getAngularVelocity().getX();
+		physics.rotational.velocity.y = body->getAngularVelocity().getY();
+		physics.rotational.velocity.z = body->getAngularVelocity().getZ();
 
 		transform = uf::transform::reorient( transform );
 	}
@@ -377,9 +379,9 @@ pod::PhysicsState& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh
 */
 	return collider;
 }
-pod::PhysicsState& ext::bullet::create( uf::Object& object, const pod::Vector3f& corner ) {
+pod::PhysicsState& ext::bullet::create( uf::Object& object, const pod::Vector3f& extent ) {
 	auto& collider = ext::bullet::create( object );
-	collider.shape = new btBoxShape(btVector3(corner.x, corner.y, corner.z));
+	collider.shape = new btBoxShape(btVector3(abs(extent.x), abs(extent.y), abs(extent.z)));
 	ext::bullet::attach( collider );
 
 	auto& transform = object.getComponent<pod::Transform<>>();

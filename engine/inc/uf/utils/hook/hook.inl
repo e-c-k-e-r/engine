@@ -1,6 +1,6 @@
 template<typename Arg>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<void(Arg)>& callback ) {
-	typedef typename std::remove_reference<Arg>::type Argument;
+	typedef TYPE_SANITIZE(Arg) Argument;
 
 	return addHook(name, [=]( const pod::Hook::userdata_t& userdata ){
 		pod::Hook::userdata_t ret;
@@ -14,7 +14,7 @@ size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<vo
 }
 template<typename R, typename Arg>
 size_t uf::Hooks::addHook( const uf::Hooks::name_t& name, const std::function<R(Arg)>& callback ) {
-	typedef typename std::remove_reference<Arg>::type Argument;
+	typedef TYPE_SANITIZE(Arg) Argument;
 
 	return addHook(name, [=]( const pod::Hook::userdata_t& userdata ){
 		pod::Hook::userdata_t ret;
@@ -36,5 +36,6 @@ template<typename T>
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const T& p ) {
 	pod::Hook::userdata_t payload;
 	payload.create<T>(p);
+
 	return call( name, payload );
 }

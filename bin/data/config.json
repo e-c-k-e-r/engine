@@ -24,7 +24,7 @@
 			},
 			"vxgi": {
 				"limiter": 0.5,
-				"size": 128,
+				"size": 96,
 				"dispatch": 8,
 				"cascades": 4,
 				"cascadePower": 2,
@@ -72,9 +72,9 @@
 					"deferred alias output to swapchain": false,
 					"vsync": true,
 					"hdr": false,
-					"vxgi": false,
+					"vxgi": true,
 					"deferred sampling": false,
-					"culling": false,
+					"culling": true,
 					"bloom": true
 				},
 				"formats": {

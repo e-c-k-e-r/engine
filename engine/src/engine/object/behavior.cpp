@@ -212,7 +212,6 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 	double curTime = uf::Object::timer.elapsed().asDouble();
 
-#if 1
 	decltype(metadata.hooks.queue) unprocessed;
 	unprocessed.reserve( metadata.hooks.queue.size() );
 
@@ -221,20 +220,11 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 
 	for ( auto& q : queue ) if ( q.timeout < curTime ) executeQueue.emplace_back(q); else unprocessed.emplace_back(q);
 	for ( auto& q : executeQueue ) {
-		if ( q.type == 0 ) {
-			this->callHook( q.name, q.json );
-		} else {
-			this->callHook( q.name, q.userdata );
-		}
+		if ( q.type == 1 ) this->callHook( q.name, q.userdata );
+		else if ( q.type == -1 ) this->callHook( q.name, q.json );
+		else this->callHook( q.name );
 	}
 	queue = std::move(unprocessed);
-#else
-	for ( auto it = queue.begin(); it != queue.end(); ) {
-		auto& q = *it;
-		if ( q.timeout < curTime ) { this->callHook( q.name, q.payload ); it = queue.erase( it ); }
-		else ++it;
-	}
-#endif
 
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize(self, metadataJson);

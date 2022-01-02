@@ -101,17 +101,20 @@
 
 #define UF_TIMER_MULTITRACE_END(X) UF_MSG_DEBUG(X);
 
+#include <type_traits>
+#define TYPE_SANITIZE(T) std::remove_cv_t<std::remove_reference_t<T>>
+
 #if UF_CTTI
 	#include <ctti/type_id.hpp>
 	#define TYPE_INDEX_T ctti::type_id_t
 	#define TYPE_HASH_T ctti::detail::hash_t
-	#define TYPE(T) ctti::type_id<T>()
+	#define TYPE(T) ctti::type_id<TYPE_SANITIZE(T)>()
 	#define TYPE_HASH(T) TYPE(T).hash()
-	#define TYPE_NAME(T) ctti::nameof<T>()
+	#define TYPE_NAME(T) ctti::nameof<T>().str()
 #else
 	#define TYPE_INDEX_T std::type_index
 	#define TYPE_HASH_T std::size_t
-	#define TYPE(T) typeid(T)
+	#define TYPE(T) typeid(TYPE_SANITIZE(T))
 	#define TYPE_HASH(T) TYPE(T).hash_code()
 	#define TYPE_NAME(T) TYPE(T).name()
 #endif

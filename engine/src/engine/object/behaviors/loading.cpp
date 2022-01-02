@@ -17,7 +17,7 @@ UF_BEHAVIOR_TRAITS_CPP(uf::LoadingBehavior, ticks = true, renders = false, multi
 #define this (&self)
 void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::Serializer>();
-	this->addHook( "system:Load.Finished.%UID%", [&](ext::json::Value& json){
+	this->addHook( "system:Load.Finished.%UID%", [&](){
 		metadata["system"]["loaded"] = true;
 	//	this->removeBehavior(pod::Behavior{.type = uf::LoadingBehavior::type});
 		this->removeBehavior(pod::Behavior{.type = TYPE(uf::LoadingBehavior::Metadata)});
@@ -26,7 +26,7 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 		auto& scene = uf::scene::getCurrentScene();
 		if ( parent.getUid() != scene.getUid() ) {
 			scene.moveChild(*this);
-			uf::Serializer payload;
+			ext::json::Value payload;
 			payload["uid"] = parent.getUid();
 			parent.getParent().removeChild(parent);
 			parent.process([&]( uf::Entity* entity ) {

@@ -309,6 +309,8 @@ void ext::reactphysics::syncFrom() {
 		physics.rotational.velocity.x = rotationalVelocity.x;
 		physics.rotational.velocity.y = rotationalVelocity.y;
 		physics.rotational.velocity.z = rotationalVelocity.z;
+
+		transform = uf::transform::reorient( transform );
 	}
 }
 // apply impulse

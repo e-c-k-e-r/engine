@@ -111,7 +111,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		uf::Serializer charaData = masterDataGet("Chara", cardData["character_id"].as<uf::stl::string>());
 		uf::stl::string leader = charaData["name"].as<uf::stl::string>();
 
-		uf::Serializer payload = json;
+		ext::json::Value payload = json;
 		payload["details"] = "Leader: " + leader;
 		uf::hooks.call( "discord:Activity.Update", payload );
 	});
@@ -212,8 +212,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
 	auto& collider = this->getComponent<pod::PhysicsState>();
-	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true; else
-	stats.floored |= fabs(physics.linear.velocity.y) < 0.01f;
+	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true;
+	else stats.floored |= fabs(physics.linear.velocity.y) < 0.01f;
 
 	TIMER(0.125, keys.use && ) {
 		size_t uid = 0;
@@ -224,7 +224,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 		float depth = uf::physics::impl::rayCast( pos, pos + dir, pointer );
 		if ( pointer ) { 
-			uf::Serializer payload;
+			ext::json::Value payload;
 			payload["uid"] = this->getUid();
 			payload["depth"] = depth;
 			pointer->callHook( "entity:Use.%UID%", payload );
@@ -256,9 +256,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		float air = 1.0f;
 	} speed; {
 		float scale = 1;
-	#if UF_USE_OPENGL
-		scale = 10;
-	#endif
 
 		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
 		speed.move = metadata.movement.move * scale;
@@ -286,13 +283,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		pod::payloads::menuOpen payload;
 		payload.name = "pause";
 		uf::hooks.call("menu:Open", payload);
-	}
-	else if ( !metadata.system.control ) {
+	} else if ( !metadata.system.control ) {
 		stats.menu = "menu";
-	} else if ( stats.menu == "" ) {
-		metadata.system.control = true;
-	} else {
-		metadata.system.control = false;
+	} else  {
+		metadata.system.control = stats.menu == "";
 	}
 	metadata.system.menu = stats.menu;
 
@@ -461,7 +455,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		TRACK_ORIENTATION(camera.getTransform().orientation);
 		float magnitude = uf::quaternion::magnitude( combinedDeltaOrientation );
 		if ( magnitude > 0.0001f ) {
-			uf::Serializer payload;
+			ext::json::Value payload;
 			payload["delta"] = uf::vector::encode( combinedDeltaOrientation );
 			payload["angle"]["pitch"] = combinedDeltaAngles.x;
 			payload["angle"]["yaw"] = combinedDeltaAngles.y;
@@ -517,7 +511,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	auto& serializerCameraLimit = serializerCamera["limit"];
 
 	/*this->*/system.menu = serializerSystem["menu"].as<uf::stl::string>();
-	/*this->*/system.control = serializerSystem["control"].as<bool>();
+	/*this->*/system.control = serializerSystem["control"].as<bool>(true);
 	/*this->*/system.crouching = serializerSystem["crouching"].as<bool>();
 	/*this->*/system.noclipped = serializerSystem["noclipped"].as<bool>();
 	/*this->*/movement.friction = serializerSystemPhysics["friction"].as<float>();

@@ -81,7 +81,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 		if ( !manager ) return;
 
-		uf::Serializer payload;
+		ext::json::Value payload;
 		uf::stl::string config = metadataJson["menus"]["pause"].as<uf::stl::string>("/entites/gui/pause/menu.json");
 		uf::Object& gui = manager->loadChild(config, false);
 		payload["uid"] = gui.getUid();

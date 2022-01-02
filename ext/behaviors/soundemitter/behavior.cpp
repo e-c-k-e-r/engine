@@ -84,7 +84,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 
 		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
 		
-		uf::Serializer json = metadata["audio"];
+		ext::json::Value json = metadata["audio"];
 		json["filename"] = payload.filename;
 		this->callHook("sound:Emit.%UID%", json);
 	});

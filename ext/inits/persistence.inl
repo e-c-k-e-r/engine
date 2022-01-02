@@ -17,7 +17,7 @@
 		}
 
 		/* Update window size */ {
-			uf::Serializer json;
+			ext::json::Value json;
 			uf::stl::string hook = "window:Resized";
 			json["type"] = hook;
 			json["invoker"] = "ext";
@@ -28,7 +28,7 @@
 				uf::hooks.call(hook, json);
 		}
 		/* Update window title */ {
-		uf::Serializer json;
+		ext::json::Value json;
 			uf::stl::string hook = "window:Title.Changed";
 			json["type"] = hook;
 			json["invoker"] = "ext";

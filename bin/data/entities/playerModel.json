@@ -1,7 +1,7 @@
 {
 	"type": "Object",
 	"name": "Player: Model",
-	"ignore": true,
+	"ignore": false,
 	"assets": [
 		"/player/bear.glb"
 	//	{ "filename": "/player/bear/graph.json", "delay": 0, "single threaded": false, "category": "models" }

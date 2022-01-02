@@ -106,22 +106,34 @@ uf::inputs::state_t uf::inputs::controller::states::R_DPAD_UP = false;
 uf::inputs::state_t uf::inputs::controller::states::R_DPAD_DOWN = false;
 uf::inputs::state_t uf::inputs::controller::states::R_DPAD_LEFT = false;
 uf::inputs::state_t uf::inputs::controller::states::R_DPAD_RIGHT = false;
-uf::inputs::state_t uf::inputs::controller::states::R_JOYSTICK = false;
 uf::inputs::state_t uf::inputs::controller::states::R_A = false;
+uf::inputs::state_t uf::inputs::controller::states::R_B = false;
+uf::inputs::state_t uf::inputs::controller::states::R_X = false;
+uf::inputs::state_t uf::inputs::controller::states::R_Y = false;
+
 uf::inputs::state_t uf::inputs::controller::states::L_DPAD_UP = false;
 uf::inputs::state_t uf::inputs::controller::states::L_DPAD_DOWN = false;
 uf::inputs::state_t uf::inputs::controller::states::L_DPAD_LEFT = false;
 uf::inputs::state_t uf::inputs::controller::states::L_DPAD_RIGHT = false;
-uf::inputs::state_t uf::inputs::controller::states::L_JOYSTICK = false;
 uf::inputs::state_t uf::inputs::controller::states::L_A = false;
-uf::inputs::state_t uf::inputs::controller::states::DPAD_UP = false;
-uf::inputs::state_t uf::inputs::controller::states::DPAD_DOWN = false;
-uf::inputs::state_t uf::inputs::controller::states::DPAD_LEFT = false;
-uf::inputs::state_t uf::inputs::controller::states::DPAD_RIGHT = false;
-uf::inputs::state_t uf::inputs::controller::states::A = false;
-uf::inputs::state_t uf::inputs::controller::states::B = false;
-uf::inputs::state_t uf::inputs::controller::states::X = false;
-uf::inputs::state_t uf::inputs::controller::states::Y = false;
-uf::inputs::state_t uf::inputs::controller::states::L_TRIGGER = false;
-uf::inputs::state_t uf::inputs::controller::states::R_TRIGGER = false;
+uf::inputs::state_t uf::inputs::controller::states::L_B = false;
+uf::inputs::state_t uf::inputs::controller::states::L_X = false;
+uf::inputs::state_t uf::inputs::controller::states::L_Y = false;
+
+uf::inputs::state_t& uf::inputs::controller::states::DPAD_UP = uf::inputs::controller::states::L_DPAD_UP;
+uf::inputs::state_t& uf::inputs::controller::states::DPAD_DOWN = uf::inputs::controller::states::L_DPAD_DOWN;
+uf::inputs::state_t& uf::inputs::controller::states::DPAD_LEFT = uf::inputs::controller::states::L_DPAD_LEFT;
+uf::inputs::state_t& uf::inputs::controller::states::DPAD_RIGHT = uf::inputs::controller::states::L_DPAD_RIGHT;
+
+uf::inputs::state_t& uf::inputs::controller::states::A = uf::inputs::controller::states::R_A;
+uf::inputs::state_t& uf::inputs::controller::states::B = uf::inputs::controller::states::R_B;
+uf::inputs::state_t& uf::inputs::controller::states::X = uf::inputs::controller::states::R_X;
+uf::inputs::state_t& uf::inputs::controller::states::Y = uf::inputs::controller::states::R_Y;
+
+uf::inputs::analog2_t uf::inputs::controller::states::L_JOYSTICK = {};
+uf::inputs::analog2_t uf::inputs::controller::states::R_JOYSTICK = {};
+
+uf::inputs::analog_t uf::inputs::controller::states::L_TRIGGER = false;
+uf::inputs::analog_t uf::inputs::controller::states::R_TRIGGER = false;
+
 uf::inputs::state_t uf::inputs::controller::states::START = false;

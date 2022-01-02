@@ -524,7 +524,7 @@ void EXT_API ext::initialize() {
 	}
 
 	/* Initialize root scene*/ {
-		uf::Serializer payload;
+		ext::json::Value payload;
 		payload["scene"] = ::config["engine"]["scenes"]["start"];
 		payload["immediate"] = true;
 		uf::hooks.call("game:Scene.Load", payload);

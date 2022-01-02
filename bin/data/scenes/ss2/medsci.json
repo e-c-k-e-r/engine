@@ -20,7 +20,7 @@
 	"metadata": {
 		"model": {
 			"baking": {
-				"enabled": true,
+				"enabled": false,
 				"resolution": 8192,
 				"shadows": 1024,
 				"trigger": { "mode": "rendered" },

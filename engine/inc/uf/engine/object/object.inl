@@ -20,19 +20,17 @@ template<typename T>
 size_t uf::Object::addHook( const uf::stl::string& name, T callback ) {
 	uf::stl::string parsed = this->formatHookName( name );
 	std::size_t id = uf::hooks.addHook( parsed, callback );
-#if UF_ENTITY_METADATA_USE_JSON
-	auto& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["bound"][parsed].emplace_back(id);
-#else
+
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	metadata.hooks.bound[parsed].emplace_back(id);
-#endif
+
 	return id;
 }
 template<typename T>
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const T& p ) {
-	uf::Userdata payload;
+	pod::Hook::userdata_t payload;
 	payload.create<T>(p);
+
 	return uf::hooks.call( this->formatHookName( name ), payload );
 }
 

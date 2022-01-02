@@ -72,11 +72,6 @@ void client::initialize() {
 			client::config["mouse"]["visible"] = payload.mouse.visible;
 			client::config["window"]["mouse"]["center"] = !payload.mouse.visible;
 		});
-		uf::hooks.addHook( "window:Mouse.Lock", [&]( ext::json::Value& json ){
-			if ( client::window.hasFocus() ) {
-				client::window.setMousePosition(client::window.getSize()/2);
-			}
-		});
 		uf::hooks.addHook( "window:Mouse.Lock", [&](){
 			if ( client::window.hasFocus() ) {
 				client::window.setMousePosition(client::window.getSize()/2);

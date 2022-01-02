@@ -7,6 +7,9 @@ pod::Userdata* uf::userdata::create( const T& data ) {
 }
 template<typename T>
 pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
+	// CTTI information of a T& != T
+//	if ( std::is_reference<T>() ) return uf::userdata::create<typename std::remove_reference<T>::type>( requestedMemoryPool, data );
+
 	pod::Userdata* userdata = uf::userdata::create( requestedMemoryPool, sizeof(data), nullptr );
 	userdata->type = UF_USERDATA_CTTI(T);
 	union {
@@ -50,7 +53,7 @@ bool uf::userdata::is( const pod::Userdata* userdata ) {
 template<typename T>
 pod::Userdata* uf::Userdata::create( const T& data ) {
 	this->destroy();
-	return this->m_pod = uf::userdata::create(data);
+	return this->m_pod = uf::userdata::create<T>(data);
 }
 // Easy way to get the userdata as a reference
 template<typename T>

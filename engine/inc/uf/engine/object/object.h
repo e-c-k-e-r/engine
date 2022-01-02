@@ -35,18 +35,17 @@ namespace uf {
 		uf::stl::string formatHookName( const uf::stl::string& name );
 		static uf::stl::string formatHookName( const uf::stl::string& name, size_t uid, bool fetch = true );
 
-		void queueHook( const uf::stl::string&, const ext::json::Value& = ext::json::null(), float = 0 );
+		template<typename T> size_t addHook( const uf::stl::string& name, T function );
+
+		uf::Hooks::return_t callHook( const uf::stl::string& );
+		uf::Hooks::return_t callHook( const uf::stl::string&, const pod::Hook::userdata_t& );
+		template<typename T> uf::Hooks::return_t callHook( const uf::stl::string& name, const T& payload );
+
+		void queueHook( const uf::stl::string&, float = 0 );
+		void queueHook( const uf::stl::string&, const ext::json::Value& json, float = 0 );
 		
 		template<typename T>
 		void queueHook( const uf::stl::string&, const T&, float = 0 );
-
-		uf::Hooks::return_t callHook( const uf::stl::string& );
-		uf::Hooks::return_t callHook( const uf::stl::string&, const ext::json::Value& );
-		uf::Hooks::return_t callHook( const uf::stl::string&, const uf::Serializer& );
-		uf::Hooks::return_t callHook( const uf::stl::string&, const pod::Hook::userdata_t& );
-		
-		template<typename T> size_t addHook( const uf::stl::string& name, T function );
-		template<typename T> uf::Hooks::return_t callHook( const uf::stl::string& name, const T& payload );
 
 		uf::stl::string grabURI( const uf::stl::string& filename, const uf::stl::string& root = "" );
 	};

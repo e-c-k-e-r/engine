@@ -70,8 +70,8 @@ namespace binds {
 			});
 		};
 		void call( const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
-			uf::Serializer payload = table;
-			uf::hooks.call( name, (ext::json::Value&) payload );
+			ext::json::Value payload = uf::Serializer(table);
+			uf::hooks.call( name, payload );
 			return;
 		};
 	}

@@ -81,7 +81,7 @@ int main(int argc, char** argv){
 	#endif
 		/*
 			static bool first = false; if ( !first ) { first = true;
-				uf::Serializer json;
+				ext::json::Value json;
 				uf::hooks.call("window:Resized", pod::payloads::windowResized{
 					{
 						"window:Resized",

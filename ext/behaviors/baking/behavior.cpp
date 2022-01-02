@@ -128,7 +128,7 @@ SAVE: {
 
 	UF_MSG_DEBUG("Reverted shadow limits");
 
-	uf::Serializer payload;
+	ext::json::Value payload;
 	payload["uid"] = this->getUid();
 	uf::scene::getCurrentScene().queueHook("system:Destroy", payload);
 #endif

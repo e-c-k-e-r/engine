@@ -72,79 +72,37 @@ void spec::dreamcast::controller::tick() {
 
 	if ( !::controller.state ) return;
 
-//	uf::inputs::controller::states::C = ::controller.state->buttons & CONT_C;
-	uf::inputs::controller::states::B = ::controller.state->buttons & CONT_B;
 	uf::inputs::controller::states::A = ::controller.state->buttons & CONT_A;
+	uf::inputs::controller::states::B = ::controller.state->buttons & CONT_B;
+	uf::inputs::controller::states::X = ::controller.state->buttons & CONT_X;
+	uf::inputs::controller::states::Y = ::controller.state->buttons & CONT_Y;
+	
 	uf::inputs::controller::states::START = ::controller.state->buttons & CONT_START;
+	
 	uf::inputs::controller::states::DPAD_UP = ::controller.state->buttons & CONT_DPAD_UP;
 	uf::inputs::controller::states::DPAD_DOWN = ::controller.state->buttons & CONT_DPAD_DOWN;
 	uf::inputs::controller::states::DPAD_LEFT = ::controller.state->buttons & CONT_DPAD_LEFT;
 	uf::inputs::controller::states::DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD_RIGHT;
-//	uf::inputs::controller::states::Z = ::controller.state->buttons & CONT_Z;
-	uf::inputs::controller::states::Y = ::controller.state->buttons & CONT_Y;
-	uf::inputs::controller::states::X = ::controller.state->buttons & CONT_X;
+
+//	uf::inputs::controller::states::C = ::controller.state->buttons & CONT_C;
 //	uf::inputs::controller::states::D = ::controller.state->buttons & CONT_D;
+//	uf::inputs::controller::states::Z = ::controller.state->buttons & CONT_Z;
 
-	uf::inputs::controller::states::L_DPAD_UP = ::controller.state->buttons & CONT_DPAD_UP;
-	uf::inputs::controller::states::L_DPAD_DOWN = ::controller.state->buttons & CONT_DPAD_DOWN;
-	uf::inputs::controller::states::L_DPAD_LEFT = ::controller.state->buttons & CONT_DPAD_LEFT;
-	uf::inputs::controller::states::L_DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD_RIGHT;
+	uf::inputs::controller::states::L_TRIGGER = NORMALIZE(::controller.state->ltrig); 
+	uf::inputs::controller::states::R_TRIGGER = NORMALIZE(::controller.state->rtrig); 
 
-	uf::inputs::controller::states::R_DPAD_UP = ::controller.state->buttons & CONT_DPAD2_UP;
-	uf::inputs::controller::states::R_DPAD_DOWN = ::controller.state->buttons & CONT_DPAD2_DOWN;
-	uf::inputs::controller::states::R_DPAD_LEFT = ::controller.state->buttons & CONT_DPAD2_LEFT;
-	uf::inputs::controller::states::R_DPAD_RIGHT = ::controller.state->buttons & CONT_DPAD2_RIGHT;
+	uf::inputs::controller::states::L_JOYSTICK.x = NORMALIZE(::controller.state->joyx);
+	uf::inputs::controller::states::L_JOYSTICK.y = NORMALIZE(::controller.state->joyy);
 
-/*
-	if ( uf::inputs::controller::states::B ) UF_MSG_DEBUG("[Pressed] B");
-	if ( uf::inputs::controller::states::A ) UF_MSG_DEBUG("[Pressed] A");
-	if ( uf::inputs::controller::states::START ) UF_MSG_DEBUG("[Pressed] START");
-	if ( uf::inputs::controller::states::DPAD_UP ) UF_MSG_DEBUG("[Pressed] DPAD_UP");
-	if ( uf::inputs::controller::states::DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] DPAD_DOWN");
-	if ( uf::inputs::controller::states::DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] DPAD_LEFT");
-	if ( uf::inputs::controller::states::DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] DPAD_RIGHT");
-	if ( uf::inputs::controller::states::Y ) UF_MSG_DEBUG("[Pressed] Y");
-	if ( uf::inputs::controller::states::X ) UF_MSG_DEBUG("[Pressed] X");
-
-	if ( uf::inputs::controller::states::L_DPAD_UP ) UF_MSG_DEBUG("[Pressed] L_DPAD_UP");
-	if ( uf::inputs::controller::states::L_DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] L_DPAD_DOWN");
-	if ( uf::inputs::controller::states::L_DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] L_DPAD_LEFT");
-	if ( uf::inputs::controller::states::L_DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] L_DPAD_RIGHT");
-
-	if ( uf::inputs::controller::states::R_DPAD_UP ) UF_MSG_DEBUG("[Pressed] R_DPAD_UP");
-	if ( uf::inputs::controller::states::R_DPAD_DOWN ) UF_MSG_DEBUG("[Pressed] R_DPAD_DOWN");
-	if ( uf::inputs::controller::states::R_DPAD_LEFT ) UF_MSG_DEBUG("[Pressed] R_DPAD_LEFT");
-	if ( uf::inputs::controller::states::R_DPAD_RIGHT ) UF_MSG_DEBUG("[Pressed] R_DPAD_RIGHT");
-*/
-
-#if 0
-	uf::stl::vector<uf::stl::string> str;
-	pod::Vector2f joystick = { analog("L_JOYSTICK_X"), analog("L_JOYSTICK_Y") };
-	if ( joystick ) str.emplace_back("Joystick: " + uf::vector::toString(joystick));
-	if ( pressed("C") ) str.emplace_back("C");
-	if ( pressed("B") ) str.emplace_back("B");
-	if ( pressed("A") ) str.emplace_back("A");
-	if ( pressed("START") ) str.emplace_back("START");
-	if ( pressed("L_DPAD_UP") ) str.emplace_back("L_DPAD_UP");
-	if ( pressed("L_DPAD_DOWN") ) str.emplace_back("L_DPAD_DOWN");
-	if ( pressed("L_DPAD_LEFT") ) str.emplace_back("L_DPAD_LEFT");
-	if ( pressed("L_DPAD_RIGHT") ) str.emplace_back("L_DPAD_RIGHT");
-	if ( pressed("Z") ) str.emplace_back("Z");
-	if ( pressed("Y") ) str.emplace_back("Y");
-	if ( pressed("X") ) str.emplace_back("X");
-	if ( pressed("D") ) str.emplace_back("D");
-	if ( pressed("R_DPAD_UP") ) str.emplace_back("R_DPAD_UP");
-	if ( pressed("R_DPAD_DOWN") ) str.emplace_back("R_DPAD_DOWN");
-	if ( pressed("R_DPAD_LEFT") ) str.emplace_back("R_DPAD_LEFT");
-	if ( pressed("R_DPAD_RIGHT") ) str.emplace_back("R_DPAD_RIGHT");
-	if ( !str.empty() ) UF_MSG_DEBUG(uf::string::join( str, " | " ));
-#endif
+	uf::inputs::controller::states::R_JOYSTICK.x = NORMALIZE(::controller.state->joy2x);
+	uf::inputs::controller::states::R_JOYSTICK.y = NORMALIZE(::controller.state->joy2y);
 }
 void spec::dreamcast::controller::terminate() {
 }
 bool spec::dreamcast::controller::connected( size_t i ) {
 	return ::controller.state;
 }
+/*
 bool spec::dreamcast::controller::pressed( const uf::stl::string& str, size_t i ) {
 	if ( !::controller.state ) return false;
 	return ::controller.state->buttons & GetKeyCode( str );
@@ -162,5 +120,5 @@ float spec::dreamcast::controller::analog( const uf::stl::string& str, size_t i 
 	else if ( str == "R_JOYSTICK_Y" ) return NORMALIZE(::controller.state->joy2y);
 	return 0.0f;
 }
-
+*/
 #endif

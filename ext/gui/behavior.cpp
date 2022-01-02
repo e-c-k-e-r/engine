@@ -488,11 +488,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			this->callHook("gui:Mouse.Clicked.%UID%", payload);
 		} );
 
-		this->addHook( "gui:Clicked.%UID%", [&](pod::payloads::windowMouseClick& payload){
-			UF_MSG_DEBUG("CLICKED");
 
+		this->addHook( "gui:Clicked.%UID%", [&](pod::payloads::windowMouseClick& payload){
 			if ( ext::json::isObject( metadataJson["events"]["click"] ) ) {
-				uf::Serializer event = metadataJson["events"]["click"];
+				ext::json::Value event = metadataJson["events"]["click"];
 				metadataJson["events"]["click"] = ext::json::array();
 				metadataJson["events"]["click"][0] = event;
 			} else if ( !ext::json::isArray( metadataJson["events"]["click"] ) ) {
@@ -500,8 +499,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				return;
 			}
 			for ( int i = 0; i < metadataJson["events"]["click"].size(); ++i ) {
-				uf::Serializer event = metadataJson["events"]["click"][i];
-				uf::Serializer payload = event["payload"];
+				ext::json::Value event = metadataJson["events"]["click"][i];
+				ext::json::Value payload = event["payload"];
 				if ( event["delay"].is<float>() ) {
 					this->queueHook(event["name"].as<uf::stl::string>(), payload, event["delay"].as<float>());
 				} else {
@@ -552,7 +551,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 		this->addHook( "gui:Hovered.%UID%", [&](ext::json::Value& json){
 			if ( ext::json::isObject( metadataJson["events"]["hover"] ) ) {
-				uf::Serializer event = metadataJson["events"]["hover"];
+				ext::json::Value event = metadataJson["events"]["hover"];
 				metadataJson["events"]["hover"] = ext::json::array(); //Json::arrayValue;
 				metadataJson["events"]["hover"][0] = event;
 			} else if ( !ext::json::isArray( metadataJson["events"]["hover"] ) ) {
@@ -560,8 +559,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				return;
 			}
 			for ( int i = 0; i < metadataJson["events"]["hover"].size(); ++i ) {
-				uf::Serializer event = metadataJson["events"]["hover"][i];
-				uf::Serializer payload = event["payload"];
+				ext::json::Value event = metadataJson["events"]["hover"][i];
+				ext::json::Value payload = event["payload"];
 				float delay = event["delay"].as<float>();
 				if ( event["delay"].is<double>() ) {
 					this->queueHook(event["name"].as<uf::stl::string>(), payload, event["delay"].as<float>());
@@ -589,7 +588,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		
 		this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){
 			if ( json["old"]["text settings"]["string"] == json["new"]["text settings"]["string"] ) return;
-			this->queueHook( "gui:UpdateString.%UID%");
+			this->queueHook( "gui:UpdateString.%UID%", ext::json::Value{});
 		});
 		this->addHook( "gui:UpdateString.%UID%", [&](ext::json::Value& json){
 			ext::json::forEach(::defaultSettings["metadata"]["text settings"], [&]( const uf::stl::string& key, ext::json::Value& value ){
@@ -708,7 +707,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				graphic.getPipeline().update( graphic );
 			}
 		});
-		this->callHook("gui:UpdateString.%UID%");
+		this->callHook("gui:UpdateString.%UID%", ext::json::Value{});
 	}
 #endif
 }

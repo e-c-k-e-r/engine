@@ -104,7 +104,7 @@ void uf::Mesh::insert( const uf::Mesh& mesh ) {
 void uf::Mesh::generateIndices() {
 	// deduce type
 	size_t size = sizeof(uint32_t);
-	uf::renderer::enums::Type::type_t type;
+	uf::renderer::enums::Type::type_t type{};
 	/*if ( vertex.count <= std::numeric_limits<uint8_t>::max() ) { size = sizeof(uint8_t); type = uf::renderer::typeToEnum<uint8_t>(); }
 	else*/ if ( vertex.count <= std::numeric_limits<uint16_t>::max() ) { size = sizeof(uint16_t); type = uf::renderer::typeToEnum<uint16_t>(); }
 	else if ( vertex.count <= std::numeric_limits<uint32_t>::max() ) { size = sizeof(uint32_t); type = uf::renderer::typeToEnum<uint32_t>(); }

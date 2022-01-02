@@ -2,7 +2,7 @@
 
 #include <uf/config.h>
 #include <uf/utils/string/string.h>
-
+#include <uf/utils/math/vector.h>
 
 namespace uf {
 	namespace inputs {
@@ -13,7 +13,10 @@ namespace uf {
 			typedef const char* key_t;
 			#define UF_KEY(x) x
 		#endif
+
 		typedef bool state_t;
+		typedef float analog_t;
+		typedef pod::Vector2t<analog_t> analog2_t;
 
 		namespace kbm {
 			namespace enums {
@@ -254,28 +257,42 @@ namespace uf {
 				constexpr key_t START = UF_KEY("START");
 			};
 			namespace states {
+			// L/R for index controllers
 				extern UF_API state_t R_DPAD_UP;
 				extern UF_API state_t R_DPAD_DOWN;
 				extern UF_API state_t R_DPAD_LEFT;
 				extern UF_API state_t R_DPAD_RIGHT;
-				extern UF_API state_t R_JOYSTICK;
 				extern UF_API state_t R_A;
+				extern UF_API state_t R_B;
+				extern UF_API state_t R_X;
+				extern UF_API state_t R_Y;
+
 				extern UF_API state_t L_DPAD_UP;
 				extern UF_API state_t L_DPAD_DOWN;
 				extern UF_API state_t L_DPAD_LEFT;
 				extern UF_API state_t L_DPAD_RIGHT;
-				extern UF_API state_t L_JOYSTICK;
 				extern UF_API state_t L_A;
-				extern UF_API state_t DPAD_UP;
-				extern UF_API state_t DPAD_DOWN;
-				extern UF_API state_t DPAD_LEFT;
-				extern UF_API state_t DPAD_RIGHT;
-				extern UF_API state_t A;
-				extern UF_API state_t B;
-				extern UF_API state_t X;
-				extern UF_API state_t Y;
-				extern UF_API state_t L_TRIGGER;
-				extern UF_API state_t R_TRIGGER;
+				extern UF_API state_t L_B;
+				extern UF_API state_t L_X;
+				extern UF_API state_t L_Y;
+				
+			// default controller mappings, aliased to L/R sides
+				extern UF_API state_t& DPAD_UP; // = L_DPAD_UP;
+				extern UF_API state_t& DPAD_DOWN; // = L_DPAD_DOWN;
+				extern UF_API state_t& DPAD_LEFT; // = L_DPAD_LEFT;
+				extern UF_API state_t& DPAD_RIGHT; // = L_DPAD_RIGHT;
+
+				extern UF_API state_t& A; // = R_A;
+				extern UF_API state_t& B; // = R_B;
+				extern UF_API state_t& X; // = R_X;
+				extern UF_API state_t& Y; // = R_Y;
+			// analog inputs
+				extern UF_API analog_t L_TRIGGER;
+				extern UF_API analog_t R_TRIGGER;
+				
+				extern UF_API analog2_t L_JOYSTICK;
+				extern UF_API analog2_t R_JOYSTICK;
+
 				extern UF_API state_t START;
 			};
 		}

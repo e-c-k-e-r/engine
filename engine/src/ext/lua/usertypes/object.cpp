@@ -140,12 +140,12 @@ namespace binds {
 		});
 	}
 	void callHook( uf::Object& self, const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
-		uf::Serializer payload = table;
-		self.callHook( name, (ext::json::Value&) payload );
+		ext::json::Value payload = uf::Serializer(table);
+		self.callHook( name, payload );
 	}
 	void queueHook( uf::Object& self, const uf::stl::string& name, sol::table table, float delay = 0.0f ) {
-		uf::Serializer payload = table;
-		self.queueHook( name, (ext::json::Value&) payload, delay );
+		ext::json::Value payload = uf::Serializer(table);
+		self.queueHook( name, payload, delay );
 	}
 	uf::stl::string toString( uf::Object& self ) {
 		return self.getName() + ": " + std::to_string( self.getUid() );

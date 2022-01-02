@@ -89,7 +89,7 @@ pod::PointeredUserdata uf::pointeredUserdata::create( const T& data ) {
 }
 template<typename T>
 pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, const T& data ) {
-//	uf::MemoryPool& memoryPool = uf::memoryPool::global.size() > 0 ? uf::memoryPool::global : requestedMemoryPool;
+//	if ( std::is_reference<T>() ) return uf::pointeredUserdata::create<typename std::remove_reference<T>::type>( requestedMemoryPool, data );
 	pod::PointeredUserdata userdata = uf::pointeredUserdata::create( requestedMemoryPool, sizeof(data), nullptr );
 	userdata.type = UF_USERDATA_CTTI(T);
 	union {
@@ -133,7 +133,7 @@ bool uf::pointeredUserdata::is( const pod::PointeredUserdata& userdata ) {
 template<typename T>
 pod::PointeredUserdata& uf::PointeredUserdata::create( const T& data ) {
 	this->destroy();
-	return this->m_pod = uf::pointeredUserdata::create(data);
+	return this->m_pod = uf::pointeredUserdata::create<T>(data);
 }
 // Easy way to get the userdata as a reference
 template<typename T>

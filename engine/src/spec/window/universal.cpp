@@ -44,6 +44,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 	this->m_events.optimal.back().argument = userdata;
 }
 */
+/*
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
@@ -59,6 +60,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, co
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
+*/
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
@@ -88,6 +90,7 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 	// doesnt get used
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
+	/*
 		if ( event.payload.is<uf::stl::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( "window:Event", payload );
@@ -100,7 +103,7 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
-		} else {			
+		} else */ {			
 			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}

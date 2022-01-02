@@ -80,7 +80,7 @@ void uf::Asset::processQueue() {
 		tasks.emplace_back([=](){
 			auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
 			if ( filename == "" ) return;
-			uf::Serializer payload;
+			ext::json::Value payload;
 			payload["filename"] = filename;
 			payload["hash"] = job.hash;
 			payload["mime"] = job.mime;
@@ -105,7 +105,7 @@ void uf::Asset::processQueue() {
 		}
 		uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
 		if ( callback != "" && filename != "" ) {
-			uf::Serializer payload;
+			ext::json::Value payload;
 			payload["filename"] = filename;
 			payload["hash"] = hash;
 			payload["mime"] = mime;
@@ -130,7 +130,7 @@ void uf::Asset::processQueue() {
 			}
 			uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
 			if ( callback != "" && filename != "" ) {
-				uf::Serializer payload;
+				ext::json::Value payload;
 				payload["filename"] = filename;
 				payload["hash"] = hash;
 				payload["mime"] = mime;
@@ -152,7 +152,7 @@ void uf::Asset::processQueue() {
 			tasks.emplace_back([=](){
 				auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
 				if ( filename == "" ) return;
-				uf::Serializer payload;
+				ext::json::Value payload;
 				payload["filename"] = filename;
 				payload["hash"] = job.hash;
 				payload["mime"] = job.mime;
@@ -192,10 +192,11 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "json", 	uf::Asset::Type::JSON },
 
 		{ "lua", 	uf::Asset::Type::LUA },
-
+	#if !UF_ENV_DREAMCAST
 		{ "glb",  	uf::Asset::Type::GRAPH },
 		{ "gltf", 	uf::Asset::Type::GRAPH },
 		{ "mdl",  	uf::Asset::Type::GRAPH },
+	#endif
 	};
 
 	payload.filename = uri;

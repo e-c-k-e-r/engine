@@ -16,6 +16,7 @@ namespace pod {
 	struct UF_API Physics {
 		size_t uid = 0;
 		uf::Object* object = NULL;
+		
 		bool shared = false; // share control of the transform both in-engine and bullet, set to true if you're directly modifying the transform
 		rp3d::RigidBody* body = NULL;	
 		rp3d::CollisionShape* shape = NULL;	
@@ -35,7 +36,6 @@ namespace pod {
 
 		struct {
 			uint32_t flags = 0;
-
 			float mass = 0.0f;
 			float friction = 0.8f;
 			float restitution = 0.0f;

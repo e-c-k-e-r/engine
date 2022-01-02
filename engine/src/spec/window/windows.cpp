@@ -806,7 +806,7 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 			}
 		};
 	#if UF_HOOK_USE_JSON			
-		uf::Serializer json;	
+		ext::json::Value json;	
 		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 		json["invoker"] 						= event.invoker;
 		json["key"]["code"] 					= "";
@@ -845,6 +845,7 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
+	/*
 		if ( event.payload.is<uf::stl::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( "window:Event", payload );
@@ -857,7 +858,7 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
-		} else {
+		} else */ {
 			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}
@@ -935,7 +936,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 	uf::stl::stringstream serializer;
 	bool labelAsDelta = true;
 
-	uf::Serializer json;
+	ext::json::Value json;
 
 	switch (message) {
 		case WM_DESTROY:
@@ -953,7 +954,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 			this->pushEvent(event.type, json);
@@ -974,7 +975,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 			json["window"]["size"] = uf::vector::encode(event.window.size);
@@ -1002,7 +1003,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->pushEvent(event.type, event);
 			#endif
 			#if UF_HOOK_USE_JSON
-				uf::Serializer json;
+				ext::json::Value json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 				json["window"]["size"] = uf::vector::encode(event.window.size);
@@ -1017,7 +1018,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->pushEvent(event.type, event);
 			#endif
 			#if UF_HOOK_USE_JSON
-				uf::Serializer json;
+				ext::json::Value json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 				this->pushEvent(event.type, json);
@@ -1058,7 +1059,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 			switch ( message ) {
@@ -1104,7 +1105,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					this->pushEvent(event.type, event);
 				#endif
 				#if UF_HOOK_USE_JSON
-					uf::Serializer json;
+					ext::json::Value json;
 					json["type"] = event.type;
 					json["invoker"] = event.invoker;
 					json["text"]["uint32_t"] = event.text.utf32;
@@ -1150,7 +1151,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 					this->pushEvent(event.type + "." + event.key.code, event);
 				#endif
 				#if UF_HOOK_USE_JSON
-					uf::Serializer json;
+					ext::json::Value json;
 					json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 					json["invoker"] 						= event.invoker;
 					json["key"]["state"] 					= (event.key.state == -1) ? "Down" : "Up";
@@ -1189,7 +1190,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 			json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
@@ -1254,7 +1255,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 			json["mouse"]["position"] = uf::vector::encode(event.mouse.position);
@@ -1292,7 +1293,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				this->pushEvent(event.type, event);
 			#endif
 			#if UF_HOOK_USE_JSON
-				uf::Serializer json;
+				ext::json::Value json;
 				json["type"] = event.type;
 				json["invoker"] = event.invoker;
 				switch (event.mouse.state) {
@@ -1359,7 +1360,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 			this->pushEvent(event.type, event);
 		#endif
 		#if UF_HOOK_USE_JSON
-			uf::Serializer json;
+			ext::json::Value json;
 			json["type"] = event.type;
 			json["invoker"] = event.invoker;
 

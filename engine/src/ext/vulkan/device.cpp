@@ -62,7 +62,7 @@ namespace {
 	}
 
 	void enableRequestedDeviceFeatures( ext::vulkan::Device& device ) {
-		uf::Serializer json;
+		ext::json::Value json;
 
 	#define CHECK_FEATURE( NAME )\
 		if ( feature == #NAME ) {\
@@ -140,8 +140,8 @@ namespace {
 		}
 	#undef CHECK_FEATURE2
 	}
-	uf::Serializer retrieveDeviceFeatures( ext::vulkan::Device& device ) {
-		uf::Serializer json;
+	ext::json::Value retrieveDeviceFeatures( ext::vulkan::Device& device ) {
+		ext::json::Value json;
 
 	#define CHECK_FEATURE( NAME )\
 		json[#NAME]["supported"] = device.features.NAME;\
@@ -783,12 +783,12 @@ void ext::vulkan::Device::initialize() {
 			UF_EXCEPTION("Vulkan error: failed to create logical device!"); 
 		}
 		{
-			uf::Serializer payload = ext::json::array();
+			ext::json::Value payload = ext::json::array();
 			for ( auto* c_str : deviceExtensions ) payload.emplace_back( uf::stl::string(c_str) );
 			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
 		}
 		{
-			uf::Serializer payload = retrieveDeviceFeatures( *this );
+			ext::json::Value payload = retrieveDeviceFeatures( *this );
 			if ( ext::vulkan::settings::validation ) uf::iostream << payload.dump() << "\n";
 			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
 		}

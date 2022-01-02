@@ -17,11 +17,12 @@ namespace uf {
 		UF_BEHAVIOR_DEFINE_FUNCTIONS();
 		UF_BEHAVIOR_DEFINE_METADATA(
 			struct Queued {
-				uf::stl::string name;
-				pod::Hook::userdata_t userdata;
-				ext::json::Value json;
+				uf::stl::string name = "";
 				double timeout = 0;
 				int_fast8_t type = 0;
+
+				pod::Hook::userdata_t userdata{};
+				ext::json::Value json{};
 			};
 			struct {
 				size_t mtime = 0;

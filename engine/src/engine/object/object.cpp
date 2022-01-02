@@ -20,24 +20,35 @@ UF_OBJECT_REGISTER_BEGIN(uf::Object)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 UF_OBJECT_REGISTER_END()
 uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
-void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& json, float timeout ) {
+
+uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
+	return uf::hooks.call( this->formatHookName( name ) );
+}
+uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
+	return uf::hooks.call( this->formatHookName( name ), payload );
+}
+void uf::Object::queueHook( const uf::stl::string& name, float timeout ) {
 	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 	double start = uf::Object::timer.elapsed().asDouble();
-#if UF_ENTITY_METADATA_USE_JSON
-	uf::Serializer queue;
-	queue["name"] = name;
-	queue["payload"] = json;
-	queue["timeout"] = start + timeout;
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	metadata["system"]["hooks"]["queue"].emplace_back(queue);
-#else
+
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
-		.json = json,
 		.timeout = start + timeout,
+		.type = 0,
 	});
-#endif
+}
+void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, float timeout ) {
+	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+	double start = uf::Object::timer.elapsed().asDouble();
+
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
+		.name = name,
+		.timeout = start + timeout,
+		.type = -1,
+	});
+	queue.json = payload;
 }
 uf::stl::string uf::Object::formatHookName( const uf::stl::string& n, size_t uid, bool fetch ) {
 	if ( fetch ) {
@@ -70,18 +81,6 @@ uf::stl::string uf::Object::formatHookName( const uf::stl::string& n ) {
 	return name;
 }
 
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
-	return uf::hooks.call( this->formatHookName( name ), ext::json::null() );
-}
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const ext::json::Value& json ) {
-	return uf::hooks.call( this->formatHookName( name ), json );
-}
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const uf::Serializer& serializer ) {
-	return uf::hooks.call( this->formatHookName( name ), (const ext::json::Value&) serializer );
-}
-uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
-	return uf::hooks.call( this->formatHookName( name ), payload );
-}
 bool uf::Object::load( const uf::stl::string& f, bool inheritRoot ) {
 	uf::Serializer json;
 	uf::stl::string root = "";
@@ -109,11 +108,11 @@ bool uf::Object::reload( bool hard ) {
 	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 	if ( !metadata["system"]["source"].is<uf::stl::string>() ) return false;
 	uf::Serializer json;
-	uf::Serializer payload;
 	uf::stl::string filename = metadata["system"]["source"].as<uf::stl::string>();
 	if ( !json.readFromFile( filename ) ) return false;
 	if ( hard ) return this->load(filename);
 
+	ext::json::Value payload;
 	payload["old"] = metadata;
 	ext::json::forEach( json["metadata"], [&]( const uf::stl::string& key, const ext::json::Value& value ){
 		metadata[key] = value;

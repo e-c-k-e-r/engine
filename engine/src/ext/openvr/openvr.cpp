@@ -297,7 +297,7 @@ void ext::openvr::tick() {
 			texture.fromBuffers( (void*) queued.texture->rubTextureMapData, len, uf::renderer::enums::Format::R8G8B8A8_UNORM, queued.texture->unWidth, queued.texture->unHeight );
 		}
 		// call hook
-		uf::Serializer payload;
+		ext::json::Value payload;
 		payload["name"] = name;
 		uf::hooks.call( "VR:Model.Loaded", payload );
 		
@@ -340,7 +340,7 @@ void ext::openvr::tick() {
 					pod::Vector3f delta = { data.deltaX, data.deltaY, data.deltaZ };
 					pod::Vector3f position = { data.x, data.y, data.z };
 					if ( data.bActive ) {
-						uf::Serializer payload;
+						ext::json::Value payload;
 						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
 						uf::stl::string shortname = split.back();
 						split = uf::string::split( shortname, "." );
@@ -368,7 +368,7 @@ void ext::openvr::tick() {
 				vr::InputDigitalActionData_t data;
 				if ( vr::VRInputError_None == vr::VRInput()->GetDigitalActionData(handle, &data, sizeof(data), vr::k_ulInvalidInputValueHandle) ) {
 					if ( data.bActive ) {
-						uf::Serializer payload;
+						ext::json::Value payload;
 						uf::stl::vector<uf::stl::string> split = uf::string::split( name, "/" );
 						uf::stl::string shortname = split.back();
 						split = uf::string::split( shortname, "." );

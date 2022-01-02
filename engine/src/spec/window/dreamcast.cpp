@@ -19,6 +19,9 @@ INIT_MALLOCSTATS 	-- Enable a call to malloc_stats() right before shutdown
 
 #include <kos.h>
 
+#define UF_HOOK_USE_USERDATA 1
+#define UF_HOOK_USE_JSON 0
+
 extern uint8 romdisk[];
 KOS_INIT_FLAGS(INIT_DEFAULT | INIT_MALLOCSTATS);
 KOS_INIT_ROMDISK(romdisk);
@@ -519,8 +522,8 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 				}
 			}
 		};
-	#if UF_USE_JSON			
-		uf::Serializer json;	
+	#if UF_HOOK_USE_JSON			
+		ext::json::Value json;	
 		json["type"] 							= event.type + "." + ((event.key.state == -1)?"Pressed":"Released");
 		json["invoker"] 						= event.invoker;
 		json["key"]["code"] 					= "";
@@ -537,11 +540,11 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 			event.key.code 	= code;
 			event.key.raw  	= key;
 
-		#if UF_USE_USERDATA
+		#if UF_HOOK_USE_USERDATA
 			this->pushEvent(event.type, event);
 			this->pushEvent(event.type + "." + code, event);
 		#endif
-		#if UF_USE_JSON			
+		#if UF_HOOK_USE_JSON			
 			json["key"]["code"] = code;
 			json["key"]["raw"] = key;
 			this->pushEvent(event.type, json);
@@ -559,7 +562,7 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 
 	while ( !this->m_events.empty() ) {
 		auto& event = this->m_events.front();
-		if ( event.payload.is<uf::stl::string>() ) {
+		/*if ( event.payload.is<uf::stl::string>() ) {
 			ext::json::Value payload = uf::Serializer( event.payload.as<uf::stl::string>() );
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
@@ -571,7 +574,7 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 			ext::json::Value& payload = event.payload.as<ext::json::Value>();
 			uf::hooks.call( "window:Event", payload );
 			uf::hooks.call( event.name, payload );
-		} else {
+		} else */{
 			uf::hooks.call( "window:Event", event.payload );
 			uf::hooks.call( event.name, event.payload );
 		}

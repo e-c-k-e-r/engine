@@ -15,7 +15,7 @@ namespace uf {
 			static Input UF_API_CALL decode( Input begin, Input end, Encoding::Literal& output, Encoding::Literal fallback = 0 );
 			template<typename Input>
 			inline static Encoding::Literal UF_API_CALL decode( Input begin, Input end, Encoding::Literal fallback = 0 ) {
-				Encoding::Literal literal;
+				Encoding::Literal literal{};
 				Utf8::decode(begin, end, literal, fallback);
 				return literal;
 			}

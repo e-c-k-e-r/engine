@@ -77,7 +77,7 @@ void UF_API_CALL uf::Window::setTitle( const spec::uni::Window::title_t& title )
 	if ( !this->m_window ) return;
 	this->m_window->setTitle(title);
 
-	uf::Serializer json;
+	ext::json::Value json;
 	uf::stl::string hook = "window:Title.Changed";
 	json["type"] = hook;
 	json["invoker"] = "os";
