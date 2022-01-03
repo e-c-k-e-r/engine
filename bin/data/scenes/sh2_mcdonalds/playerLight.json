@@ -1,5 +1,6 @@
 {
 	"import": "/light.json",
+	"ignore": true,
 	"assets": [
 	],
 	"transform": {

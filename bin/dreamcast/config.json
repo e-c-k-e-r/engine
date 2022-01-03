@@ -79,9 +79,9 @@
 			}
 		},
 		"audio": {
-			"mute": true,
+			"mute": false,
 			"buffers": {
-				"size": 16384,
+				"size": 4096,
 				"count": 2
 			},
 			"volumes": {
@@ -111,7 +111,7 @@
 		},
 		"limiters": {
 			"deltaTime": 5,
-			"framerate": "auto"
+			"framerate": 60
 		},
 		"threads": {
 			"workers" : "auto",

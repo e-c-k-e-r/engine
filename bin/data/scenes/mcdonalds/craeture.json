@@ -1,0 +1,16 @@
+{
+	"name": "Craeture",
+	"behaviors": [ "CraetureBehavior" ],
+	"assets": [
+		"./textures/craeture.jpg"
+	],
+	"transform": {
+		"position": [9.62326, 1.1872, -40.8126],
+		"scale": [8, 8, 8]
+	},
+	"metadata": {
+		"model": {
+			"cull mode": "none"
+		}
+	}
+}

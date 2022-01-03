@@ -5,7 +5,10 @@
 	
 	//	{ "filename": "./models/mcdonalds.glb", "delay": 0, "single threaded": false }
 	//	{ "filename": "./models/mcdonalds/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	
+	//	{ "filename": "./models/mini_mcd.glb", "delay": 0, "single threaded": false }
+		{ "filename": "./models/mini_mcd/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	],
 	"metadata": {
 		"model": {

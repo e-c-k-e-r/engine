@@ -398,10 +398,9 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& texture = uf::graph::storage.texture2Ds[keyName];
 		if ( !texture.generated() ) {
 			bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == keyName;
-			if ( graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ) {
-				texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
-				texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-			}
+			auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
+			texture.sampler.descriptor.filter.min = filter;
+			texture.sampler.descriptor.filter.mag = filter;
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
 			image.clear();
@@ -701,6 +700,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 					pod::Vector3f center = (max + min) * 0.5f;
 					pod::Vector3f corner = (max - min) * 0.5f;
+					corner.x = abs(corner.x);
+					corner.y = abs(corner.y);
+					corner.z = abs(corner.z);
 					
 					metadataJson["system"]["physics"]["center"] = uf::vector::encode( center );
 					metadataJson["system"]["physics"]["corner"] = uf::vector::encode( corner );

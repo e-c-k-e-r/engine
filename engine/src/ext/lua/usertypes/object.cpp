@@ -43,9 +43,7 @@ namespace binds {
 				self.callHook( "object:Serialize.%UID%" );
 				auto& metadata = self.getComponent<uf::Serializer>();
 				uf::stl::string str = encoded.value();
-				uf::Serializer hooks = metadata["system"]["hooks"];
 				metadata.merge( str, false );
-				metadata["system"]["hooks"] = hooks;
 				self.callHook( "object:Deserialize.%UID%" );
 			}
 		}

@@ -9,17 +9,18 @@ UF_BEHAVIOR_TRAITS_CPP(uf::SceneBehavior, ticks = false, renders = false, multit
 void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;
 
-	this->addHook( "system:Renderer.QueueRebuild", [&](ext::json::Value& json){
+	this->addHook( "system:Renderer.QueueRebuild", [&](){
 		uf::renderer::states::rebuild = true;
 	});
-	this->addHook( "system:Destroy", [&](ext::json::Value& json){
-		size_t uid = json["uid"].as<size_t>();
-		if ( uid <= 0 ) return;
-		auto* target = this->findByUid(uid);
-		if ( !target ) return;
-		target->destroy();
-		delete target;
-
+	this->addHook( "system:Destroy", [&](pod::payloads::Entity& payload){
+		if ( !payload.pointer ) {
+			if ( payload.uid <= 0 ) return;
+			payload.pointer = (uf::Object*) this->findByUid(payload.uid);
+			if ( !payload.pointer ) return;
+		}
+		payload.pointer->destroy();
+		delete payload.pointer;
+		payload.pointer = NULL;
 		this->queueHook("system:Renderer.QueueRebuild");
 	});
 }

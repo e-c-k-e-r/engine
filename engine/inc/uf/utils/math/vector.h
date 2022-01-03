@@ -120,6 +120,7 @@ namespace uf {
 		template<typename T> typename T::type_t /*UF_API*/ sum( const T& vector );							// 	Compute the sum of all components 
 		template<typename T> typename T::type_t /*UF_API*/ product( const T& vector );						// 	Compute the product of all components 
 		template<typename T> T /*UF_API*/ negate( const T& vector );										// 	Flip sign of all components
+		template<typename T> T /*UF_API*/ abs( const T& vector );
 	// 	Writes to first value
 		template<typename T> T& /*UF_API*/ add_( T& left, const T& right );									// 	Adds two vectors of same type and size together
 		template<typename T> T& /*UF_API*/ add_( T& left, /*const typename T::type_t&*/ typename T::type_t scalar );				// 	Adds two vectors of same type and size together

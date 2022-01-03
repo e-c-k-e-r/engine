@@ -255,12 +255,10 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		float friction = 0.8f;
 		float air = 1.0f;
 	} speed; {
-		float scale = 1;
-
 		speed.rotate = metadata.movement.rotate * uf::physics::time::delta;
-		speed.move = metadata.movement.move * scale;
-		speed.run = metadata.movement.run * scale;
-		speed.walk = metadata.movement.walk * scale;
+		speed.move = metadata.movement.move;
+		speed.run = metadata.movement.run;
+		speed.walk = metadata.movement.walk;
 		speed.friction = metadata.movement.friction;
 		speed.air = metadata.movement.air;
 		
@@ -351,7 +349,9 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( stats.noclipped ) {
 				physics.linear.velocity += target * speed.move;
 			} else {
-				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+				float delta = collider.body ? uf::physics::impl::timescale : uf::physics::time::delta;
+
+				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * delta );
 			}
 		}
 		if ( !stats.floored ) stats.walking = false;		

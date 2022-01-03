@@ -25,15 +25,24 @@ namespace uf {
 				ext::json::Value json{};
 			};
 			struct {
-				size_t mtime = 0;
-				bool enabled = false;
-				uf::stl::string source = "";
-			} hotReload;
-			struct {
 				uf::stl::unordered_map<uf::stl::string, uf::stl::vector<size_t>> bound;
 				uf::stl::vector<Queued> queue;
 			} hooks;
 			struct {
+				uf::stl::string root = "";
+				uf::stl::string filename = "";
+				struct {
+					size_t mtime = 0;
+					bool enabled = false;
+				} hotReload;
+
+				bool loaded = false;
+				struct {
+					bool ignore = false;
+					size_t progress{};
+					size_t total{};
+				} load;
+				
 				bool ignoreGraph = false;
 			} system;
 			struct {

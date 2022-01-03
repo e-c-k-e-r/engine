@@ -84,38 +84,38 @@ uf::stl::string uf::Object::formatHookName( const uf::stl::string& n ) {
 bool uf::Object::load( const uf::stl::string& f, bool inheritRoot ) {
 	uf::Serializer json;
 	uf::stl::string root = "";
+
 	if ( inheritRoot && this->hasParent() ) {
 		auto& parent = this->getParent<uf::Object>();
-		uf::Serializer& metadata = parent.getComponent<uf::Serializer>();
-		root = metadata["system"]["root"].as<uf::stl::string>();
+		auto& metadata = parent.getComponent<uf::ObjectBehavior::Metadata>();
+		auto& metadataJson = parent.getComponent<uf::Serializer>();
+		root = metadata.system.root;
 	}
+
 	uf::stl::string filename = uf::io::resolveURI( f, root );
 	if ( !json.readFromFile( filename ) ) return false;
 
-	json["root"] = uf::io::directory(filename);
 	json["source"] = filename;
-#if UF_ENTITY_METADATA_USE_JSON
+	json["root"] = uf::io::directory(filename);
 	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
-#else
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-	metadata.hotReload.source = filename;
-	metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
-#endif
+
 	return this->load(json);
 }
 
 bool uf::Object::reload( bool hard ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
-	if ( !metadata["system"]["source"].is<uf::stl::string>() ) return false;
-	uf::Serializer json;
-	uf::stl::string filename = metadata["system"]["source"].as<uf::stl::string>();
-	if ( !json.readFromFile( filename ) ) return false;
-	if ( hard ) return this->load(filename);
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+
+	if ( metadata.system.filename == "" ) return false;
+	
+	uf::Serializer json;	
+	if ( !json.readFromFile( metadata.system.filename ) ) return false;
+	if ( hard ) return this->load(metadata.system.filename);
 
 	ext::json::Value payload;
-	payload["old"] = metadata;
+	payload["old"] = metadataJson;
 	ext::json::forEach( json["metadata"], [&]( const uf::stl::string& key, const ext::json::Value& value ){
-		metadata[key] = value;
+		metadataJson[key] = value;
 	});
 	// update transform if requested
 	if ( ext::json::isObject(json["transform"]) ) {
@@ -124,18 +124,27 @@ bool uf::Object::reload( bool hard ) {
 		transform = uf::transform::decode( json["transform"], transform );
 		transform.reference = reference;
 	}
-	payload["new"] = metadata;
+	payload["new"] = metadataJson;
 	this->queueHook("object:Reload.%UID%", payload);
 	return true;
 }
 
 bool uf::Object::load( const uf::Serializer& _json ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 	uf::Serializer json = _json;
+	// setup root/source/mtime
+	if ( json["source"].is<uf::stl::string>() ) {
+		metadata.system.filename = json["source"].as<uf::stl::string>();
+		metadata.system.root = uf::io::directory( metadata.system.filename );
+		metadata.system.hotReload.mtime = uf::io::mtime( metadata.system.filename ) + 10;
+	} else if ( json["root"].is<uf::stl::string>() ) {
+		metadata.system.root = json["root"].as<uf::stl::string>();
+	}
 	// import
 	if ( json["import"].is<uf::stl::string>() || json["include"].is<uf::stl::string>() ) {
 		uf::Serializer chain = json;
-		uf::stl::string root = json["root"].as<uf::stl::string>();
+		uf::stl::string root = metadata.system.root;
 		uf::Serializer separated;
 		separated["assets"] = json["assets"];
 		separated["behaviors"] = json["behaviors"];
@@ -169,10 +178,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	json["hot reload"]["enabled"] = json["system"]["hot reload"]["enabled"];
 #else
-	{
-		auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-		metadata.hotReload.enabled = json["system"]["hot reload"]["enabled"].as<bool>();
-	}
+	metadata.system.hotReload.enabled = json["system"]["hot reload"]["enabled"].as<bool>();
 #endif
 	// Basic entity information
 	// Set name
@@ -220,19 +226,18 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		uf::stl::string assetTypeString = uf::string::lowercase( #type );\
 		uf::Serializer target;\
 		bool override = false;\
-		if ( ext::json::isObject( metadata["system"]["assets"] ) ) {\
-			target = metadata["system"]["assets"];\
+		if ( ext::json::isObject( metadataJson["system"]["assets"] ) ) {\
+			target = metadataJson["system"]["assets"];\
 		} else if ( ext::json::isArray( json["assets"] ) ) {\
 			target = json["assets"];\
 		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][assetTypeString] )  ) {\
 			target = json["assets"][assetTypeString];\
 		}
 
-	uf::stl::vector<ext::json::Value> rejects;
 	#define UF_OBJECT_LOAD_ASSET()\
 		bool isObject = ext::json::isObject( target[i] );\
 		uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();\
-		uf::stl::string filename = uf::io::resolveURI( f, json["root"].as<uf::stl::string>() );\
+		uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );\
 		uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";\
 		uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );\
 		if ( !uf::Asset::isExpected( payload, assetType ) ) continue;\
@@ -271,24 +276,14 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 		}
 	}
-/*
-	// Override
-	{
-		UF_OBJECT_LOAD_ASSET_HEADER()
-		override = true;
-		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET()
-		}
-	}
-*/
 
 	// Bind behaviors
 	{
 		if ( json["type"].is<uf::stl::string>() ) uf::instantiator::bind( json["type"].as<uf::stl::string>(), *this );
 
 		uf::Serializer target;
-		if ( ext::json::isArray( metadata["system"]["behaviors"] ) ) {
-			target = metadata["system"]["behaviors"];
+		if ( ext::json::isArray( metadataJson["system"]["behaviors"] ) ) {
+			target = metadataJson["system"]["behaviors"];
 		} else if ( ext::json::isArray( json["behaviors"] ) ) {
 			target = json["behaviors"];
 		}
@@ -296,28 +291,26 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			uf::instantiator::bind( target[i].as<uf::stl::string>(), *this );
 		}
 	}
-	uf::Serializer hooks = metadata["system"]["hooks"];
+
 	// Metadata
 	if ( !ext::json::isNull( json["metadata"] ) ) {
-		uf::Serializer& metadata = this->getComponent<uf::Serializer>();
 		if ( json["metadata"].is<uf::stl::string>() ) {
 			uf::stl::string f = json["metadata"].as<uf::stl::string>();
-			uf::stl::string filename = uf::io::resolveURI( json["metadata"].as<uf::stl::string>(), json["root"].as<uf::stl::string>() );
-			if ( !metadata.readFromFile(filename) ) return false;
+			uf::stl::string filename = uf::io::resolveURI( json["metadata"].as<uf::stl::string>(), metadata.system.root );
+			if ( !metadataJson.readFromFile(filename) ) return false;
 		} else {
-			metadata = json["metadata"];
+			metadataJson = json["metadata"];
 		}
 	}
-	metadata["system"] = json;
-	metadata["system"].erase("metadata");
-	metadata["system"]["hooks"] = hooks;
+	metadataJson["system"] = json;
+	metadataJson["system"].erase("metadata");
 
 	// check for children
 	{
 		UF_OBJECT_LOAD_ASSET_HEADER(JSON)
 		for ( size_t i = 0; i < target.size(); ++i ) {
 			uf::stl::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
-			uf::stl::string filename = uf::io::resolveURI( f, json["root"].as<uf::stl::string>() );
+			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
 			uf::stl::string mime = ext::json::isObject( target[i] ) ? target[i]["mime"].as<uf::stl::string>() : "";
 			uf::stl::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<uf::stl::string>() : "";
 			
@@ -337,22 +330,17 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				uf::Serializer json;
 				if ( !json.readFromFile(filename, hash) ) continue;
 
-				json["root"] = uf::io::directory(filename);
 				json["source"] = filename;
-			#if UF_ENTITY_METADATA_USE_JSON
+				json["root"] = uf::io::directory(filename);
 				json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
-			#else
-				auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-				metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
-			#endif
 
 				if ( this->loadChildUid(json) == -1 ) continue;
 			}
 		}
 	}
 	// Add lights
-	if ( ext::json::isArray( metadata["system"]["lights"] ) ) {
-		uf::Serializer target = metadata["system"]["lights"];
+	if ( ext::json::isArray( metadataJson["system"]["lights"] ) ) {
+		uf::Serializer target = metadataJson["system"]["lights"];
 		auto& pTransform = this->getComponent<pod::Transform<>>();
 		for ( size_t i = 0; i < target.size(); ++i ) {
 			uf::Serializer json = target[i];			
@@ -373,23 +361,18 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	return true;
 }
 uf::Object& uf::Object::loadChild( const uf::stl::string& f, bool initialize ) {
-	uf::Serializer& metadata = this->getComponent<uf::Serializer>();
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	
 	uf::Serializer json;
-	uf::stl::string filename = uf::io::resolveURI( f, metadata["system"]["root"].as<uf::stl::string>() );
+	uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
 	if ( !json.readFromFile(filename) ) {
 		return ::null;
 	}
 
-	json["root"] = uf::io::directory(filename);
 	json["source"] = filename;
-#if UF_ENTITY_METADATA_USE_JSON
+	json["root"] = uf::io::directory(filename);
 	json["hot reload"]["mtime"] = uf::io::mtime(filename) + 10;
-#else
-	{
-		auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
-		metadata.hotReload.mtime = uf::io::mtime(filename) + 10;
-	}
-#endif
 
 	return this->loadChild(json, initialize);
 }

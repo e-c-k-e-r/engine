@@ -22,9 +22,12 @@ INIT_MALLOCSTATS 	-- Enable a call to malloc_stats() right before shutdown
 #define UF_HOOK_USE_USERDATA 1
 #define UF_HOOK_USE_JSON 0
 
-extern uint8 romdisk[];
 KOS_INIT_FLAGS(INIT_DEFAULT | INIT_MALLOCSTATS);
-KOS_INIT_ROMDISK(romdisk);
+
+#if UF_USE_ROMDISK
+	extern uint8 romdisk[];
+	KOS_INIT_ROMDISK(romdisk);
+#endif
 
 namespace {
 	struct {

@@ -236,14 +236,14 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 2, 2 ]
+			"sensitivity": [ 0.8, 0.8 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 	//	"size" :  [ 1920, 1080 ],
-		"size" :  [ 1280, 720 ],
+	//	"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
-	//	"size" :  [ 640, 480 ],
+		"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",
 		"visible" : true

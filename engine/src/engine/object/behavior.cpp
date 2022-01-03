@@ -18,17 +18,22 @@ UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multit
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& assetLoader = scene.getComponent<uf::Asset>();
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& transform = this->getComponent<pod::Transform<>>();
 
 	// 
 	{
 		size_t assets = metadataJson["system"]["assets"].size();
-		if ( metadataJson["system"]["load"]["ignore"].is<bool>() ) assets = 0;
-		metadataJson["system"]["load"]["progress"] = 0;
-		metadataJson["system"]["load"]["total"] = assets;
+		
+		if ( metadata.system.load.ignore ) assets = 0;
+
+		metadata.system.load.progress = 0;
+		metadata.system.load.total = assets;
+
 		if ( assets == 0 )  {
 			auto& parent = this->getParent().as<uf::Object>();
+
 			pod::payloads::assetLoad payload;
 			payload.uid = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
@@ -51,15 +56,10 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	
 		if ( ext::json::isNull( json ) ) return;
 
-		if ( json["type"].as<uf::stl::string>() == "merge" ) {
-			metadataJson.merge(json["value"], true);
-		} else if ( json["type"].as<uf::stl::string>() == "import" ) {
-			metadataJson.import(json["value"]);
-		} else if ( json["path"].is<uf::stl::string>() ) {
-			metadataJson.path(json["path"].as<uf::stl::string>()) = json["value"];
-		} else {
-			metadataJson.merge(json, true);
-		}
+		if ( json["type"].as<uf::stl::string>() == "merge" ) metadataJson.merge(json["value"], true);
+		else if ( json["type"].as<uf::stl::string>() == "import" ) metadataJson.import(json["value"]);
+		else if ( json["path"].is<uf::stl::string>() ) metadataJson.path(json["path"].as<uf::stl::string>()) = json["value"];
+		else metadataJson.merge(json, true);
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
@@ -87,18 +87,15 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:Parsed.%UID%", [&](pod::payloads::assetLoad& payload){	
 		int portion = 1;
-		auto& total = metadataJson["system"]["load"]["total"];
-		auto& progress = metadataJson["system"]["load"]["progress"];
-		progress = progress.as<int>() + portion;
-		if ( progress.as<int>() == total.as<int>() ) {
+		auto& total = metadata.system.load.total;
+		metadata.system.load.progress += portion;
+		if ( metadata.system.load.progress == metadata.system.load.total ) {
 			auto& parent = this->getParent().as<uf::Object>();
 
 			payload.uid = this->getUid();
 			parent.callHook("asset:Parsed.%UID%", payload);
 		}
 	});
-
-	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 
 	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
 	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	metadata.deserialize(self, metadataJson); });
@@ -117,7 +114,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			pod::Vector3f center = uf::vector::decode( metadataJson["system"]["physics"]["center"], pod::Vector3f{} );
 			pod::Vector3f corner = uf::vector::decode( metadataJson["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
 
-			if ( metadataJson["system"]["physics"]["recenter"].as<bool>() ) collider.transform.position = (center - transform.position) * 0.5f;
+			if ( metadataJson["system"]["physics"]["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
 
 			uf::physics::impl::create( *this, corner );
 		} else if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "capsule" ) {
@@ -193,10 +190,10 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	metadata.deserialize(self, metadataJson);
 #endif
 	// listen for metadata file changes
-	if ( metadata.hotReload.enabled ) {
-		size_t mtime = uf::io::mtime( metadata.hotReload.source );
-		if ( metadata.hotReload.mtime < mtime ) {
-			metadata.hotReload.mtime = mtime;
+	if ( metadata.system.hotReload.enabled ) {
+		size_t mtime = uf::io::mtime( metadata.system.filename );
+		if ( metadata.system.hotReload.mtime < mtime ) {
+			metadata.system.hotReload.mtime = mtime;
 			this->reload();
 		}
 	}

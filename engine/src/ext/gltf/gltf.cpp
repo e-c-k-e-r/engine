@@ -117,7 +117,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		return uf::graph::load( filename, metadata );
 	}
 
-#if UF_ENV_DREAMCAST
+#if UF_USE_OPENGL
 	UF_EXCEPTION("glTF loading is highly discouraged on this platform:" << filename);
 	return {};
 #endif

@@ -21,6 +21,12 @@
 	if ( error != AL_NO_ERROR ) UF_MSG_ERROR("AL error: " << ext::al::getError(error) << ": " << #f);\
 }
 
+#define AL_CHECK_RESULT_ENUM( fun, id, e, ... ) {\
+	(fun(id, e, __VA_ARGS__));\
+	ALCenum error = alGetError();\
+	if ( error != AL_NO_ERROR ) UF_MSG_ERROR("AL error: " << ext::al::getError(error) << ": " #fun "(" << id << ", " << e << ")");\
+}
+
 //	uf::stl::string errorString = alutGetErrorString(alutGetError());
 //	if ( errorString != "No ALUT error found" ) UF_MSG_ERROR("AL error: " << errorString);
 

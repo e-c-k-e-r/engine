@@ -192,13 +192,13 @@ void ext::al::Source::destroy() {
 ALuint& ext::al::Source::getIndex() { return this->m_index; }
 ALuint ext::al::Source::getIndex() const { return this->m_index; }
 
-void ext::al::Source::get( ALenum name, ALfloat& x ) { AL_CHECK_RESULT(alGetSourcef( this->m_index, name, &x )); }
-void ext::al::Source::get( ALenum name, ALfloat& x, ALfloat& y, ALfloat& z ) { AL_CHECK_RESULT(alGetSource3f( this->m_index, name, &x, &y, &z )); }
-void ext::al::Source::get( ALenum name, ALfloat* f ) { AL_CHECK_RESULT(alGetSourcefv( this->m_index, name, f )); }
+void ext::al::Source::get( ALenum name, ALfloat& x ) { AL_CHECK_RESULT_ENUM(alGetSourcef, this->m_index, name, &x ); }
+void ext::al::Source::get( ALenum name, ALfloat& x, ALfloat& y, ALfloat& z ) { AL_CHECK_RESULT_ENUM(alGetSource3f, this->m_index, name, &x, &y, &z ); }
+void ext::al::Source::get( ALenum name, ALfloat* f ) { AL_CHECK_RESULT_ENUM(alGetSourcefv, this->m_index, name, f ); }
 
-void ext::al::Source::get( ALenum name, ALint& x ) { AL_CHECK_RESULT(alGetSourcei( this->m_index, name, &x )); }
-void ext::al::Source::get( ALenum name, ALint& x, ALint& y, ALint& z ) { AL_CHECK_RESULT(alGetSource3i( this->m_index, name, &x, &y, &z )); }
-void ext::al::Source::get( ALenum name, ALint* f ) { AL_CHECK_RESULT(alGetSourceiv( this->m_index, name, f )); }
+void ext::al::Source::get( ALenum name, ALint& x ) { AL_CHECK_RESULT_ENUM(alGetSourcei, this->m_index, name, &x ); }
+void ext::al::Source::get( ALenum name, ALint& x, ALint& y, ALint& z ) { AL_CHECK_RESULT_ENUM(alGetSource3i, this->m_index, name, &x, &y, &z ); }
+void ext::al::Source::get( ALenum name, ALint* f ) { AL_CHECK_RESULT_ENUM(alGetSourceiv, this->m_index, name, f ); }
 
 void ext::al::Source::get( const uf::stl::string& string, ALfloat& x ) {
 	// alSourcef
@@ -253,13 +253,13 @@ void ext::al::Source::get( const uf::stl::string& string, ALint* f ) {
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, f );
 	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
 }
-void ext::al::Source::set( ALenum name, ALfloat x ) { AL_CHECK_RESULT(alSourcef( this->m_index, name, x )); }
-void ext::al::Source::set( ALenum name, ALfloat x, ALfloat y, ALfloat z ) { AL_CHECK_RESULT(alSource3f( this->m_index, name, x, y, z )); }
-void ext::al::Source::set( ALenum name, const ALfloat* f ) { AL_CHECK_RESULT(alSourcefv( this->m_index, name, f )); }
+void ext::al::Source::set( ALenum name, ALfloat x ) { AL_CHECK_RESULT_ENUM( alSourcef, this->m_index, name, x ); }
+void ext::al::Source::set( ALenum name, ALfloat x, ALfloat y, ALfloat z ) { AL_CHECK_RESULT_ENUM( alSource3f, this->m_index, name, x, y, z ); }
+void ext::al::Source::set( ALenum name, const ALfloat* f ) { AL_CHECK_RESULT_ENUM( alSourcefv, this->m_index, name, f ); }
 
-void ext::al::Source::set( ALenum name, ALint x ) { AL_CHECK_RESULT(alSourcei( this->m_index, name, x )); }
-void ext::al::Source::set( ALenum name, ALint x, ALint y, ALint z ) { AL_CHECK_RESULT(alSource3i( this->m_index, name, x, y, z )); }
-void ext::al::Source::set( ALenum name, const ALint* f ) { AL_CHECK_RESULT(alSourceiv( this->m_index, name, f )); }
+void ext::al::Source::set( ALenum name, ALint x ) { AL_CHECK_RESULT_ENUM( alSourcei, this->m_index, name, x ); }
+void ext::al::Source::set( ALenum name, ALint x, ALint y, ALint z ) { AL_CHECK_RESULT_ENUM( alSource3i, this->m_index, name, x, y, z ); }
+void ext::al::Source::set( ALenum name, const ALint* f ) { AL_CHECK_RESULT_ENUM( alSourceiv, this->m_index, name, f ); }
 
 void ext::al::Source::set( const uf::stl::string& string, ALfloat x ) {
 	// alSourcef

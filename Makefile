@@ -3,7 +3,7 @@ CC						= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll
-RENDERER 				= vulkan
+RENDERER 				= opengl
 
 include makefiles/$(ARCH).$(CC).make
 
@@ -47,11 +47,11 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype ncurses curl luajit reactphysics meshoptimizer xatlas simd ctti # openvr draco discord bullet
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype ncurses curl luajit reactphysics meshoptimizer xatlas simd ctti # openvr draco discord bullet ultralight-ux
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann lua reactphysics freetype png zlib ctti ogg openal aldc # bullet ogg openal meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= opengl gldc json:nlohmann lua reactphysics freetype png zlib ctti ogg openal aldc # bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -89,7 +89,7 @@ ifneq (,$(findstring openal,$(REQ_DEPS)))
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		ifneq (,$(findstring aldc,$(REQ_DEPS)))
 			DEPS 		+= -lALdc
-			FLAGS 		+= -DUF_USE_OPENGL_ALDC
+			FLAGS 		+= -DUF_USE_OPENAL_ALDC
 		else
 			DEPS 		+= -lAL
 		endif
@@ -240,8 +240,9 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 ./bin/dreamcast/romdisk.o: ./bin/dreamcast/romdisk.img
 	$(KOS_BASE)/utils/bin2o/bin2o ./bin/dreamcast/romdisk.img romdisk ./bin/dreamcast/romdisk.o
 
-$(TARGET): $(OBJS) ./bin/dreamcast/romdisk.o
-	$(CXX) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) ./bin/dreamcast/romdisk.o -Wl,--start-group $(DEPS) -Wl,--end-group
+$(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
+#	$(CXX) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) ./bin/dreamcast/romdisk.o -Wl,--start-group $(DEPS) -Wl,--end-group
+	$(CXX) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)

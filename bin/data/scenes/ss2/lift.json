@@ -3,6 +3,7 @@
 	"system": {
 		"physics": {
 			"type": "bounding box",
+			"recenter": true,
 
 			"mass": 100,
 			"restitution": 0,

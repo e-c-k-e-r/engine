@@ -11,6 +11,7 @@
 #else
 	bool uf::audio::muted = true;
 #endif
+
 bool uf::audio::streamsByDefault = true;
 uint8_t uf::audio::buffers = 4;
 size_t uf::audio::bufferSize = 1024 * 16;
@@ -117,7 +118,14 @@ float uf::Audio::getTime() const {
 void uf::Audio::setTime( float v ) {
 #if UF_USE_OPENAL
 	if ( !this->m_metadata ) return;
+#if UF_USE_OPENAL_ALDC
+	if ( v <= 0 ) {
+		this->stop();
+		this->play();
+	}
+#else
 	this->m_metadata->al.source.set( AL_SEC_OFFSET, v ); 
+#endif
 #endif
 }
 

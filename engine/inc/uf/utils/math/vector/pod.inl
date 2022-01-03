@@ -171,6 +171,14 @@ T /*UF_API*/ uf::vector::negate( const T& vector ) {
 		res[i] = -vector[i];
 	return res;
 }
+template<typename T> 														// 
+T /*UF_API*/ uf::vector::abs( const T& vector ) {
+	alignas(16) T res;
+	#pragma unroll // GCC unroll T::size
+	for ( auto i = 0; i < T::size; ++i )
+		res[i] = abs(vector[i]);
+	return res;
+}
 // Writes to first value
 template<typename T> 														// Adds two vectors of same type and size together
 T& /*UF_API*/ uf::vector::add_( T& left, const T& right ) {

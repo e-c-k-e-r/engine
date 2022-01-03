@@ -192,7 +192,8 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "json", 	uf::Asset::Type::JSON },
 
 		{ "lua", 	uf::Asset::Type::LUA },
-	#if !UF_ENV_DREAMCAST
+		
+	#if !UF_USE_OPENGL
 		{ "glb",  	uf::Asset::Type::GRAPH },
 		{ "gltf", 	uf::Asset::Type::GRAPH },
 		{ "mdl",  	uf::Asset::Type::GRAPH },
