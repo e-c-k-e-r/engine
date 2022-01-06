@@ -193,8 +193,8 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 
 		{ "lua", 	uf::Asset::Type::LUA },
 		
-	#if !UF_USE_OPENGL
 		{ "glb",  	uf::Asset::Type::GRAPH },
+	#if !UF_USE_OPENGL
 		{ "gltf", 	uf::Asset::Type::GRAPH },
 		{ "mdl",  	uf::Asset::Type::GRAPH },
 	#endif

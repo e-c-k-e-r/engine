@@ -8,7 +8,7 @@
 
 void spec::win32::controller::initialize() {}
 void spec::win32::controller::tick() {
-#if 0 || UF_USE_OPENVR
+#if 0 && UF_USE_OPENVR
 	if ( ext::openvr::context ) {
 		uf::stl::string key = "";
 		if ( name == "R_DPAD_UP" ) { i = vr::Controller_Hand::Hand_Right; key = "dpadUp"; }

@@ -2,7 +2,7 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleave": false },
+			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": false },
 			"lights": {
 				"max": 8,
@@ -63,18 +63,12 @@
 					"json": "/json.lua"
 				}
 			},
-			"bullet": {
-				"iterations": 1,
-				"substeps": 6,
-				"timescale": 1,
-				"multithreaded": false,
-				"pool size": {
-					"max collision algorithm": 64,
-					"max persistent manifold": 64
-				},
+			"reactphysics": {
+				"timescale": 0.03333333333,
 				"debug draw": {
 					"enabled": false,
-					"rate": 1.0
+				//	"layer": "Gui",
+					"rate": 0.0125
 				}
 			}
 		},

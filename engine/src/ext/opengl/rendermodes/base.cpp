@@ -63,7 +63,7 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 
 	if ( uf::matrix::reverseInfiniteProjection ) {
 		GL_ERROR_CHECK(glDepthFunc(GL_GEQUAL));
-		#if !UF_ENV_DREAMCAST || (UF_ENV_DREAMCAST && UF_USE_OPENGL_GLDC)
+		#if !UF_ENV_DREAMCAST || UF_USE_OPENGL_GLDC
 			glDepthRange(0, 1);
 		#endif
 	} else {

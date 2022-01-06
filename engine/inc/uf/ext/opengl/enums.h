@@ -40,7 +40,7 @@ namespace ext {
 			namespace Image {
 				typedef GLenum type_t;
 				typedef GLenum viewType_t;
-			#if UF_ENV_DREAMCAST
+			#if UF_USE_OPENGL_FIXED_FUNCTION
 				static const type_t TYPE_1D = 100;
 				static const type_t TYPE_2D = GL_TEXTURE_2D;
 				static const type_t TYPE_3D = 110;
@@ -75,7 +75,7 @@ namespace ext {
 			}
 			namespace Shader {
 				typedef GLenum type_t;
-			#if UF_ENV_DREAMCAST
+			#if UF_USE_OPENGL_FIXED_FUNCTION
 				static const type_t VERTEX = 0x00000001;
 				static const type_t TESSELLATION_CONTROL = 0x00000002;
 				static const type_t TESSELLATION_EVALUATION = 0x00000003;
@@ -129,7 +129,7 @@ namespace ext {
 			}
 			namespace Type {
 				typedef GLenum type_t;
-			#if UF_ENV_DREAMCAST
+			#if UF_USE_OPENGL_FIXED_FUNCTION
 				static const type_t BYTE = GL_BYTE;
 				static const type_t UBYTE = GL_UNSIGNED_BYTE;
 

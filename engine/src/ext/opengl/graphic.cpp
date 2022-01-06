@@ -397,16 +397,25 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.attributes.index.pointer = (void*) ((uint8_t*) drawCommandInfo.attributes.index.pointer + drawCommand.indexID * drawCommandInfo.attributes.index.stride);
 			drawCommandInfo.attributes.index.length = drawCommand.indices;
 
-			for ( auto attribute : descriptor.inputs.vertex.attributes ) {
+			for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
 				attribute.pointer = (void*) ((uint8_t*) attribute.pointer + drawCommand.vertexID * attribute.stride);
 				attribute.length = drawCommand.vertices;
 
 				if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
 				else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
 				else if ( attribute.descriptor.name == "st" ) drawCommandInfo.attributes.st = attribute;
-			//	else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
-			//	else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
+				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
+				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
 			}
+
+		/*
+			for ( size_t i = 0; i < drawCommand.vertices; ++i ) {
+				float* p = (float*) (drawCommandInfo.attributes.position.pointer + i * drawCommandInfo.attributes.position.stride + drawCommandInfo.attributes.position.descriptor.offset);
+				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + i * drawCommandInfo.attributes.uv.stride + drawCommandInfo.attributes.uv.descriptor.offset);
+				std::cout << "(" << p[0] << ", " << p[1] << ", " << p[2] << "|" << uv[0] << ", " << uv[1] << ") ";
+			}
+			std::cout << std::endl;
+		*/
 
 			drawCommandInfo.attributes.instance.pointer = &instance;
 			drawCommandInfo.attributes.instance.length = sizeof(instance);
@@ -435,7 +444,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		auto uniformBuffer = (*uniformBufferIt++).buffer;
 		auto uniformOffset = (size_t) 0;
 
-		pod::Uniform* uniforms = (pod::Uniform*) device->getBuffer( uniformBuffer );
 
 		CommandBuffer::InfoDraw drawCommandInfo = {};
 		drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
@@ -451,9 +459,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 		drawCommandInfo.textures.primary = this->material.textures.front().descriptor;
 
-		drawCommandInfo.matrices.model = NULL;
-		drawCommandInfo.matrices.view = &uniforms->modelView;
-		drawCommandInfo.matrices.projection = &uniforms->projection;
+		if ( !uniformBuffers.empty() ) {
+			pod::Uniform* uniforms = (pod::Uniform*) device->getBuffer( uniformBuffer );
+			drawCommandInfo.matrices.model = NULL;
+			drawCommandInfo.matrices.view = &uniforms->modelView;
+			drawCommandInfo.matrices.projection = &uniforms->projection;
+		}
 		
 		commandBuffer.record(drawCommandInfo);
 	}

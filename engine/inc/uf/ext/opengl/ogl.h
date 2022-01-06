@@ -1,12 +1,25 @@
 #pragma once
 
 #include <uf/config.h>
-#if defined(UF_ENV_WINDOWS)
+#if UF_USE_GLEW
+	#include <GL/glew.h>
+#endif
+#if UF_USE_OPENGL_GLDC
+	#include <GLdc/gl.h>
+	#include <GLdc/glu.h>
+	#include <GLdc/glkos.h>
+	#include <GLdc/glext.h>
+
+	#define GL_NONE 0
+	#define GLsizeiptr GLsizei
+	
+	#define UF_USE_OPENGL_12 1
+	#define UF_USE_OPENGL_FIXED_FUNCTION 1
+#elif defined(UF_ENV_WINDOWS)
 	// The Visual C++ version of gl.h uses WINGDIAPI and APIENTRY but doesn't define them
 	#ifdef _MSC_VER
 		#include <windows.h>
 	#endif
-	#include <GL/glew.h>
 	#include <GL/gl.h>
 	#include <GL/glu.h>
 	#include <GL/wglext.h>
@@ -18,22 +31,21 @@
 	#include <OpenGL/gl.h>
 	#include <OpenGL/glu.h>
 #elif defined(UF_ENV_DREAMCAST)
-	#if UF_USE_OPENGL_GLDC
-		#include <GLdc/gl.h>
-		#include <GLdc/glu.h>
-		#include <GLdc/glkos.h>
-		#include <GLdc/glext.h>
-	#else
-		#include <GLkos/gl.h>
-		#include <GLkos/glu.h>
-		#include <GLkos/glut.h>
-		#include <GLkos/glext.h>
+	#include <GL/gl.h>
+	#include <GL/glu.h>
+	#include <GL/glut.h>
+	#include <GL/glext.h>
 
-		#define glIsTexture(x) ( x != 0 )
-	#endif
-
+	#define glIsTexture(x) ( x != 0 )
 	#define GL_NONE 0
 	#define GLsizeiptr GLsizei
+	
+	#define UF_USE_OPENGL_12 1
+	#define UF_USE_OPENGL_FIXED_FUNCTION 1
+
+	#define glClientActiveTexture glClientActiveTextureARB
+	#define glActiveTexture glActiveTextureARB
+	#define glCompressedTexImage2DARB glCompressedTexImage2D
 #endif
 
 #include <typeinfo>

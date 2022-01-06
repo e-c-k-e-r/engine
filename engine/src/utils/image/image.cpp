@@ -88,14 +88,14 @@ uf::stl::string uf::Image::getFilename() const {
 
 // from file
 bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
-#if UF_ENV_DREAMCAST
+#if UF_USE_OPENGL_GLDC
 	uf::stl::string extension = uf::io::extension(filename);
 	if ( extension != "dtex" ) {
 		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
 		if ( uf::io::exists(dtex) ) return this->open(dtex, flip);
 
-		UF_EXCEPTION("non-dtex loading is highly discouraged on this platform:" << filename);
-		return false;
+		UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform:" << filename);
+	//	return false;
 	}
 #endif
 	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: " + filename);
@@ -103,7 +103,7 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 	this->m_filename = filename;
 	this->m_pixels.clear();
 	int width = 0, height = 0, channelsDud = 0, bit_depth = 8, channels = 4;
-#if UF_ENV_DREAMCAST
+#if UF_USE_OPENGL_GLDC
 	if ( extension == "dtex" ) {
 		struct {
 			char		id[4]; // 'DTEX'

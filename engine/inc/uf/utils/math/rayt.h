@@ -10,18 +10,18 @@ namespace pod {
 		static const uint32_t LEAF = 2;
 		static const uint32_t TREE = 3;
 		static const uint32_t ROOT = 4;
-		/*alignas(16)*/ pod::Vector4f position; 			// 4 * 4 = 16 bytes
-		/*alignas(4)*/ uint32_t type; 						// 4 * 1 = 4 bytes
+		pod::Vector4f position; 			// 4 * 4 = 16 bytes
+		uint32_t type; 						// 4 * 1 = 4 bytes
 	};
 	struct UF_API Light {
-		/*alignas(16)*/ pod::Vector3f position;
-		/*alignas(16)*/ pod::Vector3f color;
+		pod::Vector3f position;
+		pod::Vector3f color;
 	};
 	struct UF_API Tree {
 		static const size_t TREE_SIZE = 8;
-		/*alignas(16)*/ pod::Vector4f position; 			// 4 * 4 = 16 bytes
-		/*alignas(4)*/ uint32_t type; 						// 4 * 1 = 4 bytes
-		/*alignas(4)*/ uint32_t children[Tree::TREE_SIZE]; 	// 4 * 8 = 32 bytes
+		pod::Vector4f position; 			// 4 * 4 = 16 bytes
+		uint32_t type; 						// 4 * 1 = 4 bytes
+		uint32_t children[Tree::TREE_SIZE]; 	// 4 * 8 = 32 bytes
 	};
 }
 

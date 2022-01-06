@@ -3,7 +3,7 @@ CC						= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll
-RENDERER 				= opengl
+RENDERER 				= vulkan
 
 include makefiles/$(ARCH).$(CC).make
 
@@ -33,9 +33,9 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
 VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
 
-#GLSL_VALIDATOR 		+= $(VULKAN_SDK_PATH)/Bin32/glslangValidator
-GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin32/glslc
-SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin32/spirv-opt
+#GLSL_VALIDATOR 		+= $(VULKAN_SDK_PATH)/Bin/glslangValidator
+GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin/glslc
+SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(CC)
 LIB_DIR 				+= $(ENGINE_LIB_DIR)/$(ARCH)
@@ -51,7 +51,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= opengl gldc json:nlohmann lua reactphysics freetype png zlib ctti ogg openal aldc # bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann lua reactphysics freetype png zlib ctti ogg openal aldc # bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -60,7 +60,8 @@ ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
 endif
 ifneq (,$(findstring opengl,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_OPENGL -DUF_USE_GLEW -DUF_USE_OPENGL_FIXED_FUNCTION
+	FLAGS 				+= -DUF_USE_OPENGL -DUF_USE_OPENGL_FIXED_FUNCTION
+
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		ifneq (,$(findstring gldc,$(REQ_DEPS)))
 			DEPS 		+= -lGLdc
@@ -69,7 +70,13 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 			DEPS 		+= -lGL
 		endif
 	else
-		DEPS 			+= -lglew32 -lopengl32 -lglu32
+		ifneq (,$(findstring gldc,$(REQ_DEPS)))
+			DEPS 			+= -lGLdc -lSDL2
+			FLAGS 			+= -DUF_USE_OPENGL_GLDC
+		else
+			FLAGS 			+= -DUF_USE_GLEW
+			DEPS 			+= -lglew32 -lopengl32 -lglu32
+		endif
 	endif
 
 endif
@@ -159,8 +166,11 @@ ifneq (,$(findstring reactphysics,$(REQ_DEPS)))
 	DEPS 				+= -lreactphysics3d
 endif
 ifneq (,$(findstring simd,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_SIMD -DUF_MATRIX_ALIGNED #-DUF_VECTOR_ALIGNED #-march=native
-
+	ifneq (,$(findstring dreamcast,$(ARCH)))
+			FLAGS 				+= -DUF_ENV_DREAMCAST_SIMD
+	else
+			FLAGS 				+= -DUF_USE_SIMD -DUF_ALIGN_FOR_SIMD -DUF_MATRIX_ALIGNED #-DUF_VECTOR_ALIGNED #-march=native
+	endif
 endif
 ifneq (,$(findstring meshoptimizer,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_MESHOPTIMIZER

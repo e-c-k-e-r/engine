@@ -2,7 +2,7 @@
 
 #include <uf/utils/io/iostream.h>
 
-#if UF_ENV_WINDOWS && !UF_USE_SFML
+#if UF_ENV_WINDOWS && UF_USE_OPENGL && !UF_USE_OPENGL_GLDC
 UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
 	uni::Context( NULL, true, settings ),
 	m_deviceContext 	(NULL),
@@ -11,21 +11,18 @@ UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::
 	// Creating a dummy window is mandatory: we could create a memory DC but then
 	// its pixel format wouldn't match the regular contexts' format, and thus
 	// wglShareLists would always fail. Too bad...
-#if UF_USE_OPENGL
 	// Create a dummy window (disabled and hidden)
 	this->m_window = CreateWindowA("STATIC", "", WS_POPUP | WS_DISABLED, 0, 0, 1, 1, NULL, NULL, GetModuleHandle(NULL), NULL);
 	ShowWindow(this->m_window, SW_HIDE);
 	this->m_deviceContext = GetDC(this->m_window);
 
 	if ( this->m_deviceContext ) this->create(shared);
-#endif
 }
 UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, const Context::window_t& window ) :
 	uni::Context( NULL, false, settings ),
 	m_deviceContext 	(NULL),
 	m_context 			(NULL)
 {
-#if UF_USE_OPENGL
 	// Get the owner window and its device context
 	this->m_window = window.getHandle();
 	this->m_deviceContext = GetDC(this->m_window);
@@ -33,7 +30,6 @@ UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::
 	// Create the context
 	if ( this->m_deviceContext )
 		this->create(shared);
-#endif
 }
 UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, unsigned int width, unsigned int height ) : Context( shared, settings ) {
 	
@@ -43,7 +39,6 @@ spec::win32::Context::~Context() {
 }
 
 void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
-#if UF_USE_OPENGL
 //	this->m_settings = settings;
 	Context::Settings glSettings{24, 4, 8, 0, 3, 3};
 
@@ -206,10 +201,8 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 			}
 		}
 	}
-#endif
 }
 void UF_API_CALL spec::win32::Context::terminate() {
-#if UF_USE_OPENGL
 	// Destroy the OpenGL context
 	if ( this->m_context ) {
 		if ( wglGetCurrentContext() == this->m_context) wglMakeCurrent(NULL, NULL);
@@ -221,28 +214,19 @@ void UF_API_CALL spec::win32::Context::terminate() {
 
 	// Destroy the window if we own it
 	if ( this->m_window && this->m_ownsWindow ) DestroyWindow(this->m_window);
-#endif
 }
 
 bool spec::win32::Context::makeCurrent() {
-#if UF_USE_OPENGL
 	return this->m_deviceContext && this->m_context && wglMakeCurrent(this->m_deviceContext, this->m_context);
-#else
-	return true;
-#endif
 }
 
 void spec::win32::Context::display() {
-#if UF_USE_OPENGL
 	if (this->m_deviceContext && this->m_context)
 		SwapBuffers(this->m_deviceContext);
-#endif
 }
 
 void spec::win32::Context::setVerticalSyncEnabled(bool enabled) {
-#if UF_USE_OPENGL
 	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(wglGetProcAddress("wglSwapIntervalEXT"));
 	if (wglSwapIntervalEXT) wglSwapIntervalEXT(enabled ? 1 : 0);
-#endif
 }
 #endif

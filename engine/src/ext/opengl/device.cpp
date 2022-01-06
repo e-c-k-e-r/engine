@@ -36,7 +36,7 @@ void ext::opengl::Device::HandlePool::allocate( size_t count ) {
 	available.resize(initial + count);
 	switch ( type ) {
 		case enums::Command::GENERATE_TEXTURE: GL_ERROR_CHECK(glGenTextures(count, &available[initial])); break;
-	#if !UF_ENV_DREAMCAST
+	#if !UF_USE_OPENGL_FIXED_FUNCTION
 		case enums::Command::GENERATE_BUFFER: GL_ERROR_CHECK(glGenBuffers(count, &available[initial])); break;
 	#endif
 	}
@@ -44,7 +44,7 @@ void ext::opengl::Device::HandlePool::allocate( size_t count ) {
 void ext::opengl::Device::HandlePool::clear() {
 	switch ( type ) {
 		case enums::Command::GENERATE_TEXTURE: GL_ERROR_CHECK(glDeleteTextures(available.size(), &available[0])); break;
-	#if !UF_ENV_DREAMCAST
+	#if !UF_USE_OPENGL_FIXED_FUNCTION
 		case enums::Command::GENERATE_BUFFER: GL_ERROR_CHECK(glDeleteBuffers(available.size(), &available[0])); break;
 	#endif
 	}
@@ -57,7 +57,7 @@ bool ext::opengl::Device::HandlePool::used( ext::opengl::Device::HandlePool::han
 size_t ext::opengl::Device::HandlePool::alloc( ext::opengl::Device::HandlePool::handle_t& target ) {
 	switch ( type ) {
 		case enums::Command::GENERATE_TEXTURE: if ( glIsTexture(target) ) return SIZE_MAX; break;
-	#if !UF_ENV_DREAMCAST
+	#if !UF_USE_OPENGL_FIXED_FUNCTION
 		case enums::Command::GENERATE_BUFFER: if ( glIsBuffer(target) ) return SIZE_MAX; break;
 	#endif
 	}
@@ -79,7 +79,7 @@ void ext::opengl::Device::HandlePool::free( ext::opengl::Device::HandlePool::han
 
 	switch ( type ) {
 		case enums::Command::GENERATE_TEXTURE: if ( glIsTexture(index) ) glDeleteTextures(1, &index); break;
-	#if !UF_ENV_DREAMCAST
+	#if !UF_USE_OPENGL_FIXED_FUNCTION
 		case enums::Command::GENERATE_BUFFER: if ( glIsBuffer(index) ) glDeleteBuffers(1, &index); break;
 	#endif
 	}
@@ -89,15 +89,15 @@ void ext::opengl::Device::initialize() {
 	spec::Context::globalInit();
 	activateContext();
 
-#if UF_ENV_DREAMCAST
-	#if UF_USE_OPENGL_GLDC
-		GLdcConfig config;
-		glKosInitConfig(&config);
-		config.fsaa_enabled = GL_FALSE;
-		glKosInitEx(&config);
-	#else
-		glKosInit();
-	#endif
+#if UF_USE_OPENGL_GLDC
+	GLdcConfig config;
+	glKosInitConfig(&config);
+	config.fsaa_enabled = GL_FALSE;
+	glKosInitEx(&config);
+#elif UF_ENV_DREAMCAST
+	UF_MSG_DEBUG("?");
+	glKosInit();
+	UF_MSG_DEBUG("!");
 #else
 	glewExperimental = GL_TRUE;
 	GLenum error;

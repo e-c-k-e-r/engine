@@ -9,7 +9,7 @@ namespace pod {
 #if UF_MATRIX_ALIGNED
 	struct /*UF_API*/ alignas(16) Matrix {
 #else
-	struct /*UF_API*/ /*alignas(16)*/ Matrix {
+	struct /*UF_API*/ Matrix {
 #endif
 	// 	n-dimensional/unspecialized matrix access
 		T components[R*C] = {};

@@ -131,7 +131,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 			shader.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance /*storageBuffer*/ );
 		} else {
 			struct UniformDescriptor {
-				/*alignas(16)*/ pod::Matrix4f model;
+				pod::Matrix4f model;
 			};
 		#if UF_UNIFORMS_REUSE
 			auto& uniform = shader.getUniform("UBO");

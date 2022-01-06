@@ -4,7 +4,7 @@
 #if UF_USE_FREETYPE
 
 #if UF_ENV_DREAMCAST
-	#include <freetype/freetype2/ft2build.h>
+	#include <ft2build.h>
 #else
 	#include <ft2build.h>
 #endif

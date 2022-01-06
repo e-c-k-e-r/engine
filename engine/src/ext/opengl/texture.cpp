@@ -253,7 +253,7 @@ void ext::opengl::Texture::update( uf::Image& image, uint32_t layer ) {
 	return this->update( (void*) image.getPixelsPtr(), image.getPixels().size(), layer );
 }
 void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer ) {
-#if UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST || UF_USE_OPENGL_GLDC
 	if ( internalFormat > 0 ) {
 	GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glBindTexture(viewType, image));
@@ -287,7 +287,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 	GL_ERROR_CHECK(glBindTexture(viewType, image));
 	switch ( viewType ) {
 		case enums::Image::VIEW_TYPE_2D: { GL_ERROR_CHECK(glTexImage2D(viewType, 0, format, width, height, 0, format, type, data)); } break;
-	#if !UF_ENV_DREAMCAST
+	#if !UF_USE_OPENGL_FIXED_FUNCTION
 		case enums::Image::VIEW_TYPE_3D: { GL_ERROR_CHECK(glTexImage3D(viewType, 0, format, width, height, depth, 0, format, type, data)); } break;
 	#endif
 	}

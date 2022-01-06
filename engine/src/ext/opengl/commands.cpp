@@ -163,7 +163,7 @@ pod::Matrix4f ext::opengl::CommandBuffer::bindUniform( const ext::opengl::Buffer
 namespace {
 	bool inside( const pod::Instance& instance, const pod::Matrix4f& mat ) {
 		bool visible = false;
-		#if 1
+		#if 0
 			pod::Vector4f corners[8] = {
 				pod::Vector4f{ instance.bounds.min.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
 				pod::Vector4f{ instance.bounds.max.x, instance.bounds.min.y, instance.bounds.min.z, 1.0f },
@@ -175,7 +175,7 @@ namespace {
 				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
 				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
 			};
-			//#pragma unroll
+			#pragma unroll
 			for ( uint p = 0; p < 8; ++p ) {
 				pod::Vector4f t = uf::matrix::multiply( mat, corners[p] );
 				float w = t.w * 1.25f;
@@ -183,9 +183,9 @@ namespace {
 			}
 		#else
 			pod::Vector4f planes[6]; {
-				//#pragma unroll
+				#pragma unroll
 				for ( auto i = 0; i < 3; ++i )
-				//#pragma unroll
+				#pragma unroll
 				for ( auto j = 0; j < 2; ++j) {
 					float x = mat[4*0+3] + (j == 0 ? mat[4*0+i] : -mat[4*0+i]);
 					float y = mat[4*1+3] + (j == 0 ? mat[4*1+i] : -mat[4*1+i]);
@@ -196,11 +196,11 @@ namespace {
 					planes[i*2+j] = pod::Vector4f{ x * length, y * length, z * length, w * length };
 				}
 			}
-		#if 0
-			//#pragma unroll
+		#if 1
+			#pragma unroll
 			for ( auto p = 0; p < 6; ++p ) {
 				float d = std::max(instance.bounds.min.x * planes[p].x, instance.bounds.max.x * planes[p].x)
-						+ std::max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y);
+						+ std::max(instance.bounds.min.y * planes[p].y, instance.bounds.max.y * planes[p].y)
 						+ std::max(instance.bounds.min.z * planes[p].z, instance.bounds.max.z * planes[p].z);
 				if ( d > -planes[p].w ) return true;
 			}
@@ -216,14 +216,12 @@ namespace {
 				pod::Vector4f{ instance.bounds.max.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
 				pod::Vector4f{ instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0f },
 			};
-			//#pragma unroll
+			#pragma unroll
 			for ( uint p = 0; p < 8; ++p ) corners[p] = uf::matrix::multiply( mat, corners[p] );
-			//#pragma unroll
+			#pragma unroll
 			for ( uint p = 0; p < 6; ++p ) {
-				//#pragma unroll
-				for ( uint q = 0; q < 8; ++q ) {
-					if ( uf::vector::dot( corners[q], planes[p] ) > 0 ) return true;
-				}
+				#pragma unroll
+				for ( uint q = 0; q < 8; ++q ) if ( uf::vector::dot( corners[q], planes[p] ) > 0 ) return true;
 				return false;
 			}
 		#endif
@@ -277,7 +275,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	// CPU-buffer based command dispatching
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
 	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
-	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
 
 	GLenum indicesType = GL_UNSIGNED_INT;
@@ -287,10 +284,14 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 	}
 
+	GLboolean blending = glIsEnabled(GL_BLEND);
+
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
 	//	static GLuint previous = 0;
 	//	if ( previous != drawInfo.textures.primary.image ) previous = drawInfo.textures.primary.image;
 		
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
 		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
@@ -298,27 +299,35 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
 		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, drawInfo.attributes.uv.pointer));
-	}
-	if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
-	//	static GLuint previous = 0;
-	//	if ( previous != drawInfo.textures.secondary.image ) previous = drawInfo.textures.secondary.image;
 		
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-		GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, drawInfo.attributes.st.pointer));
-	#if UF_ENV_DREAMCAST
-		GL_ERROR_CHECK(glDisable(GL_BLEND));
-	#endif
+		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+		//	static GLuint previous = 0;
+		//	if ( previous != drawInfo.textures.secondary.image ) previous = drawInfo.textures.secondary.image;
+			
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		#if UF_ENV_DREAMCAST
+			if ( blending ) GL_ERROR_CHECK(glDisable(GL_BLEND));
+		#endif
+			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, drawInfo.attributes.st.pointer));
+		}
 	}
+
 	
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, drawInfo.attributes.normal.pointer));
 	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(4, GL_UNSIGNED_BYTE, drawInfo.attributes.color.stride, drawInfo.attributes.color.pointer));
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, drawInfo.attributes.position.pointer));
 	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.attributes.index.length, indicesType, drawInfo.attributes.index.pointer));
+
+	if ( drawInfo.textures.secondary.image ) {
+	#if UF_ENV_DREAMCAST
+		if ( blending ) GL_ERROR_CHECK(glEnable(GL_BLEND));
+	#endif
+	}
 
 #if 0
 	if ( drawInfo.textures.secondary.image ) {

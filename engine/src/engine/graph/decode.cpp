@@ -188,82 +188,53 @@ namespace {
 	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph ) {
 		uf::Mesh mesh;
 
-		mesh.vertex.attributes.reserve( json["inputs"]["vertex"]["attributes"].size() );
-		mesh.vertex.count = json["inputs"]["vertex"]["count"].as( mesh.vertex.count );
-		mesh.vertex.first = json["inputs"]["vertex"]["first"].as( mesh.vertex.first );
-		mesh.vertex.stride = json["inputs"]["vertex"]["stride"].as( mesh.vertex.stride );
-		mesh.vertex.offset = json["inputs"]["vertex"]["stride"].as( mesh.vertex.offset );
-		mesh.vertex.interleaved = json["inputs"]["vertex"]["interleaved"].as( mesh.vertex.interleaved );
-		ext::json::forEach( json["inputs"]["vertex"]["attributes"], [&]( ext::json::Value& value ){
-			auto& attribute = mesh.vertex.attributes.emplace_back();
+	/*
+		struct Attribute {
+			ext::RENDERER::AttributeDescriptor descriptor;
+			 int32_t buffer = -1;
+			size_t offset = 0;
 
-			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
-			attribute.buffer = value["buffer"].as(attribute.buffer);
-			attribute.offset = value["offset"].as(attribute.offset);
-			attribute.stride = value["stride"].as(attribute.stride);
-		});
-		mesh.index.attributes.reserve( json["inputs"]["index"]["attributes"].size() );
-		mesh.index.count = json["inputs"]["index"]["count"].as( mesh.index.count );
-		mesh.index.first = json["inputs"]["index"]["first"].as( mesh.index.first );
-		mesh.index.stride = json["inputs"]["index"]["stride"].as( mesh.index.stride );
-		mesh.index.offset = json["inputs"]["index"]["stride"].as( mesh.index.offset );
-		mesh.index.interleaved = json["inputs"]["index"]["interleaved"].as( mesh.index.interleaved );
-		ext::json::forEach( json["inputs"]["index"]["attributes"], [&]( ext::json::Value& value ){
-			auto& attribute = mesh.index.attributes.emplace_back();
+			size_t stride = 0;
+			size_t length = 0;
+			void* pointer = NULL;
+		};
+		struct Input {
+			uf::stl::vector<Attribute> attributes;
+			size_t count = 0; // how many elements is the input using
+			size_t first = 0; // base index to start from
+			size_t stride = 0; // size of one element in the input's buffer
+			size_t offset = 0; // bytes to offset from within the associated buffer
+			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
+		} vertex, index, instance, indirect;
+	*/
 
-			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
-			attribute.buffer = value["buffer"].as(attribute.buffer);
-			attribute.offset = value["offset"].as(attribute.offset);
-			attribute.stride = value["stride"].as(attribute.stride);
-		});
-		mesh.instance.attributes.reserve( json["inputs"]["instance"]["attributes"].size() );
-		mesh.instance.count = json["inputs"]["instance"]["count"].as( mesh.instance.count );
-		mesh.instance.first = json["inputs"]["instance"]["first"].as( mesh.instance.first );
-		mesh.instance.stride = json["inputs"]["instance"]["stride"].as( mesh.instance.stride );
-		mesh.instance.offset = json["inputs"]["instance"]["stride"].as( mesh.instance.offset );
-		mesh.instance.interleaved = json["inputs"]["instance"]["interleaved"].as( mesh.instance.interleaved );
-		ext::json::forEach( json["inputs"]["instance"]["attributes"], [&]( ext::json::Value& value ){
-			auto& attribute = mesh.instance.attributes.emplace_back();
+		#define DESERIALIZE_MESH(N) {\
+			auto& input = json["inputs"][#N];\
+			mesh.N.attributes.reserve( input["attributes"].size() );\
+			mesh.N.count = input["count"].as( mesh.N.count );\
+			mesh.N.first = input["first"].as( mesh.N.first );\
+			mesh.N.stride = input["stride"].as( mesh.N.stride );\
+			mesh.N.offset = input["stride"].as( mesh.N.offset );\
+			mesh.N.interleaved = input["interleaved"].as( mesh.N.interleaved );\
+			ext::json::forEach( input["attributes"], [&]( ext::json::Value& value ){\
+				auto& attribute = mesh.N.attributes.emplace_back();\
+				attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);\
+				attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);\
+				attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);\
+				attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);\
+				attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);\
+				attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);\
+				attribute.buffer = value["buffer"].as(attribute.buffer);\
+				attribute.offset = value["offset"].as(attribute.offset);\
+				attribute.stride = value["stride"].as(attribute.stride);\
+				attribute.length = value["length"].as(attribute.length);\
+			});\
+		}
 
-			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
-			attribute.buffer = value["buffer"].as(attribute.buffer);
-			attribute.offset = value["offset"].as(attribute.offset);
-			attribute.stride = value["stride"].as(attribute.stride);
-		});
-		mesh.indirect.attributes.reserve( json["inputs"]["indirect"]["attributes"].size() );
-		mesh.indirect.count = json["inputs"]["indirect"]["count"].as( mesh.indirect.count );
-		mesh.indirect.first = json["inputs"]["indirect"]["first"].as( mesh.indirect.first );
-		mesh.indirect.stride = json["inputs"]["indirect"]["stride"].as( mesh.indirect.stride );
-		mesh.indirect.offset = json["inputs"]["indirect"]["stride"].as( mesh.indirect.offset );
-		mesh.indirect.interleaved = json["inputs"]["indirect"]["interleaved"].as( mesh.indirect.interleaved );
-		ext::json::forEach( json["inputs"]["indirect"]["attributes"], [&]( ext::json::Value& value ){
-			auto& attribute = mesh.indirect.attributes.emplace_back();
-
-			attribute.descriptor.offset = value["descriptor"]["offset"].as(attribute.descriptor.offset);
-			attribute.descriptor.size = value["descriptor"]["size"].as(attribute.descriptor.size);
-			attribute.descriptor.format = (uf::renderer::enums::Format::type_t) value["descriptor"]["format"].as<size_t>(attribute.descriptor.format);
-			attribute.descriptor.name = value["descriptor"]["name"].as(attribute.descriptor.name);
-			attribute.descriptor.type = (uf::renderer::enums::Type::type_t) value["descriptor"]["type"].as(attribute.descriptor.type);
-			attribute.descriptor.components = value["descriptor"]["components"].as(attribute.descriptor.components);
-			attribute.buffer = value["buffer"].as(attribute.buffer);
-			attribute.offset = value["offset"].as(attribute.offset);
-			attribute.stride = value["stride"].as(attribute.stride);
-		});
+		DESERIALIZE_MESH(vertex);
+		DESERIALIZE_MESH(index);
+		DESERIALIZE_MESH(instance);
+		DESERIALIZE_MESH(indirect);
 
 		mesh.buffers.reserve( json["buffers"].size() );
 		ext::json::forEach( json["buffers"], [&]( ext::json::Value& value ){
@@ -272,7 +243,9 @@ namespace {
 			auto& buffer = mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 		});
 		mesh.updateDescriptor();
+
 		return mesh;
+	//	return mesh.interleave();
 	}
 
 	pod::Node decodeNode( ext::json::Value& json, pod::Graph& graph ) {

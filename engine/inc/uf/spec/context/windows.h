@@ -2,7 +2,12 @@
 
 #include "universal.h"
 
-#if !UF_USE_SFML
+#if !UF_USE_OPENGL || UF_USE_OPENGL_GLDC
+#include "unknown.h"
+namespace spec {
+	typedef spec::unknown::Context Context;
+}
+#else
 namespace spec {
 	namespace win32 {
 		class UF_API_VAR Context : public spec::uni::Context {

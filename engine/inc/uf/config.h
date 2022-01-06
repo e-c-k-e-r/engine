@@ -109,6 +109,12 @@
 	#define alignas(X)
 #endif
 
+#if UF_ALIGN_FOR_SIMD
+	#define ALIGN16 alignas(16)
+#else
+	#define ALIGN16
+#endif
+
 #include "macros.h"
 #include "simd.h"
 #include "helpers.inl"

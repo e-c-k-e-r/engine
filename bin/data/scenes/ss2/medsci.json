@@ -2,6 +2,7 @@
 	"import": "/model.json",
 	"assets": [
 	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
 		{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
@@ -28,6 +29,7 @@
 			},
 			"tags": {
 				"worldspawn": {  "physics": { "type": "mesh", "static": true } },
+				"worldspawn_20": {  "physics": { "type": "mesh", "static": true } },
 			//	"worldspawn": {  "physics": { "type": "bounding boxes", "static": true } },
 				"info_player_spawn": {
 					"action": "attach",

@@ -473,7 +473,7 @@ namespace pod {
 #if UF_VECTOR_ALIGNED
 	struct /*UF_API*/ alignas(16) Vector<T,4> {
 #else
-	struct /*UF_API*/ /*alignas(16)*/ Vector<T,4> {
+	struct /*UF_API*/ Vector<T,4> {
 #endif
 	// 	XYZW access
 		T x;

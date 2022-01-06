@@ -146,6 +146,55 @@ namespace {
 	uf::Serializer encode( const uf::Mesh& mesh, const EncodingSettings& settings ) {
 		uf::Serializer json;
 
+	/*
+		struct Attribute {
+			ext::RENDERER::AttributeDescriptor descriptor;
+			 int32_t buffer = -1;
+			size_t offset = 0;
+
+			size_t stride = 0;
+			size_t length = 0;
+			void* pointer = NULL;
+		};
+		struct Input {
+			uf::stl::vector<Attribute> attributes;
+			size_t count = 0; // how many elements is the input using
+			size_t first = 0; // base index to start from
+			size_t stride = 0; // size of one element in the input's buffer
+			size_t offset = 0; // bytes to offset from within the associated buffer
+			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
+		} vertex, index, instance, indirect;
+	*/
+
+		#define SERIALIZE_MESH(N) {\
+			auto& input = json["inputs"][#N];\
+			input["count"] = mesh.N.count;\
+			input["first"] = mesh.N.first;\
+			input["stride"] = mesh.N.stride;\
+			input["offset"] = mesh.N.offset;\
+			input["interleaved"] = mesh.N.interleaved;\
+			ext::json::reserve( input["attributes"], mesh.N.attributes.size() );\
+			for ( auto& attribute : mesh.N.attributes ) {\
+				auto& a = input["attributes"].emplace_back();\
+				a["descriptor"]["offset"] = attribute.descriptor.offset;\
+				a["descriptor"]["size"] = attribute.descriptor.size;\
+				a["descriptor"]["format"] = attribute.descriptor.format;\
+				a["descriptor"]["name"] = attribute.descriptor.name;\
+				a["descriptor"]["type"] = attribute.descriptor.type;\
+				a["descriptor"]["components"] = attribute.descriptor.components;\
+				a["buffer"] = attribute.buffer;\
+				a["offset"] = attribute.offset;\
+				a["stride"] = attribute.stride;\
+				a["length"] = attribute.length;\
+			}\
+		}
+
+		SERIALIZE_MESH(vertex);
+		SERIALIZE_MESH(index);
+		SERIALIZE_MESH(instance);
+		SERIALIZE_MESH(indirect);
+		
+	/*
 		json["inputs"]["vertex"]["count"] = mesh.vertex.count;
 		json["inputs"]["vertex"]["first"] = mesh.vertex.first;
 		json["inputs"]["vertex"]["stride"] = mesh.vertex.stride;
@@ -221,7 +270,7 @@ namespace {
 			a["offset"] = attribute.offset;
 			a["stride"] = attribute.stride;
 		}
-
+	*/
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
 			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compress ? "gz" : "bin" );

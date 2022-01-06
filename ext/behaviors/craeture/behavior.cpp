@@ -36,10 +36,10 @@ namespace {
 		float scaleY = 1;
 
 		mesh.insertVertices<uf::graph::mesh::Base>({
-			{ {-1.0f * scaleX, 1.0f * scaleY, 0.0f}, {}, {0.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f} },
-			{ {-1.0f * scaleX, -1.0f * scaleY, 0.0f}, {}, {0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f} },
-			{ {1.0f * scaleX, -1.0f * scaleY, 0.0f}, {}, {1.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f} },
-			{ {1.0f * scaleX, 1.0f * scaleY, 0.0f}, {}, {1.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, }
+			{ {-1.0f * scaleX, 1.0f * scaleY, 0.0f}, {0.0f, 1.0f}, {}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f} },
+			{ {-1.0f * scaleX, -1.0f * scaleY, 0.0f}, {0.0f, 0.0f}, {}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f} },
+			{ {1.0f * scaleX, -1.0f * scaleY, 0.0f}, {1.0f, 0.0f}, {}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f} },
+			{ {1.0f * scaleX, 1.0f * scaleY, 0.0f}, {1.0f, 1.0f}, {}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, }
 		});
 		mesh.insertIndices<uint16_t>({
 			0, 1, 2, 2, 3, 0

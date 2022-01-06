@@ -21,8 +21,8 @@ namespace pod {
 		
 		struct Viewports {
 			struct Matrices{
-				/*alignas(16)*/ pod::Matrix4f view;
-				/*alignas(16)*/ pod::Matrix4f projection;
+				pod::Matrix4f view;
+				pod::Matrix4f projection;
 			} matrices[uf::camera::maxViews];
 		} viewport;
 	};

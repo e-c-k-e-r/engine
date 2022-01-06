@@ -60,8 +60,30 @@ void uf::Mesh::destroy() {
 }
 uf::Mesh uf::Mesh::interleave() const {
 	uf::Mesh interleaved;
-	auto& buffer = interleaved.buffers.emplace_back();
+	interleaved.vertex.interleaved = true;
+	interleaved.index.interleaved = false;
+	interleaved.instance.interleaved = true;
+	interleaved.indirect.interleaved = false;
+	interleaved.bind(*this);
 
+	#define PARSE_INPUT_INTERLEAVED(N){\
+		uf::Mesh::Input input = N;\
+		interleaved.N = input;\
+		auto& buffer = interleaved.buffers.at(interleaved.N.interleaved);\
+		while ( input.count-- ) {\
+			for ( auto& attribute : input.attributes ) {\
+				buffer.insert( buffer.end(), (uint8_t*) attribute.pointer, (uint8_t*) attribute.pointer + attribute.descriptor.size );\
+				attribute.pointer += input.stride;\
+			}\
+		}\
+	}
+
+	PARSE_INPUT_INTERLEAVED(vertex);
+	interleaved.insertIndices(*this);
+	PARSE_INPUT_INTERLEAVED(instance);
+	interleaved.insertIndirects(*this);
+/*
+	auto& buffer = interleaved.buffers.emplace_back();
 #define PARSE_INPUT_INTERLEAVED(name) {\
 	interleaved.name = name;\
 	interleaved.name.offset = buffer.size();\
@@ -72,7 +94,7 @@ uf::Mesh uf::Mesh::interleave() const {
 	PARSE_INPUT_INTERLEAVED(index);
 	PARSE_INPUT_INTERLEAVED(instance);
 	PARSE_INPUT_INTERLEAVED(indirect);
-
+*/
 	return interleaved;
 }
 void uf::Mesh::updateDescriptor() {
@@ -269,7 +291,7 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 		const bool interleaved = isInterleaved(input.interleaved);
 		auto& buffer = buffers[interleaved ? input.interleaved : attribute.buffer];
 		attribute.length = buffer.size();
-		attribute.pointer = (void*) (buffer.data());
+		attribute.pointer = (void*) (buffer.data() + attribute.offset);
 		if ( !interleaved ) attribute.stride = attribute.descriptor.size;
 		input.stride += attribute.descriptor.size;
 	}

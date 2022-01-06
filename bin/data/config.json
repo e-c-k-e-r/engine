@@ -2,7 +2,7 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleave": false },
+			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
 				"max": 24,

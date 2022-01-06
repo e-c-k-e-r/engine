@@ -49,7 +49,7 @@ void uf::RenderBehavior::tick( uf::Object& self ) {
 		shader.updateUniform("UBO", uniforms );
 	#else
 		struct UniformDescriptor {
-			/*alignas(16)*/ pod::Matrix4f model;
+			pod::Matrix4f model;
 		};
 	#if UF_UNIFORMS_REUSE
 		auto& uniforms = uniform.get<UniformDescriptor>();
