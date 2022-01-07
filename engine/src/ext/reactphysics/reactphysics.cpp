@@ -199,11 +199,11 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 				remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
 				
 				vArray = new rp3d::TriangleVertexArray(
-					remappedVertexAttribute.length,
+					remappedVertexAttribute.length / remappedVertexAttribute.stride,
 					(const uint8_t*) remappedVertexAttribute.pointer,
 					remappedVertexAttribute.stride,
 
-					remappedIndexAttribute.length / 3,
+					remappedIndexAttribute.length / remappedIndexAttribute.stride / 3,
 					(const uint8_t*) remappedIndexAttribute.pointer,
 					remappedIndexAttribute.stride * 3,
 
@@ -215,11 +215,11 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 			}
 		} else {
 			vArray = new rp3d::TriangleVertexArray(
-				vertexAttribute.length,
+				mesh.vertex.count,
 				(const uint8_t*) vertexAttribute.pointer,
 				vertexAttribute.stride,
 
-				indexAttribute.length / 3,
+				mesh.index.count / 3,
 				(const uint8_t*) indexAttribute.pointer,
 				indexAttribute.stride * 3,
 

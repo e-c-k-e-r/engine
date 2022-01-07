@@ -109,7 +109,7 @@ namespace uf {
 		void initialize();
 		void destroy();
 
-		uf::Mesh interleave() const;
+		uf::Mesh convert( bool ) const;
 		void updateDescriptor();
 		
 		void bind( const uf::Mesh& );

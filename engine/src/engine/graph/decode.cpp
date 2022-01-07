@@ -245,7 +245,6 @@ namespace {
 		mesh.updateDescriptor();
 
 		return mesh;
-	//	return mesh.interleave();
 	}
 
 	pod::Node decodeNode( ext::json::Value& json, pod::Graph& graph ) {

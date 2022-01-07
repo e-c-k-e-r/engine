@@ -321,7 +321,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, drawInfo.attributes.normal.pointer));
 	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(4, GL_UNSIGNED_BYTE, drawInfo.attributes.color.stride, drawInfo.attributes.color.pointer));
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, drawInfo.attributes.position.pointer));
-	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.attributes.index.length, indicesType, drawInfo.attributes.index.pointer));
+	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.attributes.index.length / drawInfo.attributes.index.stride, indicesType, drawInfo.attributes.index.pointer));
 
 	if ( drawInfo.textures.secondary.image ) {
 	#if UF_ENV_DREAMCAST

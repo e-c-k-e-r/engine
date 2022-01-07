@@ -96,13 +96,13 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 					entry.command = i;
 
 					auto& decl = entry.decl;
-					decl.vertexCount = remappedUvAttribute.length;
+					decl.vertexCount = remappedPositionAttribute.length / remappedPositionAttribute.stride;
 					decl.vertexPositionData = remappedPositionAttribute.pointer;
 					decl.vertexPositionStride = remappedPositionAttribute.stride;
 					decl.vertexUvData = remappedUvAttribute.pointer;
 					decl.vertexUvStride = remappedUvAttribute.stride;
 
-					decl.indexCount = remappedIndexAttribute.length;
+					decl.indexCount = remappedIndexAttribute.length / remappedIndexAttribute.stride;
 					decl.indexData = remappedIndexAttribute.pointer;
 					decl.indexFormat = indexType;
 				}
@@ -111,13 +111,13 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 				entry.index = index;
 
 				auto& decl = entry.decl;
-				decl.vertexCount = uvAttribute.length;
+				decl.vertexCount = mesh.vertex.count;
 				decl.vertexPositionData = positionAttribute.pointer;
 				decl.vertexPositionStride = positionAttribute.stride;
 				decl.vertexUvData = uvAttribute.pointer;
 				decl.vertexUvStride = uvAttribute.stride;
 
-				decl.indexCount = indexAttribute.length;
+				decl.indexCount = mesh.index.count;
 				decl.indexData = indexAttribute.pointer;
 				decl.indexFormat = indexType;
 				decl.indexFormat = indexType;

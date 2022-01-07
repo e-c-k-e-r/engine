@@ -395,11 +395,12 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
 
 			drawCommandInfo.attributes.index.pointer = (void*) ((uint8_t*) drawCommandInfo.attributes.index.pointer + drawCommand.indexID * drawCommandInfo.attributes.index.stride);
-			drawCommandInfo.attributes.index.length = drawCommand.indices;
+			drawCommandInfo.attributes.index.length = drawCommand.indices * drawCommandInfo.attributes.index.stride;
 
 			for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
-				attribute.pointer = (void*) ((uint8_t*) attribute.pointer + drawCommand.vertexID * attribute.stride);
-				attribute.length = drawCommand.vertices;
+				attribute.pointer += drawCommand.vertexID * attribute.stride;
+				attribute.length = drawCommand.vertices * attribute.stride;
+			//	UF_MSG_DEBUG( attribute.descriptor.name << ": " << attribute.descriptor.offset << " " << attribute.pointer << " " << attribute.pointer - attribute.descriptor.offset );
 
 				if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
 				else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
@@ -407,11 +408,10 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
 				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
 			}
-
 		/*
 			for ( size_t i = 0; i < drawCommand.vertices; ++i ) {
-				float* p = (float*) (drawCommandInfo.attributes.position.pointer + i * drawCommandInfo.attributes.position.stride + drawCommandInfo.attributes.position.descriptor.offset);
-				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + i * drawCommandInfo.attributes.uv.stride + drawCommandInfo.attributes.uv.descriptor.offset);
+				float* p = (float*) (drawCommandInfo.attributes.position.pointer + i * drawCommandInfo.attributes.position.stride);
+				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + i * drawCommandInfo.attributes.uv.stride);
 				std::cout << "(" << p[0] << ", " << p[1] << ", " << p[2] << "|" << uv[0] << ", " << uv[1] << ") ";
 			}
 			std::cout << std::endl;
