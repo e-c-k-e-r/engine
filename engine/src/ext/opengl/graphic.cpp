@@ -43,7 +43,7 @@ void ext::opengl::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			auto& attribute = descriptor.inputs.vertex.attributes[i];
 
 			GL_ERROR_CHECK(glEnableVertexAttribArray(i));
-			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.descriptor.components, attribute.descriptor.type, false, descriptor.inputs.vertex.stride, attribute.descriptor.offset));
+			GL_ERROR_CHECK(glVertexAttribPointer(0, attribute.descriptor.components, attribute.descriptor.type, false, descriptor.inputs.vertex.size, attribute.descriptor.offset));
 		}
 		GL_ERROR_CHECK(glBindVertexArray(0));
 	}
@@ -394,13 +394,16 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.descriptor = descriptor;
 			drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
 
-			drawCommandInfo.attributes.index.pointer = (void*) ((uint8_t*) drawCommandInfo.attributes.index.pointer + drawCommand.indexID * drawCommandInfo.attributes.index.stride);
-			drawCommandInfo.attributes.index.length = drawCommand.indices * drawCommandInfo.attributes.index.stride;
+			drawCommandInfo.descriptor.inputs.index.first = drawCommand.indexID;
+			drawCommandInfo.descriptor.inputs.index.count = drawCommand.indices;
+			
+			drawCommandInfo.descriptor.inputs.vertex.first = drawCommand.vertexID;
+			drawCommandInfo.descriptor.inputs.vertex.count = drawCommand.vertices;
+
+		//	drawCommandInfo.attributes.index.pointer + drawCommandInfo.attributes.index.stride * drawCommandInfo.descriptor.inputs.index.first;
 
 			for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
-				attribute.pointer += drawCommand.vertexID * attribute.stride;
-				attribute.length = drawCommand.vertices * attribute.stride;
-			//	UF_MSG_DEBUG( attribute.descriptor.name << ": " << attribute.descriptor.offset << " " << attribute.pointer << " " << attribute.pointer - attribute.descriptor.offset );
+			//	attribute.pointer = attribute.pointer + attribute.stride * drawCommandInfo.descriptor.inputs.vertex.first;
 
 				if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
 				else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
@@ -408,14 +411,23 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
 				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
 			}
+		
+		/*
+			{
+				float* p = (float*) (drawCommandInfo.attributes.position.pointer + drawCommandInfo.attributes.position.stride * drawCommandInfo.descriptor.inputs.vertex.first);
+			//	float* p = (float*) drawCommandInfo.attributes.position.pointer;
+				UF_MSG_DEBUG( "[" << i << "] [" << drawCommandInfo.descriptor.inputs.vertex.first << "] (" << p[0] << ", " << p[1] << ", " << p[2] << ")" );
+			}
+		*/
 		/*
 			for ( size_t i = 0; i < drawCommand.vertices; ++i ) {
-				float* p = (float*) (drawCommandInfo.attributes.position.pointer + i * drawCommandInfo.attributes.position.stride);
-				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + i * drawCommandInfo.attributes.uv.stride);
+				float* p = (float*) (drawCommandInfo.attributes.position.pointer + drawCommandInfo.attributes.position.stride * (i + drawCommand.vertexID));
+				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + drawCommandInfo.attributes.uv.stride * (i + drawCommand.vertexID));
 				std::cout << "(" << p[0] << ", " << p[1] << ", " << p[2] << "|" << uv[0] << ", " << uv[1] << ") ";
 			}
 			std::cout << std::endl;
 		*/
+		
 
 			drawCommandInfo.attributes.instance.pointer = &instance;
 			drawCommandInfo.attributes.instance.length = sizeof(instance);

@@ -475,18 +475,34 @@ void uf::graph::process( pod::Graph& graph ) {
 		graph.root.mesh = graph.meshes.size();
 		auto keyName = graph.name + "/" + graph.root.name;
 		auto& mesh = uf::graph::storage.meshes[graph.meshes.emplace_back(keyName)];
+		mesh.bindIndirect<pod::DrawCommand>();
+		mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+
+		uf::stl::vector<pod::DrawCommand> drawCommands;
+		
+		size_t counts = 0;
 		for ( auto& name : graph.meshes ) {
 			if ( name == keyName ) continue;
 
 			auto& m = uf::graph::storage.meshes.map[name];
-			mesh.bindIndirect<pod::DrawCommand>();
-			mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-			mesh.insert( m );
+			m.updateDescriptor();
+
+			mesh.insertVertices( m );
+			mesh.insertIndices( m );
+			mesh.insertInstances( m );
+		//	mesh.insertIndirects( m );
+			pod::DrawCommand* dc = (pod::DrawCommand*) m.getBuffer( m.indirect ).data();
+			for ( size_t i = 0; i < m.indirect.count; ++i ) drawCommands.emplace_back( dc[i] );
 		}
+		mesh.insertIndirects( drawCommands );
+
+		mesh = mesh.expand();
+		mesh = mesh.copy(true);
+
 		// fix up draw command for combined mesh
 		{
 			auto& attribute = mesh.indirect.attributes.front();
-			auto& buffer = mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
+			auto& buffer = mesh.getBuffer(mesh.indirect); // mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
 			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
 
 			size_t totalIndices = 0;
@@ -499,6 +515,17 @@ void uf::graph::process( pod::Graph& graph ) {
 				totalIndices += drawCommand.indices;
 				totalVertices += drawCommand.vertices;
 			}
+
+		/*
+			if ( totalIndices > mesh.index.count ) {
+				UF_MSG_ERROR("Calculated total indices exceed actual indices count: expecting " << mesh.index.count << ", got " << totalIndices);
+				UF_EXCEPTION("invalid drawCommand");
+			}
+			if ( totalVertices > mesh.vertex.count ) {
+				UF_MSG_ERROR("Calculated total vertices exceed actual vertices count: expecting " << mesh.vertex.count << ", got " << totalVertices);
+				UF_EXCEPTION("invalid drawCommand");
+			}
+		*/
 		}
 		{
 			auto& graphic = graph.root.entity->getComponent<uf::Graphic>();

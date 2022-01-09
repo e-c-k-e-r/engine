@@ -174,8 +174,62 @@ void ext::reactphysics::detach( pod::PhysicsState& state ) {
 
 // collider for mesh (static or dynamic)
 pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh& mesh, bool dynamic ) {
+	UF_ASSERT( mesh.index.count );
+	
 	auto* rMesh = ::common.createTriangleMesh();
 
+	mesh.print( false );
+
+	uf::Mesh::Input vertexInput = mesh.vertex;
+	uf::Mesh::Input indexInput = mesh.index;
+
+	uf::Mesh::Attribute vertexAttribute = mesh.vertex.attributes.front();
+	uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+
+	for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
+	UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+
+	rp3d::TriangleVertexArray::IndexDataType indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
+	rp3d::TriangleVertexArray::VertexDataType vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
+	switch ( mesh.index.size ) {
+		case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
+		case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
+		default: UF_EXCEPTION("unsupported index type"); break;
+	}
+
+	if ( mesh.indirect.count ) {
+		for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+			vertexInput = mesh.remapVertexInput( i );
+			indexInput = mesh.remapIndexInput( i );
+
+			rMesh->addSubpart(new rp3d::TriangleVertexArray(
+				vertexInput.count,
+				(const uint8_t*) (vertexAttribute.pointer + vertexAttribute.stride * vertexInput.first),
+				vertexAttribute.stride,
+
+				indexInput.count / 3,
+				(const uint8_t*) (indexAttribute.pointer + indexAttribute.stride * indexInput.first),
+				indexAttribute.stride * 3,
+
+				vertexType,
+				indexType
+			));
+		}
+	} else {
+		rMesh->addSubpart(new rp3d::TriangleVertexArray(
+			vertexInput.count,
+			(const uint8_t*) (vertexAttribute.pointer + vertexAttribute.stride * vertexInput.first),
+			vertexAttribute.stride,
+
+			indexInput.count / 3,
+			(const uint8_t*) (indexAttribute.pointer + indexAttribute.stride * indexInput.first),
+			indexAttribute.stride * 3,
+
+			vertexType,
+			indexType
+		));
+	}
+/*
 	if ( mesh.index.count ) {
 		uf::Mesh::Attribute vertexAttribute;
 		for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
@@ -184,7 +238,7 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 		auto& indexAttribute = mesh.index.attributes.front();
 		rp3d::TriangleVertexArray::IndexDataType indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
 		rp3d::TriangleVertexArray::VertexDataType vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
-		switch ( mesh.index.stride ) {
+		switch ( mesh.index.size ) {
 			case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
 			case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
 			default: UF_EXCEPTION("unsupported index type"); break;
@@ -199,11 +253,11 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 				remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
 				
 				vArray = new rp3d::TriangleVertexArray(
-					remappedVertexAttribute.length / remappedVertexAttribute.stride,
+					remappedVertexAttribute.length / mesh.vertex.size,
 					(const uint8_t*) remappedVertexAttribute.pointer,
 					remappedVertexAttribute.stride,
 
-					remappedIndexAttribute.length / remappedIndexAttribute.stride / 3,
+					remappedIndexAttribute.length / mesh.index.size / 3,
 					(const uint8_t*) remappedIndexAttribute.pointer,
 					remappedIndexAttribute.stride * 3,
 
@@ -230,6 +284,7 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 			rMesh->addSubpart(vArray);
 		}
 	} else UF_EXCEPTION("to-do: not require indices for meshes");
+*/
 
 	auto& state = ext::reactphysics::create( object );
 	state.shape = ::common.createConcaveMeshShape( rMesh );

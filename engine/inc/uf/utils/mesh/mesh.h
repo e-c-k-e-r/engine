@@ -64,7 +64,7 @@ namespace uf {
 			uf::stl::vector<Attribute> attributes;
 			size_t count = 0; // how many elements is the input using
 			size_t first = 0; // base index to start from
-			size_t stride = 0; // size of one element in the input's buffer
+			size_t size = 0; // size of one element in the input's buffer
 			size_t offset = 0; // bytes to offset from within the associated buffer
 			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
 		} vertex, index, instance, indirect;
@@ -109,18 +109,39 @@ namespace uf {
 		void initialize();
 		void destroy();
 
-		uf::Mesh convert( bool ) const;
+		uf::Mesh convert() const;
+		uf::Mesh copy(bool) const;
+		uf::Mesh expand();
+		uf::Mesh expand(bool);
+
 		void updateDescriptor();
 		
 		void bind( const uf::Mesh& );
+		void bind( const uf::Mesh&, bool );
 		void insert( const uf::Mesh& );
 		
 		void generateIndices();
 		void generateIndirect();
 
+		bool isInterleaved() const;
 		bool isInterleaved( size_t ) const;
 
-		void print() const;
+		buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 );
+		buffer_t& getBuffer( const uf::Mesh::Input&, const uf::Mesh::Attribute& );
+		
+		const buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 ) const;
+		const buffer_t& getBuffer( const uf::Mesh::Input&, const uf::Mesh::Attribute& ) const;
+
+		void print( bool = true ) const;
+
+		std::string printVertices( bool = true ) const;
+		std::string printIndices( bool = true ) const;
+		std::string printInstances( bool = true ) const;
+		std::string printIndirects( bool = true ) const;
+
+		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t i = 0 ) const;
+		uf::Mesh::Input remapVertexInput( size_t i = 0 ) const;
+		uf::Mesh::Input remapIndexInput( size_t i = 0 ) const;
 
 		inline bool hasVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
 		inline bool hasVertex( const uf::Mesh& mesh ) const { return _hasV( vertex, mesh.vertex ); }

@@ -2,7 +2,7 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleaved": false },
+			"meshes": { "interleaved": true },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
 				"max": 24,
@@ -146,7 +146,7 @@
 				"debug draw": {
 					"enabled": false,
 				//	"layer": "Gui",
-					"rate": 0.0125
+					"rate": 0.06666666666
 				}
 			},
 			"bullet": {

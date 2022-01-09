@@ -160,7 +160,7 @@ namespace {
 			uf::stl::vector<Attribute> attributes;
 			size_t count = 0; // how many elements is the input using
 			size_t first = 0; // base index to start from
-			size_t stride = 0; // size of one element in the input's buffer
+			size_t size = 0; // size of one element in the input's buffer
 			size_t offset = 0; // bytes to offset from within the associated buffer
 			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
 		} vertex, index, instance, indirect;
@@ -170,7 +170,7 @@ namespace {
 			auto& input = json["inputs"][#N];\
 			input["count"] = mesh.N.count;\
 			input["first"] = mesh.N.first;\
-			input["stride"] = mesh.N.stride;\
+			input["size"] = mesh.N.size;\
 			input["offset"] = mesh.N.offset;\
 			input["interleaved"] = mesh.N.interleaved;\
 			ext::json::reserve( input["attributes"], mesh.N.attributes.size() );\
@@ -193,84 +193,7 @@ namespace {
 		SERIALIZE_MESH(index);
 		SERIALIZE_MESH(instance);
 		SERIALIZE_MESH(indirect);
-		
-	/*
-		json["inputs"]["vertex"]["count"] = mesh.vertex.count;
-		json["inputs"]["vertex"]["first"] = mesh.vertex.first;
-		json["inputs"]["vertex"]["stride"] = mesh.vertex.stride;
-		json["inputs"]["vertex"]["offset"] = mesh.vertex.offset;
-		json["inputs"]["vertex"]["interleaved"] = mesh.vertex.interleaved;
-		ext::json::reserve( json["inputs"]["vertex"]["attributes"], mesh.vertex.attributes.size() );
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			auto& a = json["inputs"]["vertex"]["attributes"].emplace_back();
-			a["descriptor"]["offset"] = attribute.descriptor.offset;
-			a["descriptor"]["size"] = attribute.descriptor.size;
-			a["descriptor"]["format"] = attribute.descriptor.format;
-			a["descriptor"]["name"] = attribute.descriptor.name;
-			a["descriptor"]["type"] = attribute.descriptor.type;
-			a["descriptor"]["components"] = attribute.descriptor.components;
-			a["buffer"] = attribute.buffer;
-			a["offset"] = attribute.offset;
-			a["stride"] = attribute.stride;
-		}
 
-		json["inputs"]["index"]["count"] = mesh.index.count;
-		json["inputs"]["index"]["first"] = mesh.index.first;
-		json["inputs"]["index"]["stride"] = mesh.index.stride;
-		json["inputs"]["index"]["offset"] = mesh.index.offset;
-		json["inputs"]["index"]["interleaved"] = mesh.index.interleaved;
-		ext::json::reserve( json["inputs"]["index"]["attributes"], mesh.index.attributes.size() );
-		for ( auto& attribute : mesh.index.attributes ) {
-			auto& a = json["inputs"]["index"]["attributes"].emplace_back();
-			a["descriptor"]["offset"] = attribute.descriptor.offset;
-			a["descriptor"]["size"] = attribute.descriptor.size;
-			a["descriptor"]["format"] = attribute.descriptor.format;
-			a["descriptor"]["name"] = attribute.descriptor.name;
-			a["descriptor"]["type"] = attribute.descriptor.type;
-			a["descriptor"]["components"] = attribute.descriptor.components;
-			a["buffer"] = attribute.buffer;
-			a["offset"] = attribute.offset;
-			a["stride"] = attribute.stride;
-		}
-
-		json["inputs"]["instance"]["count"] = mesh.instance.count;
-		json["inputs"]["instance"]["first"] = mesh.instance.first;
-		json["inputs"]["instance"]["stride"] = mesh.instance.stride;
-		json["inputs"]["instance"]["offset"] = mesh.instance.offset;
-		json["inputs"]["instance"]["interleaved"] = mesh.instance.interleaved;
-		ext::json::reserve( json["inputs"]["instance"]["attributes"], mesh.instance.attributes.size() );
-		for ( auto& attribute : mesh.instance.attributes ) {
-			auto& a = json["inputs"]["instance"]["attributes"].emplace_back();
-			a["descriptor"]["offset"] = attribute.descriptor.offset;
-			a["descriptor"]["size"] = attribute.descriptor.size;
-			a["descriptor"]["format"] = attribute.descriptor.format;
-			a["descriptor"]["name"] = attribute.descriptor.name;
-			a["descriptor"]["type"] = attribute.descriptor.type;
-			a["descriptor"]["components"] = attribute.descriptor.components;
-			a["buffer"] = attribute.buffer;
-			a["offset"] = attribute.offset;
-			a["stride"] = attribute.stride;
-		}
-
-		json["inputs"]["indirect"]["count"] = mesh.indirect.count;
-		json["inputs"]["indirect"]["first"] = mesh.indirect.first;
-		json["inputs"]["indirect"]["stride"] = mesh.indirect.stride;
-		json["inputs"]["indirect"]["offset"] = mesh.indirect.offset;
-		json["inputs"]["indirect"]["interleaved"] = mesh.indirect.interleaved;
-		ext::json::reserve( json["inputs"]["indirect"]["attributes"], mesh.indirect.attributes.size() );
-		for ( auto& attribute : mesh.indirect.attributes ) {
-			auto& a = json["inputs"]["indirect"]["attributes"].emplace_back();
-			a["descriptor"]["offset"] = attribute.descriptor.offset;
-			a["descriptor"]["size"] = attribute.descriptor.size;
-			a["descriptor"]["format"] = attribute.descriptor.format;
-			a["descriptor"]["name"] = attribute.descriptor.name;
-			a["descriptor"]["type"] = attribute.descriptor.type;
-			a["descriptor"]["components"] = attribute.descriptor.components;
-			a["buffer"] = attribute.buffer;
-			a["offset"] = attribute.offset;
-			a["stride"] = attribute.stride;
-		}
-	*/
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
 			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compress ? "gz" : "bin" );

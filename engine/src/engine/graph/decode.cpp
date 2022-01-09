@@ -188,33 +188,13 @@ namespace {
 	uf::Mesh decodeMesh( ext::json::Value& json, pod::Graph& graph ) {
 		uf::Mesh mesh;
 
-	/*
-		struct Attribute {
-			ext::RENDERER::AttributeDescriptor descriptor;
-			 int32_t buffer = -1;
-			size_t offset = 0;
-
-			size_t stride = 0;
-			size_t length = 0;
-			void* pointer = NULL;
-		};
-		struct Input {
-			uf::stl::vector<Attribute> attributes;
-			size_t count = 0; // how many elements is the input using
-			size_t first = 0; // base index to start from
-			size_t stride = 0; // size of one element in the input's buffer
-			size_t offset = 0; // bytes to offset from within the associated buffer
-			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
-		} vertex, index, instance, indirect;
-	*/
-
 		#define DESERIALIZE_MESH(N) {\
 			auto& input = json["inputs"][#N];\
 			mesh.N.attributes.reserve( input["attributes"].size() );\
 			mesh.N.count = input["count"].as( mesh.N.count );\
 			mesh.N.first = input["first"].as( mesh.N.first );\
-			mesh.N.stride = input["stride"].as( mesh.N.stride );\
-			mesh.N.offset = input["stride"].as( mesh.N.offset );\
+			mesh.N.size = input["size"].as( mesh.N.size );\
+			mesh.N.offset = input["offset"].as( mesh.N.offset );\
 			mesh.N.interleaved = input["interleaved"].as( mesh.N.interleaved );\
 			ext::json::forEach( input["attributes"], [&]( ext::json::Value& value ){\
 				auto& attribute = mesh.N.attributes.emplace_back();\
@@ -244,6 +224,8 @@ namespace {
 		});
 		mesh.updateDescriptor();
 
+	//	return mesh.expand();
+	//	if ( mesh.isInterleaved() != uf::Mesh::defaultInterleaved ) return mesh.copy(true);
 		return mesh;
 	}
 

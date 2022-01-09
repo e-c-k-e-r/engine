@@ -219,7 +219,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			if ( 0 <= descriptor.inputs.vertex.interleaved ) {
 				inputBindingDescriptions.emplace_back(ext::vulkan::initializers::vertexInputBindingDescription(
 					vertexBindID, // descriptor.inputs.vertex.interleaved, 
-					descriptor.inputs.vertex.stride, 
+					descriptor.inputs.vertex.size, 
 					VK_VERTEX_INPUT_RATE_VERTEX
 				));
 				for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
@@ -992,12 +992,12 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 
 	if ( index.buffer ) {
 		VkIndexType indicesType = VK_INDEX_TYPE_UINT32;
-		switch ( descriptor.inputs.index.stride ) {
+		switch ( descriptor.inputs.index.size ) {
 			case 1: indicesType = VK_INDEX_TYPE_UINT8_EXT; break;
 			case 2: indicesType = VK_INDEX_TYPE_UINT16; break;
 			case 4: indicesType = VK_INDEX_TYPE_UINT32; break;
 			default:
-				UF_EXCEPTION("invalid indices size of " << (int) descriptor.inputs.index.stride);
+				UF_EXCEPTION("invalid indices size of " << (int) descriptor.inputs.index.size);
 			break;
 		}
 		vkCmdBindIndexBuffer(commandBuffer, index.buffer, index.offset, indicesType);
@@ -1021,14 +1021,14 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 			vkCmdDrawIndexedIndirect(commandBuffer, indirect.buffer,
 				descriptor.inputs.indirect.offset, // offset
 				descriptor.inputs.indirect.count, // drawCount
-				descriptor.inputs.indirect.stride // stride
+				descriptor.inputs.indirect.size // stride
 			);
 		} else {
 			for ( auto i = 0; i < descriptor.inputs.indirect.count; ++i ) {
 				vkCmdDrawIndexedIndirect(commandBuffer, indirect.buffer,
-					descriptor.inputs.indirect.offset + i * descriptor.inputs.indirect.stride, // offset
+					descriptor.inputs.indirect.offset + i * descriptor.inputs.indirect.size, // offset
 					1, // drawCount
-					descriptor.inputs.indirect.stride // stride
+					descriptor.inputs.indirect.size // stride
 				);
 			}
 		}
@@ -1044,7 +1044,7 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		vkCmdDrawIndexedIndirect(commandBuffer, indirect.buffer,
 			descriptor.inputs.indirect.offset, // offset
 			descriptor.inputs.indirect.count, // drawCount
-			descriptor.inputs.indirect.stride // stride
+			descriptor.inputs.indirect.size // stride
 		);
 	} else/* if ( !vertexInstance.buffer.empty() && !indirect.buffer ) */{
 		vkCmdDraw(commandBuffer,
