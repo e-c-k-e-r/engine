@@ -47,7 +47,12 @@ UF_VERTEX_DESCRIPTOR(pod::Vertex_3F,
 	UF_VERTEX_DESCRIPTION(pod::Vertex_3F, R32G32B32_SFLOAT, position)
 )
 
-bool uf::Mesh::defaultInterleaved = false;
+#if UF_USE_OPENGL
+	bool uf::Mesh::defaultInterleaved = true;
+#else
+	bool uf::Mesh::defaultInterleaved = false;
+#endif
+	
 void uf::Mesh::initialize() {}
 void uf::Mesh::destroy() {
 	_destroy(vertex);
@@ -164,37 +169,17 @@ uf::Mesh uf::Mesh::expand( bool interleaved ) {
 
 	return res;
 }
-uf::Mesh::Input uf::Mesh::remapInput( const uf::Mesh::Input& input, size_t i ) const {
-	uf::Mesh::Input res = input;
-	UF_ASSERT( &input == &vertex || &input == &index );
-	UF_ASSERT( i < indirect.count );
-	
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
-	res.first = &input == &vertex ? drawCommand.vertexID : drawCommand.indexID;
-	res.count = &input == &vertex ? drawCommand.vertices : drawCommand.indices;	
 
-	return res;
+void uf::Mesh::eraseAttribute( uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) {
+	for ( size_t i = 0; i < input.attributes.size(); ++i ) if ( input.attributes[i].descriptor == attribute.descriptor ) return eraseAttribute( input, i );
 }
-uf::Mesh::Input uf::Mesh::remapVertexInput( size_t i ) const {
-	uf::Mesh::Input res = vertex;
-	UF_ASSERT( i < indirect.count );
+void uf::Mesh::eraseAttribute( uf::Mesh::Input& input, size_t i ) {
+	UF_ASSERT( !isInterleaved( input ) ); // can't be assed to de-interleave, erase, and then interleave again
 
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
-	res.first = drawCommand.vertexID;
-	res.count = drawCommand.vertices;
-
-	return res;
+	auto attribute = input.attributes[i];
+	buffers[attribute.buffer].clear();
 }
-uf::Mesh::Input uf::Mesh::remapIndexInput( size_t i ) const {
-	uf::Mesh::Input res = index;
-	UF_ASSERT( i < indirect.count );
 
-	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
-	res.first = drawCommand.indexID;
-	res.count = drawCommand.indices;
-
-	return res;
-}
 void uf::Mesh::generateIndirect() {
 	if ( index.count == 0 ) generateIndices();
 
@@ -209,7 +194,7 @@ void uf::Mesh::generateIndirect() {
 			.instanceID = 0,
 		//	.materialID = 0,
 		//	.objectID = 0,
-		//	.vertices = vertex.count,
+			.vertices = vertex.count,
 		});
 	}
 
@@ -219,6 +204,7 @@ void uf::Mesh::generateIndirect() {
 	insertIndirects( commands );
 }
 bool uf::Mesh::isInterleaved() const { return isInterleaved( vertex.interleaved ); }
+bool uf::Mesh::isInterleaved( const uf::Mesh::Input& input ) const { return isInterleaved( input.interleaved ); }
 bool uf::Mesh::isInterleaved( size_t i ) const { return 0 <= i && i < buffers.size(); }
 uf::Mesh::buffer_t& uf::Mesh::getBuffer( const uf::Mesh::Input& input, size_t i ) {
 	return getBuffer( input, input.attributes[i] );
@@ -232,12 +218,12 @@ const uf::Mesh::buffer_t& uf::Mesh::getBuffer( const uf::Mesh::Input& input, siz
 const uf::Mesh::buffer_t& uf::Mesh::getBuffer( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute ) const {
 	return buffers[isInterleaved(input.interleaved) ? input.interleaved : attribute.buffer];
 }
+
+#define PRINT_HEADER(input) "Count: " << input.count << " | First: " << input.first << " | Size: " << input.size << " | Offset: " << input.offset << " | " << (isInterleaved(input.interleaved) ? "interleaved" : "deinterleaved") << "\n"
+
 void uf::Mesh::print( bool full ) const {
 	std::cout << "Buffers: " << buffers.size() << "\n" << printVertices(full) << printIndices(full) << printInstances(full) << printIndirects() << std::endl;
 }
-
-
-#define PRINT_HEADER(input) "Count: " << input.count << " | First: " << input.first << " | Size: " << input.size << " | Offset: " << input.offset << " | " << (isInterleaved(input.interleaved) ? "interleaved" : "deinterleaved") << "\n"
 
 std::string uf::Mesh::printVertices( bool full ) const {
 	std::stringstream str;
@@ -306,6 +292,38 @@ std::string uf::Mesh::printIndirects( bool full ) const {
 	}
 	return str.str();
 }
+
+uf::Mesh::Input uf::Mesh::remapInput( const uf::Mesh::Input& input, size_t i ) const {
+	uf::Mesh::Input res = input;
+	UF_ASSERT( &input == &vertex || &input == &index );
+	UF_ASSERT( i < indirect.count );
+	
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	res.first = &input == &vertex ? drawCommand.vertexID : drawCommand.indexID;
+	res.count = &input == &vertex ? drawCommand.vertices : drawCommand.indices;	
+
+	return res;
+}
+uf::Mesh::Input uf::Mesh::remapVertexInput( size_t i ) const {
+	uf::Mesh::Input res = vertex;
+	UF_ASSERT( i < indirect.count );
+
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	res.first = drawCommand.vertexID;
+	res.count = drawCommand.vertices;
+
+	return res;
+}
+uf::Mesh::Input uf::Mesh::remapIndexInput( size_t i ) const {
+	uf::Mesh::Input res = index;
+	UF_ASSERT( i < indirect.count );
+
+	const auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
+	res.first = drawCommand.indexID;
+	res.count = drawCommand.indices;
+
+	return res;
+}
 //
 void uf::Mesh::_destroy( uf::Mesh::Input& input ) {
 	for ( auto& attribute : input.attributes ) {
@@ -351,9 +369,11 @@ void uf::Mesh::_updateDescriptor( uf::Mesh::Input& input ) {
 	}
 }
 uf::Mesh::Attribute uf::Mesh::_remapAttribute( const uf::Mesh::Input& input, const uf::Mesh::Attribute& attribute, size_t i ) const {
-	uf::Mesh::Attribute res = attribute;
 	UF_ASSERT( i < indirect.count );
 	UF_ASSERT( &input == &vertex || &input == &index );
+	UF_MSG_WARNING( "deprecated, please use remapInput" );
+
+	uf::Mesh::Attribute res = attribute;
 
 	auto& drawCommand = ((const pod::DrawCommand*) getBuffer(indirect).data())[i];
 	if ( &input == &vertex ) {

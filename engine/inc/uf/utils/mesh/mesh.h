@@ -124,6 +124,7 @@ namespace uf {
 		void generateIndirect();
 
 		bool isInterleaved() const;
+		bool isInterleaved( const uf::Mesh::Input& ) const;
 		bool isInterleaved( size_t ) const;
 
 		buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 );
@@ -132,16 +133,19 @@ namespace uf {
 		const buffer_t& getBuffer( const uf::Mesh::Input&, size_t = 0 ) const;
 		const buffer_t& getBuffer( const uf::Mesh::Input&, const uf::Mesh::Attribute& ) const;
 
+		void eraseAttribute( uf::Mesh::Input&, const uf::Mesh::Attribute& );
+		void eraseAttribute( uf::Mesh::Input&, size_t );
+
+		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t i = 0 ) const;
+		uf::Mesh::Input remapVertexInput( size_t i = 0 ) const;
+		uf::Mesh::Input remapIndexInput( size_t i = 0 ) const;
+
 		void print( bool = true ) const;
 
 		std::string printVertices( bool = true ) const;
 		std::string printIndices( bool = true ) const;
 		std::string printInstances( bool = true ) const;
 		std::string printIndirects( bool = true ) const;
-
-		uf::Mesh::Input remapInput( const uf::Mesh::Input&, size_t i = 0 ) const;
-		uf::Mesh::Input remapVertexInput( size_t i = 0 ) const;
-		uf::Mesh::Input remapIndexInput( size_t i = 0 ) const;
 
 		inline bool hasVertex( const uf::stl::vector<ext::RENDERER::AttributeDescriptor>& descriptors ) const { return _hasV( vertex, descriptors ); }
 		inline bool hasVertex( const uf::Mesh& mesh ) const { return _hasV( vertex, mesh.vertex ); }

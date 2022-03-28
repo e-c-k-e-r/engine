@@ -1,6 +1,6 @@
 #include <iostream>
 template<typename T> pod::Transform<T>& uf::physics::update( pod::Transform<T>& transform, pod::Physics& physics ) {
-	physics.previous = transform;
+//	physics.internal.previous = transform;
 
 	if ( physics.linear.acceleration != pod::Vector3t<T>{0,0,0} ) 
 		physics.linear.velocity += (physics.linear.acceleration * uf::physics::time::delta);

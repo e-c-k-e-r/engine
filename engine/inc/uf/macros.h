@@ -24,7 +24,7 @@
 #define TIMER_LAMBDA(x) []() {\
 	static uf::Timer<long long> timer(false);\
 	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
-	uf::physics::num_t time = timer.elapsed();\
+	double time = timer.elapsed();\
 	if ( time >= every ) timer.reset();\
 	static bool first = true; if ( first ) { first = false; return every; }\
 	return time;\
@@ -33,7 +33,7 @@
 #define TIMER(x, ...)\
 	static uf::Timer<long long> timer(false);\
 	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
-	uf::physics::num_t time = timer.elapsed();\
+	double time = timer.elapsed();\
 	if ( time >= x ) timer.reset();\
 	if ( __VA_ARGS__ time >= x )
 

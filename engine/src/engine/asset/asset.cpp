@@ -292,12 +292,11 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			UF_ASSET_REGISTER(pod::Graph)
 			auto& metadata = this->getComponent<uf::Serializer>();
 
-		#if UF_USE_OPENGL_FIXED_FUNCTION
+		#if UF_USE_OPENGL
+			// combining mesh is only really a (negligent) gain on Vulkan
+			// collision meshes still use separated meshes, so avoid having to duplicate a mesh for very little gains, if any
 			metadata[payload.filename]["flags"]["ATLAS"] = false;
-		//	metadata[payload.filename]["flags"]["SEPARATE"] = true;
-		#elif UF_GRAPH_INDIRECT_DRAW
-		//	metadata[payload.filename]["flags"]["ATLAS"] = false;
-		//	metadata[payload.filename]["flags"]["SEPARATE"] = false;
+			metadata[payload.filename]["flags"]["SEPARATE"] = true;
 		#endif
 			asset = uf::graph::load( filename, metadata[payload.filename] );
 			uf::graph::process( asset );

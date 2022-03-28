@@ -71,7 +71,7 @@ namespace spec {
 			
 			void UF_API_CALL setTracking(bool state);
 			static pod::Vector2ui UF_API_CALL getResolution();
-			void UF_API_CALL switchToFullscreen( bool borderless = false );
+			void UF_API_CALL toggleFullscreen( bool borderless = false );
 		#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 			uf::stl::vector<uf::stl::string> UF_API_CALL getExtensions( bool validationEnabled );
 			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );

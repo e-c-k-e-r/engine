@@ -8,67 +8,102 @@
 #include <uf/engine/graph/graph.h>
 #include <BulletCollision/CollisionShapes/btTriangleShape.h>
 
-struct VertexLine {
-	pod::Vector3f position;
-	pod::Vector3f color;
+namespace {
+	struct VertexLine {
+		pod::Vector3f position;
+		pod::Vector3f color;
 
-	static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
-};
+		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+	};
 
-UF_VERTEX_DESCRIPTOR(VertexLine,
-	UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, position)
-	UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, color)
-);
+	UF_VERTEX_DESCRIPTOR(VertexLine,
+		UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, position)
+		UF_VERTEX_DESCRIPTION(VertexLine, R32G32B32_SFLOAT, color)
+	);
 
-class BulletDebugDrawer : public btIDebugDraw {
-protected:
-	int m;
-	uf::Mesh mesh;
-public:
-	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& color ) {
-		drawLine( from, to, color, color );
-	}
-	virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor ) {
-		uf::stl::vector<VertexLine> vertices;
-		{
-			auto& vertex = vertices.emplace_back();
-			vertex.position = { from.getX(), from.getY(), from.getZ() };
-			vertex.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ() };
+	class BulletDebugDrawer : public btIDebugDraw {
+	protected:
+		int m;
+		uf::Mesh mesh;
+	public:
+		virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& color ) {
+			drawLine( from, to, color, color );
 		}
-		{
-			auto& vertex = vertices.emplace_back();
-			vertex.position = { to.getX(), to.getY(), to.getZ() };
-			vertex.color = { toColor.getX(), toColor.getY(), toColor.getZ() };
+		virtual void drawLine( const btVector3& from, const btVector3& to, const btVector3& fromColor, const btVector3& toColor ) {
+			uf::stl::vector<VertexLine> vertices;
+			{
+				auto& vertex = vertices.emplace_back();
+				vertex.position = { from.getX(), from.getY(), from.getZ() };
+				vertex.color = { fromColor.getX(), fromColor.getY(), fromColor.getZ() };
+			}
+			{
+				auto& vertex = vertices.emplace_back();
+				vertex.position = { to.getX(), to.getY(), to.getZ() };
+				vertex.color = { toColor.getX(), toColor.getY(), toColor.getZ() };
+			}
+			if ( !mesh.hasVertex<VertexLine>() ) mesh.bind<VertexLine>();
+			mesh.insertVertices(vertices);
 		}
-		if ( !mesh.hasVertex<VertexLine>() ) mesh.bind<VertexLine>();
-		mesh.insertVertices(vertices);
-	}
-	virtual void drawContactPoint(const btVector3&, const btVector3&, btScalar, int, const btVector3&) {
+		virtual void drawContactPoint(const btVector3&, const btVector3&, btScalar, int, const btVector3&) {
 
-	}
-	virtual void reportErrorWarning(const char* str ) {
-		UF_MSG_WARNING("[Bullet] " << str);
-	}
-	virtual void draw3dText(const btVector3& , const char* str ) {
+		}
+		virtual void reportErrorWarning(const char* str ) {
+			UF_MSG_WARNING("[Bullet] " << str);
+		}
+		virtual void draw3dText(const btVector3& , const char* str ) {
 
-	}
-	virtual void setDebugMode(int p) {
-		m = p;
-	}
-	virtual void clearLines() {
-		for ( auto& buffer : mesh.buffers ) buffer.clear();
-		mesh.vertex.count = 0;
-		mesh.index.count = 0;
-	}
-	virtual void flushLines() {
-		auto& scene = uf::scene::getCurrentScene();
-		ext::bullet::debugDraw( scene );
-	}
-	int getDebugMode(void) const { return m; }
+		}
+		virtual void setDebugMode(int p) {
+			m = p;
+		}
+		virtual void clearLines() {
+			for ( auto& buffer : mesh.buffers ) buffer.clear();
+			mesh.vertex.count = 0;
+			mesh.index.count = 0;
+		}
+		virtual void flushLines() {
+			auto& scene = uf::scene::getCurrentScene();
+			ext::bullet::debugDraw( scene );
+		}
+		int getDebugMode(void) const { return m; }
 
-	uf::Mesh& getMesh() { return mesh; }
-	const uf::Mesh& getMesh() const { return mesh; }
-};
+		uf::Mesh& getMesh() { return mesh; }
+		const uf::Mesh& getMesh() const { return mesh; }
+	};
+
+	void UF_API ext::bullet::debugDraw( uf::Object& object ) {
+		auto& mesh = ext::bullet::debugDrawer.getMesh();
+		if ( !mesh.vertex.count ) return;
+
+		bool create = !object.hasComponent<uf::Graphic>();
+		auto& graphic = object.getComponent<uf::Graphic>();
+		graphic.process = false;
+		if ( create ) {
+			graphic.device = &uf::renderer::device;
+			graphic.material.device = &uf::renderer::device;
+			graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
+
+			graphic.material.metadata.autoInitializeUniforms = false;
+			graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
+			graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
+			graphic.material.metadata.autoInitializeUniforms = true;
+
+			graphic.material.getShader("vertex").buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+
+			graphic.initialize(ext::bullet::debugDrawLayer);
+			graphic.initializeMesh( mesh );
+
+			graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
+			graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
+			graphic.descriptor.lineWidth = ext::bullet::debugDrawLineWidth;
+		} else {
+			if ( graphic.updateMesh( mesh ) ) {
+				graphic.getPipeline().update( graphic );
+			}
+		}
+		graphic.process = true;
+	}
+}
 
 size_t ext::bullet::iterations = 1;
 size_t ext::bullet::substeps = 12;
@@ -314,7 +349,7 @@ pod::PhysicsState& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh
 		auto& indexAttribute = mesh.index.attributes.front();
 		PHY_ScalarType indexType = PHY_INTEGER;
 		PHY_ScalarType vertexType = PHY_FLOAT;
-		switch ( mesh.index.stride ) {
+		switch ( mesh.index.size ) {
 			case sizeof(uint8_t): indexType = PHY_UCHAR; break;
 			case sizeof(uint16_t): indexType = PHY_SHORT; break;
 			case sizeof(uint32_t): indexType = PHY_INTEGER; break;
@@ -323,18 +358,24 @@ pod::PhysicsState& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh
 
 		btIndexedMesh iMesh;
 		if ( mesh.indirect.count ) {
-			uf::Mesh::Attribute remappedVertexAttribute;
-			uf::Mesh::Attribute remappedIndexAttribute;
-			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
-				remappedVertexAttribute = mesh.remapVertexAttribute( vertexAttribute, i );
-				remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
+			uf::Mesh::Attribute remappedVertexAttribute = vertexAttribute;
+			uf::Mesh::Attribute remappedIndexAttribute = indexAttribute;
 
-				iMesh.m_numTriangles        = remappedIndexAttribute.length / 3;
-				iMesh.m_triangleIndexBase   = (const uint8_t*) remappedIndexAttribute.pointer;
+			uf::Mesh::Input remappedVertexInput;
+			uf::Mesh::Input remappedIndexInput;
+			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+				remappedVertexInput = mesh.remapVertexInput( i );
+				remappedIndexInput = mesh.remapIndexInput( i );
+
+			//	remappedVertexAttribute = mesh.remapVertexAttribute( vertexAttribute, i );
+			//	remappedIndexAttribute = mesh.remapIndexAttribute( indexAttribute, i );
+
+				iMesh.m_numTriangles        = remappedIndexInput.count / 3;
+				iMesh.m_triangleIndexBase   = (const uint8_t*) remappedIndexAttribute.pointer + remappedIndexAttribute.stride * remappedIndexInput.first;
 				iMesh.m_triangleIndexStride = remappedIndexAttribute.stride * 3;
 
-				iMesh.m_numVertices         = remappedVertexAttribute.length;
-				iMesh.m_vertexBase          = (const uint8_t*) remappedVertexAttribute.pointer;
+				iMesh.m_numVertices         = remappedVertexInput.count;
+				iMesh.m_vertexBase          = (const uint8_t*) remappedVertexAttribute.pointer + remappedVertexAttribute.stride * remappedVertexInput.first;
 				iMesh.m_vertexStride        = remappedVertexAttribute.stride;
 				iMesh.m_indexType 			= indexType;
 				iMesh.m_vertexType 			= vertexType;
@@ -342,12 +383,12 @@ pod::PhysicsState& ext::bullet::create( uf::Object& object, const uf::Mesh& mesh
 				bMesh->addIndexedMesh( iMesh, indexType );
 			}
 		} else {
-			iMesh.m_numTriangles        = indexAttribute.length / 3;
-			iMesh.m_triangleIndexBase   = (const uint8_t*) indexAttribute.pointer;
+			iMesh.m_numTriangles        = mesh.index.count / 3;
+			iMesh.m_triangleIndexBase   = (const uint8_t*) indexAttribute.pointer + indexAttribute.stride * mesh.index.count;
 			iMesh.m_triangleIndexStride = indexAttribute.stride * 3;
 
-			iMesh.m_numVertices         = vertexAttribute.length;
-			iMesh.m_vertexBase          = (const uint8_t*) vertexAttribute.pointer;
+			iMesh.m_numVertices         = mesh.vertex.count;
+			iMesh.m_vertexBase          = (const uint8_t*) vertexAttribute.pointer + vertexAttribute.stride * mesh.vertex.count;
 			iMesh.m_vertexStride        = vertexAttribute.stride;
 			iMesh.m_indexType 			= indexType;
 			iMesh.m_vertexType 			= vertexType;
@@ -543,38 +584,5 @@ float UF_API ext::bullet::rayCast( const pod::Vector3f& from, const pod::Vector3
 	if ( !body || !body->getMotionState() ) return pen;
 	uid = (uf::Object*) body->getUserPointer();
 	return pen;
-}
-
-void UF_API ext::bullet::debugDraw( uf::Object& object ) {
-	auto& mesh = ext::bullet::debugDrawer.getMesh();
-	if ( !mesh.vertex.count ) return;
-
-	bool create = !object.hasComponent<uf::Graphic>();
-	auto& graphic = object.getComponent<uf::Graphic>();
-	graphic.process = false;
-	if ( create ) {
-		graphic.device = &uf::renderer::device;
-		graphic.material.device = &uf::renderer::device;
-		graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
-
-		graphic.material.metadata.autoInitializeUniforms = false;
-		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
-		graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
-		graphic.material.metadata.autoInitializeUniforms = true;
-
-		graphic.material.getShader("vertex").buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
-
-		graphic.initialize(ext::bullet::debugDrawLayer);
-		graphic.initializeMesh( mesh );
-
-		graphic.descriptor.topology = uf::renderer::enums::PrimitiveTopology::LINE_LIST;
-		graphic.descriptor.fill = uf::renderer::enums::PolygonMode::LINE;
-		graphic.descriptor.lineWidth = ext::bullet::debugDrawLineWidth;
-	} else {
-		if ( graphic.updateMesh( mesh ) ) {
-			graphic.getPipeline().update( graphic );
-		}
-	}
-	graphic.process = true;
 }
 #endif

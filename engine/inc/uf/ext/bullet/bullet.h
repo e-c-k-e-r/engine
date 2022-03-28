@@ -56,10 +56,12 @@ namespace ext {
 		extern UF_API size_t defaultMaxCollisionAlgorithmPoolSize;
 		extern UF_API size_t defaultMaxPersistentManifoldPoolSize;
 
-		extern UF_API bool debugDrawEnabled;
-		extern UF_API float debugDrawRate;
-		extern UF_API uf::stl::string debugDrawLayer;
-		extern UF_API float debugDrawLineWidth;
+		namespace debugDraw {
+			extern UF_API bool enabled;
+			extern UF_API float rate;
+			extern UF_API uf::stl::string layer;
+			extern UF_API float lineWidth;
+		}
 
 		void UF_API initialize();
 		void UF_API tick( float = 0 );
@@ -78,14 +80,13 @@ namespace ext {
 		pod::PhysicsState& create( uf::Object&, const uf::Mesh&, bool );
 		// collider for boundingbox
 		pod::PhysicsState& UF_API create( uf::Object&, const pod::Vector3f& );
-		uf::stl::vector<pod::PhysicsState>& UF_API create( uf::Object&, const uf::stl::vector<pod::Instance::Bounds>& );
 		// collider for capsule
 		pod::PhysicsState& UF_API create( uf::Object&, float, float );
 
 		// synchronize engine transforms to bullet transforms
 		void UF_API syncTo();
 		// synchronize bullet transforms to engine transforms
-		void UF_API syncFrom();
+		void UF_API syncFrom( float = 1 );
 		// apply impulse
 		void UF_API applyImpulse( pod::PhysicsState&, const pod::Vector3f& );
 		// directly move a transform
@@ -104,9 +105,6 @@ namespace ext {
 
 		// allows noclip
 		void UF_API activateCollision( pod::PhysicsState&, bool = true );
-
-		// allows showing collision models
-		void UF_API debugDraw( uf::Object& );
 	}
 }
 #endif

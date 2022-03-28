@@ -3,7 +3,7 @@ CC						= $(shell cat "./bin/exe/default.config")
 TARGET_NAME 			= program
 TARGET_EXTENSION 		= exe
 TARGET_LIB_EXTENSION 	= dll
-RENDERER 				= opengl
+RENDERER 				= vulkan
 
 include makefiles/$(ARCH).$(CC).make
 
@@ -32,9 +32,10 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
 VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.204.1/
 
-#GLSL_VALIDATOR 		+= $(VULKAN_SDK_PATH)/Bin/glslangValidator
-GLSL_VALIDATOR 			+= $(VULKAN_SDK_PATH)/Bin/glslc
+#GLSLC 		+= $(VULKAN_SDK_PATH)/Bin/glslangValidator
+GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)/$(ARCH)/$(CC)
@@ -282,7 +283,7 @@ $(TARGET): $(OBJS)
 endif
 
 %.spv: %.glsl
-	$(GLSL_VALIDATOR) -std=450 -o $@ $<
+	$(GLSLC) -std=450 -o $@ $<
 	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
 ifneq (,$(findstring dreamcast,$(ARCH)))

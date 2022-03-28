@@ -222,10 +222,22 @@ namespace {
 			const uf::stl::string directory = uf::io::directory( graph.name );
 			auto& buffer = mesh.buffers.emplace_back(uf::io::readAsBuffer( directory + "/" + filename ));
 		});
+
+		// remove extraneous buffers
+	#if UF_USE_OPENGL
+		for ( auto& attribute : mesh.vertex.attributes ) {
+			if ( attribute.descriptor.name == "position" ) continue;
+			if ( attribute.descriptor.name == "color" ) continue;
+			if ( attribute.descriptor.name == "uv" ) continue;
+			if ( attribute.descriptor.name == "st" ) continue;
+		}
+	#endif
+
 		mesh.updateDescriptor();
 
 	//	return mesh.expand();
 	//	if ( mesh.isInterleaved() != uf::Mesh::defaultInterleaved ) return mesh.copy(true);
+
 		return mesh;
 	}
 

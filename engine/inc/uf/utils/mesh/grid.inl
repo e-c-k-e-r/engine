@@ -1,3 +1,4 @@
+#if 0
 template<typename T, typename U>
 void uf::MeshGrid::initialize( const uf::Mesh<T,U>& mesh, size_t divisions ) {
 	return initialize<T,U>( mesh, pod::Vector3ui{ divisions, divisions, divisions } );
@@ -63,3 +64,4 @@ const uf::stl::vector<U>& uf::MeshGrid::get( const pod::Vector3f& point ) const 
 	return at( point ).indices;
 #endif
 }
+#endif

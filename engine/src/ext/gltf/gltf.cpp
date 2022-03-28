@@ -406,6 +406,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		}
 	}
 
-	if ( graph.metadata["export"]["should"].as<bool>() ) uf::graph::save( graph, filename );
+	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) uf::graph::save( graph, filename );
 	return graph;
 }

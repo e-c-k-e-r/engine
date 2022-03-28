@@ -40,7 +40,7 @@ namespace uf {
 		void UF_API_CALL requestFocus();
 		bool UF_API_CALL hasFocus() const;
 		static pod::Vector2ui UF_API_CALL getResolution();
-		void UF_API_CALL switchToFullscreen( bool borderless = false );
+		void UF_API_CALL toggleFullscreen( bool borderless = false );
 
 	#if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 		uf::stl::vector<uf::stl::string> getExtensions( bool validationEnabled = true );

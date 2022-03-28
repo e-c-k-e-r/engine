@@ -65,6 +65,7 @@
 			},
 			"reactphysics": {
 				"timescale": 0.03333333333,
+				"interpolate": false,
 				"debug draw": {
 					"enabled": false,
 				//	"layer": "Gui",
@@ -75,8 +76,8 @@
 		"audio": {
 			"mute": false,
 			"buffers": {
-				"size": 4096,
-				"count": 2
+				"size": 16384,
+				"count": 3
 			},
 			"volumes": {
 				"sfx": 1.0,

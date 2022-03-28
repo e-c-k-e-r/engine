@@ -150,7 +150,12 @@ template<typename T> pod::Transform<T>& /*UF_API*/ uf::transform::reference( pod
 	transform.reference = const_cast<pod::Transform<T>*>(&parent);
 	return transform;
 }
-
+template<typename T> pod::Transform<T> /*UF_API*/ uf::transform::interpolate( const pod::Transform<T>& from, const pod::Transform<T>& to, float factor, bool reorient ) {
+	pod::Transform transform = to;
+	transform.position = uf::vector::lerp( from.position, to.position, factor );
+	transform.orientation = uf::quaternion::slerp( from.orientation, to.orientation, factor );
+	return reorient ? uf::transform::reorient( transform ) : transform;
+}
 template<typename T> 														// Normalizes a vector
 uf::stl::string /*UF_API*/ uf::transform::toString( const pod::Transform<T>& t, bool flatten ) {
 	pod::Transform<T> transform = flatten ? uf::transform::flatten(t) : t;

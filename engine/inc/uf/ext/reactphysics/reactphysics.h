@@ -22,17 +22,24 @@ namespace pod {
 		rp3d::CollisionShape* shape = NULL;	
 	
 		pod::Transform<> transform = {};
-		pod::Transform<> previous = {};
-
-		struct {
-			pod::Vector3 velocity;
-			pod::Vector3 acceleration;
+		
+		struct Linear {
+			pod::Vector3f velocity;
+			pod::Vector3f acceleration;
 		} linear;
-
-		struct {
+		struct Angular {
 			pod::Quaternion<> velocity;
 			pod::Quaternion<> acceleration;
 		} rotational;
+
+		struct {
+			struct {
+				pod::Transform<> transform = {};
+				Linear linear;
+				Angular rotational;
+			} current, previous;
+		} internal;
+
 
 		struct {
 			uint32_t flags = 0;
@@ -54,10 +61,15 @@ namespace ext {
 		void UF_API terminate();
 
 		extern UF_API float timescale;
-		extern UF_API bool debugDrawEnabled;
-		extern UF_API float debugDrawRate;
-		extern UF_API uf::stl::string debugDrawLayer;
-		extern UF_API float debugDrawLineWidth;
+		extern UF_API bool interpolate;
+		extern UF_API bool shared;
+
+		namespace debugDraw {
+			extern UF_API bool enabled;
+			extern UF_API float rate;
+			extern UF_API uf::stl::string layer;
+			extern UF_API float lineWidth;
+		}
 
 		// base collider creation
 		pod::PhysicsState& UF_API create( uf::Object& );
@@ -78,7 +90,7 @@ namespace ext {
 		// synchronize engine transforms to bullet transforms
 		void UF_API syncTo();
 		// synchronize bullet transforms to engine transforms
-		void UF_API syncFrom();
+		void UF_API syncFrom( float = 1 );
 		// apply impulse
 		void UF_API applyImpulse( pod::PhysicsState&, const pod::Vector3f& );
 		// directly move a transform
@@ -97,9 +109,6 @@ namespace ext {
 
 		// allows noclip
 		void UF_API activateCollision( pod::PhysicsState&, bool = true );
-
-		// allows showing collision models
-		void UF_API debugDraw( uf::Object& );
 	}
 }
 #endif

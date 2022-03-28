@@ -40,6 +40,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 	if ( settings::experimental::bloom ) settings::experimental::deferredAliasOutputToSwapchain = false;
 
+	auto HDR_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
+	auto SDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
+
 	ext::vulkan::RenderMode::initialize( device );
 	renderTarget.device = &device;
 	renderTarget.views = metadata.eyes;
@@ -76,7 +79,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		});
 	} else {
 		attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */ext::vulkan::settings::experimental::hdr ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM,
+			/*.format = */ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : VK_FORMAT_R8G8B8A8_UNORM,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			/*.blend = */blend,
@@ -91,21 +94,21 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.samples = */msaa,
 	});
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
+		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
+		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
+		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
@@ -139,7 +142,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 	} else {
 		attachments.output = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ VK_FORMAT_R16G16B16A16_SFLOAT,
+			/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
 			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			/*.blend =*/ blend,

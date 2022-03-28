@@ -14,6 +14,7 @@ namespace {
 	int endian = 0;
 	namespace funs {
 		size_t read( void* destination, size_t size, size_t nmemb, void* userdata ) {
+			//UF_MSG_DEBUG( size * nmemb );
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
 			std::ifstream& file = *metadata.stream.file;
 
@@ -54,6 +55,7 @@ namespace {
 			return length;
 		}
 		int seek( void* userdata, ogg_int64_t to, int type ) {
+			//UF_MSG_DEBUG(type << " " << to);
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
 			switch ( type ) {
 				case SEEK_CUR: metadata.stream.consumed += to; break; // increment
@@ -73,6 +75,7 @@ namespace {
 			return 0;
 		}
 		int close( void* userdata ) {
+			//UF_MSG_DEBUG( userdata );
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
 			if ( !metadata.stream.file ) return 0;
 
@@ -83,6 +86,7 @@ namespace {
 			return 0;
 		}
 		long tell( void* userdata ) {
+			//UF_MSG_DEBUG( userdata );
 			uf::Audio::Metadata& metadata = *((uf::Audio::Metadata*) userdata);
 			return metadata.stream.consumed;
 		}
@@ -194,9 +198,12 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 8 ) metadata.info.format = AL_FORMAT_STEREO8;
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 16 ) metadata.info.format = AL_FORMAT_STEREO16;
 	else {
-		UF_MSG_ERROR("Vorbis: unrecognized OGG format: " << metadata.info.channels << " channels, " << metadata.info.bitDepth << " bps");
+		UF_MSG_ERROR("Vorbis: unrecognized OGG format: " << (int) metadata.info.channels << " channels, " << (int) metadata.info.bitDepth << " bps");
 		return;
 	}
+
+//	UF_MSG_DEBUG( "filename\tchannels\tbitDepth\tfrequency\tduration\tchannels" );
+//	UF_MSG_DEBUG( metadata.filename << "\t" <<  (int)metadata.info.channels << "\t" << (int)metadata.info.bitDepth << "\t" << (int)metadata.info.frequency << "\t" << metadata.info.duration << "\t" << (int) metadata.info.channels );
 
 	// fill and queue initial buffers
 	char buffer[uf::audio::bufferSize];
@@ -230,8 +237,9 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 			}
 			read += result;
 		}
+	
 		if ( read == 0 ) {
-			// UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: " << (int) queuedBuffers << " " << metadata.filename);
+		//	UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: " << (int) queuedBuffers << " " << metadata.filename);
 		//	if ( metadata.settings.loopMode == 0 ) metadata.settings.loopMode = 1;
 		//	if ( metadata.settings.loop ) metadata.al.source.set( AL_LOOPING, AL_TRUE );
 			break;
@@ -241,7 +249,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	AL_CHECK_RESULT(alSourceQueueBuffers(metadata.al.source.getIndex(), queuedBuffers, &metadata.al.buffer.getIndex()));
 	// switch to soft looping
 	if ( queuedBuffers >= metadata.settings.buffers ) {
-		// UF_MSG_WARNING("Vorbis: file not completely consumed from initial buffer filled, yet looping is enabled. Soft looping...: " << metadata.filename );
+	//	UF_MSG_WARNING("Vorbis: file not completely consumed from initial buffer filled, yet looping is enabled. Soft looping...: " << metadata.filename );
 		metadata.settings.loopMode = 1;
 		metadata.al.source.set( AL_LOOPING, AL_FALSE );
 	}
@@ -256,11 +264,11 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	metadata.al.source.get( AL_SOURCE_STATE, state );
 	if ( state != AL_PLAYING ) {
 		if ( !metadata.settings.loop && metadata.stream.consumed >= metadata.info.size ) {
-			// UF_MSG_INFO("Vorbis stream finished: " << metadata.filename);
+		//	UF_MSG_INFO("Vorbis stream finished: " << metadata.filename);
 			return;
 		}
 		// stream stalled, restart it
-		// UF_MSG_INFO("Vorbis stream stalled: " << metadata.filename);
+	//	UF_MSG_INFO("Vorbis stream stalled: " << metadata.filename);
 		metadata.al.source.play();
 	}
 
@@ -325,7 +333,7 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 	if ( metadata.settings.loopMode == 1 ) metadata.al.source.set( AL_LOOPING, AL_TRUE );
 }
 void ext::vorbis::close( uf::Audio::Metadata& metadata ) {
-	// UF_MSG_INFO("Vorbis " << ( metadata.settings.streamed ? "stream" : "load" ) << " closed: " << metadata.filename);
+//	UF_MSG_INFO("Vorbis " << ( metadata.settings.streamed ? "stream" : "load" ) << " closed: " << metadata.filename);
 	if ( metadata.stream.handle ) {
 		ov_clear((OggVorbis_File*) metadata.stream.handle);
 		delete (OggVorbis_File*) metadata.stream.handle;

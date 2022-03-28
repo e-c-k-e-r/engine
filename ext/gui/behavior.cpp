@@ -179,6 +179,8 @@ uf::stl::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const uf::stl::string& 
 				glyph.setSpread( metadataGlyph.spread );
 			#if UF_USE_VULKAN
 				if ( metadataGlyph.sdf ) glyph.useSdf(true);
+			#else
+				glyph.useSdf(false);
 			#endif
 				glyph.generate( ::glyphs.glyph, c, metadataGlyph.size );
 			}

@@ -311,20 +311,23 @@ void EXT_API ext::initialize() {
 		ext::bullet::defaultMaxCollisionAlgorithmPoolSize = configEngineBulletJson["pool size"]["max collision algorithm"].as( ext::bullet::defaultMaxCollisionAlgorithmPoolSize );
 		ext::bullet::defaultMaxPersistentManifoldPoolSize = configEngineBulletJson["pool size"]["max persistent manifold"].as( ext::bullet::defaultMaxPersistentManifoldPoolSize );
 		
-		ext::bullet::debugDrawEnabled = configEngineBulletJson["debug draw"]["enabled"].as( ext::bullet::debugDrawEnabled );
-		ext::bullet::debugDrawRate = configEngineBulletJson["debug draw"]["rate"].as( ext::bullet::debugDrawRate );
-		ext::bullet::debugDrawLayer = configEngineBulletJson["debug draw"]["layer"].as( ext::bullet::debugDrawLayer );
-		ext::bullet::debugDrawLineWidth = configEngineBulletJson["debug draw"]["line width"].as( ext::bullet::debugDrawLineWidth );
+		ext::bullet::debugDraw::enabled = configEngineBulletJson["debug draw"]["enabled"].as( ext::bullet::debugDraw::enabled );
+		ext::bullet::debugDraw::rate = configEngineBulletJson["debug draw"]["rate"].as( ext::bullet::debugDraw::rate );
+		ext::bullet::debugDraw::layer = configEngineBulletJson["debug draw"]["layer"].as( ext::bullet::debugDraw::layer );
+		ext::bullet::debugDraw::lineWidth = configEngineBulletJson["debug draw"]["line width"].as( ext::bullet::debugDraw::lineWidth );
 	}
 #elif UF_USE_REACTPHYSICS
 	{
 		auto& configEngineReactJson = ::json["engine"]["ext"]["reactphysics"];
 
 		ext::reactphysics::timescale = configEngineReactJson["timescale"].as( ext::reactphysics::timescale );
-		ext::reactphysics::debugDrawEnabled = configEngineReactJson["debug draw"]["enabled"].as( ext::reactphysics::debugDrawEnabled );
-		ext::reactphysics::debugDrawRate = configEngineReactJson["debug draw"]["rate"].as( ext::reactphysics::debugDrawRate );
-		ext::reactphysics::debugDrawLayer = configEngineReactJson["debug draw"]["layer"].as( ext::reactphysics::debugDrawLayer );
-		ext::reactphysics::debugDrawLineWidth = configEngineReactJson["debug draw"]["line width"].as( ext::reactphysics::debugDrawLineWidth );
+		ext::reactphysics::interpolate = configEngineReactJson["interpolate"].as( ext::reactphysics::interpolate );
+		ext::reactphysics::shared = configEngineReactJson["shared"].as( ext::reactphysics::shared );
+
+		ext::reactphysics::debugDraw::enabled = configEngineReactJson["debug draw"]["enabled"].as( ext::reactphysics::debugDraw::enabled );
+		ext::reactphysics::debugDraw::rate = configEngineReactJson["debug draw"]["rate"].as( ext::reactphysics::debugDraw::rate );
+		ext::reactphysics::debugDraw::layer = configEngineReactJson["debug draw"]["layer"].as( ext::reactphysics::debugDraw::layer );
+		ext::reactphysics::debugDraw::lineWidth = configEngineReactJson["debug draw"]["line width"].as( ext::reactphysics::debugDraw::lineWidth );
 	}
 #endif
 

@@ -115,9 +115,9 @@ bool UF_API_CALL uf::Window::hasFocus() const {
 pod::Vector2ui UF_API_CALL uf::Window::getResolution() {
 	return uf::Window::window_t::getResolution();
 }
-void UF_API_CALL uf::Window::switchToFullscreen( bool borderless ) {
+void UF_API_CALL uf::Window::toggleFullscreen( bool borderless ) {
 	if ( !this->m_window ) return;
-	this->m_window->switchToFullscreen( borderless );
+	this->m_window->toggleFullscreen( borderless );
 }
 // 	Update
 void UF_API_CALL uf::Window::bufferInputs() {

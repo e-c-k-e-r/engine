@@ -64,7 +64,7 @@ namespace spec {
 			
 			void UF_API setTracking(bool state);
 			static pod::Vector2ui UF_API getResolution();
-			void UF_API switchToFullscreen( bool borderless = false );
+			void UF_API toggleFullscreen( bool borderless = false );
 		};
 	}
 	typedef spec::dreamcast::Window Window;

@@ -172,10 +172,8 @@ T /*UF_API*/ uf::vector::negate( const T& vector ) {
 }
 template<typename T> 														// 
 T /*UF_API*/ uf::vector::abs( const T& vector ) {
-	ALIGN16 T res;
-	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < T::size; ++i )
-		res[i] = abs(vector[i]);
+	T res;
+	for ( auto i = 0; i < T::size; ++i ) res[i] = std::abs( vector[i] );
 	return res;
 }
 // Writes to first value

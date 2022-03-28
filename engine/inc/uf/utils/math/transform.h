@@ -52,6 +52,7 @@ namespace uf {
 		template<typename T> pod::Matrix4t<T> /*UF_API*/ model( const pod::Transform<T>& transform, bool flatten = false, size_t depth = SIZE_MAX );
 		template<typename T> pod::Transform<T> /*UF_API*/ fromMatrix( const pod::Matrix4t<T>& matrix );
 		template<typename T> pod::Transform<T>& /*UF_API*/ reference( pod::Transform<T>& transform, const pod::Transform<T>& parent, bool reorient = true );
+		template<typename T> pod::Transform<T> /*UF_API*/ interpolate( const pod::Transform<T>& from, const pod::Transform<T>& to, float factor, bool reorient = true );
 		
 		template<typename T> uf::stl::string /*UF_API*/ toString( const pod::Transform<T>&, bool flatten = true );
 		template<typename T> ext::json::Value /*UF_API*/ encode( const pod::Transform<T>&, bool flatten = true, const ext::json::EncodingSettings& = {} );

@@ -1,8 +1,135 @@
+#include <uf/utils/mesh/grid.h>
+
+namespace {
+	inline bool isInside( const pod::Vector3f& p, const pod::Vector3f& min, const pod::Vector3f& max ) {
+	//	return ( min.x <= p.x && p.x <= max.x && min.y <= p.y && p.y <= max.y && min.z <= p.z && p.z <= max.z );
+		return (p.x <= max.x && p.x >= min.x) && (p.y <= max.y && p.y >= min.y) && (p.z <= max.z && p.z >= min.z);
+	}
+}
+
+uf::stl::vector<uf::meshgrid::Node> UF_API uf::meshgrid::partition( uf::Mesh& mesh, int divisions ) {
+	struct {
+		pod::Vector3f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+		pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+		
+		pod::Vector3f center = {};
+		pod::Vector3f corner = {};
+
+		pod::Vector3f size = {};
+		pod::Vector3f piece = {};
+	} extents;
+
+	uf::Mesh::Input vertexInput = mesh.vertex;
+	uf::Mesh::Input indexInput = mesh.index;
+
+	uf::Mesh::Attribute vertexAttribute = mesh.vertex.attributes.front();
+	uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+
+	for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
+	UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+
+	for ( size_t i = 0; i < mesh.vertex.count; ++i ) {
+		pod::Vector3f& position = *(pod::Vector3f*) (vertexAttribute.pointer + vertexAttribute.stride * (vertexInput.first + i));
+		extents.min = uf::vector::min( position, extents.min );
+		extents.max = uf::vector::max( position, extents.max );
+	}
+	constexpr float epsilon = std::numeric_limits<float>::epsilon();
+	extents.min -= pod::Vector3f{ epsilon, epsilon, epsilon }; // dilate
+	extents.max += pod::Vector3f{ epsilon, epsilon, epsilon }; // dilate
+	extents.size = uf::vector::abs(extents.max - extents.min);
+	extents.piece = extents.size / divisions;
+
+	extents.center = (extents.max + extents.min) * 0.5f;
+	extents.corner = extents.size * 0.5f;
+
+	uf::stl::vector<uf::meshgrid::Node> nodes;
+	nodes.reserve( divisions * divisions * divisions );
+
+	for ( int z = 0; z < divisions; ++z ) {
+		for ( int y = 0; y < divisions; ++y ) {
+			for ( int x = 0; x < divisions; ++x ) {
+				nodes.emplace_back(uf::meshgrid::Node{
+					.extents = {
+						.min = extents.min + extents.piece * pod::Vector3f{ x, y, z },
+						.max = extents.min + extents.piece * pod::Vector3f{ x+1, y+1, z+1 },
+					},
+					.id = pod::Vector3ui{ x, y, z },
+				});
+			}
+		}
+	}
+
+	for ( size_t i = 0; i < indexInput.count; i+=3 ) {
+		size_t indexA = 0;
+		size_t indexB = 0;
+		size_t indexC = 0;
+
+		uint8_t* indexPointerA = (uint8_t*) (indexAttribute.pointer + indexAttribute.stride * (indexInput.first + i + 0));
+		uint8_t* indexPointerB = (uint8_t*) (indexAttribute.pointer + indexAttribute.stride * (indexInput.first + i + 1));
+		uint8_t* indexPointerC = (uint8_t*) (indexAttribute.pointer + indexAttribute.stride * (indexInput.first + i + 2));
+
+		switch ( indexInput.size ) {
+			case  sizeof(uint8_t): {
+				indexA = *( uint8_t*) indexPointerA;
+				indexB = *( uint8_t*) indexPointerB;
+				indexC = *( uint8_t*) indexPointerC;
+			} break;
+			case sizeof(uint16_t): {
+				indexA = *(uint16_t*) indexPointerA;
+				indexB = *(uint16_t*) indexPointerB;
+				indexC = *(uint16_t*) indexPointerC;
+			} break;
+			case sizeof(uint32_t): {
+				indexA = *(uint32_t*) indexPointerA;
+				indexB = *(uint32_t*) indexPointerB;
+				indexC = *(uint32_t*) indexPointerC;
+			} break;
+		}
+
+		pod::Vector3f& positionA = *(pod::Vector3f*) (vertexAttribute.pointer + vertexAttribute.stride * (vertexInput.first + indexA));
+		pod::Vector3f& positionB = *(pod::Vector3f*) (vertexAttribute.pointer + vertexAttribute.stride * (vertexInput.first + indexB));
+		pod::Vector3f& positionC = *(pod::Vector3f*) (vertexAttribute.pointer + vertexAttribute.stride * (vertexInput.first + indexC));
+
+		for ( auto& node : nodes ) {
+		//	if ( isInside( positionA, node.extents.min, node.extents.max ) || isInside( positionB, node.extents.min, node.extents.max ) || isInside( positionC, node.extents.min, node.extents.max ) ) {
+			if ( isInside( (positionA + positionB + positionC) / 3.0f, node.extents.min, node.extents.max ) ) {
+				node.indices.emplace_back( indexA );
+				node.indices.emplace_back( indexB );
+				node.indices.emplace_back( indexC );
+			}
+		}
+	}
+
+	UF_MSG_DEBUG( "== == == ==");
+	float total = 0.0f;
+	for ( auto& node : nodes ) {
+		float percentage = 100.8f * node.indices.size() / indexInput.count;
+		total += percentage;
+		UF_MSG_DEBUG( 
+			"[" << node.id.x << "," << node.id.y << "," << node.id.z << "] "
+			"[" << percentage << "%|" << total << "%] "
+			"Min: " << uf::vector::toString( node.extents.min ) << " | "
+			"Max: " << uf::vector::toString( node.extents.max )
+		);
+	}
+	UF_MSG_DEBUG( "== == == ==");
+	UF_MSG_DEBUG( "Min: " << uf::vector::toString( extents.min ) );
+	UF_MSG_DEBUG( "Max: " << uf::vector::toString( extents.max ) );
+	UF_MSG_DEBUG( "Center: " << uf::vector::toString( extents.center ) );
+	UF_MSG_DEBUG( "Corner: " << uf::vector::toString( extents.corner ) );
+	UF_MSG_DEBUG( "Size: " << uf::vector::toString( extents.size ) );
+	UF_MSG_DEBUG( "Piece: " << uf::vector::toString( extents.piece ) );
+	UF_MSG_DEBUG( "== == == ==");
+
+	return nodes;
+}
+
+#if 0
 #include <uf/utils/memory/pool.h>
 #include <uf/utils/mesh/grid.h>
 #include <uf/utils/math/collision/mesh.h>
 #include <uf/utils/math/collision/boundingbox.h>
-#if 0
+
 uf::MeshGrid::~MeshGrid() {
 	this->destroy();
 }

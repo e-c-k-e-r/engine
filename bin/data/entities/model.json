@@ -15,8 +15,8 @@
 				"print tree": false,
 				"print stats": false
 			},
-			"export": {
-				"should": true,
+			"exporter": {
+				"enabled": true,
 				"pretty": false,
 				"compress": true,
 				"quantize": false,
@@ -26,7 +26,7 @@
 				"unwrap": true
 			},
 			"baking": {
-				"enabled": true,
+				"enabled": false,
 				"resolution": 8192,
 				"shadows": 1024,
 				"trigger": { "mode": "rendered" },

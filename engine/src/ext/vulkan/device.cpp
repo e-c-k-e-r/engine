@@ -12,6 +12,8 @@
 
 #include <uf/utils/serialize/serializer.h>
 
+#define UF_MSG_VALIDATION(X) if ( ext::vulkan::settings::validation ) UF_MSG("VULKAN", X);
+
 namespace {
 #if UF_USE_OPENVR
 	void VRInstanceExtensions( uf::stl::vector<uf::stl::string>& requested ) {
@@ -23,7 +25,6 @@ namespace {
 		vr::VRCompositor()->GetVulkanInstanceExtensionsRequired( pExtensionStr, nBufferSize );
 		uf::stl::vector<uf::stl::string> extensions = uf::string::split( pExtensionStr, " " );
 		for ( auto& str : extensions ) {
-			// uf::iostream << str << "\n";
 			requested.push_back(str);
 		}
 		// requested.insert( requested.end(), extensions.begin(), extensions.end() );
@@ -55,9 +56,7 @@ namespace {
 				supportedExtensions.push_back( extensionName );
 				break;
 			}
-			if ( !found ) {
-				uf::iostream << "Vulkan missing requested extension: " << requestedExtension << "\n";
-			}
+			if ( !found ) UF_MSG_ERROR("Vulkan missing requested extension: " << requestedExtension);
 		}
 	}
 
@@ -68,8 +67,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features.NAME == VK_TRUE ) {\
 				device.enabledFeatures.NAME = true;\
-				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
-			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
+				UF_MSG_VALIDATION("Enabled feature: " << feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: " << feature);\
 		}
 
 		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
@@ -135,8 +134,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features2.NAME == VK_TRUE ) {\
 				device.enabledFeatures2.NAME = true;\
-				if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled feature: " << feature << "\n";\
-			} else if ( ext::vulkan::settings::validation ) uf::iostream << "Failed to enable feature: " << feature << "\n";\
+				UF_MSG_VALIDATION("Enabled feature: " << feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: " << feature);\
 		}
 	#undef CHECK_FEATURE2
 	}
@@ -546,8 +545,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		uf::stl::vector<const char*> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
-			if ( ext::vulkan::settings::validation )
-				uf::iostream << "Enabled instance extension: " << s << "\n";
+			UF_MSG_VALIDATION("Enabled instance extension: " << s);
 			instanceExtensions.push_back( s.c_str() );
 		}
 
@@ -669,8 +667,7 @@ void ext::vulkan::Device::initialize() {
 	#endif
 		{
 			// Allocate enough ExtensionProperties to support all extensions being enabled
-			if ( ext::vulkan::settings::validation )
-				for ( auto ext : requestedExtensions ) uf::iostream << "Requested device extension: " << ext << "\n";
+			for ( auto ext : requestedExtensions ) UF_MSG_VALIDATION("Requested device extension: " << ext);
 
 			uint32_t extensionsCount = 0;
 			uint32_t enabledExtensionsCount = 0;
@@ -685,7 +682,7 @@ void ext::vulkan::Device::initialize() {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
-			if ( ext::vulkan::settings::validation ) uf::iostream << "Enabled device extension: " << s << "\n";
+			UF_MSG_VALIDATION("Enabled device extension: " << s);
 			deviceExtensions.push_back( s.c_str() );
 		}
 
@@ -762,6 +759,7 @@ void ext::vulkan::Device::initialize() {
 
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
 		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParametersFeatures{};
 		{
 			deviceCreateInfo.pEnabledFeatures = nullptr;
 			deviceCreateInfo.pNext = &physicalDeviceFeatures2;
@@ -769,7 +767,7 @@ void ext::vulkan::Device::initialize() {
 		{
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			physicalDeviceFeatures2.features = enabledFeatures;
-			physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;	
+			physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;
 		}
 		{
 			descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
@@ -777,6 +775,11 @@ void ext::vulkan::Device::initialize() {
 			descriptorIndexingFeatures.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
 			descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
 			descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+			descriptorIndexingFeatures.pNext = &shaderDrawParametersFeatures;
+		}
+		{
+			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
 		}
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) {
@@ -789,7 +792,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		{
 			ext::json::Value payload = retrieveDeviceFeatures( *this );
-			if ( ext::vulkan::settings::validation ) uf::iostream << payload.dump() << "\n";
+			UF_MSG_VALIDATION(payload.dump());
 			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
 		}
 	}
@@ -917,6 +920,7 @@ void ext::vulkan::Device::initialize() {
 	}
 	// setup allocator
 	{
+	/*
 		VmaAllocatorCreateInfo allocatorInfo = {};
 		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
 		allocatorInfo.physicalDevice = physicalDevice;
@@ -924,6 +928,19 @@ void ext::vulkan::Device::initialize() {
 		allocatorInfo.device = logicalDevice;
 
 		allocatorInfo.frameInUseCount = 1;
+		vmaCreateAllocator(&allocatorInfo, &allocator);
+	*/
+		VmaVulkanFunctions vulkanFunctions = {};
+		vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+		vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+		 
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+		allocatorInfo.physicalDevice = physicalDevice;
+		allocatorInfo.instance = instance;
+		allocatorInfo.device = logicalDevice;
+		allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+		 
 		vmaCreateAllocator(&allocatorInfo, &allocator);
 	}
 }

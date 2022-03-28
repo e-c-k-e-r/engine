@@ -225,14 +225,14 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 
 	const ::EncodingSettings settings = ::EncodingSettings{
 		{
-			/*.pretty = */graph.metadata["export"]["pretty"].as<bool>(),
-			/*.compress = */graph.metadata["export"]["compress"].as<bool>(),
-			/*.quantize = */graph.metadata["export"]["quantize"].as<bool>(),
-			/*.precision = */graph.metadata["export"]["precision"].as<uint8_t>(),
+			/*.pretty = */graph.metadata["exporter"]["pretty"].as<bool>(),
+			/*.compress = */graph.metadata["exporter"]["compress"].as<bool>(),
+			/*.quantize = */graph.metadata["exporter"]["quantize"].as<bool>(),
+			/*.precision = */graph.metadata["exporter"]["precision"].as<uint8_t>(),
 		},
-		/*.combined = */graph.metadata["export"]["combined"].as<bool>(),
-		/*.encodeBuffers = */graph.metadata["export"]["encode buffers"].as<bool>(true),
-		/*.unwrap = */graph.metadata["export"]["unwrap"].as<bool>(true),
+		/*.combined = */graph.metadata["exporter"]["combined"].as<bool>(),
+		/*.encodeBuffers = */graph.metadata["exporter"]["encode buffers"].as<bool>(true),
+		/*.unwrap = */graph.metadata["exporter"]["unwrap"].as<bool>(true),
 		/*.filename = */directory + "/graph.json",
 	};
 	if ( !settings.combined ) uf::io::mkdir(directory);

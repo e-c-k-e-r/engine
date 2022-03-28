@@ -2,7 +2,7 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleaved": true },
+			"meshes": { "interleave": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
 				"max": 24,
@@ -46,8 +46,11 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": false,
+					"enabled": true,
 					"filters": [
+						"MessageID = 0x124ffb34", // VUID-VkImageMemoryBarrier-oldLayout-01197
+						"MessageID = 0x8ab1932c", // VUID-VkImageViewCreateInfo-imageViewType-04973
+
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 					//	"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -71,11 +74,11 @@
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": false,
 					"vsync": true,
-					"hdr": false,
+					"hdr": true,
 					"vxgi": true,
 					"deferred sampling": false,
 					"culling": true,
-					"bloom": true
+					"bloom": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -143,10 +146,11 @@
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
+				"interpolate": false,
 				"debug draw": {
 					"enabled": false,
 				//	"layer": "Gui",
-					"rate": 0.06666666666
+					"rate": 0.0125
 				}
 			},
 			"bullet": {
@@ -201,11 +205,11 @@
 		},
 		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
-			"deltaTime": 10,
+			"deltaTime": 5,
 			"framerate": "auto"
 		},
 		"threads": {
-			"workers" : "async", // "auto"
+			"workers" : "auto", // "async"
 			"frame limiter": "auto"
 		},
 		"debug": {
@@ -241,9 +245,9 @@
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 	//	"size" :  [ 1920, 1080 ],
-	//	"size" :  [ 1280, 720 ],
+		"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
-		"size" :  [ 640, 480 ],
+	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",
 		"visible" : true

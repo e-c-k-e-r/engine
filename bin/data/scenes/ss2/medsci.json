@@ -1,9 +1,9 @@
 {
 	"import": "/model.json",
 	"assets": [
-	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
@@ -20,6 +20,14 @@
 	],
 	"metadata": {
 		"model": {
+			"chunk": {
+				"enabled": true,
+				"size": 3, // [3,3,3],
+				"target": "worldspawn"
+			},
+			"exporter": {
+				"enabled": false
+			},
 			"baking": {
 				"enabled": false,
 				"resolution": 8192,

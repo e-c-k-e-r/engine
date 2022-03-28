@@ -1,5 +1,6 @@
 #include "../main.h"
 
+#include <uf/utils/io/inputs.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/image/image.h>
@@ -102,8 +103,8 @@ void client::initialize() {
 		} );
 	}
 #if !UF_ENV_DREAMCAST
-	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.switchToFullscreen();
-	else if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.switchToFullscreen( true );
+	if ( client::config["window"]["mode"].as<std::string>() == "fullscreen" ) client::window.toggleFullscreen();
+	else if ( client::config["window"]["mode"].as<std::string>() == "borderless" ) client::window.toggleFullscreen( true );
 #endif
 
 	client::ready = true;
@@ -116,28 +117,37 @@ void client::tick() {
 	client::window.bufferInputs();
 	client::window.pollEvents();
 
-	if ( client::window.hasFocus() && client::config["window"]["mouse"]["center"].as<bool>() ) {
-		auto previous = client::window.getMousePosition();
-		client::window.setMousePosition(client::window.getSize()/2);
-		auto current = client::window.getMousePosition();
-		auto size = client::window.getSize();
+	if ( client::window.hasFocus() ) {
+		// fullscreener
+		TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter && ) {
+			UF_MSG_DEBUG("mpoop fullscreen");
+			client::window.toggleFullscreen( false );
+			uf::renderer::states::resized = true;
+		}
+		// mouse move
+		if ( client::config["window"]["mouse"]["center"].as<bool>() ) {
+			auto previous = client::window.getMousePosition();
+			client::window.setMousePosition(client::window.getSize()/2);
+			auto current = client::window.getMousePosition();
+			auto size = client::window.getSize();
 
-		uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
-			{
+			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
 				{
-					"window:Mouse.Moved",
-					"client",
+					{
+						"window:Mouse.Moved",
+						"client",
+					},
+					{
+						pod::Vector2ui{ size.x, size.y },
+					},
 				},
 				{
-					pod::Vector2ui{ size.x, size.y },
-				},
-			},
-			{
-				current,
-				previous - current,
-				0
-			}
-		});
+					current,
+					previous - current,
+					0
+				}
+			});
+		}
 	}
 }
 

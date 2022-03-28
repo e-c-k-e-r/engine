@@ -10,7 +10,7 @@
 #include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
+	#define UF_GRAPH_LOAD_MULTITHREAD 1
 #else
 	#define UF_GRAPH_LOAD_MULTITHREAD 1
 #endif
@@ -490,43 +490,32 @@ void uf::graph::process( pod::Graph& graph ) {
 			mesh.insertVertices( m );
 			mesh.insertIndices( m );
 			mesh.insertInstances( m );
+
 		//	mesh.insertIndirects( m );
 			pod::DrawCommand* dc = (pod::DrawCommand*) m.getBuffer( m.indirect ).data();
 			for ( size_t i = 0; i < m.indirect.count; ++i ) drawCommands.emplace_back( dc[i] );
 		}
-		mesh.insertIndirects( drawCommands );
-
-		mesh = mesh.expand();
-		mesh = mesh.copy(true);
 
 		// fix up draw command for combined mesh
 		{
-			auto& attribute = mesh.indirect.attributes.front();
-			auto& buffer = mesh.getBuffer(mesh.indirect); // mesh.buffers[mesh.isInterleaved(mesh.indirect.interleaved) ? mesh.indirect.interleaved : attribute.buffer];
-			pod::DrawCommand* drawCommands = (pod::DrawCommand*) buffer.data();
-
 			size_t totalIndices = 0;
 			size_t totalVertices = 0;
-			for ( auto i = 0; i < mesh.indirect.count; ++i ) {
-				auto& drawCommand = drawCommands[i];
+			for ( auto& drawCommand : drawCommands ) {
 				drawCommand.indexID = totalIndices;
 				drawCommand.vertexID = totalVertices;
 
 				totalIndices += drawCommand.indices;
 				totalVertices += drawCommand.vertices;
 			}
-
-		/*
-			if ( totalIndices > mesh.index.count ) {
-				UF_MSG_ERROR("Calculated total indices exceed actual indices count: expecting " << mesh.index.count << ", got " << totalIndices);
-				UF_EXCEPTION("invalid drawCommand");
-			}
-			if ( totalVertices > mesh.vertex.count ) {
-				UF_MSG_ERROR("Calculated total vertices exceed actual vertices count: expecting " << mesh.vertex.count << ", got " << totalVertices);
-				UF_EXCEPTION("invalid drawCommand");
-			}
-		*/
+			
+			mesh.insertIndirects( drawCommands );
 		}
+
+		// slice mesh
+		{
+			auto slices = uf::meshgrid::partition( mesh, 3 );
+		}
+
 		{
 			auto& graphic = graph.root.entity->getComponent<uf::Graphic>();
 			graphic.initialize();
@@ -726,10 +715,10 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );
 
 					pod::Vector3f center = (max + min) * 0.5f;
-					pod::Vector3f corner = (max - min) * 0.5f;
-					corner.x = abs(corner.x);
-					corner.y = abs(corner.y);
-					corner.z = abs(corner.z);
+					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
+				//	corner.x = abs(corner.x);
+				//	corner.y = abs(corner.y);
+				//	corner.z = abs(corner.z);
 					
 					metadataJson["system"]["physics"]["center"] = uf::vector::encode( center );
 					metadataJson["system"]["physics"]["corner"] = uf::vector::encode( corner );

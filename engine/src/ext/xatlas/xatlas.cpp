@@ -22,9 +22,18 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		auto& name = graph.meshes[index];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 
-		UF_ASSERT( !mesh.isInterleaved() );
-
+	/*
+		if ( mesh.isInterleaved() ) {
+			sources.emplace_back(mesh.convert()).updateDescriptor();
+		} else {
+			sources.emplace_back(mesh).updateDescriptor();
+		}
+	*/
+		if ( mesh.isInterleaved() ) {
+			UF_EXCEPTION("unwrapping interleaved mesh is not supported");
+		}
 		sources.emplace_back(mesh).updateDescriptor();
+
 
 		uf::Mesh::Input vertexInput = mesh.vertex;
 
@@ -102,10 +111,10 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 	}
 
 	::xatlas::ChartOptions chartOptions{};
-//	chartOptions.useInputMeshUvs = true;
+	chartOptions.useInputMeshUvs = true;
 
 	::xatlas::PackOptions packOptions{};
-	packOptions.bruteForce = true;
+	packOptions.bruteForce = false;
 //	packOptions.resolution = resolution;
 //	packOptions.texelsPerUnit = 64.0f;
 	packOptions.blockAlign = true;
@@ -162,21 +171,29 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 				auto& vertex = xmesh.vertexArray[j];
 				auto ref = vertex.xref;
 				for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
-					auto srcAttribute = source.remapVertexAttribute( source.vertex.attributes[k], entry.command );
-					auto dstAttribute = mesh.remapVertexAttribute( mesh.vertex.attributes[k], entry.command );
+				//	auto srcAttribute = source.remapVertexAttribute( source.vertex.attributes[k], entry.command );
+				//	auto dstAttribute = mesh.remapVertexAttribute( mesh.vertex.attributes[k], entry.command );
+
+					auto srcInput = source.remapVertexInput( entry.command );
+					auto dstInput = mesh.remapVertexInput( entry.command );
+
+					auto srcAttribute = source.vertex.attributes[k];
+					auto dstAttribute = mesh.vertex.attributes[k];
 
 					if ( dstAttribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*) ( ((uint8_t*) dstAttribute.pointer) + dstAttribute.stride * j);
+						pod::Vector2f& st = *(pod::Vector2f*) ( dstAttribute.pointer + dstAttribute.stride * (j + dstInput.first) );
 						st = pod::Vector2f{ vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
 					} else {
-						memcpy(  dstAttribute.pointer + dstAttribute.stride * j,  srcAttribute.pointer + srcAttribute.stride * ref, srcAttribute.stride );
+						memcpy(  dstAttribute.pointer + dstAttribute.stride * (j + dstInput.first),  srcAttribute.pointer + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
 					}
 				}
 			}
 			// indices
 			if ( mesh.index.count ) {
-				uf::Mesh::Attribute indexAttribute = mesh.remapIndexAttribute( mesh.index.attributes.front(), entry.command );
-				uint8_t* pointer = (uint8_t*) indexAttribute.pointer;
+				uf::Mesh::Input indexInput = mesh.remapIndexInput( entry.command );
+				uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+			//	uf::Mesh::Attribute indexAttribute = mesh.remapIndexAttribute( mesh.index.attributes.front(), entry.command );
+				uint8_t* pointer = (uint8_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first;
 				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
 					switch ( mesh.index.size ) {
 						case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;

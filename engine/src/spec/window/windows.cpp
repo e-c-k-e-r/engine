@@ -1413,18 +1413,38 @@ void UF_API_CALL spec::win32::Window::grabMouse(bool state) {
 pod::Vector2ui UF_API_CALL spec::win32::Window::getResolution() {
 	return { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
 }
-void UF_API_CALL spec::win32::Window::switchToFullscreen( bool borderless ) {
+void UF_API_CALL spec::win32::Window::toggleFullscreen( bool borderless ) {
+	static pod::Vector2ui lastSize = this->getSize();
+	static LONG lastStyle;
+	static LONG lastExStyle;
+
+	if ( fullscreenWindow == (void*) this ) {
+		fullscreenWindow = NULL;
+		SetWindowLong(this->m_handle, GWL_STYLE, lastStyle);
+		SetWindowLong(this->m_handle, GWL_EXSTYLE, lastExStyle);
+
+		this->setSize( lastSize );
+		this->centerWindow();
+		return;
+	}
+
+	lastSize = this->getSize();
+	lastStyle = GetWindowLong(this->m_handle, GWL_STYLE);
+	lastExStyle = GetWindowLong(this->m_handle, GWL_EXSTYLE);
+
 	if ( borderless ) {
 		SetWindowLong(this->m_handle, GWL_STYLE, WS_POPUP );
 	//	SetWindowLong(this->m_handle, GWL_EXSTYLE, 0);
-	//	SetWindowPos(this->m_handle, HWND_TOP, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
+		SetWindowPos(this->m_handle, HWND_TOP, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
 		ShowWindow(this->m_handle, SW_SHOW);
 		return;
 	}
+
 	SetWindowLong(this->m_handle, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 	SetWindowLong(this->m_handle, GWL_EXSTYLE, WS_EX_APPWINDOW);
 	SetWindowPos(this->m_handle, HWND_TOP, 0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SWP_FRAMECHANGED);
 	ShowWindow(this->m_handle, SW_SHOW);
+
 	fullscreenWindow = (void*) this;
 }
 

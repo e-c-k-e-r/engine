@@ -411,23 +411,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
 				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
 			}
-		
-		/*
-			{
-				float* p = (float*) (drawCommandInfo.attributes.position.pointer + drawCommandInfo.attributes.position.stride * drawCommandInfo.descriptor.inputs.vertex.first);
-			//	float* p = (float*) drawCommandInfo.attributes.position.pointer;
-				UF_MSG_DEBUG( "[" << i << "] [" << drawCommandInfo.descriptor.inputs.vertex.first << "] (" << p[0] << ", " << p[1] << ", " << p[2] << ")" );
-			}
-		*/
-		/*
-			for ( size_t i = 0; i < drawCommand.vertices; ++i ) {
-				float* p = (float*) (drawCommandInfo.attributes.position.pointer + drawCommandInfo.attributes.position.stride * (i + drawCommand.vertexID));
-				float* uv = (float*) (drawCommandInfo.attributes.uv.pointer + drawCommandInfo.attributes.uv.stride * (i + drawCommand.vertexID));
-				std::cout << "(" << p[0] << ", " << p[1] << ", " << p[2] << "|" << uv[0] << ", " << uv[1] << ") ";
-			}
-			std::cout << std::endl;
-		*/
-		
 
 			drawCommandInfo.attributes.instance.pointer = &instance;
 			drawCommandInfo.attributes.instance.length = sizeof(instance);

@@ -1,10 +1,27 @@
-#if 0
 #pragma once
 
 #include <uf/config.h>
 #include <uf/utils/mesh/mesh.h>
 #include <limits>
 
+
+namespace uf {
+	namespace meshgrid {
+		struct UF_API Node {
+			struct {
+				pod::Vector3f min = {};
+				pod::Vector3f max = {};
+			} extents;
+
+			pod::Vector3ui id = {};
+			uf::stl::vector<uf::stl::vector<uint32_t>> indices;
+		};
+
+		uf::stl::vector<Node> UF_API partition( uf::Mesh&, int );
+	}
+}
+
+#if 0
 namespace uf {
 	class UF_API MeshGrid {
 	protected:
