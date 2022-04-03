@@ -9,6 +9,8 @@ ext::vulkan::Texture2D ext::vulkan::Texture2D::empty;
 ext::vulkan::Texture3D ext::vulkan::Texture3D::empty;
 ext::vulkan::TextureCube ext::vulkan::TextureCube::empty;
 
+VkFormat ext::vulkan::Texture::DefaultFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
 uf::stl::vector<ext::vulkan::Sampler> ext::vulkan::Sampler::samplers;
 
 ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler::Descriptor& info ) {
@@ -316,12 +318,34 @@ void ext::vulkan::Texture::loadFromImage(
 	VkImageUsageFlags imageUsageFlags,
 	VkImageLayout imageLayout
 ) {
+/*
+	switch ( format ) {
+		case enums::Format::R8_SRGB:
+		case enums::Format::R8G8_SRGB:
+		case enums::Format::R8G8B8_SRGB:
+		case enums::Format::R8G8B8A8_SRGB:
+			srgb = true;
+		break;
+	}
+*/
+
 	switch ( image.getChannels() ) {
 		// R
 		case 1:
 			switch ( image.getBpp() ) {
 				case 8:
-					format = VK_FORMAT_R8_UNORM;
+					format = srgb ? VK_FORMAT_R8_SRGB : VK_FORMAT_R8_UNORM;
+				break;
+				default:
+					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
+				break;
+			}
+		break;
+		// RG
+		case 2:
+			switch ( image.getBpp() ) {
+				case 16:
+					format = srgb ? VK_FORMAT_R8G8_SRGB : VK_FORMAT_R8G8_UNORM;
 				break;
 				default:
 					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
@@ -332,7 +356,7 @@ void ext::vulkan::Texture::loadFromImage(
 		case 3:
 			switch ( image.getBpp() ) {
 				case 24:
-					format = VK_FORMAT_R8G8B8_UNORM;
+					format = srgb ? VK_FORMAT_R8G8B8_SRGB : VK_FORMAT_R8G8B8_UNORM;
 				break;
 				default:
 					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );
@@ -343,7 +367,7 @@ void ext::vulkan::Texture::loadFromImage(
 		case 4:
 			switch ( image.getBpp() ) {
 				case 32:
-					format = VK_FORMAT_R8G8B8A8_UNORM;
+					format = srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
 				break;
 				default:
 					UF_EXCEPTION("Vulkan error: unsupported BPP of " << image.getBpp() );

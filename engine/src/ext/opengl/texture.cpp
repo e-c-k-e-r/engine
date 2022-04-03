@@ -104,6 +104,15 @@ void ext::opengl::Texture::loadFromImage(
 	Device& device,
 	enums::Format::type_t format
 ) {
+	switch ( format ) {
+		case enums::Format::R8_SRGB:
+		case enums::Format::R8G8_SRGB:
+		case enums::Format::R8G8B8_SRGB:
+		case enums::Format::R8G8B8A8_SRGB:
+			srgb = true;
+		break;
+	}
+
 	if ( image.getFormat() != 0 ) {
 		internalFormat = image.getFormat();
 	} else {
@@ -112,7 +121,7 @@ void ext::opengl::Texture::loadFromImage(
 			case 1:
 				switch ( image.getBpp() ) {
 					case 8:
-						format = enums::Format::R8_UNORM;
+						format = srgb ? enums::Format::R8_SRGB : enums::Format::R8_UNORM;
 					break;
 					default:
 					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
@@ -123,7 +132,7 @@ void ext::opengl::Texture::loadFromImage(
 			case 2:
 				switch ( image.getBpp() ) {
 					case 16:
-						format = enums::Format::R8G8_UNORM;
+						format = srgb ? enums::Format::R8G8_SRGB : enums::Format::R8G8_UNORM;
 					break;
 					default:
 					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
@@ -134,7 +143,7 @@ void ext::opengl::Texture::loadFromImage(
 			case 3:
 				switch ( image.getBpp() ) {
 					case 24:
-						format = enums::Format::R8G8B8_UNORM;
+						format = srgb ? enums::Format::R8G8B8_SRGB : enums::Format::R8G8B8_UNORM;
 					break;
 					default:
 					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
@@ -148,7 +157,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = enums::Format::R4G4B4A4_UNORM_PACK16;
 					break;
 					case 32:
-						format = enums::Format::R8G8B8A8_UNORM;
+						format = srgb ? enums::Format::R8G8B8A8_SRGB : enums::Format::R8G8B8A8_UNORM;
 					break;
 					default:
 					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
@@ -267,19 +276,24 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 	GLenum type = GL_UNSIGNED_BYTE;
 	switch ( this->format ) {
 		case enums::Format::R8_UNORM:
+		case enums::Format::R8_SRGB:
 			format = GL_LUMINANCE;
 		break;
 		case enums::Format::R8G8_UNORM:
+		case enums::Format::R8G8_SRGB:
 			format = GL_LUMINANCE_ALPHA;
 		break;
 		case enums::Format::R8G8B8_UNORM:
+		case enums::Format::R8G8B8_SRGB:
 			format = GL_RGB;
 		break;
 		case enums::Format::R4G4B4A4_UNORM_PACK16:
+		case enums::Format::R4G4B4A4_UNORM_PSRGB:
 			format = GL_RGBA;
 			type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;
 		case enums::Format::R8G8B8A8_UNORM:
+		case enums::Format::R8G8B8A8_SRGB:
 			format = GL_RGBA;
 		break;
 	}

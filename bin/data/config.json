@@ -46,7 +46,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": true,
+					"enabled": false,
 					"filters": [
 						"MessageID = 0x124ffb34", // VUID-VkImageMemoryBarrier-oldLayout-01197
 						"MessageID = 0x8ab1932c", // VUID-VkImageViewCreateInfo-imageViewType-04973
@@ -62,6 +62,7 @@
 					"size": 1,
 				//	"size": [ 640, 480, "NEAREST" ],
 				//	"size": [ 1280, 720 ],
+					"size": [ 960, 540 ],
 					"msaa": 16
 				},
 				"experimental": {
@@ -109,7 +110,9 @@
 						"VK_KHR_get_physical_device_properties2",
 						"VK_KHR_get_surface_capabilities2"
 					],
-					"device": []
+					"device": [
+						"VK_KHR_swapchain"
+					]
 				}
 			},
 			"opengl": {

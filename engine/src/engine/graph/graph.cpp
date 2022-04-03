@@ -391,8 +391,22 @@ void uf::graph::process( pod::Graph& graph ) {
 	}
 	// add atlas
 
+
 	// setup textures
 	uf::graph::storage.texture2Ds.reserve( uf::graph::storage.images.map.size() );
+
+	// figure out what texture is what exactly
+	for ( auto& keyName : graph.materials ) {
+		auto& material = uf::graph::storage.materials[keyName];
+		auto ID = material.indexAlbedo;
+
+		if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+
+		auto texName = graph.textures[ID];
+		auto& texture = uf::graph::storage.texture2Ds[texName];
+		texture.srgb = true;
+	}
+
 	for ( auto& keyName : graph.images ) {
 		auto& image = uf::graph::storage.images[keyName];
 		auto& texture = uf::graph::storage.texture2Ds[keyName];
@@ -401,6 +415,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
+
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
 			image.clear();
@@ -468,6 +483,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			instance.lightmapID = it - keys.begin();
 		}
 	}
+
 	uf::graph::reload();
 
 	// setup combined mesh if requested
@@ -513,7 +529,8 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		// slice mesh
 		{
-			auto slices = uf::meshgrid::partition( mesh, 3 );
+		//	auto slices = uf::meshgrid::partition( mesh, 1 );
+		//	uf::meshgrid::print( slices, mesh.index.count );
 		}
 
 		{

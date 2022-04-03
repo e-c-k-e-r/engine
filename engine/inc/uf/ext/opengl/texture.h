@@ -45,6 +45,8 @@ namespace ext {
 			void destroy();
 		};
 		struct UF_API Texture {
+			enums::Format::type_t DefaultFormat = enums::Format::R8G8B8A8_UNORM;
+
 			Device* device = nullptr;
 
 			GLuint image = GL_NULL_HANDLE;
@@ -52,6 +54,7 @@ namespace ext {
 			enums::Image::viewType_t viewType = enums::Image::VIEW_TYPE_2D;
 			enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM;
 			size_t internalFormat = 0;
+			bool srgb = false;
 
 			struct Descriptor {
 				GLuint image = GL_NULL_HANDLE;

@@ -12,7 +12,7 @@
 #if UF_ENV_DREAMCAST
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1
+	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #endif
 
 namespace {

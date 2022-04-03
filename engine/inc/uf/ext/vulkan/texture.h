@@ -44,6 +44,8 @@ namespace ext {
 		};
 
 		struct UF_API Texture {
+			static VkFormat DefaultFormat;
+
 			Device* device = nullptr;
 
 			VkImage image = VK_NULL_HANDLE;
@@ -54,6 +56,7 @@ namespace ext {
 			VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
 			VkDescriptorImageInfo descriptor = {};
 			VkFormat format = enums::Format::R8G8B8A8_UNORM;
+			bool srgb = false;
 			
 			Sampler sampler = {};
 
@@ -88,32 +91,32 @@ namespace ext {
 			);
 			void loadFromFile(
 				const uf::stl::string& filename, 
-				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkFormat format = DefaultFormat,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromFile(
 				const uf::stl::string& filename, 
 				Device& device,
-				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkFormat format = DefaultFormat,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
 				const uf::Image& image, 
 				Device& device,
-				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkFormat format = DefaultFormat,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void loadFromImage(
 				const uf::Image& image,
-				VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
+				VkFormat format = DefaultFormat,
 				VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
 				VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, Device& device, VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM );
+			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = DefaultFormat );
 			void aliasTexture( const Texture& );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, size_t, bool = true );

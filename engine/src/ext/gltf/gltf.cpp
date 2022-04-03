@@ -15,6 +15,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/image/atlas.h>
 #include <uf/utils/string/hash.h>
+#include <uf/utils/mesh/grid.h>
 
 #include <gltf/tiny_gltf.h>
 #include <uf/ext/gltf/gltf.h>
@@ -40,9 +41,7 @@ namespace {
 			default: return uf::renderer::enums::Filter::LINEAR;
 		}
 	}
-}
 
-namespace {
 	int32_t loadNode( const tinygltf::Model& model, pod::Graph& graph, int32_t nodeIndex, int32_t parentIndex );
 
 	int32_t loadNodes( const tinygltf::Model& model, pod::Graph& graph, const std::vector<int>& nodes, int32_t nodeIndex ) {
@@ -109,6 +108,14 @@ namespace {
 		}
 		return nodeIndex;
 	}
+
+	template<typename T = uf::graph::mesh::Skinned, typename U = uint32_t>
+	struct Primitive {
+		uf::stl::vector<T> vertices;
+		uf::stl::vector<U> indices;
+
+		pod::Primitive primitive;
+	};
 }
 
 pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
@@ -226,33 +233,103 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		for ( auto& m : model.meshes ) {
 			auto meshID = graph.meshes.size();
 			auto keyName = graph.meshes.emplace_back(filename + "/" + m.name);
+
 			graph.primitives.emplace_back(keyName);
 			graph.drawCommands.emplace_back(keyName);
 
 			auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
 			auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+			
 			mesh.bindIndirect<pod::DrawCommand>();
-		#if 0 || UF_USE_VULKAN
-			bool full = true;
-		#else
-			bool full = graph.metadata["flags"]["SKINNED"].as<bool>();
-		#endif
-			if ( full ) {
-				mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-				uf::stl::vector<uf::graph::mesh::Skinned> vertices;
-				uf::stl::vector<uint32_t> indices;
+			
+			size_t divisions = m.name == "worldspawn_20" ? 2 : 1;
+			if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Skinned, uint32_t
 				#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 1
-				#include "processPrimitives.inl"
+				#define UF_GRAPH_GRID 1
+				#include "processPrimitives2.inl"
 				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
+				#undef UF_GRAPH_MESH_FORMAT
 			} else {
-				mesh.bind<uf::graph::mesh::Base, uint32_t>();
-				uf::stl::vector<uf::graph::mesh::Base> vertices;
-				uf::stl::vector<uint32_t> indices;
-				#include "processPrimitives.inl"
+				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Base, uint32_t
+				#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 0
+				#include "processPrimitives2.inl"
+				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
+				#undef UF_GRAPH_MESH_FORMAT
 			}
+
 			mesh.insertIndirects(drawCommands);
 			mesh.updateDescriptor();
+
+		#if 0
+			if ( m.name == "worldspawn_20" ) {
+				uf::stl::vector<::Primitive<>> objs;
+
+				#include "processPrimitives2.inl"
+
+				graph.primitives.emplace_back(keyName);
+				graph.drawCommands.emplace_back(keyName);
+
+				auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
+				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
+				auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+				
+				mesh.bindIndirect<pod::DrawCommand>();
+				mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+
+				size_t indexID = 0;
+				size_t vertexID = 0;
+				for ( auto& obj : objs ) {
+					drawCommands.emplace_back(pod::DrawCommand{
+						.indices = obj.indices.size(),
+						.instances = 1,
+						.indexID = indexID,
+						.vertexID = vertexID,
+						.instanceID = 0,
+
+
+						.vertices = obj.vertices.size(),
+					});
+
+					primitives.emplace_back( obj.primitive );
+
+					indexID += obj.indices.size();
+					vertexID += obj.vertices.size();
+
+					mesh.insertVertices(obj.vertices);
+					mesh.insertIndices(obj.indices);
+				}
+
+				mesh.insertIndirects(drawCommands);
+				mesh.updateDescriptor();
+			} else {
+				graph.primitives.emplace_back(keyName);
+				graph.drawCommands.emplace_back(keyName);
+
+				auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
+				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
+				auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+				
+				mesh.bindIndirect<pod::DrawCommand>();
+
+				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+					mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
+					uf::stl::vector<uf::graph::mesh::Skinned> vertices;
+					uf::stl::vector<uint32_t> indices;
+					#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 1
+					#include "processPrimitives.inl"
+					#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
+				} else {
+					mesh.bind<uf::graph::mesh::Base, uint32_t>();
+					uf::stl::vector<uf::graph::mesh::Base> vertices;
+					uf::stl::vector<uint32_t> indices;
+					#include "processPrimitives.inl"
+				}
+				mesh.insertIndirects(drawCommands);
+				mesh.updateDescriptor();
+			}
+		#endif
 		}
 	}
 	// load skins

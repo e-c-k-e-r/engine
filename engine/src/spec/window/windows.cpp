@@ -1456,7 +1456,7 @@ uf::stl::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
 uf::stl::vector<uf::stl::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
-	uf::stl::vector<uf::stl::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME  };
+	uf::stl::vector<uf::stl::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
 	if ( validationEnabled ) instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	return instanceExtensions;
 }

@@ -14,10 +14,41 @@ namespace uf {
 			} extents;
 
 			pod::Vector3ui id = {};
-			uf::stl::vector<uf::stl::vector<uint32_t>> indices;
+			uf::stl::vector<uint32_t> indices;
+		};
+		struct Grid {
+			int divisions = 1;
+
+			struct {
+				pod::Vector3f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+				pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+				
+				pod::Vector3f center = {};
+				pod::Vector3f corner = {};
+				
+				pod::Vector3f size = {};
+				pod::Vector3f piece = {};
+			} extents;
+
+			uf::stl::vector<Node> nodes;
 		};
 
-		uf::stl::vector<Node> UF_API partition( uf::Mesh&, int );
+		void UF_API print( const Grid&, size_t indices );
+		Grid UF_API generate( int divisions, void* pPointer, size_t pStride, size_t pFirst, size_t pCount, void* iPointer, size_t iStride, size_t iFirst, size_t iCount );
+		Grid UF_API partition( uf::Mesh&, int );
+		
+		template<typename T, typename U = uint32_t>
+		Grid UF_API partition( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices, int divisions ) {
+			auto vertexDescriptor = T::descriptor.front();
+
+			for ( auto& descriptor : T::descriptor ) if ( descriptor.name == "position" ) { vertexDescriptor = descriptor; break; }
+			UF_ASSERT( vertexDescriptor.name == "position" );
+
+			return generate( divisions, 
+				vertices.data(), sizeof(T), 0, vertices.size(),
+				indices.data(), sizeof(U), 0, indices.size()
+			);
+		}
 	}
 }
 

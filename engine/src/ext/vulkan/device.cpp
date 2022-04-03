@@ -12,7 +12,7 @@
 
 #include <uf/utils/serialize/serializer.h>
 
-#define UF_MSG_VALIDATION(X) if ( ext::vulkan::settings::validation ) UF_MSG("VULKAN", X);
+#define UF_MSG_VALIDATION(X) if ( ext::vulkan::settings::validation ) UF_MSG(X, "  VULKAN  ");
 
 namespace {
 #if UF_USE_OPENVR
@@ -846,14 +846,23 @@ void ext::vulkan::Device::initialize() {
 		uint32_t formatCount; vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, nullptr);
 		formats.resize( formatCount );
 		vkGetPhysicalDeviceSurfaceFormatsKHR( this->physicalDevice, device.surface, &formatCount, formats.data() );
+
+		bool SRGB = true;
+		auto TARGET_FORMAT = SRGB ? VK_FORMAT_B8G8R8A8_SRGB : VK_FORMAT_B8G8R8A8_UNORM;
+		auto TARGET_COLORSPACE = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		if ( ext::vulkan::settings::experimental::hdr ) {
+			TARGET_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
+			TARGET_COLORSPACE = VK_COLOR_SPACE_HDR10_ST2084_EXT;	
+		}
+
 		// If the surface format list only includes one entry with VK_FORMAT_UNDEFINED,
-		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_UNORM
-		if ( (formatCount == 1) && (formats[0].format == VK_FORMAT_UNDEFINED) ) {
-			ext::vulkan::settings::formats::color = VK_FORMAT_B8G8R8A8_UNORM;
+		// there is no preferered format, so we assume VK_FORMAT_B8G8R8A8_SRGB
+		if ( formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED ) {
+			ext::vulkan::settings::formats::color = TARGET_FORMAT;
 			ext::vulkan::settings::formats::colorSpace = formats[0].colorSpace;
 		} else {
 			// iterate over the list of available surface format and
-			// check for the presence of VK_FORMAT_B8G8R8A8_UNORM
+			// check for the presence of VK_FORMAT_B8G8R8A8_SRGB
 			bool found = false;
 			for ( auto&& surfaceFormat : formats ) {
 				if ( surfaceFormat.format == ext::vulkan::settings::formats::color ) {
@@ -865,14 +874,14 @@ void ext::vulkan::Device::initialize() {
 			}
 			if ( !found ) {
 				for ( auto&& surfaceFormat : formats ) {
-					if ( surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM ) {
+					if ( surfaceFormat.format == TARGET_FORMAT ) {
 						ext::vulkan::settings::formats::color = surfaceFormat.format;
 						ext::vulkan::settings::formats::colorSpace = surfaceFormat.colorSpace;
 						found = true;
 						break;
 					}
 				}
-				// in case VK_FORMAT_B8G8R8A8_UNORM is not available
+				// in case VK_FORMAT_B8G8R8A8_SRGB is not available
 				// select the first available color format
 				if ( !found ) {
 					ext::vulkan::settings::formats::color = formats[0].format;
