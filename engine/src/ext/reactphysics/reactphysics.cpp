@@ -94,7 +94,7 @@ namespace {
 		pod::Vector3f position;
 		pod::Vector3f color;
 
-		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 	};
 
 	UF_VERTEX_DESCRIPTOR(VertexLine,
@@ -323,11 +323,11 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 
 			rMesh->addSubpart(new rp3d::TriangleVertexArray(
 				vertexInput.count,
-				(const uint8_t*) (vertexAttribute.pointer + vertexAttribute.stride * vertexInput.first),
+				(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 				vertexAttribute.stride,
 
 				indexInput.count / 3,
-				(const uint8_t*) (indexAttribute.pointer + indexAttribute.stride * indexInput.first),
+				(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
 				indexAttribute.stride * 3,
 
 				vertexType,
@@ -337,11 +337,11 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 	} else {
 		rMesh->addSubpart(new rp3d::TriangleVertexArray(
 			vertexInput.count,
-			(const uint8_t*) (vertexAttribute.pointer + vertexAttribute.stride * vertexInput.first),
+			(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
 			vertexAttribute.stride,
 
 			indexInput.count / 3,
-			(const uint8_t*) (indexAttribute.pointer + indexAttribute.stride * indexInput.first),
+			(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
 			indexAttribute.stride * 3,
 
 			vertexType,

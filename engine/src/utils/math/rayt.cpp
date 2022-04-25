@@ -1,3 +1,4 @@
+#if 0
 #include <uf/utils/math/collision.h>
 #include <uf/utils/math/rayt.h>
 #include <iostream>
@@ -334,3 +335,4 @@ void uf::primitive::test( const uf::stl::vector<pod::Primitive>& cubes, const uf
 	}
 	std::cout << "ID: " << id << std::endl;
 }
+#endif

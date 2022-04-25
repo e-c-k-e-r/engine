@@ -9,7 +9,7 @@
 	#if DEFERRED_SAMPLING
 		layout (binding = 3) uniform sampler2D samplerUvs;
 	#else
-		layout (binding = 4) uniform sampler2D  samplerAlbedo;
+		layout (binding = 3) uniform sampler2D  samplerAlbedo;
  	#endif
 #else
 	layout (binding = 1) uniform usampler2DMS samplerId;
@@ -17,7 +17,7 @@
 	#if DEFERRED_SAMPLING
 		layout (binding = 3) uniform sampler2DMS samplerUvs;
 	#else
-		layout (binding = 4) uniform sampler2DMS samplerAlbedo;
+		layout (binding = 3) uniform sampler2DMS samplerAlbedo;
  	#endif
 #endif
 

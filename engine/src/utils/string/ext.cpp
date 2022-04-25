@@ -6,6 +6,33 @@
 #include <cmath>
 #include <iostream>
 
+#include <regex>
+
+/*
+bool UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
+	std::regex regex(r);
+	std::smatch match;
+	return std::regex_search( str, match, regex );
+}
+*/
+bool UF_API uf::string::isRegex( const uf::stl::string& str ) {
+	return str.front() == '/' && str.back() == '/';
+}
+uf::stl::vector<uf::stl::string> UF_API uf::string::matches( const uf::stl::string& str, const uf::stl::string& r ) {
+
+	std::regex regex(r.substr(1,r.length()-2));
+	std::smatch match;
+	uf::stl::vector<uf::stl::string> matches;
+	if ( std::regex_search( str, match, regex ) ) {
+		for ( auto& m : match ) {
+			UF_MSG_DEBUG(m);
+			matches.emplace_back(m.str());
+		}
+	}
+	
+	return matches;
+}
+
 uf::stl::string UF_API uf::string::lowercase( const uf::stl::string& str ) {
 	uf::stl::string lower = str;
 	std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);

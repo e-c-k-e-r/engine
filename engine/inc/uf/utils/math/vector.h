@@ -528,4 +528,15 @@ namespace pod {
 	};
 }
 
+namespace std {
+	template<typename T, size_t N>
+	struct hash<pod::Vector<T,N>> {
+		size_t operator()(const pod::Vector<T,N>& v) const {
+			size_t hash = 0;
+			for ( size_t i = 0; i < N; ++i ) hash ^= v[i];
+			return hash;
+		}
+	};
+}
+
 #include "vector/vector.inl"

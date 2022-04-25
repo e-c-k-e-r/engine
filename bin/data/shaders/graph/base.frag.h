@@ -1,5 +1,4 @@
 //#extension GL_EXT_nonuniform_qualifier : enable
-
 #define CUBEMAPS 1
 #define FRAGMENT 1
 // #define MAX_TEXTURES TEXTURES
@@ -34,6 +33,7 @@ layout (location = 0) out uvec2 outId;
 layout (location = 1) out vec2 outNormals;
 #if DEFERRED_SAMPLING
 	layout (location = 2) out vec4 outUvs;
+	layout (location = 3) out vec2 outMips;
 #else
 	layout (location = 2) out vec4 outAlbedo;
 #endif
@@ -42,12 +42,13 @@ void main() {
 	const uint drawID = uint(inId.x);
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
-	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 	const vec3 P = inPosition;
 
-	surface.uv = uv;
-	surface.st = inSt;
+	surface.uv.xy = uv;
+	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
+	surface.st.xy = inSt;
+	surface.st.z = mipLevel(dFdx(inSt), dFdy(inSt));
 	vec3 N = inNormal;
 	vec4 A = vec4(0, 0, 0, 0);
 
@@ -64,7 +65,7 @@ void main() {
 	
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		A = sampleTexture( material.indexAlbedo, mip );
+		A = sampleTexture( material.indexAlbedo );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;
@@ -80,7 +81,7 @@ void main() {
 	}
 #if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
-		A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
+		A.rgb *= sampleTexture( instance.lightmapID, surface.st ).rgb;
 	}
 #endif
 #endif
@@ -88,13 +89,13 @@ void main() {
 	// sample normal
 	if ( validTextureIndex( material.indexNormal ) ) {
 		Texture t = textures[material.indexNormal];
-		N = inTBN * normalize( sampleTexture( material.indexNormal, mip ).xyz * 2.0 - vec3(1.0));
+		N = inTBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
 	}
 	#if 0
 		// sample metallic/roughness
 		if ( validTextureIndex( material.indexMetallicRoughness ) ) {
 			Texture t = textures[material.indexMetallicRoughness];
-			const vec4 sampled = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mip );
+			const vec4 sampled = textureLod( samplerTextures[nonuniformEXT((useAtlas)?textureAtlas.index:t.index)], ( useAtlas ) ? mix( t.lerp.xy, t.lerp.zw, uv ) : uv, mipUv );
 			M = sampled.b;
 			R = sampled.g;
 		}
@@ -107,8 +108,11 @@ void main() {
 	#endif
 	outAlbedo = A * inColor;
 #else
-	outUvs.xy = surface.uv;
-	outUvs.zw = surface.st;
+	outUvs.xy = surface.uv.xy;
+	outUvs.zw = surface.st.xy;
+
+	outMips.x = surface.uv.z;
+	outMips.y = surface.st.z;
 #endif
 	outNormals = encodeNormals( N );
 	outId = uvec2(drawID + 1, instanceID + 1);

@@ -53,27 +53,21 @@ bool validTextureIndex( uint start, int offset ) {
 uint textureIndex( uint start, int offset ) {
 	return start + offset;
 }
-#if TEXTURE_WORKAROUND
-vec4 sampleTexture( uint id, vec2 uv ) {
-	const Texture t = textures[id];
-	return texture( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ) );
-}
-vec4 sampleTexture( uint id, vec2 uv, float mip ) {
-	const Texture t = textures[id];
-	return textureLod( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-}
-#else
 vec4 sampleTexture( uint id, vec2 uv ) {
 	const Texture t = textures[id];
 	return texture( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ) );
 }
 vec4 sampleTexture( uint id, vec2 uv, float mip ) {
+#if QUERY_MIPMAP
+	return sampleTexture( id, uv );
+#else
 	const Texture t = textures[id];
 	return textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-}
 #endif
-vec4 sampleTexture( uint id ) { return sampleTexture( id, surface.uv ); }
-vec4 sampleTexture( uint id, float mip ) { return sampleTexture( id, surface.uv, mip ); }
+}
+vec4 sampleTexture( uint id, vec3 uvm ) { return sampleTexture( id, uvm.xy, uvm.z ); }
+vec4 sampleTexture( uint id ) { return sampleTexture( id, surface.uv.xy, surface.uv.z ); }
+vec4 sampleTexture( uint id, float mip ) { return sampleTexture( id, surface.uv.xy, mip ); }
 #endif
 vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 	const vec3 t0 = (boundsMin - ray.origin) / ray.direction;
@@ -101,10 +95,12 @@ void whitenoise(inout vec3 color, const vec4 parameters) {
 	const float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
 	color = mix( color, vec3(whiteNoise), blend );
 }
-float mipLevel( in vec2 uv ) {
-	const vec2 dx_vtc = dFdx(uv);
-	const vec2 dy_vtc = dFdy(uv);
-	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
+float mipLevel( in vec2 dx_vtc, in vec2 dy_vtc ) {
+	const float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+	return 0.5 * log2(delta_max_sqr);
+//	return max(0.0, 0.5 * log2(delta_max_sqr) - 1.0);
+
+//	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
 vec4 resolve( subpassInputMS t, const uint samples ) {
 	vec4 resolved = vec4(0);

@@ -70,16 +70,16 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 
 					auto& decl = entry.decl;
 					
-					decl.vertexPositionData = positionAttribute.pointer + positionAttribute.stride * vertexInput.first;
+					decl.vertexPositionData = static_cast<uint8_t*>(positionAttribute.pointer) + positionAttribute.stride * vertexInput.first;
 					decl.vertexPositionStride = positionAttribute.stride;
 
-					decl.vertexUvData = uvAttribute.pointer + uvAttribute.stride * vertexInput.first;
+					decl.vertexUvData = static_cast<uint8_t*>(uvAttribute.pointer) + uvAttribute.stride * vertexInput.first;
 					decl.vertexUvStride = uvAttribute.stride;
 
 					decl.vertexCount = vertexInput.count;
 
 					decl.indexCount = indexInput.count;
-					decl.indexData = indexAttribute.pointer + indexAttribute.stride * indexInput.first;
+					decl.indexData = static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
 					decl.indexFormat = indexType;
 				}
 			} else {
@@ -87,16 +87,16 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 				entry.index = index;
 
 				auto& decl = entry.decl;
-				decl.vertexPositionData = positionAttribute.pointer + positionAttribute.stride * vertexInput.first;
+				decl.vertexPositionData = static_cast<uint8_t*>(positionAttribute.pointer) + positionAttribute.stride * vertexInput.first;
 				decl.vertexPositionStride = positionAttribute.stride;
 
-				decl.vertexUvData = uvAttribute.pointer + uvAttribute.stride * vertexInput.first;
+				decl.vertexUvData = static_cast<uint8_t*>(uvAttribute.pointer) + uvAttribute.stride * vertexInput.first;
 				decl.vertexUvStride = uvAttribute.stride;
 
 				decl.vertexCount = vertexInput.count;
 
 				decl.indexCount = indexInput.count;
-				decl.indexData = indexAttribute.pointer + indexAttribute.stride * indexInput.first;
+				decl.indexData = static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
 				decl.indexFormat = indexType;
 			}
 		} else UF_EXCEPTION("to-do: not require indices for meshes");
@@ -181,10 +181,10 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 					auto dstAttribute = mesh.vertex.attributes[k];
 
 					if ( dstAttribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*) ( dstAttribute.pointer + dstAttribute.stride * (j + dstInput.first) );
+						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first) );
 						st = pod::Vector2f{ vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
 					} else {
-						memcpy(  dstAttribute.pointer + dstAttribute.stride * (j + dstInput.first),  srcAttribute.pointer + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
+						memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first),  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
 					}
 				}
 			}
@@ -193,7 +193,7 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 				uf::Mesh::Input indexInput = mesh.remapIndexInput( entry.command );
 				uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
 			//	uf::Mesh::Attribute indexAttribute = mesh.remapIndexAttribute( mesh.index.attributes.front(), entry.command );
-				uint8_t* pointer = (uint8_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first;
+				uint8_t* pointer = (uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
 				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
 					switch ( mesh.index.size ) {
 						case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;
@@ -220,7 +220,7 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 						pod::Vector2f& st = *(pod::Vector2f*) ( ((uint8_t*) dstAttribute.pointer) + dstAttribute.stride * j);
 						st = pod::Vector2f{ vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
 					} else {
-						memcpy(  dstAttribute.pointer + dstAttribute.stride * j,  srcAttribute.pointer + srcAttribute.stride * ref, srcAttribute.stride );
+						memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * j,  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * ref, srcAttribute.stride );
 					}
 				}
 			/*
@@ -304,10 +304,10 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 						auto& srcAttribute = source.vertex.attributes[_];
 						auto& dstAttribute = mesh.vertex.attributes[_];
 
-						memcpy( dstAttribute.pointer + dstAttribute.stride * (vertexInput.first + v), srcAttribute.pointer + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
+						memcpy( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (vertexInput.first + v), static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
 					}
 					
-					pod::Vector2f& st = *(pod::Vector2f*) (stAttribute.pointer + stAttribute.stride * (vertexInput.first + v));
+					pod::Vector2f& st = *(pod::Vector2f*) (static_cast<uint8_t*>(stAttribute.pointer) + stAttribute.stride * (vertexInput.first + v));
 					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height  };
 				}
 				// indices
@@ -315,9 +315,9 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 				indexInput = mesh.remapIndexInput( entry.command );
 				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
 					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 1: (( uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 2: ((uint16_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 4: ((uint32_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
 					}
 				}
 			} else {
@@ -329,18 +329,18 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 						auto& srcAttribute = source.vertex.attributes[_];
 						auto& dstAttribute = mesh.vertex.attributes[_];
 
-						memcpy( dstAttribute.pointer + dstAttribute.stride * (vertexInput.first + v), srcAttribute.pointer + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
+						memcpy( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (vertexInput.first + v), static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
 					}
 					
-					pod::Vector2f& st = *(pod::Vector2f*) (stAttribute.pointer + stAttribute.stride * (vertexInput.first + v));
+					pod::Vector2f& st = *(pod::Vector2f*) (static_cast<uint8_t*>(stAttribute.pointer) + stAttribute.stride * (vertexInput.first + v));
 					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height  };
 				}
 
 				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
 					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) indexAttribute.pointer + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 1: (( uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 2: ((uint16_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
+						case 4: ((uint32_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
 					}
 				}
 			}

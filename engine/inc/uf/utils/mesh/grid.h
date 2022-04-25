@@ -2,22 +2,28 @@
 
 #include <uf/config.h>
 #include <uf/utils/mesh/mesh.h>
+#include <uf/engine/graph/graph.h>
 #include <limits>
 
 
 namespace uf {
 	namespace meshgrid {
-		struct UF_API Node {
+		struct Node {
 			struct {
 				pod::Vector3f min = {};
 				pod::Vector3f max = {};
 			} extents;
+			struct {
+				pod::Vector3f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
+				pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+			} effectiveExtents;
 
 			pod::Vector3ui id = {};
-			uf::stl::vector<uint32_t> indices;
+			uf::stl::unordered_map<size_t, uf::Meshlet_T<>> meshlets;
 		};
 		struct Grid {
-			int divisions = 1;
+			pod::Vector3ui divisions = {1,1,1};
+			int indices = 0;
 
 			struct {
 				pod::Vector3f min = {  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max(),  std::numeric_limits<float>::max() };
@@ -30,24 +36,80 @@ namespace uf {
 				pod::Vector3f piece = {};
 			} extents;
 
-			uf::stl::vector<Node> nodes;
+		//	uf::stl::vector<Node> nodes;
+			uf::stl::unordered_map<pod::Vector3ui, Node> nodes;
 		};
 
-		void UF_API print( const Grid&, size_t indices );
-		Grid UF_API generate( int divisions, void* pPointer, size_t pStride, size_t pFirst, size_t pCount, void* iPointer, size_t iStride, size_t iFirst, size_t iCount );
-		Grid UF_API partition( uf::Mesh&, int );
+		void UF_API print( const Grid& );
+		void UF_API cleanup( Grid& );
+
+		void UF_API calculate( uf::meshgrid::Grid&, float = std::numeric_limits<float>::epsilon() );
+		void UF_API calculate( uf::meshgrid::Grid&, int, float = std::numeric_limits<float>::epsilon() );
+		void UF_API calculate( uf::meshgrid::Grid&, const pod::Vector3ui&, float = std::numeric_limits<float>::epsilon() );
+
+		void UF_API partition( uf::meshgrid::Grid&, const void*, size_t, const void*, size_t, const pod::Primitive& );
+		void UF_API partition( uf::meshgrid::Grid&, uf::Mesh&, const pod::Primitive& );
 		
 		template<typename T, typename U = uint32_t>
-		Grid UF_API partition( uf::stl::vector<T>& vertices, uf::stl::vector<U>& indices, int divisions ) {
+		void UF_API partition( uf::meshgrid::Grid& grid, const uf::stl::vector<T>& vertices, const uf::stl::vector<U>& indices, const pod::Primitive& primitive ) {
 			auto vertexDescriptor = T::descriptor.front();
 
 			for ( auto& descriptor : T::descriptor ) if ( descriptor.name == "position" ) { vertexDescriptor = descriptor; break; }
 			UF_ASSERT( vertexDescriptor.name == "position" );
 
-			return generate( divisions, 
-				vertices.data(), sizeof(T), 0, vertices.size(),
-				indices.data(), sizeof(U), 0, indices.size()
+			return partition( grid, 
+				vertices.data(), sizeof(T),
+				indices.data(), sizeof(U),
+				primitive
 			);
+		}
+
+		template<typename T, typename U = uint32_t>
+		uf::stl::vector<uf::Meshlet_T<T,U>> UF_API partition( uf::meshgrid::Grid& grid, const uf::stl::vector<uf::Meshlet_T<T,U>>& meshlets, float eps = std::numeric_limits<float>::epsilon() ) {
+			uf::stl::vector<uf::Meshlet_T<T,U>> partitioned;
+			for ( auto& meshlet : meshlets ) {
+				grid.extents.min = uf::vector::min( grid.extents.min, meshlet.primitive.instance.bounds.min );
+				grid.extents.max = uf::vector::max( grid.extents.max, meshlet.primitive.instance.bounds.max );
+			}
+
+			uf::meshgrid::calculate( grid, eps );
+
+			for ( auto& meshlet : meshlets ) {
+				uf::meshgrid::partition<T,U>( grid, meshlet.vertices, meshlet.indices, meshlet.primitive );
+			}
+			
+			uf::meshgrid::cleanup( grid );
+
+			for ( auto& pair : grid.nodes ) { auto& node = pair.second;
+				for ( auto& pair2 : node.meshlets ) { auto& mlet = pair2.second;
+					if ( mlet.indices.empty() ) continue;
+
+					auto& meshlet = meshlets[mlet.primitive.instance.primitiveID];
+					auto& slice = partitioned.emplace_back();
+					slice.vertices.reserve( mlet.indices.size() );
+					slice.indices.reserve( mlet.indices.size() );
+					for ( auto idx : mlet.indices ) {
+						slice.vertices.emplace_back( meshlet.vertices[idx] );
+						slice.indices.emplace_back( slice.indices.size() );
+					}
+
+					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;
+					slice.primitive.instance.primitiveID = partitioned.size() - 1;
+					slice.primitive.instance.meshID = meshlet.primitive.instance.meshID;
+					slice.primitive.instance.objectID = 0;
+					slice.primitive.instance.bounds.min = node.effectiveExtents.min;
+					slice.primitive.instance.bounds.max = node.effectiveExtents.max;
+
+					slice.primitive.drawCommand.indices = slice.indices.size();
+					slice.primitive.drawCommand.instances = 1;
+					slice.primitive.drawCommand.indexID = 0;
+					slice.primitive.drawCommand.vertexID = 0;
+					slice.primitive.drawCommand.instanceID = 0;
+					slice.primitive.drawCommand.vertices = slice.vertices.size();
+				}
+			}
+
+			return partitioned;
 		}
 	}
 }

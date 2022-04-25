@@ -21,7 +21,7 @@ layout (location = 1) out vec2 outNormals;
 #endif
 
 void main() {
-	float mip = mipLevel(inUv.xy);
+	float mip = mipLevel(dFdx(inUv), dFdy(inUv));
 	vec2 uv = inUv.xy;
 	vec4 C = vec4(1, 1, 1, 1);
 	vec3 P = inPosition;

@@ -1,10 +1,7 @@
-uf::stl::vector<::Primitive<UF_GRAPH_MESH_FORMAT>> objs;
-uf::stl::vector<::Primitive<UF_GRAPH_MESH_FORMAT>> slices;
-
-mesh.bind<UF_GRAPH_MESH_FORMAT>();
+uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
 
 for ( auto& p : m.primitives ) {
-	auto& obj = objs.emplace_back();
+	auto& meshlet = meshlets.emplace_back();
 
 	struct Attribute {
 		uf::stl::string name = "";
@@ -41,13 +38,13 @@ for ( auto& p : m.primitives ) {
 		auto& view = model.bufferViews[accessor.bufferView];
 		
 		if ( attribute.name == "POSITION" ) {
-			obj.vertices.resize(accessor.count);
-			obj.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
-			obj.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
+			meshlet.vertices.resize(accessor.count);
+			meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+			meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
 			if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
-				obj.primitive.instance.bounds.min.x = -obj.primitive.instance.bounds.min.x;
-				obj.primitive.instance.bounds.max.x = -obj.primitive.instance.bounds.max.x;
+				meshlet.primitive.instance.bounds.min.x = -meshlet.primitive.instance.bounds.min.x;
+				meshlet.primitive.instance.bounds.max.x = -meshlet.primitive.instance.bounds.max.x;
 			}
 		}
 
@@ -83,7 +80,7 @@ for ( auto& p : m.primitives ) {
 		}
 	}
 
-	for ( size_t i = 0; i < obj.vertices.size(); ++i ) {
+	for ( size_t i = 0; i < meshlet.vertices.size(); ++i ) {
 	#if 0
 		#define ITERATE_ATTRIBUTE( name, member )\
 			memcpy( &vertex.member[0], &attributes[name].buffer[i * attributes[name].components], attributes[name].stride );
@@ -104,7 +101,7 @@ for ( auto& p : m.primitives ) {
 			}
 	#endif
 
-		auto& vertex = obj.vertices[i];
+		auto& vertex = meshlet.vertices[i];
 		ITERATE_ATTRIBUTE("POSITION", position, 1);
 		ITERATE_ATTRIBUTE("TEXCOORD_0", uv, 1);
 		ITERATE_ATTRIBUTE("COLOR_0", color, 255.0f);
@@ -133,9 +130,9 @@ for ( auto& p : m.primitives ) {
 		auto& view = model.bufferViews[accessor.bufferView];
 		auto& buffer = model.buffers[view.buffer];
 
-		obj.indices.reserve( static_cast<uint32_t>(accessor.count) );
+		meshlet.indices.reserve( static_cast<uint32_t>(accessor.count) );
 
-	#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) obj.indices.emplace_back(buf[index]);
+	#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) meshlet.indices.emplace_back(buf[index]);
 
 		const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 		switch (accessor.componentType) {
@@ -158,72 +155,54 @@ for ( auto& p : m.primitives ) {
 		#undef COPY_INDICES
 	}
 
-	obj.primitive.instance.materialID = p.material;
-	obj.primitive.instance.primitiveID = objs.size() - 1;
-	obj.primitive.instance.meshID = meshID;
-	obj.primitive.instance.objectID = 0;
+	meshlet.primitive.instance.materialID = p.material;
+	meshlet.primitive.instance.primitiveID = meshlets.size() - 1;
+	meshlet.primitive.instance.meshID = meshID;
+	meshlet.primitive.instance.objectID = 0;
 
-	obj.primitive.drawCommand.indices = obj.indices.size();
-	obj.primitive.drawCommand.instances = 1;
-	obj.primitive.drawCommand.indexID = 0;
-	obj.primitive.drawCommand.vertexID = 0;
-	obj.primitive.drawCommand.instanceID = 0;
-	obj.primitive.drawCommand.vertices = obj.vertices.size();
+	meshlet.primitive.drawCommand.indices = meshlet.indices.size();
+	meshlet.primitive.drawCommand.instances = 1;
+	meshlet.primitive.drawCommand.indexID = 0;
+	meshlet.primitive.drawCommand.vertexID = 0;
+	meshlet.primitive.drawCommand.instanceID = 0;
+	meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 }
 
-if ( divisions > 1 ) {
-	for ( auto& obj : objs ) {
-		auto grid = uf::meshgrid::partition( obj.vertices, obj.indices, divisions );
-	//	uf::meshgrid::print( grid, obj.indices.size() );
 
-		for ( auto& node : grid.nodes ) {
-			auto& slice = slices.emplace_back();
-			slice.vertices.reserve( node.indices.size() );
-			slice.indices.reserve( node.indices.size() );
-			for ( auto& index : node.indices ) {
-				slice.vertices.emplace_back( obj.vertices[index] );
-				slice.indices.emplace_back( slice.indices.size() );
-			}
+if ( meshgrid.grid.divisions.x > 1 && meshgrid.grid.divisions.y > 1 && meshgrid.grid.divisions.z > 1 ) {
+	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps );
+	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: " << m.name << ": " << meshlets.size() << " -> " << partitioned.size() );
+	meshlets = std::move( partitioned );
+}
 
-			slice.primitive.instance.materialID = obj.primitive.instance.materialID;
-			slice.primitive.instance.primitiveID = slices.size() - 1;
-			slice.primitive.instance.meshID = meshID;
-			slice.primitive.instance.objectID = 0;
+{
+	size_t indexID = 0;
+	size_t vertexID = 0;
 
-			slice.primitive.drawCommand.indices = slice.indices.size();
-			slice.primitive.drawCommand.instances = 1;
-			slice.primitive.drawCommand.indexID = 0;
-			slice.primitive.drawCommand.vertexID = 0;
-			slice.primitive.drawCommand.instanceID = 0;
-			slice.primitive.drawCommand.vertices = slice.vertices.size();
-		}
+	mesh.bindIndirect<pod::DrawCommand>();
+	mesh.bind<UF_GRAPH_MESH_FORMAT>();
+	
+	for ( auto& meshlet : meshlets ) {
+		drawCommands.emplace_back(pod::DrawCommand{
+			.indices = meshlet.indices.size(),
+			.instances = 1,
+			.indexID = indexID,
+			.vertexID = vertexID,
+			.instanceID = 0,
+
+
+			.vertices = meshlet.vertices.size(),
+		});
+
+		primitives.emplace_back( meshlet.primitive );
+
+		indexID += meshlet.indices.size();
+		vertexID += meshlet.vertices.size();
+
+		mesh.insertVertices(meshlet.vertices);
+		mesh.insertIndices(meshlet.indices);
 	}
 
-	UF_MSG_DEBUG( "Draw commands: " << m.name << ": " << objs.size() << " -> " << slices.size() );
-} else {
-	slices = std::move( objs );
-}
-
-
-size_t indexID = 0;
-size_t vertexID = 0;
-for ( auto& obj : slices ) {
-	drawCommands.emplace_back(pod::DrawCommand{
-		.indices = obj.indices.size(),
-		.instances = 1,
-		.indexID = indexID,
-		.vertexID = vertexID,
-		.instanceID = 0,
-
-
-		.vertices = obj.vertices.size(),
-	});
-
-	primitives.emplace_back( obj.primitive );
-
-	indexID += obj.indices.size();
-	vertexID += obj.vertices.size();
-
-	mesh.insertVertices(obj.vertices);
-	mesh.insertIndices(obj.indices);
+	mesh.insertIndirects(drawCommands);
+	mesh.updateDescriptor();
 }

@@ -61,11 +61,13 @@ void main() {
 	const uint drawID = uint(inId.x);
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
-	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 
-	surface.uv = uv;
-	surface.st = inSt;
+	surface.uv.xy = uv;
+	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
+	surface.st.xy = inSt;
+	surface.st.z = mipLevel(dFdx(inSt), dFdy(inSt));
+
 	vec3 N = inNormal;
 	vec4 A = vec4(0, 0, 0, 0);
 
@@ -80,7 +82,7 @@ void main() {
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 		if ( surface.instance.imageID <= 0 ) {
-			A = sampleTexture( material.indexAlbedo, mip );
+			A = sampleTexture( material.indexAlbedo );
 		} else {
 			const Texture t = textures[material.indexAlbedo];
 			A = texture( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ) );
@@ -100,7 +102,7 @@ void main() {
 	}
 #if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
-	//	A.rgb *= sampleTexture( instance.lightmapID, inSt, mip ).rgb;
+		A.rgb *= sampleTexture( instance.lightmapID, inSt ).rgb;
 	}
 #endif
 

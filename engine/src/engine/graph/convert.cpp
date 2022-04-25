@@ -11,7 +11,7 @@
 
 
 namespace {
-	size_t UF_API process( uf::Object& object, pod::Graph& graph, pod::Node& parent ) {
+	size_t process( uf::Object& object, pod::Graph& graph, pod::Node& parent ) {
 		// grab relevant IDs
 		size_t nodeID = graph.nodes.size();
 		size_t instanceID = uf::graph::storage.instances.keys.size(); // graph.instances.size();

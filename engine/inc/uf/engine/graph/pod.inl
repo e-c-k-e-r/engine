@@ -1,42 +1,10 @@
 namespace pod {
-	struct UF_API DrawCommand {
-		uint32_t indices = 0; // triangle count
-		uint32_t instances = 0; // instance count
-		uint32_t indexID = 0; // starting triangle position
-		 int32_t vertexID = 0; // starting vertex position
-		uint32_t instanceID = 0; // starting instance position
-		// extra data
-		uint32_t padding1 = 0; // 
-		uint32_t padding2 = 0; // 
-		uint32_t vertices = 0; //
-	};
+	template<typename T, typename U = uint32_t>
+	struct UF_API Meshlet_T {
+		uf::stl::vector<T> vertices;
+		uf::stl::vector<U> indices;
 
-
-	struct UF_API Instance {		
-		pod::Matrix4f model;
-		pod::Vector4f color = {1,1,1,1};
-
-		alignas(4) uint32_t materialID = 0;
-		alignas(4) uint32_t primitiveID = 0;
-		alignas(4) uint32_t meshID = 0;
-		alignas(4) uint32_t objectID = 0;
-
-		alignas(4)  int32_t jointID = -1;
-		alignas(4)  int32_t lightmapID = -1;
-		alignas(4) uint32_t imageID = 0;
-		alignas(4) uint32_t padding3 = 0;
-
-		struct Bounds {
-			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
-			alignas(4) float padding1 = 0;
-			pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
-			alignas(4) float padding2 = 0;
-		} bounds;
-	};
-
-	struct Primitive {
-		pod::DrawCommand drawCommand;
-		pod::Instance instance;
+		pod::Primitive primitive;
 	};
 
 	struct UF_API Material {

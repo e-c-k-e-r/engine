@@ -32,9 +32,17 @@
 				"trigger": { "mode": "rendered" },
 				"output": "./lightmap.png"
 			},
+			"grid": {
+				"/^worldspawn/": {
+					"size": [3,3,3],
+				//	"epsilon": 0.01,
+					"cleanup": true,
+					"print": true
+				}
+			},
 		//	"lightmap": "./lightmap.min.png",
 		//	"lightmap": "./lightmap.png",
-			"filter": "NEAREST",
+		//	"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,
 				"INVERT": false,

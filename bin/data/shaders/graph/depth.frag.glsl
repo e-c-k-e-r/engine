@@ -35,17 +35,17 @@ void main() {
 	const uint drawID = uint(inId.x);
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
-	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = wrap(inUv.xy);
 	vec4 A = vec4(0, 0, 0, 0);
-	surface.uv = uv;
+	surface.uv.xy = uv;
+	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 
 	const Material material = materials[materialID];
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 	//	const Texture t = textures[material.indexAlbedo];
 	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
-		A = sampleTexture( material.indexAlbedo, mip );
+		A = sampleTexture( material.indexAlbedo );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;

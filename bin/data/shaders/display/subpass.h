@@ -3,6 +3,8 @@
 
 #define DEFERRED 1
 #define MAX_TEXTURES TEXTURES
+//#define TEXTURE_WORKAROUND 0
+
 #include "../common/macros.h"
 
 layout (constant_id = 0) const uint TEXTURES = 512;
@@ -20,6 +22,9 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 		layout (input_attachment_index = 2, binding = 2) uniform subpassInput samplerAlbedo;
 	#endif
 	layout (input_attachment_index = 3, binding = 3) uniform subpassInput samplerDepth;
+	#if DEFERRED_SAMPLING
+		layout (input_attachment_index = 4, binding = 4) uniform subpassInput samplerMips;
+	#endif
 #else
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInputMS samplerId;
 	layout (input_attachment_index = 1, binding = 1) uniform subpassInputMS samplerNormal;
@@ -29,6 +34,9 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 		layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerAlbedo;
 	#endif
 	layout (input_attachment_index = 3, binding = 3) uniform subpassInputMS samplerDepth;
+	#if DEFERRED_SAMPLING
+		layout (input_attachment_index = 4, binding = 4) uniform subpassInputMS samplerMips;
+	#endif
 #endif
 
 #include "../common/structs.h"
@@ -120,12 +128,14 @@ void postProcess() {
 }
 
 void populateSurface() {
+	surface.fragment = vec4(0);
 	surface.pass = inPushConstantPass.x;
+
 	{
 	#if !MULTISAMPLING
 		const float depth = subpassLoad(samplerDepth).r;
 	#else
-		const float depth = resolve(samplerDepth, ubo.msaa).r;
+		const float depth = subpassLoad(samplerDepth, msaa.currentID).r; // resolve(samplerDepth, ubo.msaa).r;
 	#endif
 
 		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(inUv * 2.0 - 1.0, depth, 1.0);
@@ -165,12 +175,13 @@ void populateSurface() {
 		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
 	}
 #endif
+
 #if !MULTISAMPLING
 	surface.normal.world = decodeNormals( subpassLoad(samplerNormal).xy );
 	const uvec2 ID = subpassLoad(samplerId).xy;
 #else
-	surface.normal.world = decodeNormals( resolve(samplerNormal, ubo.msaa).xy );
-	const uvec2 ID = subpassLoad(samplerId, 0).xy; //resolve(samplerId, ubo.msaa).xy;
+	surface.normal.world = decodeNormals( subpassLoad(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.msaa).xy );
+	const uvec2 ID = msaa.IDs[msaa.currentID]; // subpassLoad(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.msaa).xy;
 #endif
 	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 
@@ -198,16 +209,20 @@ void populateSurface() {
 #if DEFERRED_SAMPLING
 	{
 	#if !MULTISAMPLING
-		vec4 uv = subpassLoad(samplerUv);
+		const vec4 uv = subpassLoad(samplerUv);
+		const vec2 mips = vec2(0); // subpassLoad(samplerMips).xy;
 	#else
-		vec4 uv = resolve(samplerUv, ubo.msaa);
+		const vec4 uv = subpassLoad(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.msaa);
+		const vec2 mips = vec2(0); // subpassLoad(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.msaa);
 	#endif
-		surface.uv = uv.xy;
-		surface.st = uv.zw;
+		surface.uv.xy = uv.xy;
+		surface.uv.z = mips.x;
+		surface.st.xy = uv.zw;
+		surface.st.z = mips.y;
 	}
-	const float mip = mipLevel(inUv.xy);
+
 	if ( validTextureIndex( material.indexAlbedo ) ) {
-		surface.material.albedo = sampleTexture( material.indexAlbedo, mip );
+		surface.material.albedo = sampleTexture( material.indexAlbedo );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
@@ -225,15 +240,15 @@ void populateSurface() {
 	}
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
-		surface.material.albedo += sampleTexture( material.indexEmissive, mip );
+		surface.material.albedo += sampleTexture( material.indexEmissive );
 	}
 	// Occlusion map
 	if ( validTextureIndex( material.indexOcclusion ) ) {
-	 	surface.material.occlusion = sampleTexture( material.indexOcclusion, mip ).r;
+	 	surface.material.occlusion = sampleTexture( material.indexOcclusion ).r;
 	}
 	// Metallic/Roughness map
 	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
-	 	vec4 samp = sampleTexture( material.indexMetallicRoughness, mip );
+	 	vec4 samp = sampleTexture( material.indexMetallicRoughness );
 	 	surface.material.metallic = samp.r;
 		surface.material.roughness = samp.g;
 	}
@@ -241,7 +256,7 @@ void populateSurface() {
 #if !MULTISAMPLING
 	surface.material.albedo = subpassLoad(samplerAlbedo);
 #else
-	surface.material.albedo = resolve(samplerAlbedo, ubo.msaa);
+	surface.material.albedo = subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.msaa);
 #endif
 #endif
 }
@@ -264,3 +279,35 @@ void directLighting() {
 	phong();
 #endif
 }
+
+#if MULTISAMPLING
+void resolveSurfaceFragment() {
+	for ( int i = 0; i < ubo.msaa; ++i ) {
+		msaa.currentID = i;
+		msaa.IDs[i] = subpassLoad(samplerId, msaa.currentID).xy;
+
+		// check if ID is already used
+		bool unique = true;
+		for ( int j = msaa.currentID - 1; j >= 0; --j ) {
+			if ( msaa.IDs[j] == msaa.IDs[i] ) {
+				surface.fragment = msaa.fragments[j];
+				unique = false;
+				break;
+			}
+		}
+
+		if ( unique ) {
+			populateSurface();
+		#if VXGI
+			indirectLighting();
+		#endif
+			directLighting();
+		}
+
+		msaa.fragment += surface.fragment;
+		msaa.fragments[msaa.currentID] = surface.fragment;
+	}
+	
+	surface.fragment = msaa.fragment / ubo.msaa;
+}
+#endif

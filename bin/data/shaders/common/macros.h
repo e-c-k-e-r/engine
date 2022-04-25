@@ -6,6 +6,9 @@
 #ifndef MULTISAMPLING
 	#define MULTISAMPLING 1
 #endif
+#ifndef MAX_MSAA_SAMPLES
+	#define MAX_MSAA_SAMPLES 16
+#endif
 #ifndef DEFERRED_SAMPLING
 	#define DEFERRED_SAMPLING 1
 #endif

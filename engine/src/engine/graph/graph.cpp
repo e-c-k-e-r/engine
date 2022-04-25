@@ -7,6 +7,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/camera/camera.h>
 #include <uf/utils/math/physics.h>
+#include <uf/utils/memory/map.h>
 #include <uf/ext/xatlas/xatlas.h>
 
 #if UF_ENV_DREAMCAST
@@ -84,11 +85,21 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 			else if ( mode == "both" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
 		}
 		{
-			for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
-			for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
-		
-		//	for ( auto pair : uf::graph::storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
+		//	for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
 		//	for ( auto pair : uf::graph::storage.samplers.map ) graphic.material.samplers.emplace_back( pair.second );
+		//	for ( auto& key : uf::graph::storage.samplers.keys ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[key] );
+
+		//	for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
+		//	for ( auto pair : uf::graph::storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
+		#if 1
+			for ( auto& key : uf::graph::storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
+		#else
+			uf::stl::map<size_t, uf::stl::string> texture2DOrderedMap; // texture2DOrderedMap.reserve( uf::graph::storage.texture2Ds.keys.size() );
+			for ( auto key : uf::graph::storage.texture2Ds.keys ) {
+				texture2DOrderedMap[uf::graph::storage.texture2Ds.indices[key]] = key;
+			}
+			for ( auto pair : texture2DOrderedMap ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[pair.second] );
+		#endif
 
 			// bind scene's voxel texture
 			if ( uf::renderer::settings::experimental::vxgi ) {
@@ -395,9 +406,15 @@ void uf::graph::process( pod::Graph& graph ) {
 	// setup textures
 	uf::graph::storage.texture2Ds.reserve( uf::graph::storage.images.map.size() );
 
+	// not having this block will cause our images and texture2Ds to be ordered out of sync
+	for ( auto& key : graph.images ) {
+		uf::graph::storage.images[key];
+		uf::graph::storage.texture2Ds[key];
+	}
+
 	// figure out what texture is what exactly
-	for ( auto& keyName : graph.materials ) {
-		auto& material = uf::graph::storage.materials[keyName];
+	for ( auto& key : graph.materials ) {
+		auto& material = uf::graph::storage.materials[key];
 		auto ID = material.indexAlbedo;
 
 		if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
@@ -407,11 +424,11 @@ void uf::graph::process( pod::Graph& graph ) {
 		texture.srgb = true;
 	}
 
-	for ( auto& keyName : graph.images ) {
-		auto& image = uf::graph::storage.images[keyName];
-		auto& texture = uf::graph::storage.texture2Ds[keyName];
+	for ( auto& key : graph.images ) {
+		auto& image = uf::graph::storage.images[key];
+		auto& texture = uf::graph::storage.texture2Ds[key];
 		if ( !texture.generated() ) {
-			bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == keyName;
+			bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == key;
 			auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
@@ -427,28 +444,54 @@ void uf::graph::process( pod::Graph& graph ) {
 	// process nodes
 	for ( auto index : graph.root.children ) process( graph, index, *graph.root.entity );
 
-	// remap materials->texture IDs
-	for ( auto& name : graph.materials ) {
-		auto& material = uf::graph::storage.materials[name];
-		auto& keys = uf::graph::storage.textures.keys;
-		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
-		for ( auto* pointer : IDs ) {
-			auto& ID = *pointer;
-			if ( !(0 <= ID && ID < graph.materials.size()) ) continue;
-			auto it = std::find( keys.begin(), keys.end(), graph.textures[ID] );
-			UF_ASSERT( it != keys.end() );
-			ID = it - keys.begin();
-		}
-	}
 	// remap textures->images IDs
 	for ( auto& name : graph.textures ) {
 		auto& texture = uf::graph::storage.textures[name];
 		auto& keys = uf::graph::storage.images.keys;
-		
-		if ( !(0 <= texture.index && texture.index < graph.textures.size()) ) continue;
-		auto it = std::find( keys.begin(), keys.end(), graph.images[texture.index] );
+		auto& indices = uf::graph::storage.images.indices;
+
+		if ( !(0 <= texture.index && texture.index < graph.images.size()) ) continue;
+
+		auto& needle = graph.images[texture.index];
+	#if 1
+		texture.index = indices[needle];
+	#elif 1
+		for ( size_t i = 0; i < keys.size(); ++i ) {
+			if ( keys[i] != needle ) continue;
+			texture.index = i;
+			break;
+		}
+	#else
+		auto it = std::find( keys.begin(), keys.end(), needle );
 		UF_ASSERT( it != keys.end() );
 		texture.index = it - keys.begin();
+	#endif
+	}
+	// remap materials->texture IDs
+	for ( auto& name : graph.materials ) {
+		auto& material = uf::graph::storage.materials[name];
+		auto& keys = uf::graph::storage.textures.keys;
+		auto& indices = uf::graph::storage.textures.indices;
+		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
+		for ( auto* pointer : IDs ) {
+			auto& ID = *pointer;
+			if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+			auto& needle = graph.textures[ID];
+		#if 1
+			ID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				ID = i;
+				break;
+			}
+		#else
+			if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+			auto it = std::find( keys.begin(), keys.end(), needle );
+			UF_ASSERT( it != keys.end() );
+			ID = it - keys.begin();
+		#endif
+		}
 	}
 	// remap instance variables
 	for ( auto& name : graph.instances ) {
@@ -456,16 +499,56 @@ void uf::graph::process( pod::Graph& graph ) {
 		
 		if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
 			auto& keys = /*graph.storage*/uf::graph::storage.materials.keys;
-			auto it = std::find( keys.begin(), keys.end(), graph.materials[instance.materialID] );
+			auto& indices = /*graph.storage*/uf::graph::storage.materials.indices;
+			
+			if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) continue;
+
+			auto& needle = graph.materials[instance.materialID];
+		#if 1
+			instance.materialID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				instance.materialID = i;
+				break;
+			}
+		#else
+			auto it = std::find( keys.begin(), keys.end(), needle );
 			UF_ASSERT( it != keys.end() );
 			instance.materialID = it - keys.begin();
+		#endif
 		}
+		if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
+			auto& keys = /*graph.storage*/uf::graph::storage.textures.keys;
+			auto& indices = /*graph.storage*/uf::graph::storage.textures.indices;
+
+			if ( !(0 <= instance.lightmapID && instance.lightmapID < graph.textures.size()) ) continue;
+
+			auto& needle = graph.textures[instance.lightmapID];
+		#if 1
+			instance.lightmapID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				instance.lightmapID = i;
+				break;
+			}
+		#else
+			auto it = std::find( keys.begin(), keys.end(), needle );
+			UF_ASSERT( it != keys.end() );
+			instance.lightmapID = it - keys.begin();
+		#endif
+		}
+	#if 0
+		// i genuinely dont remember what this is used for
+
 		if ( 0 <= instance.imageID && instance.imageID < graph.images.size() ) {
 			auto& keys = /*graph.storage*/uf::graph::storage.images.keys;
 			auto it = std::find( keys.begin(), keys.end(), graph.images[instance.imageID] );
 			UF_ASSERT( it != keys.end() );
 			instance.imageID = it - keys.begin();
 		}
+	#endif
 		// remap a skinID as an actual jointID
 		if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
 			auto& name = graph.skins[instance.jointID];
@@ -475,12 +558,6 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto& joints = uf::graph::storage.joints[key];
 				instance.jointID += joints.size();
 			}
-		}
-		if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
-			auto& keys = /*graph.storage*/uf::graph::storage.textures.keys;
-			auto it = std::find( keys.begin(), keys.end(), graph.textures[instance.lightmapID] );
-			UF_ASSERT( it != keys.end() );
-			instance.lightmapID = it - keys.begin();
 		}
 	}
 
@@ -814,7 +891,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 }
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
-	const uf::stl::string name = graph.name + "/" + _name;
+	const uf::stl::string name = /*graph.name + "/" +*/ _name;
 //	UF_MSG_DEBUG( graph.name << " " << name );
 //	if ( graph.animations.count( name ) > 0 ) {
 	if ( uf::graph::storage.animations.map.count( name ) > 0 ) {
@@ -980,9 +1057,22 @@ void uf::graph::tick() {
 		uf::stl::vector<pod::Texture> textures; textures.reserve(uf::graph::storage.textures.map.size());
 
 		for ( auto key : uf::graph::storage.drawCommands.keys ) drawCommands.insert( drawCommands.end(), uf::graph::storage.drawCommands.map[key].begin(), uf::graph::storage.drawCommands.map[key].end() );
+	#if 1
 		for ( auto key : uf::graph::storage.materials.keys ) materials.emplace_back( uf::graph::storage.materials.map[key] );
 		for ( auto key : uf::graph::storage.textures.keys ) textures.emplace_back( uf::graph::storage.textures.map[key] );
+	#else
+		uf::stl::map<size_t, uf::stl::string> materialOrderedMap; // materialOrderedMap.reserve( uf::graph::storage.materials.keys.size() );
+		for ( auto key : uf::graph::storage.materials.keys ) {
+			materialOrderedMap[uf::graph::storage.materials.indices[key]] = key;
+		}
+		for ( auto pair : materialOrderedMap ) materials.emplace_back( uf::graph::storage.materials.map[pair.second] );
 
+		uf::stl::map<size_t, uf::stl::string> textureOrderedMap; // textureOrderedMap.reserve( uf::graph::storage.textures.keys.size() );
+		for ( auto key : uf::graph::storage.textures.keys ) {
+			textureOrderedMap[uf::graph::storage.textures.indices[key]] = key;
+		}
+		for ( auto pair : textureOrderedMap ) textures.emplace_back( uf::graph::storage.textures.map[pair.second] );
+	#endif
 	//	uf::graph::storage.buffers.drawCommands.update( (const void*) drawCommands.data(), drawCommands.size() * sizeof(pod::DrawCommand) );
 		uf::graph::storage.buffers.material.update( (const void*) materials.data(), materials.size() * sizeof(pod::Material) );
 		uf::graph::storage.buffers.texture.update( (const void*) textures.data(), textures.size() * sizeof(pod::Texture) );

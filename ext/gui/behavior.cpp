@@ -908,7 +908,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			UF_ASSERT( vertexAttribute.descriptor.name == "position" );
 
 			for ( auto i = 0; i < mesh.vertex.count; ++i ) {
-				float* p = (float*) (vertexAttribute.pointer + i * vertexAttribute.stride );
+				float* p = (float*) (static_cast<uint8_t*>(vertexAttribute.pointer) + i * vertexAttribute.stride );
 				pod::Vector4f position = { p[0], p[1], 0, 1 };
 				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
 				min.x = std::min( min.x, translated.x );

@@ -48,14 +48,14 @@ layout (location = 8) flat in uvec4 inId;
 layout (location = 0) out vec4 outAlbedo;
 
 void main() {
-	const float mip = mipLevel(inUv.xy);
 	const uint drawID = uint(inId.x);
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
 
 	vec4 A = vec4(1, 1, 1, 1);
 	surface.normal.world = normalize( inNormal );
-	surface.uv = wrap(inUv.xy);
+	surface.uv.xy = wrap(inUv.xy);
+	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 	surface.position.world = inPosition;
 	const Material material = materials[materialID];
 	

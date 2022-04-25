@@ -99,8 +99,8 @@ void main() {
 	#if DEFERRED_SAMPLING
 		{
 			vec4 uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) );
-			surface.uv = uv.xy;
-			surface.st = uv.zw;
+			surface.uv.xy = uv.xy;
+			surface.st.xy = uv.zw;
 		}
 		if ( validTextureIndex( material.indexAlbedo ) ) {
 			surface.material.albedo = sampleTexture( material.indexAlbedo );

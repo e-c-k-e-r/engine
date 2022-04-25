@@ -49,7 +49,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	size_t msaa = ext::vulkan::settings::msaa;
 
 	struct {
-		size_t id, normals, uvs, albedo, depth, color, bright, scratch, output;
+		size_t id, normals, uvs, mips, albedo, depth, color, bright, scratch, output;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::experimental::deferredSampling;
@@ -71,7 +71,15 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	if ( ext::vulkan::settings::experimental::deferredSampling ) {
 		attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
-			/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
+			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
+			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+			/*.blend = */false,
+			/*.samples = */msaa,
+		});
+		attachments.mips = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
+			/*.format = */VK_FORMAT_R16G16_SFLOAT,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			/*.blend = */false,
@@ -158,7 +166,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			{
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					/*.colors =*/ { attachments.id, attachments.normals, attachments.uvs },
+					/*.colors =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.mips },
 					/*.inputs =*/ {},
 					/*.resolve =*/{},
 					/*.depth = */ attachments.depth,
@@ -171,7 +179,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				renderTarget.addPass(
 					/*.*/ VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
 					/*.colors =*/ { attachments.color, attachments.bright },
-					/*.inputs =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.depth },
+					/*.inputs =*/ { attachments.id, attachments.normals, attachments.uvs, attachments.depth, attachments.mips },
 					/*.resolve =*/{},
 					/*.depth = */attachments.depth,
 					/*.layer = */eye,

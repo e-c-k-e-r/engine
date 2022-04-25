@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "SH2_McDonalds",
 			"meshes": { "interleave": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
@@ -23,7 +23,7 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0.5,
+				"limiter": 2,
 				"size": 96,
 				"dispatch": 8,
 				"cascades": 4,
@@ -62,8 +62,9 @@
 					"size": 1,
 				//	"size": [ 640, 480, "NEAREST" ],
 				//	"size": [ 1280, 720 ],
-					"size": [ 960, 540 ],
-					"msaa": 16
+				//	"size": [ 960, 540 ],
+				//	"size": [ 640, 480 ],
+					"msaa": 0
 				},
 				"experimental": {
 					"rebuild on tick begin": false,
@@ -77,7 +78,7 @@
 					"vsync": true,
 					"hdr": true,
 					"vxgi": true,
-					"deferred sampling": false,
+					"deferred sampling": true, // broken for some scenes
 					"culling": true,
 					"bloom": false
 				},
@@ -243,7 +244,7 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 0.8, 0.8 ]
+			"sensitivity": [ 1, 1 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

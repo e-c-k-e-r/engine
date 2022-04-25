@@ -65,14 +65,19 @@ namespace pod {
 			public:
 				uf::stl::vector<Key> keys;
 				uf::stl::unordered_map<Key, T> map;
+				uf::stl::unordered_map<Key, size_t> indices;
 
 				T& operator[]( const Key& key ) {
-					if ( map.count( key ) == 0 ) keys.emplace_back( key );
+					if ( map.count( key ) == 0 ) {
+						indices[key] = keys.size();
+						keys.emplace_back( key );
+					}
 					return map[key];
 				}
 
 				void reserve( size_t i ) {
 					keys.reserve(i);
+					indices.reserve(i);
 					map.reserve(i);
 				}
 			};

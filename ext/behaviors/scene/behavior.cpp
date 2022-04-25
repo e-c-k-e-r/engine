@@ -91,7 +91,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	*/
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){
-		assetLoader.load("asset:Load." + payload.uid, payload);
+		assetLoader.load("asset:Load." + std::to_string(payload.uid), payload);
 	});
 	this->addHook( "shader:Update.%UID%", [&](ext::json::Value& json){
 		metadata.shader.mode = json["mode"].as<uint32_t>();

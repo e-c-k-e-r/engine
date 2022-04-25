@@ -20,11 +20,6 @@
 	],
 	"metadata": {
 		"model": {
-			"chunk": {
-				"enabled": true,
-				"size": 3, // [3,3,3],
-				"target": "worldspawn"
-			},
 			"exporter": {
 				"enabled": false
 			},
@@ -35,6 +30,7 @@
 				"trigger": { "mode": "rendered" },
 				"output": "./lightmap.png"
 			},
+			"filter": "NEAREST",
 			"tags": {
 				"worldspawn": {  "physics": { "type": "mesh", "static": true } },
 				"worldspawn_20": {  "physics": { "type": "mesh", "static": true } },

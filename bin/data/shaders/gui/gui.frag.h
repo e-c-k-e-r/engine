@@ -24,8 +24,8 @@ layout (location = 1) out vec2 outNormals;
 void main() {
 	if ( inUv.x < inGui.offset.x || inUv.y < inGui.offset.y || inUv.x > inGui.offset.z || inUv.y > inGui.offset.w ) discard;
 
-	const float mip = mipLevel(inUv.xy);
 	const vec2 uv = inUv.xy;
+	const float mip = mipLevel(dFdx(inUv), dFdy(inUv));
 	vec4 C = inGui.color;
 #if GLYPH
 	if ( enabled(inGui.mode, 1) ) {

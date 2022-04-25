@@ -108,14 +108,6 @@ namespace {
 		}
 		return nodeIndex;
 	}
-
-	template<typename T = uf::graph::mesh::Skinned, typename U = uint32_t>
-	struct Primitive {
-		uf::stl::vector<T> vertices;
-		uf::stl::vector<U> indices;
-
-		pod::Primitive primitive;
-	};
 }
 
 pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
@@ -147,7 +139,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& i : model.images ) {
 			auto imageID = graph.images.size();
-			auto keyName = graph.images.emplace_back(filename + "/" + i.name);
+			auto keyName = graph.images.emplace_back(/*filename + "/" +*/ i.name);
 			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["flip textures"].as<bool>(true) );
 		}
@@ -157,7 +149,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		/*graph.storage*/uf::graph::storage.samplers.reserve(model.samplers.size());
 		for ( auto& s : model.samplers ) {
 			auto samplerID = graph.samplers.size();
-			auto keyName = graph.samplers.emplace_back(filename + "/" + s.name);
+			auto keyName = graph.samplers.emplace_back(/*filename + "/" +*/ s.name);
 			auto& sampler = /*graph.storage*/uf::graph::storage.samplers[keyName];
 
 			sampler.descriptor.filter.min = getFilterMode( s.minFilter );
@@ -174,7 +166,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& t : model.textures ) {
 			auto textureID = graph.textures.size();
-			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (filename + "/" + t.name)));
+			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (/*filename + "/" +*/ t.name)));
 			auto& texture = /*graph.storage*/uf::graph::storage.textures[keyName];
 
 			texture.index = t.source;
@@ -188,7 +180,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& m : model.materials ) {
 			auto materialID = graph.materials.size();
-			auto keyName = graph.materials.emplace_back(filename + "/" + m.name);
+			auto keyName = graph.materials.emplace_back(/*filename + "/" +*/ m.name);
 			auto& material = /*graph.storage*/uf::graph::storage.materials[keyName];
 
 			material.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
@@ -232,7 +224,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& m : model.meshes ) {
 			auto meshID = graph.meshes.size();
-			auto keyName = graph.meshes.emplace_back(filename + "/" + m.name);
+			auto keyName = graph.meshes.emplace_back(/*filename + "/" +*/ m.name);
 
 			graph.primitives.emplace_back(keyName);
 			graph.drawCommands.emplace_back(keyName);
@@ -241,9 +233,38 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
 			
-			mesh.bindIndirect<pod::DrawCommand>();
-			
-			size_t divisions = m.name == "worldspawn_20" ? 2 : 1;
+			struct {
+				uf::meshgrid::Grid grid;
+				ext::json::Value metadata;
+				float eps = std::numeric_limits<float>::epsilon();
+				bool print = false;
+				bool cleanup = true;
+			} meshgrid;
+
+			if ( ext::json::isObject( graph.metadata["grid"][m.name] ) ) {
+				meshgrid.metadata = graph.metadata["grid"][m.name];
+			} else {
+				ext::json::forEach( graph.metadata["grid"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
+					if ( !ext::json::isNull( meshgrid.metadata["size"] ) ) return;
+					if ( !uf::string::isRegex( key ) ) return;
+					if ( uf::string::matches( m.name, key ).empty() ) return;
+					meshgrid.metadata = value;
+				});
+			}
+
+			if ( ext::json::isObject( meshgrid.metadata ) ) {
+				if ( meshgrid.metadata["size"].is<size_t>() ) {
+					size_t d = meshgrid.metadata["size"].as<size_t>();
+					meshgrid.grid.divisions = {d, d, d};
+				} else {
+					meshgrid.grid.divisions = uf::vector::decode( meshgrid.metadata["size"], meshgrid.grid.divisions );
+				}
+
+				meshgrid.eps = meshgrid.metadata["epsilon"].as(meshgrid.eps);
+				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
+				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
+			}
+
 			if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Skinned, uint32_t
 				#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 1
@@ -258,9 +279,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
 				#undef UF_GRAPH_MESH_FORMAT
 			}
-
-			mesh.insertIndirects(drawCommands);
-			mesh.updateDescriptor();
 
 		#if 0
 			if ( m.name == "worldspawn_20" ) {
@@ -339,7 +357,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& s : model.skins ) {
 			auto skinID = graph.skins.size();
-			auto keyName = graph.skins.emplace_back(filename + "/" + s.name);
+			auto keyName = graph.skins.emplace_back(/*filename + "/" +*/ s.name);
 			auto& skin = /*graph.storage*/uf::graph::storage.skins[keyName];
 
 			skin.name = s.name;			
@@ -373,7 +391,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 		for ( auto& a : model.animations ) {
 			auto animationID = graph.animations.size();
-			auto keyName = graph.animations.emplace_back(filename + "/" + a.name);
+			auto keyName = graph.animations.emplace_back(/*filename + "/" +*/ a.name);
 			auto& animation = /*graph.storage*/uf::graph::storage.animations[keyName];
 			animation.name = a.name;
 

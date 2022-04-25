@@ -46,6 +46,48 @@ namespace ext {
 	}
 }
 
+namespace pod {
+	struct UF_API DrawCommand {
+		uint32_t indices = 0; // triangle count
+		uint32_t instances = 0; // instance count
+		uint32_t indexID = 0; // starting triangle position
+		 int32_t vertexID = 0; // starting vertex position
+		uint32_t instanceID = 0; // starting instance position
+		// extra data
+		uint32_t padding1 = 0; // 
+		uint32_t padding2 = 0; // 
+		uint32_t vertices = 0; //
+	};
+
+
+	struct UF_API Instance {		
+		pod::Matrix4f model;
+		pod::Vector4f color = {1,1,1,1};
+
+		alignas(4) uint32_t materialID = 0;
+		alignas(4) uint32_t primitiveID = 0;
+		alignas(4) uint32_t meshID = 0;
+		alignas(4) uint32_t objectID = 0;
+
+		alignas(4)  int32_t jointID = -1;
+		alignas(4)  int32_t lightmapID = -1;
+		alignas(4) uint32_t imageID = 0;
+		alignas(4) uint32_t padding3 = 0;
+
+		struct Bounds {
+			pod::Vector3f min = { std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max() };
+			alignas(4) float padding1 = 0;
+			pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
+			alignas(4) float padding2 = 0;
+		} bounds;
+	};
+
+	struct Primitive {
+		pod::DrawCommand drawCommand;
+		pod::Instance instance;
+	};
+}
+
 namespace uf {
 	struct UF_API Mesh {
 	public:
@@ -210,15 +252,6 @@ namespace uf {
 			_bind( interleave );
 		}
 	};
-
-	template<typename T, typename U = uint32_t>
-	struct UF_API Mesh_T {
-		typedef T vertex_t;
-		typedef U index_t;
-
-		uf::stl::vector<vertex_t> vertices;
-		uf::stl::vector<index_t> indices;
-	};
 }
 
 namespace ext {
@@ -349,5 +382,27 @@ namespace pod {
 		pod::Vector3f position;
 
 		static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+	};
+}
+
+namespace uf {
+	template<typename T = pod::Vertex_3F, typename U = ext::RENDERER::index_t>
+	struct UF_API Mesh_T {
+		typedef T vertex_t;
+		typedef U index_t;
+
+		uf::stl::vector<vertex_t> vertices;
+		uf::stl::vector<index_t> indices;
+		uf::stl::vector<pod::Primitive> primitives;
+	};
+
+	template<typename T = pod::Vertex_3F, typename U = ext::RENDERER::index_t>
+	struct UF_API Meshlet_T {
+		typedef T vertex_t;
+		typedef U index_t;
+
+		uf::stl::vector<vertex_t> vertices;
+		uf::stl::vector<index_t> indices;
+		pod::Primitive primitive;
 	};
 }

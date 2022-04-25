@@ -148,8 +148,8 @@ struct SurfaceMaterial {
 
 struct Surface {
 	uint pass;
-	vec2 uv;
-	vec2 st;
+	vec3 uv;
+	vec3 st;
 	Space position;
 	Space normal;
 	
@@ -161,6 +161,15 @@ struct Surface {
 	vec4 fragment;
 } surface;
 
+// MSAA info
+#if MULTISAMPLING
+struct MSAA {
+	int currentID;
+	uvec2 IDs[MAX_MSAA_SAMPLES];
+	vec4 fragment;
+	vec4 fragments[MAX_MSAA_SAMPLES];
+} msaa;
+#endif
 // VXGI stuff
 struct Vxgi {
 	mat4 matrix;

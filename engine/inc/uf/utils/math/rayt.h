@@ -1,10 +1,10 @@
 #pragma once
-
+#if 0
 #include <uf/config.h>
 #include <cstdint>
 
 namespace pod {
-	struct UF_API Primitive {
+	struct UF_API RTPrimitive {
 		static const uint32_t EMPTY = (uint32_t) -1; 
 		static const uint32_t CUBE = 1;
 		static const uint32_t LEAF = 2;
@@ -27,9 +27,10 @@ namespace pod {
 
 namespace uf {
 	namespace primitive {
-		uf::stl::vector<pod::Tree> UF_API populate( const uf::stl::vector<pod::Primitive>& cubes );
-		uf::stl::vector<pod::Tree> UF_API populateEntirely( const uf::stl::vector<pod::Primitive>& cubes );
+		uf::stl::vector<pod::Tree> UF_API populate( const uf::stl::vector<pod::RTPrimitive>& cubes );
+		uf::stl::vector<pod::Tree> UF_API populateEntirely( const uf::stl::vector<pod::RTPrimitive>& cubes );
 		uf::stl::vector<pod::Tree> UF_API populateEntirely( const uf::stl::vector<pod::Tree>& trees, bool = false );
-		void UF_API test( const uf::stl::vector<pod::Primitive>& cubes, const uf::stl::vector<pod::Tree>& trees );
+		void UF_API test( const uf::stl::vector<pod::RTPrimitive>& cubes, const uf::stl::vector<pod::Tree>& trees );
 	}
 }
+#endif
