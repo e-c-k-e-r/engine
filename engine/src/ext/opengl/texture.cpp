@@ -288,7 +288,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 			format = GL_RGB;
 		break;
 		case enums::Format::R4G4B4A4_UNORM_PACK16:
-		case enums::Format::R4G4B4A4_UNORM_PSRGB:
+	//	case enums::Format::R4G4B4A4_UNORM_PSRGB:
 			format = GL_RGBA;
 			type = GL_UNSIGNED_SHORT_4_4_4_4;
 		break;

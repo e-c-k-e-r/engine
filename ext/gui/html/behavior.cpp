@@ -1,3 +1,4 @@
+#include <uf/config.h>
 #if UF_USE_ULTRALIGHT
 #include "behavior.h"
 #include "../gui.h"

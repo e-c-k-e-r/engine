@@ -1,5 +1,5 @@
 #include <uf/config.h>
-
+#if UF_USE_GLTF
 #define TINYGLTF_IMPLEMENTATION
 
 #if UF_JSON_USE_NLOHMANN
@@ -504,3 +504,4 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) uf::graph::save( graph, filename );
 	return graph;
 }
+#endif

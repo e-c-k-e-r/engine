@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision/sphere.h>
 
 UF_API uf::SphereCollider::SphereCollider( float r, const pod::Vector3& origin ) {
@@ -47,3 +48,4 @@ pod::Collider::Manifold uf::SphereCollider::intersects( const uf::SphereCollider
 	manifold.colliding = true;
 	return manifold;
 }
+#endif

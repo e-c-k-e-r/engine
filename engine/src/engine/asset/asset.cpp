@@ -15,6 +15,7 @@
 #include <uf/utils/thread/thread.h>
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/gltf/gltf.h>
+#include <uf/engine/graph/graph.h>
 
 #include <mutex>
 
@@ -284,10 +285,12 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			UF_ASSET_REGISTER(uf::Serializer)
 			asset.readFromFile(filename);
 		} break;
+	#if UF_USE_LUA
 		case uf::Asset::Type::LUA: {
 			UF_ASSET_REGISTER(pod::LuaScript)
 			asset = ext::lua::script( filename );
 		} break;
+	#endif
 		case uf::Asset::Type::GRAPH: {
 			UF_ASSET_REGISTER(pod::Graph)
 			auto& metadata = this->getComponent<uf::Serializer>();

@@ -1,5 +1,6 @@
 #pragma once
 
+#if UF_USE_UNUSED
 #include "gjk.h"
 
 namespace uf {
@@ -25,3 +26,4 @@ namespace uf {
 		pod::Collider::Manifold intersects( const uf::BoundingBox& ) const;
 	};
 }
+#endif

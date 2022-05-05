@@ -30,6 +30,8 @@ KOS_INIT_FLAGS(INIT_DEFAULT | INIT_MALLOCSTATS);
 #endif
 
 namespace {
+	bool asyncParse = true;
+
 	struct {
 		maple_device_t* device = NULL;
 		kbd_state_t* state = NULL;
@@ -267,49 +269,7 @@ namespace {
 	}
 }
 
-UF_API_CALL spec::dreamcast::Window::Window() : 
-	m_handle 			(NULL),
-//	m_callback			(0),
-//	m_cursor			(NULL),
-//	m_icon				(NULL),
-	m_lastSize			({}),
-	m_keyRepeatEnabled	(true),
-	m_resizing			(false),
-	m_mouseInside		(false),
-	m_mouseGrabbed		(false),
-	m_syncParse			(true),
-	m_asyncParse		(false)
-{
-}
-UF_API_CALL spec::dreamcast::Window::Window( spec::dreamcast::Window::handle_t handle ) :
-	m_handle 			(handle),
-//	m_callback			(0),
-//	m_cursor			(NULL),
-//	m_icon				(NULL),
-	m_lastSize			({}),
-	m_keyRepeatEnabled	(true),
-	m_resizing			(false),
-	m_mouseInside		(false),
-	m_mouseGrabbed		(false),
-	m_syncParse			(true),
-	m_asyncParse		(false)
-{
-
-}
-UF_API_CALL spec::dreamcast::Window::Window( const spec::dreamcast::Window::vector_t& size, const spec::dreamcast::Window::title_t& title ) : 
-	m_handle 			(NULL),
-//	m_callback			(0),
-//	m_cursor			(NULL),
-//	m_icon				(NULL),
-	m_keyRepeatEnabled	(true),
-	m_resizing			(false),
-	m_mouseInside		(false),
-	m_mouseGrabbed		(false),
-	m_syncParse			(true),
-	m_asyncParse		(false)
-{
-	this->create(size, title);
-}
+UF_API_CALL spec::dreamcast::Window::Window() {}
 void UF_API_CALL spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
 	::keyboard.device = maple_enum_type(1, MAPLE_FUNC_KEYBOARD);
 
@@ -322,7 +282,7 @@ void UF_API_CALL spec::dreamcast::Window::terminate() {
 }
 
 spec::dreamcast::Window::handle_t UF_API_CALL spec::dreamcast::Window::getHandle() const {
-	return this->m_handle;
+	return NULL; // this->m_handle;
 }
 spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getPosition() const {
 	return { 0, 0 };
@@ -373,7 +333,7 @@ void UF_API_CALL spec::dreamcast::Window::setVisible( bool visibility ) {
 void UF_API_CALL spec::dreamcast::Window::setCursorVisible( bool visibility ) {
 }
 void UF_API_CALL spec::dreamcast::Window::setKeyRepeatEnabled( bool state ) {
-	this->m_keyRepeatEnabled = state;
+//	this->m_keyRepeatEnabled = state;
 }
 
 void UF_API_CALL spec::dreamcast::Window::requestFocus() {
@@ -506,7 +466,7 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 	if ( !::mouse.device ) ::mouse.device = maple_enum_type(0, MAPLE_FUNC_MOUSE);
 	if ( ::mouse.device ) ::mouse.state = (mouse_state_t*) maple_dev_status(::mouse.device);
 
-	/* Key inputs */ if ( this->m_asyncParse ) {
+	/* Key inputs */ if ( ::asyncParse ) {
 		uf::stl::vector<uint8_t> keys = GetKeys();
 		pod::payloads::windowKey event{
 			"window:Key",
@@ -594,7 +554,7 @@ void UF_API_CALL spec::dreamcast::Window::processEvent(/*UINT message, WPARAM wP
 void UF_API_CALL spec::dreamcast::Window::setTracking(bool state) {
 }
 void UF_API_CALL spec::dreamcast::Window::setMouseGrabbed(bool state) {
-	this->m_mouseGrabbed = state;
+//	this->m_mouseGrabbed = state;
 	this->grabMouse(state);
 }
 void UF_API_CALL spec::dreamcast::Window::grabMouse(bool state) {
@@ -602,7 +562,8 @@ void UF_API_CALL spec::dreamcast::Window::grabMouse(bool state) {
 pod::Vector2ui UF_API_CALL spec::dreamcast::Window::getResolution() {
 	return ::resolution;
 }
-void UF_API_CALL spec::dreamcast::Window::switchToFullscreen( bool borderless ) {
+
+void UF_API_CALL spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
 }
 
 bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {

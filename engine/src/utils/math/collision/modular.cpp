@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision/modular.h>
 
 UF_API uf::ModularCollider::ModularCollider( uint len, pod::Vector3* container, bool should_free, const uf::ModularCollider::function_expand_t& expand, const uf::ModularCollider::function_support_t& support  ) {
@@ -53,3 +54,4 @@ pod::Vector3 UF_API uf::ModularCollider::support( const pod::Vector3& direction 
 	}
 	return points[best.i];
 }
+#endif

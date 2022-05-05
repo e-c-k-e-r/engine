@@ -271,7 +271,9 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 	const uf::stl::string extension = uf::io::extension( filename );
+#if UF_USE_GLTF
 	if ( extension == "glb" || extension == "gltf" ) return ext::gltf::load( filename, metadata );
+#endif
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
 	pod::Graph graph;
 	uf::Serializer serializer;

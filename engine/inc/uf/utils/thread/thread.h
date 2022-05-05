@@ -9,6 +9,8 @@
 
 #include <uf/utils/memory/vector.h>
 #include <uf/utils/memory/string.h>
+#include <uf/utils/memory/map.h>
+#include <uf/utils/memory/unordered_map.h>
 #include <uf/utils/memory/queue.h>
 
 #include <functional>

@@ -236,11 +236,13 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		/*.filename = */directory + "/graph.json",
 	};
 	if ( !settings.combined ) uf::io::mkdir(directory);
+#if UF_USE_XATLAS
 	if ( settings.unwrap ) {
 		pod::Graph& g = const_cast<pod::Graph&>(graph);
 		auto size = ext::xatlas::unwrap( g );
 		serializer["wrapped"] = uf::vector::encode( size );
 	}
+#endif
 
 	pod::Thread::container_t jobs;
 	jobs.emplace_back([&]{

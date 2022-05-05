@@ -1,5 +1,6 @@
 #pragma once
 
+#if UF_USE_UNUSED
 #include "gjk.h"
 #include <functional>
 
@@ -32,3 +33,4 @@ namespace uf {
 		virtual pod::Vector3 support( const pod::Vector3& ) const;
 	};
 }
+#endif

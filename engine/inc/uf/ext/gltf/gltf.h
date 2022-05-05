@@ -1,5 +1,9 @@
 #pragma once
 
+#include <uf/config.h>
+
+#if UF_USE_GLTF
+
 #include <uf/engine/graph/graph.h>
 #include <uf/engine/object/object.h>
 
@@ -9,3 +13,4 @@ namespace ext {
 		void UF_API save( const uf::stl::string&, const pod::Graph& );
 	}
 }
+#endif

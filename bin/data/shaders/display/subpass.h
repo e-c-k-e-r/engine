@@ -41,7 +41,7 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 
 #include "../common/structs.h"
 
-layout (binding = 4) uniform UBO {
+layout (binding = 5) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Mode mode;
@@ -67,30 +67,30 @@ layout (binding = 4) uniform UBO {
 	uint padding3;
 } ubo;
 /*
-layout (std140, binding = 5) readonly buffer DrawCommands {
+layout (std140, binding = 6) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
 */
-layout (std140, binding = 5) readonly buffer Instances {
+layout (std140, binding = 6) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 6) readonly buffer Materials {
+layout (std140, binding = 7) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 7) readonly buffer Textures {
+layout (std140, binding = 8) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 8) readonly buffer Lights {
+layout (std140, binding = 9) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 10) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 11) uniform sampler3D samplerNoise;
+layout (binding = 10) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 11) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 12) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 12) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 13) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 14) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 13) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 14) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 15) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;
@@ -210,10 +210,10 @@ void populateSurface() {
 	{
 	#if !MULTISAMPLING
 		const vec4 uv = subpassLoad(samplerUv);
-		const vec2 mips = vec2(0); // subpassLoad(samplerMips).xy;
+		const vec2 mips = subpassLoad(samplerMips).xy;
 	#else
 		const vec4 uv = subpassLoad(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.msaa);
-		const vec2 mips = vec2(0); // subpassLoad(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.msaa);
+		const vec2 mips = subpassLoad(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.msaa);
 	#endif
 		surface.uv.xy = uv.xy;
 		surface.uv.z = mips.x;

@@ -3,8 +3,7 @@ CDIR 				=
 CC 					= gcc
 CXX 				= $(KOS_CCPLUS)
 TARGET_EXTENSION 	= elf
-# no flto because it throws an error "undefined reference to `typeinfo for btPolyhedralConvexShape'"
-OPTIMIZATIONS 		= -O3 -fstrict-aliasing -ffast-math -DUF_NO_EXCEPTIONS # -flto 
+OPTIMIZATIONS 		= -Os -fstrict-aliasing -ffast-math -flto -DUF_NO_EXCEPTIONS -fno-unroll-all-loops -fno-optimize-sibling-calls -fschedule-insns2 -fomit-frame-pointer
 WARNINGS 			= -Wno-attributes -Wno-conversion-null
 FLAGS 				+= $(KOS_CPPFLAGS) -std=c++17 $(OPTIMIZATIONS) $(WARNINGS) -fdiagnostics-color=always 
 INCS 				+= $(KOS_INC_PATHS) -I/opt/dreamcast/sh-elf/sh-elf/include

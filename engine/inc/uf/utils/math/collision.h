@@ -1,7 +1,7 @@
 #pragma once
 
 #include <uf/config.h>
-
+#if UF_USE_UNUSED
 #include "./collision/gjk.h"
 #include "./collision/boundingbox.h"
 #include "./collision/sphere.h"
@@ -28,3 +28,4 @@ namespace uf {
 		uf::stl::vector<pod::Collider::Manifold> intersects( const pod::Collider&, bool = false ) const;
 	};
 }
+#endif

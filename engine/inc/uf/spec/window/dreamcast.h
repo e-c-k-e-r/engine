@@ -9,26 +9,9 @@ namespace spec {
 	namespace dreamcast {
 		class UF_API Window : public spec::uni::Window {
 		public:
-			typedef size_t 							handle_t;
-		protected:
-			spec::dreamcast::Window::handle_t 		m_handle;
-		//	size_t									m_cursor;
-		//	size_t 									m_icon;
-			
-			spec::dreamcast::Window::vector_t 		m_lastSize;
-			bool 									m_keyRepeatEnabled;
-			bool 									m_resizing;
-			bool 									m_mouseInside;
-			bool 									m_mouseGrabbed;
-			uint16_t 								m_surrogate;
-			bool 									m_syncParse;
-			bool 									m_asyncParse;
-		public:
 		// 	C-tors
 			UF_API Window();
-			UF_API Window( spec::dreamcast::Window::handle_t );
-			UF_API Window( const spec::dreamcast::Window::vector_t& size, const spec::dreamcast::Window::title_t& title = L"Window" );
-			/*virtual*/ void UF_API create( const spec::dreamcast::Window::vector_t& size, const spec::dreamcast::Window::title_t& title = L"Window" );
+			/*virtual*/ void UF_API create( const spec::dreamcast::Window::vector_t& size, const spec::dreamcast::Window::title_t& title = "" );
 		// 	D-tors
 			/*virtual*/ ~Window();
 			void UF_API terminate();

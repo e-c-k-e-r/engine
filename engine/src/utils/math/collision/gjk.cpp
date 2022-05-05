@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision/gjk.h>
 
 /*
@@ -245,3 +246,4 @@ const pod::Transform<>& pod::Collider::getTransform() const {
 void pod::Collider::setTransform( const pod::Transform<>& transform ) {
 	this->m_transform = transform;
 }
+#endif

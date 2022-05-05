@@ -201,11 +201,7 @@ void EXT_API ext::initialize() {
 	}
 	{
 		uf::Mesh::defaultInterleaved = ::json["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
-	#if 0 && UF_USE_OPENGL
-		uf::matrix::reverseInfiniteProjection = false;
-	#else
 		uf::matrix::reverseInfiniteProjection = ::json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
-	#endif
 	}
 
 	/* Create initial scene (kludge) */ {
@@ -357,7 +353,8 @@ void EXT_API ext::initialize() {
 			if ( filter == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = uf::renderer::enums::Filter::NEAREST;
 			else if ( filter == "linear" ) uf::renderer::settings::swapchainUpscaleFilter = uf::renderer::enums::Filter::LINEAR;
 		}
-		
+
+	#if UF_USE_VULKAN
 		for ( int i = 0; i < configRenderJson["validation"]["filters"].size(); ++i ) {
 			uf::renderer::settings::validationFilters.emplace_back( configRenderJson["validation"]["filters"][i].as<uf::stl::string>() );
 		}
@@ -385,7 +382,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::experimental::deferredSampling = configRenderExperimentalJson["deferred sampling"].as( uf::renderer::settings::experimental::deferredSampling );
 		uf::renderer::settings::experimental::culling = configRenderExperimentalJson["culling"].as( uf::renderer::settings::experimental::culling );
 		uf::renderer::settings::experimental::bloom = configRenderExperimentalJson["bloom"].as( uf::renderer::settings::experimental::bloom );
-	
+
 	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = configRenderJson["formats"][#key].as<uf::stl::string>();\
 			format = uf::string::replace( uf::string::uppercase(format), " ", "_" );\
@@ -396,6 +393,7 @@ void EXT_API ext::initialize() {
 		JSON_TO_VKFORMAT(depth);
 		JSON_TO_VKFORMAT(normal);
 		JSON_TO_VKFORMAT(position);
+	#endif
 	}
 
 	/* Init controllers */ {
@@ -418,6 +416,7 @@ void EXT_API ext::initialize() {
 	/* Physics */ {
 		uf::physics::initialize();
 	}
+
 #if UF_USE_OPENVR
 	{	
 		auto& configVrJson = ::json["engine"]["ext"]["vr"];

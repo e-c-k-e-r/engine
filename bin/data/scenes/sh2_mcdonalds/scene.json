@@ -26,9 +26,9 @@
 		},
 		"bloom": {
 			"scale": 1.0,
-			"strength": 0.125,
-			"sigma": 0.75,
-			"samples": 8
+			"strength": 1.0,
+			"sigma": 2.0,
+			"samples": 2
 		},
 		"light": {
 			"exposure": 1.0,

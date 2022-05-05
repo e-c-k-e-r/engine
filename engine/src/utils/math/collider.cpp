@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision.h>
 #include <uf/utils/math/collision/gjk.h>
 #include <uf/utils/math/collision/boundingbox.h>
@@ -60,3 +61,4 @@ uf::stl::vector<pod::Collider::Manifold> UF_API uf::Collider::intersects( const 
 	}
 	return manifolds;
 }
+#endif

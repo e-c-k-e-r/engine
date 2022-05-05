@@ -4,6 +4,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/window/payloads.h>
 #include <uf/utils/io/inputs.h>
+#include <uf/utils/string/ext.h>
 
 #define UF_HOOK_USE_USERDATA 1
 #define UF_HOOK_USE_JSON 0

@@ -1,17 +1,17 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "SS2",
 			"meshes": { "interleave": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": {
-				"max": 24,
+				"max": 12,
 				"enabled": true
 			},
 			"shadows": {
 				"enabled": true,
 				"update": 4,
-				"max": 12,
+				"max": 6,
 				"samples": 2,
 				"experimental mode": 1
 			},		
@@ -26,8 +26,8 @@
 				"limiter": 2,
 				"size": 96,
 				"dispatch": 8,
-				"cascades": 4,
-				"cascadePower": 2,
+				"cascades": 2,
+				"cascadePower": 4,
 				"shadows": 0,
 				"granularity": 4,
 				"extents": {
@@ -64,7 +64,7 @@
 				//	"size": [ 1280, 720 ],
 				//	"size": [ 960, 540 ],
 				//	"size": [ 640, 480 ],
-					"msaa": 0
+					"msaa": 1
 				},
 				"experimental": {
 					"rebuild on tick begin": false,
@@ -75,10 +75,10 @@
 					"deferred mode": "",
 					"deferred reconstruct position": true,
 					"deferred alias output to swapchain": false,
-					"vsync": true,
-					"hdr": true,
+					"vsync": false,
+					"hdr": false,
 					"vxgi": true,
-					"deferred sampling": true, // broken for some scenes
+					"deferred sampling": true,
 					"culling": true,
 					"bloom": false
 				},
@@ -244,12 +244,12 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 1, 1 ]
+			"sensitivity": [ 0.5, 0.5 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-	//	"size" :  [ 1920, 1080 ],
-		"size" :  [ 1280, 720 ],
+		"size" :  [ 1920, 1080 ],
+	//	"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],

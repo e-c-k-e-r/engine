@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision/boundingbox.h>
 
 UF_API uf::BoundingBox::BoundingBox( const pod::Vector3& origin, const pod::Vector3& corner ) {
@@ -155,3 +156,4 @@ pod::Collider::Manifold UF_API uf::BoundingBox::intersects( const uf::BoundingBo
 */
 	return manifold;
 }
+#endif

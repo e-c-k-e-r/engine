@@ -2,7 +2,7 @@
 
 ext::Ncurses ext::ncurses;
 
-#if defined(UF_USE_NCURSES)
+#if UF_USE_NCURSES
 #include <ncursesw/ncurses.h>
 #include <uf/spec/terminal/terminal.h>
 #include <locale.h>

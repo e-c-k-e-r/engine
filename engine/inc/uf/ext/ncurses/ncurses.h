@@ -1,7 +1,7 @@
 #pragma once
-
 #include <uf/config.h>
 
+#if !UF_USE_NCURSES
 #include <uf/utils/memory/string.h>
 
 namespace ext {
@@ -52,3 +52,4 @@ namespace ext {
 	};
 	extern UF_API ext::Ncurses ncurses;
 }
+#endif

@@ -1,3 +1,6 @@
+#include <uf/config.h>
+#if !UF_ENV_DREAMCAST
+
 #include "behavior.h"
 
 #include <uf/utils/renderer/renderer.h>
@@ -267,3 +270,4 @@ void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}
 void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){}
 #undef this
+#endif

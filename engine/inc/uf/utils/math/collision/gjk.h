@@ -2,6 +2,7 @@
 
 #include <uf/config.h>
 
+#if UF_USE_UNUSED
 #include <uf/utils/math/vector.h>
 #include <uf/utils/math/transform.h>
 
@@ -86,3 +87,4 @@ namespace pod {
 		void setTransform( const pod::Transform<>& );
 	};
 }
+#endif

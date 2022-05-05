@@ -1,3 +1,4 @@
+#if UF_USE_UNUSED
 #include <uf/utils/math/collision/mesh.h>
 
 uf::MeshCollider::MeshCollider( const pod::Transform<>& transform, const uf::stl::vector<pod::Vector3>& positions ) : m_positions(positions) {
@@ -40,3 +41,4 @@ pod::Vector3 uf::MeshCollider::support( const pod::Vector3& direction ) const {
 	}
 	return points[best.i];
 }
+#endif

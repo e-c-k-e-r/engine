@@ -205,6 +205,12 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	{
 		if ( ext::json::isObject( json["physics"] ) && !this->hasComponent<pod::Physics>() ) {
 			auto& physics = this->getComponent<pod::Physics>();
+			physics.linear.velocity = uf::vector::decode( json["physics"]["linear"]["velocity"], physics.linear.velocity );
+			physics.linear.acceleration = uf::vector::decode( json["physics"]["linear"]["acceleration"], physics.linear.acceleration );
+			physics.rotational.velocity = uf::vector::decode( json["physics"]["rotational"]["velocity"], physics.rotational.velocity );
+			physics.rotational.acceleration = uf::vector::decode( json["physics"]["rotational"]["acceleration"], physics.rotational.acceleration );
+
+		/*
 			if ( ext::json::isArray( json["physics"]["linear"]["velocity"] ) )
 				for ( size_t j = 0; j < 3; ++j )
 					physics.linear.velocity[j] = json["physics"]["linear"]["velocity"][j].as<float>();
@@ -218,9 +224,58 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			if ( ext::json::isArray( json["physics"]["rotational"]["acceleration"] ) )
 				for ( size_t j = 0; j < 4; ++j )
 					physics.rotational.acceleration[j] = json["physics"]["rotational"]["acceleration"][j].as<float>();
+		*/
 		}
 	}
 
+	#define ASSET_ENTRY(type) { uf::string::lowercase(#type), uf::Asset::Type::type }
+	const uf::stl::unordered_map<uf::stl::string, uf::Asset::Type> assets = {
+		ASSET_ENTRY(AUDIO),
+		ASSET_ENTRY(IMAGE),
+		ASSET_ENTRY(GRAPH),
+		ASSET_ENTRY(LUA),
+	};
+
+	for ( auto& pair : assets  ) {
+		auto& assetType = pair.second;
+		auto& assetTypeString = pair.first;
+
+		uf::Serializer target;
+		bool override = false;
+		if ( ext::json::isObject( metadataJson["system"]["assets"] ) ) {
+			target = metadataJson["system"]["assets"];
+		} else if ( ext::json::isArray( json["assets"] ) ) {
+			target = json["assets"];
+		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][assetTypeString] )  ) {
+			target = json["assets"][assetTypeString];
+		}
+
+		for ( size_t i = 0; i < target.size(); ++i ) {
+			bool isObject = ext::json::isObject( target[i] );
+			uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
+			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
+			uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";
+			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
+			if ( !uf::Asset::isExpected( payload, assetType ) ) continue;
+			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
+			payload.monoThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;
+			this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );
+			bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;
+
+			switch ( assetType ) {
+				case uf::Asset::Type::LUA: {
+					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
+				} break;
+				case uf::Asset::Type::GRAPH: {
+					auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
+					aMetadata[filename] = json["metadata"]["model"];
+					aMetadata[filename]["root"] = json["root"];
+					if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
+				} break;
+			}
+		}
+	}
+/*
 	#define UF_OBJECT_LOAD_ASSET_HEADER(type)\
 		uf::Asset::Type assetType = uf::Asset::Type::type;\
 		uf::stl::string assetTypeString = uf::string::lowercase( #type );\
@@ -276,6 +331,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 		}
 	}
+*/
 
 	// Bind behaviors
 	{
@@ -307,7 +363,15 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 
 	// check for children
 	{
-		UF_OBJECT_LOAD_ASSET_HEADER(JSON)
+		uf::Serializer target;
+		bool override = false;
+		if ( ext::json::isObject( metadataJson["system"]["assets"] ) ) {
+			target = metadataJson["system"]["assets"];
+		} else if ( ext::json::isArray( json["assets"] ) ) {
+			target = json["assets"];
+		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"]["json"] )  ) {
+			target = json["assets"]["json"];
+		}
 		for ( size_t i = 0; i < target.size(); ++i ) {
 			uf::stl::string f = ext::json::isObject( target[i] ) ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
 			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
@@ -339,6 +403,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		}
 	}
 	// Add lights
+#if UF_USE_UNUSED
 	if ( ext::json::isArray( metadataJson["system"]["lights"] ) ) {
 		uf::Serializer target = metadataJson["system"]["lights"];
 		auto& pTransform = this->getComponent<pod::Transform<>>();
@@ -357,7 +422,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			light->initialize();
 		}
 	}
-
+#endif
 	return true;
 }
 uf::Object& uf::Object::loadChild( const uf::stl::string& f, bool initialize ) {

@@ -1,9 +1,8 @@
 #include <uf/ext/xatlas/xatlas.h>
 #if UF_USE_XATLAS
-	#include <xatlas/xatlas.h>
-#endif
+#include <xatlas/xatlas.h>
+
 pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
-#if UF_USE_XATLAS
 	struct Pair {
 		size_t index = 0;
 		size_t command = 0;
@@ -261,96 +260,9 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		mesh.updateDescriptor();
 	}
 
-#if 0
-		for ( auto i = 0; i < atlas->meshCount; i++ ) {
-		auto& xmesh = atlas->meshes[i];
-		auto& entry = entries[i];
-		auto& name = graph.meshes[entry.index];
-		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
-		auto& source = sources[entry.index];
-
-		uf::Mesh::Input vertexInput = mesh.vertex;
-
-		uf::Mesh::Attribute positionAttribute;
-		uf::Mesh::Attribute uvAttribute;
-		uf::Mesh::Attribute stAttribute;
-
-		for ( auto& attribute : mesh.vertex.attributes ) {
-			if ( attribute.descriptor.name == "position" ) positionAttribute = attribute;
-			else if ( attribute.descriptor.name == "uv" ) uvAttribute = attribute;
-			else if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
-		}
-		UF_ASSERT( positionAttribute.descriptor.name == "position" && uvAttribute.descriptor.name == "uv" && stAttribute.descriptor.name == "st" );
-
-		if ( mesh.index.count ) {
-			uf::Mesh::Input indexInput = mesh.index;
-			uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
-
-			::xatlas::IndexFormat indexType = ::xatlas::IndexFormat::UInt32;
-			switch ( mesh.index.size ) {
-				case sizeof(uint16_t): indexType = ::xatlas::IndexFormat::UInt16; break;
-				case sizeof(uint32_t): indexType = ::xatlas::IndexFormat::UInt32; break;
-				default: UF_EXCEPTION("unsupported index type"); break;
-			}
-
-			if ( mesh.indirect.count ) {
-				for ( auto v = 0; v < xmesh.vertexCount; ++v ) {
-					auto& vertex = xmesh.vertexArray[v];
-					auto ref = vertex.xref;
-
-					vertexInput = mesh.remapVertexInput( entry.command );
-
-					for ( size_t _ = 0; _ < vertexInput.attributes.size(); ++_ ) {
-						auto& srcAttribute = source.vertex.attributes[_];
-						auto& dstAttribute = mesh.vertex.attributes[_];
-
-						memcpy( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (vertexInput.first + v), static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
-					}
-					
-					pod::Vector2f& st = *(pod::Vector2f*) (static_cast<uint8_t*>(stAttribute.pointer) + stAttribute.stride * (vertexInput.first + v));
-					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height  };
-				}
-				// indices
-
-				indexInput = mesh.remapIndexInput( entry.command );
-				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
-					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-					}
-				}
-			} else {
-				for ( auto v = 0; v < xmesh.vertexCount; ++v ) {
-					auto& vertex = xmesh.vertexArray[v];
-					auto ref = vertex.xref;
-
-					for ( size_t _ = 0; _ < vertexInput.attributes.size(); ++_ ) {
-						auto& srcAttribute = source.vertex.attributes[_];
-						auto& dstAttribute = mesh.vertex.attributes[_];
-
-						memcpy( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (vertexInput.first + v), static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (vertexInput.first + ref), srcAttribute.stride );
-					}
-					
-					pod::Vector2f& st = *(pod::Vector2f*) (static_cast<uint8_t*>(stAttribute.pointer) + stAttribute.stride * (vertexInput.first + v));
-					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height  };
-				}
-
-				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
-					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first)[index] = xmesh.indexArray[index]; break;
-					}
-				}
-			}
-		} else UF_EXCEPTION("to-do: not require indices for meshes");
-	}
-#endif
-
 	pod::Vector2ui size = pod::Vector2ui{ atlas->width, atlas->height };
 	::xatlas::Destroy(atlas);
 	
 	return size;
-#endif
 }
+#endif

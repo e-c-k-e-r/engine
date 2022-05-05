@@ -29,6 +29,7 @@ namespace ext {
 				size_t textures3D = 1;
 				size_t lights = 1024;
 				size_t shadows = 1024;
+				size_t layers = 1;
 			} max;
 			struct {
 				size_t lights = 0;

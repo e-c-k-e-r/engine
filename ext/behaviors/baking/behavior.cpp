@@ -1,3 +1,5 @@
+#include <uf/config.h>
+#if !UF_ENV_DREAMCAST
 #include "behavior.h"
 
 #include <uf/utils/renderer/renderer.h>
@@ -44,6 +46,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			metadata.size = { metadataJson["baking"]["resolution"].as<size_t>(), metadataJson["baking"]["resolution"].as<size_t>() };
 
 		metadata.max.shadows = metadataJson["baking"]["shadows"].as<size_t>(metadata.max.shadows);
+		metadata.max.layers = metadataJson["baking"]["layers"].as<size_t>(metadata.max.layers);
 
 		metadata.cull = metadataJson["baking"]["cull"].as<bool>();
 
@@ -54,6 +57,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.type = "single";
 		renderMode.metadata.pipeline = "baking";
 		renderMode.metadata.samples = 1;
+	//	renderMode.metadata.layers = metadata.max.layers;
 		renderMode.metadata.json["descriptor"]["cull mode"] = "none";
 
 		renderMode.width = metadata.size.x;
@@ -154,3 +158,4 @@ void ext::BakingBehavior::destroy( uf::Object& self ){
 void ext::BakingBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
 void ext::BakingBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
 #undef this
+#endif
