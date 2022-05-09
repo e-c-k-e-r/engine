@@ -210,13 +210,25 @@ void ext::opengl::Texture::fromBuffers(
 	this->initialize(device, viewType, texWidth, texHeight, texDepth, layers);
 	this->format = format;
 
-#if !UF_ENV_DREAMCAST
+#if UF_ENV_DREAMCAST
+	if ( internalFormat > 0 ) {
+		this->mips = 0;
+	}
+#endif
+
 	if ( this->mips == 0 ) {
 		this->mips = 1;
 	} else if ( this->depth == 1 ) {
 		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 	}
-#endif
+
+	if ( this->mips > 1 ) {
+		switch ( sampler.descriptor.filter.min ) {
+			case GL_LINEAR: sampler.descriptor.filter.min = GL_LINEAR_MIPMAP_LINEAR; break;
+			case GL_NEAREST: sampler.descriptor.filter.min = GL_NEAREST_MIPMAP_NEAREST; break;
+		}
+	}
+
 	// Create sampler
 	sampler.descriptor.mip.min = 0;
 	sampler.descriptor.mip.max = static_cast<float>(this->mips);
@@ -267,6 +279,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 	GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glBindTexture(viewType, image));
 		GL_ERROR_CHECK(glCompressedTexImage2DARB( viewType, 0, internalFormat, width, height, 0, bufferSize, data));
+		if ( this->mips > 1 ) GL_ERROR_CHECK(glGenerateMipmapEXT(GL_TEXTURE_2D));
 		GL_ERROR_CHECK(glBindTexture(viewType, 0));
 	GL_MUTEX_UNLOCK();
 		return;
@@ -305,6 +318,7 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 		case enums::Image::VIEW_TYPE_3D: { GL_ERROR_CHECK(glTexImage3D(viewType, 0, format, width, height, depth, 0, format, type, data)); } break;
 	#endif
 	}
+	if ( this->mips > 1 ) GL_ERROR_CHECK(glGenerateMipmapEXT(GL_TEXTURE_2D));
 	GL_ERROR_CHECK(glBindTexture(viewType, 0));
 	GL_MUTEX_UNLOCK();
 }

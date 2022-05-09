@@ -93,9 +93,11 @@ int main(int argc, char** argv){
 		*/
 		#if UF_ENV_DREAMCAST
 		//	UF_TIMER_MULTITRACE_START("Starting");
-			ext::render();
-		//	UF_TIMER_MULTITRACE("render");
 			ext::tick();
+			client::tick();
+		//	UF_TIMER_MULTITRACE("render");
+			ext::render();
+			client::render();
 		//	UF_TIMER_MULTITRACE("tick");
 		//	UF_TIMER_MULTITRACE_END("Finished");
 		#else

@@ -8,7 +8,6 @@
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
-	
 	//	{ "filename": "./craeture.json", "delay": 1 }
 
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
@@ -22,26 +21,17 @@
 	"metadata": {
 		"model": {
 			"exporter": {
-				"enabled": true
+				"enabled": false
 			},
 			"baking": {
 				"enabled": false,
-				"resolution": 2048, // 8192
+				"resolution": 8192,
 				"shadows": 1024,
-				"layers": 22,
 				"trigger": { "mode": "rendered" },
-			//	"trigger": { "mode": "key", "value": "B" },
-				"output": "./lightmap.%i.png"
+				"output": "./lightmap.png"
 			},
-			"grid": {
-				"/^worldspawn/": {
-					"size": [3,3,3]
-				}
-			},
-//			"lightmap": "./lightmap.%i.min.png",
-//			"lightmap": false,
-			"lightmap": true,
-			"filter": "LINEAR",
+		//	"lightmap": "./lightmap.min.png",
+			"filter": "NEAREST",
 			"tags": {
 				"worldspawn": {  "physics": { "type": "mesh", "static": true } },
 				"worldspawn_20": {  "physics": { "type": "mesh", "static": true } },

@@ -6,6 +6,9 @@
 #include <uf/utils/io/inputs.h>
 #include <uf/utils/string/ext.h>
 
+#define UF_OPENGL_CONTEXT_IN_WINDOW 0
+#include <uf/spec/context/context.h>
+
 #define UF_HOOK_USE_USERDATA 1
 #define UF_HOOK_USE_JSON 0
 
@@ -421,6 +424,7 @@ namespace {
 
 UF_API_CALL spec::win32::Window::Window() : 
 	m_handle 			(NULL),
+	m_context 			(NULL),
 	m_callback			(0),
 	m_cursor			(NULL),
 	m_icon				(NULL),
@@ -453,6 +457,7 @@ UF_API_CALL spec::win32::Window::Window( spec::win32::Window::handle_t handle ) 
 }
 UF_API_CALL spec::win32::Window::Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title ) : 
 	m_handle 			(NULL),
+	m_context 			(NULL),
 	m_callback			(0),
 	m_cursor			(NULL),
 	m_icon				(NULL),
@@ -506,6 +511,10 @@ void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_
 	// m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&::globalOnEvent));
 
 	++windowCount;
+
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
+	this->m_context = (void*) spec::uni::Context::create( settings, *this );
+#endif
 }
 
 spec::win32::Window::~Window() {
@@ -516,6 +525,15 @@ spec::win32::Window::~Window() {
 	} else {
 		SetWindowLongPtrW( this->m_handle, GWLP_WNDPROC, this->m_callback );
 	}
+
+#if UF_OPENGL_CONTEXT_IN_WINDOW
+	if ( this->m_context ) {
+		spec::Context* context = (spec::Context*) this->m_context;
+		context->terminate();
+		delete context;
+		this->m_context = NULL;
+	}
+#endif
 }
 void UF_API_CALL spec::win32::Window::terminate() {
 	if ( this == (spec::win32::Window*) fullscreenWindow ) {
@@ -663,6 +681,8 @@ bool UF_API_CALL spec::win32::Window::hasFocus() const {
 }
 
 void UF_API_CALL spec::win32::Window::bufferInputs() {
+	uf::Window::focused = this->hasFocus();
+
 	uf::inputs::kbm::states::LShift = GetAsyncKeyState(VK_LSHIFT) & 0x8000;
 	uf::inputs::kbm::states::RShift = GetAsyncKeyState(VK_RSHIFT) & 0x8000;
 
@@ -1450,7 +1470,7 @@ void UF_API_CALL spec::win32::Window::toggleFullscreen( bool borderless ) {
 }
 
 bool UF_API_CALL spec::win32::Window::isKeyPressed(const uf::stl::string& key) {
-	return GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000;
+	return uf::Window::focused && (GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000);
 }
 uf::stl::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 	return GetKeyName( key, flags );
@@ -1469,4 +1489,14 @@ void UF_API_CALL spec::win32::Window::createSurface( VkInstance instance, VkSurf
 	vkCreateWin32SurfaceKHR( instance, &surfaceCreateInfo, nullptr, &surface);
 }
 #endif
+
+void UF_API_CALL spec::win32::Window::display() {
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
+	if ( this->m_context ){
+		spec::Context* context = (spec::Context*) this->m_context;
+		if ( context->setActive(true) ) context->display();
+	}
+#endif
+}
+
 #endif

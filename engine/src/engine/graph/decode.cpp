@@ -142,6 +142,7 @@ namespace {
 		instance.materialID = json["materialID"].as( instance.materialID );
 		instance.primitiveID = json["primitiveID"].as( instance.primitiveID );
 		instance.meshID = json["meshID"].as( instance.meshID );
+		instance.auxID = json["auxID"].as( instance.auxID );
 		instance.objectID = json["objectID"].as( instance.objectID );
 		instance.bounds.min = uf::vector::decode( json["bounds"]["min"], instance.bounds.min );
 		instance.bounds.max = uf::vector::decode( json["bounds"]["max"], instance.bounds.max );
@@ -155,8 +156,8 @@ namespace {
 		drawCommand.indexID = json["indexID"].as( drawCommand.indexID );
 		drawCommand.vertexID = json["vertexID"].as( drawCommand.vertexID );
 		drawCommand.instanceID = json["instanceID"].as( drawCommand.instanceID );
-	//	drawCommand.padding1 = json["padding1"].as( drawCommand.padding1 );
-	//	drawCommand.padding2 = json["padding2"].as( drawCommand.padding2 );
+		drawCommand.auxID = json["auxID"].as( drawCommand.auxID );
+		drawCommand.materialID = json["materialID"].as( drawCommand.materialID );
 		drawCommand.vertices = json["vertices"].as( drawCommand.vertices );
 		return drawCommand;
 	}
@@ -225,12 +226,14 @@ namespace {
 
 		// remove extraneous buffers
 	#if UF_USE_OPENGL
+	/*
 		for ( auto& attribute : mesh.vertex.attributes ) {
 			if ( attribute.descriptor.name == "position" ) continue;
 			if ( attribute.descriptor.name == "color" ) continue;
 			if ( attribute.descriptor.name == "uv" ) continue;
 			if ( attribute.descriptor.name == "st" ) continue;
 		}
+	*/
 	#endif
 
 		mesh.updateDescriptor();
@@ -293,6 +296,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			auto name = value["name"].as<uf::stl::string>();
 			/*graph.storage*/uf::graph::storage.instances[name] = decodeInstance( value, graph );
 			graph.instances.emplace_back(name);
+			UF_MSG_DEBUG( name );
 		});
 	});
 	jobs.emplace_back([&]{
@@ -436,5 +440,10 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		}
 	}
 	UF_DEBUG_TIMER_MULTITRACE_END("Processing graph...");
+
+#if UF_ENV_DREAMCAST
+	DC_STATS();
+#endif
+
 	return graph;
 }

@@ -364,6 +364,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		
 		uf::stl::vector<VkDescriptorImageInfo> image;
 		uf::stl::vector<VkDescriptorImageInfo> image2D;
+		uf::stl::vector<VkDescriptorImageInfo> image2DA;
 		uf::stl::vector<VkDescriptorImageInfo> imageCube;
 		uf::stl::vector<VkDescriptorImageInfo> image3D;
 		uf::stl::vector<VkDescriptorImageInfo> imageUnknown;
@@ -393,6 +394,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			infos.image.emplace_back(texture.descriptor);
 			switch ( texture.viewType ) {
 				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
+				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;
 				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;
 				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;
 				default: infos.imageUnknown.emplace_back(texture.descriptor); break;
@@ -424,6 +426,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		}
 		
 		size_t maxTextures2D = 0;
+		size_t maxTextures2DA = 0;
 		size_t maxTextures3D = 0;
 		size_t maxTexturesCube = 0;
 		size_t maxTexturesUnknown = 0;
@@ -431,10 +434,12 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			if ( type == ext::vulkan::enums::Image::VIEW_TYPE_3D ) ++maxTextures3D;
 			else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) ++maxTexturesCube;
 			else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_2D ) ++maxTextures2D;
+			else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY ) ++maxTextures2DA;
 			else ++maxTexturesUnknown;
 		}
 
 		while ( infos.image2D.size() < maxTextures2D ) infos.image2D.emplace_back(Texture2D::empty.descriptor);
+		while ( infos.image2DA.size() < maxTextures2DA ) infos.image2DA.emplace_back(Texture2D::empty.descriptor);
 		while ( infos.imageCube.size() < maxTexturesCube ) infos.imageCube.emplace_back(TextureCube::empty.descriptor);
 		while ( infos.image3D.size() < maxTextures3D ) infos.image3D.emplace_back(Texture3D::empty.descriptor);
 		while ( infos.imageUnknown.size() < maxTexturesUnknown ) infos.imageUnknown.emplace_back(Texture2D::empty.descriptor);
@@ -452,6 +457,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		
 		auto imageInfo = infos.image.begin();
 		auto image2DInfo = infos.image2D.begin();
+		auto image2DAInfo = infos.image2DA.begin();
 		auto imageCubeInfo = infos.imageCube.begin();
 		auto image3DInfo = infos.image3D.begin();
 		auto imageUnknownInfo = infos.imageUnknown.begin();
@@ -476,6 +482,16 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 							layout.descriptorCount
 						));
 						image2DInfo += layout.descriptorCount;
+					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY ) {
+						UF_ASSERT_BREAK_MSG( image2DAInfo != infos.image2DA.end(), "Filename: " << shader->filename << "\tCount: " << layout.descriptorCount )
+						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
+							descriptorSet,
+							layout.descriptorType,
+							layout.binding,
+							&(*image2DAInfo),
+							layout.descriptorCount
+						));
+						image2DAInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) {
 						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), "Filename: " << shader->filename << "\tCount: " << layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(

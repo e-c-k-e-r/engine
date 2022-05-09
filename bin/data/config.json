@@ -51,6 +51,10 @@
 						"MessageID = 0x124ffb34", // VUID-VkImageMemoryBarrier-oldLayout-01197
 						"MessageID = 0x8ab1932c", // VUID-VkImageViewCreateInfo-imageViewType-04973
 
+					//	"MessageID = 0x8e1000ad", // VUID-vkCmdDrawIndexedIndirect-None-04008 (bitches without nullDescriptor)
+					//	"MessageID = 0x9dd97212", // VUID-vkCmdDrawIndexedIndirect-None-02721 (bitches without nullDescriptor)
+					//	"MessageID = 0x36481fcb", // VUID-vkCmdBindVertexBuffers-pBuffers-04001 (bitches without nullDescriptor)
+
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 					//	"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -101,6 +105,8 @@
 					"nullDescriptor",
 					"fragmentStoresAndAtomics",
 					"geometryShader",
+					"multiViewport",
+					"shaderOutputLayer",
 				//	"shaderUniformBufferArrayDynamicIndexing",
 				//	"shaderStorageBufferArrayDynamicIndexing",
 					"shaderSampledImageArrayDynamicIndexing",
@@ -112,7 +118,8 @@
 						"VK_KHR_get_surface_capabilities2"
 					],
 					"device": [
-						"VK_KHR_swapchain"
+						"VK_KHR_swapchain",
+						"VK_EXT_shader_viewport_index_layer"
 					]
 				}
 			},

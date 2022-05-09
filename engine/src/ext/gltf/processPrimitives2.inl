@@ -171,7 +171,9 @@ for ( auto& p : m.primitives ) {
 
 if ( meshgrid.grid.divisions.x > 1 && meshgrid.grid.divisions.y > 1 && meshgrid.grid.divisions.z > 1 ) {
 	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps );
-	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: " << m.name << ": " << meshlets.size() << " -> " << partitioned.size() );
+	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: " << m.name << ": " << meshlets.size() << " -> " << partitioned.size() << " | Partitions: " << 
+		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z) << " -> " << meshgrid.grid.nodes.size()
+	 );
 	meshlets = std::move( partitioned );
 }
 
@@ -183,16 +185,17 @@ if ( meshgrid.grid.divisions.x > 1 && meshgrid.grid.divisions.y > 1 && meshgrid.
 	mesh.bind<UF_GRAPH_MESH_FORMAT>();
 	
 	for ( auto& meshlet : meshlets ) {
-		drawCommands.emplace_back(pod::DrawCommand{
+		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
 			.indices = meshlet.indices.size(),
 			.instances = 1,
 			.indexID = indexID,
 			.vertexID = vertexID,
 			.instanceID = 0,
-
-
+			.auxID = meshlet.primitive.drawCommand.auxID,
+			.materialID = meshlet.primitive.drawCommand.materialID,
 			.vertices = meshlet.vertices.size(),
 		});
+		//UF_MSG_DEBUG(  );
 
 		primitives.emplace_back( meshlet.primitive );
 

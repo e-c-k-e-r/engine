@@ -19,6 +19,9 @@
 
 #include <gltf/tiny_gltf.h>
 #include <uf/ext/gltf/gltf.h>
+#if UF_USE_XATLAS
+	#include <uf/ext/xatlas/xatlas.h>
+#endif
 
 namespace {
 	decltype(auto) getWrapMode(int32_t wrapMode) {
@@ -500,8 +503,18 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			texture.index = atlasImageIndex;
 		}
 	}
+	// generate STs
+#if UF_USE_XATLAS
+	{
+		UF_MSG_DEBUG( "Generating ST's..." );
+		size_t atlases = ext::xatlas::unwrap( graph );
+		UF_MSG_DEBUG( "Generated ST's for " << atlases << " lightmaps" );
+	}
+#endif
 
-	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) uf::graph::save( graph, filename );
+	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
+		uf::graph::save( graph, filename );
+	}
 	return graph;
 }
 #endif

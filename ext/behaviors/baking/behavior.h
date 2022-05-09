@@ -22,6 +22,8 @@ namespace ext {
 				size_t material = 0;
 				size_t texture = 0;
 				size_t light = 0;
+
+				uf::renderer::Texture3D baked;
 			} buffers;
 			struct {
 				size_t textures2D = 1024;

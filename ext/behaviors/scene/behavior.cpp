@@ -314,7 +314,70 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.parameters[metadata.shader.time] = uf::physics::time::current;
 	}
 #endif
-#if UF_USE_VULKAN
+#if UF_USE_OPENGL
+	if ( metadata.light.enabled ) {
+		auto& graph = this->getGraph();
+		auto& controller = this->getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
+		auto& metadataVxgi = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+		auto& metadataJson = this->getComponent<uf::Serializer>();
+
+		struct LightInfo {
+			uf::Entity* entity = NULL;
+			pod::Vector4f position = {0,0,0,1}; // OpenGL requires a W
+			pod::Vector4f color = {0,0,0,1}; // OpenGL requires an alpha
+			float distance = 0;
+			float power = 0;
+		};
+		uf::stl::vector<LightInfo> entities;
+		for ( auto entity : graph ) {
+			if ( entity == this || entity == &controller || !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
+			auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
+			if ( metadata.power <= 0 ) continue;
+			auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
+			LightInfo& info = entities.emplace_back(LightInfo{
+				.entity = entity,
+				.position = flatten.position,
+				.color = metadata.color,
+				.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
+				.power = metadata.power,
+			});
+			info.position.w = 1;
+			info.color.w = 1;
+		}
+		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
+			return l.distance < r.distance;
+		});
+
+		static GLint glMaxLights = 0;
+		if ( !glMaxLights ) glGetIntegerv(GL_MAX_LIGHTS, &glMaxLights);
+		metadata.light.max = std::min( (uint32_t) glMaxLights, metadata.light.max );
+
+		// add lighting
+		{
+			uint32_t i = 0;	
+			for ( ; i < entities.size() && i < metadata.light.max; ++i ) {
+				auto& info = entities[i];
+			//	uf::Entity* entity = info.entity;
+				GLenum target = GL_LIGHT0+i;
+				GL_ERROR_CHECK(glEnable(target));
+				GL_ERROR_CHECK(glLightfv(target, GL_AMBIENT, &metadata.light.ambient[0]));
+				GL_ERROR_CHECK(glLightfv(target, GL_SPECULAR, &metadata.light.specular[0]));
+				GL_ERROR_CHECK(glLightfv(target, GL_DIFFUSE, &info.color[0]));
+				GL_ERROR_CHECK(glLightfv(target, GL_POSITION, &info.position[0]));
+				GL_ERROR_CHECK(glLightf(target, GL_CONSTANT_ATTENUATION, 0.0f));
+				GL_ERROR_CHECK(glLightf(target, GL_LINEAR_ATTENUATION, 0));
+				GL_ERROR_CHECK(glLightf(target, GL_QUADRATIC_ATTENUATION, 1.0f / info.power));
+
+			//	UF_MSG_DEBUG( i << " | " << uf::vector::toString( metadata.light.ambient ) << " | " << uf::vector::toString( metadata.light.specular ) << " | " << uf::vector::toString( info.color ) << " | " << uf::vector::toString( info.position ) << " | " << info.power );
+			}
+			for ( ; i < metadata.light.max; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
+		}
+	}
+#elif UF_USE_VULKAN
 	{
 		auto& graph = this->getGraph();
 		auto& controller = this->getController();
@@ -562,6 +625,11 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	uf::renderer::states::rebuild = true;
+	if ( light.enabled ) {
+		GL_ERROR_CHECK(glEnable(GL_LIGHTING));
+	} else {
+		GL_ERROR_CHECK(glDisable(GL_LIGHTING));
+	}
 #endif
 
 	if ( uf::renderer::settings::experimental::bloom ) {
@@ -608,58 +676,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
 	auto blitters = renderMode.getBlitters();
-	
-#if UF_USE_OPENGL
-	struct LightInfo {
-		uf::Entity* entity = NULL;
-		pod::Vector3f position = {0,0,0}; 
-		float w = 1; // OpenGL requires a W
-		pod::Vector4f color = {0,0,0,1}; // OpenGL requires an alpha
-		float distance = 0;
-		float power = 0;
-	};
-	uf::stl::vector<LightInfo> entities;
-	for ( auto entity : graph ) {
-		if ( entity == this || entity == &controller || !entity->hasComponent<ext::LightBehavior::Metadata>() ) continue;
-		auto& metadata = entity->getComponent<ext::LightBehavior::Metadata>();
-		if ( metadata.power <= 0 ) continue;
-		auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
-		LightInfo& info = entities.emplace_back(LightInfo{
-			.entity = entity,
-			.position = flatten.position,
-			.w = 1,
-			.color = metadata.color,
-			.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
-			.power = metadata.power,
-		});
-	}
-	std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
-		return l.distance < r.distance;
-	});
 
-	static GLint glMaxLights = 0;
-	if ( !glMaxLights ) glGetIntegerv(GL_MAX_LIGHTS, &glMaxLights);
-	metadata.light.max = std::min( (uint32_t) glMaxLights, metadata.light.max );
-
-	// add lighting
-	{
-		uint32_t i = 0;	
-		for ( ; i < entities.size() && i < metadata.light.max; ++i ) {
-			auto& info = entities[i];
-			uf::Entity* entity = info.entity;
-			GLenum target = GL_LIGHT0+i;
-			GL_ERROR_CHECK(glEnable(target));
-			GL_ERROR_CHECK(glLightfv(target, GL_AMBIENT, &metadata.light.ambient[0]));
-			GL_ERROR_CHECK(glLightfv(target, GL_SPECULAR, &metadata.light.specular[0]));
-			GL_ERROR_CHECK(glLightfv(target, GL_DIFFUSE, &info.color[0]));
-			GL_ERROR_CHECK(glLightfv(target, GL_POSITION, &info.position[0]));
-			GL_ERROR_CHECK(glLightf(target, GL_CONSTANT_ATTENUATION, 0.0f));
-			GL_ERROR_CHECK(glLightf(target, GL_LINEAR_ATTENUATION, 0));
-			GL_ERROR_CHECK(glLightf(target, GL_QUADRATIC_ATTENUATION, 1.0f / info.power));
-		}
-		for ( ; i < metadata.light.max; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
-	}
-#elif UF_USE_VULKAN
+#if UF_USE_VULKAN
 	struct UniformDescriptor {
 		struct Matrices {
 			alignas(16) pod::Matrix4f view;

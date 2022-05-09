@@ -121,3 +121,10 @@
 #define MAX(X, Y) (X) > (Y) ? (X) : (Y)
 #define LENGTH_OF(X) *(&X + 1) - X
 #define FOR_ARRAY(X) for ( auto i = 0; i < LENGTH_OF(X); ++i )
+
+#if UF_ENV_DREAMCAST
+	#define DC_STATS() {\
+		UF_MSG_DEBUG(spec::dreamcast::malloc_stats());\
+		UF_MSG_DEBUG(spec::dreamcast::pvr_malloc_stats());\
+	}
+#endif

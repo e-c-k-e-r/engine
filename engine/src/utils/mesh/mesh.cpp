@@ -284,11 +284,11 @@ std::string uf::Mesh::printInstances( bool full ) const {
 }
 std::string uf::Mesh::printIndirects( bool full ) const {
 	std::stringstream str;
-	str << "Indirect: " << PRINT_HEADER( indirect ) << "{ indices, instances, indexID, vertexID, instanceID, padding1, padding2, vertices }\n";
+	str << "Indirect: " << PRINT_HEADER( indirect ) << "{ indices, instances, indexID, vertexID, instanceID, auxID, materialID, vertices }\n";
 	if ( full ) for ( auto i = 0; i < indirect.count; ++i ) {
 		auto& buffer = getBuffer( indirect );
 		auto& drawCommand = *(const pod::DrawCommand*) (&buffer[i * indirect.size]);
-		str << "[" << i << "]: {" << drawCommand.indices << ", " << drawCommand.instances << ", " << drawCommand.indexID << ", " << drawCommand.vertexID << ", " << drawCommand.instanceID << ", " << drawCommand.padding1 << ", " << drawCommand.padding2 << ", " << drawCommand.vertices << "}\n";
+		str << "[" << i << "]: {" << drawCommand.indices << ", " << drawCommand.instances << ", " << drawCommand.indexID << ", " << drawCommand.vertexID << ", " << drawCommand.instanceID << ", " << drawCommand.auxID << ", " << drawCommand.materialID << ", " << drawCommand.vertices << "}\n";
 	}
 	return str.str();
 }

@@ -1,5 +1,8 @@
 layout (constant_id = 0) const uint PASSES = 6;
 #extension GL_ARB_shader_draw_parameters : enable
+#if LAYERED
+#extension GL_ARB_shader_viewport_layer_array : enable
+#endif
 #include "../common/structs.h"
 
 layout (location = 0) in vec3 inPos;
@@ -23,17 +26,15 @@ layout (binding = 0) uniform Camera {
 	Viewport viewport[PASSES];
 } camera;
 #endif
-/*
 layout (std140, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-*/
-layout (std140, binding = 1) readonly buffer Instances {
+layout (std140, binding = 2) readonly buffer Instances {
 	Instance instances[];
 };
 
 #if SKINNED
-	layout (std140, binding = 2) readonly buffer Joints {
+	layout (std140, binding = 3) readonly buffer Joints {
 		mat4 joints[];
 	};
 #endif
@@ -45,6 +46,9 @@ layout (location = 3) out vec3 outNormal;
 layout (location = 4) out mat3 outTBN;
 layout (location = 7) out vec3 outPosition;
 layout (location = 8) out uvec4 outId;
+#if LAYERED
+	layout (location = 9) out uint outLayer;
+#endif
 
 vec4 snap(vec4 vertex, vec2 resolution) {
     vec4 snappedPos = vertex;
@@ -58,7 +62,7 @@ void main() {
 	outUv = inUv;
 	outSt = inSt;
 	const uint drawID = gl_DrawIDARB;
-//	const DrawCommand drawCommand = drawCommands[drawID];
+	const DrawCommand drawCommand = drawCommands[drawID];
 	const uint instanceID = gl_InstanceIndex;
 	const Instance instance = instances[instanceID];
 	const uint materialID = instance.materialID;
@@ -93,5 +97,10 @@ void main() {
 	gl_Position = vec4(inSt * 2.0 - 1.0, 0.0, 1.0);
 #else
 	gl_Position = projection * view * model * vec4(inPos.xyz, 1.0);
+#endif
+
+#if LAYERED
+//	gl_Layer = int(drawCommand.auxID);
+ 	outLayer = int(drawCommand.auxID);
 #endif
 }

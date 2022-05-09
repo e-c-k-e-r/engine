@@ -659,6 +659,9 @@ void EXT_API ext::tick() {
 		++::times.total.frames;
 		TIMER( ::config.engine.fps.every ) {
 			UF_MSG_DEBUG("System: " << (::config.engine.fps.every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
+		#if UF_ENV_DREAMCAST
+			DC_STATS();
+		#endif
 			::times.frames = 0;
 		}
 	}

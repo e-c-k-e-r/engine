@@ -5,9 +5,10 @@
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
+layout (constant_id = 2) const uint LAYERS = 32;
 
-layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 5) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 
 #define SHADOW_SAMPLES 16
 #define FRAGMENT 1
@@ -18,18 +19,20 @@ layout (binding = 5) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (std140, binding = 6) readonly buffer Instances {
+layout (std140, binding = 7) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 7) readonly buffer Materials {
+layout (std140, binding = 8) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 8) readonly buffer Textures {
+layout (std140, binding = 9) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 9) readonly buffer Lights {
+layout (std140, binding = 10) readonly buffer Lights {
 	Light lights[];
 };
+
+layout (binding = 11, rgba8) uniform volatile coherent image3D outAlbedos;
 
 #include "../../common/functions.h"
 #include "../../common/shadows.h"
@@ -44,6 +47,7 @@ layout (location = 3) in vec3 inNormal;
 layout (location = 4) in mat3 inTBN;
 layout (location = 7) in vec3 inPosition;
 layout (location = 8) flat in uvec4 inId;
+layout (location = 9) flat in uint inLayer;
 
 layout (location = 0) out vec4 outAlbedo;
 
@@ -115,4 +119,10 @@ void main() {
 //	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / GAMMA));
 
 	outAlbedo = vec4(surface.fragment.rgb, 1);
+
+	{
+		const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
+		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(inLayer));
+		imageStore(outAlbedos, uvw, vec4(surface.fragment.rgb, 1) );
+	}
 }

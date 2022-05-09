@@ -10,26 +10,26 @@ layout (constant_id = 1) const uint CASCADES = 16;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 5) readonly buffer Instances {
+layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 6) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 6) readonly buffer Materials {
+layout (std140, binding = 7) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 7) readonly buffer Textures {
+layout (std140, binding = 8) readonly buffer Textures {
 	Texture textures[];
 };
 
-layout (binding = 8, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
-layout (binding = 9, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
+layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
+layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
 #if VXGI_HDR
-	layout (binding = 10, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 11, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #else
-	layout (binding = 10, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 11, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #endif
 #if DEPTH_TEST
-	layout (binding = 11, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
+	layout (binding = 12, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;
@@ -81,12 +81,7 @@ void main() {
 	
 	// sample albedo
 	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
-		if ( surface.instance.imageID <= 0 ) {
-			A = sampleTexture( material.indexAlbedo );
-		} else {
-			const Texture t = textures[material.indexAlbedo];
-			A = texture( samplerTextures[nonuniformEXT(t.index - surface.instance.imageID)], mix( t.lerp.xy, t.lerp.zw, uv ) );
-		}
+		A = sampleTexture( material.indexAlbedo );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {
 			A.a = 1;

@@ -107,7 +107,7 @@ struct DrawCommand {
 	 int vertexID; // starting vertex position
 
 	uint instanceID; // starting instance position
-	uint padding; //
+	uint auxID; //
 	uint materialID; // material to use for this draw call
 	uint vertices; // number of vertices used
 };
@@ -131,7 +131,7 @@ struct Instance {
 	 int jointID;
 	 int lightmapID;
 	uint imageID;
-	uint padding2;
+	uint auxID;
 
 	Bounds bounds;
 };

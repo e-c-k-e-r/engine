@@ -41,10 +41,10 @@ uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
 }
 
-uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
+uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layerID ) {
 	uf::Image image;
-	if ( !device || renderTarget.attachments.size() < i ) return image;
-	auto& attachment = renderTarget.attachments[i];
+	if ( !device || renderTarget.attachments.size() < attachmentID ) return image;
+	auto& attachment = renderTarget.attachments[attachmentID];
 	
 	bool blitting = true;
 	VkFormatProperties formatProperties;
@@ -92,6 +92,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 
 	imageMemoryBarrier.image = attachment.image;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = layerID;
 	imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
@@ -104,9 +105,11 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
 
 		VkImageResolve imageResolveRegion{};
 		imageResolveRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageResolveRegion.srcSubresource.baseArrayLayer = layerID;
 		imageResolveRegion.srcSubresource.layerCount = 1;
 	//	imageResolveRegion.srcOffsets[1] = blitSize;
 		imageResolveRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageResolveRegion.dstSubresource.baseArrayLayer = 0;
 		imageResolveRegion.dstSubresource.layerCount = 1;
 	//	imageResolveRegion.dstOffsets[1] = blitSize;
 		imageResolveRegion.extent = { renderTarget.width, renderTarget.height, 1 };
@@ -120,9 +123,11 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
 
 		VkImageBlit imageBlit{};
 		imageBlit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlit.srcSubresource.baseArrayLayer = layerID;
 		imageBlit.srcSubresource.layerCount = 1;
 		imageBlit.srcOffsets[1] = blitSize;
 		imageBlit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageBlit.dstSubresource.baseArrayLayer = 0;
 		imageBlit.dstSubresource.layerCount = 1;
 		imageBlit.dstOffsets[1] = blitSize;
 
@@ -130,8 +135,10 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
 	} else {
 		VkImageCopy imageCopy{};
 		imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopy.srcSubresource.baseArrayLayer = layerID;
 		imageCopy.srcSubresource.layerCount = 1;
 		imageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageCopy.dstSubresource.baseArrayLayer = 0;
 		imageCopy.dstSubresource.layerCount = 1;
 		imageCopy.extent = { renderTarget.width, renderTarget.height, 1 };
 
@@ -141,11 +148,13 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t i ) {
 	imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 
 	imageMemoryBarrier.image = temporary;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 
 	imageMemoryBarrier.image = attachment.image;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = layerID;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = attachment.descriptor.layout;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );

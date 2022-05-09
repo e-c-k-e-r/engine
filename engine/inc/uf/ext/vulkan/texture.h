@@ -137,11 +137,15 @@ namespace ext {
 		public:
 			static Texture2D empty;
 			Texture2D();
+
+			uf::Image screenshot( uint32_t layer = 0 );
 		};
 		class UF_API Texture3D : public Texture {
 		public:
 			static Texture3D empty;
 			Texture3D();
+			
+			uf::Image screenshot( uint32_t layer = 0 );
 		};
 		class UF_API TextureCube : public Texture {
 		public:

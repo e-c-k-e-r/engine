@@ -10,14 +10,14 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (binding = 4) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 5) readonly buffer Instances {
+layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
+layout (std140, binding = 6) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 6) readonly buffer Materials {
+layout (std140, binding = 7) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 7) readonly buffer Textures {
+layout (std140, binding = 8) readonly buffer Textures {
 	Texture textures[];
 };
 

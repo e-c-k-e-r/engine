@@ -7,7 +7,12 @@
 #if UF_ENV_DREAMCAST
 namespace spec {
 	namespace dreamcast {
-		class UF_API Window : public spec::uni::Window {
+		uf::stl::string malloc_stats( bool = false );
+		uf::stl::string pvr_malloc_stats( bool = false );
+
+		class UF_API Window : public spec::uni::Window {			
+		protected:
+			spec::dreamcast::Window::context_t* 		m_context;
 		public:
 		// 	C-tors
 			UF_API Window();
@@ -48,8 +53,14 @@ namespace spec {
 			void UF_API setTracking(bool state);
 			static pod::Vector2ui UF_API getResolution();
 			void UF_API toggleFullscreen( bool borderless = false );
+
+			void UF_API display();
 		};
 	}
 	typedef spec::dreamcast::Window Window;
+}
+
+namespace uf {
+	using Window = spec::dreamcast::Window;
 }
 #endif

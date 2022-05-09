@@ -4,6 +4,8 @@
 
 #include <uf/utils/serialize/serializer.h>
 #include <sstream>
+
+bool spec::uni::Window::focused = false;
 /*
 void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument ) {
 	if ( !uf::hooks.prefersReadable() ) return;
@@ -76,6 +78,7 @@ void UF_API_CALL spec::uni::Window::pushEvent( const pod::Hook::userdata_t& payl
 	this->m_events.push({ header.type, std::move(payload) });
 }
 */
+#if 0
 void UF_API_CALL spec::uni::Window::processEvents() {
 }
 bool UF_API_CALL spec::uni::Window::isKeyPressed(const uf::stl::string& key) {
@@ -152,3 +155,4 @@ bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
 	return true;
 #endif
 }
+#endif

@@ -20,7 +20,7 @@ layout (location = 4) out mat3 outTBN;
 layout (location = 7) out vec3 outPosition;
 layout (location = 8) flat out uvec4 outId;
 
-layout (binding = 3) uniform UBO {
+layout (binding = 4) uniform UBO {
 	mat4 voxel;
 	float cascadePower;
 	float padding1;

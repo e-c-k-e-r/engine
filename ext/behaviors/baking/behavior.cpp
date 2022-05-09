@@ -1,5 +1,5 @@
 #include <uf/config.h>
-#if !UF_ENV_DREAMCAST
+#if UF_USE_VULKAN
 #include "behavior.h"
 
 #include <uf/utils/renderer/renderer.h>
@@ -57,7 +57,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.type = "single";
 		renderMode.metadata.pipeline = "baking";
 		renderMode.metadata.samples = 1;
-	//	renderMode.metadata.layers = metadata.max.layers;
+	//	renderMode.metadata.views = metadata.max.layers; // gl_Layer doesn't work
 		renderMode.metadata.json["descriptor"]["cull mode"] = "none";
 
 		renderMode.width = metadata.size.x;
@@ -74,6 +74,8 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		for ( auto& texture : uf::graph::storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
 		for ( auto& texture : uf::graph::storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
+		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+
 		scene.process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
@@ -81,6 +83,8 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 			for ( auto& t : textures2D ) shader.textures.emplace_back().aliasTexture( t );
 			for ( auto& t : texturesCube ) shader.textures.emplace_back().aliasTexture( t );
+
+			shader.textures.emplace_back().aliasTexture( metadata.buffers.baked );
 		});
 		UF_MSG_DEBUG("Finished initialiation.");
 	});
@@ -116,10 +120,13 @@ SAVE: {
 #if 1
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
-	auto image = renderMode.screenshot();
-	uf::stl::string filename = metadata.output;
-	bool status = image.save(filename);
-	UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
+	//	auto image = renderMode.screenshot(0, i);
+		auto image = metadata.buffers.baked.screenshot(i);
+		uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
+		bool status = image.save(filename);
+		UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+	}
 	UF_MSG_DEBUG("Baked.");
 	metadata.initialized.map = true;
 

@@ -2,37 +2,36 @@
 #if UF_USE_XATLAS
 #include <xatlas/xatlas.h>
 
-pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
-	struct Pair {
+size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
+	struct Entry {
 		size_t index = 0;
-		size_t command = 0;
+		size_t commandID = 0;
 		::xatlas::MeshDecl decl;
 	};
+	struct Atlas {
+		::xatlas::Atlas* pointer = NULL;
+		uf::stl::vector<Entry> entries;
+		size_t vertexOffset = 0;
+	};
 
-	uf::stl::vector<Pair> entries;
-	entries.reserve(graph.meshes.size());
-	
 	uf::stl::vector<uf::Mesh> sources;
 	sources.reserve(graph.meshes.size());
 
-	::xatlas::Atlas* atlas = ::xatlas::Create();
+	uf::stl::unordered_map<size_t, Atlas> atlases;
+	atlases.reserve(graph.meshes.size());
 
+	uf::stl::vector<size_t> sizes( graph.meshes.size(), 0 );
+
+	// copy source meshes
+	// create mesh decls for passing to xatlas
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 
-	/*
-		if ( mesh.isInterleaved() ) {
-			sources.emplace_back(mesh.convert()).updateDescriptor();
-		} else {
-			sources.emplace_back(mesh).updateDescriptor();
-		}
-	*/
 		if ( mesh.isInterleaved() ) {
 			UF_EXCEPTION("unwrapping interleaved mesh is not supported");
 		}
 		sources.emplace_back(mesh).updateDescriptor();
-
 
 		uf::Mesh::Input vertexInput = mesh.vertex;
 
@@ -59,13 +58,19 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 			}
 
 			if ( mesh.indirect.count ) {
+				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
+
 				for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+					size_t atlasID = combined ? 0 : drawCommands[i].auxID;
+
 					vertexInput = mesh.remapVertexInput( i );
 					indexInput = mesh.remapIndexInput( i );
 
-					auto& entry = entries.emplace_back();
+					auto& atlas = atlases[atlasID];
+					auto& entry = atlas.entries.emplace_back();
 					entry.index = index;
-					entry.command = i;
+					entry.commandID = i;
 
 					auto& decl = entry.decl;
 					
@@ -82,7 +87,9 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 					decl.indexFormat = indexType;
 				}
 			} else {
-				auto& entry = entries.emplace_back();
+				size_t atlasID = 0;
+				auto& atlas = atlases[atlasID];
+				auto& entry = atlas.entries.emplace_back();
 				entry.index = index;
 
 				auto& decl = entry.decl;
@@ -101,11 +108,18 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 		} else UF_EXCEPTION("to-do: not require indices for meshes");
 	}
 
-	for ( auto& mesh : entries ) {
-		::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas, mesh.decl, entries.size());
-		if (error != ::xatlas::AddMeshError::Success) {
-			::xatlas::Destroy(atlas);
-			UF_EXCEPTION(::xatlas::StringForEnum(error));
+	// add mesh decls to mesh atlases
+	// done after the fact since we'll know the total amount of meshes added
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
+
+		for ( auto& entry : atlas.entries ) {
+			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
+			if (error != ::xatlas::AddMeshError::Success) {
+				::xatlas::Destroy(atlas.pointer);
+				UF_EXCEPTION(::xatlas::StringForEnum(error));
+			}
 		}
 	}
 
@@ -119,150 +133,173 @@ pod::Vector2ui UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 	packOptions.blockAlign = true;
 	packOptions.bilinear = true;
 
-	::xatlas::Generate(atlas, chartOptions, packOptions);
+	// pack
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		::xatlas::Generate(atlas.pointer, chartOptions, packOptions);
 
-	uf::stl::vector<size_t> sizes( graph.meshes.size(), 0 );
-	for ( auto i = 0; i < atlas->meshCount; ++i ) {
-		auto& xmesh = atlas->meshes[i];
-		auto& entry = entries[i];
-		sizes[entry.index] += xmesh.vertexCount;
+		// get vertices size ahead of time
+		for ( auto i = 0; i < atlas.pointer->meshCount; ++i ) {
+			auto& xmesh = atlas.pointer->meshes[i];
+			auto& entry = atlas.entries[i];
+		//	atlas.vertices += xmesh.vertexCount;
+			sizes[entry.index] += xmesh.vertexCount;
+		}
 	}
+
+	// resize vertices
 	for ( auto i = 0; i < graph.meshes.size(); ++i ) {
 		auto& name = graph.meshes[i];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 
 		mesh.resizeVertices( sizes[i] );
 		mesh.updateDescriptor();
+	}
 
-		if ( mesh.indirect.count ) {
-			auto& primitive = /*graph.storage*/uf::graph::storage.primitives[name];
-			pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
+	// update vertices
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		for ( auto i = 0; i < atlas.pointer->meshCount; i++ ) {
+			auto& xmesh = atlas.pointer->meshes[i];
+			auto& entry = atlas.entries[i];
+			auto& name = graph.meshes[entry.index];
+			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+			auto& source = sources[entry.index];
 
-			size_t vertexOffset = 0;
-			for ( auto j = 0; j < atlas->meshCount; ++j ) {
-				auto& entry = entries[j];
-				if ( entry.index != i ) continue;
+			// draw commands
+			if ( mesh.indirect.count ) {
+				// vertices
+				auto srcInput = source.remapVertexInput( entry.commandID );
+				auto dstInput = mesh.remapVertexInput( entry.commandID );
+				auto vertexCount = xmesh.vertexCount;
 
-				auto vertexCount = atlas->meshes[j].vertexCount;
+				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
-				drawCommands[entry.command].vertices = vertexCount;
-				drawCommands[entry.command].vertexID = vertexOffset;
-				
-				primitive[entry.command].drawCommand.vertices = vertexCount;
-				primitive[entry.command].drawCommand.vertexID = vertexOffset;
+				drawCommands[entry.commandID].vertices = vertexCount;
+				primitives[entry.commandID].drawCommand.vertices = vertexCount;
 
-				vertexOffset += vertexCount;
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+					for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
+					//	auto srcAttribute = source.remapVertexAttribute( source.vertex.attributes[k], entry.commandID );
+					//	auto dstAttribute = mesh.remapVertexAttribute( mesh.vertex.attributes[k], entry.commandID );
+
+						auto srcAttribute = source.vertex.attributes[k];
+						auto dstAttribute = mesh.vertex.attributes[k];
+
+						if ( dstAttribute.descriptor.name == "st" ) {
+							pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first) );
+							st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+						} else {
+							memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first),  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
+						}
+					}
+				}
+				// indices
+				if ( mesh.index.count ) {
+					uf::Mesh::Input indexInput = mesh.remapIndexInput( entry.commandID );
+					uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+				//	uf::Mesh::Attribute indexAttribute = mesh.remapIndexAttribute( mesh.index.attributes.front(), entry.commandID );
+					uint8_t* pointer = (uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
+					for ( auto index = 0; index < xmesh.indexCount; ++index ) {
+						switch ( mesh.index.size ) {
+							case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;
+							case 2: ((uint16_t*) pointer)[index] = xmesh.indexArray[index]; break;
+							case 4: ((uint32_t*) pointer)[index] = xmesh.indexArray[index]; break;
+						}
+					}
+				}
+			} else {
+				uf::Mesh::Attribute stAttribute;
+				for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
+				UF_ASSERT( stAttribute.descriptor.name == "st" );
+
+				// vertices
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+
+					for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
+						auto srcAttribute = source.vertex.attributes[k];
+						auto dstAttribute = mesh.vertex.attributes[k];
+
+						if ( dstAttribute.descriptor.name == "st" ) {
+							pod::Vector2f& st = *(pod::Vector2f*) ( ((uint8_t*) dstAttribute.pointer) + dstAttribute.stride * j);
+							st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+						} else {
+							memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * j,  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * ref, srcAttribute.stride );
+						}
+					}
+				/*
+					if ( mesh.isInterleaved( mesh.vertex.interleaved ) ) {
+						uint8_t* srcAttribute = source.buffers[mesh.vertex.interleaved].data() + j * mesh.vertex.size;
+						uint8_t* dstAttribute = mesh.buffers[mesh.vertex.interleaved].data() + j * mesh.vertex.size;
+
+						memcpy( dstAttribute, srcAttribute, mesh.vertex.size );
+
+						pod::Vector2f& st = *(pod::Vector2f*) (dstAttribute + stAttribute.descriptor.offset);
+						st = { vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+					} else for ( auto& attribute : mesh.vertex.attributes ) {
+						uint8_t* srcAttribute = source.buffers[attribute.buffer].data() + j * attribute.descriptor.size;
+						uint8_t* dstAttribute = mesh.buffers[attribute.buffer].data() + j * attribute.descriptor.size;
+						
+						if ( attribute.descriptor.name == "st" ) {
+							pod::Vector2f& st = *(pod::Vector2f*) dstAttribute;
+							st = { vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+						} else {
+							memcpy( dstAttribute, srcAttribute, attribute.descriptor.size );
+						}
+					}
+				*/
+				}
+				// indices
+				if ( mesh.index.count ) {
+					uint8_t* pointer = (uint8_t*) mesh.buffers[mesh.isInterleaved(mesh.index.interleaved) ? mesh.index.interleaved : mesh.index.attributes.front().buffer].data();
+					for ( auto index = 0; index < xmesh.indexCount; ++index ) {
+						switch ( mesh.index.size ) {
+							case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;
+							case 2: ((uint16_t*) pointer)[index] = xmesh.indexArray[index]; break;
+							case 4: ((uint32_t*) pointer)[index] = xmesh.indexArray[index]; break;
+						}
+					}
+				}
 			}
+
+			mesh.updateDescriptor();
 		}
 	}
 
-	for ( auto i = 0; i < atlas->meshCount; i++ ) {
-		auto& xmesh = atlas->meshes[i];
-		auto& entry = entries[i];
-		auto& name = graph.meshes[entry.index];
+	// update vertexID offsets for indirect commands
+	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
+		auto& name = graph.meshes[index];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
-		auto& source = sources[entry.index];
+		
+		if ( !mesh.indirect.count ) continue;
 
-		// draw commands
-		if ( mesh.indirect.count ) {
-			// vertices
-			for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
-				auto& vertex = xmesh.vertexArray[j];
-				auto ref = vertex.xref;
-				for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
-				//	auto srcAttribute = source.remapVertexAttribute( source.vertex.attributes[k], entry.command );
-				//	auto dstAttribute = mesh.remapVertexAttribute( mesh.vertex.attributes[k], entry.command );
+		auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
+		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
-					auto srcInput = source.remapVertexInput( entry.command );
-					auto dstInput = mesh.remapVertexInput( entry.command );
+		size_t vertexID = 0;
+		for ( auto i = 0; i < mesh.indirect.count; ++i ) {
+			auto& primitive = primitives[i];
+			auto& drawCommand = drawCommands[i];
 
-					auto srcAttribute = source.vertex.attributes[k];
-					auto dstAttribute = mesh.vertex.attributes[k];
+			drawCommand.vertexID = vertexID;
+			primitive.drawCommand.vertexID = vertexID;
 
-					if ( dstAttribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first) );
-						st = pod::Vector2f{ vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
-					} else {
-						memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first),  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
-					}
-				}
-			}
-			// indices
-			if ( mesh.index.count ) {
-				uf::Mesh::Input indexInput = mesh.remapIndexInput( entry.command );
-				uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
-			//	uf::Mesh::Attribute indexAttribute = mesh.remapIndexAttribute( mesh.index.attributes.front(), entry.command );
-				uint8_t* pointer = (uint8_t*) static_cast<uint8_t*>(indexAttribute.pointer) + indexAttribute.stride * indexInput.first;
-				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
-					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) pointer)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) pointer)[index] = xmesh.indexArray[index]; break;
-					}
-				}
-			}
-		} else {
-			uf::Mesh::Attribute stAttribute;
-			for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
-			UF_ASSERT( stAttribute.descriptor.name == "st" );
-
-			// vertices
-			for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
-				auto& vertex = xmesh.vertexArray[j];
-				auto ref = vertex.xref;
-
-				for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
-					auto srcAttribute = source.vertex.attributes[k];
-					auto dstAttribute = mesh.vertex.attributes[k];
-
-					if ( dstAttribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*) ( ((uint8_t*) dstAttribute.pointer) + dstAttribute.stride * j);
-						st = pod::Vector2f{ vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
-					} else {
-						memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * j,  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * ref, srcAttribute.stride );
-					}
-				}
-			/*
-				if ( mesh.isInterleaved( mesh.vertex.interleaved ) ) {
-					uint8_t* srcAttribute = source.buffers[mesh.vertex.interleaved].data() + j * mesh.vertex.size;
-					uint8_t* dstAttribute = mesh.buffers[mesh.vertex.interleaved].data() + j * mesh.vertex.size;
-
-					memcpy( dstAttribute, srcAttribute, mesh.vertex.size );
-
-					pod::Vector2f& st = *(pod::Vector2f*) (dstAttribute + stAttribute.descriptor.offset);
-					st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
-				} else for ( auto& attribute : mesh.vertex.attributes ) {
-					uint8_t* srcAttribute = source.buffers[attribute.buffer].data() + j * attribute.descriptor.size;
-					uint8_t* dstAttribute = mesh.buffers[attribute.buffer].data() + j * attribute.descriptor.size;
-					
-					if ( attribute.descriptor.name == "st" ) {
-						pod::Vector2f& st = *(pod::Vector2f*) dstAttribute;
-						st = { vertex.uv[0] / atlas->width, vertex.uv[1] / atlas->height };
-					} else {
-						memcpy( dstAttribute, srcAttribute, attribute.descriptor.size );
-					}
-				}
-			*/
-			}
-			// indices
-			if ( mesh.index.count ) {
-				uint8_t* pointer = (uint8_t*) mesh.buffers[mesh.isInterleaved(mesh.index.interleaved) ? mesh.index.interleaved : mesh.index.attributes.front().buffer].data();
-				for ( auto index = 0; index < xmesh.indexCount; ++index ) {
-					switch ( mesh.index.size ) {
-						case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;
-						case 2: ((uint16_t*) pointer)[index] = xmesh.indexArray[index]; break;
-						case 4: ((uint32_t*) pointer)[index] = xmesh.indexArray[index]; break;
-					}
-				}
-			}
+			vertexID += drawCommand.vertices;
 		}
-
-		mesh.updateDescriptor();
 	}
 
-	pod::Vector2ui size = pod::Vector2ui{ atlas->width, atlas->height };
-	::xatlas::Destroy(atlas);
-	
-	return size;
+	// cleanup
+	size_t atlasCount = 0;
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		::xatlas::Destroy(atlas.pointer);
+		++atlasCount;
+	}
+	return atlasCount;
 }
 #endif

@@ -760,6 +760,7 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
 		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
 		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParametersFeatures{};
+		VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures{};
 		{
 			deviceCreateInfo.pEnabledFeatures = nullptr;
 			deviceCreateInfo.pNext = &physicalDeviceFeatures2;
@@ -780,6 +781,11 @@ void ext::vulkan::Device::initialize() {
 		{
 			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
+			shaderDrawParametersFeatures.pNext = &robustnessFeatures;
+		}
+		{
+			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
+			robustnessFeatures.nullDescriptor = VK_TRUE;
 		}
 
 		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) {

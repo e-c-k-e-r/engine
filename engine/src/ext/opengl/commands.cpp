@@ -295,10 +295,11 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (drawInfo.attributes.uv.pointer + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
 		
 		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		
 		//	static GLuint previous = 0;
 		//	if ( previous != drawInfo.textures.secondary.image ) previous = drawInfo.textures.secondary.image;
 			

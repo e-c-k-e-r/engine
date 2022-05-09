@@ -3,15 +3,19 @@
 #include <uf/config.h>
 #include "universal.h"
 
-#if UF_ENV_WINDOWS
 #if UF_USE_VULKAN
 	#include <uf/ext/vulkan/vk.h>
+#elif UF_USE_OPENGL
 #endif
+
+#if UF_ENV_WINDOWS
 namespace spec {
 	namespace win32 {
 		class UF_API Window : public spec::uni::Window {
 		public:
 			typedef HWND 							handle_t;
+			typedef void* 							context_t;
+
 		/*
 			typedef spec::uni::Window::title_t 		title_t;
 			typedef spec::uni::Window::vector_t 	vector_t;
@@ -19,6 +23,7 @@ namespace spec {
 			LONG_PTR 								m_callback;
 		protected:
 			spec::win32::Window::handle_t 			m_handle;
+			spec::win32::Window::context_t* 		m_context;
 			HCURSOR									m_cursor;
 			HICON 									m_icon;
 			
@@ -77,8 +82,14 @@ namespace spec {
 			void UF_API_CALL createSurface( VkInstance instance, VkSurfaceKHR& surface );
 		#endif
 			static uf::stl::string UF_API_CALL getKey(WPARAM key, LPARAM flags);
+
+			void display();
 		};
 	}
 	typedef spec::win32::Window Window;
+}
+
+namespace uf {
+	using Window = spec::win32::Window;
 }
 #endif

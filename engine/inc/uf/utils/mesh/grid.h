@@ -80,7 +80,9 @@ namespace uf {
 			
 			uf::meshgrid::cleanup( grid );
 
+			size_t atlasID = 0;
 			for ( auto& pair : grid.nodes ) { auto& node = pair.second;
+				++atlasID;
 				for ( auto& pair2 : node.meshlets ) { auto& mlet = pair2.second;
 					if ( mlet.indices.empty() ) continue;
 
@@ -95,8 +97,8 @@ namespace uf {
 
 					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;
 					slice.primitive.instance.primitiveID = partitioned.size() - 1;
-					slice.primitive.instance.meshID = meshlet.primitive.instance.meshID;
 					slice.primitive.instance.objectID = 0;
+					slice.primitive.instance.auxID = atlasID;
 					slice.primitive.instance.bounds.min = node.effectiveExtents.min;
 					slice.primitive.instance.bounds.max = node.effectiveExtents.max;
 
@@ -105,6 +107,7 @@ namespace uf {
 					slice.primitive.drawCommand.indexID = 0;
 					slice.primitive.drawCommand.vertexID = 0;
 					slice.primitive.drawCommand.instanceID = 0;
+					slice.primitive.drawCommand.auxID = atlasID; // meshlet.primitive.instance.meshID;
 					slice.primitive.drawCommand.vertices = slice.vertices.size();
 				}
 			}

@@ -51,11 +51,11 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann lua reactphysics png zlib ctti ogg openal aldc # freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann lua reactphysics png zlib ctti ogg openal aldc # gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -90,6 +90,9 @@ ifneq (,$(findstring json,$(REQ_DEPS)))
 	ifneq (,$(findstring nlohmann,$(REQ_DEPS)))
 		FLAGS 			+= -DUF_JSON_USE_NLOHMANN
 	endif
+endif
+ifneq (,$(findstring gltf,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_GLTF
 endif
 ifneq (,$(findstring png,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_PNG -DUF_USE_ZLIB
@@ -252,9 +255,8 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	$(KOS_BASE)/utils/bin2o/bin2o ./bin/dreamcast/romdisk.img romdisk ./bin/dreamcast/romdisk.o
 
 $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
-#	$(CXX) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) ./bin/dreamcast/romdisk.o -Wl,--start-group $(DEPS) -Wl,--end-group
-#	$(CXX) -O2 -fomit-frame-pointer -ml -m4-single-only -ffunction-sections -fdata-sections  $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin  -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
-	$(CXX) -ffunction-sections -fdata-sections $(KOS_INC_PATHS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -m4-single-only -Wl,-Ttext=0x8c010000 -Wl,--gc-sections -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
+	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -m4-single-only -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
+	# $(KOS_STRIP) --strip-unneeded $(TARGET)	
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)
 	cd ./bin/dreamcast/; ./elf2cdi.sh $(TARGET_NAME)

@@ -137,7 +137,7 @@ spec::Context& ext::opengl::Device::activateContext( std::thread::id id ) {
 	bool exists = this->contexts.has(id);
 	auto& context = this->contexts.get(id);
 	if ( !exists ) {
-		context = (spec::Context*) spec::uni::Context::create( contextSettings, *this->window->getHandle() );
+		context = (spec::Context*) spec::uni::Context::create( contextSettings, *this->window );
 	}
 	context->setActive(true);
 	return *context;

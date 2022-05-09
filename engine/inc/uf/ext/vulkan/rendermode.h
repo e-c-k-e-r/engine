@@ -29,6 +29,7 @@ namespace ext {
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
 				uint8_t eyes = 1;
+				uint8_t views = 1;
 			} metadata;
 			
 			Device* device = VK_NULL_HANDLE;
@@ -52,7 +53,7 @@ namespace ext {
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
 			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 			
-			virtual uf::Image screenshot(size_t = 0);
+			virtual uf::Image screenshot(size_t = 0, size_t = 0);
 
 			virtual commands_container_t& getCommands();
 			virtual commands_container_t& getCommands( std::thread::id );

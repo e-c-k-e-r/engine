@@ -29,8 +29,9 @@
 				"enabled": false,
 				"resolution": 8192,
 				"shadows": 1024,
+				"layers": 1,
 				"trigger": { "mode": "rendered" },
-				"output": "./lightmap.png"
+				"output": "./lightmap.%i.png"
 			},
 			"grid": {
 				"/^worldspawn/": {
@@ -40,8 +41,8 @@
 					"print": true
 				}
 			},
-		//	"lightmap": "./lightmap.min.png",
-		//	"lightmap": "./lightmap.png",
+		//	"lightmap": "./lightmap.%i.min.png",
+		//	"lightmap": "./lightmap.%i.png",
 		//	"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,

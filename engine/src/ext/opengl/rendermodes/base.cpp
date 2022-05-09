@@ -74,7 +74,8 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
-//	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
+	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
+
 //	GL_ERROR_CHECK(glEnable(GL_NORMALIZE));
 //	GL_ERROR_CHECK(glEnable(GL_COLOR_MATERIAL));
 //	GL_ERROR_CHECK(glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE));

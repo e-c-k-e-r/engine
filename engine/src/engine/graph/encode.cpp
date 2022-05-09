@@ -118,6 +118,7 @@ namespace {
 		json["materialID"] = instance.materialID;
 		json["primitiveID"] = instance.primitiveID;
 		json["meshID"] = instance.meshID;
+		json["auxID"] = instance.auxID;
 		json["objectID"] = instance.objectID;
 
 		json["bounds"]["min"] = uf::vector::encode( instance.bounds.min, settings );
@@ -132,8 +133,8 @@ namespace {
 		json["indexID"] = drawCommand.indexID;
 		json["vertexID"] = drawCommand.vertexID;
 		json["instanceID"] = drawCommand.instanceID;
-	//	json["padding1"] = drawCommand.padding1;
-	//	json["padding2"] = drawCommand.padding2;
+		json["auxID"] = drawCommand.auxID;
+		json["materialID"] = drawCommand.materialID;
 		json["vertices"] = drawCommand.vertices;
 		return json;
 	}
@@ -237,11 +238,13 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 	};
 	if ( !settings.combined ) uf::io::mkdir(directory);
 #if UF_USE_XATLAS
+/*
 	if ( settings.unwrap ) {
 		pod::Graph& g = const_cast<pod::Graph&>(graph);
 		auto size = ext::xatlas::unwrap( g );
 		serializer["wrapped"] = uf::vector::encode( size );
 	}
+*/
 #endif
 
 	pod::Thread::container_t jobs;
@@ -426,11 +429,12 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 #if UF_GRAPH_LOAD_MULTITHREAD
 	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
 #else
-	for ( auto& job : jobs ) return job();
+	for ( auto& job : jobs ) job();
 #endif
 
 	if ( !settings.combined ) target = directory + "/graph.json";
 	serializer.writeToFile( target, settings );
+	UF_MSG_DEBUG("Saving graph to `" << target << "`");
 }
 
 uf::stl::string uf::graph::print( const pod::Graph& graph ) {

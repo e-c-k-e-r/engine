@@ -1,0 +1,27 @@
+{
+	"import": "/player.json",
+	"assets": [
+//		{ "filename": "/gui/hud/hud.json", "delay": 0 }
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 3.1415926
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"overlay": {
+			"floating": true
+		},
+		"collider": true,
+		"light": {
+			"should": false,
+			"color": [1, 1, 1],
+			"position": [ 0, 2.5, 0 ],
+			"power": 1,
+			"radius": [0.001, 32]
+		}
+	}
+}

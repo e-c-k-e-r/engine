@@ -61,6 +61,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	uint8_t msaa = ext::vulkan::sampleCount(metadata.samples);
 	if ( metadata.subpasses == 0 ) metadata.subpasses = 1;
 	renderTarget.device = &device;
+	renderTarget.views = metadata.views;
 	if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
 		renderTarget.views = metadata.subpasses;
 		struct {

@@ -100,7 +100,10 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	}
 	VkImageViewCreateInfo imageView = {};
 	imageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	imageView.viewType = this->views == 6 ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
+	imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	if ( this->views > 1 ) {
+		imageView.viewType = this->views == 6 ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+	}
 	imageView.format = attachment->descriptor.format;
 	imageView.subresourceRange = {};
 	imageView.subresourceRange.aspectMask = aspectMask;

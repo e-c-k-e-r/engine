@@ -5,6 +5,9 @@
 #include <uf/utils/window/payloads.h>
 #include <uf/utils/io/inputs.h>
 
+#define UF_OPENGL_CONTEXT_IN_WINDOW 0
+#include <uf/spec/context/context.h>
+
 #if UF_ENV_DREAMCAST
 
 /*
@@ -269,14 +272,71 @@ namespace {
 	}
 }
 
-UF_API_CALL spec::dreamcast::Window::Window() {}
+#include <dc/pvr.h>
+uf::stl::string spec::dreamcast::malloc_stats( bool verbose ) {
+	std::stringstream str;
+
+	if ( verbose ) {
+		str << "malloc Info:\n"
+			"\tarena " << uf::string::si( mallinfo().arena, "B" ) << " (non-mmapped space allocated from system)\n"
+			"\tordblks " << uf::string::si( mallinfo().ordblks, "B" ) << " (number of free chunks)\n"
+			"\tsmblks " << uf::string::si( mallinfo().smblks, "B" ) << " (number of fastbin blocks)\n"
+			"\tusmblks " << uf::string::si( mallinfo().usmblks, "B" ) << " (maximum total allocated space)\n"
+			"\tfsmblks " << uf::string::si( mallinfo().fsmblks, "B" ) << " (space available in freed fastbin blocks)\n"
+			"\tuordblks " << uf::string::si( mallinfo().uordblks, "B" ) << " (total allocated space)\n"
+			"\tfordblks " << uf::string::si( mallinfo().fordblks, "B" ) << " (total free space)\n"
+			"\tkeepcost " << uf::string::si( mallinfo().keepcost, "B" ) << " (top-most, releasable (via malloc_trim) space)\n";
+	} else {
+		str << "malloc Info: Free: " << uf::string::si( mallinfo().arena - mallinfo().uordblks, "B" ) << " | Used: " << uf::string::si( mallinfo().uordblks, "B" );
+	}
+	
+	return str.str();
+}
+
+uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
+	std::stringstream str;
+
+	if ( verbose ) {
+		/*
+			"PVR malloc Info:\n"
+			"PVR malloc Info:\n"
+			"\tarena " << uf::string::si( pvr_int_mallinfo().arena, "B" ) << " (non-mmapped space allocated from system)\n"
+			"\tordblks " << uf::string::si( pvr_int_mallinfo().ordblks, "B" ) << " (number of free chunks)\n"
+			"\tsmblks " << uf::string::si( pvr_int_mallinfo().smblks, "B" ) << " (number of fastbin blocks)\n"
+			"\tusmblks " << uf::string::si( pvr_int_mallinfo().usmblks, "B" ) << " (maximum total allocated space)\n"
+			"\tfsmblks " << uf::string::si( pvr_int_mallinfo().fsmblks, "B" ) << " (space available in freed fastbin blocks)\n"
+			"\tuordblks " << uf::string::si( pvr_int_mallinfo().uordblks, "B" ) << " (total allocated space)\n"
+			"\tfordblks " << uf::string::si( pvr_int_mallinfo().fordblks, "B" ) << " (total free space)\n"
+			"\tkeepcost " << uf::string::si( pvr_int_mallinfo().keepcost, "B" ) << " (top-most, releasable (via malloc_trim) space)";
+		*/
+	} else {
+		str << "PVR malloc Info: Free: " << uf::string::si( pvr_mem_available(), "B" );
+	}
+	
+
+	return str.str();
+}
+
+UF_API_CALL spec::dreamcast::Window::Window() : m_context(NULL) {}
 void UF_API_CALL spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
 	::keyboard.device = maple_enum_type(1, MAPLE_FUNC_KEYBOARD);
 
 	this->setSize(_size);
+
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
+	this->m_context = (void*) spec::uni::Context::create( settings, *this );
+#endif
 }
 
 spec::dreamcast::Window::~Window() {
+#if UF_OPENGL_CONTEXT_IN_WINDOW
+	if ( this->m_context ) {
+		spec::Context* context = (spec::Context*) this->m_context;
+		context->terminate();
+		delete context;
+		this->m_context = NULL;
+	}
+#endif
 }
 void UF_API_CALL spec::dreamcast::Window::terminate() {
 }
@@ -339,12 +399,15 @@ void UF_API_CALL spec::dreamcast::Window::setKeyRepeatEnabled( bool state ) {
 void UF_API_CALL spec::dreamcast::Window::requestFocus() {
 }
 bool UF_API_CALL spec::dreamcast::Window::hasFocus() const {
-	return true;
+//	return (uf::Window::focused = true);
+	return uf::Window::focused;
 }
 
 
 #include <uf/utils/serialize/serializer.h>
 void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
+	uf::Window::focused = true;
+
 	uf::inputs::kbm::states::LShift = GetModifier(KBD_MOD_LSHIFT);
 	uf::inputs::kbm::states::RShift = GetModifier(KBD_MOD_RSHIFT);
 
@@ -357,109 +420,109 @@ void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
 	uf::inputs::kbm::states::LSystem = GetModifier(KBD_MOD_S1);
 	uf::inputs::kbm::states::RSystem = GetModifier(KBD_MOD_S2);
 
-//	uf::inputs::kbm::states::Menu = KBD_KEY_APPS;
-	uf::inputs::kbm::states::SemiColon = KBD_KEY_SEMICOLON;
-	uf::inputs::kbm::states::Slash = KBD_KEY_SLASH;
-//	uf::inputs::kbm::states::Equal = KBD_KEY_EQUAL;
-	uf::inputs::kbm::states::Dash = KBD_KEY_MINUS;
-	uf::inputs::kbm::states::LBracket = KBD_KEY_LBRACKET;
-	uf::inputs::kbm::states::RBracket = KBD_KEY_RBRACKET;
-	uf::inputs::kbm::states::Comma = KBD_KEY_COMMA;
-	uf::inputs::kbm::states::Period = KBD_KEY_PERIOD;
-	uf::inputs::kbm::states::Quote = KBD_KEY_QUOTE;
-	uf::inputs::kbm::states::BackSlash = KBD_KEY_BACKSLASH;
-	uf::inputs::kbm::states::Tilde = KBD_KEY_TILDE;
+//	uf::inputs::kbm::states::Menu = GetKeyState(KBD_KEY_APPS);
+	uf::inputs::kbm::states::SemiColon = GetKeyState(KBD_KEY_SEMICOLON);
+	uf::inputs::kbm::states::Slash = GetKeyState(KBD_KEY_SLASH);
+//	uf::inputs::kbm::states::Equal = GetKeyState(KBD_KEY_EQUAL);
+	uf::inputs::kbm::states::Dash = GetKeyState(KBD_KEY_MINUS);
+	uf::inputs::kbm::states::LBracket = GetKeyState(KBD_KEY_LBRACKET);
+	uf::inputs::kbm::states::RBracket = GetKeyState(KBD_KEY_RBRACKET);
+	uf::inputs::kbm::states::Comma = GetKeyState(KBD_KEY_COMMA);
+	uf::inputs::kbm::states::Period = GetKeyState(KBD_KEY_PERIOD);
+	uf::inputs::kbm::states::Quote = GetKeyState(KBD_KEY_QUOTE);
+	uf::inputs::kbm::states::BackSlash = GetKeyState(KBD_KEY_BACKSLASH);
+	uf::inputs::kbm::states::Tilde = GetKeyState(KBD_KEY_TILDE);
 
-	uf::inputs::kbm::states::Escape = KBD_KEY_ESCAPE;
-	uf::inputs::kbm::states::Space = KBD_KEY_SPACE;
-	uf::inputs::kbm::states::Enter = KBD_KEY_ENTER;
-	uf::inputs::kbm::states::BackSpace = KBD_KEY_BACKSPACE;
-	uf::inputs::kbm::states::Tab = KBD_KEY_TAB;
-	uf::inputs::kbm::states::PageUp = KBD_KEY_PGUP;
-	uf::inputs::kbm::states::PageDown = KBD_KEY_PGDOWN;
-	uf::inputs::kbm::states::End = KBD_KEY_END;
-	uf::inputs::kbm::states::Home = KBD_KEY_HOME;
-	uf::inputs::kbm::states::Insert = KBD_KEY_INSERT;
-	uf::inputs::kbm::states::Delete = KBD_KEY_DEL;
-	uf::inputs::kbm::states::Add = KBD_KEY_PAD_PLUS;
-	uf::inputs::kbm::states::Subtract = KBD_KEY_PAD_MINUS;
-	uf::inputs::kbm::states::Multiply = KBD_KEY_PAD_MULTIPLY;
-	uf::inputs::kbm::states::Divide = KBD_KEY_PAD_DIVIDE;
-	uf::inputs::kbm::states::Pause = KBD_KEY_PAUSE;
+	uf::inputs::kbm::states::Escape = GetKeyState(KBD_KEY_ESCAPE);
+	uf::inputs::kbm::states::Space = GetKeyState(KBD_KEY_SPACE);
+	uf::inputs::kbm::states::Enter = GetKeyState(KBD_KEY_ENTER);
+	uf::inputs::kbm::states::BackSpace = GetKeyState(KBD_KEY_BACKSPACE);
+	uf::inputs::kbm::states::Tab = GetKeyState(KBD_KEY_TAB);
+	uf::inputs::kbm::states::PageUp = GetKeyState(KBD_KEY_PGUP);
+	uf::inputs::kbm::states::PageDown = GetKeyState(KBD_KEY_PGDOWN);
+	uf::inputs::kbm::states::End = GetKeyState(KBD_KEY_END);
+	uf::inputs::kbm::states::Home = GetKeyState(KBD_KEY_HOME);
+	uf::inputs::kbm::states::Insert = GetKeyState(KBD_KEY_INSERT);
+	uf::inputs::kbm::states::Delete = GetKeyState(KBD_KEY_DEL);
+	uf::inputs::kbm::states::Add = GetKeyState(KBD_KEY_PAD_PLUS);
+	uf::inputs::kbm::states::Subtract = GetKeyState(KBD_KEY_PAD_MINUS);
+	uf::inputs::kbm::states::Multiply = GetKeyState(KBD_KEY_PAD_MULTIPLY);
+	uf::inputs::kbm::states::Divide = GetKeyState(KBD_KEY_PAD_DIVIDE);
+	uf::inputs::kbm::states::Pause = GetKeyState(KBD_KEY_PAUSE);
 	
-	uf::inputs::kbm::states::F1 = KBD_KEY_F1;
-	uf::inputs::kbm::states::F2 = KBD_KEY_F2;
-	uf::inputs::kbm::states::F3 = KBD_KEY_F3;
-	uf::inputs::kbm::states::F4 = KBD_KEY_F4;
-	uf::inputs::kbm::states::F5 = KBD_KEY_F5;
-	uf::inputs::kbm::states::F6 = KBD_KEY_F6;
-	uf::inputs::kbm::states::F7 = KBD_KEY_F7;
-	uf::inputs::kbm::states::F8 = KBD_KEY_F8;
-	uf::inputs::kbm::states::F9 = KBD_KEY_F9;
-	uf::inputs::kbm::states::F10 = KBD_KEY_F10;
-	uf::inputs::kbm::states::F11 = KBD_KEY_F11;
-	uf::inputs::kbm::states::F12 = KBD_KEY_F12;
-//	uf::inputs::kbm::states::F13 = KBD_KEY_F13;
-//	uf::inputs::kbm::states::F14 = KBD_KEY_F14;
-//	uf::inputs::kbm::states::F15 = KBD_KEY_F15;
+	uf::inputs::kbm::states::F1 = GetKeyState(KBD_KEY_F1);
+	uf::inputs::kbm::states::F2 = GetKeyState(KBD_KEY_F2);
+	uf::inputs::kbm::states::F3 = GetKeyState(KBD_KEY_F3);
+	uf::inputs::kbm::states::F4 = GetKeyState(KBD_KEY_F4);
+	uf::inputs::kbm::states::F5 = GetKeyState(KBD_KEY_F5);
+	uf::inputs::kbm::states::F6 = GetKeyState(KBD_KEY_F6);
+	uf::inputs::kbm::states::F7 = GetKeyState(KBD_KEY_F7);
+	uf::inputs::kbm::states::F8 = GetKeyState(KBD_KEY_F8);
+	uf::inputs::kbm::states::F9 = GetKeyState(KBD_KEY_F9);
+	uf::inputs::kbm::states::F10 = GetKeyState(KBD_KEY_F10);
+	uf::inputs::kbm::states::F11 = GetKeyState(KBD_KEY_F11);
+	uf::inputs::kbm::states::F12 = GetKeyState(KBD_KEY_F12);
+//	uf::inputs::kbm::states::F13 = GetKeyState(KBD_KEY_F13);
+//	uf::inputs::kbm::states::F14 = GetKeyState(KBD_KEY_F14);
+//	uf::inputs::kbm::states::F15 = GetKeyState(KBD_KEY_F15);
 	
-	uf::inputs::kbm::states::Left = KBD_KEY_LEFT;
-	uf::inputs::kbm::states::Right = KBD_KEY_RIGHT;
-	uf::inputs::kbm::states::Up = KBD_KEY_UP;
-	uf::inputs::kbm::states::Down = KBD_KEY_DOWN;
+	uf::inputs::kbm::states::Left = GetKeyState(KBD_KEY_LEFT);
+	uf::inputs::kbm::states::Right = GetKeyState(KBD_KEY_RIGHT);
+	uf::inputs::kbm::states::Up = GetKeyState(KBD_KEY_UP);
+	uf::inputs::kbm::states::Down = GetKeyState(KBD_KEY_DOWN);
 
-	uf::inputs::kbm::states::Numpad0 = KBD_KEY_PAD_0;
-	uf::inputs::kbm::states::Numpad1 = KBD_KEY_PAD_1;
-	uf::inputs::kbm::states::Numpad2 = KBD_KEY_PAD_2;
-	uf::inputs::kbm::states::Numpad3 = KBD_KEY_PAD_3;
-	uf::inputs::kbm::states::Numpad4 = KBD_KEY_PAD_4;
-	uf::inputs::kbm::states::Numpad5 = KBD_KEY_PAD_5;
-	uf::inputs::kbm::states::Numpad6 = KBD_KEY_PAD_6;
-	uf::inputs::kbm::states::Numpad7 = KBD_KEY_PAD_7;
-	uf::inputs::kbm::states::Numpad8 = KBD_KEY_PAD_8;
-	uf::inputs::kbm::states::Numpad9 = KBD_KEY_PAD_9;
+	uf::inputs::kbm::states::Numpad0 = GetKeyState(KBD_KEY_PAD_0);
+	uf::inputs::kbm::states::Numpad1 = GetKeyState(KBD_KEY_PAD_1);
+	uf::inputs::kbm::states::Numpad2 = GetKeyState(KBD_KEY_PAD_2);
+	uf::inputs::kbm::states::Numpad3 = GetKeyState(KBD_KEY_PAD_3);
+	uf::inputs::kbm::states::Numpad4 = GetKeyState(KBD_KEY_PAD_4);
+	uf::inputs::kbm::states::Numpad5 = GetKeyState(KBD_KEY_PAD_5);
+	uf::inputs::kbm::states::Numpad6 = GetKeyState(KBD_KEY_PAD_6);
+	uf::inputs::kbm::states::Numpad7 = GetKeyState(KBD_KEY_PAD_7);
+	uf::inputs::kbm::states::Numpad8 = GetKeyState(KBD_KEY_PAD_8);
+	uf::inputs::kbm::states::Numpad9 = GetKeyState(KBD_KEY_PAD_9);
 
-	uf::inputs::kbm::states::Q = KBD_KEY_Q;
-	uf::inputs::kbm::states::W = KBD_KEY_W;
-	uf::inputs::kbm::states::E = KBD_KEY_E;
-	uf::inputs::kbm::states::R = KBD_KEY_R;
-	uf::inputs::kbm::states::T = KBD_KEY_T;
-	uf::inputs::kbm::states::Y = KBD_KEY_Y;
-	uf::inputs::kbm::states::U = KBD_KEY_U;
-	uf::inputs::kbm::states::I = KBD_KEY_I;
-	uf::inputs::kbm::states::O = KBD_KEY_O;
-	uf::inputs::kbm::states::P = KBD_KEY_P;
+	uf::inputs::kbm::states::Q = GetKeyState(KBD_KEY_Q);
+	uf::inputs::kbm::states::W = GetKeyState(KBD_KEY_W);
+	uf::inputs::kbm::states::E = GetKeyState(KBD_KEY_E);
+	uf::inputs::kbm::states::R = GetKeyState(KBD_KEY_R);
+	uf::inputs::kbm::states::T = GetKeyState(KBD_KEY_T);
+	uf::inputs::kbm::states::Y = GetKeyState(KBD_KEY_Y);
+	uf::inputs::kbm::states::U = GetKeyState(KBD_KEY_U);
+	uf::inputs::kbm::states::I = GetKeyState(KBD_KEY_I);
+	uf::inputs::kbm::states::O = GetKeyState(KBD_KEY_O);
+	uf::inputs::kbm::states::P = GetKeyState(KBD_KEY_P);
 	
-	uf::inputs::kbm::states::A = KBD_KEY_A;
-	uf::inputs::kbm::states::S = KBD_KEY_S;
-	uf::inputs::kbm::states::D = KBD_KEY_D;
-	uf::inputs::kbm::states::F = KBD_KEY_F;
-	uf::inputs::kbm::states::G = KBD_KEY_G;
-	uf::inputs::kbm::states::H = KBD_KEY_H;
-	uf::inputs::kbm::states::J = KBD_KEY_J;
-	uf::inputs::kbm::states::K = KBD_KEY_K;
-	uf::inputs::kbm::states::L = KBD_KEY_L;
+	uf::inputs::kbm::states::A = GetKeyState(KBD_KEY_A);
+	uf::inputs::kbm::states::S = GetKeyState(KBD_KEY_S);
+	uf::inputs::kbm::states::D = GetKeyState(KBD_KEY_D);
+	uf::inputs::kbm::states::F = GetKeyState(KBD_KEY_F);
+	uf::inputs::kbm::states::G = GetKeyState(KBD_KEY_G);
+	uf::inputs::kbm::states::H = GetKeyState(KBD_KEY_H);
+	uf::inputs::kbm::states::J = GetKeyState(KBD_KEY_J);
+	uf::inputs::kbm::states::K = GetKeyState(KBD_KEY_K);
+	uf::inputs::kbm::states::L = GetKeyState(KBD_KEY_L);
 	
-	uf::inputs::kbm::states::Z = KBD_KEY_Z;
-	uf::inputs::kbm::states::X = KBD_KEY_X;
-	uf::inputs::kbm::states::C = KBD_KEY_C;
-	uf::inputs::kbm::states::V = KBD_KEY_V;
-	uf::inputs::kbm::states::B = KBD_KEY_B;
-	uf::inputs::kbm::states::N = KBD_KEY_N;
-	uf::inputs::kbm::states::M = KBD_KEY_M;
+	uf::inputs::kbm::states::Z = GetKeyState(KBD_KEY_Z);
+	uf::inputs::kbm::states::X = GetKeyState(KBD_KEY_X);
+	uf::inputs::kbm::states::C = GetKeyState(KBD_KEY_C);
+	uf::inputs::kbm::states::V = GetKeyState(KBD_KEY_V);
+	uf::inputs::kbm::states::B = GetKeyState(KBD_KEY_B);
+	uf::inputs::kbm::states::N = GetKeyState(KBD_KEY_N);
+	uf::inputs::kbm::states::M = GetKeyState(KBD_KEY_M);
 	
-	uf::inputs::kbm::states::Num1 = KBD_KEY_1;
-	uf::inputs::kbm::states::Num2 = KBD_KEY_2;
-	uf::inputs::kbm::states::Num3 = KBD_KEY_3;
-	uf::inputs::kbm::states::Num4 = KBD_KEY_4;
-	uf::inputs::kbm::states::Num5 = KBD_KEY_5;
-	uf::inputs::kbm::states::Num6 = KBD_KEY_6;
-	uf::inputs::kbm::states::Num7 = KBD_KEY_7;
-	uf::inputs::kbm::states::Num8 = KBD_KEY_8;
-	uf::inputs::kbm::states::Num9 = KBD_KEY_9;
-	uf::inputs::kbm::states::Num0 = KBD_KEY_0;
+	uf::inputs::kbm::states::Num1 = GetKeyState(KBD_KEY_1);
+	uf::inputs::kbm::states::Num2 = GetKeyState(KBD_KEY_2);
+	uf::inputs::kbm::states::Num3 = GetKeyState(KBD_KEY_3);
+	uf::inputs::kbm::states::Num4 = GetKeyState(KBD_KEY_4);
+	uf::inputs::kbm::states::Num5 = GetKeyState(KBD_KEY_5);
+	uf::inputs::kbm::states::Num6 = GetKeyState(KBD_KEY_6);
+	uf::inputs::kbm::states::Num7 = GetKeyState(KBD_KEY_7);
+	uf::inputs::kbm::states::Num8 = GetKeyState(KBD_KEY_8);
+	uf::inputs::kbm::states::Num9 = GetKeyState(KBD_KEY_9);
+	uf::inputs::kbm::states::Num0 = GetKeyState(KBD_KEY_0);
 }
-void UF_API_CALL spec::dreamcast::Window::processEvents() {	
+void UF_API_CALL spec::dreamcast::Window::processEvents() {
 	if ( !::keyboard.device ) ::keyboard.device = maple_enum_type(0, MAPLE_FUNC_KEYBOARD);
 	if ( ::keyboard.device ) ::keyboard.state = (kbd_state_t*) maple_dev_status(::keyboard.device);
 	
@@ -569,7 +632,18 @@ void UF_API_CALL spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
 bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
 	auto code = GetKeyCode(key);
 	auto keys = GetKeys();
+	UF_MSG_DEBUG( key << " " << code << " " << keys.size() );
 	for ( auto key : keys ) if ( key == code ) return true;
-	return false;
+	return false;//
 }
+
+void UF_API_CALL spec::dreamcast::Window::display() {
+#if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
+	if ( this->m_context ){
+		spec::Context* context = (spec::Context*) this->m_context;
+		if ( context->setActive(true) ) context->display();
+	}
+#endif
+}
+
 #endif

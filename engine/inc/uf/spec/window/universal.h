@@ -13,6 +13,7 @@ namespace spec {
 		class UF_API Window {
 		public:
 			typedef void* 									handle_t;
+			typedef void* 									context_t;
 			typedef uf::String 								title_t;
 			typedef pod::Vector2i 							vector_t;
 
@@ -24,6 +25,7 @@ namespace spec {
 		//	Window::Events m_events;
 			std::queue<Event> m_events;
 		public:
+	#if 0
 		// 	C-tors
 			void create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window" ) {} ;// = 0;
 		// 	D-tors
@@ -48,7 +50,11 @@ namespace spec {
 			bool hasFocus() const;/* = 0;*/
 		// 	Update
 			void bufferInputs();/* = 0;*/
-			void processEvents();/* = 0;*/
+			
+			static bool isKeyPressed( const uf::stl::string& );
+		#endif
+		#if 0
+			void processEvents();
 
 			void pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload );
 			void pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
@@ -58,7 +64,11 @@ namespace spec {
 			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
 
 			bool pollEvents( bool block = false );
-			static bool isKeyPressed( const uf::stl::string& );
+		#endif
+
+			void pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload );
+			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
+			static bool focused;
 		};
 	}
 }
