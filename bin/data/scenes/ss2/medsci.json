@@ -1,15 +1,16 @@
 {
 	"import": "/model.json",
 	"assets": [
+	//	{ "filename": "./craeture.json", "delay": 1 },
+
 	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 
 	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
 	
-	//	{ "filename": "./craeture.json", "delay": 1 }
 
 	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
 	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
@@ -21,31 +22,17 @@
 	],
 	"metadata": {
 		"model": {
-			"exporter": {
-				"enabled": true
-			},
-			"baking": {
-				"enabled": false,
-				"resolution": 2048, // 8192
-				"shadows": 1024,
-				"layers": 22,
-				"trigger": { "mode": "rendered" },
-			//	"trigger": { "mode": "key", "value": "B" },
-				"output": "./lightmap.%i.png"
-			},
-			"grid": {
-				"/^worldspawn/": {
-					"size": [3,3,3]
-				}
-			},
-//			"lightmap": "./lightmap.%i.min.png",
-//			"lightmap": false,
 			"lightmap": true,
+			"baking": {
+				"enabled": true,
+				"resolution": 1024
+			},
 			"filter": "LINEAR",
 			"tags": {
-				"worldspawn": {  "physics": { "type": "mesh", "static": true } },
-				"worldspawn_20": {  "physics": { "type": "mesh", "static": true } },
-			//	"worldspawn": {  "physics": { "type": "bounding boxes", "static": true } },
+				"/^worldspawn/": {
+					"physics": { "type": "mesh", "static": true },
+					"grid": { "size": [5,2,5], "epsilon": 1.0, "cleanup": true, "print": true }
+				},
 				"info_player_spawn": {
 					"action": "attach",
 					"filename": "./player.json",

@@ -214,6 +214,9 @@ void EXT_API ext::initialize() {
 	{
 		uf::Entity::deleteChildrenOnDestroy = ::json["engine"]["debug"]["entity"]["delete children on destroy"].as( uf::Entity::deleteChildrenOnDestroy );
 		uf::Entity::deleteComponentsOnDestroy = ::json["engine"]["debug"]["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
+
+		uf::Object::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Object::assertionLoad );
+		uf::Asset::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Asset::assertionLoad );
 	}
 
 	{

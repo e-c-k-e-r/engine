@@ -10,10 +10,14 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/ext/gltf/gltf.h>
 
-uf::Timer<long long> uf::Object::timer(false);
+/*
 namespace {
 	uf::Object null;
 }
+*/
+
+uf::Timer<long long> uf::Object::timer(false);
+bool uf::Object::assertionLoad = true;
 
 UF_OBJECT_REGISTER_BEGIN(uf::Object)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
@@ -432,7 +436,14 @@ uf::Object& uf::Object::loadChild( const uf::stl::string& f, bool initialize ) {
 	uf::Serializer json;
 	uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
 	if ( !json.readFromFile(filename) ) {
-		return ::null;
+		if ( !uf::Object::assertionLoad ) {
+			UF_MSG_ERROR("assertionLoad is unset, loading empty entity");
+			auto& entity = uf::instantiator::instantiate("Object");
+			entity.getComponent<uf::ObjectBehavior::Metadata>().system.invalid = true;
+			this->addChild(entity);
+		} else {
+			UF_EXCEPTION("Failed to load file: " << filename);
+		}
 	}
 
 	json["source"] = filename;
@@ -445,33 +456,39 @@ uf::Object& uf::Object::loadChild( const uf::Serializer& _json, bool initialize 
 	uf::Serializer json = _json;
 	uf::stl::string type = json["type"].as<uf::stl::string>();
 	if ( type == "" ) type = "Object";
-	if ( json["ignore"].as<bool>() ) return ::null;
 
 	uf::Entity& entity = uf::instantiator::instantiate(type);
 	uf::Object& object = entity.as<uf::Object>();
 	this->addChild(entity);
+	if ( json["ignore"].as<bool>() ) return object;
 	if ( !object.load(json) ) {
-		this->removeChild(entity);
-		return ::null;
+		if ( !uf::Object::assertionLoad ) {
+			UF_MSG_ERROR("assertionLoad is unset, loading empty entity");
+			entity.getComponent<uf::ObjectBehavior::Metadata>().system.invalid = true;
+		} else {
+			UF_EXCEPTION("Failed to load JSON: " << json);
+		}
 	}
 	if ( initialize ) entity.initialize();
 	return object;
 }
 uf::Object* uf::Object::loadChildPointer( const uf::stl::string& f, bool initialize ) {
 	uf::Object* pointer = &this->loadChild(f, initialize);
-	return pointer != &::null ? pointer : NULL;
+	return pointer;
+//	return pointer != &::null ? pointer : NULL;
 }
 uf::Object* uf::Object::loadChildPointer( const uf::Serializer& json, bool initialize ) {
 	uf::Object* pointer = &this->loadChild(json, initialize);
-	return pointer != &::null ? pointer : NULL;
+	return pointer;
+//	return pointer != &::null ? pointer : NULL;
 }
-std::size_t uf::Object::loadChildUid( const uf::stl::string& f, bool initialize ) {
+size_t uf::Object::loadChildUid( const uf::stl::string& f, bool initialize ) {
 	uf::Object* pointer = this->loadChildPointer(f, initialize);
-	return pointer ? pointer->getUid() : -1;
+	return pointer ? pointer->getUid() : 0;
 }
-std::size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initialize ) {
+size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initialize ) {
 	uf::Object* pointer = this->loadChildPointer(json, initialize);
-	return pointer ? pointer->getUid() : -1;
+	return pointer ? pointer->getUid() : 0;
 }
 
 uf::stl::string uf::Object::grabURI( const uf::stl::string& filename, const uf::stl::string& root  ) {

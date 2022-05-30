@@ -162,7 +162,7 @@ void indirectLighting() {
 		indirectSpecular = voxelConeTrace( ray, SPECULAR_CONE_APERTURE );
 	// 	outFragColor.rgb = indirectSpecular.rgb; return;
 		if ( length(indirectSpecular) < 0.0125 ) {
-		//	indirectSpecular += (1.0 - indirectSpecular.a) * texture( samplerSkybox, R );
+		//	indirectSpecular += (1.0 - indirectSpecular.a) * texture( samplerCubemaps[ubo.indexSkybox], R ) * SPECULAR_CONE_APERTURE;
 		}
 	}
 

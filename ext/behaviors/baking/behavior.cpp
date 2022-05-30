@@ -15,6 +15,8 @@
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
 
+#define UF_BAKER_SAVE_MULTITHREAD 1
+
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
@@ -39,14 +41,15 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		metadata.output = this->grabURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
 		metadata.renderModeName = "B:" + std::to_string((int) this->getUid());
 
-		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as<uf::stl::string>();
-		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as<uf::stl::string>();
+		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as( metadata.trigger.mode );
+		metadata.trigger.value = metadataJson["baking"]["trigger"]["value"].as( metadata.trigger.value );
+		metadata.trigger.quits = metadataJson["baking"]["trigger"]["quits"].as( metadata.trigger.quits );
 
 		if ( metadataJson["baking"]["resolution"].is<size_t>() )
 			metadata.size = { metadataJson["baking"]["resolution"].as<size_t>(), metadataJson["baking"]["resolution"].as<size_t>() };
 
 		metadata.max.shadows = metadataJson["baking"]["shadows"].as<size_t>(metadata.max.shadows);
-		metadata.max.layers = metadataJson["baking"]["layers"].as<size_t>(metadata.max.layers);
+		metadata.max.layers = std::max( metadataJson["baking"]["layers"].as<size_t>(metadata.max.layers), (size_t) 1 );
 
 		metadata.cull = metadataJson["baking"]["cull"].as<bool>();
 
@@ -113,20 +116,30 @@ PREPARE: {
 	renderMode.setTarget("");
 	uf::renderer::states::rebuild = true;
 
-	UF_MSG_DEBUG("Graphic configured, ready to bake");
+	UF_MSG_DEBUG("Graphic configured, ready to bake " << metadata.max.layers << " lightmaps");
 	return;
 }
 SAVE: {
 #if 1
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
+
+	pod::Thread::container_t jobs;
+
 	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
-	//	auto image = renderMode.screenshot(0, i);
-		auto image = metadata.buffers.baked.screenshot(i);
-		uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
-		bool status = image.save(filename);
-		UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+		jobs.emplace_back([&, i]{
+		//	auto image = renderMode.screenshot(0, i);
+			auto image = metadata.buffers.baked.screenshot(i);
+			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
+			bool status = image.save(filename);
+			UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+		});
 	}
+#if UF_BAKER_SAVE_MULTITHREAD
+	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
+#else
+	for ( auto& job : jobs ) job();
+#endif
 	UF_MSG_DEBUG("Baked.");
 	metadata.initialized.map = true;
 
@@ -142,6 +155,8 @@ SAVE: {
 	ext::json::Value payload;
 	payload["uid"] = this->getUid();
 	uf::scene::getCurrentScene().queueHook("system:Destroy", payload);
+
+	if ( metadata.trigger.quits ) uf::scene::getCurrentScene().queueHook("system:Quit", payload);
 #endif
 	return;
 }

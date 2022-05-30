@@ -32,6 +32,19 @@ vec2 encodeNormals( vec3 n ) {
 //	return n.xy/p + 0.5;
 	return (vec2(atan(n.y,n.x)/PI, n.z)+1.0)*0.5;
 }
+vec3 encodeSrgb(vec3 rgb) {
+    const vec3 a = 12.92 * rgb;
+    const vec3 b = 1.055 * pow(rgb, vec3(1.0 / 2.4)) - 0.055;
+    const vec3 c = step(vec3(0.0031308), rgb);
+    return mix(a, b, c);
+}
+
+vec3 decodeSrgb(vec3 rgb) {
+    const vec3 a = rgb / 12.92;
+    const vec3 b = pow((rgb + 0.055) / 1.055, vec3(2.4));
+    const vec3 c = step(vec3(0.04045), rgb);
+    return mix(a, b, c);
+}
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_TEXTURES;
 }

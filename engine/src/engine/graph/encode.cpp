@@ -12,7 +12,7 @@
 #if UF_ENV_DREAMCAST
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
+	#define UF_GRAPH_LOAD_MULTITHREAD 1 // causes Vulkan OOM
 #endif
 
 namespace {
@@ -427,7 +427,7 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		serializer["root"] = encode(graph.root, settings);
 	});
 #if UF_GRAPH_LOAD_MULTITHREAD
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
+	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
 #else
 	for ( auto& job : jobs ) job();
 #endif

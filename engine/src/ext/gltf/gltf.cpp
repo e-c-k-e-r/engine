@@ -243,17 +243,15 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				bool print = false;
 				bool cleanup = true;
 			} meshgrid;
-
-			if ( ext::json::isObject( graph.metadata["grid"][m.name] ) ) {
-				meshgrid.metadata = graph.metadata["grid"][m.name];
-			} else {
-				ext::json::forEach( graph.metadata["grid"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-					if ( !ext::json::isNull( meshgrid.metadata["size"] ) ) return;
-					if ( !uf::string::isRegex( key ) ) return;
+		
+			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
+				if ( !ext::json::isObject( value["grid"] ) ) return; // no tag["grid"] defined
+				if (  ext::json::isNull( value["grid"]["size"] ) ) return; // no tag["grid"]["size"] defined
+				if ( uf::string::isRegex( key ) ) {
 					if ( uf::string::matches( m.name, key ).empty() ) return;
-					meshgrid.metadata = value;
-				});
-			}
+				} else if ( m.name != key ) return;
+				meshgrid.metadata = value["grid"];
+			});
 
 			if ( ext::json::isObject( meshgrid.metadata ) ) {
 				if ( meshgrid.metadata["size"].is<size_t>() ) {
@@ -267,6 +265,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
 				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
 			}
+		
 
 			if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Skinned, uint32_t
@@ -505,7 +504,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	}
 	// generate STs
 #if UF_USE_XATLAS
-	{
+	if ( graph.metadata["exporter"]["unwrap"].as<bool>() ) {
 		UF_MSG_DEBUG( "Generating ST's..." );
 		size_t atlases = ext::xatlas::unwrap( graph );
 		UF_MSG_DEBUG( "Generated ST's for " << atlases << " lightmaps" );
@@ -514,6 +513,10 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 
 	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
 		uf::graph::save( graph, filename );
+		// disable baking, doesn't output right if baking from a gltf imported model
+		graph.metadata["baking"]["enabled"] = false;
+		// disable lightmap loading, 99.999% of the time a previously baked lightmap will not work due to changing STs
+		graph.metadata["lightmap"] = false;
 	}
 	return graph;
 }

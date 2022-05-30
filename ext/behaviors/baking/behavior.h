@@ -5,6 +5,7 @@
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/math/vector.h>
+#include <uf/utils/renderer/renderer.h>
 
 namespace ext {
 	namespace BakingBehavior {
@@ -39,8 +40,9 @@ namespace ext {
 				size_t update = 0;
 			} previous;
 			struct {
-				uf::stl::string mode = "key";
+				uf::stl::string mode = "rendered";
 				uf::stl::string value = "";
+				bool quits = true;
 			} trigger;
 			struct {
 				bool renderMode = false;

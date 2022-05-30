@@ -56,6 +56,7 @@ namespace uf {
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
 		void UF_API batchWorker( const pod::Thread::function_t&, const uf::stl::string& name = "Aux" );
 		void UF_API batchWorkers( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
+		void UF_API batchWorkers_Async( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
 		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
 		void UF_API process( pod::Thread& );
 

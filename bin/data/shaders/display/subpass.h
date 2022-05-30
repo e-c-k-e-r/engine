@@ -101,7 +101,7 @@ layout (location = 1) out vec4 outFragBright;
 
 #include "../common/functions.h"
 #include "../common/fog.h"
-#include "../common/pbr.h"
+#include "../common/light.h"
 #include "../common/shadows.h"
 #if VXGI
 	#include "../common/vxgi.h"
@@ -236,11 +236,11 @@ void populateSurface() {
 	}
 	// Lightmap
 	if ( validTextureIndex( surface.instance.lightmapID ) ) {
-		surface.material.albedo.rgb *= sampleTexture( surface.instance.lightmapID, surface.st ).rgb;
+		surface.light += surface.material.albedo * sampleTexture( surface.instance.lightmapID, surface.st );
 	}
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
-		surface.material.albedo += sampleTexture( material.indexEmissive );
+		surface.light += sampleTexture( material.indexEmissive );
 	}
 	// Occlusion map
 	if ( validTextureIndex( material.indexOcclusion ) ) {
@@ -262,15 +262,8 @@ void populateSurface() {
 }
 
 void directLighting() {
-	const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion + surface.material.indirect.rgb;
-//	surface.fragment.rgb += surface.material.albedo.rgb * ambient;
-
-	if ( validTextureIndex( surface.instance.lightmapID ) ) {
-		surface.fragment.rgb += surface.material.albedo.rgb + ambient;
-	} else {
-		surface.fragment.rgb += surface.material.albedo.rgb * ambient;
-	}
-//	if ( ubo.lights == 0 ) { surface.fragment.rgb = surface.material.albedo.rgb; return; }
+	surface.light.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion; // add ambient lighting
+	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR
 	pbr();
 #elif LAMBERT
@@ -278,6 +271,7 @@ void directLighting() {
 #elif PHONG
 	phong();
 #endif
+	surface.fragment.rgb += surface.light.rgb;
 }
 
 #if MULTISAMPLING

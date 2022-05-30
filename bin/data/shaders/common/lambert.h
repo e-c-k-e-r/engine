@@ -21,7 +21,7 @@ void lambert() {
 		const vec3 diffuse = surface.material.albedo.rgb;
 		const vec3 specular = vec3(0);
 
-		surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
-		surface.fragment.a += light.power * La * Ls;
+		surface.light.rgb += (diffuse + specular) * Lr * cosLi;
+		surface.light.a += light.power * La * Ls;
 	}
 }

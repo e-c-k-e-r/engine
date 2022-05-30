@@ -30,10 +30,11 @@
 				"resolution": 8192,
 				"shadows": 1024,
 				"layers": 1,
-				"trigger": { "mode": "rendered" },
+				"trigger": { "mode": "rendered", "quit": true },
+			//	"trigger": { "mode": "key", "value": "B" },
 				"output": "./lightmap.%i.png"
 			},
-			"grid": {
+			"-grid": {
 				"/^worldspawn/": {
 					"size": [6,6,6],
 				//	"epsilon": 0.01,

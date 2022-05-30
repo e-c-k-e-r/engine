@@ -2,6 +2,9 @@
 #if UF_USE_XATLAS
 #include <xatlas/xatlas.h>
 
+#define UF_XATLAS_UNWRAP_MULTITHREAD 1
+#define UF_XATLAS_LAZY 1 // i do not understand why it needs to insert extra vertices for it to not even be used in the indices buffer, this flag avoids having to account for it
+
 size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 	struct Entry {
 		size_t index = 0;
@@ -134,15 +137,37 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 	packOptions.bilinear = true;
 
 	// pack
+	pod::Thread::container_t jobs;
+
+	for ( auto& pair : atlases ) {
+		jobs.emplace_back([&]{
+			auto& atlas = pair.second;
+			::xatlas::Generate(atlas.pointer, chartOptions, packOptions);
+		/*
+			// get vertices size ahead of time
+			for ( auto i = 0; i < atlas.pointer->meshCount; ++i ) {
+				auto& xmesh = atlas.pointer->meshes[i];
+				auto& entry = atlas.entries[i];
+			//	atlas.vertices += xmesh.vertexCount;
+				sizes[entry.index] += xmesh.vertexCount;
+			}
+		*/
+		});
+	}
+
+#if UF_XATLAS_UNWRAP_MULTITHREAD
+	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
+#else
+	for ( auto& job : jobs ) job();
+#endif
+
+#if !UF_XATLAS_LAZY
 	for ( auto& pair : atlases ) {
 		auto& atlas = pair.second;
-		::xatlas::Generate(atlas.pointer, chartOptions, packOptions);
-
 		// get vertices size ahead of time
 		for ( auto i = 0; i < atlas.pointer->meshCount; ++i ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
-		//	atlas.vertices += xmesh.vertexCount;
 			sizes[entry.index] += xmesh.vertexCount;
 		}
 	}
@@ -151,13 +176,16 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 	for ( auto i = 0; i < graph.meshes.size(); ++i ) {
 		auto& name = graph.meshes[i];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
-
-		mesh.resizeVertices( sizes[i] );
-		mesh.updateDescriptor();
+		if ( sizes[i] != mesh.vertex.count ) {
+			mesh.resizeVertices( sizes[i] );
+			mesh.updateDescriptor();
+		}
 	}
+#endif
 
 	// update vertices
 	for ( auto& pair : atlases ) {
+		size_t vertexIDOffset = 0;
 		auto& atlas = pair.second;
 		for ( auto i = 0; i < atlas.pointer->meshCount; i++ ) {
 			auto& xmesh = atlas.pointer->meshes[i];
@@ -166,32 +194,47 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 			auto& source = sources[entry.index];
 
+
 			// draw commands
 			if ( mesh.indirect.count ) {
-				// vertices
 				auto srcInput = source.remapVertexInput( entry.commandID );
 				auto dstInput = mesh.remapVertexInput( entry.commandID );
-				auto vertexCount = xmesh.vertexCount;
 
+			#if UF_XATLAS_LAZY
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+					
+					for ( auto k = 0; k < srcInput.attributes.size(); ++k ) {
+						auto dstAttribute = dstInput.attributes[k];
+						if ( dstAttribute.descriptor.name != "st" ) continue;
+						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (ref + dstInput.first) );
+						st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };;
+					}
+				}
+			#else
 				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
 				pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
-				drawCommands[entry.commandID].vertices = vertexCount;
-				primitives[entry.commandID].drawCommand.vertices = vertexCount;
+				bool mismatched = xmesh.vertexCount != drawCommands[entry.commandID].vertices;
+				vertexIDOffset += xmesh.vertexCount - drawCommands[entry.commandID].vertices;
+
+				drawCommands[entry.commandID].vertices = xmesh.vertexCount;
+				primitives[entry.commandID].drawCommand.vertices = xmesh.vertexCount;
+				drawCommands[entry.commandID].vertexID += vertexIDOffset;
+				primitives[entry.commandID].drawCommand.vertexID += vertexIDOffset;
 
 				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
 					auto& vertex = xmesh.vertexArray[j];
 					auto ref = vertex.xref;
-					for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
-					//	auto srcAttribute = source.remapVertexAttribute( source.vertex.attributes[k], entry.commandID );
-					//	auto dstAttribute = mesh.remapVertexAttribute( mesh.vertex.attributes[k], entry.commandID );
-
-						auto srcAttribute = source.vertex.attributes[k];
-						auto dstAttribute = mesh.vertex.attributes[k];
+					
+					for ( auto k = 0; k < srcInput.attributes.size(); ++k ) {
+						auto srcAttribute = srcInput.attributes[k];
+						auto dstAttribute = dstInput.attributes[k];
 
 						if ( dstAttribute.descriptor.name == "st" ) {
 							pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first) );
-							st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };
+							st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };;
 						} else {
 							memcpy(  static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (j + dstInput.first),  static_cast<uint8_t*>(srcAttribute.pointer) + srcAttribute.stride * (ref + srcInput.first), srcAttribute.stride );
 						}
@@ -211,12 +254,29 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 						}
 					}
 				}
+			#endif
 			} else {
 				uf::Mesh::Attribute stAttribute;
 				for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "st" ) stAttribute = attribute;
 				UF_ASSERT( stAttribute.descriptor.name == "st" );
 
 				// vertices
+			#if UF_XATLAS_LAZY
+				auto srcInput = source.vertex;
+				auto dstInput = mesh.vertex;
+
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+					
+					for ( auto k = 0; k < srcInput.attributes.size(); ++k ) {
+						auto dstAttribute = dstInput.attributes[k];
+						if ( dstAttribute.descriptor.name != "st" ) continue;
+						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (ref + dstInput.first) );
+						st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };;
+					}
+				}
+			#else
 				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
 					auto& vertex = xmesh.vertexArray[j];
 					auto ref = vertex.xref;
@@ -265,12 +325,13 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 						}
 					}
 				}
+			#endif
 			}
-
 			mesh.updateDescriptor();
 		}
 	}
 
+#if !UF_XATLAS_LAZY
 	// update vertexID offsets for indirect commands
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
@@ -281,6 +342,7 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 		auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer(mesh.indirect).data();
 
+	
 		size_t vertexID = 0;
 		for ( auto i = 0; i < mesh.indirect.count; ++i ) {
 			auto& primitive = primitives[i];
@@ -292,6 +354,7 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 			vertexID += drawCommand.vertices;
 		}
 	}
+#endif
 
 	// cleanup
 	size_t atlasCount = 0;

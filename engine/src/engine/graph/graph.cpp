@@ -367,31 +367,37 @@ void uf::graph::process( pod::Graph& graph ) {
 	//
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
 
+	//
+	uf::stl::unordered_map<uf::stl::string, bool> isSrgb;
+
 	// process lightmap
 #if UF_USE_OPENGL
 	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.%i.min.dtex"
 #else
 	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.%i.png"
 #endif
-	if ( graph.metadata["lightmap"].as<bool>() ) {
+	{
 		uf::stl::unordered_map<size_t, uf::stl::string> filenames;
 		uf::stl::unordered_map<size_t, size_t> lightmapIDs;
-
-		UF_MSG_DEBUG( graph.instances.size() );
+		uint32_t lightmapCount = 0;
 
 		for ( auto& name : graph.instances ) {
 			auto& instance = uf::graph::storage.instances[name];
-		//	if ( !instance.auxID ) break;
 			filenames[instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", std::to_string(instance.auxID));
+
+			lightmapCount = std::max( lightmapCount, instance.auxID );
 		}
 		for ( auto& name : graph.primitives ) {
 			auto& primitives = uf::graph::storage.primitives[name];
 			for ( auto& primitive : primitives ) {
-			//	if ( !primitive.instance.auxID ) break;
 				filenames[primitive.instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", std::to_string(primitive.instance.auxID));
+
+				lightmapCount = std::max( lightmapCount, primitive.instance.auxID );
 			}
 		}
-		for ( auto& pair : filenames ) {
+		graph.metadata["baking"]["layers"] = lightmapCount;
+		
+		if ( graph.metadata["lightmap"].as<bool>() ) for ( auto& pair : filenames ) {
 			auto i = pair.first;
 			auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
 
@@ -399,6 +405,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				UF_MSG_ERROR( "lightmap does not exist: " << f )
 				continue;
 			}
+			
 
 			auto textureID = graph.textures.size();
 			auto imageID = graph.images.size();
@@ -413,6 +420,8 @@ void uf::graph::process( pod::Graph& graph ) {
 
 			graph.metadata["lightmaps"][i] = f;
 			graph.metadata["baking"]["enabled"] = false;
+
+			isSrgb[f] = false;
 		}
 				
 		for ( auto& name : graph.instances ) {
@@ -427,38 +436,6 @@ void uf::graph::process( pod::Graph& graph ) {
 				primitive.instance.lightmapID = lightmapIDs[primitive.instance.auxID];
 			}
 		}
-	#if 0
-		const uf::stl::string lightmapFilename = graph.metadata["lightmap"].as<uf::stl::string>(UF_GRAPH_DEFAULT_LIGHTMAP);
-		// load lightmap, if requested
-		if ( lightmapFilename != "" ) {
-			// check if valid filename, if not it's a texture name
-			uf::stl::string f = uf::io::sanitize( lightmapFilename, uf::io::directory( graph.name ) );
-			if ( uf::io::exists( f ) ) {
-				auto textureID = graph.textures.size();
-				auto imageID = graph.images.size();
-
-				auto& texture = /*graph.storage*/uf::graph::storage.textures[graph.textures.emplace_back(f)];
-				auto& image = /*graph.storage*/uf::graph::storage.images[graph.images.emplace_back(f)];
-				image.open( f, false );
-
-				texture.index = imageID;
-
-				for ( auto& name : graph.instances ) {
-					auto& instance = uf::graph::storage.instances[name];
-					instance.lightmapID = textureID;
-				}
-				for ( auto& name : graph.primitives ) {
-					auto& primitives = uf::graph::storage.primitives[name];
-					for ( auto& primitive : primitives ) {
-						primitive.instance.lightmapID = textureID;
-					}
-				}
-				
-				graph.metadata["lightmapped"] = f;
-				graph.metadata["baking"]["enabled"] = false;
-			}
-		}
-	#endif
 	}
 	// add atlas
 
@@ -480,19 +457,21 @@ void uf::graph::process( pod::Graph& graph ) {
 		if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
 
 		auto texName = graph.textures[ID];
-		auto& texture = uf::graph::storage.texture2Ds[texName];
-		texture.srgb = true;
+		isSrgb[texName] = true;
 	}
 
 	for ( auto& key : graph.images ) {
 		auto& image = uf::graph::storage.images[key];
 		auto& texture = uf::graph::storage.texture2Ds[key];
 		if ( !texture.generated() ) {
-			bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == key;
-			auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
+		//	bool isLightmap = graph.metadata["lightmapped"].as<uf::stl::string>() == key;
+		//	auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" && !isLightmap ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
 		//	auto filter = uf::renderer::enums::Filter::LINEAR;
+
+			auto filter = graph.metadata["filter"].as<uf::stl::string>() == "NEAREST" ? uf::renderer::enums::Filter::NEAREST : uf::renderer::enums::Filter::LINEAR;
 			texture.sampler.descriptor.filter.min = filter;
 			texture.sampler.descriptor.filter.mag = filter;
+			texture.srgb = isSrgb.count(key) == 0 ? false : isSrgb[key];
 
 			texture.loadFromImage( image );
 		#if UF_ENV_DREAMCAST
@@ -706,40 +685,40 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// on systems where frametime is very, very important, we can set all static nodes to not tick
 	
 	// tie to tag
-	{
-		ext::json::Value info = ext::json::null();
-		if ( ext::json::isObject( graph.metadata["tags"][node.name] ) ) {
-			info = graph.metadata["tags"][node.name];
-		} else {
-			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-				if ( !uf::string::isRegex( key ) ) return;
-				if ( uf::string::matches( node.name, key ).empty() ) return;
-				info = value;
-			});
-		}
-		if ( ext::json::isObject( info ) ) {
-			if ( info["ignore"].as<bool>() ) return;
+	ext::json::Value tag = ext::json::null();
+/*
+	if ( ext::json::isObject( graph.metadata["tags"][node.name] ) ) {
+		tag = graph.metadata["tags"][node.name];
+	}
+*/
+	ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
+		if ( uf::string::isRegex( key ) ) {
+			if ( uf::string::matches( node.name, key ).empty() ) return;
+		} else if ( node.name != key ) return;
+		tag = value;
+	});
+	if ( ext::json::isObject( tag ) ) {
+		if ( tag["ignore"].as<bool>() ) return;
 
-			if ( info["action"].as<uf::stl::string>() == "load" ) {
-				if ( info["filename"].is<uf::stl::string>() ) {
-					uf::stl::string filename = uf::io::resolveURI( info["filename"].as<uf::stl::string>(), graph.metadata["root"].as<uf::stl::string>() );
-					entity.load(filename);
-				} else if ( ext::json::isObject( info["payload"] ) ) {
-					uf::Serializer json = info["payload"];
-					json["root"] = graph.metadata["root"];
-					entity.load(json);
-				}
-			} else if ( info["action"].as<uf::stl::string>() == "attach" ) {
-				uf::stl::string filename = uf::io::resolveURI( info["filename"].as<uf::stl::string>(), graph.metadata["root"].as<uf::stl::string>() );
-				auto& child = entity.loadChild( filename, false );
-				auto& childTransform = child.getComponent<pod::Transform<>>();
-				auto flatten = uf::transform::flatten( node.transform );
-				if ( !info["preserve position"].as<bool>() ) childTransform.position = flatten.position;
-				if ( !info["preserve orientation"].as<bool>() ) childTransform.orientation = flatten.orientation;
+		if ( tag["action"].as<uf::stl::string>() == "load" ) {
+			if ( tag["filename"].is<uf::stl::string>() ) {
+				uf::stl::string filename = uf::io::resolveURI( tag["filename"].as<uf::stl::string>(), graph.metadata["root"].as<uf::stl::string>() );
+				entity.load(filename);
+			} else if ( ext::json::isObject( tag["payload"] ) ) {
+				uf::Serializer json = tag["payload"];
+				json["root"] = graph.metadata["root"];
+				entity.load(json);
 			}
-			if ( info["static"].is<bool>() ) {
-				metadata.system.ignoreGraph = info["static"].as<bool>();
-			}
+		} else if ( tag["action"].as<uf::stl::string>() == "attach" ) {
+			uf::stl::string filename = uf::io::resolveURI( tag["filename"].as<uf::stl::string>(), graph.metadata["root"].as<uf::stl::string>() );
+			auto& child = entity.loadChild( filename, false );
+			auto& childTransform = child.getComponent<pod::Transform<>>();
+			auto flatten = uf::transform::flatten( node.transform );
+			if ( !tag["preserve position"].as<bool>() ) childTransform.position = flatten.position;
+			if ( !tag["preserve orientation"].as<bool>() ) childTransform.orientation = flatten.orientation;
+		}
+		if ( tag["static"].is<bool>() ) {
+			metadata.system.ignoreGraph = tag["static"].as<bool>();
 		}
 	}
 	// create as light
@@ -790,27 +769,24 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		transform = node.transform;
 		transform.reference = &parent.getComponent<pod::Transform<>>();
 		// override transform
-		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
-			auto& info = graph.metadata["tags"][node.name];
-			if ( info["transform"]["offset"].as<bool>() ) {
-				auto parsed = uf::transform::decode( info["transform"], pod::Transform<>{} );
-				transform.position += parsed.position;
-				transform.orientation = uf::quaternion::multiply( transform.orientation, parsed.orientation );
-			} else {
-				transform = uf::transform::decode( info["transform"], transform );
-				if ( info["transform"]["parent"].is<uf::stl::string>() ) {
-					auto* parentPointer = uf::graph::find( graph, info["transform"]["parent"].as<uf::stl::string>() );
-					if ( parentPointer ) {
-						auto& parentNode = *parentPointer;
-						// entity already exists, bind to its transform
-						if ( parentNode.entity && parentNode.entity->hasComponent<pod::Transform<>>() ) {
-							auto& parentTransform = parentNode.entity->getComponent<pod::Transform<>>();
-							transform = uf::transform::reference( transform, parentTransform, info["transform"]["reorient"].as<bool>() );
-							transform.position = -transform.position;
-						// doesnt exist, bind to the node transform
-						} else {
-							transform = uf::transform::reference( transform, parentNode.transform, info["transform"]["reorient"].as<bool>() );
-						}
+		if ( tag["transform"]["offset"].as<bool>() ) {
+			auto parsed = uf::transform::decode( tag["transform"], pod::Transform<>{} );
+			transform.position += parsed.position;
+			transform.orientation = uf::quaternion::multiply( transform.orientation, parsed.orientation );
+		} else {
+			transform = uf::transform::decode( tag["transform"], transform );
+			if ( tag["transform"]["parent"].is<uf::stl::string>() ) {
+				auto* parentPointer = uf::graph::find( graph, tag["transform"]["parent"].as<uf::stl::string>() );
+				if ( parentPointer ) {
+					auto& parentNode = *parentPointer;
+					// entity already exists, bind to its transform
+					if ( parentNode.entity && parentNode.entity->hasComponent<pod::Transform<>>() ) {
+						auto& parentTransform = parentNode.entity->getComponent<pod::Transform<>>();
+						transform = uf::transform::reference( transform, parentTransform, tag["transform"]["reorient"].as<bool>() );
+						transform.position = -transform.position;
+					// doesnt exist, bind to the node transform
+					} else {
+						transform = uf::transform::reference( transform, parentNode.transform, tag["transform"]["reorient"].as<bool>() );
 					}
 				}
 			}
@@ -860,23 +836,23 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			uf::graph::initializeGraphics( graph, entity );
 		}
 		
-		if ( !ext::json::isNull( graph.metadata["tags"][node.name] ) ) {
-			auto info = graph.metadata["tags"][node.name]["physics"];
-			if ( !ext::json::isObject( info ) ) info = metadataJson["system"]["physics"];
-			else metadataJson["system"]["physics"] = info;
+		{
+			auto phyziks = tag["physics"];
+			if ( !ext::json::isObject( phyziks ) ) phyziks = metadataJson["system"]["physics"];
+			else metadataJson["system"]["physics"] = phyziks;
 			
-			if ( ext::json::isObject( info ) ) {
-				uf::stl::string type = info["type"].as<uf::stl::string>();		
+			if ( ext::json::isObject( phyziks ) ) {
+				uf::stl::string type = phyziks["type"].as<uf::stl::string>();		
 
 				if ( type == "mesh" ) {
 					auto& collider = entity.getComponent<pod::PhysicsState>();
-					collider.stats.mass = info["mass"].as(collider.stats.mass);
-					collider.stats.friction = info["friction"].as(collider.stats.friction);
-					collider.stats.restitution = info["restitution"].as(collider.stats.restitution);
-					collider.stats.inertia = uf::vector::decode( info["inertia"], collider.stats.inertia );
-					collider.stats.gravity = uf::vector::decode( info["gravity"], collider.stats.gravity );
+					collider.stats.mass = phyziks["mass"].as(collider.stats.mass);
+					collider.stats.friction = phyziks["friction"].as(collider.stats.friction);
+					collider.stats.restitution = phyziks["restitution"].as(collider.stats.restitution);
+					collider.stats.inertia = uf::vector::decode( phyziks["inertia"], collider.stats.inertia );
+					collider.stats.gravity = uf::vector::decode( phyziks["gravity"], collider.stats.gravity );
 
-					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !info["static"].as<bool>(true) );
+					uf::physics::impl::create( entity.as<uf::Object>(), mesh, !phyziks["static"].as<bool>(true) );
 				} else {
 					auto min = uf::matrix::multiply<float>( model, bounds.min, 1.0f );
 					auto max = uf::matrix::multiply<float>( model, bounds.max, 1.0f );

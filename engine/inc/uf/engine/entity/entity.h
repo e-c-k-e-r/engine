@@ -9,9 +9,7 @@
 #include <uf/utils/memory/pool.h>
 
 namespace uf {
-	class UF_API Object;
 	class UF_API Entity : public uf::Behaviors {
-	//friend class EntityBehavior;
 	public:
 		typedef uf::stl::vector<uf::Entity*> container_t;
 		static uf::Entity null;
@@ -36,8 +34,8 @@ namespace uf {
 		std::size_t getUid() const;
 		void setName( const uf::stl::string& );
 		// cast to other Entity classes, avoid nasty shit like *((uf::Object*) &entity)
-		template<typename T=uf::Object> T& as();
-		template<typename T=uf::Object> const T& as() const;
+		template<typename T> T& as();
+		template<typename T> const T& as() const;
 		// parent-child relationship
 		bool hasParent() const;
 		template<typename T=uf::Entity> T& getParent();

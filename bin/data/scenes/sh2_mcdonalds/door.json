@@ -1,0 +1,11 @@
+{
+	"assets": ["./scripts/door.lua"],
+	"system": {
+		"physics": {
+			"mass": 0,
+			"inertia": [0, 0, 0],
+			"type": "bounding box",
+			"recenter": true
+		}
+	}
+}

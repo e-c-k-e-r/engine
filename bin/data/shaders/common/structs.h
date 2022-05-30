@@ -158,6 +158,7 @@ struct Surface {
 	SurfaceMaterial material;
 	Instance instance;
 
+	vec4 light;
 	vec4 fragment;
 } surface;
 

@@ -155,6 +155,8 @@ for ( auto& p : m.primitives ) {
 		#undef COPY_INDICES
 	}
 
+
+
 	meshlet.primitive.instance.materialID = p.material;
 	meshlet.primitive.instance.primitiveID = meshlets.size() - 1;
 	meshlet.primitive.instance.meshID = meshID;
@@ -195,8 +197,7 @@ if ( meshgrid.grid.divisions.x > 1 && meshgrid.grid.divisions.y > 1 && meshgrid.
 			.materialID = meshlet.primitive.drawCommand.materialID,
 			.vertices = meshlet.vertices.size(),
 		});
-		//UF_MSG_DEBUG(  );
-
+		
 		primitives.emplace_back( meshlet.primitive );
 
 		indexID += meshlet.indices.size();

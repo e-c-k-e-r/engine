@@ -13,6 +13,8 @@ namespace uf {
 	class UF_API Object : public uf::Entity {
 	public:
 		static uf::Timer<long long> timer;
+		static bool assertionLoad;
+
 		Object();
 
 		bool reload( bool = false );

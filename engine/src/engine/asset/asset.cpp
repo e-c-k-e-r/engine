@@ -47,6 +47,7 @@ namespace {
 }
 
 uf::Asset uf::Asset::masterAssetLoader;
+bool uf::Asset::assertionLoad = true;
 
 void uf::Asset::processQueue() {
 	uf::thread::batchWorker( [&](){
@@ -223,18 +224,30 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 		uf::stl::string hash = uf::string::sha256( filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( filename, cached, hash ) ) {
-			UF_MSG_ERROR("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
+			if ( !uf::Asset::assertionLoad ) {
+				UF_MSG_ERROR("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
+			} else {
+				UF_EXCEPTION("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
+			}
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
+		if ( !uf::Asset::assertionLoad ) {
+			UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
+		} else {
+			UF_EXCEPTION("Failed to preload `" + filename + "`: Does not exist");
+		}
 		return "";
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
-		UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		if ( !uf::Asset::assertionLoad ) {
+			UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		} else {
+			UF_EXCEPTION("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		}
 		return "";
 	}
 	return filename;
@@ -247,18 +260,30 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 		uf::stl::string hash = uf::string::sha256( payload.filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( payload.filename, cached, hash ) ) {
-			UF_MSG_ERROR("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
+			if ( !uf::Asset::assertionLoad ) {
+				UF_MSG_ERROR("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
+			} else {
+				UF_EXCEPTION("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
+			}
 			return "";
 		}
 		filename = cached;
 	}
 	if ( !uf::io::exists( filename ) ) {
-		UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
+		if ( !uf::Asset::assertionLoad ) {
+			UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
+		} else {
+			UF_EXCEPTION("Failed to load `" + filename + "`: Does not exist");
+		}
 		return "";
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
-		UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		if ( !uf::Asset::assertionLoad ) {
+			UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		} else {
+			UF_EXCEPTION("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+		}
 		return "";
 	}
 

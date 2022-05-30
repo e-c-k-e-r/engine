@@ -4,8 +4,8 @@
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 
-#define LAMBERT 1
-#define PBR 0
+#define LAMBERT 0
+#define PBR 1
 #define VXGI 1
 #define COMPUTE 1
 
@@ -72,6 +72,7 @@ layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 #endif
 
 #include "../common/functions.h"
+#include "../common/light.h"
 #undef VXGI
 #include "../common/shadows.h"
 
@@ -96,6 +97,7 @@ void main() {
 		const Material material = materials[surface.instance.materialID];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
+/*
 	#if DEFERRED_SAMPLING
 		{
 			vec4 uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) );
@@ -127,20 +129,19 @@ void main() {
 	#else
 		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
 	#endif
+*/
+		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
 		surface.material.metallic = material.factorMetallic;
 		surface.material.roughness = material.factorRoughness;
 		surface.material.occlusion = material.factorOcclusion;
 
-		float litFactor = 1.0;
+		const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion;
 		if ( validTextureIndex( surface.instance.lightmapID ) ) {
-			surface.fragment.rgb += surface.material.albedo.rgb + ubo.ambient.rgb * surface.material.occlusion;
+			surface.fragment.rgb += surface.material.albedo.rgb;
 		} else {
-			surface.fragment.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion;
-		}
-		// corrections
-		surface.material.roughness *= 4.0;
-		if ( !validTextureIndex( surface.instance.lightmapID ) )
-		{
+			surface.fragment.rgb += surface.material.albedo.rgb * ambient;
+			// corrections
+			surface.material.roughness *= 4.0;
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
 			const float cosLo = max(0.0, dot(surface.normal.world, Lo));
@@ -171,13 +172,18 @@ void main() {
 				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			#endif
 				// lightmapped, compute only specular
-				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.fragment.rgb += (specular) * Lr * cosLi;
+			/*
+				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.light.rgb += (specular) * Lr * cosLi;
 				// point light, compute only diffuse
-				// else if ( abs(light.type) == 1 ) surface.fragment.rgb += (diffuse) * Lr * cosLi;
-				else surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
-				surface.fragment.a += light.power * La * Ls;
+				// else if ( abs(light.type) == 1 ) surface.light.rgb += (diffuse) * Lr * cosLi;
+				else surface.light.rgb += (diffuse + specular) * Lr * cosLi;
+			*/
+				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
+				surface.light.a += light.power * La * Ls;
 			}
 		}
+
+		surface.fragment.rgb += surface.light.rgb;
 
 		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 	}

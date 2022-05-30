@@ -35,6 +35,8 @@ namespace uf {
 		static uf::Asset::Payload resolveToPayload( const uf::stl::string&, const uf::stl::string& = "" );
 		static bool isExpected( const uf::Asset::Payload&, uf::Asset::Type expected );
 
+		static bool assertionLoad;
+
 		// URL or file path
 		void processQueue();
 

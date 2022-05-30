@@ -67,8 +67,9 @@ void main() {
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = 1.0f - material.factorOcclusion;
 
-	surface.fragment = material.colorEmissive;
+	surface.light = material.colorEmissive;
 	surface.material.albedo = vec4(1);
+#if 1
 	{
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 		for ( uint i = 0; i < lights.length(); ++i ) {
@@ -107,22 +108,61 @@ void main() {
 			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
 			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 		#endif
-			surface.fragment.rgb += (diffuse + specular) * Lr * cosLi;
-			surface.fragment.a += light.power * La * Ls;
+
+			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
+			surface.light.a += light.power * La * Ls;
 		}
 	}
+#else
+	{
+		// corrections
+		surface.material.roughness *= 4.0;
+		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
+		const vec3 Lo = normalize( surface.position.world );
+		const float cosLo = max(0.0, dot(surface.normal.world, Lo));
+		for ( uint i = 0; i < lights.length(); ++i ) {
+			const Light light = lights[i];
+			if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+			if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;
+			const vec3 Lp = light.position;
+			const vec3 Liu = light.position - surface.position.world;
+			const vec3 Li = normalize(Liu);
+			const float Ls = shadowFactor( light, 0.0 );
+			const float La = 1.0 / (PI * pow(length(Liu), 2.0));
+			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
-#define EXPOSURE 1
-#define GAMMA 1
+			const float cosLi = max(0.0, dot(surface.normal.world, Li));
+			const vec3 Lr = light.color.rgb * light.power * La * Ls;
+		#if LAMBERT
+			const vec3 diffuse = surface.material.albedo.rgb;
+			const vec3 specular = vec3(0);
+		#elif PBR
+			const vec3 Lh = normalize(Li + Lo);
+			const float cosLh = max(0.0, dot(surface.normal.world, Lh));
+			
+			const vec3 F = fresnelSchlick( F0, max( 0.0, dot(Lh, Lo) ) );
+			const float D = ndfGGX( cosLh, surface.material.roughness );
+			const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
+			const vec3 diffuse = mix( vec3(1.0) - F, vec3(0.0), surface.material.metallic ) * surface.material.albedo.rgb;
+			const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
+		#endif
 
-//	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * EXPOSURE);
-//	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / GAMMA));
+			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
+			surface.light.a += light.power * La * Ls;
+		}
+	}
+#endif
+#define EXPOSURE 0
+#define GAMMA 0
 
-	outAlbedo = vec4(surface.fragment.rgb, 1);
+//	surface.light.rgb = vec3(1.0) - exp(-surface.light.rgb * EXPOSURE);
+//	surface.light.rgb = pow(surface.light.rgb, vec3(1.0 / GAMMA));
+
+	outAlbedo = vec4(surface.light.rgb, 1);
 
 	{
 		const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
 		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(inLayer));
-		imageStore(outAlbedos, uvw, vec4(surface.fragment.rgb, 1) );
+		imageStore(outAlbedos, uvw, vec4(surface.light.rgb, 1) );
 	}
 }

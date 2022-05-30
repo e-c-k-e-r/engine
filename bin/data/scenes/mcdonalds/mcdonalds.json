@@ -1,0 +1,47 @@
+{
+	"import": "/model.json",
+	"assets": [
+	//	{ "filename": "./static.json", "delay": 8 },
+	
+	//	{ "filename": "./models/mcdonalds.glb", "delay": 0, "single threaded": false }
+	//	{ "filename": "./models/mcdonalds/graph.json", "delay": 0, "single threaded": false, "category": "models" }
+		{ "filename": "./models/mcdonalds/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+
+	//	{ "filename": "./models/mini_mcd.glb", "delay": 0, "single threaded": false }
+	//	{ "filename": "./models/mini_mcd/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	],
+	"metadata": {
+		"model": {
+			"lightmap": true,
+			"baking": {
+				"enabled": true,
+				"resolution": 2048
+			},
+			"cull mode": "none",
+			"tags": {
+				"/^worldspawn/": {
+					"physics": { "type": "mesh", "static": true },
+					"grid": { "size": [3,2,3], "epsilon": 1.0, "cleanup": true, "print": true }
+				},
+				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
+
+				"func_door_rotating_5409": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5487": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5495": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5568": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5568": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5576": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5584": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5656": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5664": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5689": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5698": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5712": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				
+				"func_physbox_5212": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_physbox_5548": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_physbox_5931": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } }
+			}		
+		}
+	}
+}

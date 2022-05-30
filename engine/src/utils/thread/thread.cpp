@@ -66,14 +66,6 @@ void UF_API uf::thread::batchWorker( const pod::Thread::function_t& function, co
 	return batchWorkers( { function }, false, name );
 }
 void UF_API uf::thread::batchWorkers( const uf::stl::vector<pod::Thread::function_t>& functions, bool wait, const uf::stl::string& name ) {
-	if ( uf::thread::async ) {
-		uf::stl::vector<std::future<void>> futures;
-		futures.reserve(functions.size());
-		for ( auto& function : functions ) futures.emplace_back(std::async( std::launch::async, function ));
-		if ( wait ) for ( auto& future : futures ) future.wait();
-		return;
-	}
-
 	uf::stl::vector<pod::Thread*> workers;
 	for ( auto& function : functions ) {
 		auto& worker = uf::thread::fetchWorker( name );
@@ -81,6 +73,14 @@ void UF_API uf::thread::batchWorkers( const uf::stl::vector<pod::Thread::functio
 		uf::thread::add( worker, function, true );
 	}
 	if ( wait ) for ( auto& worker : workers ) uf::thread::wait( *worker );
+}
+void UF_API uf::thread::batchWorkers_Async( const uf::stl::vector<pod::Thread::function_t>& functions, bool wait, const uf::stl::string& name ) {
+//	if ( uf::thread::async )
+	uf::stl::vector<std::future<void>> futures;
+	futures.reserve(functions.size());
+	for ( auto& function : functions ) futures.emplace_back(std::async( std::launch::async, function ));
+	if ( wait ) for ( auto& future : futures ) future.wait();
+	return;
 }
 void UF_API uf::thread::add( pod::Thread& thread, const pod::Thread::function_t& function, bool temporary ) {
 	if ( thread.mutex != NULL ) thread.mutex->lock();
