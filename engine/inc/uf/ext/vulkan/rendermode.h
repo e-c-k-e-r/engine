@@ -26,6 +26,12 @@ namespace ext {
 				uf::stl::vector<uf::stl::string> pipelines;
 				uf::stl::vector<uint8_t> outputs;
 
+				struct {
+					float frequency = 0.0f;
+					float timer = 0.0f;
+					bool execute = true;
+				} limiter;
+
 				uint8_t subpasses = 1;
 				uint8_t samples = 1;
 				uint8_t eyes = 1;
@@ -41,6 +47,16 @@ namespace ext {
 			typedef uf::stl::vector<VkCommandBuffer> commands_container_t;
 			std::thread::id mostRecentCommandPoolId;
 			uf::ThreadUnique<commands_container_t> commands;
+
+			constexpr static int32_t CALLBACK_BEGIN = -1;
+			constexpr static int32_t CALLBACK_END = -2;
+			constexpr static int32_t EXECUTE_BEGIN = -3;
+			constexpr static int32_t EXECUTE_END = -4;
+			
+			typedef std::function<void(VkCommandBuffer)> callback_t;
+			uf::stl::unordered_map<int32_t, callback_t> commandBufferCallbacks;
+			
+			void bindCallback( int32_t, const callback_t& );
 
 			virtual ~RenderMode();
 			// RAII

@@ -31,6 +31,10 @@ const ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_
 	return renderTarget;
 }
 
+void ext::vulkan::RenderMode::bindCallback( int32_t subpass, const ext::vulkan::RenderMode::callback_t& callback ) {
+	commandBufferCallbacks[subpass] = callback;
+}
+
 const size_t ext::vulkan::RenderMode::blitters() const {
 	return 0;
 }

@@ -1,0 +1,31 @@
+{
+	"import": "/model.json",
+	"assets": [
+	//	{ "filename": "./models/gm_construct.glb" }
+		{ "filename": "./models/gm_construct/graph.json.gz" }
+	],
+	"metadata": {
+		"model": {
+			"lightmap": true,
+			"baking": {
+				"enabled": false,
+				"resolution": 1024,
+				"settings": {
+				//	"useInputMeshUvs": false
+				}
+			},
+			"cull mode": "none",
+			"tags": {
+				"/^worldspawn/": {
+					"physics": { "type": "mesh", "static": true },
+					"grid": { "size": [5,2,5], "epsilon": 1.0, "cleanup": true, "print": true }
+				},
+				"info_player_spawn": {
+					"action": "attach",
+					"filename": "./player.json",
+					"preserve orientation": true
+				}
+			}
+		}
+	}
+}

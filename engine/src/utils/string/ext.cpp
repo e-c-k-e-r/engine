@@ -25,7 +25,6 @@ uf::stl::vector<uf::stl::string> UF_API uf::string::matches( const uf::stl::stri
 	uf::stl::vector<uf::stl::string> matches;
 	if ( std::regex_search( str, match, regex ) ) {
 		for ( auto& m : match ) {
-			UF_MSG_DEBUG(m);
 			matches.emplace_back(m.str());
 		}
 	}

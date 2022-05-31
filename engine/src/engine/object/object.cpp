@@ -491,8 +491,8 @@ size_t uf::Object::loadChildUid( const uf::Serializer& json, bool initialize ) {
 	return pointer ? pointer->getUid() : 0;
 }
 
-uf::stl::string uf::Object::grabURI( const uf::stl::string& filename, const uf::stl::string& root  ) {
-	return uf::io::resolveURI( filename, root );
+uf::stl::string uf::Object::resolveURI( const uf::stl::string& filename, const uf::stl::string& root  ) {
+	return uf::io::resolveURI( filename, root == "" ? this->getComponent<uf::ObjectBehavior::Metadata>().system.root : root );
 }
 
 

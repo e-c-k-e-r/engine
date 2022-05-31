@@ -144,6 +144,10 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto imageID = graph.images.size();
 			auto keyName = graph.images.emplace_back(/*filename + "/" +*/ i.name);
 			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
+			if ( graph.metadata["exporter"]["image"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Image: " << i.name );
+			}
+
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["flip textures"].as<bool>(true) );
 		}
 	}
@@ -154,6 +158,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto samplerID = graph.samplers.size();
 			auto keyName = graph.samplers.emplace_back(/*filename + "/" +*/ s.name);
 			auto& sampler = /*graph.storage*/uf::graph::storage.samplers[keyName];
+			if ( graph.metadata["exporter"]["sampler"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Sampler: " << s.name );
+			}
 
 			sampler.descriptor.filter.min = getFilterMode( s.minFilter );
 			sampler.descriptor.filter.mag = getFilterMode( s.magFilter );
@@ -171,6 +178,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto textureID = graph.textures.size();
 			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (/*filename + "/" +*/ t.name)));
 			auto& texture = /*graph.storage*/uf::graph::storage.textures[keyName];
+			if ( graph.metadata["exporter"]["texture"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Texture: " << t.name );
+			}
 
 			texture.index = t.source;
 			texture.sampler = t.sampler;
@@ -185,6 +195,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto materialID = graph.materials.size();
 			auto keyName = graph.materials.emplace_back(/*filename + "/" +*/ m.name);
 			auto& material = /*graph.storage*/uf::graph::storage.materials[keyName];
+			if ( graph.metadata["exporter"]["material"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Material: " << m.name );
+			}
 
 			material.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
 			material.indexNormal = m.normalTexture.index;
@@ -228,6 +241,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		for ( auto& m : model.meshes ) {
 			auto meshID = graph.meshes.size();
 			auto keyName = graph.meshes.emplace_back(/*filename + "/" +*/ m.name);
+			if ( graph.metadata["exporter"]["mesh"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Mesh: " << m.name );
+			}
 
 			graph.primitives.emplace_back(keyName);
 			graph.drawCommands.emplace_back(keyName);
@@ -243,7 +259,8 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				bool print = false;
 				bool cleanup = true;
 			} meshgrid;
-		
+
+
 			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
 				if ( !ext::json::isObject( value["grid"] ) ) return; // no tag["grid"] defined
 				if (  ext::json::isNull( value["grid"]["size"] ) ) return; // no tag["grid"]["size"] defined
@@ -361,6 +378,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto skinID = graph.skins.size();
 			auto keyName = graph.skins.emplace_back(/*filename + "/" +*/ s.name);
 			auto& skin = /*graph.storage*/uf::graph::storage.skins[keyName];
+			if ( graph.metadata["exporter"]["skin"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Skin: " << s.name );
+			}
 
 			skin.name = s.name;			
 			if ( s.inverseBindMatrices > -1 ) {
@@ -395,6 +415,10 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto animationID = graph.animations.size();
 			auto keyName = graph.animations.emplace_back(/*filename + "/" +*/ a.name);
 			auto& animation = /*graph.storage*/uf::graph::storage.animations[keyName];
+			if ( graph.metadata["exporter"]["animation"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Animation: " << a.name );
+			}
+
 			animation.name = a.name;
 
 			// load samplers
@@ -451,6 +475,10 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	{
 		for ( auto& l : model.lights ) {
 			auto& light = graph.lights[l.name];
+			if ( graph.metadata["exporter"]["light"]["print"].as<bool>() ) {
+				UF_MSG_DEBUG("Light: " << l.name );
+			}
+
 			light.color = { l.color[0], l.color[1], l.color[2], };
 			light.intensity = l.intensity;
 			light.range = l.range;

@@ -60,6 +60,11 @@ namespace ext {
 					float scale = 50.0f;
 				} density;
 			} fog;
+			struct {
+				struct {
+					uf::stl::string filename = "%root%/textures/skybox/%d.png";
+				} box;
+			} sky;
 		);
 
 		void bindBuffers( uf::Object&, const uf::stl::string& = "", bool = false );

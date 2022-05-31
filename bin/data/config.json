@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SH2_McDonalds",
 			"meshes": { "interleave": true },
 			"matrix": { "reverseInfinite": true },
 			"lights": {

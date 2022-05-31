@@ -4,6 +4,7 @@
 #include <uf/ext/vulkan/rendermodes/rendertarget.h>
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/utils/window/window.h>
+#include <uf/utils/math/physics.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
@@ -16,9 +17,6 @@ const uf::stl::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 void ext::vulkan::RenderTargetRenderMode::setTarget( const uf::stl::string& target ) {
 //	this->metadata["target"] = target;
 	metadata.target = target;
-}
-void ext::vulkan::RenderTargetRenderMode::bindCallback( int32_t subpass, const ext::vulkan::RenderTargetRenderMode::callback_t& callback ) {
-	commandBufferCallbacks[subpass] = callback;
 }
 
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
@@ -522,6 +520,20 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 	blitter.destroy();
 }
 void ext::vulkan::RenderTargetRenderMode::render() {
+	if ( metadata.limiter.frequency > 0 ) {
+		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
+			metadata.limiter.timer = 0;
+			metadata.limiter.execute = true;
+		} else {
+			metadata.limiter.timer = metadata.limiter.timer + uf::physics::time::delta;
+			metadata.limiter.execute = false;
+		}
+	}
+
+	if ( !metadata.limiter.execute ) return;
+
+	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
+
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
@@ -553,6 +565,8 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	waitInfo.pValues = NULL;
 	VK_CHECK_RESULT(vkWaitSemaphores( *device, &waitInfo, UINT64_MAX ));
 */
+
+	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
 }
 void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };

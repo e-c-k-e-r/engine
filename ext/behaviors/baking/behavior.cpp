@@ -38,7 +38,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	UF_MSG_DEBUG("Temporarily altering shadow limits...");
 
 	this->addHook( "entity:PostInitialization.%UID%", [&]( ext::json::Value& ){
-		metadata.output = this->grabURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
+		metadata.output = this->resolveURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
 		metadata.renderModeName = "B:" + std::to_string((int) this->getUid());
 
 		metadata.trigger.mode = metadataJson["baking"]["trigger"]["mode"].as( metadata.trigger.mode );

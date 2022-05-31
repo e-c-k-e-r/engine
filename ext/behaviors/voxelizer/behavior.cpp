@@ -42,7 +42,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.z == 0 ) metadata.voxelSize.z = DEFAULT_VOXEL_SIZE;
 		
-		if ( metadata.renderer.limiter == 0 ) metadata.renderer.limiter = DEFAULT_VOXELIZE_LIMITER;
+		if ( metadata.limiter.frequency == 0 ) metadata.limiter.frequency = DEFAULT_VOXELIZE_LIMITER;
 
 		if ( metadata.dispatchSize.x == 0 ) metadata.dispatchSize.x = DEFAULT_DISPATCH_SIZE;
 		if ( metadata.dispatchSize.y == 0 ) metadata.dispatchSize.y = DEFAULT_DISPATCH_SIZE;
@@ -96,6 +96,8 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.device = &ext::vulkan::device;
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
+
+	//	renderMode.metadata.limiter.frequency = metadata.limiter.frequency;
 
 		uf::stl::string computeShaderFilename = "/shaders/display/vxgi.comp.spv";
 		if ( renderMode.metadata.samples > 1 ) {
@@ -177,6 +179,134 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 				);
 			}
 		});
+	#if 0
+		renderMode.bindCallback( renderMode.EXECUTE_BEGIN, [&]( VkCommandBuffer _ ) {
+			auto& controller = scene.getController();
+			auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
+			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
+			controllerPosition.x = floor(controllerPosition.x);
+			controllerPosition.y = floor(controllerPosition.y);
+			controllerPosition.z = floor(controllerPosition.z);
+			controllerPosition += metadata.extents.min;
+			controllerPosition.x = floor(controllerPosition.x);
+			controllerPosition.y = floor(controllerPosition.y);
+			controllerPosition.z = -floor(controllerPosition.z);
+
+			pod::Vector3f min = metadata.extents.min + controllerPosition;
+			pod::Vector3f max = metadata.extents.max + controllerPosition;
+
+			metadata.extents.matrix = uf::matrix::orthographic( min.x, max.x, min.y, max.y, min.z, max.z );
+
+			auto& graph = scene.getGraph();
+			for ( auto entity : graph ) {
+				if ( !entity->hasComponent<uf::Graphic>() ) continue;
+				auto& graphic = entity->getComponent<uf::Graphic>();
+				if ( graphic.material.hasShader("geometry", "vxgi") ) {
+					auto& shader = graphic.material.getShader("geometry", "vxgi");
+					struct UniformDescriptor {
+						/*alignas(16)*/ pod::Matrix4f matrix;
+						/*alignas(4)*/ float cascadePower;
+						/*alignas(4)*/ float padding1;
+						/*alignas(4)*/ float padding2;
+						/*alignas(4)*/ float padding3;
+					};
+				#if UF_UNIFORMS_REUSE
+					auto& uniform = shader.getUniform("UBO");
+					auto& uniforms = uniform.get<UniformDescriptor>();
+					
+					uniforms = UniformDescriptor{
+						.matrix = metadata.extents.matrix,
+						.cascadePower = metadata.cascadePower,
+					};
+					shader.updateUniform( "UBO", uniform );
+				#else
+					UniformDescriptor uniforms = {
+						.matrix = metadata.extents.matrix,
+						.cascadePower = metadata.cascadePower,
+					};
+					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+				#endif
+				}
+			}
+		} );
+	#endif
+		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
+		deferredRenderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
+			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+			imageMemoryBarrier.subresourceRange.layerCount = 1;
+			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				VkPipelineStageFlags srcStageMask, dstStageMask;
+				imageMemoryBarrier.image = t.image;
+				imageMemoryBarrier.oldLayout = t.imageLayout;
+				imageMemoryBarrier.newLayout = t.imageLayout;
+				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
+			
+			
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			
+			
+			/*
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			*/
+				
+				vkCmdPipelineBarrier( commandBuffer,
+					srcStageMask, dstStageMask,
+					VK_FLAGS_NONE,
+					0, NULL,
+					0, NULL,
+					1, &imageMemoryBarrier
+				);
+			}
+		});
+		deferredRenderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
+			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+			imageMemoryBarrier.subresourceRange.layerCount = 1;
+			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+			for ( auto& t : sceneTextures.voxels.radiance ) {
+				VkPipelineStageFlags srcStageMask, dstStageMask;
+				imageMemoryBarrier.image = t.image;
+				imageMemoryBarrier.oldLayout = t.imageLayout;
+				imageMemoryBarrier.newLayout = t.imageLayout;
+				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
+			
+			/*
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			*/
+			
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				
+				vkCmdPipelineBarrier( commandBuffer,
+					srcStageMask, dstStageMask,
+					VK_FLAGS_NONE,
+					0, NULL,
+					0, NULL,
+					1, &imageMemoryBarrier
+				);
+			}
+		});
 	}
 #endif
 }
@@ -189,23 +319,32 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
-	auto& controller = scene.getController();
-	auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
 	renderMode.setTarget("");
 
 	if ( renderMode.executed ) {
 		if ( !metadata.initialized ) metadata.initialized = true;
 
-		if ( metadata.renderer.limiter > 0 ) {
-			if ( metadata.renderer.timer > metadata.renderer.limiter ) {
-				metadata.renderer.timer = 0;
-				renderMode.execute = true;
+	
+		if ( metadata.limiter.frequency > 0 ) {
+			if ( metadata.limiter.timer > metadata.limiter.frequency ) {
+				metadata.limiter.timer = 0;
+				renderMode.metadata.limiter.execute = true;
 			} else {
-				metadata.renderer.timer = metadata.renderer.timer + uf::physics::time::delta;
-				renderMode.execute = false;
+				metadata.limiter.timer = metadata.limiter.timer + uf::physics::time::delta;
+				renderMode.metadata.limiter.execute = false;
 			}
 		}
-		if ( renderMode.execute ) {
+	
+	#if 1
+	//	bool should = false;
+	//	if ( renderMode.metadata.limiter.frequency <= 0 && renderMode.metadata.limiter.timer <= 0 ) should = true;
+	//	else if ( renderMode.metadata.limiter.timer + renderMode.metadata.limiter.frequency >= renderMode.metadata.limiter.frequency ) should = true;
+
+	//	if ( renderMode.execute ) {
+		if ( renderMode.metadata.limiter.execute ) {
+	//	if ( should ) {
+			auto& controller = scene.getController();
+			auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
 			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
 			controllerPosition.x = floor(controllerPosition.x);
 			controllerPosition.y = floor(controllerPosition.y);
@@ -252,6 +391,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 				}
 			}
 		}
+	#endif
 	}
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, true );
 	ext::ExtSceneBehavior::bindBuffers( scene );

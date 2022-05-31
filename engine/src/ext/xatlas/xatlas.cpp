@@ -127,14 +127,20 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 	}
 
 	::xatlas::ChartOptions chartOptions{};
-//	chartOptions.useInputMeshUvs = true;
+	chartOptions.useInputMeshUvs = graph.metadata["baking"]["settings"]["useInputMeshUvs"].as(chartOptions.useInputMeshUvs);
+	chartOptions.maxIterations = graph.metadata["baking"]["settings"]["maxIterations"].as(chartOptions.maxIterations);
 
 	::xatlas::PackOptions packOptions{};
-	packOptions.bruteForce = true;
-//	packOptions.resolution = resolution;
-//	packOptions.texelsPerUnit = 64.0f;
-	packOptions.blockAlign = true;
-	packOptions.bilinear = true;
+	packOptions.maxChartSize = graph.metadata["baking"]["settings"]["maxChartSize"].as(packOptions.maxChartSize);
+	packOptions.padding = graph.metadata["baking"]["settings"]["padding"].as(packOptions.padding);
+	packOptions.texelsPerUnit = graph.metadata["baking"]["settings"]["texelsPerUnit"].as(packOptions.texelsPerUnit);
+	packOptions.bilinear = graph.metadata["baking"]["settings"]["bilinear"].as(packOptions.bilinear);
+	packOptions.blockAlign = graph.metadata["baking"]["settings"]["blockAlign"].as(packOptions.blockAlign);
+	packOptions.bruteForce = graph.metadata["baking"]["settings"]["bruteForce"].as(packOptions.bruteForce);
+	packOptions.createImage = graph.metadata["baking"]["settings"]["createImage"].as(packOptions.createImage);
+	packOptions.rotateChartsToAxis = graph.metadata["baking"]["settings"]["rotateChartsToAxis"].as(packOptions.rotateChartsToAxis);
+	packOptions.rotateCharts = graph.metadata["baking"]["settings"]["rotateCharts"].as(packOptions.rotateCharts);
+	packOptions.resolution = graph.metadata["baking"]["resolution"].as(packOptions.resolution);
 
 	// pack
 	pod::Thread::container_t jobs;

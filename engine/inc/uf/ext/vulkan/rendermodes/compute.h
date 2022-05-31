@@ -8,7 +8,7 @@ namespace ext {
 		struct UF_API ComputeRenderMode : public ext::vulkan::RenderMode {
 			ext::vulkan::Graphic blitter, compute;
 
-			// RAII
+			//
 			virtual const uf::stl::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);

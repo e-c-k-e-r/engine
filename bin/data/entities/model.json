@@ -23,7 +23,10 @@
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
-				"unwrap": true
+				"unwrap": true,
+				"mesh": {
+				//	"print": true
+				}
 			},
 			"baking": {
 				"enabled": false,
@@ -32,18 +35,21 @@
 				"layers": 1,
 				"trigger": { "mode": "rendered", "quit": true },
 			//	"trigger": { "mode": "key", "value": "B" },
-				"output": "./lightmap.%i.png"
-			},
-			"-grid": {
-				"/^worldspawn/": {
-					"size": [6,6,6],
-				//	"epsilon": 0.01,
-					"cleanup": true,
-					"print": true
+				"output": "./lightmap.%i.png",
+				"settings": {
+					"useInputMeshUvs": true,
+					"maxIterations": 8,
+				//	"maxChartSize": 0,
+				//	"padding": 0,
+				//	"texelsPerUnit": 0,
+					"bilinear": true,
+					"blockAlign": true,
+					"bruteForce": true,
+
+				//	"rotateChartsToAxis": false,
+					"rotateCharts": true
 				}
 			},
-		//	"lightmap": "./lightmap.%i.min.png",
-		//	"lightmap": "./lightmap.%i.png",
 		//	"filter": "NEAREST",
 			"flags": {
 				"ATLAS": false,

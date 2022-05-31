@@ -29,9 +29,9 @@ namespace ext {
 				pod::Matrix4f matrix = uf::matrix::identity();
 			} extents;
 			struct {
-				float limiter = 0.0f;
+				float frequency = 0.0f;
 				float timer = 0.0f;
-			} renderer;
+			} limiter;
 			bool initialized = false;
 		);
 	}

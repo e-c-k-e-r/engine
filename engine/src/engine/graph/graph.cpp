@@ -122,7 +122,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 				{ !graph.metadata["flags"]["SEPARATE"].as<bool>(), "instanced.vert" },
 			};
 			FOR_ARRAY(settings) if ( settings[i].first ) vertexShaderFilename = uf::string::replace( vertexShaderFilename, "vert", settings[i].second );
-			vertexShaderFilename = entity.grabURI( vertexShaderFilename, root );
+			vertexShaderFilename = entity.resolveURI( vertexShaderFilename, root );
 		}
 		uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
 		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base.frag.spv"); {
@@ -130,7 +130,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 				{ uf::renderer::settings::experimental::deferredSampling, "deferredSampling.frag" },
 			};
 			FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
-			fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 		}
 		{
 			graphic.material.metadata.autoInitializeUniforms = false;
@@ -196,7 +196,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 				uf::stl::string compShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/cull.comp.spv");
 				{
 					graphic.material.metadata.autoInitializeUniforms = false;
-					compShaderFilename = entity.grabURI( compShaderFilename, root );
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
 					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "culling");
 					graphic.material.metadata.autoInitializeUniforms = true;
 				}
@@ -212,14 +212,14 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 			}
 		}
 		if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-			geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+			geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
 			graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY);
 		}
 		// depth only pipeline
 		{
 			graphic.material.metadata.autoInitializeUniforms = false;
 			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/depth.frag.spv");
-			fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
 			graphic.material.metadata.autoInitializeUniforms = true;
 			{
@@ -252,13 +252,13 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
 
 			{
-				fragmentShaderFilename = entity.grabURI( fragmentShaderFilename, root );
+				fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 				graphic.material.metadata.autoInitializeUniforms = false;
 				graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "vxgi");
 				graphic.material.metadata.autoInitializeUniforms = true;
 			}
 			if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
-				geometryShaderFilename = entity.grabURI( geometryShaderFilename, root );
+				geometryShaderFilename = entity.resolveURI( geometryShaderFilename, root );
 				graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "vxgi");
 			}
 			{

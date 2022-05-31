@@ -7,20 +7,12 @@ namespace ext {
 	namespace vulkan {
 		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
 			ext::vulkan::Graphic blitter;
-			
-			typedef std::function<void(VkCommandBuffer)> callback_t;
-			uf::stl::unordered_map<int32_t, callback_t> commandBufferCallbacks;
 
 			//
 			const uf::stl::string getTarget() const;
 			void setTarget( const uf::stl::string& );
 
-			void bindCallback( int32_t, const callback_t& );
-
-			constexpr static int32_t CALLBACK_BEGIN = -1;
-			constexpr static int32_t CALLBACK_END = -2;
-
-			// RAII
+			//
 			virtual const uf::stl::string getType() const;
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);

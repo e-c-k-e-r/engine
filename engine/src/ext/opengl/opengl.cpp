@@ -135,7 +135,15 @@ void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool f
 void UF_API ext::opengl::initialize() {
 	device.initialize();
 	// swapchain.initialize( device );
-	{
+	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
+		uf::Image image;
+		image.open(uf::io::root + "/textures/missing.png");
+
+		Texture2D::empty.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+		Texture2D::empty.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+		Texture2D::empty.loadFromImage( image );
+	} else {
+		// hard coded missing texture if not provided
 		uf::stl::vector<uint8_t> pixels = { 
 			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,
 			255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 255,   0, 255, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255, 0,   0,   0, 255,

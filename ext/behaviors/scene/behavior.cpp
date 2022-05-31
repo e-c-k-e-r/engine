@@ -108,6 +108,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
 	});
+
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
+	metadata.deserialize(self, metadataJson);
+
 	// lock control
 	{
 		pod::payloads::windowMouseCursorVisibility payload;
@@ -163,13 +168,13 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	}
 	// initialize cubemap
 	{
-		uf::stl::vector<uf::stl::string> filenames = {
-			uf::io::root+"/textures/skybox/front.png",
-			uf::io::root+"/textures/skybox/back.png",
-			uf::io::root+"/textures/skybox/up.png",
-			uf::io::root+"/textures/skybox/down.png",
-			uf::io::root+"/textures/skybox/right.png",
-			uf::io::root+"/textures/skybox/left.png",
+		const uf::stl::vector<uf::stl::string> filenames = {
+			"front",
+			"back",
+			"up",
+			"down",
+			"right",
+			"left",
 		};
 		uf::Image::container_t pixels;
 		uf::stl::vector<uf::Image> images(filenames.size());
@@ -177,7 +182,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		pod::Vector2ui size = {0,0};
 		auto& texture = sceneTextures.skybox;
 		for ( uint32_t i = 0; i < filenames.size(); ++i ) {
-			auto& filename = filenames[i];
+			auto filename = uf::string::replace( this->resolveURI(metadata.sky.box.filename), "%d", filenames[i] );
 			auto& image = images[i];
 			image.open(filename);
 			image.flip();
@@ -189,14 +194,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			pixels.reserve( pixels.size() + p.size() );
 			pixels.insert( pixels.end(), p.begin(), p.end() );
 		}
-		texture.mips = 0;
+	//	texture.mips = 0;
 		texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size() );
 	}
 	#endif
-
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	auto& assetLoader = this->getComponent<uf::Asset>();
@@ -575,6 +576,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["fog"]["density"]["threshold"] = /*this->*/fog.density.threshold;
 	serializer["light"]["fog"]["density"]["multiplier"] = /*this->*/fog.density.multiplier;
 	serializer["light"]["fog"]["density"]["scale"] = /*this->*/fog.density.scale;
+	serializer["sky"]["box"]["filename"] = /*this->*/sky.box.filename;
 
 	serializer["system"]["renderer"]["shader"]["mode"] = /*this->*/shader.mode;
 	serializer["system"]["renderer"]["shader"]["scalar"] = /*this->*/shader.scalar;
@@ -613,6 +615,8 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/fog.density.threshold = serializer["light"]["fog"]["density"]["threshold"].as<float>();
 	/*this->*/fog.density.multiplier = serializer["light"]["fog"]["density"]["multiplier"].as<float>();
 	/*this->*/fog.density.scale = serializer["light"]["fog"]["density"]["scale"].as<float>();
+	
+	/*this->*/sky.box.filename = serializer["sky"]["box"]["filename"].as<uf::stl::string>();
 
 	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
 	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();

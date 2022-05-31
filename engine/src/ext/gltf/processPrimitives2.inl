@@ -171,7 +171,7 @@ for ( auto& p : m.primitives ) {
 }
 
 
-if ( meshgrid.grid.divisions.x > 1 && meshgrid.grid.divisions.y > 1 && meshgrid.grid.divisions.z > 1 ) {
+if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.grid.divisions.z > 1 ) {
 	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps );
 	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: " << m.name << ": " << meshlets.size() << " -> " << partitioned.size() << " | Partitions: " << 
 		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z) << " -> " << meshgrid.grid.nodes.size()
