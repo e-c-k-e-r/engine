@@ -11,6 +11,8 @@
 
 namespace uf {
 	class UF_API Serializer : public ext::json::Document {
+	protected:
+		uf::stl::string m_filename = "";
 	public:
 		typedef uf::stl::string output_t;
 		typedef uf::stl::string  input_t;
@@ -24,7 +26,7 @@ namespace uf {
 		
 		Serializer::output_t serialize( bool pretty = false ) const;
 		Serializer::output_t serialize( const ext::json::EncodingSettings& ) const;
-		void deserialize( const uf::stl::string& );
+		void deserialize( const uf::stl::string&, const ext::json::DecodingSettings& = {} );
 
 		// serializeable
 		template<typename T>
@@ -60,6 +62,7 @@ namespace uf {
 			return res;
 		}
 	
+		static uf::stl::string resolveFilename( const uf::stl::string& filename, bool compareTimes = true );
 		bool readFromFile( const uf::stl::string& from, const uf::stl::string& hash = "" );
 		bool writeToFile( const uf::stl::string& to, const ext::json::EncodingSettings& = {} ) const;
 		

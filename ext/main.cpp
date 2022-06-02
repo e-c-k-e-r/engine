@@ -95,7 +95,7 @@ namespace {
 }
 
 void EXT_API ext::load() {
-	ext::config = uf::io::readAsString(uf::io::root+"/config.json");
+	ext::config.readFromFile(uf::io::root+"/config.json");
 }
 void EXT_API ext::initialize() {
 
@@ -555,6 +555,9 @@ void EXT_API ext::initialize() {
 			uf::scene::unloadScene();
 		});
 		uf::hooks.addHook( "system:Quit", [&](ext::json::Value& json){
+			if ( json["message"].is<uf::stl::string>() ) {
+				UF_MSG_DEBUG( json["message"].as<uf::stl::string>() );
+			}
 			ext::ready = false;
 		});
 	}
@@ -732,6 +735,9 @@ void EXT_API ext::terminate() {
 		ext::openvr::terminate();
 	}
 #endif
+	{
+		uf::hooks.removeHooks();
+	}
 #if UF_USE_LUA
 	{
 		ext::lua::terminate();
@@ -744,7 +750,7 @@ void EXT_API ext::terminate() {
 		uf::scene::destroy();
 	}
 
-	/* Garbage collection */ if ( false ) {
+	/* Garbage collection */ if ( false ) { // segfaults, for some reason
 		size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 		if ( ::config.engine.gc.announce && collected > 0 ) UF_MSG_DEBUG("GC collected " << (int) collected << " unused entities");
 	}

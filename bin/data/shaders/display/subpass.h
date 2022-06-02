@@ -62,7 +62,7 @@ layout (binding = 5) uniform UBO {
 	uint shadowSamples;
 
 	uint indexSkybox;
-	uint padding1;
+	uint useLightmaps;
 	uint padding2;
 	uint padding3;
 } ubo;
@@ -235,7 +235,7 @@ void populateSurface() {
 
 	}
 	// Lightmap
-	if ( validTextureIndex( surface.instance.lightmapID ) ) {
+	if ( bool(ubo.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) {
 		surface.light += surface.material.albedo * sampleTexture( surface.instance.lightmapID, surface.st );
 	}
 	// Emissive textures

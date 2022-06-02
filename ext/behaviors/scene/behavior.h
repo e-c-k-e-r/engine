@@ -25,6 +25,7 @@ namespace ext {
 				float exposure = 1.0f;
 				float gamma = 1.0f;
 				float brightnessThreshold = 1.0f;
+				bool useLightmaps = true;
 			} light;
 			struct {
 				float scale = 1.0f;

@@ -552,10 +552,10 @@ void ext::vulkan::Device::initialize() {
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Program";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 3, 0);
 		appInfo.pEngineName = "Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_2;
+		appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
+		appInfo.apiVersion = VK_API_VERSION_1_3;
 
 		VkInstanceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -937,7 +937,7 @@ void ext::vulkan::Device::initialize() {
 	{
 	/*
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 		allocatorInfo.physicalDevice = physicalDevice;
 		allocatorInfo.instance = instance;
 		allocatorInfo.device = logicalDevice;
@@ -950,7 +950,7 @@ void ext::vulkan::Device::initialize() {
 		vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 		 
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
 		allocatorInfo.physicalDevice = physicalDevice;
 		allocatorInfo.instance = instance;
 		allocatorInfo.device = logicalDevice;

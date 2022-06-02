@@ -693,7 +693,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 */
 	ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
 		if ( uf::string::isRegex( key ) ) {
-			if ( uf::string::matches( node.name, key ).empty() ) return;
+			if ( !uf::string::matched( node.name, key ) ) return;
 		} else if ( node.name != key ) return;
 		tag = value;
 	});

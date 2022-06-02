@@ -28,7 +28,9 @@ UF_API bool ext::freetype::initialized() {
 	return ext::freetype::library.loaded;
 }
 UF_API void ext::freetype::terminate() {
+	if ( !ext::freetype::library.loaded ) return;
 	FT_Done_FreeType(ext::freetype::library.library);
+	ext::freetype::library.loaded = false;
 }
 
 UF_API ext::freetype::Glyph ext::freetype::initialize( const uf::stl::string& font ) {

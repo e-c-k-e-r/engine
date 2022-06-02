@@ -265,7 +265,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				if ( !ext::json::isObject( value["grid"] ) ) return; // no tag["grid"] defined
 				if (  ext::json::isNull( value["grid"]["size"] ) ) return; // no tag["grid"]["size"] defined
 				if ( uf::string::isRegex( key ) ) {
-					if ( uf::string::matches( m.name, key ).empty() ) return;
+					if ( !uf::string::matched( m.name, key ) ) return;
 				} else if ( m.name != key ) return;
 				meshgrid.metadata = value["grid"];
 			});

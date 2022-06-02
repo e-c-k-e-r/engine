@@ -21,6 +21,9 @@ void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
 		}
 	}
 }
+void uf::Hooks::removeHooks() {
+	this->m_container.clear();
+}
 /*
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name ) {
 	pod::Hook::userdata_t payload{};

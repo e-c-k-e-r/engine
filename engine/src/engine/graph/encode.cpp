@@ -197,7 +197,7 @@ namespace {
 
 		ext::json::reserve( json["buffers"], mesh.buffers.size() );
 		for ( auto i = 0; i < mesh.buffers.size(); ++i ) {
-			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compress ? "gz" : "bin" );
+			const uf::stl::string filename = settings.filename + ".buffer." + std::to_string(i) + "." + ( settings.compression != "" ? settings.compression : "bin" );
 			uf::io::write( filename, mesh.buffers[i] );
 			json["buffers"].emplace_back(uf::io::filename( filename ));
 		}
@@ -224,10 +224,11 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 	uf::Serializer serializer;
 	uf::Serializer metadata;
 
-	const ::EncodingSettings settings = ::EncodingSettings{
+	::EncodingSettings settings = ::EncodingSettings{
 		{
+			/*.compression = */graph.metadata["exporter"]["compression"].as<uf::stl::string>("auto"),
+			/*.encoding = */graph.metadata["exporter"]["encoding"].as<uf::stl::string>("auto"),
 			/*.pretty = */graph.metadata["exporter"]["pretty"].as<bool>(),
-			/*.compress = */graph.metadata["exporter"]["compress"].as<bool>(),
 			/*.quantize = */graph.metadata["exporter"]["quantize"].as<bool>(),
 			/*.precision = */graph.metadata["exporter"]["precision"].as<uint8_t>(),
 		},
@@ -236,6 +237,10 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 		/*.unwrap = */graph.metadata["exporter"]["unwrap"].as<bool>(true),
 		/*.filename = */directory + "/graph.json",
 	};
+	
+	if ( settings.encoding == "auto" ) settings.encoding = ext::json::PREFERRED_ENCODING;
+	if ( settings.compression == "auto" ) settings.compression = ext::json::PREFERRED_COMPRESSION;
+
 	if ( !settings.combined ) uf::io::mkdir(directory);
 #if UF_USE_XATLAS
 /*
@@ -297,7 +302,8 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 					encode(mesh, s).writeToFile(s.filename, settings);
 					uf::Serializer json;
 					json["name"] = name;
-					json["filename"] = uf::io::filename(s.filename + (settings.compress ? ".gz" : ""));
+				//	json["filename"] = uf::io::filename(s.filename + (settings.compress ? ".gz" : ""));
+					json["filename"] = uf::io::filename(s.filename);
 					serializer["meshes"].emplace_back( json );
 				} else {
 					s.filename = directory+"/mesh."+std::to_string(i);
@@ -403,7 +409,8 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 				uf::stl::string f = "animation."+std::to_string(i)+".json";
 				auto& animation = /*graph.storage*/uf::graph::storage.animations.map.at(name);
 				encode(animation, settings).writeToFile(directory+"/"+f, settings);
-				serializer["animations"].emplace_back(f + (settings.compress ? ".gz" : ""));
+			//	serializer["animations"].emplace_back(f + (settings.compress ? ".gz" : ""));
+				serializer["animations"].emplace_back(f);
 			}
 		} else {
 			for ( auto& name : graph.animations ) {
@@ -435,6 +442,12 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 	if ( !settings.combined ) target = directory + "/graph.json";
 	serializer.writeToFile( target, settings );
 	UF_MSG_DEBUG("Saving graph to `" << target << "`");
+
+	if ( graph.metadata["exporter"]["quit"].as<bool>(true) ) {
+		ext::json::Value payload;
+		payload["message"] = "Termination after gltf conversion requested.";
+		uf::scene::getCurrentScene().queueHook("system:Quit", payload);
+	}
 }
 
 uf::stl::string uf::graph::print( const pod::Graph& graph ) {

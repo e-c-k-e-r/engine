@@ -384,7 +384,7 @@ void ext::vulkan::destroy() {
 */
 
 	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
+		if ( !renderMode || !renderMode->device ) continue;
 		renderMode->destroy();
 	//	delete renderMode;
 		renderMode = NULL;

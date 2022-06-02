@@ -2,13 +2,13 @@
 	"import": "/model.json",
 	"assets": [
 	//	{ "filename": "./models/gm_construct.glb" }
-		{ "filename": "./models/gm_construct/graph.json.gz" }
+		{ "filename": "./models/gm_construct/graph.json" }
 	],
 	"metadata": {
 		"model": {
-			"lightmap": true,
+		//	"lightmap": false,
 			"baking": {
-				"enabled": false,
+				"enabled": true,
 				"resolution": 1024,
 				"settings": {
 				//	"useInputMeshUvs": false

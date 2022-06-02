@@ -50,6 +50,7 @@ namespace uf {
 	public:
 		bool exists( const name_t& name );
 		void removeHook( const name_t& name, size_t uid );
+		void removeHooks();
 
 		size_t addHook( const name_t& name, const pod::Hook::function_t& callback, const pod::Hook::Type& = {UF_USERDATA_CTTI(void), 0} );
 		size_t addHook( const name_t& name, const std::function<void()>& callback );

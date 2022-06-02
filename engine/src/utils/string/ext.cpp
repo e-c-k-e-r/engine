@@ -18,8 +18,7 @@ bool UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string
 bool UF_API uf::string::isRegex( const uf::stl::string& str ) {
 	return str.front() == '/' && str.back() == '/';
 }
-uf::stl::vector<uf::stl::string> UF_API uf::string::matches( const uf::stl::string& str, const uf::stl::string& r ) {
-
+uf::stl::vector<uf::stl::string> UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 	std::regex regex(r.substr(1,r.length()-2));
 	std::smatch match;
 	uf::stl::vector<uf::stl::string> matches;
@@ -30,6 +29,11 @@ uf::stl::vector<uf::stl::string> UF_API uf::string::matches( const uf::stl::stri
 	}
 	
 	return matches;
+}
+bool UF_API uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
+	std::regex regex(r.substr(1,r.length()-2));
+	std::smatch match;
+	return std::regex_search( str, match, regex );
 }
 
 uf::stl::string UF_API uf::string::lowercase( const uf::stl::string& str ) {
@@ -78,9 +82,15 @@ uf::stl::string UF_API uf::string::join( const uf::stl::vector<uf::stl::string>&
 */
 uf::stl::string UF_API uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
 	uf::stl::string result = string;
-	size_t start_pos = string.find(search);
-	if( start_pos == uf::stl::string::npos ) return result;
-	result.replace(start_pos, search.length(), replace);
+
+	if ( uf::string::isRegex(search) ) {
+		std::regex regex(search.substr(1,search.length()-2));
+		result = std::regex_replace( string, regex, replace );
+	} else {
+		size_t start_pos = string.find(search);
+		if( start_pos == uf::stl::string::npos ) return result;
+		result.replace(start_pos, search.length(), replace);
+	}
 	return result;
 }
 bool UF_API uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {

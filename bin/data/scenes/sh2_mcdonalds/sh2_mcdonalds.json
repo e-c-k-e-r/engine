@@ -10,9 +10,9 @@
 		"model": {
 			"cull mode": "none",
 			"alpha mode": "BLEND",
-			"lightmap": true,
+		//	"lightmap": false,
 			"baking": {
-				"enabled": false,
+				"enabled": true,
 				"resolution": 1024,
 				"settings": {
 					"useInputMeshUvs": false

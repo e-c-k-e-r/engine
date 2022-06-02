@@ -156,7 +156,10 @@ SAVE: {
 	payload["uid"] = this->getUid();
 	uf::scene::getCurrentScene().queueHook("system:Destroy", payload);
 
-	if ( metadata.trigger.quits ) uf::scene::getCurrentScene().queueHook("system:Quit", payload);
+	if ( metadata.trigger.quits ) {
+		payload["message"] = "Termination after lightmap baking requested.";
+		uf::scene::getCurrentScene().queueHook("system:Quit", payload);
+	}
 #endif
 	return;
 }

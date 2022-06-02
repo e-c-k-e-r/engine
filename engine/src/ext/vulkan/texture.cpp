@@ -141,7 +141,7 @@ bool ext::vulkan::Texture::generated() const {
 	return view != VK_NULL_HANDLE;
 }
 void ext::vulkan::Texture::destroy() {
-	if ( !device ) return;
+	if ( !device || !device->logicalDevice ) return; // device->logicalDevice should never be null, but it happens, somehow
 
 	if ( view != VK_NULL_HANDLE ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);

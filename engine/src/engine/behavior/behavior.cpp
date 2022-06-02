@@ -112,6 +112,12 @@ void uf::Behaviors::destroy() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
 	UF_BEHAVIOR_POLYFILL(destroy)
+	m_behaviors.clear();
+	m_graph.initialize.clear();
+	m_graph.tick.clear();
+	m_graph.tickMT.clear();
+	m_graph.render.clear();
+	m_graph.destroy.clear();
 }
 
 #if 0

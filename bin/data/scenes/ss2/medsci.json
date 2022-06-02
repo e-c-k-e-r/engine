@@ -3,26 +3,21 @@
 	"assets": [
 	//	{ "filename": "./craeture.json", "delay": 1 },
 
-	//	{ "filename": "./models/tiny_msci.glb", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/tiny_msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/tiny_msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/tiny_msci.glb" }
+	//	{ "filename": "./models/tiny_msci/graph.json" }
 
-	//	{ "filename": "./models/micro_sci.glb", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/micro_sci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-		{ "filename": "./models/micro_sci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
-	
+	//	{ "filename": "./models/micro_sci.glb" }
+	//	{ "filename": "./models/micro_sci/graph.json" }
 
-	//	{ "filename": "./models/msci.glb", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/msci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/msci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/msci.glb" }
+	//	{ "filename": "./models/msci/graph.json" }
 
-	//	{ "filename": "./models/medsci.glb", "delay": 0, "single threaded": false }
-	//	{ "filename": "./models/medsci/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "./models/medsci/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "./models/medsci.glb" }
+		{ "filename": "./models/medsci/graph.json" }
 	],
 	"metadata": {
 		"model": {
-			"lightmap": true,
+		//	"lightmap": false,
 			"baking": {
 				"enabled": true,
 				"resolution": 1024
@@ -31,7 +26,7 @@
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [5,2,5], "epsilon": 1.0, "cleanup": true, "print": true }
+					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true }
 				},
 				"info_player_spawn": {
 					"action": "attach",

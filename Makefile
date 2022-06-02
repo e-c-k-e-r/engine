@@ -34,8 +34,9 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.162.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.176.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.204.1/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
 
 #GLSLC 		+= $(VULKAN_SDK_PATH)/Bin/glslangValidator
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
@@ -59,7 +60,7 @@ else ifneq (,$(findstring dreamcast,$(ARCH)))
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
-	DEPS 				+= -lvulkan -lspirv-cross
+	DEPS 				+= -lvulkan -lspirv-cross #-lVulkanMemoryAllocator
 	INCS 				+= -I$(VULKAN_SDK_PATH)/include
 	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
 endif

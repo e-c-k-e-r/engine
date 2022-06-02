@@ -181,7 +181,7 @@ void uf::Asset::load( const uf::stl::string& callback, const uf::Asset::Payload&
 
 uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, const uf::stl::string& mime ) {
 	uf::stl::string extension = uf::string::lowercase( uf::io::extension( uri, -1 ) );
-	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( uri ), ".gz", "" ) );
+	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( uri ), "/.(?:gz|lz)$/", "" ) );
 	uf::Asset::Payload payload;
 
 	static uf::stl::unordered_map<uf::stl::string,uf::Asset::Type> typemap = {
@@ -192,6 +192,8 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "ogg", 	uf::Asset::Type::AUDIO },
 
 		{ "json", 	uf::Asset::Type::JSON },
+		{ "bson", 	uf::Asset::Type::JSON },
+		{ "cbor", 	uf::Asset::Type::JSON },
 
 		{ "lua", 	uf::Asset::Type::LUA },
 		
@@ -207,6 +209,8 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 
 	if ( typemap.count( extension ) == 1 ) payload.type = typemap[extension];
 	if ( basename == "graph.json" ) payload.type = uf::Asset::Type::GRAPH;
+	if ( basename == "graph.bson" ) payload.type = uf::Asset::Type::GRAPH;
+	if ( basename == "graph.cbor" ) payload.type = uf::Asset::Type::GRAPH;
 
 	return payload;
 }
@@ -232,6 +236,12 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 			return "";
 		}
 		filename = cached;
+	} else {
+		// do implicit loading of json files (could be encoded as bson, cbor, and compressed as gz, lz)
+		if ( extension == "json" ) {
+			filename = uf::Serializer::resolveFilename( filename );
+			extension = uf::io::extension( extension );
+		}
 	}
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::Asset::assertionLoad ) {
@@ -255,7 +265,7 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 	uf::stl::string filename = payload.filename;
 	uf::stl::string extension = uf::string::lowercase(uf::io::extension( payload.filename, -1 ));
-	uf::stl::string basename = uf::string::replace( uf::io::filename( payload.filename ), ".gz", "" );
+	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( payload.filename ), "/.(?:gz|lz)$/", "" ) );
 	if ( payload.filename.substr(0,5) == "https" ) {
 		uf::stl::string hash = uf::string::sha256( payload.filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
@@ -268,6 +278,12 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			return "";
 		}
 		filename = cached;
+	} else {
+		// do implicit loading of json files (could be encoded as bson, cbor, and compressed as gz, lz)
+		if ( extension == "json" ) {
+			filename = uf::Serializer::resolveFilename( filename );
+			extension = uf::io::extension( extension );
+		}
 	}
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::Asset::assertionLoad ) {

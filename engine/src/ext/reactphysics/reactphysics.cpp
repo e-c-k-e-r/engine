@@ -233,6 +233,7 @@ void ext::reactphysics::tick( float delta ) {
 	ext::reactphysics::syncFrom( accumulator / ext::reactphysics::timescale );
 }
 void ext::reactphysics::terminate() {
+	if ( !::world ) return;
 	::common.destroyPhysicsWorld(::world);
 	::world = NULL;
 }

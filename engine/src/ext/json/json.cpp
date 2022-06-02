@@ -111,7 +111,7 @@ void ext::json::forEach( const ext::json::Value& json, const std::function<void(
 	}
 }
 
-#if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
+#if UF_JSON_USE_NLOHMANN
 uf::stl::vector<uf::stl::string> ext::json::keys( const ext::json::Value& v ) {
 	uf::stl::vector<uf::stl::string> keys;
 	if ( !ext::json::isObject( v ) ) return keys;
@@ -120,7 +120,7 @@ uf::stl::vector<uf::stl::string> ext::json::keys( const ext::json::Value& v ) {
 	}
 	return keys;
 }
-#elif defined(UF_JSON_USE_RAPIDJSON) && UF_JSON_USE_RAPIDJSON
+#elif UF_JSON_USE_RAPIDJSON
 	rapidjson::Document::AllocatorType ext::json::allocator;
 #endif
 
@@ -150,20 +150,33 @@ ext::json::Value& ext::json::reencode( ext::json::Value& x, const EncodingSettin
 	return x;
 }
 
+uf::stl::string ext::json::PREFERRED_COMPRESSION = "gz";
+uf::stl::string ext::json::PREFERRED_ENCODING = "bson";
+
 uf::stl::string ext::json::encode( const ext::json::Value& json, bool pretty ) {
 	return ext::json::encode( json, ext::json::EncodingSettings{ .pretty = true } );
 }
 uf::stl::string ext::json::encode( const ext::json::Value& _json, const ext::json::EncodingSettings& settings ) {
 	ext::json::Value json = ext::json::reencode( _json, settings );
-#if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
-	return settings.pretty ? json.dump(1, '\t') : json.dump();
-#elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP
-	Json::FastWriter fast;
-	Json::StyledWriter styled;
-	uf::stl::string output = settings.pretty ? styled.write(json) : fast.write(json);
-	if ( output.back() == '\n' ) output.pop_back();
-	return output;
-#elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
+#if UF_JSON_USE_NLOHMANN
+	// emit raw json
+	if ( settings.encoding == ""  || settings.encoding == "json" ) {
+		return settings.pretty ? json.dump(1, '\t') : json.dump();
+	}
+	// emit bson
+	if ( settings.encoding == "bson" ) {
+		auto buffer = nlohmann::json::to_bson( static_cast<ext::json::base_value>(json) );
+		return uf::stl::string( buffer.begin(), buffer.end() );
+	}
+	// emit cbor
+	if ( settings.encoding == "cbor" ) {
+		auto buffer = nlohmann::json::to_cbor( static_cast<ext::json::base_value>(json) );
+		return uf::stl::string( buffer.begin(), buffer.end() );
+	}
+	// should probably default to json, not my problem
+	UF_MSG_ERROR("invalid encoding requested: " << settings.encoding);
+	return "";
+#elif UF_JSON_USE_LUA
 	return ext::lua::state["json"]["encode"]( _json );
 #endif
 }
@@ -173,23 +186,24 @@ uf::stl::string ext::json::encode( const sol::table& table ) {
 	return ext::lua::state["json"]["encode"]( table );
 }
 #endif
-ext::json::Value& ext::json::decode( ext::json::Value& json, const uf::stl::string& str ) {
-#if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
-#if UF_NO_EXCEPTIONS
-	json = nlohmann::json::parse(str, nullptr, true, true);
-#else
+ext::json::Value& ext::json::decode( ext::json::Value& json, const uf::stl::string& str, const DecodingSettings& settings ) {
+#if UF_JSON_USE_NLOHMANN
+#if !UF_NO_EXCEPTIONS
+	bool exceptions = true;
 	try {
-		json = nlohmann::json::parse(str, nullptr, true, true);
+#endif
+		if ( settings.encoding == "" || settings.encoding == "json" )
+			json = nlohmann::json::parse(str, nullptr, exceptions, true);
+		else if ( settings.encoding == "bson" )
+			json = nlohmann::json::from_bson(str, exceptions, true);
+		else if ( settings.encoding == "cbor" )
+			json = nlohmann::json::from_cbor(str, exceptions, true);
+#if !UF_NO_EXCEPTIONS
 	} catch ( nlohmann::json::parse_error& e ) {
 		UF_MSG_ERROR("JSON error: " << e.what() << "\tAttempted to parse: " << str)
 	}
 #endif
-#elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP 
-	Json::Reader reader;
-	if ( !reader.parse(str, json) ) {
-		UF_MSG_ERROR("JSON error: " << reader.getFormattedErrorMessages() << "\tAttempted to parse: " << str)
-	}
-#elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
+#elif UF_JSON_USE_LUA
 	json = ext::lua::state["json"]["decode"]( str );
 #endif
 	return json;

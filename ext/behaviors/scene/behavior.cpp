@@ -566,6 +566,7 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
 	serializer["light"]["brightnessThreshold"] = /*this->*/light.brightnessThreshold;
+	serializer["light"]["useLightmaps"] = /*this->*/light.useLightmaps;
 
 	serializer["light"]["fog"]["color"] = uf::vector::encode( /*this->*/fog.color );
 	serializer["light"]["fog"]["step scale"] = /*this->*/fog.stepScale;
@@ -600,6 +601,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as<float>(2.2f);
 	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as<float>(ext::config["engine"]["scenes"]["bloom"]["brightnessThreshold"].as<float>(1.0f));
+	/*this->*/light.useLightmaps = ext::config["engine"]["scenes"]["lights"]["useLightmaps"].as<bool>(true);
 
 	/*this->*/bloom.scale = serializer["bloom"]["scale"].as(ext::config["engine"]["scenes"]["bloom"]["scale"].as(bloom.scale));
 	/*this->*/bloom.strength = serializer["bloom"]["strength"].as(ext::config["engine"]["scenes"]["bloom"]["strength"].as(bloom.strength));
@@ -740,7 +742,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		alignas(4) uint32_t shadowSamples;
 
 		alignas(4) uint32_t indexSkybox;
-		alignas(4) uint32_t padding1;
+		alignas(4) uint32_t useLightmaps;
 		alignas(4) uint32_t padding2;
 		alignas(4) uint32_t padding3;
 	};
@@ -839,6 +841,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		uniforms.shadowSamples = std::min( 0, metadata.shadow.samples );
 
 		uniforms.indexSkybox = indexSkybox;
+		// use sample lightmaps during deferred pass
+		uniforms.useLightmaps = metadata.light.useLightmaps;
 	}
 
 	for ( auto* blitter : blitters ) {

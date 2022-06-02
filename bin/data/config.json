@@ -1,12 +1,12 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "SS2",
 			"meshes": { "interleave": true },
 			"matrix": { "reverseInfinite": true },
-			"lights": {
-				"max": 16,
-				"enabled": true
+			"lights": { "enabled": true,
+				"useLightmaps": false,
+				"max": 16
 			},
 			"shadows": {
 				"enabled": true,
@@ -255,7 +255,7 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 0.5, 0.5 ]
+			"sensitivity": [ 1, 1 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

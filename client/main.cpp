@@ -25,6 +25,7 @@ namespace {
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
 		#endif
+			if ( client::terminated ) return;
 			UF_MSG_INFO("Termination via std::atexit()!");
 			ext::ready = false;
 			client::ready = false;
@@ -125,6 +126,7 @@ int main(int argc, char** argv){
 	#endif
 	}
 	if ( !client::terminated ) {
+		client::terminated = true;
 		UF_MSG_INFO("Natural termination!");
 		ext::terminate();
 		client::terminate();

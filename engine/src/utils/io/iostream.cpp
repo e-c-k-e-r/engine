@@ -159,7 +159,9 @@ char UF_API_CALL uf::IoStream::readChar(const bool& loop) {
 	if ( !ext::ncurses.initialized() ) this->initialize();
 #endif
 	if ( !uf::IoStream::ncurses ) {
-		return std::cin.get();
+		auto ch = std::cin.get();
+		::info.input.history.push_back( std::to_string(ch) );
+		return ch;
 	}
 #if UF_USE_NCURSES
 	while ( loop ) {
@@ -167,8 +169,8 @@ char UF_API_CALL uf::IoStream::readChar(const bool& loop) {
 		if ( ::info.character == ERR ) continue;
 		if ( ::info.character > 0 && ::info.character < 128 ) return ::info.character;
 	}
-	return 0;
 #endif
+	return 0;
 }
 uf::stl::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
 #if UF_USE_NCURSES
@@ -178,6 +180,7 @@ uf::stl::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
 	if ( !uf::IoStream::ncurses ) {
 		uf::stl::string in;
 		std::getline(std::cin, in);
+		::info.input.history.push_back( in );
 		return in;
 	}
 #if UF_USE_NCURSES
@@ -259,8 +262,8 @@ uf::stl::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
 	}
 	uf::iostream << "\n";
 	::info.input.history.push_back(::info.input.buffer);
-	return ::info.input.buffer;
 #endif
+	return ::info.input.buffer;
 }
 uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
 #if UF_USE_NCURSES
@@ -270,6 +273,7 @@ uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
 	if ( !uf::IoStream::ncurses ) {
 		uf::stl::string in;
 		std::getline(std::cin, in);
+		::info.input.history.push_back( in );
 		return in;
 	}
 #if UF_USE_NCURSES
@@ -377,8 +381,8 @@ uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
 	}
 	uf::iostream << "\n";
 	::info.input.history.push_back(::info.input.buffer);
-	return ::info.input.buffer;
 #endif
+	return ::info.input.buffer;
 }
 char UF_API_CALL uf::IoStream::writeChar( char ch ) {
 #if UF_USE_NCURSES
@@ -398,13 +402,14 @@ char UF_API_CALL uf::IoStream::writeChar( char ch ) {
 	if ( !uf::IoStream::ncurses ) {
 		if ( ch == '\n' ) std::cout << std::endl;
 		else std::cout << ch;
+		::info.input.history.push_back( std::to_string(ch) );
 		return ch;
 	}
 #if UF_USE_NCURSES
 	ext::ncurses.addChar(ch);
 	ext::ncurses.refresh();
-	return ch;
 #endif
+	return ch;
 }
 const uf::stl::string& UF_API_CALL uf::IoStream::writeString( const uf::stl::string& str ) {
 #if UF_USE_NCURSES
@@ -425,13 +430,14 @@ const uf::stl::string& UF_API_CALL uf::IoStream::writeString( const uf::stl::str
 	if ( !uf::IoStream::ncurses ) {
 		if ( str == "\n" ) std::cout << std::endl;
 		else std::cout << str;
+		::info.input.history.push_back( str );
 		return str;
 	}
 #if UF_USE_NCURSES
 	ext::ncurses.addStr(str.c_str());
 	ext::ncurses.refresh();
-	return str;
 #endif
+	return str;
 }
 const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str ) {
 #if UF_USE_NCURSES
@@ -450,13 +456,14 @@ const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str 
 */
 	if ( !uf::IoStream::ncurses ) {
 		std::cout << (const char*) str.getString().c_str();
+		::info.input.history.push_back( str );
 		return str;
 	}
 #if UF_USE_NCURSES
 	ext::ncurses.addStr((const char*) str.getString().c_str());
 	ext::ncurses.refresh();
-	return str;
 #endif
+	return str;
 }
 
 void UF_API_CALL uf::IoStream::operator>> (bool& val) {

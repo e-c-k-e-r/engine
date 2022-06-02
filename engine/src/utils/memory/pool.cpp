@@ -68,12 +68,13 @@ void uf::memoryPool::initialize( pod::MemoryPool& pool, size_t size ) {
 	pool.size = size;
 }
 void uf::memoryPool::destroy( pod::MemoryPool& pool ) {
-	if ( uf::memoryPool::size( pool ) <= 0 ) return;
+	if ( uf::memoryPool::size( pool ) <= 0 ) goto CLEAR;
 	if ( uf::memoryPool::subPool && &pool != &uf::memoryPool::global.data() ) {
 		uf::memoryPool::global.free( pool.memory );
 	} else {
 		uf::allocator::free_m(pool.memory);
 	}
+CLEAR:
 	pool.size = 0;
 	pool.memory = NULL;
 }
@@ -243,6 +244,9 @@ bool uf::memoryPool::exists( pod::MemoryPool& pool, void* pointer, size_t size )
 #endif
 }
 bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
+	// skip freeing, we're already a deallocated pool
+	// this comes up because of how backasswards C++ static initialization/destruction order is
+	if ( !pool.memory ) return false;
 	// passed a NULL, for some reason
 	if ( !pointer ) return false;
 #if UF_MEMORYPOOL_MUTEX

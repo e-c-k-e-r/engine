@@ -1,6 +1,7 @@
 {
 	"import": "/scene.json",
 	"assets": [
+		"./audio/soundscape/ambience.ogg",
 		"./loading.json"
 	],
 	"system": {
@@ -28,7 +29,7 @@
 
 			"ambient": [ 0.15, 0.15, 0.15 ],
 
-			"fog": {
+			"fog-disabled": {
 				"color": [ 0.5, 0.5, 0.5 ],
 				"range": [ 64, 256 ],
 				"step scale": 2,

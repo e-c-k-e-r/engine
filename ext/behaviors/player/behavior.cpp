@@ -79,7 +79,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
 		pod::Vector2 relta = { (float) metadata.mouse.sensitivity.x * payload.mouse.delta.x / payload.window.size.x, (float) metadata.mouse.sensitivity.y * payload.mouse.delta.y / payload.window.size.y };
+	//	pod::Vector2 relta = { (float) metadata.mouse.sensitivity.x * payload.mouse.delta.x * uf::physics::time::delta, (float) metadata.mouse.sensitivity.y * payload.mouse.delta.y * uf::physics::time::delta };
 		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
+	//	relta *= uf::physics::time::delta;
 
 		if ( payload.mouse.delta.x != 0 ) {
 			if ( metadata.camera.invert.x ) relta.x *= -1;
@@ -93,11 +95,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 			if ( metadata.camera.invert.y ) relta.y *= -1;
 			metadata.camera.limit.current.y += relta.y;
 			if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
-			//	if ( collider.body && !collider.shared ) {
-			//		uf::physics::impl::applyRotation( collider, cameraTransform.right, relta.y );
-			//	} else {
+			//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, relta.y ); else
 					uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y );
-			//	}
 			} else metadata.camera.limit.current.y -= relta.y;
 		}
 		camera.update(true);

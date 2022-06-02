@@ -77,14 +77,14 @@ uf::stl::string UF_API uf::io::sanitize( const uf::stl::string& str, const uf::s
 	// flatten all "/./"
 	{
 		uf::stl::string tmp;
-		while ( path != (tmp = uf::string::replace(path, "/./", "/")) ) {
+		while ( path != (tmp = uf::string::replace(path, "/\\/\\.\\//", "/")) ) {
 			path = tmp;
 		}
 	}
 	// flatten all "//"
 	{
 		uf::stl::string tmp;
-		while ( path != (tmp = uf::string::replace(path, "//", "/")) ) {
+		while ( path != (tmp = uf::string::replace(path, "/\\/\\//", "/")) ) {
 			path = tmp;
 		}
 	}
@@ -151,10 +151,16 @@ size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer
 
 // indirection for different compression formats, currently only using zlib's gzFile shit
 uf::stl::vector<uint8_t> UF_API uf::io::decompress( const uf::stl::string& filename ) {
-	return ext::zlib::decompressFromFile( filename );
+	uf::stl::string extension = uf::io::extension( filename );
+	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
+	UF_MSG_ERROR("unsupported compression format requested: " << extension);
+	return {};
 }
 size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
-	return ext::zlib::compressToFile( filename, buffer, size );
+	uf::stl::string extension = uf::io::extension( filename );
+	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
+	UF_MSG_ERROR("unsupported compression format requested: " << extension);
+	return 0;
 }
 
 uf::stl::string UF_API uf::io::hash( const uf::stl::string& filename ) {

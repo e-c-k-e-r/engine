@@ -20,11 +20,18 @@
 
 namespace ext {
 	namespace json {
+		extern uf::stl::string PREFERRED_COMPRESSION;
+		extern uf::stl::string PREFERRED_ENCODING;
+
 		struct UF_API EncodingSettings {
+			uf::stl::string compression = ""; // auto-assume compression scheme
+			uf::stl::string encoding = ""; // auto-assume re-encoding scheme
 			bool pretty = false;
-			bool compress = false;
 			bool quantize = false;
 			uint8_t precision = 0;
+		};
+		struct UF_API DecodingSettings {
+			uf::stl::string encoding = "";
 		};
 
 		// cares not about breaking
@@ -50,7 +57,8 @@ namespace ext {
 
 		uf::stl::string UF_API encode( const ext::json::Value& json, bool pretty = true );
 		uf::stl::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
-		ext::json::Value& UF_API decode( ext::json::Value& json, const uf::stl::string& str );
+
+		ext::json::Value& UF_API decode( ext::json::Value& json, const uf::stl::string& str, const DecodingSettings& = {} );
 	#if UF_USE_LUA
 		uf::stl::string UF_API encode( const sol::table& table );
 	#endif

@@ -4,16 +4,16 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/mcdonalds.glb" }
-		{ "filename": "./models/mcdonalds/graph.json.gz" }
+		{ "filename": "./models/mcdonalds/graph.json" }
 
 	//	{ "filename": "./models/mini_mcd.glb" }
-	//	{ "filename": "./models/mini_mcd/graph.json.gz" }
+	//	{ "filename": "./models/mini_mcd/graph.json" }
 	],
 	"metadata": {
 		"model": {
-			"lightmap": true,
+		//	"lightmap": false,
 			"baking": {
-				"enabled": false,
+				"enabled": true,
 				"resolution": 2048,
 				"settings": {
 					"useInputMeshUvs": false
@@ -23,7 +23,7 @@
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [3,2,3], "epsilon": 1.0, "cleanup": true, "print": true }
+					"grid": { "size": [4,1,4], "epsilon": 1.0, "cleanup": true, "print": true }
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
 

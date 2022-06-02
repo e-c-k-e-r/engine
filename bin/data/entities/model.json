@@ -18,12 +18,14 @@
 			"exporter": {
 				"enabled": true,
 				"pretty": false,
-				"compress": true,
+				"encoding": "auto",
+				"compression": "auto",
 				"quantize": false,
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
 				"unwrap": true,
+				"quit": true,
 				"mesh": {
 				//	"print": true
 				}
@@ -51,6 +53,7 @@
 				}
 			},
 		//	"filter": "NEAREST",
+			"lightmap": true,
 			"flags": {
 				"ATLAS": false,
 				"INVERT": false,
