@@ -720,10 +720,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 
 		struct VXGI {
 			alignas(16) pod::Matrix4f matrix;
-			alignas(4) float cascadePower;
-			alignas(4) float granularity;
-			alignas(4) uint32_t shadows;
-			alignas(4) uint32_t padding1;
+			alignas(4)  float cascadePower;
+			alignas(4)  float granularity;
+			alignas(4)  float voxelizeScale;
+			alignas(4)  float occlusionFalloff;
+			
+			alignas(4)  uint32_t shadows;
+			alignas(4)  uint32_t padding1;
+			alignas(4)  uint32_t padding2;
+			alignas(4)  uint32_t padding3;
 		} vxgi;
 
 		struct Lengths {
@@ -822,6 +827,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			.matrix = metadataVxgi.extents.matrix,
 			.cascadePower = metadataVxgi.cascadePower,
 			.granularity = metadataVxgi.granularity,
+			.voxelizeScale = 1.0f / (metadataVxgi.voxelizeScale * std::max<uint32_t>( metadataVxgi.voxelSize.x, std::max<uint32_t>(metadataVxgi.voxelSize.y, metadataVxgi.voxelSize.z))),
+			.occlusionFalloff = metadataVxgi.occlusionFalloff,
+			
 			.shadows = metadataVxgi.shadows,
 		};
 	

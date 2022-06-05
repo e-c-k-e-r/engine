@@ -8,15 +8,6 @@
 #include <uf/utils/memory/pool.h>
 #include <filesystem>
 
-#if UF_NO_EXCEPTIONS
-	#define HANDLE_EXCEPTIONS 0
-#else
-	#define HANDLE_EXCEPTIONS 1
-#endif
-
-#if UFENV_DREAMCAST
-	#include <arch/dreamcast/kernel/stack.h>
-#endif
 #include <signal.h>
 
 namespace {
@@ -77,7 +68,7 @@ int main(int argc, char** argv){
 		}
 	}
 	while ( client::ready && ext::ready ) {
-	#if HANDLE_EXCEPTIONS
+	#if UF_EXCEPTIONS
 		try {	
 	#endif
 		/*
@@ -107,7 +98,7 @@ int main(int argc, char** argv){
 			ext::tick();
 			ext::render();
 		#endif
-	#if HANDLE_EXCEPTIONS
+	#if UF_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			UF_MSG_ERROR("RUNTIME ERROR: " << e.what());
 			abort();

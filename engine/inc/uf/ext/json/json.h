@@ -4,12 +4,6 @@
 
 #if defined(UF_JSON_USE_NLOHMANN) && UF_JSON_USE_NLOHMANN
 	#include "nlohmann.h"
-#elif defined(UF_JSON_USE_JSONCPP) && UF_JSON_USE_JSONCPP
-	#include "jsoncpp.h"
-#elif defined(UF_JSON_USE_RAPIDJSON) && UF_JSON_USE_RAPIDJSON
-	#include "rapidjson.h"
-#elif defined(UF_JSON_USE_LUA) && UF_JSON_USE_LUA
-	#include "lua.h"
 #else
 	#error "JSON implementation not defined"
 #endif
@@ -55,12 +49,84 @@ namespace ext {
 		ext::json::Value UF_API reencode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
 		ext::json::Value& UF_API reencode( ext::json::Value& json, const ext::json::EncodingSettings& settings );
 
-		uf::stl::string UF_API encode( const ext::json::Value& json, bool pretty = true );
-		uf::stl::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
+		template<typename T> T& encode( const ext::json::Value& json, T& output, const ext::json::EncodingSettings& settings = {} );
+		template<typename T> ext::json::Value& decode( ext::json::Value& json, const T& input, const DecodingSettings& settings = {} );
+		
+		inline uf::stl::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings = {} ) {
+			uf::stl::string output;
+			encode( json, output, settings );
+			return output;
+		}
+	/*
+		uf::stl::string& UF_API encode( const ext::json::Value& json, uf::stl::string&, const ext::json::EncodingSettings& settings = {} );
+		uf::stl::vector<uint8_t>& UF_API encode( const ext::json::Value& json, uf::stl::vector<uint8_t>&, const ext::json::EncodingSettings& settings = {} );
 
 		ext::json::Value& UF_API decode( ext::json::Value& json, const uf::stl::string& str, const DecodingSettings& = {} );
+		ext::json::Value& UF_API decode( ext::json::Value& json, const uf::stl::vector<uint8_t>& str, const DecodingSettings& = {} );
+	*/
+
 	#if UF_USE_LUA
 		uf::stl::string UF_API encode( const sol::table& table );
 	#endif
 	}
+}
+
+template<typename T>
+T& ext::json::encode( const ext::json::Value& json, T& output, const ext::json::EncodingSettings& settings ) {
+//	ext::json::Value json = ext::json::reencode( _json, settings );
+
+#define UF_JSON_PARSE_ENCODING(ENC)\
+	if ( settings.encoding == #ENC ) {\
+		auto buffer = nlohmann::json::to_ ## ENC( (const ext::json::base_value&) (json) );\
+		output = T( buffer.begin(), buffer.end() );\
+}
+
+	if ( settings.encoding == ""  || settings.encoding == "json" ) {
+		output = settings.pretty ? json.dump(1, '\t') : json.dump();
+	}
+	else UF_JSON_PARSE_ENCODING(bson)
+	else UF_JSON_PARSE_ENCODING(cbor)
+	else UF_JSON_PARSE_ENCODING(msgpack)
+	else UF_JSON_PARSE_ENCODING(ubjson)
+	else UF_JSON_PARSE_ENCODING(bjdata)
+	else {
+		// should probably default to json, not my problem
+		UF_MSG_ERROR("invalid encoding requested: " << settings.encoding);
+	}
+	return output;
+#undef UF_JSON_PARSE_ENCODING
+}
+template<typename T>
+ext::json::Value& ext::json::decode( ext::json::Value& json, const T& input, const DecodingSettings& settings ) {
+#define UF_JSON_PARSE_ENCODING(ENC)\
+	if ( settings.encoding == #ENC ) {\
+		json = nlohmann::json::from_ ## ENC(input, strict, exceptions);\
+	}
+
+	constexpr bool comments = true;
+	constexpr bool strict = true;
+	constexpr bool exceptions = true;
+#if UF_EXCEPTIONS
+	try {
+#endif
+		if ( settings.encoding == "" || settings.encoding == "json" ) {
+			json = nlohmann::json::parse(input, nullptr, exceptions, comments);
+		}
+		else UF_JSON_PARSE_ENCODING(bson)
+		else UF_JSON_PARSE_ENCODING(cbor)
+		else UF_JSON_PARSE_ENCODING(msgpack)
+		else UF_JSON_PARSE_ENCODING(ubjson)
+		else UF_JSON_PARSE_ENCODING(bjdata)
+		else {
+			// should probably default to json, not my problem
+			UF_MSG_ERROR("invalid encoding requested: " << settings.encoding);
+		}
+#if UF_EXCEPTIONS
+	} catch ( nlohmann::json::parse_error& e ) {
+		UF_MSG_ERROR("JSON error: " << e.what());
+	}
+#endif
+	return json;
+
+#undef UF_JSON_PARSE_ENCODING
 }

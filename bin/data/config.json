@@ -2,7 +2,7 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleave": true },
+			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
@@ -14,7 +14,7 @@
 				"max": 6,
 				"samples": 2,
 				"experimental mode": 1
-			},		
+			},
 			"textures": {
 				"max": {
 					"2D": 1024,
@@ -23,16 +23,18 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 2,
-				"size": 96,
+				"limiter": 1,
+				"size": 86,
 				"dispatch": 8,
-				"cascades": 2,
+				"cascades": 4,
 				"cascadePower": 4,
+				"granularity": 8,
+				"voxelizeScale": 1,
+				"occlusionFalloff": 2,
 				"shadows": 0,
-				"granularity": 4,
 				"extents": {
-					"min": [ -1.5, -1.5, -1.5 ],
-					"max": [  1.5,  1.5,  1.5 ]
+					"min": [ -4, -4, -4 ],
+					"max": [  4,  4,  4 ]
 				}
 			},
 			"bloom": {
@@ -155,6 +157,10 @@
 				"modules": {
 					"json": "/json.lua"
 				}
+			},
+			"json": {
+				"encoding": "msgpack",
+				"compression": "gz"
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,

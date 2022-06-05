@@ -1,4 +1,5 @@
 #include <uf/ext/zlib/zlib.h>
+#if UF_USE_ZLIB
 #include <uf/utils/io/file.h>
 #include <cstring>
 #if UF_ENV_DREAMCAST
@@ -76,3 +77,4 @@ size_t UF_API ext::zlib::compressToFile( const uf::stl::string& filename, const 
 	gzclose( out );
 	return uf::io::size( filename );
 }
+#endif

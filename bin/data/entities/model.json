@@ -53,7 +53,7 @@
 				}
 			},
 		//	"filter": "NEAREST",
-			"lightmap": true,
+			"lightmap": "auto",
 			"flags": {
 				"ATLAS": false,
 				"INVERT": false,

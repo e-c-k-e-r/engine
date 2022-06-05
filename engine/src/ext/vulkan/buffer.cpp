@@ -8,6 +8,7 @@
 #include <uf/ext/vulkan/device.h>
 
 void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
+/*
 	*this = {
 		.device = NULL,
 		.buffer = buffer.buffer,
@@ -20,6 +21,17 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 		.allocation = buffer.allocation,
 		.allocationInfo = buffer.allocationInfo,
 	};
+*/
+	this->device = NULL;
+	this->buffer = buffer.buffer;
+	this->memory = buffer.memory;
+	this->descriptor = buffer.descriptor;
+	this->alignment = buffer.alignment;
+	this->mapped = buffer.mapped;
+	this->usage = buffer.usage;
+	this->memoryProperties = buffer.memoryProperties;
+	this->allocation = buffer.allocation;
+	this->allocationInfo = buffer.allocationInfo;
 }
 
 void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {

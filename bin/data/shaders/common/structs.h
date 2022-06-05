@@ -177,8 +177,13 @@ struct Vxgi {
 
 	float cascadePower;
 	float granularity;
+	float voxelizeScale;
+	float occlusionFalloff;
+
 	uint shadows;
 	uint padding1;
+	uint padding2;
+	uint padding3;
 };
 struct Voxel {
 	uvec2 id;

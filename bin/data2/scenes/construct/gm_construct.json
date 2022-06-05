@@ -6,7 +6,6 @@
 	],
 	"metadata": {
 		"model": {
-		//	"lightmap": false,
 			"baking": {
 				"enabled": true,
 				"resolution": 1024,

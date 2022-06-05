@@ -154,7 +154,7 @@ namespace uf {
 
 		pod::Graph UF_API load( const uf::stl::string&, const uf::Serializer& = ext::json::null() );
 		pod::Graph& UF_API convert( uf::Object&, bool = false );
-		void UF_API save( const pod::Graph&, const uf::stl::string& );
+		uf::stl::string UF_API save( const pod::Graph&, const uf::stl::string& );
 
 		uf::stl::string UF_API print( const pod::Graph& graph );
 		uf::Serializer UF_API stats( const pod::Graph& graph );

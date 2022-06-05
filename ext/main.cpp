@@ -97,7 +97,14 @@ namespace {
 void EXT_API ext::load() {
 	ext::config.readFromFile(uf::io::root+"/config.json");
 }
+
 void EXT_API ext::initialize() {
+	/* set JSON implicit preferences */ {
+		ext::json::PREFERRED_ENCODING = ::json["engine"]["ext"]["json"]["encoding"].as(ext::json::PREFERRED_ENCODING);
+		ext::json::PREFERRED_COMPRESSION = ::json["engine"]["ext"]["json"]["compression"].as(ext::json::PREFERRED_COMPRESSION);
+
+		UF_MSG_DEBUG("Setting JSON implicit preference: " << ext::json::PREFERRED_ENCODING << "." << ext::json::PREFERRED_COMPRESSION);
+	}
 
 	/* Arguments */ {
 		bool modified = false;

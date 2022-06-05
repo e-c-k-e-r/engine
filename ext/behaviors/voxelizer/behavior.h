@@ -21,6 +21,8 @@ namespace ext {
 			size_t cascades = 0;
 			float cascadePower = 0;
 			float granularity = 0;
+			float voxelizeScale = 0;
+			float occlusionFalloff = 0;
 			uint32_t shadows = 0;
 
 			struct {

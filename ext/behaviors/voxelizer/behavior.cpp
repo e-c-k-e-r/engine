@@ -25,10 +25,27 @@ UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerBehavior, ticks = true, renders = false, mu
 void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
 	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
+
+	// merge vxgi settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["vxgi"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( metadataJson["vxgi"][key] ) ) return;
+			metadataJson["vxgi"][key] = value;
+		} );
+	}
+
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
+	metadata.deserialize(self, metadataJson);
+
 	// initialize voxel map
+#if 0
 	{
 		const uint32_t DEFAULT_VOXEL_SIZE = ext::config["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>(256);
 		const float DEFAULT_VOXELIZE_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["limiter"].as<float>(0);
@@ -37,6 +54,8 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		const float DEFAULT_CASCADE_POWER = ext::config["engine"]["scenes"]["vxgi"]["cascadePower"].as<float>(1.5);
 		const float DEFAULT_GRANULARITY = ext::config["engine"]["scenes"]["vxgi"]["granularity"].as<float>(2.0);
 		const float DEFAULT_SHADOWS = ext::config["engine"]["scenes"]["vxgi"]["shadows"].as<size_t>(8);
+		const float DEFAULT_PIXEL_SCALE = ext::config["engine"]["scenes"]["vxgi"]["voxelizeScale"].as<float>(1);
+		const float DEFAULT_OCCLUSION_FALLOFF = ext::config["engine"]["scenes"]["vxgi"]["occlusionFalloff"].as<float>(128.0f);
 
 		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
 		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
@@ -51,29 +70,33 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		if ( metadata.cascades == 0 ) metadata.cascades = DEFAULT_CASCADES;
 		if ( metadata.cascadePower == 0 ) metadata.cascadePower = DEFAULT_CASCADE_POWER;
 		if ( metadata.granularity == 0 ) metadata.granularity = DEFAULT_GRANULARITY;
+		if ( metadata.voxelizeScale == 0 ) metadata.voxelizeScale = DEFAULT_PIXEL_SCALE;
+		if ( metadata.occlusionFalloff == 0 ) metadata.occlusionFalloff = DEFAULT_OCCLUSION_FALLOFF;
 		if ( metadata.shadows == 0 ) metadata.shadows = DEFAULT_SHADOWS;
 
 		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
 		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
 
 	//	uf::stl::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);	
+	}
+#endif
+
+	for ( size_t i = 0; i < metadata.cascades; ++i ) {
 		const bool HDR = false;
-		for ( size_t i = 0; i < metadata.cascades; ++i ) {
-			auto& id = sceneTextures.voxels.id.emplace_back();
-		//	auto& uv = sceneTextures.voxels.uv.emplace_back();
-			auto& normal = sceneTextures.voxels.normal.emplace_back();
-			auto& radiance = sceneTextures.voxels.radiance.emplace_back();
-		//	auto& depth = sceneTextures.voxels.depth.emplace_back();
+		auto& id = sceneTextures.voxels.id.emplace_back();
+	//	auto& uv = sceneTextures.voxels.uv.emplace_back();
+		auto& normal = sceneTextures.voxels.normal.emplace_back();
+		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
+	//	auto& depth = sceneTextures.voxels.depth.emplace_back();
 
-			id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-			id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 
-			id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		//	uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-			normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-			radiance.fromBuffers( NULL, 0, HDR ? uf::renderer::enums::Format::R16G16B16A16_SFLOAT : uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		}
+		id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+	//	uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		radiance.fromBuffers( NULL, 0, HDR ? uf::renderer::enums::Format::R16G16B16A16_SFLOAT : uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+	//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	// initialize render mode
 	{
@@ -368,10 +391,17 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 					struct UniformDescriptor {
 						/*alignas(16)*/ pod::Matrix4f matrix;
 						/*alignas(4)*/ float cascadePower;
-						/*alignas(4)*/ float padding1;
-						/*alignas(4)*/ float padding2;
-						/*alignas(4)*/ float padding3;
+						/*alignas(4)*/ float granularity;
+						/*alignas(4)*/ float voxelizeScale;
+						/*alignas(4)*/ float occlusionFalloff;
+						
+						/*alignas(4)*/ uint32_t shadows;
+						/*alignas(4)*/ uint32_t padding1;
+						/*alignas(4)*/ uint32_t padding2;
+						/*alignas(4)*/ uint32_t padding3;
 					};
+
+
 				#if UF_UNIFORMS_REUSE
 					auto& uniform = shader.getUniform("UBO");
 					auto& uniforms = uniform.get<UniformDescriptor>();
@@ -379,12 +409,22 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 					uniforms = UniformDescriptor{
 						.matrix = metadata.extents.matrix,
 						.cascadePower = metadata.cascadePower,
+						.granularity = metadata.granularity,
+						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
+						.occlusionFalloff = metadata.occlusionFalloff,
+						
+						.shadows = metadata.shadows,
 					};
 					shader.updateUniform( "UBO", uniform );
 				#else
 					UniformDescriptor uniforms = {
 						.matrix = metadata.extents.matrix,
 						.cascadePower = metadata.cascadePower,
+						.granularity = metadata.granularity,
+						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
+						.occlusionFalloff = metadata.occlusionFalloff,
+						
+						.shadows = metadata.shadows,
 					};
 					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
 				#endif
@@ -407,7 +447,41 @@ void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 	}
 #endif
 }
-void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){}
-void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){}
+void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
+	serializer["vxgi"]["size"] = /*this->*/voxelSize.x;
+	serializer["vxgi"]["limiter"] = /*this->*/limiter.frequency;
+	serializer["vxgi"]["dispatch"] = /*this->*/dispatchSize.x;
+
+	serializer["vxgi"]["cascades"] = /*this->*/cascades;
+	serializer["vxgi"]["cascadePower"] = /*this->*/cascadePower;
+	serializer["vxgi"]["granularity"] = /*this->*/granularity;
+	serializer["vxgi"]["voxelizeScale"] = /*this->*/voxelizeScale;
+	serializer["vxgi"]["occlusionFalloff"] = /*this->*/occlusionFalloff;
+	serializer["vxgi"]["shadows"] = /*this->*/shadows;
+
+	serializer["vxgi"]["extents"]["min"] = uf::vector::encode(/*this->*/extents.min);
+	serializer["vxgi"]["extents"]["max"] = uf::vector::encode(/*this->*/extents.max);
+}
+void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
+	/*this->*/voxelSize.x = serializer["vxgi"]["size"].as<size_t>(96);
+	/*this->*/voxelSize.y = serializer["vxgi"]["size"].as<size_t>(96);
+	/*this->*/voxelSize.z = serializer["vxgi"]["size"].as<size_t>(96);
+	
+	/*this->*/limiter.frequency = serializer["vxgi"]["limiter"].as<float>(1);
+
+	/*this->*/dispatchSize.x = serializer["vxgi"]["dispatch"].as<float>(8);
+	/*this->*/dispatchSize.y = serializer["vxgi"]["dispatch"].as<float>(8);
+	/*this->*/dispatchSize.z = serializer["vxgi"]["dispatch"].as<float>(8);
+
+	/*this->*/cascades = serializer["vxgi"]["cascades"].as<size_t>(4);
+	/*this->*/cascadePower = serializer["vxgi"]["cascadePower"].as<size_t>(4);
+	/*this->*/granularity = serializer["vxgi"]["granularity"].as<float>(4);
+	/*this->*/voxelizeScale = serializer["vxgi"]["voxelizeScale"].as<float>(1);
+	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as<float>(128);
+	/*this->*/shadows = serializer["vxgi"]["shadows"].as<size_t>(0);
+
+	/*this->*/extents.min = uf::vector::decode( serializer["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
+	/*this->*/extents.max = uf::vector::decode( serializer["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
+}
 #undef this
 #endif

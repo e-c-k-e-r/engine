@@ -2,11 +2,11 @@
 	"engine": {
 		"scenes": {
 			"start": "SS2",
-			"meshes": { "interleaved": true },
+			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": false },
-			"lights": {
-				"max": 2,
-				"enabled": false
+			"lights": { "enabled": false,
+				"useLightmaps": true,
+				"max": 2
 			},
 			"shadows": {
 				"enabled": false,
@@ -63,6 +63,10 @@
 					"json": "/json.lua"
 				}
 			},
+			"json": {
+				"encoding": "msgpack",
+				"compression": "gz"
+			},
 			"reactphysics": {
 				"timescale": 0.03333333333,
 				"interpolate": false,
@@ -98,12 +102,7 @@
 				"component": "96 KiB"
 			}
 		},
-		"render modes": {
-			"gui": true,
-			"deferred": true,
-			"stereo deferred": false,
-			"multiview stereo deferred": false
-		},
+		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
 			"framerate": 60
@@ -126,6 +125,9 @@
 			"entity": {
 				"delete children on destroy": false,
 				"delete components on destroy": false
+			},
+			"loader": {
+				"assert": true
 			}
 		}
 	},

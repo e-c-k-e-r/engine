@@ -217,7 +217,7 @@ namespace {
 		return json;
 	}
 }
-void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename ) {
+uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename ) {
 	uf::stl::string directory = uf::io::directory( filename ) + "/" + uf::io::basename(filename) + "/";
 	uf::stl::string target = uf::io::directory( filename ) + "/" + uf::io::basename(filename) + ".graph";
 
@@ -239,7 +239,7 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 	};
 	
 	if ( settings.encoding == "auto" ) settings.encoding = ext::json::PREFERRED_ENCODING;
-	if ( settings.compression == "auto" ) settings.compression = ext::json::PREFERRED_COMPRESSION;
+	if ( settings.compression == "auto" ) settings.compression =  ext::json::PREFERRED_COMPRESSION;
 
 	if ( !settings.combined ) uf::io::mkdir(directory);
 #if UF_USE_XATLAS
@@ -299,10 +299,9 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 				auto& mesh = /*graph.storage*/uf::graph::storage.meshes.map.at(name);
 				if ( !s.encodeBuffers ) {
 					s.filename = directory+"/mesh."+std::to_string(i)+".json";
-					encode(mesh, s).writeToFile(s.filename, settings);
+					encode(mesh, s).writeToFile(s.filename);
 					uf::Serializer json;
 					json["name"] = name;
-				//	json["filename"] = uf::io::filename(s.filename + (settings.compress ? ".gz" : ""));
 					json["filename"] = uf::io::filename(s.filename);
 					serializer["meshes"].emplace_back( json );
 				} else {
@@ -408,8 +407,7 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 				auto& name = graph.animations[i];
 				uf::stl::string f = "animation."+std::to_string(i)+".json";
 				auto& animation = /*graph.storage*/uf::graph::storage.animations.map.at(name);
-				encode(animation, settings).writeToFile(directory+"/"+f, settings);
-			//	serializer["animations"].emplace_back(f + (settings.compress ? ".gz" : ""));
+				encode(animation, settings).writeToFile(directory+"/"+f);
 				serializer["animations"].emplace_back(f);
 			}
 		} else {
@@ -440,14 +438,18 @@ void uf::graph::save( const pod::Graph& graph, const uf::stl::string& filename )
 #endif
 
 	if ( !settings.combined ) target = directory + "/graph.json";
-	serializer.writeToFile( target, settings );
+	serializer.writeToFile( target );
 	UF_MSG_DEBUG("Saving graph to `" << target << "`");
 
+/*
 	if ( graph.metadata["exporter"]["quit"].as<bool>(true) ) {
 		ext::json::Value payload;
 		payload["message"] = "Termination after gltf conversion requested.";
 		uf::scene::getCurrentScene().queueHook("system:Quit", payload);
 	}
+*/
+
+	return target;
 }
 
 uf::stl::string uf::graph::print( const pod::Graph& graph ) {

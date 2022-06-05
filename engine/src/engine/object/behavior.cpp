@@ -190,6 +190,7 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	metadata.deserialize(self, metadataJson);
 #endif
 	// listen for metadata file changes
+#if !UF_ENV_DREAMCAST
 	if ( metadata.system.hotReload.enabled ) {
 		size_t mtime = uf::io::mtime( metadata.system.filename );
 		if ( metadata.system.hotReload.mtime < mtime ) {
@@ -197,6 +198,7 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 			this->reload();
 		}
 	}
+#endif
 
 	if ( metadata.transform.trackParent && this->hasParent() ) {
 		auto& parent = this->getParent();

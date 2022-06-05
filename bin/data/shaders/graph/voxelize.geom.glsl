@@ -22,10 +22,16 @@ layout (location = 8) flat out uvec4 outId;
 
 layout (binding = 4) uniform UBO {
 	mat4 voxel;
+
 	float cascadePower;
-	float padding1;
-	float padding2;
-	float padding3;
+	float granularity;
+	float voxelizeScale;
+	float occlusionFalloff;
+
+	uint shadows;
+	uint padding1;
+	uint padding2;
+	uint padding3;
 } ubo;
 
 float cascadePower( uint x ) {
@@ -33,10 +39,9 @@ float cascadePower( uint x ) {
 //	return max( 1, x * ubo.cascadePower );
 }
 
+#define USE_CROSS 0
 void main(){
-	const float RENDER_RESOLUTION = 256.0;
-	const float PIXEL_SCALE = 2.0;
- 	const float HALF_PIXEL = 1.0 / (RENDER_RESOLUTION * PIXEL_SCALE);
+ 	const float HALF_PIXEL = ubo.voxelizeScale;
  	const vec3 C = ( inPosition[0] + inPosition[1] + inPosition[2] ) / 3.0;
 
 #if USE_CROSS

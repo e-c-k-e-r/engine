@@ -10,42 +10,39 @@
 #include <functional>
 
 #define UF_SERIALIZER_IMPLICIT_LOAD 1
+#if UF_ENV_DREAMCAST
+#define UF_SERIALIZER_AUTO_CONVERT 0
+#else
 #define UF_SERIALIZER_AUTO_CONVERT 1
+#endif
 
 //#define UF_MSG_DEBUG_(...) UF_MSG_DEBUG(__VA_ARGS__)
 #define UF_MSG_DEBUG_(...)
 
-uf::Serializer::Serializer( const uf::stl::string& str ) { //: sol::table(ext::lua::state, sol::create) {
+uf::Serializer::Serializer() {
+}
+uf::Serializer::Serializer( const uf::stl::string& str ) {
 	this->deserialize(str);
 }
 #if UF_USE_LUA
-uf::Serializer::Serializer( const sol::table& table ) { //: sol::table(ext::lua::state, sol::create) {
+uf::Serializer::Serializer( const sol::table& table ) {
 	this->deserialize( ext::json::encode( table ) );
 }
 #endif
-uf::Serializer::Serializer( const ext::json::Value& json ) { //: sol::table(ext::lua::state, sol::create) {
-//	this->deserialize( ext::json::encode( json ) );
+uf::Serializer::Serializer( const ext::json::Value& json ) {
 	*this = json;
 }
-uf::Serializer::Serializer( const ext::json::base_value& json ) { //: sol::table(ext::lua::state, sol::create) {
-//	this->deserialize( ext::json::encode( json ) );
+uf::Serializer::Serializer( const ext::json::base_value& json ) {
 	*this = json;
-}
-uf::Serializer::output_t uf::Serializer::serialize( bool pretty ) const {
-	return ext::json::encode( *this, ext::json::EncodingSettings{ .pretty = pretty } );
 }
 uf::Serializer::output_t uf::Serializer::serialize( const ext::json::EncodingSettings& settings ) const {
 	return ext::json::encode( *this, settings );
-}
-void uf::Serializer::deserialize( const uf::stl::string& str, const ext::json::DecodingSettings& settings ) {
-	if ( str == "" ) return;
-	ext::json::decode( *this, str, settings );
 }
 
 uf::stl::string uf::Serializer::resolveFilename( const uf::stl::string& filename, bool compareTimes ) {
 	uf::stl::string _filename = filename;
 	if ( ext::json::PREFERRED_ENCODING != "" && ext::json::PREFERRED_ENCODING != "json" ) {
-		_filename = uf::string::replace( _filename, "/.json$/", "." + ext::json::PREFERRED_ENCODING );
+		_filename = uf::string::replace( _filename, "/\\.json$/", "." + ext::json::PREFERRED_ENCODING );
 	}
 	if ( ext::json::PREFERRED_COMPRESSION != "" ) {
 		_filename = _filename + "." + ext::json::PREFERRED_COMPRESSION;
@@ -54,16 +51,17 @@ uf::stl::string uf::Serializer::resolveFilename( const uf::stl::string& filename
 
 	if ( uf::io::exists( _filename ) ) {
 		bool should = !uf::io::exists( filename ); // implicit load if our requested filename doesnt exist anyways, but our preferred source does
-		if ( !should ) should = uf::io::mtime( _filename ) > uf::io::mtime( filename ); // implicit load the preferred source is newer than the requested filename
+		if ( !should ) should = uf::io::mtime( _filename ) >= uf::io::mtime( filename ); // implicit load the preferred source is newer than the requested filename
 		if ( should ) return _filename;
 	}
 	return filename;
 }
 
 bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::stl::string& hash ) {
+//	UF_MSG_DEBUG("Loading: " << filename);
 #if UF_SERIALIZER_IMPLICIT_LOAD
 	// implicitly check for optimal format for plain .json requests
-	if ( uf::string::matched( filename, "/.json$/" ) ) {
+	if ( uf::string::matched( filename, "/\\.json$/" ) ) {
 		uf::stl::string _filename = uf::Serializer::resolveFilename( filename );
 		if ( _filename != filename ) return readFromFile( _filename, hash );
 	}
@@ -79,23 +77,18 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 		return false;
 	}
 
-	this->m_filename = filename;
-
-/*
-	uf::String string;
-	auto& str = string.getString();
-	str.reserve(buffer.size());
-	str.assign(buffer.begin(), buffer.end());
-*/
-	uf::stl::string string{ buffer.begin(), buffer.end() };
-
 	ext::json::DecodingSettings settings;
-	if ( uf::string::matched( filename, "/.bson/" ) ) settings.encoding = "bson";
-	else if ( uf::string::matched( filename, "/.cbor/" ) ) settings.encoding = "cbor";
-	this->deserialize( string, settings );
+	if ( uf::string::matched( filename, "/\\.bson/" ) ) settings.encoding = "bson";
+	else if ( uf::string::matched( filename, "/\\.cbor/" ) ) settings.encoding = "cbor";
+	else if ( uf::string::matched( filename, "/\\.msgpack/" ) ) settings.encoding = "msgpack";
+	else if ( uf::string::matched( filename, "/\\.ubjson/" ) ) settings.encoding = "ubjson";
+	else if ( uf::string::matched( filename, "/\\.bjdata/" ) ) settings.encoding = "bjdata";
+//	else UF_MSG_DEBUG( string );
+
+	this->deserialize( buffer, settings );
 
 #if UF_SERIALIZER_AUTO_CONVERT
-	if ( uf::string::matched( filename, "/.json$/" ) ) {
+	if ( uf::string::matched( filename, "/\\.json$/" ) ) {
 		if ( ext::json::PREFERRED_COMPRESSION != "" || (ext::json::PREFERRED_ENCODING != "" || ext::json::PREFERRED_ENCODING != "json") ) {
 			ext::json::EncodingSettings _settings;
 			_settings.encoding = ext::json::PREFERRED_ENCODING;
@@ -104,7 +97,7 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 
 			if ( ext::json::PREFERRED_ENCODING != "" && ext::json::PREFERRED_ENCODING != "json" ) {
 				_settings.encoding = ext::json::PREFERRED_ENCODING;
-				_filename = uf::string::replace( _filename, "/.json$/", "." + ext::json::PREFERRED_ENCODING );
+				_filename = uf::string::replace( _filename, "/\\.json$/", "." + ext::json::PREFERRED_ENCODING );
 			}
 			if ( ext::json::PREFERRED_COMPRESSION != "" ) {
 				_settings.compression = ext::json::PREFERRED_COMPRESSION;
@@ -126,7 +119,7 @@ bool uf::Serializer::writeToFile( const uf::stl::string& filename, const ext::js
 	uf::stl::string output = filename;
 	
 	if ( settings.encoding != "" && settings.encoding != "json" )
-		output = uf::string::replace( output, "/.json/", "." + settings.encoding );
+		output = uf::string::replace( output, "/\\.json/", "." + settings.encoding );
 	if ( settings.compression != "" && !uf::string::matched( output, "/."+settings.compression+"/" ) )
 		output += "." + settings.compression;
 
@@ -134,17 +127,15 @@ bool uf::Serializer::writeToFile( const uf::stl::string& filename, const ext::js
 	size_t written = uf::io::write( output, buffer.c_str(), buffer.size() );
 #if UF_SERIALIZER_AUTO_CONVERT
 	// implicitly check for optimal format for plain .json requests
-	if ( uf::string::matched( output, "/.json$/" ) && settings.compression != ext::json::PREFERRED_COMPRESSION ) {
+	if ( uf::string::matched( output, "/\\.json$/" ) && settings.compression != ext::json::PREFERRED_COMPRESSION ) {
 		uf::stl::string _filename = output;
 		auto _settings = settings;
 
 		if ( ext::json::PREFERRED_ENCODING != "" && ext::json::PREFERRED_ENCODING != "json" ) {
 			_settings.encoding = ext::json::PREFERRED_ENCODING;
-		//	_filename = uf::string::replace( _filename, "/.json$/", "." + ext::json::PREFERRED_ENCODING );
 		}
 		if ( ext::json::PREFERRED_COMPRESSION != "" ) {
 			_settings.compression = ext::json::PREFERRED_COMPRESSION;
-		//	_filename = _filename + "." + ext::json::PREFERRED_COMPRESSION;
 		}
 		writeToFile( _filename, _settings );
 	}
@@ -206,9 +197,6 @@ ext::json::Value& uf::Serializer::path( const uf::stl::string& path ) {
 	return *traversal;
 }
 
-uf::Serializer::operator Serializer::output_t() {
-	return this->serialize();
-}
 uf::Serializer::operator Serializer::output_t() const {
 	return this->serialize();
 }
@@ -224,12 +212,10 @@ uf::Serializer& uf::Serializer::operator=( const sol::table& table ) {
 }
 #endif
 uf::Serializer& uf::Serializer::operator=( const ext::json::Value& json ) {
-	// this->deserialize( ext::json::encode( json ) );
 	ext::json::Value::operator=(json);
 	return *this;
 }
 uf::Serializer& uf::Serializer::operator=( const ext::json::base_value& json ) {
-	// this->deserialize( ext::json::encode( json ) );
 	ext::json::Value::operator=(json);
 	return *this;
 }

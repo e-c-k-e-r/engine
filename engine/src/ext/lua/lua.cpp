@@ -140,7 +140,7 @@ namespace binds {
 		sol::table readFromFile( const uf::stl::string& filename ){
 			uf::Serializer serializer;
 			serializer.readFromFile( filename );
-			uf::stl::string string = serializer.serialize(false);
+			uf::stl::string string = serializer.serialize();
 			auto decoded = ext::lua::decode( string );
 			return decoded ? decoded.value() : ext::lua::createTable();
 		};

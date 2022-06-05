@@ -10,14 +10,13 @@
 	//	{ "filename": "./models/micro_sci/graph.json" }
 
 	//	{ "filename": "./models/msci.glb" }
-	//	{ "filename": "./models/msci/graph.json" }
+		{ "filename": "./models/msci/graph.json" }
 
 	//	{ "filename": "./models/medsci.glb" }
-		{ "filename": "./models/medsci/graph.json" }
+	//	{ "filename": "./models/medsci/graph.json" }
 	],
 	"metadata": {
 		"model": {
-		//	"lightmap": false,
 			"baking": {
 				"enabled": true,
 				"resolution": 1024

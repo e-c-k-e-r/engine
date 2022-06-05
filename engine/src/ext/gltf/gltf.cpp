@@ -540,10 +540,12 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 #endif
 
 	if ( graph.metadata["exporter"]["enabled"].as<bool>() ) {
-		uf::graph::save( graph, filename );
-		// disable baking, doesn't output right if baking from a gltf imported model
-		graph.metadata["baking"]["enabled"] = false;
-		// disable lightmap loading, 99.999% of the time a previously baked lightmap will not work due to changing STs
+		graph.name = uf::graph::save( graph, filename );
+		
+	// 	disable baking, doesn't output right if baking from a gltf imported model
+	//	graph.metadata["baking"]["enabled"] = false;
+
+	//	disable lightmap loading, 99.999% of the time a previously baked lightmap will not work due to changing STs
 		graph.metadata["lightmap"] = false;
 	}
 	return graph;

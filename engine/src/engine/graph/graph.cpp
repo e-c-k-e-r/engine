@@ -371,12 +371,8 @@ void uf::graph::process( pod::Graph& graph ) {
 	uf::stl::unordered_map<uf::stl::string, bool> isSrgb;
 
 	// process lightmap
-#if UF_USE_OPENGL
-	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.%i.min.dtex"
-#else
-	#define UF_GRAPH_DEFAULT_LIGHTMAP "./lightmap.%i.png"
-#endif
 	{
+		constexpr const char* UF_GRAPH_DEFAULT_LIGHTMAP = "./lightmap.%i.png";
 		uf::stl::unordered_map<size_t, uf::stl::string> filenames;
 		uf::stl::unordered_map<size_t, size_t> lightmapIDs;
 		uint32_t lightmapCount = 0;
@@ -385,16 +381,35 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto& instance = uf::graph::storage.instances[name];
 			filenames[instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", std::to_string(instance.auxID));
 
-			lightmapCount = std::max( lightmapCount, instance.auxID );
+			lightmapCount = std::max( lightmapCount, instance.auxID + 1 );
 		}
 		for ( auto& name : graph.primitives ) {
 			auto& primitives = uf::graph::storage.primitives[name];
 			for ( auto& primitive : primitives ) {
 				filenames[primitive.instance.auxID] = uf::string::replace(UF_GRAPH_DEFAULT_LIGHTMAP, "%i", std::to_string(primitive.instance.auxID));
 
-				lightmapCount = std::max( lightmapCount, primitive.instance.auxID );
+				lightmapCount = std::max( lightmapCount, primitive.instance.auxID + 1 );
 			}
 		}
+
+		if ( graph.metadata["lightmap"].is<uf::stl::string>() && graph.metadata["lightmap"].as<uf::stl::string>() == "auto" ) {
+			uint32_t mtime = uf::io::mtime( graph.name );
+			// lightmaps are considered stale if they're older than the graph's source
+			bool stale = false;
+			for ( auto& pair : filenames ) {
+				uf::stl::string filename = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
+				auto time = uf::io::mtime(filename);
+				if ( !uf::io::exists( filename ) ) continue;
+				if ( time < mtime ) {
+					UF_MSG_DEBUG("Stale lightmap detected, disabling use of lightmaps: " << filename);
+					stale = true;
+					break;
+				}
+			}
+			graph.metadata["lightmap"] = !stale;
+		}
+
+
 		graph.metadata["baking"]["layers"] = lightmapCount;
 		
 		if ( graph.metadata["lightmap"].as<bool>() ) for ( auto& pair : filenames ) {
@@ -402,7 +417,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
 
 			if ( !uf::io::exists( f ) ) {
-				UF_MSG_ERROR( "lightmap does not exist: " << f )
+				UF_MSG_ERROR( "lightmap does not exist: " << i << " " << f )
 				continue;
 			}
 			

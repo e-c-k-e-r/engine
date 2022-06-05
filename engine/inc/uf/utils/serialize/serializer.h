@@ -10,23 +10,25 @@
 #include <type_traits>
 
 namespace uf {
-	class UF_API Serializer : public ext::json::Document {
-	protected:
-		uf::stl::string m_filename = "";
+	class UF_API Serializer : public ext::json::Value {
 	public:
 		typedef uf::stl::string output_t;
 		typedef uf::stl::string  input_t;
 	
-		Serializer( const uf::stl::string& str = "{}" );
+		Serializer();
+		Serializer( const uf::stl::string& str );
 		Serializer( const ext::json::base_value& );
 		Serializer( const ext::json::Value& );
 	#if UF_USE_LUA
 		Serializer( const sol::table& );
 	#endif
 		
-		Serializer::output_t serialize( bool pretty = false ) const;
-		Serializer::output_t serialize( const ext::json::EncodingSettings& ) const;
-		void deserialize( const uf::stl::string&, const ext::json::DecodingSettings& = {} );
+		Serializer::output_t serialize( const ext::json::EncodingSettings& = {} ) const;
+		
+		template<typename T>
+		void deserialize( const T& input, const ext::json::DecodingSettings& settings = {} ) {
+			ext::json::decode( *this, input, settings );
+		}
 
 		// serializeable
 		template<typename T>
@@ -70,7 +72,6 @@ namespace uf {
 		void import( const uf::Serializer& other );
 		ext::json::Value& path( const uf::stl::string& );
 
-		operator Serializer::output_t();
 		operator Serializer::output_t() const;
 		uf::Serializer& operator=( const uf::stl::string& str );
 		uf::Serializer& operator=( const ext::json::base_value& json );

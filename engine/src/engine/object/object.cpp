@@ -150,16 +150,19 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		uf::Serializer chain = json;
 		uf::stl::string root = metadata.system.root;
 		uf::Serializer separated;
-		separated["assets"] = json["assets"];
-		separated["behaviors"] = json["behaviors"];
+		separated["assets"] = ext::json::isArray( json["assets"] ) ? json["assets"] : ext::json::array();
+		separated["behaviors"] = ext::json::isArray( json["behaviors"] ) ? json["behaviors"] : ext::json::array();
 		do {
 			uf::stl::string filename = chain["import"].is<uf::stl::string>() ? chain["import"].as<uf::stl::string>() : chain["include"].as<uf::stl::string>();
 			filename = uf::io::resolveURI( filename, root );
 			chain.readFromFile( filename );
 			root = uf::io::directory( filename );
 			ext::json::forEach(chain["assets"], [&](ext::json::Value& value){
-				if ( ext::json::isObject( value ) ) value["filename"] = uf::io::resolveURI( value["filename"].as<uf::stl::string>(), root );
-				else value = uf::io::resolveURI( value.as<uf::stl::string>(), root );
+				if ( ext::json::isObject( value ) ) {
+					value["filename"] = uf::io::resolveURI( value["filename"].as<uf::stl::string>(), root );
+				} else {
+					value = uf::io::resolveURI( value.as<uf::stl::string>(), root );
+				}
 				separated["assets"].emplace_back( value );
 			});
 			ext::json::forEach(chain["behaviors"], [&](ext::json::Value& value){
@@ -179,8 +182,8 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 		if ( ext::json::isNull( json[key] ) )
 			json[key] = value;
 	});
-#if UF_ENTITY_METADATA_USE_JSON
-	json["hot reload"]["enabled"] = json["system"]["hot reload"]["enabled"];
+#if UF_ENV_DREAMCST
+	metadata.system.hotReload.enabled = false;
 #else
 	metadata.system.hotReload.enabled = json["system"]["hot reload"]["enabled"].as<bool>();
 #endif

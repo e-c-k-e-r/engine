@@ -58,6 +58,7 @@
 	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); std::abort(); }
 #else
 	#define UF_NO_EXCEPTIONS 0
+	#define UF_EXCEPTIONS 1
 	#define UF_EXCEPTION(X) {\
 		uf::stl::stringstream str;\
 		str << X;\

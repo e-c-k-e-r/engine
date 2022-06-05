@@ -56,7 +56,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann lua reactphysics png zlib ctti ogg openal aldc # gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti  # lua ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -98,6 +98,14 @@ endif
 ifneq (,$(findstring png,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_PNG -DUF_USE_ZLIB
 	DEPS 				+= -lpng -lz
+endif
+ifneq (,$(findstring lz4,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_LZ4
+	DEPS 				+= -llz4
+endif
+ifneq (,$(findstring xz,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_XZ -DUF_USE_LZMA
+	DEPS 				+= -lxz -llzma
 endif
 ifneq (,$(findstring openal,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_OPENAL -DUF_USE_ALUT
@@ -307,6 +315,7 @@ clean:
 	@-rm ./bin/dreamcast/build/*
 	@-rm ./bin/dreamcast/romdisk.*
 	@-rm ./bin/dreamcast/$(TARGET_NAME).*
+	# @-find ./bin/data/ -name "*.gz" -type f -delete
 
 run:
 	 $(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
@@ -319,6 +328,7 @@ clean:
 	@-rm -f $(OBJS_DLL)
 	@-rm -f $(OBJS_EXT_DLL)
 	@-rm -f $(OBJS)
+	@-find ./bin/data/ -name "*.gz" -type f -delete
 
 run:
 	./program.sh

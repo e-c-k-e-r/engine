@@ -91,11 +91,11 @@ void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(u
 	while ( !thread.temps.empty() ) {
 		auto& function = thread.temps.front();
 		if ( function )
-	#if UF_NO_EXCEPTIONS
-			function();
-	#else
+	#if UF_EXCEPTIONS
 		try {
+	#endif
 			function();
+	#if UF_EXCEPTIONS
 		} catch ( std::exception& e ) {
 			UF_MSG_ERROR("Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what());
 		}
@@ -104,11 +104,11 @@ void UF_API uf::thread::process( pod::Thread& thread ) { if ( !uf::thread::has(u
 	}
 	for ( auto function : thread.consts ) {
 		if ( function )
-	#if UF_NO_EXCEPTIONS
-			function();
-	#else
+	#if UF_EXCEPTIONS
 		try {
+	#endif
 			function();
+	#if UF_EXCEPTIONS
 		} catch ( std::exception& e ) {
 			UF_MSG_ERROR("Thread " << thread.name << " (UID: " << thread.uid << ") caught exception: " << e.what());
 		}

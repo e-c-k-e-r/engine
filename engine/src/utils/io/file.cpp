@@ -9,6 +9,8 @@
 #include <uf/utils/io/file.h>
 #include <uf/utils/io/iostream.h>
 #include <uf/ext/zlib/zlib.h>
+// #include <uf/ext/lz4/lz4.h>
+// #include <uf/ext/xz/xz.h>
 
 #ifdef WINDOWS
 	#include <direct.h>
@@ -119,12 +121,12 @@ uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _fi
 	uf::stl::vector<uint8_t> buffer;
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( extension == "gz" ) {
+	if ( extension == "gz" || extension == "lz4" ) {
 		buffer = uf::io::decompress( filename );
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
-			UF_MSG_ERROR("Error: Could not open file \"" << filename << "\"");
+			UF_MSG_ERROR("Error: Could not open file: " << filename);
 			return buffer;
 		}
 		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
@@ -140,7 +142,7 @@ uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _fi
 
 size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
-	if ( extension == "gz" ) return uf::io::compress( filename, buffer, size );
+	if ( extension == "gz" || extension == "lz4" ) return uf::io::compress( filename, buffer, size );
 
 	std::ofstream output;
 	output.open( uf::io::sanitize( filename ), std::ios::binary);
@@ -153,12 +155,14 @@ size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer
 uf::stl::vector<uint8_t> UF_API uf::io::decompress( const uf::stl::string& filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
+//	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename );
 	UF_MSG_ERROR("unsupported compression format requested: " << extension);
 	return {};
 }
 size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
+//	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
 	UF_MSG_ERROR("unsupported compression format requested: " << extension);
 	return 0;
 }

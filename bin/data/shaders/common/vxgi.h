@@ -17,7 +17,7 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 #endif
 	const float granularityRecip = ubo.vxgi.granularity; //2.0; // 0.25f * (CASCADES - cascade);
 	const float granularity = 1.0f / granularityRecip;
-	const float occlusionFalloff = 128.0f;
+	const float occlusionFalloff = ubo.vxgi.occlusionFalloff; //128.0f;
 	const vec3 voxelBounds = voxelInfo.max - voxelInfo.min;
 	const vec3 voxelBoundsRecip = 1.0f / voxelBounds;
 	const float coneCoefficient = 2.0 * tan(aperture * 0.5);
@@ -150,7 +150,7 @@ void indirectLighting() {
 			indirectDiffuse += voxelConeTrace( ray, DIFFUSE_CONE_APERTURE ) * weight;
 			weight = PI * 0.15f;
 		}
-		surface.material.occlusion = 1.0 - clamp(indirectDiffuse.a, 0.0, 1.0);
+		surface.material.occlusion += 1.0 - clamp(indirectDiffuse.a, 0.0, 1.0);
 	// 	outFragColor.rgb = indirectDiffuse.rgb; return;
 	//	outFragColor.rgb = vec3(surface.material.occlusion); return;
 	}

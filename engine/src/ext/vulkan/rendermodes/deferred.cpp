@@ -271,6 +271,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			}
 		}
+		
 		{
 			auto& shader = blitter.material.getShader("fragment");
 

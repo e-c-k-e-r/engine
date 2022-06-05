@@ -4,13 +4,12 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/sh_mcd.glb" }
-		{ "filename": "./models/sh_mcd/graph.json.gz" }
+		{ "filename": "./models/sh_mcd/graph.json" }
 	],
 	"metadata": {
 		"model": {
 			"cull mode": "none",
 			"alpha mode": "BLEND",
-		//	"lightmap": false,
 			"baking": {
 				"enabled": true,
 				"resolution": 1024,
