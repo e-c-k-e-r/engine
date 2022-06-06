@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": false },
 			"lights": { "enabled": false,

@@ -357,8 +357,10 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	}
 
 	auto uniformBufferIt = uniformBuffers.begin();
-	auto uniformBuffer = (*uniformBufferIt++).buffer;
+	auto uniformBuffer = (*uniformBufferIt).buffer;
+	auto uniformBufferSize = (*uniformBufferIt).range;
 	pod::Camera::Viewports* viewports = (pod::Camera::Viewports*) device->getBuffer( uniformBuffer );
+	pod::Uniform* viewports2 = (pod::Uniform*) device->getBuffer( uniformBuffer );
 
 	CommandBuffer::InfoDraw drawCommandInfoBase = {};
 	drawCommandInfoBase.type = ext::opengl::enums::Command::DRAW;
@@ -373,10 +375,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	}
 
 	drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
-	drawCommandInfoBase.matrices.view = &viewports->matrices[0].view;
-	drawCommandInfoBase.matrices.projection = &viewports->matrices[0].projection;
+	if ( uniformBufferSize == sizeof(pod::Camera::Viewports) ) {
+		drawCommandInfoBase.matrices.view = &viewports->matrices[0].view;
+		drawCommandInfoBase.matrices.projection = &viewports->matrices[0].projection;
+	} else if ( uniformBufferSize == sizeof(pod::Uniform) ) {
+		drawCommandInfoBase.matrices.model = &viewports2->modelView;
+		drawCommandInfoBase.matrices.projection = &viewports2->projection;
+	}
 
-#if 1
 	if ( descriptor.inputs.indirect.count ) {
 		auto& indirectAttribute = descriptor.inputs.indirect.attributes.front();
 
@@ -406,22 +412,6 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			auto& infos = pool[textureID];
 
 			CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
-		/*
-			drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
-			drawCommandInfo.descriptor = descriptor;
-			drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
-			for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
-				if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
-				else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
-				else if ( attribute.descriptor.name == "st" ) drawCommandInfo.attributes.st = attribute;
-				else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
-				else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
-			}
-
-			drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
-			drawCommandInfo.matrices.view = &viewports->matrices[0].view;
-			drawCommandInfo.matrices.projection = &viewports->matrices[0].projection;
-		*/
 
 			drawCommandInfo.descriptor.inputs.index.first = drawCommand.indexID;
 			drawCommandInfo.descriptor.inputs.index.count = drawCommand.indices;
@@ -447,41 +437,18 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				auto texture2DID = textures[instance.lightmapID].index;
 				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 			}
-		//	if ( !optimize )
 			commandBuffer.record(drawCommandInfo);
 		}
-	//	if ( optimize ) for ( auto pair : pool ) for ( auto& info : pair.second ) commandBuffer.record(info);
-	} else {
+	} else {		
 	/*
-		auto uniformBufferIt = uniformBuffers.begin();
-		auto uniformBuffer = (*uniformBufferIt++).buffer;
-		auto uniformOffset = (size_t) 0;
-
-
-		CommandBuffer::InfoDraw drawCommandInfo = {};
-		drawCommandInfo.type = ext::opengl::enums::Command::DRAW;
-		drawCommandInfo.descriptor = descriptor;
-		drawCommandInfo.attributes.index = descriptor.inputs.index.attributes.front();
-		for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
-			if ( attribute.descriptor.name == "position" ) drawCommandInfo.attributes.position = attribute;
-			else if ( attribute.descriptor.name == "uv" ) drawCommandInfo.attributes.uv = attribute;
-			else if ( attribute.descriptor.name == "st" ) drawCommandInfo.attributes.st = attribute;
-			else if ( attribute.descriptor.name == "normal" ) drawCommandInfo.attributes.normal = attribute;
-			else if ( attribute.descriptor.name == "color" ) drawCommandInfo.attributes.color = attribute;
-		}
-
-		drawCommandInfo.textures.primary = this->material.textures.front().descriptor;
-
-		if ( !uniformBuffers.empty() ) {
-			pod::Uniform* uniforms = (pod::Uniform*) device->getBuffer( uniformBuffer );
-			drawCommandInfo.matrices.model = NULL;
-			drawCommandInfo.matrices.view = &uniforms->modelView;
-			drawCommandInfo.matrices.projection = &uniforms->projection;
-		}
+		UF_MSG_DEBUG( viewports << " " << uniformBuffers.size() );
+		if ( drawCommandInfoBase.matrices.model ) UF_MSG_DEBUG( "model: " << drawCommandInfoBase.matrices.model << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.model ) );
+		if ( drawCommandInfoBase.matrices.view ) UF_MSG_DEBUG( "view: " << drawCommandInfoBase.matrices.view << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.view ) );
+		if ( drawCommandInfoBase.matrices.projection ) UF_MSG_DEBUG( "projection: " << drawCommandInfoBase.matrices.projection << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.projection ) );
 	*/
+
 		commandBuffer.record(drawCommandInfoBase);
 	}
-#endif
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();

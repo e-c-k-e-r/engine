@@ -121,47 +121,111 @@ pod::Graph& UF_API uf::graph::convert( uf::Object& object, bool process ) {
 		for ( auto index : graph.root.children ) uf::graph::process( graph, index, *graph.root.entity );
 	}
 
+	// remap textures->images IDs
+	for ( auto& name : graph.textures ) {
+		auto& texture = uf::graph::storage.textures[name];
+		auto& keys = uf::graph::storage.images.keys;
+		auto& indices = uf::graph::storage.images.indices;
+
+		if ( !(0 <= texture.index && texture.index < graph.images.size()) ) continue;
+
+		auto& needle = graph.images[texture.index];
+	#if 1
+		texture.index = indices[needle];
+	#elif 1
+		for ( size_t i = 0; i < keys.size(); ++i ) {
+			if ( keys[i] != needle ) continue;
+			texture.index = i;
+			break;
+		}
+	#else
+		auto it = std::find( keys.begin(), keys.end(), needle );
+		UF_ASSERT( it != keys.end() );
+		texture.index = it - keys.begin();
+	#endif
+	}
 	// remap materials->texture IDs
 	for ( auto& name : graph.materials ) {
 		auto& material = uf::graph::storage.materials[name];
 		auto& keys = uf::graph::storage.textures.keys;
+		auto& indices = uf::graph::storage.textures.indices;
 		int32_t* IDs[] = { &material.indexAlbedo, &material.indexNormal, &material.indexEmissive, &material.indexOcclusion, &material.indexMetallicRoughness };
 		for ( auto* pointer : IDs ) {
 			auto& ID = *pointer;
-			if ( !(0 <= ID && ID < graph.materials.size()) ) continue;
-			auto it = std::find( keys.begin(), keys.end(), graph.textures[ID] );
+			if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+			auto& needle = graph.textures[ID];
+		#if 1
+			ID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				ID = i;
+				break;
+			}
+		#else
+			if ( !(0 <= ID && ID < graph.textures.size()) ) continue;
+			auto it = std::find( keys.begin(), keys.end(), needle );
 			UF_ASSERT( it != keys.end() );
 			ID = it - keys.begin();
+		#endif
 		}
 	}
-	// remap textures->images IDs
-/*
-	for ( auto& name : graph.textures ) {
-		auto& texture = uf::graph::storage.textures[name];
-		auto& keys = uf::graph::storage.images.keys;
-		
-		if ( !(0 <= texture.index && texture.index < graph.textures.size()) ) continue;
-		auto it = std::find( keys.begin(), keys.end(), graph.images[texture.index] );
-		UF_ASSERT( it != keys.end() );
-		texture.index = it - keys.begin();
-	}
-*/
 	// remap instance variables
 	for ( auto& name : graph.instances ) {
 		auto& instance = uf::graph::storage.instances[name];
 		
 		if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
 			auto& keys = /*graph.storage*/uf::graph::storage.materials.keys;
-			auto it = std::find( keys.begin(), keys.end(), graph.materials[instance.materialID] );
+			auto& indices = /*graph.storage*/uf::graph::storage.materials.indices;
+			
+			if ( !(0 <= instance.materialID && instance.materialID < graph.materials.size()) ) continue;
+
+			auto& needle = graph.materials[instance.materialID];
+		#if 1
+			instance.materialID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				instance.materialID = i;
+				break;
+			}
+		#else
+			auto it = std::find( keys.begin(), keys.end(), needle );
 			UF_ASSERT( it != keys.end() );
 			instance.materialID = it - keys.begin();
+		#endif
 		}
+		if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
+			auto& keys = /*graph.storage*/uf::graph::storage.textures.keys;
+			auto& indices = /*graph.storage*/uf::graph::storage.textures.indices;
+
+			if ( !(0 <= instance.lightmapID && instance.lightmapID < graph.textures.size()) ) continue;
+
+			auto& needle = graph.textures[instance.lightmapID];
+		#if 1
+			instance.lightmapID = indices[needle];
+		#elif 1
+			for ( size_t i = 0; i < keys.size(); ++i ) {
+				if ( keys[i] != needle ) continue;
+				instance.lightmapID = i;
+				break;
+			}
+		#else
+			auto it = std::find( keys.begin(), keys.end(), needle );
+			UF_ASSERT( it != keys.end() );
+			instance.lightmapID = it - keys.begin();
+		#endif
+		}
+	#if 0
+		// i genuinely dont remember what this is used for
+
 		if ( 0 <= instance.imageID && instance.imageID < graph.images.size() ) {
 			auto& keys = /*graph.storage*/uf::graph::storage.images.keys;
 			auto it = std::find( keys.begin(), keys.end(), graph.images[instance.imageID] );
 			UF_ASSERT( it != keys.end() );
 			instance.imageID = it - keys.begin();
 		}
+	#endif
 		// remap a skinID as an actual jointID
 		if ( 0 <= instance.jointID && instance.jointID < graph.skins.size() ) {
 			auto& name = graph.skins[instance.jointID];
@@ -171,12 +235,6 @@ pod::Graph& UF_API uf::graph::convert( uf::Object& object, bool process ) {
 				auto& joints = uf::graph::storage.joints[key];
 				instance.jointID += joints.size();
 			}
-		}
-		if ( 0 <= instance.lightmapID && instance.lightmapID < graph.textures.size() ) {
-			auto& keys = /*graph.storage*/uf::graph::storage.textures.keys;
-			auto it = std::find( keys.begin(), keys.end(), graph.textures[instance.lightmapID] );
-			UF_ASSERT( it != keys.end() );
-			instance.lightmapID = it - keys.begin();
 		}
 	}
 

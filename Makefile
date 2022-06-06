@@ -186,7 +186,7 @@ ifneq (,$(findstring simd,$(REQ_DEPS)))
 	endif
 endif
 ifneq (,$(findstring meshoptimizer,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_MESHOPTIMIZER
+	FLAGS 				+= -DUF_USE_MESHOPT
 	DEPS 				+= -lmeshoptimizer
 endif
 ifneq (,$(findstring draco,$(REQ_DEPS)))
@@ -315,7 +315,9 @@ clean:
 	@-rm ./bin/dreamcast/build/*
 	@-rm ./bin/dreamcast/romdisk.*
 	@-rm ./bin/dreamcast/$(TARGET_NAME).*
-	# @-find ./bin/data/ -name "*.gz" -type f -delete
+
+clean-zips:
+	@-find ./bin/data/ -name "*.gz" -type f -delete
 
 run:
 	 $(KOS_EMU) ./bin/dreamcast/$(TARGET_NAME).cdi
@@ -328,6 +330,8 @@ clean:
 	@-rm -f $(OBJS_DLL)
 	@-rm -f $(OBJS_EXT_DLL)
 	@-rm -f $(OBJS)
+
+clean-zips:
 	@-find ./bin/data/ -name "*.gz" -type f -delete
 
 run:

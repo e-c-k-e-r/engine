@@ -6,7 +6,7 @@
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 16
+				"max": 32
 			},
 			"shadows": {
 				"enabled": true,
@@ -24,17 +24,17 @@
 			},
 			"vxgi": {
 				"limiter": 1,
-				"size": 86,
+				"size": 128,
 				"dispatch": 8,
 				"cascades": 4,
-				"cascadePower": 4,
+				"cascadePower": 3,
 				"granularity": 8,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"shadows": 0,
 				"extents": {
-					"min": [ -4, -4, -4 ],
-					"max": [  4,  4,  4 ]
+					"min": [ -8, -1, -8 ],
+					"max": [  8,  4,  8 ]
 				}
 			},
 			"bloom": {

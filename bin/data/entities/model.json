@@ -24,14 +24,15 @@
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
-				"unwrap": true,
+				"unwrap": false,
+				"optimize": "tagged",
 				"quit": true,
 				"mesh": {
 				//	"print": true
 				}
 			},
 			"baking": {
-				"enabled": false,
+				"enabled": true,
 				"resolution": 8192,
 				"shadows": 1024,
 				"layers": 1,

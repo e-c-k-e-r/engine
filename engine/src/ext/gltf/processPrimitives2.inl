@@ -1,6 +1,7 @@
 uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
 
 for ( auto& p : m.primitives ) {
+	size_t primitiveID = meshlets.size();
 	auto& meshlet = meshlets.emplace_back();
 
 	struct Attribute {
@@ -123,6 +124,9 @@ for ( auto& p : m.primitives ) {
 			vertex.tangent.x = -vertex.tangent.x;
 		#endif
 		}
+
+		vertex.id.x = primitiveID;
+		vertex.id.y = meshID;
 	}
 
 	if ( p.indices > -1 ) {
@@ -155,10 +159,8 @@ for ( auto& p : m.primitives ) {
 		#undef COPY_INDICES
 	}
 
-
-
 	meshlet.primitive.instance.materialID = p.material;
-	meshlet.primitive.instance.primitiveID = meshlets.size() - 1;
+	meshlet.primitive.instance.primitiveID = primitiveID;
 	meshlet.primitive.instance.meshID = meshID;
 	meshlet.primitive.instance.objectID = 0;
 

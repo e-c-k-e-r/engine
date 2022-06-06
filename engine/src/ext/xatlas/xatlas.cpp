@@ -322,7 +322,8 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 				}
 				// indices
 				if ( mesh.index.count ) {
-					uint8_t* pointer = (uint8_t*) mesh.buffers[mesh.isInterleaved(mesh.index.interleaved) ? mesh.index.interleaved : mesh.index.attributes.front().buffer].data();
+				//	uint8_t* pointer = (uint8_t*) mesh.buffers[mesh.isInterleaved(mesh.index.interleaved) ? mesh.index.interleaved : mesh.index.attributes.front().buffer].data();
+					uint8_t* pointer = (uint8_t*) mesh.getBuffer(mesh.index).data();
 					for ( auto index = 0; index < xmesh.indexCount; ++index ) {
 						switch ( mesh.index.size ) {
 							case 1: (( uint8_t*) pointer)[index] = xmesh.indexArray[index]; break;

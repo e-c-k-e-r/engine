@@ -19,6 +19,10 @@
 
 #include <gltf/tiny_gltf.h>
 #include <uf/ext/gltf/gltf.h>
+
+#if UF_USE_MESHOPT
+	#include <uf/ext/meshopt/meshopt.h>
+#endif
 #if UF_USE_XATLAS
 	#include <uf/ext/xatlas/xatlas.h>
 #endif
@@ -282,7 +286,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				meshgrid.print = meshgrid.metadata["print"].as(meshgrid.print);
 				meshgrid.cleanup = meshgrid.metadata["cleanup"].as(meshgrid.cleanup);
 			}
-		
 
 			if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
 				#define UF_GRAPH_MESH_FORMAT uf::graph::mesh::Skinned, uint32_t
@@ -298,75 +301,6 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 				#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
 				#undef UF_GRAPH_MESH_FORMAT
 			}
-
-		#if 0
-			if ( m.name == "worldspawn_20" ) {
-				uf::stl::vector<::Primitive<>> objs;
-
-				#include "processPrimitives2.inl"
-
-				graph.primitives.emplace_back(keyName);
-				graph.drawCommands.emplace_back(keyName);
-
-				auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
-				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
-				auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
-				
-				mesh.bindIndirect<pod::DrawCommand>();
-				mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-
-				size_t indexID = 0;
-				size_t vertexID = 0;
-				for ( auto& obj : objs ) {
-					drawCommands.emplace_back(pod::DrawCommand{
-						.indices = obj.indices.size(),
-						.instances = 1,
-						.indexID = indexID,
-						.vertexID = vertexID,
-						.instanceID = 0,
-
-
-						.vertices = obj.vertices.size(),
-					});
-
-					primitives.emplace_back( obj.primitive );
-
-					indexID += obj.indices.size();
-					vertexID += obj.vertices.size();
-
-					mesh.insertVertices(obj.vertices);
-					mesh.insertIndices(obj.indices);
-				}
-
-				mesh.insertIndirects(drawCommands);
-				mesh.updateDescriptor();
-			} else {
-				graph.primitives.emplace_back(keyName);
-				graph.drawCommands.emplace_back(keyName);
-
-				auto& drawCommands = /*graph.storage*/uf::graph::storage.drawCommands[keyName];
-				auto& primitives = /*graph.storage*/uf::graph::storage.primitives[keyName];
-				auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
-				
-				mesh.bindIndirect<pod::DrawCommand>();
-
-				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-					mesh.bind<uf::graph::mesh::Skinned, uint32_t>();
-					uf::stl::vector<uf::graph::mesh::Skinned> vertices;
-					uf::stl::vector<uint32_t> indices;
-					#define UF_GRAPH_PROCESS_PRIMITIVES_FULL 1
-					#include "processPrimitives.inl"
-					#undef UF_GRAPH_PROCESS_PRIMITIVES_FULL
-				} else {
-					mesh.bind<uf::graph::mesh::Base, uint32_t>();
-					uf::stl::vector<uf::graph::mesh::Base> vertices;
-					uf::stl::vector<uint32_t> indices;
-					#include "processPrimitives.inl"
-				}
-				mesh.insertIndirects(drawCommands);
-				mesh.updateDescriptor();
-			}
-		#endif
 		}
 	}
 	// load skins
@@ -530,12 +464,48 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			texture.index = atlasImageIndex;
 		}
 	}
-	// generate STs
 #if UF_USE_XATLAS
-	if ( graph.metadata["exporter"]["unwrap"].as<bool>() ) {
+	// generate STs
+	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) ) {
 		UF_MSG_DEBUG( "Generating ST's..." );
 		size_t atlases = ext::xatlas::unwrap( graph );
 		UF_MSG_DEBUG( "Generated ST's for " << atlases << " lightmaps" );
+	}
+#endif
+#if UF_USE_MESHOPT
+	// cleanup if blender's exporter is poopy
+	if ( graph.metadata["exporter"]["optimize"].as<bool>(true) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+		UF_MSG_DEBUG( "Optimizing meshes..." );
+		for ( auto& keyName : graph.meshes ) {
+			size_t level = SIZE_MAX;
+			float simplify = 1.0f;
+
+			if ( graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+				bool should = false;
+
+				ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
+					if ( ext::json::isNull( value["optimize mesh"] ) ) return;
+					if ( uf::string::isRegex( key ) ) {
+						if ( !uf::string::matched( keyName, key ) ) return;
+					} else if ( keyName != key ) return;
+					should = true;
+					if ( ext::json::isObject( value["optimize mesh"] ) ) {
+						level = value["optimize mesh"]["level"].as(level);
+						simplify = value["optimize mesh"]["simplify"].as(simplify);
+					}
+				});
+
+				if ( !should ) continue;
+			}
+
+			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
+			UF_MSG_DEBUG("Optimizing mesh at level " << level << ": " << keyName);
+			if ( !ext::meshopt::optimize( mesh, simplify, level ) ) {
+				UF_MSG_ERROR("Mesh optimization failed: " << keyName );
+			}
+		}
+
+		UF_MSG_DEBUG( "Optimized mesh" );
 	}
 #endif
 

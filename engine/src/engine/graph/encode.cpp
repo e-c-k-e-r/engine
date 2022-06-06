@@ -9,12 +9,7 @@
 #include <uf/utils/math/physics.h>
 #include <uf/ext/xatlas/xatlas.h>
 
-#if UF_ENV_DREAMCAST
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
-#else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1 // causes Vulkan OOM
-#endif
-
+#if !UF_ENV_DREAMCAST
 namespace {
 	struct EncodingSettings : public ext::json::EncodingSettings {
 		bool combined = false;
@@ -23,7 +18,7 @@ namespace {
 		uf::stl::string filename = "";
 	};
 
-	uf::Serializer encode( const uf::Image& image, const EncodingSettings& settings ) {
+	uf::Serializer encode( const uf::Image& image, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["size"] = uf::vector::encode( image.getDimensions() );
 		json["bpp"] = image.getBpp() / image.getChannels();
@@ -31,7 +26,7 @@ namespace {
 		json["data"] = uf::base64::encode( image.getPixels() );
 		return json;
 	}
-	uf::Serializer encode( const pod::Texture& texture, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Texture& texture, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["index"] = texture.index;
 		json["sampler"] = texture.sampler;
@@ -40,7 +35,7 @@ namespace {
 		json["lerp"] = uf::vector::encode( texture.lerp, settings );
 		return json;
 	}
-	uf::Serializer encode( const uf::renderer::Sampler& sampler, const EncodingSettings& settings ) {
+	uf::Serializer encode( const uf::renderer::Sampler& sampler, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["min"] = sampler.descriptor.filter.min;
 		json["mag"] = sampler.descriptor.filter.mag;
@@ -48,7 +43,7 @@ namespace {
 		json["v"] = sampler.descriptor.addressMode.v;
 		return json;
 	}
-	uf::Serializer encode( const pod::Material& material, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Material& material, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["base"] = uf::vector::encode( material.colorBase, settings );
 		json["emissive"] = uf::vector::encode( material.colorEmissive, settings );
@@ -64,14 +59,14 @@ namespace {
 		json["modeAlpha"] = material.modeAlpha;
 		return json;
 	}
-	uf::Serializer encode( const pod::Light& light, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Light& light, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["color"] = uf::vector::encode( light.color, settings );
 		json["intensity"] = light.intensity;
 		json["range"] = light.range;
 		return json;
 	}
-	uf::Serializer encode( const pod::Animation& animation, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Animation& animation, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["name"] = animation.name;
 		json["start"] = animation.start;
@@ -99,7 +94,7 @@ namespace {
 		}
 		return json;
 	}	
-	uf::Serializer encode( const pod::Skin& skin, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Skin& skin, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["name"] = skin.name;
 
@@ -111,7 +106,7 @@ namespace {
 			json["inverseBindMatrices"].emplace_back( uf::matrix::encode(inverseBindMatrix, settings) );
 		return json;
 	}
-	uf::Serializer encode( const pod::Instance& instance, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Instance& instance, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["model"] = uf::matrix::encode( instance.model, settings );
 		json["color"] = uf::vector::encode( instance.color, settings );
@@ -126,7 +121,7 @@ namespace {
 
 		return json;
 	}
-	uf::Serializer encode( const pod::DrawCommand& drawCommand, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::DrawCommand& drawCommand, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["indices"] = drawCommand.indices;
 		json["instances"] = drawCommand.instances;
@@ -138,34 +133,48 @@ namespace {
 		json["vertices"] = drawCommand.vertices;
 		return json;
 	}
-	uf::Serializer encode( const pod::Primitive& primitive, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Primitive& primitive, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
-		json["drawCommand"] = encode( primitive.drawCommand, settings );
-		json["instance"] = encode( primitive.instance, settings );
+		json["drawCommand"] = encode( primitive.drawCommand, settings, graph );
+		json["instance"] = encode( primitive.instance, settings, graph );
 		return json;
 	}
-	uf::Serializer encode( const uf::Mesh& mesh, const EncodingSettings& settings ) {
+	uf::Serializer encode( const uf::Mesh& mesh, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
+	#if 0
+		uf::Mesh mesh = mesh;
+		// remove extraneous buffers
+		if ( !mesh.isInterleaved() ) {
+			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
 
-	/*
-		struct Attribute {
-			ext::RENDERER::AttributeDescriptor descriptor;
-			 int32_t buffer = -1;
-			size_t offset = 0;
+			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
+				auto& attribute = mesh.vertex.attributes[i];
+				if ( attribute.descriptor.name == "position" ) continue;
+				if ( attribute.descriptor.name == "color" ) continue;
+				if ( attribute.descriptor.name == "uv" ) continue;
+				if ( attribute.descriptor.name == "st" ) continue;
 
-			size_t stride = 0;
-			size_t length = 0;
-			void* pointer = NULL;
-		};
-		struct Input {
-			uf::stl::vector<Attribute> attributes;
-			size_t count = 0; // how many elements is the input using
-			size_t first = 0; // base index to start from
-			size_t size = 0; // size of one element in the input's buffer
-			size_t offset = 0; // bytes to offset from within the associated buffer
-			 int32_t interleaved = -1; // index to interleaved buffer if in bounds
-		} vertex, index, instance, indirect;
-	*/
+				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+					if ( attribute.descriptor.name == "tangent" ) continue;
+					if ( attribute.descriptor.name == "joints" ) continue;
+					if ( attribute.descriptor.name == "weights" ) continue;
+				}
+			#if !UF_USE_OPENGL
+				if ( attribute.descriptor.name == "normal" ) continue;
+			#endif
+
+				remove.insert(remove.begin(), i);
+			}
+			for ( auto& i : remove ) {
+			//	UF_MSG_DEBUG("Removing " << mesh.vertex.attributes[i].descriptor.name);
+				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
+				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
+				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
+			}
+		} else {
+		//	UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
+		}
+	#endif
 
 		#define SERIALIZE_MESH(N) {\
 			auto& input = json["inputs"][#N];\
@@ -203,7 +212,7 @@ namespace {
 		}
 		return json;
 	}
-	uf::Serializer encode( const pod::Node& node, const EncodingSettings& settings ) {
+	uf::Serializer encode( const pod::Node& node, const EncodingSettings& settings, const pod::Graph& graph ) {
 		uf::Serializer json;
 		json["name"] = node.name;
 		json["index"] = node.index;
@@ -239,7 +248,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 	};
 	
 	if ( settings.encoding == "auto" ) settings.encoding = ext::json::PREFERRED_ENCODING;
-	if ( settings.compression == "auto" ) settings.compression =  ext::json::PREFERRED_COMPRESSION;
+	if ( settings.compression == "auto" ) settings.compression = ext::json::PREFERRED_COMPRESSION;
 
 	if ( !settings.combined ) uf::io::mkdir(directory);
 #if UF_USE_XATLAS
@@ -258,7 +267,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		for ( size_t i = 0; i < graph.instances.size(); ++i ) {
 			auto& name = graph.instances[i];
 			auto& instance = /*graph.storage*/uf::graph::storage.instances.map.at(name);
-			uf::Serializer json = encode( instance, settings );
+			uf::Serializer json = encode( instance, settings, graph );
 			json["name"] = name;
 			serializer["instances"].emplace_back( json );
 		}
@@ -272,7 +281,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			json["name"] = name;
 		//	ext::json::reserve( json["primitives"], primitives.size() );
 			for ( auto& primitive : primitives ) {
-				json["primitives"].emplace_back( encode( primitive, settings ) );
+				json["primitives"].emplace_back( encode( primitive, settings, graph ) );
 			}
 		}
 	});
@@ -285,7 +294,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			json["name"] = name;
 		//	ext::json::reserve( json["drawCommands"], drawCommands.size() );
 			for ( auto& drawCommand : drawCommands ) {
-				json["drawCommands"].emplace_back( encode( drawCommand, settings ) );
+				json["drawCommands"].emplace_back( encode( drawCommand, settings, graph ) );
 			}
 		}
 	});
@@ -299,14 +308,14 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				auto& mesh = /*graph.storage*/uf::graph::storage.meshes.map.at(name);
 				if ( !s.encodeBuffers ) {
 					s.filename = directory+"/mesh."+std::to_string(i)+".json";
-					encode(mesh, s).writeToFile(s.filename);
+					encode(mesh, s, graph).writeToFile(s.filename);
 					uf::Serializer json;
 					json["name"] = name;
 					json["filename"] = uf::io::filename(s.filename);
 					serializer["meshes"].emplace_back( json );
 				} else {
 					s.filename = directory+"/mesh."+std::to_string(i);
-					auto json = encode(mesh, s);
+					auto json = encode(mesh, s, graph);
 					json["name"] = name;
 					serializer["meshes"].emplace_back(json);
 				}
@@ -314,7 +323,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		} else {
 			for ( auto& name : graph.meshes ) {
 				auto& mesh = /*graph.storage*/uf::graph::storage.meshes.map.at(name);
-				auto json = encode(mesh, settings);
+				auto json = encode(mesh, settings, graph);
 				json["name"] = name;
 				serializer["meshes"].emplace_back(json);
 			}
@@ -330,7 +339,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				image.save(directory + "/atlas.png");
 				serializer["atlas"] = "atlas.png";
 			} else {
-				serializer["atlas"] = encode(image, settings);
+				serializer["atlas"] = encode(image, settings, graph);
 			}
 		}
 	});
@@ -352,7 +361,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		} else {
 			for ( auto& name : graph.images ) {
 				auto& image = /*graph.storage*/uf::graph::storage.images.map.at(name);
-				auto json = encode(image, settings);
+				auto json = encode(image, settings, graph);
 				json["name"] = name;
 				serializer["images"].emplace_back( json );
 			}
@@ -363,7 +372,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["textures"], graph.textures.size() );
 		for ( auto& name : graph.textures ) {
 			auto& texture = /*graph.storage*/uf::graph::storage.textures.map.at(name);
-			auto json = encode(texture, settings);
+			auto json = encode(texture, settings, graph);
 			json["name"] = name;
 			serializer["textures"].emplace_back(json);
 		}
@@ -373,7 +382,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["samplers"], graph.samplers.size() );
 		for ( auto& name : graph.samplers ) {
 			auto& sampler = /*graph.storage*/uf::graph::storage.samplers.map.at(name);
-			auto json = encode(sampler, settings);
+			auto json = encode(sampler, settings, graph);
 			json["name"] = name;
 			serializer["samplers"].emplace_back(json);
 		}
@@ -383,7 +392,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["materials"], graph.materials.size() );
 		for ( auto& name : graph.materials ) {
 			auto& material = /*graph.storage*/uf::graph::storage.materials.map.at(name);
-			auto json = encode(material, settings);
+			auto json = encode(material, settings, graph);
 			json["name"] = name;
 			serializer["materials"].emplace_back(json);
 		}
@@ -394,7 +403,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		for ( auto pair : graph.lights ) {
 			auto& name = pair.first;
 			auto& light = pair.second;
-			auto json = encode(light, settings);
+			auto json = encode(light, settings, graph);
 			json["name"] = name;
 			serializer["lights"].emplace_back(json);
 		}
@@ -407,13 +416,13 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 				auto& name = graph.animations[i];
 				uf::stl::string f = "animation."+std::to_string(i)+".json";
 				auto& animation = /*graph.storage*/uf::graph::storage.animations.map.at(name);
-				encode(animation, settings).writeToFile(directory+"/"+f);
+				encode(animation, settings, graph).writeToFile(directory+"/"+f);
 				serializer["animations"].emplace_back(f);
 			}
 		} else {
 			for ( auto& name : graph.animations ) {
 				auto& animation = /*graph.storage*/uf::graph::storage.animations.map.at(name);
-				serializer["animations"][name] = encode(animation, settings);
+				serializer["animations"][name] = encode(animation, settings, graph);
 			}
 		}
 	});
@@ -422,14 +431,14 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		ext::json::reserve( serializer["skins"], graph.skins.size() );
 		for ( auto& name : graph.skins ) {
 			auto& skin = /*graph.storage*/uf::graph::storage.skins.map.at(name);
-			serializer["skins"].emplace_back( encode(skin, settings) );
+			serializer["skins"].emplace_back( encode(skin, settings, graph) );
 		}
 	});
 	jobs.emplace_back([&]{
 		// store node information
 		ext::json::reserve( serializer["nodes"], graph.nodes.size() );
-		for ( auto& node : graph.nodes ) serializer["nodes"].emplace_back( encode(node, settings) );
-		serializer["root"] = encode(graph.root, settings);
+		for ( auto& node : graph.nodes ) serializer["nodes"].emplace_back( encode(node, settings, graph) );
+		serializer["root"] = encode(graph.root, settings, graph);
 	});
 #if UF_GRAPH_LOAD_MULTITHREAD
 	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
@@ -552,3 +561,4 @@ uf::Serializer uf::graph::stats( const pod::Graph& graph ) {
 #endif
 	return json;
 }
+#endif

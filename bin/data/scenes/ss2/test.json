@@ -1,0 +1,25 @@
+{
+	"name": "Gui: Text Test",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [18.3785, 2.41477, 0.859857],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 3.141
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"world": true,
+		"cull mode": "none",
+		"text settings": {
+			"scale": 8,
+			"font": "Coolvetica.ttf",
+			"string": "Grimgram"
+		}
+	}
+}

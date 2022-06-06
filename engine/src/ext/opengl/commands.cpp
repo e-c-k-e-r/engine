@@ -232,10 +232,20 @@ namespace {
 
 void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::InfoDraw& drawInfo ) {
 	pod::Matrix4f modelView = uf::matrix::identity(), projection = uf::matrix::identity();
+
 	if ( drawInfo.matrices.model && drawInfo.matrices.view ) modelView = uf::matrix::multiply( *drawInfo.matrices.view, *drawInfo.matrices.model );
 	else if ( drawInfo.matrices.model ) modelView = *drawInfo.matrices.model;
 	else if ( drawInfo.matrices.view ) modelView = *drawInfo.matrices.view;
+
 	if ( drawInfo.matrices.projection ) projection = *drawInfo.matrices.projection;
+
+#if 0
+	{
+		if ( drawInfo.matrices.model ) UF_MSG_DEBUG( "model: " << drawInfo.matrices.model << " " << uf::matrix::toString( *drawInfo.matrices.model ) );
+		if ( drawInfo.matrices.view ) UF_MSG_DEBUG( "view: " << drawInfo.matrices.view << " " << uf::matrix::toString( *drawInfo.matrices.view ) );
+		if ( drawInfo.matrices.projection ) UF_MSG_DEBUG( "projection: " << drawInfo.matrices.projection << " " << uf::matrix::toString( *drawInfo.matrices.projection ) );
+	}
+#endif
 
 	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
 		pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;

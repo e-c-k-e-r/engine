@@ -22,6 +22,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, normal)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R16G16_UINT, id)
 );
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, position)
@@ -32,6 +33,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16_UINT, id)
 );
 
 pod::Matrix4f uf::graph::local( pod::Graph& graph, int32_t index ) {

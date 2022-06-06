@@ -6,6 +6,6 @@
 
 namespace ext {
 	namespace meshopt {
-		void UF_API optimize( uf::Mesh&, size_t = SIZE_MAX );
+		bool UF_API optimize( uf::Mesh&, float simplify = 1.0f, size_t = SIZE_MAX );
 	}
 }

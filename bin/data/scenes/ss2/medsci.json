@@ -2,15 +2,16 @@
 	"import": "/model.json",
 	"assets": [
 	//	{ "filename": "./craeture.json", "delay": 1 },
+		{ "filename": "./test.json", "delay": 1 },
 
 	//	{ "filename": "./models/tiny_msci.glb" }
-	//	{ "filename": "./models/tiny_msci/graph.json" }
+		{ "filename": "./models/tiny_msci/graph.json" }
 
 	//	{ "filename": "./models/micro_sci.glb" }
 	//	{ "filename": "./models/micro_sci/graph.json" }
 
 	//	{ "filename": "./models/msci.glb" }
-		{ "filename": "./models/msci/graph.json" }
+	//	{ "filename": "./models/msci/graph.json" }
 
 	//	{ "filename": "./models/medsci.glb" }
 	//	{ "filename": "./models/medsci/graph.json" }
@@ -25,7 +26,8 @@
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true }
+					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true },
+					"optimize mesh": { "simplify": 0 }
 				},
 				"info_player_spawn": {
 					"action": "attach",

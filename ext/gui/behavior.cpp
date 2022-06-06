@@ -40,6 +40,7 @@ namespace {
 		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<uf::stl::string, uf::Glyph>> cache;
 	} glyphs;
 #endif
+
 	uf::stl::string defaultRenderMode = "Gui";
 	uf::Serializer defaultSettings;
 
@@ -342,18 +343,16 @@ void ext::Gui::load( const uf::Image& image ) {
 		if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = false;
 		if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = true;
 		if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "ccw";
-	#if UF_USE_OPENGL
-		metadataJson["cull mode"] = "back";
-	//	metadataJson["depth test"]["test"] = false;
-	//	metadataJson["depth test"]["write"] = true;
-	//	if ( metadataJson["flip uv"].is<bool>() ) metadataJson["flip uv"] = !metadataJson["flip uv"].as<bool>();
-	#endif
 	} else {
 		if ( ext::json::isNull(metadataJson["projection"]) ) metadataJson["projection"] = true;
 		if ( ext::json::isNull(metadataJson["flip uv"]) ) metadataJson["flip uv"] = false;
 		if ( ext::json::isNull(metadataJson["front face"]) ) metadataJson["front face"] = "cw";
 	}
-	metadataJson["cull mode"] = "none";
+
+	if ( metadataJson["world"].as<bool>() ) {
+
+	}
+
 	graphic.descriptor.parse( metadataJson );
 	if ( uf::matrix::reverseInfiniteProjection ) {
 	} else {
@@ -752,9 +751,10 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 
 		bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
 	#if UF_USE_OPENGL
-		auto model = uf::matrix::identity();
+		auto model = transform.model;
 		auto& shader = graphic.material.getShader("vertex");
 		pod::Uniform uniform;
+
 		if ( metadata.mode == 1 ) {
 			uniform.modelView = transform.model; 
 			uniform.projection = uf::matrix::identity();
@@ -764,7 +764,6 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			auto& camera = controller.getComponent<uf::Camera>();
 			uniform.modelView = camera.getView() * uf::transform::model( transform );
 			uniform.projection = camera.getProjection();
-			model = uniform.modelView;
 		} else if ( metadata.mode == 3 ) {
 			pod::Transform<> flatten = uf::transform::flatten( transform );
 			uniform.modelView = 
@@ -773,19 +772,8 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 				uf::quaternion::matrix( flatten.orientation ) *
 				flatten.model;
 			uniform.projection = camera.getProjection();
-			model = uniform.modelView;
 		} else {
 			pod::Transform<> flatten = uf::transform::flatten( transform );
-			model = 
-				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
-			
-			flatten.position.y = -flatten.position.y;
-			if ( isGlyph ) flatten.scale.y = -flatten.scale.y;
-
-			flatten.position.z = 1;
 			uniform.modelView = 
 				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
 				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
@@ -793,7 +781,15 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 				flatten.model;
 			uniform.projection = uf::matrix::identity();
 		}
+
 		shader.updateUniform( "UBO", (const void*) &uniform, sizeof(uniform) );
+		pod::Uniform* uniformBuffer = (pod::Uniform*) shader.device->getBuffer(shader.getUniformBuffer("UBO").descriptor.buffer);
+	#if 0
+		UF_MSG_DEBUG( "buffer: " << uniformBuffer );
+		UF_MSG_DEBUG( "modelView: " << &uniformBuffer->modelView << " " << uf::matrix::toString( uniformBuffer->modelView ) );
+		UF_MSG_DEBUG( "projection: " << &uniformBuffer->projection << " " << uf::matrix::toString( uniformBuffer->projection ) );
+	#endif
+
 	/*
 		auto model = uf::matrix::identity();
 		auto uniformBuffer = graphic.getUniform();

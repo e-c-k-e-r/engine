@@ -87,16 +87,22 @@ namespace uf {
 					if ( mlet.indices.empty() ) continue;
 
 					auto& meshlet = meshlets[mlet.primitive.instance.primitiveID];
+					size_t primitiveID = partitioned.size();
 					auto& slice = partitioned.emplace_back();
 					slice.vertices.reserve( mlet.indices.size() );
 					slice.indices.reserve( mlet.indices.size() );
 					for ( auto idx : mlet.indices ) {
-						slice.vertices.emplace_back( meshlet.vertices[idx] );
-						slice.indices.emplace_back( slice.indices.size() );
+						auto& vertex = slice.vertices.emplace_back( meshlet.vertices[idx] );
+						auto& index = slice.indices.emplace_back( slice.indices.size() );
+						
+						vertex.id.x = primitiveID;
+						vertex.id.y = meshlet.primitive.instance.meshID;
 					}
 
+					slice.primitive.instance = meshlet.primitive.instance;
 					slice.primitive.instance.materialID = meshlet.primitive.instance.materialID;
-					slice.primitive.instance.primitiveID = partitioned.size() - 1;
+					slice.primitive.instance.primitiveID = primitiveID;
+					slice.primitive.instance.meshID = meshlet.primitive.instance.meshID;
 					slice.primitive.instance.objectID = 0;
 					slice.primitive.instance.auxID = atlasID;
 					slice.primitive.instance.bounds.min = node.effectiveExtents.min;
