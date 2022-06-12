@@ -44,7 +44,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 		uf::stl::vector<VkPresentModeKHR> presentModes(presentModeCount);
 		VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device.physicalDevice, device.surface, &presentModeCount, presentModes.data()));
 	#if 1
-		if ( settings::experimental::vsync ) {
+		if ( settings::pipelines::vsync ) {
 			swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 			for ( size_t i = 0; i < presentModeCount; i++ ) {
 				if ( presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR ) {
@@ -62,7 +62,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 			}
 		}
 	#else
-		if ( !settings::experimental::vsync ) {
+		if ( !settings::pipelines::vsync ) {
 			for ( size_t i = 0; i < presentModeCount; i++ ) {
 				if ( presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR ) {
 					swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;

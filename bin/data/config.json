@@ -5,20 +5,20 @@
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"useLightmaps": false,
-				"max": 32
+				"useLightmaps": true,
+				"max": 16
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 3,
-				"max": 6,
-				"samples": 2,
+				"update": 2,
+				"max": 8,
+				"samples": 1,
 				"experimental mode": 1
 			},
 			"textures": {
 				"max": {
-					"2D": 1024,
-					"cube": 128,
+					"2D": 256,
+					"cube": 32,
 					"3D": 1
 				}
 			},
@@ -26,9 +26,9 @@
 				"limiter": 1,
 				"size": 128,
 				"dispatch": 8,
-				"cascades": 4,
+				"cascades": 3,
 				"cascadePower": 3,
-				"granularity": 8,
+				"granularity": 12,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"shadows": 0,
@@ -52,10 +52,11 @@
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
-						"MessageID = 0x23e43bb7" // UNASSIGNED-CoreValidation-Shader-InputNotProduced (from depth-only calls)
+						"MessageID = 0x23e43bb7", // UNASSIGNED-CoreValidation-Shader-InputNotProduced (from depth-only calls)
+
+						"MessageID = 0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
 
 					//	"MessageID = 0xe91b58a0" // VUID-vkCmdDrawIndexed-None-02686 (?)
-					//	"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
 
 					//	"MessageID = 0x124ffb34", // VUID-VkImageMemoryBarrier-oldLayout-01197 (hacky bloom-shit)
 					//	"MessageID = 0x8ab1932c", // VUID-VkImageViewCreateInfo-imageViewType-04973 (hacky bloom-shit)
@@ -66,26 +67,23 @@
 					]
 				},
 				"framebuffer": {
-					"size": 1,
-				//	"size": [ 640, 480, "NEAREST" ],
-				//	"size": [ 1280, 720 ],
-				//	"size": [ 960, 540 ],
-				//	"size": [ 640, 480 ],
-					"msaa": 1
+					"msaa": 1,
+					"size": 1
+				//	"size": [ 640, 480, "NEAREST" ]
+				//	"size": [ 1280, 720 ]
+				//	"size": [ 960, 540 ]
+				//	"size": [ 640, 480 ]
 				},
+				"gpu": "auto",
 				"experimental": {
-					"rebuild on tick begin": false,
-					"wait on render end": false,
-					"individual pipelines": true,
-					"multithreaded command recording": true,
-					"multithreaded command rendering": false,
-					"deferred mode": "",
-					"deferred reconstruct position": true,
-					"deferred alias output to swapchain": false,
+					"batch queue submissions": true,
+					"dedicated thread": false
+				},
+				"invariant": {},
+				"pipelines": {
 					"vsync": false,
 					"hdr": false,
 					"vxgi": true,
-					"deferred sampling": true,
 					"culling": true,
 					"bloom": false
 				},
@@ -129,17 +127,7 @@
 			"opengl": {
 				"validation": { "enabled": true },
 				"framebuffer": { "size": 1, "msaa": 1 },
-				"experimental": {
-					"rebuild on tick begin": false,
-					"wait on render end": false,
-					"individual pipelines": true,
-					"multithreaded command recording": false, //
-					"multithreaded command rendering": false,
-					"deferred mode": "",
-				//	"deferred mode": "deferredSampling",
-					"deferred reconstruct position": true,
-					"deferred alias output to swapchain": true,
-					"hdr": false,
+				"pipelines": {
 					"culling": true
 				},
 				"formats": {
@@ -227,13 +215,13 @@
 			"framerate": "auto"
 		},
 		"threads": {
-			"workers" : "auto", // "async"
+			"workers" : "auto",
 			"frame limiter": "auto"
 		},
 		"debug": {
 			"framerate": {
 				"print": true,
-				"every": 1
+				"every": 2
 			},
 			"garbage collection": {
 				"enabled": true,
@@ -253,7 +241,7 @@
 	"window" : {
 		"terminal" :  {
 			"ncurses" : false,
-			"visible" : true
+			"visible" : false
 		},
 		"keyboard" :  {
 			"repeat" : false
@@ -261,9 +249,10 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 1, 1 ]
+			"sensitivity": [ 1.25, 1.25 ],
+			"smoothing": [ 10, 10 ]
 		},
-		"mode" : "windowed", // fullscreen, borderless, windowed
+		"mode" : "borderless", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 		"size" :  [ 1920, 1080 ],
 	//	"size" :  [ 1280, 720 ],

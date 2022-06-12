@@ -31,12 +31,25 @@ namespace pod {
 		std::condition_variable condition;
 		std::thread thread;
 
-		pod::Thread::queue_t temps;
-		pod::Thread::container_t consts;
+		pod::Thread::queue_t queue;
+		pod::Thread::container_t container;
 
 		uf::Timer<long long> timer;
 		uint affinity = 0;
+
+		struct UF_API Tasks {
+			uf::stl::string name = "Aux";
+			bool waits = true;
+
+			pod::Thread::queue_t container;
+
+			inline void add( const pod::Thread::function_t& fun ) { container.emplace(fun); }
+			inline void emplace( const pod::Thread::function_t& fun ) { container.emplace(fun); }
+			inline void queue( const pod::Thread::function_t& fun ) { container.emplace(fun); }
+			inline void clear() { container = {}; }
+		};
 	};
+
 }
 
 namespace uf {
@@ -46,29 +59,14 @@ namespace uf {
 		extern UF_API std::thread::id mainThreadId;
 		extern UF_API bool async;
 
-	/* Acts on thread */
-		void UF_API start( pod::Thread& );
-		void UF_API quit( pod::Thread& );
-
-		void UF_API tick( pod::Thread& );
-	//	void UF_API tick( pod::Thread&, const std::function<void()>& = NULL );
-
+	/* 	Easy to use async helper functions */
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
-		void UF_API batchWorker( const pod::Thread::function_t&, const uf::stl::string& name = "Aux" );
-		void UF_API batchWorkers( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
-		void UF_API batchWorkers_Async( const uf::stl::vector<pod::Thread::function_t>&, bool = true, const uf::stl::string& name = "Aux" );
-		void UF_API add( pod::Thread&, const pod::Thread::function_t&, bool = false );
-		void UF_API process( pod::Thread& );
+		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = "Aux", bool waits = true );
+		void UF_API execute( pod::Thread::Tasks& tasks );
 
-		void UF_API wait( pod::Thread& );
-
-		const uf::stl::string& UF_API name( const pod::Thread& );
-		uint UF_API uid( const pod::Thread& );
-		bool UF_API running( const pod::Thread& );
 	/* Acts on global threads */
 		typedef uf::stl::vector<pod::Thread*> container_t;
 		extern UF_API uf::thread::container_t threads;
-		
 
 		void UF_API terminate();
 
@@ -80,57 +78,29 @@ namespace uf {
 		pod::Thread& UF_API get( const uf::stl::string& );
 
 		bool UF_API isMain();
+
+	/* Acts on thread */
+		void UF_API start( pod::Thread& );
+		void UF_API quit( pod::Thread& );
+
+		void UF_API tick( pod::Thread& );
+
+		// schedules to worker thread
+		void UF_API queue( const pod::Thread::function_t& fun );
+		void UF_API queue( const pod::Thread::container_t& funs );
+		// schedules to target thread
+		void UF_API queue( pod::Thread& thread, const pod::Thread::function_t& fun );
+		void UF_API add( pod::Thread& thread, const pod::Thread::function_t& fun );
+		// schedules to named thread
+		inline void queue( const uf::stl::string& name, const pod::Thread::function_t& fun ) { return uf::thread::queue( uf::thread::get(name), fun ); }
+		inline void add( const uf::stl::string& name, const pod::Thread::function_t& fun ) { return uf::thread::add( uf::thread::get(name), fun ); }
+		
+		void UF_API process( pod::Thread& );
+
+		void UF_API wait( pod::Thread& );
+
+		const uf::stl::string& UF_API name( const pod::Thread& );
+		uint UF_API uid( const pod::Thread& );
+		bool UF_API running( const pod::Thread& );
 	}
 }
-
-/*
-namespace uf {
-	class UF_API Thread {
-	public:
-		typedef std::function<int()> function_t;
-		typedef std::queue<uf::Thread::function_t> queue_t;
-		typedef uf::stl::vector<uf::Thread::function_t> container_t;
-
-		enum {
-			TEMP = 0,
-			CONSTANT = 1,
-		};
-	protected:
-		uint m_uid;
-		uint m_mode;
-		bool m_running;
-		bool m_shouldLock;
-		bool m_terminateOnEmpty;
-		std::mutex m_mutex;
-		uf::stl::string m_name;
-		std::thread m_thread;
-		uf::Thread::queue_t m_temps;
-		uf::Thread::container_t m_consts;
-	public:
-		static uint fps;
-		static uint thread_count;
-		Thread( const uf::stl::string& = "", bool = true, uint = 0 );
-		virtual ~Thread();
-
-		void start();
-		virtual void tick(const std::function<void()>& = NULL);
-		void add( const uf::Thread::function_t&, uint = 0 );
-		void process();
-		void quit();
-
-		uf::stl::string toString() const;
-		const uf::stl::string& getName() const;
-		uint getUid() const;
-		const bool& isRunning() const;
-	};
-	namespace thread {
-		typedef uf::stl::unordered_map<uf::stl::string, uf::Thread*> container_t;
-		extern UF_API uf::thread::container_t threads;
-
-		void UF_API add( uf::Thread* );
-		uf::Thread& UF_API get( const uf::stl::string& );
-		bool UF_API add( const uf::stl::string&, const uf::Thread::function_t&, uint = 0 );
-		bool UF_API quit( const uf::stl::string& );
-	};
-}
-*/

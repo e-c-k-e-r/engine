@@ -2,6 +2,7 @@ ARCH 				= dreamcast
 CDIR 				=
 CC 					= gcc
 CXX 				= $(KOS_CCPLUS)
+RENDERER 			= opengl
 TARGET_EXTENSION 	= elf
 OPTIMIZATIONS 		= -Os -g -ffunction-sections -fdata-sections -Wl,--gc-sections -fstrict-aliasing -ffast-math -flto -fno-unroll-all-loops -fno-optimize-sibling-calls -fschedule-insns2 -fomit-frame-pointer -DUF_NO_EXCEPTIONS -fno-exceptions
 WARNINGS 			= -Wno-attributes -Wno-conversion-null

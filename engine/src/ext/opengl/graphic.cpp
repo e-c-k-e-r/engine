@@ -365,16 +365,18 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	CommandBuffer::InfoDraw drawCommandInfoBase = {};
 	drawCommandInfoBase.type = ext::opengl::enums::Command::DRAW;
 	drawCommandInfoBase.descriptor = descriptor;
-	drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
+	if ( descriptor.inputs.index.count ) {
+		drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
+	}
+
 	for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
 		if ( attribute.descriptor.name == "position" ) drawCommandInfoBase.attributes.position = attribute;
 		else if ( attribute.descriptor.name == "uv" ) drawCommandInfoBase.attributes.uv = attribute;
 		else if ( attribute.descriptor.name == "st" ) drawCommandInfoBase.attributes.st = attribute;
-		else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
+	//	else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
 		else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
 	}
 
-	drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
 	if ( uniformBufferSize == sizeof(pod::Camera::Viewports) ) {
 		drawCommandInfoBase.matrices.view = &viewports->matrices[0].view;
 		drawCommandInfoBase.matrices.projection = &viewports->matrices[0].projection;
@@ -400,7 +402,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		pod::Material* materials = (pod::Material*) device->getBuffer( materialBuffer );
 		pod::Texture* textures = (pod::Texture*) device->getBuffer( textureBuffer );
 
-		const bool optimize = false;
+	//	const bool optimize = false;
 		uf::stl::unordered_map<size_t, uf::stl::vector<CommandBuffer::InfoDraw>> pool;
 		for ( auto i = 0; i < descriptor.inputs.indirect.count; ++i ) {
 			auto& drawCommand = drawCommands[i];
@@ -410,15 +412,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			auto& material = materials[materialID];
 			auto textureID = material.indexAlbedo;
 			auto& infos = pool[textureID];
-
 			CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
+		//	CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
 
 			drawCommandInfo.descriptor.inputs.index.first = drawCommand.indexID;
 			drawCommandInfo.descriptor.inputs.index.count = drawCommand.indices;
 			
 			drawCommandInfo.descriptor.inputs.vertex.first = drawCommand.vertexID;
 			drawCommandInfo.descriptor.inputs.vertex.count = drawCommand.vertices;
-
 
 			drawCommandInfo.attributes.instance.pointer = &instance;
 			drawCommandInfo.attributes.instance.length = sizeof(instance);
@@ -440,14 +441,17 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			commandBuffer.record(drawCommandInfo);
 		}
 	} else {		
-	/*
-		UF_MSG_DEBUG( viewports << " " << uniformBuffers.size() );
-		if ( drawCommandInfoBase.matrices.model ) UF_MSG_DEBUG( "model: " << drawCommandInfoBase.matrices.model << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.model ) );
-		if ( drawCommandInfoBase.matrices.view ) UF_MSG_DEBUG( "view: " << drawCommandInfoBase.matrices.view << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.view ) );
-		if ( drawCommandInfoBase.matrices.projection ) UF_MSG_DEBUG( "projection: " << drawCommandInfoBase.matrices.projection << " " << uf::matrix::toString( *drawCommandInfoBase.matrices.projection ) );
-	*/
+		CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
 
-		commandBuffer.record(drawCommandInfoBase);
+		drawCommandInfoBase.matrices.model = NULL;
+		drawCommandInfoBase.matrices.view = NULL;
+		drawCommandInfoBase.matrices.projection = NULL;
+
+		if ( !material.textures.empty() ) {
+			drawCommandInfo.textures.primary = material.textures.front().descriptor;
+		}
+
+		commandBuffer.record(drawCommandInfo);
 	}
 }
 void ext::opengl::Graphic::destroy() {
@@ -485,7 +489,7 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 	size_t hash{};
 
 	hash += std::hash<decltype(subpass)>{}(subpass);
-	if ( settings::experimental::individualPipelines )
+	if ( settings::invariant::individualPipelines )
 		hash += std::hash<decltype(renderMode)>{}(renderMode);
 	
 	hash += std::hash<decltype(renderTarget)>{}(renderTarget);

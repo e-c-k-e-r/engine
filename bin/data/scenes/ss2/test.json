@@ -16,6 +16,7 @@
 		"scaling": "relative",
 		"world": true,
 		"cull mode": "none",
+		"color": [ 1, 0, 1, 1 ],
 		"text settings": {
 			"scale": 8,
 			"font": "Coolvetica.ttf",

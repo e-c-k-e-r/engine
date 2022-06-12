@@ -143,13 +143,16 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 	packOptions.resolution = graph.metadata["baking"]["resolution"].as(packOptions.resolution);
 
 	// pack
-	pod::Thread::container_t jobs;
-
+#if UF_XATLAS_UNWRAP_MULTITHREAD
+	auto tasks = uf::thread::schedule("Async");
+#else
+	auto tasks = uf::thread::schedule("Main");
+#endif
 	for ( auto& pair : atlases ) {
-		jobs.emplace_back([&]{
+		tasks.queue([&]{
 			auto& atlas = pair.second;
 			::xatlas::Generate(atlas.pointer, chartOptions, packOptions);
-		/*
+		#if !UF_XATLAS_LAZY
 			// get vertices size ahead of time
 			for ( auto i = 0; i < atlas.pointer->meshCount; ++i ) {
 				auto& xmesh = atlas.pointer->meshes[i];
@@ -157,15 +160,10 @@ size_t UF_API ext::xatlas::unwrap( pod::Graph& graph, bool combined ) {
 			//	atlas.vertices += xmesh.vertexCount;
 				sizes[entry.index] += xmesh.vertexCount;
 			}
-		*/
+		#endif
 		});
 	}
-
-#if UF_XATLAS_UNWRAP_MULTITHREAD
-	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
-#else
-	for ( auto& job : jobs ) job();
-#endif
+	uf::thread::execute( tasks );
 
 #if !UF_XATLAS_LAZY
 	for ( auto& pair : atlases ) {

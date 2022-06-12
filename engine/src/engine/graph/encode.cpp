@@ -261,8 +261,12 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 */
 #endif
 
-	pod::Thread::container_t jobs;
-	jobs.emplace_back([&]{
+#if UF_GRAPH_LOAD_MULTITHREAD
+	auto tasks = uf::thread::schedule("Async");
+#else
+	auto tasks = uf::thread::schedule("Main");
+#endif
+	tasks.queue([&]{
 		ext::json::reserve( serializer["instances"], graph.instances.size() );
 		for ( size_t i = 0; i < graph.instances.size(); ++i ) {
 			auto& name = graph.instances[i];
@@ -272,7 +276,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["instances"].emplace_back( json );
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		ext::json::reserve( serializer["primitives"], graph.primitives.size() );
 		for ( size_t i = 0; i < graph.primitives.size(); ++i ) {
 			auto& name = graph.primitives[i];
@@ -285,7 +289,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			}
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		ext::json::reserve( serializer["drawCommands"], graph.drawCommands.size() );
 		for ( size_t i = 0; i < graph.drawCommands.size(); ++i ) {
 			auto& name = graph.drawCommands[i];
@@ -298,7 +302,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			}
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store mesh information
 		ext::json::reserve( serializer["meshes"], graph.meshes.size() );
 		if ( !settings.combined ) {
@@ -330,7 +334,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		}
 	});
 #if 0
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		if ( uf::graphs::storage.atlases[graph.atlas].generated() ) {
 			auto atlasName = filename + "/" + "atlas";
 			auto& atlas = /*graph.storage*/uf::graph::storage.atlases[atlasName];
@@ -344,7 +348,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 		}
 	});
 #endif
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		ext::json::reserve( serializer["images"], graph.images.size() );
 		if ( !settings.combined ) {
 			for ( size_t i = 0; i < graph.images.size(); ++i ) {
@@ -367,7 +371,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			}
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store texture information
 		ext::json::reserve( serializer["textures"], graph.textures.size() );
 		for ( auto& name : graph.textures ) {
@@ -377,7 +381,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["textures"].emplace_back(json);
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store sampler information
 		ext::json::reserve( serializer["samplers"], graph.samplers.size() );
 		for ( auto& name : graph.samplers ) {
@@ -387,7 +391,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["samplers"].emplace_back(json);
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store material information
 		ext::json::reserve( serializer["materials"], graph.materials.size() );
 		for ( auto& name : graph.materials ) {
@@ -397,7 +401,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["materials"].emplace_back(json);
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store light information
 		ext::json::reserve( serializer["lights"], graph.lights.size() );
 		for ( auto pair : graph.lights ) {
@@ -408,7 +412,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["lights"].emplace_back(json);
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store animation information
 		ext::json::reserve( serializer["animations"], graph.animations.size() );
 		if ( !settings.combined ) {
@@ -426,7 +430,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			}
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store skin information
 		ext::json::reserve( serializer["skins"], graph.skins.size() );
 		for ( auto& name : graph.skins ) {
@@ -434,17 +438,14 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 			serializer["skins"].emplace_back( encode(skin, settings, graph) );
 		}
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// store node information
 		ext::json::reserve( serializer["nodes"], graph.nodes.size() );
 		for ( auto& node : graph.nodes ) serializer["nodes"].emplace_back( encode(node, settings, graph) );
 		serializer["root"] = encode(graph.root, settings, graph);
 	});
-#if UF_GRAPH_LOAD_MULTITHREAD
-	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
-#else
-	for ( auto& job : jobs ) job();
-#endif
+
+	uf::thread::execute( tasks );
 
 	if ( !settings.combined ) target = directory + "/graph.json";
 	serializer.writeToFile( target );

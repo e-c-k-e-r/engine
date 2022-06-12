@@ -35,9 +35,11 @@ namespace ext {
 					pod::Vector3f max = {NAN, NAN, NAN};
 				} limit;
 				pod::Vector3t<bool> invert;
+				pod::Vector2f queued;
 			} camera;
 			struct {
-				pod::Vector2f sensitivity;
+				pod::Vector2f sensitivity = {1,1};
+				pod::Vector2f smoothing = {10,10};
 			} mouse;
 			struct {
 				struct {

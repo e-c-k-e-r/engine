@@ -34,6 +34,9 @@ void ext::opengl::DeferredRenderMode::initialize( Device& device ) {
 void ext::opengl::DeferredRenderMode::tick() {
 	ext::opengl::RenderMode::tick();
 }
+void ext::opengl::DeferredRenderMode::render() {
+	ext::opengl::RenderMode::render();
+}
 void ext::opengl::DeferredRenderMode::destroy() {
 	ext::opengl::RenderMode::destroy();
 }

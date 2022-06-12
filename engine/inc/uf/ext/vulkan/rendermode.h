@@ -8,7 +8,7 @@ namespace ext {
 	namespace vulkan {
 		struct Graphic;
 		
-		struct UF_API RenderMode {
+		struct UF_API RenderMode : public Buffers {
 			bool execute = false;
 			bool executed = false;
 			bool rebuild = false;
@@ -57,6 +57,15 @@ namespace ext {
 			uf::stl::unordered_map<int32_t, callback_t> commandBufferCallbacks;
 			
 			void bindCallback( int32_t, const callback_t& );
+			
+			uf::Image screenshot(size_t = 0, size_t = 0);
+
+			commands_container_t& getCommands();
+			commands_container_t& getCommands( std::thread::id );
+			void lockMutex();
+			void lockMutex( std::thread::id );
+			void unlockMutex();
+			void unlockMutex( std::thread::id );
 
 			virtual ~RenderMode();
 			// RAII
@@ -69,10 +78,6 @@ namespace ext {
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
 			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 			
-			virtual uf::Image screenshot(size_t = 0, size_t = 0);
-
-			virtual commands_container_t& getCommands();
-			virtual commands_container_t& getCommands( std::thread::id );
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
@@ -86,6 +91,8 @@ namespace ext {
 			virtual void destroy();
 			virtual void synchronize( uint64_t = UINT64_MAX );
 			virtual void pipelineBarrier( VkCommandBuffer, uint8_t = -1 );
+
+			virtual VkSubmitInfo queue();
 		};
 	}
 }

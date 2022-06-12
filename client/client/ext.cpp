@@ -120,32 +120,22 @@ void client::tick() {
 	if ( client::window.hasFocus() ) {
 		// fullscreener
 		TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter && ) {
-			UF_MSG_DEBUG("mpoop fullscreen");
-			client::window.toggleFullscreen( false );
 			uf::renderer::states::resized = true;
+			client::window.toggleFullscreen( false );
 		}
 		// mouse move
 		if ( client::config["window"]["mouse"]["center"].as<bool>() ) {
-			auto previous = client::window.getMousePosition();
-			client::window.setMousePosition(client::window.getSize()/2);
-			auto current = client::window.getMousePosition();
 			auto size = client::window.getSize();
+			auto current = client::window.getMousePosition();
+			auto center = client::window.getSize() / 2.0f;
+			client::window.setMousePosition(client::window.getSize() / 2.0f);
 
 			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
 				{
-					{
-						"window:Mouse.Moved",
-						"client",
-					},
-					{
-						pod::Vector2ui{ size.x, size.y },
-					},
+					{ "window:Mouse.Moved", "client", },
+					{ pod::Vector2ui{ size.x, size.y }, },
 				},
-				{
-					current,
-					previous - current,
-					0
-				}
+				{ center, current - center, 0 }
 			});
 		}
 	}

@@ -2,7 +2,7 @@
 	"import": "/model.json",
 	"assets": [
 	//	{ "filename": "./craeture.json", "delay": 1 },
-		{ "filename": "./test.json", "delay": 1 },
+	//	{ "filename": "./test.json", "delay": 1 },
 
 	//	{ "filename": "./models/tiny_msci.glb" }
 		{ "filename": "./models/tiny_msci/graph.json" }

@@ -41,12 +41,12 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 		}
 		commands.record(clearCommandInfo);
 	#endif
-
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};
 		viewportCommandInfo.size = pod::Vector2ui{width, height};
 		commands.record(viewportCommandInfo);
+
 		for ( auto graphic : graphics ) {
 			if ( graphic->descriptor.renderMode != "" ) continue;
 			GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass );
@@ -71,10 +71,13 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	}
 	GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
 	GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
+
+	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
+	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, 0.1f));
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
-	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
+//	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
 
 //	GL_ERROR_CHECK(glEnable(GL_NORMALIZE));
 //	GL_ERROR_CHECK(glEnable(GL_COLOR_MATERIAL));
@@ -103,8 +106,6 @@ void ext::opengl::BaseRenderMode::tick() {
 	ext::opengl::RenderMode::tick();
 }
 void ext::opengl::BaseRenderMode::render() {
-//	if ( ext::opengl::renderModes.size() > 1 ) return;
-//	if ( ext::opengl::renderModes.back() != this ) return;
 	ext::opengl::RenderMode::render();
 }
 

@@ -24,7 +24,7 @@
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
-				"unwrap": false,
+				"unwrap": true,
 				"optimize": "tagged",
 				"quit": true,
 				"mesh": {
@@ -43,7 +43,7 @@
 					"useInputMeshUvs": true,
 					"maxIterations": 8,
 				//	"maxChartSize": 0,
-				//	"padding": 0,
+					"padding": 4,
 				//	"texelsPerUnit": 0,
 					"bilinear": true,
 					"blockAlign": true,

@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #include <uf/ext/json/json.h>
+#include <uf/utils/serialize/serializer.h>
 #include <uf/utils/math/angle.h>
 
 namespace pod {

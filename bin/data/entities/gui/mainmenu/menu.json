@@ -3,8 +3,8 @@
 	"type": "Gui",
 	"ignore": false,
 	"assets": [
-		"./scripts/menu.lua",
-		"./textures/menu.png"
+		"./textures/menu.png",
+		"./scripts/menu.lua"
 	],
 	"transform": {
 		"position": [ 0, 0, 0 ],

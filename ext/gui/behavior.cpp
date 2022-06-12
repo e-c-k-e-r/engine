@@ -33,6 +33,8 @@
 #include <locale>
 #include <codecvt>
 
+#define EXT_COLOR_FLOATS 1
+
 namespace {
 #if UF_USE_FREETYPE
 	struct {
@@ -40,7 +42,6 @@ namespace {
 		uf::stl::unordered_map<uf::stl::string, uf::stl::unordered_map<uf::stl::string, uf::Glyph>> cache;
 	} glyphs;
 #endif
-
 	uf::stl::string defaultRenderMode = "Gui";
 	uf::Serializer defaultSettings;
 
@@ -65,7 +66,26 @@ namespace {
 		"clickable",
 		"hoverable"
 	};
+
+	struct /*UF_API*/ GuiMesh {
+		pod::Vector3f position;
+		pod::Vector2f uv;
+	#if EXT_COLOR_FLOATS
+		pod::Vector4f color;
+	#else
+		pod::ColorRgba color;
+	#endif
+
+		static uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
+	};
 }
+
+UF_VERTEX_DESCRIPTOR(GuiMesh,
+	UF_VERTEX_DESCRIPTION(GuiMesh, R32G32B32_SFLOAT, position)
+	UF_VERTEX_DESCRIPTION(GuiMesh, R32G32_SFLOAT, uv)
+	UF_VERTEX_DESCRIPTION(GuiMesh, R8G8B8A8_UNORM, color)
+)
+
 uf::stl::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const uf::stl::string& _string ) {
 	uf::stl::vector<pod::GlyphBox> gs;
 #if UF_USE_FREETYPE
@@ -324,16 +344,28 @@ void ext::Gui::load( const uf::Image& image ) {
 	auto& texture = graphic.material.textures.emplace_back();
 	texture.loadFromImage( image );
 
-//	auto& mesh = this->getComponent<ext::Gui::mesh_t>();
 	auto& transform = this->getComponent<pod::Transform<>>();
-	uf::stl::vector<pod::Vertex_3F2F3F> vertices = {
-		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, metadata.color },
-		{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, metadata.color },
-		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, metadata.color },
+#if 0
+	uf::stl::vector<::GuiMesh> vertices = {
+#else
+	auto& vertices = this->getComponent<uf::stl::vector<::GuiMesh>>();
+#if EXT_COLOR_FLOATS
+	auto& color = metadata.color;
+#else
+	pod::ColorRgba color = { metadata.color[0] * 255, metadata.color[1] * 255, metadata.color[2] * 255, metadata.color[3] * 255 };
+#endif
+	vertices = {
+#endif
+		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
+		{ pod::Vector3f{-1.0f, -1.0f, 0.0f}, pod::Vector2f{0.0f, 0.0f}, color },
+		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color },
 	
-		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, metadata.color },
-		{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, metadata.color },
-		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, metadata.color },
+		{ pod::Vector3f{-1.0f,  1.0f, 0.0f}, pod::Vector2f{0.0f, 1.0f}, color },
+		{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
+		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
+	};
+	uf::stl::vector<size_t> indices = {
+		0, 1, 2, 3, 4, 5
 	};
 
 	pod::Vector2f raidou = { 1, 1 };
@@ -350,16 +382,23 @@ void ext::Gui::load( const uf::Image& image ) {
 	}
 
 	if ( metadataJson["world"].as<bool>() ) {
-
+	//	metadataJson["gui layer"] = false;
+	} else {
+	#if UF_USE_OPENGL
+		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
+	#else
+		if ( uf::matrix::reverseInfiniteProjection ) {
+		//	metadata.depth = -metadata.depth;
+		} else {
+		}
+		if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
+	#endif
+		if ( metadata.depth != 0.0f ) for ( auto& v : vertices ) v.position.z = metadata.depth;
+		else for ( auto& v : vertices ) v.position.z = 0;
 	}
 
 	graphic.descriptor.parse( metadataJson );
-	if ( uf::matrix::reverseInfiniteProjection ) {
-	} else {
-		metadata.depth = -metadata.depth;
-	}
-	if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
-	if ( metadata.depth != 0.0f ) for ( auto& v : vertices ) v.position.z = metadata.depth;
+
 
 	if ( metadataJson["scaling"].is<uf::stl::string>() ) {
 		uf::stl::string mode = metadataJson["scaling"].as<uf::stl::string>();
@@ -376,6 +415,7 @@ void ext::Gui::load( const uf::Image& image ) {
 		transform.scale.x = raidou.x;
 		transform.scale.y = raidou.y;
 	}
+#if 1
 	if ( metadataJson["layer"].is<uf::stl::string>() ) {
 		graphic.initialize( metadataJson["layer"].as<uf::stl::string>() );
 	} else if ( !ext::json::isNull( metadataJson["gui layer"] ) && !metadataJson["gui layer"].as<bool>() ) {
@@ -385,11 +425,13 @@ void ext::Gui::load( const uf::Image& image ) {
 	} else {
 		graphic.initialize( ::defaultRenderMode );
 	}
+#endif
+//	graphic.initialize();
 
 	auto& mesh = this->getComponent<uf::Mesh>();
-	mesh.bind<pod::Vertex_3F2F3F>();
+	mesh.bind<::GuiMesh>();
 	mesh.insertVertices( vertices );
-
+//	mesh.insertIndices( indices );
 	graphic.initializeMesh( mesh );
 
 	struct {
@@ -653,21 +695,31 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			auto& transform = this->getComponent<pod::Transform<>>();
 			transform.scale.x = scale;
 			transform.scale.y = scale;
-
-			uf::stl::vector<pod::Vertex_3F2F3F> vertices;
+		#if 0
+			uf::stl::vector<::GuiMesh> vertices;
+		#else
+			auto& vertices = this->getComponent<uf::stl::vector<::GuiMesh>>();
+		#endif
+			uf::stl::vector<size_t> indices;
 			vertices.reserve( glyphs.size() * 6 );
-			
+			indices.reserve( glyphs.size() * 6 );
+
 			for ( auto& g : glyphs ) {
 				auto glyphKey = std::to_string((uint64_t) g.code) + ";"+key;
 				auto& glyph = ::glyphs.cache[font][glyphKey];
 				auto hash = glyphHashMap[glyphKey];
+			#if EXT_COLOR_FLOATS
+				auto& color = g.color;
+			#else
+				pod::ColorRgba color = { g.color[0] * 255, g.color[1] * 255, g.color[2] * 255, g.color[3] * 255 }; 
+			#endif
 				// add vertices
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), g.color});
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), g.color});
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), g.color});
-				vertices.emplace_back(pod::Vertex_3F2F3F{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), g.color});
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x,           g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x,           g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 0.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
+				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
 			}
 			for ( size_t i = 0; i < vertices.size(); i += 6 ) {
 				for ( size_t j = 0; j < 6; ++j ) {
@@ -677,8 +729,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					vertex.position.z = metadata.depth;
 				}
 			}
-			mesh.bind<pod::Vertex_3F2F3F>();
+			mesh.bind<::GuiMesh>();
 			mesh.insertVertices( vertices );
+		//	mesh.insertIndices( indices );
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
@@ -746,17 +799,20 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		auto& graphic = this->getComponent<uf::Graphic>();
 		auto& controller = scene.getController();
 		auto& camera = controller.getComponent<uf::Camera>();
-		auto& transform = this->getComponent<pod::Transform<>>();
+		auto transform = this->getComponent<pod::Transform<>>();
 		if ( !graphic.initialized ) return;
 
 		bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
 	#if UF_USE_OPENGL
-		auto model = transform.model;
+		if ( metadata.mode == 0 ) {
+			transform.position.y = -transform.position.y;
+		}
+		auto model = uf::transform::model( transform );
 		auto& shader = graphic.material.getShader("vertex");
 		pod::Uniform uniform;
 
 		if ( metadata.mode == 1 ) {
-			uniform.modelView = transform.model; 
+			uniform.modelView = model; 
 			uniform.projection = uf::matrix::identity();
 		} else if ( metadata.mode == 2 ) {
 			auto& scene = uf::scene::getCurrentScene();
@@ -784,6 +840,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 
 		shader.updateUniform( "UBO", (const void*) &uniform, sizeof(uniform) );
 		pod::Uniform* uniformBuffer = (pod::Uniform*) shader.device->getBuffer(shader.getUniformBuffer("UBO").descriptor.buffer);
+
 	#if 0
 		UF_MSG_DEBUG( "buffer: " << uniformBuffer );
 		UF_MSG_DEBUG( "modelView: " << &uniformBuffer->modelView << " " << uf::matrix::toString( uniformBuffer->modelView ) );
@@ -949,7 +1006,91 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		metadata.box.max.y = max.y;
 	}
 }
-void ext::GuiBehavior::render( uf::Object& self ){}
+void ext::GuiBehavior::render( uf::Object& self ){
+#if 0 && UF_USE_OPENGL
+	if ( !this->hasComponent<uf::Graphic>() )  return;
+	if ( ext::opengl::currentRenderMode->getName() != "Gui" ) return;
+
+	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& graphic = this->getComponent<uf::Graphic>();
+	auto& controller = scene.getController();
+	auto& camera = controller.getComponent<uf::Camera>();
+	auto& transform = this->getComponent<pod::Transform<>>();
+	if ( !graphic.initialized ) return;
+	auto& shader = graphic.material.getShader("vertex");
+	auto& mesh = this->getComponent<uf::Mesh>();
+
+	bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
+
+	auto model = transform.model;
+	auto projection = uf::matrix::identity();
+	pod::Uniform uniform;
+
+	if ( metadata.mode == 1 ) {
+		uniform.modelView = transform.model; 
+		uniform.projection = uf::matrix::identity();
+	} else if ( metadata.mode == 2 ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+		uniform.modelView = camera.getView() * uf::transform::model( transform );
+		uniform.projection = camera.getProjection();
+	} else if ( metadata.mode == 3 ) {
+		pod::Transform<> flatten = uf::transform::flatten( transform );
+		uniform.modelView = 
+			uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+			uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+			uf::quaternion::matrix( flatten.orientation ) *
+			flatten.model;
+		uniform.projection = camera.getProjection();
+	} else {
+		pod::Transform<> flatten = uf::transform::flatten( transform );
+		uniform.modelView = 
+			uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
+			uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
+			uf::quaternion::matrix( flatten.orientation ) *
+			flatten.model;
+		uniform.projection = uf::matrix::identity();
+	}
+
+	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+	GL_ERROR_CHECK(glLoadMatrixf( &mat[0] ));
+	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+	GL_ERROR_CHECK(glLoadMatrixf( &mat[0] ));
+
+	if ( !graphic.material.textures.empty() ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
+		GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, graphic.material.textures.front().descriptor));
+	}
+
+	glBegin(GL_TRIANGLES);
+		glTexCoord2f(0.0f, 0.0f);
+		glVertex3f(-0.5f, 0.5f, 0.0f);
+		glTexCoord2f(1.0f, 0.0f);
+		glVertex3f( 0.5f, 0.5f, 0.0f);
+		glTexCoord2f(1.0f, 1.0f);
+		glVertex3f( 0.5f,-0.5f, 0.0f);
+		
+		glTexCoord2f(1.0f, 1.0f);
+		glVertex3f( 0.5f,-0.5f, 0.0f);
+		glTexCoord2f(0.0f, 1.0f);
+		glVertex3f(-0.5f,-0.5f, 0.0f);
+		glTexCoord2f(0.0f, 0.0f);
+		glVertex3f(-0.5f, 0.5f, 0.0f);
+	glEnd();
+
+	if ( !graphic.material.textures.empty() ) {
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+		GL_ERROR_CHECK(glDisable(GL_TEXTURE_2D));
+	}
+#endif
+}
 void ext::GuiBehavior::destroy( uf::Object& self ){}
 void ext::GuiBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
 	serializer["gui"]["color"] = uf::vector::encode( color );

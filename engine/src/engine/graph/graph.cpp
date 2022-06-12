@@ -87,18 +87,10 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 
 		//	for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
 		//	for ( auto pair : uf::graph::storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
-		#if 1
 			for ( auto& key : uf::graph::storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
-		#else
-			uf::stl::map<size_t, uf::stl::string> texture2DOrderedMap; // texture2DOrderedMap.reserve( uf::graph::storage.texture2Ds.keys.size() );
-			for ( auto key : uf::graph::storage.texture2Ds.keys ) {
-				texture2DOrderedMap[uf::graph::storage.texture2Ds.indices[key]] = key;
-			}
-			for ( auto pair : texture2DOrderedMap ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[pair.second] );
-		#endif
 
 			// bind scene's voxel texture
-			if ( uf::renderer::settings::experimental::vxgi ) {
+			if ( uf::renderer::settings::pipelines::vxgi ) {
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
 				for ( auto& t : sceneTextures.voxels.id ) graphic.material.textures.emplace_back().aliasTexture(t);
@@ -129,7 +121,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
 		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base.frag.spv"); {
 			std::pair<bool, uf::stl::string> settings[] = {
-				{ uf::renderer::settings::experimental::deferredSampling, "deferredSampling.frag" },
+				{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
 			};
 			FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
@@ -190,7 +182,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		}
 	#if UF_USE_VULKAN
 		// culling pipeline
-		if ( uf::renderer::settings::experimental::culling ) {
+		if ( uf::renderer::settings::pipelines::culling ) {
 			uf::renderer::Buffer* indirect = NULL;
 			for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 			UF_ASSERT( indirect );
@@ -248,7 +240,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 			}
 		}
 		// vxgi pipeline
-		if ( uf::renderer::settings::experimental::vxgi ) {
+		if ( uf::renderer::settings::pipelines::vxgi ) {
 			uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
 			uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("/graph/voxelize.geom.spv");
 			uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
@@ -359,8 +351,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity ) {
 		}
 	#endif
 
-		uf::instantiator::bind( "GraphBehavior", entity );
-		uf::instantiator::unbind( "RenderBehavior", entity );
+	//	uf::instantiator::bind( "GraphBehavior", entity );
+	//	uf::instantiator::unbind( "RenderBehavior", entity );
 	}
 
 void uf::graph::process( pod::Graph& graph ) {
@@ -742,9 +734,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	{
 		if ( graph.lights.count(node.name) > 0 ) {
 			auto& l = graph.lights[node.name];
-		#if UF_ENV_DREAMCAST
+		#if UF_USE_OPENGL
+			metadata.system.ignoreGraph = true;
+		#else
 			metadata.system.ignoreGraph = graph.metadata["debug"]["static"].as<bool>();
 		#endif
+			
 			uf::Serializer metadataLight;
 			metadataLight["radius"][0] = 0.001;
 			metadataLight["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
@@ -843,7 +838,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 		if ( (graph.metadata["flags"]["SEPARATE"].as<bool>()) && graph.metadata["flags"]["RENDER"].as<bool>() ) {
-			uf::instantiator::bind("RenderBehavior", entity);
+		//	uf::instantiator::bind("RenderBehavior", entity);
 
 			auto& graphic = entity.getComponent<uf::Graphic>();
 			graphic.initialize();
@@ -948,7 +943,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 		initializeShaders( graph, entity->as<uf::Object>() );
 
 		uf::instantiator::bind( "GraphBehavior", *entity );
-		uf::instantiator::unbind( "RenderBehavior", *entity );
+	//	uf::instantiator::unbind( "RenderBehavior", *entity );
 		if ( entity->getUid() == 0 ) entity->initialize();
 		//UF_MSG_DEBUG( "Initialized " << uf::string::toString( entity->as<uf::Object>() ) );
 	*/
@@ -1145,10 +1140,32 @@ void uf::graph::tick() {
 		::newGraphAdded = false;
 	}
 }
-void uf::graph::render() {
+void uf::graph::render() {	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
+	
+#if 0
+	{
+		static uf::Entity* lastController = NULL;
+		if ( lastController == &controller ) return;
+		lastController = &controller;
+
+		uf::graph::storage.buffers.camera.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
+	}
+#endif
+	auto* renderMode = uf::renderer::getCurrentRenderMode();
+	if ( !renderMode ) return;
+
+#if UF_USE_VULKAN
+	for ( auto& buffer : renderMode->buffers ) {
+		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
+		if ( buffer.allocationInfo.size != sizeof(pod::Camera::Viewports) ) continue;
+		buffer.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
+		return;
+	}
+#endif
+	
 	uf::graph::storage.buffers.camera.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
 }
 void uf::graph::destroy() {

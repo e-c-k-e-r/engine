@@ -110,7 +110,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.type = "vxgi";
 		renderMode.metadata.pipeline = "vxgi";
 		renderMode.metadata.pipelines.emplace_back("vxgi");
-		if ( uf::renderer::settings::experimental::culling ) {
+		if ( uf::renderer::settings::pipelines::culling ) {
 			renderMode.metadata.pipelines.emplace_back("culling");
 		}
 		renderMode.metadata.samples = 1;
@@ -126,7 +126,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		if ( renderMode.metadata.samples > 1 ) {
 			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "msaa.frag" );
 		}
-		if ( uf::renderer::settings::experimental::deferredSampling ) {
+		if ( uf::renderer::settings::invariant::deferredSampling ) {
 			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "deferredSampling.frag" );
 		}
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
@@ -253,6 +253,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 			}
 		} );
 	#endif
+	#if 0
 		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
 		deferredRenderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
 			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
@@ -330,6 +331,7 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 				);
 			}
 		});
+	#endif
 	}
 #endif
 }

@@ -11,7 +11,7 @@ namespace ext {
 	namespace vulkan {
 		struct Graphic;
 
-		struct UF_API Pipeline {
+		struct UF_API Pipeline : public Buffers {
 			bool aliased = false;
 
 			Device* device = NULL;

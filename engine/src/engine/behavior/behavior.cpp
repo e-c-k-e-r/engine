@@ -3,6 +3,7 @@
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/thread/thread.h>
 
+#define UF_GRAPH_PRINT_TRACE 0
 #define UF_BEHAVIORS_REMOVE_STL_FIND 1
 
 uf::Behaviors::container_t& uf::Behaviors::getBehaviors() { return m_behaviors; }
@@ -29,6 +30,8 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	m_behaviors.erase(it);
 	generateGraph();
 }
+uf::Behaviors::Graph& uf::Behaviors::getGraph() { return m_graph; }
+const uf::Behaviors::Graph& uf::Behaviors::getGraph() const { return m_graph; }
 void uf::Behaviors::generateGraph() {
 	m_graph.initialize.clear();
 	m_graph.tick.clear();
@@ -82,31 +85,33 @@ void uf::Behaviors::initialize() {
 void uf::Behaviors::tick() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
+//	if ( !m_graph.tickMT.empty() ) uf::thread::queue(m_graph.tickMT);
 	if ( m_graph.tick.empty() ) return;
-//	if ( !m_graph.tickMT.empty() ) uf::thread::batchWorkers(m_graph.tickMT, false);
-/*
-	UF_TIMER_MULTITRACE_START("Starting " << self.getName() << ": " << self.getUid());
+#if UF_GRAPH_PRINT_TRACE
+	UF_TIMER_MULTITRACE_START("Starting tick " << self.getName() << ": " << self.getUid());
 	for ( auto& fun : m_graph.tick ) {
 		fun(self);
 		UF_TIMER_MULTITRACE("");
 	}
-	UF_TIMER_MULTITRACE_END("Finished " << self.getName() << ": " << self.getUid())
-*/
+	UF_TIMER_MULTITRACE_END("Finished tick " << self.getName() << ": " << self.getUid())
+#else
 	UF_BEHAVIOR_POLYFILL(tick)
+#endif
 }
 void uf::Behaviors::render() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
 	if ( m_graph.render.empty() ) return;
-/*
-	UF_TIMER_MULTITRACE_START("Starting " << self.getName() << ": " << self.getUid());
+#if UF_GRAPH_PRINT_TRACE
+	UF_TIMER_MULTITRACE_START("Starting render " << self.getName() << ": " << self.getUid());
 	for ( auto& fun : m_graph.render ) {
 		fun(self);
 		UF_TIMER_MULTITRACE("");
 	}
-	UF_TIMER_MULTITRACE_END("Finished " << self.getName() << ": " << self.getUid())
-*/
+	UF_TIMER_MULTITRACE_END("Finished render " << self.getName() << ": " << self.getUid())
+#else
 	UF_BEHAVIOR_POLYFILL(render)
+#endif
 }
 void uf::Behaviors::destroy() {
 	uf::Object& self = *((uf::Object*) this);

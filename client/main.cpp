@@ -6,8 +6,10 @@
 #include <uf/utils/window/payloads.h>
 
 #include <uf/utils/memory/pool.h>
-#include <filesystem>
+#include <uf/spec/renderer/universal.h>
 
+
+#include <filesystem>
 #include <signal.h>
 
 namespace {
@@ -55,7 +57,6 @@ int main(int argc, char** argv){
 	client::initialize();
 	ext::initialize();
 
-
 	// For Multithreaded initialization
 	while ( !client::ready || !ext::ready ) {
 		static uf::Timer<long long> timer(false);
@@ -67,37 +68,32 @@ int main(int argc, char** argv){
 			next *= 2;
 		}
 	}
+
 	while ( client::ready && ext::ready ) {
 	#if UF_EXCEPTIONS
 		try {	
 	#endif
-		/*
-			static bool first = false; if ( !first ) { first = true;
-				ext::json::Value json;
-				uf::hooks.call("window:Resized", pod::payloads::windowResized{
-					{
-						"window:Resized",
-						"os",
-					},
-					{ uf::vector::decode( client::config["window"]["size"], pod::Vector2ui{} ) },
+			if ( uf::renderer::settings::experimental::dedicatedThread /*&& !uf::renderer::states::rebuild*/ ) {
+				auto& thread = uf::thread::get("Aux");
+				uf::thread::queue(thread, [&]{
+					ext::render();
+					client::render();
 				});
+				
+				client::tick();
+				ext::tick();
+
+				uf::thread::wait( thread );
+			} else {
+			//	UF_TIMER_MULTITRACE_START("Frame Start");
+				client::tick();
+				ext::tick();
+			//	UF_TIMER_MULTITRACE("Ticked");
+				ext::render();
+				client::render();
+			//	UF_TIMER_MULTITRACE("Rendered");
+			//	UF_TIMER_MULTITRACE_END("Frame End");
 			}
-		*/
-		#if UF_ENV_DREAMCAST
-		//	UF_TIMER_MULTITRACE_START("Starting");
-			ext::tick();
-			client::tick();
-		//	UF_TIMER_MULTITRACE("render");
-			ext::render();
-			client::render();
-		//	UF_TIMER_MULTITRACE("tick");
-		//	UF_TIMER_MULTITRACE_END("Finished");
-		#else
-			client::tick();
-			client::render();
-			ext::tick();
-			ext::render();
-		#endif
 	#if UF_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
 			UF_MSG_ERROR("RUNTIME ERROR: " << e.what());

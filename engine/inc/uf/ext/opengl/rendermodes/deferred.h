@@ -17,6 +17,7 @@ namespace ext {
 			virtual void createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics );
 			virtual void initialize( Device& device );
 			virtual void tick();
+			virtual void render();
 			virtual void destroy();
 		};
 	}

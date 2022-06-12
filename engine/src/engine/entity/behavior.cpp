@@ -3,7 +3,7 @@
 #include <uf/engine/instantiator/instantiator.h>
 
 UF_BEHAVIOR_ENTITY_CPP_BEGIN(uf::Entity)
-UF_BEHAVIOR_TRAITS_CPP(uf::EntityBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::EntityBehavior, ticks = false, renders = false, multithread = false)
 #define this ((uf::Entity*) &self)
 void uf::EntityBehavior::initialize( uf::Object& self ) {
 	if ( !this->isValid() ) this->setUid();

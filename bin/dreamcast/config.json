@@ -1,12 +1,12 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SS2",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": false },
 			"lights": { "enabled": false,
 				"useLightmaps": true,
-				"max": 2
+				"max": 0
 			},
 			"shadows": {
 				"enabled": false,
@@ -25,23 +25,9 @@
 		},
 		"ext": {
 			"opengl": {
-				"validation": {
-					"enabled": true
-				},
-				"framebuffer": {
-					"size": 1,
-					"msaa": 1
-				},
-				"experimental": {
-					"rebuild on tick begin": false,
-					"wait on render end": false,
-					"individual pipelines": true,
-					"multithreaded command recording": true,
-					"multithreaded command rendering": false,
-					"deferred mode": "",
-					"deferred reconstruct position": true,
-					"deferred alias output to swapchain": true,
-					"hdr": false,
+				"validation": { "enabled": false },
+				"framebuffer": { "size": 1, "msaa": 1 },
+				"pipelines": {
 					"culling": true
 				},
 				"formats": {
@@ -134,14 +120,16 @@
 	"window" : {
 		"terminal" :  {
 			"ncurses" : false,
-			"visible" : true
+			"visible" : false
 		},
 		"keyboard" :  {
 			"repeat" : false
 		},
 		"cursor" :  {
 			"visible" : true,
-			"center" : false
+			"center" : false,
+			"sensitivity": [ 1.25, 1.25 ],
+			"smoothing": [ 10, 10 ]
 		},
 		"mode" : "windowed",
 		"icon" : "./data/textures/icon.png",

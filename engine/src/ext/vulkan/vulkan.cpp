@@ -13,12 +13,17 @@
 #include <fstream>
 #include <atomic>
 
+namespace {
+	uf::stl::vector<VkFence> auxFences;
+}
+
 uint32_t ext::vulkan::settings::width = 1280;
 uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
 bool ext::vulkan::settings::validation = true;
 // constexpr size_t ext::vulkan::settings::maxViews = 6;
 size_t ext::vulkan::settings::viewCount = 2;
+size_t ext::vulkan::settings::gpuID = -1;
 
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
@@ -27,21 +32,28 @@ uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedInstanceExtensi
 
 VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 
+// these go hand in hand for the above
+bool ext::vulkan::settings::experimental::dedicatedThread = false;
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
-bool ext::vulkan::settings::experimental::waitOnRenderEnd = false;
-bool ext::vulkan::settings::experimental::individualPipelines = true;
-bool ext::vulkan::settings::experimental::multithreadedCommandRecording = true;
-bool ext::vulkan::settings::experimental::multithreadedCommandRendering = false;
-uf::stl::string ext::vulkan::settings::experimental::deferredMode = "";
-bool ext::vulkan::settings::experimental::deferredReconstructPosition = false;
-bool ext::vulkan::settings::experimental::deferredAliasOutputToSwapchain = true;
-bool ext::vulkan::settings::experimental::multiview = true;
-bool ext::vulkan::settings::experimental::vsync = true;
-bool ext::vulkan::settings::experimental::hdr = true;
-bool ext::vulkan::settings::experimental::vxgi = true;
-bool ext::vulkan::settings::experimental::deferredSampling = true;
-bool ext::vulkan::settings::experimental::culling = false;
-bool ext::vulkan::settings::experimental::bloom = false;
+bool ext::vulkan::settings::experimental::batchQueueSubmissions = false;
+
+// not so experimental
+bool ext::vulkan::settings::invariant::waitOnRenderEnd = false;
+bool ext::vulkan::settings::invariant::individualPipelines = true;
+bool ext::vulkan::settings::invariant::multithreadedRecording = true;
+
+uf::stl::string ext::vulkan::settings::invariant::deferredMode = "";
+bool ext::vulkan::settings::invariant::deferredReconstructPosition = false;
+bool ext::vulkan::settings::invariant::deferredAliasOutputToSwapchain = true;
+bool ext::vulkan::settings::invariant::deferredSampling = true;
+
+bool ext::vulkan::settings::invariant::multiview = true;
+// pipelines
+bool ext::vulkan::settings::pipelines::vsync = true;
+bool ext::vulkan::settings::pipelines::hdr = true;
+bool ext::vulkan::settings::pipelines::vxgi = true;
+bool ext::vulkan::settings::pipelines::culling = false;
+bool ext::vulkan::settings::pipelines::bloom = false;
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;
@@ -57,9 +69,8 @@ std::mutex ext::vulkan::mutex;
 bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
+uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
-uf::stl::vector<uf::Scene*> ext::vulkan::scenes;
-ext::vulkan::RenderMode* ext::vulkan::currentRenderMode = NULL;
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
 };
@@ -146,8 +157,25 @@ bool ext::vulkan::hasRenderMode( const uf::stl::string& name, bool isName ) {
 ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModesMap[name] = renderModes.emplace_back(mode);
+	
 	VK_VALIDATION_MESSAGE("Adding RenderMode: " << name << ": " << mode->getType());
+	
 	// reorder
+	if ( hasRenderMode("Gui", true) ) {
+		RenderMode& primary = getRenderMode("Gui", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
+	if ( hasRenderMode("", true) ) {
+		RenderMode& primary = getRenderMode("", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	} else {
+		RenderMode& primary = getRenderMode("Swapchain", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
+
 	ext::vulkan::states::rebuild = true;
 	return *mode;
 }
@@ -192,6 +220,21 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	mode->destroy();
 	if ( free ) delete mode;
 	ext::vulkan::states::rebuild = true;
+}
+ext::vulkan::RenderMode* UF_API ext::vulkan::getCurrentRenderMode() {
+	return getCurrentRenderMode( std::this_thread::get_id() );
+}
+ext::vulkan::RenderMode* UF_API ext::vulkan::getCurrentRenderMode( std::thread::id id ) {
+//	bool exists = ext::vulkan::currentRenderMode.has(id);
+//	auto& currentRenderMode = ext::vulkan::currentRenderMode.get(id);
+//	return currentRenderMode;
+	return ext::vulkan::currentRenderMode.get(id);
+}
+void UF_API ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode ) {
+	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
+}
+void UF_API ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, std::thread::id id ) {
+	ext::vulkan::currentRenderMode.get(id) = renderMode;
 }
 
 void ext::vulkan::initialize() {
@@ -252,6 +295,16 @@ void ext::vulkan::initialize() {
 		TextureCube::empty.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 		TextureCube::empty.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, 1, 6, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
+
+	{
+		::auxFences.resize( swapchain.buffers );
+		
+		VkFenceCreateInfo fenceCreateInfo = {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+		
+		for ( auto& fence : ::auxFences ) VK_CHECK_RESULT(vkCreateFence(device, &fenceCreateInfo, nullptr, &fence));
+	}
 	
 	uf::graph::initialize();
 
@@ -259,14 +312,18 @@ void ext::vulkan::initialize() {
 		if ( !renderMode ) continue;
 		renderMode->initialize(device);
 	}
-	pod::Thread::container_t jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-		if ( settings::experimental::multithreadedCommandRecording )  jobs.emplace_back([&](){renderMode->createCommandBuffers();});
-		else renderMode->createCommandBuffers();
+
+	auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
+	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+		tasks.queue([&]{
+			renderMode->lockMutex();
+			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+			renderMode->createCommandBuffers();
+			renderMode->unlockMutex();
+		});
 	}
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
+	uf::thread::execute( tasks );
+
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::tick() {
@@ -274,34 +331,78 @@ void ext::vulkan::tick() {
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
 		ext::vulkan::states::rebuild = true;
 	}
-	auto& scene = uf::scene::getCurrentScene(); 
-	auto& graph = scene.getGraph();
-	for ( auto entity : graph ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) continue;
-		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
-		graphic.initializePipeline();
-		ext::vulkan::states::rebuild = true;
+	#if 0
+	{
+		auto& scene = uf::scene::getCurrentScene(); 
+		auto& graph = scene.getGraph();
+		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
+		for ( auto entity : graph ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) continue;
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
+			tasks.queue([&]{
+				graphic.initializePipeline();
+				ext::vulkan::states::rebuild = true;
+			});
+		}
+		uf::thread::execute( tasks );
 	}
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( !renderMode->device ) {
-			renderMode->initialize(ext::vulkan::device);
+	#else
+	{
+		auto& scene = uf::scene::getCurrentScene(); 
+		auto& graph = scene.getGraph();
+		for ( auto entity : graph ) {
+			if ( !entity->hasComponent<uf::Graphic>() ) continue;
+			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
+			graphic.initializePipeline();
 			ext::vulkan::states::rebuild = true;
 		}
-		renderMode->tick();
 	}
-
-	pod::Thread::container_t jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) {
-			if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&](){renderMode->createCommandBuffers();});
-			else renderMode->createCommandBuffers();
+	#endif
+	#if 0
+	{
+		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
+		for ( auto& renderMode : renderModes ) {
+			if ( !renderMode ) continue;
+			if ( !renderMode->device ) {
+				tasks.queue([&]{
+					renderMode->initialize(ext::vulkan::device);
+					ext::vulkan::states::rebuild = true;
+					renderMode->tick();
+				});
+			} else {
+				tasks.queue([&]{
+					renderMode->tick();
+				});
+			}
+		}
+		uf::thread::execute( tasks );
+	}
+	#else
+	{
+		for ( auto& renderMode : renderModes ) {
+			if ( !renderMode ) continue;
+			if ( !renderMode->device ) {
+				renderMode->initialize(ext::vulkan::device);
+				ext::vulkan::states::rebuild = true;
+			}
+			renderMode->tick();
 		}
 	}
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
+	#endif
+	{
+		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
+		for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+			if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
+				renderMode->lockMutex();
+				if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+				renderMode->createCommandBuffers();
+				renderMode->unlockMutex();
+			});
+		}
+		uf::thread::execute( tasks );
+	}
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
@@ -309,65 +410,84 @@ void ext::vulkan::tick() {
 }
 void ext::vulkan::render() {
 	ext::vulkan::mutex.lock();
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
-	if ( hasRenderMode("", true) ) {
-		RenderMode& primary = getRenderMode("", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	} else {
-		RenderMode& primary = getRenderMode("Swapchain", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
 
-#if 1
-	pod::Thread::container_t jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode || !renderMode->execute ) continue;
-		ext::vulkan::currentRenderMode = renderMode;
-		if ( settings::experimental::multithreadedCommandRendering ) {
-			jobs.emplace_back([&]{
+	if ( settings::experimental::batchQueueSubmissions ) {
+		uf::stl::vector<RenderMode*> auxRenderModes; auxRenderModes.reserve( renderModes.size() );
+		uf::stl::vector<RenderMode*> specialRenderModes; specialRenderModes.reserve( renderModes.size() );
+
+		for ( auto renderMode : renderModes ) {
+			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
+			renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
+			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_BEGIN) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_BEGIN]( VkCommandBuffer{} );
+
+			if ( renderMode->getName() == "Gui" || renderMode->getName() == "" || renderMode->getName() == "Swapchain" )
+				specialRenderModes.emplace_back(renderMode);
+			else
+				auxRenderModes.emplace_back(renderMode);
+		}
+
+		// stuff we can batch
+		{
+			// Get next image in the swap chain (back/front buffer)
+			uf::stl::vector<VkSubmitInfo> submits; submits.reserve( auxRenderModes.size() );
+			for ( auto renderMode : auxRenderModes ) {
+				auto submitInfo = renderMode->queue();
+				if ( submitInfo.sType != VK_STRUCTURE_TYPE_SUBMIT_INFO ) continue;
+
+				ext::vulkan::setCurrentRenderMode(renderMode);
+				uf::graph::render();
+				uf::scene::render();
+
+				submits.emplace_back(submitInfo);
+				renderMode->executed = true;
+				ext::vulkan::setCurrentRenderMode(NULL);
+			}
+			
+			if ( !submits.empty() ) {
+				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFences[states::currentBuffer], VK_TRUE, UINT64_MAX));
+				VK_CHECK_RESULT(vkResetFences(device, 1, &::auxFences[states::currentBuffer]));
+				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( Device::QueueEnum::GRAPHICS ), submits.size(), submits.data(), ::auxFences[states::currentBuffer]));
+			}
+		}
+		// stuff we can't batch
+		{
+			for ( auto renderMode : specialRenderModes ) {
+				ext::vulkan::setCurrentRenderMode(renderMode);
 				uf::graph::render();
 				uf::scene::render();
 				renderMode->render();
-				renderMode->executed = true;
-			});
-		} else {
+				ext::vulkan::setCurrentRenderMode(NULL);
+			}
+		}
+
+		for ( auto renderMode : renderModes ) {
+			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_END) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_END]( VkCommandBuffer{} );
+			renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
+		}
+	} else {
+		for ( auto& renderMode : renderModes ) {
+			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
+
+			renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
+			ext::vulkan::setCurrentRenderMode(renderMode);
 			uf::graph::render();
 			uf::scene::render();
 			renderMode->render();
-			renderMode->executed = true;
+			ext::vulkan::setCurrentRenderMode(NULL);
+			renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
 		}
 	}
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
-#else
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode || !renderMode->execute ) continue;
-		ext::vulkan::currentRenderMode = renderMode;
-		uf::scene::render();
-		renderMode->render();
-		renderMode->executed = true;
-	}
-#endif
 
-	ext::vulkan::currentRenderMode = NULL;
-	if ( ext::vulkan::settings::experimental::waitOnRenderEnd ) {
-		synchronize();
-	}
-/*
-	if ( ext::openvr::context ) {
-		ext::openvr::postSubmit();
-	}
-*/
+
+	if ( ext::vulkan::settings::invariant::waitOnRenderEnd ) synchronize();
+//	if ( ext::openvr::context ) ext::openvr::postSubmit();
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();
 	synchronize();
+
+	for ( auto& fence : ::auxFences ) vkDestroyFence( device, fence, nullptr);
 
 	Texture2D::empty.destroy();
 	Texture3D::empty.destroy();

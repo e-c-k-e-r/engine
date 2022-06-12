@@ -94,7 +94,42 @@ void ext::vulkan::BaseRenderMode::tick() {
 void ext::vulkan::BaseRenderMode::render() {
 //	if ( ext::vulkan::renderModes.size() > 1 ) return;
 	if ( ext::vulkan::renderModes.back() != this ) return;
-	ext::vulkan::RenderMode::render();
+
+	//lockMutex( this->mostRecentCommandPoolId );
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	// Get next image in the swap chain (back/front buffer)
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
+
+	// Use a fence to wait until the command buffer has finished execution before using it again
+	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX));
+	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
+
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;
+
+	// Submit to the graphics queue passing a wait fence
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
+	
+	// Present the current buffer to the swap chain
+	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
+	// This ensures that the image is not presented to the windowing system until all commands have been submitted
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
+	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
+
+	this->executed = true;
+
+	//unlockMutex( this->mostRecentCommandPoolId );
 }
 
 void ext::vulkan::BaseRenderMode::initialize( Device& device ) {

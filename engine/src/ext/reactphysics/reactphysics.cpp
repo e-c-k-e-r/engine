@@ -220,10 +220,18 @@ void ext::reactphysics::tick( float delta ) {
 
 	accumulator += uf::physics::time::delta; 
 
+#if 0
+	delta = delta * ext::reactphysics::timescale / 12;
+	for ( size_t i = 0; i < 12; ++i ) {
+		::world->update(ext::reactphysics::timescale); 
+		accumulator -= delta; 
+	}
+#else
 	while ( accumulator >= ext::reactphysics::timescale ) { 
 		::world->update(ext::reactphysics::timescale); 
 		accumulator -= ext::reactphysics::timescale; 
 	}
+#endif
 
 	TIMER(ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled && ) {
 		auto& scene = uf::scene::getCurrentScene();

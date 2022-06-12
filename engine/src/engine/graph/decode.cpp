@@ -306,9 +306,13 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	graph.name = filename; //serializer["name"].as<uf::stl::string>();
 	graph.metadata = metadata; // serializer["metadata"];
 
-	pod::Thread::container_t jobs;
+#if UF_GRAPH_LOAD_MULTITHREAD
+	auto tasks = uf::thread::schedule("Async");
+#else
+	auto tasks = uf::thread::schedule("Main");
+#endif
 
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading instances...");
 		graph.instances.reserve( serializer["instances"].size() );
@@ -322,7 +326,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading primitives...");
 		graph.primitives.reserve( serializer["primitives"].size() );
@@ -335,7 +339,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading drawCommands...");
 		graph.drawCommands.reserve( serializer["drawCommands"].size() );
@@ -348,7 +352,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load mesh information
 		UF_DEBUG_TIMER_MULTITRACE("Reading meshes..."); 
 		graph.meshes.reserve( serializer["meshes"].size() );
@@ -361,7 +365,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load images
 		UF_DEBUG_TIMER_MULTITRACE("Reading images...");
 		graph.images.reserve( serializer["images"].size() );
@@ -388,7 +392,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		}
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load texture information
 		UF_DEBUG_TIMER_MULTITRACE("Reading texture information...");
 		graph.textures.reserve( serializer["textures"].size() );
@@ -401,7 +405,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load sampler information
 		UF_DEBUG_TIMER_MULTITRACE("Reading sampler information...");
 		graph.samplers.reserve( serializer["samplers"].size() );
@@ -414,7 +418,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load material information
 		UF_DEBUG_TIMER_MULTITRACE("Reading material information...");
 		graph.materials.reserve( serializer["materials"].size() );
@@ -427,7 +431,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load light information
 		UF_DEBUG_TIMER_MULTITRACE("Reading lighting information...");
 		graph.lights.reserve( serializer["lights"].size() );
@@ -439,7 +443,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load animation information
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
 		/*graph.storage*/uf::graph::storage.animations.map.reserve( serializer["animations"].size() );
@@ -458,7 +462,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load skin information
 		UF_DEBUG_TIMER_MULTITRACE("Reading skinning information...");
 		graph.skins.reserve( serializer["skins"].size() );
@@ -471,7 +475,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-	jobs.emplace_back([&]{
+	tasks.queue([&]{
 		// load node information
 		UF_DEBUG_TIMER_MULTITRACE("Reading nodes...");
 		graph.nodes.reserve( serializer["nodes"].size() );
@@ -483,11 +487,8 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
-#if UF_GRAPH_LOAD_MULTITHREAD
-	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
-#else
-	for ( auto& job : jobs ) job();
-#endif
+
+	uf::thread::execute( tasks );
 
 	// re-reference all transform parents
 	for ( auto& node : graph.nodes ) {

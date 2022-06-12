@@ -50,7 +50,7 @@ uf::Asset uf::Asset::masterAssetLoader;
 bool uf::Asset::assertionLoad = true;
 
 void uf::Asset::processQueue() {
-	uf::thread::batchWorker( [&](){
+	uf::thread::queue([&]{
 		mutex.lock();
 		auto jobs = std::move(this->getComponent<std::queue<Job>>());
 		while ( !jobs.empty() ) {
@@ -69,102 +69,6 @@ void uf::Asset::processQueue() {
 		}
 		mutex.unlock();
 	});
-
-#if 0
-	auto& jobs = this->getComponent<std::queue<Job>>();
-	mutex.lock();
-	uf::stl::vector<std::function<void()>> tasks;
-	while ( !jobs.empty() ) {
-		auto job = jobs.front();
-		jobs.pop();
-		if ( job.uri == "" || job.callback == "" ) continue;
-
-		tasks.emplace_back([=](){
-			auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
-			if ( filename == "" ) return;
-			ext::json::Value payload;
-			payload["filename"] = filename;
-			payload["hash"] = job.hash;
-			payload["mime"] = job.mime;
-			uf::hooks.call(job.callback, payload);
-		});
-	}
-	uf::thread::batchWorkers( tasks, false );
-	mutex.unlock();
-#elif 0
-	auto& jobs = this->getComponent<std::queue<Job>>();
-	mutex.lock();
-	while ( !jobs.empty() ) {
-		auto job = jobs.front();
-		jobs.pop();
-		uf::stl::string callback = job.callback;
-		uf::stl::string type = job.type;
-		uf::stl::string uri = job.uri;
-		uf::stl::string hash = job.hash;
-		uf::stl::string mime = job.mime;
-		if ( uri == "" || callback == "" ) {
-			continue;
-		}
-		uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
-		if ( callback != "" && filename != "" ) {
-			ext::json::Value payload;
-			payload["filename"] = filename;
-			payload["hash"] = hash;
-			payload["mime"] = mime;
-			uf::hooks.call(callback, payload);
-		}
-	}
-	mutex.unlock();
-#elif 0
-	uf::thread::batchWorker( [&](){
-		mutex.lock();
-		auto jobs = std::move(this->getComponent<std::queue<Job>>());
-		while ( !jobs.empty() ) {
-			auto job = jobs.front();
-			jobs.pop();
-			uf::stl::string callback = job.callback;
-			uf::stl::string type = job.type;
-			uf::stl::string uri = job.uri;
-			uf::stl::string hash = job.hash;
-			uf::stl::string mime = job.mime;
-			if ( uri == "" || callback == "" ) {
-				continue;
-			}
-			uf::stl::string filename = type == "cache" ? this->cache(uri, hash, mime) : this->load(uri, hash, mime);
-			if ( callback != "" && filename != "" ) {
-				ext::json::Value payload;
-				payload["filename"] = filename;
-				payload["hash"] = hash;
-				payload["mime"] = mime;
-				uf::hooks.call(callback, payload);
-			}
-		}
-		mutex.unlock();
-	});
-#elif 0
-	uf::thread::batchWorker( [&](){
-		mutex.lock();
-		auto jobs = std::move(this->getComponent<std::queue<Job>>());
-		uf::stl::vector<std::function<void()>> tasks;
-		while ( !jobs.empty() ) {
-			auto job = jobs.front();
-			jobs.pop();
-			if ( job.uri == "" || job.callback == "" ) continue;
-
-			tasks.emplace_back([=](){
-				auto filename = job.type == "cache" ? this->cache(job.uri, job.hash, job.mime) : this->load(job.uri, job.hash, job.mime);
-				if ( filename == "" ) return;
-				ext::json::Value payload;
-				payload["filename"] = filename;
-				payload["hash"] = job.hash;
-				payload["mime"] = job.mime;
-				uf::hooks.call(job.callback, payload);
-			});
-		}
-		uf::thread::batchWorkers( tasks, false );
-		mutex.unlock();
-	});
-#endif
 }
 void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();

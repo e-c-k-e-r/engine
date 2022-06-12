@@ -71,6 +71,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	
 	// sloppy
 	metadata.mouse.sensitivity = uf::vector::decode( ext::config["window"]["cursor"]["sensitivity"], metadata.mouse.sensitivity );
+	metadata.mouse.smoothing = uf::vector::decode( ext::config["window"]["cursor"]["smoothing"], metadata.mouse.smoothing );
 
 	this->addHook( "window:Mouse.CursorVisibility", [&](pod::payloads::windowMouseCursorVisibility& payload){
 		metadata.system.control = !payload.mouse.visible;
@@ -78,28 +79,39 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 
 	// Rotate Camera
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
-		pod::Vector2 relta = { (float) metadata.mouse.sensitivity.x * payload.mouse.delta.x / payload.window.size.x, (float) metadata.mouse.sensitivity.y * payload.mouse.delta.y / payload.window.size.y };
-	//	pod::Vector2 relta = { (float) metadata.mouse.sensitivity.x * payload.mouse.delta.x * uf::physics::time::delta, (float) metadata.mouse.sensitivity.y * payload.mouse.delta.y * uf::physics::time::delta };
+		const pod::Vector2ui deadZone{6, 6};
+	
+		pod::Vector2f delta = {
+			(float) metadata.mouse.sensitivity.x * (abs(payload.mouse.delta.x) < deadZone.x ? 0 : payload.mouse.delta.x) / payload.window.size.x,
+			(float) metadata.mouse.sensitivity.y * (abs(payload.mouse.delta.y) < deadZone.y ? 0 : payload.mouse.delta.y) / payload.window.size.y
+		};
+	
+	//	pod::Vector2f delta = metadata.mouse.sensitivity * payload.mouse.delta / payload.window.size;
 		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
-	//	relta *= uf::physics::time::delta;
-
-		if ( payload.mouse.delta.x != 0 ) {
+		metadata.camera.queued += delta;
+		
+	//	UF_MSG_DEBUG( "Window size: " << uf::vector::toString( payload.window.size ));
+	//	UF_MSG_DEBUG( "Delta: " << uf::vector::toString( payload.mouse.delta ));
+	//	UF_MSG_DEBUG( "Sensitivity: " << uf::vector::toString( metadata.mouse.sensitivity ) );
+	/*
+		if ( relta.x != 0 ) {
 			if ( metadata.camera.invert.x ) relta.x *= -1;
 			metadata.camera.limit.current.x += relta.x;
 			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-			if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, relta.x ); else
-				uf::transform::rotate( transform, transform.up, relta.x );
+				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, relta.x ); else
+					uf::transform::rotate( transform, transform.up, relta.x );
 			} else metadata.camera.limit.current.x -= relta.x;
 		}
-		if ( payload.mouse.delta.y != 0 ) {
+		if ( relta.y != 0 ) {
 			if ( metadata.camera.invert.y ) relta.y *= -1;
 			metadata.camera.limit.current.y += relta.y;
-			if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
-			//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, relta.y ); else
+				if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
+				//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, relta.y ); else
 					uf::transform::rotate( cameraTransform, cameraTransform.right, relta.y );
 			} else metadata.camera.limit.current.y -= relta.y;
 		}
 		camera.update(true);
+	*/
 	});
 	
 #if UF_USE_DISCORD
@@ -369,7 +381,28 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		metadata.system.crouching = false;
 	}
 
-	if ( keys.lookRight ^ keys.lookLeft ) {
+	if ( metadata.camera.queued.x != 0 || metadata.camera.queued.y != 0 ) {
+		auto lookDelta = metadata.camera.queued;
+		if ( abs(lookDelta.x) > uf::physics::time::delta / metadata.mouse.smoothing.x ) lookDelta.x *= uf::physics::time::delta * metadata.mouse.smoothing.x;
+		if ( abs(lookDelta.y) > uf::physics::time::delta / metadata.mouse.smoothing.y ) lookDelta.y *= uf::physics::time::delta * metadata.mouse.smoothing.y;
+		metadata.camera.queued -= lookDelta;
+		if ( lookDelta.x != 0 ) {
+			if ( metadata.camera.invert.x ) lookDelta.x *= -1;
+			metadata.camera.limit.current.x += lookDelta.x;
+			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
+				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, lookDelta.x ); else
+					uf::transform::rotate( transform, transform.up, lookDelta.x );
+			} else metadata.camera.limit.current.x -= lookDelta.x;
+		}
+		if ( lookDelta.y != 0 ) {
+			if ( metadata.camera.invert.y ) lookDelta.y *= -1;
+			metadata.camera.limit.current.y += lookDelta.y;
+				if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
+				//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
+					uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
+			} else metadata.camera.limit.current.y -= lookDelta.y;
+		}
+	} else if ( keys.lookRight ^ keys.lookLeft ) {
 		if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
 		uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 	}

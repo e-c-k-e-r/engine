@@ -54,7 +54,6 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		metadata.cull = metadataJson["baking"]["cull"].as<bool>();
 
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
-		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 
 		renderMode.execute = false;
 		renderMode.metadata.type = "single";
@@ -90,6 +89,9 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 			shader.textures.emplace_back().aliasTexture( metadata.buffers.baked );
 		});
 		UF_MSG_DEBUG("Finished initialiation.");
+		uf::thread::queue([&]{
+			uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
+		});
 	});
 
 	this->queueHook( "entity:PostInitialization.%UID%", ext::json::null(), 1 );
@@ -124,10 +126,14 @@ SAVE: {
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
 
-	pod::Thread::container_t jobs;
-
-	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
-		jobs.emplace_back([&, i]{
+#if UF_BAKER_SAVE_MULTITHREAD
+	auto tasks = uf::thread::schedule("Async");
+#else
+	auto tasks = uf::thread::schedule("Main");
+#endif
+	// 0 is always broken, do not save it
+	for ( size_t i = 1; i < metadata.max.layers; ++i ) {
+		tasks.queue([&, i]{
 		//	auto image = renderMode.screenshot(0, i);
 			auto image = metadata.buffers.baked.screenshot(i);
 			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
@@ -135,11 +141,8 @@ SAVE: {
 			UF_MSG_DEBUG("Writing to " << filename << ": " << status);
 		});
 	}
-#if UF_BAKER_SAVE_MULTITHREAD
-	if ( !jobs.empty() ) uf::thread::batchWorkers_Async( jobs );
-#else
-	for ( auto& job : jobs ) job();
-#endif
+	uf::thread::execute( tasks );
+	
 	UF_MSG_DEBUG("Baked.");
 	metadata.initialized.map = true;
 

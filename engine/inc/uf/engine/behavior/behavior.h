@@ -52,7 +52,7 @@ namespace uf {
 		typedef uf::stl::vector<pod::Behavior> container_t;
 	//	typedef uf::stl::vector<pod::Behavior::Header> container_t;
 		container_t m_behaviors;
-		struct {
+		struct Graph {
 			typedef pod::Behavior::function_t value_t;
 		//	typedef uint_fast8_t value_t;
 			uf::stl::vector<value_t> initialize;
@@ -69,6 +69,9 @@ namespace uf {
 
 		container_t& getBehaviors();
 		const container_t& getBehaviors() const;
+
+		Graph& getGraph();
+		const Graph& getGraph() const;
 
 		bool hasBehavior( const pod::Behavior& );
 		void addBehavior( const pod::Behavior& );

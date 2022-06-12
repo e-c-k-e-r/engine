@@ -263,10 +263,109 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 	int score = 0;
 	// Discrete GPUs have a significant performance advantage
-	if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-		score += 1000;
-	// Maximum possible size of textures affects graphics quality
-	score += deviceProperties.limits.maxImageDimension2D;
+	if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 1000;
+	{
+		score += deviceProperties.limits.maxImageDimension1D;
+		score += deviceProperties.limits.maxImageDimension2D;
+		score += deviceProperties.limits.maxImageDimension3D;
+		score += deviceProperties.limits.maxImageDimensionCube;
+		score += deviceProperties.limits.maxImageArrayLayers;
+		score += deviceProperties.limits.maxTexelBufferElements;
+		score += deviceProperties.limits.maxUniformBufferRange;
+		score += deviceProperties.limits.maxStorageBufferRange;
+		score += deviceProperties.limits.maxPushConstantsSize;
+		score += deviceProperties.limits.maxMemoryAllocationCount;
+		score += deviceProperties.limits.maxSamplerAllocationCount;
+		score += deviceProperties.limits.bufferImageGranularity;
+		score += deviceProperties.limits.sparseAddressSpaceSize;
+		score += deviceProperties.limits.maxBoundDescriptorSets;
+		score += deviceProperties.limits.maxPerStageDescriptorSamplers;
+		score += deviceProperties.limits.maxPerStageDescriptorUniformBuffers;
+		score += deviceProperties.limits.maxPerStageDescriptorStorageBuffers;
+		score += deviceProperties.limits.maxPerStageDescriptorSampledImages;
+		score += deviceProperties.limits.maxPerStageDescriptorStorageImages;
+		score += deviceProperties.limits.maxPerStageDescriptorInputAttachments;
+		score += deviceProperties.limits.maxPerStageResources;
+		score += deviceProperties.limits.maxDescriptorSetSamplers;
+		score += deviceProperties.limits.maxDescriptorSetUniformBuffers;
+		score += deviceProperties.limits.maxDescriptorSetUniformBuffersDynamic;
+		score += deviceProperties.limits.maxDescriptorSetStorageBuffers;
+		score += deviceProperties.limits.maxDescriptorSetStorageBuffersDynamic;
+		score += deviceProperties.limits.maxDescriptorSetSampledImages;
+		score += deviceProperties.limits.maxDescriptorSetStorageImages;
+		score += deviceProperties.limits.maxDescriptorSetInputAttachments;
+		score += deviceProperties.limits.maxVertexInputAttributes;
+		score += deviceProperties.limits.maxVertexInputBindings;
+		score += deviceProperties.limits.maxVertexInputAttributeOffset;
+		score += deviceProperties.limits.maxVertexInputBindingStride;
+		score += deviceProperties.limits.maxVertexOutputComponents;
+		score += deviceProperties.limits.maxTessellationGenerationLevel;
+		score += deviceProperties.limits.maxTessellationPatchSize;
+		score += deviceProperties.limits.maxTessellationControlPerVertexInputComponents;
+		score += deviceProperties.limits.maxTessellationControlPerVertexOutputComponents;
+		score += deviceProperties.limits.maxTessellationControlPerPatchOutputComponents;
+		score += deviceProperties.limits.maxTessellationControlTotalOutputComponents;
+		score += deviceProperties.limits.maxTessellationEvaluationInputComponents;
+		score += deviceProperties.limits.maxTessellationEvaluationOutputComponents;
+		score += deviceProperties.limits.maxGeometryShaderInvocations;
+		score += deviceProperties.limits.maxGeometryInputComponents;
+		score += deviceProperties.limits.maxGeometryOutputComponents;
+		score += deviceProperties.limits.maxGeometryOutputVertices;
+		score += deviceProperties.limits.maxGeometryTotalOutputComponents;
+		score += deviceProperties.limits.maxFragmentInputComponents;
+		score += deviceProperties.limits.maxFragmentOutputAttachments;
+		score += deviceProperties.limits.maxFragmentDualSrcAttachments;
+		score += deviceProperties.limits.maxFragmentCombinedOutputResources;
+		score += deviceProperties.limits.maxComputeSharedMemorySize;
+		score += deviceProperties.limits.maxComputeWorkGroupInvocations;
+		score += deviceProperties.limits.subPixelPrecisionBits;
+		score += deviceProperties.limits.subTexelPrecisionBits;
+		score += deviceProperties.limits.mipmapPrecisionBits;
+		score += deviceProperties.limits.maxDrawIndexedIndexValue;
+		score += deviceProperties.limits.maxDrawIndirectCount;
+		score += deviceProperties.limits.maxSamplerLodBias;
+		score += deviceProperties.limits.maxSamplerAnisotropy;
+		score += deviceProperties.limits.maxViewports;
+		score += deviceProperties.limits.viewportSubPixelBits;
+		score += deviceProperties.limits.minMemoryMapAlignment;
+		score += deviceProperties.limits.minTexelBufferOffsetAlignment;
+		score += deviceProperties.limits.minUniformBufferOffsetAlignment;
+		score += deviceProperties.limits.minStorageBufferOffsetAlignment;
+		score += deviceProperties.limits.minTexelOffset;
+		score += deviceProperties.limits.maxTexelOffset;
+		score += deviceProperties.limits.minTexelGatherOffset;
+		score += deviceProperties.limits.maxTexelGatherOffset;
+		score += deviceProperties.limits.minInterpolationOffset;
+		score += deviceProperties.limits.maxInterpolationOffset;
+		score += deviceProperties.limits.subPixelInterpolationOffsetBits;
+		score += deviceProperties.limits.maxFramebufferWidth;
+		score += deviceProperties.limits.maxFramebufferHeight;
+		score += deviceProperties.limits.maxFramebufferLayers;
+		score += deviceProperties.limits.framebufferColorSampleCounts;
+		score += deviceProperties.limits.framebufferDepthSampleCounts;
+		score += deviceProperties.limits.framebufferStencilSampleCounts;
+		score += deviceProperties.limits.framebufferNoAttachmentsSampleCounts;
+		score += deviceProperties.limits.maxColorAttachments;
+		score += deviceProperties.limits.sampledImageColorSampleCounts;
+		score += deviceProperties.limits.sampledImageIntegerSampleCounts;
+		score += deviceProperties.limits.sampledImageDepthSampleCounts;
+		score += deviceProperties.limits.sampledImageStencilSampleCounts;
+		score += deviceProperties.limits.storageImageSampleCounts;
+		score += deviceProperties.limits.maxSampleMaskWords;
+		score += deviceProperties.limits.timestampComputeAndGraphics;
+		score += deviceProperties.limits.timestampPeriod;
+		score += deviceProperties.limits.maxClipDistances;
+		score += deviceProperties.limits.maxCullDistances;
+		score += deviceProperties.limits.maxCombinedClipAndCullDistances;
+		score += deviceProperties.limits.discreteQueuePriorities;
+		score += deviceProperties.limits.pointSizeGranularity;
+		score += deviceProperties.limits.lineWidthGranularity;
+		score += deviceProperties.limits.strictLines;
+		score += deviceProperties.limits.standardSampleLocations;
+		score += deviceProperties.limits.optimalBufferCopyOffsetAlignment;
+		score += deviceProperties.limits.optimalBufferCopyRowPitchAlignment;
+		score += deviceProperties.limits.nonCoherentAtomSize;
+	}
 	// Application can't function without geometry shaders
 	if ( !deviceFeatures.geometryShader ) return 0;
 	//
@@ -307,6 +406,10 @@ int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
 		}
 		if ( formats.empty() || presentModes.empty() ) return 0;
 	}
+	if ( settings::gpuID != -1 && deviceProperties.deviceID == settings::gpuID ) {
+		score = std::numeric_limits<int>::max();
+	}
+	UF_MSG_VALIDATION("Device name: " << deviceProperties.deviceName << " (" << deviceProperties.deviceID << ") has a score of " << score);
 	return score;
 }
 
@@ -605,6 +708,16 @@ void ext::vulkan::Device::initialize() {
 
 		uf::stl::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, devices.data() );
+		
+		int bestScore = 0;
+		for ( const VkPhysicalDevice& device : devices ) {
+			int score = rate( device );
+			if ( score <= bestScore ) continue;
+			bestScore = score;
+			physicalDevice = device;
+		}
+
+	/*
 		// Use an ordered map to automatically sort candidates by increasing score
 		std::multimap<int, VkPhysicalDevice> candidates;
 		for ( const VkPhysicalDevice& device : devices ) {
@@ -614,6 +727,7 @@ void ext::vulkan::Device::initialize() {
 		// Check if the best candidate is suitable at all
 		if ( candidates.rbegin()->first <= 0 ) UF_EXCEPTION("Vulkan error: failed to find a suitable GPU!");
 		this->physicalDevice = candidates.rbegin()->second;
+	*/
 	}
 	// Update properties
 	{
@@ -624,6 +738,7 @@ void ext::vulkan::Device::initialize() {
 			// Memory properties are used regularly for creating all kinds of buffers
 			vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
 		}
+		UF_MSG_VALIDATION("Using device " << properties.deviceName << " (" << properties.deviceID << ")");
 		{
 			properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -856,7 +971,7 @@ void ext::vulkan::Device::initialize() {
 		bool SRGB = true;
 		auto TARGET_FORMAT = SRGB ? VK_FORMAT_B8G8R8A8_SRGB : VK_FORMAT_B8G8R8A8_UNORM;
 		auto TARGET_COLORSPACE = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		if ( ext::vulkan::settings::experimental::hdr ) {
+		if ( ext::vulkan::settings::pipelines::hdr ) {
 			TARGET_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
 			TARGET_COLORSPACE = VK_COLOR_SPACE_HDR10_ST2084_EXT;	
 		}

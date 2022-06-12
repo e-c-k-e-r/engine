@@ -52,7 +52,7 @@ namespace ext {
 		template<typename T> T& encode( const ext::json::Value& json, T& output, const ext::json::EncodingSettings& settings = {} );
 		template<typename T> ext::json::Value& decode( ext::json::Value& json, const T& input, const DecodingSettings& settings = {} );
 		
-		inline uf::stl::string UF_API encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings = {} ) {
+		inline uf::stl::string encode( const ext::json::Value& json, const ext::json::EncodingSettings& settings = {} ) {
 			uf::stl::string output;
 			encode( json, output, settings );
 			return output;

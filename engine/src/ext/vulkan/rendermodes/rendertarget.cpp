@@ -8,6 +8,7 @@
 #include <uf/utils/graphic/graphic.h>
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/utils/camera/camera.h>
 
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
 //	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
@@ -60,6 +61,12 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	if ( metadata.subpasses == 0 ) metadata.subpasses = 1;
 	renderTarget.device = &device;
 	renderTarget.views = metadata.views;
+	
+	//
+	if ( metadata.type == "depth" ) {
+		buffers.emplace_back().initialize( NULL, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+	}
+
 	if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
 		renderTarget.views = metadata.subpasses;
 		struct {
@@ -86,28 +93,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
-			if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
-				struct {
-					size_t depth;
-				} attachments = {};
-
-				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ ext::vulkan::settings::formats::depth,
-					/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-					/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					/*.blend = */ false,
-					/*.samples = */ 1,
-				});
-				renderTarget.addPass(
-					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					{},
-					{},
-					{},
-					attachments.depth,
-					0,
-					true
-				);
-			} else if ( metadata.type == "single" ) {
+			if ( metadata.type == "single" ) {
 				struct {
 					size_t albedo, depth;
 				} attachments = {};
@@ -136,62 +122,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					true
 				);
 			} else {
-			#if 0
-				struct {
-					size_t albedo, normals, position, depth;
-				} attachments = {};
-
-				attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ ext::vulkan::settings::formats::color,
-					/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					/*.blend = */ true,
-					/*.samples = */ 1,
-				});
-				attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ ext::vulkan::settings::formats::normal,
-					/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					/*.blend = */ false,
-					/*.samples = */ 1,
-				});
-
-				if ( !settings::experimental::deferredReconstructPosition )
-					attachments.position = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-						/*.format = */ ext::vulkan::settings::formats::position,
-						/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-						/*.blend = */ false,
-						/*.samples = */ 1,
-					});
-
-				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ ext::vulkan::settings::formats::depth,
-					/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-					/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					/*.blend = */ false,
-					/*.samples = */ 1,
-				});
-
-				// First pass: write to target
-				if ( settings::experimental::deferredReconstructPosition ) {
-					renderTarget.addPass(
-						VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-						{ attachments.albedo, attachments.normals },
-						{},
-						{},
-						attachments.depth
-					);
-				} else {
-					renderTarget.addPass(
-						VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-						{ attachments.albedo, attachments.normals, attachments.position },
-						{},
-						{},
-						attachments.depth
-					);
-				}
-			#else
 				struct {
 					size_t id, normals, uvs, albedo, depth, output;
 				} attachments = {};
@@ -210,7 +140,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					/*.blend = */false,
 					/*.samples = */msaa,
 				});
-				if ( !true && ext::vulkan::settings::experimental::deferredMode != "" ) {
+				if ( !true && ext::vulkan::settings::invariant::deferredMode != "" ) {
 					attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 						/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
 						/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -241,7 +171,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					/*.blend =*/ true,
 					/*.samples =*/ 1,
 				});
-				if ( !true && ext::vulkan::settings::experimental::deferredMode != "" ) {
+				if ( !true && ext::vulkan::settings::invariant::deferredMode != "" ) {
 					// First pass: fill the G-Buffer
 					{
 						renderTarget.addPass(
@@ -293,7 +223,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					}
 				}
 				metadata.outputs.emplace_back(attachments.output);
-			#endif
 			}
 		}
 	}
@@ -373,7 +302,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ msaa > 1, "msaa.frag" },
 				// I don't actually have support for deferred sampling within a render target
-				//	{ uf::renderer::settings::experimental::deferredSampling, "deferredSampling.frag" },
+				//	{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
 				};
 				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 			}
@@ -514,12 +443,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 			}
 		}
 	}
-}
-void ext::vulkan::RenderTargetRenderMode::destroy() {
-	ext::vulkan::RenderMode::destroy();
-	blitter.destroy();
-}
-void ext::vulkan::RenderTargetRenderMode::render() {
+
 	if ( metadata.limiter.frequency > 0 ) {
 		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
 			metadata.limiter.timer = 0;
@@ -529,44 +453,38 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 			metadata.limiter.execute = false;
 		}
 	}
+}
+void ext::vulkan::RenderTargetRenderMode::destroy() {
+	ext::vulkan::RenderMode::destroy();
+	blitter.destroy();
+}
 
-	if ( !metadata.limiter.execute ) return;
-
+void ext::vulkan::RenderTargetRenderMode::render() {
 	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
 
+	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
 	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
 	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
 
-	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-	VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	// The submit info structure specifices a command buffer queue submission batch
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = &waitStageMask;						// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitDstStageMask = NULL; 								// Pointer to the list of pipeline stages that the semaphore waits will occur at
 	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
 	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
-//	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;			// Semaphore(s) to be signaled when command buffers have completed
-//	submitInfo.signalSemaphoreCount = 1;								// One signal semaphore
 	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
 	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
-/*
-	VkSemaphoreWaitInfo waitInfo = {};
-	waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-	waitInfo.flags = VK_SEMAPHORE_WAIT_ANY_BIT;
-	waitInfo.semaphoreCount = 1;
-	waitInfo.pSemaphores = &renderCompleteSemaphore;
-	waitInfo.pValues = NULL;
-	VK_CHECK_RESULT(vkWaitSemaphores( *device, &waitInfo, UINT64_MAX ));
-*/
 
 	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
+
+	this->executed = true;
+	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };

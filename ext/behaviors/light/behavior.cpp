@@ -65,7 +65,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		renderMode.metadata.type = "depth";
 		renderMode.metadata.pipeline = "depth";
-		if ( uf::renderer::settings::experimental::culling ) {
+		if ( uf::renderer::settings::pipelines::culling ) {
 			renderMode.metadata.pipelines.emplace_back("culling");
 		}
 		renderMode.metadata.json["descriptor"]["depth bias"] = metadataJson["light"]["bias"];
@@ -93,10 +93,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		camera.update(true);
 		
 		uf::stl::string name = "RT:" + std::to_string((int) this->getUid());
-		uf::renderer::addRenderMode( &renderMode, name );
 		renderMode.blitter.process = false;
 		renderMode.width = size.x;
 		renderMode.height = size.y;
+		uf::renderer::addRenderMode( &renderMode, name );
 	}
 
 	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
@@ -173,36 +173,43 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 	}
 #endif
 	// limit updating our shadow map
+#if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
-		
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		// enable renderer every X seconds
 		if ( metadata.renderer.limiter > 0 ) {
 			if ( metadata.renderer.timer > metadata.renderer.limiter ) {
 				metadata.renderer.timer = 0;
 				renderMode.execute = true;
+				renderMode.metadata.limiter.execute = true;
 			} else {
 				metadata.renderer.timer = metadata.renderer.timer + uf::physics::time::delta;
 				renderMode.execute = false;
+				renderMode.metadata.limiter.execute = false;
 			}
 		} else {
 			// round robin, enable if it's the light's current turn
 			if ( metadata.renderer.mode == "round robin" ) {
-				if ( ::roundRobin.current < ::roundRobin.lights.size() )
+				if ( ::roundRobin.current < ::roundRobin.lights.size() ) {
 					renderMode.execute = ::roundRobin.lights[::roundRobin.current] == this;
+					renderMode.metadata.limiter.execute = ::roundRobin.lights[::roundRobin.current] == this;
+				}
 			// render only if the light is used
 			} else if ( metadata.renderer.mode == "occlusion" ) {
 				renderMode.execute = metadata.renderer.rendered;
+				renderMode.metadata.limiter.execute = metadata.renderer.rendered;
 			// light baking, but sadly re-bakes every time the command buffer is recorded
 			} else if ( metadata.renderer.mode == "once" ) {
 				renderMode.execute = !metadata.renderer.rendered;
+				renderMode.metadata.limiter.execute = !metadata.renderer.rendered;
+				
 				metadata.renderer.rendered = true;
 			} else if ( metadata.renderer.mode == "in-range" ) {
 				metadata.renderer.rendered = false;
 			}
 		}
 		// skip if we're handling the camera view matrix position ourselves
-		if ( renderMode.execute && !metadata.renderer.external ) {
+		if ( /*renderMode.execute*/ renderMode.metadata.limiter.execute && !metadata.renderer.external ) {
 			auto& camera = this->getComponent<uf::Camera>();
 			// omni light
 			if ( metadata.shadows && std::abs(metadata.type) == 1 ) {
@@ -217,6 +224,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
+#endif
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize(self, metadataJson);
 #endif

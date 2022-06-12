@@ -184,6 +184,10 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 		auto& audio = this->getComponent<uf::MappedSoundEmitter>();
 		audio.update();
 	}
+	if ( this->hasComponent<pod::Graph>() ) {
+		auto& graph = this->getComponent<pod::Graph>();
+		uf::graph::update( graph );
+	}
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 #if UF_ENTITY_METADATA_USE_JSON

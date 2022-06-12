@@ -17,6 +17,8 @@ namespace uf {
 		// 	we could keep a cache of controllers for each rendermode, but we have to invalidate the cache every time the graph regenerates
 			uf::stl::unordered_map<uf::stl::string, uf::Entity*> cache;
 		#endif
+
+			pod::Thread::Tasks tasks;
 		);
 	}
 }

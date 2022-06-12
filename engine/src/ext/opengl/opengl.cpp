@@ -27,21 +27,27 @@ uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedInstanceExtensi
 
 ext::opengl::enums::Filter::type_t ext::opengl::settings::swapchainUpscaleFilter = ext::opengl::enums::Filter::LINEAR;
 
+// these go hand in hand for the above
+bool ext::opengl::settings::experimental::dedicatedThread = false;
 bool ext::opengl::settings::experimental::rebuildOnTickBegin = false;
-bool ext::opengl::settings::experimental::waitOnRenderEnd = false;
-bool ext::opengl::settings::experimental::individualPipelines = true;
-bool ext::opengl::settings::experimental::multithreadedCommandRecording = true;
-bool ext::opengl::settings::experimental::multithreadedCommandRendering = false;
-uf::stl::string ext::opengl::settings::experimental::deferredMode = "";
-bool ext::opengl::settings::experimental::deferredReconstructPosition = false;
-bool ext::opengl::settings::experimental::deferredAliasOutputToSwapchain = true;
-bool ext::opengl::settings::experimental::multiview = true;
-bool ext::opengl::settings::experimental::vsync = true;
-bool ext::opengl::settings::experimental::hdr = true;
-bool ext::opengl::settings::experimental::vxgi = true;
-bool ext::opengl::settings::experimental::deferredSampling = false;
-bool ext::opengl::settings::experimental::culling = false;
-bool ext::opengl::settings::experimental::bloom = false;
+
+// not so experimental
+bool ext::opengl::settings::invariant::waitOnRenderEnd = false;
+bool ext::opengl::settings::invariant::individualPipelines = true;
+bool ext::opengl::settings::invariant::multithreadedRecording = true;
+
+uf::stl::string ext::opengl::settings::invariant::deferredMode = "";
+bool ext::opengl::settings::invariant::deferredReconstructPosition = false;
+bool ext::opengl::settings::invariant::deferredAliasOutputToSwapchain = true;
+bool ext::opengl::settings::invariant::deferredSampling = true;
+
+bool ext::opengl::settings::invariant::multiview = true;
+// pipelines
+bool ext::opengl::settings::pipelines::vsync = true;
+bool ext::opengl::settings::pipelines::hdr = true;
+bool ext::opengl::settings::pipelines::vxgi = true;
+bool ext::opengl::settings::pipelines::culling = false;
+bool ext::opengl::settings::pipelines::bloom = false;
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;
@@ -56,9 +62,9 @@ std::mutex ext::opengl::immediateModeMutex;
 bool ext::opengl::states::resized = false;
 bool ext::opengl::states::rebuild = false;
 uint32_t ext::opengl::states::currentBuffer = 0;
+uf::ThreadUnique<ext::opengl::RenderMode*> ext::opengl::currentRenderMode;
 
-uf::stl::vector<uf::Scene*> ext::opengl::scenes;
-ext::opengl::RenderMode* ext::opengl::currentRenderMode = NULL;
+
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
 	new ext::opengl::BaseRenderMode,
 };
@@ -131,6 +137,18 @@ void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool f
 	if ( free ) delete mode;
 	ext::opengl::states::rebuild = true;
 }
+ext::opengl::RenderMode* UF_API ext::opengl::getCurrentRenderMode() {
+	return getCurrentRenderMode( std::this_thread::get_id() );
+}
+ext::opengl::RenderMode* UF_API ext::opengl::getCurrentRenderMode( std::thread::id id ) {
+	return ext::opengl::currentRenderMode.get(id);
+}
+void UF_API ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode ) {
+	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
+}
+void UF_API ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode, std::thread::id id ) {
+	ext::opengl::currentRenderMode.get(id) = renderMode;
+}
 
 void UF_API ext::opengl::initialize() {
 	device.initialize();
@@ -166,17 +184,18 @@ void UF_API ext::opengl::initialize() {
 	}
 	
 	uf::graph::initialize();
-	
-	pod::Thread::container_t jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-		if ( settings::experimental::multithreadedCommandRecording ) {
-			jobs.emplace_back([&](){renderMode->createCommandBuffers();});
-		} else renderMode->createCommandBuffers();
+
+	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording ? "Aux" : "Main");
+	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+		tasks.queue([&]{
+			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+			renderMode->createCommandBuffers();
+		});
 	}
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );
+	uf::thread::execute( tasks );
+
 	// bind shaders
+#if 0
 /*
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/cull.comp.spv", []( const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic ) {
@@ -186,7 +205,6 @@ void UF_API ext::opengl::initialize() {
 		});
 	}
 */
-#if 0
 	{
 		ext::opengl::Shader::bind( uf::io::root + "shaders/graph/instanced.vert.spv", [](const ext::opengl::Shader& shader, const ext::opengl::Graphic& graphic, void* userdata) {
 			if ( !userdata ) return;
@@ -338,16 +356,16 @@ void UF_API ext::opengl::tick(){
 		}
 		renderMode->tick();
 	}
-	pod::Thread::container_t jobs;
-	for ( auto& renderMode : renderModes ) {
-		if ( !renderMode ) continue;
-		if ( ext::opengl::states::rebuild || renderMode->rebuild ) {
-			if ( settings::experimental::individualPipelines ) renderMode->bindPipelines();
-			if ( settings::experimental::multithreadedCommandRecording ) jobs.emplace_back([&](){renderMode->createCommandBuffers();});
-			else renderMode->createCommandBuffers();
-		}
+
+	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording ? "Aux" : "Main");
+	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+		if ( ext::opengl::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
+			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+			renderMode->createCommandBuffers();
+		});
 	}
-	if ( !jobs.empty() ) uf::thread::batchWorkers( jobs );	
+	uf::thread::execute( tasks );
+
 /*
 	ext::opengl::device.activateContext();
 	ext::opengl::device.commandBuffer.end();
@@ -362,12 +380,7 @@ void UF_API ext::opengl::tick(){
 void UF_API ext::opengl::render(){
 	ext::opengl::mutex.lock();
 #if !UF_ENV_DREAMCAST
-#if 0
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
+#if 1
 	if ( hasRenderMode("", true) ) {
 		RenderMode& primary = getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
@@ -377,19 +390,66 @@ void UF_API ext::opengl::render(){
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
+	if ( hasRenderMode("Gui", true) ) {
+		RenderMode& primary = getRenderMode("Gui", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
 #endif
 	ext::opengl::device.activateContext();
 #endif
+
+	{
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneMetadata = scene.getComponent<uf::Serializer>();
+
+		CommandBuffer::InfoClear clearCommandInfo = {};
+		clearCommandInfo.type = enums::Command::CLEAR;
+		clearCommandInfo.color = {1.0f, 1.0f, 1.0f, 1.0f};
+		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
+		clearCommandInfo.depth = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
+
+	#if 1
+		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
+			clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );
+		}
+		if ( !ext::json::isNull( sceneMetadata["light"]["ambient"] ) ) {
+			clearCommandInfo.color = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{0,0,0,0} );
+		//	auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
+		//	GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
+		}
+	#endif
+
+		GL_ERROR_CHECK(glClearColor(clearCommandInfo.color[0], clearCommandInfo.color[1], clearCommandInfo.color[2], clearCommandInfo.color[3]));
+		GL_ERROR_CHECK(glClearDepth(clearCommandInfo.depth));
+		GL_ERROR_CHECK(glClear(clearCommandInfo.bits));
+	}
+
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;
-		ext::opengl::currentRenderMode = renderMode;
+		ext::opengl::setCurrentRenderMode( renderMode );
+
 		uf::graph::render();
 		uf::scene::render();
 		renderMode->render();
-		renderMode->executed = true;
+
+		ext::opengl::setCurrentRenderMode(NULL);
 	}
-	ext::opengl::currentRenderMode = NULL;
-	if ( ext::opengl::settings::experimental::waitOnRenderEnd ) synchronize();
+
+	if ( ext::opengl::settings::invariant::waitOnRenderEnd ) synchronize();
+
+	{
+	#if UF_ENV_DREAMCAST
+		#if UF_USE_OPENGL_GLDC
+			glKosSwapBuffers();
+		#else
+			glutSwapBuffers();
+		#endif
+	#else
+		device.activateContext().display();
+	#endif
+	}
+
 #if UF_USE_OPENVR
 	// if ( ext::openvr::context ) ext::openvr::postSubmit();
 #endif

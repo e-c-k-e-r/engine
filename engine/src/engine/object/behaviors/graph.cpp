@@ -14,7 +14,7 @@
 #include <uf/utils/string/hash.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::GraphBehavior)
-UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = true, renders = true, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::GraphBehavior, ticks = false, renders = false, multithread = false)
 #define this (&self)
 void uf::GraphBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<uf::Serializer>();
@@ -72,11 +72,11 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}
 void uf::GraphBehavior::tick( uf::Object& self ) {
+#if 0
 	if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 		uf::graph::update( graph );
 	}
-#if 0
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
 	//	if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) uf::graph::update( graph );

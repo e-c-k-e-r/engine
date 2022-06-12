@@ -82,7 +82,7 @@ void ext::opengl::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		commands.record(clearCommandInfo);
 	#endif
-	#if 0
+	#if 1
 		CommandBuffer::InfoViewport viewportCommandInfo = {};
 		viewportCommandInfo.type = enums::Command::VIEWPORT;
 		viewportCommandInfo.corner = pod::Vector2ui{0, 0};

@@ -102,10 +102,12 @@ void ext::opengl::CommandBuffer::submit() {
 		switch ( header->type ) {
 			case ext::opengl::enums::Command::CLEAR: {
 				InfoClear* info = (InfoClear*) header;
+			/*
 				GL_ERROR_CHECK(glClearColor(info->color[0], info->color[1], info->color[2], info->color[3]));
 				GL_ERROR_CHECK(glClearDepth(info->depth));
 				GL_ERROR_CHECK(glClear(info->bits));
-			//	GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
+				GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
+			*/
 				//UF_TIMER_MULTITRACE("Command::CLEAR");
 			} break;
 			case ext::opengl::enums::Command::VIEWPORT: {
@@ -249,7 +251,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
 		pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
-		if ( ext::opengl::settings::experimental::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
+		if ( ext::opengl::settings::pipelines::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
 			pod::Instance& instance = *(pod::Instance*) drawInfo.attributes.instance.pointer;
 			pod::Matrix4f mat = (*drawInfo.matrices.projection) * (*drawInfo.matrices.view) * (*drawInfo.matrices.model);
 			
@@ -266,6 +268,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
 	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
 
+#if 1
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
 		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
 	} else {
@@ -279,6 +282,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 	}
 	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
+#endif
 
 	// CPU-buffer based command dispatching
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
@@ -294,10 +298,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 	GLboolean blending = glIsEnabled(GL_BLEND);
 
-	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {
-	//	static GLuint previous = 0;
-	//	if ( previous != drawInfo.textures.primary.image ) previous = drawInfo.textures.primary.image;
-		
+	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {		
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
@@ -306,43 +307,41 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
 		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (drawInfo.attributes.uv.pointer + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
-		
-		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+
+		if ( !(drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer) ) {
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		} else {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
 		
-		//	static GLuint previous = 0;
-		//	if ( previous != drawInfo.textures.secondary.image ) previous = drawInfo.textures.secondary.image;
-			
 			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
 			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
 			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
 			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		#if UF_ENV_DREAMCAST
-			if ( blending ) GL_ERROR_CHECK(glDisable(GL_BLEND));
-		#endif
+
 			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (drawInfo.attributes.st.pointer + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
 		}
 	}
 
-	
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (drawInfo.attributes.normal.pointer + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));
-	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glColorPointer(4, GL_UNSIGNED_BYTE, drawInfo.attributes.color.stride, (drawInfo.attributes.color.pointer + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
+	if ( drawInfo.attributes.color.pointer ) {
+		GLenum format = GL_UNSIGNED_BYTE;
+		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
+			case sizeof(uint8_t): format = GL_UNSIGNED_BYTE; break;
+			case sizeof(float): format = GL_FLOAT; break;
+		}
+		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, format, drawInfo.attributes.color.stride, (drawInfo.attributes.color.pointer + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
+	}
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, (drawInfo.attributes.position.pointer + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first)));
-	GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (drawInfo.attributes.index.pointer + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
-
-	if ( drawInfo.textures.secondary.image ) {
-	#if UF_ENV_DREAMCAST
-		if ( blending ) GL_ERROR_CHECK(glEnable(GL_BLEND));
-	#endif
+	
+	if ( drawInfo.descriptor.inputs.index.count ) {
+		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (drawInfo.attributes.index.pointer + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
+	} else {
+		GL_ERROR_CHECK(glDrawArrays(GL_TRIANGLES, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	}
 
-#if 0
 	if ( drawInfo.textures.secondary.image ) {
-	#if UF_ENV_DREAMCAST
-		GL_ERROR_CHECK(glEnable(GL_BLEND));
-	#endif
 		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
 		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, 0));
@@ -354,7 +353,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, 0));
 		GL_ERROR_CHECK(glDisable(drawInfo.textures.primary.viewType));
 	}
-#endif
 
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
 	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));

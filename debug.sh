@@ -1,8 +1,10 @@
 #!/bin/bash
 cd bin
-PREFIX=$(cat ./exe/default.config)
-cp ./exe/lib/win64/*.dll .
-cp ./exe/lib/win64/$PREFIX/*.dll .
-gdb ./exe/program.$PREFIX.exe
+ARCH=$(cat ./exe/default/arch)
+CC=$(cat ./exe/default/cc)
+RENDERER=$(cat ./exe/default/renderer)
+cp ./exe/lib/$ARCH/*.dll .
+cp ./exe/lib/$ARCH/$CC/$RENDERER/*.dll .
+gdb ./exe/program.$ARCH.$CC.$RENDERER.exe
 rm *.dll
 

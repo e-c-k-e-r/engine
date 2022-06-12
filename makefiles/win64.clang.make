@@ -3,5 +3,5 @@ CDIR 			=
 CC 				= clang
 CXX 			= clang++
 OPTIMIZATIONS 	= -O3 -fstrict-aliasing # -flto
-WARNINGS 		= -g -Wall -Wno-pointer-arith -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder-ctor -Wno-ignored-attributes -Wno-c++11-narrowing -Wno-unknown-pragmas
+WARNINGS 		= -g -Wall -Wno-pointer-arith -Wno-unused-function -Wno-unused-variable -Wno-switch -Wno-reorder-ctor -Wno-ignored-attributes -Wno-c++11-narrowing -Wno-unknown-pragmas -Wno-nullability-completeness -Wno-defaulted-function-deleted -Wno-mismatched-tags
 FLAGS 			+= -std=c++17 $(OPTIMIZATIONS) $(WARNINGS) -fcolor-diagnostics -fansi-escape-codes

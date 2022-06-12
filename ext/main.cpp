@@ -92,6 +92,8 @@ namespace {
 			} limiter, fps;
 		} engine;
 	} config;
+
+	bool requestDedicatedRenderThread = false;
 }
 
 void EXT_API ext::load() {
@@ -265,12 +267,12 @@ void EXT_API ext::initialize() {
 		// Set worker threads
 		if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "async" ) {
 			uf::thread::async = true;
-			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
+			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
 			configEngineThreadJson["workers"] = threads;
 			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
 			UF_MSG_DEBUG("Using async worker threads");
 		} else if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
-			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 );
+			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
 			configEngineThreadJson["workers"] = threads;
 			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
 			UF_MSG_DEBUG("Using " << threads << " worker threads");
@@ -346,7 +348,9 @@ void EXT_API ext::initialize() {
 	#else
 		auto& configRenderJson = ::json["engine"]["ext"]["software"];
 	#endif
+		auto& configRenderInvariantJson = configRenderJson["invariant"];
 		auto& configRenderExperimentalJson = configRenderJson["experimental"];
+		auto& configRenderPipelinesJson = configRenderJson["pipelines"];
 
 		uf::renderer::settings::validation = configRenderJson["validation"]["enabled"].as( uf::renderer::settings::validation );
 		uf::renderer::settings::msaa = configRenderJson["framebuffer"]["msaa"].as( uf::renderer::settings::msaa );
@@ -365,6 +369,11 @@ void EXT_API ext::initialize() {
 		}
 
 	#if UF_USE_VULKAN
+		if ( configRenderJson["gpu"].as<uf::stl::string>() == "auto" ) {
+			uf::renderer::settings::gpuID = -1;
+		} else {
+			uf::renderer::settings::gpuID = configRenderJson["gpu"].as(uf::renderer::settings::gpuID);
+		}
 		for ( int i = 0; i < configRenderJson["validation"]["filters"].size(); ++i ) {
 			uf::renderer::settings::validationFilters.emplace_back( configRenderJson["validation"]["filters"][i].as<uf::stl::string>() );
 		}
@@ -377,21 +386,37 @@ void EXT_API ext::initialize() {
 		for ( int i = 0; i < configRenderJson["features"].size(); ++i ) {
 			uf::renderer::settings::requestedDeviceFeatures.emplace_back( configRenderJson["features"][i].as<uf::stl::string>() );
 		}
+	/*
+		"rebuild on tick begin": false,
+		"wait on render end": false,
 
+		"multithreaded recording": true,
+		"individual pipelines": true,
+		"deferred mode": "",
+		"deferred reconstruct position": true,
+		"deferred alias output to swapchain": false,
+	*/
+
+		::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
+	#if 0
+		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
-		uf::renderer::settings::experimental::waitOnRenderEnd = configRenderExperimentalJson["wait on render end"].as( uf::renderer::settings::experimental::waitOnRenderEnd );
-		uf::renderer::settings::experimental::individualPipelines = configRenderExperimentalJson["individual pipelines"].as( uf::renderer::settings::experimental::individualPipelines );
-		uf::renderer::settings::experimental::multithreadedCommandRecording = configRenderExperimentalJson["multithreaded command recording"].as( uf::renderer::settings::experimental::multithreadedCommandRecording );
-		uf::renderer::settings::experimental::multithreadedCommandRendering = configRenderExperimentalJson["multithreaded command rendering"].as( uf::renderer::settings::experimental::multithreadedCommandRendering );
-		uf::renderer::settings::experimental::deferredMode = configRenderExperimentalJson["deferred mode"].as( uf::renderer::settings::experimental::deferredMode );
-		uf::renderer::settings::experimental::deferredReconstructPosition = configRenderExperimentalJson["deferred reconstruct position"].as( uf::renderer::settings::experimental::deferredReconstructPosition );
-		uf::renderer::settings::experimental::deferredAliasOutputToSwapchain = configRenderExperimentalJson["deferred alias output to swapchain"].as( uf::renderer::settings::experimental::deferredAliasOutputToSwapchain );
-		uf::renderer::settings::experimental::vsync = configRenderExperimentalJson["vsync"].as( uf::renderer::settings::experimental::vsync );
-		uf::renderer::settings::experimental::hdr = configRenderExperimentalJson["hdr"].as( uf::renderer::settings::experimental::hdr );
-		uf::renderer::settings::experimental::vxgi = configRenderExperimentalJson["vxgi"].as( uf::renderer::settings::experimental::vxgi );
-		uf::renderer::settings::experimental::deferredSampling = configRenderExperimentalJson["deferred sampling"].as( uf::renderer::settings::experimental::deferredSampling );
-		uf::renderer::settings::experimental::culling = configRenderExperimentalJson["culling"].as( uf::renderer::settings::experimental::culling );
-		uf::renderer::settings::experimental::bloom = configRenderExperimentalJson["bloom"].as( uf::renderer::settings::experimental::bloom );
+	#endif
+		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
+
+		uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
+		uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
+		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
+		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
+		uf::renderer::settings::invariant::deferredReconstructPosition = configRenderInvariantJson["deferred reconstruct position"].as( uf::renderer::settings::invariant::deferredReconstructPosition );
+		uf::renderer::settings::invariant::deferredAliasOutputToSwapchain = configRenderInvariantJson["deferred alias output to swapchain"].as( uf::renderer::settings::invariant::deferredAliasOutputToSwapchain );
+		uf::renderer::settings::invariant::deferredSampling = configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
+	
+		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
+		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
+		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
+		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
+		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 
 	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = configRenderJson["formats"][#key].as<uf::stl::string>();\
@@ -446,7 +471,6 @@ void EXT_API ext::initialize() {
 	}
 #endif
 
-#if UF_USE_VULKAN
 	/* Initialize Vulkan */ {
 		// setup render mode
 		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
@@ -460,10 +484,11 @@ void EXT_API ext::initialize() {
 			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
 				renderMode.metadata.eyes = 2;
 			}
-			if ( uf::renderer::settings::experimental::culling ) {
+			if ( uf::renderer::settings::pipelines::culling ) {
 				renderMode.metadata.pipelines.emplace_back("culling");
 			}
 		}
+#if UF_USE_VULKAN
 		/* Callbacks for 2KHR stuffs */ {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
 			//	UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);
@@ -498,8 +523,8 @@ void EXT_API ext::initialize() {
 			//	UF_MSG_DEBUG("\tmaxMultiviewInstanceIndex = " << extProps.maxMultiviewInstanceIndex);
 			});
 		}
-	}
 #endif
+	}
 #if UF_USE_OPENVR
 	if ( ext::openvr::enabled ) {
 		ext::openvr::initialize();
@@ -527,7 +552,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::initialize();
 	}
 
-	pod::Thread& threadMain = uf::thread::has("Main") ? uf::thread::get("Main") : uf::thread::create( "Main", false );
+	pod::Thread& threadMain = uf::thread::get("Main");
 #if UF_USE_DISCORD
 	/* Discord */ if ( ::config.engine.ext.discord.enabled ) {
 		ext::discord::initialize();
@@ -555,7 +580,8 @@ void EXT_API ext::initialize() {
 				return 0;
 			};
 			
-			if ( json["immediate"].as<bool>() ) function(); else uf::thread::add( uf::thread::get("Main"), function, true );
+			if ( json["immediate"].as<bool>() ) function();
+			else uf::thread::queue( uf::thread::get("Main"), function );
 		});
 
 		uf::hooks.addHook( "game:Scene.Cleanup", [&](ext::json::Value& json){
@@ -577,11 +603,11 @@ void EXT_API ext::initialize() {
 	}
 	
 /*
-	uf::thread::add( uf::thread::fetchWorker(), [&]() -> int {
+	uf::thread::add( uf::thread::fetchWorker(), [&]{
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
 		assetLoader.processQueue();
-	return 0;}, false );
+	});
 */
 	
 	ext::ready = true;
@@ -659,7 +685,7 @@ void EXT_API ext::tick() {
 	}
 #endif
 	/* Update vulkan */ {
-		uf::renderer::tick();
+	//	uf::renderer::tick();
 	}
 	//UF_TIMER_TRACE("ticking renderer");
 #if UF_USE_DISCORD
@@ -671,7 +697,7 @@ void EXT_API ext::tick() {
 		++::times.frames;
 		++::times.total.frames;
 		TIMER( ::config.engine.fps.every ) {
-			UF_MSG_DEBUG("System: " << (::config.engine.fps.every * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
+			UF_MSG_DEBUG("System: " << (time * 1000.0/::times.frames) << " ms/frame | Time: " << time << " | Frames: " << ::times.frames << " | FPS: " << ::times.frames / time);
 		#if UF_ENV_DREAMCAST
 			DC_STATS();
 		#endif
@@ -699,6 +725,13 @@ void EXT_API ext::tick() {
 		}
 		timer.reset();
 	}
+
+	if ( ::requestDedicatedRenderThread ) {
+		::requestDedicatedRenderThread = false;
+		uf::renderer::settings::experimental::dedicatedThread = true;
+		uf::renderer::settings::experimental::rebuildOnTickBegin = true;
+		UF_MSG_DEBUG("Dedicated render requested");
+	}
 #endif
 }
 void EXT_API ext::render() {
@@ -713,6 +746,7 @@ void EXT_API ext::render() {
 	}
 #endif
 	/* Render scene */ {
+		uf::renderer::tick();
 		uf::renderer::render();
 	}
 #if UF_USE_OPENVR

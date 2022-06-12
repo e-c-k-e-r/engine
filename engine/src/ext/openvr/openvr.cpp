@@ -467,7 +467,9 @@ void ext::openvr::submit() { bool invert = swapEyes;
 #endif
 }
 void ext::openvr::synchronize( bool async ) {
-	if ( async ) uf::thread::add( uf::thread::fetchWorker(), [](){ vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0); return true; }, true );
+	if ( async ) uf::thread::queue( uf::thread::fetchWorker(), [](){
+		vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
+	});
 	else vr::VRCompositor()->WaitGetPoses(nullptr, 0, nullptr, 0);
 	
 	ext::openvr::updateTracking(1);

@@ -14,7 +14,7 @@
 #define UF_UNIFORMS_UPDATE_WITH_JSON 0
 
 UF_BEHAVIOR_REGISTER_CPP(uf::RenderBehavior)
-UF_BEHAVIOR_TRAITS_CPP(uf::RenderBehavior, ticks = true, renders = true, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::RenderBehavior, ticks = false, renders = false, multithread = false)
 #define this (&self)
 void uf::RenderBehavior::initialize( uf::Object& self ) {}
 void uf::RenderBehavior::tick( uf::Object& self ) {

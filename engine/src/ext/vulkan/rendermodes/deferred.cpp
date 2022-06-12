@@ -34,11 +34,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 		auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
 		if ( swapchainRender.renderTarget.width != width || swapchainRender.renderTarget.height != height ) {
-			settings::experimental::deferredAliasOutputToSwapchain = false;
+			settings::invariant::deferredAliasOutputToSwapchain = false;
 		}
 	}
 
-	if ( settings::experimental::bloom ) settings::experimental::deferredAliasOutputToSwapchain = false;
+	// buffers.emplace_back().initialize( NULL, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+
+	if ( settings::pipelines::bloom ) settings::invariant::deferredAliasOutputToSwapchain = false;
 
 	auto HDR_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
 	auto SDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -52,7 +54,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		size_t id, normals, uvs, mips, albedo, depth, color, bright, scratch, output;
 	} attachments = {};
 
-	bool blend = true; // !ext::vulkan::settings::experimental::deferredSampling;
+	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
 	attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format = */VK_FORMAT_R16G16_UINT,
 		/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -68,7 +70,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend = */false,
 		/*.samples = */msaa,
 	});
-	if ( ext::vulkan::settings::experimental::deferredSampling ) {
+	if ( ext::vulkan::settings::invariant::deferredSampling ) {
 		attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
 			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
@@ -87,7 +89,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		});
 	} else {
 		attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format = */ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : VK_FORMAT_R8G8B8A8_UNORM,
+			/*.format = */ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : VK_FORMAT_R8G8B8A8_UNORM,
 			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 			/*.blend = */blend,
@@ -102,21 +104,21 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.samples = */msaa,
 	});
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
+		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
+		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
 	attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
+		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
 		/*.blend =*/ blend,
@@ -124,7 +126,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	});
 
 	// Attach swapchain's image as output
-	if ( settings::experimental::deferredAliasOutputToSwapchain ) {
+	if ( settings::invariant::deferredAliasOutputToSwapchain ) {
 		attachments.output = renderTarget.attachments.size();
 		auto& swapchainAttachment = renderTarget.attachments.emplace_back();
 		swapchainAttachment.descriptor.format = ext::vulkan::settings::formats::color; //device.formats.color;
@@ -150,7 +152,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 	} else {
 		attachments.output = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::experimental::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 			/*.blend =*/ blend,
@@ -161,7 +163,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 //	metadata.outputs.emplace_back(attachments.output);
 
 	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-		if ( ext::vulkan::settings::experimental::deferredSampling ) {
+		if ( ext::vulkan::settings::invariant::deferredSampling ) {
 			// First pass: fill the G-Buffer
 			{
 				renderTarget.addPass(
@@ -242,9 +244,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
 		uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv"; {
 			std::pair<bool, uf::stl::string> settings[] = {
-				{ uf::renderer::settings::experimental::vxgi, "vxgi.frag" },
+				{ uf::renderer::settings::pipelines::vxgi, "vxgi.frag" },
 				{ msaa > 1, "msaa.frag" },
-				{ uf::renderer::settings::experimental::deferredSampling, "deferredSampling.frag" },
+				{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
 			};
 			FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 		}
@@ -257,7 +259,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 		
-		if ( settings::experimental::bloom ) {
+		if ( settings::pipelines::bloom ) {
 			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom.comp.spv");
 			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom");
 
@@ -288,7 +290,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
 			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
 
-			if ( ext::vulkan::settings::experimental::vxgi ) {
+			if ( ext::vulkan::settings::pipelines::vxgi ) {
 				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
 					auto& sc = pair.second;
@@ -330,7 +332,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			descriptor.subpass = (renderTarget.passes.size() / metadata.eyes) * eye + 1;
 			if ( !blitter.hasPipeline( descriptor ) ) blitter.initializePipeline( descriptor );
 
-			if ( settings::experimental::bloom ) {
+			if ( settings::pipelines::bloom ) {
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
 				descriptor.subpass = 0;
@@ -350,7 +352,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	if ( resized ) {
 		renderTarget.initialize( *renderTarget.device );
 
-		if ( settings::experimental::bloom ) {
+		if ( settings::pipelines::bloom ) {
 			auto& shader = blitter.material.getShader("compute", "bloom");
 		#if 1
 			shader.textures.clear();
@@ -371,7 +373,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			descriptor.subpass = (renderTarget.passes.size() / metadata.eyes) * eye + 1;
 			if ( blitter.hasPipeline( blitter.descriptor ) ) blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
 			
-			if ( settings::experimental::bloom ) {
+			if ( settings::pipelines::bloom ) {
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
 				descriptor.subpass = 0;
@@ -381,6 +383,61 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			}
 		}
 	}
+}
+VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
+	//lockMutex( this->mostRecentCommandPoolId );
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	static VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;
+
+	return submitInfo;
+}
+void ext::vulkan::DeferredRenderMode::render() {
+	//lockMutex( this->mostRecentCommandPoolId );
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	// Get next image in the swap chain (back/front buffer)
+	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
+
+	// Use a fence to wait until the command buffer has finished execution before using it again
+	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX));
+	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
+
+	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+	VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+	// The submit info structure specifices a command buffer queue submission batch
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;
+
+	// Submit to the graphics queue passing a wait fence
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
+	
+	// Present the current buffer to the swap chain
+	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
+	// This ensures that the image is not presented to the windowing system until all commands have been submitted
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
+	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
+
+	this->executed = true;
+
+	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
@@ -536,7 +593,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			// post-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
 
-			if ( settings::experimental::bloom ) {
+			if ( settings::pipelines::bloom ) {
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
@@ -591,7 +648,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				layer->pipelineBarrier( commands[i], 1 );
 			}
 			
-			if ( !settings::experimental::deferredAliasOutputToSwapchain ) {
+			if ( !settings::invariant::deferredAliasOutputToSwapchain ) {
 				{
 					auto& renderTarget = swapchainRender.renderTarget;
 					float width = renderTarget.width;

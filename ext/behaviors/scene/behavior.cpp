@@ -226,6 +226,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
+	/* Mark as ready for multithreading */ {
+		TIMER(1, uf::inputs::kbm::states::M && ) {
+			uf::renderer::settings::experimental::dedicatedThread = !uf::renderer::settings::experimental::dedicatedThread;
+			UF_MSG_DEBUG("Toggling multithreaded rendering...");
+		}
+	}
 #endif
 #if 0
 	/* Print World Tree */ {
@@ -416,7 +422,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			bool hasRT = entity->hasComponent<uf::renderer::RenderTargetRenderMode>();
 			if ( hasRT ) {
 				auto& renderMode = entity->getComponent<uf::renderer::RenderTargetRenderMode>();
-				if ( metadata.renderer.mode == "in-range" ) renderMode.execute = false;
+				if ( metadata.renderer.mode == "in-range" ) {
+					renderMode.execute = false;
+					renderMode.metadata.limiter.execute = false;
+				}
 			}
 			if ( metadata.power <= 0 ) continue;
 			auto flatten = uf::transform::flatten( entity->getComponent<pod::Transform<>>() );
@@ -468,7 +477,10 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				auto& lightMetadata = entity->getComponent<ext::LightBehavior::Metadata>();
 				lightMetadata.renderer.rendered = true;
 				// activate our shadow mapper if it's range-basedd
-				if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) renderMode.execute = true;
+				if ( lightMetadata.renderer.mode == "in-range" && shadowUpdateThreshold-- > 0 ) {
+					renderMode.execute = true;
+					renderMode.metadata.limiter.execute = true;
+				}
 				// if point light, and combining is requested
 				if ( metadata.shadow.experimentalMode > 0 && renderMode.renderTarget.views == 6 ) {
 					int32_t index = -1;
@@ -531,7 +543,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
 	}
 #endif
-	/* Update lights */ if ( !uf::renderer::settings::experimental::vxgi ) {
+	/* Update lights */ if ( !uf::renderer::settings::pipelines::vxgi ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
 }
@@ -638,7 +650,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 #endif
 
-	if ( uf::renderer::settings::experimental::bloom ) {
+	if ( uf::renderer::settings::pipelines::bloom ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
 		auto& blitter = *renderMode.getBlitters().front();
 		auto& shader = blitter.material.getShader("compute", "bloom");
@@ -778,7 +790,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	textures3D.emplace_back().aliasTexture(sceneTextures.noise);
 
 	// attach VXGI voxels
-	if ( uf::renderer::settings::experimental::vxgi ) {
+	if ( uf::renderer::settings::pipelines::vxgi ) {
 		for ( auto& t : sceneTextures.voxels.id ) textures3D.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.normal ) textures3D.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.uv ) textures3D.emplace_back().aliasTexture(t);

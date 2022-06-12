@@ -26,23 +26,31 @@ namespace ext {
 			extern UF_API ext::opengl::enums::Filter::type_t swapchainUpscaleFilter;
 
 			namespace experimental {
+				extern UF_API bool dedicatedThread;
 				extern UF_API bool rebuildOnTickBegin;
+				extern UF_API bool batchQueueSubmissions;
+			}
+
+			namespace invariant {
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
-				extern UF_API bool multithreadedCommandRecording;
-				extern UF_API bool multithreadedCommandRendering;
+				extern UF_API bool multithreadedRecording;
+
 				extern UF_API uf::stl::string deferredMode;
 				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
+				extern UF_API bool deferredSampling;
 				extern UF_API bool multiview;
+			}
+
+			namespace pipelines {
 				extern UF_API bool vsync;
 				extern UF_API bool hdr;
 				extern UF_API bool vxgi;
-				extern UF_API bool deferredSampling;
 				extern UF_API bool culling;
 				extern UF_API bool bloom;
 			}
-
+			
 			namespace formats {
 				extern UF_API GLhandle(VkColorSpaceKHR) colorSpace;
 				extern UF_API ext::opengl::enums::Format::type_t color;
@@ -61,9 +69,9 @@ namespace ext {
 		extern UF_API std::mutex mutex;
 		extern UF_API std::mutex immediateModeMutex;
 
-		extern UF_API RenderMode* currentRenderMode;
+	//	extern UF_API RenderMode* currentRenderMode;
 		extern UF_API uf::stl::vector<RenderMode*> renderModes;
-		extern UF_API uf::stl::vector<uf::Scene*> scenes;
+		extern UF_API uf::ThreadUnique<RenderMode*> currentRenderMode;
 		
 		bool UF_API hasRenderMode( const uf::stl::string&, bool = true );
 		RenderMode& UF_API addRenderMode( RenderMode*, const uf::stl::string& = "" );
@@ -71,6 +79,10 @@ namespace ext {
 		uf::stl::vector<RenderMode*> UF_API getRenderModes( const uf::stl::string&, bool = true );
 		uf::stl::vector<RenderMode*> UF_API getRenderModes( const uf::stl::vector<uf::stl::string>&, bool = true );
 		void UF_API removeRenderMode( RenderMode*, bool = true );
+		RenderMode* UF_API getCurrentRenderMode();
+		RenderMode* UF_API getCurrentRenderMode( std::thread::id );
+		void UF_API setCurrentRenderMode( RenderMode* renderMode );
+		void UF_API setCurrentRenderMode( RenderMode* renderMode,  std::thread::id );
 
 		void UF_API initialize( /*uint8_t = 0*/ );
 		void UF_API tick();

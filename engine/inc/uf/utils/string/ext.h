@@ -12,7 +12,7 @@ namespace uf {
 	//	bool match( const uf::stl::string& str, const uf::stl::string& r );
 		bool UF_API isRegex( const uf::stl::string& str );
 		uf::stl::vector<uf::stl::string> UF_API match( const uf::stl::string& str, const uf::stl::string& r );
-		inline uf::stl::vector<uf::stl::string> UF_API matches( const uf::stl::string& str, const uf::stl::string& r ) { return uf::string::match( str, r ); }
+		inline uf::stl::vector<uf::stl::string> matches( const uf::stl::string& str, const uf::stl::string& r ) { return uf::string::match( str, r ); }
 
 		bool UF_API matched( const uf::stl::string& str, const uf::stl::string& r );
 

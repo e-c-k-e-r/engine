@@ -280,9 +280,9 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 
 PIPELINE_INITIALIZATION_INVALID:
 	VK_DEBUG_VALIDATION_MESSAGE("Pipeline initialization invalid, updating next tick...");
-	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
+	uf::thread::queue( uf::thread::get("Main"), [&]{
 		this->initialize( graphic, descriptor );
-	return 0;}, true );
+	});
 	return;
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
@@ -376,8 +376,23 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 
 	for ( auto* shader : shaders ) {
 		auto& infos = INFOS.emplace_back();
-
 		uf::stl::vector<ext::vulkan::enums::Image::viewType_t> types;
+
+		// add per-rendermode buffers
+		for ( auto& buffer : renderMode.buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
+		}
+		// add per-shader buffers
+		for ( auto& buffer : shader->buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
+		}
+		// add per-pipeline buffers
+		for ( auto& buffer : this->buffers ) {
+			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
+			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
+		}
 
 		if ( descriptor.subpass < renderTarget.passes.size() ) {
 			auto& subpass = renderTarget.passes[descriptor.subpass];
@@ -404,13 +419,8 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			infos.sampler.emplace_back(sampler.descriptor.info);
 		}
 
-		size_t consumes = 0;
-		for ( auto& buffer : shader->buffers ) {
-			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		}
-
 		// check if we can even consume that many infos
+		size_t consumes = 0;
 		for ( auto& layout : shader->descriptorSetLayoutBindings ) {
 			switch ( layout.descriptorType ) {
 				// consume an texture image info
@@ -635,9 +645,9 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 PIPELINE_UPDATE_INVALID:
 //	graphic.process = false;
 	VK_DEBUG_VALIDATION_MESSAGE("Pipeline update invalid, updating next tick...");
-	uf::thread::add( uf::thread::get("Main"), [&]() -> int {
+	uf::thread::queue( uf::thread::get("Main"), [&]{
 		this->update( graphic, descriptor );
-	return 0;}, true );
+	});
 	return;
 }
 void ext::vulkan::Pipeline::destroy() {
@@ -659,6 +669,8 @@ void ext::vulkan::Pipeline::destroy() {
 		vkDestroyDescriptorSetLayout( *device, descriptorSetLayout, nullptr );
 		descriptorSetLayout = VK_NULL_HANDLE;
 	}
+
+	if ( settings::experimental::dedicatedThread ) ext::vulkan::states::rebuild = true;
 }
 uf::stl::vector<ext::vulkan::Shader*> ext::vulkan::Pipeline::getShaders( uf::stl::vector<ext::vulkan::Shader>& shaders ) {
 	uf::stl::unordered_map<uf::stl::string, ext::vulkan::Shader*> map;
@@ -1103,7 +1115,7 @@ ext::vulkan::GraphicDescriptor::hash_t ext::vulkan::GraphicDescriptor::hash() co
 	size_t hash{};
 
 	hash += std::hash<decltype(subpass)>{}(subpass);
-	if ( settings::experimental::individualPipelines )
+	if ( settings::invariant::individualPipelines )
 		hash += std::hash<decltype(renderMode)>{}(renderMode);
 	
 	hash += std::hash<decltype(renderTarget)>{}(renderTarget);

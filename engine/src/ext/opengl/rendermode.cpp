@@ -130,6 +130,8 @@ void ext::opengl::RenderMode::render() {
 	auto& commands = getCommands(this->mostRecentCommandPoolId);
 	commands.submit();
 
+	this->executed = true;
+#if 0
 	if ( ext::opengl::renderModes.back() != this ) return;
 
 #if UF_ENV_DREAMCAST
@@ -141,6 +143,7 @@ void ext::opengl::RenderMode::render() {
 #else
 	if ( device ) device->activateContext().display();
 #endif
+
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
 
@@ -161,7 +164,7 @@ void ext::opengl::RenderMode::render() {
 	GL_ERROR_CHECK(glClearColor(clearCommandInfo.color[0], clearCommandInfo.color[1], clearCommandInfo.color[2], clearCommandInfo.color[3]));
 	GL_ERROR_CHECK(glClearDepth(clearCommandInfo.depth));
 	GL_ERROR_CHECK(glClear(clearCommandInfo.bits));
-
+#endif
 }
 
 void ext::opengl::RenderMode::initialize( Device& device ) {
