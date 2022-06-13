@@ -180,8 +180,8 @@ struct Vxgi {
 	float voxelizeScale;
 	float occlusionFalloff;
 
+	float traceStartOffsetFactor;
 	uint shadows;
-	uint padding1;
 	uint padding2;
 	uint padding3;
 };

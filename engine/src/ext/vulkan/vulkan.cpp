@@ -316,10 +316,11 @@ void ext::vulkan::initialize() {
 	auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
 		tasks.queue([&]{
-			renderMode->lockMutex();
+			auto guard = renderMode->guardMutex();
+		//	renderMode->lockMutex();
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
-			renderMode->unlockMutex();
+		//	renderMode->unlockMutex();
 		});
 	}
 	uf::thread::execute( tasks );
@@ -395,10 +396,11 @@ void ext::vulkan::tick() {
 		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread ? "Aux" : "Main");
 		for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
 			if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
-				renderMode->lockMutex();
+				auto guard = renderMode->guardMutex();
+			//	renderMode->lockMutex();
 				if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 				renderMode->createCommandBuffers();
-				renderMode->unlockMutex();
+			//	renderMode->unlockMutex();
 			});
 		}
 		uf::thread::execute( tasks );
@@ -468,13 +470,14 @@ void ext::vulkan::render() {
 		for ( auto& renderMode : renderModes ) {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
 
-			renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
+		//	renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
+			auto guard = renderMode->guardMutex( renderMode->mostRecentCommandPoolId );
 			ext::vulkan::setCurrentRenderMode(renderMode);
 			uf::graph::render();
 			uf::scene::render();
 			renderMode->render();
 			ext::vulkan::setCurrentRenderMode(NULL);
-			renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
+		//	renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
 		}
 	}
 

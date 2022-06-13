@@ -60,12 +60,11 @@ namespace ext {
 			
 			uf::Image screenshot(size_t = 0, size_t = 0);
 
-			commands_container_t& getCommands();
-			commands_container_t& getCommands( std::thread::id );
-			void lockMutex();
-			void lockMutex( std::thread::id );
-			void unlockMutex();
-			void unlockMutex( std::thread::id );
+			commands_container_t& getCommands( std::thread::id = std::this_thread::get_id() );
+			void lockMutex( std::thread::id = std::this_thread::get_id() );
+			bool tryMutex( std::thread::id = std::this_thread::get_id() );
+			void unlockMutex( std::thread::id = std::this_thread::get_id() );
+			std::lock_guard<std::mutex> guardMutex( std::thread::id = std::this_thread::get_id() );
 
 			virtual ~RenderMode();
 			// RAII

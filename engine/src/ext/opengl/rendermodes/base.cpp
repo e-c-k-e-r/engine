@@ -13,6 +13,7 @@ const uf::stl::string ext::opengl::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
 void ext::opengl::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ext::opengl::Graphic*>& graphics ) {
+#if 0
 	float width = this->width > 0 ? this->width : ext::opengl::settings::width;
 	float height = this->height > 0 ? this->height : ext::opengl::settings::height;
 
@@ -53,6 +54,7 @@ void ext::opengl::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 			graphic->record( commands, descriptor, currentPass, currentDraw++ );
 		}
 	} commands.end();
+#endif
 }
 
 void ext::opengl::BaseRenderMode::initialize( Device& device ) {
@@ -72,11 +74,12 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
 	GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
 
+#if 0 && !UF_ENV_DREAMCAST
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
 	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, 0.1f));
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
+#endif
 //	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
 
 //	GL_ERROR_CHECK(glEnable(GL_NORMALIZE));
@@ -106,7 +109,9 @@ void ext::opengl::BaseRenderMode::tick() {
 	ext::opengl::RenderMode::tick();
 }
 void ext::opengl::BaseRenderMode::render() {
+#if 0
 	ext::opengl::RenderMode::render();
+#endif
 }
 
 void ext::opengl::BaseRenderMode::destroy() {

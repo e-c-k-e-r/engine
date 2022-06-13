@@ -56,7 +56,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 
 		renderMode.execute = false;
-		renderMode.metadata.type = "single";
+		renderMode.metadata.type = "depth"; // "single";
 		renderMode.metadata.pipeline = "baking";
 		renderMode.metadata.samples = 1;
 	//	renderMode.metadata.views = metadata.max.layers; // gl_Layer doesn't work
@@ -88,10 +88,10 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 			shader.textures.emplace_back().aliasTexture( metadata.buffers.baked );
 		});
-		UF_MSG_DEBUG("Finished initialiation.");
-		uf::thread::queue([&]{
+	//	uf::thread::queue([&]{
 			uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
-		});
+	//	});
+		UF_MSG_DEBUG("Finished initialiation.");
 	});
 
 	this->queueHook( "entity:PostInitialization.%UID%", ext::json::null(), 1 );
@@ -132,7 +132,7 @@ SAVE: {
 	auto tasks = uf::thread::schedule("Main");
 #endif
 	// 0 is always broken, do not save it
-	for ( size_t i = 1; i < metadata.max.layers; ++i ) {
+	for ( size_t i = 0; i < metadata.max.layers; ++i ) {
 		tasks.queue([&, i]{
 		//	auto image = renderMode.screenshot(0, i);
 			auto image = metadata.buffers.baked.screenshot(i);

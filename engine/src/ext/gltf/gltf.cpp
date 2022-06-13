@@ -239,6 +239,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	}
 	// load meshes
 	{
+		size_t masterAuxID = 0;
 		graph.meshes.reserve(model.meshes.size());
 		/*graph.storage*/uf::graph::storage.meshes.reserve(model.meshes.size());
 
@@ -466,7 +467,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	}
 #if UF_USE_XATLAS
 	// generate STs
-	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) ) {
+	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) || graph.metadata["exporter"]["unwrap"].as<uf::stl::string>() == "tagged" ) {
 		UF_MSG_DEBUG( "Generating ST's..." );
 		size_t atlases = ext::xatlas::unwrap( graph );
 		UF_MSG_DEBUG( "Generated ST's for " << atlases << " lightmaps" );

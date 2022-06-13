@@ -210,7 +210,11 @@ void EXT_API ext::initialize() {
 	}
 	{
 		uf::Mesh::defaultInterleaved = ::json["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
+	#if UF_USE_OPENGL
+		uf::matrix::reverseInfiniteProjection = false;
+	#else
 		uf::matrix::reverseInfiniteProjection = ::json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
+	#endif
 	}
 
 	/* Create initial scene (kludge) */ {

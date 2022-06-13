@@ -71,6 +71,7 @@ float omniShadowMap( const Light light, float def ) {
 	
 	float sampled = 0;
 	const int samples = int(SHADOW_SAMPLES);
+	// cubemap point light
 	if ( light.typeMap == 1 ) {
 		if ( samples < 1 ) {
 			sampled = texture(samplerCubemaps[nonuniformEXT(light.indexMap)], D).r * sampledDepthScale;
@@ -84,6 +85,7 @@ float omniShadowMap( const Light light, float def ) {
 			}
 			return factor;
 		}
+	// separated point lights
 	} else if ( light.typeMap == 2 ) {
 		const vec2 uv = positionClip.xy * 0.5 + 0.5;
 		if ( samples < 1 ) {
@@ -102,6 +104,7 @@ float omniShadowMap( const Light light, float def ) {
 #endif
 float shadowFactor( const Light light, float def ) {
 	if ( light.typeMap != 0 ) return omniShadowMap( light, def );
+	
 	if ( !validTextureIndex(light.indexMap) )
 	#if VXGI
 		return voxelShadowFactor( light, def );

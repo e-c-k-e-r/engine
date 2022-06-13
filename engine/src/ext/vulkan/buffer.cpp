@@ -35,7 +35,7 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 }
 
 void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) {
-	VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
+	if ( !mapped ) VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
 	return mapped;
 }
 void ext::vulkan::Buffer::unmap() {

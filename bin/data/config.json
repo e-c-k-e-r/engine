@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
@@ -12,13 +12,12 @@
 				"enabled": true,
 				"update": 2,
 				"max": 8,
-				"samples": 1,
-				"experimental mode": 1
+				"samples": 1
 			},
 			"textures": {
 				"max": {
-					"2D": 256,
-					"cube": 32,
+					"2D": 1024,
+					"cube": 256,
 					"3D": 1
 				}
 			},
@@ -31,6 +30,7 @@
 				"granularity": 12,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
+				"traceStartOffsetFactor": 2,
 				"shadows": 0,
 				"extents": {
 					"min": [ -8, -1, -8 ],
@@ -76,7 +76,7 @@
 				},
 				"gpu": "auto",
 				"experimental": {
-					"batch queue submissions": true,
+					"batch queue submissions": false,
 					"dedicated thread": false
 				},
 				"invariant": {},
@@ -198,15 +198,15 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": true,
+			"enabled": false,
 			"subPools": true,
 			"alignment": 64,
 			"override": false,
-			"size": "1024 MiB",
+			"size": "512 MiB",
 			"pools": {
-				"entity": "256 MiB",
-				"userdata": "256 MiB",
-				"component": "256 MiB"
+				"entity": "128 MiB",
+				"userdata": "128 MiB",
+				"component": "128 MiB"
 			}
 		},
 		"render modes": { "gui": true, "deferred": true },

@@ -397,8 +397,8 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						/*alignas(4)*/ float voxelizeScale;
 						/*alignas(4)*/ float occlusionFalloff;
 						
+						/*alignas(4)*/ float traceStartOffsetFactor;
 						/*alignas(4)*/ uint32_t shadows;
-						/*alignas(4)*/ uint32_t padding1;
 						/*alignas(4)*/ uint32_t padding2;
 						/*alignas(4)*/ uint32_t padding3;
 					};
@@ -415,6 +415,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
 						.occlusionFalloff = metadata.occlusionFalloff,
 						
+						.traceStartOffsetFactor = metadata.traceStartOffsetFactor,
 						.shadows = metadata.shadows,
 					};
 					shader.updateUniform( "UBO", uniform );
@@ -426,6 +427,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
 						.occlusionFalloff = metadata.occlusionFalloff,
 						
+						.traceStartOffsetFactor = metadata.traceStartOffsetFactor,
 						.shadows = metadata.shadows,
 					};
 					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
@@ -459,6 +461,7 @@ void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializ
 	serializer["vxgi"]["granularity"] = /*this->*/granularity;
 	serializer["vxgi"]["voxelizeScale"] = /*this->*/voxelizeScale;
 	serializer["vxgi"]["occlusionFalloff"] = /*this->*/occlusionFalloff;
+	serializer["vxgi"]["traceStartOffsetFactor"] = /*this->*/traceStartOffsetFactor;
 	serializer["vxgi"]["shadows"] = /*this->*/shadows;
 
 	serializer["vxgi"]["extents"]["min"] = uf::vector::encode(/*this->*/extents.min);
@@ -480,6 +483,7 @@ void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serial
 	/*this->*/granularity = serializer["vxgi"]["granularity"].as<float>(4);
 	/*this->*/voxelizeScale = serializer["vxgi"]["voxelizeScale"].as<float>(1);
 	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as<float>(128);
+	/*this->*/traceStartOffsetFactor = serializer["vxgi"]["traceStartOffsetFactor"].as<float>(1.0f);
 	/*this->*/shadows = serializer["vxgi"]["shadows"].as<size_t>(0);
 
 	/*this->*/extents.min = uf::vector::decode( serializer["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );

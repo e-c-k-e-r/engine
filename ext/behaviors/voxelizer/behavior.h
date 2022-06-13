@@ -23,6 +23,7 @@ namespace ext {
 			float granularity = 0;
 			float voxelizeScale = 0;
 			float occlusionFalloff = 0;
+			float traceStartOffsetFactor = 1.0f;
 			uint32_t shadows = 0;
 
 			struct {

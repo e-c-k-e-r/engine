@@ -38,8 +38,7 @@ namespace ext {
 				int samples = 4;
 				int max = 8;
 				uint32_t update = 4;
-
-				uint32_t experimentalMode = 0;
+				uint32_t typeMap = 1;
 			} shadow;
 			struct {
 				uint32_t mode;

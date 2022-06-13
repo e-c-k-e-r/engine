@@ -96,7 +96,7 @@
 
 #define UF_TIMER_MULTITRACE(X) {\
 	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_MSG_DEBUG(std::setfill(' ') << std::setw(4) << TIMER_TRACE_CUR << " ns\t" << std::setfill(' ') << std::setw(4) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " ns\t" << X);\
+	UF_MSG_DEBUG(std::setfill(' ') << std::setw(4) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(4) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 

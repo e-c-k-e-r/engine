@@ -50,8 +50,7 @@ namespace ext {
 			virtual ext::opengl::Graphic* getBlitter(size_t = 0);
 			virtual uf::stl::vector<ext::opengl::Graphic*> getBlitters();
 
-			virtual CommandBuffer& getCommands();
-			virtual CommandBuffer& getCommands( std::thread::id );
+			virtual CommandBuffer& getCommands( std::thread::id = std::this_thread::get_id() );
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			virtual void bindGraphicPushConstants( ext::opengl::Graphic*, size_t = 0 );

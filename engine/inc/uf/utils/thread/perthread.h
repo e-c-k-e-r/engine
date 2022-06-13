@@ -20,12 +20,12 @@ namespace uf {
 
 		bool has( id_t id = std::this_thread::get_id() ) const;
 		T& get( id_t id = std::this_thread::get_id() );
-	
-		void lock( id_t id = std::this_thread::get_id() );
-		void unlock( id_t id = std::this_thread::get_id() );
-		std::lock_guard<std::mutex> guard( id_t id = std::this_thread::get_id() );
-
 		container_t& container();
+	
+		void lockMutex( id_t id = std::this_thread::get_id() );
+		bool tryMutex( id_t id = std::this_thread::get_id() );
+		void unlockMutex( id_t id = std::this_thread::get_id() );
+		std::lock_guard<std::mutex> guardMutex( id_t id = std::this_thread::get_id() );
 	};
 }
 

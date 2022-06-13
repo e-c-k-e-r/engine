@@ -481,11 +481,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					renderMode.execute = true;
 					renderMode.metadata.limiter.execute = true;
 				}
+				constexpr uint32_t MODE_SPLIT = 0;
+				constexpr uint32_t MODE_CUBEMAP = 1;
+				constexpr uint32_t MODE_SEPARATE_2DS = 2;
 				// if point light, and combining is requested
-				if ( metadata.shadow.experimentalMode > 0 && renderMode.renderTarget.views == 6 ) {
+				if ( metadata.shadow.typeMap > MODE_SPLIT && renderMode.renderTarget.views == 6 ) {
 					int32_t index = -1;
 					// separated texture2Ds
-					if ( metadata.shadow.experimentalMode == 2 ) {
+					if ( metadata.shadow.typeMap == MODE_SEPARATE_2DS ) {
 						index = uf::graph::storage.shadow2Ds.size();
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
@@ -495,7 +498,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 							break;
 						}
 					// cubemapped
-					} else {
+					} else if ( metadata.shadow.typeMap == MODE_CUBEMAP ) {
 						index = uf::graph::storage.shadowCubes.size();
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
@@ -511,7 +514,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 						.color = info.color,
 						.intensity = info.intensity,
 						.type = info.type,
-						.typeMap = metadata.shadow.experimentalMode,
+						.typeMap = metadata.shadow.typeMap,
 						.indexMap = index,
 						.depthBias = info.bias,
 					});
@@ -604,7 +607,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
 	/*this->*/shadow.max = ext::config["engine"]["scenes"]["shadows"]["max"].as<uint32_t>();
 	/*this->*/shadow.update = ext::config["engine"]["scenes"]["shadows"]["update"].as<uint32_t>();
-	/*this->*/shadow.experimentalMode = ext::config["engine"]["scenes"]["shadows"]["experimental mode"].as<uint32_t>(0);
+	/*this->*/shadow.typeMap = ext::config["engine"]["scenes"]["shadows"]["map type"].as<uint32_t>(1);
 
 	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
 	/*this->*/light.max = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/light.max);
@@ -737,8 +740,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			alignas(4)  float voxelizeScale;
 			alignas(4)  float occlusionFalloff;
 			
+			alignas(4)  float traceStartOffsetFactor;
 			alignas(4)  uint32_t shadows;
-			alignas(4)  uint32_t padding1;
 			alignas(4)  uint32_t padding2;
 			alignas(4)  uint32_t padding3;
 		} vxgi;
@@ -842,6 +845,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 			.voxelizeScale = 1.0f / (metadataVxgi.voxelizeScale * std::max<uint32_t>( metadataVxgi.voxelSize.x, std::max<uint32_t>(metadataVxgi.voxelSize.y, metadataVxgi.voxelSize.z))),
 			.occlusionFalloff = metadataVxgi.occlusionFalloff,
 			
+			.traceStartOffsetFactor = metadataVxgi.traceStartOffsetFactor,
 			.shadows = metadataVxgi.shadows,
 		};
 	

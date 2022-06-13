@@ -16,7 +16,7 @@
 uint32_t ext::opengl::settings::width = 640;
 uint32_t ext::opengl::settings::height = 480;
 uint8_t ext::opengl::settings::msaa = 1;
-bool ext::opengl::settings::validation = true;
+bool ext::opengl::settings::validation = false;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
 size_t ext::opengl::settings::viewCount = 1;
 
@@ -28,24 +28,29 @@ uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedInstanceExtensi
 ext::opengl::enums::Filter::type_t ext::opengl::settings::swapchainUpscaleFilter = ext::opengl::enums::Filter::LINEAR;
 
 // these go hand in hand for the above
+#if UF_ENV_DREAMCAST
 bool ext::opengl::settings::experimental::dedicatedThread = false;
+#else
+bool ext::opengl::settings::experimental::dedicatedThread = true;
+#endif
 bool ext::opengl::settings::experimental::rebuildOnTickBegin = false;
 
 // not so experimental
 bool ext::opengl::settings::invariant::waitOnRenderEnd = false;
 bool ext::opengl::settings::invariant::individualPipelines = true;
+
 bool ext::opengl::settings::invariant::multithreadedRecording = true;
 
 uf::stl::string ext::opengl::settings::invariant::deferredMode = "";
 bool ext::opengl::settings::invariant::deferredReconstructPosition = false;
-bool ext::opengl::settings::invariant::deferredAliasOutputToSwapchain = true;
-bool ext::opengl::settings::invariant::deferredSampling = true;
+bool ext::opengl::settings::invariant::deferredAliasOutputToSwapchain = false;
+bool ext::opengl::settings::invariant::deferredSampling = false;
 
-bool ext::opengl::settings::invariant::multiview = true;
+bool ext::opengl::settings::invariant::multiview = false;
 // pipelines
 bool ext::opengl::settings::pipelines::vsync = true;
-bool ext::opengl::settings::pipelines::hdr = true;
-bool ext::opengl::settings::pipelines::vxgi = true;
+bool ext::opengl::settings::pipelines::hdr = false;
+bool ext::opengl::settings::pipelines::vxgi = false;
 bool ext::opengl::settings::pipelines::culling = false;
 bool ext::opengl::settings::pipelines::bloom = false;
 
@@ -97,7 +102,22 @@ ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mo
 	renderModes.push_back(mode);
 	if ( ext::opengl::settings::validation ) UF_MSG_DEBUG("Adding RenderMode: " << name << ": " << mode->getType());
 	// reorder
+	if ( hasRenderMode("Gui", true) ) {
+		RenderMode& primary = getRenderMode("Gui", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
+	if ( hasRenderMode("", true) ) {
+		RenderMode& primary = getRenderMode("", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	} else {
+		RenderMode& primary = getRenderMode("Swapchain", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
 	ext::opengl::states::rebuild = true;
+
 	return *mode;
 }
 ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name, bool isName ) {
@@ -366,13 +386,7 @@ void UF_API ext::opengl::tick(){
 	}
 	uf::thread::execute( tasks );
 
-/*
-	ext::opengl::device.activateContext();
-	ext::opengl::device.commandBuffer.end();
-	ext::opengl::device.commandBuffer.submit();
-	ext::opengl::device.commandBuffer.flush();
-	ext::opengl::device.commandBuffer.start();
-*/	
+
 	ext::opengl::states::rebuild = false;
 	ext::opengl::states::resized = false;
 	ext::opengl::mutex.unlock();
@@ -380,22 +394,6 @@ void UF_API ext::opengl::tick(){
 void UF_API ext::opengl::render(){
 	ext::opengl::mutex.lock();
 #if !UF_ENV_DREAMCAST
-#if 1
-	if ( hasRenderMode("", true) ) {
-		RenderMode& primary = getRenderMode("", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	} else {
-		RenderMode& primary = getRenderMode("Swapchain", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
-#endif
 	ext::opengl::device.activateContext();
 #endif
 
@@ -460,6 +458,7 @@ void UF_API ext::opengl::destroy() {
 	synchronize();
 
 	Texture2D::empty.destroy();
+/*
 	auto& scene = uf::scene::getCurrentScene(); 
 	auto& graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -467,6 +466,7 @@ void UF_API ext::opengl::destroy() {
 		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
 		graphic.destroy();
 	}
+*/
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
 		renderMode->destroy();

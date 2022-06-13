@@ -23,7 +23,8 @@
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
 					"grid": { "size": [4,1,4], "epsilon": 1.0, "cleanup": true, "print": true },
-					"optimize mesh": { "simplify": 0 }
+					"optimize mesh": { "simplify": 0 },
+					"unwrap mesh": true
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
 

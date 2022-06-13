@@ -631,15 +631,12 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		}
 	}
 
-	renderMode.rebuild = true;
-
-	vkUpdateDescriptorSets(
-		*device,
-		writeDescriptorSets.size(),
-		writeDescriptorSets.data(),
-		0,
-		NULL
-	);
+	{
+	//	bool locked = renderMode.tryMutex();
+		renderMode.rebuild = true;
+		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
+	//	if ( locked ) renderMode.unlockMutex();
+	}
 	return;
 
 PIPELINE_UPDATE_INVALID:

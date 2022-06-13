@@ -5,7 +5,10 @@
 #if UF_USE_XATLAS
 namespace ext {
 	namespace xatlas {
-		size_t UF_API unwrap( pod::Graph&, bool = false );
+		size_t UF_API unwrap( pod::Graph& );
+
+		size_t UF_API unwrapLazy( pod::Graph& );
+		size_t UF_API unwrapExperimental( pod::Graph& );
 	}
 }
 #endif

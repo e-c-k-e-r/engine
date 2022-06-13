@@ -131,6 +131,13 @@ uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 		uf::Entity* entity = (uf::Entity*) (allocation.pointer);
 		if ( entity->getUid() == uid ) return entity;
 	}
+	{
+		auto& scene = uf::scene::getCurrentScene();
+		auto& graph = scene.getGraph();
+		for ( uf::Entity* entity : graph ) {
+			if ( entity->getUid() == uid ) return entity;
+		}
+	}
 	return NULL;
 }
 uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
@@ -138,6 +145,13 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 		uf::Entity* entity = (uf::Entity*) (allocation.pointer);
 		if ( !entity->isValid() ) continue;
 		if ( entity->getName() == name ) return entity;
+	}
+	{
+		auto& scene = uf::scene::getCurrentScene();
+		auto& graph = scene.getGraph();
+		for ( uf::Entity* entity : graph ) {
+			if ( entity->getName() == name ) return entity;
+		}
 	}
 	return NULL;
 }

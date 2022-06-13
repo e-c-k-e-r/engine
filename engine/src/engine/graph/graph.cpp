@@ -760,6 +760,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				if ( key == "transform" ) return;
 				metadataLight[key] = value;
 			});
+		#if !UF_USE_OPENGL
 			if ( !(graph.metadata["lightmapped"].as<bool>() && !(metadataLight["shadows"].as<bool>() || metadataLight["dynamic"].as<bool>())) ) {
 		//	{
 				auto& metadataJson = entity.getComponent<uf::Serializer>();
@@ -769,6 +770,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 					metadataJson["light"][key] = value;
 				});
 			}
+		#endif
 		}
 	}
 
@@ -806,7 +808,8 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	}
 
 	size_t objectID = uf::graph::storage.entities.keys.size();
-	uf::graph::storage.entities[std::to_string(objectID)] = &entity;
+	auto objectKeyName = std::to_string(objectID);
+	uf::graph::storage.entities[objectKeyName] = &entity;
 
 	if ( 0 <= node.mesh && node.mesh < graph.meshes.size() ) {
 		auto model = uf::transform::model( transform );
@@ -819,7 +822,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			auto& primitive = primitives[i];
 
 			size_t instanceID = uf::graph::storage.instances.keys.size();
-			auto& instance = uf::graph::storage.instances[graph.instances.emplace_back(std::to_string(instanceID))];
+			auto instanceKeyName = graph.instances.emplace_back(std::to_string(instanceID));
+
+			auto& instance = uf::graph::storage.instances[instanceKeyName];
 			instance = primitive.instance;
 
 			instance.model = model;
@@ -973,15 +978,30 @@ void uf::graph::update( pod::Graph& graph ) {
 }
 void uf::graph::update( pod::Graph& graph, float delta ) {
 	// update our instances
+#if !UF_ENV_DREAMCAST
+//	UF_TIMER_MULTITRACE_START("Tick Start");
+	uf::stl::unordered_map<size_t, pod::Matrix4f> instanceCache;
 	for ( auto& name : uf::graph::storage.instances.keys ) {
 		auto& instance = uf::graph::storage.instances[name];
+		if ( instanceCache.count( instance.objectID ) > 0 ) {
+			instance.model = instanceCache[instance.objectID];
+			continue;
+		}
+
 		auto& entity = *uf::graph::storage.entities[std::to_string(instance.objectID)];
+		auto& metadata = entity.getComponent<uf::ObjectBehavior::Metadata>();
+		if ( metadata.system.ignoreGraph ) continue;
+		
 		auto& transform = entity.getComponent<pod::Transform<>>();
-		instance.model = uf::transform::model( transform );
+		instance.model = (instanceCache[instance.objectID] = uf::transform::model( transform ));
 	}
+//	UF_TIMER_MULTITRACE_END("Tick End");
+#endif
 
 	// no skins
-	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
+	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) {
+		return;
+	}
 
 	if ( graph.sequence.empty() ) goto UPDATE;
 	if ( graph.settings.animations.override.a >= 0 ) goto OVERRIDE;
@@ -1053,15 +1073,6 @@ void uf::graph::update( pod::Graph& graph, pod::Node& node ) {
 				joints[i] = inverseTransform * (uf::graph::matrix(graph, skin.joints[i]) * skin.inverseBindMatrices[i]);
 			}
 		}
-	/*
-		if ( node.entity && node.entity->hasComponent<uf::Graphic>() ) {
-			auto& graphic = node.entity->getComponent<uf::Graphic>();
-			if ( node.buffers.joint < graphic.buffers.size() ) {
-				auto& buffer = graphic.buffers.at(node.buffers.joint);
-				shader.updateBuffer( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f), buffer );
-			}
-		}
-	*/
 	}
 }
 void uf::graph::destroy( pod::Graph& graph ) {
@@ -1099,18 +1110,16 @@ void uf::graph::initialize() {
 }
 void uf::graph::tick() {
 	uf::stl::vector<pod::Instance> instances; instances.reserve(uf::graph::storage.instances.map.size());
-	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(uf::graph::storage.joints.map.size());
-
 	for ( auto key : uf::graph::storage.instances.keys ) instances.emplace_back( uf::graph::storage.instances.map[key] );
+	if ( !instances.empty() ) uf::graph::storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) );
 
+	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(uf::graph::storage.joints.map.size());
 	for ( auto key : uf::graph::storage.joints.keys ) {
 		auto& matrices = uf::graph::storage.joints[key];
 		joints.reserve( joints.size() + matrices.size() );
 		for ( auto& mat : matrices ) joints.emplace_back( mat );
 	}
-
-	uf::graph::storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) );
-	uf::graph::storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) );
+	if ( !joints.empty() ) uf::graph::storage.buffers.joint.update( (const void*) joints.data(), joints.size() * sizeof(pod::Matrix4f) );
 
 	if ( ::newGraphAdded ) {
 		uf::stl::vector<pod::DrawCommand> drawCommands; drawCommands.reserve(uf::graph::storage.drawCommands.map.size());

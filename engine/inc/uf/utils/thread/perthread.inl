@@ -16,17 +16,22 @@ T& uf::ThreadUnique<T>::get( id_t id ) {
 	return m_container[id];
 }
 template<typename T>
-void uf::ThreadUnique<T>::lock( id_t id ) {
+void uf::ThreadUnique<T>::lockMutex( id_t id ) {
 	if ( m_mutex_container.count(id) == 0 ) m_mutex_container[id] = new std::mutex;
 	m_mutex_container[id]->lock();
 }
 template<typename T>
-void uf::ThreadUnique<T>::unlock( id_t id ) {
+bool uf::ThreadUnique<T>::tryMutex( id_t id ) {
+	if ( m_mutex_container.count(id) == 0 ) m_mutex_container[id] = new std::mutex;
+	return m_mutex_container[id]->try_lock();
+}
+template<typename T>
+void uf::ThreadUnique<T>::unlockMutex( id_t id ) {
 	if ( m_mutex_container.count(id) == 0 ) m_mutex_container[id] = new std::mutex;
 	m_mutex_container[id]->unlock();
 }
 template<typename T>
-std::lock_guard<std::mutex> uf::ThreadUnique<T>::guard( id_t id ) {
+std::lock_guard<std::mutex> uf::ThreadUnique<T>::guardMutex( id_t id ) {
 	if ( m_mutex_container.count(id) == 0 ) m_mutex_container[id] = new std::mutex;
 	return std::lock_guard<std::mutex>(*m_mutex_container[id]);
 }

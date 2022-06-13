@@ -89,6 +89,7 @@ void uf::Behaviors::tick() {
 	if ( m_graph.tick.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
 	UF_TIMER_MULTITRACE_START("Starting tick " << self.getName() << ": " << self.getUid());
+//	for ( auto& behavior : m_behaviors ) if ( behavior.traits.ticks ) UF_MSG_DEBUG( behavior.type.name() );
 	for ( auto& fun : m_graph.tick ) {
 		fun(self);
 		UF_TIMER_MULTITRACE("");

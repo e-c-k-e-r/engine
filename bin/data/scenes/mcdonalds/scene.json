@@ -34,15 +34,16 @@
 			"exposure": 1.0,
 			"gamma": 1.0,
 			"brightnessThreshold": 1.2,
-			"ambient": [ 0, 0, 0 ],
+		//	"ambient": [ 0, 0, 0 ],
+			"ambient": [ 0.025, 0.025, 0.025 ],
 		//	"ambient": [ 0.1, 0.1, 0.1 ],
 		//	"ambient": [ 0.4, 0.4, 0.4 ],
 
-			"fog-": {
+			"fog": {
 				"color": [ 0.5, 0.5, 0.5 ],
 				"range": [ 16, 32 ],
 				"step scale": 2,
-				"absorbtion": 0.07,
+				"absorbtion": 0.01,
 				"density": {
 					"threshold": 0.35,
 					"multiplier": 5.0,
@@ -68,7 +69,8 @@
 			"shadows": 0,
 		*/
 			"occlusionFalloff": 2,
-			"granularity": 4,
+			"traceStartOffsetFactor": 1,
+			"granularity": 2,
 			"extents": {
 				"min": [ -1.5, -1.5, -1.5 ],
 				"max": [  1.5,  1.5,  1.5 ]

@@ -187,8 +187,8 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 		for ( auto& pair : grid.nodes ) { auto& node = pair.second;
 			auto& meshlet = node.meshlets[primitive.instance.primitiveID];
 
-		//	if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
-			if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
+			if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
+		//	if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
 				meshlet.indices.emplace_back( tri.indices[0] );
 				meshlet.indices.emplace_back( tri.indices[1] );
 				meshlet.indices.emplace_back( tri.indices[2] );
@@ -202,8 +202,8 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 				found = true;
 				break;
 			}
-			if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
-		//	if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
+		//	if ( isInside( tri.vertices[0], node.extents.min, node.extents.max ) || isInside( tri.vertices[1], node.extents.min, node.extents.max ) || isInside( tri.vertices[2], node.extents.min, node.extents.max ) ) {
+			if ( isInside( tri.center, node.extents.min, node.extents.max ) ) {
 				meshlet.indices.emplace_back( tri.indices[0] );
 				meshlet.indices.emplace_back( tri.indices[1] );
 				meshlet.indices.emplace_back( tri.indices[2] );

@@ -25,7 +25,9 @@
 				"combined": false,
 				"encode buffers": true,
 				"unwrap": true,
+			//	"unwrap": "tagged",
 				"optimize": "tagged",
+			//	"optimize": true,
 				"quit": true,
 				"mesh": {
 				//	"print": true
@@ -41,7 +43,7 @@
 				"output": "./lightmap.%i.png",
 				"settings": {
 					"useInputMeshUvs": true,
-					"maxIterations": 8,
+					"maxIterations": 16,
 				//	"maxChartSize": 0,
 					"padding": 4,
 				//	"texelsPerUnit": 0,
@@ -49,7 +51,7 @@
 					"blockAlign": true,
 					"bruteForce": true,
 
-				//	"rotateChartsToAxis": false,
+					"rotateChartsToAxis": false,
 					"rotateCharts": true
 				}
 			},

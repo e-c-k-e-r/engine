@@ -73,9 +73,6 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 	this->mostRecentCommandPoolId = std::this_thread::get_id();
 	this->rebuild = false;
 }
-ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands() {
-	return getCommands( std::this_thread::get_id() );
-}
 ext::opengl::CommandBuffer& ext::opengl::RenderMode::getCommands( std::thread::id id ) {
 	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
 	auto& commands = this->commands.get(id); //this->commands[id];

@@ -28,9 +28,9 @@ vec4 voxelTrace( inout Ray ray, float aperture, float maxDistance ) {
 
 	const float tStart = rayBoxInfoA.x;
 	const float tEnd = maxDistance > 0 ? min(maxDistance, rayBoxInfoB.y) : rayBoxInfoB.y;
-	const float tDelta = voxelInfo.radianceSizeRecip * granularityRecip * 1.5;
+	const float tDelta = voxelInfo.radianceSizeRecip * granularityRecip;
 	// marcher
-	ray.distance = tStart;
+	ray.distance = tStart + tDelta * ubo.vxgi.traceStartOffsetFactor;
 	ray.position = vec3(0);
 
 	vec4 radiance = vec4(0);
