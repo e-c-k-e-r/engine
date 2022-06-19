@@ -143,14 +143,14 @@ void uf::scene::tick() {
 	auto graph = scene.getGraph(true);
 #if 1
 	for ( auto entity : graph ) entity->tick();
-	auto& tasks = metadata.tasks;
 #else
+	auto& tasks = metadata.tasks;
 	pod::Thread::Tasks tasks = metadata.tasks;
 	tasks.queue([&]{
 		for ( auto entity : graph ) entity->tick();
 	});
-#endif
 	uf::thread::execute( tasks );
+#endif
 }
 void uf::scene::render() {
 	if ( scenes.empty() ) return;

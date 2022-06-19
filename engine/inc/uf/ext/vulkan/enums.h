@@ -67,6 +67,9 @@ namespace ext {
 				static const type_t GEOMETRY = VK_SHADER_STAGE_GEOMETRY_BIT;
 				static const type_t FRAGMENT = VK_SHADER_STAGE_FRAGMENT_BIT;
 				static const type_t COMPUTE = VK_SHADER_STAGE_COMPUTE_BIT;
+				static const type_t RAY_GEN = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+				static const type_t RAY_MISS = VK_SHADER_STAGE_MISS_BIT_KHR;
+				static const type_t RAY_HIT = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 				static const type_t ALL_GRAPHICS = VK_SHADER_STAGE_ALL_GRAPHICS;
 				static const type_t ALL = VK_SHADER_STAGE_ALL;
 			}
@@ -129,6 +132,9 @@ namespace ext {
 				static const type_t INDEX = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 				static const type_t VERTEX = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 				static const type_t INDIRECT = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+				static const type_t ACCELERATION_STRUCTURE = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+				static const type_t ADDRESS = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+				static const type_t BINDING_TABLE = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 
 				static const type_t STREAM = {};
 				static const type_t STATIC = {};

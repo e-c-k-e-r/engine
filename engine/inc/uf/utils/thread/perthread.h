@@ -26,6 +26,7 @@ namespace uf {
 		bool tryMutex( id_t id = std::this_thread::get_id() );
 		void unlockMutex( id_t id = std::this_thread::get_id() );
 		std::lock_guard<std::mutex> guardMutex( id_t id = std::this_thread::get_id() );
+		void cleanup( id_t id = std::this_thread::get_id() );
 	};
 }
 

@@ -60,7 +60,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			}
 		}
 		if ( !supported  ) {
-			VK_VALIDATION_MESSAGE("Transient attachment requested yet not supported, disabling...");
+		//	VK_VALIDATION_MESSAGE("Transient attachment requested yet not supported, disabling...");
 			attachment->descriptor.usage &= ~VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 		}
 	}

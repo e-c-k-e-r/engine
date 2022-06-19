@@ -23,6 +23,8 @@ namespace ext {
 			VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 			GraphicDescriptor descriptor = {};
 
+			uf::stl::vector<VkStridedDeviceAddressRegionKHR> sbtEntries;
+
 			struct {
 				uf::Serializer json;
 				
@@ -76,11 +78,19 @@ namespace ext {
 			bool initialized = false;
 			bool process = true;
 			Material material = {};
-			uf::stl::unordered_map<GraphicDescriptor::hash_t, Pipeline> pipelines;
+			uf::stl::unordered_map<GraphicDescriptor, Pipeline> pipelines;
 
 			struct {
 				uf::stl::unordered_map<uf::stl::string, size_t> buffers;
 			} metadata;
+
+			struct {
+				struct {
+					VkAccelerationStructureKHR handle;
+					size_t deviceAddress;
+					Buffer buffer;
+				} top, bottom;
+			} accelerationStructures;
 
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );

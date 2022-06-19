@@ -195,7 +195,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			pixels.insert( pixels.end(), p.begin(), p.end() );
 		}
 	//	texture.mips = 0;
-		texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size() );
+		if ( size.x > 0 && size.y > 0 ) {
+			texture.fromBuffers( (void*) pixels.data(), pixels.size(), uf::renderer::enums::Format::R8G8B8A8_UNORM, size.x, size.y, 1, filenames.size() );
+		}
 	}
 	#endif
 }
@@ -633,7 +635,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/fog.density.multiplier = serializer["light"]["fog"]["density"]["multiplier"].as<float>();
 	/*this->*/fog.density.scale = serializer["light"]["fog"]["density"]["scale"].as<float>();
 	
-	/*this->*/sky.box.filename = serializer["sky"]["box"]["filename"].as<uf::stl::string>();
+	/*this->*/sky.box.filename = serializer["sky"]["box"]["filename"].as<uf::stl::string>(sky.box.filename);
 
 	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
 	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();

@@ -36,6 +36,20 @@ std::lock_guard<std::mutex> uf::ThreadUnique<T>::guardMutex( id_t id ) {
 	return std::lock_guard<std::mutex>(*m_mutex_container[id]);
 }
 template<typename T>
+void uf::ThreadUnique<T>::cleanup( id_t id ) {
+	for ( auto it = m_container.begin(); it != m_container.end(); ) {
+		if ( it->first == id ) ++it;
+		else it = m_container.erase(it);
+	}
+	for ( auto it = m_mutex_container.begin(); it != m_mutex_container.end(); ) {
+		if ( it->first == id ) ++it;
+		else {
+			delete it->second;
+			it = m_mutex_container.erase(it);
+		}
+	}
+}
+template<typename T>
 typename uf::ThreadUnique<T>::container_t& uf::ThreadUnique<T>::container() {
 	return m_container;
 }

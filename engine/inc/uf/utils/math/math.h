@@ -2,6 +2,7 @@
 
 #include <uf/config.h>
 #include <cstdint>
+#include "hash.h"
 
 #if UF_ENV_DREAMCAST
 	#include "sh4.h"

@@ -16,6 +16,13 @@
 #include <functional>
 #include <condition_variable>
 
+namespace uf {
+	namespace thread {
+		extern UF_API uf::stl::string workerThreadName;
+		extern UF_API uf::stl::string mainThreadName;
+	}
+}
+
 namespace pod {
 	struct UF_API Thread {
 		typedef std::function<void()> function_t;
@@ -28,7 +35,10 @@ namespace pod {
 		bool running, terminates;
 
 		std::mutex* mutex;
-		std::condition_variable condition;
+		struct {
+			std::condition_variable queued;
+			std::condition_variable finished;
+		} conditions;
 		std::thread thread;
 
 		pod::Thread::queue_t queue;
@@ -38,7 +48,7 @@ namespace pod {
 		uint affinity = 0;
 
 		struct UF_API Tasks {
-			uf::stl::string name = "Aux";
+			uf::stl::string name = uf::thread::workerThreadName;
 			bool waits = true;
 
 			pod::Thread::queue_t container;
@@ -60,8 +70,9 @@ namespace uf {
 		extern UF_API bool async;
 
 	/* 	Easy to use async helper functions */
-		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = "Aux" );
-		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = "Aux", bool waits = true );
+		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = uf::thread::workerThreadName );
+		pod::Thread::Tasks UF_API schedule( bool multithread, bool waits = true );
+		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = uf::thread::workerThreadName, bool waits = true );
 		void UF_API execute( pod::Thread::Tasks& tasks );
 
 	/* Acts on global threads */

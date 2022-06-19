@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "StartMenu",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": false },
 			"lights": { "enabled": false,

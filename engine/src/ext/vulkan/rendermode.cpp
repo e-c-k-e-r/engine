@@ -77,7 +77,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -162,7 +162,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = attachment.descriptor.layout;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	device->flushCommandBuffer(copyCmd, true);
+	device->flushCommandBuffer(copyCmd, Device::QueueEnum::GRAPHICS);
 
 	const uint8_t* data;
 	vmaMapMemory( allocator, allocation, (void**)&data );
@@ -177,6 +177,8 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 //	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
 	descriptor.pipeline = metadata.pipeline;
+	descriptor.inputs.width = this->width ? this->width : settings::width;
+	descriptor.inputs.height = this->height ? this->height : settings::height;
 	descriptor.parse( metadata.json["descriptor"] );
 	return descriptor;
 }
@@ -224,13 +226,23 @@ void ext::vulkan::RenderMode::lockMutex( std::thread::id id ) {
 	this->commands.lockMutex( id );
 }
 bool ext::vulkan::RenderMode::tryMutex( std::thread::id id ) {
-	this->commands.tryMutex( id );
+	return this->commands.tryMutex( id );
 }
 void ext::vulkan::RenderMode::unlockMutex( std::thread::id id ) {
 	this->commands.unlockMutex( id );
 }
 std::lock_guard<std::mutex> ext::vulkan::RenderMode::guardMutex( std::thread::id id ) {
 	return this->commands.guardMutex( id );
+}
+void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
+	auto& container = this->commands.container();
+	for ( auto& pair : container ) {
+		if ( pair.first == id ) continue;
+		if ( pair.second.empty() ) continue;
+		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		pair.second.clear();
+	}
+	this->commands.cleanup( id );
 }
 void ext::vulkan::RenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 

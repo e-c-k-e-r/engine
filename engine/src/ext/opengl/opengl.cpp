@@ -205,7 +205,7 @@ void UF_API ext::opengl::initialize() {
 	
 	uf::graph::initialize();
 
-	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording ? "Aux" : "Main");
+	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording);
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
 		tasks.queue([&]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
@@ -377,7 +377,7 @@ void UF_API ext::opengl::tick(){
 		renderMode->tick();
 	}
 
-	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording ? "Aux" : "Main");
+	auto tasks = uf::thread::schedule(settings::invariant::multithreadedRecording);
 	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
 		if ( ext::opengl::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();

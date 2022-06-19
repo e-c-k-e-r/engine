@@ -15,6 +15,171 @@
 #define UF_MSG_VALIDATION(X) if ( ext::vulkan::settings::validation ) UF_MSG(X, "  VULKAN  ");
 
 namespace {
+	struct DeviceInfo {
+		VkPhysicalDevice handle = VK_NULL_HANDLE;
+		VkPhysicalDeviceProperties properties;
+		VkPhysicalDeviceFeatures features;
+		size_t score;
+	};
+
+	::DeviceInfo rate( ext::vulkan::Device& device, VkPhysicalDevice handle ) {
+		::DeviceInfo deviceInfo{ .handle = handle };
+
+		auto& physicalDevice = deviceInfo.handle;
+		auto& deviceProperties = deviceInfo.properties;
+		auto& deviceFeatures = deviceInfo.features;
+		auto& score = deviceInfo.score;
+
+		vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+		vkGetPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+
+		// Discrete GPUs have a significant performance advantage
+		if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 1000;
+		{
+			score += deviceProperties.limits.maxImageDimension1D;
+			score += deviceProperties.limits.maxImageDimension2D;
+			score += deviceProperties.limits.maxImageDimension3D;
+			score += deviceProperties.limits.maxImageDimensionCube;
+			score += deviceProperties.limits.maxImageArrayLayers;
+			score += deviceProperties.limits.maxTexelBufferElements;
+			score += deviceProperties.limits.maxUniformBufferRange;
+			score += deviceProperties.limits.maxStorageBufferRange;
+			score += deviceProperties.limits.maxPushConstantsSize;
+			score += deviceProperties.limits.maxMemoryAllocationCount;
+			score += deviceProperties.limits.maxSamplerAllocationCount;
+			score += deviceProperties.limits.bufferImageGranularity;
+			score += deviceProperties.limits.sparseAddressSpaceSize;
+			score += deviceProperties.limits.maxBoundDescriptorSets;
+			score += deviceProperties.limits.maxPerStageDescriptorSamplers;
+			score += deviceProperties.limits.maxPerStageDescriptorUniformBuffers;
+			score += deviceProperties.limits.maxPerStageDescriptorStorageBuffers;
+			score += deviceProperties.limits.maxPerStageDescriptorSampledImages;
+			score += deviceProperties.limits.maxPerStageDescriptorStorageImages;
+			score += deviceProperties.limits.maxPerStageDescriptorInputAttachments;
+			score += deviceProperties.limits.maxPerStageResources;
+			score += deviceProperties.limits.maxDescriptorSetSamplers;
+			score += deviceProperties.limits.maxDescriptorSetUniformBuffers;
+			score += deviceProperties.limits.maxDescriptorSetUniformBuffersDynamic;
+			score += deviceProperties.limits.maxDescriptorSetStorageBuffers;
+			score += deviceProperties.limits.maxDescriptorSetStorageBuffersDynamic;
+			score += deviceProperties.limits.maxDescriptorSetSampledImages;
+			score += deviceProperties.limits.maxDescriptorSetStorageImages;
+			score += deviceProperties.limits.maxDescriptorSetInputAttachments;
+			score += deviceProperties.limits.maxVertexInputAttributes;
+			score += deviceProperties.limits.maxVertexInputBindings;
+			score += deviceProperties.limits.maxVertexInputAttributeOffset;
+			score += deviceProperties.limits.maxVertexInputBindingStride;
+			score += deviceProperties.limits.maxVertexOutputComponents;
+			score += deviceProperties.limits.maxTessellationGenerationLevel;
+			score += deviceProperties.limits.maxTessellationPatchSize;
+			score += deviceProperties.limits.maxTessellationControlPerVertexInputComponents;
+			score += deviceProperties.limits.maxTessellationControlPerVertexOutputComponents;
+			score += deviceProperties.limits.maxTessellationControlPerPatchOutputComponents;
+			score += deviceProperties.limits.maxTessellationControlTotalOutputComponents;
+			score += deviceProperties.limits.maxTessellationEvaluationInputComponents;
+			score += deviceProperties.limits.maxTessellationEvaluationOutputComponents;
+			score += deviceProperties.limits.maxGeometryShaderInvocations;
+			score += deviceProperties.limits.maxGeometryInputComponents;
+			score += deviceProperties.limits.maxGeometryOutputComponents;
+			score += deviceProperties.limits.maxGeometryOutputVertices;
+			score += deviceProperties.limits.maxGeometryTotalOutputComponents;
+			score += deviceProperties.limits.maxFragmentInputComponents;
+			score += deviceProperties.limits.maxFragmentOutputAttachments;
+			score += deviceProperties.limits.maxFragmentDualSrcAttachments;
+			score += deviceProperties.limits.maxFragmentCombinedOutputResources;
+			score += deviceProperties.limits.maxComputeSharedMemorySize;
+			score += deviceProperties.limits.maxComputeWorkGroupInvocations;
+			score += deviceProperties.limits.subPixelPrecisionBits;
+			score += deviceProperties.limits.subTexelPrecisionBits;
+			score += deviceProperties.limits.mipmapPrecisionBits;
+			score += deviceProperties.limits.maxDrawIndexedIndexValue;
+			score += deviceProperties.limits.maxDrawIndirectCount;
+			score += deviceProperties.limits.maxSamplerLodBias;
+			score += deviceProperties.limits.maxSamplerAnisotropy;
+			score += deviceProperties.limits.maxViewports;
+			score += deviceProperties.limits.viewportSubPixelBits;
+			score += deviceProperties.limits.minMemoryMapAlignment;
+			score += deviceProperties.limits.minTexelBufferOffsetAlignment;
+			score += deviceProperties.limits.minUniformBufferOffsetAlignment;
+			score += deviceProperties.limits.minStorageBufferOffsetAlignment;
+			score += deviceProperties.limits.minTexelOffset;
+			score += deviceProperties.limits.maxTexelOffset;
+			score += deviceProperties.limits.minTexelGatherOffset;
+			score += deviceProperties.limits.maxTexelGatherOffset;
+			score += deviceProperties.limits.minInterpolationOffset;
+			score += deviceProperties.limits.maxInterpolationOffset;
+			score += deviceProperties.limits.subPixelInterpolationOffsetBits;
+			score += deviceProperties.limits.maxFramebufferWidth;
+			score += deviceProperties.limits.maxFramebufferHeight;
+			score += deviceProperties.limits.maxFramebufferLayers;
+			score += deviceProperties.limits.framebufferColorSampleCounts;
+			score += deviceProperties.limits.framebufferDepthSampleCounts;
+			score += deviceProperties.limits.framebufferStencilSampleCounts;
+			score += deviceProperties.limits.framebufferNoAttachmentsSampleCounts;
+			score += deviceProperties.limits.maxColorAttachments;
+			score += deviceProperties.limits.sampledImageColorSampleCounts;
+			score += deviceProperties.limits.sampledImageIntegerSampleCounts;
+			score += deviceProperties.limits.sampledImageDepthSampleCounts;
+			score += deviceProperties.limits.sampledImageStencilSampleCounts;
+			score += deviceProperties.limits.storageImageSampleCounts;
+			score += deviceProperties.limits.maxSampleMaskWords;
+			score += deviceProperties.limits.timestampComputeAndGraphics;
+			score += deviceProperties.limits.timestampPeriod;
+			score += deviceProperties.limits.maxClipDistances;
+			score += deviceProperties.limits.maxCullDistances;
+			score += deviceProperties.limits.maxCombinedClipAndCullDistances;
+			score += deviceProperties.limits.discreteQueuePriorities;
+			score += deviceProperties.limits.pointSizeGranularity;
+			score += deviceProperties.limits.lineWidthGranularity;
+			score += deviceProperties.limits.strictLines;
+			score += deviceProperties.limits.standardSampleLocations;
+			score += deviceProperties.limits.optimalBufferCopyOffsetAlignment;
+			score += deviceProperties.limits.optimalBufferCopyRowPitchAlignment;
+			score += deviceProperties.limits.nonCoherentAtomSize;
+		}
+		// Application can't function without geometry shaders
+		if ( !deviceFeatures.geometryShader ) return deviceInfo;
+		//
+		{
+			const uf::stl::vector<const char*> deviceExtensions = {
+				VK_KHR_SWAPCHAIN_EXTENSION_NAME
+			};
+			uint32_t extensionCount;
+			vkEnumerateDeviceExtensionProperties( physicalDevice, nullptr, &extensionCount, nullptr );
+			uf::stl::vector<VkExtensionProperties> availableExtensions( extensionCount );
+			vkEnumerateDeviceExtensionProperties( physicalDevice, nullptr, &extensionCount, availableExtensions.data() );
+			std::set<uf::stl::string> requiredExtensions( deviceExtensions.begin(), deviceExtensions.end() );
+
+			for ( const auto& extension : availableExtensions )
+				requiredExtensions.erase( extension.extensionName );
+
+			if ( !requiredExtensions.empty() ) return deviceInfo;
+		}
+		//
+		{
+			VkSurfaceCapabilitiesKHR capabilities;
+			uf::stl::vector<VkSurfaceFormatKHR> formats;
+			uf::stl::vector<VkPresentModeKHR> presentModes;
+
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR( physicalDevice, device.surface, &capabilities );
+
+			uint32_t formatCount;
+			vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, device.surface, &formatCount, nullptr);
+			if ( formatCount != 0 ) {
+				formats.resize( formatCount );
+				vkGetPhysicalDeviceSurfaceFormatsKHR( physicalDevice, device.surface, &formatCount, formats.data() );
+			}
+			uint32_t presentModeCount;
+			vkGetPhysicalDeviceSurfacePresentModesKHR( physicalDevice, device.surface, &presentModeCount, nullptr );
+			if ( presentModeCount != 0 ) {
+				presentModes.resize(presentModeCount);
+				vkGetPhysicalDeviceSurfacePresentModesKHR( physicalDevice, device.surface, &presentModeCount, presentModes.data() );
+			}
+			if ( formats.empty() || presentModes.empty() ) return deviceInfo;
+		}
+		return deviceInfo;
+	}
+
 #if UF_USE_OPENVR
 	void VRInstanceExtensions( uf::stl::vector<uf::stl::string>& requested ) {
 		if ( !vr::VRCompositor() ) return;
@@ -255,166 +420,11 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 	UF_EXCEPTION("Vulkan error: could not find a matching memory type");
 }
 
-int ext::vulkan::Device::rate( VkPhysicalDevice device ) {
-	VkPhysicalDeviceProperties deviceProperties;
-	vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-	VkPhysicalDeviceFeatures deviceFeatures;
-	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-	int score = 0;
-	// Discrete GPUs have a significant performance advantage
-	if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 1000;
-	{
-		score += deviceProperties.limits.maxImageDimension1D;
-		score += deviceProperties.limits.maxImageDimension2D;
-		score += deviceProperties.limits.maxImageDimension3D;
-		score += deviceProperties.limits.maxImageDimensionCube;
-		score += deviceProperties.limits.maxImageArrayLayers;
-		score += deviceProperties.limits.maxTexelBufferElements;
-		score += deviceProperties.limits.maxUniformBufferRange;
-		score += deviceProperties.limits.maxStorageBufferRange;
-		score += deviceProperties.limits.maxPushConstantsSize;
-		score += deviceProperties.limits.maxMemoryAllocationCount;
-		score += deviceProperties.limits.maxSamplerAllocationCount;
-		score += deviceProperties.limits.bufferImageGranularity;
-		score += deviceProperties.limits.sparseAddressSpaceSize;
-		score += deviceProperties.limits.maxBoundDescriptorSets;
-		score += deviceProperties.limits.maxPerStageDescriptorSamplers;
-		score += deviceProperties.limits.maxPerStageDescriptorUniformBuffers;
-		score += deviceProperties.limits.maxPerStageDescriptorStorageBuffers;
-		score += deviceProperties.limits.maxPerStageDescriptorSampledImages;
-		score += deviceProperties.limits.maxPerStageDescriptorStorageImages;
-		score += deviceProperties.limits.maxPerStageDescriptorInputAttachments;
-		score += deviceProperties.limits.maxPerStageResources;
-		score += deviceProperties.limits.maxDescriptorSetSamplers;
-		score += deviceProperties.limits.maxDescriptorSetUniformBuffers;
-		score += deviceProperties.limits.maxDescriptorSetUniformBuffersDynamic;
-		score += deviceProperties.limits.maxDescriptorSetStorageBuffers;
-		score += deviceProperties.limits.maxDescriptorSetStorageBuffersDynamic;
-		score += deviceProperties.limits.maxDescriptorSetSampledImages;
-		score += deviceProperties.limits.maxDescriptorSetStorageImages;
-		score += deviceProperties.limits.maxDescriptorSetInputAttachments;
-		score += deviceProperties.limits.maxVertexInputAttributes;
-		score += deviceProperties.limits.maxVertexInputBindings;
-		score += deviceProperties.limits.maxVertexInputAttributeOffset;
-		score += deviceProperties.limits.maxVertexInputBindingStride;
-		score += deviceProperties.limits.maxVertexOutputComponents;
-		score += deviceProperties.limits.maxTessellationGenerationLevel;
-		score += deviceProperties.limits.maxTessellationPatchSize;
-		score += deviceProperties.limits.maxTessellationControlPerVertexInputComponents;
-		score += deviceProperties.limits.maxTessellationControlPerVertexOutputComponents;
-		score += deviceProperties.limits.maxTessellationControlPerPatchOutputComponents;
-		score += deviceProperties.limits.maxTessellationControlTotalOutputComponents;
-		score += deviceProperties.limits.maxTessellationEvaluationInputComponents;
-		score += deviceProperties.limits.maxTessellationEvaluationOutputComponents;
-		score += deviceProperties.limits.maxGeometryShaderInvocations;
-		score += deviceProperties.limits.maxGeometryInputComponents;
-		score += deviceProperties.limits.maxGeometryOutputComponents;
-		score += deviceProperties.limits.maxGeometryOutputVertices;
-		score += deviceProperties.limits.maxGeometryTotalOutputComponents;
-		score += deviceProperties.limits.maxFragmentInputComponents;
-		score += deviceProperties.limits.maxFragmentOutputAttachments;
-		score += deviceProperties.limits.maxFragmentDualSrcAttachments;
-		score += deviceProperties.limits.maxFragmentCombinedOutputResources;
-		score += deviceProperties.limits.maxComputeSharedMemorySize;
-		score += deviceProperties.limits.maxComputeWorkGroupInvocations;
-		score += deviceProperties.limits.subPixelPrecisionBits;
-		score += deviceProperties.limits.subTexelPrecisionBits;
-		score += deviceProperties.limits.mipmapPrecisionBits;
-		score += deviceProperties.limits.maxDrawIndexedIndexValue;
-		score += deviceProperties.limits.maxDrawIndirectCount;
-		score += deviceProperties.limits.maxSamplerLodBias;
-		score += deviceProperties.limits.maxSamplerAnisotropy;
-		score += deviceProperties.limits.maxViewports;
-		score += deviceProperties.limits.viewportSubPixelBits;
-		score += deviceProperties.limits.minMemoryMapAlignment;
-		score += deviceProperties.limits.minTexelBufferOffsetAlignment;
-		score += deviceProperties.limits.minUniformBufferOffsetAlignment;
-		score += deviceProperties.limits.minStorageBufferOffsetAlignment;
-		score += deviceProperties.limits.minTexelOffset;
-		score += deviceProperties.limits.maxTexelOffset;
-		score += deviceProperties.limits.minTexelGatherOffset;
-		score += deviceProperties.limits.maxTexelGatherOffset;
-		score += deviceProperties.limits.minInterpolationOffset;
-		score += deviceProperties.limits.maxInterpolationOffset;
-		score += deviceProperties.limits.subPixelInterpolationOffsetBits;
-		score += deviceProperties.limits.maxFramebufferWidth;
-		score += deviceProperties.limits.maxFramebufferHeight;
-		score += deviceProperties.limits.maxFramebufferLayers;
-		score += deviceProperties.limits.framebufferColorSampleCounts;
-		score += deviceProperties.limits.framebufferDepthSampleCounts;
-		score += deviceProperties.limits.framebufferStencilSampleCounts;
-		score += deviceProperties.limits.framebufferNoAttachmentsSampleCounts;
-		score += deviceProperties.limits.maxColorAttachments;
-		score += deviceProperties.limits.sampledImageColorSampleCounts;
-		score += deviceProperties.limits.sampledImageIntegerSampleCounts;
-		score += deviceProperties.limits.sampledImageDepthSampleCounts;
-		score += deviceProperties.limits.sampledImageStencilSampleCounts;
-		score += deviceProperties.limits.storageImageSampleCounts;
-		score += deviceProperties.limits.maxSampleMaskWords;
-		score += deviceProperties.limits.timestampComputeAndGraphics;
-		score += deviceProperties.limits.timestampPeriod;
-		score += deviceProperties.limits.maxClipDistances;
-		score += deviceProperties.limits.maxCullDistances;
-		score += deviceProperties.limits.maxCombinedClipAndCullDistances;
-		score += deviceProperties.limits.discreteQueuePriorities;
-		score += deviceProperties.limits.pointSizeGranularity;
-		score += deviceProperties.limits.lineWidthGranularity;
-		score += deviceProperties.limits.strictLines;
-		score += deviceProperties.limits.standardSampleLocations;
-		score += deviceProperties.limits.optimalBufferCopyOffsetAlignment;
-		score += deviceProperties.limits.optimalBufferCopyRowPitchAlignment;
-		score += deviceProperties.limits.nonCoherentAtomSize;
-	}
-	// Application can't function without geometry shaders
-	if ( !deviceFeatures.geometryShader ) return 0;
-	//
-	{
-		const uf::stl::vector<const char*> deviceExtensions = {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME
-		};
-		uint32_t extensionCount;
-		vkEnumerateDeviceExtensionProperties( device, nullptr, &extensionCount, nullptr );
-		uf::stl::vector<VkExtensionProperties> availableExtensions( extensionCount );
-		vkEnumerateDeviceExtensionProperties( device, nullptr, &extensionCount, availableExtensions.data() );
-		std::set<uf::stl::string> requiredExtensions( deviceExtensions.begin(), deviceExtensions.end() );
-
-		for ( const auto& extension : availableExtensions )
-			requiredExtensions.erase( extension.extensionName );
-
-		if ( !requiredExtensions.empty() ) return 0;
-	}
-	//
-	{
-		VkSurfaceCapabilitiesKHR capabilities;
-		uf::stl::vector<VkSurfaceFormatKHR> formats;
-		uf::stl::vector<VkPresentModeKHR> presentModes;
-
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR( device, this->surface, &capabilities );
-
-		uint32_t formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, this->surface, &formatCount, nullptr);
-		if ( formatCount != 0 ) {
-			formats.resize( formatCount );
-			vkGetPhysicalDeviceSurfaceFormatsKHR( device, this->surface, &formatCount, formats.data() );
-		}
-		uint32_t presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR( device, this->surface, &presentModeCount, nullptr );
-		if ( presentModeCount != 0 ) {
-			presentModes.resize(presentModeCount);
-			vkGetPhysicalDeviceSurfacePresentModesKHR( device, this->surface, &presentModeCount, presentModes.data() );
-		}
-		if ( formats.empty() || presentModes.empty() ) return 0;
-	}
-	if ( settings::gpuID != -1 && deviceProperties.deviceID == settings::gpuID ) {
-		score = std::numeric_limits<int>::max();
-	}
-	UF_MSG_VALIDATION("Device name: " << deviceProperties.deviceName << " (" << deviceProperties.deviceID << ") has a score of " << score);
-	return score;
-}
-
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, bool begin ){
-	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(QueueEnum::TRANSFER), level, 1 );
+	return createCommandBuffer( level, QueueEnum::TRANSFER, begin );
+}
+VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin ){
+	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
 
 	VkCommandBuffer commandBuffer;
 	VK_CHECK_RESULT( vkAllocateCommandBuffers( logicalDevice, &cmdBufAllocateInfo, &commandBuffer ) );
@@ -427,6 +437,9 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 }
 
 void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool free ) {
+	return flushCommandBuffer( commandBuffer, QueueEnum::TRANSFER, free );
+}
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool free ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
@@ -439,18 +452,12 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, boo
 	VkFenceCreateInfo fenceInfo = ext::vulkan::initializers::fenceCreateInfo(VK_FLAGS_NONE);
 	VkFence fence;
 	VK_CHECK_RESULT(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence));
-	
-	// Submit to the queue
-	VK_CHECK_RESULT(vkQueueSubmit( getQueue( QueueEnum::TRANSFER ), 1, &submitInfo, fence));
-	// vkQueueSubmit(device.queues.transfer, 1, &submitInfo, fence);
-	// Wait for the fence to signal that command buffer has finished executing
+	VK_CHECK_RESULT(vkQueueSubmit( getQueue( queue ), 1, &submitInfo, fence));
 	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-
 	vkDestroyFence(logicalDevice, fence, nullptr);
-
-	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( QueueEnum::TRANSFER ), 1, &commandBuffer);
+	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( queue ), 1, &commandBuffer);
 }
-
+#if 0
 VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkDeviceSize size,  VkBuffer* buffer, VkDeviceMemory* memory, const void* data ) {
 	// Create the buffer handle
 	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usage, size);
@@ -488,7 +495,7 @@ VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPr
 	VK_CHECK_RESULT(vkBindBufferMemory(logicalDevice, *buffer, *memory, 0));
 	return VK_SUCCESS;
 }
-
+#endif
 VkResult ext::vulkan::Device::createBuffer(
 	VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags memoryProperties,
@@ -701,33 +708,48 @@ void ext::vulkan::Device::initialize() {
 		window->createSurface( instance, surface );
 	}
 	// Create physical device
+	
+	uint32_t deviceCount = 0;
+	uf::stl::vector<VkPhysicalDevice> physicalDevices;
+	uf::stl::vector<::DeviceInfo> deviceInfos; // defined outside if we want to "multi"-gpu
 	{
-		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices( this->instance, &deviceCount, nullptr );
 		if ( deviceCount == 0 ) UF_EXCEPTION("Vulkan error: failed to find GPUs with Vulkan support!");
 
-		uf::stl::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices( this->instance, &deviceCount, devices.data() );
-		
-		int bestScore = 0;
-		for ( const VkPhysicalDevice& device : devices ) {
-			int score = rate( device );
-			if ( score <= bestScore ) continue;
-			bestScore = score;
-			physicalDevice = device;
-		}
 
-	/*
-		// Use an ordered map to automatically sort candidates by increasing score
-		std::multimap<int, VkPhysicalDevice> candidates;
-		for ( const VkPhysicalDevice& device : devices ) {
-			int score = rate( device );
-			candidates.insert( std::make_pair(score, device) );
+		deviceInfos.reserve(deviceCount);
+		physicalDevices.resize(deviceCount);
+
+		vkEnumeratePhysicalDevices( this->instance, &deviceCount, physicalDevices.data() );
+		
+		size_t bestDeviceIndex = 0;
+		for ( size_t i = 0; i < deviceCount; ++i ) {
+			auto& deviceInfo = deviceInfos.emplace_back( rate(*this, physicalDevices[i]) );
+			UF_MSG_VALIDATION("[" << i << "] "
+				"Found device: " << deviceInfo.properties.deviceName << " ("
+				"score: " << deviceInfo.score << " | "
+				"device ID: " << deviceInfo.properties.deviceID << " | "
+				"vendor ID: " << deviceInfo.properties.vendorID << " | "
+				"API version: " << deviceInfo.properties.apiVersion << " | "
+				"driver version: " << deviceInfo.properties.driverVersion << ")"
+			);
+			if ( settings::experimental::enableMultiGPU && deviceInfos[bestDeviceIndex].properties.vendorID != deviceInfo.properties.vendorID ) settings::experimental::enableMultiGPU = false;
+			if ( deviceInfos[bestDeviceIndex].score >= deviceInfo.score ) continue;
+			bestDeviceIndex = i;
 		}
-		// Check if the best candidate is suitable at all
-		if ( candidates.rbegin()->first <= 0 ) UF_EXCEPTION("Vulkan error: failed to find a suitable GPU!");
-		this->physicalDevice = candidates.rbegin()->second;
-	*/
+		if ( 0 <= ext::vulkan::settings::gpuID && ext::vulkan::settings::gpuID < deviceCount ) {
+			bestDeviceIndex = ext::vulkan::settings::gpuID;
+		}
+		auto& deviceInfo = deviceInfos[bestDeviceIndex];
+		this->physicalDevice = deviceInfo.handle;
+
+		UF_MSG_VALIDATION("Using device #" << bestDeviceIndex << " ("
+			"score: " << deviceInfo.score << " | "
+			"device ID: " << deviceInfo.properties.deviceID << " | "
+			"vendor ID: " << deviceInfo.properties.vendorID << " | "
+			"API version: " << deviceInfo.properties.apiVersion << " | "
+			"driver version: " << deviceInfo.properties.driverVersion << ")"
+		);
 	}
 	// Update properties
 	{
@@ -738,7 +760,6 @@ void ext::vulkan::Device::initialize() {
 			// Memory properties are used regularly for creating all kinds of buffers
 			vkGetPhysicalDeviceMemoryProperties( this->physicalDevice, &memoryProperties );
 		}
-		UF_MSG_VALIDATION("Using device " << properties.deviceName << " (" << properties.deviceID << ")");
 		{
 			properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -771,7 +792,7 @@ void ext::vulkan::Device::initialize() {
 	// Create logical device
 	{
 		bool useSwapChain = true;
-		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; // | VK_QUEUE_TRANSFER_BIT;
 		uf::stl::vector<uf::stl::string> requestedExtensions;
 		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
 	#if UF_USE_OPENVR		
@@ -861,11 +882,19 @@ void ext::vulkan::Device::initialize() {
 
 		enableRequestedDeviceFeatures( *this );
 
+
+
 		VkDeviceCreateInfo deviceCreateInfo = {};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());;
 		deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-		deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+	//	deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+		deviceCreateInfo.pEnabledFeatures = nullptr;
+		
+		VkDeviceGroupDeviceCreateInfo groupDeviceCreateInfo = {};
+		groupDeviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO;
+		groupDeviceCreateInfo.physicalDeviceCount = physicalDevices.size();
+		groupDeviceCreateInfo.pPhysicalDevices = physicalDevices.data();
 
 		if ( deviceExtensions.size() > 0 ) {
 			deviceCreateInfo.enabledExtensionCount = (uint32_t) deviceExtensions.size();
@@ -876,14 +905,13 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
 		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParametersFeatures{};
 		VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures{};
-		{
-			deviceCreateInfo.pEnabledFeatures = nullptr;
-			deviceCreateInfo.pNext = &physicalDeviceFeatures2;
-		}
+		VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddresFeatures{};
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+
 		{
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			physicalDeviceFeatures2.features = enabledFeatures;
-			physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;
 		}
 		{
 			descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
@@ -891,21 +919,43 @@ void ext::vulkan::Device::initialize() {
 			descriptorIndexingFeatures.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
 			descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
 			descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-			descriptorIndexingFeatures.pNext = &shaderDrawParametersFeatures;
 		}
 		{
 			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
-			shaderDrawParametersFeatures.pNext = &robustnessFeatures;
 		}
 		{
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;
 		}
-
-		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) {
-			UF_EXCEPTION("Vulkan error: failed to create logical device!"); 
+		{
+			bufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+			bufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
 		}
+		{
+			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+		}
+		{
+			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		}
+		
+		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
+		physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;
+		descriptorIndexingFeatures.pNext = &shaderDrawParametersFeatures;
+		shaderDrawParametersFeatures.pNext = &robustnessFeatures;
+		robustnessFeatures.pNext = &bufferDeviceAddresFeatures;
+		bufferDeviceAddresFeatures.pNext = &rayTracingPipelineFeatures;
+		rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
+	
+		if ( settings::experimental::enableMultiGPU ) {
+			UF_MSG_DEBUG("Multiple devices supported, using " << groupDeviceCreateInfo.physicalDeviceCount << " devices...");
+			accelerationStructureFeatures.pNext = &groupDeviceCreateInfo;
+		}
+
+		if ( vkCreateDevice( this->physicalDevice, &deviceCreateInfo, nullptr, &this->logicalDevice) != VK_SUCCESS ) UF_EXCEPTION("Vulkan error: failed to create logical device!"); 
+
 		{
 			ext::json::Value payload = ext::json::array();
 			for ( auto* c_str : deviceExtensions ) payload.emplace_back( uf::stl::string(c_str) );
@@ -949,17 +999,16 @@ void ext::vulkan::Device::initialize() {
 			i++;
 		}
 
+		UF_MSG_VALIDATION("Graphics queue: " << device.queueFamilyIndices.graphics);
+		UF_MSG_VALIDATION("Compute queue: " << device.queueFamilyIndices.compute);
+		UF_MSG_VALIDATION("Transfer queue: " << device.queueFamilyIndices.transfer);
+		UF_MSG_VALIDATION("Present queue: " << device.queueFamilyIndices.present);
+
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
 		getQueue( QueueEnum::GRAPHICS );
 		getQueue( QueueEnum::PRESENT );
 		getQueue( QueueEnum::COMPUTE );
 		getQueue( QueueEnum::TRANSFER );
-	/*
-		vkGetDeviceQueue( device, device.queueFamilyIndices.graphics, 0, &queues.graphics[std::this_thread::get_id()] );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.present, 0, &queues.present[std::this_thread::get_id()] );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.compute, 0, &queues.compute[std::this_thread::get_id()] );
-		vkGetDeviceQueue( device, device.queueFamilyIndices.transfer, 0, &queues.transfer[std::this_thread::get_id()] );
-	*/
 	}
 	// Set formats
 	{
@@ -1069,9 +1118,23 @@ void ext::vulkan::Device::initialize() {
 		allocatorInfo.physicalDevice = physicalDevice;
 		allocatorInfo.instance = instance;
 		allocatorInfo.device = logicalDevice;
+		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 		allocatorInfo.pVulkanFunctions = &vulkanFunctions;
 		 
 		vmaCreateAllocator(&allocatorInfo, &allocator);
+	}
+
+	{
+		vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+		vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+		vkBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+		vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+		vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+		vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+		vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+		vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+		vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+		vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 	}
 }
 

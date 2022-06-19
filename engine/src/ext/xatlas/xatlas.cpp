@@ -164,9 +164,9 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 
 	// pack
 #if UF_XATLAS_UNWRAP_MULTITHREAD
-	auto tasks = uf::thread::schedule("Async");
+	auto tasks = uf::thread::schedule(true);
 #else
-	auto tasks = uf::thread::schedule("Main");
+	auto tasks = uf::thread::schedule(false);
 #endif
 	for ( auto& pair : atlases ) {
 		tasks.queue([&]{
@@ -518,9 +518,9 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 
 	// pack
 #if UF_XATLAS_UNWRAP_MULTITHREAD
-	auto tasks = uf::thread::schedule("Async");
+	auto tasks = uf::thread::schedule(true);
 #else
-	auto tasks = uf::thread::schedule("Main");
+	auto tasks = uf::thread::schedule(false);
 #endif
 	for ( auto& pair : atlases ) {
 		tasks.queue([&]{

@@ -28,6 +28,7 @@ namespace {
 		}
 
 		void abrt( int sig ) {
+			ext::ready = false;
 			UF_MSG_ERROR("Abort detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
@@ -35,6 +36,7 @@ namespace {
 		}
 
 		void segv( int sig ) {
+			ext::ready = false;
 			UF_MSG_ERROR("Segfault detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
@@ -74,7 +76,7 @@ int main(int argc, char** argv){
 		try {	
 	#endif
 			if ( uf::renderer::settings::experimental::dedicatedThread /*&& !uf::renderer::states::rebuild*/ ) {
-				auto& thread = uf::thread::get("Aux");
+				auto& thread = uf::thread::fetchWorker();
 				uf::thread::queue(thread, [&]{
 					ext::render();
 					client::render();

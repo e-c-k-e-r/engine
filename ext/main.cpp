@@ -243,12 +243,12 @@ void EXT_API ext::initialize() {
 		}
 
 		/* Frame limiter */ {
-			float limit = configEngineLimitersJson["framerate"].as<float>();
+			size_t limit = configEngineLimitersJson["framerate"].as<size_t>();
 			::times.limiter = limit != 0 ? 1.0 / limit : 0;
 			UF_MSG_DEBUG("Limiter set to " << ::times.limiter << "ms");
 		}
 		/* Max delta time */{
-			float limit = configEngineLimitersJson["deltaTime"].as<float>();
+			size_t limit = configEngineLimitersJson["deltaTime"].as<size_t>();
 			uf::physics::time::clamp = limit != 0 ? 1.0 / limit : 0;
 		}
 		
@@ -264,18 +264,12 @@ void EXT_API ext::initialize() {
 		}
 
 		/* Thread frame limiter */ {
-			float limit = configEngineThreadJson["frame limiter"].as<float>();
+			size_t limit = configEngineThreadJson["frame limiter"].as<size_t>();
 			uf::thread::limiter = limit != 0 ? 1.0 / limit : 0;
 		}
 
 		// Set worker threads
-		if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "async" ) {
-			uf::thread::async = true;
-			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
-			configEngineThreadJson["workers"] = threads;
-			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
-			UF_MSG_DEBUG("Using async worker threads");
-		} else if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
+		if ( configEngineThreadJson["workers"].as<uf::stl::string>() == "auto" ) {
 			auto threads = std::max( 1, (int) std::thread::hardware_concurrency() - 1 ) / 2;
 			configEngineThreadJson["workers"] = threads;
 			uf::thread::workers = configEngineThreadJson["workers"].as<size_t>();
@@ -401,11 +395,12 @@ void EXT_API ext::initialize() {
 		"deferred alias output to swapchain": false,
 	*/
 
+	#if 1
 		::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
-	#if 0
+	#else
 		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
-		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
 	#endif
+		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
 		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
 
 		uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
@@ -492,7 +487,12 @@ void EXT_API ext::initialize() {
 				renderMode.metadata.pipelines.emplace_back("culling");
 			}
 		}
+
 #if UF_USE_VULKAN
+		if ( ::json["engine"]["render modes"]["raytrace"].as<bool>(false) ) {
+			auto* renderMode = new uf::renderer::RayTraceRenderMode;
+			uf::renderer::addRenderMode( renderMode, "RayTrace" );
+		}
 		/* Callbacks for 2KHR stuffs */ {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
 			//	UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);
@@ -556,7 +556,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::initialize();
 	}
 
-	pod::Thread& threadMain = uf::thread::get("Main");
+	pod::Thread& threadMain = uf::thread::get(uf::thread::mainThreadName);
 #if UF_USE_DISCORD
 	/* Discord */ if ( ::config.engine.ext.discord.enabled ) {
 		ext::discord::initialize();
@@ -585,7 +585,7 @@ void EXT_API ext::initialize() {
 			};
 			
 			if ( json["immediate"].as<bool>() ) function();
-			else uf::thread::queue( uf::thread::get("Main"), function );
+			else uf::thread::queue( uf::thread::get(uf::thread::mainThreadName), function );
 		});
 
 		uf::hooks.addHook( "game:Scene.Cleanup", [&](ext::json::Value& json){
@@ -681,7 +681,7 @@ void EXT_API ext::tick() {
 	}
 
 	/* Tick Main Thread Queue */ {
-		uf::thread::process( uf::thread::get("Main") );
+		uf::thread::process( uf::thread::get(uf::thread::mainThreadName) );
 	}
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config.engine.ext.ultralight.enabled ) {
@@ -733,7 +733,7 @@ void EXT_API ext::tick() {
 	if ( ::requestDedicatedRenderThread ) {
 		::requestDedicatedRenderThread = false;
 		uf::renderer::settings::experimental::dedicatedThread = true;
-		uf::renderer::settings::experimental::rebuildOnTickBegin = true;
+	//	uf::renderer::settings::experimental::rebuildOnTickBegin = true;
 		UF_MSG_DEBUG("Dedicated render requested");
 	}
 #endif

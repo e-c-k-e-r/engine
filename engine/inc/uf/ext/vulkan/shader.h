@@ -68,6 +68,13 @@ namespace ext {
 						uint32_t size = 0;
 					//	 int32_t buffer = -1;
 					};
+					struct AccelerationStructure {
+						uf::stl::string name = "";
+						uint32_t index = 0;
+						uint32_t binding = 0;
+						uint32_t size = 0;
+					//	 int32_t buffer = -1;
+					};
 					struct PushConstant {
 						uf::stl::string name = "";
 						uint32_t index = 0;
@@ -90,6 +97,7 @@ namespace ext {
 					uf::stl::unordered_map<uf::stl::string, InOut> outputs;
 					uf::stl::unordered_map<uf::stl::string, Uniform> uniforms;
 					uf::stl::unordered_map<uf::stl::string, Storage> storage;
+					uf::stl::unordered_map<uf::stl::string, AccelerationStructure> accelerationStructure;
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
 					uf::stl::unordered_map<uf::stl::string, SpecializationConstants> specializationConstants;
 				} definitions;

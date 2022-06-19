@@ -50,7 +50,7 @@ uf::Asset uf::Asset::masterAssetLoader;
 bool uf::Asset::assertionLoad = true;
 
 void uf::Asset::processQueue() {
-	uf::thread::queue([&]{
+//	uf::thread::queue([&]{
 		mutex.lock();
 		auto jobs = std::move(this->getComponent<std::queue<Job>>());
 		while ( !jobs.empty() ) {
@@ -68,7 +68,7 @@ void uf::Asset::processQueue() {
 			if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
 		}
 		mutex.unlock();
-	});
+//	});
 }
 void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();

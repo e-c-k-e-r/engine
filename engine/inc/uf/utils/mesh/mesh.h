@@ -257,12 +257,8 @@ namespace uf {
 namespace ext {
 	namespace RENDERER {
 		struct UF_API GraphicDescriptor {
-		#if UF_GRAPHIC_DESCRIPTOR_USE_STRING
-			typedef uf::stl::string hash_t;
-		#else
 			typedef size_t hash_t;
-		#endif
-
+			
 			uf::stl::string renderMode = "";
 			uf::stl::string pipeline = "";
 
@@ -273,6 +269,8 @@ namespace ext {
 				uf::Mesh::Input vertex, index, instance, indirect;
 				size_t bufferOffset = 0;
 				pod::Vector3ui dispatch = { 0, 0, 0 };
+				size_t width = 0;
+				size_t height = 0;
 			} inputs;
 
 			ext::RENDERER::enums::PrimitiveTopology::type_t topology = ext::RENDERER::enums::PrimitiveTopology::TRIANGLE_LIST;
@@ -301,6 +299,13 @@ namespace ext {
 			bool operator!=( const GraphicDescriptor& right ) const { return this->hash() != right.hash(); }
 		};
 	}
+}
+
+namespace std {
+    template <>
+    struct hash<ext::RENDERER::GraphicDescriptor> {
+        size_t operator()(const ext::RENDERER::GraphicDescriptor& descriptor) const { return descriptor.hash(); }
+    };
 }
 
 #undef UF_RENDERER

@@ -262,9 +262,9 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 #endif
 
 #if UF_GRAPH_LOAD_MULTITHREAD
-	auto tasks = uf::thread::schedule("Async");
+	auto tasks = uf::thread::schedule(true);
 #else
-	auto tasks = uf::thread::schedule("Main");
+	auto tasks = uf::thread::schedule(false);
 #endif
 	tasks.queue([&]{
 		ext::json::reserve( serializer["instances"], graph.instances.size() );

@@ -565,7 +565,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.accelerationStructures.top.handle ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 							blitter.record(commands[i], descriptor);
 						}
@@ -581,7 +581,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.accelerationStructures.top.handle ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 							blitter.record(commands[i], descriptor, eye, currentDraw++);
 						}

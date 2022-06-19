@@ -65,6 +65,7 @@ namespace ext {
 			bool tryMutex( std::thread::id = std::this_thread::get_id() );
 			void unlockMutex( std::thread::id = std::this_thread::get_id() );
 			std::lock_guard<std::mutex> guardMutex( std::thread::id = std::this_thread::get_id() );
+			void cleanupCommands( std::thread::id = std::this_thread::get_id() );
 
 			virtual ~RenderMode();
 			// RAII

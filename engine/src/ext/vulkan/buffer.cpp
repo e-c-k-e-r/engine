@@ -22,11 +22,13 @@ void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
 		.allocationInfo = buffer.allocationInfo,
 	};
 */
-	this->device = NULL;
+	this->aliased = true;
+	this->device = buffer.device;
 	this->buffer = buffer.buffer;
 	this->memory = buffer.memory;
 	this->descriptor = buffer.descriptor;
 	this->alignment = buffer.alignment;
+	this->address = buffer.address;
 	this->mapped = buffer.mapped;
 	this->usage = buffer.usage;
 	this->memoryProperties = buffer.memoryProperties;
@@ -84,18 +86,32 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 		allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 	}
 
-	vmaCreateBuffer( allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, &allocationInfo );
+	vmaCreateBufferWithAlignment( allocator, &bufferCreateInfo, &allocCreateInfo, alignment, &buffer, &allocation, &allocationInfo );
+}
+
+size_t ext::vulkan::Buffer::getAddress() {
+	VkBufferDeviceAddressInfoKHR info{};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	info.buffer = buffer;
+	return (this->address = vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info));
+}
+size_t ext::vulkan::Buffer::getAddress() const {
+	VkBufferDeviceAddressInfoKHR info{};
+	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	info.buffer = buffer;
+	return vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info);
 }
 
 // RAII
 ext::vulkan::Buffer::~Buffer() {
 //	this->destroy();
 }
-void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device ) {
+void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignment ) {
 	this->device = &device;
+	this->alignment = alignment;
 }
 void ext::vulkan::Buffer::destroy() {
-	if ( !device ) return;
+	if ( !device || aliased ) return;
 
 	if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
@@ -145,12 +161,12 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	);
 
 	// Copy to staging buffer
-	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::TRANSFER);
 	VkBufferCopy region = {};
 	region.size = length;
 	vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
 
-	device->flushCommandBuffer(copyCommand, true);
+	device->flushCommandBuffer(copyCommand, Device::QueueEnum::TRANSFER);
 	staging.destroy();
 	return false;
 }
@@ -174,7 +190,7 @@ void ext::vulkan::Buffers::destroy() {
 size_t ext::vulkan::Buffers::initializeBuffer( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
 	size_t index = buffers.size();
 	auto& buffer = buffers.emplace_back();
-	buffer.initialize( *device );
+	buffer.initialize( *device, requestedAlignment );
 	buffer.initialize( data, length, usage, memoryProperties, stage );
 	return index;
 }

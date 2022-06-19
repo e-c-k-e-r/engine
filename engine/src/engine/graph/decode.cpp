@@ -307,9 +307,9 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	graph.metadata = metadata; // serializer["metadata"];
 
 #if UF_GRAPH_LOAD_MULTITHREAD
-	auto tasks = uf::thread::schedule("Async");
+	auto tasks = uf::thread::schedule(true);
 #else
-	auto tasks = uf::thread::schedule("Main");
+	auto tasks = uf::thread::schedule(false);
 #endif
 
 	tasks.queue([&]{

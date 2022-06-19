@@ -166,8 +166,7 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 			auto get = input.as<int32_t>();
 			memcpy( byteBuffer, &get, size );
 			byteBuffer += size;
-		}
- else if ( primitive == "uint32_t" ) {
+		} else if ( primitive == "uint32_t" ) {
 			size_t size = sizeof(uint32_t); // v["size"].as<size_t>();
 			if ( byteBufferEnd < byteBuffer + size ) return false; // overflow
 			auto get = input.as<int32_t>();
@@ -530,6 +529,22 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 						binding
 					};
 				} break;
+				case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
+					// generate definition to JSON
+				#if UF_SHADER_PARSE_AS_JSON
+					{
+						metadata.json["definitions"]["accelerationStructure"][name]["name"] = name;
+						metadata.json["definitions"]["accelerationStructure"][name]["index"] = index;
+						metadata.json["definitions"]["accelerationStructure"][name]["binding"] = binding;
+						metadata.json["definitions"]["accelerationStructure"][name]["members"] = parseMembers(resource.type_id);
+					}
+				#endif
+					metadata.definitions.accelerationStructure[name] = Shader::Metadata::Definition::AccelerationStructure{
+						name,
+						index,
+						binding
+					};
+				} break;
 			}
 			descriptorSetLayoutBindings.push_back( ext::vulkan::initializers::descriptorSetLayoutBinding( descriptorType, stage, binding, arraySize ) );
 		};	
@@ -548,6 +563,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		LOOP_RESOURCES( subpass_inputs, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT );
 		LOOP_RESOURCES( uniform_buffers, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 		LOOP_RESOURCES( storage_buffers, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER );
+		LOOP_RESOURCES( acceleration_structures, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR );
 		#undef LOOP_RESOURCES
 	
 		{

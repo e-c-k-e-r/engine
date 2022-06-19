@@ -1149,7 +1149,7 @@ void uf::graph::tick() {
 		::newGraphAdded = false;
 	}
 }
-void uf::graph::render() {	
+void uf::graph::render() {
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
@@ -1163,10 +1163,10 @@ void uf::graph::render() {
 		uf::graph::storage.buffers.camera.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
 	}
 #endif
+#if UF_USE_VULKAN
 	auto* renderMode = uf::renderer::getCurrentRenderMode();
 	if ( !renderMode ) return;
 
-#if UF_USE_VULKAN
 	for ( auto& buffer : renderMode->buffers ) {
 		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( buffer.allocationInfo.size != sizeof(pod::Camera::Viewports) ) continue;

@@ -1,17 +1,17 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SS2",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"useLightmaps": true,
-				"max": 16
+				"max": 32
 			},
 			"shadows": {
 				"enabled": true,
 				"update": 2,
-				"max": 8,
+				"max": 16,
 				"samples": 1
 			},
 			"textures": {
@@ -48,7 +48,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": false,
+					"enabled": true,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -74,7 +74,7 @@
 				//	"size": [ 960, 540 ]
 				//	"size": [ 640, 480 ]
 				},
-				"gpu": "auto",
+				"gpu": 1,
 				"experimental": {
 					"batch queue submissions": false,
 					"dedicated thread": false
@@ -120,7 +120,14 @@
 					],
 					"device": [
 						"VK_KHR_swapchain",
-						"VK_EXT_shader_viewport_index_layer"
+						"VK_EXT_shader_viewport_index_layer",
+						"VK_KHR_acceleration_structure",
+						"VK_KHR_ray_tracing_pipeline",
+						"VK_KHR_buffer_device_address",
+						"VK_KHR_deferred_host_operations",
+						"VK_EXT_descriptor_indexing",
+						"VK_KHR_spirv_1_4",
+						"VK_KHR_shader_float_controls"
 					]
 				}
 			},
@@ -198,7 +205,7 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": false,
+			"enabled": true,
 			"subPools": true,
 			"alignment": 64,
 			"override": false,
@@ -209,14 +216,14 @@
 				"component": "128 MiB"
 			}
 		},
-		"render modes": { "gui": true, "deferred": true },
+		"render modes": { "gui": true, "deferred": true, "raytrace": true },
 		"limiters": {
 			"deltaTime": 5,
 			"framerate": "auto"
 		},
 		"threads": {
 			"workers" : "auto",
-			"frame limiter": "auto"
+			"frame limiter": 0 // "auto"
 		},
 		"debug": {
 			"framerate": {

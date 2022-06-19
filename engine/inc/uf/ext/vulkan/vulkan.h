@@ -10,6 +10,19 @@
 
 namespace ext {
 	namespace vulkan {
+	#if 1
+		extern UF_API PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+		extern UF_API PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+		extern UF_API PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+		extern UF_API PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+		extern UF_API PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+		extern UF_API PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+		extern UF_API PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
+		extern UF_API PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+		extern UF_API PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+		extern UF_API PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+	#endif
+
 		VkResult CreateDebugUtilsMessengerEXT(
 			VkInstance instance,
 			const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -55,6 +68,7 @@ namespace ext {
 				extern UF_API bool dedicatedThread;
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool batchQueueSubmissions;
+				extern UF_API bool enableMultiGPU;
 			}
 
 			namespace invariant {

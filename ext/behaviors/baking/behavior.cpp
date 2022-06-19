@@ -127,9 +127,9 @@ SAVE: {
 	UF_MSG_DEBUG("Baking...");
 
 #if UF_BAKER_SAVE_MULTITHREAD
-	auto tasks = uf::thread::schedule("Async");
+	auto tasks = uf::thread::schedule(true);
 #else
-	auto tasks = uf::thread::schedule("Main");
+	auto tasks = uf::thread::schedule(false);
 #endif
 	// 0 is always broken, do not save it
 	for ( size_t i = 0; i < metadata.max.layers; ++i ) {

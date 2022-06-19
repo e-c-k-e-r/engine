@@ -15,9 +15,6 @@ namespace ext {
 			VkPhysicalDevice physicalDevice;
 			VkDevice logicalDevice;
 			struct {
-			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> graphics;
-			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> compute;
-			//	uf::stl::unordered_map<std::thread::id, VkCommandPool> transfer;
 				uf::ThreadUnique<VkCommandPool> graphics;
 				uf::ThreadUnique<VkCommandPool> compute;
 				uf::ThreadUnique<VkCommandPool> transfer;
@@ -47,10 +44,6 @@ namespace ext {
 			uf::stl::vector<VkQueueFamilyProperties> queueFamilyProperties;
 			
 			struct {
-			//	uf::stl::unordered_map<std::thread::id,VkQueue> graphics;
-			//	uf::stl::unordered_map<std::thread::id,VkQueue> present;
-			//	uf::stl::unordered_map<std::thread::id,VkQueue> compute;
-			//	uf::stl::unordered_map<std::thread::id,VkQueue> transfer;
 				uf::ThreadUnique<VkQueue> graphics;
 				uf::ThreadUnique<VkQueue> present;
 				uf::ThreadUnique<VkQueue> compute;
@@ -59,14 +52,12 @@ namespace ext {
 
 			uf::Window* window;
 
-		/*
-			struct {
-				VkFormat depth;
-				VkFormat color;
-				VkColorSpaceKHR space;
-			} formats;
-		*/
-
+			enum QueueEnum {
+				GRAPHICS,
+				PRESENT,
+				COMPUTE,
+				TRANSFER,
+			};
 			struct QueueFamilyIndices {
 				uint32_t graphics;
 				uint32_t present;
@@ -78,10 +69,12 @@ namespace ext {
 			// helpers
 			uint32_t getQueueFamilyIndex( VkQueueFlagBits queueFlags );
 			uint32_t getMemoryType( uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32 *memTypeFound = nullptr );
-			int rate( VkPhysicalDevice device );
 			
-			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, bool begin = false );
+			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, bool begin = true );
+			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true );
+
 			void flushCommandBuffer( VkCommandBuffer commandBuffer, bool free = true );
+			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool free = true );
 
 			VkResult createBuffer(
 				VkBufferUsageFlags usage,
@@ -99,12 +92,6 @@ namespace ext {
 				const void* data = nullptr
 			);
 
-			enum QueueEnum {
-				GRAPHICS,
-				PRESENT,
-				COMPUTE,
-				TRANSFER,
-			};
 			VkQueue& getQueue( QueueEnum );
 			VkCommandPool& getCommandPool( QueueEnum );
 			VkQueue& getQueue( QueueEnum, std::thread::id );

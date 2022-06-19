@@ -59,7 +59,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
-	LINKS 				+= -Wl,-subsystem,windows
+	LINKS 				+= #-Wl,-subsystem,windows
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti  # lua ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
@@ -304,7 +304,7 @@ $(TARGET): $(OBJS)
 endif
 
 %.spv: %.glsl
-	$(GLSLC) -std=450 -o $@ $<
+	$(GLSLC) --target-env=vulkan1.2 -o $@ $<
 	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
 clean:
