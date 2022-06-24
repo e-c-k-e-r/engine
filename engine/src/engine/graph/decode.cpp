@@ -258,9 +258,6 @@ namespace {
 
 		mesh.updateDescriptor();
 
-	//	return mesh.expand();
-	//	if ( mesh.isInterleaved() != uf::Mesh::defaultInterleaved ) return mesh.copy(true);
-
 		return mesh;
 	}
 

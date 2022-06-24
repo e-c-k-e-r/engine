@@ -62,10 +62,6 @@ void uf::Mesh::destroy() {
 
 	buffers.clear();
 }
-// implicitly convert to opposite interleaving
-uf::Mesh uf::Mesh::convert() const {
-	return copy( !isInterleaved() );
-}
 uf::Mesh uf::Mesh::copy( bool interleaved ) const {
 	uf::Mesh res;
 
@@ -75,6 +71,11 @@ uf::Mesh uf::Mesh::copy( bool interleaved ) const {
 
 	return res;
 }
+uf::Mesh uf::Mesh::copy() const { return copy( isInterleaved() ); }
+// implicitly convert to opposite interleaving
+uf::Mesh uf::Mesh::convert() const { return copy( !isInterleaved() ); }
+uf::Mesh uf::Mesh::interleave() const { return copy(true); }
+uf::Mesh uf::Mesh::deinterleave() const { return copy(false); }
 void uf::Mesh::updateDescriptor() {
 	_updateDescriptor(vertex);
 	_updateDescriptor(index);

@@ -1,6 +1,7 @@
 #extension GL_EXT_samplerless_texture_functions : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
+#define ADDRESS_ENABLED 1
 #define DEFERRED 1
 #define MAX_TEXTURES TEXTURES
 //#define TEXTURE_WORKAROUND 0
@@ -83,14 +84,19 @@ layout (std140, binding = 8) readonly buffer Textures {
 layout (std140, binding = 9) readonly buffer Lights {
 	Light lights[];
 };
+/*
+layout (std140, binding = 10) readonly buffer InstanceAddresseses {
+	InstanceAddresses instanceAddresses[];
+};
+*/
 
-layout (binding = 10) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 11) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 12) uniform sampler3D samplerNoise;
+layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 12) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 13) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 13) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 14) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 15) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 14) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 15) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 16) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;

@@ -53,6 +53,14 @@ bool ext::opengl::settings::pipelines::hdr = false;
 bool ext::opengl::settings::pipelines::vxgi = false;
 bool ext::opengl::settings::pipelines::culling = false;
 bool ext::opengl::settings::pipelines::bloom = false;
+bool ext::opengl::settings::pipelines::rt = false;
+
+uf::stl::string ext::opengl::settings::pipelines::names::vsync = "vsync";
+uf::stl::string ext::opengl::settings::pipelines::names::hdr = "hdr";
+uf::stl::string ext::opengl::settings::pipelines::names::vxgi = "vxgi";
+uf::stl::string ext::opengl::settings::pipelines::names::culling = "culling";
+uf::stl::string ext::opengl::settings::pipelines::names::bloom = "bloom";
+uf::stl::string ext::opengl::settings::pipelines::names::rt = "rt";
 
 GLhandle(VkColorSpaceKHR) ext::opengl::settings::formats::colorSpace;
 ext::opengl::enums::Format::type_t ext::opengl::settings::formats::color = ext::opengl::enums::Format::R8G8B8A8_UNORM;

@@ -254,6 +254,11 @@ void ext::opengl::Texture::fromBuffers(
 
 void ext::opengl::Texture::asRenderTarget( Device& device, uint32_t width, uint32_t height, enums::Format::type_t format ) {
 }
+ext::opengl::Texture ext::opengl::Texture::alias() const {
+	ext::opengl::Texture texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
 void ext::opengl::Texture::aliasTexture( const Texture& texture ) {
 	image = texture.image;
 	type = texture.type;
@@ -337,6 +342,22 @@ ext::opengl::Texture3D::Texture3D() {
 ext::opengl::TextureCube::TextureCube() {
 	type = enums::Image::TYPE_2D;
 	viewType = enums::Image::VIEW_TYPE_CUBE;
+}
+
+ext::opengl::Texture2D ext::opengl::Texture2D::alias() const {
+	ext::opengl::Texture2D texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
+ext::opengl::Texture3D ext::opengl::Texture3D::alias() const {
+	ext::opengl::Texture3D texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
+ext::opengl::TextureCube ext::opengl::TextureCube::alias() const {
+	ext::opengl::TextureCube texture;
+	texture.aliasTexture(*this);
+	return texture;
 }
 
 #endif

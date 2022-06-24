@@ -88,12 +88,8 @@ namespace {
 
 				mesh.insertIndirects(drawCommands);
 				mesh.updateDescriptor();
-				
-				graphic.initialize();
-				graphic.initializeMesh( mesh );
-				graphic.process = true;
 
-				uf::graph::initializeGraphics( graph, object );
+				uf::graph::initializeGraphics( graph, object, mesh );
 			}
 		}
 

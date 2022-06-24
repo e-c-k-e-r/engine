@@ -160,7 +160,7 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #if UF_UNIFORMS_REUSE
 	shader.updateUniform( "UBO", uniform );
 #else
-	shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 #endif
 #endif
 }

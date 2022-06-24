@@ -7,21 +7,12 @@
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 
+ext::vulkan::Buffer ext::vulkan::Buffer::alias() const {
+	ext::vulkan::Buffer buffer;
+	buffer.aliasBuffer(*this);
+	return buffer;
+}
 void ext::vulkan::Buffer::aliasBuffer( const ext::vulkan::Buffer& buffer ) {
-/*
-	*this = {
-		.device = NULL,
-		.buffer = buffer.buffer,
-		.memory = buffer.memory,
-		.descriptor = buffer.descriptor,
-		.alignment = buffer.alignment,
-		.mapped = buffer.mapped,
-		.usage = buffer.usage,
-		.memoryProperties = buffer.memoryProperties,
-		.allocation = buffer.allocation,
-		.allocationInfo = buffer.allocationInfo,
-	};
-*/
 	this->aliased = true;
 	this->device = buffer.device;
 	this->buffer = buffer.buffer;

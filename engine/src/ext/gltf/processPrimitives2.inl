@@ -186,7 +186,7 @@ if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.
 	size_t vertexID = 0;
 
 	mesh.bindIndirect<pod::DrawCommand>();
-	mesh.bind<UF_GRAPH_MESH_FORMAT>();
+	mesh.bind<UF_GRAPH_MESH_FORMAT>(false); // default to de-interleaved regardless of requirement (makes things easier)
 	
 	for ( auto& meshlet : meshlets ) {
 		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{

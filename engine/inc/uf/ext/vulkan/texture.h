@@ -117,7 +117,10 @@ namespace ext {
 			);
 			void fromBuffers( void* buffer, VkDeviceSize bufferSize, VkFormat format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, Device& device, VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT, VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, VkFormat format = DefaultFormat );
+			
+			Texture alias() const;
 			void aliasTexture( const Texture& );
+
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
 			void aliasAttachment( const RenderTarget::Attachment& attachment, size_t, bool = true );
 			
@@ -138,6 +141,7 @@ namespace ext {
 			static Texture2D empty;
 			Texture2D();
 
+			Texture2D alias() const;
 			uf::Image screenshot( uint32_t layer = 0 );
 		};
 		class UF_API Texture3D : public Texture {
@@ -145,12 +149,15 @@ namespace ext {
 			static Texture3D empty;
 			Texture3D();
 			
+			Texture3D alias() const;
 			uf::Image screenshot( uint32_t layer = 0 );
 		};
 		class UF_API TextureCube : public Texture {
 		public:
 			static TextureCube empty;
 			TextureCube();
+			
+			TextureCube alias() const;
 		};
 	}
 }

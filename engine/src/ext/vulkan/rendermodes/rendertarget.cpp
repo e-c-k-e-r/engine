@@ -37,7 +37,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata.json["descriptor"]);
 
-	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == "vxgi" ) {
+	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
@@ -67,7 +67,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		buffers.emplace_back().initialize( NULL, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
 	}
 
-	if ( metadata.type == "depth" || metadata.type == "vxgi" ) {
+	if ( metadata.type == "depth" || metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		renderTarget.views = metadata.subpasses;
 		struct {
 			size_t depth;
@@ -311,7 +311,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
 		}
-		if ( metadata.type == "vxgi"  ) {
+		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi  ) {
 			auto& scene = uf::scene::getCurrentScene();
 
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -322,12 +322,13 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			auto& shader = blitter.material.getShader("compute");
-		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
-		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 
 			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
@@ -348,40 +349,13 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 				}
 			}
-		/*
-			ext::json::forEach( shader.metadata.json["specializationConstants"], [&]( size_t i, ext::json::Value& sc ){
-				uf::stl::string name = sc["name"].as<uf::stl::string>();
-				if ( name == "TEXTURES" ) sc["value"] = (specializationConstants[i] = maxTextures2D);
-				else if ( name == "CUBEMAPS" ) sc["value"] = (specializationConstants[i] = maxTexturesCube);
-				else if ( name == "CASCADES" ) sc["value"] = (specializationConstants[i] = maxCascades);
-			});
-			ext::json::forEach( shader.metadata.json["definitions"]["textures"], [&]( ext::json::Value& t ){
-				size_t binding = t["binding"].as<size_t>();
-				uf::stl::string name = t["name"].as<uf::stl::string>();
-				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-					if ( layout.binding != binding ) continue;
-					if ( name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
-					else if ( name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
-					else if ( name == "voxelId" ) layout.descriptorCount = maxCascades;
-					else if ( name == "voxelUv" ) layout.descriptorCount = maxCascades;
-					else if ( name == "voxelNormal" ) layout.descriptorCount = maxCascades;
-					else if ( name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
-				}
-			});
-		*/
-
-		} else {
+		} else if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
 			for ( auto& attachment : renderTarget.attachments ) {
 				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
 				Texture2D& texture = blitter.material.textures.emplace_back();
 				enums::Filter::type_t filter = VK_FILTER_NEAREST;
-			/*
-				VkFormatProperties formatProperties;
-				vkGetPhysicalDeviceFormatProperties( device.physicalDevice, texture.format, &formatProperties );
-				if ( formatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT )
-					filter = VK_FILTER_LINEAR;
-			*/
+
 				texture.sampler.descriptor.filter.min = filter;
 				texture.sampler.descriptor.filter.mag = filter;
 				texture.aliasAttachment(attachment);
@@ -408,7 +382,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	bool resized = this->width == 0 && this->height == 0 && ext::vulkan::states::resized;
 	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
 
-	if ( metadata.type == "vxgi" ) {
+	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		if ( resized ) {
 			renderTarget.initialize( *renderTarget.device );
 		}
@@ -419,15 +393,17 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	}
 	if ( resized ) {
 		renderTarget.initialize( *renderTarget.device );
-		blitter.material.textures.clear();
-		for ( auto& attachment : renderTarget.attachments ) {
-			if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-			Texture2D& texture = blitter.material.textures.emplace_back();
-			enums::Filter::type_t filter = VK_FILTER_NEAREST;
+		if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
+			blitter.material.textures.clear();
+			for ( auto& attachment : renderTarget.attachments ) {
+				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+				Texture2D& texture = blitter.material.textures.emplace_back();
+				enums::Filter::type_t filter = VK_FILTER_NEAREST;
 
-			texture.sampler.descriptor.filter.min = filter;
-			texture.sampler.descriptor.filter.mag = filter;
-			texture.aliasAttachment(attachment);
+				texture.sampler.descriptor.filter.min = filter;
+				texture.sampler.descriptor.filter.mag = filter;
+				texture.aliasAttachment(attachment);
+			}
 		}
 	}
 	if ( rebuild && blitter.process ) {
@@ -600,30 +576,38 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			// pre-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
 			
-			for ( auto& pipeline : metadata.pipelines ) {
-				if ( pipeline == metadata.pipeline ) continue;
+			if ( this->getName() == "Compute" ) {
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
-					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-					descriptor.pipeline = pipeline;
-					graphic->record( commands[i], descriptor, 0, metadata.type == "vxgi" ? 0 : MIN(subpasses,6) );
+					if ( graphic->descriptor.pipeline != uf::renderer::settings::pipelines::names::rt ) continue;
+					graphic->record( commands[i] );
 				}
-			}
-
-			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdSetViewport(commands[i], 0, 1, &viewport);
-				vkCmdSetScissor(commands[i], 0, 1, &scissor);
-				for ( ; currentPass < subpasses; ++currentPass ) {
-					size_t currentDraw = 0;
+			} else {
+				for ( auto& pipeline : metadata.pipelines ) {
+					if ( pipeline == metadata.pipeline ) continue;
 					for ( auto graphic : graphics ) {
 						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-						graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
+						descriptor.pipeline = pipeline;
+						graphic->record( commands[i], descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
 					}
-					if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i] );
-					if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 				}
-			vkCmdEndRenderPass(commands[i]);
+
+				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+					vkCmdSetViewport(commands[i], 0, 1, &viewport);
+					vkCmdSetScissor(commands[i], 0, 1, &scissor);
+					for ( ; currentPass < subpasses; ++currentPass ) {
+						size_t currentDraw = 0;
+						for ( auto graphic : graphics ) {
+							if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
+							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
+							graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
+						}
+						if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i] );
+						if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+					}
+				vkCmdEndRenderPass(commands[i]);
+			}
 			
 			// post-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );

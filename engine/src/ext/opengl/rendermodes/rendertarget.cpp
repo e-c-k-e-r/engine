@@ -35,11 +35,11 @@ uf::stl::vector<ext::opengl::Graphic*> ext::opengl::RenderTargetRenderMode::getB
 ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
 	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata.json["descriptor"]);
-	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == "vxgi" ) {
+	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 	//	descriptor.cullMode = GL_CULL_MODE_NONE;
 		descriptor.depth.test = false;
 		descriptor.depth.write = false;
-		descriptor.pipeline = "vxgi";
+		descriptor.pipeline = uf::renderer::settings::pipelines::names::vxgi;
 	} else if ( metadata.type == "depth" ) {
 	//	descriptor.cullMode = GL_CULL_MODE_NONE;
 	}

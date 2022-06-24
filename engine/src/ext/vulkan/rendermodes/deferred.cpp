@@ -283,12 +283,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
-		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
-		//	shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.joint );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.instance );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.material );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.texture );
-			shader.buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.light );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 
 			if ( ext::vulkan::settings::pipelines::vxgi ) {
 				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
@@ -565,7 +566,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.accelerationStructures.top.handle ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 							blitter.record(commands[i], descriptor);
 						}
@@ -581,7 +582,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						for ( auto _ : layers ) {
 							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.accelerationStructures.top.handle ) continue;
+							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 							blitter.record(commands[i], descriptor, eye, currentDraw++);
 						}

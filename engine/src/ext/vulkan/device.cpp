@@ -436,10 +436,10 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	return commandBuffer;
 }
 
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool free ) {
-	return flushCommandBuffer( commandBuffer, QueueEnum::TRANSFER, free );
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool wait ) {
+	return flushCommandBuffer( commandBuffer, QueueEnum::TRANSFER, wait );
 }
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool free ) {
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queueType, bool wait ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
@@ -448,14 +448,12 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	// Create fence to ensure that the command buffer has finished executing
-	VkFenceCreateInfo fenceInfo = ext::vulkan::initializers::fenceCreateInfo(VK_FLAGS_NONE);
-	VkFence fence;
-	VK_CHECK_RESULT(vkCreateFence(logicalDevice, &fenceInfo, nullptr, &fence));
-	VK_CHECK_RESULT(vkQueueSubmit( getQueue( queue ), 1, &submitInfo, fence));
-	VK_CHECK_RESULT(vkWaitForFences(logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
-	vkDestroyFence(logicalDevice, fence, nullptr);
-	if ( free ) vkFreeCommandBuffers(logicalDevice, getCommandPool( queue ), 1, &commandBuffer);
+	auto& queue = getQueue( queueType );
+	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+	if ( wait ) {
+		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
+	}
 }
 #if 0
 VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkDeviceSize size,  VkBuffer* buffer, VkDeviceMemory* memory, const void* data ) {
@@ -792,7 +790,7 @@ void ext::vulkan::Device::initialize() {
 	// Create logical device
 	{
 		bool useSwapChain = true;
-		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT; // | VK_QUEUE_TRANSFER_BIT;
+		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
 		uf::stl::vector<uf::stl::string> requestedExtensions;
 		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
 	#if UF_USE_OPENVR		
@@ -939,6 +937,7 @@ void ext::vulkan::Device::initialize() {
 		{
 			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
 		}
 		
 		deviceCreateInfo.pNext = &physicalDeviceFeatures2;

@@ -56,6 +56,14 @@ bool ext::vulkan::settings::pipelines::hdr = true;
 bool ext::vulkan::settings::pipelines::vxgi = true;
 bool ext::vulkan::settings::pipelines::culling = false;
 bool ext::vulkan::settings::pipelines::bloom = false;
+bool ext::vulkan::settings::pipelines::rt = false;
+
+uf::stl::string ext::vulkan::settings::pipelines::names::vsync = "vsync";
+uf::stl::string ext::vulkan::settings::pipelines::names::hdr = "hdr";
+uf::stl::string ext::vulkan::settings::pipelines::names::vxgi = "vxgi";
+uf::stl::string ext::vulkan::settings::pipelines::names::culling = "culling";
+uf::stl::string ext::vulkan::settings::pipelines::names::bloom = "bloom";
+uf::stl::string ext::vulkan::settings::pipelines::names::rt = "rt";
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;
@@ -77,17 +85,6 @@ uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
 };
 uf::stl::unordered_map<uf::stl::string, ext::vulkan::RenderMode*> ext::vulkan::renderModesMap;
-
-PFN_vkGetBufferDeviceAddressKHR ext::vulkan::vkGetBufferDeviceAddressKHR = NULL; // = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
-PFN_vkCmdBuildAccelerationStructuresKHR ext::vulkan::vkCmdBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
-PFN_vkBuildAccelerationStructuresKHR ext::vulkan::vkBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
-PFN_vkCreateAccelerationStructureKHR ext::vulkan::vkCreateAccelerationStructureKHR = NULL; // = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
-PFN_vkDestroyAccelerationStructureKHR ext::vulkan::vkDestroyAccelerationStructureKHR = NULL; // = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
-PFN_vkGetAccelerationStructureBuildSizesKHR ext::vulkan::vkGetAccelerationStructureBuildSizesKHR = NULL; // = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
-PFN_vkGetAccelerationStructureDeviceAddressKHR ext::vulkan::vkGetAccelerationStructureDeviceAddressKHR = NULL; // = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
-PFN_vkCmdTraceRaysKHR ext::vulkan::vkCmdTraceRaysKHR = NULL; // = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
-PFN_vkGetRayTracingShaderGroupHandlesKHR ext::vulkan::vkGetRayTracingShaderGroupHandlesKHR = NULL; // = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
-PFN_vkCreateRayTracingPipelinesKHR ext::vulkan::vkCreateRayTracingPipelinesKHR = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 
 VkResult ext::vulkan::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -456,7 +453,7 @@ void ext::vulkan::render() {
 				uf::graph::render();
 				uf::scene::render();
 
-				if ( renderMode->getType() == "Compute" ) {
+				if ( renderMode->metadata.compute ) {
 					submitsCompute.emplace_back(submitInfo);
 				} else {
 					submitsGraphics.emplace_back(submitInfo);

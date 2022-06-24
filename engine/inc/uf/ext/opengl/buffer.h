@@ -43,6 +43,7 @@ namespace ext {
 				void* pUserData = NULL;
 			} allocationInfo;
 
+			Buffer alias() const;
 			void aliasBuffer( const Buffer& buffer );
 
 			void* map( GLsizeiptr size = GL_WHOLE_SIZE, GLsizeiptr offset = 0 );

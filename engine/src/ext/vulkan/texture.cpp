@@ -605,6 +605,11 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	// Initialize a descriptor for later use
 	this->updateDescriptors();
 }
+ext::vulkan::Texture ext::vulkan::Texture::alias() const {
+	ext::vulkan::Texture texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
 void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 	*this = {
 		.device = nullptr,
@@ -1063,6 +1068,22 @@ ext::vulkan::Texture3D::Texture3D() {
 ext::vulkan::TextureCube::TextureCube() {
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = ext::vulkan::enums::Image::VIEW_TYPE_CUBE;
+}
+
+ext::vulkan::Texture2D ext::vulkan::Texture2D::alias() const {
+	ext::vulkan::Texture2D texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
+ext::vulkan::Texture3D ext::vulkan::Texture3D::alias() const {
+	ext::vulkan::Texture3D texture;
+	texture.aliasTexture(*this);
+	return texture;
+}
+ext::vulkan::TextureCube ext::vulkan::TextureCube::alias() const {
+	ext::vulkan::TextureCube texture;
+	texture.aliasTexture(*this);
+	return texture;
 }
 
 #endif

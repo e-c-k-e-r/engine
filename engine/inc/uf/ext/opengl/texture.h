@@ -98,7 +98,10 @@ namespace ext {
 			);
 			void fromBuffers( void* buffer, size_t bufferSize, enums::Format::type_t format, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, uint32_t layers, Device& device );
 			void asRenderTarget( Device& device, uint32_t texWidth, uint32_t texHeight, enums::Format::type_t format = enums::Format::R8G8B8A8_UNORM );
+			
+			Texture alias() const;
 			void aliasTexture( const Texture& );
+
 			void aliasAttachment( const RenderTarget::Attachment& attachment, bool = true );
 			
 			void update( uf::Image& image, uint32_t layer = 1 );
@@ -115,14 +118,20 @@ namespace ext {
 		public:
 			Texture2D();
 			static Texture2D empty;
+			
+			Texture2D alias() const;
 		};
 		class UF_API Texture3D : public Texture {
 		public:
 			Texture3D();
+			
+			Texture3D alias() const;
 		};
 		class UF_API TextureCube : public Texture {
 		public:
 			TextureCube();
+			
+			TextureCube alias() const;
 		};
 	}
 }

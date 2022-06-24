@@ -36,7 +36,8 @@ namespace ext {
 				
 				uf::stl::string pipeline = "";
 				uf::stl::string type = "";
-				bool autoInitializeUniforms = true;
+				bool autoInitializeUniformBuffers = true;
+				bool autoInitializeUniformUserdatas = false;
 
 				struct Definition {
 					struct InOut {

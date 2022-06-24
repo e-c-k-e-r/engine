@@ -8,7 +8,7 @@
 #include <uf/utils/math/matrix.h>
 
 namespace ext {
-	namespace VoxelizerBehavior {
+	namespace VoxelizerSceneBehavior {
 		UF_BEHAVIOR_DEFINE_TYPE();
 		EXT_BEHAVIOR_DEFINE_TRAITS();
 		EXT_BEHAVIOR_DEFINE_FUNCTIONS();

@@ -6,6 +6,7 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/renderer/renderer.h>
 #include <uf/utils/memory/unordered_map.h>
+#include <uf/utils/memory/key_map.h>
 
 #include <queue>
 
@@ -60,46 +61,27 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
-			template<typename T, typename Key = uf::stl::string>
-			struct KeyMap {
-			public:
-				uf::stl::vector<Key> keys;
-				uf::stl::unordered_map<Key, T> map;
-				uf::stl::unordered_map<Key, size_t> indices;
+			
 
-				T& operator[]( const Key& key ) {
-					if ( map.count( key ) == 0 ) {
-						indices[key] = keys.size();
-						keys.emplace_back( key );
-					}
-					return map[key];
-				}
+			uf::stl::KeyMap<pod::Instance> instances;
+			uf::stl::KeyMap<pod::InstanceAddresses> instanceAddresses;
+			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
+			uf::stl::KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands;
+			uf::stl::KeyMap<uf::Mesh> meshes;
 
-				void reserve( size_t i ) {
-					keys.reserve(i);
-					indices.reserve(i);
-					map.reserve(i);
-				}
-			};
-
-			KeyMap<pod::Instance> instances;
-			KeyMap<uf::stl::vector<pod::Primitive>> primitives;
-			KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands;
-			KeyMap<uf::Mesh> meshes;
-
-			KeyMap<uf::Image> images;
-			KeyMap<pod::Material> materials;
-			KeyMap<pod::Texture> textures;
-			KeyMap<uf::renderer::Sampler> samplers;
+			uf::stl::KeyMap<uf::Image> images;
+			uf::stl::KeyMap<pod::Material> materials;
+			uf::stl::KeyMap<pod::Texture> textures;
+			uf::stl::KeyMap<uf::renderer::Sampler> samplers;
 			uf::stl::vector<pod::Light> lights;
-			KeyMap<pod::Skin> skins;
-			KeyMap<pod::Animation> animations;
+			uf::stl::KeyMap<pod::Skin> skins;
+			uf::stl::KeyMap<pod::Animation> animations;
 
 			// maps without direct analogues
-			KeyMap<uf::Atlas> atlases;
-			KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
-			KeyMap<uf::renderer::Texture2D> texture2Ds;
-			KeyMap<uf::Entity*> entities;
+			uf::stl::KeyMap<uf::Atlas> atlases;
+			uf::stl::KeyMap<uf::stl::vector<pod::Matrix4f>> joints;
+			uf::stl::KeyMap<uf::renderer::Texture2D> texture2Ds;
+			uf::stl::KeyMap<uf::Entity*> entities;
 			
 			uf::stl::vector<uf::renderer::Texture2D> shadow2Ds;
 			uf::stl::vector<uf::renderer::TextureCube> shadowCubes;
@@ -108,6 +90,7 @@ namespace pod {
 				uf::renderer::Buffer camera;
 				uf::renderer::Buffer drawCommands;
 				uf::renderer::Buffer instance;
+				uf::renderer::Buffer instanceAddresses;
 				uf::renderer::Buffer joint;
 				uf::renderer::Buffer material;
 				uf::renderer::Buffer texture;
@@ -132,7 +115,7 @@ namespace uf {
 		pod::Matrix4f UF_API matrix( pod::Graph&, int32_t );
 
 	//	void UF_API process( uf::Object& entity );
-		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity );
+		void UF_API initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::Mesh& mesh );
 		void UF_API process( pod::Graph& graph );
 		void UF_API process( pod::Graph& graph, int32_t, uf::Object& parent );
 		void UF_API cleanup( pod::Graph& graph );

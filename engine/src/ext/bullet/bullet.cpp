@@ -83,12 +83,12 @@ namespace {
 			graphic.material.device = &uf::renderer::device;
 			graphic.descriptor.cullMode = uf::renderer::enums::CullMode::NONE;
 
-			graphic.material.metadata.autoInitializeUniforms = false;
+			graphic.material.metadata.autoInitializeUniformBuffers = false;
 			graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.vert.spv", uf::renderer::enums::Shader::VERTEX);
 			graphic.material.attachShader(uf::io::root + "/shaders/bullet/base.frag.spv", uf::renderer::enums::Shader::FRAGMENT);
-			graphic.material.metadata.autoInitializeUniforms = true;
+			graphic.material.metadata.autoInitializeUniformBuffers = true;
 
-			graphic.material.getShader("vertex").buffers.emplace_back().aliasBuffer( uf::graph::storage.buffers.camera );
+			graphic.material.getShader("vertex").buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 
 			graphic.initialize(ext::bullet::debugDrawLayer);
 			graphic.initializeMesh( mesh );

@@ -50,6 +50,7 @@ namespace ext {
 			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
 			void destroy();
 
+			Buffer alias() const;
 			void aliasBuffer( const Buffer& );
 		};
 		struct UF_API Buffers {
@@ -71,7 +72,13 @@ namespace ext {
 
 			inline bool updateBuffer( const void* data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( data, length, buffers.at(index), stage ); }
 		//	template<typename T> inline bool updateBuffer( const T* data, const Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) data, static_cast<VkDeviceSize>(sizeof(T)), buffer, stage ); }
-			template<typename T> inline bool updateBuffer( const T& data, const Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, static_cast<VkDeviceSize>(sizeof(T)), buffer, stage ); }
+	//		template<typename T> inline bool updateBuffer( const T& data, const Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, static_cast<VkDeviceSize>(sizeof(T)), buffer, stage ); }
+		};
+
+		struct AccelerationStructure {
+			VkAccelerationStructureKHR handle{VK_NULL_HANDLE};
+			size_t deviceAddress{};
+			size_t instanceID{};
 		};
 	}
 }

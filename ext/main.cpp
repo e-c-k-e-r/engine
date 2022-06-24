@@ -416,6 +416,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
 		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
+		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
 
 	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = configRenderJson["formats"][#key].as<uf::stl::string>();\
@@ -472,10 +473,24 @@ void EXT_API ext::initialize() {
 
 	/* Initialize Vulkan */ {
 		// setup render mode
+#if UF_USE_VULKAN
+	/*
+		if ( ::json["engine"]["render modes"]["compute"].as<bool>(true) ) {
+			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
+			renderMode->setTarget("Compute");
+			renderMode->metadata.json["shaders"]["vertex"] = "/shaders/display/renderTargetSimple.vert.spv";
+			renderMode->metadata.json["shaders"]["fragment"] = "/shaders/display/renderTargetSimple.frag.spv";
+			renderMode->blitter.descriptor.subpass = 1;
+			renderMode->metadata.type = "rt";
+			renderMode->metadata.pipelines.emplace_back("rt");
+			uf::renderer::addRenderMode( renderMode, "Compute" );
+		}
+	*/
+#endif
 		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
-			uf::renderer::addRenderMode( renderMode, "Gui" );
 			renderMode->blitter.descriptor.subpass = 1;
+			uf::renderer::addRenderMode( renderMode, "Gui" );
 		}
 		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
 			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
@@ -484,15 +499,11 @@ void EXT_API ext::initialize() {
 				renderMode.metadata.eyes = 2;
 			}
 			if ( uf::renderer::settings::pipelines::culling ) {
-				renderMode.metadata.pipelines.emplace_back("culling");
+				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
 			}
 		}
 
 #if UF_USE_VULKAN
-		if ( ::json["engine"]["render modes"]["raytrace"].as<bool>(false) ) {
-			auto* renderMode = new uf::renderer::RayTraceRenderMode;
-			uf::renderer::addRenderMode( renderMode, "RayTrace" );
-		}
 		/* Callbacks for 2KHR stuffs */ {
 			uf::hooks.addHook("vulkan:Instance.ExtensionsEnabled", []( const ext::json::Value& json ) {
 			//	UF_MSG_DEBUG("vulkan:Instance.ExtensionsEnabled: " << json);

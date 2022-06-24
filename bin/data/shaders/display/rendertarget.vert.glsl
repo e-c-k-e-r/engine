@@ -1,9 +1,6 @@
 #version 450
 #pragma shader_stage(vertex)
 
-layout (location = 0) in vec2 inPos;
-layout (location = 1) in vec2 inUv;
-
 struct Cursor {
 	vec2 position;
 	vec2 radius;

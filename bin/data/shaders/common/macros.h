@@ -52,6 +52,10 @@
 	#define nonuniformEXT(X) X
 #endif
 
+#if ADDRESS_ENABLED
+	#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+#endif
+
 const float PI = 3.14159265359;
 const float EPSILON = 0.00001;
 const float SQRT2 = 1.41421356237;

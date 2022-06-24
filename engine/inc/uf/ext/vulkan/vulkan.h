@@ -10,19 +10,6 @@
 
 namespace ext {
 	namespace vulkan {
-	#if 1
-		extern UF_API PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
-		extern UF_API PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
-		extern UF_API PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
-		extern UF_API PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
-		extern UF_API PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
-		extern UF_API PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
-		extern UF_API PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
-		extern UF_API PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
-		extern UF_API PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
-		extern UF_API PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
-	#endif
-
 		VkResult CreateDebugUtilsMessengerEXT(
 			VkInstance instance,
 			const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -42,6 +29,17 @@ namespace ext {
 			const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 			void* pUserData
 		);
+
+		extern UF_API PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+		extern UF_API PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+		extern UF_API PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+		extern UF_API PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+		extern UF_API PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+		extern UF_API PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+		extern UF_API PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
+		extern UF_API PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+		extern UF_API PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+		extern UF_API PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
 
 		uf::stl::string errorString( VkResult result );
 		VkSampleCountFlagBits sampleCount( uint8_t );
@@ -89,6 +87,16 @@ namespace ext {
 				extern UF_API bool vxgi;
 				extern UF_API bool culling;
 				extern UF_API bool bloom;
+				extern UF_API bool rt;
+
+				namespace names {
+					extern UF_API uf::stl::string vsync;
+					extern UF_API uf::stl::string hdr;
+					extern UF_API uf::stl::string vxgi;
+					extern UF_API uf::stl::string culling;
+					extern UF_API uf::stl::string bloom;
+					extern UF_API uf::stl::string rt;
+				}
 			}
 
 			namespace formats {

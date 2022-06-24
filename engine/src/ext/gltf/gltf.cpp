@@ -139,6 +139,13 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		return graph;
 	}
 
+#if 0
+	if ( !uf::Mesh::defaultInterleaved ) {
+		uf::Mesh::defaultInterleaved = true;
+		UF_MSG_INFO("loading gltf file, defaulting to de-interleaved meshes (makes things easier)");
+	}
+#endif
+
 	// load images
 	{
 		graph.images.reserve(model.images.size());

@@ -55,7 +55,8 @@ namespace ext {
 
 			struct Metadata {
 				uf::Serializer json;
-				bool autoInitializeUniforms = true;
+				bool autoInitializeUniformBuffers = true;
+				bool autoInitializeUniformUserdatas = false;
 				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
 			} metadata;
 
@@ -85,23 +86,20 @@ namespace ext {
 			} metadata;
 
 			struct {
-				struct {
-					VkAccelerationStructureKHR handle;
-					size_t deviceAddress;
-					Buffer buffer;
-				} top, bottom;
+				uf::renderer::AccelerationStructure top;
+				uf::stl::vector<uf::renderer::AccelerationStructure> bottoms;
 			} accelerationStructures;
 
 			~Graphic();
 			void initialize( const uf::stl::string& = "" );
 			void destroy();
-			
-		//	template<typename T, typename U>
-		//	void initializeMesh( uf::Mesh<T, U>& mesh );
-		//	void initializeAttributes( const uf::Mesh::Attributes& mesh );
 
+			// raster
 			void initializeMesh( uf::Mesh& mesh, bool buffer = true );
 			bool updateMesh( uf::Mesh& mesh );
+			// raytrace
+			void generateBottomAccelerationStructures();
+			void generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>&, const uf::stl::vector<pod::Instance>& );
 
 			bool hasPipeline( const GraphicDescriptor& descriptor ) const;
 			void initializePipeline();
@@ -120,6 +118,3 @@ namespace ext {
 		};
 	}
 }
-
-
-#include "graphic.inl"

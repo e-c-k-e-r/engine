@@ -81,7 +81,7 @@ void ext::opengl::Shader::initialize( ext::opengl::Device& device, const uf::stl
 			module = ::modules[filename];
 		}
 	}
-	if ( metadata.autoInitializeUniforms ) {
+	if ( metadata.autoInitializeUniformBuffers ) {
 		initializeBuffer( nullptr, sizeof(pod::Uniform), uf::renderer::enums::Buffer::UNIFORM );
 	}
 #endif

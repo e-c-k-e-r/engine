@@ -19,6 +19,17 @@ namespace {
 	uint32_t VERTEX_BUFFER_BIND_ID = 0;
 }
 
+PFN_vkGetBufferDeviceAddressKHR ext::vulkan::vkGetBufferDeviceAddressKHR = NULL; // = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetBufferDeviceAddressKHR"));
+PFN_vkCmdBuildAccelerationStructuresKHR ext::vulkan::vkCmdBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkCmdBuildAccelerationStructuresKHR"));
+PFN_vkBuildAccelerationStructuresKHR ext::vulkan::vkBuildAccelerationStructuresKHR = NULL; // = reinterpret_cast<PFN_vkBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device, "vkBuildAccelerationStructuresKHR"));
+PFN_vkCreateAccelerationStructureKHR ext::vulkan::vkCreateAccelerationStructureKHR = NULL; // = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCreateAccelerationStructureKHR"));
+PFN_vkDestroyAccelerationStructureKHR ext::vulkan::vkDestroyAccelerationStructureKHR = NULL; // = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkDestroyAccelerationStructureKHR"));
+PFN_vkGetAccelerationStructureBuildSizesKHR ext::vulkan::vkGetAccelerationStructureBuildSizesKHR = NULL; // = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureBuildSizesKHR"));
+PFN_vkGetAccelerationStructureDeviceAddressKHR ext::vulkan::vkGetAccelerationStructureDeviceAddressKHR = NULL; // = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device, "vkGetAccelerationStructureDeviceAddressKHR"));
+PFN_vkCmdTraceRaysKHR ext::vulkan::vkCmdTraceRaysKHR = NULL; // = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
+PFN_vkGetRayTracingShaderGroupHandlesKHR ext::vulkan::vkGetRayTracingShaderGroupHandlesKHR = NULL; // = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
+PFN_vkCreateRayTracingPipelinesKHR ext::vulkan::vkCreateRayTracingPipelinesKHR = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+
 void ext::vulkan::Pipeline::initialize( const Graphic& graphic ) {
 	return this->initialize( graphic, graphic.descriptor );
 }
@@ -104,7 +115,13 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	{
 		uf::stl::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
 		for ( auto* shader : shaders ) {
-			if ( shader->descriptor.stage != VK_SHADER_STAGE_RAYGEN_BIT_KHR && shader->descriptor.stage != VK_SHADER_STAGE_MISS_BIT_KHR && shader->descriptor.stage != VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ) continue;
+			if (!(
+				shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ||
+				shader->descriptor.stage == VK_SHADER_STAGE_MISS_BIT_KHR ||
+				shader->descriptor.stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ||
+				shader->descriptor.stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR ||
+				shader->descriptor.stage == VK_SHADER_STAGE_INTERSECTION_BIT_KHR
+			)) continue;
 			
 			size_t shaderID = static_cast<uint32_t>(shaderDescriptors.size());
 			bool isHit = shader->descriptor.stage & (VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR);
@@ -156,9 +173,9 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			size_t rayhitBufferIndex = initializeBuffer((const void*) (shaderHandleStorage.data() + handleSizeAligned * 2), handleSize, bufferUsageFlags);
 			requestedAlignment = 0;
 
-			Buffer raygenBuffer; raygenBuffer.aliasBuffer( buffers[raygenBufferIndex] );
-			Buffer raymissBuffer; raymissBuffer.aliasBuffer( buffers[raymissBufferIndex] );
-			Buffer rayhitBuffer; rayhitBuffer.aliasBuffer( buffers[rayhitBufferIndex] );
+			Buffer raygenBuffer = buffers[raygenBufferIndex].alias();
+			Buffer raymissBuffer = buffers[raymissBufferIndex].alias();
+			Buffer rayhitBuffer = buffers[rayhitBufferIndex].alias();
 
 			auto& raygenShaderSbtEntry = sbtEntries.emplace_back();
 			raygenShaderSbtEntry.deviceAddress = raygenBuffer.getAddress();
@@ -374,9 +391,13 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 	auto shaders = getShaders( graphic.material.shaders );
 	for ( auto* shader : shaders ) {
 		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
-		if ( shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ) bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-		if ( shader->descriptor.stage == VK_SHADER_STAGE_MISS_BIT_KHR ) bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-		if ( shader->descriptor.stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ) bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+		if (
+			shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_MISS_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_INTERSECTION_BIT_KHR
+		) bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 	#if 1
 		if ( shader->metadata.definitions.pushConstants.count("PushConstant") > 0 ) {
 			if ( shader->descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT || shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT || shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ) {
@@ -404,7 +425,8 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
 
 	if ( bindPoint == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
-		vkCmdTraceRaysKHR(
+		UF_MSG_DEBUG("vkCmdTraceRaysKHR");
+		uf::renderer::vkCmdTraceRaysKHR(
 			commandBuffer,
 			&sbtEntries[0],
 			&sbtEntries[1],
@@ -841,7 +863,8 @@ void ext::vulkan::Material::destroy() {
 void ext::vulkan::Material::attachShader( const uf::stl::string& filename, VkShaderStageFlagBits stage, const uf::stl::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
 	shader.metadata.json = metadata.json["shader"];
-	shader.metadata.autoInitializeUniforms = metadata.autoInitializeUniforms;
+	shader.metadata.autoInitializeUniformBuffers = metadata.autoInitializeUniformBuffers;
+	shader.metadata.autoInitializeUniformUserdatas = metadata.autoInitializeUniformUserdatas;
 	shader.initialize( *device, filename, stage );
 
 	// repoint our specialization info descriptor because our shaders will change memory locations when attaching one by one
@@ -943,6 +966,14 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 	// ensure our descriptors are proper
 	mesh.updateDescriptor();
 
+#if 0
+	// it makes my life 10000x easier if we interleave a mesh while also requesting RT pipelines
+	if ( !mesh.isInterleaved() && uf::renderer::settings::pipelines::rt ) {
+		auto interleaved = mesh.interleave();
+		return initializeMesh(interleaved);
+	}
+#endif
+
 	// copy descriptors
 	descriptor.inputs.vertex = mesh.vertex;
 	descriptor.inputs.index = mesh.index;
@@ -958,29 +989,39 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 			VkBufferUsageFlags usage;
 		};
 		uf::stl::vector<Queue> queue;
-		descriptor.inputs.bufferOffset = buffers.empty() ? 0 : buffers.size() - 1;
+		descriptor.inputs.bufferOffset = buffers.size(); // buffers.empty() ? 0 : buffers.size() - 1;
 		VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
+	/*
 		#define PARSE_ATTRIBUTE(i, usage) {\
 			auto& buffer = mesh.buffers[i];\
-			if ( queue.size() <= i ) queue.resize( i );\
 			if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage | baseUsage });\
 		}
 		#define PARSE_INPUT(name, usage){\
 			if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage | baseUsage)\
 			else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage | baseUsage)\
 		}
-
+	*/
+		#define PARSE_INPUT(name, usage){\
+			if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
+				auto& buffer = mesh.buffers[mesh.name.interleaved];\
+				if ( !buffer.empty() ) mesh.name.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
+				else mesh.name.interleaved = -1;\
+			} else for ( auto& attribute : descriptor.inputs.name.attributes ) {\
+				auto& buffer = mesh.buffers[attribute.buffer];\
+				if ( !buffer.empty() ) attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
+				else attribute.buffer = -1;\
+			}\
+		}
+		// allocate buffers
+		auto previousRequestedAlignment = this->requestedAlignment;
+		this->requestedAlignment = 16;
 		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
 		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
 		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
 		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | uf::renderer::enums::Buffer::STORAGE)
-
-		// allocate buffers
-		for ( auto i = 0; i < queue.size(); ++i ) {
-			auto& q = queue[i];
-			initializeBuffer( q.data, q.size, q.usage );
-		}
+	// 	for ( auto& q : queue ) initializeBuffer( q.data, q.size, q.usage );
+		this->requestedAlignment = previousRequestedAlignment;
 	}
 
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
@@ -988,6 +1029,9 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 	}
 }
 bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
+	UF_MSG_ERROR("need to fix");
+	return false;
+
 	// generate indices if not found
 //	if ( mesh.index.count == 0 ) mesh.generateIndices();
 	// generate indirect data if not found
@@ -1010,32 +1054,529 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	};
 	uf::stl::vector<Queue> queue;
 
+/*
 	#define PARSE_ATTRIBUTE(i, usage) {\
 		auto& buffer = mesh.buffers[i];\
-		if ( queue.size() <= i ) queue.resize( i );\
 		if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
 	}
 	#define PARSE_INPUT(name, usage){\
 		if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
 		else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
 	}
+*/
+	#define PARSE_INPUT(name, usage){\
+		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
+			auto& buffer = mesh.buffers[mesh.name.interleaved];\
+			if ( !buffer.empty() ) rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.interleaved );\
+		} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
+			auto& buffer = mesh.buffers[mesh.name.attributes[i].buffer];\
+			if ( !buffer.empty() ) rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.attributes[i].buffer );\
+		}\
+	}
 
+	bool rebuild = false;
+	auto previousRequestedAlignment = this->requestedAlignment;
+	this->requestedAlignment = 16;
 	PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
 	PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
 	PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
 	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
-
+	this->requestedAlignment = previousRequestedAlignment;
+/*
 	// allocate buffers
 	bool rebuild = false;
 	for ( auto i = 0; i < queue.size(); ++i ) {
 		auto& q = queue[i];
 		rebuild = rebuild || updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i );
 	}
-
+*/
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
 		descriptor.inputs.instance.count = 1;
 	}
 	return rebuild;
+}
+void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
+	auto& device = *this->device; // ext::vulkan::device;
+
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR acclerationStructureProperties{};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+	VkPhysicalDeviceProperties2 deviceProperties2{}; {
+		acclerationStructureProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+
+		rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		rayTracingPipelineProperties.pNext = &acclerationStructureProperties;
+
+		deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		deviceProperties2.pNext = &rayTracingPipelineProperties;
+
+		vkGetPhysicalDeviceProperties2(device.physicalDevice, &deviceProperties2);
+	}
+
+	struct BlasData {
+		uf::stl::vector<VkAccelerationStructureGeometryKHR> asGeom;
+		uf::stl::vector<VkAccelerationStructureBuildRangeInfoKHR> asBuildOffsetInfo;
+		VkBuildAccelerationStructureFlagsKHR flags{};
+
+    	VkAccelerationStructureBuildGeometryInfoKHR buildInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
+    	VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+
+    	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo;
+    	uf::renderer::AccelerationStructure as;
+  	};
+  	uf::stl::vector<BlasData> blasDatas;
+
+	uf::renderer::Buffer scratchBuffer;
+	uf::renderer::Buffer blasBuffer;
+
+	// setup BLAS geometry
+	{
+		auto& mesh = this->descriptor.inputs;
+
+		uf::Mesh::Attribute vertexAttribute;
+		size_t vertexBufferAddress{};
+
+		uf::Mesh::Attribute indexAttribute;
+		size_t indexBufferAddress{};
+
+		/*if ( mesh.vertex.count )*/{
+			for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) vertexAttribute = attribute;
+			UF_ASSERT( vertexAttribute.descriptor.name == "position" );
+
+			size_t vertexBufferIndex = (0 <= mesh.vertex.interleaved ? mesh.vertex.interleaved : vertexAttribute.buffer) + mesh.bufferOffset;
+			vertexBufferAddress = this->buffers[vertexBufferIndex].getAddress();
+		}
+
+		if ( mesh.index.count ) {
+			indexAttribute = mesh.index.attributes.front();
+
+			size_t indexBufferIndex = (0 <= mesh.index.interleaved ? mesh.index.interleaved : indexAttribute.buffer) + mesh.bufferOffset;
+			indexBufferAddress = this->buffers[indexBufferIndex].getAddress();
+		}
+
+		if ( mesh.indirect.count ) {
+			uf::Mesh::Attribute indirectAttribute = mesh.indirect.attributes.front();
+			const pod::DrawCommand* drawCommands = (const pod::DrawCommand*) indirectAttribute.pointer;
+			for ( size_t i = 0; i < mesh.indirect.count; ++i ) {
+				const auto& drawCommand = drawCommands[i];
+				
+				uf::Mesh::Input vertexInput = mesh.vertex;
+				uf::Mesh::Input indexInput = mesh.index;
+
+				vertexInput.first = drawCommand.vertexID;
+				vertexInput.count = drawCommand.vertices;
+
+				indexInput.first = drawCommand.indexID;
+				indexInput.count = drawCommand.indices;
+
+				auto& blasData = blasDatas.emplace_back();
+				blasData.as.instanceID 				= drawCommand.instanceID;
+
+				VkAccelerationStructureGeometryKHR& asGeom = blasData.asGeom.emplace_back();
+				asGeom.sType 						= VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+				asGeom.geometryType					= VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+				asGeom.flags						= VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+				VkAccelerationStructureGeometryTrianglesDataKHR& triangles = asGeom.geometry.triangles;
+				triangles.sType 					= VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+				triangles.vertexFormat				= vertexAttribute.descriptor.format;
+				triangles.vertexData.deviceAddress	= vertexBufferAddress;
+				triangles.vertexStride				= vertexAttribute.stride;
+				triangles.maxVertex 				= vertexInput.count;
+
+				triangles.indexType					= VK_INDEX_TYPE_NONE_KHR;
+				triangles.indexData.deviceAddress	= indexBufferAddress;
+
+				VkAccelerationStructureBuildRangeInfoKHR& offset = blasData.asBuildOffsetInfo.emplace_back();
+				offset.firstVertex     				= vertexInput.first;
+				offset.primitiveCount  				= vertexInput.count / 3;
+				offset.primitiveOffset 				= indexInput.first * indexInput.size;
+				offset.transformOffset 				= 0;
+
+				if ( indexInput.count ) {
+					offset.primitiveCount 			= indexInput.count / 3;
+					switch ( indexInput.size ) {
+						case sizeof( uint8_t): triangles.indexType = VK_INDEX_TYPE_UINT8_EXT; break;
+						case sizeof(uint16_t): triangles.indexType = VK_INDEX_TYPE_UINT16; break;
+						case sizeof(uint32_t): triangles.indexType = VK_INDEX_TYPE_UINT32; break;
+					}
+				}
+			}
+		} else {
+			uf::Mesh::Input vertexInput = mesh.vertex;
+			uf::Mesh::Input indexInput = mesh.index;
+
+			auto& blasData = blasDatas.emplace_back();
+			blasData.as.instanceID 				= 0;
+
+			VkAccelerationStructureGeometryKHR& asGeom = blasData.asGeom.emplace_back();
+			asGeom.sType 						= VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+			asGeom.geometryType					= VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+			asGeom.flags						= VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+			VkAccelerationStructureGeometryTrianglesDataKHR& triangles = asGeom.geometry.triangles;
+			triangles.sType 					= VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+			triangles.vertexFormat				= vertexAttribute.descriptor.format;
+			triangles.vertexData.deviceAddress	= vertexBufferAddress;
+			triangles.vertexStride				= vertexAttribute.stride;
+			triangles.maxVertex 				= vertexInput.count;
+
+			triangles.indexType					= VK_INDEX_TYPE_NONE_KHR;
+			triangles.indexData.deviceAddress	= indexBufferAddress;
+
+			VkAccelerationStructureBuildRangeInfoKHR& offset = blasData.asBuildOffsetInfo.emplace_back();
+			offset.firstVertex     				= vertexInput.first;
+			offset.primitiveCount  				= vertexInput.count / 3;
+			offset.primitiveOffset 				= indexInput.first * indexInput.size;
+			offset.transformOffset 				= 0;
+
+			if ( indexInput.count ) {
+				offset.primitiveCount 			= indexInput.count / 3;
+				switch ( indexInput.size ) {
+					case sizeof( uint8_t): triangles.indexType = VK_INDEX_TYPE_UINT8_EXT; break;
+					case sizeof(uint16_t): triangles.indexType = VK_INDEX_TYPE_UINT16; break;
+					case sizeof(uint32_t): triangles.indexType = VK_INDEX_TYPE_UINT32; break;
+				}
+			}
+		}
+	}
+
+	// determine BLAS size and its scratch buffer
+	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	size_t totalBlasBufferSize{};
+	size_t maxScratchBufferSize{};
+	for ( auto& blasData : blasDatas ) {
+		blasData.buildInfo.type				= VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		blasData.buildInfo.mode				= VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		blasData.buildInfo.flags			= blasData.flags | flags;
+		blasData.buildInfo.geometryCount	= static_cast<uint32_t>(blasData.asGeom.size());
+		blasData.buildInfo.pGeometries		= blasData.asGeom.data();
+
+		blasData.rangeInfo 					= blasData.asBuildOffsetInfo.data();
+
+		uf::stl::vector<uint32_t> maxPrimCount(blasData.asBuildOffsetInfo.size());
+		for(auto _ = 0; _ < blasData.asBuildOffsetInfo.size(); _++) maxPrimCount[_] = blasData.asBuildOffsetInfo[_].primitiveCount;
+		
+	//	UF_MSG_DEBUG("vkGetAccelerationStructureBuildSizesKHR");
+		uf::renderer::vkGetAccelerationStructureBuildSizesKHR(
+			device,
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&blasData.buildInfo,
+			maxPrimCount.data(),
+			&blasData.sizeInfo
+		);
+
+		blasData.sizeInfo.accelerationStructureSize = ALIGNED_SIZE(blasData.sizeInfo.accelerationStructureSize, 256);
+		maxScratchBufferSize = std::max( maxScratchBufferSize, blasData.sizeInfo.buildScratchSize );
+		totalBlasBufferSize += blasData.sizeInfo.accelerationStructureSize;
+	}
+
+	// create BLAS buffer and handle
+	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+	size_t blasBufferOffset = 0;
+	
+	scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+	scratchBuffer.initialize( NULL, maxScratchBufferSize, uf::renderer::enums::Buffer::STORAGE | uf::renderer::enums::Buffer::ADDRESS );
+	UF_MSG_DEBUG("Scratch buffer size: " << maxScratchBufferSize);
+	
+	for ( auto& blasData : blasDatas ) {
+		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		createInfo.size = blasData.sizeInfo.accelerationStructureSize;
+		createInfo.buffer = this->buffers[blasBufferIndex].buffer;
+		createInfo.offset = blasBufferOffset;
+
+		blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
+
+	//	UF_MSG_DEBUG("vkCreateAccelerationStructureKHR");
+		VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+
+		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
+		blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+		// write to BLAS
+
+		blasData.buildInfo.dstAccelerationStructure  = blasData.as.handle;
+		blasData.buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
+
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+	//	UF_MSG_DEBUG("vkCmdBuildAccelerationStructuresKHR");
+		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
+			commandBuffer,
+			1,
+			&blasData.buildInfo,
+			&blasData.rangeInfo
+		);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+
+	}
+
+	for ( auto& blasData : blasDatas ) this->accelerationStructures.bottoms.emplace_back(blasData.as);
+
+	scratchBuffer.destroy();
+}
+void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>& graphics, const uf::stl::vector<pod::Instance>& instances ) {
+	auto& device = *this->device;
+	// graphic.process = false;
+
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR acclerationStructureProperties{};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+	VkPhysicalDeviceProperties2 deviceProperties2{}; {
+		acclerationStructureProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+
+		rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+		rayTracingPipelineProperties.pNext = &acclerationStructureProperties;
+
+		deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		deviceProperties2.pNext = &rayTracingPipelineProperties;
+
+		vkGetPhysicalDeviceProperties2(device.physicalDevice, &deviceProperties2);
+	}
+
+	uf::renderer::Buffer instanceBuffer;
+	uf::renderer::Buffer scratchBuffer;
+	uf::renderer::Buffer tlasBuffer;
+
+	uf::stl::vector<VkAccelerationStructureInstanceKHR> instancesVK; instancesVK.reserve( instances.size() );
+	uf::stl::vector<pod::InstanceAddresses> instanceAddresseses( instances.size() );
+
+	for ( auto& graphic : graphics ) {
+		for ( auto& blas : graphic->accelerationStructures.bottoms ) {
+			size_t instanceID = blas.instanceID;
+
+			auto& instanceAddresses = instanceAddresseses[instanceID];
+			if ( graphic->descriptor.inputs.vertex.count ) {
+				if ( 0 <= graphic->descriptor.inputs.vertex.interleaved ) {
+					instanceAddresses.vertex = graphic->buffers.at(graphic->descriptor.inputs.vertex.interleaved).getAddress();
+				} else {
+					for ( auto& attribute : graphic->descriptor.inputs.vertex.attributes ) {
+						if ( attribute.buffer < 0 ) continue;
+						if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic->buffers.at(attribute.buffer).getAddress();
+						else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic->buffers.at(attribute.buffer).getAddress();
+					}
+				}
+			}
+			if ( graphic->descriptor.inputs.index.count ) {
+				if ( 0 <= graphic->descriptor.inputs.index.interleaved ) {
+					instanceAddresses.index = graphic->buffers.at(graphic->descriptor.inputs.index.interleaved).getAddress();
+				} else {
+					instanceAddresses.index = graphic->buffers.at(graphic->descriptor.inputs.index.attributes.front().buffer).getAddress();
+				}
+			}
+
+			auto& instanceVK = instancesVK.emplace_back();
+			instanceVK.transform = {
+				1.0f, 0.0f, 0.0f, 0.0f,
+				0.0f, 1.0f, 0.0f, 0.0f,
+				0.0f, 0.0f, 1.0f, 0.0f
+			};
+			
+			auto mat = instances[instanceID].model;
+			mat = uf::matrix::transpose(mat);
+
+			memcpy(&instanceVK.transform, &mat, sizeof(instanceVK.transform));
+			instanceVK.instanceCustomIndex 						= blas.instanceID;
+			instanceVK.accelerationStructureReference			= blas.deviceAddress;
+			instanceVK.flags 									= VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+			instanceVK.mask 									= 0xFF;
+			instanceVK.instanceShaderBindingTableRecordOffset	= 0;
+		}
+	}
+
+	// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
+	size_t instanceIndex = this->initializeBuffer(
+		(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
+		uf::renderer::enums::Buffer::ADDRESS | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
+	);
+	size_t instanceBufferAddress = this->buffers[instanceIndex].getAddress();
+
+	// build SBT
+	if ( !this->material.hasShader("ray:gen", uf::renderer::settings::pipelines::names::rt) ) {
+		uf::stl::string rayGenShaderFilename = uf::io::root+"/shaders/raytrace/shader.gen.spv";
+		uf::stl::string rayMissShaderFilename = uf::io::root+"/shaders/raytrace/shader.miss.spv";
+		uf::stl::string rayHitShaderFilename = uf::io::root+"/shaders/raytrace/shader.hit.spv";
+
+		this->material.attachShader(rayGenShaderFilename, VK_SHADER_STAGE_RAYGEN_BIT_KHR, uf::renderer::settings::pipelines::names::rt);
+		this->material.attachShader(rayMissShaderFilename, VK_SHADER_STAGE_MISS_BIT_KHR, uf::renderer::settings::pipelines::names::rt);
+		this->material.attachShader(rayHitShaderFilename, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, uf::renderer::settings::pipelines::names::rt);
+	}
+
+	{
+		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		bool update = false;
+		uint32_t countInstance = instancesVK.size();
+		auto& tlas = this->accelerationStructures.top;
+
+		VkAccelerationStructureGeometryInstancesDataKHR instancesVk{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR};
+  		instancesVk.data.deviceAddress 			= instanceBufferAddress;
+
+  		VkAccelerationStructureGeometryKHR tlasGeometry{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR};
+		tlasGeometry.geometryType				= VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		tlasGeometry.geometry.instances			= instancesVk;
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR};
+		buildInfo.flags							= flags;
+		buildInfo.geometryCount					= 1;
+		buildInfo.pGeometries					= &tlasGeometry;
+		buildInfo.mode							= update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.type							= VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		buildInfo.srcAccelerationStructure		= VK_NULL_HANDLE;
+
+		VkAccelerationStructureBuildSizesInfoKHR sizeInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR};
+		UF_MSG_DEBUG("vkGetAccelerationStructureBuildSizesKHR");
+		uf::renderer::vkGetAccelerationStructureBuildSizesKHR(
+			device,
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&buildInfo,
+			&countInstance,
+			&sizeInfo
+		);
+
+		// create BLAS buffer and handle
+		size_t tlasBufferIndex = this->initializeBuffer( NULL, sizeInfo.accelerationStructureSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+		auto& tlasBuffer = this->buffers[tlasBufferIndex]; {
+			auto& shader = this->material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
+			shader.buffers.emplace_back( this->buffers[tlasBufferIndex].alias() );
+		}
+
+		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		createInfo.size = sizeInfo.accelerationStructureSize;
+		createInfo.buffer = tlasBuffer.buffer;
+
+		UF_MSG_DEBUG("vkCreateAccelerationStructureKHR");
+		VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
+
+		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		accelerationDeviceAddressInfo.accelerationStructure = tlas.handle;
+		tlas.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+		// write to BLAS
+		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+		scratchBuffer.initialize( NULL, sizeInfo.buildScratchSize, uf::renderer::enums::Buffer::STORAGE | uf::renderer::enums::Buffer::ADDRESS );
+		UF_MSG_DEBUG("Scratch buffer size: " << sizeInfo.buildScratchSize);
+
+		buildInfo.srcAccelerationStructure  = VK_NULL_HANDLE;
+		buildInfo.dstAccelerationStructure  = tlas.handle;
+		buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
+
+		VkAccelerationStructureBuildRangeInfoKHR        buildOffsetInfo{countInstance, 0, 0, 0};
+		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo = &buildOffsetInfo;
+
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		UF_MSG_DEBUG("vkCmdBuildAccelerationStructuresKHR");
+		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
+			commandBuffer,
+			1,
+			&buildInfo,
+			&rangeInfo
+		);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+
+		scratchBuffer.destroy();
+	}
+
+	// should be placed outside, in the responsible scene/rendermode
+#if 1
+	{
+		auto& shader = this->material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
+		auto& image = shader.textures.emplace_back();
+		image.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, uf::renderer::settings::width, uf::renderer::settings::height, 1, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+
+		this->descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
+		this->descriptor.inputs.width = image.width;
+		this->descriptor.inputs.height = image.height;
+
+		//
+		struct UniformDescriptor {
+			struct Matrices {
+				alignas(16) pod::Matrix4f view;
+				alignas(16) pod::Matrix4f projection;
+				alignas(16) pod::Matrix4f iView;
+				alignas(16) pod::Matrix4f iProjection;
+				alignas(16) pod::Matrix4f iProjectionView;
+				alignas(16) pod::Vector4f eyePos;
+			} matrices[2];
+		} uniforms;
+
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+
+		for ( auto i = 0; i < 2; ++i ) {
+			uniforms.matrices[i] = UniformDescriptor::Matrices{
+				.view = camera.getView(i),
+				.projection = camera.getProjection(i),
+				.iView = uf::matrix::inverse( camera.getView(i) ),
+				.iProjection = uf::matrix::inverse( camera.getProjection(i) ),
+				.iProjectionView = uf::matrix::inverse( camera.getProjection(i) * camera.getView(i) ),
+				.eyePos = camera.getEye( i ),
+			};
+		}
+		bool found = false;
+		for ( auto& buffer : shader.buffers ) {
+			if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
+			if ( buffer.allocationInfo.size != sizeof(UniformDescriptor) ) continue;
+			found = true;
+			break;
+		}
+		if ( !found ) shader.initializeBuffer( (const void*) &uniforms, sizeof(UniformDescriptor), uf::renderer::enums::Buffer::UNIFORM );
+		
+		//
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+		size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+		size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+		size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+		size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+
+	//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+	//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+		shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+		shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
+		shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
+		shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
+
+		uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
+		for ( auto pair : shader.metadata.definitions.specializationConstants ) {
+			auto& sc = pair.second;
+			if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
+			else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
+			else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
+		}
+		for ( auto pair : shader.metadata.definitions.textures ) {
+			auto& tx = pair.second;
+			for ( auto& layout : shader.descriptorSetLayoutBindings ) {
+				if ( layout.binding != tx.binding ) continue;
+				if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
+				else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
+				else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
+				else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
+				else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
+				else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
+			}
+		}
+	}
+
+	// UF_MSG_DEBUG("Building pipeline...");
+	this->initializePipeline();
+
+	this->initialized = true;
+	this->process = true;
+
+#endif
+
+	UF_MSG_DEBUG("Generated acceleration structures for " << this << " (" << this->descriptor.renderMode << ")");
 }
 bool ext::vulkan::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
 	return pipelines.count( descriptor ) > 0;
@@ -1063,33 +1604,53 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, size_t pass, s
 void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicDescriptor& descriptor, size_t pass, size_t draw ) const {
 	if ( !process ) return;
 	if ( !this->hasPipeline( descriptor ) ) {
-		UF_MSG_ERROR(this << ": has no valid pipeline (" << descriptor.renderMode << " " << descriptor.renderTarget << ")");
+		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline (" << descriptor.renderMode << " " << descriptor.renderTarget << ")");
 		return;
 	}
 
 	auto& pipeline = this->getPipeline( descriptor );
 	if ( pipeline.descriptorSet == VK_NULL_HANDLE ) {
-		UF_MSG_ERROR(this << ": has no valid pipeline descriptor set (" << descriptor.renderMode << " " << descriptor.renderTarget << ")");
+		VK_DEBUG_VALIDATION_MESSAGE(this << ": has no valid pipeline descriptor set (" << descriptor.renderMode << " " << descriptor.renderTarget << ")");
 		return;
 	}
 	if ( !pipeline.metadata.process ) return;
 	pipeline.record(*this, descriptor, commandBuffer, pass, draw);
 
 	auto shaders = pipeline.getShaders( material.shaders );
-	for ( auto* shader : shaders ) if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;
+	for ( auto* shader : shaders ) {
+		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) return;
+		if (
+			shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_MISS_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR ||
+			shader->descriptor.stage == VK_SHADER_STAGE_INTERSECTION_BIT_KHR
+		) return;
+	}
 
 	struct {
 		uf::stl::vector<VkBuffer> buffer;
 		uf::stl::vector<VkDeviceSize> offset;
 	} vertexInstance;
 
-	for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
-		vertexInstance.buffer.emplace_back( buffers.at((0 <= descriptor.inputs.vertex.interleaved ? descriptor.inputs.vertex.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer );
-		vertexInstance.offset.emplace_back( 0 <= descriptor.inputs.vertex.interleaved ? descriptor.inputs.vertex.offset : attribute.offset );
+	if ( 0 <= descriptor.inputs.vertex.interleaved && !descriptor.inputs.vertex.attributes.empty() ) {
+		vertexInstance.buffer.emplace_back( buffers.at(descriptor.inputs.vertex.interleaved).buffer );
+		vertexInstance.offset.emplace_back( descriptor.inputs.vertex.offset );
+	} else {
+		for ( auto& attribute : descriptor.inputs.vertex.attributes ) {
+			vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
+			vertexInstance.offset.emplace_back( attribute.offset );
+		}
 	}
-	for ( auto& attribute : descriptor.inputs.instance.attributes ) {
-		vertexInstance.buffer.emplace_back( buffers.at((0 <= descriptor.inputs.instance.interleaved ? descriptor.inputs.instance.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer );
-		vertexInstance.offset.emplace_back( 0 <= descriptor.inputs.instance.interleaved ? descriptor.inputs.instance.offset : attribute.offset );
+
+	if ( 0 <= descriptor.inputs.instance.interleaved && !descriptor.inputs.instance.attributes.empty() ) {
+		vertexInstance.buffer.emplace_back( buffers.at(descriptor.inputs.instance.interleaved).buffer );
+		vertexInstance.offset.emplace_back( descriptor.inputs.instance.offset );
+	} else {
+		for ( auto& attribute : descriptor.inputs.instance.attributes ) {
+			vertexInstance.buffer.emplace_back( attribute.buffer < 0 ? VK_NULL_HANDLE : buffers.at(attribute.buffer).buffer );
+			vertexInstance.offset.emplace_back( attribute.offset );
+		}
 	}
 
 	struct {
@@ -1099,16 +1660,24 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		size_t index = 0;
 	} index, indirect;
 
+/*
 	if ( descriptor.inputs.index.count && !descriptor.inputs.index.attributes.empty() ) {
 		auto& attribute = descriptor.inputs.index.attributes.front();
-		index.buffer = buffers.at((0 <= descriptor.inputs.index.interleaved ? descriptor.inputs.index.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
-		index.offset = 0 <= descriptor.inputs.index.interleaved ? descriptor.inputs.index.offset : attribute.offset;
+	//	bool isInterleaved = 0 <= descriptor.inputs.index.interleaved;
+	//	index.buffer = buffers.at((isInterleaved ? descriptor.inputs.index.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
+	//	index.offset = isInterleaved ? descriptor.inputs.index.offset : attribute.offset;
+	//	index.buffer = buffers.at(attribute.buffer + descriptor.inputs.bufferOffset).buffer;
+	//	index.offset = attribute.offset;
 	}
 	if ( descriptor.inputs.indirect.count && !descriptor.inputs.indirect.attributes.empty() ) {
 		auto& attribute = descriptor.inputs.indirect.attributes.front();
-		indirect.buffer = buffers.at((0 <= descriptor.inputs.indirect.interleaved ? descriptor.inputs.indirect.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
-		indirect.offset = 0 <= descriptor.inputs.indirect.interleaved ? descriptor.inputs.indirect.offset : attribute.offset;
+	//	bool isInterleaved = 0 <= descriptor.inputs.indirect.interleaved;
+	//	indirect.buffer = buffers.at((isInterleaved ? descriptor.inputs.indirect.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
+	//	indirect.offset = isInterleaved ? descriptor.inputs.indirect.offset : attribute.offset;
+	//	indirect.buffer = buffers.at(attribute.buffer + descriptor.inputs.bufferOffset).buffer;
+	//	indirect.offset = attribute.offset;
 	}
+*/
 
 	for ( auto& buffer : buffers ) {
 		if ( !index.buffer && buffer.usage & uf::renderer::enums::Buffer::INDEX ) index.buffer = buffer.buffer;

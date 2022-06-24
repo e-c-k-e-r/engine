@@ -5,7 +5,7 @@
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"useLightmaps": true,
+				"useLightmaps": false,
 				"max": 32
 			},
 			"shadows": {
@@ -22,7 +22,7 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 1,
+				"limiter": 0.5,
 				"size": 128,
 				"dispatch": 8,
 				"cascades": 3,
@@ -48,7 +48,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": true,
+					"enabled": false,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -76,16 +76,20 @@
 				},
 				"gpu": 1,
 				"experimental": {
-					"batch queue submissions": false,
+					"batch queue submissions": true,
+					"rebuild on tick begin": false,
 					"dedicated thread": false
 				},
-				"invariant": {},
+				"invariant": {
+				//	"multithreaded recording": true
+				},
 				"pipelines": {
 					"vsync": false,
 					"hdr": false,
 					"vxgi": true,
 					"culling": true,
-					"bloom": false
+					"bloom": false,
+					"rt": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -108,8 +112,7 @@
 					"geometryShader",
 					"multiViewport",
 					"shaderOutputLayer",
-				//	"shaderUniformBufferArrayDynamicIndexing",
-				//	"shaderStorageBufferArrayDynamicIndexing",
+					"shaderInt64",
 					"shaderSampledImageArrayDynamicIndexing",
 					"shaderStorageImageArrayDynamicIndexing"
 				],
@@ -216,7 +219,7 @@
 				"component": "128 MiB"
 			}
 		},
-		"render modes": { "gui": true, "deferred": true, "raytrace": true },
+		"render modes": { "gui": true, "deferred": true },
 		"limiters": {
 			"deltaTime": 5,
 			"framerate": "auto"

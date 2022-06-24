@@ -133,7 +133,8 @@ void ext::opengl::Material::destroy() {
 }
 void ext::opengl::Material::attachShader( const uf::stl::string& filename, enums::Shader::type_t stage, const uf::stl::string& pipeline ) {
 	auto& shader = shaders.emplace_back();
-	shader.metadata.autoInitializeUniforms = metadata.autoInitializeUniforms;
+	shader.metadata.autoInitializeUniformBuffers = metadata.autoInitializeUniformBuffers;
+	shader.metadata.autoInitializeUniformUserdatas = metadata.autoInitializeUniformUserdatas;
 	shader.initialize( *device, filename, stage );
 	
 	uf::stl::string type = "unknown";

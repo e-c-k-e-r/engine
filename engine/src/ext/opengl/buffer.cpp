@@ -6,6 +6,11 @@
 #include <uf/ext/opengl/opengl.h>
 #include <uf/ext/opengl/device.h>
 
+ext::opengl::Buffer ext::opengl::Buffer::alias() const {
+	ext::opengl::Buffer buffer;
+	buffer.aliasBuffer(*this);
+	return buffer;
+}
 void ext::opengl::Buffer::aliasBuffer( const ext::opengl::Buffer& buffer ) {
 	*this = {
 		.device = NULL,

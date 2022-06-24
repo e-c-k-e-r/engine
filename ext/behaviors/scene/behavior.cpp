@@ -331,7 +331,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
-		auto& metadataVxgi = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+		auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 		auto& metadataJson = this->getComponent<uf::Serializer>();
 
 		struct LightInfo {
@@ -394,7 +394,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
-		auto& metadataVxgi = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+		auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 		auto& metadataJson = this->getComponent<uf::Serializer>();
 
 		struct LightInfo {
@@ -657,7 +657,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 	if ( uf::renderer::settings::pipelines::bloom ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-		auto& blitter = *renderMode.getBlitters().front();
+		auto& blitter = *renderMode.getBlitter();
 		auto& shader = blitter.material.getShader("compute", "bloom");
 
 		struct UniformDescriptor {
@@ -683,7 +683,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 			.samples = bloom.samples,
 		};
 
-		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 	}
 }
 
@@ -694,7 +694,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
-	auto& metadataVxgi = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
@@ -892,7 +892,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		if ( shouldUpdate ) graphic.updatePipelines();
 	
 		auto& shader = graphic.material.getShader(isCompute ? "compute" : "fragment");
-		shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 	}
 #endif
 }

@@ -136,6 +136,28 @@ struct Instance {
 	Bounds bounds;
 };
 
+#if ADDRESS_ENABLED
+struct InstanceAddresses {
+	uint64_t vertex;
+	uint64_t index;
+
+	uint64_t position;
+	uint64_t uv;
+
+	uint64_t color;
+	uint64_t st;
+
+	uint64_t normal;
+	uint64_t tangent;
+
+	uint64_t joints;
+	uint64_t weights;
+
+	uint64_t id;
+	uint64_t padding;
+};
+#endif
+
 struct SurfaceMaterial {
 	vec4 albedo;
 	vec4 indirect;

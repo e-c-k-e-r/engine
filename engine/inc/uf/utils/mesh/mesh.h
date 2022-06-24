@@ -82,6 +82,26 @@ namespace pod {
 		} bounds;
 	};
 
+	struct UF_API InstanceAddresses {
+		alignas(8) uint64_t vertex{};
+		alignas(8) uint64_t index{};
+		
+		alignas(8) uint64_t position{};
+		alignas(8) uint64_t uv{};
+
+		alignas(8) uint64_t color{};
+		alignas(8) uint64_t st{};
+
+		alignas(8) uint64_t normal{};
+		alignas(8) uint64_t tangent{};
+
+		alignas(8) uint64_t joints{};
+		alignas(8) uint64_t weights{};
+
+		alignas(8) uint64_t id{};
+		alignas(8) uint64_t padding{};
+	};
+
 	struct Primitive {
 		pod::DrawCommand drawCommand;
 		pod::Instance instance;
@@ -152,7 +172,11 @@ namespace uf {
 		void destroy();
 
 		uf::Mesh convert() const;
+		uf::Mesh copy() const;
 		uf::Mesh copy(bool) const;
+		uf::Mesh interleave() const;
+		uf::Mesh deinterleave() const;
+
 		uf::Mesh expand();
 		uf::Mesh expand(bool);
 

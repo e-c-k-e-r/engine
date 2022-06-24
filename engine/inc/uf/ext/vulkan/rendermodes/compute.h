@@ -5,7 +5,7 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API RayTraceRenderMode : public ext::vulkan::RenderMode {
+		struct UF_API ComputeRenderMode : public ext::vulkan::RenderMode {
 			ext::vulkan::Graphic blitter;
 
 			//

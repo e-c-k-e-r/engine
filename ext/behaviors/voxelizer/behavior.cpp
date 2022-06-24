@@ -1,5 +1,5 @@
 #include <uf/config.h>
-#if !UF_ENV_DREAMCAST
+#if UF_USE_VULKAN
 
 #include "behavior.h"
 
@@ -19,12 +19,12 @@
 #include <uf/ext/ext.h>
 
 
-UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_REGISTER_CPP(ext::VoxelizerSceneBehavior)
+UF_BEHAVIOR_TRAITS_CPP(ext::VoxelizerSceneBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
-void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
+void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
-	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	
 	auto& scene = uf::scene::getCurrentScene();
@@ -107,12 +107,12 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 		metadata.renderModeName = "VXGI:" + std::to_string((int) this->getUid());
 		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
 
-		renderMode.metadata.type = "vxgi";
-		renderMode.metadata.pipeline = "vxgi";
-		renderMode.metadata.pipelines.emplace_back("vxgi");
+		renderMode.metadata.type = uf::renderer::settings::pipelines::names::vxgi;
+		renderMode.metadata.pipeline = uf::renderer::settings::pipelines::names::vxgi;
 		if ( uf::renderer::settings::pipelines::culling ) {
-			renderMode.metadata.pipelines.emplace_back("culling");
+			renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
 		}
+		renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::vxgi);
 		renderMode.metadata.samples = 1;
 		renderMode.metadata.subpasses = metadata.cascades;
 
@@ -335,11 +335,11 @@ void ext::VoxelizerBehavior::initialize( uf::Object& self ) {
 	}
 #endif
 }
-void ext::VoxelizerBehavior::tick( uf::Object& self ) {
+void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 
-	auto& metadata = this->getComponent<ext::VoxelizerBehavior::Metadata>();
+	auto& metadata = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	
 	auto& scene = uf::scene::getCurrentScene();
@@ -388,8 +388,8 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 			for ( auto entity : graph ) {
 				if ( !entity->hasComponent<uf::Graphic>() ) continue;
 				auto& graphic = entity->getComponent<uf::Graphic>();
-				if ( graphic.material.hasShader("geometry", "vxgi") ) {
-					auto& shader = graphic.material.getShader("geometry", "vxgi");
+				if ( graphic.material.hasShader("geometry", uf::renderer::settings::pipelines::names::vxgi) ) {
+					auto& shader = graphic.material.getShader("geometry", uf::renderer::settings::pipelines::names::vxgi);
 					struct UniformDescriptor {
 						/*alignas(16)*/ pod::Matrix4f matrix;
 						/*alignas(4)*/ float cascadePower;
@@ -430,7 +430,7 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 						.traceStartOffsetFactor = metadata.traceStartOffsetFactor,
 						.shadows = metadata.shadows,
 					};
-					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
+					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 				#endif
 				}
 			}
@@ -441,8 +441,8 @@ void ext::VoxelizerBehavior::tick( uf::Object& self ) {
 	ext::ExtSceneBehavior::bindBuffers( scene );
 #endif
 }
-void ext::VoxelizerBehavior::render( uf::Object& self ){}
-void ext::VoxelizerBehavior::destroy( uf::Object& self ){
+void ext::VoxelizerSceneBehavior::render( uf::Object& self ){}
+void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
@@ -451,7 +451,7 @@ void ext::VoxelizerBehavior::destroy( uf::Object& self ){
 	}
 #endif
 }
-void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
+void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
 	serializer["vxgi"]["size"] = /*this->*/voxelSize.x;
 	serializer["vxgi"]["limiter"] = /*this->*/limiter.frequency;
 	serializer["vxgi"]["dispatch"] = /*this->*/dispatchSize.x;
@@ -467,7 +467,7 @@ void ext::VoxelizerBehavior::Metadata::serialize( uf::Object& self, uf::Serializ
 	serializer["vxgi"]["extents"]["min"] = uf::vector::encode(/*this->*/extents.min);
 	serializer["vxgi"]["extents"]["max"] = uf::vector::encode(/*this->*/extents.max);
 }
-void ext::VoxelizerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
+void ext::VoxelizerSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
 	/*this->*/voxelSize.x = serializer["vxgi"]["size"].as<size_t>(96);
 	/*this->*/voxelSize.y = serializer["vxgi"]["size"].as<size_t>(96);
 	/*this->*/voxelSize.z = serializer["vxgi"]["size"].as<size_t>(96);

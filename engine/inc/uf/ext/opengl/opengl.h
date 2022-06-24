@@ -49,6 +49,16 @@ namespace ext {
 				extern UF_API bool vxgi;
 				extern UF_API bool culling;
 				extern UF_API bool bloom;
+				extern UF_API bool rt;
+
+				namespace names {
+					extern UF_API uf::stl::string vsync;
+					extern UF_API uf::stl::string hdr;
+					extern UF_API uf::stl::string vxgi;
+					extern UF_API uf::stl::string culling;
+					extern UF_API uf::stl::string bloom;
+					extern UF_API uf::stl::string rt;
+				}
 			}
 			
 			namespace formats {

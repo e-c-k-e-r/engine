@@ -45,6 +45,7 @@
 
 #define UF_IO_COUT std::cout // uf::iostream
 #define UF_IO_ENDL std::endl // "\r\n"
+#define UF_IO_FMT(...) uf::io::fmt(__VA_ARGS__)
 
 #define UF_MSG(Y, X) UF_IO_COUT << "[" << X << "] " << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << ": " << Y << UF_IO_ENDL;
 

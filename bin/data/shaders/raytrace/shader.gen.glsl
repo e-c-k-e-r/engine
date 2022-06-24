@@ -40,7 +40,7 @@ void main()  {
 	float tMin = 0.001;
 	float tMax = 10000.0;
 
-    hitValue = vec4(1, 0, 1, 1);
+    hitValue = vec4(0);
     traceRayEXT(inTlas, rayFlags, cullMask, 0, 0, 0, surface.ray.origin.xyz, tMin, surface.ray.direction.xyz, tMax, 0);
 
 	imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue));

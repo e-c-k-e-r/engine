@@ -55,7 +55,8 @@ namespace ext {
 			struct Metadata {
 				uf::Serializer json;
 				uf::stl::unordered_map<uf::stl::string, size_t> shaders;
-				bool autoInitializeUniforms = true;
+				bool autoInitializeUniformBuffers = true;
+				bool autoInitializeUniformUserdatas = false;
 			} metadata;
 
 			void initialize( Device& device );

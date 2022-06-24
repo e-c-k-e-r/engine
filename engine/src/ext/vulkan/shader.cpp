@@ -575,14 +575,17 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 			for ( auto& name : remap ) {
 				auto& definition = metadata.definitions.uniforms[name];
 
-				auto& userdata = uniforms.emplace_back();
-				userdata.create( definition.size, nullptr );
-
-				if ( metadata.autoInitializeUniforms ) initializeBuffer(
-					(const void*) userdata.data().data,
-					userdata.data().len,
-					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
-				);
+				if ( metadata.autoInitializeUniformBuffers ) {
+					initializeBuffer(
+						NULL,
+						definition.size,
+						VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT
+					);
+				}
+				if ( metadata.autoInitializeUniformUserdatas ) {
+					auto& userdata = uniforms.emplace_back();
+					userdata.create( definition.size, nullptr );
+				}
 			}
 		}
 	
@@ -870,10 +873,12 @@ const ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl:
 	UF_EXCEPTION("buffer not found: " << name);
 }
 ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) {
+	UF_EXCEPTION("[DEPRECATED] " << filename << " " << name);
 	UF_ASSERT( hasUniform(name) );
 	return uniforms[metadata.definitions.uniforms[name].index];
 }
 const ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) const {
+	UF_EXCEPTION("[DEPRECATED] " << filename << " " << name);
 	UF_ASSERT( hasUniform(name) );
 	return uniforms.at(metadata.definitions.uniforms.at(name).index);
 }

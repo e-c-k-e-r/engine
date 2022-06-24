@@ -99,11 +99,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 
-	const uf::stl::string filename = _filename != "" ? _filename : ("/" + uf::string::lowercase(name) + "/scene.json");
+	const uf::stl::string filename = _filename != "" ? _filename : (uf::stl::string("/") + uf::string::lowercase(name) + "/scene.json");
 	scene->load(filename);
-	if ( uf::renderer::settings::pipelines::vxgi ) {
-		uf::instantiator::bind( "VoxelizerBehavior", *scene );
-	}
+	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
+	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );
 	scene->initialize();
 	return *scene;
 }
@@ -111,9 +110,8 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 	if ( data != "" ) scene->load(data);
-	if ( uf::renderer::settings::pipelines::vxgi ) {
-		uf::instantiator::bind( "VoxelizerBehavior", *scene );
-	}
+	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
+	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );
 	scene->initialize();
 	return *scene;
 }
