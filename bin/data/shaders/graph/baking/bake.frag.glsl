@@ -56,13 +56,13 @@ void main() {
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
 
-	vec4 A = vec4(1, 1, 1, 1);
 	surface.normal.world = normalize( inNormal );
 	surface.uv.xy = wrap(inUv.xy);
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 	surface.position.world = inPosition;
 	const Material material = materials[materialID];
 	
+	vec4 A = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = 1.0f - material.factorOcclusion;

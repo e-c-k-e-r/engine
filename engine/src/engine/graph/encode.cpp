@@ -464,7 +464,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 
 uf::stl::string uf::graph::print( const pod::Graph& graph ) {
 	uf::stl::stringstream ss;
-#if 0
+#if 1
 	ss << "Graph Data:"
 		"\n\tImages: " << graph.images.size() << ""
 		"\n\tTextures: " << graph.textures.size() << ""
@@ -487,8 +487,8 @@ uf::stl::string uf::graph::print( const pod::Graph& graph ) {
 uf::Serializer uf::graph::stats( const pod::Graph& graph ) {
 	ext::json::Value json;
 #if 0
-	size_t memoryTextures = sizeof(pod::Texture::Storage) * graph.textures.size();
-	size_t memoryMaterials = sizeof(pod::Material::Storage) * graph.materials.size();
+	size_t memoryTextures = sizeof(pod::Texture) * graph.textures.size();
+	size_t memoryMaterials = sizeof(pod::Material) * graph.materials.size();
 	size_t memoryLights = sizeof(pod::Light) * graph.lights.size();
 	size_t memoryImages = 0;
 	size_t memoryMeshes = 0;

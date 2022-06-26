@@ -482,7 +482,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 #endif
 #if UF_USE_MESHOPT
 	// cleanup if blender's exporter is poopy
-	if ( graph.metadata["exporter"]["optimize"].as<bool>(true) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
+	if ( graph.metadata["exporter"]["optimize"].as<bool>(false) || graph.metadata["exporter"]["optimize"].as<uf::stl::string>("") == "tagged" ) {
 		UF_MSG_DEBUG( "Optimizing meshes..." );
 		for ( auto& keyName : graph.meshes ) {
 			size_t level = SIZE_MAX;

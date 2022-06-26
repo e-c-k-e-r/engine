@@ -291,6 +291,10 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 		state.body->setType(rp3d::BodyType::STATIC);
 	}
 
+	if ( state.stats.gravity == pod::Vector3f{0,0,0} ) {
+		state.body->enableGravity(false);
+	}
+
 	auto& material = collider->getMaterial();
 	material.setBounciness(0);
 
@@ -406,7 +410,13 @@ void ext::reactphysics::syncFrom( float interp ) {
 		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object ) continue;
 
-		auto& state = object->getComponent<pod::PhysicsState>();;
+		auto& state = object->getComponent<pod::PhysicsState>();
+
+		if ( !state.object ) {
+			state.object = object;
+			//continue;
+		}
+		
 		auto& transform = state.object->getComponent<pod::Transform<>>();
 		auto& physics = state.object->getComponent<pod::Physics>();
 

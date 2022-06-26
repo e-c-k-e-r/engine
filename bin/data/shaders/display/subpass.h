@@ -62,7 +62,7 @@ layout (binding = 5) uniform UBO {
 	uint msaa;
 	uint shadowSamples;
 
-	uint indexSkybox;
+	 int indexSkybox;
 	uint useLightmaps;
 	uint padding2;
 	uint padding3;
@@ -194,7 +194,9 @@ void populateSurface() {
 	const uint drawID = ID.x - 1;
 	const uint instanceID = ID.y - 1;
 	if ( ID.x == 0 || ID.y == 0 ) {
-		surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
+		if ( 0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
+			surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
+		}
 		surface.fragment.a = 0.0;
 		postProcess();
 		return;

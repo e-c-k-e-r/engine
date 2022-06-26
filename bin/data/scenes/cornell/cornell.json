@@ -1,0 +1,36 @@
+{
+	"import": "/model.json",
+	"assets": [
+	//	{ "filename": "./models/cornell.glb" }
+	//	{ "filename": "./models/cornell/graph.json" }
+		
+	//	{ "filename": "./models/sponza.glb" }
+	//	{ "filename": "./models/sponza/graph.json" }
+
+	//	{ "filename": "./models/sponza-cornell.glb" }
+		{ "filename": "./models/sponza-cornell/graph.json" }
+	],
+	"metadata": {
+		"model": {
+			"baking": {
+				"enabled": false,
+				"resolution": 1024
+			},
+			"filter": "LINEAR",
+			"lightmap": false,
+			"tags": {
+				"/^Mesh_/": {
+					"physics": { "type": "mesh", "static": true },
+				//	"grid": { "size": [3,1,3], "epsilon": 0.0001, "cleanup": true, "print": true },
+				//	"optimize mesh": { "simplify": 0 },
+					"unwrap mesh": true
+				},
+				"Camera": {
+					"action": "attach",
+					"filename": "./player.json",
+					"preserve orientation": true
+				}
+			}
+		}
+	}
+}

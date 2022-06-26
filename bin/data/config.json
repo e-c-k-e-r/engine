@@ -1,15 +1,15 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 32
+				"max": 24
 			},
 			"shadows": {
-				"enabled": true,
+				"enabled": false,
 				"update": 2,
 				"max": 16,
 				"samples": 1
@@ -48,7 +48,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": false,
+					"enabled": true,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -242,6 +242,10 @@
 			"entity": {
 				"delete children on destroy": true,
 				"delete components on destroy": true
+			},
+			"userdata": {
+				"auto destruct": true,
+				"auto validate": false
 			},
 			"loader": {
 				"assert": true

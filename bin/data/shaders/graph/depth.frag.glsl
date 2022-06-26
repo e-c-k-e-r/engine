@@ -36,13 +36,15 @@ void main() {
 	const uint instanceID = uint(inId.y);
 	const uint materialID = uint(inId.z);
 	const vec2 uv = wrap(inUv.xy);
-	vec4 A = vec4(0, 0, 0, 0);
+	
+	const Material material = materials[materialID];
+	vec4 A = material.colorBase;
 	surface.uv.xy = uv;
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 
-	const Material material = materials[materialID];
 	// sample albedo
-	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
+//	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
+	if ( validTextureIndex( material.indexAlbedo ) ) {
 	//	const Texture t = textures[material.indexAlbedo];
 	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
 		A = sampleTexture( material.indexAlbedo );

@@ -174,7 +174,6 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			if ( renderMode.blitter.initialized ) {
 				auto& pipeline = renderMode.blitter.getPipeline();
 				pipeline.record(renderMode.blitter, commandBuffer);
-			//	vkCmdDispatch(commandBuffer, metadata.voxelSize.x / metadata.dispatchSize.x, metadata.voxelSize.y / metadata.dispatchSize.y, metadata.voxelSize.z / metadata.dispatchSize.z);
 			}
 			
 			// generate mipmaps
@@ -437,7 +436,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		}
 	#endif
 	}
-	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, true );
+	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute" );
 	ext::ExtSceneBehavior::bindBuffers( scene );
 #endif
 }

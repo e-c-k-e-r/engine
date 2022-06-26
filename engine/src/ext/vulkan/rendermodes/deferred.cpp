@@ -555,7 +555,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 					size_t currentPass = 0;
 					size_t currentDraw = 0;
-					for ( auto graphic : graphics ) {
+					if ( !settings::pipelines::rt ) for ( auto graphic : graphics ) {
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
@@ -573,7 +573,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					}
 				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass; ++currentSubpass;
 					// deferred post-processing lighting pass
-					{
+					if ( !settings::pipelines::rt ) {
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 						blitter.record(commands[i], descriptor, eye, currentDraw++);
 					}

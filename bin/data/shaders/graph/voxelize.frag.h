@@ -69,18 +69,18 @@ void main() {
 	surface.st.z = mipLevel(dFdx(inSt), dFdy(inSt));
 
 	vec3 N = inNormal;
-	vec4 A = vec4(0, 0, 0, 0);
 
 	const Instance instance = instances[instanceID];
 	const Material material = materials[materialID];
 	surface.instance = instance;
 
+	vec4 A = material.colorBase;
 	float M = material.factorMetallic;
 	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
 	
 	// sample albedo
-	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
+	if ( validTextureIndex( material.indexAlbedo ) ) {
 		A = sampleTexture( material.indexAlbedo );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {

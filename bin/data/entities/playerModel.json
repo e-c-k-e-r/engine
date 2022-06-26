@@ -2,10 +2,10 @@
 	"type": "Object",
 	"name": "Player: Model",
 	"ignore": true,
+	"import": "/model.json",
 	"assets": [
 		"/player/bear.glb"
-	//	{ "filename": "/player/bear/graph.json", "delay": 0, "single threaded": false, "category": "models" }
-	//	{ "filename": "/player/bear/graph.json.gz", "delay": 0, "single threaded": false, "category": "models" }
+	//	{ "filename": "/player/bear/graph.json" }
 	],
 	"behaviors": [
 		"PlayerModelBehavior"
@@ -29,30 +29,22 @@
 		"track": true,
 		"hide": true,
 		"model": {
-			"debug": {
-				"no cleanup": false,
-				"print tree": false,
-				"print stats": false
+			"lightmap": false,
+			"exporter": {
+				"enabled": false,
+				"unwrap": false,
+				"optimize": false
 			},
-			"export": {
-				"should": true,
-				"pretty": false,
-				"compress": true,
-				"quantize": false,
-				"precision": 4,
-				"combined": false,
-				"encode buffers": true,
-				"unwrap": false
+			"baking": {
+				"enabled": false
 			},
 			"animation": "wank",
 			"print animations": true,
-		//	"filter": "NEAREST",
-			"cull mode": "none",
 			"flags": {
 				"ATLAS": false,
 				"INVERT": true,
 				"TRANSFORM": false,
-				"SKINNED": true,
+				"SKINNED": false,
 				
 				"RENDER": true,
 				"SEPARATE": false,

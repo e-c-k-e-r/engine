@@ -86,6 +86,10 @@ namespace pod {
 		alignas(8) uint64_t vertex{};
 		alignas(8) uint64_t index{};
 		
+		alignas(8) uint64_t indirect{};
+		alignas(4) uint32_t drawID{};
+		alignas(4) uint32_t padding0{};
+		
 		alignas(8) uint64_t position{};
 		alignas(8) uint64_t uv{};
 
@@ -99,7 +103,7 @@ namespace pod {
 		alignas(8) uint64_t weights{};
 
 		alignas(8) uint64_t id{};
-		alignas(8) uint64_t padding{};
+		alignas(8) uint64_t padding1{};
 	};
 
 	struct Primitive {

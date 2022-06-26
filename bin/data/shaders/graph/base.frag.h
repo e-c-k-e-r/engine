@@ -59,12 +59,13 @@ void main() {
 	const Instance instance = instances[instanceID];
 	const Material material = materials[materialID];
 
+	A = material.colorBase;
 	float M = material.factorMetallic;
 	float R = material.factorRoughness;
 	float AO = material.factorOcclusion;
 	
 	// sample albedo
-	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
+	if ( validTextureIndex( material.indexAlbedo ) ) {
 		A = sampleTexture( material.indexAlbedo );
 		// alpha mode OPAQUE
 		if ( material.modeAlpha == 0 ) {

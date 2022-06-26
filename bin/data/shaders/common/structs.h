@@ -140,6 +140,10 @@ struct Instance {
 struct InstanceAddresses {
 	uint64_t vertex;
 	uint64_t index;
+	
+	uint64_t indirect;
+	uint drawID;
+	uint padding0;
 
 	uint64_t position;
 	uint64_t uv;
@@ -154,7 +158,7 @@ struct InstanceAddresses {
 	uint64_t weights;
 
 	uint64_t id;
-	uint64_t padding;
+	uint64_t padding1;
 };
 #endif
 
@@ -222,3 +226,29 @@ struct VoxelInfo {
 	float radianceSize;
 	float radianceSizeRecip;
 } voxelInfo;
+
+// Raytrace stuff
+
+struct Vertex {
+	vec3 position;
+	vec2 uv;
+	uint color;
+	vec2 st;
+	vec3 normal;
+	vec3 tangent;
+	uvec2 joints;
+	vec4 weights;
+	uint id;
+};
+
+struct Triangle {
+	uvec3 indices;
+	Vertex points[3];
+	Vertex point;
+};
+
+struct RayTracePayload {
+	bool hit;
+	uint instanceID;
+	Triangle triangle;
+};

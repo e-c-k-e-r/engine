@@ -258,6 +258,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 
+	if ( collider.stats.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
+
 	struct {
 		float move = 4;
 		float walk = 1;
@@ -274,8 +276,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		speed.air = metadata.movement.air;
 		
 		if ( stats.noclipped ) {
-			speed.move *= 4.0;
-			speed.run *= 2.0;
+			speed.move *= 1.5;
+			speed.run *= 1.5;
 		}
 		if ( !stats.floored || stats.noclipped ) speed.friction = 1;
 		if ( stats.noclipped ) physics.linear.velocity = {};
@@ -318,7 +320,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	} else
 #endif
 	// un-flatted if noclipped
-	if ( stats.noclipped ){
+
+	if ( stats.noclipped || collider.stats.gravity == pod::Vector3f{0,0,0} ){
 		translator.forward.y += cameraTransform.forward.y;
 		translator.forward = uf::vector::normalize( translator.forward );
 	}
@@ -328,6 +331,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		TIMER(0.25, keys.vee && ) {
 			bool state = !stats.noclipped;
 			metadata.system.noclipped = state;
+			if ( collider.body ) collider.body->enableGravity(!state);
 			
 			UF_MSG_DEBUG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
 		#if 0

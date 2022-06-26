@@ -5,6 +5,7 @@
 #include <uf/engine/entity/entity.h>
 #include <uf/engine/scene/scene.h>
 #include <uf/utils/math/vector.h>
+#include <uf/utils/graphic/graphic.h>
 
 namespace ext {
 	namespace ExtSceneBehavior {
@@ -67,6 +68,7 @@ namespace ext {
 			} sky;
 		);
 
-		void bindBuffers( uf::Object&, const uf::stl::string& = "", bool = false );
+		void bindBuffers( uf::Object&, const uf::stl::string& = "", const uf::stl::string& = "fragment", const uf::stl::string& = "" );
+		void bindBuffers( uf::Object&, uf::renderer::Graphic&, const uf::stl::string& = "fragment", const uf::stl::string& = "" );
 	}
 }

@@ -687,7 +687,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 }
 
-void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, bool isCompute ) {
+void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto& graph = this->getGraph();
 	auto& controller = this->getController();
 	auto& camera = controller.getComponent<uf::Camera>();
@@ -699,6 +699,20 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
 	auto blitters = renderMode.getBlitters();
+
+	bindBuffers( self, *blitters.front(), shaderType, shaderPipeline );
+}
+void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
+	auto& graph = this->getGraph();
+	auto& controller = this->getController();
+	auto& camera = controller.getComponent<uf::Camera>();
+	auto& controllerMetadata = controller.getComponent<uf::Serializer>();
+	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
+	auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+
+	if ( !graphic.initialized ) return;
 
 #if UF_USE_VULKAN
 	struct UniformDescriptor {
@@ -871,29 +885,25 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 		uniforms.useLightmaps = metadata.light.useLightmaps;
 	}
 
-	for ( auto* blitter : blitters ) {
-		auto& graphic = *blitter;
-		if ( !graphic.initialized ) continue;
 
-		uf::stl::vector<VkImage> previousTextures;
-		for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
-		graphic.material.textures.clear();
+	uf::stl::vector<VkImage> previousTextures;
+	for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
+	graphic.material.textures.clear();
 
-		// attach our textures to the graphic
-		for ( auto& t : textures2D ) graphic.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : texturesCube ) graphic.material.textures.emplace_back().aliasTexture(t);
-		for ( auto& t : textures3D ) graphic.material.textures.emplace_back().aliasTexture(t);
+	// attach our textures to the graphic
+	for ( auto& t : textures2D ) graphic.material.textures.emplace_back().aliasTexture(t);
+	for ( auto& t : texturesCube ) graphic.material.textures.emplace_back().aliasTexture(t);
+	for ( auto& t : textures3D ) graphic.material.textures.emplace_back().aliasTexture(t);
 
-		// trigger an update when we have differing bound texture sizes
-		bool shouldUpdate = metadata.shader.invalidated || graphic.material.textures.size() != previousTextures.size();
-		for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
-			if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
-		}
-		if ( shouldUpdate ) graphic.updatePipelines();
-	
-		auto& shader = graphic.material.getShader(isCompute ? "compute" : "fragment");
-		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+	// trigger an update when we have differing bound texture sizes
+	bool shouldUpdate = metadata.shader.invalidated || graphic.material.textures.size() != previousTextures.size();
+	for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
+		if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 	}
+	if ( shouldUpdate ) graphic.updatePipelines();
+
+	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
+	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 #endif
 }
 #undef this

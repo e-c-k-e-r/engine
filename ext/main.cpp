@@ -230,6 +230,9 @@ void EXT_API ext::initialize() {
 
 		uf::Object::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Object::assertionLoad );
 		uf::Asset::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Asset::assertionLoad );
+		
+		uf::userdata::autoDestruct = ::json["engine"]["debug"]["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
+		uf::userdata::autoValidate = ::json["engine"]["debug"]["userdata"]["auto validate"].as( uf::userdata::autoValidate );
 	}
 
 	{
@@ -417,6 +420,11 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
+		
+		if ( uf::renderer::settings::pipelines::rt ) {
+		//	uf::renderer::settings::pipelines::vxgi = false;
+			uf::renderer::settings::pipelines::culling = false;
+		}
 
 	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = configRenderJson["formats"][#key].as<uf::stl::string>();\

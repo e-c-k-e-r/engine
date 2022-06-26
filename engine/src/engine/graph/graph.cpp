@@ -359,31 +359,44 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		// grab addresses
 		{
 			pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
-			for ( size_t i = 0; i < mesh.indirect.count; ++i ) {
-				auto instanceID = drawCommands[i].instanceID;
+			for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
+				auto& drawCommand = drawCommands[drawID];
+				auto instanceID = drawCommand.instanceID;
 				auto instanceKeyName = std::to_string(instanceID);
+
+				if ( uf::graph::storage.instanceAddresses.map.count(instanceKeyName) > 0 ) {
+					UF_MSG_DEBUG("DUPLICATE INSTANCE ID");
+				}
+
 				auto& instanceAddresses = uf::graph::storage.instanceAddresses.map[instanceKeyName];
 				if ( mesh.vertex.count ) {
 					if ( mesh.isInterleaved( mesh.vertex ) ) {
-						instanceAddresses.vertex = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved).getAddress();
+						instanceAddresses.vertex = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved).getAddress()/* + (drawCommand.vertexID * mesh.vertex.size)*/;
 					} else {
 						for ( auto& attribute : graphic.descriptor.inputs.vertex.attributes ) {
 							if ( attribute.buffer < 0 ) continue;
-							if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress();
-							else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic.buffers.at(attribute.buffer).getAddress();
+							if ( attribute.descriptor.name == "position" ) 		instanceAddresses.position = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "uv" ) 		instanceAddresses.uv = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "color" ) 	instanceAddresses.color = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "st" ) 		instanceAddresses.st = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "normal" ) 	instanceAddresses.normal = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "tangent" ) 	instanceAddresses.tangent = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "joints" ) 	instanceAddresses.joints = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "weights" ) 	instanceAddresses.weights = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
+							else if ( attribute.descriptor.name == "id" ) 		instanceAddresses.id = graphic.buffers.at(attribute.buffer).getAddress()/* + (drawCommand.vertexID * attribute.stride)*/;
 						}
 					}
 				}
 				if ( mesh.index.count ) {
 					if ( mesh.isInterleaved( mesh.index ) ) instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.interleaved).getAddress();
 					else instanceAddresses.index = graphic.buffers.at(graphic.descriptor.inputs.index.attributes.front().buffer).getAddress();
+				}
+
+				if ( mesh.indirect.count ) {
+					if ( mesh.isInterleaved( mesh.indirect ) ) instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.interleaved).getAddress();
+					else instanceAddresses.indirect = graphic.buffers.at(graphic.descriptor.inputs.indirect.attributes.front().buffer).getAddress();
+
+					instanceAddresses.drawID = drawID;
 				}
 			}
 		}
@@ -717,6 +730,8 @@ void uf::graph::process( pod::Graph& graph ) {
 	*/
 	}
 
+	uf::graph::storage.instanceAddresses.keys = uf::graph::storage.instances.keys;
+
 }
 void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) {
 	auto& node = graph.nodes[index];
@@ -919,9 +934,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 					pod::Vector3f center = (max + min) * 0.5f;
 					pod::Vector3f corner = uf::vector::abs(max - min) * 0.5f;
-				//	corner.x = abs(corner.x);
-				//	corner.y = abs(corner.y);
-				//	corner.z = abs(corner.z);
 					
 					metadataJson["system"]["physics"]["center"] = uf::vector::encode( center );
 					metadataJson["system"]["physics"]["corner"] = uf::vector::encode( corner );
