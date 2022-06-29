@@ -64,7 +64,7 @@ namespace pod {
 			
 
 			uf::stl::KeyMap<pod::Instance> instances;
-			uf::stl::KeyMap<pod::InstanceAddresses> instanceAddresses;
+			uf::stl::KeyMap<pod::Instance::Addresses> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;
 			uf::stl::KeyMap<uf::stl::vector<pod::DrawCommand>> drawCommands;
 			uf::stl::KeyMap<uf::Mesh> meshes;

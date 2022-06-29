@@ -2,7 +2,8 @@
 	"import": "/scene.json",
 	"assets": [
 		"./audio/soundscape/ambience.ogg",
-		"./loading.json",
+	//	"./loading.json",
+		"./mcdonalds.json",
 		"./static.json"
 	],
 	"system": {
@@ -13,7 +14,8 @@
 			"shader": {
 				"mode": 1,
 				"scalar": 16,
-				"parameters": [ 0, 0, 0, "time" ]
+				"parameters": [ 0, 0, 0, "time" ],
+				"frame accumulate limit": 0
 			},
 			"clear values": [
 				[ 1, 1, 1, 0 ]
@@ -34,13 +36,13 @@
 			"exposure": 1.0,
 			"gamma": 1.0,
 			"brightnessThreshold": 1.2,
-		//	"ambient": [ 0, 0, 0 ],
+			"ambient": [ 0, 0, 0 ],
 		//	"ambient": [ 0.025, 0.025, 0.025 ],
-			"ambient": [ 0.075, 0.075, 0.075 ],
+		//	"ambient": [ 0.075, 0.075, 0.075 ],
 		//	"ambient": [ 0.1, 0.1, 0.1 ],
 		//	"ambient": [ 0.4, 0.4, 0.4 ],
 
-			"fog": {
+			"fog-": {
 				"color": [ 0.5, 0.5, 0.5 ],
 				"range": [ 16, 32 ],
 				"step scale": 2,

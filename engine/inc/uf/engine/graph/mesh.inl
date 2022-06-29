@@ -7,6 +7,7 @@ namespace uf {
 				pod::ColorRgba color{ (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0, (uint8_t) ~0 };
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
+				pod::Vector3f tangent{};
 				pod::Vector<uint16_t, 2> id{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
@@ -18,9 +19,9 @@ namespace uf {
 				pod::Vector2f st{};
 				pod::Vector3f normal{};
 				pod::Vector3f tangent{};
+				pod::Vector<uint16_t, 2> id{};
 				pod::Vector<uint16_t, 4> joints{};
 				pod::Vector4f weights{};
-				pod::Vector<uint16_t, 2> id{};
 
 				static UF_API uf::stl::vector<uf::renderer::AttributeDescriptor> descriptor;
 			};

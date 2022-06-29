@@ -247,6 +247,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{ uf::renderer::settings::pipelines::vxgi, "vxgi.frag" },
 				{ msaa > 1, "msaa.frag" },
 				{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
+				{ uf::renderer::settings::pipelines::rt, "rt.frag" },
 			};
 			FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 		}
@@ -285,11 +286,12 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 
 			if ( ext::vulkan::settings::pipelines::vxgi ) {
 				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;

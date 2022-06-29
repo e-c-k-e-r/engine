@@ -15,7 +15,7 @@ float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
 vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
 #if (!BAKING && !COMPUTE) || RAYTRACE
 void pbr() {
-	if ( bool(ubo.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) return;
+	if ( surface.material.lightmapped && validTextureIndex( surface.instance.lightmapID ) ) return;
 
 	const float Rs = 4.0; // specular lighting looks gross without this
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 

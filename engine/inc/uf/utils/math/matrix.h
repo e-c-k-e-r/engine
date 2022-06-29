@@ -59,7 +59,8 @@ namespace uf {
 
 	// 	Equality checking
 		template<typename T=pod::Matrix4> int /*UF_API*/ compareTo( const T& left, const T& right ); 			// 	Equality check between two matrices (less than)
-		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right ); 						// 	Equality check between two matrices (equals)
+		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right ); 				// 	Equality check between two matrices (equals)
+		template<typename T=pod::Matrix4> bool /*UF_API*/ equals( const T& left, const T& right, float eps ); 	// 	Equality check between two matrices (equals)
 	// 	Basic arithmetic
 	//	template<typename T=pod::Matrix4> pod::Matrix<typename T::type_t, C, C> /*UF_API*/ multiply( const T& left, const T& right );						// 	Multiplies two matrices of same type and size together
 		template<typename T, typename U> pod::Matrix<typename T::type_t, T::columns, T::columns> multiply( const T& left, const U& right );						// 	Multiplies two matrices of same type and size together

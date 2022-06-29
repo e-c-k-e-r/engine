@@ -20,6 +20,8 @@ UF_BEHAVIOR_REGISTER_CPP(ext::RayTraceSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
+	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
+
 	if ( !uf::renderer::hasRenderMode("Compute", true) ) {
 		auto* renderMode = new uf::renderer::RenderTargetRenderMode;
 		renderMode->setTarget("Compute");
@@ -31,28 +33,70 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		renderMode->execute = false;
 		uf::renderer::addRenderMode( renderMode, "Compute" );
 	}
+
+	if ( ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
+		metadata.renderer.scale = ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(metadata.renderer.scale);
+	}
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
-	auto instances = uf::graph::storage.instances.flatten();
+
+	static uf::stl::vector<pod::Instance> previousInstances;
+	uf::stl::vector<pod::Instance> instances = uf::graph::storage.instances.flatten();
 	if ( instances.empty() ) return;
 
+	static uf::stl::vector<uf::Graphic*> previousGraphics;
 	uf::stl::vector<uf::Graphic*> graphics;
 	this->process([&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) return;
-		graphics.emplace_back(entity->getComponentPointer<uf::Graphic>());
+		auto& graphic = entity->getComponent<uf::Graphic>();
+		if ( graphic.accelerationStructures.bottoms.empty() ) return;
+		graphics.emplace_back(&graphic);
 	});
-	
 	if ( graphics.empty() ) return;
-	auto& graphic = this->getComponent<uf::renderer::Graphic>();
 	
-	if ( !metadata.renderer.bound ) graphic.initialize("Compute");
-	graphic.generateTopAccelerationStructure( graphics, instances );
+	bool update = false;
+	auto& graphic = this->getComponent<uf::renderer::Graphic>();
+	if ( !metadata.renderer.bound ) {
+		graphic.initialize("Compute");
+		update = true;
+	} else {
+		if ( previousInstances.size() != instances.size() ) update = true;
+		else if ( previousGraphics.size() != graphics.size() ) update = true;
+	//	else if ( memcmp( previousInstances.data(), instances.data(), instances.size() * sizeof(decltype(instances)::value_type) ) != 0 ) update = true;
+		else if ( memcmp( previousGraphics.data(), graphics.data(), graphics.size() * sizeof(decltype(graphics)::value_type) ) != 0 ) update = true;
+		else for ( size_t i = 0; i < instances.size() && !update; ++i ) {
+			if ( !uf::matrix::equals( instances[i].model, previousInstances[i].model, 0.0001f ) )
+				update = true;
+		}
+	}
+	if ( update ) {
+		graphic.generateTopAccelerationStructure( graphics, instances );
+
+		auto& sceneMetadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
+		sceneMetadata.shader.frameAccumulateReset = true;
+
+		previousInstances = instances;
+		previousGraphics = graphics;
+	}
 
 	if ( !metadata.renderer.bound ) {
 		if ( graphic.material.hasShader("ray:gen", uf::renderer::settings::pipelines::names::rt) ) {
 			auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
-			
+			//
+			auto& image = shader.textures.emplace_back();
+			image.fromBuffers(
+				NULL, 0,
+				uf::renderer::enums::Format::R8G8B8A8_UNORM,
+				uf::renderer::settings::width * metadata.renderer.scale, uf::renderer::settings::height * metadata.renderer.scale, 1, 1,
+				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
+			);
+
+			graphic.descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
+			graphic.descriptor.inputs.width = image.width;
+			graphic.descriptor.inputs.height = image.height;
+
+			//
 			auto& scene = uf::scene::getCurrentScene();
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
@@ -112,7 +156,11 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	if ( blitter.material.hasShader("fragment") ) {
 		auto& shader = blitter.material.getShader("fragment");
 		if ( shader.textures.empty() ) {
-			shader.textures.emplace_back().aliasTexture( image );
+			auto& tex = shader.textures.emplace_back();
+			tex.aliasTexture( image );
+			tex.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+			tex.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+
 			renderMode.execute = true;
 			graphic.process = true;
 		}
@@ -120,7 +168,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	
 	if ( uf::renderer::states::resized ) {
 		image.destroy();
-		image.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, uf::renderer::settings::width, uf::renderer::settings::height, 1, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		image.fromBuffers(
+			NULL, 0,
+			uf::renderer::enums::Format::R8G8B8A8_UNORM,
+			uf::renderer::settings::width * metadata.renderer.scale, uf::renderer::settings::height * metadata.renderer.scale, 1, 1,
+			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
+		);
 
 		graphic.descriptor.inputs.width = image.width;
 		graphic.descriptor.inputs.height = image.height;

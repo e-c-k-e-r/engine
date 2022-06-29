@@ -5,11 +5,11 @@
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"useLightmaps": false,
-				"max": 24
+				"useLightmaps": true,
+				"max": 32
 			},
 			"shadows": {
-				"enabled": false,
+				"enabled": true,
 				"update": 2,
 				"max": 16,
 				"samples": 1
@@ -17,8 +17,8 @@
 			"textures": {
 				"max": {
 					"2D": 1024,
-					"cube": 256,
-					"3D": 1
+					"cube": 1024,
+					"3D": 64
 				}
 			},
 			"vxgi": {
@@ -48,7 +48,7 @@
 		"ext": {
 			"vulkan": {
 				"validation": {
-					"enabled": true,
+					"enabled": false,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -68,6 +68,8 @@
 				},
 				"framebuffer": {
 					"msaa": 1,
+				//	"size": 0.5
+				//	"size": 0.75
 					"size": 1
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
@@ -76,7 +78,7 @@
 				},
 				"gpu": 1,
 				"experimental": {
-					"batch queue submissions": true,
+					"batch queue submissions": false,
 					"rebuild on tick begin": false,
 					"dedicated thread": false
 				},
@@ -113,6 +115,8 @@
 					"multiViewport",
 					"shaderOutputLayer",
 					"shaderInt64",
+					"shaderFloat64",
+					"shaderSubgroupClock",
 					"shaderSampledImageArrayDynamicIndexing",
 					"shaderStorageImageArrayDynamicIndexing"
 				],
@@ -130,7 +134,9 @@
 						"VK_KHR_deferred_host_operations",
 						"VK_EXT_descriptor_indexing",
 						"VK_KHR_spirv_1_4",
-						"VK_KHR_shader_float_controls"
+						"VK_KHR_shader_float_controls",
+						"VK_KHR_shader_clock",
+						"VK_KHR_ray_query"
 					]
 				}
 			},

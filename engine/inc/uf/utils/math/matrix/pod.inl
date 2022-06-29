@@ -146,6 +146,15 @@ template<typename T> int uf::matrix::compareTo( const T& left, const T& right ) 
 template<typename T> bool uf::matrix::equals( const T& left, const T& right ) {
 	return uf::matrix::compareTo(left, right) == 0;
 }
+template<typename T> bool uf::matrix::equals( const T& left, const T& right, float eps ) {
+	bool equals = true;
+	for ( size_t i = 0; i < 16; ++i ) {
+		if ( abs(left[i] - right[i]) <= eps ) continue;
+		equals = false;
+		break;
+	}
+	return equals;
+}
 // 	Basic arithmetic
 // 	Multiplies two matrices of same type and size together
 template<typename T> pod::Matrix<T,4,4> uf::matrix::multiply( const pod::Matrix<T,4,4>& left, const pod::Matrix<T,4,4>& right ) {

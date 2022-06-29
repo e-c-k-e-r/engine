@@ -78,6 +78,8 @@ namespace ext {
 		struct AccelerationStructure {
 			VkAccelerationStructureKHR handle{VK_NULL_HANDLE};
 			size_t deviceAddress{};
+			Buffer buffer{};
+
 			size_t instanceID{};
 		};
 	}

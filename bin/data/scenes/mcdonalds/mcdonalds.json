@@ -4,29 +4,35 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/mcdonalds.glb" }
-		{ "filename": "./models/mcdonalds/graph.json" }
+		{ "filename": "./models/mcdonalds/graph.json" },
 
 	//	{ "filename": "./models/mini_mcd.glb" }
 	//	{ "filename": "./models/mini_mcd/graph.json" }
+		
+	//	{ "filename": "/cornell/cornell.glb" }
+		{ "filename": "/cornell/cornell/graph.json" }
 	],
 	"metadata": {
 		"model": {
 			"baking": {
-				"enabled": true,
+				"enabled": false,
 				"resolution": 2048,
 				"settings": {
 					"useInputMeshUvs": false
 				}
 			},
-			"cull mode": "none",
+		//	"cull mode": "none",
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
-				//	"grid": { "size": [4,1,4], "epsilon": 1.0, "cleanup": true, "print": true },
-				//	"optimize mesh": { "simplify": 0 },
+					"grid": { "size": [4,1,4], "epsilon": 1.0, "cleanup": true, "print": true },
+					"optimize mesh": { "simplify": 0 },
 					"unwrap mesh": true
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
+				"cornellBox.000": {
+					"transform": { "position": [ 0, -2, -75 ], "scale": [ 3, 3, 3 ] }
+				},
 
 				"func_door_rotating_5409": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_door_rotating_5487": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },

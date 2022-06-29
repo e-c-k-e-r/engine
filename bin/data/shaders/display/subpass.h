@@ -1,7 +1,10 @@
 #extension GL_EXT_samplerless_texture_functions : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
-#define ADDRESS_ENABLED 1
+#if RAYTRACE
+	#extension GL_EXT_ray_query : require
+#endif
+
 #define DEFERRED 1
 #define MAX_TEXTURES TEXTURES
 //#define TEXTURE_WORKAROUND 0
@@ -64,39 +67,40 @@ layout (binding = 5) uniform UBO {
 
 	 int indexSkybox;
 	uint useLightmaps;
-	uint padding2;
+	uint frameNumber;
 	uint padding3;
 } ubo;
 /*
+*/
 layout (std140, binding = 6) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-*/
-layout (std140, binding = 6) readonly buffer Instances {
+layout (std140, binding = 7) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 7) readonly buffer Materials {
-	Material materials[];
-};
-layout (std140, binding = 8) readonly buffer Textures {
-	Texture textures[];
-};
-layout (std140, binding = 9) readonly buffer Lights {
-	Light lights[];
-};
-/*
-layout (std140, binding = 10) readonly buffer InstanceAddresseses {
+layout (std140, binding = 8) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-*/
+layout (std140, binding = 9) readonly buffer Materials {
+	Material materials[];
+};
+layout (std140, binding = 10) readonly buffer Textures {
+	Texture textures[];
+};
+layout (std140, binding = 11) readonly buffer Lights {
+	Light lights[];
+};
 
-layout (binding = 11) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 12) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 13) uniform sampler3D samplerNoise;
+layout (binding = 12) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 13) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 14) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 14) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 15) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 16) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 15) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 16) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 17) uniform sampler3D voxelRadiance[CASCADES];
+#endif
+#if RAYTRACE
+	layout (binding = 18) uniform accelerationStructureEXT tlas;
 #endif
 
 layout (location = 0) in vec2 inUv;
@@ -104,6 +108,18 @@ layout (location = 1) in flat uvec2 inPushConstantPass;
 
 layout (location = 0) out vec4 outFragColor;
 layout (location = 1) out vec4 outFragBright;
+
+layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
+layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+layout(buffer_reference, scalar) buffer Indirects { DrawCommand dc[]; };
+
+layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VUv { vec2 v[]; };
+layout(buffer_reference, scalar) buffer VColor { uint v[]; };
+layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
+layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 #include "../common/functions.h"
 #include "../common/fog.h"
@@ -201,11 +217,9 @@ void populateSurface() {
 		postProcess();
 		return;
 	}
-//	const DrawCommand drawCommand = drawCommands[drawID];
+	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	surface.instance = instance;
-//	surface.instance.materialID = instance.materialID;
-//	surface.instance.lightmapID = instance.lightmapID;
 
 	const Material material = materials[surface.instance.materialID];
 	surface.material.albedo = material.colorBase;
@@ -230,7 +244,7 @@ void populateSurface() {
 	}
 
 	if ( validTextureIndex( material.indexAlbedo ) ) {
-		surface.material.albedo = sampleTexture( material.indexAlbedo );
+		surface.material.albedo *= sampleTexture( material.indexAlbedo );
 	}
 	// OPAQUE
 	if ( material.modeAlpha == 0 ) {
@@ -244,7 +258,11 @@ void populateSurface() {
 	}
 	// Lightmap
 	if ( bool(ubo.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) {
-		surface.light += surface.material.albedo * sampleTexture( surface.instance.lightmapID, surface.st );
+		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
+		surface.material.lightmapped = light.a > 0.001;
+		if ( surface.material.lightmapped )	surface.light += surface.material.albedo * light;
+	} else {
+		surface.material.lightmapped = false;
 	}
 	// Emissive textures
 	if ( validTextureIndex( material.indexEmissive ) ) {
@@ -262,9 +280,9 @@ void populateSurface() {
 	}
 #else
 #if !MULTISAMPLING
-	surface.material.albedo = subpassLoad(samplerAlbedo);
+	surface.material.albedo *= subpassLoad(samplerAlbedo);
 #else
-	surface.material.albedo = subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.msaa);
+	surface.material.albedo *= subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.msaa);
 #endif
 #endif
 }

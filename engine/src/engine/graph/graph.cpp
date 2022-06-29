@@ -22,6 +22,7 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Base,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R8G8B8A8_UNORM, color)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, normal)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R32G32B32_SFLOAT, tangent)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Base, R16G16_UINT, id)
 );
 UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
@@ -31,9 +32,9 @@ UF_VERTEX_DESCRIPTOR(uf::graph::mesh::Skinned,
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32_SFLOAT, st)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, normal)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32_SFLOAT, tangent)
+	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16_UINT, id)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16B16A16_UINT, joints)
 	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R32G32B32A32_SFLOAT, weights)
-	UF_VERTEX_DESCRIPTION(uf::graph::mesh::Skinned, R16G16_UINT, id)
 );
 
 pod::Matrix4f uf::graph::local( pod::Graph& graph, int32_t index ) {
@@ -160,7 +161,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		{
 			auto& shader = graphic.material.getShader("fragment");
 
+			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
@@ -235,7 +238,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 					}
 				}
 
+				shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+				shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
@@ -287,7 +292,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 					}
 				}
 				
+				shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+				shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
@@ -345,7 +352,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 					}
 				}
 
+				shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+				shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
@@ -598,6 +607,8 @@ void uf::graph::process( pod::Graph& graph ) {
 	// remap instance variables
 	for ( auto& name : graph.instances ) {
 		auto& instance = uf::graph::storage.instances[name];
+	//	auto& instanceAddresses = uf::graph::storage.instanceAddresses[name];
+	//	instance.addresses = instanceAddresses;
 		
 		if ( 0 <= instance.materialID && instance.materialID < graph.materials.size() ) {
 			auto& keys = /*graph.storage*/uf::graph::storage.materials.keys;
@@ -772,6 +783,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	});
 	if ( ext::json::isObject( tag ) ) {
 		if ( tag["ignore"].as<bool>() ) return;
+		if ( graph.metadata["baking"]["enabled"].as<bool>(false) && !tag["bake"].as<bool>(true) ) return;
 
 		if ( tag["action"].as<uf::stl::string>() == "load" ) {
 			if ( tag["filename"].is<uf::stl::string>() ) {
@@ -1155,7 +1167,7 @@ void uf::graph::initialize() {
 	uf::graph::storage.buffers.camera.initialize( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
 	uf::graph::storage.buffers.drawCommands.initialize( (const void*) nullptr, sizeof(pod::DrawCommand)  * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
 	uf::graph::storage.buffers.instance.initialize( (const void*) nullptr, sizeof(pod::Instance) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
-	uf::graph::storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::InstanceAddresses) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
+	uf::graph::storage.buffers.instanceAddresses.initialize( (const void*) nullptr, sizeof(pod::Instance::Addresses) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
 	uf::graph::storage.buffers.joint.initialize( (const void*) nullptr, sizeof(pod::Matrix4f) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
 	uf::graph::storage.buffers.material.initialize( (const void*) nullptr, sizeof(pod::Material) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
 	uf::graph::storage.buffers.texture.initialize( (const void*) nullptr, sizeof(pod::Texture) * MAX_SIZE, uf::renderer::enums::Buffer::STORAGE );
@@ -1170,12 +1182,12 @@ void uf::graph::tick() {
 	uf::stl::vector<pod::Instance> instances = uf::graph::storage.instances.flatten();
 	uf::graph::storage.buffers.instance.update( (const void*) instances.data(), instances.size() * sizeof(pod::Instance) );
 /*
-	uf::stl::vector<pod::InstanceAddresses> instanceAddresses; instanceAddresses.reserve(uf::graph::storage.instanceAddresses.map.size());
+	uf::stl::vector<pod::Instance::Addresses> instanceAddresses; instanceAddresses.reserve(uf::graph::storage.instanceAddresses.map.size());
 	for ( auto& key : uf::graph::storage.instances.keys ) instanceAddresses.emplace_back( uf::graph::storage.instanceAddresses.map[key] );
-	if ( !instanceAddresses.empty() ) uf::graph::storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::InstanceAddresses) );
+	if ( !instanceAddresses.empty() ) uf::graph::storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) );
 */
-	uf::stl::vector<pod::InstanceAddresses> instanceAddresses = uf::graph::storage.instanceAddresses.flatten();
-	uf::graph::storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::InstanceAddresses) );
+	uf::stl::vector<pod::Instance::Addresses> instanceAddresses = uf::graph::storage.instanceAddresses.flatten();
+	uf::graph::storage.buffers.instanceAddresses.update( (const void*) instanceAddresses.data(), instanceAddresses.size() * sizeof(pod::Instance::Addresses) );
 
 	uf::stl::vector<pod::Matrix4f> joints; joints.reserve(uf::graph::storage.joints.map.size());
 	for ( auto& key : uf::graph::storage.joints.keys ) {

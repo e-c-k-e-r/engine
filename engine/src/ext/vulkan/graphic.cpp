@@ -459,7 +459,8 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		uf::stl::vector<VkDescriptorBufferInfo> uniform;
 		uf::stl::vector<VkDescriptorBufferInfo> storage;
 		uf::stl::vector<VkDescriptorBufferInfo> accelerationStructure;
-		
+		uf::stl::vector<VkWriteDescriptorSetAccelerationStructureKHR> accelerationStructureInfos;
+
 		uf::stl::vector<VkDescriptorImageInfo> image;
 		uf::stl::vector<VkDescriptorImageInfo> image2D;
 		uf::stl::vector<VkDescriptorImageInfo> image2DA;
@@ -480,25 +481,25 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		for ( auto& buffer : renderMode.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-shader buffers
 		for ( auto& buffer : shader->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-pipeline buffers
 		for ( auto& buffer : this->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-graphics buffers
 		for ( auto& buffer : graphic.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 
 		if ( descriptor.subpass < renderTarget.passes.size() ) {
@@ -545,13 +546,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
 			descriptorAccelerationStructureInfo.pAccelerationStructures = &graphic.accelerationStructures.top.handle;
 		}
-	*/
-	
-		VkWriteDescriptorSetAccelerationStructureKHR descriptorAccelerationStructureInfo{};
-		descriptorAccelerationStructureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-		descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
-		descriptorAccelerationStructureInfo.pAccelerationStructures = &graphic.accelerationStructures.top.handle;
-	
+	*/	
 
 		// check if we can even consume that many infos
 		size_t consumes = 0;
@@ -595,10 +590,19 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			else if ( type == ext::vulkan::enums::Image::VIEW_TYPE_2D ) infos.image.emplace_back(Texture2D::empty.descriptor);
 			else infos.image.emplace_back(Texture2D::empty.descriptor);
 		}
+
+		infos.accelerationStructure.emplace_back(graphic.accelerationStructures.top.buffer.descriptor);
+		for ( auto& info : infos.accelerationStructure ) {
+			auto& descriptorAccelerationStructureInfo = infos.accelerationStructureInfos.emplace_back();
+			descriptorAccelerationStructureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+			descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
+			descriptorAccelerationStructureInfo.pAccelerationStructures = &graphic.accelerationStructures.top.handle;
+		}
 		
 		auto uniformBufferInfo = infos.uniform.begin();
 		auto storageBufferInfo = infos.storage.begin();
 		auto accelerationStructureInfo = infos.accelerationStructure.begin();
+		auto accelerationStructureInfos = infos.accelerationStructureInfos.begin();
 		
 		auto imageInfo = infos.image.begin();
 		auto image2DInfo = infos.image2D.begin();
@@ -722,9 +726,10 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						&(*accelerationStructureInfo),
 						layout.descriptorCount
 					));
-					writeDescriptorSet.pNext = &descriptorAccelerationStructureInfo;
+					writeDescriptorSet.pNext = &(*accelerationStructureInfos);
 
 					accelerationStructureInfo += layout.descriptorCount;
+					accelerationStructureInfos += layout.descriptorCount;
 				} break;
 			}
 		}
@@ -1289,11 +1294,14 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	UF_MSG_DEBUG("Scratch buffer size: " << maxScratchBufferSize);
 	
 	for ( auto& blasData : blasDatas ) {
+		blasData.as.buffer = this->buffers[blasBufferIndex].alias();
+		blasData.as.buffer.descriptor.offset = blasBufferOffset;
+
 		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
 		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 		createInfo.size = blasData.sizeInfo.accelerationStructureSize;
-		createInfo.buffer = this->buffers[blasBufferIndex].buffer;
-		createInfo.offset = blasBufferOffset;
+		createInfo.buffer = blasData.as.buffer.buffer;
+		createInfo.offset = blasData.as.buffer.descriptor.offset;
 
 		blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
 
@@ -1422,12 +1430,13 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			}
 			rebuild = rebuild || this->updateBuffer( NULL, sizeInfo.accelerationStructureSize, tlasBufferIndex );
 		}
+		tlas.buffer = this->buffers[tlasBufferIndex].alias();
 
 		if ( !update ) {
 			VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
 			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
 			createInfo.size = sizeInfo.accelerationStructureSize;
-			createInfo.buffer = this->buffers[tlasBufferIndex].buffer;
+			createInfo.buffer = tlas.buffer.buffer;
 
 			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
 
@@ -1482,15 +1491,6 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		}
 		{
 			auto& shader = this->material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
-
-			auto& image = shader.textures.emplace_back();
-			image.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, uf::renderer::settings::width, uf::renderer::settings::height, 1, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-
-			this->descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
-			this->descriptor.inputs.width = image.width;
-			this->descriptor.inputs.height = image.height;
-
-			//
 			shader.buffers.emplace_back( this->buffers[tlasBufferIndex].alias() );
 		}
 	}			

@@ -134,9 +134,10 @@ struct Instance {
 	uint auxID;
 
 	Bounds bounds;
+//	InstanceAddresses addresses;
 };
 
-#if ADDRESS_ENABLED
+#if UINT64_ENABLED
 struct InstanceAddresses {
 	uint64_t vertex;
 	uint64_t index;
@@ -160,6 +161,30 @@ struct InstanceAddresses {
 	uint64_t id;
 	uint64_t padding1;
 };
+#else
+struct InstanceAddresses {
+	uvec2 vertex;
+	uvec2 index;
+	
+	uvec2 indirect;
+	uint drawID;
+	uint padding0;
+
+	uvec2 position;
+	uvec2 uv;
+
+	uvec2 color;
+	uvec2 st;
+
+	uvec2 normal;
+	uvec2 tangent;
+
+	uvec2 joints;
+	uvec2 weights;
+
+	uvec2 id;
+	uvec2 padding1;
+};
 #endif
 
 struct SurfaceMaterial {
@@ -169,7 +194,7 @@ struct SurfaceMaterial {
 	float metallic;
 	float roughness;
 	float occlusion;
-	uint padding;
+	bool lightmapped;
 };
 
 struct Surface {
@@ -178,6 +203,7 @@ struct Surface {
 	vec3 st;
 	Space position;
 	Space normal;
+	mat3 tbn;
 	
 	Ray ray;
 	
@@ -242,13 +268,14 @@ struct Vertex {
 };
 
 struct Triangle {
-	uvec3 indices;
-	Vertex points[3];
 	Vertex point;
+	
+	vec3 geomNormal;
+	
+	uint instanceID;
 };
 
 struct RayTracePayload {
 	bool hit;
-	uint instanceID;
 	Triangle triangle;
 };

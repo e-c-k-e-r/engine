@@ -45,6 +45,7 @@
 #include <uf/ext/openvr/openvr.h>
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/ultralight/ultralight.h>
+#include <uf/ext/imgui/imgui.h>
 
 bool ext::ready = false;
 uf::stl::vector<uf::stl::string> ext::arguments;
@@ -588,6 +589,11 @@ void EXT_API ext::initialize() {
 		ext::ultralight::initialize();
 	}
 #endif
+#if UF_USE_IMGUI
+	{
+		ext::imgui::initialize();
+	}
+#endif
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			auto function = [json]() -> int {
@@ -716,6 +722,11 @@ void EXT_API ext::tick() {
 		ext::discord::tick();
 	}
 #endif
+#if UF_USE_IMGUI
+	{
+		ext::imgui::tick();
+	}
+#endif
 	/* FPS Print */ if ( ::config.engine.fps.print ) {
 		++::times.frames;
 		++::times.total.frames;
@@ -789,6 +800,11 @@ void EXT_API ext::terminate() {
 	/* Kill physics */ {
 		uf::physics::terminate();
 	}
+#if UF_USE_IMGUI
+	{
+		ext::imgui::terminate();
+	}
+#endif
 #if UF_USE_ULTRALIGHT
 	/* Ultralight-UX */ if ( ::config.engine.ext.ultralight.enabled ) {
 		ext::ultralight::terminate();

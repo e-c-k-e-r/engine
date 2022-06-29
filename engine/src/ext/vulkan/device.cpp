@@ -905,7 +905,9 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures{};
 		VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddresFeatures{};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
+		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures{};
 
 		{
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -935,9 +937,18 @@ void ext::vulkan::Device::initialize() {
 			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
 		}
 		{
+			rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+			rayQueryFeatures.rayQuery = VK_TRUE;
+		}
+		{
 			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
+		}
+		{
+			shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
+			shaderClockFeatures.shaderSubgroupClock = VK_TRUE;
+			shaderClockFeatures.shaderDeviceClock = VK_TRUE;
 		}
 		
 		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
@@ -946,7 +957,9 @@ void ext::vulkan::Device::initialize() {
 		shaderDrawParametersFeatures.pNext = &robustnessFeatures;
 		robustnessFeatures.pNext = &bufferDeviceAddresFeatures;
 		bufferDeviceAddresFeatures.pNext = &rayTracingPipelineFeatures;
-		rayTracingPipelineFeatures.pNext = &accelerationStructureFeatures;
+		rayTracingPipelineFeatures.pNext = &rayQueryFeatures;
+		rayQueryFeatures.pNext = &accelerationStructureFeatures;
+		accelerationStructureFeatures.pNext = &shaderClockFeatures;
 	
 		if ( settings::experimental::enableMultiGPU ) {
 			UF_MSG_DEBUG("Multiple devices supported, using " << groupDeviceCreateInfo.physicalDeviceCount << " devices...");

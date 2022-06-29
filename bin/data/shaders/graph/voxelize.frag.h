@@ -11,25 +11,35 @@ layout (constant_id = 1) const uint CASCADES = 16;
 #include "../common/structs.h"
 
 layout (binding = 5) uniform sampler2D samplerTextures[TEXTURES];
-layout (std140, binding = 6) readonly buffer Instances {
+layout (std140, binding = 6) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
+};
+layout (std140, binding = 7) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 7) readonly buffer Materials {
-	Material materials[];
-};
-layout (std140, binding = 8) readonly buffer Textures {
-	Texture textures[];
+layout (std140, binding = 8) readonly buffer InstanceAddresseses {
+	InstanceAddresses instanceAddresses[];
 };
 
-layout (binding = 9, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
-layout (binding = 10, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
+layout (std140, binding = 9) readonly buffer Materials {
+	Material materials[];
+};
+layout (std140, binding = 10) readonly buffer Textures {
+	Texture textures[];
+};
+layout (std140, binding = 11) readonly buffer Lights {
+	Light lights[];
+};
+
+layout (binding = 12, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
+layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
 #if VXGI_HDR
-	layout (binding = 11, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 14, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #else
-	layout (binding = 11, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 14, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #endif
 #if DEPTH_TEST
-	layout (binding = 12, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
+	layout (binding = 15, r16f) uniform volatile coherent image3D voxelDepth[CASCADES];
 #endif
 
 layout (location = 0) in vec2 inUv;

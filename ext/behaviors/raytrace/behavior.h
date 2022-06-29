@@ -16,6 +16,7 @@ namespace ext {
 		UF_BEHAVIOR_DEFINE_METADATA(
 			struct {
 				bool bound = false;
+				float scale = 1;
 			} renderer;
 		);
 	}

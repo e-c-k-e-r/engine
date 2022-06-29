@@ -210,6 +210,15 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #if 1
 	uf::hooks.call("game:Frame.Start");
 
+	++metadata.shader.frameAccumulate;
+	if ( !metadata.shader.frameAccumulateReset && metadata.shader.frameAccumulateLimit && metadata.shader.frameAccumulate > metadata.shader.frameAccumulateLimit ) {
+		metadata.shader.frameAccumulateReset = true;
+	}
+	if ( metadata.shader.frameAccumulateReset ) {
+		metadata.shader.frameAccumulate = 0;
+		metadata.shader.frameAccumulateReset = false;
+	}
+
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U && ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
@@ -640,6 +649,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
 	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();
 	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], pod::Vector4f{0,0,0,0} );
+	/*this->*/shader.frameAccumulateLimit = serializer["system"]["renderer"]["shader"]["frame accumulate limit"].as<uint32_t>(0);
 	ext::json::forEach( serializer["system"]["renderer"]["shader"]["parameters"], [&]( uint32_t i, const ext::json::Value& value ){
 		if ( value.as<uf::stl::string>() == "time" ) /*this->*/shader.time = i;
 	});
@@ -779,7 +789,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 		alignas(4) uint32_t indexSkybox;
 		alignas(4) uint32_t useLightmaps;
-		alignas(4) uint32_t padding2;
+		alignas(4) uint32_t frameAccumulate;
 		alignas(4) uint32_t padding3;
 	};
 
@@ -883,8 +893,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		uniforms.indexSkybox = indexSkybox;
 		// use sample lightmaps during deferred pass
 		uniforms.useLightmaps = metadata.light.useLightmaps;
+		uniforms.frameAccumulate = metadata.shader.frameAccumulate;
 	}
-
 
 	uf::stl::vector<VkImage> previousTextures;
 	for ( auto& texture : graphic.material.textures ) previousTextures.emplace_back(texture.image);
@@ -900,10 +910,20 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	for ( uint32_t i = 0; !shouldUpdate && i < previousTextures.size() && i < graphic.material.textures.size(); ++i ) {
 		if ( previousTextures[i] != graphic.material.textures[i].image ) shouldUpdate = true;
 	}
-	if ( shouldUpdate ) graphic.updatePipelines();
+	if ( shouldUpdate ) {
+		graphic.updatePipelines();
+		metadata.shader.invalidated = false;
+	}
 
 	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
 	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+	static UniformDescriptor previousUniforms;
+	bool shouldUpdate2 = !uf::matrix::equals( uniforms.matrices[0].view, previousUniforms.matrices[0].view, 0.0001f );
+	if ( shouldUpdate || shouldUpdate2 ) {
+		metadata.shader.frameAccumulateReset = true;
+		previousUniforms = uniforms;
+	}
 #endif
 }
 #undef this

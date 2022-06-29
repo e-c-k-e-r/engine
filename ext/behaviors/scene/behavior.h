@@ -46,7 +46,12 @@ namespace ext {
 				uint32_t scalar;
 				pod::Vector4f parameters = {0,0,0,0};
 				int8_t time = 3;
+				
 				bool invalidated = true;
+
+				uint32_t frameAccumulate = 0;
+				uint32_t frameAccumulateLimit = 0;
+				bool frameAccumulateReset = false;
 			} shader;
 			struct {
 				pod::Vector3f color = {1,1,1};

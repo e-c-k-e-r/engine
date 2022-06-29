@@ -225,6 +225,7 @@ namespace {
 		});
 
 		// remove extraneous buffers
+	#if 0
 		if ( !mesh.isInterleaved() ) {
 			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
 
@@ -235,13 +236,13 @@ namespace {
 				if ( attribute.descriptor.name == "uv" ) continue;
 				if ( attribute.descriptor.name == "st" ) continue;
 
+			#if !UF_USE_OPENGL
+				if ( attribute.descriptor.name == "normal" ) continue;
+				if ( attribute.descriptor.name == "tangent" ) continue;
 				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-					if ( attribute.descriptor.name == "tangent" ) continue;
 					if ( attribute.descriptor.name == "joints" ) continue;
 					if ( attribute.descriptor.name == "weights" ) continue;
 				}
-			#if !UF_USE_OPENGL
-				if ( attribute.descriptor.name == "normal" ) continue;
 			#endif
 
 				remove.insert(remove.begin(), i);
@@ -255,6 +256,7 @@ namespace {
 		} else {
 			UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
 		}
+	#endif
 
 		mesh.updateDescriptor();
 

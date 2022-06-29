@@ -52,10 +52,17 @@
 	#define nonuniformEXT(X) X
 #endif
 
-#if ADDRESS_ENABLED
+#ifndef BUFFER_REFERENCE
+	#define BUFFER_REFERENCE 1
+#else
+	#define UINT64_ENABLED 1
+#endif
+
+#if BUFFER_REFERENCE
 	#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
-//	#extension GL_EXT_shader_explicit_arithmetic_types_int16 : enable
-//	#extension GL_EXT_shader_explicit_arithmetic_types_int8 : enable
+	#extension GL_EXT_buffer_reference : enable
+	#extension GL_EXT_buffer_reference2 : enable
+	#extension GL_EXT_scalar_block_layout : enable
 #endif
 
 const float PI = 3.14159265359;

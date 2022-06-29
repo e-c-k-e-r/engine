@@ -15,7 +15,7 @@
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
 
-#define UF_BAKER_SAVE_MULTITHREAD 1
+#define UF_BAKER_SAVE_MULTITHREAD 0
 
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
@@ -98,7 +98,6 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 #endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {
-#if 1
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
@@ -122,7 +121,6 @@ PREPARE: {
 	return;
 }
 SAVE: {
-#if 1
 	renderMode.execute = false;
 	UF_MSG_DEBUG("Baking...");
 
@@ -163,10 +161,8 @@ SAVE: {
 		payload["message"] = "Termination after lightmap baking requested.";
 		uf::scene::getCurrentScene().queueHook("system:Quit", payload);
 	}
-#endif
 	return;
 }
-#endif
 #endif
 }
 void ext::BakingBehavior::render( uf::Object& self ){}

@@ -56,7 +56,7 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf # ncurses openvr draco discord bullet ultralight-ux
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui # ncurses openvr draco discord bullet ultralight-ux
 	FLAGS 				+= 
 	DEPS 				+= -lgdi32
 	LINKS 				+= #-Wl,-subsystem,windows
@@ -89,6 +89,11 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 		endif
 	endif
 
+endif
+ifneq (,$(findstring imgui,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_IMGUI
+	INCS 				+= -I./dep/imgui/
+	INCS 				+= -I./dep/imgui/backends
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_JSON

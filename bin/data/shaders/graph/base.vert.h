@@ -3,6 +3,8 @@ layout (constant_id = 0) const uint PASSES = 6;
 #if LAYERED
 #extension GL_ARB_shader_viewport_layer_array : enable
 #endif
+
+#include "../common/macros.h"
 #include "../common/structs.h"
 
 layout (location = 0) in vec3 inPos;
@@ -11,9 +13,10 @@ layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inSt;
 layout (location = 4) in vec3 inNormal;
 layout (location = 5) in vec4 inTangent;
+layout (location = 6) in uvec2 inId;
 #if SKINNED
-	layout (location = 6) in uvec4 inJoints;
-	layout (location = 7) in vec4 inWeights;
+	layout (location = 7) in uvec4 inJoints;
+	layout (location = 8) in vec4 inWeights;
 #endif
 
 layout( push_constant ) uniform PushBlock {

@@ -19,20 +19,26 @@ layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (std140, binding = 7) readonly buffer Instances {
+layout (std140, binding = 7) readonly buffer DrawCommands {
+	DrawCommand drawCommands[];
+};
+layout (std140, binding = 8) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 8) readonly buffer Materials {
+layout (std140, binding = 9) readonly buffer InstanceAddresseses {
+	InstanceAddresses instanceAddresses[];
+};
+layout (std140, binding = 10) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 9) readonly buffer Textures {
+layout (std140, binding = 11) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 10) readonly buffer Lights {
+layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 11, rgba8) uniform volatile coherent image3D outAlbedos;
+layout (binding = 13, rgba8) uniform volatile coherent image3D outAlbedos;
 
 #include "../../common/functions.h"
 #include "../../common/shadows.h"

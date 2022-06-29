@@ -174,7 +174,7 @@ void indirectLighting() {
 	if ( surface.material.albedo.a < 1.0 ) {
 		Ray ray;
 		ray.direction = surface.ray.direction;
-		ray.origin = surface.position.world; // + ray.direction;
+		ray.origin = surface.position.world + ray.direction;
 		vec4 radiance = voxelConeTrace( ray, surface.material.albedo.a * 0.5 );
 		surface.fragment.rgb += (1.0 - surface.material.albedo.a) * radiance.rgb;
 	}

@@ -2,7 +2,7 @@
 	"name": "Graph",
 	"type": "Object",
 	"ignore": false,
-	"behaviors": [ "LoadingBehavior" ],
+//	"behaviors": [ "LoadingBehavior" ],
 	"transform": {
 		"position": [ 0, 0, 0 ],
 		"rotation": { "axis": [ 0, 1, 0 ], "angle": 0 },

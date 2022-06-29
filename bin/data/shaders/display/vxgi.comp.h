@@ -3,7 +3,6 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-
 #define LAMBERT 0
 #define PBR 1
 #define VXGI 1
@@ -16,7 +15,7 @@ layout (constant_id = 2) const uint CASCADES = 16;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-layout (binding = 4) uniform UBO {
+layout (binding = 0) uniform UBO {
 	EyeMatrices matrices[2];
 
 	Mode mode;
@@ -41,34 +40,35 @@ layout (binding = 4) uniform UBO {
 	uint padding2;
 	uint padding3;
 } ubo;
-/*
-layout (std140, binding = 5) readonly buffer DrawCommands {
+layout (std140, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-*/
-layout (std140, binding = 5) readonly buffer Instances {
+layout (std140, binding = 2) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 6) readonly buffer Materials {
+layout (std140, binding = 3) readonly buffer InstanceAddresseses {
+	InstanceAddresses instanceAddresses[];
+};
+layout (std140, binding = 4) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 7) readonly buffer Textures {
+layout (std140, binding = 5) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 8) readonly buffer Lights {
+layout (std140, binding = 6) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 9) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 10) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 11) uniform sampler3D samplerNoise;
+layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 8) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 9) uniform sampler3D samplerNoise;
 
-layout (binding = 12, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
-layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
+layout (binding = 10, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
+layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
 #if VXGI_HDR
-	layout (binding = 14, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 12, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #else
-	layout (binding = 14, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 12, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #endif
 
 #include "../common/functions.h"

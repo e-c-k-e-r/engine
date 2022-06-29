@@ -1,6 +1,7 @@
 #version 450
 #pragma shader_stage(vertex)
 
+#include "../common/macros.h"
 #include "../common/structs.h"
 
 layout (constant_id = 0) const uint PASSES = 6;

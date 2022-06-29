@@ -324,11 +324,12 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			auto& shader = blitter.material.getShader("compute");
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 
 			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 			for ( auto pair : shader.metadata.definitions.specializationConstants ) {

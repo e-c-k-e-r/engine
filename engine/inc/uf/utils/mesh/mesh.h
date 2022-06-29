@@ -80,31 +80,33 @@ namespace pod {
 			pod::Vector3f max = { -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() };
 			alignas(4) float padding2 = 0;
 		} bounds;
+
+		struct UF_API Addresses {
+			alignas(8) uint64_t vertex{};
+			alignas(8) uint64_t index{};
+			
+			alignas(8) uint64_t indirect{};
+			alignas(4) uint32_t drawID{};
+			alignas(4) uint32_t padding0{};
+			
+			alignas(8) uint64_t position{};
+			alignas(8) uint64_t uv{};
+
+			alignas(8) uint64_t color{};
+			alignas(8) uint64_t st{};
+
+			alignas(8) uint64_t normal{};
+			alignas(8) uint64_t tangent{};
+
+			alignas(8) uint64_t joints{};
+			alignas(8) uint64_t weights{};
+
+			alignas(8) uint64_t id{};
+			alignas(8) uint64_t padding1{};
+		};
+	//	Addresses addresses = {};
 	};
 
-	struct UF_API InstanceAddresses {
-		alignas(8) uint64_t vertex{};
-		alignas(8) uint64_t index{};
-		
-		alignas(8) uint64_t indirect{};
-		alignas(4) uint32_t drawID{};
-		alignas(4) uint32_t padding0{};
-		
-		alignas(8) uint64_t position{};
-		alignas(8) uint64_t uv{};
-
-		alignas(8) uint64_t color{};
-		alignas(8) uint64_t st{};
-
-		alignas(8) uint64_t normal{};
-		alignas(8) uint64_t tangent{};
-
-		alignas(8) uint64_t joints{};
-		alignas(8) uint64_t weights{};
-
-		alignas(8) uint64_t id{};
-		alignas(8) uint64_t padding1{};
-	};
 
 	struct Primitive {
 		pod::DrawCommand drawCommand;

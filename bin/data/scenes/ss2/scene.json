@@ -2,7 +2,8 @@
 	"import": "/scene.json",
 	"assets": [
 		{ "filename": "./audio/music/medsci1.ogg", "category": "audio-stream", "override": true, "streamed": true },
-		"./loading.json"
+	//	"./loading.json"
+		"./medsci.json"
 	],
 	"system": {
 		"hot reload": {
