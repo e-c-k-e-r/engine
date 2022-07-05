@@ -48,7 +48,7 @@ namespace {
 
 		}
 		virtual void reportErrorWarning(const char* str ) {
-			UF_MSG_WARNING("[Bullet] " << str);
+			UF_MSG_WARNING("[Bullet] {}", str);
 		}
 		virtual void draw3dText(const btVector3& , const char* str ) {
 

@@ -23,13 +23,13 @@ namespace {
 	bool retrieve( const uf::stl::string& url, const uf::stl::string& filename, const uf::stl::string& hash = "" ) {
 		uf::Http http = uf::http::get( url );
 		if ( http.code < 200 || http.code > 300 ) {
-			UF_MSG_ERROR("HTTP Error " << http.code << " on GET " << url);
+			UF_MSG_ERROR("HTTP Error {} on GET {}", http.code, url);
 			return false;
 		}
 
 		uf::stl::string actual = hash;
 		if ( hash != "" && (actual = uf::string::sha256(url)) != hash ) {
-			UF_MSG_ERROR("HTTP hash mismatch on GET " << url << ": expected " << hash << ", got " <<  actual);
+			UF_MSG_ERROR("HTTP hash mismatch on GET {}: expected {}, got {}", url, hash, actual);
 			return false;
 		}
 
@@ -139,9 +139,9 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( filename, cached, hash ) ) {
 			if ( !uf::Asset::assertionLoad ) {
-				UF_MSG_ERROR("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
+				UF_MSG_ERROR("Failed to preload {} ({}): HTTP error", filename, cached);
 			} else {
-				UF_EXCEPTION("Failed to preload `" + filename + "` (`" + cached + "`): HTTP error");
+				UF_EXCEPTION("Failed to preload {} ({}): HTTP error", filename, cached);
 			}
 			return "";
 		}
@@ -155,23 +155,23 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 	}
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::Asset::assertionLoad ) {
-			UF_MSG_ERROR("Failed to preload `" + filename + "`: Does not exist");
+			UF_MSG_ERROR("Failed to preload {}, does not exist", filename);
 		} else {
-			UF_EXCEPTION("Failed to preload `" + filename + "`: Does not exist");
+			UF_EXCEPTION("Failed to preload {}, does not exist", filename);
 		}
 		return "";
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
 		if ( !uf::Asset::assertionLoad ) {
-			UF_MSG_ERROR("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+			UF_MSG_ERROR("Failed to preload {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		} else {
-			UF_EXCEPTION("Failed to preload `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+			UF_EXCEPTION("Failed to preload {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		}
 		return "";
 	}
 #if UF_ENV_DREAMCAST
-	UF_MSG_DEBUG("Preloading " << filename);
+	UF_MSG_DEBUG("Preloading {}", filename);
 	DC_STATS();
 #endif
 	return filename;
@@ -185,9 +185,9 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( payload.filename, cached, hash ) ) {
 			if ( !uf::Asset::assertionLoad ) {
-				UF_MSG_ERROR("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
+				UF_MSG_ERROR("Failed to load {} ({}): HTTP error", payload.filename, cached);
 			} else {
-				UF_EXCEPTION("Failed to load `" + payload.filename + "` (`" + cached + "`): HTTP error");
+				UF_EXCEPTION("Failed to load {} ({}): HTTP error", payload.filename, cached);
 			}
 			return "";
 		}
@@ -201,24 +201,24 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 	}
 	if ( !uf::io::exists( filename ) ) {
 		if ( !uf::Asset::assertionLoad ) {
-			UF_MSG_ERROR("Failed to load `" + filename + "`: Does not exist");
+			UF_MSG_ERROR("Failed to load {}: does not exist", filename);
 		} else {
-			UF_EXCEPTION("Failed to load `" + filename + "`: Does not exist");
+			UF_EXCEPTION("Failed to load {}: does not exist", filename);
 		}
 		return "";
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
 		if ( !uf::Asset::assertionLoad ) {
-			UF_MSG_ERROR("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+			UF_MSG_ERROR("Failed to load {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		} else {
-			UF_EXCEPTION("Failed to load `" << filename << "`: Hash mismatch; expected " << payload.hash <<  ", got " << actual);
+			UF_EXCEPTION("Failed to load {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		}
 		return "";
 	}
 
 #if UF_ENV_DREAMCAST
-	UF_MSG_DEBUG("Loading " << filename);
+	UF_MSG_DEBUG("Loading {}", filename);
 	DC_STATS();
 #endif
 
@@ -264,18 +264,18 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			asset = uf::graph::load( filename, metadata[payload.filename] );
 			uf::graph::process( asset );
 		#if !UF_ENV_DREAMCAST
-			if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO(uf::graph::stats( asset ));
-			if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO(uf::graph::print( asset ));
+			if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::stats( asset ));
+			if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::print( asset ));
 		#endif
 			if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		} break;
 		default: {
-			UF_MSG_ERROR("Failed to parse `" + filename + "`: Unimplemented extension: " + extension );
+			UF_MSG_ERROR("Failed to parse {}: unimplemented extension: {}", filename, extension );
 		}
 	}
 
 #if UF_ENV_DREAMCAST
-	UF_MSG_DEBUG("Loaded " << filename);
+	UF_MSG_DEBUG("Loaded {}", filename);
 	DC_STATS();
 #endif
 

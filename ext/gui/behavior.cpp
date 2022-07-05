@@ -324,7 +324,7 @@ uf::stl::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const uf::stl::string& 
 		if ( stat.colors.index < stat.colors.container.size() ) {
 			g.color = stat.colors.container.at(stat.colors.index);
 		} else {
-			std::cout << "Invalid color index `" << stat.colors.index <<  "` for string: " <<  string << ": (" << stat.colors.container.size() << ")" << std::endl;
+		//	std::cout << "Invalid color index `" << stat.colors.index <<  "` for string: " <<  string << ": (" << stat.colors.container.size() << ")" << std::endl;
 			g.color = metadata.color;
 		}
 		gs.push_back(g);
@@ -335,7 +335,9 @@ uf::stl::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const uf::stl::string& 
 
 void ext::Gui::load( const uf::Image& image ) {
 	auto& scene = uf::scene::getCurrentScene();
+	auto& assetLoader = scene.getComponent<uf::Asset>();
 /*
+	image.open( payload.filename );
 	auto& image = this->getComponent<uf::Image>();
 	image.copy( _image );
 */
@@ -349,15 +351,16 @@ void ext::Gui::load( const uf::Image& image ) {
 	texture.loadFromImage( image );
 
 	auto& transform = this->getComponent<pod::Transform<>>();
-#if 0
-	uf::stl::vector<::GuiMesh> vertices = {
-#else
-	auto& vertices = this->getComponent<uf::stl::vector<::GuiMesh>>();
 #if EXT_COLOR_FLOATS
 	auto& color = metadata.color;
 #else
 	pod::ColorRgba color = { metadata.color[0] * 255, metadata.color[1] * 255, metadata.color[2] * 255, metadata.color[3] * 255 };
 #endif
+
+#if 0
+	uf::stl::vector<::GuiMesh> vertices = {
+#else
+	auto& vertices = this->getComponent<uf::stl::vector<::GuiMesh>>();
 	vertices = {
 #endif
 		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
@@ -390,15 +393,12 @@ void ext::Gui::load( const uf::Image& image ) {
 	} else {
 	#if UF_USE_OPENGL
 		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
+		transform.position.z = metadata.depth;
 	#else
-		if ( uf::matrix::reverseInfiniteProjection ) {
-		//	metadata.depth = -metadata.depth;
-		} else {
-		}
+	//	if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = -metadata.depth;
 		if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
 	#endif
-		if ( metadata.depth != 0.0f ) for ( auto& v : vertices ) v.position.z = metadata.depth;
-		else for ( auto& v : vertices ) v.position.z = 0;
+		for ( auto& v : vertices ) v.position.z = metadata.depth;
 	}
 
 	graphic.descriptor.parse( metadataJson );
@@ -484,8 +484,8 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
 
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
+		auto& scene = uf::scene::getCurrentScene();
+		auto& assetLoader = scene.getComponent<uf::Asset>();
 		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
 		auto& image = assetLoader.get<uf::Image>(payload.filename);
 		this->as<ext::Gui>().load( image );
@@ -844,62 +844,10 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 
 		shader.updateUniform( "UBO", (const void*) &uniform, sizeof(uniform) );
 		pod::Uniform* uniformBuffer = (pod::Uniform*) shader.device->getBuffer(shader.getUniformBuffer("UBO").descriptor.buffer);
-
-	#if 0
-		UF_MSG_DEBUG( "buffer: " << uniformBuffer );
-		UF_MSG_DEBUG( "modelView: " << &uniformBuffer->modelView << " " << uf::matrix::toString( uniformBuffer->modelView ) );
-		UF_MSG_DEBUG( "projection: " << &uniformBuffer->projection << " " << uf::matrix::toString( uniformBuffer->projection ) );
-	#endif
-
-	/*
-		auto model = uf::matrix::identity();
-		auto uniformBuffer = graphic.getUniform();
-		pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniformBuffer.buffer));
-		if ( metadata.mode == 1 ) {
-			uniform.modelView = transform.model; 
-			uniform.projection = uf::matrix::identity();
-		} else if ( metadata.mode == 2 ) {
-			auto& scene = uf::scene::getCurrentScene();
-			auto& controller = scene.getController();
-			auto& camera = controller.getComponent<uf::Camera>();
-			uniform.modelView = camera.getView() * uf::transform::model( transform );
-			uniform.projection = camera.getProjection();
-			model = uniform.modelView;
-		} else if ( metadata.mode == 3 ) {
-			pod::Transform<> flatten = uf::transform::flatten( transform );
-			uniform.modelView = 
-				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
-			uniform.projection = camera.getProjection();
-			model = uniform.modelView;
-		} else {
-			pod::Transform<> flatten = uf::transform::flatten( transform );
-			model = 
-				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
-			
-			flatten.position.y = -flatten.position.y;
-			if ( isGlyph ) flatten.scale.y = -flatten.scale.y;
-
-			flatten.position.z = 1;
-			uniform.modelView = 
-				uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-				uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-				uf::quaternion::matrix( flatten.orientation ) *
-				flatten.model;
-			uniform.projection = uf::matrix::identity();
-		}
-		graphic.updateUniform( &uniform, sizeof(uniform) );
-	*/
 	#elif UF_USE_VULKAN
 		if ( !graphic.material.hasShader("vertex") ) return;
 
 		auto& shader = graphic.material.getShader("vertex");
-
 	#if 1
 		auto model = uf::matrix::identity();
 		auto& uniformBuffer = shader.getUniformBuffer("UBO");
@@ -992,70 +940,6 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), uniformBuffer );
 			model = uniforms.matrices[0].model;
 		}
-	#else
-
-	#if UF_UNIFORMS_REUSE
-		auto& uniform = shader.getUniform("UBO");
-		auto& uniforms = uniform.get<UniformDescriptor<>>(false); // skip validation
-	#else
-		UniformDescriptor<> uniforms{};
-	#endif
-		for ( uint_fast8_t i = 0; i < uf::renderer::settings::maxViews; ++i ) {
-			if ( metadata.mode == 1 ) {
-				uniforms.matrices[i].model = transform.model; 
-			} else if ( metadata.mode == 2 ) {
-				auto& scene = uf::scene::getCurrentScene();
-				auto& controller = scene.getController();
-				auto& camera = controller.getComponent<uf::Camera>();
-				uniforms.matrices[i].model = camera.getProjection(i) * camera.getView(i) * uf::transform::model( transform );
-			} else if ( metadata.mode == 3 ) {
-				pod::Transform<> flatten = uf::transform::flatten( transform );
-				uniforms.matrices[i].model = 
-					camera.getProjection(i) *
-					uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-					uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-					uf::quaternion::matrix( flatten.orientation ) *
-					flatten.model;
-			} else {
-				pod::Transform<> flatten = uf::transform::flatten( transform );
-				uniforms.matrices[i].model = 
-					uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-					uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-					uf::quaternion::matrix( flatten.orientation ) *
-					flatten.model;
-			}
-		}
-
-		uniforms.gui = ::UniformDescriptor<>::Gui{
-			.offset = metadata.uv,
-			.color = metadata.color,
-
-			.mode = metadata.shader,
-		//	.depth = 1 - metadata.depth,
-			.depth = uf::matrix::reverseInfiniteProjection ? 1 - metadata.depth : metadata.depth,
-		};
-		// set glyph-based uniforms
-		if ( isGlyph ) {
-			::GlyphUniformDescriptor<> gUniforms;
-			memcpy( &gUniforms, &uniforms, sizeof(uniforms) );
-			
-			auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
-
-			if ( metadataGlyph.sdf ) uniforms.gui.mode &= 1 << 1;
-			if ( metadataGlyph.shadowbox ) uniforms.gui.mode &= 1 << 2;
-
-			gUniforms.glyph.stroke = metadataGlyph.stroke;
-			gUniforms.glyph.spread = metadataGlyph.spread;
-			gUniforms.glyph.weight = metadataGlyph.weight;
-			gUniforms.glyph.scale = metadataGlyph.scale;
-			
-			shader.updateBuffer( (const void*) &gUniforms, sizeof(gUniforms), shader.getUniformBuffer("UBO") );
-		} else {
-			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-		}
-	//	shader.updateUniform( "UBO", uniform );
-		// calculate click box
-		auto& model = uniforms.matrices[0].model;
 	#endif
 
 	#endif
@@ -1079,34 +963,6 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 				max.y = std::max( max.y, translated.y );
 			}
 		}
-
-	/*
-		if ( this->hasComponent<ext::Gui::mesh_t>() ) {
-			auto& mesh = this->getComponent<ext::Gui::mesh_t>();
-			for ( auto& vertex : mesh.vertices ) {
-				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
-				// gcc10+ doesn't like implicit template arguments
-				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
-				min.x = std::min( min.x, translated.x );
-				max.x = std::max( max.x, translated.x );
-				
-				min.y = std::min( min.y, translated.y );
-				max.y = std::max( max.y, translated.y );
-			}
-		} else if ( this->hasComponent<ext::Gui::glyph_mesh_t>() ) {
-			auto& mesh = this->getComponent<ext::Gui::glyph_mesh_t>();
-			for ( auto& vertex : mesh.vertices ) {
-				pod::Vector4f position = { vertex.position.x, vertex.position.y, 0, 1 };
-				// gcc10+ doesn't like implicit template arguments
-				pod::Vector4f translated = uf::matrix::multiply<float>( model, position );
-				min.x = std::min( min.x, translated.x );
-				max.x = std::max( max.x, translated.x );
-				
-				min.y = std::min( min.y, translated.y );
-				max.y = std::max( max.y, translated.y );
-			}
-		}
-	*/
 		
 		metadata.box.min.x = min.x;
 		metadata.box.min.y = min.y;
@@ -1114,91 +970,7 @@ void ext::GuiBehavior::tick( uf::Object& self ) {
 		metadata.box.max.y = max.y;
 	}
 }
-void ext::GuiBehavior::render( uf::Object& self ){
-#if 0 && UF_USE_OPENGL
-	if ( !this->hasComponent<uf::Graphic>() )  return;
-	if ( ext::opengl::currentRenderMode->getName() != "Gui" ) return;
-
-	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-	auto& scene = uf::scene::getCurrentScene();
-	auto& graphic = this->getComponent<uf::Graphic>();
-	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
-	auto& transform = this->getComponent<pod::Transform<>>();
-	if ( !graphic.initialized ) return;
-	auto& shader = graphic.material.getShader("vertex");
-	auto& mesh = this->getComponent<uf::Mesh>();
-
-	bool isGlyph = this->hasComponent<ext::GuiBehavior::GlyphMetadata>();
-
-	auto model = transform.model;
-	auto projection = uf::matrix::identity();
-	pod::Uniform uniform;
-
-	if ( metadata.mode == 1 ) {
-		uniform.modelView = transform.model; 
-		uniform.projection = uf::matrix::identity();
-	} else if ( metadata.mode == 2 ) {
-		auto& scene = uf::scene::getCurrentScene();
-		auto& controller = scene.getController();
-		auto& camera = controller.getComponent<uf::Camera>();
-		uniform.modelView = camera.getView() * uf::transform::model( transform );
-		uniform.projection = camera.getProjection();
-	} else if ( metadata.mode == 3 ) {
-		pod::Transform<> flatten = uf::transform::flatten( transform );
-		uniform.modelView = 
-			uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-			uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-			uf::quaternion::matrix( flatten.orientation ) *
-			flatten.model;
-		uniform.projection = camera.getProjection();
-	} else {
-		pod::Transform<> flatten = uf::transform::flatten( transform );
-		uniform.modelView = 
-			uf::matrix::translate( uf::matrix::identity(), flatten.position ) *
-			uf::matrix::scale( uf::matrix::identity(), flatten.scale ) *
-			uf::quaternion::matrix( flatten.orientation ) *
-			flatten.model;
-		uniform.projection = uf::matrix::identity();
-	}
-
-	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-	GL_ERROR_CHECK(glLoadMatrixf( &mat[0] ));
-	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-	GL_ERROR_CHECK(glLoadMatrixf( &mat[0] ));
-
-	if ( !graphic.material.textures.empty() ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
-		GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, graphic.material.textures.front().descriptor));
-	}
-
-	glBegin(GL_TRIANGLES);
-		glTexCoord2f(0.0f, 0.0f);
-		glVertex3f(-0.5f, 0.5f, 0.0f);
-		glTexCoord2f(1.0f, 0.0f);
-		glVertex3f( 0.5f, 0.5f, 0.0f);
-		glTexCoord2f(1.0f, 1.0f);
-		glVertex3f( 0.5f,-0.5f, 0.0f);
-		
-		glTexCoord2f(1.0f, 1.0f);
-		glVertex3f( 0.5f,-0.5f, 0.0f);
-		glTexCoord2f(0.0f, 1.0f);
-		glVertex3f(-0.5f,-0.5f, 0.0f);
-		glTexCoord2f(0.0f, 0.0f);
-		glVertex3f(-0.5f, 0.5f, 0.0f);
-	glEnd();
-
-	if ( !graphic.material.textures.empty() ) {
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
-		GL_ERROR_CHECK(glDisable(GL_TEXTURE_2D));
-	}
-#endif
-}
+void ext::GuiBehavior::render( uf::Object& self ){}
 void ext::GuiBehavior::destroy( uf::Object& self ){}
 void ext::GuiBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
 	serializer["gui"]["color"] = uf::vector::encode( color );
@@ -1287,7 +1059,11 @@ void ext::GuiBehavior::GlyphMetadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/spread = serializer["gui"]["spread"].as<float>();
 	/*this->*/size = serializer["gui"]["size"].as<float>();
 	/*this->*/weight = serializer["gui"]["weight"].as<float>();
+#if UF_USE_OPENGL
+	/*this->*/sdf = false;
+#else
 	/*this->*/sdf = serializer["gui"]["sdf"].as<bool>();
+#endif
 	/*this->*/shadowbox = serializer["gui"]["shadowbox"].as<bool>();
 	/*this->*/stroke = uf::vector::decode( serializer["gui"]["stroke"], /*this->*/stroke );
 	

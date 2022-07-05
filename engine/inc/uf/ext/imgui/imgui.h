@@ -10,6 +10,8 @@ namespace ext {
 		void tick();
 		void render();
 		void terminate();
+
+		void log( const uf::stl::string& message );
 	}
 }
 

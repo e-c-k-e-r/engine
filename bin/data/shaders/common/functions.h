@@ -153,8 +153,8 @@ vec2 rayBoxDst( vec3 boundsMin, vec3 boundsMax, in Ray ray ) {
 }
 #if VXGI
 float cascadePower( uint x ) {
-	return pow(1 + x, ubo.vxgi.cascadePower);
-//	return max( 1, x * ubo.vxgi.cascadePower );
+	return pow(1 + x, ubo.settings.vxgi.cascadePower);
+//	return max( 1, x * ubo.settings.vxgi.cascadePower );
 }
 #endif
 #if !COMPUTE

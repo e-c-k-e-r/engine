@@ -31,30 +31,6 @@ struct Space {
 	vec3 world;
 };
 
-struct Fog {
-	vec3 color;
-	float stepScale;
-
-	vec3 offset;
-	float densityScale;
-
-	vec2 range;
-	float densityThreshold;
-	float densityMultiplier;
-	
-	float absorbtion;
-	float padding1;
-	float padding2;
-	float padding3;
-};
-
-struct Mode {
-	uint type;
-	uint scalar;
-	vec2 padding;
-	vec4 parameters;
-};
-
 struct Light {
 	mat4 view;
 	mat4 projection;
@@ -223,8 +199,43 @@ struct MSAA {
 	vec4 fragments[MAX_MSAA_SAMPLES];
 } msaa;
 #endif
+// UBO settings
+struct SettingsFog {
+	vec3 color;
+	float stepScale;
+
+	vec3 offset;
+	float densityScale;
+
+	vec2 range;
+	float densityThreshold;
+	float densityMultiplier;
+	
+	float absorbtion;
+	float padding1;
+	float padding2;
+	float padding3;
+};
+
+struct SettingsMode {
+	uint type;
+	uint scalar;
+	vec2 padding;
+	vec4 parameters;
+};
+
+struct SettingsRayTrace {
+	vec2 defaultRayBounds;
+	float alphaTestOffset;
+	float padding1;
+
+	uint samples;
+	uint paths;
+	uint frameAccumulationMinimum;
+	uint padding2;
+};
 // VXGI stuff
-struct Vxgi {
+struct SettingsVxgi {
 	mat4 matrix;
 
 	float cascadePower;
@@ -236,6 +247,13 @@ struct Vxgi {
 	uint shadows;
 	uint padding2;
 	uint padding3;
+};
+
+struct Settings {
+	SettingsMode mode;
+	SettingsFog fog;
+	SettingsVxgi vxgi;
+	SettingsRayTrace rt;
 };
 struct Voxel {
 	uvec2 id;

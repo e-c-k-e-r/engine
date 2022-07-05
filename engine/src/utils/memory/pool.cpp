@@ -99,7 +99,7 @@ pod::Allocation uf::memoryPool::allocate( pod::MemoryPool& pool, size_t size, si
 	size_t padding = 0;
 	// pool not initialized
 	if ( len <= 0 ) {
-		UF_MSG_CONDITIONAL_PRINT("cannot malloc, pool not initialized: " << size << " bytes");
+		UF_MSG_CONDITIONAL_PRINT("cannot malloc, pool not initialized: {} bytes", size);
 		goto MANUAL_MALLOC;
 	}
 
@@ -174,9 +174,9 @@ pod::Allocation uf::memoryPool::allocate( pod::MemoryPool& pool, size_t size, si
 		}
 		// no allocation found, OOM
 		if ( (uintptr_t) pool.memory + len <= pointer + size + padding ) {
-			UF_MSG_ERROR("MemoryPool: " << &pool << ": Out of Memory!");
-			UF_MSG_ERROR("Trying to request " << size << " bytes of memory");
-			UF_MSG_ERROR("Stats: " << uf::memoryPool::stats( pool ));
+			UF_MSG_ERROR("MemoryPool: {}: out of memory", (void*) &pool);
+			UF_MSG_ERROR("Trying to request {} bytes of memory", size);
+			UF_MSG_ERROR("Stats: {}", uf::memoryPool::stats( pool ));
 			goto MANUAL_MALLOC;
 		}
 
@@ -209,7 +209,7 @@ RETURN:
 #if UF_MEMORYPOOL_MUTEX
 	pool.mutex.unlock();
 #endif
-	UF_MSG_CONDITIONAL_PRINT((uintptr_t) allocation.pointer - (uintptr_t) pool.memory << " -> " << (uintptr_t) allocation.pointer + allocation.size - (uintptr_t) pool.memory - 1 );
+//	UF_MSG_CONDITIONAL_PRINT((uintptr_t) allocation.pointer - (uintptr_t) pool.memory << " -> " << (uintptr_t) allocation.pointer + allocation.size - (uintptr_t) pool.memory - 1 );
 	UF_ASSERT(allocation.pointer);
 	return allocation;
 }
@@ -278,7 +278,7 @@ bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
 #endif
 	// fail if uninitialized or pointer is outside of our pool
 	if ( oob ) {
-		UF_MSG_CONDITIONAL_PRINT("cannot free: " << pointer << " | " << (pool.size <= 0) << " " << (pointer < pool.memory) << " " << (pointer >= (void*) ((uintptr_t) pool.memory + pool.size)));
+	//	UF_MSG_CONDITIONAL_PRINT("cannot free: " << pointer << " | " << (pool.size <= 0) << " " << (pointer < pool.memory) << " " << (pointer >= (void*) ((uintptr_t) pool.memory + pool.size)));
 		goto MANUAL_FREE;
 	}
 	{
@@ -293,15 +293,15 @@ bool uf::memoryPool::free( pod::MemoryPool& pool, void* pointer, size_t size ) {
 		}
 		// pointer isn't actually allocated
 		if ( allocation.pointer != (uintptr_t) pointer ) {
-			UF_MSG_ERROR("cannot free, allocation not found: " << pointer);
+			UF_MSG_ERROR("cannot free, allocation not found: {}", pointer);
 			goto MANUAL_FREE;
 		}
 		// size validation mismatch, do not free
 		if (0 < size && allocation.size != size) {
-			UF_MSG_ERROR("cannot free, mismatched sized: " << pointer << " (" << size << " != " << allocation.size << ")");
+			UF_MSG_ERROR("cannot free, mismatched sized: {} ({} != {})", pointer, size, allocation.size);
 			goto MANUAL_FREE;
 		}
-		UF_MSG_CONDITIONAL_PRINT("    " << (uintptr_t) allocation.pointer - (uintptr_t) pool.memory << " -> " << (uintptr_t) allocation.pointer + allocation.size - (uintptr_t) pool.memory - 1 );
+	//	UF_MSG_CONDITIONAL_PRINT("    " << (uintptr_t) allocation.pointer - (uintptr_t) pool.memory << " -> " << (uintptr_t) allocation.pointer + allocation.size - (uintptr_t) pool.memory - 1 );
 		// security
 		memset( pointer, 0, size );
 

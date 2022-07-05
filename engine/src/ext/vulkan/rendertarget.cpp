@@ -17,7 +17,7 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	if ( depth < attachments.size() ) pass.depth = { (uint32_t) depth, attachments[depth].descriptor.layout };
 
 	if ( !resolves.empty() && resolves.size() != colors.size() )
-		VK_VALIDATION_MESSAGE("Mismatching resolves count: Expecting " << colors.size() << ", got " << resolves.size());
+		VK_VALIDATION_MESSAGE("Mismatching resolves count: Expecting {}, got {}", colors.size(), resolves.size());
 
 	passes.emplace_back(pass);
 }
@@ -206,9 +206,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		dependency.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
 		dependency.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 		size_t i = 0;
-	#if 0
-		UF_MSG_DEBUG(this << ": ");
-	#endif
+
 		for ( auto& pass : passes ) {
 			VkSubpassDescription description;
 			// describe renderpass
@@ -230,11 +228,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			}
 			descriptions.emplace_back(description);
 		
-		#if 0
-			UF_MSG_DEBUG("Pass: " << descriptions.size() - 1);
-			for ( auto& color : pass.colors ) UF_MSG_DEBUG("Color: " << color.attachment << "\t" << std::hex << color.layout << "\t" << this->attachments[color.attachment].image);
-			for ( auto& input : pass.inputs ) UF_MSG_DEBUG("Input: " << input.attachment << "\t" << std::hex << input.layout << "\t" << this->attachments[input.attachment].image);
-		#endif
 			// transition dependency between subpasses
 			dependency.srcSubpass = dependency.dstSubpass;
 			dependency.srcStageMask = dependency.dstStageMask;
@@ -286,13 +279,6 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			dependencies.emplace_back(dependency);
 		}
 	
-	#if 0
-		for ( auto& dependency : dependencies  ) {
-			UF_MSG_DEBUG("Pass: " << dependency.srcSubpass << " -> " << dependency.dstSubpass);
-			UF_MSG_DEBUG("\tStage: " << std::hex << dependency.srcStageMask << " -> " << std::hex << dependency.dstStageMask);
-			UF_MSG_DEBUG("\tAccess: " << std::hex << dependency.srcAccessMask << " -> " << std::hex << dependency.dstAccessMask);
-		}
-	#endif
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.flags = 0;
@@ -303,29 +289,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 		renderPassInfo.pDependencies = &dependencies[0];
 
-/*
-		uint32_t mask = 0;
-		uf::stl::vector<uint32_t> masks;
-		for ( size_t i = 0; i < this->views; ++i ) {
-			mask |= (0b00000001 << i);
-		}
-		for ( size_t i = 0; i < static_cast<uint32_t>(descriptions.size()); ++i ) {
-			masks.emplace_back(mask);
-		}
-		VkRenderPassMultiviewCreateInfo renderPassMultiviewInfo = {};
-		renderPassMultiviewInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
-		renderPassMultiviewInfo.subpassCount = 1; //static_cast<uint32_t>(descriptions.size());
-	//	renderPassMultiviewInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
-		renderPassMultiviewInfo.pViewMasks = masks.data();
-		renderPassMultiviewInfo.pCorrelationMasks = masks.data();
-		renderPassMultiviewInfo.correlationMaskCount = 1;
-		if ( this->views > 1 ) {
-			renderPassInfo.pNext = &renderPassMultiviewInfo;
-		}
-*/
 		VK_CHECK_RESULT(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
-
-	//	UF_MSG_DEBUG(renderPass << ": " << attachments.size());
 	}
 	{	
 		// destroy previous framebuffers

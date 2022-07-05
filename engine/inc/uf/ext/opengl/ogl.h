@@ -71,7 +71,7 @@
 		{f;}																													\
 		if ( ext::opengl::settings::validation ) {																				\
 			GLenum res = glGetError();																							\
-			if (res != GL_NO_ERROR) GL_DEBUG_MESSAGE("[Validation Error] " << #f << ": " << ext::opengl::errorString( res )); 	\
+			if (res != GL_NO_ERROR) GL_DEBUG_MESSAGE("[Validation Error] {}: {}", #f, ext::opengl::errorString( res )); 		\
 		}																														\
 	}
 #else

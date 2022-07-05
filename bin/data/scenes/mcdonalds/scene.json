@@ -78,6 +78,13 @@
 				"min": [ -1.5, -1.5, -1.5 ],
 				"max": [  1.5,  1.5,  1.5 ]
 			}
+		},
+		"rt": {
+			"defaultRayBounds": [ 0.001, 1024.0 ],
+			"alphaTestOffset": 1.125,
+			"samples": 1,
+			"paths": 1,
+			"frameAccumulationMinimum": 0
 		}
 	}
 }

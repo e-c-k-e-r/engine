@@ -2,7 +2,8 @@
 	"import": "/scene.json",
 	"assets": [
 		"./audio/soundscape/ambience.ogg",
-		"./loading.json"
+		"./sh2_mcdonalds.json"
+	//	"./loading.json"
 	//	"./static.json"
 	],
 	"system": {

@@ -89,8 +89,9 @@ namespace binds {
 			return uf::scene::getCurrentScene().getController().as<uf::Object>();
 		};
 		void destroy( uf::Object& object ) {
-			object.getParent().removeChild(object);
-			object.destroy();
+			object.queueDeletion();
+		//	object.as<uf::Entity>().destroy();
+		//	object.destroy();
 		//	delete &object;
 		};
 	}

@@ -4,4 +4,4 @@ ARCH=$(cat ./exe/default/arch)
 CC=$(cat ./exe/default/cc)
 RENDERER=$(cat ./exe/default/renderer)
 export PATH="$(pwd)/exe/lib/${ARCH}/:$(pwd)/exe/lib/${ARCH}/${CC}/${RENDERER}/:${PATH}"
-gdb ./exe/program.${ARCH}.${CC}.${RENDERER}.exe
+gdb -ex 'break abort' ./exe/program.${ARCH}.${CC}.${RENDERER}.exe

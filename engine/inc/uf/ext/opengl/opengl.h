@@ -15,6 +15,7 @@ namespace ext {
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
 			extern UF_API bool validation;
+			extern UF_API bool defaultStageBuffers;
 			extern UF_API size_t viewCount;
 			constexpr size_t maxViews = 6;
 

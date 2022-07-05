@@ -120,12 +120,12 @@ ext::vulkan::userdata_t ext::vulkan::jsonToUserdata( const ext::json::Value& pay
 	#endif
 	};
 #if UF_SHADER_TRACK_NAMES
-	VK_VALIDATION_MESSAGE("Updating " << name << " in " << filename);
-	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+	VK_VALIDATION_MESSAGE("Updating {} in {}", name, filename);
+//	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
 #endif
 	parse(payload);
 #if UF_SHADER_TRACK_NAMES
-	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
+//	VK_VALIDATION_MESSAGE("Iterator: " << (void*) byteBuffer << "\t" << (void*) byteBufferEnd << "\t" << (byteBufferEnd - byteBuffer));
 #endif
 #else
 	auto pushValue = [&]( const uf::stl::string& primitive, const ext::json::Value& input ){
@@ -294,7 +294,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	
 	{
 		std::ifstream is(this->filename = filename, std::ios::binary | std::ios::in | std::ios::ate);
-		if ( !is.is_open() ) UF_EXCEPTION("Error: Could not open shader file \"" << filename << "\"");
+		if ( !is.is_open() ) UF_EXCEPTION("Error: Could not open shader file: {}", filename);
 		is.seekg(0, std::ios::end); spirv.reserve(is.tellg()); is.seekg(0, std::ios::beg);
 		spirv.assign((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
 	
@@ -860,7 +860,7 @@ ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl::strin
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers[bufferIndex];
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 const ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasUniform(name) );
@@ -870,15 +870,15 @@ const ext::vulkan::Buffer& ext::vulkan::Shader::getUniformBuffer( const uf::stl:
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) {
-	UF_EXCEPTION("[DEPRECATED] " << filename << " " << name);
+	UF_EXCEPTION("[DEPRECATED] {} {}", filename, name);
 	UF_ASSERT( hasUniform(name) );
 	return uniforms[metadata.definitions.uniforms[name].index];
 }
 const ext::vulkan::userdata_t& ext::vulkan::Shader::getUniform( const uf::stl::string& name ) const {
-	UF_EXCEPTION("[DEPRECATED] " << filename << " " << name);
+	UF_EXCEPTION("[DEPRECATED] {} {}", filename, name);
 	UF_ASSERT( hasUniform(name) );
 	return uniforms.at(metadata.definitions.uniforms.at(name).index);
 }
@@ -899,7 +899,7 @@ ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl::strin
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers[bufferIndex];
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 const ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasStorage(name) );
@@ -909,7 +909,7 @@ const ext::vulkan::Buffer& ext::vulkan::Shader::getStorageBuffer( const uf::stl:
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 bool ext::vulkan::Shader::updateStorage( const uf::stl::string& name, const void* data, size_t size ) const {
 	if ( !hasStorage(name) ) return false;

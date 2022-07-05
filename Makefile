@@ -56,12 +56,13 @@ LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui # ncurses openvr draco discord bullet ultralight-ux
-	FLAGS 				+= 
-	DEPS 				+= -lgdi32
+	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt # ncurses openvr draco discord bullet ultralight-ux
+	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
+	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
 else ifneq (,$(findstring dreamcast,$(ARCH)))
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti  # lua ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	FLAGS 				+= -DUF_ENV_DREAMCAST
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt # lua ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
@@ -89,6 +90,13 @@ ifneq (,$(findstring opengl,$(REQ_DEPS)))
 		endif
 	endif
 
+endif
+ifneq (,$(findstring fmt,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_FMT
+	ifneq (,$(findstring dreamcast,$(ARCH)))
+	else
+		DEPS 				+= -lfmt
+	endif
 endif
 ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_IMGUI
@@ -213,7 +221,8 @@ else
 endif
 
 # SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
-SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
+#SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
+SRCS_DLL 				:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
 IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a
@@ -228,24 +237,28 @@ EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)
 EXT_INCS 				+= -I$(ENGINE_INC_DIR) -I$(EXT_INC_DIR) -I/mingw64/include
 EXT_LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(EXT_LIB_DIR) -L$(EXT_LIB_DIR)/$(ARCH) -L$(EXT_LIB_DIR)/$(PREFIX_PATH) -L/mingw64/lib
 
-SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
+#SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
+SRCS_EXT_DLL 			:= $(shell find $(EXT_SRC_DIR) -name "*.cpp")
 OBJS_EXT_DLL 			+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL))
 BASE_EXT_DLL 			+= lib$(EXT_LIB_NAME)
 EXT_IM_DLL 				+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION).a
 EXT_EX_DLL 				+= $(BIN_DIR)/exe/lib/$(PREFIX_PATH)/$(BASE_EXT_DLL).$(TARGET_LIB_EXTENSION)
 # Client EXE
-SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
+#SRCS 					+= $(wildcard $(CLIENT_SRC_DIR)/*.cpp) $(wildcard $(CLIENT_SRC_DIR)/*/*.cpp)
+SRCS 					:= $(shell find $(CLIENT_SRC_DIR) -name "*.cpp")
 OBJS 					+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
 TARGET 					+= $(BIN_DIR)/exe/$(TARGET_NAME).$(PREFIX).$(TARGET_EXTENSION)
 # Shaders
-SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shaders/*/*.glsl) $(wildcard bin/data/shaders/*/*/*.glsl)
+#SRCS_SHADERS 			+= $(wildcard bin/data/shaders/*.glsl) $(wildcard bin/data/shaders/*/*.glsl) $(wildcard bin/data/shaders/*/*/*.glsl)
+SRCS_SHADERS 			:= $(shell find bin/data/shaders/ -name "*.glsl")
 TARGET_SHADERS 			+= $(patsubst %.glsl,%.spv,$(SRCS_SHADERS))
 
 ifneq (,$(findstring dreamcast,$(ARCH)))
 #$(PREFIX): $(EX_DLL) $(EXT_EX_DLL) $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 $(PREFIX): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 
-SRCS_DLL 				= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+#SRCS_DLL 				= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
+SRCS_DLL 				= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 OBJS 					= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
 
@@ -273,7 +286,7 @@ $(EXT_EX_DLL): $(OBJS_EXT_DLL)
 	$(KOS_BASE)/utils/bin2o/bin2o ./bin/dreamcast/romdisk.img romdisk ./bin/dreamcast/romdisk.o
 
 $(TARGET): $(OBJS) #./bin/dreamcast/romdisk.o
-	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -m4-single-only -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
+	$(CXX) $(FLAGS) $(INCS) -D_arch_dreamcast -D_arch_sub_pristine -Wall -fno-builtin -ml -Wl,-Ttext=0x8c010000 -T/opt/dreamcast/kos/utils/ldscripts/shlelf.xc -nodefaultlibs $(KOS_LIB_PATHS) $(LIBS) -o $(TARGET) $(OBJS) -Wl,--start-group $(DEPS) -Wl,--end-group
 	# $(KOS_STRIP) --strip-unneeded $(TARGET)	
 
 ./bin/dreamcast/$(TARGET_NAME).cdi: $(TARGET)

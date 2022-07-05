@@ -448,6 +448,13 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		if ( !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["useLightmaps"].as<bool>(true) ) {
+			graph.metadata["lightmap"] = false;
+			graph.metadata["baking"]["enabled"] = false;
+		}
+
 		if ( graph.metadata["lightmap"].is<uf::stl::string>() && graph.metadata["lightmap"].as<uf::stl::string>() == "auto" ) {
 			uint32_t mtime = uf::io::mtime( graph.name );
 			// lightmaps are considered stale if they're older than the graph's source
@@ -457,7 +464,7 @@ void uf::graph::process( pod::Graph& graph ) {
 				auto time = uf::io::mtime(filename);
 				if ( !uf::io::exists( filename ) ) continue;
 				if ( time < mtime ) {
-					UF_MSG_DEBUG("Stale lightmap detected, disabling use of lightmaps: " << filename);
+					UF_MSG_DEBUG("Stale lightmap detected, disabling use of lightmaps: {}", filename);
 					stale = true;
 					break;
 				}
@@ -473,7 +480,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
 
 			if ( !uf::io::exists( f ) ) {
-				UF_MSG_ERROR( "lightmap does not exist: " << i << " " << f )
+				UF_MSG_ERROR( "lightmap does not exist: {} {}", i, f )
 				continue;
 			}
 			
@@ -752,7 +759,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	if ( graph.metadata["lightmapped"].as<bool>() && graph.metadata["lights"]["disable if lightmapped"].as<bool>(true) ) if ( graph.lights.count(node.name) > 0 ) return;
 
 
-	//UF_MSG_DEBUG( "Loading " << node.name );
 	// create child if requested
 	uf::Object* pointer = new uf::Object;
 	parent.addChild(*pointer);
@@ -953,7 +959,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 	}
-	//UF_MSG_DEBUG( "Loaded " << node.name );
 	for ( auto index : node.children ) uf::graph::process( graph, index, entity );
 }
 void uf::graph::cleanup( pod::Graph& graph ) {
@@ -1005,27 +1010,12 @@ void uf::graph::initialize( pod::Graph& graph ) {
 	graph.root.entity->initialize();
 	graph.root.entity->process([&]( uf::Entity* entity ) {
 		if ( entity->getUid() == 0 ) entity->initialize();
-	/*
-		//UF_MSG_DEBUG( "Initializing... " << uf::string::toString( entity->as<uf::Object>() ) );
-		if ( !entity->hasComponent<uf::renderer::Graphic>() ) {
-			if ( entity->getUid() == 0 ) entity->initialize();
-			//UF_MSG_DEBUG( "Initialized " << uf::string::toString( entity->as<uf::Object>() ) );
-			return;
-		}
-		initializeShaders( graph, entity->as<uf::Object>() );
-
-		uf::instantiator::bind( "GraphBehavior", *entity );
-	//	uf::instantiator::unbind( "RenderBehavior", *entity );
-		if ( entity->getUid() == 0 ) entity->initialize();
-		//UF_MSG_DEBUG( "Initialized " << uf::string::toString( entity->as<uf::Object>() ) );
-	*/
 	});
 
 }
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
 	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
 	const uf::stl::string name = /*graph.name + "/" +*/ _name;
-//	UF_MSG_DEBUG( graph.name << " " << name );
 //	if ( graph.animations.count( name ) > 0 ) {
 	if ( uf::graph::storage.animations.map.count( name ) > 0 ) {
 		// if already playing, ignore it
@@ -1075,7 +1065,6 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 	{
 		uf::stl::string name = graph.sequence.front();
 		pod::Animation* animation = &uf::graph::storage.animations.map[name]; // &graph.animations[name];
-	//	UF_MSG_DEBUG("ANIMATION: " << name << "\t" << animation->cur);
 		animation->cur += delta * graph.settings.animations.speed; // * graph.settings.animations.override.speed;
 		if ( animation->end < animation->cur ) {
 			animation->cur = graph.settings.animations.loop ? animation->cur - animation->end : 0;
@@ -1110,7 +1099,6 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 		goto UPDATE;
 	}
 OVERRIDE:
-//	UF_MSG_DEBUG("OVERRIDED: " << graph.settings.animations.override.a << "\t" << -std::numeric_limits<float>::max());
 	for ( auto pair : graph.settings.animations.override.map ) {
 		graph.nodes[pair.first].transform.position = uf::vector::mix( pair.second.first.position, pair.second.second.position, graph.settings.animations.override.a );
 		graph.nodes[pair.first].transform.orientation = uf::quaternion::normalize( uf::quaternion::slerp(pair.second.first.orientation, pair.second.second.orientation, graph.settings.animations.override.a) );
@@ -1220,7 +1208,7 @@ void uf::graph::tick() {
 		::newGraphAdded = false;
 	}
 }
-void uf::graph::render() {
+void uf::graph::render() {	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();

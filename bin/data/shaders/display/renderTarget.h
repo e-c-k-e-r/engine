@@ -2,7 +2,31 @@
 
 #define TEXTURES 1
 #define CUBEMAPS 1
+#if 1
+#if !MULTISAMPLING
+	layout (binding = 1) uniform sampler2D  samplerAlbedo;
+#else
+	layout (binding = 1) uniform sampler2DMS samplerAlbedo;
+#endif
 
+#include "../common/structs.h"
+#include "../common/functions.h"
+
+layout (location = 0) in vec2 inUv;
+layout (location = 1) in float inAlpha;
+layout (location = 2) in Cursor inCursor;
+
+layout (location = 0) out vec4 outAlbedo;
+
+void main() {
+#if !MULTISAMPLING
+	outAlbedo = texture( samplerAlbedo, inUv );
+#else
+	outAlbedo = resolve( samplerAlbedo, ivec2(inUv * textureSize(samplerAlbedo)) );
+#endif
+	if ( inAlpha < 1.0 ) outAlbedo.a = inAlpha;
+}
+#else
 #if !MULTISAMPLING
 	layout (binding = 1) uniform usampler2D samplerId;
 	layout (binding = 2) uniform sampler2D samplerNormals;
@@ -48,3 +72,4 @@ void main() {
 	}
 	if ( inAlpha < 1.0 ) outAlbedo.a = inAlpha;
 }
+#endif

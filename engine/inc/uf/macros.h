@@ -3,24 +3,6 @@
 
 #define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
 
-/*
--x * 1000, uf::Time<long long>::milliseconds
-
-#define TIMER(x, ...) auto TOKEN_PASTE(TIMER, __LINE__) = []( uf::physics::num_t every = 1 ) {\
-		static uf::Timer<long long> timer(false);\
-		if ( !timer.running() ) {\
-			timer.start(uf::Time<long long>(-1000000));\
-		}\
-		uf::physics::num_t time = 0;\
-		if ( (time = timer.elapsed()) >= every ) {\
-			timer.reset();\
-		}\
-		static bool first = true; if ( first ) { first = false; return every; }\
-		return time;\
-	};\
-	uf::physics::num_t time = 0;\
-	if ( __VA_ARGS__ (time = TOKEN_PASTE(TIMER, __LINE__)(x)) >= x )
-*/
 #define TIMER_LAMBDA(x) []() {\
 	static uf::Timer<long long> timer(false);\
 	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
@@ -39,65 +21,63 @@
 
 #define UF_DEBUG 1
 #if UF_DEBUG
-	#include <iostream>
-	#include <iomanip>
+	#include <uf/utils/io/fmt.h>
 #endif
 
-#define UF_IO_COUT std::cout // uf::iostream
-#define UF_IO_ENDL std::endl // "\r\n"
-#define UF_IO_FMT(...) uf::io::fmt(__VA_ARGS__)
+#if UF_USE_FMT
+	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, ::fmt::format(__VA_ARGS__));
+#else
+	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, #__VA_ARGS__); // std::cout << "[" << CATEGORY << "] [" << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << "]" << std::endl;;
+#endif
 
-#define UF_MSG(Y, X) UF_IO_COUT << "[" << X << "] " << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << ": " << Y << UF_IO_ENDL;
-
-#define UF_MSG_DEBUG(X) if (UF_DEBUG)	UF_MSG(X, "  DEBUG  ");
-#define UF_MSG_INFO(X) 					UF_MSG(X, "  INFO   ");
-#define UF_MSG_WARNING(X) 				UF_MSG(X, " WARNING ");
-#define UF_MSG_ERROR(X) 				UF_MSG(X, "  ERROR  ");
+#define UF_MSG_DEBUG(...) if (UF_DEBUG)		UF_MSG("DEBUG", __VA_ARGS__);
+#define UF_MSG_INFO(...) 					UF_MSG("INFO", __VA_ARGS__);
+#define UF_MSG_WARNING(...) 				UF_MSG("WARNING", __VA_ARGS__);
+#define UF_MSG_ERROR(...) 					UF_MSG("ERROR", __VA_ARGS__);
 
 #if UF_NO_EXCEPTIONS
 	#define UF_EXCEPTIONS 0
-	#define UF_EXCEPTION(X) { UF_MSG_ERROR(X); std::abort(); }
+	#define UF_EXCEPTION(...) {\
+		UF_MSG_ERROR(__VA_ARGS__);\
+		std::abort();\
+	}
 #else
 	#define UF_NO_EXCEPTIONS 0
 	#define UF_EXCEPTIONS 1
-	#define UF_EXCEPTION(X) {\
-		uf::stl::stringstream str;\
-		str << X;\
-		uf::stl::string Y = str.str();\
-		UF_MSG_ERROR(Y);\
-		throw std::runtime_error(Y);\
+	#define UF_EXCEPTION(...) {\
+		throw std::runtime_error(UF_MSG_ERROR(__VA_ARGS__));\
 	}
 #endif
 
-#define UF_ASSERT(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: " << #condition); }
-#define UF_ASSERT_BREAK(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: " << #condition); break; }
-#define UF_ASSERT_SAFE(condition) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: " << #condition); }
+#define UF_ASSERT(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: {}", #condition); }
+#define UF_ASSERT_BREAK(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: {}", #condition); break; }
+#define UF_ASSERT_SAFE(condition) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: {}", #condition); }
 
-#define UF_ASSERT_MSG(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: " << #condition << " " << __VA_ARGS__); }
-#define UF_ASSERT_BREAK_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: " << #condition << " " << __VA_ARGS__); break; }
-#define UF_ASSERT_SAFE_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: " << #condition << " " << __VA_ARGS__); }
+#define UF_ASSERT_MSG(condition, ...) if ( !(condition) ) { UF_EXCEPTION("Assert failed: {} {}", #condition, __VA_ARGS__); }
+#define UF_ASSERT_BREAK_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assert failed: {} {}", #condition, __VA_ARGS__); break; }
+#define UF_ASSERT_SAFE_MSG(condition, ...) if ( !(condition) ) { UF_MSG_ERROR("Assertion failed: {} {}", #condition, __VA_ARGS__); }
 
 #define UF_TIMER_TRACE_INIT() uf::Timer<long long> TIMER_TRACE;
 
-#define UF_TIMER_TRACE(X) {\
+#define UF_TIMER_TRACE(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG(TIMER_TRACE.elapsed().asMicroseconds() << "us\t" << X);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), __VA_ARGS__);\
 }
 
-#define UF_TIMER_TRACE_RESET(X) {\
+#define UF_TIMER_TRACE_RESET(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG(TIMER_TRACE.elapsed().asMicroseconds() << "us\t" << X);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), __VA_ARGS__);\
 	TIMER_TRACE.reset();\
 }
 
-#define UF_TIMER_MULTITRACE_START(X)\
+#define UF_TIMER_MULTITRACE_START(...)\
 	UF_TIMER_TRACE_INIT();\
 	long long TIMER_TRACE_PREV = 0, TIMER_TRACE_CUR = 0;\
-	UF_MSG_DEBUG(X);\
+	UF_MSG_DEBUG(__VA_ARGS__);\
 
-#define UF_TIMER_MULTITRACE(X) {\
+#define UF_TIMER_MULTITRACE(...) {\
 	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_MSG_DEBUG(std::setfill(' ') << std::setw(4) << TIMER_TRACE_CUR << " us\t" << std::setfill(' ') << std::setw(4) << (TIMER_TRACE_CUR - TIMER_TRACE_PREV) << " us\t" << X);\
+	UF_MSG_DEBUG("{} us\t{} us\t{}", TIMER_TRACE_CUR, (TIMER_TRACE_CUR - TIMER_TRACE_PREV), __VA_ARGS__);\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 

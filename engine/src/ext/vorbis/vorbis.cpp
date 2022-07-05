@@ -26,7 +26,7 @@ namespace {
 			if ( !file.is_open() ) {
 				file.open(metadata.filename, std::ios::binary);
 				if ( !file.is_open() ) {
-					UF_MSG_ERROR("Could not open file: " << metadata.filename);
+					UF_MSG_ERROR("Could not open file: {}", metadata.filename);
 					return 0;
 				}
 			}
@@ -38,12 +38,12 @@ namespace {
 			if ( !file.read(&data[0], length) ) {
 				if ( file.eof() ) file.clear();
 				else if ( file.fail() ) {
-					UF_MSG_ERROR("File stream has fail bit set: " << metadata.filename );
+					UF_MSG_ERROR("File stream has fail bit set: {}", metadata.filename );
 					file.clear();
 					return 0;
 				}
 				else if ( file.bad() ) {
-					UF_MSG_ERROR("File stream has bad bit set: " << metadata.filename );
+					UF_MSG_ERROR("File stream has bad bit set: {}", metadata.filename );
 					file.clear();
 					return 0;
 				}
@@ -105,7 +105,7 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	OggVorbis_File vorbisFile;
 
 	if ( !file ) {
-		UF_MSG_ERROR("Vorbis: failed to open `" << metadata.filename << "`. File error.");
+		UF_MSG_ERROR("Vorbis: failed to open {}. File error.", metadata.filename);
 		return;
 	}
 	// get total file size
@@ -115,7 +115,7 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	fseek(file, 0L, SEEK_SET);
 	// create oggvorbis handle
 	if( ov_open_callbacks(file, &vorbisFile, NULL, 0, OV_CALLBACKS_DEFAULT) < 0 ) {
-		UF_MSG_ERROR("Vorbis: failed to open `" << metadata.filename << "`. Not Ogg.");
+		UF_MSG_ERROR("Vorbis: failed to open {}. Not Ogg.", metadata.filename);
 		return;
 	}
 	// grab metadata
@@ -129,7 +129,7 @@ void ext::vorbis::load( uf::Audio::Metadata& metadata ) {
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 8 ) metadata.info.format = AL_FORMAT_STEREO8;
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 16 ) metadata.info.format = AL_FORMAT_STEREO16;
 	else {
-		UF_MSG_ERROR("Vorbis: unrecognized OGG format: " << metadata.info.channels << " channels, " << metadata.info.bitDepth << " bps");
+		UF_MSG_ERROR("Vorbis: unrecognized OGG format: {} channels, {} bps", metadata.info.channels, metadata.info.bitDepth);
 		return;
 	}
 
@@ -156,19 +156,19 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	OggVorbis_File& vorbisFile = *((OggVorbis_File*) metadata.stream.handle);
 	file.open( metadata.filename, std::ios::binary );
 	if ( !file.is_open() ) {
-		UF_MSG_ERROR("Vorbis: failed to open file stream: " << metadata.filename);
+		UF_MSG_ERROR("Vorbis: failed to open file stream: {}", metadata.filename);
 		return;
 	}
 	if ( file.eof() ) {
-		UF_MSG_ERROR("Vorbis: file stream EOF bit set: " << metadata.filename);
+		UF_MSG_ERROR("Vorbis: file stream EOF bit set: {}", metadata.filename);
 		return;
 	}
 	if ( file.fail() ) {
-		UF_MSG_ERROR("Vorbis: file stream fail bit set: " << metadata.filename);
+		UF_MSG_ERROR("Vorbis: file stream fail bit set: {}", metadata.filename);
 		return;
 	}
 	if ( !file ) {
-		UF_MSG_ERROR("Vorbis: file is false: " << metadata.filename);
+		UF_MSG_ERROR("Vorbis: file is false: {}", metadata.filename);
 		return;
 	}
 	// get total file size
@@ -184,7 +184,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	callbacks.tell_func = ::funs::tell;
 	// create oggvorbis handle
 	if ( ov_open_callbacks((void*) &metadata, &vorbisFile, NULL, -1, callbacks) < 0 ) {
-		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: " << metadata.filename);
+		UF_MSG_ERROR("Vorbis: failed call to ov_open_callbacks: {}", metadata.filename);
 		return;
 	}
 	// grab metadata
@@ -198,7 +198,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 8 ) metadata.info.format = AL_FORMAT_STEREO8;
 	else if ( metadata.info.channels == 2 && metadata.info.bitDepth == 16 ) metadata.info.format = AL_FORMAT_STEREO16;
 	else {
-		UF_MSG_ERROR("Vorbis: unrecognized OGG format: " << (int) metadata.info.channels << " channels, " << (int) metadata.info.bitDepth << " bps");
+		UF_MSG_ERROR("Vorbis: unrecognized OGG format: {} channels, {} bps", (int) metadata.info.channels, (int) metadata.info.bitDepth);
 		return;
 	}
 
@@ -214,25 +214,25 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 			int32_t result = ov_read( &vorbisFile, &buffer[read], uf::audio::bufferSize - read, endian, 2, 1, &metadata.stream.bitStream );
 		
 			if ( result == OV_HOLE ) {
-				UF_MSG_ERROR("Vorbis: OV_HOLE found in buffer read: " << (int) queuedBuffers << " " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_HOLE found in buffer read: {} {}", (int) queuedBuffers, metadata.filename);
 				break;
 			} else if ( result == OV_EBADLINK ) {
-				UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer read: " << (int) queuedBuffers << " " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer read: {} {}", (int) queuedBuffers, metadata.filename);
 				break;
 			} else if ( result == OV_EINVAL ) {
-				UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer read: " << (int) queuedBuffers << " " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer read: {} {}", (int) queuedBuffers, metadata.filename);
 				break;
 			} else if ( result == 0 ) {
 				if ( !metadata.settings.loop ) break;
 				std::int32_t seek = ov_raw_seek( &vorbisFile, 0 );
 				// UF_MSG_ERROR("Vorbis: EOF found in buffer read: " << (int) queuedBuffers << " " << metadata.filename); break;
 				switch ( seek ) {
-					case OV_ENOSEEK: UF_MSG_ERROR("Vorbis: OV_ENOSEEK found in buffer loop: " << metadata.filename); break;
-					case OV_EINVAL: UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer loop: " << metadata.filename); break;
-					case OV_EREAD: UF_MSG_ERROR("Vorbis: OV_EREAD found in buffer loop: " << metadata.filename); break;
-					case OV_EFAULT: UF_MSG_ERROR("Vorbis: OV_EFAULT found in buffer loop: " << metadata.filename); break;
-					case OV_EOF: UF_MSG_ERROR("Vorbis: OV_EOF found in buffer loop: " << metadata.filename); break;
-					case OV_EBADLINK: UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer loop: " << metadata.filename); break;
+					case OV_ENOSEEK: UF_MSG_ERROR("Vorbis: OV_ENOSEEK found in buffer loop: {}", metadata.filename); break;
+					case OV_EINVAL: UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer loop: {}", metadata.filename); break;
+					case OV_EREAD: UF_MSG_ERROR("Vorbis: OV_EREAD found in buffer loop: {}", metadata.filename); break;
+					case OV_EFAULT: UF_MSG_ERROR("Vorbis: OV_EFAULT found in buffer loop: {}", metadata.filename); break;
+					case OV_EOF: UF_MSG_ERROR("Vorbis: OV_EOF found in buffer loop: {}", metadata.filename); break;
+					case OV_EBADLINK: UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer loop: {}", metadata.filename); break;
 				}
 			}
 			read += result;
@@ -292,28 +292,28 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 		while ( read < uf::audio::bufferSize ) {
 			int32_t result = ov_read( &vorbisFile, &buffer[read], uf::audio::bufferSize - read, endian, 2, 1, &metadata.stream.bitStream );
 			if ( result == OV_HOLE ) {
-				UF_MSG_ERROR("Vorbis: OV_HOLE found in buffer read: " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_HOLE found in buffer read: {}", metadata.filename);
 				break;
 			} else if ( result == OV_EBADLINK ) {
-				UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer read: " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer read: {}", metadata.filename);
 				break;
 			} else if ( result == OV_EINVAL ) {
-				UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer read: " << metadata.filename);
+				UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer read: {}", metadata.filename);
 				break;
 			} else if ( result == 0 ) {
 				// no more data left to read, reset file stream if we're looping
 				if ( !metadata.settings.loop ) break;
 				std::int32_t seek = ov_raw_seek( &vorbisFile, 0 );
 				switch ( seek ) {
-					case OV_ENOSEEK: UF_MSG_ERROR("Vorbis: OV_ENOSEEK found in buffer loop: " << metadata.filename); break;
-					case OV_EINVAL: UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer loop: " << metadata.filename); break;
-					case OV_EREAD: UF_MSG_ERROR("Vorbis: OV_EREAD found in buffer loop: " << metadata.filename); break;
-					case OV_EFAULT: UF_MSG_ERROR("Vorbis: OV_EFAULT found in buffer loop: " << metadata.filename); break;
-					case OV_EOF: UF_MSG_ERROR("Vorbis: OV_EOF found in buffer loop: " << metadata.filename); break;
-					case OV_EBADLINK: UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer loop: " << metadata.filename); break;
+					case OV_ENOSEEK: UF_MSG_ERROR("Vorbis: OV_ENOSEEK found in buffer loop: {}", metadata.filename); break;
+					case OV_EINVAL: UF_MSG_ERROR("Vorbis: OV_EINVAL found in buffer loop: {}", metadata.filename); break;
+					case OV_EREAD: UF_MSG_ERROR("Vorbis: OV_EREAD found in buffer loop: {}", metadata.filename); break;
+					case OV_EFAULT: UF_MSG_ERROR("Vorbis: OV_EFAULT found in buffer loop: {}", metadata.filename); break;
+					case OV_EOF: UF_MSG_ERROR("Vorbis: OV_EOF found in buffer loop: {}", metadata.filename); break;
+					case OV_EBADLINK: UF_MSG_ERROR("Vorbis: OV_EBADLINK found in buffer loop: {}", metadata.filename); break;
 				}
 				if( seek != 0 ) {
-                    UF_MSG_ERROR("Vorbis: Unknown error in ov_raw_seek: " << metadata.filename);
+                    UF_MSG_ERROR("Vorbis: Unknown error in ov_raw_seek: {}", metadata.filename);
                     return;
                 }
 			}
@@ -326,7 +326,7 @@ void ext::vorbis::update( uf::Audio::Metadata& metadata ) {
 		}
 		if ( metadata.settings.loop && read < uf::audio::bufferSize ) {
 			// should never actually reach here
-			UF_MSG_ERROR("Vorbis: missing data: " << metadata.filename);
+			UF_MSG_ERROR("Vorbis: missing data: {}", metadata.filename);
 		}
 	}
 	// enable hard looping for if we aren't able to call an update in a timely manner

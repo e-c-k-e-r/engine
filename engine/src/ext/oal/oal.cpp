@@ -24,12 +24,12 @@ void ext::al::initialize() {
 
 	if ( alutInit(NULL, NULL) != AL_TRUE ) {
 		uf::audio::muted = true;
-		UF_EXCEPTION("AL error: " << alutGetErrorString( alutGetError() ) );
+		UF_EXCEPTION("AL error: {}", alutGetErrorString( alutGetError() ) );
 	}
 #else
 	::device = alcOpenDevice(NULL);
 	if ( !::device ) {
-		UF_EXCEPTION(ext::al::getError());
+		UF_EXCEPTION("{}", ext::al::getError());
 	}
 
 	ALboolean enumeration = alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT");
@@ -68,20 +68,20 @@ void ext::al::listener( ALenum name, const ALfloat* f ) { AL_CHECK_RESULT(alList
 void ext::al::listener( const uf::stl::string& string, ALfloat x ) {
 	// alSourcef
 	if ( string == "GAIN" ) return ext::al::listener( AL_GAIN, x );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::listener( const uf::stl::string& string, ALfloat x, ALfloat y, ALfloat z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return ext::al::listener( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return ext::al::listener( AL_VELOCITY, x, y, z );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::listener( const uf::stl::string& string, const ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return ext::al::listener( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return ext::al::listener( AL_VELOCITY, f );
 	if ( string == "ORIENTATION" ) return ext::al::listener( AL_DIRECTION, f );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 #endif
 uf::stl::string ext::al::getError( ALCenum error ) {
@@ -213,21 +213,21 @@ void ext::al::Source::get( const uf::stl::string& string, ALfloat& x ) {
 	if ( string == "CONE_OUTER_ANGLE" ) return this->get( AL_CONE_OUTER_ANGLE, x );
 	if ( string == "REFERENCE_DISTANCE" ) return this->get( AL_REFERENCE_DISTANCE, x );
 	if ( string == "SEC_OFFSET" ) return this->get( AL_SEC_OFFSET, x );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::get( const uf::stl::string& string, ALfloat& x, ALfloat& y, ALfloat& z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, x, y, z );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::get( const uf::stl::string& string, ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, f );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::get( const uf::stl::string& string, ALint& x ) {
 	// alSourcei
@@ -237,21 +237,21 @@ void ext::al::Source::get( const uf::stl::string& string, ALint& x ) {
 	if ( string == "LOOPING" ) return this->get( AL_LOOPING, x );
 	if ( string == "BUFFER" ) return this->get( AL_BUFFER, x );
 	if ( string == "SOURCE_STATE" ) return this->get( AL_SOURCE_STATE, x );	
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::get( const uf::stl::string& string, ALint& x, ALint& y, ALint& z ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, x, y, z );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::get( const uf::stl::string& string, ALint* f ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->get( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->get( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->get( AL_DIRECTION, f );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( ALenum name, ALfloat x ) { AL_CHECK_RESULT_ENUM( alSourcef, this->m_index, name, x ); }
 void ext::al::Source::set( ALenum name, ALfloat x, ALfloat y, ALfloat z ) { AL_CHECK_RESULT_ENUM( alSource3f, this->m_index, name, x, y, z ); }
@@ -274,21 +274,21 @@ void ext::al::Source::set( const uf::stl::string& string, ALfloat x ) {
 	if ( string == "CONE_OUTER_ANGLE" ) return this->set( AL_CONE_OUTER_ANGLE, x );
 	if ( string == "REFERENCE_DISTANCE" ) return this->set( AL_REFERENCE_DISTANCE, x );
 	if ( string == "SEC_OFFSET" ) return this->set( AL_SEC_OFFSET, x );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( const uf::stl::string& string, ALfloat x, ALfloat y, ALfloat z ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, x, y, z );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( const uf::stl::string& string, const ALfloat* f ) {
 	// alSourcefv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, f );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( const uf::stl::string& string, ALint x ) {
 	// alSourcei
@@ -298,21 +298,21 @@ void ext::al::Source::set( const uf::stl::string& string, ALint x ) {
 	if ( string == "LOOPING" ) return this->set( AL_LOOPING, x );
 	if ( string == "BUFFER" ) return this->set( AL_BUFFER, x );
 	if ( string == "SOURCE_STATE" ) return this->set( AL_SOURCE_STATE, x );	
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( const uf::stl::string& string, ALint x, ALint y, ALint z ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, x, y, z );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, x, y, z );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, x, y, z );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 void ext::al::Source::set( const uf::stl::string& string, const ALint* f ) {
 	// alSourceiv
 	if ( string == "POSITION" ) return this->set( AL_POSITION, f );
 	if ( string == "VELOCITY" ) return this->set( AL_VELOCITY, f );
 	if ( string == "DIRECTION" ) return this->set( AL_DIRECTION, f );
-	UF_MSG_ERROR("AL error: Invalid enum requested: " << string);
+	UF_MSG_ERROR("AL error: Invalid enum requested: {}", string);
 }
 #if 0
 void ext::al::Source::get( ALenum name, uf::stl::vector<ALfloat>& parameters ) {

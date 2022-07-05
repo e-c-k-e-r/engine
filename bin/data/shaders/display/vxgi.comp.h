@@ -18,9 +18,7 @@ layout (constant_id = 2) const uint CASCADES = 16;
 layout (binding = 0) uniform UBO {
 	EyeMatrices matrices[2];
 
-	Mode mode;
-	Fog fog;
-	Vxgi vxgi;
+	Settings settings;
 
 	uint lights;
 	uint materials;
@@ -80,10 +78,10 @@ void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
 		surface.normal.world = decodeNormals( vec2(imageLoad(voxelNormal[CASCADE], ivec3(tUvw) ).xy) );
-		surface.normal.eye = vec3( ubo.vxgi.matrix * vec4( surface.normal.world, 0.0f ) );
+		surface.normal.eye = vec3( ubo.settings.vxgi.matrix * vec4( surface.normal.world, 0.0f ) );
 	
 		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
-		surface.position.world = vec3( inverse(ubo.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
+		surface.position.world = vec3( inverse(ubo.settings.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
 		const uint drawID = ID.x - 1;

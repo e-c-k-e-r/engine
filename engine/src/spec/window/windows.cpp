@@ -1,4 +1,6 @@
 #include <uf/spec/window/window.h>
+
+#if UF_ENV_WINDOWS
 #include <uf/utils/io/iostream.h>
 #include <uf/utils/string/utf.h>
 #include <uf/utils/serialize/serializer.h>
@@ -12,7 +14,12 @@
 #define UF_HOOK_USE_USERDATA 1
 #define UF_HOOK_USE_JSON 0
 
-#if UF_ENV_WINDOWS && (!UF_USE_SFML || (UF_USE_SFML && UF_USE_SFML == 0))
+#if UF_USE_IMGUI
+	#include <uf/ext/imgui/imgui.h>
+	#include <imgui/backends/imgui_impl_win32.h>
+	extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#endif
+
 namespace {
 	int windowCount 		= 0;
 	std::wstring className 	= L"uf::Window::Class";
@@ -50,6 +57,10 @@ namespace {
 		}
 	}
 	LRESULT CALLBACK globalOnEvent(spec::win32::Window::handle_t handle, UINT message, WPARAM wParam, LPARAM lParam) {
+    #if UF_USE_IMGUI
+		if (ImGui_ImplWin32_WndProcHandler(handle, message, wParam, lParam))
+        	return true;
+    #endif
 		if (message == WM_CREATE) {
 			LONG_PTR window = (LONG_PTR)reinterpret_cast<CREATESTRUCT*>(lParam)->lpCreateParams;
 			SetWindowLongPtrW(handle, GWLP_USERDATA, window);

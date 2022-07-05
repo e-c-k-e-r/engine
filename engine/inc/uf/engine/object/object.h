@@ -50,6 +50,8 @@ namespace uf {
 		void queueHook( const uf::stl::string&, const T&, float = 0 );
 
 		uf::stl::string resolveURI( const uf::stl::string& filename, const uf::stl::string& root = "" );
+
+		void queueDeletion();
 	};
 }
 

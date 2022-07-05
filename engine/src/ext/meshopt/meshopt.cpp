@@ -67,7 +67,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
 	//	size_t realIndices = meshopt_simplify(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetError, realError);
 		size_t realIndices = meshopt_simplifySloppy(&indicesSimplified[0], &indices[0], indicesCount, (float*) positionAttribute.pointer, verticesCount, positionAttribute.stride, targetIndices);
 		
-		UF_MSG_DEBUG("[Simplified] indices: " << indicesCount << " -> " << realIndices << " | error: " << targetError << " -> " << realError);
+		UF_MSG_DEBUG("[Simplified] indices: {} -> {} | error: {} -> {}", indicesCount, realIndices, targetError, realError);
 
 		indicesCount = realIndices;
 		indices.swap( indicesSimplified );
@@ -106,7 +106,7 @@ bool ext::meshopt::optimize( uf::Mesh& mesh, float simplify, size_t o ) {
 			} else if ( lastID + 1 == id.x )  {
 				lastID = id.x;
 			} else {
-				UF_MSG_DEBUG("Discontinuity detected: " << index << " | " << vertex << " | " << lastID << " | " << id.x);
+				UF_MSG_DEBUG("Discontinuity detected: {} | {} | {} | {}", index, vertex, lastID, id.x);
 				discontinuityDetected = true;
 				lastID = id.x;
 			}

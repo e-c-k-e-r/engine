@@ -41,6 +41,13 @@ void uf::stl::KeyMap<T,Key>::reserve( size_t i ) {
 template<typename T, typename Key>
 uf::stl::vector<T> uf::stl::KeyMap<T,Key>::flatten() const {
 	uf::stl::vector<T> res; res.reserve(keys.size());
-	for ( auto& key : keys ) res.emplace_back(map.at(key));
+	for ( auto& key : keys ) {
+		if ( map.count( key ) == 0 ) {
+		//	UF_EXCEPTION("key not in map: {}", key);
+			res.emplace_back();
+		} else {
+			res.emplace_back(map.at(key));
+		}
+	}
 	return res;
 }

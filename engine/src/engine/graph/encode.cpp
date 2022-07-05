@@ -166,13 +166,12 @@ namespace {
 				remove.insert(remove.begin(), i);
 			}
 			for ( auto& i : remove ) {
-			//	UF_MSG_DEBUG("Removing " << mesh.vertex.attributes[i].descriptor.name);
 				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
 				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
 				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
 			}
 		} else {
-		//	UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
+			UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
 		}
 	#endif
 
@@ -449,7 +448,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 
 	if ( !settings.combined ) target = directory + "/graph.json";
 	serializer.writeToFile( target );
-	UF_MSG_DEBUG("Saving graph to `" << target << "`");
+	UF_MSG_DEBUG("Saving graph to {}", target);
 
 /*
 	if ( graph.metadata["exporter"]["quit"].as<bool>(true) ) {

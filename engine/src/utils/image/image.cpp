@@ -94,11 +94,11 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 		uf::stl::string dtex = uf::string::replace( filename, ".png", ".dtex" );
 		if ( uf::io::exists(dtex) ) return this->open(dtex, flip);
 
-		UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform:" << filename);
+		UF_MSG_WARNING("non-dtex loading is highly discouraged on this platform: {}", filename);
 	//	return false;
 	}
 #endif
-	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: " + filename);
+	if ( !uf::io::exists(filename) ) UF_EXCEPTION("IO error: file does not exist: {}", filename);
 	
 	this->m_filename = filename;
 	this->m_pixels.clear();
@@ -138,17 +138,17 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_RGB_565_VQ_TWID_KOS; channels = 3; break;
 					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_1555_VQ_TWID_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_TWID_KOS : GL_COMPRESSED_ARGB_4444_VQ_TWID_KOS; break;
-					default: UF_EXCEPTION("Image error: invalid texture format: " << filename); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format: {}", filename); return false;
 				}
 			} else {
 				switch ( format ) {
 					case 1: this->m_format = mipmapped ? GL_COMPRESSED_RGB_565_VQ_MIPMAP_KOS : GL_COMPRESSED_RGB_565_VQ_KOS; channels = 3; break;
 					case 0: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_1555_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_1555_VQ_KOS; break;
 					case 2: this->m_format = mipmapped ? GL_COMPRESSED_ARGB_4444_VQ_MIPMAP_KOS : GL_COMPRESSED_ARGB_4444_VQ_KOS; break;
-					default: UF_EXCEPTION("Image error: invalid texture format: " << filename); return false;
+					default: UF_EXCEPTION("Image error: invalid texture format: {}", filename); return false;
 				}
 			}
-		} else { UF_EXCEPTION("Image error: not a compressed texture: " << filename); return false; }
+		} else { UF_EXCEPTION("Image error: not a compressed texture: {}", filename); return false; }
 	} else 
 #endif
 	{

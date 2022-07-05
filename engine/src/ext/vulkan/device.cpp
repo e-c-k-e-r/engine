@@ -12,7 +12,7 @@
 
 #include <uf/utils/serialize/serializer.h>
 
-#define UF_MSG_VALIDATION(X) if ( ext::vulkan::settings::validation ) UF_MSG(X, "  VULKAN  ");
+#define UF_MSG_VALIDATION(...) if ( ext::vulkan::settings::validation ) UF_MSG("VULKAN", __VA_ARGS__);
 
 namespace {
 	struct DeviceInfo {
@@ -221,7 +221,7 @@ namespace {
 				supportedExtensions.push_back( extensionName );
 				break;
 			}
-			if ( !found ) UF_MSG_ERROR("Vulkan missing requested extension: " << requestedExtension);
+			if ( !found ) UF_MSG_ERROR("Vulkan missing requested extension: {}", requestedExtension);
 		}
 	}
 
@@ -232,8 +232,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features.NAME == VK_TRUE ) {\
 				device.enabledFeatures.NAME = true;\
-				UF_MSG_VALIDATION("Enabled feature: " << feature);\
-			} else UF_MSG_VALIDATION("Failed to enable feature: " << feature);\
+				UF_MSG_VALIDATION("Enabled feature: {}", feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: {}", feature);\
 		}
 
 		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
@@ -299,8 +299,8 @@ namespace {
 		if ( feature == #NAME ) {\
 			if ( device.features2.NAME == VK_TRUE ) {\
 				device.enabledFeatures2.NAME = true;\
-				UF_MSG_VALIDATION("Enabled feature: " << feature);\
-			} else UF_MSG_VALIDATION("Failed to enable feature: " << feature);\
+				UF_MSG_VALIDATION("Enabled feature: {}", feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: {}", feature);\
 		}
 	#undef CHECK_FEATURE2
 	}
@@ -638,7 +638,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		if ( ext::vulkan::settings::validation )
 			for ( auto ext : requestedExtensions )
-				UF_MSG_INFO("Requested instance extension: " << ext);
+				UF_MSG_INFO("Requested instance extension: {}", ext);
 
 		uint32_t extensionsCount = 0;
 		uint32_t enabledExtensionsCount = 0;
@@ -653,7 +653,7 @@ void ext::vulkan::Device::initialize() {
 	{
 		uf::stl::vector<const char*> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
-			UF_MSG_VALIDATION("Enabled instance extension: " << s);
+			UF_MSG_VALIDATION("Enabled instance extension: {}", s);
 			instanceExtensions.push_back( s.c_str() );
 		}
 
@@ -723,6 +723,7 @@ void ext::vulkan::Device::initialize() {
 		size_t bestDeviceIndex = 0;
 		for ( size_t i = 0; i < deviceCount; ++i ) {
 			auto& deviceInfo = deviceInfos.emplace_back( rate(*this, physicalDevices[i]) );
+		/*
 			UF_MSG_VALIDATION("[" << i << "] "
 				"Found device: " << deviceInfo.properties.deviceName << " ("
 				"score: " << deviceInfo.score << " | "
@@ -731,6 +732,7 @@ void ext::vulkan::Device::initialize() {
 				"API version: " << deviceInfo.properties.apiVersion << " | "
 				"driver version: " << deviceInfo.properties.driverVersion << ")"
 			);
+		*/
 			if ( settings::experimental::enableMultiGPU && deviceInfos[bestDeviceIndex].properties.vendorID != deviceInfo.properties.vendorID ) settings::experimental::enableMultiGPU = false;
 			if ( deviceInfos[bestDeviceIndex].score >= deviceInfo.score ) continue;
 			bestDeviceIndex = i;
@@ -740,7 +742,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		auto& deviceInfo = deviceInfos[bestDeviceIndex];
 		this->physicalDevice = deviceInfo.handle;
-
+	/*
 		UF_MSG_VALIDATION("Using device #" << bestDeviceIndex << " ("
 			"score: " << deviceInfo.score << " | "
 			"device ID: " << deviceInfo.properties.deviceID << " | "
@@ -748,6 +750,7 @@ void ext::vulkan::Device::initialize() {
 			"API version: " << deviceInfo.properties.apiVersion << " | "
 			"driver version: " << deviceInfo.properties.driverVersion << ")"
 		);
+	*/
 	}
 	// Update properties
 	{
@@ -801,7 +804,7 @@ void ext::vulkan::Device::initialize() {
 	#endif
 		{
 			// Allocate enough ExtensionProperties to support all extensions being enabled
-			for ( auto ext : requestedExtensions ) UF_MSG_VALIDATION("Requested device extension: " << ext);
+			for ( auto ext : requestedExtensions ) UF_MSG_VALIDATION("Requested device extension: {}", ext);
 
 			uint32_t extensionsCount = 0;
 			uint32_t enabledExtensionsCount = 0;
@@ -816,7 +819,7 @@ void ext::vulkan::Device::initialize() {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
-			UF_MSG_VALIDATION("Enabled device extension: " << s);
+			UF_MSG_VALIDATION("Enabled device extension: {}", s);
 			deviceExtensions.push_back( s.c_str() );
 		}
 
@@ -962,7 +965,7 @@ void ext::vulkan::Device::initialize() {
 		accelerationStructureFeatures.pNext = &shaderClockFeatures;
 	
 		if ( settings::experimental::enableMultiGPU ) {
-			UF_MSG_DEBUG("Multiple devices supported, using " << groupDeviceCreateInfo.physicalDeviceCount << " devices...");
+			UF_MSG_DEBUG("Multiple devices supported, using {} devices...", groupDeviceCreateInfo.physicalDeviceCount);
 			accelerationStructureFeatures.pNext = &groupDeviceCreateInfo;
 		}
 
@@ -975,7 +978,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		{
 			ext::json::Value payload = retrieveDeviceFeatures( *this );
-			UF_MSG_VALIDATION(payload.dump());
+			UF_MSG_VALIDATION("{}", payload.dump());
 			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
 		}
 	}
@@ -1011,10 +1014,10 @@ void ext::vulkan::Device::initialize() {
 			i++;
 		}
 
-		UF_MSG_VALIDATION("Graphics queue: " << device.queueFamilyIndices.graphics);
-		UF_MSG_VALIDATION("Compute queue: " << device.queueFamilyIndices.compute);
-		UF_MSG_VALIDATION("Transfer queue: " << device.queueFamilyIndices.transfer);
-		UF_MSG_VALIDATION("Present queue: " << device.queueFamilyIndices.present);
+		UF_MSG_VALIDATION("Graphics queue: {}", device.queueFamilyIndices.graphics);
+		UF_MSG_VALIDATION("Compute queue: {}", device.queueFamilyIndices.compute);
+		UF_MSG_VALIDATION("Transfer queue: {}", device.queueFamilyIndices.transfer);
+		UF_MSG_VALIDATION("Present queue: {}", device.queueFamilyIndices.present);
 
 		device.queueFamilyIndices.present = presentQueueNodeIndex;
 		getQueue( QueueEnum::GRAPHICS );

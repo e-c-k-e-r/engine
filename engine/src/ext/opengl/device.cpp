@@ -95,13 +95,13 @@ void ext::opengl::Device::initialize() {
 	config.fsaa_enabled = GL_FALSE;
 	glKosInitEx(&config);
 #elif UF_ENV_DREAMCAST
-	UF_MSG_DEBUG("?");
 	glKosInit();
-	UF_MSG_DEBUG("!");
 #else
 	glewExperimental = GL_TRUE;
 	GLenum error;
-	if ( (error = glewInit()) != GLEW_OK ) UF_EXCEPTION("ERROR: " << glewGetErrorString(error));
+	if ( (error = glewInit()) != GLEW_OK ) {
+		UF_EXCEPTION("ERROR: {}", (const char*) glewGetErrorString(error));
+	}
 #endif
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	{

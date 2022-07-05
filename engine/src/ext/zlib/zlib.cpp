@@ -42,7 +42,7 @@ uf::stl::vector<uint8_t> UF_API ext::zlib::decompressFromFile( const uf::stl::st
 	
 	gzFile in = gzopen( filename.c_str(), "rb" );
 	if ( !in ) {
-		UF_MSG_ERROR("Zlib: failed to open file for read: " << filename);
+		UF_MSG_ERROR("Zlib: failed to open file for read: {}", filename);
 		return buffer;
 	}
 
@@ -61,7 +61,7 @@ uf::stl::vector<uint8_t> UF_API ext::zlib::decompressFromFile( const uf::stl::st
 size_t UF_API ext::zlib::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {
 	gzFile out = gzopen( filename.c_str(), "wb" );
 	if ( !out ) {
-		UF_MSG_ERROR("Zlib: failed to open file for write: " << filename);
+		UF_MSG_ERROR("Zlib: failed to open file for write: {}", filename);
 		return 0;
 	}
 #if 1

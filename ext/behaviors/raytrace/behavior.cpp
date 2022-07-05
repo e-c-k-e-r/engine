@@ -21,6 +21,7 @@ UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false
 #define this (&self)
 void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	if ( !uf::renderer::hasRenderMode("Compute", true) ) {
 		auto* renderMode = new uf::renderer::RenderTargetRenderMode;
@@ -31,12 +32,14 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		renderMode->metadata.type = uf::renderer::settings::pipelines::names::rt;
 		renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::rt);
 		renderMode->execute = false;
+		renderMode->metadata.limiter.execute = false;
+	//	renderMode->blitter.process = false;
 		uf::renderer::addRenderMode( renderMode, "Compute" );
 	}
 
-	if ( ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
-		metadata.renderer.scale = ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(metadata.renderer.scale);
-	}
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
+	metadata.deserialize(self, metadataJson);
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
@@ -162,6 +165,8 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			tex.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 
 			renderMode.execute = true;
+			renderMode.metadata.limiter.execute = true;
+			blitter.process = true;
 			graphic.process = true;
 		}
 	}
@@ -198,7 +203,31 @@ void ext::RayTraceSceneBehavior::destroy( uf::Object& self ){
 
 	graphic.destroy();
 }
-void ext::RayTraceSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
-void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}
+void ext::RayTraceSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {
+
+}
+void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
+	UF_MSG_DEBUG("Update");
+	// merge vxgi settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["rt"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["rt"][key] ) ) return;
+			serializer["rt"][key] = value;
+		} );
+	}
+
+	if ( serializer["size"].is<float>() ) {
+		/*this->*/renderer.scale = serializer["size"].as(/*this->*/renderer.scale);
+	} else if ( ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
+		/*this->*/renderer.scale = ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(/*this->*/renderer.scale);
+	}
+
+	/*this->*/settings.defaultRayBounds = uf::vector::decode(serializer["rt"]["defaultRayBounds"], settings.defaultRayBounds); // serializer["rt"]["defaultRayBounds"].as(/*this->*/settings.defaultRayBounds);
+	/*this->*/settings.alphaTestOffset = serializer["rt"]["alphaTestOffset"].as(/*this->*/settings.alphaTestOffset);
+	/*this->*/settings.samples = serializer["rt"]["samples"].as(/*this->*/settings.samples);
+	/*this->*/settings.paths = serializer["rt"]["paths"].as(/*this->*/settings.paths);
+	/*this->*/settings.frameAccumulationMinimum = serializer["rt"]["frameAccumulationMinimum"].as(/*this->*/settings.frameAccumulationMinimum);
+}
 #undef this
 #endif

@@ -394,7 +394,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		storageBufferIt++;
 		storageBufferIt++;
 		
+		auto drawCommandsBuffer = (*storageBufferIt++).buffer;
 		auto instanceBuffer = (*storageBufferIt++).buffer;
+		auto instanceAddressBuffer = (*storageBufferIt++).buffer;
 		auto materialBuffer = (*storageBufferIt++).buffer;
 		auto textureBuffer = (*storageBufferIt++).buffer;
 
@@ -429,6 +431,9 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			drawCommandInfo.attributes.indirect.length = sizeof(drawCommand);
 
 			drawCommandInfo.matrices.model = &instance.model;
+
+			drawCommandInfo.blend.modeAlpha = material.modeAlpha;
+			drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
 			
 			if ( 0 <= material.indexAlbedo ) {
 				auto texture2DID = textures[material.indexAlbedo].index;
@@ -449,7 +454,19 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		drawCommandInfoBase.matrices.projection = NULL;
 
 		if ( !material.textures.empty() ) {
-			drawCommandInfo.textures.primary = material.textures.front().descriptor;
+			auto& texture = material.textures.front();
+			drawCommandInfo.textures.primary = texture.descriptor;
+			switch ( texture.format ) {
+				case enums::Format::R8G8_UNORM:
+				case enums::Format::R8G8_SRGB:
+				case enums::Format::R4G4B4A4_UNORM_PACK16:
+			//	case enums::Format::R4G4B4A4_UNORM_PSRGB:
+				case enums::Format::R8G8B8A8_UNORM:
+				case enums::Format::R8G8B8A8_SRGB:
+					drawCommandInfo.blend.modeAlpha = 1;
+				//	drawCommandInfo.blend.alphaCutoff = 0.001f; // material.factorAlphaCutoff;
+				break;
+			}
 		}
 
 		commandBuffer.record(drawCommandInfo);

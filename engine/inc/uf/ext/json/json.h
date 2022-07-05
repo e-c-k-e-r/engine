@@ -91,7 +91,7 @@ T& ext::json::encode( const ext::json::Value& json, T& output, const ext::json::
 	else UF_JSON_PARSE_ENCODING(bjdata)
 	else {
 		// should probably default to json, not my problem
-		UF_MSG_ERROR("invalid encoding requested: " << settings.encoding);
+		UF_MSG_ERROR("invalid encoding requested: {}", settings.encoding);
 	}
 	return output;
 #undef UF_JSON_PARSE_ENCODING
@@ -119,11 +119,11 @@ ext::json::Value& ext::json::decode( ext::json::Value& json, const T& input, con
 		else UF_JSON_PARSE_ENCODING(bjdata)
 		else {
 			// should probably default to json, not my problem
-			UF_MSG_ERROR("invalid encoding requested: " << settings.encoding);
+			UF_MSG_ERROR("invalid encoding requested: {}", settings.encoding);
 		}
 #if UF_EXCEPTIONS
 	} catch ( nlohmann::json::parse_error& e ) {
-		UF_MSG_ERROR("JSON error: " << e.what());
+		UF_MSG_ERROR("JSON error: {}", e.what());
 	}
 #endif
 	return json;

@@ -22,6 +22,7 @@ uint32_t ext::vulkan::settings::width = 1280;
 uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
 bool ext::vulkan::settings::validation = true;
+bool ext::vulkan::settings::defaultStageBuffers = true;
 // constexpr size_t ext::vulkan::settings::maxViews = 6;
 size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
@@ -108,7 +109,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	for ( auto& filter : ext::vulkan::settings::validationFilters ) {
 		if ( message.find(filter) != uf::stl::string::npos ) return VK_FALSE;
 	}
-	UF_MSG_ERROR("[Validation Layer] " << message);
+	UF_MSG_ERROR("[Validation Layer] {}", message);
 	return VK_FALSE;
 }
 
@@ -168,7 +169,7 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 	mode->metadata.name = name;
 	renderModesMap[name] = renderModes.emplace_back(mode);
 	
-	VK_VALIDATION_MESSAGE("Adding RenderMode: " << name << ": " << mode->getType());
+	VK_VALIDATION_MESSAGE("Adding RenderMode: {} : {}", name, mode->getType());
 	
 	// reorder
 	if ( hasRenderMode("Gui", true) ) {

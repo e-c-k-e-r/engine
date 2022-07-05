@@ -34,9 +34,7 @@ layout (binding = 1, rgba8) uniform volatile coherent image2D outImage;
 layout (binding = 2) uniform UBO {
 	EyeMatrices eyes[2];
 
-	Mode mode;
-	Fog fog;
-	Vxgi vxgi;
+	Settings settings;
 
 	uint lights;
 	uint materials;
@@ -98,14 +96,14 @@ void trace( Ray ray, float tMin ) {
 	uint rayFlags = gl_RayFlagsOpaqueEXT;
 	uint cullMask = 0xFF;
 
-	float tMax = 4096.0;
+	float tMax = ubo.settings.rt.defaultRayBounds.y;
 	
 	payload.hit = false;
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, ray.origin, tMin, ray.direction, tMax, 0);
 }
 
 void trace( Ray ray ) {
-	trace( ray, 0.001, 4096.0 );
+	trace( ray, ubo.settings.rt.defaultRayBounds.x, ubo.settings.rt.defaultRayBounds.y );
 }
 
 float shadowFactor( const Light light, float def ) {
@@ -113,7 +111,7 @@ float shadowFactor( const Light light, float def ) {
 	ray.origin = surface.position.world;
 	ray.direction = light.position - ray.origin;
 
-	float tMin = 0.001;
+	float tMin = ubo.settings.rt.defaultRayBounds.x;
 	float tMax = length(ray.direction);
 	
 	ray.direction = normalize(ray.direction);
@@ -257,7 +255,7 @@ vec4 traceStep( Ray ray ) {
 		transparency.origin = surface.position.world;
 
 		vec4 transparencyColor = vec4(1.0 - surface.material.albedo.a);
-		trace( transparency, 1.75 );
+		trace( transparency, ubo.settings.rt.alphaTestOffset );
 		if ( payload.hit ) {
 			setupSurface( payload );
 			directLighting();
@@ -313,10 +311,10 @@ void main()  {
 	surface.pass = PushConstant.pass;
 	vec4 outFrag = vec4(0);
 
-	const uint SAMPLES = 1;
-	const uint NUM_PATHS = 2;
-#if 0
-	const uint FRAME_ACCUMULATION_VALUE = ubo.frameNumber + 1;
+	const uint SAMPLES = ubo.settings.rt.samples;
+	const uint NUM_PATHS = ubo.settings.rt.paths;
+#if 1
+	const uint FRAME_ACCUMULATION_VALUE = ubo.settings.rt.frameAccumulationMinimum > 0 ? min(ubo.settings.rt.frameAccumulationMinimum, ubo.frameNumber + 1) : ubo.frameNumber + 1;
 #else
 	const uint FRAME_ACCUMULATION_VALUE = min(32, ubo.frameNumber + 1);
 #endif
@@ -348,7 +346,7 @@ void main()  {
 		{
 			vec4 curValue = vec4(0);
 			vec4 curWeight = vec4(1);
-			for ( uint path = 0; path <= NUM_PATHS; ++path ) {
+			for ( uint path = 0; path < NUM_PATHS; ++path ) {
 				vec4 stepValue = traceStep( surface.ray );
 				curValue += stepValue * curWeight;
 
@@ -382,7 +380,7 @@ void main()  {
 		surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
 	#endif
 	#if WHITENOISE
-		if ( enabled(ubo.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.mode.parameters);
+		if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
 	#endif
 	}
 

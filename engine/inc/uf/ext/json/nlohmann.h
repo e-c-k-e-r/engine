@@ -124,6 +124,8 @@ template<> inline bool ext::json::Value::is<uint64_t>(bool strict) const { retur
 template<> inline bool ext::json::Value::is<float>(bool strict) const { return strict ? is_number_float() : is_number(); }
 template<> inline bool ext::json::Value::is<double>(bool strict) const { return strict ? is_number_float() : is_number(); }
 template<> inline bool ext::json::Value::is<uf::stl::string>(bool strict) const { return is_string(); }
+
+// template<> template<typename T, size_t N> inline bool ext::json::Value::is<pod::Vector<T,N>>(bool strict) const { return is_array() && size() == N; }
 // template<> inline bool ext::json::Value::is<std::string>(bool strict) const { return is_string(); }
 
 #if UF_ENV_DREAMCAST

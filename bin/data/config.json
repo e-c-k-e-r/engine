@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SH2_McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
@@ -16,8 +16,8 @@
 			},
 			"textures": {
 				"max": {
-					"2D": 1024,
-					"cube": 1024,
+					"2D": 512,
+					"cube": 128,
 					"3D": 64
 				}
 			},
@@ -37,6 +37,13 @@
 					"max": [  8,  4,  8 ]
 				}
 			},
+			"rt": {
+				"defaultRayBounds": [ 0.001, 1024.0 ],
+				"alphaTestOffset": 0.001,
+				"samples": 1,
+				"paths": 2,
+				"frameAccumulationMinimum": 0
+			},
 			"bloom": {
 				"scale": 1.0,
 				"strength": 0.125,
@@ -47,8 +54,7 @@
 		},
 		"ext": {
 			"vulkan": {
-				"validation": {
-					"enabled": false,
+				"validation": { "enabled": false,
 					"filters": [
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
@@ -78,12 +84,13 @@
 				},
 				"gpu": 1,
 				"experimental": {
-					"batch queue submissions": false,
+					"batch queue submissions": true,
 					"rebuild on tick begin": false,
 					"dedicated thread": false
 				},
 				"invariant": {
 				//	"multithreaded recording": true
+					"defaultStageBuffers": true
 				},
 				"pipelines": {
 					"vsync": false,
@@ -91,7 +98,7 @@
 					"vxgi": true,
 					"culling": true,
 					"bloom": false,
-					"rt": true
+					"rt": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -141,10 +148,19 @@
 				}
 			},
 			"opengl": {
-				"validation": { "enabled": true },
+				"validation": { "enabled": false },
 				"framebuffer": { "size": 1, "msaa": 1 },
+				"experimental": {
+					"rebuild on tick begin": true
+				},
 				"pipelines": {
 					"culling": true
+				},
+				"experimental": {
+					"rebuild on tick begin": true
+				},
+				"invariant": {
+					"multithreaded recording": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -165,6 +181,9 @@
 			"json": {
 				"encoding": "msgpack",
 				"compression": "gz"
+			},
+			"imgui": {
+				"enabled": false
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
@@ -246,8 +265,8 @@
 				"announce": true
 			},
 			"entity": {
-				"delete children on destroy": true,
-				"delete components on destroy": true
+				"delete children on destroy": false,
+				"delete components on destroy": false
 			},
 			"userdata": {
 				"auto destruct": true,

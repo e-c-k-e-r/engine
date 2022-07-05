@@ -25,6 +25,14 @@ UF_OBJECT_REGISTER_BEGIN(uf::Object)
 UF_OBJECT_REGISTER_END()
 uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
 
+void UF_API uf::Object::queueDeletion() {
+	for ( uf::Entity* kv : this->getChildren() ) ((uf::Object*) kv)->queueDeletion();
+
+	if ( this->hasParent() )this->getParent().removeChild(*this);
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	metadata.system.markedForDeletion = true;
+}
+
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
 	return uf::hooks.call( this->formatHookName( name ) );
 }
@@ -445,7 +453,7 @@ uf::Object& uf::Object::loadChild( const uf::stl::string& f, bool initialize ) {
 			entity.getComponent<uf::ObjectBehavior::Metadata>().system.invalid = true;
 			this->addChild(entity);
 		} else {
-			UF_EXCEPTION("Failed to load file: " << filename);
+			UF_EXCEPTION("Failed to load file: {}", filename);
 		}
 	}
 
@@ -469,7 +477,7 @@ uf::Object& uf::Object::loadChild( const uf::Serializer& _json, bool initialize 
 			UF_MSG_ERROR("assertionLoad is unset, loading empty entity");
 			entity.getComponent<uf::ObjectBehavior::Metadata>().system.invalid = true;
 		} else {
-			UF_EXCEPTION("Failed to load JSON: " << json);
+			UF_EXCEPTION("Failed to load JSON: {}", json.serialize());
 		}
 	}
 	if ( initialize ) entity.initialize();

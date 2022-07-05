@@ -18,10 +18,18 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 			payload.pointer = (uf::Object*) this->findByUid(payload.uid);
 			if ( !payload.pointer ) return;
 		}
+		payload.pointer->queueDeletion();
+	/*
+		if ( !payload.pointer ) {
+			if ( payload.uid <= 0 ) return;
+			payload.pointer = (uf::Object*) this->findByUid(payload.uid);
+			if ( !payload.pointer ) return;
+		}
 		payload.pointer->destroy();
 		delete payload.pointer;
 		payload.pointer = NULL;
 		this->queueHook("system:Renderer.QueueRebuild");
+	*/
 	});
 }
 void uf::SceneBehavior::tick( uf::Object& self ) {}

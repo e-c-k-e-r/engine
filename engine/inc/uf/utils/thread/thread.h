@@ -84,11 +84,14 @@ namespace uf {
 		pod::Thread& UF_API create( const uf::stl::string& = "", bool = true, bool = true );
 		void UF_API destroy( pod::Thread& );
 		bool UF_API has( uint );
+		bool UF_API has( std::thread::id );
 		bool UF_API has( const uf::stl::string& );
 		pod::Thread& UF_API get( uint );
+		pod::Thread& UF_API get( std::thread::id );
 		pod::Thread& UF_API get( const uf::stl::string& );
 
 		bool UF_API isMain();
+		pod::Thread& currentThread();
 
 	/* Acts on thread */
 		void UF_API start( pod::Thread& );
@@ -111,6 +114,7 @@ namespace uf {
 		void UF_API wait( pod::Thread& );
 
 		const uf::stl::string& UF_API name( const pod::Thread& );
+		std::thread::id UF_API id( const pod::Thread& );
 		uint UF_API uid( const pod::Thread& );
 		bool UF_API running( const pod::Thread& );
 	}

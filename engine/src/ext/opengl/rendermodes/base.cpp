@@ -74,12 +74,14 @@ void ext::opengl::BaseRenderMode::initialize( Device& device ) {
 	GL_ERROR_CHECK(glEnable(GL_DEPTH_TEST));
 	GL_ERROR_CHECK(glEnable(GL_TEXTURE_2D));
 
-#if 0 && !UF_ENV_DREAMCAST
+#if 0
 	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
-	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, 0.1f));
+	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, 0.5f));
+	
 	GL_ERROR_CHECK(glEnable(GL_BLEND));
 	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 #endif
+
 //	GL_ERROR_CHECK(glEnable(GL_LIGHTING));
 
 //	GL_ERROR_CHECK(glEnable(GL_NORMALIZE));

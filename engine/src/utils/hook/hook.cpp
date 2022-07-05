@@ -24,20 +24,12 @@ void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
 void uf::Hooks::removeHooks() {
 	this->m_container.clear();
 }
-/*
-uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name ) {
-	pod::Hook::userdata_t payload{};
-	return call( name, payload );
-}
-*/
 uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& container = this->m_container[name];
 	uf::stl::vector<pod::Hook::userdata_t> results;
 	results.reserve( container.size() );
 	
 	for ( auto& hook : container ) {
-	//	if ( payload.type() != hook.type.hash ) continue;
-	//	UF_MSG_DEBUG( name << ": " << payload.type() << " == " << hook.type.hash << "\t\t" << payload.size() << " == " << hook.type.size );
 		if ( payload.size() != hook.type.size && hook.type.size > 0 ) continue;
 
 		pod::Hook::userdata_t& unconst_payload = const_cast<pod::Hook::userdata_t&>(payload);

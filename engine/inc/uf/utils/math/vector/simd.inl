@@ -88,7 +88,6 @@ inline uf::simd::value<float> /*UF_API*/ uf::simd::load( const float* f ) {
 	return _mm_load_ps(f);
 #else
 	if ( uf::aligned(f, 16) ) return _mm_load_ps(f);
-//	UF_MSG_DEBUG( "Realigning... " << uf::aligned(f, 16) << " (" << f[0] << ", " << f[1] << ", " << f[2] << ", " << f[3] << ")" );
 
 	alignas(16) float s[4];
 	memcpy( &s[0], f, sizeof(float) * 4 );
@@ -100,7 +99,6 @@ inline void /*UF_API*/ uf::simd::store( uf::simd::value<float> v, float* f ) {
 	return _mm_store_ps(f, v);
 #else
 	if ( uf::aligned(f, 16) ) return _mm_store_ps(f, v);
-//	UF_MSG_DEBUG( "Realigning... " << uf::aligned(f, 16) << " (" << f[0] << ", " << f[1] << ", " << f[2] << ", " << f[3] << ")" );
 
 	alignas(16) float s[4];
 	_mm_store_ps(&s[0], v);

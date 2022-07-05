@@ -104,7 +104,7 @@ uf::stl::string UF_API uf::io::readAsString( const uf::stl::string& _filename, c
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
-			UF_MSG_ERROR("Error: Could not open file \"" << filename << "\"");
+			UF_MSG_ERROR("Error: Could not open file: {}", filename);
 			return buffer;
 		}
 		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
@@ -112,7 +112,7 @@ uf::stl::string UF_API uf::io::readAsString( const uf::stl::string& _filename, c
 	}
 	uf::stl::string expected = "";
 	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
-		UF_MSG_ERROR("Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected);
+		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
 		return "";
 	}
 	return buffer;
@@ -126,7 +126,7 @@ uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _fi
 	} else {
 		std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 		if ( !is.is_open() ) {
-			UF_MSG_ERROR("Error: Could not open file: " << filename);
+			UF_MSG_ERROR("Error: Could not open file: {}", filename);
 			return buffer;
 		}
 		is.seekg(0, std::ios::end); buffer.reserve(is.tellg()); is.seekg(0, std::ios::beg);
@@ -134,7 +134,7 @@ uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _fi
 	}
 	uf::stl::string expected = "";
 	if ( hash != "" && (expected = uf::string::sha256( buffer )) != hash ) {
-		UF_MSG_ERROR("Error: Hash mismatch for file \"" << filename << "\"; expecting " << hash << ", got " << expected);
+		UF_MSG_ERROR("Error: Hash mismatch for file {}; expecting {}, got {}", filename, hash, expected);
 		return uf::stl::vector<uint8_t>();
 	}
 	return buffer;
@@ -156,14 +156,14 @@ uf::stl::vector<uint8_t> UF_API uf::io::decompress( const uf::stl::string& filen
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
 //	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename );
-	UF_MSG_ERROR("unsupported compression format requested: " << extension);
+	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return {};
 }
 size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
 //	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
-	UF_MSG_ERROR("unsupported compression format requested: " << extension);
+	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return 0;
 }
 

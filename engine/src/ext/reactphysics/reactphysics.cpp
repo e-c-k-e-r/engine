@@ -391,7 +391,7 @@ void ext::reactphysics::syncTo() {
 	size_t count = ::world->getNbRigidBodies();
 	for ( size_t i = 0; i < count; ++i ) {
 		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
-		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object ) continue;
+		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
 		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
 
 		if ( state.shared ) {

@@ -141,7 +141,7 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
 			if (error != ::xatlas::AddMeshError::Success) {
 				::xatlas::Destroy(atlas.pointer);
-				UF_EXCEPTION(::xatlas::StringForEnum(error));
+				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
 			}
 		}
 	}
@@ -495,7 +495,7 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
 			if (error != ::xatlas::AddMeshError::Success) {
 				::xatlas::Destroy(atlas.pointer);
-				UF_EXCEPTION(::xatlas::StringForEnum(error));
+				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
 			}
 		}
 	}

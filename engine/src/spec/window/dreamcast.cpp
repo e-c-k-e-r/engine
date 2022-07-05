@@ -381,7 +381,7 @@ void UF_API_CALL spec::dreamcast::Window::setSize( const spec::dreamcast::Window
 
 	::resolution = size;
 	vid_set_mode(e, p);
-	UF_MSG_DEBUG("Changing resolution to " << uf::vector::toString( size ));
+	UF_MSG_DEBUG("Changing resolution to {}", uf::vector::toString( size ));
 }
 
 void UF_API_CALL spec::dreamcast::Window::setTitle( const spec::dreamcast::Window::title_t& title ) {
@@ -632,7 +632,6 @@ void UF_API_CALL spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
 bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
 	auto code = GetKeyCode(key);
 	auto keys = GetKeys();
-	UF_MSG_DEBUG( key << " " << code << " " << keys.size() );
 	for ( auto key : keys ) if ( key == code ) return true;
 	return false;//
 }

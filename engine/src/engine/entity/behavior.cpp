@@ -11,6 +11,7 @@ void uf::EntityBehavior::initialize( uf::Object& self ) {
 void uf::EntityBehavior::tick( uf::Object& self ) {}
 void uf::EntityBehavior::render( uf::Object& self ) {} 
 void uf::EntityBehavior::destroy( uf::Object& self ) {
+/*
 	for ( uf::Entity* kv : this->getChildren() ) {
 		if ( !kv->isValid() ) continue;
 		kv->destroy();
@@ -20,6 +21,12 @@ void uf::EntityBehavior::destroy( uf::Object& self ) {
 	if ( this->hasParent() ) this->getParent().removeChild(*this);
 	this->unsetUid();
 	if ( uf::Entity::deleteComponentsOnDestroy ) this->destroyComponents();
+*/
+
+	for ( uf::Entity* kv : this->getChildren() ) kv->destroy();
+	if ( this->hasParent() ) this->getParent().removeChild(*this);
+	this->unsetUid();
+//	if ( uf::Entity::deleteComponentsOnDestroy ) this->destroyComponents();
 }
 void uf::EntityBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ) {}
 void uf::EntityBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {}

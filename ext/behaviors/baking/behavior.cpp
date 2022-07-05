@@ -117,7 +117,7 @@ PREPARE: {
 	renderMode.setTarget("");
 	uf::renderer::states::rebuild = true;
 
-	UF_MSG_DEBUG("Graphic configured, ready to bake " << metadata.max.layers << " lightmaps");
+	UF_MSG_DEBUG("Graphic configured, ready to bake {} lightmaps", metadata.max.layers);
 	return;
 }
 SAVE: {
@@ -136,7 +136,7 @@ SAVE: {
 			auto image = metadata.buffers.baked.screenshot(i);
 			uf::stl::string filename = uf::string::replace( metadata.output, "%i", std::to_string(i) );
 			bool status = image.save(filename);
-			UF_MSG_DEBUG("Writing to " << filename << ": " << status);
+			UF_MSG_DEBUG("Writing to {}: {}", filename, status);
 		});
 	}
 	uf::thread::execute( tasks );

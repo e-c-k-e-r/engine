@@ -103,9 +103,6 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 				}
 			}
 		} else {
-		// wglChoosePixelFormatARB not supported ; disabling antialiasing
-			uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Antialiasing is not supported ; it will be disabled" << "\n";
-			uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Antialiasing is not supported ; it will be disabled" << "\n";
 			glSettings.antialiasingLevel = 0;
 		}
 	}
@@ -127,10 +124,7 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 
 		// Get the pixel format that best matches our requirements
 		bestFormat = ChoosePixelFormat(this->m_deviceContext, &descriptor);
-		if (bestFormat == 0) {
-			uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to find a suitable pixel format for device context -- cannot create OpenGL context" << "\n";
-			return;
-		}
+		if (bestFormat == 0) return;
 	}
 
 	// Extract the depth and stencil bits from the chosen format
@@ -142,10 +136,7 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 	glSettings.stencilBits 	= actualFormat.cStencilBits;
 
 	// Set the chosen pixel format
-	if (!SetPixelFormat(this->m_deviceContext, bestFormat, &actualFormat)) {
-		uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to set pixel format for device context -- cannot create OpenGL context" << "\n";
-		return;
-	}
+	if (!SetPixelFormat(this->m_deviceContext, bestFormat, &actualFormat)) return;
 
 	// Get the context to share display lists with
 	HGLRC sharedContext = shared ? ((win32::Context*) shared)->m_context : NULL;
@@ -185,10 +176,7 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 		glSettings.minorVersion = 0;
 
 		this->m_context = wglCreateContext(this->m_deviceContext);
-		if (!this->m_context) {
-			uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to create an OpenGL context for this window" << "\n";
-			return;
-		}
+		if (!this->m_context) return;
 
 		// Share this context with others
 		if (sharedContext) {
@@ -196,9 +184,7 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 		//	static Mutex mutex;
 		//	Lock lock(mutex);
 
-			if (!wglShareLists(sharedContext, this->m_context)) {
-				uf::iostream << "[" << uf::IoStream::Color()("Red") << "ERROR" << "]" << "Failed to share the OpenGL context" << "\n";
-			}
+			if (!wglShareLists(sharedContext, this->m_context));
 		}
 	}
 }

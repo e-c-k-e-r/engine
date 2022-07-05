@@ -30,7 +30,8 @@
 							"payload": {
 								"scene": "StartMenu"
 							},
-							"scope": "scene"
+							"scope": "scene",
+							"delay": 0
 						}
 					}
 				}

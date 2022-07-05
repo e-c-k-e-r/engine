@@ -25,7 +25,7 @@ pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, const 
 template<typename T>
 T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) {
-		UF_MSG_ERROR("Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
+	//	UF_MSG_ERROR("Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 		UF_EXCEPTION("PointeredUserdata size|type mismatch");
 	}
 	union {
@@ -38,7 +38,7 @@ T& uf::userdata::get( pod::Userdata* userdata, bool validate ) {
 template<typename T>
 const T& uf::userdata::get( const pod::Userdata* userdata, bool validate ) {
 	if ( validate && !uf::userdata::is<T>( userdata ) ) {
-		UF_MSG_ERROR("Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
+	//	UF_MSG_ERROR("Expecting {" << UF_USERDATA_CTTI(T) << ", " << sizeof(T) << "}, got {" << userdata->type << ", " << userdata->len << "}" );
 		UF_EXCEPTION("PointeredUserdata size|type mismatch");
 	}
 	union {

@@ -54,8 +54,9 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::stl::string name = "Gui";
-		uf::renderer::addRenderMode( &renderMode, name );
 		renderMode.blitter.descriptor.subpass = 1;
+		renderMode.metadata.type = "single";
+		uf::renderer::addRenderMode( &renderMode, name );
 	}
 
 	auto& scene = uf::scene::getCurrentScene();	

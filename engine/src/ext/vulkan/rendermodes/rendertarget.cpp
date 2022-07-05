@@ -126,20 +126,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					size_t id, normals, uvs, albedo, depth, output;
 				} attachments = {};
 
-				attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */VK_FORMAT_R16G16_UINT,
-					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */false,
-					/*.samples = */msaa,
-				});
-				attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */VK_FORMAT_R16G16_SFLOAT,
-					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */false,
-					/*.samples = */msaa,
-				});
 				if ( !true && ext::vulkan::settings::invariant::deferredMode != "" ) {
 					attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 						/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
@@ -157,6 +143,20 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 						/*.samples = */msaa,
 					});
 				}
+				attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+					/*.format = */VK_FORMAT_R16G16_UINT,
+					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+					/*.blend = */false,
+					/*.samples = */msaa,
+				});
+				attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+					/*.format = */VK_FORMAT_R16G16_SFLOAT,
+					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+					/*.blend = */false,
+					/*.samples = */msaa,
+				});
 				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format = */ext::vulkan::settings::formats::depth,
 					/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,

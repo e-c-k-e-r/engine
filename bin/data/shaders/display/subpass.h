@@ -48,9 +48,7 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 layout (binding = 5) uniform UBO {
 	EyeMatrices eyes[2];
 
-	Mode mode;
-	Fog fog;
-	Vxgi vxgi;
+	Settings settings;
 
 	uint lights;
 	uint materials;
@@ -143,7 +141,7 @@ void postProcess() {
 	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
 #endif
 #if WHITENOISE
-	if ( enabled(ubo.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.mode.parameters);
+	if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
 #endif
 	
 	outFragColor = vec4(surface.fragment.rgb, 1.0);

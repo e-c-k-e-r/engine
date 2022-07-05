@@ -18,6 +18,15 @@ namespace ext {
 				bool bound = false;
 				float scale = 1;
 			} renderer;
+
+			struct {
+				pod::Vector2f defaultRayBounds = {0.001, 4096.0};
+				float alphaTestOffset = 0.001;
+
+				uint32_t samples = 1;
+				uint32_t paths = 1;
+				uint32_t frameAccumulationMinimum = 0;
+			} settings;
 		);
 	}
 }

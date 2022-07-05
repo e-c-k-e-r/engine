@@ -79,7 +79,7 @@ void ext::vulkan::Swapchain::initialize( Device& device ) {
 			case VK_PRESENT_MODE_MAILBOX_KHR: VK_VALIDATION_MESSAGE("Swapchain present mode: VK_PRESENT_MODE_MAILBOX_KHR"); break;
 			case VK_PRESENT_MODE_FIFO_KHR: VK_VALIDATION_MESSAGE("Swapchain present mode: VK_PRESENT_MODE_FIFO_KHR"); break;
 			case VK_PRESENT_MODE_FIFO_RELAXED_KHR: VK_VALIDATION_MESSAGE("Swapchain present mode: VK_PRESENT_MODE_FIFO_RELAXED_KHR"); break;
-			default: VK_VALIDATION_MESSAGE("Swapchain present mode: " << swapchainPresentMode);
+			default: VK_VALIDATION_MESSAGE("Swapchain present mode: {}", swapchainPresentMode);
 		}
 	}
 	// Set extent

@@ -45,6 +45,7 @@ namespace uf {
 				
 				bool ignoreGraph = false;
 				bool invalid = false;
+				bool markedForDeletion = false;
 			} system;
 			struct {
 				pod::Transform<> initial;

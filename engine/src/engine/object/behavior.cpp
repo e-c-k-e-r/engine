@@ -161,6 +161,11 @@ void uf::ObjectBehavior::destroy( uf::Object& self ) {
 		atlas.clear();
 	//	this->deleteComponent<uf::Atlas>();
 	}
+	if ( this->hasComponent<pod::PhysicsState>() ) {
+	//	auto& collider = this->getComponent<pod::PhysicsState>();
+	//	uf::physics::impl::detach( collider );
+		uf::physics::impl::destroy( *this );
+	}
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();

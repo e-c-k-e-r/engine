@@ -17,6 +17,7 @@
 #include <sstream>
 
 #include "../scene/behavior.h"
+#include "../../gui/manager/behavior.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = false)
@@ -264,21 +265,40 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	if ( keys.running ) speed.move = speed.run;
 	else if ( keys.walk ) speed.move = speed.walk;
 
-	uf::Object* menu = (uf::Object*) scene.globalFindByName("Gui: Menu");
-	if ( !menu ) stats.menu = "";
-	// make assumptions
-	if ( stats.menu == "" && keys.paused ) {
-		stats.menu = "paused";
-		metadata.system.control = false;
-		pod::payloads::menuOpen payload;
-		payload.name = "pause";
-		uf::hooks.call("menu:Open", payload);
-	} else if ( !metadata.system.control ) {
-		stats.menu = "menu";
-	} else  {
-		metadata.system.control = stats.menu == "";
+	{
+		uf::Object* menu = (uf::Object*) scene.globalFindByName("Gui: Menu");
+		if ( !menu ) stats.menu = "";
+		// make assumptions
+		if ( stats.menu == "" && keys.paused ) {
+			stats.menu = "paused";
+			metadata.system.control = false;
+			pod::payloads::menuOpen payload;
+			payload.name = "pause";
+			uf::hooks.call("menu:Open", payload);
+		} else if ( !metadata.system.control ) {
+			stats.menu = "menu";
+		} else  {
+			metadata.system.control = stats.menu == "";
+		}
+		metadata.system.menu = stats.menu;
 	}
-	metadata.system.menu = stats.menu;
+/*
+	{
+		uf::Object* guiManager = (uf::Object*) scene.globalFindByName("Gui Manager");
+		bool menu = guiManager && !guiManager->getChildren().empty();
+		if ( !menu ) stats.menu = "";
+		if ( stats.menu == "" && keys.paused ) {
+			stats.menu = "paused";
+			metadata.system.control = false;
+			pod::payloads::menuOpen payload;
+			payload.name = "pause";
+			uf::hooks.call("menu:Open", payload);
+		} else {
+			metadata.system.control = stats.menu == "";
+		}
+		metadata.system.menu = stats.menu;
+	}
+*/
 
 	pod::Transform<> translator = transform;
 #if UF_USE_OPENVR
@@ -312,7 +332,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			metadata.system.noclipped = state;
 			if ( collider.body ) collider.body->enableGravity(!state);
 			
-			UF_MSG_DEBUG( (state ? "En" : "Dis") << "abled noclip: " << uf::vector::toString(transform.position));
+			UF_MSG_DEBUG( "{}abled noclip: {}", (state ? "En" : "Dis"), uf::vector::toString(transform.position));
 		#if 0
 			if ( state ) {
 				if ( collider.body ) {

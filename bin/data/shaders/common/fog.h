@@ -1,11 +1,11 @@
 // Perlin Fog
 void fog( in Ray ray, inout vec3 i, float scale ) {
-	if ( ubo.fog.stepScale <= 0 || ubo.fog.range.x == 0 || ubo.fog.range.y == 0 ) return;
+	if ( ubo.settings.fog.stepScale <= 0 || ubo.settings.fog.range.x == 0 || ubo.settings.fog.range.y == 0 ) return;
 #if FOG_RAY_MARCH
-	const float range = ubo.fog.range.y;
+	const float range = ubo.settings.fog.range.y;
 	const vec3 boundsMin = vec3(-range,-range,-range) + ray.origin;
 	const vec3 boundsMax = vec3(range,range,range) + ray.origin;
-	const int numSteps = int(length(boundsMax - boundsMin) * ubo.fog.stepScale );
+	const int numSteps = int(length(boundsMax - boundsMin) * ubo.settings.fog.stepScale );
 
 	const vec2 rayBoxInfo = rayBoxDst( boundsMin, boundsMax, ray );
 	const float dstToBox = rayBoxInfo.x;
@@ -32,22 +32,22 @@ void fog( in Ray ray, inout vec3 i, float scale ) {
 			ray.position = ray.origin + ray.direction * ray.distance;
 			coneDiameter = coneCoefficient * ray.distance;
 			level = aperture > 0 ? log2( coneDiameter ) : 0;
-			uvw = ray.position * ubo.fog.densityScale * 0.001 + ubo.fog.offset * 0.01;
-			density = max(0, textureLod(samplerNoise, uvw, level).r - ubo.fog.densityThreshold) * ubo.fog.densityMultiplier;
+			uvw = ray.position * ubo.settings.fog.densityScale * 0.001 + ubo.settings.fog.offset * 0.01;
+			density = max(0, textureLod(samplerNoise, uvw, level).r - ubo.settings.fog.densityThreshold) * ubo.settings.fog.densityMultiplier;
 			if ( density > 0 ) {
-				density = exp(-density * stepSize * ubo.fog.absorbtion);
+				density = exp(-density * stepSize * ubo.settings.fog.absorbtion);
 				transmittance *= density;
 				lightFactor *= density;
 				if ( transmittance < 0.1 ) break;
 			}
 		}
-		i.rgb = mix(ubo.fog.color.rgb, i.rgb, transmittance );
+		i.rgb = mix(ubo.settings.fog.color.rgb, i.rgb, transmittance );
 	}
 #endif
 #if FOG_BASIC
-	const vec3 color = ubo.fog.color.rgb;
-	const float inner = ubo.fog.range.x;
-	const float outer = ubo.fog.range.y * scale;
+	const vec3 color = ubo.settings.fog.color.rgb;
+	const float inner = ubo.settings.fog.range.x;
+	const float outer = ubo.settings.fog.range.y * scale;
 	const float distance = length(-surface.position.eye);
 	const float factor = clamp( (distance - inner) / (outer - inner), 0.0, 1.0 );
 

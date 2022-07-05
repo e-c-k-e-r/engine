@@ -125,8 +125,9 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
 //	if ( !data || !length ) return false;
 	if ( !length ) return false;
+	if ( !buffer ) return false;
 	if ( length > allocationInfo.size ) {
-		UF_MSG_DEBUG("LENGTH OF " << length << " EXCEEDS BUFFER SIZE " << allocationInfo.size );
+		UF_MSG_DEBUG("LENGTH OF {} EXCEEDS BUFFER SIZE {}", length, allocationInfo.size );
 		Buffer& b = *const_cast<Buffer*>(this);
 		b.destroy();
 		b.initialize( data, length, usage, memoryProperties, stage );
@@ -151,6 +152,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 		length,
 		data
 	);
+
 
 	// Copy to staging buffer
 	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::TRANSFER);

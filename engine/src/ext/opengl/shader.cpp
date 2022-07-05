@@ -124,7 +124,7 @@ ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::strin
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers[bufferIndex];
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 const ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasUniform(name) );
@@ -134,7 +134,7 @@ const ext::opengl::Buffer& ext::opengl::Shader::getUniformBuffer( const uf::stl:
 		if ( uniformCounter++ != uniformIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 ext::opengl::userdata_t& ext::opengl::Shader::getUniform( const uf::stl::string& name ) {
 	UF_ASSERT( hasUniform(name) );
@@ -165,7 +165,7 @@ ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::strin
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers[bufferIndex];
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 const ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl::string& name ) const {
 	UF_ASSERT( hasStorage(name) );
@@ -175,7 +175,7 @@ const ext::opengl::Buffer& ext::opengl::Shader::getStorageBuffer( const uf::stl:
 		if ( storageCounter++ != storageIndex ) continue;
 		return buffers.at(bufferIndex);
 	}
-	UF_EXCEPTION("buffer not found: " << name);
+	UF_EXCEPTION("buffer not found: {}", name);
 }
 // JSON shit
 #if 0

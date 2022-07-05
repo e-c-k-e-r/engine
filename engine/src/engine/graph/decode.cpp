@@ -248,7 +248,6 @@ namespace {
 				remove.insert(remove.begin(), i);
 			}
 			for ( auto& i : remove ) {
-			//	UF_MSG_DEBUG("Removing " << mesh.vertex.attributes[i].descriptor.name);
 				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
 				mesh.buffers[mesh.vertex.attributes[i].buffer].shrink_to_fit();
 				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
@@ -299,7 +298,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	const uf::stl::string directory = uf::io::directory( filename ) + "/";
 	pod::Graph graph;
 	uf::Serializer serializer;
-	UF_DEBUG_TIMER_MULTITRACE_START("Reading " << filename);
+	UF_DEBUG_TIMER_MULTITRACE_START("Reading {}", filename);
 	serializer.readFromFile( filename );
 	// load metadata
 	graph.name = filename; //serializer["name"].as<uf::stl::string>();
@@ -319,7 +318,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			auto name = value["name"].as<uf::stl::string>();
 			/*graph.storage*/uf::graph::storage.instances[name] = decodeInstance( value, graph );
 			graph.instances.emplace_back(name);
-			UF_MSG_DEBUG( name );
+			UF_MSG_DEBUG( "{}", name );
 		});
 	#if UF_ENV_DREAMCAST
 		DC_STATS();

@@ -4,13 +4,13 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/mcdonalds.glb" }
-		{ "filename": "./models/mcdonalds/graph.json" },
+		{ "filename": "./models/mcdonalds/graph.json" }
 
 	//	{ "filename": "./models/mini_mcd.glb" }
 	//	{ "filename": "./models/mini_mcd/graph.json" }
 		
 	//	{ "filename": "/cornell/cornell.glb" }
-		{ "filename": "/cornell/cornell/graph.json" }
+	//	{ "filename": "/cornell/cornell/graph.json" }
 	],
 	"metadata": {
 		"model": {

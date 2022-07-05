@@ -53,7 +53,7 @@ template<typename T> void uf::instantiator::registerObject( const uf::stl::strin
 	});
 
 	#if UF_INSTANTIATOR_ANNOUNCE
-		UF_MSG_DEBUG("Registered instantiation for " << name);
+		UF_MSG_DEBUG("Registered instantiation for {}", name);
 	#endif
 }
 template<typename T> void uf::instantiator::registerBinding( const uf::stl::string& name ) {
@@ -63,7 +63,7 @@ template<typename T> void uf::instantiator::registerBinding( const uf::stl::stri
 	instantiator.behaviors.emplace_back(name);
 	
 	#if UF_INSTANTIATOR_ANNOUNCE
-		UF_MSG_DEBUG("Registered binding for " << name);
+		UF_MSG_DEBUG("Registered binding for {}", name);
 	#endif
 }
 

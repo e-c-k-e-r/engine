@@ -66,6 +66,11 @@ namespace ext {
 					ext::opengl::Texture::Descriptor primary = {};
 					ext::opengl::Texture::Descriptor secondary = {};
 				} textures;
+
+				struct {
+					uint8_t modeAlpha{};
+					float alphaCutoff = 0.001f;
+				} blend;
 			/*
 				GraphicDescriptor descriptor = {};
 				ext::opengl::Buffer::Descriptor vertexBuffer = {};

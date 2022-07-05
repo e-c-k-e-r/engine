@@ -13,10 +13,15 @@
 #include <fstream>
 #include <atomic>
 
+#if UF_USE_IMGUI
+	#include <uf/ext/imgui/imgui.h>
+#endif
+
 uint32_t ext::opengl::settings::width = 640;
 uint32_t ext::opengl::settings::height = 480;
 uint8_t ext::opengl::settings::msaa = 1;
 bool ext::opengl::settings::validation = false;
+bool ext::opengl::settings::defaultStageBuffers = false;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
 size_t ext::opengl::settings::viewCount = 1;
 
@@ -108,7 +113,7 @@ bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
 ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModes.push_back(mode);
-	if ( ext::opengl::settings::validation ) UF_MSG_DEBUG("Adding RenderMode: " << name << ": " << mode->getType());
+	if ( ext::opengl::settings::validation ) UF_MSG_DEBUG("Adding RenderMode: {}: {}", name, mode->getType());
 	// reorder
 	if ( hasRenderMode("Gui", true) ) {
 		RenderMode& primary = getRenderMode("Gui", true);
@@ -207,7 +212,6 @@ void UF_API ext::opengl::initialize() {
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode ) continue;
-		UF_MSG_DEBUG( renderMode << " " << renderMode->getName() << " " << renderMode->getType() );
 		renderMode->initialize(device);
 	}
 	
@@ -434,6 +438,12 @@ void UF_API ext::opengl::render(){
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::opengl::setCurrentRenderMode( renderMode );
+
+	#if UF_USE_IMGUI
+		if ( renderMode->getName() == "Gui" ) {
+			ext::imgui::render();
+		}
+	#endif
 
 		uf::graph::render();
 		uf::scene::render();

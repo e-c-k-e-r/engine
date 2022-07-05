@@ -66,7 +66,7 @@ int main(int argc, char** argv){
 		if ( !timer.running() ) timer.start();
 
 		if ( timer.elapsed().asDouble() >= next ) {
-			UF_MSG_INFO("Waiting for " << ( client::ready ? "client" : "extension / engine" ) << " to initialize... Retrying in " << next << " seconds.");
+		//	UF_MSG_INFO("Waiting for " << ( client::ready ? "client" : "extension / engine" ) << " to initialize... Retrying in " << next << " seconds.");
 			next *= 2;
 		}
 	}
@@ -98,18 +98,18 @@ int main(int argc, char** argv){
 			}
 	#if UF_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {
-			UF_MSG_ERROR("RUNTIME ERROR: " << e.what());
+			UF_MSG_ERROR("RUNTIME ERROR: {}", e.what());
 			abort();
 		} catch ( std::exception& e ) {
-			UF_MSG_ERROR("EXCEPTION ERROR: " << e.what());
+			UF_MSG_ERROR("EXCEPTION ERROR: {}", e.what());
 			abort();
 		} catch ( bool handled ) {
 			if (!handled) {
-				UF_MSG_ERROR("UNHANDLED ERROR: " << "???");
+				UF_MSG_ERROR("UNHANDLED ERROR: {}", "???");
 				abort();
 			}
 		} catch ( ... ) {
-			UF_MSG_ERROR("UNKNOWN ERROR: " << "???");
+			UF_MSG_ERROR("UNKNOWN ERROR: {}", "???");
 			abort();
 		}
 	#endif

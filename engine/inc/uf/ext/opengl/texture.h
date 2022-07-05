@@ -38,6 +38,11 @@ namespace ext {
 					bool enabled = true;
 					float max = 16.0f;
 				} anisotropy;
+				struct {
+					uint8_t mode{};
+					float alphaCutoff = 0.001f;
+				} blend;
+
 				GLhandle(VkDescriptorImageInfo) info;
 			} descriptor;
 

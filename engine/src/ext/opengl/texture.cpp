@@ -64,13 +64,14 @@ void ext::opengl::Texture::updateDescriptors() {
 }
 bool ext::opengl::Texture::generated() const {
 #if UF_ENV_DREAMCAST
-	return image;
+	return image != GL_NULL_HANDLE;
 #else
-	return glIsTexture(image);
+	return image != GL_NULL_HANDLE;
+//	return glIsTexture(image);
 #endif
 }
 void ext::opengl::Texture::destroy() {
-	if ( !device ) return;
+//	if ( !device ) return;
 	if ( generated() ) {
 		GL_MUTEX_LOCK();
 		GL_ERROR_CHECK(glDeleteTextures(1, &image));
@@ -124,7 +125,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = srgb ? enums::Format::R8_SRGB : enums::Format::R8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
 					break;
 				}
 			break;
@@ -135,7 +136,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = srgb ? enums::Format::R8G8_SRGB : enums::Format::R8G8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
 					break;
 				}
 			break;
@@ -146,7 +147,7 @@ void ext::opengl::Texture::loadFromImage(
 						format = srgb ? enums::Format::R8G8B8_SRGB : enums::Format::R8G8B8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
 					break;
 				}
 			break;
@@ -160,12 +161,12 @@ void ext::opengl::Texture::loadFromImage(
 						format = srgb ? enums::Format::R8G8B8A8_SRGB : enums::Format::R8G8B8A8_UNORM;
 					break;
 					default:
-					UF_EXCEPTION("OpenGL error: unsupported BPP of " << image.getBpp() );
+					UF_EXCEPTION("OpenGL error: unsupported BPP of {}", image.getBpp() );
 					break;
 				}
 			break;
 			default:
-			UF_EXCEPTION("OpenGL error: unsupported channels of " << image.getChannels() );
+			UF_EXCEPTION("OpenGL error: unsupported channels of {}", image.getChannels() );
 			break;
 		}
 	}
@@ -247,7 +248,10 @@ void ext::opengl::Texture::fromBuffers(
 	GL_ERROR_CHECK(glTexParameteri(viewType, GL_TEXTURE_MAG_FILTER, sampler.descriptor.filter.mag));
 	GL_ERROR_CHECK(glBindTexture(viewType, 0));
 	GL_MUTEX_UNLOCK();
-	if ( data ) this->update( data, bufferSize, 0 );
+	
+	if ( data ) {
+		this->update( data, bufferSize, 0 );
+	}
 	this->updateDescriptors();
 #endif
 }
@@ -292,18 +296,30 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 #endif
 	GLenum format = GL_RGBA;
 	GLenum type = GL_UNSIGNED_BYTE;
+	GLenum internalFormat = GL_RGBA8;
 	switch ( this->format ) {
 		case enums::Format::R8_UNORM:
 		case enums::Format::R8_SRGB:
 			format = GL_LUMINANCE;
+		#if UF_ENV_DREAMCAST
+			internalFormat = format;
+		#else
+			internalFormat = GL_R8;
+		#endif
 		break;
 		case enums::Format::R8G8_UNORM:
 		case enums::Format::R8G8_SRGB:
 			format = GL_LUMINANCE_ALPHA;
+		#if UF_ENV_DREAMCAST
+			internalFormat = format;
+		#else
+			internalFormat = GL_RG8;
+		#endif
 		break;
 		case enums::Format::R8G8B8_UNORM:
 		case enums::Format::R8G8B8_SRGB:
 			format = GL_RGB;
+			internalFormat = GL_RGB8;
 		break;
 		case enums::Format::R4G4B4A4_UNORM_PACK16:
 	//	case enums::Format::R4G4B4A4_UNORM_PSRGB:
@@ -313,14 +329,15 @@ void ext::opengl::Texture::update( void* data, size_t bufferSize, uint32_t layer
 		case enums::Format::R8G8B8A8_UNORM:
 		case enums::Format::R8G8B8A8_SRGB:
 			format = GL_RGBA;
+			internalFormat = GL_RGBA8;
 		break;
 	}
 	GL_MUTEX_LOCK();
 	GL_ERROR_CHECK(glBindTexture(viewType, image));
 	switch ( viewType ) {
-		case enums::Image::VIEW_TYPE_2D: { GL_ERROR_CHECK(glTexImage2D(viewType, 0, format, width, height, 0, format, type, data)); } break;
+		case enums::Image::VIEW_TYPE_2D: { GL_ERROR_CHECK(glTexImage2D(viewType, 0, internalFormat, width, height, 0, format, type, data)); } break;
 	#if !UF_USE_OPENGL_FIXED_FUNCTION
-		case enums::Image::VIEW_TYPE_3D: { GL_ERROR_CHECK(glTexImage3D(viewType, 0, format, width, height, depth, 0, format, type, data)); } break;
+		case enums::Image::VIEW_TYPE_3D: { GL_ERROR_CHECK(glTexImage3D(viewType, 0, internalFormat, width, height, depth, 0, format, type, data)); } break;
 	#endif
 	}
 	if ( this->mips > 1 ) GL_ERROR_CHECK(glGenerateMipmapEXT(GL_TEXTURE_2D));

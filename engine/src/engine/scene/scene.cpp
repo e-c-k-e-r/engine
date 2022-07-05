@@ -12,6 +12,8 @@ UF_OBJECT_REGISTER_BEGIN(uf::Scene)
 UF_OBJECT_REGISTER_END()
 uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 
+#define UF_SCENE_GLOBAL_GRAPH 1
+
 #if UF_SCENE_GLOBAL_GRAPH
 namespace {
 	uf::SceneBehavior::Metadata metadata;

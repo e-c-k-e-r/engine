@@ -133,9 +133,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	graph.name = filename;
 	graph.metadata = metadata;
 
-	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: " << warn);
-	if ( !err.empty() ) UF_MSG_ERROR("glTF error: " << err);
-	if ( !ret ) { UF_MSG_ERROR("glTF error: failed to parse file: " << filename);
+	if ( !warn.empty() ) UF_MSG_WARNING("glTF warning: {}", warn);
+	if ( !err.empty() ) UF_MSG_ERROR("glTF error: {}", err);
+	if ( !ret ) { UF_MSG_ERROR("glTF error: failed to parse file: {}", filename);
 		return graph;
 	}
 
@@ -156,7 +156,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.images.emplace_back(/*filename + "/" +*/ i.name);
 			auto& image = /*graph.storage*/uf::graph::storage.images[keyName];
 			if ( graph.metadata["exporter"]["image"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Image: " << i.name );
+				UF_MSG_DEBUG("Image: {}", i.name );
 			}
 
 			image.loadFromBuffer( &i.image[0], {i.width, i.height}, 8, i.component, graph.metadata["flip textures"].as<bool>(true) );
@@ -170,7 +170,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.samplers.emplace_back(/*filename + "/" +*/ s.name);
 			auto& sampler = /*graph.storage*/uf::graph::storage.samplers[keyName];
 			if ( graph.metadata["exporter"]["sampler"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Sampler: " << s.name );
+				UF_MSG_DEBUG("Sampler: {}", s.name );
 			}
 
 			sampler.descriptor.filter.min = getFilterMode( s.minFilter );
@@ -190,7 +190,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.textures.emplace_back((t.name == "" ? graph.images[t.source] : (/*filename + "/" +*/ t.name)));
 			auto& texture = /*graph.storage*/uf::graph::storage.textures[keyName];
 			if ( graph.metadata["exporter"]["texture"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Texture: " << t.name );
+				UF_MSG_DEBUG("Texture: {}", t.name );
 			}
 
 			texture.index = t.source;
@@ -207,7 +207,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.materials.emplace_back(/*filename + "/" +*/ m.name);
 			auto& material = /*graph.storage*/uf::graph::storage.materials[keyName];
 			if ( graph.metadata["exporter"]["material"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Material: " << m.name );
+				UF_MSG_DEBUG("Material: {}", m.name );
 			}
 
 			material.indexAlbedo = m.pbrMetallicRoughness.baseColorTexture.index;
@@ -237,7 +237,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			if ( mode == "OPAQUE" ) material.modeAlpha = 0;
 			else if ( mode == "BLEND" ) material.modeAlpha = 1;
 			else if ( mode == "MASK" ) material.modeAlpha = 2;
-			else UF_MSG_WARNING("Unhandled alpha mode: " << mode);
+			else UF_MSG_WARNING("Unhandled alpha mode: {}", mode);
 
 			if ( m.doubleSided && graph.metadata["cull mode"].as<uf::stl::string>() == "auto" ) {
 				graph.metadata["cull mode"] = "none";
@@ -254,7 +254,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto meshID = graph.meshes.size();
 			auto keyName = graph.meshes.emplace_back(/*filename + "/" +*/ m.name);
 			if ( graph.metadata["exporter"]["mesh"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Mesh: " << m.name );
+				UF_MSG_DEBUG("Mesh: {}", m.name );
 			}
 
 			graph.primitives.emplace_back(keyName);
@@ -321,7 +321,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.skins.emplace_back(/*filename + "/" +*/ s.name);
 			auto& skin = /*graph.storage*/uf::graph::storage.skins[keyName];
 			if ( graph.metadata["exporter"]["skin"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Skin: " << s.name );
+				UF_MSG_DEBUG("Skin: {}", s.name );
 			}
 
 			skin.name = s.name;			
@@ -358,7 +358,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			auto keyName = graph.animations.emplace_back(/*filename + "/" +*/ a.name);
 			auto& animation = /*graph.storage*/uf::graph::storage.animations[keyName];
 			if ( graph.metadata["exporter"]["animation"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Animation: " << a.name );
+				UF_MSG_DEBUG("Animation: {}", a.name );
 			}
 
 			animation.name = a.name;
@@ -418,7 +418,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 		for ( auto& l : model.lights ) {
 			auto& light = graph.lights[l.name];
 			if ( graph.metadata["exporter"]["light"]["print"].as<bool>() ) {
-				UF_MSG_DEBUG("Light: " << l.name );
+				UF_MSG_DEBUG("Light: {}", l.name );
 			}
 
 			light.color = { l.color[0], l.color[1], l.color[2], };
@@ -477,7 +477,7 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 	if ( graph.metadata["exporter"]["unwrap"].as<bool>(true) || graph.metadata["exporter"]["unwrap"].as<uf::stl::string>() == "tagged" ) {
 		UF_MSG_DEBUG( "Generating ST's..." );
 		size_t atlases = ext::xatlas::unwrap( graph );
-		UF_MSG_DEBUG( "Generated ST's for " << atlases << " lightmaps" );
+		UF_MSG_DEBUG( "Generated ST's for {} lightmaps", atlases );
 	}
 #endif
 #if UF_USE_MESHOPT
@@ -507,9 +507,9 @@ pod::Graph ext::gltf::load( const uf::stl::string& filename, const uf::Serialize
 			}
 
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[keyName];
-			UF_MSG_DEBUG("Optimizing mesh at level " << level << ": " << keyName);
+			UF_MSG_DEBUG("Optimizing mesh at level {}: {}", level, keyName);
 			if ( !ext::meshopt::optimize( mesh, simplify, level ) ) {
-				UF_MSG_ERROR("Mesh optimization failed: " << keyName );
+				UF_MSG_ERROR("Mesh optimization failed: {}", keyName );
 			}
 		}
 

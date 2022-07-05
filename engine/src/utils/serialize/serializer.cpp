@@ -58,7 +58,6 @@ uf::stl::string uf::Serializer::resolveFilename( const uf::stl::string& filename
 }
 
 bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::stl::string& hash ) {
-//	UF_MSG_DEBUG("Loading: " << filename);
 #if UF_SERIALIZER_IMPLICIT_LOAD
 	// implicitly check for optimal format for plain .json requests
 	if ( uf::string::matched( filename, "/\\.json$/" ) ) {
@@ -68,12 +67,12 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 #endif
 	bool exists = uf::io::exists( filename );
 	if ( !exists ) {
-		UF_MSG_ERROR("Failed to read JSON file `" << filename << "`: does not exist");
+		UF_MSG_ERROR("Failed to read JSON file {}: does not exist", filename);
 		return false;
 	}
 	auto buffer = uf::io::readAsBuffer( filename, hash );
 	if ( buffer.empty() ) {
-		UF_MSG_ERROR("Failed to read JSON file `" << filename << "`: empty file or hash mismatch");
+		UF_MSG_ERROR("Failed to read JSON file {}: empty file or hash mismatch", filename);
 		return false;
 	}
 
@@ -106,7 +105,6 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 			bool should = !uf::io::exists( _filename ); // auto convert if preferred file doesn't already exist
 			if ( !should ) should = uf::io::mtime( _filename ) < uf::io::mtime( filename ); // auto convert if preferred file is older than source file
 			if ( should ) {
-				UF_MSG_DEBUG_("Auto converting: " << _filename );
 				writeToFile( _filename, _settings );
 			}
 		}
@@ -141,7 +139,7 @@ bool uf::Serializer::writeToFile( const uf::stl::string& filename, const ext::js
 	}
 #endif
 
-	if ( !written ) UF_MSG_ERROR("Failed to write JSON file: " << output);
+	if ( !written ) UF_MSG_ERROR("Failed to write JSON file: {}", output);
 	return written;
 }
 

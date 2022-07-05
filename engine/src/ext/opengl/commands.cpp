@@ -108,32 +108,26 @@ void ext::opengl::CommandBuffer::submit() {
 				GL_ERROR_CHECK(glClear(info->bits));
 				GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
 			*/
-				//UF_TIMER_MULTITRACE("Command::CLEAR");
 			} break;
 			case ext::opengl::enums::Command::VIEWPORT: {
 				InfoViewport* info = (InfoViewport*) header;
 				GL_ERROR_CHECK(glViewport(info->corner[0], info->corner[1], info->size[0], info->size[1]));
-				//UF_TIMER_MULTITRACE("Command::VIEWPORT");
 			} break;
 			case ext::opengl::enums::Command::VARIANT: {
 				InfoVariant* info = (InfoVariant*) header;
 				if ( info->lambda ) info->lambda();
-				//UF_TIMER_MULTITRACE("Command::VARIANT");
 			} break;
 			case ext::opengl::enums::Command::DRAW: {
 				InfoDraw* info = (InfoDraw*) header;
 				drawIndexed( *info );
-				//UF_TIMER_MULTITRACE("Command::DRAW");
 			} break;
 			default: {
 			} break;
 		}
 	}
 	if ( ::culled ) {
-	//	UF_MSG_DEBUG("Culled " << ::culled << " meshes.");
 		::culled = 0;
 	}
-	//UF_TIMER_MULTITRACE_END("Finished command buffer submission: " << this);
 	state = 3;
 	mutex->unlock();
 }
@@ -241,14 +235,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 	if ( drawInfo.matrices.projection ) projection = *drawInfo.matrices.projection;
 
-#if 0
-	{
-		if ( drawInfo.matrices.model ) UF_MSG_DEBUG( "model: " << drawInfo.matrices.model << " " << uf::matrix::toString( *drawInfo.matrices.model ) );
-		if ( drawInfo.matrices.view ) UF_MSG_DEBUG( "view: " << drawInfo.matrices.view << " " << uf::matrix::toString( *drawInfo.matrices.view ) );
-		if ( drawInfo.matrices.projection ) UF_MSG_DEBUG( "projection: " << drawInfo.matrices.projection << " " << uf::matrix::toString( *drawInfo.matrices.projection ) );
-	}
-#endif
-
 	if ( drawInfo.attributes.indirect.pointer && drawInfo.attributes.indirect.length == sizeof(pod::DrawCommand) ) {
 		pod::DrawCommand& drawCommand = *(pod::DrawCommand*) drawInfo.attributes.indirect.pointer;
 		if ( ext::opengl::settings::pipelines::culling && drawInfo.attributes.instance.pointer && drawInfo.attributes.instance.length == sizeof(pod::Instance) ) {
@@ -262,13 +248,24 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		if ( drawCommand.instances == 0 ) return;
 	}
 
+
+	if ( drawInfo.blend.modeAlpha > 0 ) {
+		GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
+		GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
+	
+		GL_ERROR_CHECK(glEnable(GL_BLEND));
+		GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+	} else {
+		GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
+		GL_ERROR_CHECK(glDisable(GL_BLEND));
+	}
+
 	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
 	GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
 
 	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
 	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
 
-#if 1
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
 		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
 	} else {
@@ -282,7 +279,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 	}
 	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
-#endif
 
 	// CPU-buffer based command dispatching
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
@@ -295,8 +291,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case sizeof(uint16_t): indicesType = GL_UNSIGNED_SHORT; break;
 		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 	}
-
-	GLboolean blending = glIsEnabled(GL_BLEND);
 
 	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {		
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));

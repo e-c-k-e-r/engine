@@ -169,7 +169,7 @@ bool ext::openvr::initialize( int stage ) {
 				vr::VRActionSetHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionSetHandle( name.c_str(), &handle ) );
 				handles.actionSets[name] = handle;
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action set: " << name);
+				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action set: {}", name);
 				// handles.actionSets.push_back(handle);
 			}
 			for ( auto i = 0; i < manifest["actions"].size(); ++i ) {
@@ -177,7 +177,7 @@ bool ext::openvr::initialize( int stage ) {
 				vr::VRActionHandle_t handle;
 				VR_CHECK_INPUT_RESULT( vr::VRInput()->GetActionHandle( name.c_str(), &handle ) );
 				handles.actions[name] = handle;
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action: " << name);
+				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered action: {}", name);
 				// handles.actions.push_back(handle);
 
 				// add haptics to hooks
@@ -186,7 +186,7 @@ bool ext::openvr::initialize( int stage ) {
 					uf::stl::string shortname = split.back();
 					split = uf::string::split( shortname, "." );
 					if ( split.front() == "hapticVibration" ) {
-						if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered hook for haptic: " << ("VR:Haptics."+split.back()));
+						if ( DEBUG_MARKER ) UF_MSG_DEBUG("Registered hook for haptic: {}", ("VR:Haptics."+split.back()));
 						uf::hooks.addHook( "VR:Haptics."+split.back(), [&](ext::json::Value& json){
 							if ( vr::VRInputError_None != vr::VRInput()->TriggerHapticVibrationAction( handle, json["delay"].as<float>(), json["duration"].as<float>(), json["frequency"].as<float>(), json["amplitude"].as<float>(), vr::k_ulInvalidInputValueHandle ) )
 								return;
@@ -240,7 +240,7 @@ void ext::openvr::tick() {
 
 	// load render model from api
 	for ( auto& pair : ::queuedRenderModels ) {
-		if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED: " << pair.first);
+		if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED: {}", pair.first);
 		uf::stl::string name = pair.first;
 		auto& queued = pair.second;
 		{
@@ -249,7 +249,7 @@ void ext::openvr::tick() {
 			if ( status == vr::VRRenderModelError_Loading ) continue;
 			// error'd out
 			if ( status != vr::VRRenderModelError_None ) {
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model " << name << ": " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
+				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model {}: {}", name, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
 				::queuedRenderModels.erase(name);
 				break;
 			}
@@ -261,7 +261,7 @@ void ext::openvr::tick() {
 			if ( status == vr::VRRenderModelError_Loading ) continue;
 			// error'd out
 			if ( status != vr::VRRenderModelError_None ) {
-				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model " << name << "'s texture: " << vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
+				if ( DEBUG_MARKER ) UF_MSG_DEBUG("Failed to load render model {}'s texture: ", name, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( status ));
 				vr::VRRenderModels()->FreeRenderModel( queued.model );
 				::queuedRenderModels.erase(name);
 				break;
@@ -303,13 +303,13 @@ void ext::openvr::tick() {
 		
 		// clear
 		{
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED MODEL: " << queued.model);
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED TEXTURE: " << queued.texture);
+			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED MODEL: {}", queued.model);
+			if ( DEBUG_MARKER ) UF_MSG_DEBUG("QUEUED TEXTURE: {}", queued.texture);
 			vr::VRRenderModels()->FreeRenderModel( queued.model );
 			vr::VRRenderModels()->FreeTexture( queued.texture );
 		}
 		{
-			if ( DEBUG_MARKER ) UF_MSG_DEBUG("FINISHED LOADING: " << name);
+			if ( DEBUG_MARKER ) UF_MSG_DEBUG("FINISHED LOADING: {}", name);
 			::queuedRenderModels.erase(name);
 			break;
 		}
@@ -420,7 +420,7 @@ void ext::openvr::tick() {
 	}
 }
 bool ext::openvr::requestRenderModel( const uf::stl::string& name ) {
-	if ( DEBUG_MARKER ) UF_MSG_DEBUG("Requesting render model: " << name);
+	if ( DEBUG_MARKER ) UF_MSG_DEBUG("Requesting render model: {}", name);
 	if ( std::find( renderModelNames.begin(), renderModelNames.end(), name ) == renderModelNames.end() ) return false;
 	if ( renderModels.count(name) == 1 ) return true;
 	::queuedRenderModels[name];
@@ -603,7 +603,6 @@ pod::Matrix4t<> ext::openvr::hmdProjectionMatrix( vr::Hmd_Eye eye, float zNear, 
 		frustum.bottom = abs( frustum.bottom );
 	} else {
 	}
-	//	if ( DEBUG_MARKER ) UF_MSG_DEBUG(frustum.left << "\t" << frustum.right << "\t" << frustum.top << "\t" << frustum.bottom);
 
 	/*
 		float fov = this->m_settings.perspective.fov * (3.14159265358f / 180.0f);

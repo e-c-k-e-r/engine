@@ -22,7 +22,7 @@ void uf::LoadingBehavior::initialize( uf::Object& self ) {
 		auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 
 		if ( !metadata.system.loaded ) {
-			UF_MSG_ERROR("invalid hook invocation: system:Load.Finished:" << this->getUid());
+			UF_MSG_ERROR("invalid hook invocation: system:Load.Finished: {}", this->getUid());
 			return;
 		}
 

@@ -28,6 +28,7 @@
 
 #include "../light/behavior.h"
 #include "../voxelizer/behavior.h"
+#include "../raytrace/behavior.h"
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
@@ -389,8 +390,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				GL_ERROR_CHECK(glLightf(target, GL_CONSTANT_ATTENUATION, 0.0f));
 				GL_ERROR_CHECK(glLightf(target, GL_LINEAR_ATTENUATION, 0));
 				GL_ERROR_CHECK(glLightf(target, GL_QUADRATIC_ATTENUATION, 1.0f / info.power));
-
-			//	UF_MSG_DEBUG( i << " | " << uf::vector::toString( metadata.light.ambient ) << " | " << uf::vector::toString( metadata.light.specular ) << " | " << uf::vector::toString( info.color ) << " | " << uf::vector::toString( info.position ) << " | " << info.power );
 			}
 			for ( ; i < metadata.light.max; ++i ) GL_ERROR_CHECK(glDisable(GL_LIGHT0+i));
 		}
@@ -698,15 +697,6 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 }
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
-	auto& graph = this->getGraph();
-	auto& controller = this->getController();
-	auto& camera = controller.getComponent<uf::Camera>();
-	auto& controllerMetadata = controller.getComponent<uf::Serializer>();
-	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
-	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
-	auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
-	auto& metadataJson = this->getComponent<uf::Serializer>();
-
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
 	auto blitters = renderMode.getBlitters();
 
@@ -720,6 +710,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataVxgi = this->getComponent<ext::VoxelizerSceneBehavior::Metadata>();
+	auto& metadataRt = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	if ( !graphic.initialized ) return;
@@ -735,42 +726,55 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			alignas(16) pod::Vector4f eyePos;
 		} matrices[2];
 
-		struct Mode {
-			alignas(4) uint8_t mode;
-			alignas(4) uint8_t scalar;
-			alignas(8) pod::Vector2ui padding;
-			alignas(16) pod::Vector4f parameters;
-		} mode;
+		struct Settings {
+			struct Mode {
+				alignas(4) uint8_t mode;
+				alignas(4) uint8_t scalar;
+				alignas(8) pod::Vector2ui padding;
+				alignas(16) pod::Vector4f parameters;
+			} mode;
 
-		struct Fog {
-			pod::Vector3f color;
-			alignas(4) float stepScale;
+			struct Fog {
+				pod::Vector3f color;
+				alignas(4) float stepScale;
 
-			pod::Vector3f offset;
-			alignas(4) float densityScale;
+				pod::Vector3f offset;
+				alignas(4) float densityScale;
 
-			alignas(8) pod::Vector2f range;
-			alignas(4) float densityThreshold;
-			alignas(4) float densityMultiplier;
-			
-			alignas(4) float absorbtion;
-			alignas(4) float padding1;
-			alignas(4) float padding2;
-			alignas(4) float padding3;
-		} fog;
+				alignas(8) pod::Vector2f range;
+				alignas(4) float densityThreshold;
+				alignas(4) float densityMultiplier;
+				
+				alignas(4) float absorbtion;
+				alignas(4) float padding1;
+				alignas(4) float padding2;
+				alignas(4) float padding3;
+			} fog;
 
-		struct VXGI {
-			alignas(16) pod::Matrix4f matrix;
-			alignas(4)  float cascadePower;
-			alignas(4)  float granularity;
-			alignas(4)  float voxelizeScale;
-			alignas(4)  float occlusionFalloff;
-			
-			alignas(4)  float traceStartOffsetFactor;
-			alignas(4)  uint32_t shadows;
-			alignas(4)  uint32_t padding2;
-			alignas(4)  uint32_t padding3;
-		} vxgi;
+			struct VXGI {
+				alignas(16) pod::Matrix4f matrix;
+				alignas(4)  float cascadePower;
+				alignas(4)  float granularity;
+				alignas(4)  float voxelizeScale;
+				alignas(4)  float occlusionFalloff;
+				
+				alignas(4)  float traceStartOffsetFactor;
+				alignas(4)  uint32_t shadows;
+				alignas(4)  uint32_t padding2;
+				alignas(4)  uint32_t padding3;
+			} vxgi;
+
+			struct RT {
+				alignas(8) pod::Vector2f defaultRayBounds;
+				alignas(4) float alphaTestOffset;
+				alignas(4) float padding1;
+
+				alignas(4) uint samples;
+				alignas(4) uint paths;
+				alignas(4) uint frameAccumulationMinimum;
+				alignas(4) uint padding2;
+			} rt;
+		} settings;
 
 		struct Lengths {
 			alignas(4) uint32_t lights = 0;
@@ -844,13 +848,13 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 				.eyePos = camera.getEye( i ),
 			};
 		}
-		uniforms.mode = UniformDescriptor::Mode{
+		uniforms.settings.mode = UniformDescriptor::Settings::Mode{
 			.mode = metadata.shader.mode,
 			.scalar = metadata.shader.scalar,
 			.padding = pod::Vector2ui{0,0},
 			.parameters = metadata.shader.parameters,
 		};
-		uniforms.fog = UniformDescriptor::Fog{
+		uniforms.settings.fog = UniformDescriptor::Settings::Fog{
 			.color = metadata.fog.color,
 			.stepScale = metadata.fog.stepScale,
 
@@ -864,7 +868,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.absorbtion = metadata.fog.absorbtion,
 		};
 
-		uniforms.vxgi = UniformDescriptor::VXGI{
+		uniforms.settings.vxgi = UniformDescriptor::Settings::VXGI{
 			.matrix = metadataVxgi.extents.matrix,
 			.cascadePower = metadataVxgi.cascadePower,
 			.granularity = metadataVxgi.granularity,
@@ -873,6 +877,15 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			
 			.traceStartOffsetFactor = metadataVxgi.traceStartOffsetFactor,
 			.shadows = metadataVxgi.shadows,
+		};
+
+		uniforms.settings.rt = UniformDescriptor::Settings::RT{
+			.defaultRayBounds = metadataRt.settings.defaultRayBounds, // { 0.001, 4096.0 },
+			.alphaTestOffset = metadataRt.settings.alphaTestOffset, //0.001,
+
+			.samples = metadataRt.settings.samples, // 1,
+			.paths = metadataRt.settings.paths, // 1,
+			.frameAccumulationMinimum = metadataRt.settings.frameAccumulationMinimum, // 0,
 		};
 	
 		uniforms.lengths = UniformDescriptor::Lengths{

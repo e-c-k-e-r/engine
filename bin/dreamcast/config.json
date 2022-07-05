@@ -42,7 +42,7 @@
 				}
 			},
 			"lua": {
-				"enabled": false,
+				"enabled": true,
 				"main": "/main.lua",
 				"modules": {
 					"json": "/json.lua"
@@ -53,7 +53,7 @@
 				"compression": "gz"
 			},
 			"reactphysics": {
-				"timescale": 0.06666666666,
+				"timescale": 0.01666666666,
 				"interpolate": false,
 				"debug draw": {
 					"enabled": false,
@@ -76,15 +76,15 @@
 			"streams by default": true
 		},
 		"memory pool": {
-			"enabled": true,
+			"enabled": false,
 			"subPools": true,
 			"alignment": 32,
 			"override": false,
 			"size": "512 KiB",
 			"pools": {
-				"entity": "96 KiB",
-				"userdata": "96 KiB",
-				"component": "96 KiB"
+				"entity": "128 KiB",
+				"userdata": "128 KiB",
+				"component": "128 KiB"
 			}
 		},
 		"render modes": { "gui": true, "deferred": true },
@@ -93,7 +93,7 @@
 			"framerate": 60
 		},
 		"threads": {
-			"workers" : "auto",
+			"workers" : 1, // "auto",
 			"frame limiter": "auto"
 		},
 		"debug": {

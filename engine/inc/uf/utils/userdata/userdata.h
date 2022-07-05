@@ -16,8 +16,6 @@
 #define UF_USERDATA_CTTI_TYPE TYPE_HASH_T // size_t
 #define UF_USERDATA_CTTI(T) TYPE_HASH(T)
 
-#define DEBUG_PRINT_TYPE(name, T) UF_MSG_DEBUG(name << ": " << TYPE_NAME(T) << " | " << TYPE_HASH(T) << " | " << sizeof(T) );
-
 namespace pod {
 	struct UF_API Userdata {
 		size_t len = 0;
