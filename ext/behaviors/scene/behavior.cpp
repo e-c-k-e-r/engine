@@ -727,12 +727,31 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		} matrices[2];
 
 		struct Settings {
+			struct Lengths {
+				alignas(4) uint32_t lights = 0;
+				alignas(4) uint32_t materials = 0;
+				alignas(4) uint32_t textures = 0;
+				alignas(4) uint32_t drawCommands = 0;
+			} lengths;
+
 			struct Mode {
-				alignas(4) uint8_t mode;
-				alignas(4) uint8_t scalar;
-				alignas(8) pod::Vector2ui padding;
 				alignas(16) pod::Vector4f parameters;
+
+				alignas(4) uint32_t mode;
+				alignas(4) uint32_t scalar;
+				
+				alignas(4) uint32_t msaa;
+				alignas(4) uint32_t frameAccumulate;
 			} mode;
+
+			struct Lighting {
+				pod::Vector3f ambient;
+				alignas(4) float padding1;
+				
+				alignas(4) uint32_t indexSkybox;
+				alignas(4) uint32_t shadowSamples;
+				alignas(4) uint32_t useLightmaps;
+			} lighting;
 
 			struct Fog {
 				pod::Vector3f color;
@@ -750,6 +769,13 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 				alignas(4) float padding2;
 				alignas(4) float padding3;
 			} fog;
+
+			struct Bloom {
+				alignas(4) float exposure;
+				alignas(4) float brightnessThreshold;
+				alignas(4) float gamma;
+				alignas(4) uint32_t padding2;
+			} bloom;
 
 			struct VXGI {
 				alignas(16) pod::Matrix4f matrix;
@@ -775,26 +801,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 				alignas(4) uint padding2;
 			} rt;
 		} settings;
-
-		struct Lengths {
-			alignas(4) uint32_t lights = 0;
-			alignas(4) uint32_t materials = 0;
-			alignas(4) uint32_t textures = 0;
-			alignas(4) uint32_t drawCommands = 0;
-		} lengths;
-
-		pod::Vector3f ambient;
-		alignas(4) float gamma;
-
-		alignas(4) float exposure;
-		alignas(4) float brightnessThreshold;
-		alignas(4) uint32_t msaa;
-		alignas(4) uint32_t shadowSamples;
-
-		alignas(4) uint32_t indexSkybox;
-		alignas(4) uint32_t useLightmaps;
-		alignas(4) uint32_t frameAccumulate;
-		alignas(4) uint32_t padding3;
 	};
 
 	// struct that contains our skybox cubemap, noise texture, and VXGI voxels
@@ -848,11 +854,27 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 				.eyePos = camera.getEye( i ),
 			};
 		}
+		uniforms.settings.lengths = UniformDescriptor::Settings::Lengths{
+			.lights = MIN( uf::graph::storage.lights.size(), metadata.light.max ),
+			.materials = MIN( uf::graph::storage.materials.keys.size(), metadata.max.textures2D ),
+			.textures = MIN( uf::graph::storage.textures.keys.size(), metadata.max.textures2D ),
+			.drawCommands = MIN( 0, metadata.max.textures2D ),
+		};
 		uniforms.settings.mode = UniformDescriptor::Settings::Mode{
+			.parameters = metadata.shader.parameters,
+			
 			.mode = metadata.shader.mode,
 			.scalar = metadata.shader.scalar,
-			.padding = pod::Vector2ui{0,0},
-			.parameters = metadata.shader.parameters,
+			
+			.msaa = ext::vulkan::settings::msaa,
+			.frameAccumulate = metadata.shader.frameAccumulate,
+		};
+		uniforms.settings.lighting = UniformDescriptor::Settings::Lighting{
+			.ambient = metadata.light.ambient,
+
+			.indexSkybox = indexSkybox,
+			.shadowSamples = std::min( 0, metadata.shadow.samples ),
+			.useLightmaps = metadata.light.useLightmaps,
 		};
 		uniforms.settings.fog = UniformDescriptor::Settings::Fog{
 			.color = metadata.fog.color,
@@ -867,7 +889,11 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 			.absorbtion = metadata.fog.absorbtion,
 		};
-
+		uniforms.settings.bloom = UniformDescriptor::Settings::Bloom{
+			.exposure = metadata.light.exposure,
+			.brightnessThreshold = metadata.light.brightnessThreshold,
+			.gamma = metadata.light.gamma,
+		};
 		uniforms.settings.vxgi = UniformDescriptor::Settings::VXGI{
 			.matrix = metadataVxgi.extents.matrix,
 			.cascadePower = metadataVxgi.cascadePower,
@@ -878,7 +904,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.traceStartOffsetFactor = metadataVxgi.traceStartOffsetFactor,
 			.shadows = metadataVxgi.shadows,
 		};
-
 		uniforms.settings.rt = UniformDescriptor::Settings::RT{
 			.defaultRayBounds = metadataRt.settings.defaultRayBounds, // { 0.001, 4096.0 },
 			.alphaTestOffset = metadataRt.settings.alphaTestOffset, //0.001,
@@ -887,26 +912,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.paths = metadataRt.settings.paths, // 1,
 			.frameAccumulationMinimum = metadataRt.settings.frameAccumulationMinimum, // 0,
 		};
-	
-		uniforms.lengths = UniformDescriptor::Lengths{
-			.lights = MIN( uf::graph::storage.lights.size(), metadata.light.max ),
-			.materials = MIN( uf::graph::storage.materials.keys.size(), metadata.max.textures2D ),
-			.textures = MIN( uf::graph::storage.textures.keys.size(), metadata.max.textures2D ),
-			.drawCommands = MIN( 0, metadata.max.textures2D ),
-		};
 
-		uniforms.ambient = metadata.light.ambient;
-		uniforms.gamma = metadata.light.gamma;
-
-		uniforms.exposure = metadata.light.exposure;
-		uniforms.brightnessThreshold = metadata.light.brightnessThreshold;
-		uniforms.msaa = ext::vulkan::settings::msaa;
-		uniforms.shadowSamples = std::min( 0, metadata.shadow.samples );
-
-		uniforms.indexSkybox = indexSkybox;
-		// use sample lightmaps during deferred pass
-		uniforms.useLightmaps = metadata.light.useLightmaps;
-		uniforms.frameAccumulate = metadata.shader.frameAccumulate;
 	}
 
 	uf::stl::vector<VkImage> previousTextures;

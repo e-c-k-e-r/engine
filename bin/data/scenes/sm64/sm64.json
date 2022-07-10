@@ -28,7 +28,9 @@
 				"info_player_spawn": { "action": "attach", "filename": "./player.json" },
 
 				"Material.071_574B138E_c.bmp": { "material": { "modeAlpha": "BLEND" } },
-				"Material.070_41A41EE3_c.bmp": { "material": { "modeAlpha": "BLEND" } }
+				"Material.070_41A41EE3_c.bmp": { "material": { "modeAlpha": "BLEND" } },
+
+				"light_sun": { "light": { "power": 25000 } }
 			}		
 		}
 	}

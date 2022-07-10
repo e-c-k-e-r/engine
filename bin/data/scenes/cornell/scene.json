@@ -1,7 +1,8 @@
 {
 	"import": "/scene.json",
 	"assets": [
-		"./loading.json"
+	//	"./loading.json"
+		"./cornell.json"
 	],
 	"system": {
 		"hot reload": {
@@ -27,6 +28,13 @@
 			"strength": 0.125,
 			"sigma": 0.8,
 			"samples": 5
+		},
+		"rt": {
+			"defaultRayBounds": [ 0.001, 1024.0 ],
+			"alphaTestOffset": 0.001,
+			"samples": 1,
+			"paths": 4,
+			"frameAccumulationMinimum": 0
 		},
 		"light": {
 			"exposure": 1.0,

@@ -175,6 +175,8 @@ struct SurfaceMaterial {
 
 struct Surface {
 	uint pass;
+	uint subID;
+
 	vec3 uv;
 	vec3 st;
 	Space position;
@@ -200,6 +202,27 @@ struct MSAA {
 } msaa;
 #endif
 // UBO settings
+struct SettingsLengths {
+	uint lights;
+	uint materials;
+	uint textures;
+	uint drawCommands;
+};
+struct SettingsMode {
+	vec4 parameters;
+	uint type;
+	uint scalar;
+	uint msaa;
+	uint frameNumber;	
+};
+struct SettingsLighting {
+	vec3 ambient;
+	float padding1;
+
+	uint indexSkybox;
+	uint shadowSamples;
+	uint useLightmaps;
+};
 struct SettingsFog {
 	vec3 color;
 	float stepScale;
@@ -216,25 +239,12 @@ struct SettingsFog {
 	float padding2;
 	float padding3;
 };
-
-struct SettingsMode {
-	uint type;
-	uint scalar;
-	vec2 padding;
-	vec4 parameters;
+struct SettingsBloom {
+	float exposure;
+	float brightnessThreshold;
+	float gamma;
+	uint padding;
 };
-
-struct SettingsRayTrace {
-	vec2 defaultRayBounds;
-	float alphaTestOffset;
-	float padding1;
-
-	uint samples;
-	uint paths;
-	uint frameAccumulationMinimum;
-	uint padding2;
-};
-// VXGI stuff
 struct SettingsVxgi {
 	mat4 matrix;
 
@@ -248,10 +258,23 @@ struct SettingsVxgi {
 	uint padding2;
 	uint padding3;
 };
+struct SettingsRayTrace {
+	vec2 defaultRayBounds;
+	float alphaTestOffset;
+	float padding1;
+
+	uint samples;
+	uint paths;
+	uint frameAccumulationMinimum;
+	uint padding2;
+};
 
 struct Settings {
+	SettingsLengths lengths;
 	SettingsMode mode;
+	SettingsLighting lighting;
 	SettingsFog fog;
+	SettingsBloom bloom;
 	SettingsVxgi vxgi;
 	SettingsRayTrace rt;
 };

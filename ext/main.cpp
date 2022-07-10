@@ -828,9 +828,6 @@ void EXT_API ext::terminate() {
 	/* Terminate controllers */ {
 		spec::controller::terminate();
 	}
-	/* Kill physics */ {
-		uf::physics::terminate();
-	}
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 		ext::imgui::terminate();
@@ -860,7 +857,9 @@ void EXT_API ext::terminate() {
 	{
 		uf::scene::destroy();
 	}
-
+	/* Kill physics */ {
+		uf::physics::terminate();
+	}
 	/* Garbage collection */ if ( false ) { // segfaults, for some reason
 		size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 		if ( ::config.engine.gc.announce && collected > 0 ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);

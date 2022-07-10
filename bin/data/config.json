@@ -1,11 +1,11 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "McDonalds",
+			"start": "SH2_McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
-				"useLightmaps": true,
+				"useLightmaps": false,
 				"max": 32
 			},
 			"shadows": {

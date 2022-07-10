@@ -15,6 +15,7 @@
 				"print": {
 					"tree": false,
 					"stats": false,
+					"lights": false,
 					"meshes": false,
 					"materials": false,
 					"textures": false
@@ -33,7 +34,6 @@
 				"combined": false,
 				"encode buffers": true,
 				"unwrap": true, // "tagged",
-			//	"unwrap": "tagged",
 				"quit": true
 			},
 			"baking": {

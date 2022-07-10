@@ -18,7 +18,7 @@ const vec2 poissonDisk[16] = vec2[](
 );
 
 #ifndef SHADOW_SAMPLES
-	#define SHADOW_SAMPLES ubo.shadowSamples
+	#define SHADOW_SAMPLES ubo.settings.lighting.shadowSamples
 #endif
 #if VXGI
 	float voxelShadowFactor( const Light, float def );

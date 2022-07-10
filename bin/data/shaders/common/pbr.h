@@ -15,14 +15,14 @@ float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
 vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
 #if (!BAKING && !COMPUTE) || RAYTRACE
 void pbr() {
-	if ( surface.material.lightmapped && validTextureIndex( surface.instance.lightmapID ) ) return;
+	if ( surface.material.lightmapped ) return;
 
 	const float Rs = 4.0; // specular lighting looks gross without this
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 	const vec3 Lo = normalize( -surface.position.eye );
 	const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
 	
-	for ( uint i = 0; i < ubo.lights; ++i ) {
+	for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
 		const Light light = lights[i];
 		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 		const vec3 Liu = vec3(ubo.eyes[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;

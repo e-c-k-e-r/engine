@@ -19,24 +19,6 @@ layout (binding = 0) uniform UBO {
 	EyeMatrices matrices[2];
 
 	Settings settings;
-
-	uint lights;
-	uint materials;
-	uint textures;
-	uint drawCommands;
-	
-	vec3 ambient;
-	float gamma;
-
-	float exposure;
-	float brightnessThreshold;
-	uint msaa;
-	uint shadowSamples;
-
-	uint indexSkybox;
-	uint padding1;
-	uint padding2;
-	uint padding3;
 } ubo;
 layout (std140, binding = 1) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
@@ -133,7 +115,7 @@ void main() {
 		surface.material.roughness = material.factorRoughness;
 		surface.material.occlusion = material.factorOcclusion;
 
-		const vec3 ambient = ubo.ambient.rgb * surface.material.occlusion;
+		const vec3 ambient = ubo.settings.lighting.ambient.rgb * surface.material.occlusion;
 		if ( validTextureIndex( surface.instance.lightmapID ) ) {
 			surface.fragment.rgb += surface.material.albedo.rgb;
 		} else {
@@ -143,7 +125,7 @@ void main() {
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
 			const float cosLo = max(0.0, dot(surface.normal.world, Lo));
-			for ( uint i = 0; i < ubo.lights; ++i ) {
+			for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
 				const Light light = lights[i];
 				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
 				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;

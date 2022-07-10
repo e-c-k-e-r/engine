@@ -49,24 +49,6 @@ layout (binding = 5) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
-
-	uint lights;
-	uint materials;
-	uint textures;
-	uint drawCommands;
-	
-	vec3 ambient;
-	float gamma;
-
-	float exposure;
-	float brightnessThreshold;
-	uint msaa;
-	uint shadowSamples;
-
-	 int indexSkybox;
-	uint useLightmaps;
-	uint frameNumber;
-	uint padding3;
 } ubo;
 /*
 */
@@ -129,16 +111,16 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 void postProcess() {
 	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
-	outFragBright = brightness > ubo.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+	outFragBright = brightness > ubo.settings.bloom.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
 #if TONE_MAP
-	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.exposure);
+	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.settings.bloom.exposure);
 #endif
 #if GAMMA_CORRECT
-	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
+	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.settings.bloom.gamma));
 #endif
 #if WHITENOISE
 	if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
@@ -155,7 +137,7 @@ void populateSurface() {
 	#if !MULTISAMPLING
 		const float depth = subpassLoad(samplerDepth).r;
 	#else
-		const float depth = subpassLoad(samplerDepth, msaa.currentID).r; // resolve(samplerDepth, ubo.msaa).r;
+		const float depth = subpassLoad(samplerDepth, msaa.currentID).r; // resolve(samplerDepth, ubo.settings.mode.msaa).r;
 	#endif
 
 		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(inUv * 2.0 - 1.0, depth, 1.0);
@@ -200,16 +182,16 @@ void populateSurface() {
 	surface.normal.world = decodeNormals( subpassLoad(samplerNormal).xy );
 	const uvec2 ID = subpassLoad(samplerId).xy;
 #else
-	surface.normal.world = decodeNormals( subpassLoad(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.msaa).xy );
-	const uvec2 ID = msaa.IDs[msaa.currentID]; // subpassLoad(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.msaa).xy;
+	surface.normal.world = decodeNormals( subpassLoad(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.settings.mode.msaa).xy );
+	const uvec2 ID = msaa.IDs[msaa.currentID]; // subpassLoad(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.settings.mode.msaa).xy;
 #endif
 	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 
 	const uint drawID = ID.x - 1;
 	const uint instanceID = ID.y - 1;
 	if ( ID.x == 0 || ID.y == 0 ) {
-		if ( 0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
-			surface.fragment.rgb = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction ).rgb;
+		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
 		}
 		surface.fragment.a = 0.0;
 		postProcess();
@@ -232,8 +214,8 @@ void populateSurface() {
 		const vec4 uv = subpassLoad(samplerUv);
 		const vec2 mips = subpassLoad(samplerMips).xy;
 	#else
-		const vec4 uv = subpassLoad(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.msaa);
-		const vec2 mips = subpassLoad(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.msaa);
+		const vec4 uv = subpassLoad(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.settings.mode.msaa);
+		const vec2 mips = subpassLoad(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.settings.mode.msaa);
 	#endif
 		surface.uv.xy = uv.xy;
 		surface.uv.z = mips.x;
@@ -255,7 +237,7 @@ void populateSurface() {
 
 	}
 	// Lightmap
-	if ( bool(ubo.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) {
+	if ( bool(ubo.settings.lighting.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) {
 		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
 		surface.material.lightmapped = light.a > 0.001;
 		if ( surface.material.lightmapped )	surface.light += surface.material.albedo * light;
@@ -280,13 +262,13 @@ void populateSurface() {
 #if !MULTISAMPLING
 	surface.material.albedo *= subpassLoad(samplerAlbedo);
 #else
-	surface.material.albedo *= subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.msaa);
+	surface.material.albedo *= subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.settings.mode.msaa);
 #endif
 #endif
 }
 
 void directLighting() {
-	surface.light.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion; // add ambient lighting
+	surface.light.rgb += surface.material.albedo.rgb * ubo.settings.lighting.ambient.rgb * surface.material.occlusion; // add ambient lighting
 	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR
 	pbr();
@@ -300,7 +282,7 @@ void directLighting() {
 
 #if MULTISAMPLING
 void resolveSurfaceFragment() {
-	for ( int i = 0; i < ubo.msaa; ++i ) {
+	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
 		msaa.currentID = i;
 		msaa.IDs[i] = subpassLoad(samplerId, msaa.currentID).xy;
 
@@ -326,6 +308,6 @@ void resolveSurfaceFragment() {
 		msaa.fragments[msaa.currentID] = surface.fragment;
 	}
 	
-	surface.fragment = msaa.fragment / ubo.msaa;
+	surface.fragment = msaa.fragment / ubo.settings.mode.msaa;
 }
 #endif

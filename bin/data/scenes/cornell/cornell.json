@@ -14,10 +14,16 @@
 		"model": {
 			"baking": {
 				"enabled": false,
-				"resolution": 1024
+				"resolution": 2048,
+				"settings": {
+					"useInputMeshUvs": false
+				}
 			},
-			"filter": "LINEAR",
-			"lightmap": false,
+			"renderer": {
+				"front face": "cw",
+				"cull mode": "back",
+				"filter": "linear"
+			},
 			"tags": {
 				"/^Mesh_/": {
 					"physics": { "type": "mesh", "static": true },

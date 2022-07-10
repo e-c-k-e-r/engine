@@ -4,7 +4,16 @@
 	//	{ "filename": "./static.json", "delay": 8 },
 	
 	//	{ "filename": "./models/sh_mcd.glb" }
-		{ "filename": "./models/sh_mcd/graph.json" }
+	//	{ "filename": "./models/sh_mcd/graph.json" }
+	
+	//	{ "filename": "./models/mcdonalds.glb" }
+		{ "filename": "./models/mcdonalds/graph.json" }
+
+	//	{ "filename": "./models/mini_mcd.glb" }
+	//	{ "filename": "./models/mini_mcd/graph.json" }
+		
+	//	{ "filename": "/cornell/cornell.glb" }
+	//	{ "filename": "/cornell/cornell/graph.json" }
 	],
 	"metadata": {
 		"model": {
@@ -18,7 +27,8 @@
 			"renderer": {
 				"front face": "cw",
 				"cull mode": "back",
-				"filter": "linear"
+				"filter": "linear",
+				"alpha mode": "blend"
 			},
 			"tags": {
 				"/^worldspawn/": {
@@ -107,7 +117,8 @@
 				"prop_physics_override_5822": { "action": "load", "payload": { "import": "./prop.json" } },
 				"prop_physics_override_5824": { "action": "load", "payload": { "import": "./prop.json" } },
 
-				"tools/toolsnodraw": { "material": { "base": [0, 0, 0, 0] } }
+				"tools/toolsnodraw": { "material": { "base": [0, 0, 0, 0] } },
+				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } }
 			}		
 		}
 	}

@@ -745,6 +745,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	}
 
+	if ( graph.metadata["debug"]["print"]["lights"].as<bool>() ) for ( auto& pair : graph.lights ) UF_MSG_DEBUG("Light: {}", pair.first);
 	if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) for ( auto& name : graph.meshes ) UF_MSG_DEBUG("Mesh: {}", name);
 	if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) for ( auto& name : graph.materials ) UF_MSG_DEBUG("Material: {}", name);
 	if ( graph.metadata["debug"]["print"]["textures"].as<bool>() ) for ( auto& name : graph.textures ) UF_MSG_DEBUG("Texture: {}", name);

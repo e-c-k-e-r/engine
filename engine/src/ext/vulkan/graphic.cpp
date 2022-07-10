@@ -1288,7 +1288,6 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	// create BLAS buffer and handle
 	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
 	size_t blasBufferOffset = 0;
-	UF_MSG_DEBUG("Blas buffer size: {}", totalBlasBufferSize);
 #endif
 	
 	scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
@@ -1307,7 +1306,6 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 
 		blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
 	#else
-		UF_MSG_DEBUG("Blas buffer size: {}", blasData.sizeInfo.accelerationStructureSize);
 		size_t blasBufferIndex = this->initializeBuffer( NULL, blasData.sizeInfo.accelerationStructureSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
 		blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 
@@ -1338,7 +1336,6 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			&blasData.rangeInfo
 		);
 		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
-
 	}
 
 	for ( auto& blasData : blasDatas ) this->accelerationStructures.bottoms.emplace_back(blasData.as);

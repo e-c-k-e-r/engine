@@ -13,7 +13,10 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define PBR 1
 #define VXGI 0
 #define RAYTRACE 1
-#define FOG 0
+#define FOG 1
+#define FOG_RAY_MARCH 0
+#define FOG_BASIC 1
+#define BLOOM 0
 #define WHITENOISE 0
 #define MAX_TEXTURES TEXTURES
 #define TONE_MAP 1
@@ -35,24 +38,6 @@ layout (binding = 2) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
-
-	uint lights;
-	uint materials;
-	uint textures;
-	uint drawCommands;
-	
-	vec3 ambient;
-	float gamma;
-
-	float exposure;
-	float brightnessThreshold;
-	uint msaa;
-	uint shadowSamples;
-
-	 int indexSkybox;
-	uint useLightmaps;
-	uint frameNumber;
-	uint padding3;
 } ubo;
 
 layout (std140, binding = 3) readonly buffer Instances {
@@ -182,7 +167,7 @@ void setupSurface( RayTracePayload payload ) {
 
 	}
 	// Lightmap
-	if ( bool(ubo.useLightmaps) && validTextureIndex( surface.instance.lightmapID ) ) {
+	if ( (surface.subID++ > 0 || bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
 		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
 		surface.material.lightmapped = light.a > 0.001;
 		if ( surface.material.lightmapped )	surface.light += surface.material.albedo * light;
@@ -217,7 +202,7 @@ void directLighting() {
 	indirectLighting();
 #endif
 
-	surface.light.rgb += surface.material.albedo.rgb * ubo.ambient.rgb * surface.material.occlusion; // add ambient lighting
+	surface.light.rgb += surface.material.albedo.rgb * ubo.settings.lighting.ambient.rgb * surface.material.occlusion; // add ambient lighting
 	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR
 	pbr();
@@ -241,8 +226,10 @@ vec4 traceStep( Ray ray ) {
 			setupSurface( payload );
 			directLighting();
 			outFrag = surface.fragment;
-		} else if (  0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
-			outFrag = texture( samplerCubemaps[ubo.indexSkybox], ray.direction );
+		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+			outFrag = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
+		} else {
+			outFrag = vec4(ubo.settings.lighting.ambient.rgb, 0);
 		}
 	}
 
@@ -261,8 +248,8 @@ vec4 traceStep( Ray ray ) {
 			setupSurface( payload );
 			directLighting();
 			transparencyColor *= surface.fragment;
-		} else if (  0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
-			transparencyColor *= texture( samplerCubemaps[ubo.indexSkybox], ray.direction );
+		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+			transparencyColor *= texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
 		}
 
 		outFrag += transparencyColor;
@@ -291,8 +278,8 @@ vec4 traceStep( Ray ray ) {
 				setupSurface( payload );
 				directLighting();
 				reflectionColor *= surface.fragment;
-			} else if (  0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
-				reflectionColor *= texture( samplerCubemaps[ubo.indexSkybox], reflection.direction );
+			} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+				reflectionColor *= texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], reflection.direction );
 			}
 
 			outFrag += reflectionColor;
@@ -306,27 +293,29 @@ vec4 traceStep( Ray ray ) {
 }
 
 void main()  {
-//	if ( ubo.frameNumber > 16 ) return;	
-//	prngSeed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, ubo.frameNumber);
+//	if ( ubo.settings.mode.frameNumber > 16 ) return;	
+//	prngSeed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, ubo.settings.mode.frameNumber);
 	prngSeed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, int(clockARB()));
 	surface.pass = PushConstant.pass;
+	surface.subID = 0;
 	vec4 outFrag = vec4(0);
 
-	const uint SAMPLES = ubo.settings.rt.samples;
-	const uint NUM_PATHS = ubo.settings.rt.paths;
+	const uint SAMPLES = min(ubo.settings.rt.samples, 4);
+	const uint NUM_PATHS = min(ubo.settings.rt.paths, 8);
 #if 1
-	const uint FRAME_ACCUMULATION_VALUE = ubo.settings.rt.frameAccumulationMinimum > 0 ? min(ubo.settings.rt.frameAccumulationMinimum, ubo.frameNumber + 1) : ubo.frameNumber + 1;
+	const uint FRAME_ACCUMULATION_VALUE = ubo.settings.rt.frameAccumulationMinimum > 0 ? min(ubo.settings.rt.frameAccumulationMinimum, ubo.settings.mode.frameNumber + 1) : ubo.settings.mode.frameNumber + 1;
 #else
-	const uint FRAME_ACCUMULATION_VALUE = min(32, ubo.frameNumber + 1);
+	const uint FRAME_ACCUMULATION_VALUE = min(32, ubo.settings.mode.frameNumber + 1);
 #endif
 	const float BLEND_FACTOR = 1.0f / float(FRAME_ACCUMULATION_VALUE);
-	uint FRAME_NUMBER = ubo.frameNumber;
+	uint FRAME_NUMBER = ubo.settings.mode.frameNumber;
 
+#if 0
 	for ( uint samp = 0; samp < SAMPLES; ++samp, ++FRAME_NUMBER ) {
 		{
 			const vec2 center = ( FRAME_NUMBER > 0 ) ? vec2( rnd(), rnd() ) : vec2(0.5);
 			const vec2 inUv = (vec2(gl_LaunchIDEXT.xy) + center) / vec2(gl_LaunchSizeEXT.xy);
-		#if 0
+		#if 1
 			vec4 target	= ubo.eyes[surface.pass].iProjection * vec4(inUv.x * 2.0f - 1.0f, inUv.y * 2.0f - 1.0f, 1, 1);
 			vec4 direction = ubo.eyes[surface.pass].iView * vec4(normalize(target.xyz), 0);
 
@@ -362,11 +351,77 @@ void main()  {
 			outFrag += curValue;
 		}
 	}
-
 	{
 		outFrag /= SAMPLES;
-		outFrag.a = 1;
+	}
+#elif 0
+	{
+		const vec2 center = ( FRAME_NUMBER > 0 ) ? vec2( rnd(), rnd() ) : vec2(0.5);
+		const vec2 inUv = (vec2(gl_LaunchIDEXT.xy) + center) / vec2(gl_LaunchSizeEXT.xy);
+	#if 0
+		vec4 target	= ubo.eyes[surface.pass].iProjection * vec4(inUv.x * 2.0f - 1.0f, inUv.y * 2.0f - 1.0f, 1, 1);
+		vec4 direction = ubo.eyes[surface.pass].iView * vec4(normalize(target.xyz), 0);
 
+		surface.ray.direction = vec3(direction);
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+	#else
+		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
+		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		const vec3 near3 = near4.xyz / near4.w;
+		const vec3 far3 = far4.xyz / far4.w;
+
+		surface.ray.direction = normalize( far3 - near3 );
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+	#endif
+	}
+
+	{
+		vec4 curValue = vec4(0);
+		vec4 curWeight = vec4(1);
+		for ( uint path = 0; path < NUM_PATHS; ++path ) {
+			vec4 stepValue = traceStep( surface.ray );
+			curValue += stepValue * curWeight;
+
+			if ( !payload.hit ) break;
+
+			surface.ray.origin = surface.position.world;
+			surface.ray.direction = samplingHemisphere( prngSeed, surface.normal.world );
+			curWeight *= surface.material.albedo * dot( surface.ray.direction, surface.normal.world );
+			
+			if ( length(curWeight) < 0.01 ) break;
+		}
+		outFrag += curValue;
+	}
+	{
+		surface.fragment = outFrag;
+	}
+#else
+	{
+		const vec2 center = ( FRAME_NUMBER > 0 ) ? vec2( rnd(), rnd() ) : vec2(0.5);
+		const vec2 inUv = (vec2(gl_LaunchIDEXT.xy) + center) / vec2(gl_LaunchSizeEXT.xy);
+	#if 0
+		vec4 target	= ubo.eyes[surface.pass].iProjection * vec4(inUv.x * 2.0f - 1.0f, inUv.y * 2.0f - 1.0f, 1, 1);
+		vec4 direction = ubo.eyes[surface.pass].iView * vec4(normalize(target.xyz), 0);
+
+		surface.ray.direction = vec3(direction);
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+	#else
+		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
+		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
+		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		const vec3 near3 = near4.xyz / near4.w;
+		const vec3 far3 = far4.xyz / far4.w;
+
+		surface.ray.direction = normalize( far3 - near3 );
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+	#endif
+	}
+	{
+		surface.fragment = traceStep( surface.ray );
+	}
+#endif
+	{
 	#if BLOOM
 		float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
 		outFragBright = brightness > ubo.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
@@ -375,17 +430,22 @@ void main()  {
 		fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 	#endif
 	#if TONE_MAP
-		surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.exposure);
+		surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.settings.bloom.exposure);
 	#endif
 	#if GAMMA_CORRECT
-		surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.gamma));
+		surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.settings.bloom.gamma));
 	#endif
 	#if WHITENOISE
 		if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
 	#endif
 	}
 
-	if ( ubo.frameNumber == 0 ) {
+	{
+		outFrag = surface.fragment;
+		outFrag.a = 1;
+	}
+
+	if ( ubo.settings.mode.frameNumber == 0 ) {
 		imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), outFrag);
 	} else {
 	//	if ( length(outFrag.rgb) < 0.01f ) return;
@@ -394,37 +454,3 @@ void main()  {
 		imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), blended);
 	}
 }
-
-	/*
-		{
-			vec4 curValue = vec4(0);
-			vec4 curWeight = vec4(1);
-			for ( uint path = 0; path < NUM_PATHS; ++path ) {
-				trace( surface.ray );
-
-				if ( !payload.hit ) {
-					if ( path == 0 && 0 <= ubo.indexSkybox && ubo.indexSkybox < CUBEMAPS ) {
-						curValue = texture( samplerCubemaps[ubo.indexSkybox], surface.ray.direction );
-					}
-					break;
-				}
-
-				setupSurface( payload );
-				directLighting();
-				curValue += surface.fragment * curWeight;
-
-				surface.ray.origin = surface.position.world;
-				if ( !false ) {
-					surface.ray.direction = reflect( surface.ray.direction, surface.normal.world );
-					curWeight *= (1.0 - surface.material.roughness) * surface.material.albedo * dot( surface.ray.direction, surface.normal.world );
-				} else {
-					surface.ray.direction = samplingHemisphere( prngSeed, surface.normal.world );
-					curWeight *= surface.material.albedo * dot( surface.ray.direction, surface.normal.world );
-				}
-				
-
-				if ( length(curWeight) < 0.01 ) break;
-			}
-			outFrag += curValue;
-		}
-	*/

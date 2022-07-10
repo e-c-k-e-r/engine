@@ -343,6 +343,8 @@ clean:
 	@-rm -f $(OBJS_EXT_DLL)
 	@-rm -f $(OBJS)
 
+	@-rm $(shell find $(ENGINE_SRC_DIR) -name "*.$(PREFIX).o") $(shell find $(EXT_SRC_DIR) -name "*.$(PREFIX).o") $(shell find $(DEP_SRC_DIR) -name "*.$(PREFIX).o")
+
 ifneq (,$(findstring dreamcast,$(ARCH)))
 	@-rm ./bin/dreamcast/build/*
 	@-rm ./bin/dreamcast/romdisk.*
@@ -381,11 +383,12 @@ clean-shaders:
 	-rm $(TARGET_SHADERS)
 
 backup:
-	make ARCH=dreamcast clean
-	make CC=gcc RENDERER=opengl clean
-	make CC=gcc RENDERER=vulkan clean
-	make CC=clang RENDERER=opengl clean
-	make CC=clang RENDERER=vulkan clean
-	make CC=zig RENDERER=opengl clean
-	make CC=zig RENDERER=vulkan clean
+	#make ARCH=dreamcast clean
+	#make CC=gcc RENDERER=opengl clean
+	#make CC=gcc RENDERER=vulkan clean
+	#make CC=clang RENDERER=opengl clean
+	#make CC=clang RENDERER=vulkan clean
+	#make CC=zig RENDERER=opengl clean
+	#make CC=zig RENDERER=vulkan clean
+	@-rm $(shell find $(ENGINE_SRC_DIR) -name "*.o") $(shell find $(EXT_SRC_DIR) -name "*.o") $(shell find $(DEP_SRC_DIR) -name "*.o")
 	$(7Z) a -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z .
