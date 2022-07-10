@@ -224,22 +224,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			physics.linear.acceleration = uf::vector::decode( json["physics"]["linear"]["acceleration"], physics.linear.acceleration );
 			physics.rotational.velocity = uf::vector::decode( json["physics"]["rotational"]["velocity"], physics.rotational.velocity );
 			physics.rotational.acceleration = uf::vector::decode( json["physics"]["rotational"]["acceleration"], physics.rotational.acceleration );
-
-		/*
-			if ( ext::json::isArray( json["physics"]["linear"]["velocity"] ) )
-				for ( size_t j = 0; j < 3; ++j )
-					physics.linear.velocity[j] = json["physics"]["linear"]["velocity"][j].as<float>();
-			if ( ext::json::isArray( json["physics"]["linear"]["acceleration"] ) )
-				for ( size_t j = 0; j < 3; ++j )
-					physics.linear.acceleration[j] = json["physics"]["linear"]["acceleration"][j].as<float>();
-			
-			if ( ext::json::isArray( json["physics"]["rotational"]["velocity"] ) )
-				for ( size_t j = 0; j < 4; ++j )
-					physics.rotational.velocity[j] = json["physics"]["rotational"]["velocity"][j].as<float>();
-			if ( ext::json::isArray( json["physics"]["rotational"]["acceleration"] ) )
-				for ( size_t j = 0; j < 4; ++j )
-					physics.rotational.acceleration[j] = json["physics"]["rotational"]["acceleration"][j].as<float>();
-		*/
 		}
 	}
 

@@ -91,7 +91,7 @@ namespace uf {
 		pod::Thread& UF_API get( const uf::stl::string& );
 
 		bool UF_API isMain();
-		pod::Thread& currentThread();
+		pod::Thread& UF_API currentThread();
 
 	/* Acts on thread */
 		void UF_API start( pod::Thread& );

@@ -61,8 +61,6 @@ namespace pod {
 
 		// Local storage, used for save/load
 		struct Storage {
-			
-
 			uf::stl::KeyMap<pod::Instance> instances;
 			uf::stl::KeyMap<pod::Instance::Addresses> instanceAddresses;
 			uf::stl::KeyMap<uf::stl::vector<pod::Primitive>> primitives;

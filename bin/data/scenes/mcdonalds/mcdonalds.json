@@ -15,13 +15,17 @@
 	"metadata": {
 		"model": {
 			"baking": {
-				"enabled": false,
+				"enabled": true,
 				"resolution": 2048,
 				"settings": {
 					"useInputMeshUvs": false
 				}
 			},
-		//	"cull mode": "none",
+			"renderer": {
+				"front face": "cw",
+				"cull mode": "back",
+				"filter": "linear"
+			},
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
@@ -49,7 +53,9 @@
 				
 				"func_physbox_5212": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_physbox_5548": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_physbox_5931": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } }
+				"func_physbox_5931": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+
+				"tools/toolsnodraw": { "material": { "base": [0, 0, 0, 0] } }
 			}		
 		}
 	}

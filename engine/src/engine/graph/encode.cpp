@@ -250,15 +250,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 	if ( settings.compression == "auto" ) settings.compression = ext::json::PREFERRED_COMPRESSION;
 
 	if ( !settings.combined ) uf::io::mkdir(directory);
-#if UF_USE_XATLAS
-/*
-	if ( settings.unwrap ) {
-		pod::Graph& g = const_cast<pod::Graph&>(graph);
-		auto size = ext::xatlas::unwrap( g );
-		serializer["wrapped"] = uf::vector::encode( size );
-	}
-*/
-#endif
+	serializer["metadata"] = graph.metadata;
 
 #if UF_GRAPH_LOAD_MULTITHREAD
 	auto tasks = uf::thread::schedule(true);

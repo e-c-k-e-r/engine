@@ -38,7 +38,7 @@ ext::gui::Size ext::gui::size = {
 		0,
 	},
 #if UF_ENV_DREAMCAST
-	.reference = { 960, 720 },
+	.reference = { 640, 480 },
 #else
 	.reference = { 1920, 1080 },
 #endif
@@ -67,7 +67,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	ext::gui::size.current = uf::vector::decode( ext::config["window"]["size"], pod::Vector2f{} );
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
-	//	ext::gui::size.reference = payload.window.size;
+		ext::gui::size.reference = payload.window.size;
 	} );
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 		bool clicked = false;

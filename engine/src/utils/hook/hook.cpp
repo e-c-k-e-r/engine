@@ -16,7 +16,7 @@ void uf::Hooks::removeHook( const uf::Hooks::name_t& name, size_t uid ) {
 	auto& container = this->m_container[name];
 	for ( auto it = container.begin(); it != container.end(); ++it ) {
 		if ( it->uid == uid ) {
-			this->m_container[name].erase(it);
+			it = container.erase(it);
 			break;
 		}
 	}

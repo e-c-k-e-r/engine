@@ -4,7 +4,7 @@
 
 namespace binds {
 	namespace v3f {
-		float index( const pod::Vector3f& self, const size_t& index ) {
+		float index( const pod::Vector3f& self, size_t index ) {
 			return self[index];
 		}
 		float distance( pod::Vector3f& self, const pod::Vector3f& other ) {
@@ -45,7 +45,7 @@ namespace binds {
 		}
 	}
 	namespace v4f {
-		float index( const pod::Vector4f& self, const size_t& index ) {
+		float index( const pod::Vector4f& self, size_t index ) {
 			return self[index];
 		}
 		float distance( pod::Vector4f& self, const pod::Vector4f& other ) {

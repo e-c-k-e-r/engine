@@ -264,8 +264,8 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			asset = uf::graph::load( filename, metadata[payload.filename] );
 			uf::graph::process( asset );
 		#if !UF_ENV_DREAMCAST
-			if ( asset.metadata["debug"]["print stats"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::stats( asset ));
-			if ( asset.metadata["debug"]["print tree"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::print( asset ));
+			if ( asset.metadata["debug"]["print"]["stats"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::stats( asset ));
+			if ( asset.metadata["debug"]["print"]["tree"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::print( asset ));
 		#endif
 			if ( !asset.metadata["debug"]["no cleanup"].as<bool>() ) uf::graph::cleanup( asset );
 		} break;

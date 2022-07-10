@@ -38,7 +38,6 @@ namespace ext {
 				extern UF_API bool multithreadedRecording;
 
 				extern UF_API uf::stl::string deferredMode;
-				extern UF_API bool deferredReconstructPosition;
 				extern UF_API bool deferredAliasOutputToSwapchain;
 				extern UF_API bool deferredSampling;
 				extern UF_API bool multiview;

@@ -203,17 +203,26 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
 	auto& collider = this->getComponent<pod::PhysicsState>();
-	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true;
-	else stats.floored |= fabs(physics.linear.velocity.y) < 0.01f;
+//	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true;
+	{
+		uf::Object* hit = NULL;
+		pod::Vector3f center = transform.position + metadata.movement.floored.feet;
+		pod::Vector3f direction = metadata.movement.floored.floor;
+		float t = 0.0f;
+		if ( !stats.floored && collider.body && (t = uf::physics::impl::rayCast( center, direction, this, hit )) >= 0.0f ) {
+			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("Floored: {} | {}", hit->getName(), t);
+			stats.floored = true;
+		}
+	}
 
-	TIMER(0.125, keys.use && ) {
+	TIMER(0.25, keys.use && ) {
 		size_t uid = 0;
 		uf::Object* pointer = NULL;
 		float length = 4.0f;
-		pod::Vector3f pos = transform.position + cameraTransform.position;
-		pod::Vector3f dir = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
+		pod::Vector3f center = transform.position + cameraTransform.position;
+		pod::Vector3f direction = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
 
-		float depth = uf::physics::impl::rayCast( pos, pos + dir, pointer );
+		float depth = uf::physics::impl::rayCast( center, direction, this, pointer );
 		if ( pointer ) { 
 			ext::json::Value payload;
 			payload["uid"] = this->getUid();
@@ -363,7 +372,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( stats.noclipped ) {
 				physics.linear.velocity += target * speed.move;
 			} else {
-				float delta = collider.body ? uf::physics::impl::timescale : uf::physics::time::delta;
+			//	float delta = collider.body ? uf::physics::impl::timescale : uf::physics::time::delta;
+				float delta = uf::physics::time::delta;
 
 				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * delta );
 			}
@@ -511,8 +521,8 @@ void ext::PlayerBehavior::render( uf::Object& self ){}
 void ext::PlayerBehavior::destroy( uf::Object& self ){}
 void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& serializerSystem = serializer["system"];
-	auto& serializerSystemPhysics = serializerSystem["physics"];
-	auto& serializerSystemPhysicsMovement = serializerSystemPhysics["movement"];
+	auto& serializerPhysics = serializer["physics"];
+	auto& serializerMovement = serializer["movement"];
 	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
@@ -521,15 +531,18 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerSystem["control"] = /*this->*/system.control;
 	serializerSystem["crouching"] = /*this->*/system.crouching;
 	serializerSystem["noclipped"] = /*this->*/system.noclipped;
-	serializerSystemPhysics["friction"] = /*this->*/movement.friction;
-	serializerSystemPhysicsMovement["rotate"] = /*this->*/movement.rotate;
-	serializerSystemPhysicsMovement["move"] = /*this->*/movement.move;
-	serializerSystemPhysicsMovement["run"] = /*this->*/movement.run;
-	serializerSystemPhysicsMovement["walk"] = /*this->*/movement.walk;
-	serializerSystemPhysicsMovement["air"] = /*this->*/movement.air;
-	serializerSystemPhysicsMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
-	serializerSystemPhysicsMovement["crouch"] = /*this->*/movement.crouch;
-//	serializerSystemPhysicsMovement["look"] = /*this->*/movement.look;
+	serializerPhysics["friction"] = /*this->*/movement.friction;
+	serializerMovement["rotate"] = /*this->*/movement.rotate;
+	serializerMovement["move"] = /*this->*/movement.move;
+	serializerMovement["run"] = /*this->*/movement.run;
+	serializerMovement["walk"] = /*this->*/movement.walk;
+	serializerMovement["air"] = /*this->*/movement.air;
+	serializerMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
+	serializerMovement["floored"]["feet"] = uf::vector::encode(/*this->*/movement.floored.feet);
+	serializerMovement["floored"]["floor"] = uf::vector::encode(/*this->*/movement.floored.floor);
+	serializerMovement["floored"]["print"] = /*this->*/movement.floored.print;
+	serializerMovement["crouch"] = /*this->*/movement.crouch;
+//	serializerMovement["look"] = /*this->*/movement.look;
 	serializerAudioFootstep["list"] = /*this->*/audio.footstep.list;
 	serializerAudioFootstep["volume"] = /*this->*/audio.footstep.volume;
 	serializerCamera["invert"] = uf::vector::encode(/*this->*/camera.invert);
@@ -540,32 +553,35 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& serializerSystem = serializer["system"];
 	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
-	auto& serializerSystemPhysics = serializerSystem["physics"];
-	auto& serializerSystemPhysicsMovement = serializerSystemPhysics["movement"];
+	auto& serializerPhysics = serializer["physics"];
+	auto& serializerMovement = serializer["movement"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
 
-	/*this->*/system.menu = serializerSystem["menu"].as<uf::stl::string>();
-	/*this->*/system.control = serializerSystem["control"].as<bool>(true);
-	/*this->*/system.crouching = serializerSystem["crouching"].as<bool>();
-	/*this->*/system.noclipped = serializerSystem["noclipped"].as<bool>();
-	/*this->*/movement.friction = serializerSystemPhysics["friction"].as<float>();
-	/*this->*/movement.rotate = serializerSystemPhysicsMovement["rotate"].as<float>();
-	/*this->*/movement.move = serializerSystemPhysicsMovement["move"].as<float>();
-	/*this->*/movement.run = serializerSystemPhysicsMovement["run"].as<float>();
-	/*this->*/movement.walk = serializerSystemPhysicsMovement["walk"].as<float>();
-	/*this->*/movement.air = serializerSystemPhysicsMovement["air"].as<float>();
-	/*this->*/movement.jump = uf::vector::decode(serializerSystemPhysicsMovement["jump"], pod::Vector3f{});
-	/*this->*/movement.crouch = serializerSystemPhysicsMovement["crouch"].as<float>();
-//	/*this->*/movement.look = serializerSystemPhysicsMovement["look"].as<float>(1.0f);
+	/*this->*/system.menu = serializerSystem["menu"].as(/*this->*/system.menu);
+	/*this->*/system.control = serializerSystem["control"].as(/*this->*/system.control);
+	/*this->*/system.crouching = serializerSystem["crouching"].as(/*this->*/system.crouching);
+	/*this->*/system.noclipped = serializerSystem["noclipped"].as(/*this->*/system.noclipped);
+	/*this->*/movement.friction = serializerPhysics["friction"].as(/*this->*/movement.friction);
+	/*this->*/movement.rotate = serializerMovement["rotate"].as(/*this->*/movement.rotate);
+	/*this->*/movement.move = serializerMovement["move"].as(/*this->*/movement.move);
+	/*this->*/movement.run = serializerMovement["run"].as(/*this->*/movement.run);
+	/*this->*/movement.walk = serializerMovement["walk"].as(/*this->*/movement.walk);
+	/*this->*/movement.air = serializerMovement["air"].as(/*this->*/movement.air);
+	/*this->*/movement.jump = uf::vector::decode(serializerMovement["jump"], /*this->*/movement.jump);
+	/*this->*/movement.floored.feet = uf::vector::decode(serializerMovement["floored"]["feet"], /*this->*/movement.floored.feet);
+	/*this->*/movement.floored.floor = uf::vector::decode(serializerMovement["floored"]["floor"], /*this->*/movement.floored.floor);
+	/*this->*/movement.floored.print = serializerMovement["floored"]["print"].as(/*this->*/movement.floored.print);
+	/*this->*/movement.crouch = serializerMovement["crouch"].as(/*this->*/movement.crouch);
+//	/*this->*/movement.look = serializerMovement["look"].as<float>(1.0f);
 	ext::json::forEach( serializerAudioFootstep["list"], [&]( const ext::json::Value& value ){
 		/*this->*/audio.footstep.list.emplace_back(value);
 	});
 	/*this->*/audio.footstep.volume = serializerAudioFootstep["volume"].as<float>();
 
-	/*this->*/camera.invert = uf::vector::decode( serializerCamera["invert"], pod::Vector3t<bool>{false, false, false} );
-	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], pod::Vector3f{NAN, NAN, NAN} );
-	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], pod::Vector3f{NAN, NAN, NAN} );
-	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], pod::Vector3f{NAN, NAN, NAN} );
+	/*this->*/camera.invert = uf::vector::decode( serializerCamera["invert"], /*this->*/camera.invert );
+	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], /*this->*/camera.limit.current );
+	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], /*this->*/camera.limit.min );
+	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], /*this->*/camera.limit.max );
 }
 #undef this

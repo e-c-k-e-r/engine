@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "McDonalds",
 			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
@@ -16,9 +16,9 @@
 			},
 			"textures": {
 				"max": {
-					"2D": 512,
-					"cube": 128,
-					"3D": 64
+					"2D": 1024,
+					"cube": 1024,
+					"3D": 128
 				}
 			},
 			"vxgi": {
@@ -38,6 +38,8 @@
 				}
 			},
 			"rt": {
+				"size": [ 960, 540 ],
+				"filter": "NEAREST",
 				"defaultRayBounds": [ 0.001, 1024.0 ],
 				"alphaTestOffset": 0.001,
 				"samples": 1,
@@ -90,6 +92,7 @@
 				},
 				"invariant": {
 				//	"multithreaded recording": true
+					"deferred alias output to swapchain": false,
 					"defaultStageBuffers": true
 				},
 				"pipelines": {
@@ -98,7 +101,7 @@
 					"vxgi": true,
 					"culling": true,
 					"bloom": false,
-					"rt": false
+					"rt": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -288,13 +291,13 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 1.25, 1.25 ],
-			"smoothing": [ 10, 10 ]
+			"sensitivity": [ 0.75, 0.75 ],
+			"smoothing": [ 4, 4 ]
 		},
-		"mode" : "borderless", // fullscreen, borderless, windowed
+		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-		"size" :  [ 1920, 1080 ],
-	//	"size" :  [ 1280, 720 ],
+	//	"size" :  [ 1920, 1080 ],
+		"size" :  [ 1280, 720 ],
 	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],

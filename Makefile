@@ -22,6 +22,7 @@ BIN_DIR 				+= ./bin
 ENGINE_SRC_DIR 			+= ./engine/src
 ENGINE_INC_DIR 			+= ./engine/inc
 ENGINE_LIB_DIR 			+= ./engine/lib
+DEP_SRC_DIR 			+= ./dep/src
 
 EXT_SRC_DIR 			+= ./ext
 CLIENT_SRC_DIR 			+= ./client
@@ -49,25 +50,29 @@ SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
 INC_DIR 				+= $(ENGINE_INC_DIR)
 LIB_DIR 				+= $(ENGINE_LIB_DIR)
 
-INCS 					+= -I$(ENGINE_INC_DIR) -I$(INC_DIR) -I./dep/ #-I/mingw64/include 
-LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR) -L$(LIB_DIR)/$(ARCH) -L$(LIB_DIR)/$(PREFIX_PATH)
+INCS 					+= -I$(ENGINE_INC_DIR) -I./dep/include/ #-I/mingw64/include/
+LIBS 					+= -L$(ENGINE_LIB_DIR) -L$(LIB_DIR)/$(PREFIX_PATH) -L$(LIB_DIR)/$(ARCH)/$(CC) -L$(LIB_DIR)/$(ARCH) #-L/mingw64/lib/
 	
 LINKS 					+= $(UF_LIBS) $(EXT_LIBS) $(DEPS)
 DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
-	REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib openal ogg freetype curl luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt # ncurses openvr draco discord bullet ultralight-ux
+	ifneq (,$(findstring zig,$(CC)))
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+	else
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+	endif
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
 	LINKS 				+= #-Wl,-subsystem,windows
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt # lua ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt # ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 	FLAGS 				+= -DVK_USE_PLATFORM_WIN32_KHR -DUF_USE_VULKAN
-	DEPS 				+= -lvulkan -lspirv-cross #-lVulkanMemoryAllocator
-	INCS 				+= -I$(VULKAN_SDK_PATH)/include
+	DEPS 				+= -lvulkan -lspirv-cross-core -lspirv-cross-cpp #-lVulkanMemoryAllocator
+	INCS 				+= -I$(VULKAN_SDK_PATH)/include -I./dep/include/spirv_cross/
 	LIBS 				+= -L$(VULKAN_SDK_PATH)/Lib
 endif
 ifneq (,$(findstring opengl,$(REQ_DEPS)))
@@ -100,8 +105,8 @@ ifneq (,$(findstring fmt,$(REQ_DEPS)))
 endif
 ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_IMGUI
-	INCS 				+= -I./dep/imgui/
-	INCS 				+= -I./dep/imgui/backends
+	INCS 				+= -I./dep/include/imgui/
+	INCS 				+= -I./dep/include/imgui/backends
 endif
 ifneq (,$(findstring json,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_JSON
@@ -222,7 +227,11 @@ endif
 
 # SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
 #SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
-SRCS_DLL 				:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp")
+ifneq (,$(findstring zig,$(CC)))
+	SRCS_DLL 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp") $(shell find ./dep/zig/src/ -name "*.cpp")
+else
+	SRCS_DLL 			:= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(EXT_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
+endif
 OBJS_DLL 				+= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 BASE_DLL 				+= lib$(LIB_NAME)
 IM_DLL 					+= $(ENGINE_LIB_DIR)/$(PREFIX_PATH)/$(BASE_DLL).$(TARGET_LIB_EXTENSION).a
@@ -234,8 +243,8 @@ EXT_DEPS 				+= -l$(LIB_NAME) $(DEPS)
 EXT_LINKS 				+= $(UF_LIBS) $(EXT_LIBS) $(EXT_DEPS)
 
 EXT_LIB_DIR 			+= $(ENGINE_LIB_DIR)/$(ARCH)
-EXT_INCS 				+= -I$(ENGINE_INC_DIR) -I$(EXT_INC_DIR) -I/mingw64/include
-EXT_LIBS 				+= -L$(ENGINE_LIB_DIR) -L$(EXT_LIB_DIR) -L$(EXT_LIB_DIR)/$(ARCH) -L$(EXT_LIB_DIR)/$(PREFIX_PATH) -L/mingw64/lib
+EXT_INCS 				+= $(INCS)
+EXT_LIBS 				+= $(LIBS)
 
 #SRCS_EXT_DLL 			+= $(wildcard $(EXT_SRC_DIR)/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(EXT_SRC_DIR)/*/*/*/*/*.cpp)
 SRCS_EXT_DLL 			:= $(shell find $(EXT_SRC_DIR) -name "*.cpp")
@@ -377,4 +386,6 @@ backup:
 	make CC=gcc RENDERER=vulkan clean
 	make CC=clang RENDERER=opengl clean
 	make CC=clang RENDERER=vulkan clean
+	make CC=zig RENDERER=opengl clean
+	make CC=zig RENDERER=vulkan clean
 	$(7Z) a -r ../misc/backups/$(shell date +"%Y.%m.%d\ %H-%M-%S").7z .

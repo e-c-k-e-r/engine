@@ -5,7 +5,7 @@
 	//	{ "filename": "./test.json", "delay": 1 },
 
 	//	{ "filename": "./models/tiny_msci.glb" }
-		{ "filename": "./models/tiny_msci/graph.json" }
+	//	{ "filename": "./models/tiny_msci/graph.json" }
 
 	//	{ "filename": "./models/micro_sci.glb" }
 	//	{ "filename": "./models/micro_sci/graph.json" }
@@ -14,7 +14,7 @@
 	//	{ "filename": "./models/msci/graph.json" }
 
 	//	{ "filename": "./models/medsci.glb" }
-	//	{ "filename": "./models/medsci/graph.json" }
+		{ "filename": "./models/medsci/graph.json" }
 	],
 	"metadata": {
 		"model": {
@@ -22,7 +22,11 @@
 				"enabled": true,
 				"resolution": 1024
 			},
-			"filter": "LINEAR",
+			"renderer": {
+				"front face": "cw",
+				"cull mode": "back",
+				"filter": "linear"
+			},
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },

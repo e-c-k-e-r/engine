@@ -14,36 +14,10 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"assets":  [
-		{ "filename": "./playerModel.json", "delay": 1.0, "single threaded": true },
+		"./playerModel.json",
 		"./hands.json"
 	],
 	"system": {
-		"physics": {
-			"movement": {
-				"walk": 1,
-				"move": 8,
-				"run": 16,
-				"rotate": 1.5,
-				"air": 0.1,
-
-				"crouch": 1,
-				"jump": [ 0, 4, 0 ],
-				"look": 0.75
-			},
-			
-			"gravity": [ 0, -9.81, 0 ],
-			"inertia": [ 0, 0, 0 ],
-
-			"type": "capsule",
-			"radius": 1,
-			"height": 2,
-			
-			"mass": 100,
-			"friction": 0.8,
-			"restitution": 0.0,
-			
-			"shared": false
-		},
 		"hot reload": {
 			"enabled": true
 		}
@@ -73,6 +47,36 @@
 					"/footstep/2.ogg"
 				]
 			}
+		},
+		"movement": {
+			"walk": 1,
+			"move": 4,
+			"run": 16,
+			"rotate": 1.5,
+			"air": 0.1,
+
+			"crouch": 1,
+			"jump": [ 0, 4, 0 ],
+			"look": 1,
+			"floored": {
+				"feet": [ 0, -1.5, 0 ],
+				"floor": [ 0, -0.5, 0 ],
+				"print": false
+			}
+		},
+		"physics": {	
+			"gravity": [ 0, -9.81, 0 ],
+			"inertia": [ 0, 0, 0 ],
+
+			"type": "capsule",
+			"radius": 1,
+			"height": 2,
+			
+			"mass": 100,
+			"friction": 0.95,
+			"restitution": 0.0,
+			
+			"shared": false
 		},
 		"camera": {
 			"offset": [ 0, 0, 0 ],

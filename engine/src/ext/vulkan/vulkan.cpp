@@ -46,8 +46,7 @@ bool ext::vulkan::settings::invariant::individualPipelines = true;
 bool ext::vulkan::settings::invariant::multithreadedRecording = true;
 
 uf::stl::string ext::vulkan::settings::invariant::deferredMode = "";
-bool ext::vulkan::settings::invariant::deferredReconstructPosition = false;
-bool ext::vulkan::settings::invariant::deferredAliasOutputToSwapchain = true;
+bool ext::vulkan::settings::invariant::deferredAliasOutputToSwapchain = false;
 bool ext::vulkan::settings::invariant::deferredSampling = true;
 
 bool ext::vulkan::settings::invariant::multiview = true;

@@ -67,6 +67,7 @@ int main(int argc, char** argv){
 
 		if ( timer.elapsed().asDouble() >= next ) {
 		//	UF_MSG_INFO("Waiting for " << ( client::ready ? "client" : "extension / engine" ) << " to initialize... Retrying in " << next << " seconds.");
+			UF_MSG_INFO("Waiting for {} to initialize; retrying in {} seconds", ( client::ready ? "client" : "extension / engine" ), next);
 			next *= 2;
 		}
 	}

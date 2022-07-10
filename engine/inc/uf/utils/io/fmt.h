@@ -3,12 +3,7 @@
 #if UF_USE_FMT
 	#if UF_ENV_DREAMCAST
 		#define FMT_HEADER_ONLY
-	//	#include <fmt-1/format.h>
-
-	//	#include <fmt-3/format.h>
-	//	#include <fmt-8/format.h>
 		#include <fmt-7/format.h>
-	//	#include <fmt-7/core.h>
 	#else
 	//	#include <fmt/core.h>
 	#endif

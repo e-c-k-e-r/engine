@@ -27,6 +27,11 @@ namespace ext {
 				float friction = 0.8f;
 				float air = 1.0f;
 				pod::Vector3f jump = {0,8,0};
+				struct {
+					pod::Vector3f feet = {0,-1.5,0};
+					pod::Vector3f floor = {0,-1,0};
+					bool print = false;
+				} floored;
 			} movement;
 			struct {
 				struct {

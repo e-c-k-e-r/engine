@@ -20,16 +20,21 @@ namespace {
 	class RaycastCallback : public rp3d::RaycastCallback {
 	public:
 		bool isHit = false;
+		uf::Object* source = NULL;
 		rp3d::RaycastInfo raycastInfo;
 
 		virtual rp3d::decimal notifyRaycastHit(const rp3d::RaycastInfo& info) override {
 			if ( !isHit || raycastInfo.hitFraction > info.hitFraction ) {
-				raycastInfo.body = info.body;
-				raycastInfo.hitFraction = info.hitFraction;
-				raycastInfo.collider = info.collider;
-				raycastInfo.worldNormal = info.worldNormal;
-				raycastInfo.worldPoint = info.worldPoint;
-				isHit = true;
+				if ( info.body->getUserData() == source ) {
+
+				} else {
+					raycastInfo.body = info.body;
+					raycastInfo.hitFraction = info.hitFraction;
+					raycastInfo.collider = info.collider;
+					raycastInfo.worldNormal = info.worldNormal;
+					raycastInfo.worldPoint = info.worldPoint;
+					isHit = true;
+				}
 			}
 		//	return rp3d::decimal(1.0);
 			return raycastInfo.hitFraction;
@@ -295,6 +300,9 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 		state.body->enableGravity(false);
 	}
 
+	// affects air speed, bad
+//	state.body->setLinearDamping(state.stats.friction);
+
 	auto& material = collider->getMaterial();
 	material.setBounciness(0);
 
@@ -316,13 +324,18 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 	uf::Mesh::Input indexInput = mesh.index;
 
 	uf::Mesh::Attribute vertexAttribute = mesh.vertex.attributes.front();
+	uf::Mesh::Attribute normalAttribute = mesh.vertex.attributes.front();
 	uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
 
-	for ( auto& attribute : mesh.vertex.attributes ) if ( attribute.descriptor.name == "position" ) { vertexAttribute = attribute; break; }
+	for ( auto& attribute : mesh.vertex.attributes ) {
+		if ( attribute.descriptor.name == "position" ) vertexAttribute = attribute;
+		if ( attribute.descriptor.name == "normal" ) normalAttribute = attribute;
+	}
 	UF_ASSERT( vertexAttribute.descriptor.name == "position" );
 
 	rp3d::TriangleVertexArray::IndexDataType indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE;
 	rp3d::TriangleVertexArray::VertexDataType vertexType = rp3d::TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE;
+	rp3d::TriangleVertexArray::NormalDataType normalType = rp3d::TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE;
 	switch ( mesh.index.size ) {
 		case sizeof(uint16_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_SHORT_TYPE; break;
 		case sizeof(uint32_t): indexType = rp3d::TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE; break;
@@ -334,6 +347,57 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 			vertexInput = mesh.remapVertexInput( i );
 			indexInput = mesh.remapIndexInput( i );
 
+			if ( normalAttribute.descriptor.name == "normal" ) {
+				rMesh->addSubpart(new rp3d::TriangleVertexArray(
+					vertexInput.count,
+					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
+					vertexAttribute.stride,
+					
+					(const uint8_t*) (normalAttribute.pointer) + normalAttribute.stride * vertexInput.first,
+					normalAttribute.stride,
+
+					indexInput.count / 3,
+					(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
+					indexAttribute.stride * 3,
+
+					vertexType,
+					normalType,
+					indexType
+				));
+			} else {
+				rMesh->addSubpart(new rp3d::TriangleVertexArray(
+					vertexInput.count,
+					(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
+					vertexAttribute.stride,
+
+					indexInput.count / 3,
+					(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
+					indexAttribute.stride * 3,
+
+					vertexType,
+					indexType
+				));
+			}
+		}
+	} else {
+		if ( normalAttribute.descriptor.name == "normal" ) {
+			rMesh->addSubpart(new rp3d::TriangleVertexArray(
+				vertexInput.count,
+				(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
+				vertexAttribute.stride,
+				
+				(const uint8_t*) (normalAttribute.pointer) + normalAttribute.stride * vertexInput.first,
+				normalAttribute.stride,
+
+				indexInput.count / 3,
+				(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
+				indexAttribute.stride * 3,
+
+				vertexType,
+				normalType,
+				indexType
+			));
+		} else {
 			rMesh->addSubpart(new rp3d::TriangleVertexArray(
 				vertexInput.count,
 				(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
@@ -347,19 +411,6 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, const uf::Mesh
 				indexType
 			));
 		}
-	} else {
-		rMesh->addSubpart(new rp3d::TriangleVertexArray(
-			vertexInput.count,
-			(const uint8_t*) (vertexAttribute.pointer) + vertexAttribute.stride * vertexInput.first,
-			vertexAttribute.stride,
-
-			indexInput.count / 3,
-			(const uint8_t*) (indexAttribute.pointer) + indexAttribute.stride * indexInput.first,
-			indexAttribute.stride * 3,
-
-			vertexType,
-			indexType
-		));
 	}
 
 	auto& state = ext::reactphysics::create( object );
@@ -512,30 +563,17 @@ float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector
 		return -1;
 
 	::RaycastCallback callback;
-	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( direction ) ), &callback );
+	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
 	if ( !callback.isHit ) return -1;
 	return callback.raycastInfo.hitFraction;
 }
-float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, size_t& uid ) {
+float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object* source, uf::Object*& object ) {
 	if ( !::world )
 		return -1;
 
 	::RaycastCallback callback;
-	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( direction ) ), &callback );
-	uid = 0;
-	if ( !callback.isHit ) {
-		return -1;
-	}
-	auto* object = (uf::Object*) callback.raycastInfo.body->getUserData();
-	uid = object->getUid();
-	return callback.raycastInfo.hitFraction;
-}
-float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object*& object ) {
-	if ( !::world )
-		return -1;
-
-	::RaycastCallback callback;
-	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( direction ) ), &callback );
+	callback.source = source;
+	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
 	object = NULL;
 	if ( !callback.isHit ) {
 		return -1;

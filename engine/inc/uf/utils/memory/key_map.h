@@ -15,8 +15,10 @@ namespace uf {
 			uf::stl::unordered_map<Key, size_t> indices;
 
 			T& operator[]( const Key& key );
+			
 			void reserve( size_t i );
 			uf::stl::vector<T> flatten() const;
+			void clear();
 		};
 	}
 }
@@ -36,6 +38,13 @@ void uf::stl::KeyMap<T,Key>::reserve( size_t i ) {
 	keys.reserve(i);
 	indices.reserve(i);
 	map.reserve(i);
+}
+
+template<typename T, typename Key>
+void uf::stl::KeyMap<T,Key>::clear() {
+	keys.clear();
+	indices.clear();
+	map.clear();
 }
 
 template<typename T, typename Key>

@@ -6,8 +6,8 @@
 #pragma shader_stage(raygen)
 layout (constant_id = 0) const uint PASSES = 2;
 layout (constant_id = 1) const uint TEXTURES = 512;
-layout (constant_id = 2) const uint CUBEMAPS = 128;
-layout (constant_id = 3) const uint CASCADES = 4;
+layout (constant_id = 2) const uint CUBEMAPS = 8;
+layout (constant_id = 3) const uint CASCADES = 1;
 
 #define COMPUTE 1
 #define PBR 1
@@ -70,17 +70,18 @@ layout (std140, binding = 6) readonly buffer Lights {
 
 layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
 layout (binding = 8) uniform samplerCube samplerCubemaps[CUBEMAPS];
-
+layout (binding = 9) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 14) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 15) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 16) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 10) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 11) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 12) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) rayPayloadEXT RayTracePayload payload;
 
 #include "../common/functions.h"
 #include "../common/light.h"
+#include "../common/fog.h"
 #if VXGI
 	#include "../common/vxgi.h"
 #endif

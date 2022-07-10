@@ -11,7 +11,7 @@ namespace {
 	}
 }
 
-uf::Http UF_API uf::http::get( const uf::stl::string& url ) {
+uf::Http uf::http::get( const uf::stl::string& url ) {
 	uf::Http http;
 
 #if UF_USE_CURL

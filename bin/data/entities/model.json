@@ -12,8 +12,16 @@
 		"model": {
 			"debug": {
 				"no cleanup": false,
-				"print tree": false,
-				"print stats": false
+				"print": {
+					"tree": false,
+					"stats": false,
+					"meshes": false,
+					"materials": false,
+					"textures": false
+				}
+			},
+			"sanitizer": {
+				"winding order": true
 			},
 			"exporter": {
 				"enabled": true,
@@ -24,14 +32,9 @@
 				"precision": 4,
 				"combined": false,
 				"encode buffers": true,
-				"unwrap": true,
+				"unwrap": true, // "tagged",
 			//	"unwrap": "tagged",
-				"optimize": "tagged",
-			//	"optimize": true,
-				"quit": true,
-				"mesh": {
-				//	"print": true
-				}
+				"quit": true
 			},
 			"baking": {
 				"enabled": true,
@@ -55,8 +58,11 @@
 					"rotateCharts": true
 				}
 			},
-		//	"filter": "NEAREST",
-			"lightmap": "auto",
+			"renderer": {
+				"front face": "ccw",
+				"cull mode": "back",
+				"filter": "linear"
+			},
 			"flags": {
 				"ATLAS": false,
 				"INVERT": false,
@@ -68,6 +74,7 @@
 				"NORMALS": false
 			},
 			"lights": {
+				"lightmap": "auto",
 			//	"disable if lightmapped": false,
 				"shadows": true
 			}

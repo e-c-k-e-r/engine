@@ -300,7 +300,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
 		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (drawInfo.attributes.uv.pointer + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
 
 		if ( !(drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer) ) {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
@@ -314,23 +314,23 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
 
-			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (drawInfo.attributes.st.pointer + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
+			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
 		}
 	}
 
-	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (drawInfo.attributes.normal.pointer + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));
+	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (static_cast<uint8_t*>(drawInfo.attributes.normal.pointer) + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));
 	if ( drawInfo.attributes.color.pointer ) {
 		GLenum format = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
 			case sizeof(uint8_t): format = GL_UNSIGNED_BYTE; break;
 			case sizeof(float): format = GL_FLOAT; break;
 		}
-		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, format, drawInfo.attributes.color.stride, (drawInfo.attributes.color.pointer + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
+		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, format, drawInfo.attributes.color.stride, (static_cast<uint8_t*>(drawInfo.attributes.color.pointer) + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
 	}
-	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, (drawInfo.attributes.position.pointer + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first)));
+	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first)));
 	
 	if ( drawInfo.descriptor.inputs.index.count ) {
-		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (drawInfo.attributes.index.pointer + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
+		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
 	} else {
 		GL_ERROR_CHECK(glDrawArrays(GL_TRIANGLES, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
 	}

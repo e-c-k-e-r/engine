@@ -1,6 +1,6 @@
 {
 	"assets": [ "./scripts/lift.lua" ],
-	"system": {
+	"metadata": {
 		"physics": {
 			"type": "bounding box",
 			"recenter": true,

@@ -91,7 +91,7 @@ namespace {
 			Items.clear();
 		}
 
-		void AddLog(const uf::stl::string &str) { AddLog(str.c_str()); }
+		void AddLog(const uf::stl::string &str) { AddLog("%s", str.c_str()); }
 		void AddLog(const char *fmt, ...) IM_FMTARGS(2) {
 			// FIXME-OPT
 			char buf[1024];

@@ -17,7 +17,6 @@ uf::Window client::window;
 uf::Serializer client::config;
 
 void client::initialize() {
-	uf::IoStream::ncurses = true;
 	uf::renderer::device.window = &client::window;
 
 	ext::load();
@@ -111,6 +110,9 @@ void client::initialize() {
 #if UF_ENV_DREAMCAST
 	client::window.pollEvents();
 #endif
+
+	{
+	}
 }
 
 void client::tick() {

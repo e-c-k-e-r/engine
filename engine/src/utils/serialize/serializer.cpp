@@ -160,18 +160,9 @@ void uf::Serializer::merge( const uf::Serializer& other, bool priority ) {
 
 	update(*this, other);
 }
-void uf::Serializer::import( const uf::Serializer& other ) {
-/*
-	uf::Serializer diff = nlohmann::json::diff(*this, other);
-	uf::Serializer filtered;
-	for ( size_t i = 0; i < diff.size(); ++i ) {
-		if ( diff[i]["op"].as<uf::stl::string>() != "remove" )
-			filtered.emplace_back(diff[i]);
-	}
-	patch( filtered );
-	std::cout << this->dump(1, '\t') << std::endl;
-*/
 
+// only updates if this[key] == null
+void uf::Serializer::import( const uf::Serializer& other ) {
 	if ( !ext::json::isObject( *this ) || !ext::json::isObject( other ) ) return;
 	std::function<void(ext::json::Value&, const ext::json::Value&)> update = [&]( ext::json::Value& a, const ext::json::Value& b ) {
 		// doesn't exist, just copy it

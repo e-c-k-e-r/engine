@@ -87,11 +87,17 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		if ( graphic.material.hasShader("ray:gen", uf::renderer::settings::pipelines::names::rt) ) {
 			auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
 			//
+			pod::Vector2ui size = metadata.renderer.size;
+			UF_MSG_DEBUG("Size: {}", uf::vector::toString( size ));
+			if ( size.x == 0 ) size.x = uf::renderer::settings::width * metadata.renderer.scale;
+			if ( size.y == 0 ) size.y = uf::renderer::settings::height * metadata.renderer.scale;
+			UF_MSG_DEBUG("Size: {}", uf::vector::toString( size ));
+
 			auto& image = shader.textures.emplace_back();
 			image.fromBuffers(
 				NULL, 0,
 				uf::renderer::enums::Format::R8G8B8A8_UNORM,
-				uf::renderer::settings::width * metadata.renderer.scale, uf::renderer::settings::height * metadata.renderer.scale, 1, 1,
+				size.x, size.y, 1, 1,
 				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
 			);
 
@@ -161,8 +167,9 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		if ( shader.textures.empty() ) {
 			auto& tex = shader.textures.emplace_back();
 			tex.aliasTexture( image );
-			tex.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-			tex.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+
+			tex.sampler.descriptor.filter.min = metadata.renderer.filter;
+			tex.sampler.descriptor.filter.mag = metadata.renderer.filter;
 
 			renderMode.execute = true;
 			renderMode.metadata.limiter.execute = true;
@@ -172,11 +179,14 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	}
 	
 	if ( uf::renderer::states::resized ) {
+		pod::Vector2ui size = metadata.renderer.size;
+		if ( size.x == 0 ) size.x = uf::renderer::settings::width * metadata.renderer.scale;
+		if ( size.y == 0 ) size.y = uf::renderer::settings::height * metadata.renderer.scale;
 		image.destroy();
 		image.fromBuffers(
 			NULL, 0,
 			uf::renderer::enums::Format::R8G8B8A8_UNORM,
-			uf::renderer::settings::width * metadata.renderer.scale, uf::renderer::settings::height * metadata.renderer.scale, 1, 1,
+			size.x, size.y, 1, 1,
 			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
 		);
 
@@ -207,7 +217,6 @@ void ext::RayTraceSceneBehavior::Metadata::serialize( uf::Object& self, uf::Seri
 
 }
 void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
-	UF_MSG_DEBUG("Update");
 	// merge vxgi settings with global settings
 	{
 		const auto& globalSettings = ext::config["engine"]["scenes"]["rt"];
@@ -217,8 +226,17 @@ void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Se
 		} );
 	}
 
-	if ( serializer["size"].is<float>() ) {
-		/*this->*/renderer.scale = serializer["size"].as(/*this->*/renderer.scale);
+	if ( serializer["rt"]["filter"].is<uf::stl::string>() ) {
+		const auto mode = uf::string::lowercase( serializer["rt"]["filter"].as<uf::stl::string>() );
+		if ( mode == "nearest" ) /*this->*/renderer.filter = uf::renderer::enums::Filter::NEAREST;
+		else if ( mode == "linear" ) /*this->*/renderer.filter = uf::renderer::enums::Filter::LINEAR;
+		else UF_MSG_WARNING("Invalid Filter enum string specified: {}", mode);
+	}
+
+	if ( serializer["rt"]["size"].is<float>() ) {
+		/*this->*/renderer.scale = serializer["rt"]["size"].as(/*this->*/renderer.scale);
+	} else if ( ext::json::isArray( serializer["rt"]["size"] ) ) {
+		/*this->*/renderer.size = uf::vector::decode( serializer["rt"]["size"], /*this->*/renderer.size );
 	} else if ( ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].is<float>() ) {
 		/*this->*/renderer.scale = ext::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(/*this->*/renderer.scale);
 	}

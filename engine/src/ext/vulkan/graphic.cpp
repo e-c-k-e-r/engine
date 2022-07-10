@@ -1042,8 +1042,7 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 	}
 }
 bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
-	UF_MSG_ERROR("need to fix");
-	return false;
+//	UF_MSG_ERROR("need to fix"); return false;
 
 	// generate indices if not found
 //	if ( mesh.index.count == 0 ) mesh.generateIndices();

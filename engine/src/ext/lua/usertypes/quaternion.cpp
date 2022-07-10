@@ -3,7 +3,7 @@
 #include <uf/utils/math/quaternion.h>
 
 namespace binds {
-	float index( const pod::Quaternion<>& self, const size_t& index ) {
+	float index( const pod::Quaternion<>& self, size_t index ) {
 		return self[index];
 	}
 	pod::Quaternion<> lookAt( const pod::Vector3f& at, const pod::Vector3f& up ) {

@@ -1,7 +1,20 @@
+struct {
+	struct {
+		bool should = true;
+		size_t corrected{};
+		size_t total{};
+	} windingOrder;
+} sanitizer;
+
+if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) ) {
+	sanitizer.windingOrder.should = true;
+}
+
+uf::stl::vector<uf::Meshlet_T<UF_GRAPH_MESH_FORMAT>> meshlets;
+
 for ( auto& p : m.primitives ) {
-	vertices.clear();
-	indices.clear();
-	auto& primitive = primitives.emplace_back();
+	size_t primitiveID = meshlets.size();
+	auto& meshlet = meshlets.emplace_back();
 
 	struct Attribute {
 		uf::stl::string name = "";
@@ -38,13 +51,13 @@ for ( auto& p : m.primitives ) {
 		auto& view = model.bufferViews[accessor.bufferView];
 		
 		if ( attribute.name == "POSITION" ) {
-			vertices.resize(accessor.count);
-			primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
-			primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
+			meshlet.vertices.resize(accessor.count);
+			meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
+			meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
 			if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
-				primitive.instance.bounds.min.x = -primitive.instance.bounds.min.x;
-				primitive.instance.bounds.max.x = -primitive.instance.bounds.max.x;
+				meshlet.primitive.instance.bounds.min.x = -meshlet.primitive.instance.bounds.min.x;
+				meshlet.primitive.instance.bounds.max.x = -meshlet.primitive.instance.bounds.max.x;
 			}
 		}
 
@@ -80,7 +93,7 @@ for ( auto& p : m.primitives ) {
 		}
 	}
 
-	for ( size_t i = 0; i < vertices.size(); ++i ) {
+	for ( size_t i = 0; i < meshlet.vertices.size(); ++i ) {
 	#if 0
 		#define ITERATE_ATTRIBUTE( name, member )\
 			memcpy( &vertex.member[0], &attributes[name].buffer[i * attributes[name].components], attributes[name].stride );
@@ -101,7 +114,7 @@ for ( auto& p : m.primitives ) {
 			}
 	#endif
 
-		auto& vertex = vertices[i];
+		auto& vertex = meshlet.vertices[i];
 		ITERATE_ATTRIBUTE("POSITION", position, 1);
 		ITERATE_ATTRIBUTE("TEXCOORD_0", uv, 1);
 		ITERATE_ATTRIBUTE("COLOR_0", color, 255.0f);
@@ -123,6 +136,9 @@ for ( auto& p : m.primitives ) {
 			vertex.tangent.x = -vertex.tangent.x;
 		#endif
 		}
+
+		vertex.id.x = primitiveID;
+		vertex.id.y = meshID;
 	}
 
 	if ( p.indices > -1 ) {
@@ -130,9 +146,9 @@ for ( auto& p : m.primitives ) {
 		auto& view = model.bufferViews[accessor.bufferView];
 		auto& buffer = model.buffers[view.buffer];
 
-		indices.reserve( static_cast<uint32_t>(accessor.count) );
+		meshlet.indices.reserve( static_cast<uint32_t>(accessor.count) );
 
-	#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) indices.emplace_back(buf[index]);
+	#define COPY_INDICES() for (size_t index = 0; index < accessor.count; index++) meshlet.indices.emplace_back(buf[index]);
 
 		const void* pointer = &(buffer.data[accessor.byteOffset + view.byteOffset]);
 		switch (accessor.componentType) {
@@ -155,29 +171,113 @@ for ( auto& p : m.primitives ) {
 		#undef COPY_INDICES
 	}
 
-	primitive.instance.materialID = p.material;
-	primitive.instance.primitiveID = primitives.size() - 1;
-	primitive.instance.meshID = meshID;
-	primitive.instance.objectID = 0;
+	meshlet.primitive.instance.materialID = p.material;
+	meshlet.primitive.instance.primitiveID = primitiveID;
+	meshlet.primitive.instance.meshID = meshID;
+	meshlet.primitive.instance.objectID = 0;
 
-	primitive.drawCommand.indices = indices.size();
-	primitive.drawCommand.instances = 1;
-	primitive.drawCommand.indexID = 0;
-	primitive.drawCommand.vertexID = 0;
-	primitive.drawCommand.instanceID = 0;
-	primitive.drawCommand.vertices = vertices.size();
+	meshlet.primitive.drawCommand.indices = meshlet.indices.size();
+	meshlet.primitive.drawCommand.instances = 1;
+	meshlet.primitive.drawCommand.indexID = 0;
+	meshlet.primitive.drawCommand.vertexID = 0;
+	meshlet.primitive.drawCommand.instanceID = 0;
+	meshlet.primitive.drawCommand.vertices = meshlet.vertices.size();
 
-	auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
-		.indices = indices.size(),
-		.instances = 1,
-		.indexID = mesh.index.count,
-		.vertexID = mesh.vertex.count,
-		.instanceID = 0,
+	/* detect winding order */ if ( sanitizer.windingOrder.should ) {
+		if ( !meshlet.indices.empty() ) {
+			for ( size_t i = 0; i < meshlet.indices.size() / 3; ++i ) {
+				size_t indices[3] = {
+					meshlet.indices[i * 3 + 0],
+					meshlet.indices[i * 3 + 1],
+					meshlet.indices[i * 3 + 2],
+				};
+				pod::Vector3f triPosition[3] = {
+					meshlet.vertices[indices[0]].position,
+					meshlet.vertices[indices[1]].position,
+					meshlet.vertices[indices[2]].position,
+				};
+				pod::Vector3f normal = meshlet.vertices[indices[0]].normal;
+				pod::Vector3f geomNormal = uf::vector::normalize( uf::vector::cross((triPosition[0] - triPosition[1]), (triPosition[1] - triPosition[2])));
+
+				// negative dot = mismatched winding order
+				if ( uf::vector::dot( normal, geomNormal ) < 0.0f ) {
+					meshlet.indices[i * 3 + 0] = indices[2];
+					meshlet.indices[i * 3 + 2] = indices[0];
+					++sanitizer.windingOrder.corrected;
+				}
+				++sanitizer.windingOrder.total;
+			}
+		} else {
+			for ( size_t i = 0; i < meshlet.vertices.size() / 3; ++i ) {
+				size_t indices[3] = {
+					i * 3 + 0,
+					i * 3 + 1,
+					i * 3 + 2,
+				};
+				pod::Vector3f triPosition[3] = {
+					meshlet.vertices[indices[0]].position,
+					meshlet.vertices[indices[1]].position,
+					meshlet.vertices[indices[2]].position,
+				};
+				pod::Vector3f normal = meshlet.vertices[indices[0]].normal;
+				pod::Vector3f geomNormal = uf::vector::normalize( uf::vector::cross((triPosition[0] - triPosition[1]), (triPosition[1] - triPosition[2])));
+
+				// negative dot = mismatched winding order
+				if ( uf::vector::dot( normal, geomNormal ) < 0.0f ) {
+					meshlet.indices[i * 3 + 0] = indices[2];
+					meshlet.indices[i * 3 + 2] = indices[0];
+					++sanitizer.windingOrder.corrected;
+				}
+				++sanitizer.windingOrder.total;
+			}
+		}
+	}
+}
+
+if ( sanitizer.windingOrder.should ) {
+	UF_MSG_DEBUG("Winding order correction: {:.3f}%", ( (float) sanitizer.windingOrder.corrected / (float) sanitizer.windingOrder.total ) * 100.0f );
+	if ( sanitizer.windingOrder.corrected * 2 > sanitizer.windingOrder.total ) {
+		UF_MSG_DEBUG("Consider inverting the front face settings for mesh: {}", m.name);
+	}
+}
 
 
-		.vertices = vertices.size(),
-	});
+if ( meshgrid.grid.divisions.x > 1 || meshgrid.grid.divisions.y > 1 || meshgrid.grid.divisions.z > 1 ) {
+	auto partitioned = uf::meshgrid::partition( meshgrid.grid, meshlets, meshgrid.eps );
+	if ( meshgrid.print ) UF_MSG_DEBUG( "Draw commands: {}: {} -> {} | Partitions: {} -> {}", m.name, meshlets.size(), partitioned.size(), 
+		(meshgrid.grid.divisions.x * meshgrid.grid.divisions.y * meshgrid.grid.divisions.z), meshgrid.grid.nodes.size()
+	 );
+	meshlets = std::move( partitioned );
+}
+
+{
+	size_t indexID = 0;
+	size_t vertexID = 0;
+
+	mesh.bindIndirect<pod::DrawCommand>();
+	mesh.bind<UF_GRAPH_MESH_FORMAT>(false); // default to de-interleaved regardless of requirement (makes things easier)
 	
-	mesh.insertVertices(vertices);
-	mesh.insertIndices(indices);
+	for ( auto& meshlet : meshlets ) {
+		auto& drawCommand = drawCommands.emplace_back(pod::DrawCommand{
+			.indices = meshlet.indices.size(),
+			.instances = 1,
+			.indexID = indexID,
+			.vertexID = vertexID,
+			.instanceID = 0,
+			.auxID = meshlet.primitive.drawCommand.auxID,
+			.materialID = meshlet.primitive.drawCommand.materialID,
+			.vertices = meshlet.vertices.size(),
+		});
+		
+		primitives.emplace_back( meshlet.primitive );
+
+		indexID += meshlet.indices.size();
+		vertexID += meshlet.vertices.size();
+
+		mesh.insertVertices(meshlet.vertices);
+		mesh.insertIndices(meshlet.indices);
+	}
+
+	mesh.insertIndirects(drawCommands);
+	mesh.updateDescriptor();
 }

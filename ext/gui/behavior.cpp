@@ -413,6 +413,16 @@ void ext::Gui::load( const uf::Image& image ) {
 		}
 	} else if ( ext::json::isArray(metadataJson["scaling"]) ) {
 		raidou = uf::vector::decode( metadataJson["scaling"], raidou );
+	#if 1
+		float factor = 1;
+		if ( raidou.x == 0 && raidou.y != 0 ) {
+			factor = raidou.y;
+		} else if ( raidou.y == 0 && raidou.x != 0 ) {
+			factor = raidou.x;
+		}
+		raidou.x /= factor;
+		raidou.y /= factor;
+	#endif
 		modified = true;
 	}
 	if ( modified ) {
@@ -531,7 +541,11 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 			
 			metadata.clicked = clicked;
 
-			if ( clicked ) this->callHook("gui:Clicked.%UID%", payload);
+
+			if ( clicked ) {
+				UF_MSG_DEBUG("{} clicked", this->getName());
+				this->callHook("gui:Clicked.%UID%", payload);
+			}
 			this->callHook("gui:Mouse.Clicked.%UID%", payload);
 		} );
 

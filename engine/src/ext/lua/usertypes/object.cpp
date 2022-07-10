@@ -87,7 +87,7 @@ namespace binds {
 		self.generateGraph();
 		return true;
 	}
-	uf::Object& findByUid( uf::Object& self, const size_t& index ) {
+	uf::Object& findByUid( uf::Object& self, size_t index ) {
 		auto* pointer = self.findByUid( index );
 		if ( pointer ) return pointer->as<uf::Object>();
 		static uf::Object null;
@@ -123,7 +123,7 @@ namespace binds {
 	uf::Object& getParent( uf::Object& self ){
 		return self.getParent().as<uf::Object>();
 	}
-	void addHook( uf::Object& self, const uf::stl::string& name, const sol::function& function ) {
+	void addHook( uf::Object& self, const uf::stl::string& name, sol::function function ) {
 		self.addHook( name, [function](ext::json::Value& json){
 			uf::stl::string payload = json.dump();
 			auto decoded = ext::lua::decode( payload );

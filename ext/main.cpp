@@ -416,7 +416,6 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
 		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
 		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
-		uf::renderer::settings::invariant::deferredReconstructPosition = configRenderInvariantJson["deferred reconstruct position"].as( uf::renderer::settings::invariant::deferredReconstructPosition );
 		uf::renderer::settings::invariant::deferredAliasOutputToSwapchain = configRenderInvariantJson["deferred alias output to swapchain"].as( uf::renderer::settings::invariant::deferredAliasOutputToSwapchain );
 		uf::renderer::settings::invariant::deferredSampling = configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
 	
@@ -606,11 +605,45 @@ void EXT_API ext::initialize() {
 		});
 
 		uf::hooks.addHook( "game:Scene.Cleanup", [&](){
-			UF_MSG_DEBUG("Cleanup");
-
 			uf::scene::unloadScene();
-			uf::physics::terminate();
-			uf::physics::initialize();
+
+			// reset physics world
+			{
+				uf::physics::terminate();
+				uf::physics::initialize();
+			}
+			// reset graph state
+			{
+				// cleanup graphic handles
+				for ( auto pair : uf::graph::storage.texture2Ds.map ) pair.second.destroy();
+				for ( auto& t : uf::graph::storage.shadow2Ds ) t.destroy();
+				for ( auto& t : uf::graph::storage.shadowCubes ) t.destroy();
+
+				for ( auto pair : uf::graph::storage.atlases.map ) pair.second.clear();
+				for ( auto pair : uf::graph::storage.images.map ) pair.second.clear();
+				for ( auto pair : uf::graph::storage.meshes.map ) pair.second.destroy();
+
+				// cleanup storage cache
+				uf::graph::storage.instances.clear();
+				uf::graph::storage.instanceAddresses.clear();
+				uf::graph::storage.primitives.clear();
+				uf::graph::storage.drawCommands.clear();
+				uf::graph::storage.meshes.clear();
+				uf::graph::storage.images.clear();
+				uf::graph::storage.materials.clear();
+				uf::graph::storage.textures.clear();
+				uf::graph::storage.samplers.clear();
+				uf::graph::storage.skins.clear();
+				uf::graph::storage.animations.clear();
+				uf::graph::storage.atlases.clear();
+				uf::graph::storage.joints.clear();
+				uf::graph::storage.texture2Ds.clear();
+				uf::graph::storage.entities.clear();
+				uf::graph::storage.shadow2Ds.clear();
+				uf::graph::storage.shadowCubes.clear();
+			}
+
+			uf::renderer::states::rebuild = true;
 		});
 		uf::hooks.addHook( "system:Quit", [&](ext::json::Value& json){
 			if ( json["message"].is<uf::stl::string>() ) {

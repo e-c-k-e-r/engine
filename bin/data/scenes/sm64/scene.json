@@ -1,10 +1,8 @@
 {
 	"import": "/scene.json",
 	"assets": [
-		"./audio/soundscape/ambience.ogg",
 	//	"./loading.json",
-		"./mcdonalds.json",
-		"./static.json"
+		"./sm64.json"
 	],
 	"system": {
 		"hot reload": {
@@ -37,10 +35,11 @@
 			"gamma": 1.0,
 			"brightnessThreshold": 1.2,
 		//	"ambient": [ 0, 0, 0 ],
-			"ambient": [ 0.025, 0.025, 0.025 ],
+		//	"ambient": [ 0.025, 0.025, 0.025 ],
 		//	"ambient": [ 0.075, 0.075, 0.075 ],
 		//	"ambient": [ 0.1, 0.1, 0.1 ],
-		//	"ambient": [ 0.4, 0.4, 0.4 ],
+			"ambient": [ 0.4, 0.4, 0.4 ],
+		//	"ambient": [ 0.8, 0.8, 0.8 ],
 
 			"fog-": {
 				"color": [ 0.5, 0.5, 0.5 ],

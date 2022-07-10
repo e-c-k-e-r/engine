@@ -27,7 +27,7 @@
 #if UF_USE_FMT
 	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, ::fmt::format(__VA_ARGS__));
 #else
-	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, #__VA_ARGS__); // std::cout << "[" << CATEGORY << "] [" << __FILE__ << ":" << __FUNCTION__ << "@" << __LINE__ << "]" << std::endl;;
+	#define UF_MSG(CATEGORY, ...) uf::io::log(CATEGORY, __FILE__, __FUNCTION__, __LINE__, #__VA_ARGS__);
 #endif
 
 #define UF_MSG_DEBUG(...) if (UF_DEBUG)		UF_MSG("DEBUG", __VA_ARGS__);
@@ -45,7 +45,8 @@
 	#define UF_NO_EXCEPTIONS 0
 	#define UF_EXCEPTIONS 1
 	#define UF_EXCEPTION(...) {\
-		throw std::runtime_error(UF_MSG_ERROR(__VA_ARGS__));\
+		auto msg = UF_MSG_ERROR(__VA_ARGS__);\
+		throw std::runtime_error(msg);\
 	}
 #endif
 
@@ -81,7 +82,7 @@
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 
-#define UF_TIMER_MULTITRACE_END(X) UF_MSG_DEBUG(X);
+#define UF_TIMER_MULTITRACE_END(...) UF_MSG_DEBUG(__VA_ARGS__);
 
 #include <type_traits>
 #define TYPE_SANITIZE(T) std::remove_cv_t<std::remove_reference_t<T>>
@@ -108,7 +109,7 @@
 
 #define ALIGNED_SIZE(V, A) ((V + A - 1) & ~(A - 1))
 
-#define UF_MSG_PEEK(X) #X << ": " << X
+#define UF_MSG_PEEK(X) #X"="+std::to_string(X)
 
 #if UF_ENV_DREAMCAST
 	#define DC_STATS() {\

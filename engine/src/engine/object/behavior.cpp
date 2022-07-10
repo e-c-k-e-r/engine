@@ -101,25 +101,25 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	metadata.deserialize(self, metadataJson); });
 	metadata.deserialize(self, metadataJson);
 
-	if ( ext::json::isObject(metadataJson["system"]["physics"]) ) {
+	if ( ext::json::isObject(metadataJson["physics"]) ) {
 		auto& collider = this->getComponent<pod::PhysicsState>();
-		collider.stats.flags = metadataJson["system"]["physics"]["flags"].as(collider.stats.flags);
-		collider.stats.mass = metadataJson["system"]["physics"]["mass"].as(collider.stats.mass);
-		collider.stats.restitution = metadataJson["system"]["physics"]["restitution"].as(collider.stats.restitution);
-		collider.stats.friction = metadataJson["system"]["physics"]["friction"].as(collider.stats.friction);
-		collider.stats.inertia = uf::vector::decode( metadataJson["system"]["physics"]["inertia"], collider.stats.inertia );
-		collider.stats.gravity = uf::vector::decode( metadataJson["system"]["physics"]["gravity"], collider.stats.gravity );
+		collider.stats.flags = metadataJson["physics"]["flags"].as(collider.stats.flags);
+		collider.stats.mass = metadataJson["physics"]["mass"].as(collider.stats.mass);
+		collider.stats.restitution = metadataJson["physics"]["restitution"].as(collider.stats.restitution);
+		collider.stats.friction = metadataJson["physics"]["friction"].as(collider.stats.friction);
+		collider.stats.inertia = uf::vector::decode( metadataJson["physics"]["inertia"], collider.stats.inertia );
+		collider.stats.gravity = uf::vector::decode( metadataJson["physics"]["gravity"], collider.stats.gravity );
 	
-		if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "bounding box" ) {
-			pod::Vector3f center = uf::vector::decode( metadataJson["system"]["physics"]["center"], pod::Vector3f{} );
-			pod::Vector3f corner = uf::vector::decode( metadataJson["system"]["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
+		if ( metadataJson["physics"]["type"].as<uf::stl::string>() == "bounding box" ) {
+			pod::Vector3f center = uf::vector::decode( metadataJson["physics"]["center"], pod::Vector3f{} );
+			pod::Vector3f corner = uf::vector::decode( metadataJson["physics"]["corner"], pod::Vector3f{0.5, 0.5, 0.5} );
 
-			if ( metadataJson["system"]["physics"]["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
+			if ( metadataJson["physics"]["recenter"].as<bool>(true) ) collider.transform.position = (center - transform.position);
 
 			uf::physics::impl::create( *this, corner );
-		} else if ( metadataJson["system"]["physics"]["type"].as<uf::stl::string>() == "capsule" ) {
-			float radius = metadataJson["system"]["physics"]["radius"].as<float>();
-			float height = metadataJson["system"]["physics"]["height"].as<float>();
+		} else if ( metadataJson["physics"]["type"].as<uf::stl::string>() == "capsule" ) {
+			float radius = metadataJson["physics"]["radius"].as<float>();
+			float height = metadataJson["physics"]["height"].as<float>();
 
 			uf::physics::impl::create( *this, radius, height );
 		}
@@ -128,7 +128,9 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	for ( auto pair : metadata.hooks.bound ) {
-		for ( auto id : pair.second ) uf::hooks.removeHook(pair.first, id);
+		for ( auto id : pair.second ) {
+			uf::hooks.removeHook(pair.first, id);
+		}
 	}
 
 	if ( this->hasComponent<uf::Audio>() ) {

@@ -17,6 +17,8 @@ namespace ext {
 			struct {
 				bool bound = false;
 				float scale = 1;
+				pod::Vector2ui size{};
+				uf::renderer::enums::Filter::type_t filter = uf::renderer::enums::Filter::NEAREST;
 			} renderer;
 
 			struct {

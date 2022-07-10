@@ -59,7 +59,7 @@ void ext::lua::onInitialization( const std::function<void()>& function ) {
 
 namespace binds {
 	namespace hook {
-		void add( const uf::stl::string& name, const sol::function& function ) {
+		void add( const uf::stl::string& name, sol::function function ) {
 			uf::hooks.addHook( name, [function](ext::json::Value& json){
 				sol::table table = ext::lua::state["json"]["decode"]( json.dump() );
 				auto result = function( table );

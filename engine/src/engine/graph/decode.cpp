@@ -259,6 +259,44 @@ namespace {
 
 		mesh.updateDescriptor();
 
+	#if 0
+		// swap winding order
+		if ( graph.metadata["decode"]["invert winding order"].as<bool>() ) {
+			if ( mesh.index.count ) {
+				uf::Mesh::Attribute indexAttribute = mesh.index.attributes.front();
+				size_t tri[3];
+				for ( size_t i = 0; i < mesh.index.count / 3; ++i ) {
+					switch ( mesh.index.size ) {
+						case sizeof(uint8_t): {
+							uint8_t* pointer = (uint8_t*) (indexAttribute.pointer);
+							tri[0] = pointer[i * 3 + 0];
+							tri[2] = pointer[i * 3 + 2];
+
+							pointer[i * 3 + 0] = tri[2];
+							pointer[i * 3 + 2] = tri[0];
+						} break;
+						case sizeof(uint16_t): {
+							uint16_t* pointer = (uint16_t*) (indexAttribute.pointer);
+							tri[0] = pointer[i * 3 + 0];
+							tri[2] = pointer[i * 3 + 2];
+
+							pointer[i * 3 + 0] = tri[2];
+							pointer[i * 3 + 2] = tri[0];
+						} break;
+						case sizeof(uint32_t): {
+							uint32_t* pointer = (uint32_t*) (indexAttribute.pointer);
+							tri[0] = pointer[i * 3 + 0];
+							tri[2] = pointer[i * 3 + 2];
+
+							pointer[i * 3 + 0] = tri[2];
+							pointer[i * 3 + 2] = tri[0];
+						} break;
+					}
+				}
+			}
+		}
+	#endif
+
 		return mesh;
 	}
 
@@ -302,7 +340,18 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 	serializer.readFromFile( filename );
 	// load metadata
 	graph.name = filename; //serializer["name"].as<uf::stl::string>();
-	graph.metadata = metadata; // serializer["metadata"];
+//	graph.metadata = metadata; // serializer["metadata"];
+
+//	UF_MSG_DEBUG("A: {}", serializer["metadata"].dump(1, '\t'));
+//	UF_MSG_DEBUG("B: {}", metadata.dump(1, '\t'));
+#if 0
+	graph.metadata = serializer["metadata"];
+	graph.metadata.merge( metadata, false );
+#else
+	graph.metadata = metadata;
+	graph.metadata.merge( serializer["metadata"], true );
+#endif
+//	UF_MSG_DEBUG("C: {}", graph.metadata.dump(1, '\t'));
 
 #if UF_GRAPH_LOAD_MULTITHREAD
 	auto tasks = uf::thread::schedule(true);

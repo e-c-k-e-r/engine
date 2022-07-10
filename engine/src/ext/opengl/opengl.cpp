@@ -47,7 +47,6 @@ bool ext::opengl::settings::invariant::individualPipelines = true;
 bool ext::opengl::settings::invariant::multithreadedRecording = true;
 
 uf::stl::string ext::opengl::settings::invariant::deferredMode = "";
-bool ext::opengl::settings::invariant::deferredReconstructPosition = false;
 bool ext::opengl::settings::invariant::deferredAliasOutputToSwapchain = false;
 bool ext::opengl::settings::invariant::deferredSampling = false;
 
