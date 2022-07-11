@@ -61,7 +61,7 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 
 		uf::graph::initialize( graph );
 
-		if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+		if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
 			if ( metadata["model"]["animation"].is<uf::stl::string>() ) {
 				uf::graph::animate( graph, metadata["model"]["animation"].as<uf::stl::string>() );
 			}
@@ -79,7 +79,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 	}
 	/* Update animations */ if ( this->hasComponent<pod::Graph>() ) {
 		auto& graph = this->getComponent<pod::Graph>();
-	//	if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) uf::graph::update( graph );
+	//	if ( graph.metadata["renderer"]["skinned"].as<bool>() ) uf::graph::update( graph );
 	}
 
 	if ( !this->hasComponent<uf::Graphic>() ) return;
@@ -106,7 +106,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 		auto& shader = graphic.material.getShader("vertex");
 		auto& mesh = this->getComponent<pod::Graph::Mesh>();
 
-		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+		if ( !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
 			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
@@ -114,7 +114,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 			}
 			shader.updateBuffer( (const void*) instances.data(), instances.size() * sizeof(pod::Matrix4f), graph.buffers.instance );
 			shader.execute( graphic, mesh.attributes.vertex.pointer );
-		} else if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+		} else if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
 			shader.execute( graphic, mesh.attributes.vertex.pointer );
 		}
 	}
@@ -122,7 +122,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 	if ( graphic.material.hasShader("vertex") ) {
 		auto& shader = graphic.material.getShader("vertex");
 
-		if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+		if ( !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
 			uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 			for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
 				auto& node = graph.nodes[i];
@@ -151,7 +151,7 @@ void uf::GraphBehavior::tick( uf::Object& self ) {
 		}
 	}
 #if 0
-	if ( graphic.material.hasShader("vertex") && !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+	if ( graphic.material.hasShader("vertex") && !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
 		auto& shader = graphic.material.getShader("vertex");
 		uf::stl::vector<pod::Matrix4f> instances( graph.nodes.size() );
 		for ( size_t i = 0; i < graph.nodes.size(); ++i ) {
@@ -191,13 +191,13 @@ void uf::GraphBehavior::render( uf::Object& self ) {
 	auto uniforms = graphic.getUniform();
 	pod::Uniform& uniform = *((pod::Uniform*) graphic.device->getBuffer(uniforms.buffer));
 	uniform = {
-		.modelView = !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ? camera.getView() : camera.getView() * uf::transform::model( transform ),
+		.modelView = !(graph.metadata["renderer"]["separate"].as<bool>()) ? camera.getView() : camera.getView() * uf::transform::model( transform ),
 		.projection = camera.getProjection();
 	};
 	graphic.updateUniform( (const void*) &uniform, sizeof(uniform) );
 #else
 	pod::Uniform uniform = {
-		.modelView = !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ? camera.getView() : camera.getView() * uf::transform::model( transform ),
+		.modelView = !(graph.metadata["renderer"]["separate"].as<bool>()) ? camera.getView() : camera.getView() * uf::transform::model( transform ),
 		.projection = camera.getProjection(),
 	};
 	graphic.updateUniform( (const void*) &uniform, sizeof(uniform) );

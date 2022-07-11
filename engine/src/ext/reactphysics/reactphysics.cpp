@@ -214,8 +214,8 @@ void ext::reactphysics::initialize() {
 		// Select the contact points and contact normals to be displayed 
 		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::COLLIDER_AABB, true); 
 		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::COLLISION_SHAPE, true); 
-		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::CONTACT_POINT, true);
-		debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::CONTACT_NORMAL, true);
+	//	debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::CONTACT_POINT, true);
+	//	debugRenderer.setIsDebugItemDisplayed(rp3d::DebugRenderer::DebugItem::CONTACT_NORMAL, true);
 	}
 }
 void ext::reactphysics::tick( float delta ) {
@@ -284,6 +284,8 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 	state.body = ::world->createRigidBody( ::convert( *state.transform.reference ) );
 	
 	auto* collider = state.body->addCollider(state.shape, colliderTransform);
+	collider->setCollisionCategoryBits(0xFF);
+	collider->setCollideWithMaskBits(0xFF);
 	
 	state.body->setUserData(state.object);
 	state.body->setMass(state.stats.mass);
@@ -509,7 +511,19 @@ void ext::reactphysics::syncFrom( float interp ) {
 	}
 }
 // apply impulse
+void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
+	if ( !state.body ) return;
+
+	state.body->resetForce();
+	state.body->resetTorque();
+	state.body->setLinearVelocity( ::convert(pod::Vector3f{}) );
+	state.body->setAngularVelocity( ::convert(pod::Vector3f{}) );
+//	ext::reactphysics::applyImpulse( state, v );
+}
 void ext::reactphysics::applyImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
+	if ( !state.body ) return;
+
+	state.body->applyWorldForceAtCenterOfMass( ::convert(v) );
 }
 // directly move a transform
 void ext::reactphysics::applyMovement( pod::PhysicsState& state, const pod::Vector3f& v ) {
@@ -584,7 +598,14 @@ float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector
 
 // allows noclip
 void ext::reactphysics::activateCollision( pod::PhysicsState& state, bool s ) {
-
+	if ( !state.body ) return;
+//	state.body->setIsActive(s);
+	auto colliders = state.body->getNbColliders();
+	for ( auto i = 0; i < colliders; ++i ) {
+		auto* collider = state.body->getCollider(i);
+		collider->setCollisionCategoryBits(s ? 0xFF : 0x00);
+		collider->setCollideWithMaskBits(s ? 0xFF : 0x00);
+	}
 }
 
 #endif

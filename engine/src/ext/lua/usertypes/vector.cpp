@@ -37,6 +37,9 @@ namespace binds {
 		float magnitude( const pod::Vector3f& self ) {
 			return uf::vector::magnitude( self );
 		}
+		float norm( const pod::Vector3f& self ) {
+			return uf::vector::norm( self );
+		}
 		float dot( const pod::Vector3f& left, const pod::Vector3f& right ) {
 			return uf::vector::dot( left, right );
 		}
@@ -78,6 +81,9 @@ namespace binds {
 		float magnitude( const pod::Vector4f& self ) {
 			return uf::vector::magnitude( self );
 		}
+		float norm( const pod::Vector4f& self ) {
+			return uf::vector::norm( self );
+		}
 		float dot( const pod::Vector4f& left, const pod::Vector4f& right ) {
 			return uf::vector::dot( left, right );
 		}
@@ -114,6 +120,7 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector3f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, UF_LUA_C_FUN(::binds::v3f::lerp) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( normalize, UF_LUA_C_FUN(::binds::v3f::normalize) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( magnitude, UF_LUA_C_FUN(::binds::v3f::magnitude) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( norm, UF_LUA_C_FUN(::binds::v3f::norm) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, UF_LUA_C_FUN(::binds::v3f::dot) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::v3f::toString) )
 )
@@ -145,6 +152,7 @@ UF_LUA_REGISTER_USERTYPE(pod::Vector4f,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lerp, UF_LUA_C_FUN(::binds::v4f::lerp) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( normalize, UF_LUA_C_FUN(::binds::v4f::normalize) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( magnitude, UF_LUA_C_FUN(::binds::v4f::magnitude) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( norm, UF_LUA_C_FUN(::binds::v4f::norm) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( dot, UF_LUA_C_FUN(::binds::v4f::dot) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::v4f::toString) )
 )

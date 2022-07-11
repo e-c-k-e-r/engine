@@ -86,13 +86,20 @@ ent:bind( "tick", function(self)
 end )
 -- on use
 ent:addHook( "entity:Use.%UID%", function( payload )
+	if payload.user == ent:uid() then return end
+
+--	if timer:elapsed() <= 0.125 then return end
+--	timer:reset()
+
+	print("Processing use: " .. payload["uid"] .. " | " .. payload["depth"] )
+
 	if state == 0 or state == 3 then
 		state = 1
 		playSound("default_move")
 		if payload.uid ~= nil then
-			local player = entities.get( payload.uid )
-			local pTransform = player:getComponent("Transform")
-			local delta = transform.position - pTransform.position
+			local user = entities.get( payload.user )
+			local userTransform = user:getComponent("Transform")
+			local delta = transform.position - userTransform.position
 			local side = normal:dot(delta)
 			if side > 0 then
 				polarity = 1
@@ -100,7 +107,7 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 				polarity = -1
 			end
 		end
-	elseif state == 2 or state == 1 then
+	elseif state == 2 --[[or state == 1]] then
 		state = 3
 		playSound("default_move")
 	end

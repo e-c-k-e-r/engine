@@ -2,7 +2,8 @@
 	"name": "Player",
 	"type": "Object",
 	"behaviors": [
-		"PlayerBehavior"
+		"PlayerBehavior",
+		"SoundEmitterBehavior"
 	],
 	"ignore": false,
 	"transform": {
@@ -14,8 +15,11 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"assets":  [
+	//	{ "filename": "./playerModel.json", "delay": 1 },
 		"./playerModel.json",
-		"./hands.json"
+		"./playerLight.json",
+		"./playerHands.json",
+		"./scripts/player.lua"
 	],
 	"system": {
 		"hot reload": {
@@ -96,6 +100,9 @@
 				"clip" : [ 0.1, 64.0 ],
 				"size" :  [ 0, 0 ]
 			}
+		},
+		"use": {
+			"length": 5
 		}
 	}
 }

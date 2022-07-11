@@ -192,6 +192,10 @@ namespace {
 		if ( uf::inputs::kbm::states::Num8 ) keys.emplace_back('8');
 		if ( uf::inputs::kbm::states::Num9 ) keys.emplace_back('9');
 		if ( uf::inputs::kbm::states::Num0 ) keys.emplace_back('0');
+		
+		if ( uf::inputs::kbm::states::Mouse1 ) keys.emplace_back(VK_LBUTTON);
+		if ( uf::inputs::kbm::states::Mouse2 ) keys.emplace_back(VK_RBUTTON);
+		if ( uf::inputs::kbm::states::Mouse3 ) keys.emplace_back(VK_MBUTTON);
 
 		return keys;
 	}
@@ -424,13 +428,16 @@ namespace {
 		else if ( name == "F14" ) return VK_F14;
 		else if ( name == "F15" ) return VK_F15;
 		else if ( name == "PAUSE" ) return VK_PAUSE;
-		else if ( name == "LEFTMOUSE" ) return VK_LBUTTON;
-		else if ( name == "RIGHTMOUSE" ) return VK_RBUTTON;
-		else if ( name == "MIDDLEMOUSE" ) return VK_MBUTTON;
+		
+		else if ( name == "MOUSE1" ) return VK_LBUTTON;
+		else if ( name == "MOUSE2" ) return VK_RBUTTON;
+		else if ( name == "MOUSE3" ) return VK_MBUTTON;
 		else if ( name == "XBUTTON1" ) return VK_XBUTTON1;
 		else if ( name == "XBUTTON2" ) return VK_XBUTTON2;
 		return 0;
 	}
+
+	float lastMouseWheel;
 }
 
 UF_API_CALL spec::win32::Window::Window() : 
@@ -807,6 +814,13 @@ void UF_API_CALL spec::win32::Window::bufferInputs() {
 	uf::inputs::kbm::states::Num8 = GetAsyncKeyState('8') & 0x8000;
 	uf::inputs::kbm::states::Num9 = GetAsyncKeyState('9') & 0x8000;
 	uf::inputs::kbm::states::Num0 = GetAsyncKeyState('0') & 0x8000;
+	
+	uf::inputs::kbm::states::Mouse1 = GetAsyncKeyState(VK_LBUTTON) & 0x8000;
+	uf::inputs::kbm::states::Mouse2 = GetAsyncKeyState(VK_RBUTTON) & 0x8000;
+	uf::inputs::kbm::states::Mouse3 = GetAsyncKeyState(VK_MBUTTON) & 0x8000;
+
+	uf::inputs::kbm::states::MouseWheel = ::lastMouseWheel;
+	::lastMouseWheel = 0;
 }
 void UF_API_CALL spec::win32::Window::processEvents() {
 	if ( !this->m_callback ) {
@@ -1215,7 +1229,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 				},
 				{
 					pod::Vector2ui{ position.x, position.y },
-					delta,
+					::lastMouseWheel = delta,
 				}
 			};
 		#if UF_HOOK_USE_USERDATA

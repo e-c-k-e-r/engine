@@ -24,9 +24,8 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();
 	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
-	transform.reference = &controllerTransform;
-
-	metadata.reference = &controllerTransform;
+//	transform.reference = &controllerTransform;
+//	metadata.reference = &controllerTransform;
 
 	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
 	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
@@ -34,6 +33,18 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 }
 void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();
+
+	if ( metadata.track ) {
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
+	
+		auto& transform = this->getComponent<pod::Transform<>>();
+		
+		transform.reference = &controllerTransform;
+		metadata.reference = &controllerTransform;
+	}
+
 	if ( !metadata.hide || metadata.set || this->getChildren().size() != 1 ) return;
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 #if UF_ENTITY_METADATA_USE_JSON

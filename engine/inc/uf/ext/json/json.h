@@ -46,6 +46,8 @@ namespace ext {
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(size_t, const ext::json::Value&, bool&)>& function );
 		void UF_API forEach( const ext::json::Value& json, const std::function<void(const uf::stl::string&, const ext::json::Value&, bool&)>& function );
 
+		template<typename T> uf::stl::vector<T> vector( const ext::json::Value& value );
+
 		ext::json::Value UF_API reencode( const ext::json::Value& json, const ext::json::EncodingSettings& settings );
 		ext::json::Value& UF_API reencode( ext::json::Value& json, const ext::json::EncodingSettings& settings );
 
@@ -69,6 +71,16 @@ namespace ext {
 		uf::stl::string UF_API encode( const sol::table& table );
 	#endif
 	}
+}
+
+template<typename T>
+uf::stl::vector<T> ext::json::vector( const ext::json::Value& value ) {
+	uf::stl::vector<T> res;
+	res.reserve( value.size() );
+	ext::json::forEach( value, [&]( const ext::json::Value& value ){
+		res.emplace_back( value.as<T>() );
+	});
+	return res;
 }
 
 template<typename T>

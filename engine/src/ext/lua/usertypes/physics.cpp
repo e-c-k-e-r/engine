@@ -8,6 +8,11 @@ namespace binds {
 
 	void setLinearVelocity( pod::Physics& self, const pod::Vector3f& v ) { self.linear.velocity = v; }
 	void setRotationalVelocity( pod::Physics& self, const pod::Quaternion<>& v ) { self.rotational.velocity = v; }
+
+	void enableGravity( pod::PhysicsState& state, bool s ) {
+		if ( !state.body ) return;
+		state.body->enableGravity(s);
+	}
 }
 
 UF_LUA_REGISTER_USERTYPE(pod::Physics,
@@ -20,10 +25,12 @@ UF_LUA_REGISTER_USERTYPE(pod::Physics,
 
 UF_LUA_REGISTER_USERTYPE(pod::PhysicsState,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(uf::physics::impl::setVelocity) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setImpulse, UF_LUA_C_FUN(uf::physics::impl::setImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyMovement, UF_LUA_C_FUN(uf::physics::impl::applyMovement) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(uf::physics::impl::applyVelocity) ),
 //	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(uf::physics::impl::applyRotation) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) )
 )
 

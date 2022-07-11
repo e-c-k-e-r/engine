@@ -13,9 +13,7 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define PBR 1
 #define VXGI 0
 #define RAYTRACE 1
-#define FOG 1
-#define FOG_RAY_MARCH 0
-#define FOG_BASIC 1
+#define FOG 0
 #define BLOOM 0
 #define WHITENOISE 0
 #define MAX_TEXTURES TEXTURES
@@ -98,7 +96,7 @@ float shadowFactor( const Light light, float def ) {
 	ray.direction = light.position - ray.origin;
 
 	float tMin = ubo.settings.rt.defaultRayBounds.x;
-	float tMax = length(ray.direction);
+	float tMax = length(ray.direction) - 0.0001;
 	
 	ray.direction = normalize(ray.direction);
 

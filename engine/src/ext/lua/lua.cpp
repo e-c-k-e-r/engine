@@ -15,6 +15,7 @@ uf::stl::unordered_map<uf::stl::string, uf::stl::string> ext::lua::modules;
 #include <uf/utils/string/ext.h>
 #include <uf/utils/window/window.h>
 #include <uf/utils/audio/audio.h>
+#include <uf/utils/io/inputs.h>
 
 sol::table ext::lua::createTable() {
 	return sol::table(ext::lua::state, sol::create);
@@ -31,7 +32,7 @@ std::optional<uf::stl::string> ext::lua::encode( sol::table table ) {
 	auto result = fun( table );
 	if ( !result.valid() ) {
 		sol::error err = result;
-		uf::iostream << err.what() << "\n";
+		UF_MSG_ERROR("{}", err.what())
 		return "{}";
 	}
 	return result;
@@ -41,7 +42,7 @@ std::optional<sol::table> ext::lua::decode( const uf::stl::string& string ) {
 	auto result = fun( string );
 	if ( !result.valid() ) {
 		sol::error err = result;
-		uf::iostream << err.what() << "\n";
+		UF_MSG_ERROR("{}", err.what())
 		return createTable();
 	}
 	return result;
@@ -65,7 +66,7 @@ namespace binds {
 				auto result = function( table );
 				if ( !result.valid() ) {
 					sol::error err = result;
-					uf::iostream << err.what() << "\n";
+					UF_MSG_ERROR("{}", err.what())
 				}
 			});
 		};
@@ -117,10 +118,11 @@ namespace binds {
 			size_t count = va.size();
 			for ( auto value : va ) {
 				uf::stl::string str = ext::lua::state["tostring"]( value );
-				uf::iostream << str;
-				if ( --count != 0 ) uf::iostream << "\t";
+				fmt::print("{}", str);
+				if ( --count != 0 ) fmt::print("\t");
 			}
-			uf::iostream << "\n";
+			fmt::print("\n");
+			std::cout.flush();
 		};
 	}
 	namespace math {
@@ -206,6 +208,9 @@ void ext::lua::initialize() {
 		string["extension"] = UF_LUA_C_FUN(::binds::string::extension);
 		string["resolveURI"] = UF_LUA_C_FUN(::binds::string::resolveURI);
 		string["si"] = UF_LUA_C_FUN(::binds::string::si);
+		
+		string["match"] = UF_LUA_C_FUN(uf::string::match);
+		string["matched"] = UF_LUA_C_FUN(uf::string::matched);
 	}
 	// `io` table
 	{
@@ -240,6 +245,13 @@ void ext::lua::initialize() {
 		auto os = state["os"].get_or_create<sol::table>();
 		os["arch"] = UF_LUA_C_FUN(::binds::os::arch);
 	}
+	// `inputs` table
+	{
+		auto inputs = state["inputs"].get_or_create<sol::table>();
+		inputs["key"] = UF_LUA_C_FUN(uf::inputs::key);
+		inputs["analog"] = UF_LUA_C_FUN(uf::inputs::analog);
+		inputs["analog2"] = UF_LUA_C_FUN(uf::inputs::analog2);
+	}
 	run(main);
 }
 bool ext::lua::run( const uf::stl::string& s, bool safe ) {
@@ -249,7 +261,7 @@ bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 			auto result = state.safe_script_file( uf::io::resolveURI( s ), sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {
@@ -261,7 +273,7 @@ bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 			auto result = state.safe_script( s, sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {
@@ -286,7 +298,7 @@ bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 			auto result = state.safe_script_file( s.file, s.env, sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {
@@ -298,7 +310,7 @@ bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 			auto result = state.safe_script( s.file, s.env, sol::script_pass_on_error );
 			if ( !result.valid() ) {
 				sol::error err = result;
-				uf::iostream << err.what() << "\n";
+				UF_MSG_ERROR("{}", err.what());
 				return false;
 			}
 		} else {

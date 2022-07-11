@@ -225,27 +225,16 @@ namespace {
 		});
 
 		// remove extraneous buffers
-	#if 0
+		uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
+	#if 1
 		if ( !mesh.isInterleaved() ) {
 			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
 
 			for ( size_t i = 0; i < mesh.vertex.attributes.size(); ++i ) {
 				auto& attribute = mesh.vertex.attributes[i];
-				if ( attribute.descriptor.name == "position" ) continue;
-				if ( attribute.descriptor.name == "color" ) continue;
-				if ( attribute.descriptor.name == "uv" ) continue;
-				if ( attribute.descriptor.name == "st" ) continue;
-
-			#if !UF_USE_OPENGL
-				if ( attribute.descriptor.name == "normal" ) continue;
-				if ( attribute.descriptor.name == "tangent" ) continue;
-				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
-					if ( attribute.descriptor.name == "joints" ) continue;
-					if ( attribute.descriptor.name == "weights" ) continue;
-				}
-			#endif
-
+				if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
 				remove.insert(remove.begin(), i);
+			//	UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
 			}
 			for ( auto& i : remove ) {
 				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();
@@ -258,7 +247,6 @@ namespace {
 	#endif
 
 		mesh.updateDescriptor();
-
 	#if 0
 		// swap winding order
 		if ( graph.metadata["decode"]["invert winding order"].as<bool>() ) {
@@ -358,6 +346,14 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 #else
 	auto tasks = uf::thread::schedule(false);
 #endif
+
+	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
+	#if UF_USE_OPENGL
+		graph.metadata["decode"]["attributes"] = uf::stl::vector({ "position", "uv", "st" });
+	#else
+		graph.metadata["decode"]["attributes"] = uf::stl::vector({ "position", "color", "uv", "st", "tangent", "joints", "weights", "normal", "id" });
+	#endif
+	}
 
 	tasks.queue([&]{
 		// load images

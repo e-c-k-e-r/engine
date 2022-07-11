@@ -203,7 +203,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;
 	auto& collider = this->getComponent<pod::PhysicsState>();
-//	if ( !stats.floored && collider.body && uf::physics::impl::rayCast( transform.position, transform.position - pod::Vector3f{0,1,0} ) >= 0.0f ) stats.floored = true;
+
 	{
 		uf::Object* hit = NULL;
 		pod::Vector3f center = transform.position + metadata.movement.floored.feet;
@@ -218,33 +218,41 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	TIMER(0.25, keys.use && ) {
 		size_t uid = 0;
 		uf::Object* pointer = NULL;
-		float length = 4.0f;
+		float length = metadata.use.length;
 		pod::Vector3f center = transform.position + cameraTransform.position;
 		pod::Vector3f direction = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
 
 		float depth = uf::physics::impl::rayCast( center, direction, this, pointer );
+		ext::json::Value payload;
 		if ( pointer ) { 
-			ext::json::Value payload;
-			payload["uid"] = this->getUid();
-			payload["depth"] = depth;
+			payload["user"] = this->getUid();
+			payload["uid"] = pointer->getUid();
+			payload["depth"] = uf::vector::norm(direction * depth);
 			pointer->callHook( "entity:Use.%UID%", payload );
 		} else {
-			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
-			uf::stl::string filename = "./ui/deny.ogg";
-			uf::Audio& sfx = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
-
-			bool playing = false;
-			if ( !sfx.playing() )  {
-			#if UF_AUDIO_MAPPED_VOLUMES
-				sfx.setVolume(uf::audio::volumes.count("sfx") > 0 ? uf::audio::volumes.at("sfx") : 1.0);
-			#else
-				sfx.setVolume(uf::audio::volumes::sfx);
-			#endif
-				sfx.setPosition( transform.position );
-				sfx.setTime( 0 );
-				sfx.play();
-			}
+			payload["user"] = this->getUid();
+			payload["uid"] = 0;
+			payload["depth"] = -1;
 		}
+		this->callHook( "entity:Use.%UID%", payload );
+
+	/*
+		auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
+		uf::stl::string filename = pointer ? "./ui/select.ogg" : "./ui/deny.ogg";
+		uf::Audio& sfx = emitter.has(filename) ? emitter.get(filename) : emitter.load(filename);
+
+		bool playing = false;
+		if ( !sfx.playing() )  {
+		#if UF_AUDIO_MAPPED_VOLUMES
+			sfx.setVolume(uf::audio::volumes.count("sfx") > 0 ? uf::audio::volumes.at("sfx") : 1.0);
+		#else
+			sfx.setVolume(uf::audio::volumes::sfx);
+		#endif
+			sfx.setPosition( transform.position );
+			sfx.setTime( 0 );
+			sfx.play();
+		}
+	*/
 	}
 
 	if ( collider.stats.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
@@ -291,23 +299,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		metadata.system.menu = stats.menu;
 	}
-/*
-	{
-		uf::Object* guiManager = (uf::Object*) scene.globalFindByName("Gui Manager");
-		bool menu = guiManager && !guiManager->getChildren().empty();
-		if ( !menu ) stats.menu = "";
-		if ( stats.menu == "" && keys.paused ) {
-			stats.menu = "paused";
-			metadata.system.control = false;
-			pod::payloads::menuOpen payload;
-			payload.name = "pause";
-			uf::hooks.call("menu:Open", payload);
-		} else {
-			metadata.system.control = stats.menu == "";
-		}
-		metadata.system.menu = stats.menu;
-	}
-*/
 
 	pod::Transform<> translator = transform;
 #if UF_USE_OPENVR
@@ -339,23 +330,13 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		TIMER(0.25, keys.vee && ) {
 			bool state = !stats.noclipped;
 			metadata.system.noclipped = state;
-			if ( collider.body ) collider.body->enableGravity(!state);
-			
-			UF_MSG_DEBUG( "{}abled noclip: {}", (state ? "En" : "Dis"), uf::vector::toString(transform.position));
-		#if 0
-			if ( state ) {
-				if ( collider.body ) {
-					collider.body->setGravity(btVector3(0,0.0,0));
-					collider.body->setCollisionFlags(collider.body->getCollisionFlags() | btCollisionObject::CF_NO_CONTACT_RESPONSE);
-				}
-			} else {
-				if ( collider.body ) {
-					collider.body->setGravity(btVector3(0,-9.81,0));
-					collider.body->setCollisionFlags(collider.body->getCollisionFlags() & ~btCollisionObject::CF_NO_CONTACT_RESPONSE);
-				}
+			if ( collider.body ) {
+				collider.body->enableGravity(!state);
+				uf::physics::impl::activateCollision(collider, !state);
 			}
-		#endif
+			
 			stats.noclipped = state;
+			UF_MSG_DEBUG( "{}abled noclip: {}", (state ? "En" : "Dis"), uf::vector::toString(transform.position));
 		}
 		// movement handler
 		// setup desired direction
@@ -549,6 +530,8 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerCameraLimit["current"] = uf::vector::encode(/*this->*/camera.limit.current);
 	serializerCameraLimit["minima"] = uf::vector::encode(/*this->*/camera.limit.min);
 	serializerCameraLimit["maxima"] = uf::vector::encode(/*this->*/camera.limit.max);
+
+	serializer["use"]["length"] = /*this->*/use.length;
 }
 void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& serializerSystem = serializer["system"];
@@ -583,5 +566,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], /*this->*/camera.limit.current );
 	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], /*this->*/camera.limit.min );
 	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], /*this->*/camera.limit.max );
+
+	/*this->*/use.length = serializer["use"]["length"].as(/*this->*/use.length);
 }
 #undef this

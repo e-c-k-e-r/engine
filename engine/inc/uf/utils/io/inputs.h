@@ -125,6 +125,11 @@ namespace uf {
 				constexpr key_t Num8 = UF_KEY("Num8");
 				constexpr key_t Num9 = UF_KEY("Num9");
 				constexpr key_t Num0 = UF_KEY("Num0");
+				
+				constexpr key_t Mouse1 = UF_KEY("Mouse1");
+				constexpr key_t Mouse2 = UF_KEY("Mouse2");
+				constexpr key_t Mouse3 = UF_KEY("Mouse3");
+				constexpr key_t MouseWheel = UF_KEY("MouseWheel");
 			};
 			namespace states {
 				extern UF_API state_t LShift;
@@ -228,6 +233,12 @@ namespace uf {
 				extern UF_API state_t Num8;
 				extern UF_API state_t Num9;
 				extern UF_API state_t Num0;
+				
+				extern UF_API state_t Mouse1;
+				extern UF_API state_t Mouse2;
+				extern UF_API state_t Mouse3;
+				
+				extern UF_API analog_t MouseWheel;
 			};
 		}
 		namespace controller {
@@ -296,5 +307,9 @@ namespace uf {
 				extern UF_API state_t START;
 			};
 		}
+
+		state_t key( const uf::stl::string& );
+		analog_t analog( const uf::stl::string& );
+		analog2_t analog2( const uf::stl::string& );
 	}
 }

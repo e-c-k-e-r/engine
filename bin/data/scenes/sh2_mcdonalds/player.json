@@ -1,9 +1,6 @@
 {
 	"import": "/player.json",
-	"assets": [
-	//	{ "filename": "/gui/hud/hud.json", "delay": 0 }
-		"./playerLight.json"
-	],
+	"assets": [],
 	"metadata": {
 	}
 }

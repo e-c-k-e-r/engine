@@ -1,9 +1,0 @@
-{
-	"assets": ["./scripts/door.lua"],
-	"metadata": {
-		"physics": {
-			"type": "bounding box",
-			"recenter": true
-		}
-	}
-}

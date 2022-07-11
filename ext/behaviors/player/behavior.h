@@ -52,6 +52,9 @@ namespace ext {
 					float volume;
 				} footstep;
 			} audio;
+			struct {
+				float length = 4.0f;
+			} use;
 		);
 	}
 }

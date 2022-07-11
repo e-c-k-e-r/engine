@@ -92,6 +92,7 @@ namespace ext {
 		// synchronize bullet transforms to engine transforms
 		void UF_API syncFrom( float = 1 );
 		// apply impulse
+		void UF_API setImpulse( pod::PhysicsState&, const pod::Vector3f& = {} );
 		void UF_API applyImpulse( pod::PhysicsState&, const pod::Vector3f& );
 		// directly move a transform
 		void UF_API applyMovement( pod::PhysicsState&, const pod::Vector3f& );

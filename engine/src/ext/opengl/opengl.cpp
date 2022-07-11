@@ -418,16 +418,15 @@ void UF_API ext::opengl::render(){
 		clearCommandInfo.bits = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		clearCommandInfo.depth = uf::matrix::reverseInfiniteProjection ? 0.0f : 1.0f;
 
-	#if 1
 		if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][0] ) ) {
 			clearCommandInfo.color = uf::vector::decode( sceneMetadata["system"]["renderer"]["clear values"][0], pod::Vector4f{0,0,0,0} );
 		}
 		if ( !ext::json::isNull( sceneMetadata["light"]["ambient"] ) ) {
 			clearCommandInfo.color = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{0,0,0,0} );
-		//	auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
-		//	GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
+		
+			auto ambient = uf::vector::decode( sceneMetadata["light"]["ambient"], pod::Vector4f{1,1,1,1} );
+			GL_ERROR_CHECK(glLightfv(GL_LIGHT0, GL_AMBIENT, &ambient[0]));
 		}
-	#endif
 
 		GL_ERROR_CHECK(glClearColor(clearCommandInfo.color[0], clearCommandInfo.color[1], clearCommandInfo.color[2], clearCommandInfo.color[3]));
 		GL_ERROR_CHECK(glClearDepth(clearCommandInfo.depth));

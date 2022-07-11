@@ -14,7 +14,6 @@
 				}
 			},
 			"renderer": {
-				"front face": "cw",
 				"cull mode": "none",
 				"filter": "nearest"
 			},
@@ -27,8 +26,8 @@
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json" },
 
-				"Material.071_574B138E_c.bmp": { "material": { "modeAlpha": "BLEND" } },
-				"Material.070_41A41EE3_c.bmp": { "material": { "modeAlpha": "BLEND" } },
+				"Material.071_574B138E_c.bmp": { "material": { "modeAlpha": "blend" } },
+				"Material.070_41A41EE3_c.bmp": { "material": { "modeAlpha": "blend" } },
 
 				"light_sun": { "light": { "power": 25000 } }
 			}		

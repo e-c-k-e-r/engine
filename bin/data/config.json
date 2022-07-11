@@ -6,12 +6,12 @@
 			"matrix": { "reverseInfinite": true },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 32
+				"max": 48
 			},
 			"shadows": {
 				"enabled": true,
-				"update": 2,
-				"max": 16,
+				"update": 4,
+				"max": 24,
 				"samples": 1
 			},
 			"textures": {
@@ -38,8 +38,8 @@
 				}
 			},
 			"rt": {
-				"size": [ 960, 540 ],
-				"filter": "NEAREST",
+			//	"size": [ 1280, 720 ],
+				"filter": "nearest",
 				"defaultRayBounds": [ 0.001, 1024.0 ],
 				"alphaTestOffset": 0.001,
 				"samples": 1,
@@ -193,6 +193,7 @@
 				"interpolate": false,
 				"debug draw": {
 					"enabled": false,
+					"line width": 8,
 				//	"layer": "Gui",
 					"rate": 0.0125
 				}

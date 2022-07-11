@@ -127,7 +127,8 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	if ( !length ) return false;
 	if ( !buffer ) return false;
 	if ( length > allocationInfo.size ) {
-		UF_MSG_DEBUG("LENGTH OF {} EXCEEDS BUFFER SIZE {}", length, allocationInfo.size );
+		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size );
+
 		Buffer& b = *const_cast<Buffer*>(this);
 		b.destroy();
 		b.initialize( data, length, usage, memoryProperties, stage );

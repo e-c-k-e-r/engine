@@ -154,7 +154,7 @@ namespace {
 				if ( attribute.descriptor.name == "uv" ) continue;
 				if ( attribute.descriptor.name == "st" ) continue;
 
-				if ( graph.metadata["flags"]["SKINNED"].as<bool>() ) {
+				if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
 					if ( attribute.descriptor.name == "tangent" ) continue;
 					if ( attribute.descriptor.name == "joints" ) continue;
 					if ( attribute.descriptor.name == "weights" ) continue;

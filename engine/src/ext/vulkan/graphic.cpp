@@ -1018,12 +1018,17 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		#define PARSE_INPUT(name, usage){\
 			if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
 				auto& buffer = mesh.buffers[mesh.name.interleaved];\
-				if ( !buffer.empty() ) mesh.name.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
-				else mesh.name.interleaved = -1;\
-			} else for ( auto& attribute : descriptor.inputs.name.attributes ) {\
+				if ( !buffer.empty() ) {\
+					descriptor.inputs.name.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
+					this->metadata.buffers[#name"[0]"] = descriptor.inputs.name.interleaved;\
+				} else mesh.name.interleaved = -1;\
+			} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
+				auto& attribute = descriptor.inputs.name.attributes[i];\
 				auto& buffer = mesh.buffers[attribute.buffer];\
-				if ( !buffer.empty() ) attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
-				else attribute.buffer = -1;\
+				if ( !buffer.empty() ) {\
+					attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
+					this->metadata.buffers[#name"["+std::to_string(i)+"]"] = attribute.buffer;\
+				} else attribute.buffer = -1;\
 			}\
 		}
 		// allocate buffers
@@ -1042,8 +1047,6 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 	}
 }
 bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
-//	UF_MSG_ERROR("need to fix"); return false;
-
 	// generate indices if not found
 //	if ( mesh.index.count == 0 ) mesh.generateIndices();
 	// generate indirect data if not found
@@ -1051,7 +1054,27 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	// ensure our descriptors are proper
 	mesh.updateDescriptor();
 
+/*
 	// copy descriptors
+	#define UPDATE_DESCRIPTOR(N) {\
+		for ( size_t i = 0; i < mesh.N.attributes.size(); ++i ) {\
+			descriptor.inputs.N.attributes[i].descriptor = mesh.N.attributes[i].descriptor;\
+			descriptor.inputs.N.attributes[i].offset = mesh.N.attributes[i].offset;\
+			descriptor.inputs.N.attributes[i].stride = mesh.N.attributes[i].stride;\
+			descriptor.inputs.N.attributes[i].length = mesh.N.attributes[i].length;\
+			descriptor.inputs.N.attributes[i].pointer = mesh.N.attributes[i].pointer;\
+		}\
+		descriptor.inputs.N.count = mesh.N.count;\
+		descriptor.inputs.N.first = mesh.N.first;\
+		descriptor.inputs.N.size = mesh.N.size;\
+		descriptor.inputs.N.offset = mesh.N.offset;\
+	}
+
+	UPDATE_DESCRIPTOR(vertex);
+	UPDATE_DESCRIPTOR(index);
+	UPDATE_DESCRIPTOR(instance);
+	UPDATE_DESCRIPTOR(indirect);
+*/
 	descriptor.inputs.vertex = mesh.vertex;
 	descriptor.inputs.index = mesh.index;
 	descriptor.inputs.instance = mesh.instance;
@@ -1076,6 +1099,7 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 		else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
 	}
 */
+/*
 	#define PARSE_INPUT(name, usage){\
 		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
 			auto& buffer = mesh.buffers[mesh.name.interleaved];\
@@ -1083,6 +1107,28 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 		} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
 			auto& buffer = mesh.buffers[mesh.name.attributes[i].buffer];\
 			if ( !buffer.empty() ) rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.attributes[i].buffer );\
+		}\
+	}
+*/
+	#define PARSE_INPUT(name, usage){\
+		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
+			auto& buffer = mesh.buffers[mesh.name.interleaved];\
+			if ( !buffer.empty() ) {\
+				const uf::stl::string key = #name"[0]";\
+				if ( this->metadata.buffers.count(key) > 0 ) {\
+					descriptor.inputs.name.interleaved = this->metadata.buffers[key];\
+					rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.interleaved );\
+				}\
+			} else mesh.name.interleaved = -1;\
+		} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
+			auto& attribute = descriptor.inputs.name.attributes[i];\
+			auto& buffer = mesh.buffers[attribute.buffer];\
+			if ( !buffer.empty() ) {\
+				const uf::stl::string key = #name"["+std::to_string(i)+"]";\
+				if ( this->metadata.buffers.count(key) == 0 ) continue;\
+				attribute.buffer = this->metadata.buffers[key];\
+				rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), attribute.buffer );\
+			} else attribute.buffer = -1;\
 		}\
 	}
 
@@ -1288,6 +1334,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	// create BLAS buffer and handle
 	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
 	size_t blasBufferOffset = 0;
+	this->metadata.buffers["blasBuffer"] = blasBufferIndex;
 #endif
 	
 	scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
@@ -1386,12 +1433,21 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	size_t instanceIndex{};
 	size_t tlasBufferIndex{};
 	if ( !update ) {
+		const size_t EXTRANEOUS_SIZE = 2048;
+		size_t bufferSize = MAX( instancesVK.size(), EXTRANEOUS_SIZE );
+
 		instanceIndex = this->initializeBuffer(
-			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
+			NULL, bufferSize * sizeof(VkAccelerationStructureInstanceKHR),
 			uf::renderer::enums::Buffer::ADDRESS | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
 		);
+
+		this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
+
+		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
-		for ( size_t i = 0; i < buffers.size(); ++i ) {
+		if ( this->metadata.buffers.count("tlasInstance") > 0 ) {
+			instanceIndex = this->metadata.buffers["tlasInstance"];
+		} else for ( int i = 0; i < buffers.size(); ++i ) {
 			if ( !(this->buffers[i].usage & (uf::renderer::enums::Buffer::ADDRESS | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)) ) continue;
 			instanceIndex = i;
 			break;
@@ -1431,9 +1487,15 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		// create BLAS buffer and handle
 		auto tlasBufferUsageFlags = uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS;
 		if ( !update ) {
-			tlasBufferIndex = this->initializeBuffer( NULL, sizeInfo.accelerationStructureSize, tlasBufferUsageFlags);
+			const size_t EXTRANEOUS_SIZE = 1024 * 1024;
+			size_t bufferSize = MAX( sizeInfo.accelerationStructureSize, EXTRANEOUS_SIZE );
+
+			tlasBufferIndex = this->initializeBuffer( NULL, bufferSize, tlasBufferUsageFlags);
+			this->metadata.buffers["tlasBuffer"] = tlasBufferIndex;
 		} else {
-			for ( int i = buffers.size() - 1; i >= 0; --i ) {
+			if ( this->metadata.buffers.count("tlasBuffer") > 0 ) {
+				tlasBufferIndex = this->metadata.buffers["tlasBuffer"];
+			} else for ( int i = buffers.size() - 1; i >= 0; --i ) {
 				if ( !(this->buffers[i].usage & tlasBufferUsageFlags) ) continue;
 				tlasBufferIndex = i;
 				break;
@@ -1481,6 +1543,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	}
 
 	if ( rebuild ) {
+	//	uf::renderer::states::rebuild = true;
 		auto& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
 		renderMode.rebuild = true;
 	}

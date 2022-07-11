@@ -40,6 +40,8 @@ namespace {
 	std::mutex mutex;
 	uint64_t uid = 0;
 	struct Job {
+		typedef uf::stl::vector<Job> container_t;
+
 		uf::stl::string callback;
 		uf::stl::string type;
 		uf::Asset::Payload payload;
@@ -49,37 +51,43 @@ namespace {
 uf::Asset uf::Asset::masterAssetLoader;
 bool uf::Asset::assertionLoad = true;
 
+#define UF_ASSET_MULTITHREAD 1
+
 void uf::Asset::processQueue() {
-//	uf::thread::queue([&]{
-		mutex.lock();
-		auto jobs = std::move(this->getComponent<std::queue<Job>>());
-		while ( !jobs.empty() ) {
-			auto job = jobs.front();
-			jobs.pop();
+#if UF_ASSET_MULTITHREAD
+	auto tasks = uf::thread::schedule(true, true);
+#else
+	auto tasks = uf::thread::schedule(false, true);
+#endif
 
-			uf::stl::string callback = job.callback;
-			uf::stl::string type = job.type;
-			uf::Asset::Payload payload = job.payload;
+	mutex.lock();
+	auto jobs = std::move(this->getComponent<Job::container_t>());
+	mutex.unlock();
 
-			if ( payload.filename == "" || callback == "" ) continue;
+	for ( auto& job : jobs ) tasks.queue([=]{
+		uf::stl::string callback = job.callback;
+		uf::stl::string type = job.type;
+		uf::Asset::Payload payload = job.payload;
 
-			uf::stl::string filename = type == "cache" ? this->cache(payload) : this->load(payload);
+		if ( payload.filename == "" || callback == "" ) return;
+
+		uf::stl::string filename = type == "cache" ? this->cache(payload) : this->load(payload);
 			
-			if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
-		}
-		mutex.unlock();
-//	});
+		if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
+	});
+
+	uf::thread::execute( tasks );
 }
 void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();
-	auto& jobs = this->getComponent<std::queue<Job>>();
-	jobs.push({ callback, "cache", payload });
+	auto& jobs = this->getComponent<Job::container_t>();
+	jobs.emplace_back(Job{ callback, "cache", payload });
 	mutex.unlock();
 }
 void uf::Asset::load( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();
-	auto& jobs = this->getComponent<std::queue<Job>>();
-	jobs.push({ callback, "load", payload });
+	auto& jobs = this->getComponent<Job::container_t>();
+	jobs.emplace_back(Job{ callback, "load", payload });
 	mutex.unlock();
 }
 
@@ -258,8 +266,8 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 		#if UF_USE_OPENGL
 			// combining mesh is only really a (negligent) gain on Vulkan
 			// collision meshes still use separated meshes, so avoid having to duplicate a mesh for very little gains, if any
-			metadata[payload.filename]["flags"]["ATLAS"] = false;
-			metadata[payload.filename]["flags"]["SEPARATE"] = true;
+			metadata[payload.filename]["renderer"]["atlas"] = false;
+			metadata[payload.filename]["renderer"]["separate"] = true;
 		#endif
 			asset = uf::graph::load( filename, metadata[payload.filename] );
 			uf::graph::process( asset );

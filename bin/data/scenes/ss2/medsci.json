@@ -11,20 +11,18 @@
 	//	{ "filename": "./models/micro_sci/graph.json" }
 
 	//	{ "filename": "./models/msci.glb" }
-	//	{ "filename": "./models/msci/graph.json" }
+		{ "filename": "./models/msci/graph.json" }
 
 	//	{ "filename": "./models/medsci.glb" }
-		{ "filename": "./models/medsci/graph.json" }
+	//	{ "filename": "./models/medsci/graph.json" }
 	],
 	"metadata": {
 		"model": {
 			"baking": {
 				"enabled": true,
-				"resolution": 1024
+				"resolution": 2048
 			},
 			"renderer": {
-				"front face": "cw",
-				"cull mode": "back",
 				"filter": "linear"
 			},
 			"tags": {
@@ -49,7 +47,12 @@
 				"prop_camera_103118": { /*"bake": false,*/ "action": "load", "payload": { "import": "./camera.json" } },
 				"func_movelinear_57637": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,8.6,0 ] } } },
 				"func_movelinear_82820": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,9.2,0 ] } } },
-				"func_movelinear_103114": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,-3.0,0 ] } } }
+				"func_movelinear_103114": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,-3.0,0 ] } } },
+
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } }
 			}
 		}
 	}

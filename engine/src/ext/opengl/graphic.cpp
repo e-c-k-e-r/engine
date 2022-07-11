@@ -366,15 +366,13 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 	CommandBuffer::InfoDraw drawCommandInfoBase = {};
 	drawCommandInfoBase.type = ext::opengl::enums::Command::DRAW;
 	drawCommandInfoBase.descriptor = descriptor;
-	if ( descriptor.inputs.index.count ) {
-		drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
-	}
+	if ( descriptor.inputs.index.count ) drawCommandInfoBase.attributes.index = descriptor.inputs.index.attributes.front();
 
 	for ( uf::Mesh::Attribute attribute : descriptor.inputs.vertex.attributes ) {
 		if ( attribute.descriptor.name == "position" ) drawCommandInfoBase.attributes.position = attribute;
 		else if ( attribute.descriptor.name == "uv" ) drawCommandInfoBase.attributes.uv = attribute;
 		else if ( attribute.descriptor.name == "st" ) drawCommandInfoBase.attributes.st = attribute;
-	//	else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
+		else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
 		else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
 	}
 
@@ -385,6 +383,11 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		drawCommandInfoBase.matrices.model = &viewports2->modelView;
 		drawCommandInfoBase.matrices.projection = &viewports2->projection;
 	}
+
+	struct {
+		uf::stl::vector<CommandBuffer::InfoDraw> opaques;
+		uf::stl::vector<CommandBuffer::InfoDraw> translucents;
+	} drawCommandInfos;
 
 	if ( descriptor.inputs.indirect.count ) {
 		auto& indirectAttribute = descriptor.inputs.indirect.attributes.front();
@@ -444,7 +447,10 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				auto texture2DID = textures[instance.lightmapID].index;
 				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 			}
-			commandBuffer.record(drawCommandInfo);
+			switch ( drawCommandInfo.blend.modeAlpha ) {
+				case 0: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
+				default: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
+			}
 		}
 	} else {		
 		CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
@@ -468,9 +474,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				break;
 			}
 		}
-
-		commandBuffer.record(drawCommandInfo);
+		
+		switch ( drawCommandInfo.blend.modeAlpha ) {
+			case 0: drawCommandInfos.opaques.emplace_back(drawCommandInfo); break;
+			default: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
+		}
 	}
+	for ( auto& drawCommandInfo : drawCommandInfos.opaques ) commandBuffer.record(drawCommandInfo);
+	for ( auto& drawCommandInfo : drawCommandInfos.translucents ) commandBuffer.record(drawCommandInfo);
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();

@@ -19,7 +19,7 @@ bool UF_API uf::string::isRegex( const uf::stl::string& str ) {
 	return str.front() == '/' && str.back() == '/';
 }
 uf::stl::vector<uf::stl::string> UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
-	std::regex regex(r.substr(1,r.length()-2));
+	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
 	std::smatch match;
 	uf::stl::vector<uf::stl::string> matches;
 	if ( std::regex_search( str, match, regex ) ) {
@@ -31,7 +31,7 @@ uf::stl::vector<uf::stl::string> UF_API uf::string::match( const uf::stl::string
 	return matches;
 }
 bool UF_API uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
-	std::regex regex(r.substr(1,r.length()-2));
+	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
 	std::smatch match;
 	return std::regex_search( str, match, regex );
 }

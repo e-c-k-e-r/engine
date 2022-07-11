@@ -29,7 +29,11 @@
 		"track": true,
 		"hide": true,
 		"model": {
-			"lightmap": false,
+			"debug": {
+				"print": {
+					"animations": true
+				}
+			},
 			"exporter": {
 				"enabled": false,
 				"unwrap": false,
@@ -38,17 +42,19 @@
 			"baking": {
 				"enabled": false
 			},
-			"animation": "wank",
-			"print animations": true,
-			"flags": {
-				"ATLAS": false,
-				"INVERT": true,
-				"TRANSFORM": false,
-				"SKINNED": false,
-				
-				"RENDER": true,
-				"SEPARATE": false,
-				"NORMALS": false
+			"renderer": {
+				"cull mode": "back",
+				"filter": "linear"
+			},
+			"lights": {
+				"lightmap": false
+			},
+			"renderer": {
+				"flip textures": false,
+				"skinned": true
+			},
+			"animations": {
+				"animation": "wank"
 			}
 		}
 	}

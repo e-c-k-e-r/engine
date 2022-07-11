@@ -38,7 +38,7 @@
 			},
 			"baking": {
 				"enabled": true,
-				"resolution": 8192,
+				"resolution": 2048,
 				"shadows": 1024,
 				"layers": 1,
 				"trigger": { "mode": "rendered", "quit": true },
@@ -46,7 +46,7 @@
 				"output": "./lightmap.%i.png",
 				"settings": {
 					"useInputMeshUvs": true,
-					"maxIterations": 16,
+					"maxIterations": 4,
 				//	"maxChartSize": 0,
 					"padding": 4,
 				//	"texelsPerUnit": 0,
@@ -59,19 +59,15 @@
 				}
 			},
 			"renderer": {
-				"front face": "ccw",
+				"front face": "auto",
 				"cull mode": "back",
-				"filter": "linear"
-			},
-			"flags": {
-				"ATLAS": false,
-				"INVERT": false,
-				"TRANSFORM": false,
-				"SKINNED": false,
-				
-				"RENDER": true,
-				"SEPARATE": false,
-				"NORMALS": false
+				"filter": "linear",
+
+				"atlas": false,
+				"invert": true,
+				"skinned": false,
+				"render": true,
+				"separate": false
 			},
 			"lights": {
 				"lightmap": "auto",

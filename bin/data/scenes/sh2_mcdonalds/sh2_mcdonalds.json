@@ -7,28 +7,27 @@
 	//	{ "filename": "./models/sh_mcd/graph.json" }
 	
 	//	{ "filename": "./models/mcdonalds.glb" }
-		{ "filename": "./models/mcdonalds/graph.json" }
+		{ "filename": "./models/mcdonalds/graph.json" },
 
 	//	{ "filename": "./models/mini_mcd.glb" }
 	//	{ "filename": "./models/mini_mcd/graph.json" }
 		
 	//	{ "filename": "/cornell/cornell.glb" }
 	//	{ "filename": "/cornell/cornell/graph.json" }
+
+		{ "filename": "/burger.json" }
 	],
 	"metadata": {
 		"model": {
 			"baking": {
 				"enabled": true,
-				"resolution": 1024,
+				"resolution": 2048,
 				"settings": {
 					"useInputMeshUvs": false
 				}
 			},
 			"renderer": {
-				"front face": "cw",
-				"cull mode": "back",
-				"filter": "linear",
-				"alpha mode": "blend"
+				"filter": "linear"
 			},
 			"tags": {
 				"/^worldspawn/": {
@@ -42,84 +41,31 @@
 			//	"worldspawn_sh2": { "physics": { "type": "mesh", "static": true } },
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
 
-				"func_door_rotating_5409": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5487": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
-				"func_door_rotating_5495": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
-				"func_door_rotating_5656": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
-				"func_door_rotating_5664": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5689": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5698": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5712": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5409": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5487": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5495": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5656": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
+				"func_door_rotating_5664": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5689": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5698": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5712": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				
-				"func_physbox_5212": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_physbox_5548": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_physbox_5931": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_physbox_5212": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_physbox_5548": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_physbox_5931": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 
-				"func_door_rotating_5568": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5576": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"func_door_rotating_5584": { "action": "load", "payload": { "import": "./door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5576": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 
-				"func_physbox_5212": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_5548": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_5931": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5839": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5848": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5857": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5864": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5872": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5879": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5886": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5893": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5905": { "action": "load", "payload": { "import": "./prop.json" } },
-				"func_physbox_multiplayer_5913": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5563": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5564": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5687": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5719": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5721": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5722": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5815": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5816": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5817": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5818": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5819": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5820": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_multiplayer_5821": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5227": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5373": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5374": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5375": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5545": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5546": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5565": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5566": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5591": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5675": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5680": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5681": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5682": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5683": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5684": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5685": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5696": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5707": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5723": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5749": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5750": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5760": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5764": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5787": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5807": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5808": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5809": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5810": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5814": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5822": { "action": "load", "payload": { "import": "./prop.json" } },
-				"prop_physics_override_5824": { "action": "load", "payload": { "import": "./prop.json" } },
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
 
 				"tools/toolsnodraw": { "material": { "base": [0, 0, 0, 0] } },
-				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } }
-			}		
+				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } },
+				"/alpha_mtl/": { "material": { "modeAlpha": "blend" } }
+			}
 		}
 	}
 }

@@ -150,6 +150,7 @@ void indirectLighting() {
 			indirectDiffuse += voxelConeTrace( ray, DIFFUSE_CONE_APERTURE ) * weight;
 			weight = PI * 0.15f;
 		}
+	//	indirectDiffuse.rgb *= surface.material.albedo.rgb;
 		surface.material.occlusion += 1.0 - clamp(indirectDiffuse.a, 0.0, 1.0);
 	// 	outFragColor.rgb = indirectDiffuse.rgb; return;
 	//	outFragColor.rgb = vec3(surface.material.occlusion); return;
@@ -160,10 +161,8 @@ void indirectLighting() {
 		ray.direction = R;
 		ray.origin = P; // + ray.direction;
 		indirectSpecular = voxelConeTrace( ray, SPECULAR_CONE_APERTURE );
+	//	indirectSpecular.rgb *= surface.material.albedo.rgb;
 	// 	outFragColor.rgb = indirectSpecular.rgb; return;
-		if ( length(indirectSpecular) < 0.0125 ) {
-		//	indirectSpecular += (1.0 - indirectSpecular.a) * texture( samplerCubemaps[ubo.indexSkybox], R ) * SPECULAR_CONE_APERTURE;
-		}
 	}
 
 	surface.material.indirect = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;

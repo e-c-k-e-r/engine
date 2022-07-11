@@ -1,0 +1,52 @@
+{
+	"type": "Object",
+	"name": "Burger",
+	"ignore": false,
+	"import": "/model.json",
+	"assets": [
+	//	"/burger/burger.glb"
+		"/burger/burger/graph.json"
+	],
+	"behaviors": [],
+	"transform": {
+		"position": [ -0.574743, 2.3547, -5.05161 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"holdable": true,
+
+		"physics": {
+			"gravity": [ 0, -9.81, 0 ],
+			"inertia": [ 0, 0, 0 ],
+
+			"mass": 10,
+			"type": "bounding box",
+			"recenter": false
+		},
+		"model": {
+			"exporter": {
+				"enabled": true,
+				"unwrap": false,
+				"optimize": false
+			},
+			"baking": {
+				"enabled": false
+			},
+			"renderer": {
+				"flip textures": false
+			},
+			"lighting": {
+				"lightmap": false
+			}
+		}
+	}
+}

@@ -6,7 +6,7 @@ struct {
 	} windingOrder;
 } sanitizer;
 
-if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) ) {
+if ( graph.metadata["sanitizer"]["winding order"].as<bool>(true) || graph.metadata["renderer"]["invert"].as<bool>(true) ) {
 	sanitizer.windingOrder.should = true;
 }
 
@@ -55,7 +55,7 @@ for ( auto& p : m.primitives ) {
 			meshlet.primitive.instance.bounds.min = pod::Vector3f{ accessor.minValues[0], accessor.minValues[1], accessor.minValues[2] };
 			meshlet.primitive.instance.bounds.max = pod::Vector3f{ accessor.maxValues[0], accessor.maxValues[1], accessor.maxValues[2] };
 
-			if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
+			if ( graph.metadata["renderer"]["invert"].as<bool>(true) ){
 				meshlet.primitive.instance.bounds.min.x = -meshlet.primitive.instance.bounds.min.x;
 				meshlet.primitive.instance.bounds.max.x = -meshlet.primitive.instance.bounds.max.x;
 			}
@@ -129,7 +129,7 @@ for ( auto& p : m.primitives ) {
 
 		// required due to reverse-Z projection matrix flipping the X axis as well
 		// default is to proceed with this
-		if ( !(graph.metadata["flags"]["INVERT"].as<bool>()) ){
+		if ( !(graph.metadata["renderer"].as<bool>(true)) ){
 			vertex.position.x = -vertex.position.x;
 			vertex.normal.x = -vertex.normal.x;
 		#if UF_GRAPH_PROCESS_PRIMITIVES_FULL
@@ -234,10 +234,10 @@ for ( auto& p : m.primitives ) {
 	}
 }
 
-if ( sanitizer.windingOrder.should ) {
+if ( sanitizer.windingOrder.should && !graph.metadata["renderer"]["invert"].as<bool>(true) ) {
 	UF_MSG_DEBUG("Winding order correction: {:.3f}%", ( (float) sanitizer.windingOrder.corrected / (float) sanitizer.windingOrder.total ) * 100.0f );
 	if ( sanitizer.windingOrder.corrected * 2 > sanitizer.windingOrder.total ) {
-		UF_MSG_DEBUG("Consider inverting the front face settings for mesh: {}", m.name);
+		UF_MSG_DEBUG("Consider enablind renderer.invert for mesh: {}", m.name);
 	}
 }
 

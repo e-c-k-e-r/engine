@@ -8,12 +8,11 @@
 		"model": {
 			"baking": {
 				"enabled": true,
-				"resolution": 1024,
+				"resolution": 2048,
 				"settings": {
-				//	"useInputMeshUvs": false
+					"useInputMeshUvs": false
 				}
 			},
-			"cull mode": "none",
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },

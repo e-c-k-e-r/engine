@@ -102,12 +102,10 @@ void ext::opengl::CommandBuffer::submit() {
 		switch ( header->type ) {
 			case ext::opengl::enums::Command::CLEAR: {
 				InfoClear* info = (InfoClear*) header;
-			/*
 				GL_ERROR_CHECK(glClearColor(info->color[0], info->color[1], info->color[2], info->color[3]));
 				GL_ERROR_CHECK(glClearDepth(info->depth));
 				GL_ERROR_CHECK(glClear(info->bits));
 				GL_ERROR_CHECK(glLightModelfv(GL_LIGHT_MODEL_AMBIENT, &info->color[0]));
-			*/
 			} break;
 			case ext::opengl::enums::Command::VIEWPORT: {
 				InfoViewport* info = (InfoViewport*) header;

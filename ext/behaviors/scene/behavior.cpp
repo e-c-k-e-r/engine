@@ -74,22 +74,6 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
 			gui.initialize();
 		};
-	/*
-		static uf::Timer<long long> timer(false);
-		if ( !timer.running() ) timer.start( uf::Time<>(-1000000) );
-		if ( timer.elapsed().asDouble() < 1 ) return;
-		timer.reset();
-		uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
-		if ( !manager ) return;
-
-		ext::json::Value payload;
-		uf::stl::string config = metadataJson["menus"]["pause"].as<uf::stl::string>("/entites/gui/pause/menu.json");
-		uf::Object& gui = manager->loadChild(config, false);
-		payload["uid"] = gui.getUid();
-		uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
-		metadataJson["menu"] = payload.menu;
-		gui.initialize();
-	*/
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){
 		assetLoader.load("asset:Load." + std::to_string(payload.uid), payload);
@@ -108,6 +92,25 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	/* store viewport size */	
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
+	});
+	/* Spawn an entity */
+	this->addHook( "entity:Spawn", [&](pod::payloads::entitySpawn& payload){
+		if ( payload.parent.uid ) {
+			payload.parent.pointer = (uf::Object*) this->globalFindByUid(payload.parent.uid);
+		}
+		if ( !payload.parent.pointer ) payload.parent.pointer = this;
+
+		uf::Object* child = NULL;
+
+		if ( payload.filename != "" ) child = payload.parent.pointer->loadChildPointer( payload.filename );
+		else child = payload.parent.pointer->loadChildPointer( payload.metadata );
+
+
+		if ( !child ) return;
+		auto& transform = child->getComponent<pod::Transform<>>();
+		if ( payload.transform.position != pod::Vector3f{0,0,0} ) transform.position = payload.transform.position;
+		if ( payload.transform.orientation != uf::quaternion::identity() ) transform.orientation = payload.transform.orientation;
+		if ( !payload.transform.reference ) transform.reference = payload.transform.reference;
 	});
 
 	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });

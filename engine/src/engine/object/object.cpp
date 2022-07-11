@@ -257,9 +257,9 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
 			if ( !uf::Asset::isExpected( payload, assetType ) ) continue;
 			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
-			payload.monoThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;
+			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
 			this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );
-			bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;
+			bool bind = isObject ? target[i]["bind"].as<bool>(true) : true;
 
 			switch ( assetType ) {
 				case uf::Asset::Type::LUA: {
@@ -274,64 +274,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			}
 		}
 	}
-/*
-	#define UF_OBJECT_LOAD_ASSET_HEADER(type)\
-		uf::Asset::Type assetType = uf::Asset::Type::type;\
-		uf::stl::string assetTypeString = uf::string::lowercase( #type );\
-		uf::Serializer target;\
-		bool override = false;\
-		if ( ext::json::isObject( metadataJson["system"]["assets"] ) ) {\
-			target = metadataJson["system"]["assets"];\
-		} else if ( ext::json::isArray( json["assets"] ) ) {\
-			target = json["assets"];\
-		} else if ( ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][assetTypeString] )  ) {\
-			target = json["assets"][assetTypeString];\
-		}
-
-	#define UF_OBJECT_LOAD_ASSET()\
-		bool isObject = ext::json::isObject( target[i] );\
-		uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();\
-		uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );\
-		uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";\
-		uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );\
-		if ( !uf::Asset::isExpected( payload, assetType ) ) continue;\
-		payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";\
-		payload.monoThreaded = isObject ? target[i]["single threaded"].as<bool>() : false;\
-		this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );\
-		bool bind = isObject && target[i]["bind"].is<bool>() ? target[i]["bind"].as<bool>() : true;\
-
-	{
-		UF_OBJECT_LOAD_ASSET_HEADER(AUDIO)
-		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET()
-		}
-	}
-	{
-		UF_OBJECT_LOAD_ASSET_HEADER(IMAGE)
-		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET()
-		}
-	}
-	{
-		UF_OBJECT_LOAD_ASSET_HEADER(GRAPH)
-		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET()
-			if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
-			
-			auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
-			aMetadata[filename] = json["metadata"]["model"];
-			aMetadata[filename]["root"] = json["root"];
-		}
-	}
-	{
-		UF_OBJECT_LOAD_ASSET_HEADER(LUA)
-		for ( size_t i = 0; i < target.size(); ++i ) {
-			UF_OBJECT_LOAD_ASSET()
-			if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
-		}
-	}
-*/
-
 	// Bind behaviors
 	{
 		if ( json["type"].is<uf::stl::string>() ) uf::instantiator::bind( json["type"].as<uf::stl::string>(), *this );

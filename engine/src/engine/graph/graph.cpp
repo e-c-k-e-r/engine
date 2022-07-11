@@ -88,8 +88,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 
 	graphic.device = &uf::renderer::device;
 	graphic.material.device = &uf::renderer::device;
-	graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
-	graphic.descriptor.cullMode = !(graph.metadata["flags"]["INVERT"].as<bool>()) ? uf::renderer::enums::CullMode::BACK : uf::renderer::enums::CullMode::FRONT;
+	graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
+	graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
 
 	auto tag = ::findTag( entity.getName(), graph );
 	if ( !ext::json::isObject( tag ) ) {
@@ -100,6 +100,13 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		const auto mode = uf::string::lowercase( tag["renderer"]["front face"].as<uf::stl::string>() );
 		if ( mode == "cw" ) graphic.descriptor.frontFace = uf::renderer::enums::Face::CW;
 		else if ( mode == "ccw" ) graphic.descriptor.frontFace = uf::renderer::enums::Face::CCW;
+		else if ( mode == "auto" ) {
+			if ( uf::matrix::reverseInfiniteProjection ) {
+				graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
+			} else {
+				graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CCW : uf::renderer::enums::Face::CW;
+			}
+		}
 		else UF_MSG_WARNING("Invalid Face enum string specified: {}", mode);
 	}
 	if ( tag["renderer"]["cull mode"].is<uf::stl::string>() ) {
@@ -110,6 +117,15 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		else if ( mode == "both" ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BOTH;
 		else UF_MSG_WARNING("Invalid CullMode enum string specified: {}", mode);
 	}
+
+/*
+#if UF_USE_OPENGL
+	if ( !uf::matrix::reverseInfiniteProjection ) {
+		if ( graphic.descriptor.cullMode == uf::renderer::enums::CullMode::FRONT ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
+		if ( graphic.descriptor.cullMode == uf::renderer::enums::CullMode::BACK ) graphic.descriptor.cullMode = uf::renderer::enums::CullMode::FRONT;
+	}
+#endif
+*/
 
 	{
 	//	for ( auto& s : graph.samplers ) graphic.material.samplers.emplace_back( uf::graph::storage.samplers.map[s] );
@@ -143,8 +159,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	// standard pipeline
 	uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv"); {
 		std::pair<bool, uf::stl::string> settings[] = {
-			{ graph.metadata["flags"]["SKINNED"].as<bool>(), "skinned.vert" },
-			{ !graph.metadata["flags"]["SEPARATE"].as<bool>(), "instanced.vert" },
+			{ graph.metadata["renderer"]["skinned"].as<bool>(), "skinned.vert" },
+			{ !graph.metadata["renderer"]["separate"].as<bool>(), "instanced.vert" },
 		};
 		FOR_ARRAY(settings) if ( settings[i].first ) vertexShaderFilename = uf::string::replace( vertexShaderFilename, "vert", settings[i].second );
 		vertexShaderFilename = entity.resolveURI( vertexShaderFilename, root );
@@ -753,7 +769,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	uf::graph::reload();
 
 	// setup combined mesh if requested
-	if ( !(graph.metadata["flags"]["SEPARATE"].as<bool>()) ) {
+	if ( !(graph.metadata["renderer"]["separate"].as<bool>()) ) {
 		graph.root.mesh = graph.meshes.size();
 		auto keyName = graph.name + "/" + graph.root.name;
 		auto& mesh = uf::graph::storage.meshes[graph.meshes.emplace_back(keyName)];
@@ -974,7 +990,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 			instance.model = model;
 			instance.objectID = objectID;
-			instance.jointID = graph.metadata["flags"]["SKINNED"].as<bool>() ? 0 : -1;
+			instance.jointID = graph.metadata["renderer"]["skinned"].as<bool>() ? 0 : -1;
 
 			bounds.min = uf::vector::min( bounds.min, instance.bounds.min );
 			bounds.max = uf::vector::max( bounds.max, instance.bounds.max );
@@ -987,7 +1003,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				drawCommand.instanceID = instanceID;
 			}
 		}
-		if ( (graph.metadata["flags"]["SEPARATE"].as<bool>()) && graph.metadata["flags"]["RENDER"].as<bool>() ) {
+		if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
 		//	uf::instantiator::bind("RenderBehavior", entity);			
 			uf::graph::initializeGraphics( graph, entity, mesh );
 		}
@@ -1077,7 +1093,7 @@ void uf::graph::initialize( pod::Graph& graph ) {
 
 }
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
-	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) return;
+	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) return;
 	const uf::stl::string name = /*graph.name + "/" +*/ _name;
 //	if ( graph.animations.count( name ) > 0 ) {
 	if ( uf::graph::storage.animations.map.count( name ) > 0 ) {
@@ -1119,7 +1135,7 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 #endif
 
 	// no skins
-	if ( !(graph.metadata["flags"]["SKINNED"].as<bool>()) ) {
+	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) {
 		return;
 	}
 
