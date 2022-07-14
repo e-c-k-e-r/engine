@@ -13,6 +13,7 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define PBR 1
 #define VXGI 0
 #define RAYTRACE 1
+#define BUFFER_REFERENCE 1
 #define FOG 0
 #define BLOOM 0
 #define WHITENOISE 0
@@ -41,26 +42,41 @@ layout (binding = 2) uniform UBO {
 layout (std140, binding = 3) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 4) readonly buffer Materials {
+layout (std140, binding = 4) readonly buffer InstanceAddresseses {
+	InstanceAddresses instanceAddresses[];
+};
+layout (std140, binding = 5) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 5) readonly buffer Textures {
+layout (std140, binding = 6) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 6) readonly buffer Lights {
+layout (std140, binding = 7) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 7) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 8) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 9) uniform sampler3D samplerNoise;
+layout (binding = 8) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 9) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 10) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 10) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 11) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 12) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 11) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 12) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 13) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 
 layout (location = 0) rayPayloadEXT RayTracePayload payload;
+
+layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
+layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+layout(buffer_reference, scalar) buffer Indirects { DrawCommand dc[]; };
+
+layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VUv { vec2 v[]; };
+layout(buffer_reference, scalar) buffer VColor { uint v[]; };
+layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
+layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
+layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 #include "../common/functions.h"
 #include "../common/light.h"
@@ -68,6 +84,65 @@ layout (location = 0) rayPayloadEXT RayTracePayload payload;
 #if VXGI
 	#include "../common/vxgi.h"
 #endif
+
+Triangle parsePayload( RayTracePayload payload ) {
+	Triangle triangle;
+	triangle.instanceID = payload.instanceID;
+
+	if ( !payload.hit ) return triangle;
+
+	const vec3 bary = vec3(
+		1.0 - payload.attributes.x - payload.attributes.y,
+		payload.attributes.x,
+		payload.attributes.y
+	);
+	const InstanceAddresses instanceAddresses = instanceAddresses[triangle.instanceID];
+
+	if ( !(0 < instanceAddresses.index) ) return triangle;
+	
+	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
+	const uint triangleID = payload.primitiveID + (drawCommand.indexID / 3);
+
+	Vertex points[3];
+	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
+
+	if ( 0 < instanceAddresses.vertex ) {
+		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
+	} else {
+		if ( 0 < instanceAddresses.position ) {
+			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.uv ) {
+			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.st ) {
+			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.normal ) {
+			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.tangent ) {
+			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
+		}
+	}
+
+	triangle.point.position = /*triangle.*/points[0].position * bary[0] + /*triangle.*/points[1].position * bary[1] + /*triangle.*/points[2].position * bary[2];
+	triangle.point.uv = /*triangle.*/points[0].uv * bary[0] + /*triangle.*/points[1].uv * bary[1] + /*triangle.*/points[2].uv * bary[2];
+	triangle.point.st = /*triangle.*/points[0].st * bary[0] + /*triangle.*/points[1].st * bary[1] + /*triangle.*/points[2].st * bary[2];
+	triangle.point.normal = /*triangle.*/points[0].normal * bary[0] + /*triangle.*/points[1].normal * bary[1] + /*triangle.*/points[2].normal * bary[2];
+	triangle.point.tangent = /*triangle.*/points[0].tangent * bary[0] + /*triangle.*/points[1].tangent * bary[1] + /*triangle.*/points[2].tangent * bary[2];
+	
+	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
+
+	return triangle;
+}
 
 void trace( Ray ray, float tMin, float tMax ) {
 	uint rayFlags = gl_RayFlagsOpaqueEXT;
@@ -110,38 +185,39 @@ float shadowFactor( const Light light, float def ) {
 }
 
 void setupSurface( RayTracePayload payload ) {
-	const Instance instance = instances[payload.triangle.instanceID];
+	const Triangle triangle = parsePayload( payload );
+	const Instance instance = instances[triangle.instanceID];
 	surface.instance = instance;
 	surface.fragment = vec4(0);
 	surface.light = vec4(0);
 
 	// bind position
 	{
-		surface.position.world = vec3( instance.model * vec4(payload.triangle.point.position, 1.0 ) );
+		surface.position.world = vec3( instance.model * vec4(triangle.point.position, 1.0 ) );
 		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
 	}
 	// bind normals
 	{
-		surface.normal.world = normalize(vec3( instance.model * vec4(payload.triangle.point.normal, 0.0 ) ));
+		surface.normal.world = normalize(vec3( instance.model * vec4(triangle.point.normal, 0.0 ) ));
 	//	surface.normal.world = faceforward( surface.normal.world, surface.ray.direction, surface.normal.world );
 	//	surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
 
-	//	surface.tbn[0] = normalize(vec3( instance.model * vec4(payload.triangle.tbn[0], 0.0 ) ));
-	//	surface.tbn[1] = normalize(vec3( instance.model * vec4(payload.triangle.tbn[1], 0.0 ) ));
+	//	surface.tbn[0] = normalize(vec3( instance.model * vec4(triangle.tbn[0], 0.0 ) ));
+	//	surface.tbn[1] = normalize(vec3( instance.model * vec4(triangle.tbn[1], 0.0 ) ));
 	//	surface.tbn[2] = surface.normal.world;
 
-		vec3 tangent = normalize(vec3( instance.model * vec4(payload.triangle.point.tangent, 0.0) ));
-		vec3 bitangent = normalize(vec3( instance.model * vec4(cross( payload.triangle.point.normal, payload.triangle.point.tangent ), 0.0) ));
-		if ( payload.triangle.point.tangent != vec3(0) ) {
-			surface.tbn = mat3(tangent, bitangent, payload.triangle.point.normal);
+		vec3 tangent = normalize(vec3( instance.model * vec4(triangle.point.tangent, 0.0) ));
+		vec3 bitangent = normalize(vec3( instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		if ( triangle.point.tangent != vec3(0) ) {
+			surface.tbn = mat3(tangent, bitangent, triangle.point.normal);
 		} else {
 			surface.tbn = mat3(1);
 		}
 	}
 	// bind UVs
 	{
-		surface.uv.xy = payload.triangle.point.uv;
-		surface.st.xy = payload.triangle.point.st;
+		surface.uv.xy = triangle.point.uv;
+		surface.st.xy = triangle.point.st;
 	}
 
 	const Material material = materials[surface.instance.materialID];

@@ -7,7 +7,7 @@
 	//	{ "filename": "./models/sh_mcd/graph.json" }
 	
 	//	{ "filename": "./models/mcdonalds.glb" }
-		{ "filename": "./models/mcdonalds/graph.json" },
+		{ "filename": "./models/mcdonalds/graph.json" }
 
 	//	{ "filename": "./models/mini_mcd.glb" }
 	//	{ "filename": "./models/mini_mcd/graph.json" }
@@ -15,7 +15,7 @@
 	//	{ "filename": "/cornell/cornell.glb" }
 	//	{ "filename": "/cornell/cornell/graph.json" }
 
-		{ "filename": "/burger.json" }
+	//	{ "filename": "/burger.json" }
 	],
 	"metadata": {
 		"model": {
@@ -38,7 +38,6 @@
 					"physics": { "type": "mesh", "static": true },
 					"grid": { "size": [6,1,6], "epsilon": 1.0, "cleanup": true, "print": true }
 				},
-			//	"worldspawn_sh2": { "physics": { "type": "mesh", "static": true } },
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
 
 				"func_door_rotating_5409": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },

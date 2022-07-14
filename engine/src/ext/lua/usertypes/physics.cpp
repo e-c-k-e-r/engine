@@ -13,6 +13,13 @@ namespace binds {
 		if ( !state.body ) return;
 		state.body->enableGravity(s);
 	}
+
+	std::tuple<uf::Object*, float> rayCast( pod::Physics& self, const pod::Vector3f& center, const pod::Vector3f& direction ) {
+		float depth = -1;
+		uf::Object* object = uf::physics::impl::rayCast(self, center, direction, depth);
+		
+		return std::make_tuple( object, depth );
+	}
 }
 
 UF_LUA_REGISTER_USERTYPE(pod::Physics,
@@ -31,7 +38,12 @@ UF_LUA_REGISTER_USERTYPE(pod::PhysicsState,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyVelocity, UF_LUA_C_FUN(uf::physics::impl::applyVelocity) ),
 //	UF_LUA_REGISTER_USERTYPE_DEFINE( applyRotation, UF_LUA_C_FUN(uf::physics::impl::applyRotation) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( enableGravity, UF_LUA_C_FUN(::binds::enableGravity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) )
+	UF_LUA_REGISTER_USERTYPE_DEFINE( activateCollision, UF_LUA_C_FUN(uf::physics::impl::activateCollision) ),
+	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( rayCast, UF_LUA_C_FUN(::binds::rayCast) ),
+	
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getMass, UF_LUA_C_FUN(uf::physics::impl::getMass) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setMass, UF_LUA_C_FUN(uf::physics::impl::setMass) )
 )
 
 #endif

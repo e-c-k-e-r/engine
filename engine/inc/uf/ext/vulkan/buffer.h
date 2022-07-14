@@ -50,6 +50,7 @@ namespace ext {
 			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
 			void destroy();
 
+			void swap( Buffer& );
 			Buffer alias() const;
 			void aliasBuffer( const Buffer& );
 		};

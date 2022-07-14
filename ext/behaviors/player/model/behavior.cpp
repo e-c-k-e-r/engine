@@ -27,9 +27,7 @@ void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 //	transform.reference = &controllerTransform;
 //	metadata.reference = &controllerTransform;
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::PlayerModelBehavior::Metadata>();

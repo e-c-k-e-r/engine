@@ -62,3 +62,11 @@ public:\
 }
 
 #define UF_BEHAVIOR_ENTITY_CPP_END( OBJ )
+
+#define UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS( METADATA, JSON ) {\
+	this->addHook( "object:Serialize.%UID%", [&]{ METADATA.serialize(self, JSON); });\
+	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ METADATA.serialize(self, (uf::Serializer&) json); });\
+	this->addHook( "object:Deserialize.%UID%", [&]{	 METADATA.deserialize(self, JSON); });\
+	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 METADATA.deserialize(self, (uf::Serializer&) json); });\
+	METADATA.deserialize(self, JSON);\
+}

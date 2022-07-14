@@ -4,7 +4,7 @@
 	"assets": [
 	],
 	"transform": {
-		"track": "parent",
+	//	"track": "parent",
 		"position": [ 0, 1.7, 0 ]
 	},
 	"system": {
@@ -16,7 +16,7 @@
 		"light": {
 			"type": "point",
 			"color": [1, 1, 1],
-			"power": 15,
+			"power": 30,
 			"fov": 90,
 			"bias": {
 				"constant": 1.25,

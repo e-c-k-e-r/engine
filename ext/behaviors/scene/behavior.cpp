@@ -113,9 +113,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		if ( !payload.transform.reference ) transform.reference = payload.transform.reference;
 	});
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	// lock control
 	{

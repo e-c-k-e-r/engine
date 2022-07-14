@@ -65,6 +65,7 @@ namespace uf {
 		}
 	
 		static uf::stl::string resolveFilename( const uf::stl::string& filename, bool compareTimes = true );
+		static uf::stl::string resolveFilename( const uf::stl::string& filename, const ext::json::EncodingSettings&, bool compareTimes = true );
 		bool readFromFile( const uf::stl::string& from, const uf::stl::string& hash = "" );
 		bool writeToFile( const uf::stl::string& to, const ext::json::EncodingSettings& = {} ) const;
 		

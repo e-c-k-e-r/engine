@@ -7,6 +7,20 @@
 #include <uf/ext/vulkan/vulkan.h>
 #include <uf/ext/vulkan/device.h>
 
+void ext::vulkan::Buffer::swap( ext::vulkan::Buffer& buffer ) {
+	std::swap(this->aliased, buffer.aliased);
+	std::swap(this->device, buffer.device);
+	std::swap(this->buffer, buffer.buffer);
+	std::swap(this->memory, buffer.memory);
+	std::swap(this->descriptor, buffer.descriptor);
+	std::swap(this->alignment, buffer.alignment);
+	std::swap(this->address, buffer.address);
+	std::swap(this->mapped, buffer.mapped);
+	std::swap(this->usage, buffer.usage);
+	std::swap(this->memoryProperties, buffer.memoryProperties);
+	std::swap(this->allocation, buffer.allocation);
+	std::swap(this->allocationInfo, buffer.allocationInfo);
+}
 ext::vulkan::Buffer ext::vulkan::Buffer::alias() const {
 	ext::vulkan::Buffer buffer;
 	buffer.aliasBuffer(*this);

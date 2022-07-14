@@ -26,6 +26,8 @@ bool ext::vulkan::settings::defaultStageBuffers = true;
 // constexpr size_t ext::vulkan::settings::maxViews = 6;
 size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
+size_t ext::vulkan::settings::scratchBufferAlignment = 256;
+size_t ext::vulkan::settings::scratchBufferInitialSize = 1024 * 1024;
 
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
@@ -80,6 +82,8 @@ bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
+
+ext::vulkan::Buffer ext::vulkan::scratchBuffer;
 
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::renderModes = {
 	new ext::vulkan::BaseRenderMode,
@@ -251,6 +255,9 @@ void ext::vulkan::initialize() {
 	ext::vulkan::mutex.lock();
 	device.initialize();
 	swapchain.initialize( device );
+
+	ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
+	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
 	
 	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
 		uf::Image image;
@@ -516,33 +523,23 @@ void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();
 	synchronize();
 
-	for ( auto& fence : ::auxFencesGraphics ) vkDestroyFence( device, fence, nullptr);
-	for ( auto& fence : ::auxFencesCompute ) vkDestroyFence( device, fence, nullptr);
-
-	Texture2D::empty.destroy();
-	Texture3D::empty.destroy();
-	TextureCube::empty.destroy();
-
-/*
-	auto& scene = uf::scene::getCurrentScene(); 
-	auto& graph = scene.getGraph();
-	for ( auto entity : graph ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) continue;
-		uf::Graphic& graphic = entity->getComponent<uf::Graphic>();
-		graphic.destroy();
-	}
-*/
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->device ) continue;
 		renderMode->destroy();
-	//	delete renderMode;
+		delete renderMode;
 		renderMode = NULL;
 	}
 
-	for ( auto& s : ext::vulkan::Sampler::samplers ) {
-		s.destroy();
-	}
+	Texture2D::empty.destroy();
+	Texture3D::empty.destroy();
+	TextureCube::empty.destroy();
+	for ( auto& s : ext::vulkan::Sampler::samplers ) s.destroy();
+
+	for ( auto& fence : ::auxFencesGraphics ) vkDestroyFence( device, fence, nullptr);
+	for ( auto& fence : ::auxFencesCompute ) vkDestroyFence( device, fence, nullptr);
+
+	ext::vulkan::scratchBuffer.destroy();
 
 	swapchain.destroy();
 	device.destroy();

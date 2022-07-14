@@ -37,9 +37,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		uf::renderer::addRenderMode( renderMode, "Compute" );
 	}
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
@@ -115,6 +113,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
@@ -141,6 +140,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			
 			metadata.renderer.bound = true;
 		}
+	/*
 		if ( graphic.material.hasShader("ray:hit:closest", uf::renderer::settings::pipelines::names::rt) ) {
 			auto& shader = graphic.material.getShader("ray:hit:closest", uf::renderer::settings::pipelines::names::rt);
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
@@ -149,6 +149,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			auto& shader = graphic.material.getShader("ray:hit:any", uf::renderer::settings::pipelines::names::rt);
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
 		}
+	*/
 
 		graphic.process = false;
 	}

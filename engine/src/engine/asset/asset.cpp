@@ -109,6 +109,7 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 		{ "msgpack",uf::Asset::Type::JSON },
 		{ "ubjson", uf::Asset::Type::JSON },
 		{ "bjdata", uf::Asset::Type::JSON },
+		{ "toml", uf::Asset::Type::JSON },
 
 		{ "lua", 	uf::Asset::Type::LUA },
 		
@@ -129,6 +130,7 @@ uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, cons
 	else if ( basename == "graph.msgpack" ) payload.type = uf::Asset::Type::GRAPH;
 	else if ( basename == "graph.ubjson" ) payload.type = uf::Asset::Type::GRAPH;
 	else if ( basename == "graph.bjdata" ) payload.type = uf::Asset::Type::GRAPH;
+	else if ( basename == "graph.toml" ) payload.type = uf::Asset::Type::GRAPH;
 
 	return payload;
 }

@@ -107,9 +107,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	this->queueHook("discord.Activity.Update.%UID%", ext::json::null(), 1.0);
 #endif
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& camera = this->getComponent<uf::Camera>();
@@ -132,6 +130,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		bool jump = false;
 		bool crouch = false;
 		bool paused = false;
+		bool console = false;
 		bool vee = false;
 		bool use = false;
 	} keys;
@@ -149,6 +148,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			.jump = uf::inputs::kbm::states::Space,
 			.crouch = uf::inputs::kbm::states::LControl,
 			.paused = uf::inputs::kbm::states::Escape,
+			.console = uf::inputs::kbm::states::Tilde,
 			.vee = uf::inputs::kbm::states::V,
 			.use = uf::inputs::kbm::states::E,
 		};
@@ -205,24 +205,28 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& collider = this->getComponent<pod::PhysicsState>();
 
 	{
+		float t = -1;
 		uf::Object* hit = NULL;
 		pod::Vector3f center = transform.position + metadata.movement.floored.feet;
 		pod::Vector3f direction = metadata.movement.floored.floor;
-		float t = 0.0f;
-		if ( !stats.floored && collider.body && (t = uf::physics::impl::rayCast( center, direction, this, hit )) >= 0.0f ) {
+		if ( !stats.floored && collider.body && (hit = uf::physics::impl::rayCast( collider, center, direction, t )) ) {
 			if ( metadata.movement.floored.print ) UF_MSG_DEBUG("Floored: {} | {}", hit->getName(), t);
 			stats.floored = true;
 		}
 	}
-
+#if 0
 	TIMER(0.25, keys.use && ) {
 		size_t uid = 0;
+		float depth = -1;
 		uf::Object* pointer = NULL;
 		float length = metadata.use.length;
-		pod::Vector3f center = transform.position + cameraTransform.position;
-		pod::Vector3f direction = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
+	//	pod::Vector3f center = transform.position + cameraTransform.position;
+	//	pod::Vector3f direction = uf::vector::normalize( transform.forward + pod::Vector3f{ 0, cameraTransform.forward.y, 0 } ) * length;
+		auto flattened = uf::transform::flatten( cameraTransform );
+		pod::Vector3f center = flattened.position;
+		pod::Vector3f direction = flattened.forward * length;
 
-		float depth = uf::physics::impl::rayCast( center, direction, this, pointer );
+		pointer = uf::physics::impl::rayCast( center, direction, this, depth );
 		ext::json::Value payload;
 		if ( pointer ) { 
 			payload["user"] = this->getUid();
@@ -235,7 +239,6 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			payload["depth"] = -1;
 		}
 		this->callHook( "entity:Use.%UID%", payload );
-
 	/*
 		auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 		uf::stl::string filename = pointer ? "./ui/select.ogg" : "./ui/deny.ogg";
@@ -254,6 +257,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	*/
 	}
+#endif
 
 	if ( collider.stats.gravity == pod::Vector3f{0,0,0} ) stats.noclipped = true;
 

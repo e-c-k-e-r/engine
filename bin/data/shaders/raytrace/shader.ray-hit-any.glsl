@@ -18,7 +18,7 @@ layout (constant_id = 2) const uint CUBEMAPS = 128;
 #include "../common/macros.h"
 #include "../common/structs.h"
 
-
+/*
 layout (std140, binding = 10) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
@@ -34,20 +34,25 @@ layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
 layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
 layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
 layout(buffer_reference, scalar) buffer VID { uint v[]; };
+*/
 
 layout(location = 0) rayPayloadInEXT RayTracePayload payload;
 
 hitAttributeEXT vec2 attribs;
 
 void main() {
+	payload.hit = true;
+	payload.instanceID = gl_InstanceCustomIndexEXT;
+	payload.primitiveID = gl_PrimitiveID;
+	payload.attributes = attribs;
+
+#if 0
 	const vec3 bary = vec3(
 		1.0 - attribs.x - attribs.y,
 		attribs.x,
 		attribs.y
 	);
-
 	const uint instanceID = gl_InstanceCustomIndexEXT;
-
 	const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
 
 	if ( !(0 < instanceAddresses.index) ) return;
@@ -108,4 +113,5 @@ void main() {
 */
 	payload.hit = true;
 	payload.triangle = triangle;
+#endif
 }

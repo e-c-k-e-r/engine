@@ -99,9 +99,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		uf::renderer::addRenderMode( &renderMode, name );
 	}
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::LightBehavior::tick( uf::Object& self ) {
 #if !UF_ENV_DREAMCAST
@@ -248,29 +246,30 @@ void ext::LightBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 	serializer["light"]["shadows"] = /*this->*/shadows;
 	serializer["system"]["renderer"]["mode"] = /*this->*/renderer.mode;
 	serializer["light"]["external update"] = /*this->*/renderer.external;
-	serializer["system"]["renderer"]["timer"] = /*this->*/renderer.limiter;
+//	serializer["system"]["renderer"]["timer"] = /*this->*/renderer.limiter;
 	switch ( /*this->*/type ) {
 		case 0: serializer["light"]["type"] = "point"; break;
-		case 1: serializer["light"]["type"] = "spot"; break;
+		case 1: serializer["light"]["type"] = "point"; break;
 		case 2: serializer["light"]["type"] = "spot"; break;
 	}
 }
 void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){	
-	/*this->*/color = uf::vector::decode( serializer["light"]["color"], pod::Vector3f{1,1,1} );
-	/*this->*/power = serializer["light"]["power"].as<float>();
-	/*this->*/bias = serializer["light"]["bias"]["shader"].as<float>();
-	/*this->*/shadows = serializer["light"]["shadows"].as<bool>();
-	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as<uf::stl::string>();
-	/*this->*/renderer.rendered = false;
-	/*this->*/renderer.external = serializer["light"]["external update"].as<bool>();
-	/*this->*/renderer.limiter = serializer["system"]["renderer"]["timer"].as<float>();
+	/*this->*/color = uf::vector::decode( serializer["light"]["color"], /*this->*/color );
+	/*this->*/power = serializer["light"]["power"].as<float>(/*this->*/power);
+	/*this->*/bias = serializer["light"]["bias"]["shader"].as<float>(/*this->*/bias);
+	/*this->*/shadows = serializer["light"]["shadows"].as<bool>(/*this->*/shadows);
+	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as<uf::stl::string>(/*this->*/renderer.mode);
+//	/*this->*/renderer.rendered = false;
+	/*this->*/renderer.external = serializer["light"]["external update"].as<bool>(/*this->*/renderer.external);
+//	/*this->*/renderer.limiter = serializer["system"]["renderer"]["timer"].as<float>(/*this->*/renderer.limiter);
 	if ( serializer["light"]["type"].is<size_t>() ) {
-		/*this->*/type = serializer["light"]["type"].as<size_t>();
+		/*this->*/type = serializer["light"]["type"].as<size_t>(/*this->*/type);
+		if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 	} else if ( serializer["light"]["type"].is<uf::stl::string>() ) {
 		uf::stl::string lightType = serializer["light"]["type"].as<uf::stl::string>();
 		if ( lightType == "point" ) /*this->*/type = 1;
 		else if ( lightType == "spot" ) /*this->*/type = 2;
+		if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 	}
-	if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 }
 #undef this

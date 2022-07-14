@@ -11,6 +11,9 @@
 #if UF_USE_LUA
 	#include <uf/ext/lua/lua.h>
 #endif
+#if UF_USE_TOML
+	#include <uf/ext/toml/toml.h>
+#endif
 
 namespace ext {
 	namespace json {
@@ -18,8 +21,8 @@ namespace ext {
 		extern uf::stl::string PREFERRED_ENCODING;
 
 		struct UF_API EncodingSettings {
-			uf::stl::string compression = ""; // auto-assume compression scheme
 			uf::stl::string encoding = ""; // auto-assume re-encoding scheme
+			uf::stl::string compression = ""; // auto-assume compression scheme
 			bool pretty = false;
 			bool quantize = false;
 			uint8_t precision = 0;
@@ -101,6 +104,12 @@ T& ext::json::encode( const ext::json::Value& json, T& output, const ext::json::
 	else UF_JSON_PARSE_ENCODING(msgpack)
 	else UF_JSON_PARSE_ENCODING(ubjson)
 	else UF_JSON_PARSE_ENCODING(bjdata)
+#if UF_USE_TOML
+	else if ( settings.encoding == "toml" ) {
+		uf::stl::string buffer = ext::toml::fromJson( json.dump() );
+		output = T( buffer.begin(), buffer.end() );
+	}
+#endif
 	else {
 		// should probably default to json, not my problem
 		UF_MSG_ERROR("invalid encoding requested: {}", settings.encoding);
@@ -129,6 +138,15 @@ ext::json::Value& ext::json::decode( ext::json::Value& json, const T& input, con
 		else UF_JSON_PARSE_ENCODING(msgpack)
 		else UF_JSON_PARSE_ENCODING(ubjson)
 		else UF_JSON_PARSE_ENCODING(bjdata)
+#if UF_USE_TOML
+		else if ( settings.encoding == "toml" ) {
+		//	UF_MSG_DEBUG("TOML: {}", std::string_view{ (const char*) input.data(), input.size() });
+			T parsed = ext::toml::toJson( input );
+		//	UF_MSG_DEBUG("JSON: {}", std::string_view{ (const char*) parsed.data(), parsed.size() });
+			json = nlohmann::json::parse(parsed, nullptr, exceptions, comments);
+		//	UF_MSG_DEBUG("ENCODED: {}", json.dump());
+		}
+#endif
 		else {
 			// should probably default to json, not my problem
 			UF_MSG_ERROR("invalid encoding requested: {}", settings.encoding);

@@ -318,5 +318,8 @@ struct Triangle {
 
 struct RayTracePayload {
 	bool hit;
-	Triangle triangle;
+	uint instanceID;
+	uint primitiveID;
+	vec2 attributes;
+//	Triangle triangle;
 };

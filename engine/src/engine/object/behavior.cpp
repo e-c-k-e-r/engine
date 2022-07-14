@@ -59,7 +59,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		if ( json["type"].as<uf::stl::string>() == "merge" ) metadataJson.merge(json["value"], true);
 		else if ( json["type"].as<uf::stl::string>() == "import" ) metadataJson.import(json["value"]);
 		else if ( json["path"].is<uf::stl::string>() ) metadataJson.path(json["path"].as<uf::stl::string>()) = json["value"];
-		else metadataJson.merge(json, true);
+	//	else metadataJson.merge(json, true);
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
@@ -97,9 +97,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	});
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	if ( ext::json::isObject(metadataJson["physics"]) ) {
 		auto& collider = this->getComponent<pod::PhysicsState>();
@@ -247,7 +245,7 @@ void uf::ObjectBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 	if ( /*this->*/transform.trackParent ) serializer["system"]["transform"]["track"] = "parent";
 }
 void uf::ObjectBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
-	/*this->*/transform.initial = self.getComponent<pod::Transform<>>();
-	/*this->*/transform.trackParent = serializer["system"]["transform"]["track"].as<uf::stl::string>() == "parent";
+	if ( !transform.trackParent ) /*this->*/transform.initial = self.getComponent<pod::Transform<>>();
+	/*this->*/transform.trackParent = serializer["system"]["transform"]["track"].as<uf::stl::string>(/*this->*/transform.trackParent ? "parent" : "") == "parent";
 }
 UF_BEHAVIOR_ENTITY_CPP_END(Object)

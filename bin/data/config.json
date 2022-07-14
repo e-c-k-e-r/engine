@@ -40,7 +40,7 @@
 			"rt": {
 			//	"size": [ 1280, 720 ],
 				"filter": "nearest",
-				"defaultRayBounds": [ 0.001, 1024.0 ],
+				"defaultRayBounds": [ 0.0001, 256.0 ],
 				"alphaTestOffset": 0.001,
 				"samples": 1,
 				"paths": 2,
@@ -186,7 +186,7 @@
 				"compression": "gz"
 			},
 			"imgui": {
-				"enabled": false
+				"enabled": true
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,

@@ -178,7 +178,7 @@ bool UF_API uf::io::exists( const uf::stl::string& _filename ) {
 size_t UF_API uf::io::mtime( const uf::stl::string& _filename ) {
 	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
-	if ( stat(filename.c_str(), &buffer) != 0 ) return -1;
+	if ( stat(filename.c_str(), &buffer) != 0 ) return 0;
 	return buffer.st_mtime;
 }
 bool UF_API uf::io::mkdir( const uf::stl::string& _filename ) {

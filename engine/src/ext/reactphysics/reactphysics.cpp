@@ -572,28 +572,32 @@ void ext::reactphysics::applyRotation( pod::PhysicsState& state, const pod::Vect
 
 // ray casting
 
-float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction ) {	
-	if ( !::world )
-		return -1;
-
-	::RaycastCallback callback;
-	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
-	if ( !callback.isHit ) return -1;
-	return callback.raycastInfo.hitFraction;
+uf::Object* ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction ) {	
+	float depth = -1;
+	return rayCast( center, direction, NULL, depth );
 }
-float ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object* source, uf::Object*& object ) {
-	if ( !::world )
-		return -1;
+
+uf::Object* ext::reactphysics::rayCast( pod::PhysicsState& state, const pod::Vector3f& center, const pod::Vector3f& direction ) {	
+	float depth = -1;
+	return rayCast( center, direction, state.object, depth );
+}
+uf::Object* ext::reactphysics::rayCast( pod::PhysicsState& state, const pod::Vector3f& center, const pod::Vector3f& direction, float& depth ) {
+	return rayCast( center, direction, state.object, depth );
+}
+
+uf::Object* ext::reactphysics::rayCast( const pod::Vector3f& center, const pod::Vector3f& direction, uf::Object* source, float& depth ) {
+	depth = -1;
+	
+	if ( !::world ) return NULL;
 
 	::RaycastCallback callback;
 	callback.source = source;
 	::world->raycast( rp3d::Ray( ::convert( center ), ::convert( center + direction ) ), &callback );
-	object = NULL;
-	if ( !callback.isHit ) {
-		return -1;
-	}
-	object = (uf::Object*) callback.raycastInfo.body->getUserData();
-	return callback.raycastInfo.hitFraction;
+	if ( !callback.isHit ) return NULL;
+	
+	depth = callback.raycastInfo.hitFraction;
+
+	return (uf::Object*) callback.raycastInfo.body->getUserData();
 }
 
 // allows noclip
@@ -606,6 +610,16 @@ void ext::reactphysics::activateCollision( pod::PhysicsState& state, bool s ) {
 		collider->setCollisionCategoryBits(s ? 0xFF : 0x00);
 		collider->setCollideWithMaskBits(s ? 0xFF : 0x00);
 	}
+}
+
+float ext::reactphysics::getMass( pod::PhysicsState& state ) {
+	if ( !state.body ) return state.stats.mass;
+
+	return (state.stats.mass = state.body->getMass());
+}
+void ext::reactphysics::setMass( pod::PhysicsState& state, float mass ) {
+	state.stats.mass = mass;
+	state.body->setMass(mass);
 }
 
 #endif

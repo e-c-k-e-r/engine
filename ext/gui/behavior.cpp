@@ -487,9 +487,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
 		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
@@ -642,9 +640,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				metadataJson["text settings"][key] = value;
 		});
 		auto& metadataGlyph = this->getComponent<ext::GuiBehavior::GlyphMetadata>();
+	//	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadataGlyph, metadataJson);
 
-		this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-		this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
+		this->addHook( "object:Serialize.%UID%", [&](){ metadataGlyph.serialize(self, metadataJson); });
+		this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadataGlyph.serialize(self, (uf::Serializer&) json); });
+		this->addHook( "object:Deserialize.%UID%", [&](){ metadataGlyph.deserialize(self, metadataJson); });
+		this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadataGlyph.deserialize(self, (uf::Serializer&) json); });
 	//	metadataGlyph.deserialize(self, metadataJson);
 		
 		this->addHook( "object:Reload.%UID%", [&](ext::json::Value& json){

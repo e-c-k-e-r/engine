@@ -84,9 +84,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 		}
 	});
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #if UF_USE_VULKAN

@@ -62,9 +62,7 @@ void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::CraetureBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	this->addHook( "object:Serialize.%UID%", [&](ext::json::Value& json){ metadata.serialize(self, metadataJson); });
-	this->addHook( "object:Deserialize.%UID%", [&](ext::json::Value& json){	 metadata.deserialize(self, metadataJson); });
-	metadata.deserialize(self, metadataJson);
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::CraetureBehavior::tick( uf::Object& self ) {}
 void ext::CraetureBehavior::render( uf::Object& self ){}

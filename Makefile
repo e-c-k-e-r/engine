@@ -58,9 +58,9 @@ DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring zig,$(CC)))
-		REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
 	else
-		REQ_DEPS 			+= $(RENDERER) json:nlohmann png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
 	endif
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
@@ -223,6 +223,9 @@ ifneq (,$(findstring ctti,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_CTTI -fno-rtti
 else
 	FLAGS 				+= -DUF_RTTI -rtti
+endif
+ifneq (,$(findstring toml,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_TOML
 endif
 
 # SRCS_DLL 				+= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)

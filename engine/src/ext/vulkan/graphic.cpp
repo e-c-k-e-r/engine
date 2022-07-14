@@ -29,6 +29,8 @@ PFN_vkGetAccelerationStructureDeviceAddressKHR ext::vulkan::vkGetAccelerationStr
 PFN_vkCmdTraceRaysKHR ext::vulkan::vkCmdTraceRaysKHR = NULL; // = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(device, "vkCmdTraceRaysKHR"));
 PFN_vkGetRayTracingShaderGroupHandlesKHR ext::vulkan::vkGetRayTracingShaderGroupHandlesKHR = NULL; // = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(device, "vkGetRayTracingShaderGroupHandlesKHR"));
 PFN_vkCreateRayTracingPipelinesKHR ext::vulkan::vkCreateRayTracingPipelinesKHR = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+PFN_vkCmdWriteAccelerationStructuresPropertiesKHR ext::vulkan::vkCmdWriteAccelerationStructuresPropertiesKHR = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+PFN_vkCmdCopyAccelerationStructureKHR ext::vulkan::vkCmdCopyAccelerationStructureKHR = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 
 void ext::vulkan::Pipeline::initialize( const Graphic& graphic ) {
 	return this->initialize( graphic, graphic.descriptor );
@@ -1180,11 +1182,9 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 
     	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo;
     	uf::renderer::AccelerationStructure as;
+    	uf::renderer::AccelerationStructure cleanup;
   	};
   	uf::stl::vector<BlasData> blasDatas;
-
-	uf::renderer::Buffer scratchBuffer;
-	uf::renderer::Buffer blasBuffer;
 
 	// setup BLAS geometry
 	{
@@ -1299,8 +1299,11 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		}
 	}
 
+	bool shouldCompact = true;
+
 	// determine BLAS size and its scratch buffer
 	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+	if ( shouldCompact) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 	size_t totalBlasBufferSize{};
 	size_t maxScratchBufferSize{};
 	for ( auto& blasData : blasDatas ) {
@@ -1328,72 +1331,140 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		totalBlasBufferSize += blasData.sizeInfo.accelerationStructureSize;
 	}
 
-	#define VK_UNIFIED_BLAS_BUFFER 1
-
-#if VK_UNIFIED_BLAS_BUFFER
 	// create BLAS buffer and handle
 	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
-	size_t blasBufferOffset = 0;
 	this->metadata.buffers["blasBuffer"] = blasBufferIndex;
-#endif
 	
-	scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-	scratchBuffer.initialize( NULL, maxScratchBufferSize, uf::renderer::enums::Buffer::STORAGE | uf::renderer::enums::Buffer::ADDRESS );
-	
-	for ( auto& blasData : blasDatas ) {
-	#if VK_UNIFIED_BLAS_BUFFER
-		blasData.as.buffer = this->buffers[blasBufferIndex].alias();
-		blasData.as.buffer.descriptor.offset = blasBufferOffset;
+	VkQueryPool queryPool{VK_NULL_HANDLE};
+	if ( shouldCompact ) {
+		VkQueryPoolCreateInfo queryPoolCreateInfo{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+		queryPoolCreateInfo.queryType  = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
+		queryPoolCreateInfo.queryCount = blasDatas.size();
 
-		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
-		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-		createInfo.size = blasData.sizeInfo.accelerationStructureSize;
-		createInfo.buffer = blasData.as.buffer.buffer;
-		createInfo.offset = blasData.as.buffer.descriptor.offset;
-
-		blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
-	#else
-		size_t blasBufferIndex = this->initializeBuffer( NULL, blasData.sizeInfo.accelerationStructureSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
-		blasData.as.buffer = this->buffers[blasBufferIndex].alias();
-
-		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
-		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-		createInfo.size = blasData.sizeInfo.accelerationStructureSize;
-		createInfo.buffer = blasData.as.buffer.buffer;
-		createInfo.offset = blasData.as.buffer.descriptor.offset;
-	#endif
-
-		VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
-
-		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
-		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-		accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
-		blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
-
-		// write to BLAS
-
-		blasData.buildInfo.dstAccelerationStructure  = blasData.as.handle;
-		blasData.buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
-
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
-		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
-			commandBuffer,
-			1,
-			&blasData.buildInfo,
-			&blasData.rangeInfo
-		);
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		VK_CHECK_RESULT(vkCreateQueryPool(device, &queryPoolCreateInfo, nullptr, &queryPool));
+		vkResetQueryPool(device, queryPool, 0, blasDatas.size());
 	}
 
-	for ( auto& blasData : blasDatas ) this->accelerationStructures.bottoms.emplace_back(blasData.as);
+	uint32_t queryCount{};
+	{
+		size_t blasBufferOffset = 0;
+		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+		scratchBuffer.update( NULL, maxScratchBufferSize );
+		
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		for ( auto& blasData : blasDatas ) {
+			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
+			blasData.as.buffer.descriptor.offset = blasBufferOffset;
+			blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
 
-	scratchBuffer.destroy();
+			VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			createInfo.size = blasData.sizeInfo.accelerationStructureSize;
+			createInfo.buffer = blasData.as.buffer.buffer;
+			createInfo.offset = blasData.as.buffer.descriptor.offset;
+
+			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+
+			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+			accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
+			blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+			// write to BLAS
+			blasData.buildInfo.dstAccelerationStructure  = blasData.as.handle;
+			blasData.buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
+
+			uf::renderer::vkCmdBuildAccelerationStructuresKHR(
+				commandBuffer,
+				1,
+				&blasData.buildInfo,
+				&blasData.rangeInfo
+			);
+
+			// pipeline barrier here for scratch buffer
+			VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+			barrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+			barrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+
+			if ( queryPool ) uf::renderer::vkCmdWriteAccelerationStructuresPropertiesKHR(
+				commandBuffer,
+				1,
+				&blasData.buildInfo.dstAccelerationStructure,
+				VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+				queryPool,
+				queryCount++
+			);
+		}
+		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+	}
+	// compact
+	if ( queryPool ) {
+		uf::stl::vector<VkDeviceSize> compactSizes(blasDatas.size());
+		vkGetQueryPoolResults(device, queryPool, 0, (uint32_t) compactSizes.size(), compactSizes.size() * sizeof(VkDeviceSize), compactSizes.data(), sizeof(VkDeviceSize), VK_QUERY_RESULT_WAIT_BIT);
+
+		size_t queryIndex{};
+		size_t totalBlasBufferSize{};
+		for ( auto& blasData : blasDatas ) {
+			size_t compactedSize = compactSizes[queryIndex++];
+			size_t oldSize = blasData.sizeInfo.accelerationStructureSize;
+
+			blasData.cleanup = blasData.as;
+			blasData.sizeInfo.accelerationStructureSize = ALIGNED_SIZE(compactedSize, 256);
+			totalBlasBufferSize += blasData.sizeInfo.accelerationStructureSize;
+		//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (oldSize - compactedSize) * 100.0f / oldSize, oldSize, compactedSize, oldSize - compactedSize);
+		}
+
+		ext::vulkan::Buffer oldBuffer;
+		oldBuffer.initialize( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+		this->buffers[blasBufferIndex].swap(oldBuffer);
+		
+		size_t blasBufferOffset{};
+		for ( auto& blasData : blasDatas ) {
+			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
+			blasData.as.buffer.descriptor.offset = blasBufferOffset;
+			blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
+
+			VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			createInfo.size = blasData.sizeInfo.accelerationStructureSize;
+			createInfo.buffer = blasData.as.buffer.buffer;
+			createInfo.offset = blasData.as.buffer.descriptor.offset;
+
+			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+
+			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+			accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
+			blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+			VkCopyAccelerationStructureInfoKHR copyInfo{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
+			copyInfo.src  = blasData.cleanup.handle;
+			copyInfo.dst  = blasData.as.handle;
+			copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
+			
+			VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+			uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
+			device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		}
+
+		oldBuffer.destroy();
+	}
+
+	for ( auto& blasData : blasDatas ) {
+		this->accelerationStructures.bottoms.emplace_back(blasData.as);
+
+		if ( blasData.cleanup.handle ) uf::renderer::vkDestroyAccelerationStructureKHR(device, blasData.cleanup.handle, nullptr);
+	}
+
+	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
 }
 void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vector<uf::renderer::Graphic*>& graphics, const uf::stl::vector<pod::Instance>& instances ) {
 	auto& device = *this->device;
 
 	bool rebuild = false;
 	bool update = this->accelerationStructures.top.handle != VK_NULL_HANDLE;
+	bool shouldCompact = false;
 
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR acclerationStructureProperties{};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
@@ -1407,6 +1478,16 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		deviceProperties2.pNext = &rayTracingPipelineProperties;
 
 		vkGetPhysicalDeviceProperties2(device.physicalDevice, &deviceProperties2);
+	}
+
+	VkQueryPool queryPool{VK_NULL_HANDLE};
+	if ( shouldCompact ) {
+		VkQueryPoolCreateInfo queryPoolCreateInfo{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
+		queryPoolCreateInfo.queryType  = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
+		queryPoolCreateInfo.queryCount = 1;
+
+		VK_CHECK_RESULT(vkCreateQueryPool(device, &queryPoolCreateInfo, nullptr, &queryPool));
+		vkResetQueryPool(device, queryPool, 0, 1);
 	}
 
 
@@ -1429,19 +1510,14 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		}
 	}
 
-	// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
 	size_t instanceIndex{};
 	size_t tlasBufferIndex{};
 	if ( !update ) {
-		const size_t EXTRANEOUS_SIZE = 2048;
-		size_t bufferSize = MAX( instancesVK.size(), EXTRANEOUS_SIZE );
-
+		// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
 		instanceIndex = this->initializeBuffer(
-			NULL, bufferSize * sizeof(VkAccelerationStructureInstanceKHR),
+			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
 			uf::renderer::enums::Buffer::ADDRESS | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
 		);
-
-		this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
 
 		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
@@ -1455,10 +1531,12 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		rebuild = rebuild || this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
 	}
 	size_t instanceBufferAddress = this->buffers[instanceIndex].getAddress();
+
+	auto& tlas = this->accelerationStructures.top;
 	{
 		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
+		if ( shouldCompact ) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 		uint32_t countInstance = instancesVK.size();
-		auto& tlas = this->accelerationStructures.top;
 
 		VkAccelerationStructureGeometryInstancesDataKHR instancesVk{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR};
   		instancesVk.data.deviceAddress 			= instanceBufferAddress;
@@ -1518,10 +1596,9 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			tlas.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
 		}
 
-		// write to BLAS
-		uf::renderer::Buffer scratchBuffer;
+		// write to TLAS
 		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-		scratchBuffer.initialize( NULL, sizeInfo.buildScratchSize, uf::renderer::enums::Buffer::STORAGE | uf::renderer::enums::Buffer::ADDRESS );
+		scratchBuffer.update( NULL, sizeInfo.buildScratchSize );
 
 		buildInfo.srcAccelerationStructure  = update ? tlas.handle : VK_NULL_HANDLE;
 		buildInfo.dstAccelerationStructure  = tlas.handle;
@@ -1537,10 +1614,62 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			&buildInfo,
 			&rangeInfo
 		);
+
+		if ( queryPool ) uf::renderer::vkCmdWriteAccelerationStructuresPropertiesKHR(
+			commandBuffer,
+			1,
+			&buildInfo.dstAccelerationStructure,
+			VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR,
+			queryPool,
+			0
+		);
+
+		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+	}
+
+	// compact
+	if ( queryPool ) {
+		VkDeviceSize compactSize{};
+		vkGetQueryPoolResults(device, queryPool, 0, 1, sizeof(VkDeviceSize), &compactSize, sizeof(VkDeviceSize), VK_QUERY_RESULT_WAIT_BIT);
+
+		auto cleanup = tlas;
+		size_t tlasBufferSize = ALIGNED_SIZE(compactSize, 256);
+	//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (float) (oldSize - compactedSize) / (float) (oldSize), oldSize, compactedSize, oldSize - compactedSize);
+
+		ext::vulkan::Buffer oldBuffer;
+		oldBuffer.initialize( NULL, tlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+		this->buffers[tlasBufferIndex].swap(oldBuffer);
+		
+		tlas.buffer = this->buffers[tlasBufferIndex].alias();
+		tlas.buffer.descriptor.offset = 0;
+
+		VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+		createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		createInfo.size = tlasBufferSize;
+		createInfo.buffer = tlas.buffer.buffer;
+		createInfo.offset = tlas.buffer.descriptor.offset;
+
+		VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
+
+		VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+		accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+		accelerationDeviceAddressInfo.accelerationStructure = tlas.handle;
+		tlas.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+		VkCopyAccelerationStructureInfoKHR copyInfo{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
+		copyInfo.src  = cleanup.handle;
+		copyInfo.dst  = tlas.handle;
+		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
+		
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
 		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
 
-		scratchBuffer.destroy();
+		uf::renderer::vkDestroyAccelerationStructureKHR(device, cleanup.handle, nullptr);
+		oldBuffer.destroy();
 	}
+
+	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
 
 	if ( rebuild ) {
 	//	uf::renderer::states::rebuild = true;
@@ -1744,6 +1873,12 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 	}
 }
 void ext::vulkan::Graphic::destroy() {
+	for ( auto& as : accelerationStructures.bottoms ) {
+		uf::renderer::vkDestroyAccelerationStructureKHR(*device, as.handle, nullptr);
+	}
+	if ( accelerationStructures.top.handle ) {
+		uf::renderer::vkDestroyAccelerationStructureKHR(*device, accelerationStructures.top.handle, nullptr);
+	}
 	for ( auto& pair : pipelines ) pair.second.destroy();
 	pipelines.clear();
 	material.destroy();

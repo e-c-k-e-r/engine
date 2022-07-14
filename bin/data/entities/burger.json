@@ -5,7 +5,9 @@
 	"import": "/model.json",
 	"assets": [
 	//	"/burger/burger.glb"
-		"/burger/burger/graph.json"
+	//	"/burger/burger_simpler.glb"
+	//	"/burger/burger/graph.json"
+		"/burger/burger_simpler/graph.json"
 	],
 	"behaviors": [],
 	"transform": {

@@ -104,11 +104,18 @@ namespace ext {
 		void UF_API applyRotation( pod::PhysicsState&, const pod::Vector3f&, float );
 
 		// ray casting
-		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f& );
-		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*, uf::Object*& );
+		uf::Object* UF_API rayCast( const pod::Vector3f&, const pod::Vector3f& );		
+		uf::Object* UF_API rayCast( pod::PhysicsState&, const pod::Vector3f&, const pod::Vector3f& );		
+		uf::Object* UF_API rayCast( pod::PhysicsState&, const pod::Vector3f&, const pod::Vector3f&, float& );
+		uf::Object* UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*, float& );
+//		float UF_API rayCast( const pod::Vector3f&, const pod::Vector3f&, uf::Object*, uf::Object*& );
 
 		// allows noclip
 		void UF_API activateCollision( pod::PhysicsState&, bool = true );
+
+		// 
+		float UF_API getMass( pod::PhysicsState& );
+		void UF_API setMass( pod::PhysicsState&, float );
 	}
 }
 #endif

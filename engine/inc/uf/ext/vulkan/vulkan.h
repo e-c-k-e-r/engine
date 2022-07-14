@@ -40,6 +40,8 @@ namespace ext {
 		extern UF_API PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
 		extern UF_API PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
 		extern UF_API PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+		extern UF_API PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR;
+		extern UF_API PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR;
 
 		uf::stl::string errorString( VkResult result );
 		VkSampleCountFlagBits sampleCount( uint8_t );
@@ -47,13 +49,16 @@ namespace ext {
 		typedef VmaAllocator Allocator;
 
 		namespace settings {
+			constexpr size_t maxViews = 6;
+
 			extern UF_API uint32_t width;
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
 			extern UF_API bool validation;
 			extern UF_API size_t viewCount;
 			extern UF_API size_t gpuID;
-			constexpr size_t maxViews = 6;
+			extern UF_API size_t scratchBufferAlignment;
+			extern UF_API size_t scratchBufferInitialSize;
 
 			extern UF_API uf::stl::vector<uf::stl::string> validationFilters;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceFeatures;
@@ -121,6 +126,8 @@ namespace ext {
 		extern UF_API uf::stl::vector<RenderMode*> renderModes;
 		extern UF_API uf::stl::unordered_map<uf::stl::string, RenderMode*> renderModesMap;
 		extern UF_API uf::ThreadUnique<RenderMode*> currentRenderMode;
+
+		extern UF_API Buffer scratchBuffer;
 
 		bool UF_API hasRenderMode( const uf::stl::string&, bool = true );
 		RenderMode& UF_API addRenderMode( RenderMode*, const uf::stl::string& = "" );
