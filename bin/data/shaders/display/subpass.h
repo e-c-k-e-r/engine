@@ -9,6 +9,10 @@
 #define MAX_TEXTURES TEXTURES
 //#define TEXTURE_WORKAROUND 0
 
+#define BUFFER_REFERENCE 1
+#define UINT64_ENABLED 1
+
+
 #include "../common/macros.h"
 
 layout (constant_id = 0) const uint TEXTURES = 512;
@@ -200,6 +204,12 @@ void populateSurface() {
 	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	surface.instance = instance;
+
+	{
+		const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
+	//	uint64_t address = (instanceAddresses.vertex[0] << 32) & instanceAddresses.vertex[1];
+		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+	}
 
 	const Material material = materials[surface.instance.materialID];
 	surface.material.albedo = material.colorBase;

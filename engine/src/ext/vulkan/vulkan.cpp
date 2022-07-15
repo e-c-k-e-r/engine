@@ -257,7 +257,7 @@ void ext::vulkan::initialize() {
 	swapchain.initialize( device );
 
 	ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
-	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE );
 	
 	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
 		uf::Image image;

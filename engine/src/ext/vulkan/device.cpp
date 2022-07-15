@@ -375,6 +375,141 @@ namespace {
 
 		return json;
 	}
+
+	void enableRequestedDeviceFeatures12( VkPhysicalDeviceVulkan12Features& features, VkPhysicalDeviceVulkan12Features& enabledFeatures ) {
+		ext::json::Value json;
+
+	#define CHECK_FEATURE( NAME )\
+		if ( feature == #NAME ) {\
+			if ( features.NAME == VK_TRUE ) {\
+				enabledFeatures.NAME = true;\
+				UF_MSG_VALIDATION("Enabled feature: {}", feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: {}", feature);\
+		}
+
+		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
+			CHECK_FEATURE(samplerMirrorClampToEdge);
+			CHECK_FEATURE(drawIndirectCount);
+			CHECK_FEATURE(storageBuffer8BitAccess);
+			CHECK_FEATURE(uniformAndStorageBuffer8BitAccess);
+			CHECK_FEATURE(storagePushConstant8);
+			CHECK_FEATURE(shaderBufferInt64Atomics);
+			CHECK_FEATURE(shaderSharedInt64Atomics);
+			CHECK_FEATURE(shaderFloat16);
+			CHECK_FEATURE(shaderInt8);
+			CHECK_FEATURE(descriptorIndexing);
+			CHECK_FEATURE(shaderInputAttachmentArrayDynamicIndexing);
+			CHECK_FEATURE(shaderUniformTexelBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderStorageTexelBufferArrayDynamicIndexing);
+			CHECK_FEATURE(shaderUniformBufferArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderSampledImageArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderStorageBufferArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderStorageImageArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderInputAttachmentArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderUniformTexelBufferArrayNonUniformIndexing);
+			CHECK_FEATURE(shaderStorageTexelBufferArrayNonUniformIndexing);
+			CHECK_FEATURE(descriptorBindingUniformBufferUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingSampledImageUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingStorageImageUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingStorageBufferUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingUniformTexelBufferUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingStorageTexelBufferUpdateAfterBind);
+			CHECK_FEATURE(descriptorBindingUpdateUnusedWhilePending);
+			CHECK_FEATURE(descriptorBindingPartiallyBound);
+			CHECK_FEATURE(descriptorBindingVariableDescriptorCount);
+			CHECK_FEATURE(runtimeDescriptorArray);
+			CHECK_FEATURE(samplerFilterMinmax);
+			CHECK_FEATURE(scalarBlockLayout);
+			CHECK_FEATURE(imagelessFramebuffer);
+			CHECK_FEATURE(uniformBufferStandardLayout);
+			CHECK_FEATURE(shaderSubgroupExtendedTypes);
+			CHECK_FEATURE(separateDepthStencilLayouts);
+			CHECK_FEATURE(hostQueryReset);
+			CHECK_FEATURE(timelineSemaphore);
+			CHECK_FEATURE(bufferDeviceAddress);
+			CHECK_FEATURE(bufferDeviceAddressCaptureReplay);
+			CHECK_FEATURE(bufferDeviceAddressMultiDevice);
+			CHECK_FEATURE(vulkanMemoryModel);
+			CHECK_FEATURE(vulkanMemoryModelDeviceScope);
+			CHECK_FEATURE(vulkanMemoryModelAvailabilityVisibilityChains);
+			CHECK_FEATURE(shaderOutputViewportIndex);
+			CHECK_FEATURE(shaderOutputLayer);
+			CHECK_FEATURE(subgroupBroadcastDynamicId);
+		}
+	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		if ( feature == #NAME ) {\
+			if ( device.features2.NAME == VK_TRUE ) {\
+				device.enabledFeatures2.NAME = true;\
+				UF_MSG_VALIDATION("Enabled feature: {}", feature);\
+			} else UF_MSG_VALIDATION("Failed to enable feature: {}", feature);\
+		}
+	#undef CHECK_FEATURE2
+	}
+	ext::json::Value retrieveDeviceFeatures12( ext::vulkan::Device& device, VkPhysicalDeviceVulkan12Features& features, VkPhysicalDeviceVulkan12Features& enabledFeatures ) {
+		ext::json::Value json;
+
+	#define CHECK_FEATURE( NAME )\
+		json[#NAME]["supported"] = features.NAME;\
+		json[#NAME]["enabled"] = enabledFeatures.NAME;
+
+		CHECK_FEATURE(samplerMirrorClampToEdge);
+		CHECK_FEATURE(drawIndirectCount);
+		CHECK_FEATURE(storageBuffer8BitAccess);
+		CHECK_FEATURE(uniformAndStorageBuffer8BitAccess);
+		CHECK_FEATURE(storagePushConstant8);
+		CHECK_FEATURE(shaderBufferInt64Atomics);
+		CHECK_FEATURE(shaderSharedInt64Atomics);
+		CHECK_FEATURE(shaderFloat16);
+		CHECK_FEATURE(shaderInt8);
+		CHECK_FEATURE(descriptorIndexing);
+		CHECK_FEATURE(shaderInputAttachmentArrayDynamicIndexing);
+		CHECK_FEATURE(shaderUniformTexelBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderStorageTexelBufferArrayDynamicIndexing);
+		CHECK_FEATURE(shaderUniformBufferArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderSampledImageArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderStorageBufferArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderStorageImageArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderInputAttachmentArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderUniformTexelBufferArrayNonUniformIndexing);
+		CHECK_FEATURE(shaderStorageTexelBufferArrayNonUniformIndexing);
+		CHECK_FEATURE(descriptorBindingUniformBufferUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingSampledImageUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingStorageImageUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingStorageBufferUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingUniformTexelBufferUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingStorageTexelBufferUpdateAfterBind);
+		CHECK_FEATURE(descriptorBindingUpdateUnusedWhilePending);
+		CHECK_FEATURE(descriptorBindingPartiallyBound);
+		CHECK_FEATURE(descriptorBindingVariableDescriptorCount);
+		CHECK_FEATURE(runtimeDescriptorArray);
+		CHECK_FEATURE(samplerFilterMinmax);
+		CHECK_FEATURE(scalarBlockLayout);
+		CHECK_FEATURE(imagelessFramebuffer);
+		CHECK_FEATURE(uniformBufferStandardLayout);
+		CHECK_FEATURE(shaderSubgroupExtendedTypes);
+		CHECK_FEATURE(separateDepthStencilLayouts);
+		CHECK_FEATURE(hostQueryReset);
+		CHECK_FEATURE(timelineSemaphore);
+		CHECK_FEATURE(bufferDeviceAddress);
+		CHECK_FEATURE(bufferDeviceAddressCaptureReplay);
+		CHECK_FEATURE(bufferDeviceAddressMultiDevice);
+		CHECK_FEATURE(vulkanMemoryModel);
+		CHECK_FEATURE(vulkanMemoryModelDeviceScope);
+		CHECK_FEATURE(vulkanMemoryModelAvailabilityVisibilityChains);
+		CHECK_FEATURE(shaderOutputViewportIndex);
+		CHECK_FEATURE(shaderOutputLayer);
+		CHECK_FEATURE(subgroupBroadcastDynamicId);
+	#undef CHECK_FEATURE
+
+	#define CHECK_FEATURE2( NAME )\
+		json[#NAME]["supported"] = device.features2.NAME;\
+		json[#NAME]["enabled"] = device.enabledFeatures2.NAME;
+	#undef CHECK_FEATURE2
+
+		return json;
+	}
 }
 
 uint32_t ext::vulkan::Device::getQueueFamilyIndex( VkQueueFlagBits queueFlags ) {
@@ -903,19 +1038,36 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
-		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features{};
+	//	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+	//	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddresFeatures{};
 		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParametersFeatures{};
 		VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures{};
-		VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddresFeatures{};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
 		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures{};
 
+		VkPhysicalDeviceVulkan12Features enabledPhysicalDeviceVulkan12Features{};
+		VkPhysicalDeviceFeatures2 enabledDeviceFeatures2{}; {
+			enabledPhysicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+			enabledDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			enabledDeviceFeatures2.pNext = &enabledPhysicalDeviceVulkan12Features;
+
+			vkGetPhysicalDeviceFeatures2(device.physicalDevice, &enabledDeviceFeatures2);
+		}
+
 		{
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			physicalDeviceFeatures2.features = enabledFeatures;
 		}
+		{
+
+			physicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+			enableRequestedDeviceFeatures12( enabledPhysicalDeviceVulkan12Features, physicalDeviceVulkan12Features );
+		}
+	/*
 		{
 			descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
 			descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -924,16 +1076,17 @@ void ext::vulkan::Device::initialize() {
 			descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
 		}
 		{
+			bufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+			bufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
+		}
+	*/
+		{
 			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
 		}
 		{
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;
-		}
-		{
-			bufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-			bufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
 		}
 		{
 			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
@@ -955,11 +1108,12 @@ void ext::vulkan::Device::initialize() {
 		}
 		
 		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
-		physicalDeviceFeatures2.pNext = &descriptorIndexingFeatures;
-		descriptorIndexingFeatures.pNext = &shaderDrawParametersFeatures;
+		physicalDeviceFeatures2.pNext = &physicalDeviceVulkan12Features;
+		physicalDeviceVulkan12Features.pNext = &shaderDrawParametersFeatures;
+	//	descriptorIndexingFeatures.pNext = &bufferDeviceAddresFeatures;
+	//	bufferDeviceAddresFeatures.pNext = &shaderDrawParametersFeatures;
 		shaderDrawParametersFeatures.pNext = &robustnessFeatures;
-		robustnessFeatures.pNext = &bufferDeviceAddresFeatures;
-		bufferDeviceAddresFeatures.pNext = &rayTracingPipelineFeatures;
+		robustnessFeatures.pNext = &rayTracingPipelineFeatures;
 		rayTracingPipelineFeatures.pNext = &rayQueryFeatures;
 		rayQueryFeatures.pNext = &accelerationStructureFeatures;
 		accelerationStructureFeatures.pNext = &shaderClockFeatures;

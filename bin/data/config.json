@@ -62,7 +62,9 @@
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
 						"MessageID = 0x23e43bb7", // UNASSIGNED-CoreValidation-Shader-InputNotProduced (from depth-only calls)
 
-						"MessageID = 0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
+						"MessageID = 0x71500fba", // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
+						"MessageID = 0x7d560045" // VUID-vkCmdPipelineBarrier-dstStageMask-06462 (false positive, pipeline barrier for BLAS)
+					//	"MessageID = 0x9cacd67a" // UNASSIGNED-CoreValidation-DrawState-QueryNotReset (false positive)
 
 					//	"MessageID = 0xe91b58a0" // VUID-vkCmdDrawIndexed-None-02686 (?)
 
@@ -98,10 +100,10 @@
 				"pipelines": {
 					"vsync": false,
 					"hdr": false,
-					"vxgi": true,
+					"vxgi": false,
 					"culling": true,
 					"bloom": false,
-					"rt": true
+					"rt": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -123,12 +125,24 @@
 					"fragmentStoresAndAtomics",
 					"geometryShader",
 					"multiViewport",
-					"shaderOutputLayer",
 					"shaderInt64",
 					"shaderFloat64",
 					"shaderSubgroupClock",
 					"shaderSampledImageArrayDynamicIndexing",
-					"shaderStorageImageArrayDynamicIndexing"
+					"shaderStorageImageArrayDynamicIndexing",
+					// 1.2 features
+					"descriptorIndexing",
+
+					"shaderOutputViewportIndex",
+					"shaderOutputLayer",
+
+					"shaderSampledImageArrayNonUniformIndexing",
+					"shaderStorageImageArrayNonUniformIndexing",
+					"runtimeDescriptorArray",
+					"descriptorBindingVariableDescriptorCount",
+
+					"hostQueryReset",
+					"bufferDeviceAddress"
 				],
 				"extensions": {
 					"instance": [

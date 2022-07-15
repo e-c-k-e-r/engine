@@ -251,6 +251,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			};
 			FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 		}
+		UF_MSG_DEBUG("Using fragment shader: {}", fragmentShaderFilename);
 
 		blitter.material.initializeShaders({
 			{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},

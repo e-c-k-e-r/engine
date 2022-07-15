@@ -17,6 +17,7 @@
 
 #include <uf/utils/io/fmt.h>
 #include <uf/utils/io/payloads.h>
+#include <uf/utils/window/payloads.h>
 
 namespace {
 #if UF_USE_VULKAN
@@ -32,6 +33,9 @@ namespace {
 		ImGuiTextFilter Filter;
 		bool AutoScroll;
 		bool ScrollToBottom;
+
+		pod::Vector2ui size{640, 480};
+		pod::Vector2ui position{32, 32};
 
 		ConsoleWindow() {
 			ClearLog();
@@ -104,7 +108,8 @@ namespace {
 		}
 
 		void Draw(const char *title, bool *p_open) {
-			ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowSize(ImVec2(size.x, size.y), ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowPos(ImVec2(position.x, position.y), ImGuiCond_FirstUseEver);
 			if (!ImGui::Begin(title, p_open)) {
 				ImGui::End();
 				return;
@@ -396,15 +401,17 @@ void ext::imgui::initialize() {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;	 // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;		// Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;	// Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;	// Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;	//
+//	io.ConfigFlags |= ImGuiConfigFlags_NoMouse;				// 
 	io.DisplaySize = ImVec2(uf::renderer::settings::width,uf::renderer::settings::height);
+	io.MouseDrawCursor = false;
 	io.IniFilename = NULL;
-/*
-	uf::hooks.addHook("system:Console.Log", [&]( const pod::payloads::Log& payload){
-		ext::imgui::log( payload.message );
+
+	uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( pod::payloads::windowMouseCursorVisibility& payload ){
+		io.MouseDrawCursor = payload.mouse.visible;
 	});
-*/
 
 #if UF_ENV_WINDOWS
 	ImGui_ImplWin32_Init(uf::renderer::device.window->getHandle());

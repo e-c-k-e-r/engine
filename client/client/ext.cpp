@@ -50,6 +50,9 @@ void client::initialize() {
 		// Miscellaneous
 		client::window.setVisible(client::config["window"]["visible"].as<bool>());
 		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].as<bool>());
+		if ( client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
+			client::window.setCursorVisible(false);
+		}
 		client::window.setKeyRepeatEnabled(client::config["window"]["keyboard"]["repeat"].as<bool>());
 	//	client::window.centerWindow();
 	//	client::window.setPosition({0, 0});
@@ -67,7 +70,11 @@ void client::initialize() {
 	
 	/* Initialize hooks */ {
 		uf::hooks.addHook( "window:Mouse.CursorVisibility", [&]( pod::payloads::windowMouseCursorVisibility& payload ){
-			client::window.setCursorVisible(payload.mouse.visible);
+			if ( !client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
+				client::window.setCursorVisible(payload.mouse.visible);
+			} else {
+				client::window.setCursorVisible(false);
+			}
 			client::window.setMouseGrabbed(!payload.mouse.visible);
 			client::config["mouse"]["visible"] = payload.mouse.visible;
 			client::config["window"]["mouse"]["center"] = !payload.mouse.visible;
@@ -131,6 +138,7 @@ void client::tick() {
 			auto current = client::window.getMousePosition();
 			auto center = client::window.getSize() / 2.0f;
 			client::window.setMousePosition(client::window.getSize() / 2.0f);
+			client::window.setCursorVisible(false);
 
 			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
 				{

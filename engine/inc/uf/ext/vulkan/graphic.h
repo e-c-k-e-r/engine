@@ -86,8 +86,8 @@ namespace ext {
 			} metadata;
 
 			struct {
-				uf::renderer::AccelerationStructure top;
 				uf::stl::vector<uf::renderer::AccelerationStructure> bottoms;
+				uf::stl::vector<uf::renderer::AccelerationStructure> tops;
 			} accelerationStructures;
 
 			~Graphic();
