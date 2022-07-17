@@ -200,18 +200,18 @@ void EXT_API ext::initialize() {
 		uf::allocator::override = configMemoryPoolJson["override"].as( uf::allocator::override );
 	}
 	/* Ext config */ {
-		::config.engine.gc.every = ::json["engine"]["debug"]["garbage collection"]["every"].as<float>();
-		::config.engine.gc.mode = ::json["engine"]["debug"]["garbage collection"]["mode"].as<uint64_t>();
-		::config.engine.gc.announce = ::json["engine"]["debug"]["garbage collection"]["announce"].as<bool>();
+		::config.engine.gc.every = ::json["engine"]["debug"]["garbage collection"]["every"].as(::config.engine.gc.every);
+		::config.engine.gc.mode = ::json["engine"]["debug"]["garbage collection"]["mode"].as(::config.engine.gc.mode);
+		::config.engine.gc.announce = ::json["engine"]["debug"]["garbage collection"]["announce"].as(::config.engine.gc.announce);
 
-		::config.engine.ext.ultralight.enabled = ::json["engine"]["ext"]["ultralight"]["enabled"].as<bool>();
-		::config.engine.ext.discord.enabled = ::json["engine"]["ext"]["discord"]["enabled"].as<bool>();
-		::config.engine.ext.imgui.enabled = ::json["engine"]["ext"]["imgui"]["enabled"].as<bool>();
+		::config.engine.ext.ultralight.enabled = ::json["engine"]["ext"]["ultralight"]["enabled"].as(::config.engine.ext.ultralight.enabled);
+		::config.engine.ext.discord.enabled = ::json["engine"]["ext"]["discord"]["enabled"].as(::config.engine.ext.discord.enabled);
+		::config.engine.ext.imgui.enabled = ::json["engine"]["ext"]["imgui"]["enabled"].as(::config.engine.ext.imgui.enabled);
 
-		::config.engine.limiter.print = ::json["engine"]["debug"]["framerate"]["print"].as<bool>();
+		::config.engine.limiter.print = ::json["engine"]["debug"]["framerate"]["print"].as(::config.engine.limiter.print);
 
-		::config.engine.fps.print = ::json["engine"]["debug"]["framerate"]["print"].as<bool>();
-		::config.engine.fps.every = ::json["engine"]["debug"]["framerate"]["every"].as<float>();
+		::config.engine.fps.print = ::json["engine"]["debug"]["framerate"]["print"].as(::config.engine.fps.print);
+		::config.engine.fps.every = ::json["engine"]["debug"]["framerate"]["every"].as(::config.engine.fps.every);
 	}
 	{
 		uf::Mesh::defaultInterleaved = ::json["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
@@ -220,6 +220,8 @@ void EXT_API ext::initialize() {
 	#else
 		uf::matrix::reverseInfiniteProjection = ::json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
 	#endif
+
+		uf::graph::initialBufferElements = ::json["engine"]["graph"]["initial buffer elements"].as(uf::graph::initialBufferElements);
 	}
 
 	/* Create initial scene (kludge) */ {
@@ -367,8 +369,8 @@ void EXT_API ext::initialize() {
 			uf::renderer::settings::width *= scale;
 			uf::renderer::settings::height *= scale;
 		} else if ( ext::json::isArray( configRenderJson["framebuffer"]["size"] ) ) {
-			uf::renderer::settings::width = configRenderJson["framebuffer"]["size"][0].as<float>();
-			uf::renderer::settings::height = configRenderJson["framebuffer"]["size"][1].as<float>();
+			uf::renderer::settings::width = configRenderJson["framebuffer"]["size"][0].as(uf::renderer::settings::width);
+			uf::renderer::settings::height = configRenderJson["framebuffer"]["size"][1].as(uf::renderer::settings::height);
 			uf::stl::string filter =  uf::string::lowercase( configRenderJson["framebuffer"]["size"][2].as<uf::stl::string>() );
 
 			if ( filter == "nearest" ) uf::renderer::settings::swapchainUpscaleFilter = uf::renderer::enums::Filter::NEAREST;
@@ -419,6 +421,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::invariant::deferredAliasOutputToSwapchain = configRenderInvariantJson["deferred alias output to swapchain"].as( uf::renderer::settings::invariant::deferredAliasOutputToSwapchain );
 		uf::renderer::settings::invariant::deferredSampling = configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
 	
+		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
@@ -479,7 +482,7 @@ void EXT_API ext::initialize() {
 		} else if ( configVrJson["dominant eye"].as<uf::stl::string>() == "left" ) ext::openvr::dominantEye = 0;
 		else if ( configVrJson["dominant eye"].as<uf::stl::string>() == "right" ) ext::openvr::dominantEye = 1;
 
-		ext::openvr::driver.manifest = configVrJson["manifest"].as<uf::stl::string>();
+		ext::openvr::driver.manifest = configVrJson["manifest"].as(ext::openvr::driver.manifest);
 
 		if ( ext::openvr::enabled ) ::json["engine"]["render modes"]["stereo deferred"] = true;
 	}
@@ -489,19 +492,29 @@ void EXT_API ext::initialize() {
 		// setup render mode
 		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
-			renderMode->blitter.descriptor.subpass = 1;
+			renderMode->blitter.descriptor.renderMode = "Swapchain";
+			renderMode->blitter.descriptor.subpass = 0;
 			renderMode->metadata.type = "single";
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 		}
-		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
-			uf::renderer::addRenderMode( new uf::renderer::DeferredRenderMode, "" );
-			auto& renderMode = uf::renderer::getRenderMode("Deferred", true);
+		if ( uf::renderer::settings::pipelines::deferred ) {
+			auto* renderMode = new uf::renderer::DeferredRenderMode;
+			
+			renderMode->blitter.descriptor.renderMode = "Swapchain";
+			renderMode->blitter.descriptor.subpass = 0;
+
 			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
-				renderMode.metadata.eyes = 2;
+				renderMode->metadata.eyes = 2;
+			}
+
+			if ( uf::renderer::settings::pipelines::deferred ) {
+				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);
 			}
 			if ( uf::renderer::settings::pipelines::culling ) {
-				renderMode.metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
+				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
 			}
+			
+			uf::renderer::addRenderMode( renderMode, "" );
 		}
 
 #if UF_USE_VULKAN
@@ -683,7 +696,7 @@ void EXT_API ext::tick() {
 	}
 #endif
 	/* Print Memory Pool Information */  {
-		TIMER(1, uf::inputs::kbm::states::P && ) {
+		TIMER(1, uf::inputs::kbm::states::P ) {
 	    //	uf::iostream << uf::renderer::allocatorStats() << "\n";
 			UF_MSG_DEBUG("==== Memory Pool Information ====");
 			if ( uf::memoryPool::global.size() > 0 ) UF_MSG_DEBUG("Global Memory Pool: {}", uf::memoryPool::global.stats());
@@ -694,12 +707,12 @@ void EXT_API ext::tick() {
 	}
 #if 0
 	/* Attempt to reset VR position */  {
-		TIMER(1, uf::inputs::kbm::states::Z && ) {
+		TIMER(1, uf::inputs::kbm::states::Z ) {
 	    	uf::hooks.call("VR:Seat.Reset");
 		}
 	}
 	/* Print controller position */ if ( false ) {
-		TIMER(1, uf::inputs::kbm::states::Z && ) {
+		TIMER(1, uf::inputs::kbm::states::Z ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& controller = scene.getController();
 			auto& camera = controller.getComponent<uf::Camera>();

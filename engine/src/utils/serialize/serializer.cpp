@@ -67,7 +67,7 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 #if UF_SERIALIZER_IMPLICIT_LOAD
 	// implicitly check for optimal format for plain .json requests
 	if ( uf::string::matched( filename, "/\\.json$/" ) ) {
-	#if UF_USE_TOML
+	#if 0 && UF_USE_TOML
 		uf::stl::string toml_filename = uf::string::replace( filename, "/\\.json$/", ".toml" ); // load from toml if newer
 		if ( uf::io::mtime( toml_filename ) > uf::io::mtime( filename ) ) {
 			UF_MSG_DEBUG("Deserialize redirect: {} -> {}", filename, toml_filename);
@@ -102,6 +102,7 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 	this->deserialize( buffer, settings );
 
 #if UF_SERIALIZER_AUTO_CONVERT
+#if 0 && UF_USE_TOML
 	if ( uf::string::matched( filename, "/\\.json$/" ) ) {
 		if ( ext::json::PREFERRED_ENCODING != "toml" ) {
 			uf::stl::string _filename = uf::string::replace( filename, "/\\.json$/", ".toml" );
@@ -117,6 +118,7 @@ bool uf::Serializer::readFromFile( const uf::stl::string& filename, const uf::st
 			}
 		}
 	}
+#endif
 	if ( uf::string::matched( filename, "/\\.(json|toml)$/" ) ) {
 		// auto convert read JSON file to TOML
 

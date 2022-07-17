@@ -36,13 +36,13 @@ uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const T& 
 
 template<typename T>
 void uf::Object::queueHook( const uf::stl::string& name, const T& p, float d ) {
-	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	double start = uf::Object::timer.elapsed().asDouble();
+//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+//	double start = uf::Object::timer.elapsed().asDouble();
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
-		.timeout = start + d,
+		.timeout = uf::time::current + d,
 		.type = 1,
 	});
 	queue.userdata.create<T>(p);

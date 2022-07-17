@@ -28,7 +28,10 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		renderMode->setTarget("Compute");
 		renderMode->metadata.json["shaders"]["vertex"] = "/shaders/display/renderTargetSimple.vert.spv";
 		renderMode->metadata.json["shaders"]["fragment"] = "/shaders/display/renderTargetSimple.frag.spv";
-		renderMode->blitter.descriptor.subpass = 1;
+		
+		renderMode->blitter.descriptor.renderMode = "Swapchain";
+		renderMode->blitter.descriptor.subpass = 0;
+
 		renderMode->metadata.type = uf::renderer::settings::pipelines::names::rt;
 		renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::rt);
 		renderMode->execute = false;
@@ -202,7 +205,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		}
 	}
 
-	TIMER(1.0, uf::Window::isKeyPressed("R") && ) {
+	TIMER(1.0, uf::Window::isKeyPressed("R") ) {
 		UF_MSG_DEBUG("Screenshotting RT scene...");
 		image.screenshot().save("./data/rt.png");
 	}

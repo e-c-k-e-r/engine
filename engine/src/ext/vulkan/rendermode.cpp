@@ -174,12 +174,19 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = reference;
-//	descriptor.renderMode = this->getName();
 	descriptor.subpass = pass;
 	descriptor.pipeline = metadata.pipeline;
 	descriptor.inputs.width = this->width ? this->width : settings::width;
 	descriptor.inputs.height = this->height ? this->height : settings::height;
 	descriptor.parse( metadata.json["descriptor"] );
+
+//	descriptor.renderMode = this->getName();
+	// invalidate
+	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
+		descriptor.invalidated = true;
+	} else {
+		descriptor.renderMode = this->getName();
+	}
 	return descriptor;
 }
 
@@ -233,6 +240,15 @@ void ext::vulkan::RenderMode::unlockMutex( std::thread::id id ) {
 }
 std::lock_guard<std::mutex> ext::vulkan::RenderMode::guardMutex( std::thread::id id ) {
 	return this->commands.guardMutex( id );
+}
+void ext::vulkan::RenderMode::cleanupAllCommands() {
+	auto& container = this->commands.container();
+	for ( auto& pair : container ) {
+		if ( pair.second.empty() ) continue;
+		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		pair.second.clear();
+	}
+	container.clear();
 }
 void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
 	auto& container = this->commands.container();
@@ -345,6 +361,10 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 }
 
 void ext::vulkan::RenderMode::tick() {
+	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
+		cleanupAllCommands();
+	}
+
 	this->synchronize();
 }
 
@@ -382,7 +402,59 @@ void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
 	unlockMutex();
 */
 }
-void ext::vulkan::RenderMode::pipelineBarrier( VkCommandBuffer command, uint8_t stage ) {
+void ext::vulkan::RenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
+	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+	imageMemoryBarrier.subresourceRange.layerCount = 1;
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	for ( auto& attachment : renderTarget.attachments ) {
+		if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+		if (  (attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
+		
+		VkPipelineStageFlags srcStageMask, dstStageMask;
+		imageMemoryBarrier.image = attachment.image;
+		imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
+		imageMemoryBarrier.newLayout = attachment.descriptor.layout;
+	
+		switch ( state ) {
+			case 0: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			} break;
+			case 1: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.newLayout = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			} break;
+			// ensure 
+			default: {
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+				srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+				dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			}
+		}
+		
+		vkCmdPipelineBarrier( commandBuffer,
+			srcStageMask, dstStageMask,
+			VK_FLAGS_NONE,
+			0, NULL,
+			0, NULL,
+			1, &imageMemoryBarrier
+		);
+
+		attachment.descriptor.layout = imageMemoryBarrier.newLayout;
+	}
 }
 
 #endif

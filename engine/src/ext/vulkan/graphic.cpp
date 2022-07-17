@@ -360,6 +360,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 			renderTarget.renderPass,
 			0
 		);
+
 		pipelineCreateInfo.pVertexInputState = &vertexInputState;
 		pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
 		pipelineCreateInfo.pRasterizationState = &rasterizationState;
@@ -1833,25 +1834,6 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 		size_t binding = 0;
 		size_t index = 0;
 	} index, indirect;
-
-/*
-	if ( descriptor.inputs.index.count && !descriptor.inputs.index.attributes.empty() ) {
-		auto& attribute = descriptor.inputs.index.attributes.front();
-	//	bool isInterleaved = 0 <= descriptor.inputs.index.interleaved;
-	//	index.buffer = buffers.at((isInterleaved ? descriptor.inputs.index.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
-	//	index.offset = isInterleaved ? descriptor.inputs.index.offset : attribute.offset;
-	//	index.buffer = buffers.at(attribute.buffer + descriptor.inputs.bufferOffset).buffer;
-	//	index.offset = attribute.offset;
-	}
-	if ( descriptor.inputs.indirect.count && !descriptor.inputs.indirect.attributes.empty() ) {
-		auto& attribute = descriptor.inputs.indirect.attributes.front();
-	//	bool isInterleaved = 0 <= descriptor.inputs.indirect.interleaved;
-	//	indirect.buffer = buffers.at((isInterleaved ? descriptor.inputs.indirect.interleaved : attribute.buffer) + descriptor.inputs.bufferOffset).buffer;
-	//	indirect.offset = isInterleaved ? descriptor.inputs.indirect.offset : attribute.offset;
-	//	indirect.buffer = buffers.at(attribute.buffer + descriptor.inputs.bufferOffset).buffer;
-	//	indirect.offset = attribute.offset;
-	}
-*/
 
 	for ( auto& buffer : buffers ) {
 		if ( !index.buffer && buffer.usage & uf::renderer::enums::Buffer::INDEX ) index.buffer = buffer.buffer;

@@ -197,7 +197,7 @@ void ext::bullet::tick( float delta ) { if ( delta == 0.0f ) delta = uf::physics
 	}
 */
 	ext::bullet::syncFrom();
-	TIMER(ext::bullet::debugDrawRate, ext::bullet::debugDrawEnabled && ) {
+	TIMER(ext::bullet::debugDrawRate, ext::bullet::debugDrawEnabled ) {
 		ext::bullet::dynamicsWorld->debugDrawWorld();
 	}
 }

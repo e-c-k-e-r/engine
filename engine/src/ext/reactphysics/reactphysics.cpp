@@ -238,7 +238,7 @@ void ext::reactphysics::tick( float delta ) {
 	}
 #endif
 
-	TIMER(ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled && ) {
+	TIMER(ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled ) {
 		auto& scene = uf::scene::getCurrentScene();
 		::debugDraw( scene );
 	}

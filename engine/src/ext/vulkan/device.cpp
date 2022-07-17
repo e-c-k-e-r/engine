@@ -975,7 +975,7 @@ void ext::vulkan::Device::initialize() {
 			queueInfo.pQueuePriorities = &defaultQueuePriority;
 			queueCreateInfos.push_back(queueInfo);
 		} else {
-			queueFamilyIndices.graphics = NULL; // VK_NULL_HANDLE;
+			queueFamilyIndices.graphics = 0; // VK_NULL_HANDLE;
 		}
 		// Dedicated compute queue
 		if ( requestedQueueTypes & VK_QUEUE_COMPUTE_BIT ) {

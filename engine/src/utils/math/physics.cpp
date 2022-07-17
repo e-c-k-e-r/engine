@@ -1,11 +1,13 @@
 #include <uf/utils/math/physics.h>
 #include <iostream>
 
+/*
 uf::Timer<> uf::physics::time::timer;
 double uf::physics::time::current = 0;
 double uf::physics::time::previous = 0;
 float uf::physics::time::delta = 0;
 float uf::physics::time::clamp = 0;
+*/
 
 
 void UF_API uf::physics::initialize() {

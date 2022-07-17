@@ -37,7 +37,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	sceneMetadata.shadow.update = metadata.max.shadows;
 	UF_MSG_DEBUG("Temporarily altering shadow limits...");
 
-	this->addHook( "entity:PostInitialization.%UID%", [&]( ext::json::Value& ){
+	this->addHook( "entity:PostInitialization.%UID%", [&](){
 		metadata.output = this->resolveURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
 		metadata.renderModeName = "B:" + std::to_string((int) this->getUid());
 
@@ -94,7 +94,7 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		UF_MSG_DEBUG("Finished initialiation.");
 	});
 
-	this->queueHook( "entity:PostInitialization.%UID%", ext::json::null(), 1 );
+	this->queueHook( "entity:PostInitialization.%UID%", 1.0f );
 #endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {
@@ -104,7 +104,7 @@ void ext::BakingBehavior::tick( uf::Object& self ) {
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	if ( renderMode.executed && !metadata.initialized.renderMode ) goto PREPARE;
 	else if ( renderMode.executed && !metadata.initialized.map ) {
-		TIMER(1.0, (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) && ) {
+		TIMER(1.0, (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) ) {
 			goto SAVE;
 		}
 	}

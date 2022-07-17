@@ -434,7 +434,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		}
 	#endif
 	}
-	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute" );
+	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute", "" );
 	ext::ExtSceneBehavior::bindBuffers( scene );
 #endif
 }

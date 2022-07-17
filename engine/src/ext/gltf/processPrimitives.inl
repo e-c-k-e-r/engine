@@ -129,7 +129,7 @@ for ( auto& p : m.primitives ) {
 
 		// required due to reverse-Z projection matrix flipping the X axis as well
 		// default is to proceed with this
-		if ( !(graph.metadata["renderer"].as<bool>(true)) ){
+		if ( graph.metadata["renderer"]["invert"].as<bool>(true) ){
 			vertex.position.x = -vertex.position.x;
 			vertex.normal.x = -vertex.normal.x;
 		#if UF_GRAPH_PROCESS_PRIMITIVES_FULL

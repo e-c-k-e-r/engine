@@ -13,7 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/fifo_map.hpp>
 
-#define UF_JSON_NLOHMANN_ORDERED 0
+#define UF_JSON_NLOHMANN_ORDERED 1
 #define UF_JSON_NLOHMANN_FIFO_MAP 0
 
 namespace uf {
@@ -25,13 +25,13 @@ namespace ext {
 		class UF_API Value;
 
 	#if UF_JSON_NLOHMANN_ORDERED
-	#if UF_JSON_NLOHMANN_FIFO_MAP
-		template<class K, class V, class dummy_compare, class A>
-		using fifo_map = nlohmann::fifo_map<K, V, nlohmann::fifo_map_compare<K>, A>;
-		typedef nlohmann::basic_json<fifo_map> base_value;
-	#else
-		typedef nlohmann::ordered_json base_value;
-	#endif
+		#if UF_JSON_NLOHMANN_FIFO_MAP
+			template<class K, class V, class dummy_compare, class A>
+			using fifo_map = nlohmann::fifo_map<K, V, nlohmann::fifo_map_compare<K>, A>;
+			typedef nlohmann::basic_json<fifo_map> base_value;
+		#else
+			typedef nlohmann::ordered_json base_value;
+		#endif
 	#else
 		typedef nlohmann::json base_value;
 	#endif
@@ -133,14 +133,14 @@ template<> inline bool ext::json::Value::is<uf::stl::string>(bool strict) const 
 	template<> inline bool ext::json::Value::is<unsigned int>(bool strict) const { return strict ? is_number_unsigned() : is_number(); }
 #endif
 template<typename T> inline T ext::json::Value::as() const {
-	return !is<T>() ? T() : get<T>();
+	return !is<T>(false) ? T() : get<T>();
 /*
 	if ( !is<T>() ) return T();
 	return get<T>();
 */
 }
 template<typename T> inline T ext::json::Value::as( const T& fallback ) const {
-	return !is<T>() ? fallback : get<T>();
+	return !is<T>(false) ? fallback : get<T>();
 /*
 	if ( !is<T>() ) return fallback;
 	return get<T>();

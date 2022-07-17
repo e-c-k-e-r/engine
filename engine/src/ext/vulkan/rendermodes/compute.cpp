@@ -35,14 +35,15 @@ uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::ComputeRenderMode::getBlitte
 
 ext::vulkan::GraphicDescriptor ext::vulkan::ComputeRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+/*
 	descriptor.parse(metadata.json["descriptor"]);
-
 	// invalidate
 	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
 		descriptor.invalidated = true;
 	} else {
 		descriptor.renderMode = this->getName();
 	}
+*/
 	return descriptor;
 }
 

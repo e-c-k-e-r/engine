@@ -106,7 +106,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
@@ -124,6 +124,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
+	UF_MSG_DEBUG("{} = {}", "color", attachments.color);
+	UF_MSG_DEBUG("{} = {}", "bright", attachments.bright);
+	UF_MSG_DEBUG("{} = {}", "scratch", attachments.scratch);
 
 	// Attach swapchain's image as output
 	if ( settings::invariant::deferredAliasOutputToSwapchain ) {
@@ -233,33 +236,80 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			0, 1, 2, 2, 3, 0
 		});
 	*/
+		auto& scene = uf::scene::getCurrentScene();
+		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
-		blitter.descriptor.subpass = 1;
+		blitter.descriptor.renderMode = "Swapchain";
+		blitter.descriptor.subpass = 0;
 		blitter.descriptor.depth.test = false;
 		blitter.descriptor.depth.write = false;
 
-		blitter.initialize( this->getName() );
+		blitter.initialize( "Swapchain" );
 		blitter.initializeMesh( mesh );
 
-		uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
-		uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv"; {
-			std::pair<bool, uf::stl::string> settings[] = {
-				{ uf::renderer::settings::pipelines::vxgi, "vxgi.frag" },
-				{ msaa > 1, "msaa.frag" },
-				{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
-				{ uf::renderer::settings::pipelines::rt, "rt.frag" },
-			};
-			FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+		{
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.frag.spv"; {
+				std::pair<bool, uf::stl::string> settings[] = {
+					{ msaa > 1, "msaa.frag" },
+				// I don't actually have support for deferred sampling within a render target
+				//	{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
+				};
+				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+			}
+			blitter.material.initializeShaders({
+				{uf::io::resolveURI(vertexShaderFilename), uf::renderer::enums::Shader::VERTEX},
+				{uf::io::resolveURI(fragmentShaderFilename), uf::renderer::enums::Shader::FRAGMENT}
+			});
 		}
-		UF_MSG_DEBUG("Using fragment shader: {}", fragmentShaderFilename);
 
-		blitter.material.initializeShaders({
-			{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},
-			{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
-		});
-		
-		auto& scene = uf::scene::getCurrentScene();
-		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+		{
+			auto& shader = blitter.material.getShader("fragment");
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]], (size_t) 0 ); // attachments.color
+		/*
+			for ( auto& texture : shader.textures ) {
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			}
+		*/
+
+		/*
+			for ( auto& attachment : renderTarget.attachments ) {
+				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+
+				Texture2D& texture = shader.textures.emplace_back();
+				enums::Filter::type_t filter = VK_FILTER_NEAREST;
+
+				texture.sampler.descriptor.filter.min = filter;
+				texture.sampler.descriptor.filter.mag = filter;
+				texture.aliasAttachment(attachment);
+			}
+		*/
+		}
+
+		if ( settings::pipelines::deferred ) {
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/subpass.vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/subpass.frag.spv"; {
+				std::pair<bool, uf::stl::string> settings[] = {
+					{ uf::renderer::settings::pipelines::vxgi, "vxgi.frag" },
+					{ msaa > 1, "msaa.frag" },
+					{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
+					{ uf::renderer::settings::pipelines::rt, "rt.frag" },
+				};
+				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+			}
+			UF_MSG_DEBUG("Using fragment shader: {}", fragmentShaderFilename);
+
+		/*
+			blitter.material.initializeShaders({
+				{uf::io::resolveURI(vertexShaderFilename), VK_SHADER_STAGE_VERTEX_BIT},
+				{uf::io::resolveURI(fragmentShaderFilename), VK_SHADER_STAGE_FRAGMENT_BIT}
+			}, "deferred");
+		*/
+			blitter.material.attachShader(uf::io::resolveURI(vertexShaderFilename), uf::renderer::enums::Shader::VERTEX, "deferred");
+			blitter.material.attachShader(uf::io::resolveURI(fragmentShaderFilename), uf::renderer::enums::Shader::FRAGMENT, "deferred");
+		}
 		
 		if ( settings::pipelines::bloom ) {
 			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom.comp.spv");
@@ -276,8 +326,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			}
 		}
 		
-		{
-			auto& shader = blitter.material.getShader("fragment");
+		if ( settings::pipelines::deferred ) {
+			auto& shader = blitter.material.getShader("fragment", "deferred");
 
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
 			size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -331,10 +381,24 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				}
 			}
 		}
-		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-			auto descriptor = blitter.descriptor;
-			descriptor.subpass = (renderTarget.passes.size() / metadata.eyes) * eye + 1;
-			if ( !blitter.hasPipeline( descriptor ) ) blitter.initializePipeline( descriptor );
+
+		if ( !blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.initializePipeline( blitter.descriptor );
+		}
+		
+		{
+			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+			descriptor.renderMode = "";
+			
+			if ( settings::pipelines::deferred ) {
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+					descriptor.pipeline = "deferred";
+					descriptor.subpass = 1; // (renderTarget.passes.size() / metadata.eyes) * eye + 1;
+					if ( !blitter.hasPipeline( descriptor ) ) {
+						blitter.initializePipeline( descriptor );
+					}
+				}
+			}
 
 			if ( settings::pipelines::bloom ) {
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
@@ -358,25 +422,58 @@ void ext::vulkan::DeferredRenderMode::tick() {
 
 		if ( settings::pipelines::bloom ) {
 			auto& shader = blitter.material.getShader("compute", "bloom");
-		#if 1
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[renderTarget.attachments.size() - 5], (size_t) 0 ); // attachments.color
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[renderTarget.attachments.size() - 4], (size_t) 0 ); // attachments.bright
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[renderTarget.attachments.size() - 3], (size_t) 0 ); // attachments.scratch
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+0], (size_t) 0 ); // attachments.color
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+1], (size_t) 0 ); // attachments.bright
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+2], (size_t) 0 ); // attachments.scratch
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 			}
-		#endif
 		}
 	}
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
-		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-			auto descriptor = blitter.descriptor;
-			descriptor.subpass = (renderTarget.passes.size() / metadata.eyes) * eye + 1;
-			if ( blitter.hasPipeline( blitter.descriptor ) ) blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
-			
+		{
+			auto& shader = blitter.material.getShader("fragment");
+			shader.textures.clear();
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]], (size_t) 0 ); // attachments.color
+		/*
+			for ( auto& texture : shader.textures ) {
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			}
+		*/
+		/*
+			for ( auto& attachment : renderTarget.attachments ) {
+				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+
+				Texture2D& texture = shader.textures.emplace_back();
+				enums::Filter::type_t filter = VK_FILTER_NEAREST;
+
+				texture.sampler.descriptor.filter.min = filter;
+				texture.sampler.descriptor.filter.mag = filter;
+				texture.aliasAttachment(attachment);
+			}
+		*/
+		}
+
+		if ( blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		}
+		{
+			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+			descriptor.renderMode = "";
+			if ( settings::pipelines::deferred ) {
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+					descriptor.pipeline = "deferred";
+					descriptor.subpass = 1; // (renderTarget.passes.size() / metadata.eyes) * eye + 1;
+					if ( blitter.hasPipeline( descriptor ) ) {
+						blitter.getPipeline( descriptor ).update( blitter, descriptor );
+					}
+				}
+			}
+
 			if ( settings::pipelines::bloom ) {
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
@@ -407,6 +504,31 @@ VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
 	return submitInfo;
 }
 void ext::vulkan::DeferredRenderMode::render() {
+	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
+
+	//lockMutex( this->mostRecentCommandPoolId );
+	auto& commands = getCommands( this->mostRecentCommandPoolId );
+	// Submit commands
+	// Use a fence to ensure that command buffer has finished executing before using it again
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.pWaitDstStageMask = NULL; 								// Pointer to the list of pipeline stages that the semaphore waits will occur at
+	submitInfo.pWaitSemaphores = NULL;									// Semaphore(s) to wait upon before the submitted command buffer starts executing
+	submitInfo.waitSemaphoreCount = 0;									// One wait semaphore																				
+	submitInfo.pSignalSemaphores = NULL;								// Semaphore(s) to be signaled when command buffers have completed
+	submitInfo.signalSemaphoreCount = 0;								// One signal semaphore
+	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
+	submitInfo.commandBufferCount = 1;
+
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+
+	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
+
+	this->executed = true;
+#if 0
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Get next image in the swap chain (back/front buffer)
@@ -440,7 +562,7 @@ void ext::vulkan::DeferredRenderMode::render() {
 	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
 
 	this->executed = true;
-
+#endif
 	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {
@@ -470,40 +592,34 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute"}, false);
+	
 	auto& scene = uf::scene::getCurrentScene();
-	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+
 	auto& commands = getCommands();
-	auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
+//	auto& swapchainRender = ext::vulkan::getRenderMode("Swapchain");
+	uf::stl::vector<VkClearValue> clearValues;
+	for ( auto& attachment : renderTarget.attachments ) {
+		pod::Vector4f clearColor = uf::vector::decode( sceneMetadataJson["system"]["renderer"]["clear values"][(int) clearValues.size()], pod::Vector4f{0, 0, 0, 0} );
+		auto& clearValue = clearValues.emplace_back();
+		if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+			clearValue.color.float32[0] = clearColor[0];
+			clearValue.color.float32[1] = clearColor[1];
+			clearValue.color.float32[2] = clearColor[2];
+			clearValue.color.float32[3] = clearColor[3];
+		} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+			if ( uf::matrix::reverseInfiniteProjection ) {
+				clearValue.depthStencil = { 0.0f, 0 };
+			} else {
+				clearValue.depthStencil = { 1.0f, 0 };
+			}
+		}
+	}
+
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		// Fill GBuffer
 		{
-			uf::stl::vector<VkClearValue> clearValues;
-			for ( auto& attachment : renderTarget.attachments ) {
-				VkClearValue clearValue;
-				if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-					if ( !ext::json::isNull( sceneMetadata["system"]["renderer"]["clear values"][(int) clearValues.size()] ) ) {
-						auto& v = sceneMetadata["system"]["renderer"]["clear values"][(int) clearValues.size()];
-						clearValue.color = { {
-							v[0].as<float>(),
-							v[1].as<float>(),
-							v[2].as<float>(),
-							v[3].as<float>(),
-						} };
-					} else {
-						clearValue.color = { { 0, 0, 0, 0 } };
-					}
-				} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-					if ( uf::matrix::reverseInfiniteProjection ) {
-						clearValue.depthStencil = { 0.0f, 0 };
-					} else {
-						clearValue.depthStencil = { 1.0f, 0 };
-					}
-				}
-				clearValues.push_back(clearValue);
-			}
-			// uf::matrix::reverseInfiniteProjection
-			// descriptor.depth.operation ext::RENDERER::enums::Compare::GREATER_OR_EQUAL
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -530,13 +646,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			scissor.extent.height = height;
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
+			
+			size_t currentSubpass = 0;
 
 			// transition layers for read
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 0 );
 			}
-			
-			size_t currentSubpass = 0;
 
 			for ( auto& pipeline : metadata.pipelines ) {
 				if ( pipeline == metadata.pipeline ) continue;
@@ -547,6 +663,17 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					graphic->record( commands[i], descriptor, 0, metadata.eyes );
 				}
 			}
+		/*
+			for ( auto& pipeline : metadata.pipelines ) {
+				if ( pipeline == metadata.pipeline || pipeline == "deferred" ) continue;
+				for ( auto graphic : graphics ) {
+					if ( graphic->descriptor.renderMode != this->getName() ) continue;
+					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+					descriptor.pipeline = pipeline;
+					graphic->record( commands[i], descriptor, 0, metadata.eyes );
+				}
+			}
+		*/
 
 			// pre-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
@@ -564,43 +691,56 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 						graphic->record( commands[i], descriptor, eye, currentDraw++ );
 					}
-					// blit any RT's that request this subpass
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
-							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
-							blitter.record(commands[i], descriptor);
-						}
-					}
 				vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentPass; ++currentSubpass;
 					// deferred post-processing lighting pass
 					if ( !settings::pipelines::rt ) {
-						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+						descriptor.renderMode = "";
+						descriptor.pipeline = "deferred";
+						descriptor.subpass = 1;
 						blitter.record(commands[i], descriptor, eye, currentDraw++);
-					}
-					// blit any RT's that request this subpass
-					{
-						for ( auto _ : layers ) {
-							RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-							auto& blitter = layer->blitter;
-							if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass ) continue;
-							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(blitter.descriptor, currentSubpass);
-							blitter.record(commands[i], descriptor, eye, currentDraw++);
-						}
 					}
 					if ( eye + 1 < metadata.eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
 				}
 			vkCmdEndRenderPass(commands[i]);
 
+		#if 0
+			// fill GBuffer
+			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commands[i], 0, 1, &viewport);
+				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				// render to geometry buffers
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+					size_t currentPass = 0;
+					size_t currentDraw = 0;
+					if ( !settings::pipelines::rt ) for ( auto graphic : graphics ) {
+						// only draw graphics that are assigned to this type of render mode
+						if ( graphic->descriptor.renderMode != this->getName() ) continue;
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
+						graphic->record( commands[i], descriptor, eye, currentDraw++ );
+					}
+				//	if ( eye + 1 < metadata.eyes ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+			vkCmdEndRenderPass(commands[i]);
+
+			// parse GBuffer
+			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commands[i], 0, 1, &viewport);
+				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.pipeline = "deferred";
+				blitter.record(commands[i], descriptor, 0, 0);
+			vkCmdEndRenderPass(commands[i]);
+		#endif
+
 			// post-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
 
+		#if 1
 			if ( settings::pipelines::bloom ) {
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
+				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 
 				auto& shader = blitter.material.getShader("compute", "bloom");
@@ -647,11 +787,12 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_FLAGS_NONE, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 				}
 			}
+		#endif
 
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 1 );
 			}
-			
+		#if 0
 			if ( !settings::invariant::deferredAliasOutputToSwapchain ) {
 				{
 					auto& renderTarget = swapchainRender.renderTarget;
@@ -742,6 +883,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					}
 				}
 			}
+		#endif
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));

@@ -21,21 +21,51 @@ const uf::stl::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }
 void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
-	if ( ext::vulkan::renderModes.size() > 1 ) return;
+//	if ( ext::vulkan::renderModes.size() > 1 ) return;
 
 	auto windowSize = device->window->getSize();
 	float width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
 	float height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
-	VkCommandBufferBeginInfo commandBufferInfo = {};
-	commandBufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	commandBufferInfo.pNext = nullptr;
+	VkCommandBufferBeginInfo cmdBufInfo = {};
+	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufInfo.pNext = nullptr;
 
-	// Set clear values for all framebuffer attachments with loadOp set to clear
-	// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
-	VkClearValue clearValues[2];
-	clearValues[0].color = { { 0, 0, 0, 0 } };
-	clearValues[1].depthStencil = { 0.0f, 0 };
+	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
+	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+	imageMemoryBarrier.subresourceRange.layerCount = 1;
+	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute", "Deferred"}, false);
+	if ( !settings::pipelines::rt ) {
+		std::reverse( layers.begin(), layers.end() );
+	}
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+	auto& commands = getCommands();
+
+	uf::stl::vector<VkClearValue> clearValues;
+	for ( auto& attachment : renderTarget.attachments ) {
+		pod::Vector4f clearColor = uf::vector::decode( sceneMetadataJson["system"]["renderer"]["clear values"][(int) clearValues.size()], pod::Vector4f{0, 0, 0, 0} );
+		auto& clearValue = clearValues.emplace_back();
+		if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+			clearValue.color.float32[0] = clearColor[0];
+			clearValue.color.float32[1] = clearColor[1];
+			clearValue.color.float32[2] = clearColor[2];
+			clearValue.color.float32[3] = clearColor[3];
+		} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+			if ( uf::matrix::reverseInfiniteProjection ) {
+				clearValue.depthStencil = { 0.0f, 0 };
+			} else {
+				clearValue.depthStencil = { 1.0f, 0 };
+			}
+		}
+	}
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -45,47 +75,139 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	renderPassBeginInfo.renderArea.offset.y = 0;
 	renderPassBeginInfo.renderArea.extent.width = width;
 	renderPassBeginInfo.renderArea.extent.height = height;
-	renderPassBeginInfo.clearValueCount = 2;
-	renderPassBeginInfo.pClearValues = clearValues;
-	auto& commands = getCommands();
+	renderPassBeginInfo.clearValueCount = clearValues.size();
+	renderPassBeginInfo.pClearValues = &clearValues[0];
+
+	// Update dynamic viewport state
+	VkViewport viewport = {};
+	viewport.width = (float) width;
+	viewport.height = (float) height;
+	viewport.minDepth = (float) 0.0f;
+	viewport.maxDepth = (float) 1.0f;
+	
+	// Update dynamic scissor state
+	VkRect2D scissor = {};
+	scissor.extent.width = width;
+	scissor.extent.height = height;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	
 	for (size_t i = 0; i < commands.size(); ++i) {
-		// Set target frame buffer
 		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
+		
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
+		// Fill GBuffer
+		{
+			size_t currentSubpass = 0;
 
-		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &commandBufferInfo));
+			{
+				VkImageMemoryBarrier imageMemoryBarrier = {};
+				imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				imageMemoryBarrier.srcAccessMask = 0;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		// Start the first sub pass specified in our default render pass setup by the base class
-		// This will clear the color and depth attachment
-		vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-			// Update dynamic viewport state
-			VkViewport viewport = {};
-			viewport.height = (float) height;
-			viewport.width = (float) width;
-			viewport.minDepth = (float) 0.0f;
-			viewport.maxDepth = (float) 1.0f;
-			vkCmdSetViewport(commands[i], 0, 1, &viewport);
-			// Update dynamic scissor state
-			VkRect2D scissor = {};
-			scissor.extent.width = width;
-			scissor.extent.height = height;
-			scissor.offset.x = 0;
-			scissor.offset.y = 0;
-			vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				// explicitly transfer queue-ownership
+				if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
+					imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.present;
+					imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics;
+				} else {
+					imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
+					imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
+				}
+				imageMemoryBarrier.image = renderTarget.attachments[i].image;
+			//	imageMemoryBarrier.subresourceRange = subResourceRange;
+				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+				imageMemoryBarrier.subresourceRange.levelCount = 1;
+				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+				imageMemoryBarrier.subresourceRange.layerCount = 1;
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
 
-			for ( auto graphic : graphics ) {
-				graphic->record(commands[i] );
+				vkCmdPipelineBarrier(commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
-		vkCmdEndRenderPass(commands[i]);
+			
+			// transition layers for read
+		/*
+			for ( auto layer : layers ) {
+				layer->pipelineBarrier( commands[i], 0 );
+			}
+		*/
+			for ( auto _ : layers ) {
+				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+				auto& blitter = layer->blitter;
+				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
+				layer->pipelineBarrier( commands[i], 0 );
+			}
 
-		// Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
-		// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
+			// pre-renderpass commands
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
 
+			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commands[i], 0, 1, &viewport);
+				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				// render to geometry buffers
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+					size_t currentPass = 0;
+					size_t currentDraw = 0;
+
+					// blit any RT's that request this subpass
+					for ( auto _ : layers ) {
+						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+						auto& blitter = layer->blitter;
+						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.descriptor.renderMode != this->getName() ) continue;
+					//	UF_MSG_DEBUG("`{}`: {} | `{}` | {} | {} | {}", layer->getName(), layer->getType(), blitter.descriptor.renderMode, blitter.initialized, blitter.process, blitter.descriptor.subpass);
+						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // bindGraphicDescriptor(blitter.descriptor, currentSubpass);
+						blitter.record(commands[i], descriptor);
+					}
+				}
+			vkCmdEndRenderPass(commands[i]);
+
+			// post-renderpass commands
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
+
+			// need to transfer it back, if they differ
+			if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
+				VkImageMemoryBarrier imageMemoryBarrier = {};
+				imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+				imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				imageMemoryBarrier.srcQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
+				imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.present;
+				imageMemoryBarrier.image = renderTarget.attachments[i].image;
+
+				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+				imageMemoryBarrier.subresourceRange.levelCount = 1;
+				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+				imageMemoryBarrier.subresourceRange.layerCount = 1;
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
+
+				vkCmdPipelineBarrier(commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+			}
+
+			for ( auto _ : layers ) {
+				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
+				auto& blitter = layer->blitter;
+				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
+				layer->pipelineBarrier( commands[i], 1 );
+			}
+		/*
+			for ( auto layer : layers ) {
+				layer->pipelineBarrier( commands[i], 1 );
+			}
+		*/
+		}
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}
 }
 
 void ext::vulkan::BaseRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
+	
 	if ( ext::vulkan::states::resized ) {
 		this->destroy();
 		this->initialize( *this->device );
@@ -93,7 +215,7 @@ void ext::vulkan::BaseRenderMode::tick() {
 }
 void ext::vulkan::BaseRenderMode::render() {
 //	if ( ext::vulkan::renderModes.size() > 1 ) return;
-	if ( ext::vulkan::renderModes.back() != this ) return;
+//	if ( ext::vulkan::renderModes.back() != this ) return;
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
@@ -179,7 +301,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
 
 		renderTarget.attachments[i].descriptor.format = ext::vulkan::settings::formats::color;
-		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
 		renderTarget.attachments[i].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		renderTarget.attachments[i].descriptor.aliased = true;
 		renderTarget.attachments[i].image = images[i];
@@ -350,6 +472,33 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		}
 	
 	}
+#if 0
+	if ( true ) {
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::TRANSFER);
+		for ( size_t i = 0; i < images.size(); ++i ) {
+			VkImageMemoryBarrier imageMemoryBarrier = {};
+			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			imageMemoryBarrier.srcAccessMask = 0;
+			imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			imageMemoryBarrier.oldLayout = renderTarget.attachments[i].descriptor.layout;
+			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.present;
+			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics;
+
+			imageMemoryBarrier.image = renderTarget.attachments[i].image;
+			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
+			imageMemoryBarrier.subresourceRange.levelCount = 1;
+			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
+			imageMemoryBarrier.subresourceRange.layerCount = 1;
+			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
+
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+		}
+		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::TRANSFER);
+	}
+#endif
 /*
 	{
 		renderTarget.device = &device;
@@ -421,6 +570,23 @@ void ext::vulkan::BaseRenderMode::destroy() {
 	if ( swapchain.presentCompleteSemaphore != VK_NULL_HANDLE ) {
 		vkDestroySemaphore( *device, swapchain.presentCompleteSemaphore, nullptr);
 	}
+}
+
+ext::vulkan::GraphicDescriptor ext::vulkan::BaseRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
+	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+/*
+	descriptor.parse(metadata.json["descriptor"]);
+	// invalidate
+	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
+		descriptor.invalidated = true;
+	} else {
+		descriptor.renderMode = this->getName();
+	}
+*/
+
+	descriptor.depth.test = false;
+	descriptor.depth.write = false;
+	return descriptor;
 }
 
 #endif

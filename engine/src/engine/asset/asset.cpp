@@ -64,7 +64,7 @@ void uf::Asset::processQueue() {
 	auto jobs = std::move(this->getComponent<Job::container_t>());
 	mutex.unlock();
 
-	for ( auto& job : jobs ) tasks.queue([=]{
+	for ( auto& job : jobs ) tasks.queue([=, this]{ // C++20 retardation
 		uf::stl::string callback = job.callback;
 		uf::stl::string type = job.type;
 		uf::Asset::Payload payload = job.payload;

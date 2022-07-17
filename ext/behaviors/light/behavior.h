@@ -17,6 +17,7 @@ namespace ext {
 			float bias = 0.0f;
 			bool shadows = false;
 			int32_t type = 1;
+			bool global = false;
 			struct {
 				uf::stl::string mode = "in-range";
 				float limiter = 0.0f;

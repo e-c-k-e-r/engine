@@ -53,6 +53,7 @@ bool ext::vulkan::settings::invariant::deferredSampling = true;
 
 bool ext::vulkan::settings::invariant::multiview = true;
 // pipelines
+bool ext::vulkan::settings::pipelines::deferred = true;
 bool ext::vulkan::settings::pipelines::vsync = true;
 bool ext::vulkan::settings::pipelines::hdr = true;
 bool ext::vulkan::settings::pipelines::vxgi = true;
@@ -60,6 +61,7 @@ bool ext::vulkan::settings::pipelines::culling = false;
 bool ext::vulkan::settings::pipelines::bloom = false;
 bool ext::vulkan::settings::pipelines::rt = false;
 
+uf::stl::string ext::vulkan::settings::pipelines::names::deferred = "deferred";
 uf::stl::string ext::vulkan::settings::pipelines::names::vsync = "vsync";
 uf::stl::string ext::vulkan::settings::pipelines::names::hdr = "hdr";
 uf::stl::string ext::vulkan::settings::pipelines::names::vxgi = "vxgi";
@@ -184,7 +186,8 @@ ext::vulkan::RenderMode& ext::vulkan::addRenderMode( ext::vulkan::RenderMode* mo
 		RenderMode& primary = getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	} else {
+	}
+	{
 		RenderMode& primary = getRenderMode("Swapchain", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );

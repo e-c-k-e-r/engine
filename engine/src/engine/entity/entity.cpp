@@ -14,7 +14,7 @@ uf::Entity::~Entity(){
 }
 bool uf::Entity::isValid() const {
 	if ( uf::Entity::memoryPool.size() > 0 && !uf::Entity::memoryPool.exists((void*) this) ) return false;
-	return this != NULL && (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
+	return /*this != NULL &&*/ (0 < this->m_uid && this->m_uid <= uf::Entity::uids);
 }
 void uf::Entity::setUid() {
 	uf::scene::invalidateGraphs();

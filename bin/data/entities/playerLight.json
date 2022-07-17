@@ -14,7 +14,7 @@
 	},
 	"metadata": {
 		"light": {
-			"type": "point",
+			"type": "spot",
 			"color": [1, 1, 1],
 			"power": 30,
 			"fov": 90,
@@ -24,7 +24,7 @@
 				"shader": 0.000005 //0.000000005
 			},
 			"radius": [0.001, 0],
-			"resolution": 1024,
+			"resolution": 512,
 			"shadows": false,
 			"static": false
 		}

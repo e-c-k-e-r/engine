@@ -217,8 +217,10 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	}
 
 	auto& queue = metadata.hooks.queue;
-	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	double curTime = uf::Object::timer.elapsed().asDouble();
+
+//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+//	double curTime = uf::Object::timer.elapsed().asDouble();
+	auto curTime = uf::time::current;
 
 	decltype(metadata.hooks.queue) unprocessed;
 	unprocessed.reserve( metadata.hooks.queue.size() );
@@ -226,7 +228,10 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	decltype(metadata.hooks.queue) executeQueue;
 	executeQueue.reserve( metadata.hooks.queue.size() );
 
-	for ( auto& q : queue ) if ( q.timeout < curTime ) executeQueue.emplace_back(q); else unprocessed.emplace_back(q);
+	for ( auto& q : queue ) {
+		if ( q.timeout < curTime ) executeQueue.emplace_back(q);
+		else unprocessed.emplace_back(q);
+	}
 	for ( auto& q : executeQueue ) {
 		if ( q.type == 1 ) this->callHook( q.name, q.userdata );
 		else if ( q.type == -1 ) this->callHook( q.name, q.json );

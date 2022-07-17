@@ -3,7 +3,7 @@
 #include <xatlas/xatlas.h>
 
 #define UF_XATLAS_UNWRAP_MULTITHREAD 1
-#define UF_XATLAS_LAZY 0 // i do not understand why it needs to insert extra vertices for it to not even be used in the indices buffer, this flag avoids having to account for it
+#define UF_XATLAS_UNWRAP_SERIAL 1 // really big scenes will gorge on memory
 
 size_t UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
 	return graph.metadata["exporter"]["unwrap lazy"].as<bool>(false) ? unwrapLazy( graph ) : unwrapExperimental( graph );
@@ -20,8 +20,7 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 		size_t vertexOffset = 0;
 	};
 
-	uf::stl::vector<uf::Mesh> sources;
-	sources.reserve(graph.meshes.size());
+	uf::stl::vector<uf::Mesh> sources(graph.meshes.size());
 
 	uf::stl::unordered_map<size_t, Atlas> atlases;
 	atlases.reserve(graph.meshes.size());
@@ -34,7 +33,8 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
-		sources.emplace_back(mesh).updateDescriptor();
+		auto& source = sources[index];
+
 		if ( mesh.isInterleaved() ) {
 			UF_EXCEPTION("unwrapping interleaved mesh is not supported");
 		}
@@ -44,17 +44,20 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			should = true;
 		} else {
 			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-			//	if ( ext::json::isNull( value["unwrap mesh"] ) ) return;
-				if ( !value["unwrap mesh"].as<bool>(false) ) return;
-
 				if ( uf::string::isRegex( key ) ) {
 					if ( !uf::string::matched( name, key ) ) return;
 				} else if ( name != key ) return;
+
+				if ( ext::json::isNull( value["unwrap mesh"] ) ) return;
+				if ( !value["unwrap mesh"].as<bool>(false) ) return;
+
 				should = true;
 			});
 		}
 		if ( !should ) continue;
 
+		source = mesh;
+		source.updateDescriptor();
 
 		uf::Mesh::Input vertexInput = mesh.vertex;
 
@@ -131,21 +134,6 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 		} else UF_EXCEPTION("to-do: not require indices for meshes");
 	}
 
-	// add mesh decls to mesh atlases
-	// done after the fact since we'll know the total amount of meshes added
-	for ( auto& pair : atlases ) {
-		auto& atlas = pair.second;
-		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
-
-		for ( auto& entry : atlas.entries ) {
-			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
-			if (error != ::xatlas::AddMeshError::Success) {
-				::xatlas::Destroy(atlas.pointer);
-				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
-			}
-		}
-	}
-
 	::xatlas::ChartOptions chartOptions{};
 	chartOptions.useInputMeshUvs = graph.metadata["baking"]["settings"]["useInputMeshUvs"].as(chartOptions.useInputMeshUvs);
 	chartOptions.maxIterations = graph.metadata["baking"]["settings"]["maxIterations"].as(chartOptions.maxIterations);
@@ -161,6 +149,22 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	packOptions.rotateChartsToAxis = graph.metadata["baking"]["settings"]["rotateChartsToAxis"].as(packOptions.rotateChartsToAxis);
 	packOptions.rotateCharts = graph.metadata["baking"]["settings"]["rotateCharts"].as(packOptions.rotateCharts);
 	packOptions.resolution = graph.metadata["baking"]["resolution"].as(packOptions.resolution);
+
+	// add mesh decls to mesh atlases
+	// done after the fact since we'll know the total amount of meshes added
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
+
+		for ( auto& entry : atlas.entries ) {
+			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
+			if (error != ::xatlas::AddMeshError::Success) {
+				::xatlas::Destroy(atlas.pointer);
+				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
+			}
+		}
+	}
+
 
 	// pack
 #if UF_XATLAS_UNWRAP_MULTITHREAD
@@ -195,6 +199,9 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	for ( auto i = 0; i < graph.meshes.size(); ++i ) {
 		auto& name = graph.meshes[i];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+		auto& source = sources[i];
+		if ( source.vertex.count == 0 ) continue;
+
 		if ( sizesVertex[i] != mesh.vertex.count ) {
 			mesh.resizeVertices( sizesVertex[i] );
 		}
@@ -213,6 +220,9 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			auto& name = graph.meshes[entry.index];
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 			auto& source = sources[entry.index];
+
+			if ( source.vertex.count == 0 ) continue;
+
 			source.updateDescriptor();
 
 			// draw commands
@@ -233,7 +243,9 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	for ( auto index = 0; index < graph.meshes.size(); ++index ) {
 		auto& name = graph.meshes[index];
 		auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
-		
+		auto& source = sources[index];
+
+		if ( source.vertex.count == 0 ) continue;
 		if ( !mesh.indirect.count ) continue;
 
 		auto& primitives = /*graph.storage*/uf::graph::storage.primitives[name];
@@ -257,8 +269,9 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 
 	// update vertices
 	for ( auto& pair : atlases ) {
-		size_t vertexIDOffset = 0;
 		auto& atlas = pair.second;
+
+		size_t vertexIDOffset = 0;
 		for ( auto i = 0; i < atlas.pointer->meshCount; i++ ) {
 			auto& xmesh = atlas.pointer->meshes[i];
 			auto& entry = atlas.entries[i];
@@ -266,6 +279,7 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
 			auto& source = sources[entry.index];
 
+			if ( source.vertex.count == 0 ) continue;
 
 			// draw commands
 			if ( mesh.indirect.count ) {
@@ -398,12 +412,12 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 			should = true;
 		} else {
 			ext::json::forEach( graph.metadata["tags"], [&]( const uf::stl::string& key, ext::json::Value& value ) {
-			//	if ( ext::json::isNull( value["unwrap mesh"] ) ) return;
-				if ( !value["unwrap mesh"].as<bool>(false) ) return;
-
 				if ( uf::string::isRegex( key ) ) {
 					if ( !uf::string::matched( name, key ) ) return;
 				} else if ( name != key ) return;
+				
+				if ( ext::json::isNull( value["unwrap mesh"] ) ) return;
+				if ( !value["unwrap mesh"].as<bool>(false) ) return;
 				should = true;
 			});
 		}
@@ -485,21 +499,6 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 		} else UF_EXCEPTION("to-do: not require indices for meshes");
 	}
 
-	// add mesh decls to mesh atlases
-	// done after the fact since we'll know the total amount of meshes added
-	for ( auto& pair : atlases ) {
-		auto& atlas = pair.second;
-		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
-
-		for ( auto& entry : atlas.entries ) {
-			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
-			if (error != ::xatlas::AddMeshError::Success) {
-				::xatlas::Destroy(atlas.pointer);
-				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
-			}
-		}
-	}
-
 	::xatlas::ChartOptions chartOptions{};
 	chartOptions.useInputMeshUvs = graph.metadata["baking"]["settings"]["useInputMeshUvs"].as(chartOptions.useInputMeshUvs);
 	chartOptions.maxIterations = graph.metadata["baking"]["settings"]["maxIterations"].as(chartOptions.maxIterations);
@@ -517,6 +516,77 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 	packOptions.resolution = graph.metadata["baking"]["resolution"].as(packOptions.resolution);
 
 	// pack
+#if UF_XATLAS_UNWRAP_SERIAL
+	size_t atlasCount = 0;
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
+
+		for ( auto& entry : atlas.entries ) {
+			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
+			if (error != ::xatlas::AddMeshError::Success) {
+				::xatlas::Destroy(atlas.pointer);
+				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
+			}
+		}
+
+		::xatlas::Generate(atlas.pointer, chartOptions, packOptions);
+
+		for ( auto i = 0; i < atlas.pointer->meshCount; i++ ) {
+			auto& xmesh = atlas.pointer->meshes[i];
+			auto& entry = atlas.entries[i];
+			auto& name = graph.meshes[entry.index];
+			auto& mesh = /*graph.storage*/uf::graph::storage.meshes[name];
+
+			// draw commands
+			if ( mesh.indirect.count ) {
+				auto vertexInput = mesh.remapVertexInput( entry.commandID );
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+					
+					for ( auto k = 0; k < vertexInput.attributes.size(); ++k ) {
+						auto dstAttribute = vertexInput.attributes[k];
+						if ( dstAttribute.descriptor.name != "st" ) continue;
+						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (ref + vertexInput.first) );
+						st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };;
+					}
+				}
+			} else {
+				for ( auto j = 0; j < xmesh.vertexCount; ++j ) {
+					auto& vertex = xmesh.vertexArray[j];
+					auto ref = vertex.xref;
+					
+					for ( auto k = 0; k < mesh.vertex.attributes.size(); ++k ) {
+						auto dstAttribute = mesh.vertex.attributes[k];
+						if ( dstAttribute.descriptor.name != "st" ) continue;
+						pod::Vector2f& st = *(pod::Vector2f*) ( static_cast<uint8_t*>(dstAttribute.pointer) + dstAttribute.stride * (ref + mesh.vertex.first) );
+						st = pod::Vector2f{ vertex.uv[0] / atlas.pointer->width, vertex.uv[1] / atlas.pointer->height };;
+					}
+				}
+			}
+			mesh.updateDescriptor();
+		}
+
+		::xatlas::Destroy(atlas.pointer);
+		++atlasCount;
+	}
+#else
+	// add mesh decls to mesh atlases
+	// done after the fact since we'll know the total amount of meshes added
+	for ( auto& pair : atlases ) {
+		auto& atlas = pair.second;
+		if ( !atlas.pointer ) atlas.pointer = ::xatlas::Create();
+
+		for ( auto& entry : atlas.entries ) {
+			::xatlas::AddMeshError error = ::xatlas::AddMesh(atlas.pointer, entry.decl, atlas.entries.size());
+			if (error != ::xatlas::AddMeshError::Success) {
+				::xatlas::Destroy(atlas.pointer);
+				UF_EXCEPTION("{}", ::xatlas::StringForEnum(error));
+			}
+		}
+	}
+
 #if UF_XATLAS_UNWRAP_MULTITHREAD
 	auto tasks = uf::thread::schedule(true);
 #else
@@ -577,6 +647,7 @@ size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 		::xatlas::Destroy(atlas.pointer);
 		++atlasCount;
 	}
+#endif
 	return atlasCount;
 }
 #endif

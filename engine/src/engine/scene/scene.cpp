@@ -101,7 +101,14 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 
+#if UF_USE_FMT
+	uf::stl::string filename = _filename;
+	if ( _filename == "" ) {
+		filename = ::fmt::format("/{}/scene.json", uf::string::lowercase(name));
+	}
+#else
 	const uf::stl::string filename = _filename != "" ? _filename : (uf::stl::string("/") + uf::string::lowercase(name) + "/scene.json");
+#endif
 	scene->load(filename);
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
 	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );

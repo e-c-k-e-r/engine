@@ -1,5 +1,8 @@
 {
 	"assets": [],
+	"behaviors": [
+		"SoundEmitterBehavior"
+	],
 	"metadata": {
 		"holdable": true,
 		"physics": {

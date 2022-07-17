@@ -440,7 +440,7 @@ uf::stl::string uf::graph::save( const pod::Graph& graph, const uf::stl::string&
 
 	if ( !settings.combined ) target = directory + "/graph.json";
 	serializer.writeToFile( target );
-	UF_MSG_DEBUG("Saving graph to {}", target);
+	UF_MSG_DEBUG("Saved graph to {}", target);
 
 /*
 	if ( graph.metadata["exporter"]["quit"].as<bool>(true) ) {

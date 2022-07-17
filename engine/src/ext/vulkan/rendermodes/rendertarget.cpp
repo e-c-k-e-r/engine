@@ -35,7 +35,15 @@ uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getB
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {
 	ext::vulkan::GraphicDescriptor descriptor = ext::vulkan::RenderMode::bindGraphicDescriptor(reference, pass);
+/*
 	descriptor.parse(metadata.json["descriptor"]);
+	// invalidate
+	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
+		descriptor.invalidated = true;
+	} else {
+		descriptor.renderMode = this->getName();
+	}
+*/
 
 	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
@@ -43,12 +51,6 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 		descriptor.depth.write = false;
 	} else if ( metadata.type == "depth" ) {
 		descriptor.cullMode = VK_CULL_MODE_NONE;
-	}
-	// invalidate
-	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
-		descriptor.invalidated = true;
-	} else {
-		descriptor.renderMode = this->getName();
 	}
 	return descriptor;
 }
@@ -167,7 +169,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				attachments.output = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 					/*.format =*/ VK_FORMAT_R8G8B8A8_UNORM,
 					/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+					/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 					/*.blend =*/ true,
 					/*.samples =*/ 1,
 				});
@@ -297,8 +299,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
-			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
-			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv"; {
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.frag.spv"; {
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ msaa > 1, "msaa.frag" },
 				// I don't actually have support for deferred sampling within a render target
@@ -412,7 +414,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 		size_t eyes = mainRenderMode.metadata.eyes;
 		for ( size_t eye = 0; eye < eyes; ++eye ) {
 			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-			descriptor.subpass = 2 * eye + 1;
+			descriptor.subpass = 0; // 2 * eye; // + 1;
 			if ( !blitter.hasPipeline( descriptor ) ) {
 				blitter.initializePipeline( descriptor );
 			} else {
@@ -464,58 +466,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
-	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-	imageMemoryBarrier.subresourceRange.levelCount = 1;
-	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-	imageMemoryBarrier.subresourceRange.layerCount = 1;
-	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-	for ( auto& attachment : renderTarget.attachments ) {
-		if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-		if (  (attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;
-		
-		VkPipelineStageFlags srcStageMask, dstStageMask;
-		imageMemoryBarrier.image = attachment.image;
-		imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
-		imageMemoryBarrier.newLayout = attachment.descriptor.layout;
-	
-		switch ( state ) {
-			case 0: {
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			} break;
-			case 1: {
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.newLayout = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			} break;
-			// ensure 
-			default: {
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-				srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-			}
-		}
-		
-		vkCmdPipelineBarrier( commandBuffer,
-			srcStageMask, dstStageMask,
-			VK_FLAGS_NONE,
-			0, NULL,
-			0, NULL,
-			1, &imageMemoryBarrier
-		);
-
-		attachment.descriptor.layout = imageMemoryBarrier.newLayout;
-	}
+	ext::vulkan::RenderMode::pipelineBarrier( commandBuffer, state );
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
@@ -525,26 +476,30 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	cmdBufInfo.pNext = nullptr;
+
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+
+	uf::stl::vector<VkClearValue> clearValues;
+	for ( size_t j = 0; j < renderTarget.views; ++j ) {
+		for ( auto& attachment : renderTarget.attachments ) {
+			auto& clearValue = clearValues.emplace_back();
+			if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
+				clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+			} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+				if ( uf::matrix::reverseInfiniteProjection ) {
+					clearValue.depthStencil = { 0.0f, 0 };
+				} else {
+					clearValue.depthStencil = { 1.0f, 0 };
+				}
+			}
+		}
+	}
+
 	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		{
-			uf::stl::vector<VkClearValue> clearValues;
-			for ( size_t j = 0; j < renderTarget.views; ++j ) {
-				for ( auto& attachment : renderTarget.attachments ) {
-					VkClearValue clearValue;
-					if ( attachment.descriptor.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-						clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-					} else if ( attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
-						if ( uf::matrix::reverseInfiniteProjection ) {
-							clearValue.depthStencil = { 0.0f, 0 };
-						} else {
-							clearValue.depthStencil = { 1.0f, 0 };
-						}
-					}
-					clearValues.push_back(clearValue);
-				}
-			}
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
 			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

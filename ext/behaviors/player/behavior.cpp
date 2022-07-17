@@ -41,7 +41,7 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		cameraTransform.scale = uf::vector::decode( metadataJson["camera"]["scale"], cameraTransform.scale );
 		cameraTransform.reference = &transform;
 
-		auto& cameraSettingsJson = metadataJson["camera"]["settings"];
+		auto cameraSettingsJson = metadataJson["camera"]["settings"];
 
 		if ( metadataJson["camera"]["ortho"].as<bool>() ) {
 			float l = cameraSettingsJson["left"].as<float>();
@@ -215,7 +215,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 #if 0
-	TIMER(0.25, keys.use && ) {
+	TIMER(0.25, keys.use ) {
 		size_t uid = 0;
 		float depth = -1;
 		uf::Object* pointer = NULL;
@@ -331,7 +331,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 	if ( metadata.system.control ) {
 		// noclip handler
-		TIMER(0.25, keys.vee && ) {
+		TIMER(0.25, keys.vee ) {
 			bool state = !stats.noclipped;
 			metadata.system.noclipped = state;
 			if ( collider.body ) {
@@ -365,9 +365,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		if ( !stats.floored ) stats.walking = false;		
 	}
+	TIMER(0.0625, stats.floored && keys.jump ) {
+		physics.linear.velocity += translator.up * metadata.movement.jump;
+	}
+/*
 	if ( stats.floored && keys.jump ) {
 		physics.linear.velocity += translator.up * metadata.movement.jump;
 	}
+*/
 	if ( keys.crouch ) {
 		if ( stats.noclipped ) physics.linear.velocity -= translator.up * metadata.movement.jump;
 		else {

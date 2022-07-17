@@ -3,21 +3,12 @@
 
 #define UF_NS_GET_LAST(name) uf::string::replace( uf::string::split( #name, "::" ).back(), "<>", "" )
 
-#define TIMER_LAMBDA(x) []() {\
-	static uf::Timer<long long> timer(false);\
-	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
-	double time = timer.elapsed();\
-	if ( time >= every ) timer.reset();\
-	static bool first = true; if ( first ) { first = false; return every; }\
-	return time;\
-};
-
 #define TIMER(x, ...)\
 	static uf::Timer<long long> timer(false);\
 	if ( !timer.running() ) timer.start(uf::Time<long long>(-1000000));\
+	struct { bool should = true; } timerState = { __VA_ARGS__ };\
 	double time = timer.elapsed();\
-	if ( time >= x ) timer.reset();\
-	if ( __VA_ARGS__ time >= x )
+	if ( time >= x && timerState.should && (timer.reset(), true) )
 
 #define UF_DEBUG 1
 #if UF_DEBUG
@@ -62,12 +53,12 @@
 
 #define UF_TIMER_TRACE(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), __VA_ARGS__);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), ::fmt::format(__VA_ARGS__));\
 }
 
 #define UF_TIMER_TRACE_RESET(...) {\
 	auto elapsed = TIMER_TRACE.elapsed().asMicroseconds();\
-	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), __VA_ARGS__);\
+	if ( elapsed > 0 ) UF_MSG_DEBUG("{} us\t{}", TIMER_TRACE.elapsed().asMicroseconds(), ::fmt::format(__VA_ARGS__));\
 	TIMER_TRACE.reset();\
 }
 
@@ -78,7 +69,7 @@
 
 #define UF_TIMER_MULTITRACE(...) {\
 	TIMER_TRACE_CUR = TIMER_TRACE.elapsed().asMicroseconds();\
-	UF_MSG_DEBUG("{} us\t{} us\t{}", TIMER_TRACE_CUR, (TIMER_TRACE_CUR - TIMER_TRACE_PREV), __VA_ARGS__);\
+	UF_MSG_DEBUG("{} us\t{} us\t{}", TIMER_TRACE_CUR, (TIMER_TRACE_CUR - TIMER_TRACE_PREV), ::fmt::format(__VA_ARGS__));\
 	TIMER_TRACE_PREV = TIMER_TRACE_CUR;\
 }
 

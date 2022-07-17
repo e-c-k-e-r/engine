@@ -81,6 +81,14 @@ namespace uf {
 		const uf::Time<T>& getStarting() const;
 		const uf::Time<T>& getEnding() const;
 	};
+
+	namespace time {
+		extern UF_API uf::Timer<> timer;
+		extern UF_API double current;
+		extern UF_API double previous;
+		extern UF_API float delta;
+		extern UF_API float clamp;
+	}
 }
 
 #include "time.inl"

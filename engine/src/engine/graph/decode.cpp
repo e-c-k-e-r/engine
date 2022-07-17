@@ -12,7 +12,17 @@
 #if UF_ENV_DREAMCAST
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1 // causes Vulkan OOM
+	#define UF_GRAPH_LOAD_MULTITHREAD 1
+#endif
+
+#if UF_ENV_DREAMCAST
+	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
+	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
+	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
+#else
+	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
+	#define UF_DEBUG_TIMER_MULTITRACE(...)
+	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
 #endif
 
 namespace {
@@ -308,15 +318,6 @@ namespace {
 }
 
 pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serializer& metadata ) {
-#if UF_ENV_DREAMCAST
-	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
-	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
-	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
-#else
-	#define UF_DEBUG_TIMER_MULTITRACE_START(...)
-	#define UF_DEBUG_TIMER_MULTITRACE(...)
-	#define UF_DEBUG_TIMER_MULTITRACE_END(...)
-#endif
 	const uf::stl::string extension = uf::io::extension( filename );
 #if UF_USE_GLTF
 	if ( extension == "glb" || extension == "gltf" ) return ext::gltf::load( filename, metadata );
@@ -486,6 +487,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
+#if 0
 	tasks.queue([&]{
 		// load animation information
 		UF_DEBUG_TIMER_MULTITRACE("Reading animation information...");
@@ -518,6 +520,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 		DC_STATS();
 	#endif
 	});
+#endif
 	tasks.queue([&]{
 		// load node information
 		UF_DEBUG_TIMER_MULTITRACE("Reading nodes...");

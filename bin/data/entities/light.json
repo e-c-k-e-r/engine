@@ -13,15 +13,8 @@
 		//	"mode": "once"
 			"mode": "in-range"
 		},
-		"behavior-0": {
-			"tick": {
-				"head loop children": true,
-				"forward iteration": false,
-				"multithreading": false
-			},
-			"render": {
-				"multithreading": false
-			}
+		"hot reload": {
+			"enabled": true
 		}
 	},
 	"metadata": {
@@ -35,8 +28,8 @@
 				"slope": 1.75,
 				"shader": 0.000005 //0.000000005
 			},
-			"radius": [0.001, 256.0],
-			"resolution": 1024,
+			"radius": [0.1, 0],
+			"resolution": 512,
 			"shadows": true,
 			"static": false
 		}

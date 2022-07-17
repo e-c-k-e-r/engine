@@ -44,7 +44,9 @@ namespace uf {
 		template<typename T> uf::Hooks::return_t callHook( const uf::stl::string& name, const T& payload );
 
 		void queueHook( const uf::stl::string&, float = 0 );
+		void queueHook( const uf::stl::string&, double );
 		void queueHook( const uf::stl::string&, const ext::json::Value& json, float = 0 );
+		void queueHook( const uf::stl::string&, const ext::json::Value& json, double );
 		
 		template<typename T>
 		void queueHook( const uf::stl::string&, const T&, float = 0 );

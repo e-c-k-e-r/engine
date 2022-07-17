@@ -100,6 +100,7 @@ namespace pod {
 
 namespace uf {
 	namespace graph {
+		extern UF_API size_t initialBufferElements;
 		extern UF_API pod::Graph::Storage storage;
 	}
 }

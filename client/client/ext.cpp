@@ -128,7 +128,7 @@ void client::tick() {
 
 	if ( client::window.hasFocus() ) {
 		// fullscreener
-		TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter && ) {
+		TIMER(1, (uf::inputs::kbm::states::LAlt || uf::inputs::kbm::states::RAlt) && uf::inputs::kbm::states::Enter ) {
 			uf::renderer::states::resized = true;
 			client::window.toggleFullscreen( false );
 		}

@@ -50,6 +50,9 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		metadataJson["light"]["color"][1] = 1; //metadataJson["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 		metadataJson["light"]["color"][2] = 1; //metadataJson["light"]["color"]["random"].as<bool>() ? (rand() % 100) / 100.0 : 1;
 	}
+	if ( metadataJson["light"]["type"].as<uf::stl::string>() == "point" ) {
+		transform.orientation = uf::quaternion::identity();
+	}
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
@@ -244,6 +247,7 @@ void ext::LightBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 	serializer["light"]["power"] = /*this->*/power;
 	serializer["light"]["bias"]["shader"] = /*this->*/bias;
 	serializer["light"]["shadows"] = /*this->*/shadows;
+	serializer["light"]["global"] = /*this->*/global;
 	serializer["system"]["renderer"]["mode"] = /*this->*/renderer.mode;
 	serializer["light"]["external update"] = /*this->*/renderer.external;
 //	serializer["system"]["renderer"]["timer"] = /*this->*/renderer.limiter;
@@ -258,6 +262,7 @@ void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer
 	/*this->*/power = serializer["light"]["power"].as<float>(/*this->*/power);
 	/*this->*/bias = serializer["light"]["bias"]["shader"].as<float>(/*this->*/bias);
 	/*this->*/shadows = serializer["light"]["shadows"].as<bool>(/*this->*/shadows);
+	/*this->*/global = serializer["light"]["global"].as<bool>(/*this->*/global);
 	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as<uf::stl::string>(/*this->*/renderer.mode);
 //	/*this->*/renderer.rendered = false;
 	/*this->*/renderer.external = serializer["light"]["external update"].as<bool>(/*this->*/renderer.external);

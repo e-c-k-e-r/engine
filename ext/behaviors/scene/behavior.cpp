@@ -65,7 +65,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	});
 
 	this->addHook( "menu:Open", [&](pod::payloads::menuOpen& payload){
-		TIMER(1, true && ) {
+		TIMER(1) {
 			uf::Object* manager = (uf::Object*) this->globalFindByName("Gui Manager");
 			if ( !manager ) return;
 
@@ -222,7 +222,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 
 	/* Print World Tree */ {
-		TIMER(1, uf::inputs::kbm::states::U && ) {
+		TIMER(1, uf::inputs::kbm::states::U ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
@@ -240,7 +240,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		}
 	}
 	/* Mark as ready for multithreading */ {
-		TIMER(1, uf::inputs::kbm::states::M && ) {
+		TIMER(1, uf::inputs::kbm::states::M ) {
 			uf::renderer::settings::experimental::dedicatedThread = !uf::renderer::settings::experimental::dedicatedThread;
 			UF_MSG_DEBUG("Toggling multithreaded rendering...");
 		}
@@ -248,7 +248,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 #if 0
 	/* Print World Tree */ {
-		TIMER(1, uf::inputs::kbm::states::U && false && ) {
+		TIMER(1, uf::inputs::kbm::states::U ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " [";
@@ -351,6 +351,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			pod::Vector4f color = {0,0,0,1}; // OpenGL requires an alpha
 			float distance = 0;
 			float power = 0;
+			bool global = 0;
 		};
 		uf::stl::vector<LightInfo> entities;
 		for ( auto entity : graph ) {
@@ -364,11 +365,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				.color = metadata.color,
 				.distance = uf::vector::magnitude( uf::vector::subtract( flatten.position, controllerTransform.position ) ),
 				.power = metadata.power,
+				.global = metadata.global,
 			});
 			info.position.w = 1;
 			info.color.w = 1;
 		}
 		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
+			if ( l.global && !r.global ) return true;
+			if ( !l.global && r.global ) return false;
 			return l.distance < r.distance;
 		});
 
@@ -416,6 +420,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			float bias = 0;
 			int32_t type = 0;
 			bool shadows = false;
+			bool global = false;
 		};
 		
 		uf::stl::vector<LightInfo> entities; entities.reserve(graph.size() / 2);
@@ -450,10 +455,13 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				.bias = metadata.bias,
 				.type = metadata.type,
 				.shadows = metadata.shadows && hasRT,
+				.global = metadata.global,
 			});
 		}
 		// prioritize closer lights; it would be nice to also prioritize lights in view, but because of VXGI it's not really something to do
 		std::sort( entities.begin(), entities.end(), [&]( LightInfo& l, LightInfo& r ){
+			if ( l.global && !r.global ) return true;
+			if ( !l.global && r.global ) return false;
 			return l.distance < r.distance;
 		});
 

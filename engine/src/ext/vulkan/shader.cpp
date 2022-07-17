@@ -724,6 +724,8 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 				size_t size = 4;
 				uint8_t buffer[size];
+				memset( &buffer[0], size, 0 );
+				
 				auto& definition = metadata.definitions.specializationConstants[name];
 				definition.name = name;
 				definition.index = offset / size;

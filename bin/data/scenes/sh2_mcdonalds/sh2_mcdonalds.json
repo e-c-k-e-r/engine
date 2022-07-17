@@ -39,7 +39,7 @@
 					"grid": { "size": [6,1,6], "epsilon": 1.0, "cleanup": true, "print": true }
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "preserve orientation": true },
-
+				
 				"func_door_rotating_5409": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_door_rotating_5487": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
 				"func_door_rotating_5495": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle": 1.570795, "normal": [ 1,0,0] } } },
@@ -52,14 +52,14 @@
 				"func_physbox_5212": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_physbox_5548": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_physbox_5931": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 
 				"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_door_rotating_5576": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
-
-				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
 
 				"tools/toolsnodraw": { "material": { "base": [0, 0, 0, 0] } },
 				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } },

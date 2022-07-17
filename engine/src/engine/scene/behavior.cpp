@@ -10,7 +10,22 @@ void uf::SceneBehavior::initialize( uf::Object& self ) {
 	uf::renderer::states::rebuild = true;
 
 	this->addHook( "system:Renderer.QueueRebuild", [&](){
+	//	uf::renderer::states::resized = true; // crash
 		uf::renderer::states::rebuild = true;
+
+	/*
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+		renderMode.rebuild = true;
+
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& transform = controller.getComponent<pod::Transform<>>();
+		auto& camera = controller.getComponent<uf::Camera>();
+			
+		transform.orientation = uf::quaternion::identity();
+		camera.getTransform().orientation = uf::quaternion::identity();
+		camera.update(true);
+	*/
 	});
 	this->addHook( "system:Destroy", [&](pod::payloads::Entity& payload){
 		if ( !payload.pointer ) {

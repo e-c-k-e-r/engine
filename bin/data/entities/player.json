@@ -6,6 +6,7 @@
 		"SoundEmitterBehavior"
 	],
 	"ignore": false,
+/*
 	"transform": {
 		"position": [ 0, 0, 0 ],
 		"rotation": {
@@ -14,6 +15,7 @@
 		},
 		"scale": [ 1, 1, 1 ]
 	},
+*/
 	"assets":  [
 	//	{ "filename": "./playerModel.json", "delay": 1 },
 		"./playerModel.json",
@@ -64,7 +66,8 @@
 			"look": 1,
 			"floored": {
 				"feet": [ 0, -1.5, 0 ],
-				"floor": [ 0, -0.5, 0 ],
+			//	"floor": [ 0, -0.5, 0 ],
+				"floor": [ 0, -1.0, 0 ],
 				"print": false
 			}
 		},
@@ -96,7 +99,7 @@
 				"current":[ null,   0, null ]
 			},
 			"settings": {
-				"fov" : 90,
+				"fov" : 90.0,
 				"clip" : [ 0.1, 64.0 ],
 				"size" :  [ 0, 0 ]
 			}

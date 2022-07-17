@@ -2,8 +2,8 @@
 	"engine": {
 		"scenes": {
 			"start": "SH2_McDonalds",
-			"meshes": { "interleaved": false },
 			"matrix": { "reverseInfinite": true },
+			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
 				"max": 48
@@ -54,10 +54,15 @@
 				"threshold": 1.0
 			}
 		},
+		"graph": {
+			"initial buffer elements": 131072
+		},
 		"ext": {
 			"vulkan": {
 				"validation": { "enabled": false,
 					"filters": [
+						"MessageID = 0x35d7ea98", // VUID-vkUpdateDescriptorSets-None-03047 ()
+
 						"MessageID = 0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
 						"MessageID = 0x609a13b", // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
 						"MessageID = 0x23e43bb7", // UNASSIGNED-CoreValidation-Shader-InputNotProduced (from depth-only calls)
@@ -98,9 +103,10 @@
 					"defaultStageBuffers": true
 				},
 				"pipelines": {
+					"deferred": true,
 					"vsync": false,
 					"hdr": false,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": true,
 					"bloom": false,
 					"rt": false
@@ -200,7 +206,7 @@
 				"compression": "gz"
 			},
 			"imgui": {
-				"enabled": true
+				"enabled": false
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,

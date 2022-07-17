@@ -3,27 +3,57 @@
 	"assets": [
 	//	{ "filename": "./models/gm_construct.glb" }
 		{ "filename": "./models/gm_construct/graph.json" }
+
+	//	{ "filename": "./models/rp_downtown_v2.glb" }
+	//	{ "filename": "./models/rp_downtown_v2/graph.json" }
 	],
 	"metadata": {
 		"model": {
 			"baking": {
-				"enabled": true,
-				"resolution": 2048,
-				"settings": {
-					"useInputMeshUvs": false
-				}
+				"enabled": false
+			},
+			"renderer": {
+				"separate": true
 			},
 			"tags": {
-				"/^worldspawn/": {
+				"/^worldspawn$/": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [5,2,5], "epsilon": 1.0, "cleanup": true, "print": true }
+				//	"grid": { "size": [2,1,2], "epsilon": 1.0, "cleanup": true, "print": true },
+				//	"unwrap mesh": true,
+					"optimize mesh": { "simplify": 0 }
 				},
-				"info_player_spawn": {
-					"action": "attach",
-					"filename": "./player.json",
-					"preserve orientation": true
-				}
+				"/^worldspawn_skybox$/": { "ignore": true },
+				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
+				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
+					"power": 100000,
+					"global": true,
+					"bias": {
+						"constant": 1.25,
+						"slope": 1.75,
+						"shader": 0.0000025
+					},
+					"radius": [0.95, 0],
+					"resolution": 1536
+				} },
+	
+			//	"/^light_[^e]/": { "ignore": true },
+			//	"/^func/": { "ignore": true },
+			//	"/^prop/": { "ignore": true },
+
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+
+				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				"/^prop_dynamic/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+
+				"/^gm_construct\\/water/": { "material": {
+					"base": [ 0.027, 0.227, 0.259, 0.5 ],
+					"fRoughness": 0.3
+				} }
 			}
-		}
+		}	
 	}
 }

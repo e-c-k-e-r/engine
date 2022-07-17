@@ -54,7 +54,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::stl::string name = "Gui";
-		renderMode.blitter.descriptor.subpass = 1;
+		renderMode.blitter.descriptor.subpass = 0;
 		renderMode.metadata.type = "single";
 		uf::renderer::addRenderMode( &renderMode, name );
 	}
@@ -99,6 +99,8 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 
 	if ( !blitter.initialized ) return;
 	if ( !blitter.material.hasShader("fragment") ) return;
+
+	return;
 	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();

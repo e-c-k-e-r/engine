@@ -39,25 +39,31 @@ uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
 	return uf::hooks.call( this->formatHookName( name ), payload );
 }
+void uf::Object::queueHook( const uf::stl::string& name, double timeout ) {
+	return queueHook( name, (float) timeout );
+}
 void uf::Object::queueHook( const uf::stl::string& name, float timeout ) {
-	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	double start = uf::Object::timer.elapsed().asDouble();
+//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+//	double start = uf::Object::timer.elapsed().asDouble();
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
-		.timeout = start + timeout,
+		.timeout = uf::time::current + timeout,
 		.type = 0,
 	});
 }
+void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, double timeout ) {
+	return queueHook( name, payload, (float) timeout );
+}
 void uf::Object::queueHook( const uf::stl::string& name, const ext::json::Value& payload, float timeout ) {
-	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-	double start = uf::Object::timer.elapsed().asDouble();
+//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
+//	double start = uf::Object::timer.elapsed().asDouble();
 
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& queue = metadata.hooks.queue.emplace_back(uf::ObjectBehavior::Metadata::Queued{
 		.name = name,
-		.timeout = start + timeout,
+		.timeout = uf::time::current + timeout,
 		.type = -1,
 	});
 	queue.json = payload;
