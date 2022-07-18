@@ -20,7 +20,7 @@
 #include "../../gui/manager/behavior.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::PlayerBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
 void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	auto& transform = this->getComponent<pod::Transform<>>();

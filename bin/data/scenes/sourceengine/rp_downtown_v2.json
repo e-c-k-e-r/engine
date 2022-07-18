@@ -1,0 +1,23 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [
+		"./audio/soundscape/ambience.ogg",
+
+	//	{ "filename": "./models/rp_downtown_v2.glb" }
+		{ "filename": "./models/rp_downtown_v2/graph.json" }
+	],
+	"metadata": {
+		"model": {
+			"renderer": { "separate": true },
+			"tags": {
+				// exact matches
+				"worldspawn_skybox": { "ignore": true },
+	
+				// regex matches
+				"/^light_/": { "ignore": true },
+				"/^func/": { "ignore": true },
+				"/^prop/": { "ignore": true }
+			}
+		}	
+	}
+}

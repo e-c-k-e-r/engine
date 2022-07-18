@@ -428,6 +428,10 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
+
+		if ( !uf::renderer::settings::pipelines::deferred /*&& !uf::renderer::settings::pipelines::rt*/ ) {
+			uf::renderer::settings::invariant::deferredSampling = false;
+		}
 		
 		if ( uf::renderer::settings::pipelines::rt ) {
 			uf::renderer::settings::pipelines::vxgi = false;
@@ -497,7 +501,7 @@ void EXT_API ext::initialize() {
 			renderMode->metadata.type = "single";
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 		}
-		if ( uf::renderer::settings::pipelines::deferred ) {
+		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::DeferredRenderMode;
 			
 			renderMode->blitter.descriptor.renderMode = "Swapchain";

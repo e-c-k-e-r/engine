@@ -17,6 +17,10 @@ namespace ext {
 			extern UF_API bool validation;
 			extern UF_API bool defaultStageBuffers;
 			extern UF_API size_t viewCount;
+			extern UF_API size_t scratchBufferAlignment;
+			extern UF_API size_t scratchBufferInitialSize;
+			extern UF_API size_t defaultTimeout;
+
 			constexpr size_t maxViews = 6;
 
 			extern UF_API uf::stl::vector<uf::stl::string> validationFilters;
@@ -44,6 +48,7 @@ namespace ext {
 			}
 
 			namespace pipelines {
+				extern UF_API bool deferred;
 				extern UF_API bool vsync;
 				extern UF_API bool hdr;
 				extern UF_API bool vxgi;
@@ -52,6 +57,7 @@ namespace ext {
 				extern UF_API bool rt;
 
 				namespace names {
+					extern UF_API uf::stl::string deferred;
 					extern UF_API uf::stl::string vsync;
 					extern UF_API uf::stl::string hdr;
 					extern UF_API uf::stl::string vxgi;

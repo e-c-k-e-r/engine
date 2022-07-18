@@ -13,6 +13,8 @@ UF_OBJECT_REGISTER_END()
 uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 
 #define UF_SCENE_GLOBAL_GRAPH 1
+#define UF_TICK_MULTITHREAD_OVERRIDE 0
+#define UF_TICK_FROM_TASKS 1
 
 #if UF_SCENE_GLOBAL_GRAPH
 namespace {
@@ -59,13 +61,9 @@ void uf::Scene::invalidateGraph() {
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
 	metadata.invalidationQueued = true;
-#if 1
 	metadata.cache.clear();
-	metadata.tasks.clear();
-#else
-	metadata.cached.renderMode = NULL;
-	metadata.cached.controller = NULL;
-#endif
+	metadata.tasks.serial.clear();
+	metadata.tasks.parallel.clear();
 }
 const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 #if !UF_SCENE_GLOBAL_GRAPH
@@ -74,19 +72,54 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
 		metadata.graph.clear();
-		metadata.tasks.clear();
+		metadata.tasks.serial.clear();
+		metadata.tasks.parallel.clear();
 	}
 	if ( !metadata.graph.empty() ) return metadata.graph;
+
+	metadata.tasks.serial = uf::thread::schedule(false);
+	metadata.tasks.parallel = uf::thread::schedule(true, false);
+
 	this->process([&]( uf::Entity* entity ) {
 		if ( !entity->hasComponent<uf::ObjectBehavior::Metadata>() ) return;
 		auto& eMetadata = entity->getComponent<uf::ObjectBehavior::Metadata>();
-		if ( !eMetadata.system.ignoreGraph ) {
-			metadata.graph.emplace_back(entity);
+		if ( eMetadata.system.ignoreGraph ) return;
 
-			auto& behaviorGraph = entity->getGraph();
-			for ( auto& fun : behaviorGraph.tickMT ) metadata.tasks.queue(fun);
+		metadata.graph.emplace_back(entity);
+
+	#if UF_TICK_FROM_TASKS
+		auto* self = (uf::Object*) entity;
+		auto& behaviorGraph = entity->getGraph();
+#if 1
+	#if UF_TICK_MULTITHREAD_OVERRIDE
+		for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+	#else
+		for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.serial.queue([=]{ fun(*self); });
+	#endif
+
+		for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+#else
+		for ( auto& behavior : self->getBehaviors() ) {
+			if ( !behavior.traits.ticks ) continue;
+
+			auto name = behavior.type.name().str();
+		#if UF_TICK_MULTITHREAD_OVERRIDE
+			if ( true )
+		#else
+			if ( behavior.traits.multithread )
+		#endif
+			metadata.tasks.parallel.queue([=]{
+				behavior.tick(*self);
+				UF_MSG_DEBUG("Parallel {} task exectued: {}: {}", name, self->getName(), self->getUid());
+			}); else metadata.tasks.serial.queue([=]{
+				behavior.tick(*self);
+				UF_MSG_DEBUG("Serial {} task exectued: {}: {}", name, self->getName(), self->getUid());
+			});
 		}
+	#endif
+#endif
 	});
+
 	uf::renderer::states::rebuild = true;
 	return metadata.graph;
 }
@@ -148,15 +181,15 @@ void uf::scene::tick() {
 	auto& metadata = scene.getComponent<uf::SceneBehavior::Metadata>();
 #endif
 	auto graph = scene.getGraph(true);
-#if 1
-	for ( auto entity : graph ) entity->tick();
+#if UF_TICK_FROM_TASKS
+	// copy because executing from the tasks erases them all
+	auto tasks = metadata.tasks;
+	auto workers = uf::thread::execute( tasks.parallel );
+	uf::thread::execute( tasks.serial );
+
+	uf::thread::wait( workers );
 #else
-	auto& tasks = metadata.tasks;
-	pod::Thread::Tasks tasks = metadata.tasks;
-	tasks.queue([&]{
-		for ( auto entity : graph ) entity->tick();
-	});
-	uf::thread::execute( tasks );
+	for ( auto entity : graph ) entity->tick();
 #endif
 }
 void uf::scene::render() {

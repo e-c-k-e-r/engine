@@ -13,7 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <nlohmann/fifo_map.hpp>
 
-#define UF_JSON_NLOHMANN_ORDERED 1
+#define UF_JSON_NLOHMANN_ORDERED 0
 #define UF_JSON_NLOHMANN_FIFO_MAP 0
 
 namespace uf {

@@ -74,15 +74,30 @@ ent:bind( "tick", function(self)
 	flattenedTransform.forward = ( transform.forward + Vector3f( 0, cameraTransform.forward.y, 0 ) ):normalize();
 
 	-- toggle flashlight
-	light.transform.position = flattenedTransform.position + flattenedTransform.forward * 2
+	if light.enabled then
+		local center = flattenedTransform.position
+		local direction = flattenedTransform.forward * 4
+
+		local offset = 0.05
+		local _, depth = physicsState:rayCast( center, direction )
+		if depth >= 0.5 then
+			depth = 0.5
+		elseif depth < 0 then
+			depth = 0.5
+		end
+		light.transform.position = center + direction * (depth - offset)
+	end
+
 	if timers.flashlight:elapsed() > 0.5 and inputs.key("F") then
 		timers.flashlight:reset()
 
 		local metadata = { light = { power = light.power } }
 		if light.entity:getComponent("Metadata")["light"]["power"] ~= light.power then
 			metadata["light"]["power"] = light.power
+			light.enabled = true
 		else
 			metadata["light"]["power"] = 0
+			light.enabled = false
 		end
 		light.entity:setComponent("Metadata", metadata)
 
@@ -190,8 +205,8 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 	if payload.user ~= ent:uid() then return end
 
 	local validUse = false
-
-	if heldObject.uid == 0 then
+	
+	if heldObject.uid == 0 and payload.depth > 0 then
 		local prop = entities.get( payload.uid )
 		local propMetadata = prop:getComponent("Metadata")
 		if propMetadata["holdable"] then
@@ -202,6 +217,8 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 			heldObject.distance = offset:norm()
 		
 			prop:getComponent("PhysicsState"):enableGravity(false)
+		else
+			validUse = not string.matched( prop:name(), "/^worldspawn/" )
 		end
 	elseif heldObject.uid ~= 0 then
 		validUse = true
@@ -213,9 +230,6 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 		heldObject.uid = 0
 		heldObject.distance = 0
 		heldObject.momentum = Vector3f(0,0,0)
-	elseif payload.uid ~= 0 then
-		local hit = entities.get( heldObject.uid )
-		validUse = not string.matched( hit:name(), "/^worldspawn/" )
 	end
 
 	if validUse then

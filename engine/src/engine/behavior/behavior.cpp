@@ -1,5 +1,6 @@
 #include <uf/engine/behavior/behavior.h>
 #include <uf/engine/object/object.h>
+#include <uf/engine/scene/scene.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/thread/thread.h>
 
@@ -30,18 +31,21 @@ void uf::Behaviors::removeBehavior( const pod::Behavior& behavior ) {
 	m_behaviors.erase(it);
 	generateGraph();
 }
-uf::Behaviors::Graph& uf::Behaviors::getGraph() { return m_graph; }
+uf::Behaviors::Graph& uf::Behaviors::getGraph() {
+//	if ( m_graph.initialize.size() != m_behaviors.size() ) generateGraph(); // should never actually happen, so no need to actually check
+	return m_graph;
+}
 const uf::Behaviors::Graph& uf::Behaviors::getGraph() const { return m_graph; }
 void uf::Behaviors::generateGraph() {
 	m_graph.initialize.clear();
-	m_graph.tick.clear();
-	m_graph.tickMT.clear();
+	m_graph.tick.serial.clear();
+	m_graph.tick.parallel.clear();
 	m_graph.render.clear();
 	m_graph.destroy.clear();
 
 	m_graph.initialize.reserve( m_behaviors.size() );
-	m_graph.tick.reserve( m_behaviors.size() );
-	m_graph.tickMT.reserve( m_behaviors.size() );
+	m_graph.tick.serial.reserve( m_behaviors.size() );
+	m_graph.tick.parallel.reserve( m_behaviors.size() );
 	m_graph.render.reserve( m_behaviors.size() );
 	m_graph.destroy.reserve( m_behaviors.size() );
 
@@ -49,11 +53,15 @@ void uf::Behaviors::generateGraph() {
 	uf::Object* self = (uf::Object*) this;
 	for ( auto& behavior : m_behaviors ) {
 		m_graph.initialize.emplace_back(behavior.initialize);
+	#if 1
 		if ( behavior.traits.ticks ) {
 			auto& f = behavior.tick;
-			if ( behavior.traits.multithread ) m_graph.tickMT.emplace_back([f, self](){f(*self);});
-			else m_graph.tick.emplace_back(f);
+			if ( behavior.traits.multithread ) m_graph.tick.parallel.emplace_back(f); //m_graph.tickMT.emplace_back([f, self](){f(*self);});
+			else m_graph.tick.serial.emplace_back(f);
 		}
+	#else
+		if ( behavior.traits.ticks ) m_graph.tick.emplace_back(behavior.tick);
+	#endif
 		if ( behavior.traits.renders ) m_graph.render.emplace_back(behavior.render);
 		m_graph.destroy.emplace_back(behavior.destroy);
 	}
@@ -61,11 +69,13 @@ void uf::Behaviors::generateGraph() {
 	// reverse order ticking (LIFO order iteration)
 	if ( !forwardIteration ) {
 		std::reverse( m_graph.initialize.begin(), m_graph.initialize.end() );
-		std::reverse( m_graph.tick.begin(), m_graph.tick.end() );
-		std::reverse( m_graph.tickMT.begin(), m_graph.tickMT.end() );
+		std::reverse( m_graph.tick.serial.begin(), m_graph.tick.serial.end() );
+		std::reverse( m_graph.tick.parallel.begin(), m_graph.tick.parallel.end() );
 		std::reverse( m_graph.render.begin(), m_graph.render.end() );
 		std::reverse( m_graph.destroy.begin(), m_graph.destroy.end() );
 	}
+
+//	uf::scene::invalidateGraphs();
 }
 
 #define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_GRAPH
@@ -86,17 +96,22 @@ void uf::Behaviors::tick() {
 	uf::Object& self = *((uf::Object*) this);
 	if ( !self.isValid() ) return;
 //	if ( !m_graph.tickMT.empty() ) uf::thread::queue(m_graph.tickMT);
-	if ( m_graph.tick.empty() ) return;
+	if ( m_graph.tick.serial.empty() && m_graph.tick.parallel.empty() ) return;
 #if UF_GRAPH_PRINT_TRACE
 	UF_TIMER_MULTITRACE_START("Starting tick " << self.getName() << ": " << self.getUid());
 //	for ( auto& behavior : m_behaviors ) if ( behavior.traits.ticks ) UF_MSG_DEBUG( behavior.type.name() );
-	for ( auto& fun : m_graph.tick ) {
+	for ( auto& fun : m_graph.tick.serial ) {
+		fun(self);
+		UF_TIMER_MULTITRACE("");
+	}
+	for ( auto& fun : m_graph.tick.parallel ) {
 		fun(self);
 		UF_TIMER_MULTITRACE("");
 	}
 	UF_TIMER_MULTITRACE_END("Finished tick " << self.getName() << ": " << self.getUid())
 #else
-	UF_BEHAVIOR_POLYFILL(tick)
+	UF_BEHAVIOR_POLYFILL(tick.serial)
+	UF_BEHAVIOR_POLYFILL(tick.parallel)
 #endif
 }
 void uf::Behaviors::render() {
@@ -120,8 +135,8 @@ void uf::Behaviors::destroy() {
 	UF_BEHAVIOR_POLYFILL(destroy)
 	m_behaviors.clear();
 	m_graph.initialize.clear();
-	m_graph.tick.clear();
-	m_graph.tickMT.clear();
+	m_graph.tick.serial.clear();
+	m_graph.tick.parallel.clear();
 	m_graph.render.clear();
 	m_graph.destroy.clear();
 }

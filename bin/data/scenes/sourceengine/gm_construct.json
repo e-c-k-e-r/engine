@@ -1,0 +1,21 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [		
+	//	{ "filename": "./models/gm_construct.glb" }
+		{ "filename": "./models/gm_construct/graph.json" }
+	],
+	"metadata": {
+		"model": {
+			"tags": {
+				// exact matches
+				"worldspawn_skybox": { "ignore": true },
+
+				// regex matches
+				"/^gm_construct\\/water/": { "material": {
+					"base": [ 0.027, 0.227, 0.259, 0.5 ],
+					"fRoughness": 0.3
+				} }
+			}
+		}	
+	}
+}

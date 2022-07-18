@@ -59,6 +59,7 @@ namespace ext {
 			extern UF_API size_t gpuID;
 			extern UF_API size_t scratchBufferAlignment;
 			extern UF_API size_t scratchBufferInitialSize;
+			extern UF_API size_t defaultTimeout;
 
 			extern UF_API uf::stl::vector<uf::stl::string> validationFilters;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceFeatures;

@@ -51,6 +51,7 @@
 			},
 			"renderer": {
 				"flip textures": false,
+				"invert": false,
 				"skinned": true
 			},
 			"animations": {

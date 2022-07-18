@@ -76,7 +76,7 @@ namespace binds {
 
 		pod::Behavior::function_t* functionPointer = NULL;
 		if ( type == "initialize" ) functionPointer = &behavior.initialize;
-		else if ( type == "tick" ) { functionPointer = &behavior.tick; behavior.traits.ticks = true; }
+		else if ( type == "tick" ) { functionPointer = &behavior.tick; behavior.traits.ticks = true; behavior.traits.multithread = false; }
 		else if ( type == "render" ) { functionPointer = &behavior.render; behavior.traits.renders = true; }
 		else if ( type == "destroy" ) functionPointer = &behavior.destroy;
 		

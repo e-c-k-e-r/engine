@@ -13,7 +13,7 @@
 #include <uf/ext/gltf/gltf.h>
 
 UF_BEHAVIOR_REGISTER_CPP(uf::LoadingBehavior)
-UF_BEHAVIOR_TRAITS_CPP(uf::LoadingBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(uf::LoadingBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
 void uf::LoadingBehavior::initialize( uf::Object& self ) {
 	this->addHook( "system:Load.Finished.%UID%", [&](){

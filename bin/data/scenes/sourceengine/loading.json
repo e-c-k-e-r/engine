@@ -5,7 +5,7 @@
 		"GuiBehavior"
 	],
 	"assets": [
-		{ "filename": "./gm_construct.json", "delay": 0 }
+		{ "filename": "./sourceengine.json", "delay": 0 }
 	],
 	"ignore": false,
 	"transform": {

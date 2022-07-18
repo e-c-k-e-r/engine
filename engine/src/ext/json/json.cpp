@@ -33,6 +33,21 @@ ext::json::Value& ext::json::Value::reserve( size_t n ) {
 	return *this;
 }
 
+ext::json::Value ext::json::find( const uf::stl::string& needle, const ext::json::Value& haystack ) {
+	ext::json::Value exact = ext::json::null();
+	ext::json::Value regexed = ext::json::null();
+
+	ext::json::forEach( haystack, [&]( const uf::stl::string& key, const ext::json::Value& value, bool& breaks ) {
+		if ( needle == key ) {
+			exact = value;
+			breaks = true;
+		} else if ( uf::string::isRegex( key ) && uf::string::matched( needle, key ) ) {
+			regexed = value;
+		}
+	});
+	return !ext::json::isNull(exact) ? exact : regexed;
+}
+
 void ext::json::forEach( ext::json::Value& json, const std::function<void(ext::json::Value&)>& function ) {
 //	UF_ASSERT_SAFE( ext::json::isArray(json) || ext::json::isObject(json) );
 //	for ( auto it = json.begin(); it != json.end(); ++it ) { auto& v = *it;

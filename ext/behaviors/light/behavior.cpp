@@ -23,7 +23,7 @@ namespace {
 }
 
 UF_BEHAVIOR_REGISTER_CPP(ext::LightBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::LightBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::LightBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
 void ext::LightBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::LightBehavior::Metadata>();

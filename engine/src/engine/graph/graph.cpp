@@ -22,21 +22,6 @@
 
 namespace {
 	bool newGraphAdded = true;
-
-	ext::json::Value findTag( const uf::stl::string& tagName, const ext::json::Value& tags ) {
-		ext::json::Value tag = ext::json::null();
-		ext::json::forEach( tags, [&]( const uf::stl::string& key, const ext::json::Value& value, bool& breaks ) {
-			if ( uf::string::isRegex( key ) ) {
-				if ( !uf::string::matched( tagName, key ) ) return;
-			} else if ( tagName != key ) return;
-			tag = value;
-			breaks = true;
-		});
-		return tag;
-	}
-	ext::json::Value findTag( const uf::stl::string& tagName, pod::Graph& graph ) {
-		return findTag( tagName, graph.metadata["tags"] );
-	}
 }
 
 pod::Graph::Storage uf::graph::storage;
@@ -102,7 +87,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
 	graphic.descriptor.cullMode = uf::renderer::enums::CullMode::BACK;
 
-	auto tag = ::findTag( entity.getName(), graph );
+	auto tag = ext::json::find( entity.getName(), graph.metadata["tags"] );
 	if ( !ext::json::isObject( tag ) ) {
 		tag["renderer"] = graph.metadata["renderer"];
 	}
@@ -601,7 +586,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		auto& texture = uf::graph::storage.texture2Ds[key];
 		if ( !texture.generated() ) {
 			auto filter = uf::renderer::enums::Filter::LINEAR;
-			auto tag = ::findTag( key, graph );
+			auto tag = ext::json::find( key, graph.metadata["tags"] );
 			if ( !ext::json::isObject( tag ) ) {
 				tag["renderer"] = graph.metadata["renderer"];
 			}
@@ -631,6 +616,76 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		auto& node = graph.nodes[index];
 		if ( node.entity ) UF_DEBUG_TIMER_MULTITRACE("Processed node: {}", node.name);
+	}
+
+	// patch materials/textures
+	UF_DEBUG_TIMER_MULTITRACE("Remapping patching/textures");
+	for ( auto& name : graph.materials ) {
+		auto& material = uf::graph::storage.materials[name];
+		auto tag = ext::json::find( name, graph.metadata["tags"] );
+		if ( ext::json::isObject( tag ) ) {
+			material.colorBase = uf::vector::decode( tag["material"]["base"], material.colorBase);
+			material.colorEmissive = uf::vector::decode( tag["material"]["emissive"], material.colorEmissive);
+			material.factorMetallic = tag["material"]["fMetallic"].as(material.factorMetallic);
+			material.factorRoughness = tag["material"]["fRoughness"].as(material.factorRoughness);
+			material.factorOcclusion = tag["material"]["fOcclusion"].as(material.factorOcclusion);
+			material.factorAlphaCutoff = tag["material"]["fAlphaCutoff"].as(material.factorAlphaCutoff);
+			if ( tag["material"]["iAlbedo"].is<uf::stl::string>() ) {
+				auto keyName = tag["material"]["iAlbedo"].as<uf::stl::string>();
+				if ( uf::graph::storage.textures.map.count(keyName) > 0 ) {
+					auto& texture = uf::graph::storage.textures[keyName];
+					material.indexAlbedo = tag["material"]["iAlbedo"].as(texture.index);
+				}
+			} else {
+				material.indexAlbedo = tag["material"]["iAlbedo"].as(material.indexAlbedo);
+			}
+			if ( tag["material"]["iNormal"].is<uf::stl::string>() ) {
+				auto keyName = tag["material"]["iNormal"].as<uf::stl::string>();
+				if ( uf::graph::storage.textures.map.count(keyName) > 0 ) {
+					auto& texture = uf::graph::storage.textures[keyName];
+					material.indexNormal = tag["material"]["iNormal"].as(texture.index);
+				}
+			} else {
+				material.indexNormal = tag["material"]["iNormal"].as(material.indexNormal);
+			}
+			if ( tag["material"]["iEmissive"].is<uf::stl::string>() ) {
+				auto keyName = tag["material"]["iEmissive"].as<uf::stl::string>();
+				if ( uf::graph::storage.textures.map.count(keyName) > 0 ) {
+					auto& texture = uf::graph::storage.textures[keyName];
+					material.indexEmissive = tag["material"]["iEmissive"].as(texture.index);
+				}
+			} else {
+				material.indexEmissive = tag["material"]["iEmissive"].as(material.indexEmissive);
+			}
+			if ( tag["material"]["iOcclusion"].is<uf::stl::string>() ) {
+				auto keyName = tag["material"]["iOcclusion"].as<uf::stl::string>();
+				if ( uf::graph::storage.textures.map.count(keyName) > 0 ) {
+					auto& texture = uf::graph::storage.textures[keyName];
+					material.indexOcclusion = tag["material"]["iOcclusion"].as(texture.index);
+				}
+			} else {
+				material.indexOcclusion = tag["material"]["iOcclusion"].as(material.indexOcclusion);
+			}
+			if ( tag["material"]["iMetallicRoughness"].is<uf::stl::string>() ) {
+				auto keyName = tag["material"]["iMetallicRoughness"].as<uf::stl::string>();
+				if ( uf::graph::storage.textures.map.count(keyName) > 0 ) {
+					auto& texture = uf::graph::storage.textures[keyName];
+					material.indexMetallicRoughness = tag["material"]["iMetallicRoughness"].as(texture.index);
+				}
+			} else {
+				material.indexMetallicRoughness = tag["material"]["iMetallicRoughness"].as(material.indexMetallicRoughness);
+			}
+			
+			if ( tag["material"]["modeAlpha"].is<uf::stl::string>() ) {
+				const auto mode = uf::string::lowercase( tag["material"]["modeAlpha"].as<uf::stl::string>() );
+				if ( mode == "opaque" ) material.modeAlpha = 0;
+				else if ( mode == "blend" ) material.modeAlpha = 1;
+				else if ( mode == "mask" ) material.modeAlpha = 2;
+				else UF_MSG_WARNING("Invalid AlphaMode enum string specified: {}", mode);
+			} else {
+				material.modeAlpha = tag["material"]["modeAlpha"].as(material.modeAlpha);
+			}
+		}
 	}
 
 	// remap textures->images IDs
@@ -756,36 +811,6 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	}
 
-	// patch materials/textures
-	UF_DEBUG_TIMER_MULTITRACE("Remapping patching/textures");
-	for ( auto& name : graph.materials ) {
-		auto& material = uf::graph::storage.materials[name];
-		auto tag = ::findTag( name, graph );
-		if ( ext::json::isObject( tag ) ) {
-			material.colorBase = uf::vector::decode( tag["material"]["base"], material.colorBase);
-			material.colorEmissive = uf::vector::decode( tag["material"]["emissive"], material.colorEmissive);
-			material.factorMetallic = tag["material"]["fMetallic"].as(material.factorMetallic);
-			material.factorRoughness = tag["material"]["fRoughness"].as(material.factorRoughness);
-			material.factorOcclusion = tag["material"]["fOcclusion"].as(material.factorOcclusion);
-			material.factorAlphaCutoff = tag["material"]["fAlphaCutoff"].as(material.factorAlphaCutoff);
-			material.indexAlbedo = tag["material"]["iAlbedo"].as(material.indexAlbedo);
-			material.indexNormal = tag["material"]["iNormal"].as(material.indexNormal);
-			material.indexEmissive = tag["material"]["iEmissive"].as(material.indexEmissive);
-			material.indexOcclusion = tag["material"]["iOcclusion"].as(material.indexOcclusion);
-			material.indexMetallicRoughness = tag["material"]["iMetallicRoughness"].as(material.indexMetallicRoughness);
-			
-			if ( tag["material"]["modeAlpha"].is<uf::stl::string>() ) {
-				const auto mode = uf::string::lowercase( tag["material"]["modeAlpha"].as<uf::stl::string>() );
-				if ( mode == "opaque" ) material.modeAlpha = 0;
-				else if ( mode == "blend" ) material.modeAlpha = 1;
-				else if ( mode == "mask" ) material.modeAlpha = 2;
-				else UF_MSG_WARNING("Invalid AlphaMode enum string specified: {}", mode);
-			} else {
-				material.modeAlpha = tag["material"]["modeAlpha"].as(material.modeAlpha);
-			}
-		}
-	}
-
 	if ( graph.metadata["debug"]["print"]["lights"].as<bool>() ) for ( auto& pair : graph.lights ) UF_MSG_DEBUG("Light: {}", pair.first);
 	if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) for ( auto& name : graph.meshes ) UF_MSG_DEBUG("Mesh: {}", name);
 	if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) for ( auto& name : graph.materials ) UF_MSG_DEBUG("Material: {}", name);
@@ -809,6 +834,10 @@ void uf::graph::process( pod::Graph& graph ) {
 		size_t counts = 0;
 		for ( auto& name : graph.meshes ) {
 			if ( name == keyName ) continue;
+			auto tag = ext::json::find( name, graph.metadata["tags"] );
+			if ( ext::json::isObject( tag ) ) {
+				if ( tag["ignore"].as<bool>() ) continue;
+			}
 
 			auto& m = uf::graph::storage.meshes.map[name];
 			m.updateDescriptor();
@@ -875,7 +904,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	
 	// on systems where frametime is very, very important, we can set all static nodes to not tick
 	
-	ext::json::Value tag = ::findTag( node.name, graph );
+	ext::json::Value tag = ext::json::find( node.name, graph.metadata["tags"] );
 	if ( ext::json::isObject( tag ) ) {
 		if ( graph.metadata["baking"]["enabled"].as<bool>(false) && !tag["bake"].as<bool>(true) ) ignore = true;
 		if ( tag["ignore"].as<bool>() ) ignore = true;

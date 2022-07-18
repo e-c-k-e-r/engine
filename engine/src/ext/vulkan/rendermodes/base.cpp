@@ -223,7 +223,7 @@ void ext::vulkan::BaseRenderMode::render() {
 	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
 
 	// Use a fence to wait until the command buffer has finished execution before using it again
-	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX));
+	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
 
 	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)

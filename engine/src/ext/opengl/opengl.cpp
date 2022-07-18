@@ -25,6 +25,10 @@ bool ext::opengl::settings::defaultStageBuffers = false;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
 size_t ext::opengl::settings::viewCount = 1;
 
+size_t ext::opengl::settings::scratchBufferAlignment = 0;
+size_t ext::opengl::settings::scratchBufferInitialSize = 256;
+size_t ext::opengl::settings::defaultTimeout = 100000000000;
+
 uf::stl::vector<uf::stl::string> ext::opengl::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceFeatures;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceExtensions;
@@ -52,6 +56,7 @@ bool ext::opengl::settings::invariant::deferredSampling = false;
 
 bool ext::opengl::settings::invariant::multiview = false;
 // pipelines
+bool ext::opengl::settings::pipelines::deferred = false;
 bool ext::opengl::settings::pipelines::vsync = true;
 bool ext::opengl::settings::pipelines::hdr = false;
 bool ext::opengl::settings::pipelines::vxgi = false;
@@ -59,6 +64,7 @@ bool ext::opengl::settings::pipelines::culling = false;
 bool ext::opengl::settings::pipelines::bloom = false;
 bool ext::opengl::settings::pipelines::rt = false;
 
+uf::stl::string ext::opengl::settings::pipelines::names::deferred = "deferred";
 uf::stl::string ext::opengl::settings::pipelines::names::vsync = "vsync";
 uf::stl::string ext::opengl::settings::pipelines::names::hdr = "hdr";
 uf::stl::string ext::opengl::settings::pipelines::names::vxgi = "vxgi";

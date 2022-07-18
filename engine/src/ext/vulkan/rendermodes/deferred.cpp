@@ -124,9 +124,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
-	UF_MSG_DEBUG("{} = {}", "color", attachments.color);
-	UF_MSG_DEBUG("{} = {}", "bright", attachments.bright);
-	UF_MSG_DEBUG("{} = {}", "scratch", attachments.scratch);
 
 	// Attach swapchain's image as output
 	if ( settings::invariant::deferredAliasOutputToSwapchain ) {
@@ -264,9 +261,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 
 		{
+			size_t index = uf::renderer::settings::pipelines::deferred ? metadata.outputs[0] : metadata.outputs[0] - 2; // deferred ? attachments.color : attachments.albedo;
 			auto& shader = blitter.material.getShader("fragment");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]], (size_t) 0 ); // attachments.color
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index], (size_t) 0 ); // attachments.color
 		/*
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -435,9 +433,10 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
 		{
+			size_t index = uf::renderer::settings::pipelines::deferred ? metadata.outputs[0] : metadata.outputs[0] - 2; // deferred ? attachments.color : attachments.albedo;
 			auto& shader = blitter.material.getShader("fragment");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]], (size_t) 0 ); // attachments.color
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index], (size_t) 0 ); // attachments.color
 		/*
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -510,7 +509,7 @@ void ext::vulkan::DeferredRenderMode::render() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
 	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
 
 	VkSubmitInfo submitInfo = {};
@@ -528,41 +527,6 @@ void ext::vulkan::DeferredRenderMode::render() {
 	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
 
 	this->executed = true;
-#if 0
-	//lockMutex( this->mostRecentCommandPoolId );
-	auto& commands = getCommands( this->mostRecentCommandPoolId );
-	// Get next image in the swap chain (back/front buffer)
-	VK_CHECK_RESULT(swapchain.acquireNextImage(&states::currentBuffer, swapchain.presentCompleteSemaphore));
-
-	// Use a fence to wait until the command buffer has finished execution before using it again
-	VK_CHECK_RESULT(vkWaitForFences(*device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX));
-	VK_CHECK_RESULT(vkResetFences(*device, 1, &fences[states::currentBuffer]));
-
-	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-	VkPipelineStageFlags waitStageMask[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	// The submit info structure specifices a command buffer queue submission batch
-	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.pWaitDstStageMask = waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-	submitInfo.pWaitSemaphores = &swapchain.presentCompleteSemaphore;				// Semaphore(s) to wait upon before the submitted command buffer starts executing
-	submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
-	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
-	submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-	submitInfo.pCommandBuffers = &commands[states::currentBuffer];					// Command buffers(s) to execute in this batch (submission)
-	submitInfo.commandBufferCount = 1;
-
-	// Submit to the graphics queue passing a wait fence
-	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
-	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
-	
-	// Present the current buffer to the swap chain
-	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
-	// This ensures that the image is not presented to the windowing system until all commands have been submitted
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
-	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
-
-	this->executed = true;
-#endif
 	//unlockMutex( this->mostRecentCommandPoolId );
 }
 void ext::vulkan::DeferredRenderMode::destroy() {

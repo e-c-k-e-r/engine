@@ -18,7 +18,10 @@ namespace uf {
 			uf::stl::unordered_map<uf::stl::string, uf::Entity*> cache;
 		#endif
 
-			pod::Thread::Tasks tasks;
+			struct {
+				pod::Thread::Tasks serial;
+				pod::Thread::Tasks parallel;
+			} tasks;
 		);
 	}
 }

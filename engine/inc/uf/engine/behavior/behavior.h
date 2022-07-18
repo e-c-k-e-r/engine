@@ -56,10 +56,12 @@ namespace uf {
 			typedef pod::Behavior::function_t value_t;
 		//	typedef uint_fast8_t value_t;
 			uf::stl::vector<value_t> initialize;
-			uf::stl::vector<value_t> tick;
-			uf::stl::vector<pod::Thread::function_t> tickMT;
 			uf::stl::vector<value_t> render;
 			uf::stl::vector<value_t> destroy;
+			struct {
+				uf::stl::vector<value_t> serial;
+				uf::stl::vector<value_t> parallel;
+			} tick;
 		} m_graph;
 	public:
 		void initialize();

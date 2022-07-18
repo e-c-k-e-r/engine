@@ -1,0 +1,60 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [	
+	//	{ "filename": "./models/sh2_mcdonalds.glb" }
+		{ "filename": "./models/sh2_mcdonalds/graph.json" }
+	],
+	"metadata": {
+		"model": {
+			"tags": {
+				// exact matches
+				"worldspawn_sh2": {
+					"physics": { "type": "mesh", "static": true },
+					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true },
+					"unwrap mesh": true,
+					"optimize mesh": { "simplify": 0 }
+				},
+				"worldspawn_barrier": { "ignore": true },
+				"worldspawn_skybox": { "ignore": true },
+
+				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5509": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_9120": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [0,0,1] } } },
+
+				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
+					"color": [0.05, 0.05, 0.05],
+					"power": 100000,
+					"global": true,
+					"bias": {
+						"constant": 1.25,
+						"slope": 1.75,
+						"shader": 0.0000025
+					},
+					"radius": [0.95, 0],
+					"resolution": 1536
+				} },
+				
+				// regex matches
+			//	"/^prop_physics_[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics_override/": { "action": "load", "payload": {} },
+				"/^prop_physics_/": { "action": "load", "payload": {} },
+				"/^func_physbox/": { "action": "load", "payload": {} },
+
+				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } },
+				"/^tools\\/toolsnodraw/": { "material": {
+					 "base": [ 1.0, 1.0, 1.0, 1.0 ],
+					"emissive": [ 0.0, 0.0, 0.0, 0.0 ],
+					"fMetallic": 0.0,
+					"fRoughness": 0.10000000149011612,
+					"fOcclusion": 1.0,
+					"fAlphaCutoff": 0.5,
+					"iAlbedo": 27,
+					"modeAlpha": 1
+				} },
+				"/alpha_mtl/": { "material": { "modeAlpha": "blend" } }
+			}
+		}	
+	}
+}

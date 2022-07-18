@@ -73,7 +73,9 @@ namespace uf {
 		pod::Thread& UF_API fetchWorker( const uf::stl::string& name = uf::thread::workerThreadName );
 		pod::Thread::Tasks UF_API schedule( bool multithread, bool waits = true );
 		pod::Thread::Tasks UF_API schedule( const uf::stl::string& name = uf::thread::workerThreadName, bool waits = true );
-		void UF_API execute( pod::Thread::Tasks& tasks );
+		uf::stl::vector<pod::Thread*> UF_API execute( pod::Thread::Tasks& tasks );
+		void UF_API wait( uf::stl::vector<pod::Thread*>& );
+		void UF_API wait( const uf::stl::vector<pod::Thread*>& );
 
 	/* Acts on global threads */
 		typedef uf::stl::vector<pod::Thread*> container_t;

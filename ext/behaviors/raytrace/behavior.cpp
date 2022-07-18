@@ -17,7 +17,7 @@
 #include "../scene/behavior.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::RayTraceSceneBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
 void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();

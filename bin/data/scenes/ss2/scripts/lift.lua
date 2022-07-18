@@ -20,7 +20,7 @@ local direction = 1.0 / math.abs(starting:distance(ending))
 local alpha = 0
 local startingSound = true
 
-local soundEmitter = ent:loadChild("./sound.json",true)
+local soundEmitter = ent:loadChild("/sound.json",true)
 local playSound = function( key, loop )
 	if not loop then loop = false end
 	local url = "./audio/sfx/" .. key .. ".ogg"

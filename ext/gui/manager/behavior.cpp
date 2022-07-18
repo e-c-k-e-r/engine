@@ -46,7 +46,7 @@ ext::gui::Size ext::gui::size = {
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiManagerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = false, multithread = true)
 UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::GuiManagerBehavior, ext::GuiManager)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {

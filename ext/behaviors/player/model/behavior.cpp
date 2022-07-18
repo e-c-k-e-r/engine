@@ -15,7 +15,7 @@
 #include <uf/utils/renderer/renderer.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::PlayerModelBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::PlayerModelBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::PlayerModelBehavior, ticks = true, renders = false, multithread = true)
 #define this ((uf::Scene*) &self)
 void ext::PlayerModelBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();

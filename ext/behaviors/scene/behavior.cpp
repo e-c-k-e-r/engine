@@ -33,7 +33,7 @@
 #include "../../gui/gui.h"
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
 #define this ((uf::Scene*) &self)
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	auto& assetLoader = this->getComponent<uf::Asset>();
@@ -239,14 +239,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			}
 		}
 	}
+#endif
+#if 0
 	/* Mark as ready for multithreading */ {
 		TIMER(1, uf::inputs::kbm::states::M ) {
 			uf::renderer::settings::experimental::dedicatedThread = !uf::renderer::settings::experimental::dedicatedThread;
 			UF_MSG_DEBUG("Toggling multithreaded rendering...");
 		}
 	}
-#endif
-#if 0
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U ) {
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
@@ -565,7 +565,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
 	}
 #endif
-	/* Update lights */ if ( !uf::renderer::settings::pipelines::vxgi ) {
+	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
 		ext::ExtSceneBehavior::bindBuffers( *this );
 	}
 }

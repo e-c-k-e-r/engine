@@ -481,7 +481,7 @@ UF_OBJECT_REGISTER_BEGIN(ext::Gui)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::ObjectBehavior)
 	UF_OBJECT_REGISTER_BEHAVIOR(ext::GuiBehavior)
 UF_OBJECT_REGISTER_END()
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiBehavior, ticks = true, renders = false, multithread = false)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiBehavior, ticks = true, renders = false, multithread = false) // segfaults when destroying, keep off to make smooth transitions
 #define this (&self)
 void ext::GuiBehavior::initialize( uf::Object& self ) {	
 	auto& metadata = this->getComponent<ext::GuiBehavior::Metadata>();

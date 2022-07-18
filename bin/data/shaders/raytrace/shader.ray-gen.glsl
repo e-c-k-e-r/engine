@@ -14,7 +14,7 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define VXGI 0
 #define RAYTRACE 1
 #define BUFFER_REFERENCE 1
-#define FOG 0
+#define FOG 1
 #define BLOOM 0
 #define WHITENOISE 0
 #define MAX_TEXTURES TEXTURES
@@ -149,6 +149,7 @@ void trace( Ray ray, float tMin, float tMax ) {
 	uint cullMask = 0xFF;
 	
 	payload.hit = false;
+	surface.position.eye.z = tMax;
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, ray.origin, tMin, ray.direction, tMax, 0);
 }
 void trace( Ray ray, float tMin ) {
@@ -158,6 +159,7 @@ void trace( Ray ray, float tMin ) {
 	float tMax = ubo.settings.rt.defaultRayBounds.y;
 	
 	payload.hit = false;
+	surface.position.eye.z = tMax;
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, ray.origin, tMin, ray.direction, tMax, 0);
 }
 
@@ -290,6 +292,8 @@ void directLighting() {
 }
 
 vec4 traceStep( Ray ray ) {
+	Ray fogRay = ray;
+	float eyeDepth = 0;
 	vec4 outFrag = vec4(0);
 
 	// initial condition
@@ -299,38 +303,58 @@ vec4 traceStep( Ray ray ) {
 		if ( payload.hit ) {
 			setupSurface( payload );
 			directLighting();
-			outFrag = surface.fragment;
 		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
-			outFrag = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
+			surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
+			surface.fragment.a = 4096;
+			surface.position.eye.z /= 8;
 		} else {
-			outFrag = vec4(ubo.settings.lighting.ambient.rgb, 0);
+			surface.fragment = vec4(ubo.settings.lighting.ambient.rgb, 0.5);
 		}
+	#if FOG
+		fog( ray, surface.fragment.rgb, surface.fragment.a );
+	#endif
+		outFrag = surface.fragment;
+		eyeDepth = surface.position.eye.z;
 	}
+
 
 	// "transparency"
 	if ( payload.hit && surface.material.albedo.a < 0.999 ) {
+		const vec4 TRANSPARENCY_COLOR = vec4(1.0 - surface.material.albedo.a);
+		
 		if ( surface.material.albedo.a < 0.001 ) outFrag = vec4(0);
 
 		RayTracePayload surfacePayload = payload;
 		Ray transparency;
 		transparency.direction = ray.direction;
 		transparency.origin = surface.position.world;
+		fogRay = transparency;
 
-		vec4 transparencyColor = vec4(1.0 - surface.material.albedo.a);
 		trace( transparency, ubo.settings.rt.alphaTestOffset );
 		if ( payload.hit ) {
 			setupSurface( payload );
 			directLighting();
-			transparencyColor *= surface.fragment;
 		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
-			transparencyColor *= texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
+			surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
+			surface.fragment.a = 4096;
+			surface.position.eye.z /= 8;
 		}
-
-		outFrag += transparencyColor;
+	#if FOG
+		fog( transparency, surface.fragment.rgb, surface.fragment.a );
+	#endif
+		outFrag += TRANSPARENCY_COLOR * surface.fragment;
+		eyeDepth = surface.position.eye.z;
 
 		payload = surfacePayload;
 		setupSurface( payload );
 	}
+#if FOG
+	{
+	//	surface.position.eye.z = eyeDepth;
+	//	fog( fogRay, outFrag.rgb, outFrag.a );
+	//	fog( ray, surface.fragment.rgb, surface.fragment.a );
+	}
+#endif
 
 	// reflection
 	if ( payload.hit ) {
@@ -346,17 +370,17 @@ vec4 traceStep( Ray ray ) {
 
 			trace( reflection );
 
-			vec4 reflectionColor = REFLECTED_ALBEDO;
-
 			if ( payload.hit ) {
 				setupSurface( payload );
 				directLighting();
-				reflectionColor *= surface.fragment;
 			} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
-				reflectionColor *= texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], reflection.direction );
+				surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], reflection.direction );
+				surface.fragment.a = 4096;
 			}
-
-			outFrag += reflectionColor;
+		#if FOG
+			fog( reflection, surface.fragment.rgb, surface.fragment.a );
+		#endif
+			outFrag += REFLECTED_ALBEDO * surface.fragment;
 
 			payload = surfacePayload;
 			setupSurface( payload );

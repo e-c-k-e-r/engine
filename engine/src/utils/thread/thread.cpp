@@ -78,28 +78,17 @@ pod::Thread::Tasks UF_API uf::thread::schedule( const uf::stl::string& name, boo
 
 	return tasks;
 }
-void UF_API uf::thread::execute( pod::Thread::Tasks& tasks ) {
-	if ( tasks.container.empty() ) return;	
+uf::stl::vector<pod::Thread*> UF_API uf::thread::execute( pod::Thread::Tasks& tasks ) {
+	uf::stl::vector<pod::Thread*> workers;
+	if ( tasks.container.empty() ) return workers;
+
 	if ( tasks.name == uf::thread::mainThreadName ) {
 		while ( !tasks.container.empty() ) {
 			auto& task = tasks.container.front();
 			task();
 			tasks.container.pop();
 		}
-#if 0
-	} else /*if ( tasks.name == "Async" )*/ {
-		uf::stl::vector<std::future<void>> futures;
-		futures.reserve(tasks.container.size());
-	//	for ( auto& task : tasks.container ) {
-		while ( !tasks.container.empty() ) {
-			auto task = tasks.container.front();
-			futures.emplace_back(std::async( std::launch::async, task ));
-			tasks.container.pop();
-		}
-		if ( tasks.waits ) for ( auto& future : futures ) future.wait();
-#else
 	} else {
-		uf::stl::vector<pod::Thread*> workers;
 		while ( !tasks.container.empty() ) {
 			auto task = tasks.container.front();
 			auto& worker = uf::thread::fetchWorker( tasks.name );
@@ -107,9 +96,16 @@ void UF_API uf::thread::execute( pod::Thread::Tasks& tasks ) {
 			workers.emplace_back(&worker);
 			tasks.container.pop();
 		}
-		if ( tasks.waits ) for ( auto& worker : workers ) uf::thread::wait( *worker );
+		if ( tasks.waits ) uf::thread::wait( workers );
 	}
-#endif
+	return workers;
+}
+void UF_API uf::thread::wait( uf::stl::vector<pod::Thread*>& workers ) {
+	for ( auto& worker : workers ) uf::thread::wait( *worker );
+	workers.clear();
+}
+void UF_API uf::thread::wait( const uf::stl::vector<pod::Thread*>& workers ) {
+	for ( auto& worker : workers ) uf::thread::wait( *worker );
 }
 /*
 void UF_API uf::thread::batchWorker( const pod::Thread::function_t& function, const uf::stl::string& name ) {

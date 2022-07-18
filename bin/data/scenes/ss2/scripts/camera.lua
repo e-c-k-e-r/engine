@@ -6,7 +6,7 @@ if not timer:running() then
 	timer:start();
 end
 local metadata = ent:getComponent("Metadata")
-local soundEmitter = ent:loadChild("./sound.json",true)
+local soundEmitter = ent:loadChild("/sound.json",true)
 local playSound = function( key )
 	if not loop then loop = false end
 	local url = "./audio/sfx/" .. key .. ".ogg"

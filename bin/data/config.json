@@ -1,7 +1,7 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SH2_McDonalds",
+			"start": "SS2",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
@@ -33,15 +33,15 @@
 				"traceStartOffsetFactor": 2,
 				"shadows": 0,
 				"extents": {
-					"min": [ -8, -1, -8 ],
+					"min": [ -8, -4, -8 ],
 					"max": [  8,  4,  8 ]
 				}
 			},
 			"rt": {
 			//	"size": [ 1280, 720 ],
 				"filter": "nearest",
-				"defaultRayBounds": [ 0.0001, 256.0 ],
-				"alphaTestOffset": 0.001,
+				"defaultRayBounds": [ 0.5, 256.0 ],
+				"alphaTestOffset": 0.01,
 				"samples": 1,
 				"paths": 2,
 				"frameAccumulationMinimum": 0
@@ -109,7 +109,7 @@
 					"vxgi": true,
 					"culling": true,
 					"bloom": false,
-					"rt": false
+					"rt": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -250,7 +250,7 @@
 				"count": 4
 			},
 			"volumes": {
-				"sfx": 0.25,
+				"sfx": 0.35,
 				"bgm": 0.15,
 				"voice": 1.0
 			},

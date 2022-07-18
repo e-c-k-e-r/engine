@@ -22,10 +22,14 @@ if metadata["normal"] ~= nil then
 end
 local starting = Quaternion(transform.orientation)
 local ending = transform.orientation:multiply(Quaternion.axisAngle( Vector3f(0,1,0), metadata["angle"] ))
+
+-- local soundEmitter = ent:loadChild("/sound.json",true)
+local soundEmitter = ent
+
 local playSound = function( key, loop )
 	if not loop then loop = false end
 	local url = "/door/" .. key .. ".ogg"
-	ent:queueHook("sound:Emit.%UID%", {
+	soundEmitter:queueHook("sound:Emit.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"]),
 		spatial = true,
 		streamed = true,
@@ -35,13 +39,13 @@ local playSound = function( key, loop )
 end
 local stopSound = function( key )
 	local url = "/door/" .. key .. ".ogg"
-	ent:queueHook("sound:Stop.%UID%", {
+	soundEmitter:queueHook("sound:Stop.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"])
 	}, 0)
 end
 local playSoundscape = function( key )
 	local url = "/soundscape/" .. key .. ".ogg"
-	ent:queueHook("sound:Emit.%UID%", {
+	soundEmitter:queueHook("sound:Emit.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"]),
 		spatial = false,
 		volume = "sfx",
@@ -51,7 +55,7 @@ local playSoundscape = function( key )
 end
 local stopSoundscape = function( key )
 	local url = "/soundscape/" .. key .. ".ogg"
-	ent:queueHook("sound:Stop.%UID%", {
+	soundEmitter:queueHook("sound:Stop.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"])
 	}, 0)
 end
@@ -89,7 +93,7 @@ ent:addHook( "entity:Use.%UID%", function( payload )
 --	if timer:elapsed() <= 0.125 then return end
 --	timer:reset()
 
-	print("Processing use: " .. payload["uid"] .. " | " .. payload["depth"] )
+	print("Processing use: " .. ent:name() .. " | " .. payload["depth"] )
 
 	if state == 0 or state == 3 then
 		state = 1

@@ -445,7 +445,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
 	// Submit commands
 	// Use a fence to ensure that command buffer has finished executing before using it again
-	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, UINT64_MAX ));
+	VK_CHECK_RESULT(vkWaitForFences( *device, 1, &fences[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT ));
 	VK_CHECK_RESULT(vkResetFences( *device, 1, &fences[states::currentBuffer] ));
 
 	VkSubmitInfo submitInfo = {};

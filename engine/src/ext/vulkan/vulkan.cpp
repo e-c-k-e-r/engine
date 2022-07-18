@@ -28,6 +28,7 @@ size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
 size_t ext::vulkan::settings::scratchBufferAlignment = 256;
 size_t ext::vulkan::settings::scratchBufferInitialSize = 1024 * 1024;
+size_t ext::vulkan::settings::defaultTimeout = 100000000000;
 
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
@@ -473,12 +474,12 @@ void ext::vulkan::render() {
 			}
 			
 			if ( !submitsCompute.empty() ) {
-				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesCompute[states::currentBuffer], VK_TRUE, UINT64_MAX));
+				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesCompute[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 				VK_CHECK_RESULT(vkResetFences(device, 1, &::auxFencesCompute[states::currentBuffer]));
 				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( Device::QueueEnum::COMPUTE ), submitsCompute.size(), submitsCompute.data(), ::auxFencesCompute[states::currentBuffer]));
 			}
 			if ( !submitsGraphics.empty() ) {
-				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesGraphics[states::currentBuffer], VK_TRUE, UINT64_MAX));
+				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesGraphics[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 				VK_CHECK_RESULT(vkResetFences(device, 1, &::auxFencesGraphics[states::currentBuffer]));
 				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( Device::QueueEnum::GRAPHICS ), submitsGraphics.size(), submitsGraphics.data(), ::auxFencesGraphics[states::currentBuffer]));
 			}

@@ -31,6 +31,9 @@ namespace ext {
 			uf::stl::string encoding = "";
 		};
 
+		//
+		ext::json::Value find( const uf::stl::string& needle, const ext::json::Value& haystack );
+
 		// cares not about breaking
 		void UF_API forEach( ext::json::Value& json, const std::function<void(ext::json::Value&)>& function );
 		void UF_API forEach( ext::json::Value& json, const std::function<void(size_t, ext::json::Value&)>& function );

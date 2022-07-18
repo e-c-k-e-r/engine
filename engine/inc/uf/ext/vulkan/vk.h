@@ -14,7 +14,7 @@
 #define VK_CHECK_RESULT(f) { VkResult res = (f); if ( res != VK_SUCCESS ) UF_EXCEPTION("{}", ext::vulkan::errorString( res )); }
 
 #define VK_FLAGS_NONE 0
-#define VK_DEFAULT_FENCE_TIMEOUT 100000000000
+#define VK_DEFAULT_FENCE_TIMEOUT ext::vulkan::settings::defaultTimeout
 #define VK_DEFAULT_STAGE_BUFFERS ext::vulkan::settings::defaultStageBuffers
 
 namespace ext {

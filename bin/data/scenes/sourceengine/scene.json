@@ -1,8 +1,8 @@
 {
 	"import": "/scene.json",
 	"assets": [
-		"./audio/soundscape/ambience.ogg",
-		"./gm_construct.json"
+		"./audio/soundscape/sh2_ambience.ogg",
+		"./sourceengine.json"
 	//	"./loading.json"
 	],
 	"system": {
@@ -28,15 +28,17 @@
 			"exposure": 1.0,
 			"gamma": 1.0,
 
+		//	"ambient": [ 0, 0, 0 ],
+			"ambient": [ 0.05, 0.05, 0.05 ],
 		//	"ambient": [ 0.15, 0.15, 0.15 ],
-			"ambient": [ 0.5, 0.5, 0.5 ],
+		//	"ambient": [ 0.5, 0.5, 0.5 ],
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
 
-			"fog-disabled": {
+			"fog": {
 				"color": [ 0.5, 0.5, 0.5 ],
 				"range": [ 64, 256 ],
 				"step scale": 2,
-				"absorbtion": 0.07,
+				"absorbtion": 0.0125,
 				"density": {
 					"threshold": 0.35,
 					"multiplier": 5.0,
@@ -50,6 +52,13 @@
 		},
 		"noise": {
 			"size": [ 32, 32, 32 ]
+		},
+		"rt": {
+			"defaultRayBounds": [ 0.5, 1024.0 ],
+			"alphaTestOffset": 0.01,
+			"samples": 1,
+			"paths": 1,
+			"frameAccumulationMinimum": 0
 		}
 	}
 }
