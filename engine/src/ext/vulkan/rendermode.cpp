@@ -77,7 +77,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -162,7 +162,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = attachment.descriptor.layout;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	device->flushCommandBuffer(copyCmd, Device::QueueEnum::GRAPHICS);
+	device->flushCommandBuffer(copyCmd, QueueEnum::GRAPHICS);
 
 	const uint8_t* data;
 	vmaMapMemory( allocator, allocation, (void**)&data );
@@ -220,7 +220,7 @@ ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getComma
 		commands.resize( swapchain.buffers );
 
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo(
-			device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS),
+			device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS),
 			VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 			static_cast<uint32_t>(commands.size())
 		);
@@ -245,7 +245,7 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 	auto& container = this->commands.container();
 	for ( auto& pair : container ) {
 		if ( pair.second.empty() ) continue;
-		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		pair.second.clear();
 	}
 	container.clear();
@@ -255,7 +255,7 @@ void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
 	for ( auto& pair : container ) {
 		if ( pair.first == id ) continue;
 		if ( pair.second.empty() ) continue;
-		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		pair.second.clear();
 	}
 	this->commands.cleanup( id );
@@ -379,7 +379,7 @@ void ext::vulkan::RenderMode::destroy() {
 
 	for ( auto& pair : this->commands.container() ) {
 		if ( !pair.second.empty() ) {
-			vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? Device::QueueEnum::COMPUTE : Device::QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+			vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		}
 		pair.second.clear();
 	}

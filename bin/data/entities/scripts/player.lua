@@ -1,3 +1,4 @@
+local ent = ent
 local scene = entities.currentScene()
 local metadata = ent:getComponent("Metadata")
 local transform = ent:getComponent("Transform")
@@ -49,7 +50,7 @@ light.entity:setComponent("Metadata", { light = { power = 0 } })
 local playSound = function( key, loop )
 	if not loop then loop = false end
 	local url = "/ui/" .. key .. ".ogg"
-	ent:queueHook("sound:Emit.%UID%", {
+	ent:callHook("sound:Emit.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"]),
 		spatial = true,
 		streamed = true,
@@ -59,7 +60,7 @@ local playSound = function( key, loop )
 end
 local stopSound = function( key )
 	local url = "/ui/" .. key .. ".ogg"
-	ent:queueHook("sound:Stop.%UID%", {
+	ent:callHook("sound:Stop.%UID%", {
 		filename = string.resolveURI(url, metadata["system"]["root"])
 	}, 0)
 end
@@ -118,9 +119,9 @@ ent:bind( "tick", function(self)
 			depth = depth,
 		}
 		if prop then
-			prop:callHook("entity:Use.%UID%", payload)
+			prop:lazyCallHook("entity:Use.%UID%", payload)
 		end
-		ent:callHook("entity:Use.%UID%", payload)
+		ent:lazyCallHook("entity:Use.%UID%", payload)
 	end
 
 	-- update HOLP

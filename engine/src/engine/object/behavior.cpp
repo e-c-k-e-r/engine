@@ -36,7 +36,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 
 			pod::payloads::assetLoad payload;
 			payload.uid = this->getUid();
-			parent.callHook("asset:Parsed.%UID%", payload);
+			parent.lazyCallHook("asset:Parsed.%UID%", payload);
 		}
 	}
 
@@ -93,7 +93,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			auto& parent = this->getParent().as<uf::Object>();
 
 			payload.uid = this->getUid();
-			parent.callHook("asset:Parsed.%UID%", payload);
+			parent.lazyCallHook("asset:Parsed.%UID%", payload);
 		}
 	});
 

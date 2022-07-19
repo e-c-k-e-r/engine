@@ -34,7 +34,7 @@
 			"type": "bounding box",
 			"recenter": false
 		},
-		"model": {
+		"graph": {
 			"exporter": {
 				"enabled": true,
 				"unwrap": false,

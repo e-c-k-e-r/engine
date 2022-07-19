@@ -240,14 +240,14 @@ void ext::vulkan::BaseRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence
-	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
 	// This ensures that the image is not presented to the windowing system until all commands have been submitted
-	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( Device::QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
-	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( Device::QueueEnum::PRESENT )));
+	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
+	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT )));
 
 	this->executed = true;
 
@@ -474,7 +474,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	}
 #if 0
 	if ( true ) {
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::TRANSFER);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::TRANSFER);
 		for ( size_t i = 0; i < images.size(); ++i ) {
 			VkImageMemoryBarrier imageMemoryBarrier = {};
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -496,7 +496,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::TRANSFER);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::TRANSFER);
 	}
 #endif
 /*

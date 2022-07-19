@@ -14,12 +14,15 @@ namespace uf {
 	public:
 		static uf::Timer<long long> timer;
 		static bool assertionLoad;
+		static bool deferLazyCalls;
 
 		Object();
 
 		bool reload( bool = false );
 		bool load( const uf::stl::string&, bool = false );
 		bool load( const uf::Serializer& );
+
+		void loadAssets( const uf::Serializer& );
 
 		uf::Object& loadChild( const uf::Serializer&, bool = true );
 		uf::Object* loadChildPointer( const uf::Serializer&, bool = true );
@@ -41,7 +44,12 @@ namespace uf {
 
 		uf::Hooks::return_t callHook( const uf::stl::string& );
 		uf::Hooks::return_t callHook( const uf::stl::string&, const pod::Hook::userdata_t& );
+		
+		uf::Hooks::return_t lazyCallHook( const uf::stl::string& );
+		uf::Hooks::return_t lazyCallHook( const uf::stl::string&, const pod::Hook::userdata_t& );
+		
 		template<typename T> uf::Hooks::return_t callHook( const uf::stl::string& name, const T& payload );
+		template<typename T> uf::Hooks::return_t lazyCallHook( const uf::stl::string& name, const T& payload );
 
 		void queueHook( const uf::stl::string&, float = 0 );
 		void queueHook( const uf::stl::string&, double );

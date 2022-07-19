@@ -67,8 +67,8 @@ void ext::PlayerModelBehavior::Metadata::serialize( uf::Object& self, uf::Serial
 void ext::PlayerModelBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){
 	auto& transform = this->getComponent<pod::Transform<>>();
 
-	/*this->*/track = serializer["track"].as<bool>();
-	/*this->*/hide = serializer["hide"].as<bool>();
+	/*this->*/track = serializer["track"].as(/*this->*/track);
+	/*this->*/hide = serializer["hide"].as(/*this->*/hide);
 	/*this->*/scale = transform.scale;
 	/*this->*/set = false;
 

@@ -1,13 +1,14 @@
 {
 	"import": "./base_sourceengine.json",
 	"assets": [
-		"./audio/soundscape/ambience.ogg",
-
 	//	{ "filename": "./models/rp_downtown_v2.glb" }
 		{ "filename": "./models/rp_downtown_v2/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
+			"assets": [
+				"./audio/soundscape/ambience.ogg"	
+			],
 			"renderer": { "separate": true },
 			"tags": {
 				// exact matches

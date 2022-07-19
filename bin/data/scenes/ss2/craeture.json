@@ -9,7 +9,7 @@
 		"scale": [8, 8, 8]
 	},
 	"metadata": {
-		"model": {
+		"graph": {
 			"cull mode": "none"
 		}
 	}

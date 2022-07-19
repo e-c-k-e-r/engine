@@ -16,6 +16,10 @@
 #include "../light/behavior.h"
 #include "../scene/behavior.h"
 
+namespace {
+	uf::renderer::Texture emptyTexture;
+}
+
 UF_BEHAVIOR_REGISTER_CPP(ext::RayTraceSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
@@ -40,6 +44,20 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		uf::renderer::addRenderMode( renderMode, "Compute" );
 	}
 
+	{
+		uf::stl::vector<uint8_t> pixels = { 
+			0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0,
+		};
+		::emptyTexture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
+		::emptyTexture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		::emptyTexture.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+
+		auto& renderMode = uf::renderer::getRenderMode("Compute", true);
+		auto& blitter = *renderMode.getBlitter();
+		blitter.material.textures.emplace_back().aliasTexture( ::emptyTexture );
+	}
+
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
@@ -51,12 +69,14 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
 	uf::stl::vector<uf::Graphic*> graphics;
-	this->process([&]( uf::Entity* entity ) {
-		if ( !entity->hasComponent<uf::Graphic>() ) return;
+	auto& scene = uf::scene::getCurrentScene();
+	auto& graph = scene.getGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		auto& graphic = entity->getComponent<uf::Graphic>();
-		if ( graphic.accelerationStructures.bottoms.empty() ) return;
+		if ( graphic.accelerationStructures.bottoms.empty() ) continue;
 		graphics.emplace_back(&graphic);
-	});
+	}
 	if ( graphics.empty() ) return;
 	
 	bool update = false;
@@ -168,7 +188,8 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& blitter = *renderMode.getBlitter();
 	if ( blitter.material.hasShader("fragment") ) {
 		auto& shader = blitter.material.getShader("fragment");
-		if ( shader.textures.empty() ) {
+		if ( shader.textures.empty() || ( !shader.textures.empty() && shader.textures.front().image == ::emptyTexture.image ) ) {
+			shader.textures.clear();
 			auto& tex = shader.textures.emplace_back();
 			tex.aliasTexture( image );
 

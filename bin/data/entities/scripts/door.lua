@@ -1,3 +1,4 @@
+local ent = ent
 local scene = entities.currentScene()
 local controller = entities.controller()
 

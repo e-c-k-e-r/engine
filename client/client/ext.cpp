@@ -133,6 +133,7 @@ void client::tick() {
 			client::window.toggleFullscreen( false );
 		}
 		// mouse move
+		uf::inputs::kbm::states::Mouse = {};
 		if ( client::config["window"]["mouse"]["center"].as<bool>() ) {
 			auto size = client::window.getSize();
 			auto current = client::window.getMousePosition();
@@ -140,6 +141,12 @@ void client::tick() {
 			client::window.setMousePosition(client::window.getSize() / 2.0f);
 			client::window.setCursorVisible(false);
 
+		#if UF_INPUT_USE_ENUM_MOUSE
+			uf::inputs::kbm::states::Mouse = {
+				(current.x - center.x) / (float) size.x,
+				(current.y - center.y) / (float) size.y,
+			};
+		#else
 			uf::hooks.call("window:Mouse.Moved", pod::payloads::windowMouseMoved{
 				{
 					{ "window:Mouse.Moved", "client", },
@@ -147,6 +154,7 @@ void client::tick() {
 				},
 				{ center, current - center, 0 }
 			});
+		#endif
 		}
 	}
 }

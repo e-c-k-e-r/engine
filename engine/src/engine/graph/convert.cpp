@@ -107,7 +107,7 @@ pod::Graph& UF_API uf::graph::convert( uf::Object& object, bool process ) {
 	auto& graph = object.getComponent<pod::Graph>();
 
 	graph.name = object.getName();
-	graph.metadata = object.getComponent<uf::Serializer>()["model"];
+	graph.metadata = object.getComponent<uf::Serializer>()["graph"];
 	graph.root.entity = &object;
 
 	::process( object, graph, graph.root );

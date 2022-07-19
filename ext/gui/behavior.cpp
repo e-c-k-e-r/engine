@@ -1019,21 +1019,26 @@ void ext::GuiBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& 
 			serializer["gui"][key] = serializer["text settings"][key];
 	}
 	
-	color = uf::vector::decode( serializer["gui"]["color"], color );
-	world = serializer["gui"]["world"].as<bool>();
+	/*this->*/color = uf::vector::decode( serializer["gui"]["color"], /*this->*/color );
+	/*this->*/world = serializer["gui"]["world"].as(/*this->*/world);
+
 	if ( serializer["gui"]["only model"].as<bool>() ) mode = 1;
 	else if ( serializer["gui"]["world"].as<bool>() ) mode = 2;
 	else if ( serializer["gui"]["projection"].as<bool>() ) mode = 3;
-	box.min = uf::vector::decode( serializer["box"]["min"], box.min );
-	box.max = uf::vector::decode( serializer["box"]["max"], box.max );
-	clickable = serializer["gui"]["clickable"].as<bool>();
-	clicked = serializer["gui"]["clicked"].as<bool>();
-	hoverable = serializer["gui"]["hoverable"].as<bool>();
-	hovered = serializer["gui"]["hovered"].as<bool>();
-	uv = uf::vector::decode( serializer["gui"]["uv"], uv );
-	shader = serializer["gui"]["shader"].as<int>();
-	depth = serializer["gui"]["depth"].as<float>();
-	alpha = serializer["gui"]["alpha"].as<float>();
+
+	/*this->*/box.min = uf::vector::decode( serializer["box"]["min"], /*this->*/box.min );
+	/*this->*/box.max = uf::vector::decode( serializer["box"]["max"], /*this->*/box.max );
+
+	/*this->*/clickable = serializer["gui"]["clickable"].as(/*this->*/clickable);
+	/*this->*/clicked = serializer["gui"]["clicked"].as(/*this->*/clicked);
+	/*this->*/hoverable = serializer["gui"]["hoverable"].as(/*this->*/hoverable);
+	/*this->*/hovered = serializer["gui"]["hovered"].as(/*this->*/hovered);
+	/*this->*/uv = uf::vector::decode( serializer["gui"]["uv"], /*this->*/uv );
+	
+	/*this->*/shader = serializer["gui"]["shader"].as(/*this->*/shader);
+	/*this->*/depth = serializer["gui"]["depth"].as(/*this->*/depth);
+	/*this->*/alpha = serializer["gui"]["alpha"].as(/*this->*/alpha);
+	
 	if ( serializer["gui"]["alpha"].is<float>() ) color[3] *= alpha;
 }
 
@@ -1066,24 +1071,24 @@ void ext::GuiBehavior::GlyphMetadata::deserialize( uf::Object& self, uf::Seriali
 		if ( !ext::json::isNull( serializer[key] ) ) serializer["gui"][key] = serializer[key];
 		if ( !ext::json::isNull( serializer["text settings"][key] ) ) serializer["gui"][key] = serializer["text settings"][key];
 	}
-	/*this->*/font = serializer["gui"]["font"].as<uf::stl::string>();
-	/*this->*/string = serializer["gui"]["string"].as<uf::stl::string>();
+	/*this->*/font = serializer["gui"]["font"].as(/*this->*/font);
+	/*this->*/string = serializer["gui"]["string"].as(/*this->*/string);
 	
-	/*this->*/scale = serializer["gui"]["scale"].as<float>();
+	/*this->*/scale = serializer["gui"]["scale"].as(/*this->*/scale);
 	/*this->*/padding = uf::vector::decode( serializer["gui"]["padding"], /*this->*/padding );
-	/*this->*/spread = serializer["gui"]["spread"].as<float>();
-	/*this->*/size = serializer["gui"]["size"].as<float>();
-	/*this->*/weight = serializer["gui"]["weight"].as<float>();
+	/*this->*/spread = serializer["gui"]["spread"].as(/*this->*/spread);
+	/*this->*/size = serializer["gui"]["size"].as(/*this->*/size);
+	/*this->*/weight = serializer["gui"]["weight"].as(/*this->*/weight);
 #if UF_USE_OPENGL
 	/*this->*/sdf = false;
 #else
-	/*this->*/sdf = serializer["gui"]["sdf"].as<bool>();
+	/*this->*/sdf = serializer["gui"]["sdf"].as(/*this->*/sdf);
 #endif
-	/*this->*/shadowbox = serializer["gui"]["shadowbox"].as<bool>();
+	/*this->*/shadowbox = serializer["gui"]["shadowbox"].as(/*this->*/shadowbox);
 	/*this->*/stroke = uf::vector::decode( serializer["gui"]["stroke"], /*this->*/stroke );
 	
-	/*this->*/origin = serializer["gui"]["origin"].as<uf::stl::string>();
-	/*this->*/align = serializer["gui"]["align"].as<uf::stl::string>();
-	/*this->*/direction = serializer["gui"]["direction"].as<uf::stl::string>();
+	/*this->*/origin = serializer["gui"]["origin"].as(/*this->*/origin);
+	/*this->*/align = serializer["gui"]["align"].as(/*this->*/align);
+	/*this->*/direction = serializer["gui"]["direction"].as(/*this->*/direction);
 }
 #undef this

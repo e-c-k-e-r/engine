@@ -555,9 +555,6 @@ uint32_t ext::vulkan::Device::getMemoryType( uint32_t typeBits, VkMemoryProperty
 	UF_EXCEPTION("Vulkan error: could not find a matching memory type");
 }
 
-VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, bool begin ){
-	return createCommandBuffer( level, QueueEnum::TRANSFER, begin );
-}
 VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin ){
 	VkCommandBufferAllocateInfo cmdBufAllocateInfo = ext::vulkan::initializers::commandBufferAllocateInfo( getCommandPool(queue), level, 1 );
 
@@ -570,11 +567,7 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	}
 	return commandBuffer;
 }
-
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, bool wait ) {
-	return flushCommandBuffer( commandBuffer, QueueEnum::TRANSFER, wait );
-}
-void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queueType, bool wait ) {
+void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queueType, bool immediate ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
@@ -585,56 +578,54 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 
 	auto& queue = getQueue( queueType );
 	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
-	if ( wait ) {
+
+	if ( immediate ) {
 		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
+	} else {
+		this->transient.commandBuffers[queueType].emplace_back(commandBuffer);
 	}
 }
+ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType, bool immediate ){
+	return {
+		.immediate = immediate,
+		.queueType = queueType,
+		.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true ),
+	};
 #if 0
-VkResult ext::vulkan::Device::createBuffer( VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkDeviceSize size,  VkBuffer* buffer, VkDeviceMemory* memory, const void* data ) {
-	// Create the buffer handle
-	VkBufferCreateInfo bufferCreateInfo = ext::vulkan::initializers::bufferCreateInfo(usage, size);
-	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	VK_CHECK_RESULT( vkCreateBuffer(logicalDevice, &bufferCreateInfo, nullptr, buffer));
-
-	// Create the memory backing up the buffer handle
-	VkMemoryRequirements memReqs;
-	VkMemoryAllocateInfo memAlloc = ext::vulkan::initializers::memoryAllocateInfo();
-	vkGetBufferMemoryRequirements(logicalDevice, *buffer, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	// Find a memory type index that fits the properties of the buffer
-	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, memoryProperties);
-
-	VK_CHECK_RESULT( vkAllocateMemory(logicalDevice, &memAlloc, nullptr, memory));
-	
-	// If a pointer to the buffer data has been passed, map the buffer and copy over the data
-	if ( data != nullptr ) {
-		void *mapped;
-		VK_CHECK_RESULT(vkMapMemory(logicalDevice, *memory, 0, size, 0, &mapped));
-			
-		memcpy(mapped, data, size);
-		// If host coherency hasn't been requested, do a manual flush to make writes visible
-		if ( (memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0 ) {
-			VkMappedMemoryRange mappedRange = ext::vulkan::initializers::mappedMemoryRange();
-			mappedRange.memory = *memory;
-			mappedRange.offset = 0;
-			mappedRange.size = size;
-			vkFlushMappedMemoryRanges(logicalDevice, 1, &mappedRange);
-		}
-		vkUnmapMemory(logicalDevice, *memory);
+	if ( transient ) {
+		ext::vulkan::CommandBuffer commandBuffer;
+		commandBuffer.waits = waits;
+		commandBuffer.queueType = queueType;
+		commandBuffer.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true );
+		return;
 	}
 
-	// Attach the memory to the buffer object
-	VK_CHECK_RESULT(vkBindBufferMemory(logicalDevice, *buffer, *memory, 0));
-	return VK_SUCCESS;
-}
+//	bool exists = this->reusable.commandBuffers.count( queueType ) > 0;
+	auto& commandBuffer = this->reusable.commandBuffers[queueType];
+//	if ( !exists ) {
+	if ( commandBuffer.handle == VK_NULL_HANDLE ) {
+		commandBuffer.state = 1;
+		commandBuffer.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true );
+		return commandBuffer;
+	}
+	if ( commandBuffer.state == 0 ) {
+		commandBuffer.state = 1;
+		VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
+		VK_CHECK_RESULT( vkBeginCommandBuffer( commandBuffer.handle, &cmdBufInfo ) );
+	}
+	return commandBuffer;
 #endif
+}
+void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer commandBuffer ) {
+	return this->flushCommandBuffer( commandBuffer.handle, commandBuffer.queueType, commandBuffer.immediate );
+}
 VkResult ext::vulkan::Device::createBuffer(
+	const void* data,
+	VkDeviceSize size,
 	VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags memoryProperties,
-	ext::vulkan::Buffer& buffer,
-	VkDeviceSize size,
-	const void* data
+	ext::vulkan::Buffer& buffer
 ) {
 	buffer.device = this;
 	buffer.usage = usage;
@@ -657,13 +648,23 @@ VkResult ext::vulkan::Device::createBuffer(
 	// Attach the memory to the buffer object
 	return buffer.bind();
 }
-VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum) {
+ext::vulkan::Buffer ext::vulkan::Device::fetchTransientBuffer(
+	const void* data,
+	VkDeviceSize size,
+	VkBufferUsageFlags usage,
+	VkMemoryPropertyFlags memoryProperties
+) {
+	auto& buffer = this->transient.buffers.emplace_back();
+	VK_CHECK_RESULT(this->createBuffer(data, size, usage, memoryProperties, buffer));
+	return buffer.alias();
+}
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum) {
 	return this->getCommandPool( queueEnum, std::this_thread::get_id() );
 }
-VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum ) {
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum ) {
 	return this->getQueue( queueEnum, std::this_thread::get_id() );
 }
-VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
+VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
 	uint32_t index = 0;
 	VkCommandPool* pool = NULL;
 	bool exists = false;
@@ -701,7 +702,7 @@ VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::Device::QueueEn
 	}
 	return *pool;
 }
-VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::Device::QueueEnum queueEnum, std::thread::id id ) {
+VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
 	uint32_t index = 0;
 	VkQueue* queue = NULL;
 	bool exists = false;

@@ -102,6 +102,7 @@ uf::inputs::state_t uf::inputs::kbm::states::Num8 = false;
 uf::inputs::state_t uf::inputs::kbm::states::Num9 = false;
 uf::inputs::state_t uf::inputs::kbm::states::Num0 = false;
 
+uf::inputs::analog2_t uf::inputs::kbm::states::Mouse = {};
 uf::inputs::state_t uf::inputs::kbm::states::Mouse1 = false;
 uf::inputs::state_t uf::inputs::kbm::states::Mouse2 = false;
 uf::inputs::state_t uf::inputs::kbm::states::Mouse3 = false;
@@ -280,7 +281,8 @@ uf::inputs::analog_t uf::inputs::analog( const uf::stl::string& key ) {
 	return 0.0;
 }
 uf::inputs::analog2_t uf::inputs::analog2( const uf::stl::string& key ) {
-	if ( key == uf::inputs::controller::enums::L_JOYSTICK ) return uf::inputs::controller::states::L_JOYSTICK;
+	if ( key == uf::inputs::kbm::enums::Mouse ) return uf::inputs::kbm::states::Mouse;
+	else if ( key == uf::inputs::controller::enums::L_JOYSTICK ) return uf::inputs::controller::states::L_JOYSTICK;
 	else if ( key == uf::inputs::controller::enums::R_JOYSTICK ) return uf::inputs::controller::states::R_JOYSTICK;
 
 	return {};

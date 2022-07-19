@@ -17,7 +17,7 @@
 	//	{ "filename": "./models/medsci/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
 			"baking": {
 				"enabled": true,
 				"resolution": 2048
@@ -41,8 +41,8 @@
 
 				"light_30145": { "light": { "power": 120 } },
 
-				"/^prop_camera_.+?_light/": { /*"bake": false,*/ "light": { "shadows": false, "static": false, "dynamic": true, "power": 30 } },
-				"/prop_camera_/": { /*"bake": false,*/ "action": "load", "payload": { "import": "./camera.json" } },
+				"/^prop_camera_\\d+_light/": { /*"bake": false,*/ "light": { "shadows": false, "static": false, "dynamic": true, "power": 30 } },
+				"/^prop_camera_\\d+$/": { /*"bake": false,*/ "action": "load", "payload": { "import": "./camera.json" } },
 
 				"func_movelinear_57637": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,8.6,0 ] } } },
 				"func_movelinear_82820": { /*"bake": false,*/ "action": "load", "payload": { "import": "./lift.json", "metadata": { "delta": [ 0,9.2,0 ] } } },

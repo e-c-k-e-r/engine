@@ -596,7 +596,6 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["should"] = /*this->*/light.enabled;
 
 	serializer["light"]["ambient"] = uf::vector::encode( /*this->*/light.ambient );
-	serializer["light"]["specular"] = uf::vector::encode( /*this->*/light.specular );
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
 	serializer["light"]["brightnessThreshold"] = /*this->*/light.brightnessThreshold;
@@ -618,49 +617,84 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["system"]["renderer"]["shader"]["parameters"] = uf::vector::encode( /*this->*/shader.parameters );
 }
 void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
-	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<uint32_t>(/*this->*/max.textures2D);
-	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<uint32_t>(/*this->*/max.texturesCube);
-	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<uint32_t>(/*this->*/max.textures3D);
+	// merge light settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["light"][key] ) ) return;
+			serializer["light"][key] = value;
+		} );
+	}
+	// merge bloom settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["bloom"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["light"]["bloom"][key] ) ) return;
+			serializer["light"]["bloom"][key] = value;
+		} );
+	}
+	// merge shadows settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["shadows"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["light"]["shadows"][key] ) ) return;
+			serializer["light"]["shadows"][key] = value;
+		} );
+	}
+	// merge fog settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["lights"]["fog"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["light"]["fog"][key] ) ) return;
+			serializer["light"]["fog"][key] = value;
+		} );
+	}
 
-	/*this->*/shadow.enabled = ext::config["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) && serializer["light"]["shadows"].as<bool>(true);
-	/*this->*/shadow.samples = ext::config["engine"]["scenes"]["shadows"]["samples"].as<uint32_t>();
-	/*this->*/shadow.max = ext::config["engine"]["scenes"]["shadows"]["max"].as<uint32_t>();
-	/*this->*/shadow.update = ext::config["engine"]["scenes"]["shadows"]["update"].as<uint32_t>();
-	/*this->*/shadow.typeMap = ext::config["engine"]["scenes"]["shadows"]["map type"].as<uint32_t>(1);
+	/*this->*/max.textures2D   = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as(/*this->*/max.textures2D);
+	/*this->*/max.texturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as(/*this->*/max.texturesCube);
+	/*this->*/max.textures3D   = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as(/*this->*/max.textures3D);
 
-	/*this->*/light.enabled = ext::config["engine"]["scenes"]["lights"]["enabled"].as<bool>(true) && serializer["light"]["should"].as<bool>(true);
-	/*this->*/light.max = ext::config["engine"]["scenes"]["lights"]["max"].as<uint32_t>(/*this->*/light.max);
-	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], pod::Vector4f{ 1, 1, 1, 1 } );
-	/*this->*/light.specular = uf::vector::decode( serializer["light"]["specular"], pod::Vector4f{ 1, 1, 1, 1 } );
-	/*this->*/light.exposure = serializer["light"]["exposure"].as<float>(1.0f);
-	/*this->*/light.gamma = serializer["light"]["gamma"].as<float>(2.2f);
-	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as<float>(ext::config["engine"]["scenes"]["bloom"]["brightnessThreshold"].as<float>(1.0f));
-	/*this->*/light.useLightmaps = ext::config["engine"]["scenes"]["lights"]["useLightmaps"].as<bool>(true);
+	/*this->*/shadow.enabled = serializer["light"]["shadows"]["enabled"].as(/*this->*/shadow.enabled);
+	/*this->*/shadow.samples = serializer["light"]["shadows"]["samples"].as(/*this->*/shadow.samples);
+	/*this->*/shadow.max = serializer["light"]["shadows"]["max"].as(/*this->*/shadow.max);
+	/*this->*/shadow.update = serializer["light"]["shadows"]["update"].as(/*this->*/shadow.update);
+	/*this->*/shadow.typeMap = serializer["light"]["shadows"]["map type"].as(/*this->*/shadow.typeMap);
 
-	/*this->*/bloom.scale = serializer["bloom"]["scale"].as(ext::config["engine"]["scenes"]["bloom"]["scale"].as(bloom.scale));
-	/*this->*/bloom.strength = serializer["bloom"]["strength"].as(ext::config["engine"]["scenes"]["bloom"]["strength"].as(bloom.strength));
-	/*this->*/bloom.sigma = serializer["bloom"]["sigma"].as(ext::config["engine"]["scenes"]["bloom"]["sigma"].as(bloom.sigma));
-	/*this->*/bloom.samples = serializer["bloom"]["samples"].as(ext::config["engine"]["scenes"]["bloom"]["samples"].as(bloom.samples));
+	/*this->*/light.enabled = serializer["light"]["enabled"].as(/*this->*/light.enabled) && serializer["light"]["should"].as(/*this->*/light.enabled);
+	/*this->*/light.max = serializer["light"]["max"].as(/*this->*/light.max);
+	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], /*this->*/light.ambient);
 
-	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], pod::Vector3f{ 1, 1, 1 } );
-	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as<float>();
-	/*this->*/fog.absorbtion = serializer["light"]["fog"]["absorbtion"].as<float>();
-	/*this->*/fog.range = uf::vector::decode( serializer["light"]["fog"]["range"], pod::Vector2f{ 0, 0 } );
-	/*this->*/fog.density.offset = uf::vector::decode( serializer["light"]["fog"]["density"]["offset"], pod::Vector4f{ 0, 0, 0, 0 } );
-	/*this->*/fog.density.timescale = serializer["light"]["fog"]["density"]["timescale"].as<float>();
-	/*this->*/fog.density.threshold = serializer["light"]["fog"]["density"]["threshold"].as<float>();
-	/*this->*/fog.density.multiplier = serializer["light"]["fog"]["density"]["multiplier"].as<float>();
-	/*this->*/fog.density.scale = serializer["light"]["fog"]["density"]["scale"].as<float>();
+	/*this->*/light.exposure = serializer["light"]["exposure"].as(/*this->*/light.exposure);
+	/*this->*/light.gamma = serializer["light"]["gamma"].as(/*this->*/light.gamma);
+	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as(/*this->*/light.brightnessThreshold);
+	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
+
+	/*this->*/bloom.scale = serializer["light"]["bloom"]["scale"].as(/*this->*/bloom.scale);
+	/*this->*/bloom.strength = serializer["light"]["bloom"]["strength"].as(/*this->*/bloom.strength);
+	/*this->*/bloom.sigma = serializer["light"]["bloom"]["sigma"].as(/*this->*/bloom.sigma);
+	/*this->*/bloom.samples = serializer["light"]["bloom"]["samples"].as(/*this->*/bloom.samples);
+
+	/*this->*/fog.color = uf::vector::decode( serializer["light"]["fog"]["color"], /*this->*/fog.color );
+	/*this->*/fog.stepScale = serializer["light"]["fog"]["step scale"].as( /*this->*/fog.stepScale );
+	/*this->*/fog.absorbtion = serializer["light"]["fog"]["absorbtion"].as( /*this->*/fog.absorbtion );
+	/*this->*/fog.range = uf::vector::decode( serializer["light"]["fog"]["range"], /*this->*/fog.range );
+	/*this->*/fog.density.offset = uf::vector::decode( serializer["light"]["fog"]["density"]["offset"], /*this->*/fog.density.offset );
+	/*this->*/fog.density.timescale = serializer["light"]["fog"]["density"]["timescale"].as(/*this->*/fog.density.timescale);
+	/*this->*/fog.density.threshold = serializer["light"]["fog"]["density"]["threshold"].as(/*this->*/fog.density.threshold);
+	/*this->*/fog.density.multiplier = serializer["light"]["fog"]["density"]["multiplier"].as(/*this->*/fog.density.multiplier);
+	/*this->*/fog.density.scale = serializer["light"]["fog"]["density"]["scale"].as(/*this->*/fog.density.scale);
 	
-	/*this->*/sky.box.filename = serializer["sky"]["box"]["filename"].as<uf::stl::string>(sky.box.filename);
+	/*this->*/sky.box.filename = serializer["sky"]["box"]["filename"].as(/*this->*/sky.box.filename);
 
-	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as<uint32_t>();
-	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as<uint32_t>();
-	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], pod::Vector4f{0,0,0,0} );
-	/*this->*/shader.frameAccumulateLimit = serializer["system"]["renderer"]["shader"]["frame accumulate limit"].as<uint32_t>(0);
+	/*this->*/shader.mode = serializer["system"]["renderer"]["shader"]["mode"].as(/*this->*/shader.mode);
+	/*this->*/shader.scalar = serializer["system"]["renderer"]["shader"]["scalar"].as(/*this->*/shader.scalar);
+	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], /*this->*/shader.parameters );
+	/*this->*/shader.frameAccumulateLimit = serializer["system"]["renderer"]["shader"]["frame accumulate limit"].as(/*this->*/shader.frameAccumulateLimit);
+
 	ext::json::forEach( serializer["system"]["renderer"]["shader"]["parameters"], [&]( uint32_t i, const ext::json::Value& value ){
 		if ( value.as<uf::stl::string>() == "time" ) /*this->*/shader.time = i;
 	});
+
 	if ( 0 <= /*this->*/shader.time && /*this->*/shader.time < 4 ) {
 		/*this->*/shader.parameters[/*this->*/shader.time] = uf::physics::time::current;
 	}

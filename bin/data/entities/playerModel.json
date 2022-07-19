@@ -28,7 +28,7 @@
 	"metadata": {
 		"track": true,
 		"hide": true,
-		"model": {
+		"graph": {
 			"debug": {
 				"print": {
 					"animations": true

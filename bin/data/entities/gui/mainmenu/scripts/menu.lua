@@ -8,6 +8,7 @@ Static = {
 	end
 }
 
+local ent = ent
 local scene = entities.currentScene()
 local controller = entities.controller()
 local camera = controller:getComponent("Camera")

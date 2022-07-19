@@ -1,18 +1,25 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "SourceEngine",
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 48
-			},
-			"shadows": {
-				"enabled": true,
-				"update": 4,
-				"max": 24,
-				"samples": 1
+				"max": 48,
+				"shadows": {
+					"enabled": true,
+					"update": 4,
+					"max": 24,
+					"samples": 1
+				},
+				"bloom": {
+					"scale": 1.0,
+					"strength": 0.125,
+					"sigma": 0.8,
+					"samples": 5,
+					"threshold": 1.0
+				}
 			},
 			"textures": {
 				"max": {
@@ -45,13 +52,6 @@
 				"samples": 1,
 				"paths": 2,
 				"frameAccumulationMinimum": 0
-			},
-			"bloom": {
-				"scale": 1.0,
-				"strength": 0.125,
-				"sigma": 0.8,
-				"samples": 5,
-				"threshold": 1.0
 			}
 		},
 		"graph": {
@@ -298,6 +298,9 @@
 			},
 			"loader": {
 				"assert": true
+			},
+			"hooks": {
+				"defer lazy calls": true
 			}
 		}
 	},
@@ -318,8 +321,8 @@
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 	//	"size" :  [ 1920, 1080 ],
-		"size" :  [ 1280, 720 ],
-	//	"size" :  [ 960, 540 ],
+	//	"size" :  [ 1280, 720 ],
+		"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",

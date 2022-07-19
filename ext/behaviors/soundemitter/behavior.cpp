@@ -86,7 +86,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		
 		ext::json::Value json = metadata["audio"];
 		json["filename"] = payload.filename;
-		this->callHook("sound:Emit.%UID%", json);
+		this->lazyCallHook("sound:Emit.%UID%", json);
 	});
 }
 void ext::SoundEmitterBehavior::tick( uf::Object& self ) {

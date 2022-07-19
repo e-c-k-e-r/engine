@@ -528,7 +528,7 @@ void ext::vulkan::Texture::fromBuffers(
 		subresourceRange.levelCount = this->mips;
 		subresourceRange.layerCount = this->layers;
 
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 		setImageLayout(
 			commandBuffer,
 			image,
@@ -536,7 +536,7 @@ void ext::vulkan::Texture::fromBuffers(
 			imageLayout,
 			subresourceRange
 		);
-		device.flushCommandBuffer(commandBuffer, Device::QueueEnum::GRAPHICS);
+		device.flushCommandBuffer(commandBuffer, QueueEnum::GRAPHICS);
 
 		this->imageLayout = imageLayout;
 	}
@@ -575,7 +575,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &image, &allocation, &allocationInfo));
 	deviceMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer layoutCmd = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+	VkCommandBuffer layoutCmd = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 
 	imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 	setImageLayout(
@@ -587,7 +587,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 		this->mips
 	);
 
-	device.flushCommandBuffer(layoutCmd, Device::QueueEnum::GRAPHICS);
+	device.flushCommandBuffer(layoutCmd, QueueEnum::GRAPHICS);
 
 	// Create sampler
 	// sampler.initialize( device );
@@ -702,17 +702,16 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 	bufferCopyRegion.imageExtent.depth = depth;
 	bufferCopyRegion.bufferOffset = 0;
 	//
-	Buffer staging;
-	VK_CHECK_RESULT(device.createBuffer(
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging,
+#if 1
+	Buffer staging = device.fetchTransientBuffer(
+		data,
 		bufferSize,
-		data
-	));
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
 
 	// Use a separate command buffer for texture loading
-	VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+	VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 
 	// Image barrier for optimal image (target)
 	// Optimal image will be used as destination for the copy
@@ -741,9 +740,51 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 		subresourceRange
 	);
 	
-	device.flushCommandBuffer(commandBuffer, Device::QueueEnum::GRAPHICS);
+	device.flushCommandBuffer(commandBuffer, QueueEnum::GRAPHICS);
+#else
+	Buffer staging;
+	VK_CHECK_RESULT(device.createBuffer(
+		data,
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		staging
+	));
+
+	// Use a separate command buffer for texture loading
+	VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
+
+	// Image barrier for optimal image (target)
+	// Optimal image will be used as destination for the copy
+	setImageLayout(
+		commandBuffer,
+		image,
+		imageLayout,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		subresourceRange
+	);
+	// Copy mip levels from staging buffer
+	vkCmdCopyBufferToImage(
+		commandBuffer,
+		staging.buffer,
+		image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&bufferCopyRegion
+	);
+	if ( this->mips > 1 ) this->generateMipmaps(commandBuffer, layer);
+	setImageLayout(
+		commandBuffer,
+		image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		targetImageLayout,
+		subresourceRange
+	);
+	
+	device.flushCommandBuffer(commandBuffer, QueueEnum::GRAPHICS);
 	// Clean up staging resources
 	staging.destroy();
+#endif
 	
 	this->imageLayout = targetImageLayout;
 
@@ -867,7 +908,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -934,7 +975,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = descriptor.imageLayout;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	device->flushCommandBuffer(copyCmd, Device::QueueEnum::GRAPHICS);
+	device->flushCommandBuffer(copyCmd, QueueEnum::GRAPHICS);
 
 	const uint8_t* data;
 	vmaMapMemory( allocator, allocation, (void**)&data );
@@ -975,7 +1016,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::GRAPHICS);
+	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -1047,7 +1088,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = descriptor.imageLayout;
 	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	device->flushCommandBuffer(copyCmd, Device::QueueEnum::GRAPHICS);
+	device->flushCommandBuffer(copyCmd, QueueEnum::GRAPHICS);
 
 	const uint8_t* data;
 	vmaMapMemory( allocator, allocation, (void**)&data );

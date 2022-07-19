@@ -9,7 +9,7 @@
 		"scale": [ 1, 1, 1 ]
 	},
 	"metadata": {
-		"model": {
+		"graph": {
 			"debug": {
 				"no cleanup": false,
 				"print": {

@@ -73,7 +73,7 @@ void uf::LoadingBehavior::tick( uf::Object& self ) {
 
 	if ( loading == loaded ) {
 		metadata.system.loaded = true;
-		this->callHook("system:Load.Finished.%UID%");
+		this->lazyCallHook("system:Load.Finished.%UID%");
 	}
 }
 void uf::LoadingBehavior::render( uf::Object& self ) {}

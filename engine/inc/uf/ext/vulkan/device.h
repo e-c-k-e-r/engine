@@ -8,6 +8,18 @@
 
 namespace ext {
 	namespace vulkan {
+		enum QueueEnum {
+			GRAPHICS,
+			PRESENT,
+			COMPUTE,
+			TRANSFER,
+		};
+		struct CommandBuffer {
+			bool immediate{true};
+			QueueEnum queueType{QueueEnum::TRANSFER};
+			VkCommandBuffer handle{VK_NULL_HANDLE};
+		};
+
 		struct UF_API Device {
 			VkInstance instance;
 			VkDebugUtilsMessengerEXT debugMessenger;
@@ -50,14 +62,20 @@ namespace ext {
 				uf::ThreadUnique<VkQueue> transfer;
 			} queues;
 
+			struct {
+				uf::stl::vector<Buffer> buffers;
+				uf::stl::unordered_map<QueueEnum, uf::stl::vector<VkCommandBuffer>> commandBuffers;
+			} transient;
+
+		/*
+			struct {
+				uf::stl::vector<Buffer> buffers;
+				uf::stl::unordered_map<QueueEnum, CommandBuffer> commandBuffers;
+			} reusable;
+		*/
+
 			uf::Window* window;
 
-			enum QueueEnum {
-				GRAPHICS,
-				PRESENT,
-				COMPUTE,
-				TRANSFER,
-			};
 			struct QueueFamilyIndices {
 				uint32_t graphics;
 				uint32_t present;
@@ -69,27 +87,25 @@ namespace ext {
 			// helpers
 			uint32_t getQueueFamilyIndex( VkQueueFlagBits queueFlags );
 			uint32_t getMemoryType( uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32 *memTypeFound = nullptr );
-			
-			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, bool begin = true );
+
 			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true );
+			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool wait = false );
 
-			void flushCommandBuffer( VkCommandBuffer commandBuffer, bool free = true );
-			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool free = true );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = true );
+			void flushCommandBuffer( CommandBuffer commandBuffer );
 
 			VkResult createBuffer(
+				const void* data,
+				VkDeviceSize size,
 				VkBufferUsageFlags usage,
 				VkMemoryPropertyFlags memoryProperties,
-				VkDeviceSize size,
-				VkBuffer* buffer, 
-				VkDeviceMemory *memory,
-				const void* data = nullptr
+				ext::vulkan::Buffer& buffer
 			);
-			VkResult createBuffer(
-				VkBufferUsageFlags usage,
-				VkMemoryPropertyFlags memoryProperties,
-				ext::vulkan::Buffer& buffer,
+			ext::vulkan::Buffer fetchTransientBuffer(
+				const void* data,
 				VkDeviceSize size,
-				const void* data = nullptr
+				VkBufferUsageFlags usage,
+				VkMemoryPropertyFlags memoryProperties
 			);
 
 			VkQueue& getQueue( QueueEnum );

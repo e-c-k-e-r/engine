@@ -5,7 +5,10 @@
 		{ "filename": "./models/sh2_mcdonalds/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
+			"assets": [
+				"./audio/soundscape/sh2_ambience.ogg"	
+			],
 			"tags": {
 				// exact matches
 				"worldspawn_sh2": {

@@ -35,6 +35,15 @@ uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const T& 
 }
 
 template<typename T>
+uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name, const T& p ) {
+	if ( uf::Object::deferLazyCalls ) {
+		this->queueHook( name, p, 0.0f );
+		return {};
+	}
+	return this->callHook( name, p );
+}
+
+template<typename T>
 void uf::Object::queueHook( const uf::stl::string& name, const T& p, float d ) {
 //	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
 //	double start = uf::Object::timer.elapsed().asDouble();

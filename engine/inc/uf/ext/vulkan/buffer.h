@@ -67,13 +67,7 @@ namespace ext {
 
 			size_t initializeBuffer( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
 			bool updateBuffer( const void*, VkDeviceSize, const Buffer&, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
-
-		//	template<typename T> inline size_t initializeBuffer( const T* data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (const void*) data, static_cast<VkDeviceSize>(sizeof(T)), usage, memoryProperties, stage ); }
-		//	template<typename T> inline size_t initializeBuffer( const T& data, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool stage = VK_DEFAULT_STAGE_BUFFERS ) { return initializeBuffer( (const void*) &data, static_cast<VkDeviceSize>(sizeof(T)), usage, memoryProperties, stage ); }
-
 			inline bool updateBuffer( const void* data, VkDeviceSize length, size_t index = 0, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( data, length, buffers.at(index), stage ); }
-		//	template<typename T> inline bool updateBuffer( const T* data, const Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) data, static_cast<VkDeviceSize>(sizeof(T)), buffer, stage ); }
-	//		template<typename T> inline bool updateBuffer( const T& data, const Buffer& buffer, bool stage = VK_DEFAULT_STAGE_BUFFERS ) const { return updateBuffer( (const void*) &data, static_cast<VkDeviceSize>(sizeof(T)), buffer, stage ); }
 		};
 
 		struct AccelerationStructure {

@@ -462,6 +462,49 @@ void uf::graph::process( pod::Graph& graph ) {
 
 	//
 	if ( !graph.root.entity ) graph.root.entity = new uf::Object;
+	
+	// copy lighting settings from graph
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+#if 1
+	// merge light settings with global settings
+	{
+		const auto& globalSettings = graph.metadata["light"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( sceneMetadataJson["light"][key] ) ) return;
+			sceneMetadataJson["light"][key] = value;
+		} );
+	}
+	// merge bloom settings with global settings
+	{
+		const auto& globalSettings = graph.metadata["light"]["bloom"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( sceneMetadataJson["light"]["bloom"][key] ) ) return;
+			sceneMetadataJson["light"]["bloom"][key] = value;
+		} );
+	}
+	// merge shadows settings with global settings
+	{
+		const auto& globalSettings = graph.metadata["light"]["shadows"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( sceneMetadataJson["light"]["shadows"][key] ) ) return;
+			sceneMetadataJson["light"]["shadows"][key] = value;
+		} );
+	}
+	// merge fog settings with global settings
+	{
+		const auto& globalSettings = graph.metadata["light"]["fog"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( sceneMetadataJson["light"]["fog"][key] ) ) return;
+			sceneMetadataJson["light"]["fog"][key] = value;
+		} );
+	}
+#endif
+#if 0
+	if ( ext::json::isObject(graph.metadata["assets"]) || ext::json::isArray(graph.metadata["assets"]) ) {
+		scene.loadAssets(graph.metadata["assets"]);
+	}
+#endif
 
 	//
 	uf::stl::unordered_map<uf::stl::string, bool> isSrgb;
@@ -490,9 +533,7 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 
-		auto& scene = uf::scene::getCurrentScene();
-		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-		if ( !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["useLightmaps"].as<bool>(true) ) {
+		if ( !sceneMetadataJson["light"]["useLightmaps"].as<bool>(true) ) {
 			graph.metadata["lights"]["lightmap"] = false;
 			graph.metadata["baking"]["enabled"] = false;
 		}
@@ -941,10 +982,13 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			auto& childMetadataJson = child.getComponent<uf::Serializer>();
 
 			auto flatten = uf::transform::flatten( node.transform );
-			if ( !tag["preserve position"].as<bool>() ) childTransform.position = flatten.position;
-			if ( !tag["preserve orientation"].as<bool>() ) childTransform.orientation = flatten.orientation;
+		//	if ( !tag["preserve position"].as<bool>(false) ) childTransform.position = flatten.position;
+		//	if ( !tag["preserve orientation"].as<bool>(false) ) childTransform.orientation = flatten.orientation;
+			
 		//	childTransform.position = flatten.position;
 		//	childTransform.orientation = flatten.orientation;
+			childTransform = flatten;
+
 		//	childMetadataJson["transform"] = uf::transform::encode( flatten );
 		}
 		if ( tag["static"].is<bool>() ) {

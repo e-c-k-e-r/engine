@@ -1,12 +1,15 @@
+local ent = ent
 local scene = entities.currentScene()
 local controller = entities.controller()
 local controllerTransform = controller:getComponent("Transform")
 local timer = Timer.new()
-if not timer:running() then
-	timer:start();
-end
+if not timer:running() then timer:start() end
+
 local metadata = ent:getComponent("Metadata")
-local soundEmitter = ent:loadChild("/sound.json",true)
+local transform = ent:getComponent("Transform")
+local physicsState = ent:getComponent("PhysicsState")
+
+local soundEmitter = ent --ent:loadChild("/sound.json",true)
 local playSound = function( key )
 	if not loop then loop = false end
 	local url = "./audio/sfx/" .. key .. ".ogg"
@@ -36,7 +39,6 @@ local stopSoundscape = function( key )
 end
 
 local target = Vector3f(0,0,0)
-local transform = ent:getComponent("Transform")
 local speed = metadata["speed"] or 1.0 / 3.0
 local angle = metadata["angle"] or 1.5
 transform.orientation = Quaternion.axisAngle( Vector3f(0,1,0), 1.5 )
@@ -62,11 +64,6 @@ ent:bind( "tick", function(self)
 
 	local angleThreshold = metadata["sensitivity"] or 20
 
-	local controllerPosition = Vector3f(controllerTransform.position.x, 0, controllerTransform.position.z)
-	local cameraPosition = Vector3f(transform.position.x, 0, transform.position.z)
-	local distance = cameraPosition:distance(controllerPosition)
-	local direction = cameraPosition - controllerPosition
-
 	local lightTransform = light and light:getComponent("Transform") or nil
 	local lightMetadata = light and light:getComponent("Metadata") or {}
 	if lightTransform ~= nil then
@@ -76,6 +73,10 @@ ent:bind( "tick", function(self)
 		end
 	end
 
+	local controllerPosition = Vector3f(controllerTransform.position.x, 0, controllerTransform.position.z)
+	local cameraPosition = Vector3f(transform.position.x, 0, transform.position.z)
+	local distance = cameraPosition:distance(controllerPosition)
+	local direction = cameraPosition - controllerPosition
 	local angle = math.acos(transform.orientation:rotate( Vector3f(0,0,1):normalize() ):dot( direction:normalize() )) * 180.0 / 3.1415926
 	if angle < angleThreshold and distance < 16 then
 		if watch == 0 then
@@ -181,11 +182,13 @@ ent:bind( "tick", function(self)
 	
 	delta = delta + time.delta() * speed
 	local nextRotation = starting:slerp( ending, math.cos(delta) * 0.5 + 0.5 )
+--[[
 	-- stop if we are going to look away from player
 	local angleNext = math.acos(nextRotation:rotate( Vector3f(0,0,1):normalize() ):dot( direction:normalize() )) * 180.0 / 3.1415926
 	if watch > 0 and angleNext > angle then
 		delta = delta - time.delta() * speed * 3
 		nextRotation = starting:slerp( ending, math.cos(delta) * 0.5 + 0.5 )
 	end
+]]
 	transform.orientation = nextRotation
 end )

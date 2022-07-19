@@ -1,7 +1,7 @@
 {
 	"import": "/model.json",
 	"metadata": {
-		"model": {
+		"graph": {
 		//	"renderer": { "separate": true },
 			"baking": { "enabled": false },
 			"tags": {
@@ -14,7 +14,7 @@
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
-					"power": 100000,
+					"power": 1,
 					"global": true,
 					"bias": {
 						"constant": 1.25,
@@ -26,7 +26,7 @@
 				} },
 
 				// regexp matches
-				"/^worldspawn/": { "physics": { "type": "mesh", "static": true } },
+				"/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
 				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
 				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },

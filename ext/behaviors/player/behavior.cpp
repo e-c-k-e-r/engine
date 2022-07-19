@@ -81,16 +81,18 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	});
 
 	// Rotate Camera
+#if !UF_INPUT_USE_ENUM_MOUSE
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload ){
 		const pod::Vector2ui deadZone{0, 0};
 		if ( (payload.mouse.delta.x == 0 && payload.mouse.delta.y == 0) || !metadata.system.control ) return;
-	
+
 		pod::Vector2f delta = {
 			(float) metadata.mouse.sensitivity.x * (abs(payload.mouse.delta.x) < deadZone.x ? 0 : payload.mouse.delta.x) / payload.window.size.x,
 			(float) metadata.mouse.sensitivity.y * (abs(payload.mouse.delta.y) < deadZone.y ? 0 : payload.mouse.delta.y) / payload.window.size.y
 		};
 		metadata.camera.queued += delta;
 	});
+#endif
 	
 #if UF_USE_DISCORD
 	// Discord Integration
@@ -232,13 +234,13 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			payload["user"] = this->getUid();
 			payload["uid"] = pointer->getUid();
 			payload["depth"] = uf::vector::norm(direction * depth);
-			pointer->callHook( "entity:Use.%UID%", payload );
+			pointer->lazyCallHook( "entity:Use.%UID%", payload );
 		} else {
 			payload["user"] = this->getUid();
 			payload["uid"] = 0;
 			payload["depth"] = -1;
 		}
-		this->callHook( "entity:Use.%UID%", payload );
+		this->lazyCallHook( "entity:Use.%UID%", payload );
 	/*
 		auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 		uf::stl::string filename = pointer ? "./ui/select.ogg" : "./ui/deny.ogg";
@@ -383,6 +385,22 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		if ( metadata.system.crouching ) stats.deltaCrouch = true;
 		metadata.system.crouching = false;
 	}
+
+	// 
+	#if UF_INPUT_USE_ENUM_MOUSE
+	{
+		const pod::Vector2ui deadZone{0, 0};
+		const auto& mouseDelta = uf::inputs::kbm::states::Mouse;
+		bool shouldnt = (mouseDelta.x == 0 && mouseDelta.y == 0) || !metadata.system.control;
+		if ( !shouldnt ) {
+			pod::Vector2f delta = {
+				(float) metadata.mouse.sensitivity.x * (abs(mouseDelta.x) < deadZone.x ? 0 : mouseDelta.x),
+				(float) metadata.mouse.sensitivity.y * (abs(mouseDelta.y) < deadZone.y ? 0 : mouseDelta.y)
+			};
+			metadata.camera.queued += delta;
+		}
+	}
+	#endif
 
 	if ( metadata.camera.queued.x != 0 || metadata.camera.queued.y != 0 ) {
 		auto lookDelta = metadata.camera.queued;

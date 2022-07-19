@@ -31,15 +31,6 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 
-	// merge vxgi settings with global settings
-	{
-		const auto& globalSettings = ext::config["engine"]["scenes"]["vxgi"];
-		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
-			if ( !ext::json::isNull( metadataJson["vxgi"][key] ) ) return;
-			metadataJson["vxgi"][key] = value;
-		} );
-	}
-
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	// initialize voxel map
@@ -465,26 +456,35 @@ void ext::VoxelizerSceneBehavior::Metadata::serialize( uf::Object& self, uf::Ser
 	serializer["vxgi"]["extents"]["max"] = uf::vector::encode(/*this->*/extents.max);
 }
 void ext::VoxelizerSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ) {
-	/*this->*/voxelSize.x = serializer["vxgi"]["size"].as<size_t>(96);
-	/*this->*/voxelSize.y = serializer["vxgi"]["size"].as<size_t>(96);
-	/*this->*/voxelSize.z = serializer["vxgi"]["size"].as<size_t>(96);
+	// merge vxgi settings with global settings
+	{
+		const auto& globalSettings = ext::config["engine"]["scenes"]["vxgi"];
+		ext::json::forEach( globalSettings, [&]( const uf::stl::string& key, const ext::json::Value& value ){
+			if ( !ext::json::isNull( serializer["vxgi"][key] ) ) return;
+			serializer["vxgi"][key] = value;
+		} );
+	}
+
+	/*this->*/voxelSize.x = serializer["vxgi"]["size"].as(/*this->*/voxelSize.x);
+	/*this->*/voxelSize.y = serializer["vxgi"]["size"].as(/*this->*/voxelSize.y);
+	/*this->*/voxelSize.z = serializer["vxgi"]["size"].as(/*this->*/voxelSize.z);
 	
-	/*this->*/limiter.frequency = serializer["vxgi"]["limiter"].as<float>(1);
+	/*this->*/limiter.frequency = serializer["vxgi"]["limiter"].as(/*this->*/limiter.frequency);
 
-	/*this->*/dispatchSize.x = serializer["vxgi"]["dispatch"].as<float>(8);
-	/*this->*/dispatchSize.y = serializer["vxgi"]["dispatch"].as<float>(8);
-	/*this->*/dispatchSize.z = serializer["vxgi"]["dispatch"].as<float>(8);
+	/*this->*/dispatchSize.x = serializer["vxgi"]["dispatch"].as(/*this->*/dispatchSize.x);
+	/*this->*/dispatchSize.y = serializer["vxgi"]["dispatch"].as(/*this->*/dispatchSize.x);
+	/*this->*/dispatchSize.z = serializer["vxgi"]["dispatch"].as(/*this->*/dispatchSize.x);
 
-	/*this->*/cascades = serializer["vxgi"]["cascades"].as<size_t>(4);
-	/*this->*/cascadePower = serializer["vxgi"]["cascadePower"].as<size_t>(4);
-	/*this->*/granularity = serializer["vxgi"]["granularity"].as<float>(4);
-	/*this->*/voxelizeScale = serializer["vxgi"]["voxelizeScale"].as<float>(1);
-	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as<float>(128);
-	/*this->*/traceStartOffsetFactor = serializer["vxgi"]["traceStartOffsetFactor"].as<float>(1.0f);
-	/*this->*/shadows = serializer["vxgi"]["shadows"].as<size_t>(0);
+	/*this->*/cascades = serializer["vxgi"]["cascades"].as(/*this->*/cascades);
+	/*this->*/cascadePower = serializer["vxgi"]["cascadePower"].as(/*this->*/cascadePower);
+	/*this->*/granularity = serializer["vxgi"]["granularity"].as(/*this->*/granularity);
+	/*this->*/voxelizeScale = serializer["vxgi"]["voxelizeScale"].as(/*this->*/voxelizeScale);
+	/*this->*/occlusionFalloff = serializer["vxgi"]["occlusionFalloff"].as(/*this->*/occlusionFalloff);
+	/*this->*/traceStartOffsetFactor = serializer["vxgi"]["traceStartOffsetFactor"].as(/*this->*/traceStartOffsetFactor);
+	/*this->*/shadows = serializer["vxgi"]["shadows"].as(/*this->*/shadows);
 
-	/*this->*/extents.min = uf::vector::decode( serializer["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
-	/*this->*/extents.max = uf::vector::decode( serializer["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
+	/*this->*/extents.min = uf::vector::decode( serializer["vxgi"]["extents"]["min"], /*this->*/extents.min );
+	/*this->*/extents.max = uf::vector::decode( serializer["vxgi"]["extents"]["max"], /*this->*/extents.max );
 }
 #undef this
 #endif

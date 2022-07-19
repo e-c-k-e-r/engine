@@ -18,6 +18,7 @@ namespace {
 
 uf::Timer<long long> uf::Object::timer(false);
 bool uf::Object::assertionLoad = true;
+bool uf::Object::deferLazyCalls = true;
 
 UF_OBJECT_REGISTER_BEGIN(uf::Object)
 	UF_OBJECT_REGISTER_BEHAVIOR(uf::EntityBehavior)
@@ -39,6 +40,21 @@ uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name ) {
 uf::Hooks::return_t uf::Object::callHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
 	return uf::hooks.call( this->formatHookName( name ), payload );
 }
+uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name ) {
+	if ( uf::Object::deferLazyCalls ) {
+		this->queueHook( name, 0.0f );
+		return {};
+	}
+	return this->callHook( name );
+}
+uf::Hooks::return_t uf::Object::lazyCallHook( const uf::stl::string& name, const pod::Hook::userdata_t& payload ) {
+	if ( uf::Object::deferLazyCalls ) {
+		this->queueHook( name, payload, 0.0f );
+		return {};
+	}
+	return this->callHook( name, payload );
+}
+
 void uf::Object::queueHook( const uf::stl::string& name, double timeout ) {
 	return queueHook( name, (float) timeout );
 }
@@ -147,10 +163,80 @@ bool uf::Object::reload( bool hard ) {
 	return true;
 }
 
+void uf::Object::loadAssets( const uf::Serializer& _json ){
+	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
+	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& assetLoader = scene.getComponent<uf::Asset>();
+
+	ext::json::Value json = _json;
+
+	#define ASSET_ENTRY(type) { uf::string::lowercase(#type), uf::Asset::Type::type }
+	const uf::stl::unordered_map<uf::stl::string, uf::Asset::Type> assets = {
+		ASSET_ENTRY(AUDIO),
+		ASSET_ENTRY(IMAGE),
+		ASSET_ENTRY(GRAPH),
+		ASSET_ENTRY(LUA),
+	};
+
+	for ( auto& pair : assets  ) {
+		auto& assetType = pair.second;
+		auto& assetTypeString = pair.first;
+
+		uf::Serializer target;
+		bool override = false;
+		if ( ext::json::isObject( json ) && ext::json::isArray( json["assets"] ) ) {
+			target = json["assets"];
+		} else if ( ext::json::isObject( json ) &&  ext::json::isObject( json["assets"] ) && !ext::json::isNull( json["assets"][assetTypeString] )  ) {
+			target = json["assets"][assetTypeString];
+		} else if ( ext::json::isArray( json ) ) {
+			target = json;
+		} else if ( ext::json::isObject( json ) && !ext::json::isNull( json[assetTypeString] )  ) {
+			target = json[assetTypeString];
+		}/* else if ( ext::json::isObject( metadataJson["system"]["assets"] ) ) {
+			target = metadataJson["system"]["assets"];
+		}*/
+
+		for ( size_t i = 0; i < target.size(); ++i ) {
+			bool isObject = ext::json::isObject( target[i] );
+			uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
+			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
+			uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";
+			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
+			if ( !uf::Asset::isExpected( payload, assetType ) ) continue;
+			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
+			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
+			this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );
+			bool bind = isObject ? target[i]["bind"].as<bool>(true) : true;
+
+			switch ( assetType ) {
+				case uf::Asset::Type::LUA: {
+					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
+				} break;
+				case uf::Asset::Type::GRAPH: {
+					auto graphMetadata = json["metadata"]["graph"];
+					auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
+					aMetadata[filename] = graphMetadata;
+					aMetadata[filename]["root"] = json["root"];
+					if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
+
+					// nasty hack to get soundscapes/music to load while the rest of the graph loads
+					if ( ext::json::isObject(graphMetadata["assets"]) || ext::json::isArray(graphMetadata["assets"]) ) {
+						scene.loadAssets(graphMetadata["assets"]);
+					}
+				} break;
+			}
+		}
+	}
+}
+
 bool uf::Object::load( const uf::Serializer& _json ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
+	auto& scene = uf::scene::getCurrentScene();
+	auto& assetLoader = scene.getComponent<uf::Asset>();
 	uf::Serializer json = _json;
+
 	// setup root/source/mtime
 	if ( json["source"].is<uf::stl::string>() ) {
 		metadata.system.filename = json["source"].as<uf::stl::string>();
@@ -204,8 +290,6 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	// Basic entity information
 	// Set name
 	this->m_name = json["name"].is<uf::stl::string>() ? json["name"].as<uf::stl::string>() : json["type"].as<uf::stl::string>();
-	uf::Scene& scene = uf::scene::getCurrentScene();
-	uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
 	// Set transform
 	{
 		bool load = true;
@@ -232,6 +316,15 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			physics.rotational.acceleration = uf::vector::decode( json["physics"]["rotational"]["acceleration"], physics.rotational.acceleration );
 		}
 	}
+
+	// Load assets
+#if 1
+	{
+		this->loadAssets( json );
+	}
+#else
+	auto& scene = uf::scene::getCurrentScene();
+	auto& assetLoader = scene.getComponent<uf::Asset>();
 
 	#define ASSET_ENTRY(type) { uf::string::lowercase(#type), uf::Asset::Type::type }
 	const uf::stl::unordered_map<uf::stl::string, uf::Asset::Type> assets = {
@@ -273,13 +366,14 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 				} break;
 				case uf::Asset::Type::GRAPH: {
 					auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
-					aMetadata[filename] = json["metadata"]["model"];
+					aMetadata[filename] = json["metadata"]["graph"];
 					aMetadata[filename]["root"] = json["root"];
 					if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
 				} break;
 			}
 		}
 	}
+#endif
 	// Bind behaviors
 	{
 		if ( json["type"].is<uf::stl::string>() ) uf::instantiator::bind( json["type"].as<uf::stl::string>(), *this );

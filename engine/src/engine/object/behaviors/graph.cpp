@@ -34,8 +34,8 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(payload.filename) ));
 		assetLoader.remove<pod::Graph>(payload.filename);
 
+	#if 0
 		bool shouldUpdate = false;
-
 		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 		if ( !ext::json::isNull(graph.metadata["ambient"]) ) {
 			sceneMetadataJson["light"]["ambient"] = graph.metadata["ambient"];
@@ -54,6 +54,7 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 			shouldUpdate = true;	
 		}
 		if ( shouldUpdate ) scene.callHook("object:Deserialize.%UID%");
+	#endif
 
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();
@@ -62,8 +63,8 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		uf::graph::initialize( graph );
 
 		if ( graph.metadata["renderer"]["skinned"].as<bool>() ) {
-			if ( metadata["model"]["animation"].is<uf::stl::string>() ) {
-				uf::graph::animate( graph, metadata["model"]["animation"].as<uf::stl::string>() );
+			if ( metadata["graph"]["animation"].is<uf::stl::string>() ) {
+				uf::graph::animate( graph, metadata["graph"]["animation"].as<uf::stl::string>() );
 			}
 		}
 

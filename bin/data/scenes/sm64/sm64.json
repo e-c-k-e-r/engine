@@ -5,7 +5,7 @@
 		{ "filename": "./models/sm64_bbb/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
 			"baking": {
 				"enabled": true,
 				"resolution": 2048,

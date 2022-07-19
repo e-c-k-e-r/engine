@@ -75,7 +75,7 @@ void uf::Behaviors::generateGraph() {
 		std::reverse( m_graph.destroy.begin(), m_graph.destroy.end() );
 	}
 
-//	uf::scene::invalidateGraphs();
+	uf::scene::invalidateGraphs();
 }
 
 #define UF_BEHAVIOR_POLYFILL UF_BEHAVIOR_POLYFILL_GRAPH

@@ -11,7 +11,7 @@
 			"mass": 10,
 
 			"type": "bounding box",
-			"recenter": true
+			"recenter": false
 		}
 	}
 }

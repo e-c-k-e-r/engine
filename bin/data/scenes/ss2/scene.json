@@ -5,38 +5,10 @@
 	//	"./loading.json"
 		"./medsci.json"
 	],
-	"system": {
-		"hot reload": {
-			"enabled": true
-		},
-		"renderer": {
-			"clear values": [
-				[ 0, 0, 0, 0 ]
-			],
-			"shader": {
-				"mode": 1,
-				"scalar": 16,
-				"parameters": [ 0, 0, 0, "time" ]
-			}
-		}
-	},
 	"metadata": {
-		"menus": {
-			"pause": "/gui/pause/menu.json"
-		},
-		"bloom": {
-			"scale": 1.0,
-			"strength": 0.125,
-			"sigma": 0.8,
-			"samples": 5
-		},
 		"light": {
-			"exposure": 1.0,
-			"gamma": 1.0,
-			"brightnessThreshold": 1.2,
-
-		//	"ambient": [ 0.0, 0.0, 0.0 ],
-			"ambient": [ 0.1, 0.1, 0.2 ],
+			"ambient": [ 0.0, 0.0, 0.0 ],
+		//	"ambient": [ 0.1, 0.1, 0.2 ],
 
 			"fog": {
 				"color": [ 0.025, 0.025, 0.1 ],
@@ -49,9 +21,7 @@
 					"scale": 50.0,
 					"offset": "time"
 				}
-			},
-			"should": true,
-			"shadows": true
+			}
 		}
 	}
 }

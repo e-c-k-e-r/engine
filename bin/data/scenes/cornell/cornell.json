@@ -11,7 +11,7 @@
 		{ "filename": "./models/sponza-cornell/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
 			"baking": {
 				"enabled": false,
 				"resolution": 2048,

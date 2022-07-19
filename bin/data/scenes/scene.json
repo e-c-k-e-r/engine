@@ -7,6 +7,21 @@
 		"SceneBehavior",
 		"ExtSceneBehavior"
 	],
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"renderer": {
+			"clear values": [
+				[ 0, 0, 0, 0 ]
+			],
+			"shader": {
+				"mode": 1,
+				"scalar": 16,
+				"parameters": [ 0, 0, 0, "time" ]
+			}
+		}
+	},
 	"metadata": {
 		// sky, and not skybox, so i can supply parameters for global lighting
 		"sky": {
@@ -14,6 +29,32 @@
 			"box": {
 				"filename": "/skybox/%d.png"
 			}
+		},
+		"menus": {
+			"pause": "/gui/pause/menu.json"
+		},
+		"light": {
+			"enabled": true,
+
+			"ambient": [ 0.0, 0.0, 0.0 ],
+		//	"ambient": [ 0.1, 0.1, 0.2 ],
+
+			"exposure": 1.0,
+			"gamma": 2.2,
+			"brightnessThreshold": 1.2,
+
+			"bloom": {
+				"scale": 1.0,
+				"strength": 0.125,
+				"sigma": 0.8,
+				"samples": 5
+			},
+			"shadows": {
+				"enabled": true
+			}
+		},
+		"noise": {
+			"size": [ 32, 32, 32 ]
 		}
 	}
 }

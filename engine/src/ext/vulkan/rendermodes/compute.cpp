@@ -210,7 +210,7 @@ void ext::vulkan::ComputeRenderMode::render() {
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( uf::renderer::Device::QueueEnum::COMPUTE ), 1, &submitInfo, fences[states::currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( uf::renderer::QueueEnum::COMPUTE ), 1, &submitInfo, fences[states::currentBuffer]));
 
 	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
 

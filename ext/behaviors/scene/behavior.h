@@ -22,7 +22,7 @@ namespace ext {
 				bool enabled = true;
 				uint32_t max = 256;
 				pod::Vector4f ambient = {0,0,0,1};
-				pod::Vector4f specular = {1,1,1,1};
+				pod::Vector4f _placeholder = {1,1,1,1};
 				float exposure = 1.0f;
 				float gamma = 1.0f;
 				float brightnessThreshold = 1.0f;

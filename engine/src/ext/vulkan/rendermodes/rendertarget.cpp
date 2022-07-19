@@ -353,6 +353,15 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			}
 		} else if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
+		/*
+			auto previousTextures = std::move(blitter.material.textures);
+			blitter.material.textures.clear();
+			auto& shader = blitter.material.getShader("fragment");
+			for ( auto& prevTex : previousTextures ) {
+				shader.textures.emplace_back(prevTex);
+			}
+		*/
+
 			for ( auto& attachment : renderTarget.attachments ) {
 				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
@@ -458,7 +467,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 	submitInfo.pCommandBuffers = &commands[states::currentBuffer];		// Command buffers(s) to execute in this batch (submission)
 	submitInfo.commandBufferCount = 1;
 
-	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( Device::QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
+	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 
 	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
 

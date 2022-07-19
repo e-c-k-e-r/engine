@@ -4,6 +4,8 @@
 #include <uf/utils/string/string.h>
 #include <uf/utils/math/vector.h>
 
+#define UF_INPUT_USE_ENUM_MOUSE 1
+
 namespace uf {
 	namespace inputs {
 		#if UF_WINDOW_KEYCODE_STRINGS
@@ -126,6 +128,7 @@ namespace uf {
 				constexpr key_t Num9 = UF_KEY("Num9");
 				constexpr key_t Num0 = UF_KEY("Num0");
 				
+				constexpr key_t Mouse = UF_KEY("Mouse");
 				constexpr key_t Mouse1 = UF_KEY("Mouse1");
 				constexpr key_t Mouse2 = UF_KEY("Mouse2");
 				constexpr key_t Mouse3 = UF_KEY("Mouse3");
@@ -234,6 +237,7 @@ namespace uf {
 				extern UF_API state_t Num9;
 				extern UF_API state_t Num0;
 				
+				extern UF_API analog2_t Mouse;
 				extern UF_API state_t Mouse1;
 				extern UF_API state_t Mouse2;
 				extern UF_API state_t Mouse3;

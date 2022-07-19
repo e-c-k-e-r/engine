@@ -5,7 +5,10 @@
 		{ "filename": "./models/gm_construct/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
+			"assets": [
+				"./audio/soundscape/ambience.ogg"	
+			],
 			"tags": {
 				// exact matches
 				"worldspawn_skybox": { "ignore": true },

@@ -240,6 +240,8 @@ void EXT_API ext::initialize() {
 		
 		uf::userdata::autoDestruct = ::json["engine"]["debug"]["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
 		uf::userdata::autoValidate = ::json["engine"]["debug"]["userdata"]["auto validate"].as( uf::userdata::autoValidate );
+		
+		uf::Object::deferLazyCalls = ::json["engine"]["debug"]["hooks"]["defer lazy calls"].as( uf::Object::deferLazyCalls );
 	}
 
 	{
@@ -436,7 +438,7 @@ void EXT_API ext::initialize() {
 		if ( uf::renderer::settings::pipelines::rt ) {
 			uf::renderer::settings::pipelines::vxgi = false;
 			uf::renderer::settings::pipelines::culling = false;
-			::json["engine"]["scenes"]["shadows"]["enabled"] = false;
+			::json["engine"]["scenes"]["lights"]["shadows"]["enabled"] = false;
 		}
 
 	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\

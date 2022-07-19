@@ -449,7 +449,7 @@ void ext::imgui::initialize() {
 		imguiInitInfo.PhysicalDevice = uf::renderer::device.physicalDevice;
 		imguiInitInfo.Device = uf::renderer::device.logicalDevice;
 		imguiInitInfo.QueueFamily = uf::renderer::device.queueFamilyIndices.graphics;
-		imguiInitInfo.Queue = uf::renderer::device.getQueue( uf::renderer::Device::GRAPHICS );
+		imguiInitInfo.Queue = uf::renderer::device.getQueue( uf::renderer::QueueEnum::GRAPHICS );
 		imguiInitInfo.PipelineCache = uf::renderer::device.pipelineCache;
 		imguiInitInfo.DescriptorPool = ::descriptorPool;
 		imguiInitInfo.Subpass = 0;
@@ -463,9 +463,9 @@ void ext::imgui::initialize() {
 	}
 	{
 		// Use any command queue
-		VkCommandBuffer commandBuffer = uf::renderer::device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::TRANSFER);
+		VkCommandBuffer commandBuffer = uf::renderer::device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::TRANSFER);
 		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-		uf::renderer::device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::TRANSFER);
+		uf::renderer::device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::TRANSFER);
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 

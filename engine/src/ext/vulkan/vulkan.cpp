@@ -436,6 +436,45 @@ void ext::vulkan::tick() {
 void ext::vulkan::render() {
 	ext::vulkan::mutex.lock();
 
+	// process in-flight resources
+	{
+		// cleanup in-flight commands
+		for ( auto& pair : device.transient.commandBuffers ) {
+			auto queueType = pair.first;
+			auto& commandBuffers = pair.second;
+			
+			auto& queue = device.getQueue( queueType );
+			auto& commandPool = device.getCommandPool( queueType );
+
+			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+
+			commandBuffers.clear();
+		}
+		// cleanup in-flight buffers
+		for ( auto& buffer : device.transient.buffers ) {
+			buffer.destroy();
+		}
+		device.transient.buffers.clear();
+	}
+#if 0
+	// process reusable commands
+	{
+		for ( auto& pair : device.reusable.commandBuffers ) {
+			auto queueType = pair.first;
+			auto& cb = pair.second;
+			auto& commandBuffer = cb.commandBuffer;
+
+			auto& queue = device.getQueue( queueType );
+			auto& commandPool = device.getCommandPool( queueType );
+
+			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+			vkResetCommandBuffer(device, commandPool, 1, &commandBuffer);
+			cb.state = 0;
+		}
+	}
+#endif
+
 	if ( settings::experimental::batchQueueSubmissions ) {
 		uf::stl::vector<RenderMode*> auxRenderModes; auxRenderModes.reserve( renderModes.size() );
 		uf::stl::vector<RenderMode*> specialRenderModes; specialRenderModes.reserve( renderModes.size() );
@@ -476,12 +515,12 @@ void ext::vulkan::render() {
 			if ( !submitsCompute.empty() ) {
 				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesCompute[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 				VK_CHECK_RESULT(vkResetFences(device, 1, &::auxFencesCompute[states::currentBuffer]));
-				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( Device::QueueEnum::COMPUTE ), submitsCompute.size(), submitsCompute.data(), ::auxFencesCompute[states::currentBuffer]));
+				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::COMPUTE ), submitsCompute.size(), submitsCompute.data(), ::auxFencesCompute[states::currentBuffer]));
 			}
 			if ( !submitsGraphics.empty() ) {
 				VK_CHECK_RESULT(vkWaitForFences(device, 1, &::auxFencesGraphics[states::currentBuffer], VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 				VK_CHECK_RESULT(vkResetFences(device, 1, &::auxFencesGraphics[states::currentBuffer]));
-				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( Device::QueueEnum::GRAPHICS ), submitsGraphics.size(), submitsGraphics.data(), ::auxFencesGraphics[states::currentBuffer]));
+				VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::GRAPHICS ), submitsGraphics.size(), submitsGraphics.data(), ::auxFencesGraphics[states::currentBuffer]));
 			}
 		}
 		// stuff we can't batch

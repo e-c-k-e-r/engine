@@ -1,41 +1,24 @@
 {
 	"import": "/scene.json",
 	"assets": [
-		"./audio/soundscape/sh2_ambience.ogg",
 		"./sourceengine.json"
 	//	"./loading.json"
 	],
-	"system": {
-		"hot reload": {
-			"enabled": true
-		},
-		"renderer": {
-			"clear values": [
-				[ 0, 0, 0, 0 ]
-			],
-			"shader": {
-				"mode": 1,
-				"scalar": 16,
-				"parameters": [ 0, 0, 0, "time" ]
-			}
-		}
-	},
 	"metadata": {
-		"menus": {
-			"pause": "/gui/pause/menu.json"
-		},
 		"light": {
-			"exposure": 1.0,
-			"gamma": 1.0,
-
-		//	"ambient": [ 0, 0, 0 ],
-			"ambient": [ 0.05, 0.05, 0.05 ],
+			"ambient": [ 0, 0, 0 ],
+		//	"ambient": [ 0.05, 0.05, 0.05 ],
 		//	"ambient": [ 0.15, 0.15, 0.15 ],
 		//	"ambient": [ 0.5, 0.5, 0.5 ],
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
+		//	"ambient": [ 0.1, 0.1, 0.2 ],
+
+			"exposure": 0.25,
+			"gamma": 2.2,
+			"brightnessThreshold": 1.2,
 
 			"fog": {
-				"color": [ 0.5, 0.5, 0.5 ],
+				"color": [ 0.1, 0.1, 0.1 ],
 				"range": [ 64, 256 ],
 				"step scale": 2,
 				"absorbtion": 0.0125,
@@ -46,19 +29,7 @@
 					"offset": [0.2, 0, 1],
 					"timescale": 8
 				}
-			},
-			"should": true,
-			"shadows": true
-		},
-		"noise": {
-			"size": [ 32, 32, 32 ]
-		},
-		"rt": {
-			"defaultRayBounds": [ 0.5, 1024.0 ],
-			"alphaTestOffset": 0.01,
-			"samples": 1,
-			"paths": 1,
-			"frameAccumulationMinimum": 0
+			}
 		}
 	}
 }

@@ -23,7 +23,7 @@
 		"events": {
 			"click": {
 				"name": "game:Scene.Load",
-				"payload": { "scene": "SS2" }
+				"payload": { "scene": "SourceEngine" }
 			}
 		},
 		"text settings": {

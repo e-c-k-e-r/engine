@@ -9,11 +9,64 @@
 #include <uf/engine/object/behaviors/lua.h>
 
 namespace binds {
+	namespace enums {
+		enum Components {
+			Metadata,
+			Transform,
+			Audio,
+			Asset,
+			Camera,
+			Physics,
+			PhysicsState,
+		};
+	
+		static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{
+			#define UF_LUA_REGISTER_ENUM(E) #E, enums::Components::E
+			ext::lua::onInitialization( []{
+				auto enums = ext::lua::state.new_enum("Components",
+					UF_LUA_REGISTER_ENUM(Metadata),
+					UF_LUA_REGISTER_ENUM(Transform),
+					UF_LUA_REGISTER_ENUM(Audio),
+					UF_LUA_REGISTER_ENUM(Asset),
+					UF_LUA_REGISTER_ENUM(Camera),
+					UF_LUA_REGISTER_ENUM(Physics),
+					UF_LUA_REGISTER_ENUM(PhysicsState)
+				);
+			});
+		});
+	}
+
 	uf::stl::string formatHookName(uf::Object& self, const uf::stl::string n ){
 		return self.formatHookName(n);
 	}
-	sol::object getComponent( uf::Object& self, const uf::stl::string& type ) {
-		#define UF_LUA_RETRIEVE_COMPONENT( T )\
+	sol::object getComponentFromEnum( uf::Object& self, binds::enums::Components type ) {
+	#define UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( E, T )\
+		case enums::Components::E: return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
+
+		switch ( type ) {
+			case enums::Components::Metadata: {
+				self.callHook( "object:Serialize.%UID%" );
+				auto& metadata = self.getComponent<uf::Serializer>();
+				auto decoded = ext::lua::decode( metadata );
+				if ( decoded ) {
+					sol::table table = decoded.value();
+					return sol::make_object( ext::lua::state, table );
+				}
+				UF_MSG_ERROR("Failed to deserialize metadata for {}: {}", self.getName(), self.getUid());
+			} break;
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Transform, pod::Transform<> );
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Audio, uf::Audio );
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Asset, uf::Asset );
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Camera, uf::Camera );
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Physics, pod::Physics );
+			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( PhysicsState, pod::PhysicsState );
+		}
+		UF_MSG_ERROR("Invalid component of {} requested for {}: {}", type, self.getName(), self.getUid());
+
+		return sol::make_object( ext::lua::state, sol::lua_nil );
+	}
+	sol::object getComponentFromString( uf::Object& self, const uf::stl::string& type ) {
+		#define UF_LUA_RETRIEVE_COMPONENT_FROM_STRING( T )\
 			else if ( type == UF_NS_GET_LAST(T) ) return sol::make_object( ext::lua::state, std::ref(self.getComponent<T>()) );
 
 		if ( type == "Metadata" ) {
@@ -24,13 +77,15 @@ namespace binds {
 				sol::table table = decoded.value();
 				return sol::make_object( ext::lua::state, table );
 			}
+			UF_MSG_ERROR("Failed to deserialize metadata for {}: {}", self.getName(), self.getUid());
 		}
-		UF_LUA_RETRIEVE_COMPONENT(pod::Transform<>)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Audio)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Asset)
-		UF_LUA_RETRIEVE_COMPONENT(uf::Camera)
-		UF_LUA_RETRIEVE_COMPONENT(pod::Physics)
-		UF_LUA_RETRIEVE_COMPONENT(pod::PhysicsState)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::Transform<>)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Audio)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Asset)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Camera)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::Physics)
+		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::PhysicsState)
+		UF_MSG_ERROR("Invalid component of {} requested for {}: {}", type, self.getName(), self.getUid());
 		return sol::make_object( ext::lua::state, sol::lua_nil );
 	}
 	void setComponent(uf::Object& self, const uf::stl::string& type, sol::object value ) {
@@ -147,6 +202,10 @@ namespace binds {
 		ext::json::Value payload = uf::Serializer(table);
 		self.callHook( name, payload );
 	}
+	void lazyCallHook( uf::Object& self, const uf::stl::string& name, sol::table table = ext::lua::createTable() ) {
+		ext::json::Value payload = uf::Serializer(table);
+		self.lazyCallHook( name, payload );
+	}
 	void queueHook( uf::Object& self, const uf::stl::string& name, sol::table table, float delay = 0.0f ) {
 		ext::json::Value payload = uf::Serializer(table);
 		self.queueHook( name, payload, delay );
@@ -158,6 +217,7 @@ namespace binds {
 	size_t getUid( const uf::Object& o ) { return o.getUid(); }
 	uf::stl::string getName( const uf::Object& o ) { return o.getName(); }
 }
+
 
 UF_LUA_REGISTER_USERTYPE(uf::Object,
 	sol::call_constructor, sol::initializers(
@@ -177,7 +237,8 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( uid, UF_LUA_C_FUN(::binds::getUid) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( name, UF_LUA_C_FUN(::binds::getName) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( formatHookName, UF_LUA_C_FUN(::binds::formatHookName) ), 
-	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponent) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromEnum) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( getComponent, UF_LUA_C_FUN(::binds::getComponentFromString) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setComponent, UF_LUA_C_FUN(::binds::setComponent) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( bind, UF_LUA_C_FUN(::binds::bind) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( findByUid, UF_LUA_C_FUN(::binds::findByUid) ),
@@ -189,46 +250,8 @@ UF_LUA_REGISTER_USERTYPE(uf::Object,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getParent, UF_LUA_C_FUN(::binds::getParent) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( addHook, UF_LUA_C_FUN(::binds::addHook) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( callHook, UF_LUA_C_FUN(::binds::callHook) ),
+	UF_LUA_REGISTER_USERTYPE_DEFINE( lazyCallHook, UF_LUA_C_FUN(::binds::lazyCallHook) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( queueHook, UF_LUA_C_FUN(::binds::queueHook) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( __tostring, UF_LUA_C_FUN(::binds::toString) )
 )
-/*
-namespace {
-	static uf::StaticInitialization TOKEN_PASTE(STATIC_INITIALIZATION_, __LINE__)( []{
-		ext::lua::onInitialization( []{
-			ext::lua::state.new_usertype<uf::Object>(UF_NS_GET_LAST(uf::Object),
-				sol::call_constructor, sol::initializers( []( uf::Object& self, sol::object arg, bool init = true ){
-					if ( arg.is<uf::stl::string>() ) {
-						self.load( arg.as<uf::stl::string>() );
-					} else if ( arg.is<sol::table>() ) {
-						auto encoded = ext::lua::encode( arg.as<sol::table>() );
-						if ( encoded ) {
-							uf::Serializer json = encoded.value();
-							self.load(json);
-						}
-					}
-					if ( init ) self.initialize();
-				}),
-				"uid", UF_LUA_C_FUN(::binds::getUid),
-				"name", UF_LUA_C_FUN(::binds::getName),
-				"formatHookName", UF_LUA_C_FUN(::binds::formatHookName), 
-				"getComponent", UF_LUA_C_FUN(::binds::getComponent),
-				"setComponent", UF_LUA_C_FUN(::binds::setComponent),
-				"bind", UF_LUA_C_FUN(::binds::bind),
-				"findByUid", UF_LUA_C_FUN(::binds::findByUid),
-				"findByName", UF_LUA_C_FUN(::binds::findByName),
-				"addChild", UF_LUA_C_FUN(::binds::addChild),
-				"removeChild", UF_LUA_C_FUN(::binds::removeChild),
-				"loadChild", UF_LUA_C_FUN(::binds::loadChild),
-				"getChildren", UF_LUA_C_FUN(::binds::getChildren),
-				"getParent", UF_LUA_C_FUN(::binds::getParent),
-				"addHook", UF_LUA_C_FUN(::binds::addHook),
-				"callHook", UF_LUA_C_FUN(::binds::callHook),
-				"queueHook", UF_LUA_C_FUN(::binds::queueHook),
-				"__tostring", UF_LUA_C_FUN(::binds::toString)
-			);
-		});
-	});
-}
-*/
 #endif

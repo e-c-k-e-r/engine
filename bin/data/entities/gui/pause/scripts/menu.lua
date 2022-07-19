@@ -1,3 +1,4 @@
+local ent = ent
 local scene = entities.currentScene()
 local metadata = ent:getComponent("Metadata")
 local masterdata = scene:getComponent("Metadata")

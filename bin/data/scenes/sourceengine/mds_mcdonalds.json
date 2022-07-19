@@ -5,7 +5,10 @@
 		{ "filename": "./models/mds_mcdonalds/graph.json" }
 	],
 	"metadata": {
-		"model": {
+		"graph": {
+			"assets": [
+				"./audio/soundscape/sh2_ambience.ogg"	
+			],
 			"tags": {
 				// exact matches
 				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },

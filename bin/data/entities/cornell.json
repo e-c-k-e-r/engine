@@ -24,7 +24,7 @@
 	"metadata": {
 		"track": true,
 		"hide": true,
-		"model": {
+		"graph": {
 			"lightmap": false,
 			"exporter": {
 				"enabled": false,

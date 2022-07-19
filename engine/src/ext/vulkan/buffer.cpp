@@ -129,10 +129,11 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 	if ( !device ) device = &ext::vulkan::device;
 	if ( stage ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
 	VK_CHECK_RESULT(device->createBuffer(
+		nullptr,
+		length,
 		usage,
 		memoryProperties,
-		*this,
-		length
+		*this
 	));
 	if ( data && length ) update( data, length, stage );
 }
@@ -157,26 +158,37 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 		return false;
 	}
 
-	Buffer staging;
-
 	ext::vulkan::Device* device = this->device ? this->device : &ext::vulkan::device;
+#if 1
+	Buffer staging = device->fetchTransientBuffer(
+		data,
+		length,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::TRANSFER);
+		VkBufferCopy region = {};
+		region.size = length;
+		vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
+	device->flushCommandBuffer(copyCommand, QueueEnum::TRANSFER);
+#else
+	Buffer staging;
 	device->createBuffer(
+		data,
+		length,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging,
-		length,
-		data
+		staging
 	);
 
-
 	// Copy to staging buffer
-	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, Device::QueueEnum::TRANSFER);
-	VkBufferCopy region = {};
-	region.size = length;
-	vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
-
-	device->flushCommandBuffer(copyCommand, Device::QueueEnum::TRANSFER);
+	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::TRANSFER);
+		VkBufferCopy region = {};
+		region.size = length;
+		vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
+	device->flushCommandBuffer(copyCommand, QueueEnum::TRANSFER);
 	staging.destroy();
+#endif
 	return false;
 }
 

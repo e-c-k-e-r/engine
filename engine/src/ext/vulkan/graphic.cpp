@@ -1357,7 +1357,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 		scratchBuffer.update( NULL, maxScratchBufferSize );
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
 		for ( auto& blasData : blasDatas ) {
 			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 			blasData.as.buffer.descriptor.offset = blasBufferOffset;
@@ -1402,7 +1402,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 				queryCount++
 			);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
 	}
 	// compact
 	if ( queryPool ) {
@@ -1426,7 +1426,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		this->buffers[blasBufferIndex].swap(oldBuffer);
 		
 		size_t blasBufferOffset{};
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
 		for ( auto& blasData : blasDatas ) {
 			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 			blasData.as.buffer.descriptor.offset = blasBufferOffset;
@@ -1452,7 +1452,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			
 			uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
 
 		oldBuffer.destroy();
 	}
@@ -1644,7 +1644,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		VkAccelerationStructureBuildRangeInfoKHR        buildOffsetInfo{countInstance, 0, 0, 0};
 		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo = &buildOffsetInfo;
 
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
 			commandBuffer,
 			1,
@@ -1661,7 +1661,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			0
 		);
 
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
 	}
 
 #if TLAS_FRONT_AND_BACK
@@ -1671,9 +1671,9 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		copyInfo.dst  = tlasBack.handle;
 		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
 	}
 #endif
 
@@ -1711,9 +1711,9 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		copyInfo.dst  = tlas.handle;
 		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::Device::QueueEnum::COMPUTE);
+		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
-		device.flushCommandBuffer(commandBuffer, uf::renderer::Device::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
 
 		uf::renderer::vkDestroyAccelerationStructureKHR(device, cleanup.handle, nullptr);
 		oldBuffer.destroy();

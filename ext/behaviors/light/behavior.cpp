@@ -56,7 +56,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadata["system"]["config"]["engine"]["scenes"]["shadows"]["enabled"].as<bool>(true) )
+	if ( !sceneMetadata["light"]["shadows"]["enabled"].as<bool>(true) )
 		metadataJson["light"]["shadows"] = false;
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {
 		auto& cameraTransform = camera.getTransform();
@@ -259,18 +259,21 @@ void ext::LightBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 }
 void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){	
 	/*this->*/color = uf::vector::decode( serializer["light"]["color"], /*this->*/color );
-	/*this->*/power = serializer["light"]["power"].as<float>(/*this->*/power);
-	/*this->*/bias = serializer["light"]["bias"]["shader"].as<float>(/*this->*/bias);
-	/*this->*/shadows = serializer["light"]["shadows"].as<bool>(/*this->*/shadows);
-	/*this->*/global = serializer["light"]["global"].as<bool>(/*this->*/global);
-	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as<uf::stl::string>(/*this->*/renderer.mode);
+	/*this->*/power = serializer["light"]["power"].as(/*this->*/power);
+	/*this->*/bias = serializer["light"]["bias"]["shader"].as(/*this->*/bias);
+	/*this->*/shadows = serializer["light"]["shadows"].as(/*this->*/shadows);
+	/*this->*/global = serializer["light"]["global"].as(/*this->*/global);
+	/*this->*/renderer.mode = serializer["system"]["renderer"]["mode"].as(/*this->*/renderer.mode);
 //	/*this->*/renderer.rendered = false;
-	/*this->*/renderer.external = serializer["light"]["external update"].as<bool>(/*this->*/renderer.external);
+	/*this->*/renderer.external = serializer["light"]["external update"].as(/*this->*/renderer.external);
 //	/*this->*/renderer.limiter = serializer["system"]["renderer"]["timer"].as<float>(/*this->*/renderer.limiter);
+
 	if ( serializer["light"]["type"].is<size_t>() ) {
-		/*this->*/type = serializer["light"]["type"].as<size_t>(/*this->*/type);
+		/*this->*/type = serializer["light"]["type"].as(/*this->*/type);
 		if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
+
 	} else if ( serializer["light"]["type"].is<uf::stl::string>() ) {
+		
 		uf::stl::string lightType = serializer["light"]["type"].as<uf::stl::string>();
 		if ( lightType == "point" ) /*this->*/type = 1;
 		else if ( lightType == "spot" ) /*this->*/type = 2;
