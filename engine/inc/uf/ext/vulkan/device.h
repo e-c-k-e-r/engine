@@ -18,6 +18,8 @@ namespace ext {
 			bool immediate{true};
 			QueueEnum queueType{QueueEnum::TRANSFER};
 			VkCommandBuffer handle{VK_NULL_HANDLE};
+
+			operator VkCommandBuffer() { return handle; }
 		};
 
 		struct UF_API Device {
@@ -91,7 +93,8 @@ namespace ext {
 			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true );
 			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool wait = false );
 
-			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = true );
+		//	CommandBuffer fetchCommandBuffer( QueueEnum queue );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_WAIT );
 			void flushCommandBuffer( CommandBuffer commandBuffer );
 
 			VkResult createBuffer(

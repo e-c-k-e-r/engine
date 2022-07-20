@@ -163,10 +163,12 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 	uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
 	uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base.frag.spv"); {
+	#if 0
 		std::pair<bool, uf::stl::string> settings[] = {
 			{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
 		};
 		FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+	#endif
 		fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 	}
 	{
@@ -852,6 +854,37 @@ void uf::graph::process( pod::Graph& graph ) {
 		}
 	}
 
+	// remap instance variables
+#if 0
+	UF_DEBUG_TIMER_MULTITRACE("Remapping drawCommands");
+	for ( auto& name : graph.drawCommands ) {
+		auto& drawCommands = uf::graph::storage.drawCommands[name];
+		for ( auto& drawCommand : drawCommands ) {
+			if ( 0 <= drawCommand.instanceID && drawCommand.instanceID < graph.instances.size() ) {
+				auto& keys = /*graph.storage*/uf::graph::storage.instances.keys;
+				auto& indices = /*graph.storage*/uf::graph::storage.instances.indices;
+				
+				if ( !(0 <= drawCommand.instanceID && drawCommand.instanceID < graph.instances.size()) ) continue;
+
+				auto& needle = graph.instances[drawCommand.instanceID];
+			#if 1
+				drawCommand.instanceID = indices[needle];
+			#elif 1
+				for ( size_t i = 0; i < keys.size(); ++i ) {
+					if ( keys[i] != needle ) continue;
+					drawCommand.instanceID = i;
+					break;
+				}
+			#else
+				auto it = std::find( keys.begin(), keys.end(), needle );
+				UF_ASSERT( it != keys.end() );
+				drawCommand.instanceID = it - keys.begin();
+			#endif
+			}
+		}
+	}
+#endif
+
 	if ( graph.metadata["debug"]["print"]["lights"].as<bool>() ) for ( auto& pair : graph.lights ) UF_MSG_DEBUG("Light: {}", pair.first);
 	if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) for ( auto& name : graph.meshes ) UF_MSG_DEBUG("Mesh: {}", name);
 	if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) for ( auto& name : graph.materials ) UF_MSG_DEBUG("Material: {}", name);
@@ -910,25 +943,7 @@ void uf::graph::process( pod::Graph& graph ) {
 		{
 			auto& graphic = graph.root.entity->getComponent<uf::renderer::Graphic>();
 			uf::graph::initializeGraphics( graph, *graph.root.entity, mesh );
-		/*
-			if ( uf::renderer::settings::pipelines::rt ) {
-				uf::stl::vector<uf::renderer::Graphic*> graphics = { &graphic };
-				graphic.generateTopAccelerationStructure( graphics, uf::graph::storage.instances.flatten() );
-			}
-		*/
 		}
-	} else if ( uf::renderer::settings::pipelines::rt ) {
-	/*
-		auto& graphic = graph.root.entity->getComponent<uf::renderer::Graphic>();
-		graphic.initialize("Compute");
-
-		uf::stl::vector<uf::renderer::Graphic*> graphics;
-		for ( auto& node : graph.nodes ) {
-			if ( !node.entity || !node.entity->hasComponent<uf::renderer::Graphic>() ) continue;
-			graphics.emplace_back(node.entity->getComponentPointer<uf::renderer::Graphic>());
-		}
-		graphic.generateTopAccelerationStructure( graphics, uf::graph::storage.instances.flatten() );
-	*/
 	}
 
 	uf::graph::storage.instanceAddresses.keys = uf::graph::storage.instances.keys;

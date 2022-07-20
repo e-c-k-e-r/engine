@@ -19,68 +19,58 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 
 #if !MULTISAMPLING
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInput samplerId;
-	layout (input_attachment_index = 1, binding = 1) uniform subpassInput samplerNormal;
-	#if DEFERRED_SAMPLING
-		layout (input_attachment_index = 2, binding = 2) uniform subpassInput samplerUv;
-	#else
-		layout (input_attachment_index = 2, binding = 2) uniform subpassInput samplerAlbedo;
-	#endif
-	layout (input_attachment_index = 3, binding = 3) uniform subpassInput samplerDepth;
-	#if DEFERRED_SAMPLING
-		layout (input_attachment_index = 4, binding = 4) uniform subpassInput samplerMips;
-	#endif
+	layout (input_attachment_index = 1, binding = 1) uniform usubpassInput samplerBary;
+	layout (input_attachment_index = 2, binding = 2) uniform subpassInput samplerMips;
+	layout (input_attachment_index = 3, binding = 3) uniform subpassInput samplerNormal;
+	layout (input_attachment_index = 4, binding = 4) uniform subpassInput samplerUv;
+	layout (input_attachment_index = 5, binding = 5) uniform subpassInput samplerDepth;
 #else
 	layout (input_attachment_index = 0, binding = 0) uniform usubpassInputMS samplerId;
-	layout (input_attachment_index = 1, binding = 1) uniform subpassInputMS samplerNormal;
-	#if DEFERRED_SAMPLING
-		layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerUv;
-	#else
-		layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerAlbedo;
-	#endif
-	layout (input_attachment_index = 3, binding = 3) uniform subpassInputMS samplerDepth;
-	#if DEFERRED_SAMPLING
-		layout (input_attachment_index = 4, binding = 4) uniform subpassInputMS samplerMips;
-	#endif
+	layout (input_attachment_index = 1, binding = 1) uniform usubpassInputMS samplerBary;
+	layout (input_attachment_index = 2, binding = 2) uniform subpassInputMS samplerMips;
+	layout (input_attachment_index = 3, binding = 3) uniform subpassInputMS samplerNormal;
+	layout (input_attachment_index = 4, binding = 4) uniform subpassInputMS samplerUv;
+	layout (input_attachment_index = 5, binding = 5) uniform subpassInputMS samplerDepth;
 #endif
 
 #include "../common/structs.h"
 
-layout (binding = 5) uniform UBO {
+layout (binding = 6) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
 /*
 */
-layout (std140, binding = 6) readonly buffer DrawCommands {
+layout (std140, binding = 7) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 7) readonly buffer Instances {
+layout (std140, binding = 8) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 8) readonly buffer InstanceAddresseses {
+layout (std140, binding = 9) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 9) readonly buffer Materials {
+layout (std140, binding = 10) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 10) readonly buffer Textures {
+layout (std140, binding = 11) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 11) readonly buffer Lights {
+layout (std140, binding = 12) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 12) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 13) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 14) uniform sampler3D samplerNoise;
+layout (binding = 13) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 14) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 15) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 15) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 16) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 17) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 16) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 17) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 18) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 #if RAYTRACE
-	layout (binding = 18) uniform accelerationStructureEXT tlas;
+	layout (binding = 19) uniform accelerationStructureEXT tlas;
 #endif
 
 layout (location = 0) in vec2 inUv;
@@ -180,16 +170,14 @@ void populateSurface() {
 
 #if !MULTISAMPLING
 	surface.normal.world = decodeNormals( subpassLoad(samplerNormal).xy );
-	const uvec2 ID = subpassLoad(samplerId).xy;
+	const uvec3 ID = subpassLoad(samplerId).xyz;
 #else
 	surface.normal.world = decodeNormals( subpassLoad(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.settings.mode.msaa).xy );
-	const uvec2 ID = msaa.IDs[msaa.currentID]; // subpassLoad(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.settings.mode.msaa).xy;
+	const uvec3 ID = msaa.IDs[msaa.currentID]; // subpassLoad(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.settings.mode.msaa).xy;
 #endif
 	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
 
-	const uint drawID = ID.x - 1;
-	const uint instanceID = ID.y - 1;
-	if ( ID.x == 0 || ID.y == 0 ) {
+	if ( ID.x == 0 || ID.y == 0 || ID.z == 0 ) {
 		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
 		}
@@ -197,6 +185,10 @@ void populateSurface() {
 		postProcess();
 		return;
 	}
+	const uint drawID = ID.x - 1;
+	const uint triangleID = ID.y - 1;
+	const uint instanceID = ID.z - 1;
+
 	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	surface.instance = instance;
@@ -208,7 +200,6 @@ void populateSurface() {
 	surface.material.occlusion = material.factorOcclusion;
 	surface.fragment = material.colorEmissive;
 
-#if DEFERRED_SAMPLING
 	{
 	#if !MULTISAMPLING
 		const vec4 uv = subpassLoad(samplerUv);
@@ -258,13 +249,6 @@ void populateSurface() {
 	 	surface.material.metallic = samp.r;
 		surface.material.roughness = samp.g;
 	}
-#else
-#if !MULTISAMPLING
-	surface.material.albedo *= subpassLoad(samplerAlbedo);
-#else
-	surface.material.albedo *= subpassLoad(samplerAlbedo, msaa.currentID); // resolve(samplerAlbedo, ubo.settings.mode.msaa);
-#endif
-#endif
 }
 
 void directLighting() {
@@ -284,7 +268,7 @@ void directLighting() {
 void resolveSurfaceFragment() {
 	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
 		msaa.currentID = i;
-		msaa.IDs[i] = subpassLoad(samplerId, msaa.currentID).xy;
+		msaa.IDs[i] = subpassLoad(samplerId, msaa.currentID).xyz;
 
 		// check if ID is already used
 		bool unique = true;

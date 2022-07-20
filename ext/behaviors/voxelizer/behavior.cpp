@@ -78,13 +78,16 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
 	//	auto& depth = sceneTextures.voxels.depth.emplace_back();
 
-		id.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-		id.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
+		id.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
+		id.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
+
+		auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
+		auto SDR_FORMAT = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; // uf::renderer::enums::Format::R8G8B8A8_UNORM
 
 		id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	//	uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		radiance.fromBuffers( NULL, 0, HDR ? uf::renderer::enums::Format::R16G16B16A16_SFLOAT : uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		radiance.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	// initialize render mode

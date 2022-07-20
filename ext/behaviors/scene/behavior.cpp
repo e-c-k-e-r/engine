@@ -691,6 +691,19 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/shader.parameters = uf::vector::decode( serializer["system"]["renderer"]["shader"]["parameters"], /*this->*/shader.parameters );
 	/*this->*/shader.frameAccumulateLimit = serializer["system"]["renderer"]["shader"]["frame accumulate limit"].as(/*this->*/shader.frameAccumulateLimit);
 
+#if UF_AUDIO_MAPPED_VOLUMES
+	ext::json::forEach( serializer["volumes"], []( const uf::stl::string& key, ext::json::Value& value ){
+		float volume; volume = value.as(volume);
+		uf::audio::volumes[key] = volume;
+	});
+#else
+	if ( ext::json::isObject( serializer["volumes"] ) ) {
+		uf::audio::volumes::bgm = serializer["volumes"]["bgm"].as(uf::audio::volumes::bgm);
+		uf::audio::volumes::sfx = serializer["volumes"]["sfx"].as(uf::audio::volumes::sfx);
+		uf::audio::volumes::voice = serializer["volumes"]["voice"].as(uf::audio::volumes::voice);
+	}
+#endif
+
 	ext::json::forEach( serializer["system"]["renderer"]["shader"]["parameters"], [&]( uint32_t i, const ext::json::Value& value ){
 		if ( value.as<uf::stl::string>() == "time" ) /*this->*/shader.time = i;
 	});

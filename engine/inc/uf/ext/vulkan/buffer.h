@@ -48,7 +48,7 @@ namespace ext {
 			void initialize( ext::vulkan::Device& device, size_t = {} );
 			void initialize( const void*, VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, bool = VK_DEFAULT_STAGE_BUFFERS );
 			bool update( const void*, VkDeviceSize, bool = VK_DEFAULT_STAGE_BUFFERS ) const;
-			void destroy();
+			void destroy(bool = VK_DEFAULT_DEFER_BUFFER_DESTROY);
 
 			void swap( Buffer& );
 			Buffer alias() const;

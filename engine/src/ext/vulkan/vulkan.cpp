@@ -23,6 +23,8 @@ uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
 bool ext::vulkan::settings::validation = true;
 bool ext::vulkan::settings::defaultStageBuffers = true;
+bool ext::vulkan::settings::defaultDeferBufferDestroy = true;
+bool ext::vulkan::settings::defaultCommandBufferWait = true;
 // constexpr size_t ext::vulkan::settings::maxViews = 6;
 size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
@@ -73,8 +75,6 @@ uf::stl::string ext::vulkan::settings::pipelines::names::rt = "rt";
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::depth = ext::vulkan::enums::Format::D32_SFLOAT;
-ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::normal = ext::vulkan::enums::Format::R16G16B16A16_SFLOAT;
-ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::position = ext::vulkan::enums::Format::R16G16B16A16_SFLOAT;
 
 ext::vulkan::Device ext::vulkan::device;
 ext::vulkan::Allocator ext::vulkan::allocator;
@@ -436,26 +436,18 @@ void ext::vulkan::tick() {
 void ext::vulkan::render() {
 	ext::vulkan::mutex.lock();
 
-	// process in-flight resources
-	{
-		// cleanup in-flight commands
-		for ( auto& pair : device.transient.commandBuffers ) {
-			auto queueType = pair.first;
-			auto& commandBuffers = pair.second;
-			
-			auto& queue = device.getQueue( queueType );
-			auto& commandPool = device.getCommandPool( queueType );
+	// cleanup in-flight commands
+	for ( auto& pair : device.transient.commandBuffers ) {
+		auto queueType = pair.first;
+		auto& commandBuffers = pair.second;
+		
+		auto& queue = device.getQueue( queueType );
+		auto& commandPool = device.getCommandPool( queueType );
 
-			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 
-			commandBuffers.clear();
-		}
-		// cleanup in-flight buffers
-		for ( auto& buffer : device.transient.buffers ) {
-			buffer.destroy();
-		}
-		device.transient.buffers.clear();
+		commandBuffers.clear();
 	}
 #if 0
 	// process reusable commands
@@ -552,14 +544,17 @@ void ext::vulkan::render() {
 			ext::vulkan::setCurrentRenderMode(NULL);
 		//	renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
 		}
-		for ( auto& renderMode : renderModes ) {
-		//	renderMode->cleanupCommands( renderMode->mostRecentCommandPoolId );
-		}
+	//	for ( auto& renderMode : renderModes ) renderMode->cleanupCommands( renderMode->mostRecentCommandPoolId );
 	}
 
 
 	if ( ext::vulkan::settings::invariant::waitOnRenderEnd ) synchronize();
 //	if ( ext::openvr::context ) ext::openvr::postSubmit();
+
+	// cleanup in-flight buffers
+	for ( auto& buffer : device.transient.buffers ) buffer.destroy(false);
+	device.transient.buffers.clear();
+
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {

@@ -31,7 +31,7 @@ layout( push_constant ) uniform PushBlock {
 
 layout (binding = 0) uniform accelerationStructureEXT tlas;
 
-layout (binding = 1, rgba8) uniform volatile coherent image2D outImage;
+layout (binding = 1, rgba32f) uniform volatile coherent image2D outImage;
 
 layout (binding = 2) uniform UBO {
 	EyeMatrices eyes[2];

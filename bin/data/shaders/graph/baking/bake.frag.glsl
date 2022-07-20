@@ -157,6 +157,7 @@ void main() {
 			surface.light.a += light.power * La * Ls;
 		}
 	}
+	
 #endif
 #define EXPOSURE 0
 #define GAMMA 0

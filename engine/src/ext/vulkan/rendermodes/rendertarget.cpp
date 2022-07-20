@@ -95,34 +95,35 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
-			if ( metadata.type == "single" ) {
-				struct {
-					size_t albedo, depth;
-				} attachments = {};
+			struct {
+				size_t albedo, depth;
+			} attachments = {};
 
-				attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
-					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */true,
-					/*.samples = */msaa,
-				});
-				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ ext::vulkan::settings::formats::depth,
-					/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-					/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					/*.blend = */ false,
-					/*.samples = */ 1,
-				});
-				renderTarget.addPass(
-					VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-					{ attachments.albedo },
-					{},
-					{},
-					attachments.depth,
-					0,
-					true
-				);
+			attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
+				/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+				/*.blend = */true,
+				/*.samples = */msaa,
+			});
+			attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+				/*.format = */ ext::vulkan::settings::formats::depth,
+				/*.layout = */ VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+				/*.usage = */ VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				/*.blend = */ false,
+				/*.samples = */ 1,
+			});
+			renderTarget.addPass(
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				{ attachments.albedo },
+				{},
+				{},
+				attachments.depth,
+				0,
+				true
+			);
+		#if 0
+			if ( metadata.type == "single" ) {
 			} else {
 				struct {
 					size_t id, normals, uvs, albedo, depth, output;
@@ -226,6 +227,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 				metadata.outputs.emplace_back(attachments.output);
 			}
+		#endif
 		}
 	}
 
@@ -299,12 +301,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
-			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.vert.spv";
-			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTargetSimple.frag.spv"; {
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv"; {
 				std::pair<bool, uf::stl::string> settings[] = {
 					{ msaa > 1, "msaa.frag" },
-				// I don't actually have support for deferred sampling within a render target
-				//	{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
 				};
 				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 			}

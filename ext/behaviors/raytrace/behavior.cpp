@@ -30,8 +30,8 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	if ( !uf::renderer::hasRenderMode("Compute", true) ) {
 		auto* renderMode = new uf::renderer::RenderTargetRenderMode;
 		renderMode->setTarget("Compute");
-		renderMode->metadata.json["shaders"]["vertex"] = "/shaders/display/renderTargetSimple.vert.spv";
-		renderMode->metadata.json["shaders"]["fragment"] = "/shaders/display/renderTargetSimple.frag.spv";
+		renderMode->metadata.json["shaders"]["vertex"] = "/shaders/display/renderTarget.vert.spv";
+		renderMode->metadata.json["shaders"]["fragment"] = "/shaders/display/renderTarget.postProcess.frag.spv";
 		
 		renderMode->blitter.descriptor.renderMode = "Swapchain";
 		renderMode->blitter.descriptor.subpass = 0;
@@ -114,10 +114,13 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			if ( size.y == 0 ) size.y = uf::renderer::settings::height * metadata.renderer.scale;
 			UF_MSG_DEBUG("Size: {}", uf::vector::toString( size ));
 
+			auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
+			auto SDR_FORMAT = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; // uf::renderer::enums::Format::R8G8B8A8_UNORM
+
 			auto& image = shader.textures.emplace_back();
 			image.fromBuffers(
 				NULL, 0,
-				uf::renderer::enums::Format::R8G8B8A8_UNORM,
+				uf::renderer::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
 				size.x, size.y, 1, 1,
 				VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
 			);

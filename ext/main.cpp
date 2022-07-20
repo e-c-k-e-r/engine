@@ -306,9 +306,11 @@ void EXT_API ext::initialize() {
 			uf::audio::volumes[key] = volume;
 		});
 	#else
-		uf::audio::volumes::bgm = configEngineAudioJson["volumes"]["bgm"].as(uf::audio::volumes::bgm);
-		uf::audio::volumes::sfx = configEngineAudioJson["volumes"]["sfx"].as(uf::audio::volumes::sfx);
-		uf::audio::volumes::voice = configEngineAudioJson["volumes"]["voice"].as(uf::audio::volumes::voice);
+		if ( ext::json::isObject( configEngineAudioJson["volumes"] ) ) {
+			uf::audio::volumes::bgm = configEngineAudioJson["volumes"]["bgm"].as(uf::audio::volumes::bgm);
+			uf::audio::volumes::sfx = configEngineAudioJson["volumes"]["sfx"].as(uf::audio::volumes::sfx);
+			uf::audio::volumes::voice = configEngineAudioJson["volumes"]["voice"].as(uf::audio::volumes::voice);
+		}
 	#endif
 	}
 
@@ -364,7 +366,9 @@ void EXT_API ext::initialize() {
 
 		uf::renderer::settings::validation = configRenderJson["validation"]["enabled"].as( uf::renderer::settings::validation );
 		uf::renderer::settings::msaa = configRenderJson["framebuffer"]["msaa"].as( uf::renderer::settings::msaa );
-		uf::renderer::settings::defaultStageBuffers = configRenderJson["invariant"]["defaultStageBuffers"].as( uf::renderer::settings::defaultStageBuffers );
+		uf::renderer::settings::defaultStageBuffers = configRenderJson["invariant"]["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
+		uf::renderer::settings::defaultDeferBufferDestroy = configRenderJson["invariant"]["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
+		uf::renderer::settings::defaultCommandBufferWait = configRenderJson["invariant"]["default command buffer wait"].as( uf::renderer::settings::defaultCommandBufferWait );
 
 		if ( configRenderJson["framebuffer"]["size"].is<float>() ) {
 			float scale = configRenderJson["framebuffer"]["size"].as(1.0f);
@@ -421,7 +425,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
 		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
 		uf::renderer::settings::invariant::deferredAliasOutputToSwapchain = configRenderInvariantJson["deferred alias output to swapchain"].as( uf::renderer::settings::invariant::deferredAliasOutputToSwapchain );
-		uf::renderer::settings::invariant::deferredSampling = configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
+		uf::renderer::settings::invariant::deferredSampling = true; // configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
 	
 		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
@@ -449,8 +453,6 @@ void EXT_API ext::initialize() {
 
 		JSON_TO_VKFORMAT(color);
 		JSON_TO_VKFORMAT(depth);
-		JSON_TO_VKFORMAT(normal);
-		JSON_TO_VKFORMAT(position);
 	#endif
 	}
 

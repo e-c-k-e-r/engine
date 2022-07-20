@@ -586,6 +586,11 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 		this->transient.commandBuffers[queueType].emplace_back(commandBuffer);
 	}
 }
+/*
+ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType ){
+	return fetchCommandBuffer( queueType, ext::vulkan::settings::defaultCommandBufferWait );
+}
+*/
 ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType, bool immediate ){
 	return {
 		.immediate = immediate,
@@ -1048,6 +1053,7 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{};
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures{};
+		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR fragmentShaderBarycentricFeatures{};
 
 		VkPhysicalDeviceVulkan12Features enabledPhysicalDeviceVulkan12Features{};
 		VkPhysicalDeviceFeatures2 enabledDeviceFeatures2{}; {
@@ -1107,6 +1113,10 @@ void ext::vulkan::Device::initialize() {
 			shaderClockFeatures.shaderSubgroupClock = VK_TRUE;
 			shaderClockFeatures.shaderDeviceClock = VK_TRUE;
 		}
+		{
+			fragmentShaderBarycentricFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+			fragmentShaderBarycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
+		}
 		
 		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
 		physicalDeviceFeatures2.pNext = &physicalDeviceVulkan12Features;
@@ -1118,6 +1128,7 @@ void ext::vulkan::Device::initialize() {
 		rayTracingPipelineFeatures.pNext = &rayQueryFeatures;
 		rayQueryFeatures.pNext = &accelerationStructureFeatures;
 		accelerationStructureFeatures.pNext = &shaderClockFeatures;
+		shaderClockFeatures.pNext = &fragmentShaderBarycentricFeatures;
 	
 		if ( settings::experimental::enableMultiGPU ) {
 			UF_MSG_DEBUG("Multiple devices supported, using {} devices...", groupDeviceCreateInfo.physicalDeviceCount);

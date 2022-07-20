@@ -77,7 +77,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocationCreateInfo, &temporary, &allocation, &allocationInfo));
 	VkDeviceMemory temporaryMemory = allocationInfo.deviceMemory;
 
-	VkCommandBuffer copyCmd = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::GRAPHICS);
+	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::GRAPHICS, true); // waits on flush
 	
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -93,13 +93,13 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	imageMemoryBarrier.image = temporary;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 
 	imageMemoryBarrier.image = attachment.image;
 	imageMemoryBarrier.subresourceRange.baseArrayLayer = layerID;
 	imageMemoryBarrier.oldLayout = attachment.descriptor.layout;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 
 	if ( attachment.descriptor.samples > 1 ) {
 		VkOffset3D blitSize;
@@ -118,7 +118,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	//	imageResolveRegion.dstOffsets[1] = blitSize;
 		imageResolveRegion.extent = { renderTarget.width, renderTarget.height, 1 };
 
-		vkCmdResolveImage(  copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageResolveRegion );
+		vkCmdResolveImage(  commandBuffer, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageResolveRegion );
 	} else if ( blitting ) {
 		VkOffset3D blitSize;
 		blitSize.x = renderTarget.width;
@@ -135,7 +135,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 		imageBlit.dstSubresource.layerCount = 1;
 		imageBlit.dstOffsets[1] = blitSize;
 
-		vkCmdBlitImage( copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_NEAREST);
+		vkCmdBlitImage( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_NEAREST);
 	} else {
 		VkImageCopy imageCopy{};
 		imageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -146,7 +146,7 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 		imageCopy.dstSubresource.layerCount = 1;
 		imageCopy.extent = { renderTarget.width, renderTarget.height, 1 };
 
-		vkCmdCopyImage( copyCmd, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy );
+		vkCmdCopyImage( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy );
 	}
 	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
@@ -155,14 +155,14 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
 
 	imageMemoryBarrier.image = attachment.image;
 	imageMemoryBarrier.subresourceRange.baseArrayLayer = layerID;
 	imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	imageMemoryBarrier.newLayout = attachment.descriptor.layout;
-	vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-	device->flushCommandBuffer(copyCmd, QueueEnum::GRAPHICS);
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
+	device->flushCommandBuffer(commandBuffer);
 
 	const uint8_t* data;
 	vmaMapMemory( allocator, allocation, (void**)&data );

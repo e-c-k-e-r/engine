@@ -110,8 +110,6 @@ namespace ext {
 				extern UF_API VkColorSpaceKHR colorSpace;
 				extern UF_API ext::vulkan::enums::Format::type_t color;
 				extern UF_API ext::vulkan::enums::Format::type_t depth;
-				extern UF_API ext::vulkan::enums::Format::type_t normal;
-				extern UF_API ext::vulkan::enums::Format::type_t position;
 			}
 		}
 		namespace states {

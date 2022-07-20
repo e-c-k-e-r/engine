@@ -115,8 +115,13 @@ void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignm
 	this->device = &device;
 	this->alignment = alignment;
 }
-void ext::vulkan::Buffer::destroy() {
+void ext::vulkan::Buffer::destroy(bool defer) {
 	if ( !device || aliased ) return;
+	if ( defer ) {
+		device->transient.buffers.emplace_back(*this);
+		this->aliased = true;
+		return;
+	}
 
 	if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
@@ -159,36 +164,17 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	}
 
 	ext::vulkan::Device* device = this->device ? this->device : &ext::vulkan::device;
-#if 1
 	Buffer staging = device->fetchTransientBuffer(
 		data,
 		length,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
-	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::TRANSFER);
+	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER, true); // waits on finish
 		VkBufferCopy region = {};
 		region.size = length;
-		vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
-	device->flushCommandBuffer(copyCommand, QueueEnum::TRANSFER);
-#else
-	Buffer staging;
-	device->createBuffer(
-		data,
-		length,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging
-	);
-
-	// Copy to staging buffer
-	VkCommandBuffer copyCommand = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, QueueEnum::TRANSFER);
-		VkBufferCopy region = {};
-		region.size = length;
-		vkCmdCopyBuffer(copyCommand, staging.buffer, buffer, 1, &region);
-	device->flushCommandBuffer(copyCommand, QueueEnum::TRANSFER);
-	staging.destroy();
-#endif
+		vkCmdCopyBuffer(commandBuffer, staging.buffer, buffer, 1, &region);
+	device->flushCommandBuffer(commandBuffer);
 	return false;
 }
 

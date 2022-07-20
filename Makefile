@@ -42,7 +42,8 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.182.0/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.204.1/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.216.0/
 
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt

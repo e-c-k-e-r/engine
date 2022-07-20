@@ -65,8 +65,10 @@ void main() {
 	outUv = inUv;
 	outSt = inSt;
 	const uint drawID = gl_DrawIDARB;
-	const DrawCommand drawCommand = drawCommands[drawID];
+	const uint triangleID = gl_VertexIndex / 3;
 	const uint instanceID = gl_InstanceIndex;
+
+	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	const uint materialID = instance.materialID;
 	const uint jointID = instance.jointID;
@@ -86,7 +88,7 @@ void main() {
 //	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
 	const mat4 model = instance.model * skinned;
 
-	outId = ivec4(drawID, instanceID, materialID, PushConstant.pass);
+	outId = uvec4(drawID, triangleID, instanceID, PushConstant.pass);
 	outColor = instance.color;
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outNormal = vec3(model * vec4(inNormal.xyz, 0.0));

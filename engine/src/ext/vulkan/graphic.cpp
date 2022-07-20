@@ -627,7 +627,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					ext::vulkan::enums::Image::viewType_t imageType = shader->metadata.definitions.textures.at(layout.binding).type;
 					if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D ) {
-						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -637,7 +637,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image2DInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY ) {
-						UF_ASSERT_BREAK_MSG( image2DAInfo != infos.image2DA.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( image2DAInfo != infos.image2DA.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -647,7 +647,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image2DAInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) {
-						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -657,7 +657,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						imageCubeInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_3D ) {
-						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -667,7 +667,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image3DInfo += layout.descriptorCount;
 					} else {
-						UF_ASSERT_BREAK_MSG( imageUnknownInfo != infos.imageUnknown.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+						UF_ASSERT_BREAK_MSG( imageUnknownInfo != infos.imageUnknown.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -679,7 +679,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					}
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-					UF_ASSERT_BREAK_MSG( inputInfo != infos.input.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( inputInfo != infos.input.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -690,7 +690,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					inputInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_SAMPLER: {
-					UF_ASSERT_BREAK_MSG( samplerInfo != infos.sampler.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( samplerInfo != infos.sampler.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -701,7 +701,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					samplerInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -712,7 +712,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -723,7 +723,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					storageBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
-					UF_ASSERT_BREAK_MSG( accelerationStructureInfo != infos.accelerationStructure.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
+					UF_ASSERT_BREAK_MSG( accelerationStructureInfo != infos.accelerationStructure.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
 					auto& writeDescriptorSet = writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -1357,7 +1357,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 		scratchBuffer.update( NULL, maxScratchBufferSize );
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
 		for ( auto& blasData : blasDatas ) {
 			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 			blasData.as.buffer.descriptor.offset = blasBufferOffset;
@@ -1402,7 +1402,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 				queryCount++
 			);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer);
 	}
 	// compact
 	if ( queryPool ) {
@@ -1426,7 +1426,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		this->buffers[blasBufferIndex].swap(oldBuffer);
 		
 		size_t blasBufferOffset{};
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
 		for ( auto& blasData : blasDatas ) {
 			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 			blasData.as.buffer.descriptor.offset = blasBufferOffset;
@@ -1452,7 +1452,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			
 			uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer);
 
 		oldBuffer.destroy();
 	}
@@ -1644,7 +1644,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		VkAccelerationStructureBuildRangeInfoKHR        buildOffsetInfo{countInstance, 0, 0, 0};
 		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo = &buildOffsetInfo;
 
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
 			commandBuffer,
 			1,
@@ -1661,7 +1661,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			0
 		);
 
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer);
 	}
 
 #if TLAS_FRONT_AND_BACK
@@ -1671,9 +1671,9 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		copyInfo.dst  = tlasBack.handle;
 		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer);
 	}
 #endif
 
@@ -1711,9 +1711,9 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		copyInfo.dst  = tlas.handle;
 		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 		
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::COMPUTE);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
 		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::COMPUTE);
+		device.flushCommandBuffer(commandBuffer);
 
 		uf::renderer::vkDestroyAccelerationStructureKHR(device, cleanup.handle, nullptr);
 		oldBuffer.destroy();

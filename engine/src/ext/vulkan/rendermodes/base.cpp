@@ -474,7 +474,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	}
 #if 0
 	if ( true ) {
-		VkCommandBuffer commandBuffer = device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::TRANSFER);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
 		for ( size_t i = 0; i < images.size(); ++i ) {
 			VkImageMemoryBarrier imageMemoryBarrier = {};
 			imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -496,7 +496,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 		}
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::TRANSFER);
+		device.flushCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
 	}
 #endif
 /*

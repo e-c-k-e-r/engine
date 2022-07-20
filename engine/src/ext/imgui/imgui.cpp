@@ -463,9 +463,9 @@ void ext::imgui::initialize() {
 	}
 	{
 		// Use any command queue
-		VkCommandBuffer commandBuffer = uf::renderer::device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, uf::renderer::QueueEnum::TRANSFER);
-		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-		uf::renderer::device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::TRANSFER);
+		auto commandBuffer = uf::renderer::device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
+		ImGui_ImplVulkan_CreateFontsTexture(commandBuffer.handle);
+		uf::renderer::device.flushCommandBuffer(commandBuffer);
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
 	}
 

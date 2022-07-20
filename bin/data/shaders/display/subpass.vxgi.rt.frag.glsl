@@ -3,7 +3,7 @@
 
 #define VXGI 1
 #define RAYTRACE 1
-#define DEFERRED_SAMPLING 0
+#define DEFERRED_SAMPLING 1
 #define MULTISAMPLING 0
 #include "./subpass.h"
 

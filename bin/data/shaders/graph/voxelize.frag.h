@@ -52,16 +52,6 @@ layout (location = 8) flat in uvec4 inId;
 
 #include "../common/functions.h"
 
-#if 0
-layout (location = 0) out uvec2 outId;
-layout (location = 1) out vec2 outNormals;
-#if DEFERRED_SAMPLING
-	layout (location = 2) out vec4 outUvs;
-#else
-	layout (location = 2) out vec4 outAlbedo;
-#endif
-#endif
-
 void main() {
 	const uint CASCADE = inId.w;
 	if ( CASCADES <= CASCADE ) discard;
@@ -69,8 +59,8 @@ void main() {
 	if ( abs(P.x) > 1 || abs(P.y) > 1 || abs(P.z) > 1 ) discard;
 
 	const uint drawID = uint(inId.x);
-	const uint instanceID = uint(inId.y);
-	const uint materialID = uint(inId.z);
+	const uint triangleID = uint(inId.y);
+	const uint instanceID = uint(inId.z);
 	const vec2 uv = wrap(inUv.xy);
 
 	surface.uv.xy = uv;
@@ -81,7 +71,7 @@ void main() {
 	vec3 N = inNormal;
 
 	const Instance instance = instances[instanceID];
-	const Material material = materials[materialID];
+	const Material material = materials[instance.materialID];
 	surface.instance = instance;
 
 	vec4 A = material.colorBase;

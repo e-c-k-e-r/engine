@@ -46,9 +46,9 @@ layout (binding = 9) uniform sampler3D samplerNoise;
 layout (binding = 10, rg16ui) uniform volatile coherent uimage3D voxelId[CASCADES];
 layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCADES];
 #if VXGI_HDR
-	layout (binding = 12, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 12, rgba32f) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #else
-	layout (binding = 12, rgba8) uniform volatile coherent image3D voxelRadiance[CASCADES];
+	layout (binding = 12, rgba16f) uniform volatile coherent image3D voxelRadiance[CASCADES];
 #endif
 
 #include "../common/functions.h"
