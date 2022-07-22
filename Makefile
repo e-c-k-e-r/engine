@@ -59,9 +59,9 @@ DEPS 					+=
 
 ifneq (,$(findstring win64,$(ARCH)))
 	ifneq (,$(findstring zig,$(CC)))
-		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg ffx:fsr # ncurses openvr draco discord bullet ultralight-ux
 	else
-		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg # ncurses openvr draco discord bullet ultralight-ux
+		REQ_DEPS 			+= $(RENDERER) json:nlohmann toml png zlib luajit reactphysics meshoptimizer xatlas simd ctti gltf imgui fmt curl freetype openal ogg ffx:fsr # ncurses openvr draco discord bullet ultralight-ux
 	endif
 	FLAGS 				+= -DUF_ENV_WINDOWS -DUF_ENV_WIN64 -DWIN32_LEAN_AND_MEAN
 	DEPS 				+= -lgdi32 -ldwmapi
@@ -103,6 +103,11 @@ ifneq (,$(findstring fmt,$(REQ_DEPS)))
 	else
 		DEPS 				+= -lfmt
 	endif
+endif
+ifneq (,$(findstring ffx:fsr,$(REQ_DEPS)))
+	FLAGS 				+= -DUF_USE_FFX_FSR
+	#INCS 				+= -I./dep/include/ffx_fsr2/
+	DEPS 				+= -lffx_fsr2_api_x64 -lffx_fsr2_api_vk_x64
 endif
 ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_IMGUI

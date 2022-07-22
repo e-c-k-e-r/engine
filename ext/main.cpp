@@ -46,6 +46,7 @@
 #include <uf/ext/lua/lua.h>
 #include <uf/ext/ultralight/ultralight.h>
 #include <uf/ext/imgui/imgui.h>
+#include <uf/ext/ffx/fsr.h>
 
 bool ext::ready = false;
 uf::stl::vector<uf::stl::string> ext::arguments;
@@ -84,7 +85,7 @@ namespace {
 			struct {
 				struct {
 					bool enabled;
-				} ultralight, discord, imgui;
+				} ultralight, discord, imgui, fsr;
 			} ext;
 
 			struct {
@@ -207,6 +208,7 @@ void EXT_API ext::initialize() {
 		::config.engine.ext.ultralight.enabled = ::json["engine"]["ext"]["ultralight"]["enabled"].as(::config.engine.ext.ultralight.enabled);
 		::config.engine.ext.discord.enabled = ::json["engine"]["ext"]["discord"]["enabled"].as(::config.engine.ext.discord.enabled);
 		::config.engine.ext.imgui.enabled = ::json["engine"]["ext"]["imgui"]["enabled"].as(::config.engine.ext.imgui.enabled);
+		::config.engine.ext.fsr.enabled = ::json["engine"]["ext"]["fsr"]["enabled"].as(::config.engine.ext.fsr.enabled);
 
 		::config.engine.limiter.print = ::json["engine"]["debug"]["framerate"]["print"].as(::config.engine.limiter.print);
 
@@ -320,29 +322,23 @@ void EXT_API ext::initialize() {
 	}
 #endif
 
-	// set bullet parameters
-#if UF_USE_BULLET
-	{
-		auto& configEngineBulletJson = ::json["engine"]["ext"]["bullet"];
-
-		ext::bullet::iterations = configEngineBulletJson["iterations"].as( ext::bullet::iterations );
-		ext::bullet::substeps = configEngineBulletJson["substeps"].as( ext::bullet::substeps );
-		ext::bullet::timescale = configEngineBulletJson["timescale"].as( ext::bullet::timescale );
-		ext::bullet::defaultMaxCollisionAlgorithmPoolSize = configEngineBulletJson["pool size"]["max collision algorithm"].as( ext::bullet::defaultMaxCollisionAlgorithmPoolSize );
-		ext::bullet::defaultMaxPersistentManifoldPoolSize = configEngineBulletJson["pool size"]["max persistent manifold"].as( ext::bullet::defaultMaxPersistentManifoldPoolSize );
-		
-		ext::bullet::debugDraw::enabled = configEngineBulletJson["debug draw"]["enabled"].as( ext::bullet::debugDraw::enabled );
-		ext::bullet::debugDraw::rate = configEngineBulletJson["debug draw"]["rate"].as( ext::bullet::debugDraw::rate );
-		ext::bullet::debugDraw::layer = configEngineBulletJson["debug draw"]["layer"].as( ext::bullet::debugDraw::layer );
-		ext::bullet::debugDraw::lineWidth = configEngineBulletJson["debug draw"]["line width"].as( ext::bullet::debugDraw::lineWidth );
-	}
-#elif UF_USE_REACTPHYSICS
+	// set physics parameters
+#if UF_USE_REACTPHYSICS
 	{
 		auto& configEngineReactJson = ::json["engine"]["ext"]["reactphysics"];
 
 		ext::reactphysics::timescale = configEngineReactJson["timescale"].as( ext::reactphysics::timescale );
 		ext::reactphysics::interpolate = configEngineReactJson["interpolate"].as( ext::reactphysics::interpolate );
 		ext::reactphysics::shared = configEngineReactJson["shared"].as( ext::reactphysics::shared );
+		
+		if ( configEngineReactJson["gravity"]["mode"].is<uf::stl::string>() ) {
+			const auto mode = uf::string::lowercase( configEngineReactJson["gravity"]["mode"].as<uf::stl::string>() );
+			if ( mode == "default" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::DEFAULT;
+			else if ( mode == "per-object" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::PER_OBJECT;
+			else if ( mode == "universal" ) ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::UNIVERSAL;
+			else UF_MSG_WARNING("Invalid Gravity::Mode enum string specified: {}", mode);
+		}
+		ext::reactphysics::gravity::constant = configEngineReactJson["gravity"]["constant"].as( ext::reactphysics::gravity::constant );
 
 		ext::reactphysics::debugDraw::enabled = configEngineReactJson["debug draw"]["enabled"].as( ext::reactphysics::debugDraw::enabled );
 		ext::reactphysics::debugDraw::rate = configEngineReactJson["debug draw"]["rate"].as( ext::reactphysics::debugDraw::rate );
@@ -424,24 +420,20 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
 		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
 		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
-		uf::renderer::settings::invariant::deferredAliasOutputToSwapchain = configRenderInvariantJson["deferred alias output to swapchain"].as( uf::renderer::settings::invariant::deferredAliasOutputToSwapchain );
-		uf::renderer::settings::invariant::deferredSampling = true; // configRenderInvariantJson["deferred sampling"].as( uf::renderer::settings::invariant::deferredSampling );
 	
 		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
 		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
+		uf::renderer::settings::pipelines::occlusion = configRenderPipelinesJson["occlusion"].as( uf::renderer::settings::pipelines::occlusion );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
-
-		if ( !uf::renderer::settings::pipelines::deferred /*&& !uf::renderer::settings::pipelines::rt*/ ) {
-			uf::renderer::settings::invariant::deferredSampling = false;
-		}
 		
 		if ( uf::renderer::settings::pipelines::rt ) {
 			uf::renderer::settings::pipelines::vxgi = false;
 			uf::renderer::settings::pipelines::culling = false;
+			uf::renderer::settings::pipelines::occlusion = false;
 			::json["engine"]["scenes"]["lights"]["shadows"]["enabled"] = false;
 		}
 
@@ -520,6 +512,9 @@ void EXT_API ext::initialize() {
 			}
 			if ( uf::renderer::settings::pipelines::culling ) {
 				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
+			}
+			if ( uf::renderer::settings::pipelines::occlusion ) {
+				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::occlusion);
 			}
 			
 			uf::renderer::addRenderMode( renderMode, "" );
@@ -605,6 +600,11 @@ void EXT_API ext::initialize() {
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 		ext::imgui::initialize();
+	}
+#endif
+#if UF_USE_FFX_FSR
+	if ( ::config.engine.ext.fsr.enabled ) {
+	//	ext::fsr::initialize();
 	}
 #endif
 	/* Add hooks */ {
@@ -777,6 +777,11 @@ void EXT_API ext::tick() {
 		ext::imgui::tick();
 	}
 #endif
+#if UF_USE_FFX_FSR
+	if ( ::config.engine.ext.fsr.enabled ) {
+		ext::fsr::tick();
+	}
+#endif
 	/* FPS Print */ if ( ::config.engine.fps.print ) {
 		++::times.frames;
 		++::times.total.frames;
@@ -849,6 +854,11 @@ void EXT_API ext::terminate() {
 	/* Terminate controllers */ {
 		spec::controller::terminate();
 	}
+#if UF_USE_FFX_FSR
+	if ( ::config.engine.ext.fsr.enabled ) {
+		ext::fsr::terminate();
+	}
+#endif
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 		ext::imgui::terminate();

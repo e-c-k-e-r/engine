@@ -22,50 +22,8 @@ namespace spec {
 				pod::Hook::userdata_t payload;
 			};
 		protected:
-		//	Window::Events m_events;
 			std::queue<Event> m_events;
 		public:
-	#if 0
-		// 	C-tors
-			void create( const spec::uni::Window::vector_t& size, const spec::uni::Window::title_t& title = L"Window" ) {} ;// = 0;
-		// 	D-tors
-			void terminate();/* = 0;*/
-		// 	Gets
-			spec::uni::Window::vector_t getPosition() const;/* = 0;*/
-			spec::uni::Window::vector_t getSize() const;/* = 0;*/
-			size_t getRefreshRate() const;/* = 0;*/
-		// 	Attribute modifiers
-			void setPosition( const spec::uni::Window::vector_t& position );/* = 0;*/
-			void centerWindow();/* = 0;*/
-			void setMousePosition( const spec::uni::Window::vector_t& position );/* = 0;*/
-			void setSize( const spec::uni::Window::vector_t& size );/* = 0;*/
-			void setTitle( const spec::uni::Window::title_t& title );/* = 0;*/
-			void setIcon( const spec::uni::Window::vector_t& size, uint8_t* pixels );/* = 0;*/
-			void setVisible( bool visibility );/* = 0;*/
-			void setCursorVisible( bool visibility );/* = 0;*/
-			void setKeyRepeatEnabled( bool state );/* = 0;*/
-			void setMouseGrabbed( bool state );/* = 0;*/
-		
-			void requestFocus();/* = 0;*/
-			bool hasFocus() const;/* = 0;*/
-		// 	Update
-			void bufferInputs();/* = 0;*/
-			
-			static bool isKeyPressed( const uf::stl::string& );
-		#endif
-		#if 0
-			void processEvents();
-
-			void pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload );
-			void pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload );
-			void pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload );
-			void pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload );
-			void pushEvent( const pod::Hook::userdata_t& payload );
-			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
-
-			bool pollEvents( bool block = false );
-		#endif
-
 			void pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload );
 			template<typename T> void pushEvent( const uf::Hooks::name_t& name, const T& payload );
 			static bool focused;

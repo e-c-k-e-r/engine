@@ -14,7 +14,7 @@
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
-					"power": 1,
+					"power": 100000,
 					"global": true,
 					"bias": {
 						"constant": 1.25,
@@ -22,7 +22,7 @@
 						"shader": 0.0000025
 					},
 					"radius": [0.95, 0],
-					"resolution": 1536
+					"resolution": 8196
 				} },
 
 				// regexp matches

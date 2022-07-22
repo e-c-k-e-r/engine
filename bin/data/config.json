@@ -11,7 +11,7 @@
 					"enabled": true,
 					"update": 4,
 					"max": 24,
-					"samples": 1
+					"samples": 16
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -83,9 +83,9 @@
 				},
 				"framebuffer": {
 					"msaa": 1,
-				//	"size": 0.5
+					"size": 0.25
 				//	"size": 0.75
-					"size": 1
+				//	"size": 1
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
@@ -104,8 +104,9 @@
 					"hdr": true,
 					"vxgi": true,
 					"culling": true,
+					"occlusion": true,
 					"bloom": false,
-					"rt": true
+					"rt": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -205,27 +206,19 @@
 			"imgui": {
 				"enabled": false
 			},
+			"fsr": {
+				"enabled": true
+			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
 				"interpolate": false,
-				"debug draw": {
-					"enabled": false,
-					"line width": 8,
-				//	"layer": "Gui",
-					"rate": 0.0125
-				}
-			},
-			"bullet": {
-				"iterations": 1,
-				"substeps": 4,
-				"timescale": 1,
-				"multithreaded": false,
-				"pool size": {
-					"max collision algorithm": 65535,
-					"max persistent manifold": 65535
+				"gravity": {
+					"mode": "universal",
+					"constant": 6.67408e-11
 				},
 				"debug draw": {
 					"enabled": false,
+					"line width": 8,
 				//	"layer": "Gui",
 					"rate": 0.0125
 				}
@@ -317,9 +310,9 @@
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
-	//	"size" :  [ 1920, 1080 ],
+		"size" :  [ 1920, 1080 ],
 	//	"size" :  [ 1280, 720 ],
-		"size" :  [ 960, 540 ],
+	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",

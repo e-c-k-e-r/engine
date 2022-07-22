@@ -25,6 +25,7 @@ namespace ext {
 				uf::stl::string pipeline = "";
 				uf::stl::vector<uf::stl::string> pipelines;
 				uf::stl::vector<uint8_t> outputs;
+				uf::stl::unordered_map<uf::stl::string, uint8_t> attachments;
 
 				struct {
 					float frequency = 0.0f;
@@ -54,7 +55,7 @@ namespace ext {
 			constexpr static int32_t EXECUTE_BEGIN = -3;
 			constexpr static int32_t EXECUTE_END = -4;
 			
-			typedef std::function<void(VkCommandBuffer)> callback_t;
+			typedef std::function<void(VkCommandBuffer, size_t)> callback_t;
 			uf::stl::unordered_map<int32_t, callback_t> commandBufferCallbacks;
 			
 			void bindCallback( int32_t, const callback_t& );
@@ -76,6 +77,9 @@ namespace ext {
 			virtual const uf::stl::string getType() const;
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
+
+			virtual const RenderTarget::Attachment& getAttachment( const uf::stl::string& ) const;
+			virtual size_t getAttachmentIndex( const uf::stl::string& ) const;
 
 			virtual const size_t blitters() const;
 			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);

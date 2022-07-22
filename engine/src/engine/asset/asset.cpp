@@ -55,9 +55,9 @@ bool uf::Asset::assertionLoad = true;
 
 void uf::Asset::processQueue() {
 #if UF_ASSET_MULTITHREAD
-	auto tasks = uf::thread::schedule(true, true);
+	auto tasks = uf::thread::schedule(true, false);
 #else
-	auto tasks = uf::thread::schedule(false, true);
+	auto tasks = uf::thread::schedule(false);
 #endif
 
 	mutex.lock();

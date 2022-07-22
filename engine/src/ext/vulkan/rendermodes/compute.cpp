@@ -190,7 +190,7 @@ void ext::vulkan::ComputeRenderMode::destroy() {
 }
 
 void ext::vulkan::ComputeRenderMode::render() {	
-	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
@@ -212,7 +212,7 @@ void ext::vulkan::ComputeRenderMode::render() {
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( uf::renderer::QueueEnum::COMPUTE ), 1, &submitInfo, fences[states::currentBuffer]));
 
-	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{}, 0 );
 
 	this->executed = true;
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -234,7 +234,7 @@ void ext::vulkan::ComputeRenderMode::createCommandBuffers( const uf::stl::vector
 		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
 		
 		// pre-renderpass commands
-		if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+		if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
 
 	//	if ( blitter.process ) blitter.getPipeline().record( blitter, blitter.descriptor, commands[i] );
 	/*
@@ -245,13 +245,13 @@ void ext::vulkan::ComputeRenderMode::createCommandBuffers( const uf::stl::vector
 				ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 				graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
 			}
-			if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i] );
+			if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i], i );
 			if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 		}
 	*/
 		
 		// post-renderpass commands
-		if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
+		if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
 	}

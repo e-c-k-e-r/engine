@@ -12,12 +12,6 @@
 
 namespace uf {
 	namespace physics {
-	#if UF_USE_BULLET
-		namespace impl = ext::bullet;
-	#elif UF_USE_REACTPHYSICS
-		namespace impl = ext::reactphysics;
-	#endif
-
 		typedef pod::Math::num_t num_t;
 		namespace time = uf::time;
 		

@@ -82,6 +82,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			/*.blend = */ false,
 			/*.samples = */ 1,
 		});
+		metadata.attachments["depth"] = attachments.depth;
+
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
 			renderTarget.addPass(
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -122,6 +124,9 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				0,
 				true
 			);
+
+			metadata.attachments["albedo"] = attachments.albedo;
+			metadata.attachments["depth"] = attachments.depth;
 		#if 0
 			if ( metadata.type == "single" ) {
 			} else {
@@ -304,7 +309,8 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
 			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv"; {
 				std::pair<bool, uf::stl::string> settings[] = {
-					{ msaa > 1, "msaa.frag" },
+					{ true, "postProcess.frag" },
+				//	{ msaa > 1, "msaa.frag" },
 				};
 				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
 			}
@@ -448,7 +454,7 @@ void ext::vulkan::RenderTargetRenderMode::destroy() {
 }
 
 void ext::vulkan::RenderTargetRenderMode::render() {
-	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
@@ -469,7 +475,7 @@ void ext::vulkan::RenderTargetRenderMode::render() {
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 
-	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{}, 0 );
 
 	this->executed = true;
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -539,7 +545,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			size_t subpasses = renderTarget.passes.size();
 			size_t currentPass = 0;
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
 			
 			if ( this->getName() == "Compute" ) {
 				for ( auto graphic : graphics ) {
@@ -568,14 +574,14 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 							graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
 						}
-						if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i] );
+						if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i], i );
 						if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
 					}
 				vkCmdEndRenderPass(commands[i]);
 			}
 			
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));

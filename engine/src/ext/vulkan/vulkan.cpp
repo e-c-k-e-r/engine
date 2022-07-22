@@ -8,6 +8,7 @@
 #include <uf/engine/graph/graph.h>
 
 #include <uf/ext/openvr/openvr.h>
+#include <uf/ext/ffx/fsr.h>
 
 #include <ostream>
 #include <fstream>
@@ -25,7 +26,7 @@ bool ext::vulkan::settings::validation = true;
 bool ext::vulkan::settings::defaultStageBuffers = true;
 bool ext::vulkan::settings::defaultDeferBufferDestroy = true;
 bool ext::vulkan::settings::defaultCommandBufferWait = true;
-// constexpr size_t ext::vulkan::settings::maxViews = 6;
+
 size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
 size_t ext::vulkan::settings::scratchBufferAlignment = 256;
@@ -51,8 +52,6 @@ bool ext::vulkan::settings::invariant::individualPipelines = true;
 bool ext::vulkan::settings::invariant::multithreadedRecording = true;
 
 uf::stl::string ext::vulkan::settings::invariant::deferredMode = "";
-bool ext::vulkan::settings::invariant::deferredAliasOutputToSwapchain = false;
-bool ext::vulkan::settings::invariant::deferredSampling = true;
 
 bool ext::vulkan::settings::invariant::multiview = true;
 // pipelines
@@ -61,6 +60,7 @@ bool ext::vulkan::settings::pipelines::vsync = true;
 bool ext::vulkan::settings::pipelines::hdr = true;
 bool ext::vulkan::settings::pipelines::vxgi = true;
 bool ext::vulkan::settings::pipelines::culling = false;
+bool ext::vulkan::settings::pipelines::occlusion = false;
 bool ext::vulkan::settings::pipelines::bloom = false;
 bool ext::vulkan::settings::pipelines::rt = false;
 
@@ -69,6 +69,7 @@ uf::stl::string ext::vulkan::settings::pipelines::names::vsync = "vsync";
 uf::stl::string ext::vulkan::settings::pipelines::names::hdr = "hdr";
 uf::stl::string ext::vulkan::settings::pipelines::names::vxgi = "vxgi";
 uf::stl::string ext::vulkan::settings::pipelines::names::culling = "culling";
+uf::stl::string ext::vulkan::settings::pipelines::names::occlusion = "occlusion";
 uf::stl::string ext::vulkan::settings::pipelines::names::bloom = "bloom";
 uf::stl::string ext::vulkan::settings::pipelines::names::rt = "rt";
 
@@ -428,6 +429,12 @@ void ext::vulkan::tick() {
 		}
 		uf::thread::execute( tasks );
 	}
+
+#if UF_USE_FFX_FSR
+	if ( !ext::fsr::initialized ) {
+		ext::fsr::initialize();
+	}
+#endif
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
@@ -474,7 +481,7 @@ void ext::vulkan::render() {
 		for ( auto renderMode : renderModes ) {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
 		//	renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
-			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_BEGIN) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_BEGIN]( VkCommandBuffer{} );
+			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_BEGIN) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
 
 			if ( renderMode->getName() == "Gui" || renderMode->getName() == "" || renderMode->getName() == "Swapchain" )
 				specialRenderModes.emplace_back(renderMode);
@@ -525,9 +532,14 @@ void ext::vulkan::render() {
 				ext::vulkan::setCurrentRenderMode(NULL);
 			}
 		}
+	#if UF_USE_FFX_FSR
+		if ( ext::fsr::initialized ) {
+			ext::fsr::tick();
+		}
+	#endif
 
 		for ( auto renderMode : renderModes ) {
-			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_END) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_END]( VkCommandBuffer{} );
+			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_END) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_END]( VkCommandBuffer{}, 0 );
 		//	renderMode->cleanupCommands( renderMode->mostRecentCommandPoolId );
 		//	renderMode->unlockMutex( renderMode->mostRecentCommandPoolId );
 		}

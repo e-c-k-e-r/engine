@@ -101,7 +101,7 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 void postProcess() {
 	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
-	outFragBright = brightness > ubo.settings.bloom.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+//	outFragBright = brightness > ubo.settings.bloom.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );

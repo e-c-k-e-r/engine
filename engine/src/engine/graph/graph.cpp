@@ -234,7 +234,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 		UF_ASSERT( indirect );
 		if ( indirect ) {
-			uf::stl::string compShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/cull.comp.spv");
+			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::culling]["compute"].as<uf::stl::string>("/graph/cull.comp.spv");
 			{
 				graphic.material.metadata.autoInitializeUniformBuffers = false;
 				compShaderFilename = entity.resolveURI( compShaderFilename, root );
@@ -246,10 +246,34 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
 
 			shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
-		#if UF_USE_VULKAN
 			shader.buffers.emplace_back( indirect->alias() );
-		#endif
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+		}
+	}
+	if ( uf::renderer::settings::pipelines::occlusion ) {
+		uf::renderer::Buffer* indirect = NULL;
+		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
+		UF_ASSERT( indirect );
+		if ( indirect ) {
+			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::occlusion]["compute"].as<uf::stl::string>("/graph/occlusion.comp.spv");
+			{
+				graphic.material.metadata.autoInitializeUniformBuffers = false;
+				compShaderFilename = entity.resolveURI( compShaderFilename, root );
+				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, uf::renderer::settings::pipelines::names::occlusion);
+				graphic.material.metadata.autoInitializeUniformBuffers = true;
+			}
+			graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
+
+			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::occlusion);
+			auto& renderMode = uf::renderer::getRenderMode( graphic.descriptor.renderMode, true );
+			auto& renderTarget = renderMode.getRenderTarget( graphic.descriptor.renderTarget );
+
+			shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+			shader.buffers.emplace_back( indirect->alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[0] ); // alias ID buffer
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[5] ); // alias depth buffer
 		}
 	}
 	if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
@@ -259,7 +283,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	// depth only pipeline
 	{
 		graphic.material.metadata.autoInitializeUniformBuffers = false;
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/depth.frag.spv");
+		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["depth"]["fragmment"].as<uf::stl::string>("/graph/depth.frag.spv");
 		fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
 		graphic.material.metadata.autoInitializeUniformBuffers = true;
@@ -290,9 +314,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 	// vxgi pipeline
 	if ( uf::renderer::settings::pipelines::vxgi ) {
-		uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
-		uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("/graph/voxelize.geom.spv");
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
+		uf::stl::string vertexShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
+		uf::stl::string geometryShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["geometry"].as<uf::stl::string>("/graph/voxelize.geom.spv");
+		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
 
 		{
 			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );

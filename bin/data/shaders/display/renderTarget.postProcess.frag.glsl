@@ -38,15 +38,14 @@ float stripes(vec2 uv) {
 	return ramp(mod(uv.y*4. + iTime/2.+sin(iTime + sin(iTime*0.63)),1.),0.5,0.6)*noi;
 }
 
-vec3 getVideo(vec2 uv) {
+vec4 getVideo(vec2 uv) {
 	vec2 look = uv;
 	float window = 1./(1.+20.*(look.y-mod(iTime/4.,1.))*(look.y-mod(iTime/4.,1.)));
 	look.x = look.x + sin(look.y*10. + iTime)/50.*onOff(4.,4.,.3)*(1.+cos(iTime*80.))*window;
 	float vShift = 0.4*onOff(2.,3.,.9)*(sin(iTime)*sin(iTime*20.) + 
 										 (0.5 + 0.1*sin(iTime*200.)*cos(iTime)));
 	look.y = mod(look.y + vShift, 1.);
-	vec3 video = vec3(texture(samplerAlbedo,look));
-	return video;
+	return texture(samplerAlbedo,look);
 }
 
 vec2 screenDistort(vec2 uv) {
@@ -61,16 +60,16 @@ void main() {
 	iTime = ubo.curTime;
 
 	uv = screenDistort(uv);
-	vec3 video = getVideo(uv);
+	vec4 video = getVideo(uv);
 	float vigAmt = 3.+.3*sin(iTime + 5.*cos(iTime*5.));
 	float vignette = (1.-vigAmt*(uv.y-.5)*(uv.y-.5))*(1.-vigAmt*(uv.x-.5)*(uv.x-.5));
 	
-	video += stripes(uv);
-	video += noise(uv*2.)/2.;
-	video *= vignette;
-	video *= (12.+mod(uv.y*30.+iTime,1.))/13.;
+	video.rgb += stripes(uv);
+	video.rgb += noise(uv*2.)/4.;
+	video.rgb *= vignette;
+	video.rgb *= (12.+mod(uv.y*30.+iTime,1.))/13.;
 	
-	fragColor = vec4(video,1.0);
+	fragColor = video;
 }
 #endif
 #if 1
@@ -94,28 +93,28 @@ vec4 vignetteIntensity(vec2 uv, vec2 resolution, float opacity, float roundness)
 }
 
 void main(void) {
-	const vec2 screenResolution = textureSize( samplerAlbedo, 0 ) * 0.75;
-	const vec2 scanLineOpacity = vec2(1,1);
-	const float brightness = 1;
-	const float vignetteOpacity = 1;
-	const float vignetteRoundness = 1;
-	const vec2 curvature = vec2(3.0, 3.0);
+	const vec2 screenResolution = textureSize( samplerAlbedo, 0 );
+	const vec2 scanLineOpacity = vec2(0.5);
+	const float brightness = 2;
+	const float vignetteOpacity = 0.5;
+	const float vignetteRoundness = 0.5;
+	const vec2 curvature = vec2(8);
 
-    const vec2 remappedUV = curveRemapUV(vec2(inUv.x, inUv.y), curvature);
-    vec4 baseColor = texture(samplerAlbedo, remappedUV);
+  const vec2 remappedUV = curveRemapUV(vec2(inUv.x, inUv.y), curvature);
+  vec4 baseColor = texture(samplerAlbedo, remappedUV);
 
-    baseColor *= vignetteIntensity(remappedUV, screenResolution, vignetteOpacity, vignetteRoundness);
+  baseColor *= vignetteIntensity(remappedUV, screenResolution, vignetteOpacity, vignetteRoundness);
 
-    baseColor *= scanLineIntensity(remappedUV.x, screenResolution.y, scanLineOpacity.x);
-    baseColor *= scanLineIntensity(remappedUV.y, screenResolution.x, scanLineOpacity.y);
+  baseColor *= scanLineIntensity(remappedUV.x, screenResolution.y, scanLineOpacity.x);
+  baseColor *= scanLineIntensity(remappedUV.y, screenResolution.x, scanLineOpacity.y);
 
-    baseColor *= vec4(vec3(brightness), 1.0);
+  baseColor *= vec4(vec3(brightness), 1.0);
 
-    if (remappedUV.x < 0.0 || remappedUV.y < 0.0 || remappedUV.x > 1.0 || remappedUV.y > 1.0){
-        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    } else {
-        fragColor = baseColor;
-    }
+  if (remappedUV.x < 0.0 || remappedUV.y < 0.0 || remappedUV.x > 1.0 || remappedUV.y > 1.0){
+      fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+  } else {
+      fragColor = baseColor;
+  }
 }
 #endif
 #if 0

@@ -16,6 +16,8 @@ namespace ext {
 			extern UF_API uint8_t msaa;
 			extern UF_API bool validation;
 			extern UF_API bool defaultStageBuffers;
+			extern UF_API bool defaultDeferBufferDestroy;
+			extern UF_API bool defaultCommandBufferWait;
 			extern UF_API size_t viewCount;
 			extern UF_API size_t scratchBufferAlignment;
 			extern UF_API size_t scratchBufferInitialSize;
@@ -42,8 +44,6 @@ namespace ext {
 				extern UF_API bool multithreadedRecording;
 
 				extern UF_API uf::stl::string deferredMode;
-				extern UF_API bool deferredAliasOutputToSwapchain;
-				extern UF_API bool deferredSampling;
 				extern UF_API bool multiview;
 			}
 
@@ -53,6 +53,7 @@ namespace ext {
 				extern UF_API bool hdr;
 				extern UF_API bool vxgi;
 				extern UF_API bool culling;
+				extern UF_API bool occlusion;
 				extern UF_API bool bloom;
 				extern UF_API bool rt;
 
@@ -62,6 +63,7 @@ namespace ext {
 					extern UF_API uf::stl::string hdr;
 					extern UF_API uf::stl::string vxgi;
 					extern UF_API uf::stl::string culling;
+					extern UF_API uf::stl::string occlusion;
 					extern UF_API uf::stl::string bloom;
 					extern UF_API uf::stl::string rt;
 				}

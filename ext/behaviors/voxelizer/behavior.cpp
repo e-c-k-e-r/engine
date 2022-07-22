@@ -118,9 +118,9 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		if ( renderMode.metadata.samples > 1 ) {
 			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "msaa.frag" );
 		}
-		if ( uf::renderer::settings::invariant::deferredSampling ) {
-			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "deferredSampling.frag" );
-		}
+	//	if ( uf::renderer::settings::invariant::deferredSampling ) {
+	//		computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "deferredSampling.frag" );
+	//	}
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
@@ -145,7 +145,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		for ( auto& t : sceneTextures.voxels.radiance ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 		for ( auto& t : sceneTextures.voxels.depth ) renderMode.blitter.material.textures.emplace_back().aliasTexture(t);
 
-		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
+		renderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			// clear textures
 			VkImageSubresourceRange subresourceRange = {};
 			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -161,7 +161,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.depth ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 		});
-		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
+		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			// parse voxel lighting
 			if ( renderMode.blitter.initialized ) {
 				auto& pipeline = renderMode.blitter.getPipeline();
@@ -194,7 +194,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			}
 		});
 	#if 0
-		renderMode.bindCallback( renderMode.EXECUTE_BEGIN, [&]( VkCommandBuffer _ ) {
+		renderMode.bindCallback( renderMode.EXECUTE_BEGIN, [&]( VkCommandBuffer _, size_t __ ) {
 			auto& controller = scene.getController();
 			auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
 			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
@@ -246,7 +246,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 	#if 0
 		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-		deferredRenderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer ){
+		deferredRenderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
 			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
@@ -285,7 +285,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 				);
 			}
 		});
-		deferredRenderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer ){
+		deferredRenderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
 			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED

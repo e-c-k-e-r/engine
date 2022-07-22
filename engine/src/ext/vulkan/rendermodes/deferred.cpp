@@ -28,6 +28,7 @@ uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitt
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
+#if 0
 	if ( metadata.eyes == 0 ) metadata.eyes = 1;
 	{
 		float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
@@ -37,10 +38,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			settings::invariant::deferredAliasOutputToSwapchain = false;
 		}
 	}
+	if ( settings::pipelines::bloom ) settings::invariant::deferredAliasOutputToSwapchain = false;
+#endif
 
 	// buffers.emplace_back().initialize( NULL, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
 
-	if ( settings::pipelines::bloom ) settings::invariant::deferredAliasOutputToSwapchain = false;
 
 	auto HDR_FORMAT = VK_FORMAT_R32G32B32A32_SFLOAT;
 	auto SDR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
@@ -233,6 +235,17 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend =*/ blend,
 		/*.samples =*/ 1,
 	});
+
+	metadata.attachments["id"] = attachments.id;
+	metadata.attachments["bary"] = attachments.bary;
+	metadata.attachments["mips"] = attachments.mips;
+	metadata.attachments["normals"] = attachments.normals;
+	metadata.attachments["uvs"] = attachments.uvs;
+	metadata.attachments["depth"] = attachments.depth;
+	metadata.attachments["color"] = attachments.color;
+	metadata.attachments["bright"] = attachments.bright;
+	metadata.attachments["scratch"] = attachments.scratch;
+
 	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 		// First pass: fill the G-Buffer
 		{
@@ -307,10 +320,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		}
 
 		{
-			size_t index = uf::renderer::settings::pipelines::deferred ? metadata.outputs[0] : metadata.outputs[0] - 2; // deferred ? attachments.color : attachments.albedo;
+			size_t index = metadata.attachments["color"]; // uf::renderer::settings::pipelines::deferred ? metadata.attachments["color"] : metadata.attachments["albedo"]; // deferred ? attachments.color : attachments.albedo;
 			auto& shader = blitter.material.getShader("fragment");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index], (size_t) 0 ); // attachments.color
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index] ); // attachments.color
 		}
 
 		if ( settings::pipelines::deferred ) {
@@ -348,9 +361,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute", "bloom");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[attachments.color], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[attachments.bright], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[attachments.scratch], (size_t) 0 );
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["color"]/*attachments.color*/], (size_t) 0 );
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]/*attachments.bright*/], (size_t) 0 );
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["scratch"]/*attachments.scratch*/], (size_t) 0 );
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -476,9 +489,9 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		if ( settings::pipelines::bloom ) {
 			auto& shader = blitter.material.getShader("compute", "bloom");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+0], (size_t) 0 ); // attachments.color
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+1], (size_t) 0 ); // attachments.bright
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.outputs[0]+2], (size_t) 0 ); // attachments.scratch
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["color"]/*metadata.outputs[0]+0*/], (size_t) 0 ); // attachments.color
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]/*metadata.outputs[0]+1*/], (size_t) 0 ); // attachments.bright
+			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["scratch"]/*metadata.outputs[0]+2*/], (size_t) 0 ); // attachments.scratch
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -488,7 +501,11 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
 		{
-			size_t index = uf::renderer::settings::pipelines::deferred ? metadata.outputs[0] : metadata.outputs[0] - 2; // deferred ? attachments.color : attachments.albedo;
+		#if UF_USE_FFX_FSR
+			size_t index = metadata.attachments["scratch"];
+		#else
+			size_t index = metadata.attachments["color"]; // uf::renderer::settings::pipelines::deferred ? metadata.outputs[0] : metadata.outputs[0] - 2; // deferred ? attachments.color : attachments.albedo;
+		#endif
 			auto& shader = blitter.material.getShader("fragment");
 			shader.textures.clear();
 			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index], (size_t) 0 ); // attachments.color
@@ -551,7 +568,7 @@ VkSubmitInfo ext::vulkan::DeferredRenderMode::queue() {
 	return submitInfo;
 }
 void ext::vulkan::DeferredRenderMode::render() {
-	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_BEGIN) > 0 ) commandBufferCallbacks[EXECUTE_BEGIN]( VkCommandBuffer{}, 0 );
 
 	//lockMutex( this->mostRecentCommandPoolId );
 	auto& commands = getCommands( this->mostRecentCommandPoolId );
@@ -572,7 +589,7 @@ void ext::vulkan::DeferredRenderMode::render() {
 
 	VK_CHECK_RESULT(vkQueueSubmit(device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
 
-	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{} );
+	if ( commandBufferCallbacks.count(EXECUTE_END) > 0 ) commandBufferCallbacks[EXECUTE_END]( VkCommandBuffer{}, 0 );
 
 	this->executed = true;
 	//unlockMutex( this->mostRecentCommandPoolId );
@@ -688,7 +705,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		*/
 
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
 
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
@@ -746,7 +763,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		#endif
 
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
 
 		#if 1
 			if ( settings::pipelines::bloom ) {
@@ -827,98 +844,6 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 1 );
 			}
-		#if 0
-			if ( !settings::invariant::deferredAliasOutputToSwapchain ) {
-				{
-					auto& renderTarget = swapchainRender.renderTarget;
-					float width = renderTarget.width;
-					float height = renderTarget.height;
-
-					uf::stl::vector<VkClearValue> clearValues; clearValues.resize(2);
-					clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-					clearValues[1].depthStencil = { 1.0f, 0 };
-
-					VkRenderPassBeginInfo renderPassBeginInfo = {};
-					renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-					renderPassBeginInfo.pNext = nullptr;
-					renderPassBeginInfo.renderArea.offset.x = 0;
-					renderPassBeginInfo.renderArea.offset.y = 0;
-					renderPassBeginInfo.renderArea.extent.width = width;
-					renderPassBeginInfo.renderArea.extent.height = height;
-					renderPassBeginInfo.clearValueCount = clearValues.size();
-					renderPassBeginInfo.pClearValues = &clearValues[0];
-					renderPassBeginInfo.renderPass = renderTarget.renderPass;
-					renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
-
-					vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-					vkCmdEndRenderPass(commands[i]);
-				}
-
-				{
-					VkImageBlit imageBlitRegion{};
-					imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-					imageBlitRegion.srcSubresource.layerCount = 1;
-					imageBlitRegion.srcOffsets[1] = { width, height, 1 };
-					imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-					imageBlitRegion.dstSubresource.layerCount = 1;
-					imageBlitRegion.dstOffsets[1] = {
-						swapchainRender.width > 0 ? swapchainRender.width : ext::vulkan::settings::width,
-						swapchainRender.height > 0 ? swapchainRender.height : ext::vulkan::settings::height,
-						1
-					};
-					auto& outputAttachment = renderTarget.attachments[metadata.outputs.front()];
-					// Transition to KHR
-					{
-						imageMemoryBarrier.image = outputAttachment.image;
-						imageMemoryBarrier.srcAccessMask = 0;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						imageMemoryBarrier.oldLayout = outputAttachment.descriptor.layout;
-						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					//	outputAttachment.descriptor.layout = imageMemoryBarrier.newLayout;
-					}
-					{
-						imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
-						imageMemoryBarrier.srcAccessMask = 0;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].descriptor.layout;
-						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-						swapchainRender.renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
-					}
-
-					vkCmdBlitImage(
-						commands[i],
-						outputAttachment.image,
-						VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-						swapchainRender.renderTarget.attachments[i].image,
-						VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-						1,
-						&imageBlitRegion,
-						settings::swapchainUpscaleFilter
-					);
-
-					{
-						imageMemoryBarrier.image = outputAttachment.image;
-						imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-						imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; //outputAttachment.descriptor.layout;
-						imageMemoryBarrier.newLayout = outputAttachment.descriptor.layout; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-					//	outputAttachment.descriptor.layout = imageMemoryBarrier.newLayout;
-					}
-					{
-						imageMemoryBarrier.image = swapchainRender.renderTarget.attachments[i].image;
-						imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-						imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-						imageMemoryBarrier.oldLayout = swapchainRender.renderTarget.attachments[i].descriptor.layout;
-						imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-						vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, NULL, 0, NULL, 1, &imageMemoryBarrier );
-						swapchainRender.renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
-					}
-				}
-			}
-		#endif
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));

@@ -367,16 +367,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 		if ( !stats.floored ) stats.walking = false;		
 	}
-	TIMER(0.0625, stats.floored && keys.jump ) {
+	TIMER(0.0625, stats.floored && keys.jump && !stats.noclipped ) {
 		physics.linear.velocity += translator.up * metadata.movement.jump;
 	}
-/*
-	if ( stats.floored && keys.jump ) {
-		physics.linear.velocity += translator.up * metadata.movement.jump;
-	}
-*/
+	if ( stats.floored && keys.jump && stats.noclipped ) transform.position += translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
 	if ( keys.crouch ) {
-		if ( stats.noclipped ) physics.linear.velocity -= translator.up * metadata.movement.jump;
+		if ( stats.noclipped ) transform.position -= translator.up * metadata.movement.jump * uf::physics::time::delta * 4.0f;
 		else {
 			if ( !metadata.system.crouching )  stats.deltaCrouch = true;
 			metadata.system.crouching = true;
@@ -435,12 +431,12 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 
 	if ( stats.deltaCrouch ) {
 		float delta = metadata.movement.crouch;
-		if ( metadata.system.crouching ) camera.getTransform().position.y -= delta;
-		else camera.getTransform().position.y += delta;
+		if ( metadata.system.crouching ) cameraTransform.position.y -= delta;
+		else cameraTransform.position.y += delta;
 	}
 
 #if UF_USE_OPENAL
-	if ( stats.floored ) {
+	if ( stats.floored && !stats.noclipped ) {
 		if ( stats.walking ) {
 			auto& emitter = this->getComponent<uf::MappedSoundEmitter>();
 			int cycle = rand() % metadata.audio.footstep.list.size();
@@ -462,7 +458,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 				modulation -= 0.05f;
 				if ( keys.running ) modulation += 0.5f;
 				footstep.setPitch( 1 + modulation );
-				footstep.setVolume( metadata.audio.footstep.volume );
+				footstep.setVolume( metadata.audio.footstep.volume * (metadata.system.crouching ? 0.5 : 1) );
 				footstep.setPosition( transform.position );
 
 				footstep.setTime( 0 );

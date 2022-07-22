@@ -21,7 +21,9 @@ uint32_t ext::opengl::settings::width = 640;
 uint32_t ext::opengl::settings::height = 480;
 uint8_t ext::opengl::settings::msaa = 1;
 bool ext::opengl::settings::validation = false;
-bool ext::opengl::settings::defaultStageBuffers = false;
+bool ext::opengl::settings::defaultStageBuffers = true;
+bool ext::opengl::settings::defaultDeferBufferDestroy = true;
+bool ext::opengl::settings::defaultCommandBufferWait = true;
 // constexpr size_t ext::opengl::settings::maxViews = 6;
 size_t ext::opengl::settings::viewCount = 1;
 
@@ -51,8 +53,6 @@ bool ext::opengl::settings::invariant::individualPipelines = true;
 bool ext::opengl::settings::invariant::multithreadedRecording = true;
 
 uf::stl::string ext::opengl::settings::invariant::deferredMode = "";
-bool ext::opengl::settings::invariant::deferredAliasOutputToSwapchain = false;
-bool ext::opengl::settings::invariant::deferredSampling = false;
 
 bool ext::opengl::settings::invariant::multiview = false;
 // pipelines
@@ -61,6 +61,7 @@ bool ext::opengl::settings::pipelines::vsync = true;
 bool ext::opengl::settings::pipelines::hdr = false;
 bool ext::opengl::settings::pipelines::vxgi = false;
 bool ext::opengl::settings::pipelines::culling = false;
+bool ext::opengl::settings::pipelines::occlusion = false;
 bool ext::opengl::settings::pipelines::bloom = false;
 bool ext::opengl::settings::pipelines::rt = false;
 
@@ -69,6 +70,7 @@ uf::stl::string ext::opengl::settings::pipelines::names::vsync = "vsync";
 uf::stl::string ext::opengl::settings::pipelines::names::hdr = "hdr";
 uf::stl::string ext::opengl::settings::pipelines::names::vxgi = "vxgi";
 uf::stl::string ext::opengl::settings::pipelines::names::culling = "culling";
+uf::stl::string ext::opengl::settings::pipelines::names::occlusion = "occlusion";
 uf::stl::string ext::opengl::settings::pipelines::names::bloom = "bloom";
 uf::stl::string ext::opengl::settings::pipelines::names::rt = "rt";
 

@@ -44,6 +44,14 @@ ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
 uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
 }
+const ext::vulkan::RenderTarget::Attachment& ext::vulkan::RenderMode::getAttachment( const uf::stl::string& name ) const {
+	UF_ASSERT_MSG( metadata.attachments.count(name) > 0, "attachment in `{}`: {} not found: {}", this->getName(), this->getType(), name );
+	return renderTarget.attachments[metadata.attachments.at(name)];
+}
+size_t ext::vulkan::RenderMode::getAttachmentIndex( const uf::stl::string& name ) const {
+	if ( metadata.attachments.count(name) == 0 ) return SIZE_MAX;
+	return metadata.attachments.at(name);
+}
 
 uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layerID ) {
 	uf::Image image;

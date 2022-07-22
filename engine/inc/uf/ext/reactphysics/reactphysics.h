@@ -64,6 +64,17 @@ namespace ext {
 		extern UF_API bool interpolate;
 		extern UF_API bool shared;
 
+		namespace gravity {
+			enum Mode {
+				DEFAULT,
+				PER_OBJECT,
+				UNIVERSAL
+			};
+
+			extern UF_API Mode mode;
+			extern UF_API float constant;
+		}
+
 		namespace debugDraw {
 			extern UF_API bool enabled;
 			extern UF_API float rate;
@@ -116,6 +127,11 @@ namespace ext {
 		// 
 		float UF_API getMass( pod::PhysicsState& );
 		void UF_API setMass( pod::PhysicsState&, float );
+	}
+}
+namespace uf {
+	namespace physics {
+		namespace impl = ext::reactphysics;
 	}
 }
 #endif

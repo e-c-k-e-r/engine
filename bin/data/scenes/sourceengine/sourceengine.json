@@ -1,6 +1,6 @@
 {
 //	"import": "./rp_downtown_v2.json"
 //	"import": "./ss2_medsci1.json"
-	"import": "./sh2_mcdonalds.json"
-//	"import": "./gm_construct.json"
+//	"import": "./sh2_mcdonalds.json"
+	"import": "./gm_construct.json"
 }

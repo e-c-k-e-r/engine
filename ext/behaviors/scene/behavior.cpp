@@ -561,6 +561,15 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				}
 			}
 		}
+
+		for ( auto& texture : uf::graph::storage.shadowCubes ) {
+			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
+		}
+		for ( auto& texture : uf::graph::storage.shadow2Ds ) {
+			texture.sampler.descriptor.filter.min = uf::renderer::enums::Filter::LINEAR;
+			texture.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::LINEAR;
+		}
 		
 		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
 	}

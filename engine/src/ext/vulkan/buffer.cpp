@@ -107,9 +107,8 @@ size_t ext::vulkan::Buffer::getAddress() const {
 	return vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info);
 }
 
-// RAII
 ext::vulkan::Buffer::~Buffer() {
-//	this->destroy();
+//	this->destroy(); // bad, will get called every time a vector gets resized, buffer owners will clean it up in their own destructors
 }
 void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignment ) {
 	this->device = &device;
@@ -119,16 +118,20 @@ void ext::vulkan::Buffer::destroy(bool defer) {
 	if ( !device || aliased ) return;
 	if ( defer ) {
 		device->transient.buffers.emplace_back(*this);
-		this->aliased = true;
-		return;
-	}
-
-	if ( buffer ) {
+	} else if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
 	}
 
-	buffer = nullptr;
-	memory = nullptr;
+	this->buffer = {};
+	this->memory = {};
+	this->descriptor = {};
+	this->alignment = {};
+	this->address = {};
+	this->mapped = {};
+	this->usage = {};
+	this->memoryProperties = {};
+	this->allocation = {};
+	this->allocationInfo = {};
 }
 void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
 	if ( !device ) device = &ext::vulkan::device;
@@ -150,7 +153,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 		UF_MSG_WARNING("Buffer update of {} exceeds buffer size of {}", length, allocationInfo.size );
 
 		Buffer& b = *const_cast<Buffer*>(this);
-		b.destroy();
+		b.destroy(true);
 		b.initialize( data, length, usage, memoryProperties, stage );
 		return true;
 	}
@@ -190,7 +193,7 @@ ext::vulkan::Buffers::~Buffers() {
 }
 */
 void ext::vulkan::Buffers::destroy() {
-	for ( auto& buffer : buffers ) if ( buffer.device ) buffer.destroy();
+	for ( auto& buffer : buffers ) if ( buffer.device ) buffer.destroy(true);
 	buffers.clear();
 }
 

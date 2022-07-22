@@ -470,7 +470,7 @@ void ext::imgui::initialize() {
 	}
 
 	{
-		renderMode.bindCallback( 0, [&]( VkCommandBuffer commandBuffer ){
+		renderMode.bindCallback( 0, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			ImDrawData* drawData = ImGui::GetDrawData();
 			ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
 		});

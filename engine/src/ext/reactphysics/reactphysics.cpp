@@ -118,7 +118,7 @@ namespace {
 		size_t triCount = debugRenderer.getNbTriangles();
 
 		if ( !lineCount || !triCount ) return;
-		if ( oldCount == lineCount * 2 + triCount * 3 ) return;
+	//	if ( oldCount == lineCount * 2 + triCount * 3 ) return;
 		oldCount = lineCount * 2 + triCount * 3;
 
 		auto* lines = debugRenderer.getLinesArray();
@@ -191,6 +191,9 @@ float ext::reactphysics::timescale = 1.0f / 60.0f;
 bool ext::reactphysics::shared = true;
 bool ext::reactphysics::interpolate = true;
 
+ext::reactphysics::gravity::Mode ext::reactphysics::gravity::mode = ext::reactphysics::gravity::Mode::UNIVERSAL;
+float ext::reactphysics::gravity::constant = 6.67408e-11;
+
 bool ext::reactphysics::debugDraw::enabled = false;
 float ext::reactphysics::debugDraw::rate = 1.0f;
 uf::stl::string ext::reactphysics::debugDraw::layer = "";
@@ -198,7 +201,11 @@ float ext::reactphysics::debugDraw::lineWidth = 1.0f;
 
 void ext::reactphysics::initialize() {
 	rp3d::PhysicsWorld::WorldSettings settings;
-	settings.gravity = rp3d::Vector3( 0, -9.81, 0 );
+	if ( ext::reactphysics::gravity::mode == ext::reactphysics::gravity::Mode::DEFAULT ) {
+		settings.gravity = rp3d::Vector3( 0, -9.81, 0 );
+	} else {
+		settings.gravity = rp3d::Vector3( 0, 0, 0 );
+	}
 
 //	::logger = ::common.createDefaultLogger();
 //	size_t logLevel = static_cast<uint>(rp3d::Logger::Level::Warning) | static_cast<uint>(rp3d::Logger::Level::Error); // | static_cast<uint>(rp3d::Logger::Level::Information);
@@ -222,21 +229,11 @@ void ext::reactphysics::tick( float delta ) {
 	ext::reactphysics::syncTo();
 
 	static float accumulator = 0;
-
 	accumulator += uf::physics::time::delta; 
-
-#if 0
-	delta = delta * ext::reactphysics::timescale / 12;
-	for ( size_t i = 0; i < 12; ++i ) {
-		::world->update(ext::reactphysics::timescale); 
-		accumulator -= delta; 
-	}
-#else
 	while ( accumulator >= ext::reactphysics::timescale ) { 
 		::world->update(ext::reactphysics::timescale); 
 		accumulator -= ext::reactphysics::timescale; 
 	}
-#endif
 
 	TIMER(ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled ) {
 		auto& scene = uf::scene::getCurrentScene();
@@ -298,9 +295,7 @@ void ext::reactphysics::attach( pod::PhysicsState& state ) {
 		state.body->setType(rp3d::BodyType::STATIC);
 	}
 
-	if ( state.stats.gravity == pod::Vector3f{0,0,0} ) {
-		state.body->enableGravity(false);
-	}
+	state.body->enableGravity(state.stats.gravity != pod::Vector3f{0,0,0});
 
 	// affects air speed, bad
 //	state.body->setLinearDamping(state.stats.friction);
@@ -442,6 +437,19 @@ pod::PhysicsState& ext::reactphysics::create( uf::Object& object, float radius, 
 // synchronize engine transforms to bullet transforms
 void ext::reactphysics::syncTo() {
 	size_t count = ::world->getNbRigidBodies();
+	
+	struct Body {
+		rp3d::RigidBody* body{};
+		float mass{};
+		pod::Vector3f position{};
+	};
+	uf::stl::vector<Body> bodies; bodies.reserve(count);
+	bodies.emplace_back(Body{
+		.body = NULL,
+		.mass = 5.97219e24,
+		.position = pod::Vector3f{ 0, -6.371e6, 0 },
+	});
+
 	for ( size_t i = 0; i < count; ++i ) {
 		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
 		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
@@ -449,11 +457,45 @@ void ext::reactphysics::syncTo() {
 
 		if ( state.shared ) {
 			if ( !ext::reactphysics::interpolate ) body->setTransform(::convert(state.transform));
-	//		body->setTransform(::convert(state.transform));
 			body->setLinearVelocity( ::convert(state.linear.velocity) );
 			body->setAngularVelocity( ::convertQ(state.rotational.velocity) );
 		}
+		// apply per-object gravities
+		float mass = body->getMass();
+		switch ( ext::reactphysics::gravity::mode ) {
+			case ext::reactphysics::gravity::Mode::PER_OBJECT: if ( body->isGravityEnabled() ) {
+				body->applyLocalForceAtCenterOfMass( ::convert(state.stats.gravity * mass) );
+			} break;
+			case ext::reactphysics::gravity::Mode::UNIVERSAL: if ( mass > 0 ) {
+				auto transform = ::convert( body->getTransform() );
+				bodies.emplace_back(Body{
+					.body = body,
+					.mass = mass,
+					.position = transform.position,
+				});
+			} break;
+		}
 		state.internal.previous = state.internal.current;
+	}
+
+	if ( ext::reactphysics::gravity::mode == ext::reactphysics::gravity::Mode::UNIVERSAL ) {
+		for ( auto i1 = 0; i1 < bodies.size(); ++i1 ) {
+			for ( auto i2 = 0; i2 < bodies.size(); ++i2 ) {
+				if ( i1 == i2 ) continue;
+				const auto& b1 = bodies[i1];
+				const auto& b2 = bodies[i2];
+
+				const auto direction = ::convert(uf::vector::normalize( b2.position - b1.position ));
+				const float G = ext::reactphysics::gravity::constant;
+				const float m1 = b1.mass;
+				const float m2 = b2.mass;
+				const float r2 = uf::vector::distanceSquared( b1.position, b2.position );
+				const float F = G * m1 * m2 / r2;
+
+				if ( b1.body ) b1.body->applyLocalForceAtCenterOfMass(direction *  F);
+				if ( b2.body ) b2.body->applyLocalForceAtCenterOfMass(direction * -F);
+			}
+		}
 	}
 }
 // synchronize bullet transforms to engine transforms
@@ -523,7 +565,7 @@ void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3
 void ext::reactphysics::applyImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
 	if ( !state.body ) return;
 
-	state.body->applyWorldForceAtCenterOfMass( ::convert(v) );
+	state.body->applyLocalForceAtCenterOfMass( ::convert(v) );
 }
 // directly move a transform
 void ext::reactphysics::applyMovement( pod::PhysicsState& state, const pod::Vector3f& v ) {

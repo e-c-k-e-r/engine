@@ -142,7 +142,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 			}
 
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
 
 			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				vkCmdSetViewport(commands[i], 0, 1, &viewport);
@@ -165,7 +165,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 			vkCmdEndRenderPass(commands[i]);
 
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i] );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
 
 			// need to transfer it back, if they differ
 			if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
@@ -278,6 +278,7 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 //	uint32_t width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
 //	uint32_t height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
+	size_t attachmentIndex = 0;
 	for ( size_t i = 0; i < images.size(); ++i ) {
 		VkImageViewCreateInfo colorAttachmentView = {};
 		colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -306,9 +307,12 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		renderTarget.attachments[i].descriptor.aliased = true;
 		renderTarget.attachments[i].image = images[i];
 		renderTarget.attachments[i].mem = VK_NULL_HANDLE;
+
+		metadata.attachments["color["+std::to_string((int) i)+"]"] = attachmentIndex++;
 	}
 	// Create depth
 	auto& depthAttachment = renderTarget.attachments.back();
+	metadata.attachments["depth"] = attachmentIndex++;
 	{
 		// Create an optimal image used as the depth stencil attachment
 		VkImageCreateInfo imageCreateInfo = {};
