@@ -114,12 +114,12 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 
 	//	renderMode.metadata.limiter.frequency = metadata.limiter.frequency;
 
-		uf::stl::string computeShaderFilename = "/shaders/display/vxgi.comp.spv";
+		uf::stl::string computeShaderFilename = "/shaders/display/vxgi/comp.spv";
 		if ( renderMode.metadata.samples > 1 ) {
-			computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "msaa.frag" );
+			computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", "msaa.comp" );
 		}
 	//	if ( uf::renderer::settings::invariant::deferredSampling ) {
-	//		computeShaderFilename = uf::string::replace( computeShaderFilename, "frag", "deferredSampling.frag" );
+	//		computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", "deferredSampling.comp" );
 	//	}
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
@@ -429,7 +429,14 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 	#endif
 	}
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute", "" );
-	ext::ExtSceneBehavior::bindBuffers( scene, "", "fragment", "deferred" );
+
+	auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
+	auto& deferredBlitter = *deferredRenderMode.getBlitter();
+	if ( deferredBlitter.material.hasShader("compute", "deferred-compute") ) {
+		ext::ExtSceneBehavior::bindBuffers( scene, "", "compute", "deferred-compute" );
+	} else {
+		ext::ExtSceneBehavior::bindBuffers( scene, "", "fragment", "deferred" );
+	}
 #endif
 }
 void ext::VoxelizerSceneBehavior::render( uf::Object& self ){}

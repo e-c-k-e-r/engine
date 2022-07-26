@@ -449,8 +449,8 @@ void ext::Gui::load( const uf::Image& image ) {
 	graphic.initializeMesh( mesh );
 
 	struct {
-		uf::stl::string vertex = uf::io::root+"/shaders/gui/base.vert.spv";
-		uf::stl::string fragment = uf::io::root+"/shaders/gui/base.frag.spv";
+		uf::stl::string vertex = uf::io::root+"/shaders/gui/base/vert.spv";
+		uf::stl::string fragment = uf::io::root+"/shaders/gui/base/frag.spv";
 	} filenames;
 	uf::stl::string suffix = ""; {
 		uf::stl::string _ = scene.getComponent<uf::Serializer>()["shaders"]["gui"]["suffix"].as<uf::stl::string>();
@@ -458,7 +458,7 @@ void ext::Gui::load( const uf::Image& image ) {
 	}
 	if ( metadataJson["shaders"]["vertex"].is<uf::stl::string>() ) filenames.vertex = metadataJson["shaders"]["vertex"].as<uf::stl::string>();
 	if ( metadataJson["shaders"]["fragment"].is<uf::stl::string>() ) filenames.fragment = metadataJson["shaders"]["fragment"].as<uf::stl::string>();
-	else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/"+suffix+"base.frag.spv";
+	else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/"+suffix+"base/frag.spv";
 
 	graphic.material.initializeShaders({
 		{filenames.vertex, uf::renderer::enums::Shader::VERTEX},
@@ -495,7 +495,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
 		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
-		auto& image = assetLoader.get<uf::Image>(payload.filename);
+		auto image = assetLoader.get<uf::Image>(payload.filename);
 		this->as<ext::Gui>().load( image );
 	});
 
@@ -764,12 +764,12 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 					if ( _ != "" ) suffix = _ + ".";
 				}
 				struct {
-					uf::stl::string vertex = uf::io::root+"/shaders/gui/text.vert.spv";
-					uf::stl::string fragment = uf::io::root+"/shaders/gui/text.frag.spv";
+					uf::stl::string vertex = uf::io::root+"/shaders/gui/text/vert.spv";
+					uf::stl::string fragment = uf::io::root+"/shaders/gui/text/frag.spv";
 				} filenames;
 				if ( metadataJson["shaders"]["vertex"].is<uf::stl::string>() ) filenames.vertex = metadataJson["shaders"]["vertex"].as<uf::stl::string>();
 				if ( metadataJson["shaders"]["fragment"].is<uf::stl::string>() ) filenames.fragment = metadataJson["shaders"]["fragment"].as<uf::stl::string>();
-				else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/text."+suffix+"frag.spv";
+				else if ( suffix != "" ) filenames.fragment = uf::io::root+"/shaders/gui/text/"+suffix+"frag.spv";
 
 				graphic.material.initializeShaders({
 					{filenames.vertex, uf::renderer::enums::Shader::VERTEX},

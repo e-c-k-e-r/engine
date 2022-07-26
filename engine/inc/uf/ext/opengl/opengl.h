@@ -48,24 +48,12 @@ namespace ext {
 			}
 
 			namespace pipelines {
-				extern UF_API bool deferred;
 				extern UF_API bool vsync;
-				extern UF_API bool hdr;
-				extern UF_API bool vxgi;
 				extern UF_API bool culling;
-				extern UF_API bool occlusion;
-				extern UF_API bool bloom;
-				extern UF_API bool rt;
 
 				namespace names {
-					extern UF_API uf::stl::string deferred;
 					extern UF_API uf::stl::string vsync;
-					extern UF_API uf::stl::string hdr;
-					extern UF_API uf::stl::string vxgi;
 					extern UF_API uf::stl::string culling;
-					extern UF_API uf::stl::string occlusion;
-					extern UF_API uf::stl::string bloom;
-					extern UF_API uf::stl::string rt;
 				}
 			}
 			
@@ -73,14 +61,15 @@ namespace ext {
 				extern UF_API GLhandle(VkColorSpaceKHR) colorSpace;
 				extern UF_API ext::opengl::enums::Format::type_t color;
 				extern UF_API ext::opengl::enums::Format::type_t depth;
-				extern UF_API ext::opengl::enums::Format::type_t normal;
-				extern UF_API ext::opengl::enums::Format::type_t position;
 			}
 		}
 		namespace states {
 			extern UF_API bool rebuild;
 			extern UF_API bool resized;
 			extern UF_API uint32_t currentBuffer;
+
+			extern UF_API uint32_t frameAccumulate;
+			extern UF_API bool frameAccumulateReset;
 		}
 
 		extern UF_API Device device;

@@ -9,6 +9,8 @@
 #include <uf/utils/math/physics.h>
 #include <uf/utils/memory/map.h>
 #include <uf/ext/xatlas/xatlas.h>
+#include <uf/ext/ffx/fsr.h>
+
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
@@ -153,7 +155,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 
 	// standard pipeline
-	uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base.vert.spv"); {
+	uf::stl::string vertexShaderFilename = graph.metadata["shaders"]["vertex"].as<uf::stl::string>("/graph/base/vert.spv"); {
 		std::pair<bool, uf::stl::string> settings[] = {
 			{ graph.metadata["renderer"]["skinned"].as<bool>(), "skinned.vert" },
 			{ !graph.metadata["renderer"]["separate"].as<bool>(), "instanced.vert" },
@@ -162,7 +164,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		vertexShaderFilename = entity.resolveURI( vertexShaderFilename, root );
 	}
 	uf::stl::string geometryShaderFilename = graph.metadata["shaders"]["geometry"].as<uf::stl::string>("");
-	uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base.frag.spv"); {
+	uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["fragment"].as<uf::stl::string>("/graph/base/frag.spv"); {
 	#if 0
 		std::pair<bool, uf::stl::string> settings[] = {
 			{ uf::renderer::settings::invariant::deferredSampling, "deferredSampling.frag" },
@@ -234,7 +236,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 		UF_ASSERT( indirect );
 		if ( indirect ) {
-			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::culling]["compute"].as<uf::stl::string>("/graph/cull.comp.spv");
+			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::culling]["compute"].as<uf::stl::string>("/graph/cull/comp.spv");
 			{
 				graphic.material.metadata.autoInitializeUniformBuffers = false;
 				compShaderFilename = entity.resolveURI( compShaderFilename, root );
@@ -255,7 +257,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 		UF_ASSERT( indirect );
 		if ( indirect ) {
-			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::occlusion]["compute"].as<uf::stl::string>("/graph/occlusion.comp.spv");
+			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::occlusion]["compute"].as<uf::stl::string>("/graph/occlusion/comp.spv");
 			{
 				graphic.material.metadata.autoInitializeUniformBuffers = false;
 				compShaderFilename = entity.resolveURI( compShaderFilename, root );
@@ -283,7 +285,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	// depth only pipeline
 	{
 		graphic.material.metadata.autoInitializeUniformBuffers = false;
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["depth"]["fragmment"].as<uf::stl::string>("/graph/depth.frag.spv");
+		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"]["depth"]["fragmment"].as<uf::stl::string>("/graph/depth/frag.spv");
 		fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
 		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
 		graphic.material.metadata.autoInitializeUniformBuffers = true;
@@ -314,9 +316,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 	// vxgi pipeline
 	if ( uf::renderer::settings::pipelines::vxgi ) {
-		uf::stl::string vertexShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["vertex"].as<uf::stl::string>("/graph/base.vert.spv");
-		uf::stl::string geometryShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["geometry"].as<uf::stl::string>("/graph/voxelize.geom.spv");
-		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["fragment"].as<uf::stl::string>("/graph/voxelize.frag.spv");
+		uf::stl::string vertexShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["vertex"].as<uf::stl::string>("/graph/base/vert.spv");
+		uf::stl::string geometryShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["geometry"].as<uf::stl::string>("/graph/voxelize/geom.spv");
+		uf::stl::string fragmentShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::vxgi]["fragment"].as<uf::stl::string>("/graph/voxelize/frag.spv");
 
 		{
 			fragmentShaderFilename = entity.resolveURI( fragmentShaderFilename, root );
@@ -370,9 +372,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	if ( graph.metadata["baking"]["enabled"].as<bool>() ) {
 		{
 			graphic.material.metadata.autoInitializeUniformBuffers = false;
-			uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/bake.vert.spv");
-			uf::stl::string geometryShaderFilename = uf::io::resolveURI("/graph/baking/bake.geom.spv");
-			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/bake.frag.spv");
+			uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/vert.spv");
+			uf::stl::string geometryShaderFilename = uf::io::resolveURI("/graph/baking/geom.spv");
+			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/frag.spv");
 			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
 			graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "baking");
 			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
@@ -432,7 +434,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 
 	// grab addresses
-	if ( uf::renderer::settings::pipelines::rt ) {
+	if ( /*uf::renderer::settings::pipelines::rt*/ true ) {
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
 		for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
 			auto& drawCommand = drawCommands[drawID];
@@ -1151,6 +1153,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			instance = primitive.instance;
 
 			instance.model = model;
+			instance.previous = model;
 			instance.objectID = objectID;
 			instance.jointID = graph.metadata["renderer"]["skinned"].as<bool>() ? 0 : -1;
 
@@ -1255,21 +1258,6 @@ void uf::graph::initialize( pod::Graph& graph ) {
 
 	auto& scene = uf::scene::getCurrentScene();
 	scene.invalidateGraph();
-
-/*
-	uf::renderer::states::rebuild = true;
-
-	graph.root.entity->queueHook("system:Renderer.QueueRebuild", 2.0f);
-
-	auto& scene = uf::scene::getCurrentScene();
-	auto& controller = scene.getController();
-	auto& transform = controller.getComponent<pod::Transform<>>();
-	auto& camera = controller.getComponent<uf::Camera>();
-		
-	transform.orientation = uf::quaternion::identity();
-	camera.getTransform().orientation = uf::quaternion::identity();
-	camera.update(true);
-*/
 }
 void uf::graph::animate( pod::Graph& graph, const uf::stl::string& _name, float speed, bool immediate ) {
 	if ( !(graph.metadata["renderer"]["skinned"].as<bool>()) ) return;
@@ -1298,6 +1286,8 @@ void uf::graph::update( pod::Graph& graph, float delta ) {
 	uf::stl::unordered_map<size_t, pod::Matrix4f> instanceCache;
 	for ( auto& name : uf::graph::storage.instances.keys ) {
 		auto& instance = uf::graph::storage.instances[name];
+		instance.previous = instance.model;
+
 		if ( instanceCache.count( instance.objectID ) > 0 ) {
 			instance.model = instanceCache[instance.objectID];
 			continue;
@@ -1469,9 +1459,15 @@ void uf::graph::render() {
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 	
-	
+	auto viewport = camera.data().viewport;
+#if UF_USE_FFX_FSR
+	auto jitter = ext::fsr::getJitterMatrix();
+	for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
+		viewport.matrices[i].projection = jitter * viewport.matrices[i].projection;
+	}
+#endif
 
-	uf::graph::storage.buffers.camera.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
+	uf::graph::storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 
 #if UF_USE_VULKAN
 	auto* renderMode = uf::renderer::getCurrentRenderMode();
@@ -1482,7 +1478,7 @@ void uf::graph::render() {
 		UF_MSG_DEBUG("{}: {}", controller.getName(), controller.getUid());
 		UF_MSG_DEBUG("\tTransform[0]: {}", uf::transform::toString( controller.getComponent<pod::Transform<>>() ));
 		UF_MSG_DEBUG("\tTransform[1]: {}", uf::transform::toString( camera.getTransform() ));
-		UF_MSG_DEBUG("\tMatrix: {}", uf::matrix::toString( camera.data().viewport.matrices[0].view ));
+		UF_MSG_DEBUG("\tMatrix: {}", uf::matrix::toString( viewport.matrices[0].view ));
 	}
 */
 
@@ -1490,7 +1486,7 @@ void uf::graph::render() {
 		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( buffer.allocationInfo.size != sizeof(pod::Camera::Viewports) ) continue;
 		if ( buffer.buffer == uf::graph::storage.buffers.camera.buffer ) continue;
-		buffer.update( (const void*) &camera.data().viewport, sizeof(pod::Camera::Viewports) );
+		buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 		return;
 	}
 #endif

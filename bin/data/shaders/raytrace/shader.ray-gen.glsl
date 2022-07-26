@@ -18,8 +18,8 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define BLOOM 0
 #define WHITENOISE 0
 #define MAX_TEXTURES TEXTURES
-#define TONE_MAP 1
-#define GAMMA_CORRECT 1
+#define TONE_MAP 0
+#define GAMMA_CORRECT 0
 
 #include "../common/macros.h"
 #include "../common/structs.h"

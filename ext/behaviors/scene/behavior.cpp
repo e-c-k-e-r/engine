@@ -25,12 +25,15 @@
 #include <uf/utils/window/payloads.h>
 
 #include <uf/ext/ext.h>
+#include <uf/ext/ffx/fsr.h>
 
 #include "../light/behavior.h"
 #include "../voxelizer/behavior.h"
 #include "../raytrace/behavior.h"
 #include "../../ext.h"
 #include "../../gui/gui.h"
+
+#include <fmt/chrono.h>
 
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
@@ -90,9 +93,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		}
 	});
 	/* store viewport size */	
+#if 0
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
 	});
+#endif
 	/* Spawn an entity */
 	this->addHook( "entity:Spawn", [&](pod::payloads::entitySpawn& payload){
 		if ( payload.parent.uid ) {
@@ -209,7 +214,6 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
-#if 1
 	uf::hooks.call("game:Frame.Start");
 
 	++metadata.shader.frameAccumulate;
@@ -220,6 +224,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.frameAccumulate = 0;
 		metadata.shader.frameAccumulateReset = false;
 	}
+
+	uf::renderer::states::frameAccumulate = metadata.shader.frameAccumulate;
+	uf::renderer::states::frameAccumulateReset = metadata.shader.frameAccumulateReset;
 
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U ) {
@@ -237,6 +244,18 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 				uf::iostream << "Scene: " << scene->getName() << ": " << scene << "\n";
 				scene->process(filter, 1);
 			}
+		}
+	}
+#if UF_USE_VULKAN
+	/* Screenshot */ {
+		TIMER(1, uf::inputs::kbm::states::F11 ) {
+			auto& renderMode = uf::renderer::getRenderMode("Swapchain", true);
+			auto image = renderMode.screenshot(uf::renderer::states::currentBuffer);
+
+			std::time_t t = std::time(nullptr);
+			const uf::stl::string filename = ::fmt::format("{}/screenshots/{:%Y-%m-%d_%H-%M-%S}.png", uf::io::root, ::fmt::localtime(t));
+			image.save(filename);
+			UF_MSG_DEBUG("Screenshot saved to {}", filename);
 		}
 	}
 #endif
@@ -575,7 +594,13 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #endif
 	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
-		ext::ExtSceneBehavior::bindBuffers( *this );
+		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
+		auto& deferredBlitter = *deferredRenderMode.getBlitter();
+		if ( deferredBlitter.material.hasShader("compute", "deferred-compute") ) {
+			ext::ExtSceneBehavior::bindBuffers( *this, "", "compute", "deferred-compute" );
+		} else {
+			ext::ExtSceneBehavior::bindBuffers( *this, "", "fragment", "deferred" );
+		}
 	}
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}
@@ -785,9 +810,14 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		struct Matrices {
 			alignas(16) pod::Matrix4f view;
 			alignas(16) pod::Matrix4f projection;
+
+			alignas(16) pod::Matrix4f model;
+			alignas(16) pod::Matrix4f previous;
+
 			alignas(16) pod::Matrix4f iView;
 			alignas(16) pod::Matrix4f iProjection;
-			alignas(16) pod::Matrix4f iProjectionView;
+		//	alignas(16) pod::Matrix4f iProjectionView;
+			
 			alignas(16) pod::Vector4f eyePos;
 		} matrices[2];
 
@@ -910,12 +940,22 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	// hopefully write combining kicks in
 	UniformDescriptor uniforms; {
 		for ( auto i = 0; i < 2; ++i ) {
+		#if UF_USE_FFX_FSR
+			auto jitter = ext::fsr::getJitterMatrix();
+		#else
+			auto jitter = uf::matrix::identity();
+		#endif
 			uniforms.matrices[i] = UniformDescriptor::Matrices{
 				.view = camera.getView(i),
-				.projection = camera.getProjection(i),
+				.projection = jitter * camera.getProjection(i),
+				
+				.model = jitter * camera.getProjection(i) * camera.getView(i),
+				.previous = camera.getPrevious(i),
+
 				.iView = uf::matrix::inverse( camera.getView(i) ),
-				.iProjection = uf::matrix::inverse( camera.getProjection(i) ),
-				.iProjectionView = uf::matrix::inverse( camera.getProjection(i) * camera.getView(i) ),
+				.iProjection = uf::matrix::inverse( jitter * camera.getProjection(i) ),
+			//	.iProjectionView = uf::matrix::inverse( jitter * camera.getProjection(i) * camera.getView(i) ),
+
 				.eyePos = camera.getEye( i ),
 			};
 		}

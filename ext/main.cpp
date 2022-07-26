@@ -85,7 +85,7 @@ namespace {
 			struct {
 				struct {
 					bool enabled;
-				} ultralight, discord, imgui, fsr;
+				} ultralight, discord, imgui;
 			} ext;
 
 			struct {
@@ -208,7 +208,6 @@ void EXT_API ext::initialize() {
 		::config.engine.ext.ultralight.enabled = ::json["engine"]["ext"]["ultralight"]["enabled"].as(::config.engine.ext.ultralight.enabled);
 		::config.engine.ext.discord.enabled = ::json["engine"]["ext"]["discord"]["enabled"].as(::config.engine.ext.discord.enabled);
 		::config.engine.ext.imgui.enabled = ::json["engine"]["ext"]["imgui"]["enabled"].as(::config.engine.ext.imgui.enabled);
-		::config.engine.ext.fsr.enabled = ::json["engine"]["ext"]["fsr"]["enabled"].as(::config.engine.ext.fsr.enabled);
 
 		::config.engine.limiter.print = ::json["engine"]["debug"]["framerate"]["print"].as(::config.engine.limiter.print);
 
@@ -421,14 +420,18 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::invariant::individualPipelines = configRenderInvariantJson["individual pipelines"].as( uf::renderer::settings::invariant::individualPipelines );
 		uf::renderer::settings::invariant::deferredMode = configRenderInvariantJson["deferred mode"].as( uf::renderer::settings::invariant::deferredMode );
 	
-		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
+		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
+
+#if UF_USE_VULKAN
+		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
-		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
 		uf::renderer::settings::pipelines::occlusion = configRenderPipelinesJson["occlusion"].as( uf::renderer::settings::pipelines::occlusion );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
+		uf::renderer::settings::pipelines::postProcess = configRenderPipelinesJson["postProcess"].as( uf::renderer::settings::pipelines::postProcess );
+		uf::renderer::settings::pipelines::fsr = configRenderPipelinesJson["fsr"].as( uf::renderer::settings::pipelines::fsr );
 		
 		if ( uf::renderer::settings::pipelines::rt ) {
 			uf::renderer::settings::pipelines::vxgi = false;
@@ -436,17 +439,17 @@ void EXT_API ext::initialize() {
 			uf::renderer::settings::pipelines::occlusion = false;
 			::json["engine"]["scenes"]["lights"]["shadows"]["enabled"] = false;
 		}
-
-	#define JSON_TO_VKFORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
+	#define JSON_TO_FORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
 			uf::stl::string format = configRenderJson["formats"][#key].as<uf::stl::string>();\
 			format = uf::string::replace( uf::string::uppercase(format), " ", "_" );\
 			uf::renderer::settings::formats::key = uf::renderer::formatFromString( format );\
 		}
 
-		JSON_TO_VKFORMAT(color);
-		JSON_TO_VKFORMAT(depth);
+		JSON_TO_FORMAT(color);
+		JSON_TO_FORMAT(depth);
 	#endif
 	}
+#endif
 
 	/* Init controllers */ {
 		spec::controller::initialize();
@@ -602,11 +605,6 @@ void EXT_API ext::initialize() {
 		ext::imgui::initialize();
 	}
 #endif
-#if UF_USE_FFX_FSR
-	if ( ::config.engine.ext.fsr.enabled ) {
-	//	ext::fsr::initialize();
-	}
-#endif
 	/* Add hooks */ {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			auto function = [json]() -> int {
@@ -698,6 +696,11 @@ void EXT_API ext::tick() {
 	/* Tick controllers */ {
 		spec::controller::tick();
 	}
+#if UF_USE_FFX_FSR
+	/* OpenVR */ if ( ext::fsr::initialized ) {
+		ext::fsr::tick();
+	}
+#endif
 #if UF_USE_OPENVR
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::tick();
@@ -777,11 +780,6 @@ void EXT_API ext::tick() {
 		ext::imgui::tick();
 	}
 #endif
-#if UF_USE_FFX_FSR
-	if ( ::config.engine.ext.fsr.enabled ) {
-		ext::fsr::tick();
-	}
-#endif
 	/* FPS Print */ if ( ::config.engine.fps.print ) {
 		++::times.frames;
 		++::times.total.frames;
@@ -854,11 +852,6 @@ void EXT_API ext::terminate() {
 	/* Terminate controllers */ {
 		spec::controller::terminate();
 	}
-#if UF_USE_FFX_FSR
-	if ( ::config.engine.ext.fsr.enabled ) {
-		ext::fsr::terminate();
-	}
-#endif
 #if UF_USE_IMGUI
 	if ( ::config.engine.ext.imgui.enabled ) {
 		ext::imgui::terminate();

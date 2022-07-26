@@ -509,11 +509,21 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			for ( auto& input : subpass.inputs ) {
 				infos.input.emplace_back(ext::vulkan::initializers::descriptorImageInfo( 
 					renderTarget.attachments[input.attachment].views[subpass.layer],
-					input.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : input.layout
+					ext::vulkan::Texture::remapRenderpassLayout( input.layout )
 				));
 			}
 		}
 
+		for ( auto& texture : renderMode.textures ) {
+			infos.image.emplace_back(texture.descriptor);
+			switch ( texture.viewType ) {
+				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
+				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;
+				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;
+				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;
+				default: infos.imageUnknown.emplace_back(texture.descriptor); break;
+			}
+		}
 		for ( auto& texture : shader->textures ) {
 			infos.image.emplace_back(texture.descriptor);
 			switch ( texture.viewType ) {
@@ -627,7 +637,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 				case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
 					ext::vulkan::enums::Image::viewType_t imageType = shader->metadata.definitions.textures.at(layout.binding).type;
 					if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D ) {
-						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+						UF_ASSERT_BREAK_MSG( image2DInfo != infos.image2D.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -637,7 +647,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image2DInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_2D_ARRAY ) {
-						UF_ASSERT_BREAK_MSG( image2DAInfo != infos.image2DA.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+						UF_ASSERT_BREAK_MSG( image2DAInfo != infos.image2DA.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -647,7 +657,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image2DAInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_CUBE ) {
-						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+						UF_ASSERT_BREAK_MSG( imageCubeInfo != infos.imageCube.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -657,7 +667,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						imageCubeInfo += layout.descriptorCount;
 					} else if ( imageType == ext::vulkan::enums::Image::VIEW_TYPE_3D ) {
-						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+						UF_ASSERT_BREAK_MSG( image3DInfo != infos.image3D.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -667,7 +677,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 						));
 						image3DInfo += layout.descriptorCount;
 					} else {
-						UF_ASSERT_BREAK_MSG( imageUnknownInfo != infos.imageUnknown.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+						UF_ASSERT_BREAK_MSG( imageUnknownInfo != infos.imageUnknown.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 						writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 							descriptorSet,
 							layout.descriptorType,
@@ -679,7 +689,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					}
 				} break;
 				case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
-					UF_ASSERT_BREAK_MSG( inputInfo != infos.input.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+					UF_ASSERT_BREAK_MSG( inputInfo != infos.input.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -690,7 +700,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					inputInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_SAMPLER: {
-					UF_ASSERT_BREAK_MSG( samplerInfo != infos.sampler.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+					UF_ASSERT_BREAK_MSG( samplerInfo != infos.sampler.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -701,7 +711,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					samplerInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+					UF_ASSERT_BREAK_MSG( uniformBufferInfo != infos.uniform.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -712,7 +722,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					uniformBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+					UF_ASSERT_BREAK_MSG( storageBufferInfo != infos.storage.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -723,7 +733,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 					storageBufferInfo += layout.descriptorCount;
 				} break;
 				case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
-					UF_ASSERT_BREAK_MSG( accelerationStructureInfo != infos.accelerationStructure.end(), ::fmt::format("Filename: {}\tCount: {}", shader->filename, layout.descriptorCount) )
+					UF_ASSERT_BREAK_MSG( accelerationStructureInfo != infos.accelerationStructure.end(), "Filename: {}\tCount: {}", shader->filename, layout.descriptorCount )
 					auto& writeDescriptorSet = writeDescriptorSets.emplace_back(ext::vulkan::initializers::writeDescriptorSet(
 						descriptorSet,
 						layout.descriptorType,
@@ -772,11 +782,13 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 							*pointer = Texture2D::empty.descriptor;
 						}
 					}
+				#if 0
 					if ( descriptor.pImageInfo[i].imageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ) {
 						VK_DEBUG_VALIDATION_MESSAGE("Image layout is VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, fixing to VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
 						auto pointer = const_cast<VkDescriptorImageInfo*>(&descriptor.pImageInfo[i]);
 						pointer->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 					}
+				#endif
 				}
 				if ( descriptor.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER || descriptor.descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ) {
 					if ( !descriptor.pImageInfo[i].sampler ) {

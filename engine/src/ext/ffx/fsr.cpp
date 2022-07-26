@@ -6,9 +6,12 @@
 #include <ffx_fsr2/vk/ffx_fsr2_vk.h>
 
 #include <uf/utils/renderer/renderer.h>
+#include <uf/utils/camera/camera.h>
 #include <cfloat>
 
 namespace {
+	pod::Matrix4f jitterMatrix = uf::matrix::identity();
+
 	uf::stl::vector<uint8_t> scratchBuffer;
 	
 	FfxFsr2Context context;
@@ -39,8 +42,6 @@ namespace {
 	#define FFX_ERROR_CHECK(f) { auto error = f; if ( error != FFX_OK) UF_MSG_ERROR("FFXFSR2 Error {}: {}", #f, FFX_ERROR_TO_STRING(error)); }
 
 	void draw(VkCommandBuffer commandBuffer, size_t swapchainIndex) {
-		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-		auto& swapchainRenderMode = uf::renderer::getRenderMode("Swapchain", true);
 
 	#if 0
 		// reactive mask
@@ -65,44 +66,110 @@ namespace {
 	#if 1
 		FfxFsr2DispatchDescription dispatchParameters = {};
 		dispatchParameters.commandList = ffxGetCommandListVK(commandBuffer);
+		
+		if ( uf::renderer::settings::pipelines::rt ) {
+			if ( !uf::renderer::hasRenderMode("Compute:RT", true) ) return;
 
-		auto& attachmentColor = deferredRenderMode.getAttachment("color");
-		auto& attachmentDepth = deferredRenderMode.getAttachment("depth");
-		auto& attachmentOutput = deferredRenderMode.getAttachment("scratch"); // swapchainRenderMode.getAttachment("color["+std::to_string(swapchainIndex)+"]");
+			auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
+			auto& blitter = *renderMode.getBlitter(); if ( !blitter.material.hasShader("fragment") ) return;
+			auto& shader = blitter.material.getShader("fragment"); if ( shader.textures.empty() ) return;
 
-		pod::Vector2ui renderSize = {
-			deferredRenderMode.width > 0 ? deferredRenderMode.width : uf::renderer::settings::width,
-			deferredRenderMode.height > 0 ? deferredRenderMode.height : uf::renderer::settings::height,
-		};
-		pod::Vector2ui displaySize = {
-			swapchainRenderMode.width,
-			swapchainRenderMode.height,
-		};
+			auto& attachmentColor = shader.textures.front();
+			pod::Vector2ui renderSize = {
+				attachmentColor.width > 0 ? attachmentColor.width : uf::renderer::settings::width,
+				attachmentColor.height > 0 ? attachmentColor.height : uf::renderer::settings::height,
+			};
+			dispatchParameters.renderSize.width = renderSize.x;
+			dispatchParameters.renderSize.height = renderSize.y;
 
-		dispatchParameters.color = ffxGetTextureResourceVK(&::context,
-			attachmentColor.image,
-			attachmentColor.view,
-			renderSize.x,
-			renderSize.y,
-			attachmentColor.descriptor.format,
-			L"FSR2_InputColor"
-		);
-		dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
-			attachmentDepth.image,
-			attachmentDepth.view,
-			renderSize.x,
-			renderSize.y,
-			attachmentDepth.descriptor.format,
-			L"FSR2_InputDepth"
-		);
-		dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
-			nullptr,
-			nullptr,
-			1,
-			1,
-			VK_FORMAT_UNDEFINED,
-			L"FSR2_InputMotionVectors"
-		);
+			dispatchParameters.color = ffxGetTextureResourceVK(&::context,
+				attachmentColor.image,
+				attachmentColor.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentColor.format,
+				L"FSR2_InputColor"
+			);
+			dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
+				nullptr,
+				nullptr,
+				1,
+				1,
+				VK_FORMAT_UNDEFINED,
+				L"FSR2_InputDepth"
+			);
+			dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
+				nullptr,
+				nullptr,
+				1,
+				1,
+				VK_FORMAT_UNDEFINED,
+				L"FSR2_InputMotionVectors"
+			);
+			dispatchParameters.motionVectorScale.x = 0;
+			dispatchParameters.motionVectorScale.y = 0;
+		} else {
+			if ( !uf::renderer::hasRenderMode("", true) ) return;
+			
+			auto& renderMode = uf::renderer::getRenderMode("", true);
+			pod::Vector2ui renderSize = {
+				renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width,
+				renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height,
+			};
+			dispatchParameters.renderSize.width = renderSize.x;
+			dispatchParameters.renderSize.height = renderSize.y;
+
+			auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
+			auto& attachmentDepth = renderMode.getAttachment("depth");
+			auto& attachmentMotion = renderMode.getAttachment("motion");
+
+			dispatchParameters.color = ffxGetTextureResourceVK(&::context,
+				attachmentColor.image,
+				attachmentColor.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentColor.descriptor.format,
+				L"FSR2_InputColor"
+			);
+			dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
+				attachmentDepth.image,
+				attachmentDepth.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentDepth.descriptor.format,
+				L"FSR2_InputDepth"
+			);
+			dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
+				attachmentMotion.image,
+				attachmentMotion.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentMotion.descriptor.format,
+				L"FSR2_InputMotionVectors"
+			);
+			dispatchParameters.motionVectorScale.x = renderSize.x;
+			dispatchParameters.motionVectorScale.y = renderSize.y;
+		}
+		{
+			if ( !uf::renderer::hasRenderMode("Swapchain", true) ) return;
+
+			auto& swapchainRenderMode = uf::renderer::getRenderMode("Swapchain", true);
+			auto& attachmentOutput = swapchainRenderMode.getAttachment("color["+std::to_string(swapchainIndex)+"]");
+			pod::Vector2ui displaySize = {
+				swapchainRenderMode.width, // uf::renderer::settings::width
+				swapchainRenderMode.height, // uf::renderer::settings::height
+			};
+
+			dispatchParameters.output = ffxGetTextureResourceVK(&::context,
+				attachmentOutput.image,
+				attachmentOutput.view,
+				displaySize.x,
+				displaySize.y,
+				attachmentOutput.descriptor.format,
+				L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS
+			);
+		}
+
 		dispatchParameters.exposure = ffxGetTextureResourceVK(&::context,
 			nullptr,
 			nullptr,
@@ -127,35 +194,30 @@ namespace {
 			VK_FORMAT_UNDEFINED,
 			L"FSR2_TransparencyAndCompositionMap"
 		);
-		dispatchParameters.output = ffxGetTextureResourceVK(&::context,
-			attachmentOutput.image,
-			attachmentOutput.view,
-			displaySize.x,
-			displaySize.y,
-			attachmentOutput.descriptor.format,
-			L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS
-		);
-		dispatchParameters.jitterOffset.x = 0; // m_JitterX;
-		dispatchParameters.jitterOffset.y = 0; // m_JitterY;
-		dispatchParameters.motionVectorScale.x = 1; // (float)pState->renderWidth;
-		dispatchParameters.motionVectorScale.y = 1; // (float)pState->renderHeight;
-		dispatchParameters.reset = true; // pState->bReset;
-		dispatchParameters.enableSharpening = true; // pState->bUseRcas;
-		dispatchParameters.sharpness = 1.0f; // pState->sharpening;
+
+		auto& scene = uf::scene::getCurrentScene();
+		auto& controller = scene.getController();
+		auto& camera = controller.getComponent<uf::Camera>();
+
+		dispatchParameters.jitterOffset.x = ext::fsr::jitter.x; // m_JitterX;
+		dispatchParameters.jitterOffset.y = ext::fsr::jitter.y; // m_JitterY;
+
+		dispatchParameters.reset = false; // uf::renderer::states::frameAccumulateReset; // pState->bReset;
+		dispatchParameters.enableSharpening = ext::fsr::sharpness > 0.0f; // pState->bUseRcas;
+		dispatchParameters.sharpness = ext::fsr::sharpness; //1.0f; // pState->sharpening;
 		dispatchParameters.frameTimeDelta = uf::time::delta;
 		dispatchParameters.preExposure = 1.0f;
-		dispatchParameters.renderSize.width = renderSize.x;
-		dispatchParameters.renderSize.height = renderSize.y;
 		dispatchParameters.cameraFar = FLT_MAX; // pState->camera.GetFarPlane();
 		dispatchParameters.cameraNear = 0.01f; // pState->camera.GetNearPlane();
 		dispatchParameters.cameraFovAngleVertical = 1.5708f; // pState->camera.GetFovV();
-	//	pState->bReset = false;
 
 		FFX_ERROR_CHECK(ffxFsr2ContextDispatch(&::context, &dispatchParameters));
 	#endif
 	}
 }
 
+pod::Vector2f ext::fsr::jitter = {};
+float ext::fsr::sharpness = 1.0f;
 bool ext::fsr::initialized = false;
 
 void UF_API ext::fsr::initialize() {
@@ -168,26 +230,69 @@ void UF_API ext::fsr::initialize() {
 	::contextDescription.maxRenderSize.height = 2160; // uf::renderer::settings::height;
 	::contextDescription.displaySize.width = uf::renderer::settings::width;
 	::contextDescription.displaySize.height = uf::renderer::settings::height;
-	::contextDescription.flags = FFX_FSR2_ENABLE_DEPTH_INVERTED |
-		FFX_FSR2_ENABLE_DEPTH_INFINITE | 
-		FFX_FSR2_ENABLE_AUTO_EXPOSURE | 
-		FFX_FSR2_ENABLE_DYNAMIC_RESOLUTION; // | FFX_FSR2_ENABLE_TEXTURE1D_USAGE;
+	::contextDescription.flags = FFX_FSR2_ENABLE_AUTO_EXPOSURE | FFX_FSR2_ENABLE_DYNAMIC_RESOLUTION; // | FFX_FSR2_ENABLE_TEXTURE1D_USAGE;
 	if ( uf::renderer::settings::pipelines::hdr ) ::contextDescription.flags |= FFX_FSR2_ENABLE_HIGH_DYNAMIC_RANGE;
+	if ( uf::matrix::reverseInfiniteProjection ) ::contextDescription.flags |= FFX_FSR2_ENABLE_DEPTH_INVERTED | FFX_FSR2_ENABLE_DEPTH_INFINITE;
 
 	FFX_ERROR_CHECK(ffxFsr2GetInterfaceVK( &::contextDescription.callbacks, ::scratchBuffer.data(), ::scratchBuffer.size(), uf::renderer::device.physicalDevice, &vkGetDeviceProcAddr ));
 	FFX_ERROR_CHECK(ffxFsr2ContextCreate( &::context, &::contextDescription ));
 
 	ext::fsr::initialized = true;
-
-	UF_MSG_DEBUG("{} x {}", ::contextDescription.maxRenderSize.width, ::contextDescription.maxRenderSize.height);
-
+//	UF_MSG_DEBUG("{} x {}", ::contextDescription.maxRenderSize.width, ::contextDescription.maxRenderSize.height);
 #if 0
 	swapchainRenderMode.bindCallback( swapchainRenderMode.CALLBACK_BEGIN, draw);
 #endif
 }
 void UF_API ext::fsr::tick() {
+	pod::Vector2ui renderSize = {};
+	pod::Vector2ui displaySize = {};
+
+	if ( uf::renderer::settings::pipelines::rt ) {
+		if ( !uf::renderer::hasRenderMode("Compute:RT", true) ) return;
+
+		auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
+		auto& blitter = *renderMode.getBlitter(); if ( !blitter.material.hasShader("fragment") ) return;
+		auto& shader = blitter.material.getShader("fragment"); if ( shader.textures.empty() ) return;
+
+		auto& attachmentColor = shader.textures.front();
+		renderSize = {
+			attachmentColor.width > 0 ? attachmentColor.width : uf::renderer::settings::width,
+			attachmentColor.height > 0 ? attachmentColor.height : uf::renderer::settings::height,
+		};
+	} else {
+		if ( !uf::renderer::hasRenderMode("", true) ) return;
+		
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+		renderSize = {
+			renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width,
+			renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height,
+		};
+	}
+
+	{
+		if ( !uf::renderer::hasRenderMode("Swapchain", true) ) return;
+
+		auto& swapchainRenderMode = uf::renderer::getRenderMode("Swapchain", true);
+		displaySize = {
+			swapchainRenderMode.width, // uf::renderer::settings::width
+			swapchainRenderMode.height, // uf::renderer::settings::height
+		};
+	}
+
+	const int32_t jitterPhaseCount = ffxFsr2GetJitterPhaseCount(renderSize.x, displaySize.x);
+	static uint32_t index = 0;
+	if ( ++index > jitterPhaseCount ) index = 0;
+
+	ffxFsr2GetJitterOffset(&ext::fsr::jitter.x, &ext::fsr::jitter.x, index, jitterPhaseCount);
+
+	pod::Vector2f jitter = {};
+	jitter.x = 2.0f * jitter.x / (float) renderSize.x;
+	jitter.y = 2.0f * jitter.y / (float) renderSize.y;
+	::jitterMatrix = uf::matrix::translate( uf::matrix::identity(), pod::Vector3f{ jitter.x, jitter.y, 0 } );
+}
+void UF_API ext::fsr::render() {
 	if ( !ext::fsr::initialized ) return;
-	auto commandBuffer = uf::renderer::device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+	auto commandBuffer = uf::renderer::device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS, true);
 	draw(commandBuffer, uf::renderer::states::currentBuffer);
 	uf::renderer::device.flushCommandBuffer(commandBuffer);
 
@@ -195,6 +300,10 @@ void UF_API ext::fsr::tick() {
 void UF_API ext::fsr::terminate() {
 	if ( !ext::fsr::initialized ) return;
 	FFX_ERROR_CHECK(ffxFsr2ContextDestroy( &::context ));
+}
+
+pod::Matrix4f UF_API ext::fsr::getJitterMatrix() {
+	return ::jitterMatrix;
 }
 
 #endif

@@ -638,12 +638,19 @@ void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 
 	this->updateDescriptors();
 }
+VkImageLayout ext::vulkan::Texture::remapRenderpassLayout( VkImageLayout layout ) {
+	switch ( layout ) {
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	}
+	return layout;
+}
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
 	image = attachment.image;
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = attachment.views.size() == 6 ? ext::vulkan::enums::Image::VIEW_TYPE_CUBE : ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.view;
-	imageLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
+	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
 
 	// Create sampler
@@ -659,7 +666,7 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D;
 	view = attachment.views[layer];
-	imageLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
+	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
 
 	// Create sampler

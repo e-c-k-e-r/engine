@@ -93,6 +93,8 @@ namespace ext {
 				extern UF_API bool occlusion;
 				extern UF_API bool bloom;
 				extern UF_API bool rt;
+				extern UF_API bool postProcess;
+				extern UF_API bool fsr;
 
 				namespace names {
 					extern UF_API uf::stl::string deferred;
@@ -103,6 +105,8 @@ namespace ext {
 					extern UF_API uf::stl::string occlusion;
 					extern UF_API uf::stl::string bloom;
 					extern UF_API uf::stl::string rt;
+					extern UF_API uf::stl::string postProcess;
+					extern UF_API uf::stl::string fsr;
 				}
 			}
 
@@ -116,6 +120,9 @@ namespace ext {
 			extern UF_API bool rebuild;
 			extern UF_API bool resized;
 			extern UF_API uint32_t currentBuffer;
+			
+			extern UF_API uint32_t frameAccumulate;
+			extern UF_API bool frameAccumulateReset;
 		}
 
 		extern UF_API Device device;

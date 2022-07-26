@@ -63,6 +63,8 @@ bool ext::vulkan::settings::pipelines::culling = false;
 bool ext::vulkan::settings::pipelines::occlusion = false;
 bool ext::vulkan::settings::pipelines::bloom = false;
 bool ext::vulkan::settings::pipelines::rt = false;
+bool ext::vulkan::settings::pipelines::postProcess = false;
+bool ext::vulkan::settings::pipelines::fsr = false;
 
 uf::stl::string ext::vulkan::settings::pipelines::names::deferred = "deferred";
 uf::stl::string ext::vulkan::settings::pipelines::names::vsync = "vsync";
@@ -72,6 +74,8 @@ uf::stl::string ext::vulkan::settings::pipelines::names::culling = "culling";
 uf::stl::string ext::vulkan::settings::pipelines::names::occlusion = "occlusion";
 uf::stl::string ext::vulkan::settings::pipelines::names::bloom = "bloom";
 uf::stl::string ext::vulkan::settings::pipelines::names::rt = "rt";
+uf::stl::string ext::vulkan::settings::pipelines::names::postProcess = "postprocess";
+uf::stl::string ext::vulkan::settings::pipelines::names::fsr = "fsr";
 
 VkColorSpaceKHR ext::vulkan::settings::formats::colorSpace;
 ext::vulkan::enums::Format::type_t ext::vulkan::settings::formats::color = ext::vulkan::enums::Format::R8G8B8A8_UNORM;
@@ -85,6 +89,9 @@ std::mutex ext::vulkan::mutex;
 bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
+uint32_t ext::vulkan::states::frameAccumulate = 0;
+bool ext::vulkan::states::frameAccumulateReset = false;
+
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
 ext::vulkan::Buffer ext::vulkan::scratchBuffer;
@@ -349,6 +356,12 @@ void ext::vulkan::initialize() {
 	}
 	uf::thread::execute( tasks );
 
+#if UF_USE_FFX_FSR
+	if ( settings::pipelines::fsr ) {
+		ext::fsr::initialize();
+	}
+#endif
+
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::tick() {
@@ -429,12 +442,6 @@ void ext::vulkan::tick() {
 		}
 		uf::thread::execute( tasks );
 	}
-
-#if UF_USE_FFX_FSR
-	if ( !ext::fsr::initialized ) {
-		ext::fsr::initialize();
-	}
-#endif
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
@@ -533,7 +540,7 @@ void ext::vulkan::render() {
 			}
 		}
 	#if UF_USE_FFX_FSR
-		if ( ext::fsr::initialized ) {
+		if ( settings::pipelines::fsr ) {
 			ext::fsr::tick();
 		}
 	#endif
@@ -573,6 +580,11 @@ void ext::vulkan::destroy() {
 	ext::vulkan::mutex.lock();
 	synchronize();
 
+#if UF_USE_FFX_FSR
+	if ( settings::pipelines::fsr ) {
+		ext::fsr::terminate();
+	}
+#endif
 
 	for ( auto& renderMode : renderModes ) {
 		if ( !renderMode || !renderMode->device ) continue;

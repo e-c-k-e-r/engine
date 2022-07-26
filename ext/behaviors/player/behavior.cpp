@@ -55,17 +55,19 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 		} else {
 			float fov = cameraSettingsJson["fov"].as<float>(120) * (3.14159265358f / 180.0f);
 			pod::Vector2f range = uf::vector::decode( cameraSettingsJson["clip"], pod::Vector2f{ 0.1, 64.0f } );
-			pod::Vector2ui size = uf::vector::decode( cameraSettingsJson["size"], pod::Vector2ui{} );
+			pod::Vector2ui size = uf::vector::decode( cameraSettingsJson["size"], pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height } );
 			float raidou = (float) size.x / (float) size.y;
 
 			if ( size.x == 0 || size.y == 0 )  {
 				size = uf::vector::decode( ext::config["window"]["size"], pod::Vector2ui{} );
 				raidou = (float) size.x / (float) size.y;
-
+			#if 0
 				this->addHook( "window:Resized", [&, fov, range](pod::payloads::windowResized& payload){
+					float width = uf::renderer::settings::
 					float raidou = (float) payload.window.size.x / (float) payload.window.size.y;
 					camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 				} );
+			#endif
 			}
 			camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
 		}
@@ -201,6 +203,19 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.deserialize(self, metadataJson);
 #endif
+
+#if 1
+	if ( uf::renderer::states::resized && uf::renderer::settings::width > 0 && uf::renderer::settings::height > 0 ) {
+		auto cameraSettingsJson = metadataJson["camera"]["settings"];
+		
+		float fov = cameraSettingsJson["fov"].as<float>(120) * (3.14159265358f / 180.0f);
+		float raidou = (float) uf::renderer::settings::width / (float) uf::renderer::settings::height;
+		pod::Vector2f range = uf::vector::decode( cameraSettingsJson["clip"], pod::Vector2f{ 0.1, 64.0f } );
+
+		camera.setProjection( uf::matrix::perspective( fov, raidou, range.x, range.y ) );
+	}
+#endif
+
 	stats.menu = metadata.system.menu;
 	stats.noclipped = metadata.system.noclipped;
 	stats.floored = stats.noclipped;

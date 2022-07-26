@@ -12,8 +12,8 @@ void ext::vulkan::RenderTarget::addPass( VkPipelineStageFlags stage, VkAccessFla
 	pass.layer = layer;
 	pass.autoBuildPipeline = autoBuildPipeline;
 	for ( auto& i : colors )  pass.colors.emplace_back( VkAttachmentReference{ (uint32_t) i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL } );
-	for ( auto& i : inputs )  pass.inputs.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
-	for ( auto& i : resolves ) pass.resolves.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL  : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+	for ( auto& i : inputs )  pass.inputs.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
+	for ( auto& i : resolves ) pass.resolves.emplace_back( VkAttachmentReference{ (uint32_t) i, i == depth ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL } );
 	if ( depth < attachments.size() ) pass.depth = { (uint32_t) depth, attachments[depth].descriptor.layout };
 
 	if ( !resolves.empty() && resolves.size() != colors.size() )
@@ -175,7 +175,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 				description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 				description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 				description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				description.finalLayout = attachment.descriptor.layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL : attachment.descriptor.layout;
+				description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 				description.flags = 0;
 
 				attachments.emplace_back(description);

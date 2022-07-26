@@ -23,8 +23,17 @@ namespace pod {
 			struct Matrices{
 				pod::Matrix4f view;
 				pod::Matrix4f projection;
+				
+				pod::Matrix4f previous;
 			} matrices[uf::camera::maxViews];
 		} viewport;
+
+	/*
+		struct Metadata {
+			float fov;
+			pod::Vector2f bounds;
+		};
+	*/
 	};
 }
 
@@ -56,6 +65,9 @@ namespace uf {
 
 		pod::Matrix4& getProjection( uint_fast8_t = 0 );
 		const pod::Matrix4& getProjection( uint_fast8_t = 0 ) const;
+
+		pod::Matrix4& getPrevious( uint_fast8_t = 0 );
+		const pod::Matrix4& getPrevious( uint_fast8_t = 0 ) const;
 
 		bool modified() const;
 		void setStereoscopic( bool );

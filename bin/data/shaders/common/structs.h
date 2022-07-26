@@ -1,9 +1,13 @@
 struct EyeMatrices {
 	mat4 view;
 	mat4 projection;
+	
+	mat4 model;
+	mat4 previous;
+
 	mat4 iView;
 	mat4 iProjection;
-	mat4 iProjectionView;
+	
 	vec4 eyePos;
 };
 
@@ -97,6 +101,8 @@ struct Bounds {
 
 struct Instance {
 	mat4 model;
+	mat4 previous;
+
 	vec4 color;
 
 	uint materialID;
@@ -182,6 +188,8 @@ struct Surface {
 	Space position;
 	Space normal;
 	mat3 tbn;
+	vec3 barycentrics;
+	vec2 motion;
 	
 	Ray ray;
 	

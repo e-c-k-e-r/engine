@@ -74,6 +74,8 @@ namespace ext {
 			void updateDescriptors();
 			void destroy();
 			bool generated() const;
+
+			static VkImageLayout remapRenderpassLayout( VkImageLayout );
 			static void setImageLayout(
 				VkCommandBuffer cmdbuffer,
 				VkImage image,

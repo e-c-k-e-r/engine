@@ -62,6 +62,8 @@ namespace pod {
 
 	struct UF_API Instance {		
 		pod::Matrix4f model;
+		pod::Matrix4f previous;
+
 		pod::Vector4f color = {1,1,1,1};
 
 		alignas(4) uint32_t materialID = 0;

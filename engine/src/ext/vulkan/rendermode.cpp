@@ -44,13 +44,15 @@ ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
 uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
 	return {};
 }
+bool ext::vulkan::RenderMode::hasAttachment( const uf::stl::string& name ) const {
+	return metadata.attachments.count(name) > 0;
+}
 const ext::vulkan::RenderTarget::Attachment& ext::vulkan::RenderMode::getAttachment( const uf::stl::string& name ) const {
-	UF_ASSERT_MSG( metadata.attachments.count(name) > 0, "attachment in `{}`: {} not found: {}", this->getName(), this->getType(), name );
+	UF_ASSERT_MSG( hasAttachment( name ), "attachment in `{}`: {} not found: {}", this->getName(), this->getType(), name );
 	return renderTarget.attachments[metadata.attachments.at(name)];
 }
 size_t ext::vulkan::RenderMode::getAttachmentIndex( const uf::stl::string& name ) const {
-	if ( metadata.attachments.count(name) == 0 ) return SIZE_MAX;
-	return metadata.attachments.at(name);
+	return hasAttachment( name ) ? metadata.attachments.at(name) : SIZE_MAX;
 }
 
 uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layerID ) {
@@ -190,7 +192,7 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 
 //	descriptor.renderMode = this->getName();
 	// invalidate
-	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
+	if ( /*metadata.target != "" &&*/ descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
 		descriptor.invalidated = true;
 	} else {
 		descriptor.renderMode = this->getName();

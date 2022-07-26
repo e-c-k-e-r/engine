@@ -13,7 +13,7 @@ float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
 	return gaSchlickG1(cosLi, k) * gaSchlickG1(cosLo, k);
 }
 vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
-#if (!BAKING && !COMPUTE) || RAYTRACE
+#if (!BAKING && !COMPUTE) || RAYTRACE || DEFERRED
 void pbr() {
 	if ( surface.material.lightmapped ) return;
 

@@ -40,7 +40,7 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute", "Deferred"}, false);
+	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute:RT", "Deferred"}, false);
 	if ( !settings::pipelines::rt ) {
 		std::reverse( layers.begin(), layers.end() );
 	}

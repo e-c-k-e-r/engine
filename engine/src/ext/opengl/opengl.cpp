@@ -87,6 +87,9 @@ std::mutex ext::opengl::immediateModeMutex;
 bool ext::opengl::states::resized = false;
 bool ext::opengl::states::rebuild = false;
 uint32_t ext::opengl::states::currentBuffer = 0;
+uint32_t ext::opengl::states::frameAccumulate = 0;
+bool ext::opengl::states::frameAccumulateReset = false;
+
 uf::ThreadUnique<ext::opengl::RenderMode*> ext::opengl::currentRenderMode;
 
 

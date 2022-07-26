@@ -127,112 +127,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 
 			metadata.attachments["albedo"] = attachments.albedo;
 			metadata.attachments["depth"] = attachments.depth;
-		#if 0
-			if ( metadata.type == "single" ) {
-			} else {
-				struct {
-					size_t id, normals, uvs, albedo, depth, output;
-				} attachments = {};
-
-				if ( !true && ext::vulkan::settings::invariant::deferredMode != "" ) {
-					attachments.uvs = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-						/*.format = */VK_FORMAT_R16G16B16A16_UNORM,
-						/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-						/*.blend = */false,
-						/*.samples = */msaa,
-					});
-				} else {
-					attachments.albedo = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-						/*.format = */VK_FORMAT_R8G8B8A8_UNORM,
-						/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-						/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-						/*.blend = */true,
-						/*.samples = */msaa,
-					});
-				}
-				attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */VK_FORMAT_R16G16_UINT,
-					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */false,
-					/*.samples = */msaa,
-				});
-				attachments.normals = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */VK_FORMAT_R16G16_SFLOAT,
-					/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */false,
-					/*.samples = */msaa,
-				});
-				attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format = */ext::vulkan::settings::formats::depth,
-					/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-					/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-					/*.blend = */false,
-					/*.samples = */msaa,
-				});
-				attachments.output = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-					/*.format =*/ VK_FORMAT_R8G8B8A8_UNORM,
-					/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-					/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-					/*.blend =*/ true,
-					/*.samples =*/ 1,
-				});
-				if ( !true && ext::vulkan::settings::invariant::deferredMode != "" ) {
-					// First pass: fill the G-Buffer
-					{
-						renderTarget.addPass(
-							VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-							{ attachments.id, attachments.normals, attachments.uvs },
-							{},
-							{},
-							attachments.depth,
-							0,
-							true
-						);
-					}
-					// Second pass: write to output
-					{
-						renderTarget.addPass(
-							VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-							{ attachments.output },
-							{ attachments.id, attachments.normals, attachments.uvs, attachments.depth },
-							{},
-							attachments.depth,
-							0,
-							false
-						);
-					}
-				} else {
-					// First pass: fill the G-Buffer
-					{
-						renderTarget.addPass(
-							VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-							{ attachments.id, attachments.normals, attachments.albedo },
-							{},
-							{},
-							attachments.depth,
-							0,
-							true
-						);
-					}
-					// Second pass: write to output
-					{
-						renderTarget.addPass(
-							VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
-							{ attachments.output },
-							{ attachments.id, attachments.normals, attachments.albedo, attachments.depth },
-							{},
-							attachments.depth,
-							0,
-							false
-						);
-					}
-				}
-				metadata.outputs.emplace_back(attachments.output);
-			}
-		#endif
 		}
 	}
 
@@ -241,18 +135,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 	if ( blitter.process ) {
 		uf::Mesh mesh;
 		mesh.vertex.count = 3;
-	/*
-		mesh.bind<pod::Vertex_2F2F, uint16_t>();
-		mesh.insertVertices<pod::Vertex_2F2F>({
-			{ {-1.0f, 1.0f}, {0.0f, 1.0f}, },
-			{ {-1.0f, -1.0f}, {0.0f, 0.0f}, },
-			{ {1.0f, -1.0f}, {1.0f, 0.0f}, },
-			{ {1.0f, 1.0f}, {1.0f, 1.0f}, }
-		});
-		mesh.insertIndices<uint16_t>({
-			0, 1, 2, 2, 3, 0
-		});
-	*/
 
 		blitter.device = &device;
 		blitter.material.device = &device;
@@ -306,10 +188,10 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			// do not attach if we're requesting no blitter shaders
 			blitter.process = false;
 		} else {
-			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget.vert.spv";
-			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget.frag.spv"; {
+			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget/vert.spv";
+			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget/frag.spv"; {
 				std::pair<bool, uf::stl::string> settings[] = {
-					{ true, "postProcess.frag" },
+					{ settings::pipelines::postProcess, "postProcess.frag" },
 				//	{ msaa > 1, "msaa.frag" },
 				};
 				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
@@ -397,7 +279,7 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 void ext::vulkan::RenderTargetRenderMode::tick() {
 	ext::vulkan::RenderMode::tick();
 
-	bool resized = this->width == 0 && this->height == 0 && ext::vulkan::states::resized;
+	bool resized = this->width == 0 && this->height == 0 && (ext::vulkan::states::resized || this->resized);
 	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
 
 	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
@@ -410,6 +292,8 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 		return;
 	}
 	if ( resized ) {
+		this->resized = false;
+		
 		renderTarget.initialize( *renderTarget.device );
 		if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
 			blitter.material.textures.clear();

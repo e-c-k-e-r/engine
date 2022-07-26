@@ -27,11 +27,24 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
-	if ( !uf::renderer::hasRenderMode("Compute", true) ) {
+	if ( !uf::renderer::hasRenderMode("Compute:RT", true) ) {
 		auto* renderMode = new uf::renderer::RenderTargetRenderMode;
-		renderMode->setTarget("Compute");
-		renderMode->metadata.json["shaders"]["vertex"] = "/shaders/display/renderTarget.vert.spv";
-		renderMode->metadata.json["shaders"]["fragment"] = "/shaders/display/renderTarget.postProcess.frag.spv";
+		renderMode->setTarget("Compute:RT");
+
+
+		{
+			uf::stl::string vertexShaderFilename = "/shaders/display/renderTarget/vert.spv";
+			uf::stl::string fragmentShaderFilename = "/shaders/display/renderTarget/frag.spv";
+			
+			std::pair<bool, uf::stl::string> settings[] = {
+				{ uf::renderer::settings::pipelines::postProcess, "postProcess.frag" },
+			//	{ msaa > 1, "msaa.frag" },
+			};
+			FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+
+			renderMode->metadata.json["shaders"]["vertex"] = vertexShaderFilename;
+			renderMode->metadata.json["shaders"]["fragment"] = fragmentShaderFilename;
+		}
 		
 		renderMode->blitter.descriptor.renderMode = "Swapchain";
 		renderMode->blitter.descriptor.subpass = 0;
@@ -41,7 +54,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		renderMode->execute = false;
 		renderMode->metadata.limiter.execute = false;
 	//	renderMode->blitter.process = false;
-		uf::renderer::addRenderMode( renderMode, "Compute" );
+		uf::renderer::addRenderMode( renderMode, "Compute:RT" );
 	}
 
 	{
@@ -53,7 +66,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		::emptyTexture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
 		::emptyTexture.fromBuffers( (void*) &pixels[0], pixels.size(), ext::vulkan::enums::Format::R8G8B8A8_UNORM, 2, 2, ext::vulkan::device, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
-		auto& renderMode = uf::renderer::getRenderMode("Compute", true);
+		auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
 		auto& blitter = *renderMode.getBlitter();
 		blitter.material.textures.emplace_back().aliasTexture( ::emptyTexture );
 	}
@@ -82,7 +95,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	bool update = false;
 	auto& graphic = this->getComponent<uf::renderer::Graphic>();
 	if ( !metadata.renderer.bound ) {
-		graphic.initialize("Compute");
+		graphic.initialize("Compute:RT");
 		update = true;
 	} else {
 		if ( previousInstances.size() != instances.size() ) update = true;
@@ -110,8 +123,8 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			//
 			pod::Vector2ui size = metadata.renderer.size;
 			UF_MSG_DEBUG("Size: {}", uf::vector::toString( size ));
-			if ( size.x == 0 ) size.x = uf::renderer::settings::width * metadata.renderer.scale;
-			if ( size.y == 0 ) size.y = uf::renderer::settings::height * metadata.renderer.scale;
+			if ( size.x == 0 ) size.x = uf::renderer::settings::width; // * metadata.renderer.scale;
+			if ( size.y == 0 ) size.y = uf::renderer::settings::height; // * metadata.renderer.scale;
 			UF_MSG_DEBUG("Size: {}", uf::vector::toString( size ));
 
 			auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
@@ -187,8 +200,9 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
 	auto& image = shader.textures.front();
 	
-	auto& renderMode = uf::renderer::getRenderMode("Compute", true);
+	auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
 	auto& blitter = *renderMode.getBlitter();
+
 	if ( blitter.material.hasShader("fragment") ) {
 		auto& shader = blitter.material.getShader("fragment");
 		if ( shader.textures.empty() || ( !shader.textures.empty() && shader.textures.front().image == ::emptyTexture.image ) ) {
@@ -229,10 +243,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		}
 	}
 
+#if 0
 	TIMER(1.0, uf::Window::isKeyPressed("R") ) {
 		UF_MSG_DEBUG("Screenshotting RT scene...");
 		image.screenshot().save("./data/rt.png");
 	}
+#endif
 }
 void ext::RayTraceSceneBehavior::render( uf::Object& self ){}
 void ext::RayTraceSceneBehavior::destroy( uf::Object& self ){

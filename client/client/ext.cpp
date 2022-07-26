@@ -99,8 +99,17 @@ void client::initialize() {
 			
 			if ( payload.invoker != "os" ) client::window.setSize(payload.window.size);
 			// Update viewport
-			if ( !ext::json::isArray( client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"] ) ) {
-				float scale = client::config["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as<float>( 1 );
+
+		#if UF_USE_VULKAN
+			auto& configRenderJson = client::config["engine"]["ext"]["vulkan"];
+		#elif UF_USE_OPENGL
+			auto& configRenderJson = client::config["engine"]["ext"]["opengl"];
+		#else
+			auto& configRenderJson = client::config["engine"]["ext"]["software"];
+		#endif
+
+			if ( !ext::json::isArray( configRenderJson["framebuffer"]["size"] ) ) {
+				float scale = configRenderJson["framebuffer"]["size"].as(1.0f);
 				uf::renderer::settings::width = payload.window.size.x * scale;
 				uf::renderer::settings::height = payload.window.size.y * scale;
 				

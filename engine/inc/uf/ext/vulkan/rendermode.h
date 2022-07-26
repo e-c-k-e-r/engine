@@ -3,6 +3,8 @@
 #include <uf/utils/mesh/mesh.h>
 #include <uf/utils/image/image.h>
 #include <uf/ext/vulkan/device.h>
+#include <uf/ext/vulkan/buffer.h>
+#include <uf/ext/vulkan/texture.h>
 
 namespace ext {
 	namespace vulkan {
@@ -12,6 +14,7 @@ namespace ext {
 			bool execute = false;
 			bool executed = false;
 			bool rebuild = false;
+			bool resized = false;
 			
 			uint32_t width = 0;
 			uint32_t height = 0;
@@ -42,6 +45,8 @@ namespace ext {
 			
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;
+
+			uf::stl::vector<Texture2D> textures;
 
 			VkSemaphore renderCompleteSemaphore;
 			uf::stl::vector<VkFence> fences;
@@ -78,6 +83,7 @@ namespace ext {
 			virtual RenderTarget& getRenderTarget(size_t = 0);
 			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
 
+			virtual bool hasAttachment( const uf::stl::string& ) const;
 			virtual const RenderTarget::Attachment& getAttachment( const uf::stl::string& ) const;
 			virtual size_t getAttachmentIndex( const uf::stl::string& ) const;
 
