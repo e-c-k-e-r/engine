@@ -1460,6 +1460,7 @@ void uf::graph::render() {
 	auto& camera = controller.getComponent<uf::Camera>();
 	
 	auto viewport = camera.data().viewport;
+
 #if UF_USE_FFX_FSR
 	auto jitter = ext::fsr::getJitterMatrix();
 	for ( auto i = 0; i < uf::camera::maxViews; ++i ) {

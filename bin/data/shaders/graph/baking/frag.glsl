@@ -46,25 +46,29 @@ layout (binding = 13, rgba8) uniform volatile coherent image3D outAlbedos;
 #include "../../common/pbr.h"
 #endif
 
-layout (location = 0) in vec3 inPosition;
-layout (location = 1) flat in vec3 inPositionRaw;
-layout (location = 2) in vec2 inUv;
-layout (location = 3) in vec2 inSt;
-layout (location = 4) in vec4 inColor;
-layout (location = 5) in vec3 inNormal;
-layout (location = 6) in vec3 inTangent;
-layout (location = 7) flat in uvec4 inId;
-layout (location = 8) flat in uint inLayer;
+layout (location = 0) flat in uvec4 inId;
+layout (location = 1) flat in vec4 inPOS0;
+layout (location = 2) in vec4 inPOS1;
+
+layout (location = 3) in vec3 inPosition;
+layout (location = 4) in vec2 inUv;
+layout (location = 5) in vec4 inColor;
+layout (location = 6) in vec2 inSt;
+layout (location = 7) in vec3 inNormal;
+layout (location = 8) in vec3 inTangent;
 
 layout (location = 0) out vec4 outAlbedo;
 
 void main() {
 	const uint drawID = uint(inId.x);
-	const uint instanceID = uint(inId.y);
-	const uint materialID = uint(inId.z);
+	const uint triangleID = uint(inId.y);
+	const uint instanceID = uint(inId.z);
 
-	vec3 T = inTangent;
+	const DrawCommand drawCommand = drawCommands[drawID];
+	const Instance instance = instances[instanceID];
+
 	vec3 N = inNormal;
+	vec3 T = inTangent;
 	T = normalize(T - dot(T, N) * N);
 	vec3 B = cross(T, N);
 //	mat3 TBN = mat3(T, B, N);
@@ -73,7 +77,7 @@ void main() {
 	surface.uv.xy = wrap(inUv.xy);
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 	surface.position.world = inPosition;
-	const Material material = materials[materialID];
+	const Material material = materials[instance.materialID];
 
 	if ( T != vec3(0) && validTextureIndex( material.indexNormal ) ) {
 		surface.normal.world = TBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - 1.0 );
@@ -182,7 +186,7 @@ void main() {
 
 	{
 		const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
-		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(inLayer));
+		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(drawCommand.auxID));
 		imageStore(outAlbedos, uvw, vec4(surface.light.rgb, 1) );
 	}
 }

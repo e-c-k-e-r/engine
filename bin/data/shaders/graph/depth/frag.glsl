@@ -1,6 +1,7 @@
 #version 450
 #pragma shader_stage(fragment)
 
+#define EXTRA_ATTRIBUTES 1
 #define FRAGMENT 1
 #define CUBEMAPS 1
 // #define MAX_TEXTURES TEXTURES
@@ -32,13 +33,17 @@ layout (std140, binding = 11) readonly buffer Lights {
 
 #include "../../common/functions.h"
 
-layout (location = 0) in vec2 inUv;
-layout (location = 1) in vec2 inSt;
-layout (location = 2) in vec4 inColor;
-layout (location = 3) in vec3 inNormal;
-layout (location = 4) in mat3 inTBN;
-layout (location = 7) in vec3 inPosition;
-layout (location = 8) flat in uvec4 inId;
+layout (location = 0) flat in uvec4 inId;
+layout (location = 1) flat in vec4 inPOS0;
+layout (location = 2) in vec4 inPOS1;
+#if EXTRA_ATTRIBUTES
+	layout (location = 3) in vec3 inPosition;
+	layout (location = 4) in vec2 inUv;
+	layout (location = 5) in vec4 inColor;
+	layout (location = 6) in vec2 inSt;
+	layout (location = 7) in vec3 inNormal;
+	layout (location = 8) in vec3 inTangent;
+#endif
 
 void main() {
 	const uint drawID = uint(inId.x);
@@ -52,22 +57,19 @@ void main() {
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 
 	// sample albedo
-//	if ( !validTextureIndex( material.indexAlbedo ) ) discard; {
 	if ( validTextureIndex( material.indexAlbedo ) ) {
-	//	const Texture t = textures[material.indexAlbedo];
-	//	A = textureLod( samplerTextures[nonuniformEXT(t.index)], mix( t.lerp.xy, t.lerp.zw, uv ), mip );
 		A = sampleTexture( material.indexAlbedo );
-		// alpha mode OPAQUE
-		if ( material.modeAlpha == 0 ) {
-			A.a = 1;
-		// alpha mode BLEND
-		} else if ( material.modeAlpha == 1 ) {
-
-		// alpha mode MASK
-		} else if ( material.modeAlpha == 2 ) {
-			if ( A.a < abs(material.factorAlphaCutoff) ) discard;
-			A.a = 1;
-		}
-	//	if ( A.a < 1 - 0.00001 ) discard;
 	}
+	// alpha mode OPAQUE
+	if ( material.modeAlpha == 0 ) {
+		A.a = 1;
+	// alpha mode BLEND
+	} else if ( material.modeAlpha == 1 ) {
+
+	// alpha mode MASK
+	} else if ( material.modeAlpha == 2 ) {
+		if ( A.a < abs(material.factorAlphaCutoff) ) discard;
+		A.a = 1;
+	}
+//	if ( A.a < 1 - 0.00001 ) discard;
 }

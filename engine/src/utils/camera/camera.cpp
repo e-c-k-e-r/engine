@@ -22,12 +22,12 @@ pod::Vector3f uf::camera::eye( const pod::Camera& camera, uint_fast8_t i ) {
 void uf::camera::view( pod::Camera& camera, const pod::Matrix4f& mat, uint_fast8_t i ) {
 	if ( i >= uf::camera::maxViews ) {
 		for ( i = 0; i < uf::camera::maxViews; ++i ) {
-			camera.viewport.matrices[i].previous = camera.viewport.matrices[i].projection * camera.viewport.matrices[i].view;
+			camera.previous[i] = camera.viewport.matrices[i].projection * camera.viewport.matrices[i].view;
 			camera.viewport.matrices[i].view = mat;
 		}
 		return;
 	}
-	camera.viewport.matrices[i].previous = camera.viewport.matrices[i].projection * camera.viewport.matrices[i].view;
+	camera.previous[i] = camera.viewport.matrices[i].projection * camera.viewport.matrices[i].view;
 	camera.viewport.matrices[i].view = mat;
 }
 void uf::camera::projection( pod::Camera& camera, const pod::Matrix4f& mat, uint_fast8_t i ) {
@@ -66,7 +66,7 @@ uf::Camera::Camera() {
 	for ( uint_fast8_t i = 0; i < uf::camera::maxViews; ++i ) {
 		this->m_pod.viewport.matrices[i].view = uf::matrix::identity();
 		this->m_pod.viewport.matrices[i].projection = uf::matrix::identity();
-		this->m_pod.viewport.matrices[i].previous = uf::matrix::identity();
+		this->m_pod.previous[i] = uf::matrix::identity();
 	}
 }
 
@@ -83,8 +83,8 @@ const pod::Matrix4& uf::Camera::getView( uint_fast8_t i ) const { return this->m
 pod::Matrix4& uf::Camera::getProjection( uint_fast8_t i ) { return this->m_pod.viewport.matrices[MIN(i, uf::camera::maxViews)].projection; }
 const pod::Matrix4& uf::Camera::getProjection( uint_fast8_t i ) const { return this->m_pod.viewport.matrices[MIN(i, uf::camera::maxViews)].projection; }
 
-pod::Matrix4& uf::Camera::getPrevious( uint_fast8_t i ) { return this->m_pod.viewport.matrices[MIN(i, uf::camera::maxViews)].previous; }
-const pod::Matrix4& uf::Camera::getPrevious( uint_fast8_t i ) const { return this->m_pod.viewport.matrices[MIN(i, uf::camera::maxViews)].previous; }
+pod::Matrix4& uf::Camera::getPrevious( uint_fast8_t i ) { return this->m_pod.previous[MIN(i, uf::camera::maxViews)]; }
+const pod::Matrix4& uf::Camera::getPrevious( uint_fast8_t i ) const { return this->m_pod.previous[MIN(i, uf::camera::maxViews)]; }
 
 bool uf::Camera::modified() const { return this->m_pod.modified; }
 void uf::Camera::setStereoscopic( bool b ) { this->m_pod.stereoscopic = b; }

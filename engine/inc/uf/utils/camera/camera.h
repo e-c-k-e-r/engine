@@ -23,10 +23,10 @@ namespace pod {
 			struct Matrices{
 				pod::Matrix4f view;
 				pod::Matrix4f projection;
-				
-				pod::Matrix4f previous;
 			} matrices[uf::camera::maxViews];
 		} viewport;
+		
+		pod::Matrix4f previous[uf::camera::maxViews];
 
 	/*
 		struct Metadata {

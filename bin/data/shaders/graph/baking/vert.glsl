@@ -5,5 +5,6 @@
 #define SKINNED 0
 #define BAKING 1
 #define LAYERED 1
+#define EXTRA_ATTRIBUTES 1
 
 #include "../base/vert.h"

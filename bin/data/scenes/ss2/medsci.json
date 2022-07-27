@@ -7,11 +7,11 @@
 	//	{ "filename": "./models/tiny_msci.glb" }
 	//	{ "filename": "./models/tiny_msci/graph.json" }
 
-	//	{ "filename": "./models/micro_sci.glb" }
+		{ "filename": "./models/micro_sci.glb" }
 	//	{ "filename": "./models/micro_sci/graph.json" }
 
 	//	{ "filename": "./models/msci.glb" }
-		{ "filename": "./models/msci/graph.json" }
+	//	{ "filename": "./models/msci/graph.json" }
 
 	//	{ "filename": "./models/medsci.glb" }
 	//	{ "filename": "./models/medsci/graph.json" }
@@ -28,14 +28,13 @@
 			"tags": {
 				"/^worldspawn/": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [3,1,3], "epsilon": 0.0001, "cleanup": true, "print": true },
+				//	"grid": { "size": [3,1,3], "epsilon": 0.0001, "cleanup": true, "print": true },
 					"optimize mesh": { "simplify": 0 },
 					"unwrap mesh": true
 				},
 				"info_player_spawn": {
 					"action": "attach",
-					"filename": "./player.json",
-					"preserve orientation": true
+					"filename": "./player.json"
 				},
 				"ambience_xerxes": { "action": "load", "payload": { "import": "./ambience.json", "assets": [ "./audio/soundscape/xerxes.ogg" ], "metadata": { "audio": { "rolloffFactor": 0.5, "volume": 1.0 } } } },
 

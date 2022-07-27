@@ -26,18 +26,12 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 #endif
 
 #if !MULTISAMPLING
-	layout(binding = 0) uniform usampler2D /*texture2D*/ samplerId;
-	layout(binding = 1) uniform sampler2D /*texture2D*/ samplerBary;
-	layout(binding = 2) uniform sampler2D /*texture2D*/ samplerMips;
-	layout(binding = 3) uniform sampler2D /*texture2D*/ samplerNormal;
-	layout(binding = 4) uniform sampler2D /*texture2D*/ samplerUv;
-	layout(binding = 5) uniform sampler2D /*texture2D*/ samplerDepth;
+	layout(binding = 0) uniform utexture2D samplerId;
+	layout(binding = 1) uniform texture2D samplerBary;
+	layout(binding = 5) uniform texture2D samplerDepth;
 #else
 	layout(binding = 0) uniform utexture2DMS samplerId;
 	layout(binding = 1) uniform texture2DMS samplerBary;
-	layout(binding = 2) uniform texture2DMS samplerMips;
-	layout(binding = 3) uniform texture2DMS samplerNormal;
-	layout(binding = 4) uniform texture2DMS samplerUv;
 	layout(binding = 5) uniform texture2DMS samplerDepth;
 #endif
 
@@ -110,7 +104,7 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 	#include "../../common/vxgi.h"
 #endif
 
-#define IMAGE_LOAD(X) texture( X, inUv ) //texelFetch( X, ivec2(gl_GlobalInvocationID.xy), 0 )
+#define IMAGE_LOAD(X) texelFetch( X, ivec2(gl_GlobalInvocationID.xy), 0 ) //texelFetch( X, ivec2(gl_GlobalInvocationID.xy), 0 )
 #define IMAGE_LOAD_MS(X, I) texelFetch( X, ivec2(gl_GlobalInvocationID.xy), I )
 
 #define IMAGE_STORE(X, Y) imageStore( X, ivec2(gl_GlobalInvocationID.xy), Y )
@@ -160,27 +154,6 @@ void populateSurface() {
 		surface.position.eye = positionEye.xyz;
 		surface.position.world = vec3( ubo.eyes[surface.pass].iView * positionEye );
 	}
-#if 0
-	{
-		const vec4 near4 = ubo.eyes[surface.pass].iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-		const vec4 far4 = ubo.eyes[surface.pass].iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
-		const vec3 near3 = near4.xyz / near4.w;
-		const vec3 far3 = far4.xyz / far4.w;
-
-		surface.ray.origin = near3;
-		surface.ray.direction = normalize( far3 - near3 );
-	}
-	// separate our ray direction due to floating point precision problems
-	{
-		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
-		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
-		const vec3 near3 = near4.xyz / near4.w;
-		const vec3 far3 = far4.xyz / far4.w;
-
-		surface.ray.direction = normalize( far3 - near3 );
-	}
-#else
 	{
 		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
 		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
@@ -191,16 +164,15 @@ void populateSurface() {
 		surface.ray.direction = normalize( far3 - near3 );
 		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
 	}
-#endif
 
 #if !MULTISAMPLING
-	const uvec3 ID = uvec3(IMAGE_LOAD(samplerId).xyz);
+	const uvec2 ID = uvec2(IMAGE_LOAD(samplerId).xy);
 #else
-	const uvec3 ID = msaa.IDs[msaa.currentID]; // IMAGE_LOAD_MS(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.settings.mode.msaa).xy;
+	const uvec2 ID = msaa.IDs[msaa.currentID]; // IMAGE_LOAD_MS(samplerId, msaa.currentID).xy; //resolve(samplerId, ubo.settings.mode.msaa).xy;
 #endif
 	surface.motion = vec2(0);
 
-	if ( ID.x == 0 || ID.y == 0 || ID.z == 0 ) {
+	if ( ID.x == 0 || ID.y == 0 ) {
 		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
 		}
@@ -208,116 +180,92 @@ void populateSurface() {
 	//postProcess();
 		return;
 	}
-	const uint drawID = ID.x - 1;
-	const uint triangleID = ID.y - 1;
-	const uint instanceID = ID.z - 1;
 
 #if !MULTISAMPLING
-	surface.barycentrics = IMAGE_LOAD(samplerBary).xyz;
-#else
-	surface.barycentrics = IMAGE_LOAD_MS(samplerBary, msaa.currentID).xyz; // resolve(samplerBary, ubo.settings.mode.msaa).xy;
-#endif
-{
-	#if !MULTISAMPLING
-		const vec4 uv = IMAGE_LOAD(samplerUv);
-		const vec2 mips = IMAGE_LOAD(samplerMips).xy;
-		surface.normal.world = decodeNormals( IMAGE_LOAD(samplerNormal).xy );
-	#else
-		const vec4 uv = IMAGE_LOAD_MS(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.settings.mode.msaa);
-		const vec2 mips = IMAGE_LOAD_MS(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.settings.mode.msaa);
-		surface.normal.world = decodeNormals( IMAGE_LOAD_MS(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.settings.mode.msaa).xy );
-	#endif
-		surface.uv.xy = uv.xy;
-		surface.uv.z = mips.x;
-		surface.st.xy = uv.zw;
-		surface.st.z = mips.y;
+//	surface.barycentrics = IMAGE_LOAD(samplerBary).xyz;
+	{
+		vec2 encodedBarycentrics = IMAGE_LOAD(samplerBary).xy;
+		surface.barycentrics = vec3(
+			1.0 - encodedBarycentrics.x - encodedBarycentrics.y,
+			encodedBarycentrics.x,
+			encodedBarycentrics.y
+		);
 	}
+#else
+//	surface.barycentrics = IMAGE_LOAD_MS(samplerBary, msaa.currentID).xyz; // resolve(samplerBary, ubo.settings.mode.msaa).xy;
+	{
+		vec2 encodedBarycentrics = IMAGE_LOAD_MS(samplerBary, msaa.currentID).xy; // resolve(samplerBary, ubo.settings.mode.msaa).xy;
+		surface.barycentrics = vec3(
+			1.0 - encodedBarycentrics.x - encodedBarycentrics.y,
+			encodedBarycentrics.x,
+			encodedBarycentrics.y
+		);
+	}
+#endif
 
+	const uint drawID = ID.x - 1;
 	const DrawCommand drawCommand = drawCommands[drawID];
+	const uint instanceID = drawID;
 	const Instance instance = instances[instanceID];
 	surface.instance = instance;
 
 	{
-		vec4 pNDC = ubo.eyes[surface.pass].previous * instance.previous * vec4(surface.position.world, 1);
-		vec4 cNDC = ubo.eyes[surface.pass].model * instance.model * vec4(surface.position.world, 1);
-		pNDC /= pNDC.w;
-		cNDC /= cNDC.w;
-
-		surface.motion = cNDC.xy - pNDC.xy;
-	}
-
-	{
+		const uint triangleID = ID.y - 1;
 		const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
 
-		if ( 0 < instanceAddresses.index ) {
-			Triangle triangle;
-			const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
-			const vec3 bary = surface.barycentrics;
+		Triangle triangle;
 
-			Vertex points[3];
-			uvec3 indices = uvec3( triangleID * 3 + 0, triangleID * 3 + 1, triangleID * 3 + 2 );
+		Vertex points[3];
+		uvec3 indices = uvec3( triangleID * 3 + 0, triangleID * 3 + 1, triangleID * 3 + 2 );
 
-			if ( 0 < instanceAddresses.vertex ) {
-				Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
-				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
-			} else {
-				if ( 0 < instanceAddresses.position ) {
-					VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
-					for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
-				}
-				if ( 0 < instanceAddresses.uv ) {
-					VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
-					for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
-				}
-				if ( 0 < instanceAddresses.st ) {
-					VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
-					for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
-				}
-				if ( 0 < instanceAddresses.normal ) {
-					VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
-					for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
-				}
-				if ( 0 < instanceAddresses.tangent ) {
-					VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
-					for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
-				}
-			}
-
-			triangle.point.position = /*triangle.*/points[0].position * bary[0] + /*triangle.*/points[1].position * bary[1] + /*triangle.*/points[2].position * bary[2];
-			triangle.point.uv = /*triangle.*/points[0].uv * bary[0] + /*triangle.*/points[1].uv * bary[1] + /*triangle.*/points[2].uv * bary[2];
-			triangle.point.st = /*triangle.*/points[0].st * bary[0] + /*triangle.*/points[1].st * bary[1] + /*triangle.*/points[2].st * bary[2];
-			triangle.point.normal = /*triangle.*/points[0].normal * bary[0] + /*triangle.*/points[1].normal * bary[1] + /*triangle.*/points[2].normal * bary[2];
-			triangle.point.tangent = /*triangle.*/points[0].tangent * bary[0] + /*triangle.*/points[1].tangent * bary[1] + /*triangle.*/points[2].tangent * bary[2];
-
-			{
-				surface.position.world = vec3( instance.model * vec4(triangle.point.position, 1.0 ) );
-				surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
-			}
-			// bind normals
-			{
-				surface.normal.world = normalize(vec3( instance.model * vec4(triangle.point.normal, 0.0 ) ));
-				surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
-			}
-			// bind UVs
-			{
-				surface.uv.xy = triangle.point.uv;
-				surface.st.xy = triangle.point.st;
-			}
+		if ( 0 < instanceAddresses.vertex ) {
+			Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
 		} else {
-		#if !MULTISAMPLING
-			const vec4 uv = IMAGE_LOAD(samplerUv);
-			const vec2 mips = IMAGE_LOAD(samplerMips).xy;
-			surface.normal.world = decodeNormals( IMAGE_LOAD(samplerNormal).xy );
-		#else
-			const vec4 uv = IMAGE_LOAD_MS(samplerUv, msaa.currentID); // resolve(samplerUv, ubo.settings.mode.msaa);
-			const vec2 mips = IMAGE_LOAD_MS(samplerMips, msaa.currentID).xy; // resolve(samplerUv, ubo.settings.mode.msaa);
-			surface.normal.world = decodeNormals( IMAGE_LOAD_MS(samplerNormal, msaa.currentID).xy ); // decodeNormals( resolve(samplerNormal, ubo.settings.mode.msaa).xy );
-		#endif
+			if ( 0 < instanceAddresses.position ) {
+				VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
+				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
+			}
+			if ( 0 < instanceAddresses.uv ) {
+				VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
+				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
+			}
+			if ( 0 < instanceAddresses.st ) {
+				VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
+				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
+			}
+			if ( 0 < instanceAddresses.normal ) {
+				VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
+				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
+			}
+			if ( 0 < instanceAddresses.tangent ) {
+				VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
+				for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
+			}
+		}
+
+		triangle.point.position = /*triangle.*/points[0].position * surface.barycentrics[0] + /*triangle.*/points[1].position * surface.barycentrics[1] + /*triangle.*/points[2].position * surface.barycentrics[2];
+		triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentrics[0] + /*triangle.*/points[1].uv * surface.barycentrics[1] + /*triangle.*/points[2].uv * surface.barycentrics[2];
+		triangle.point.st = /*triangle.*/points[0].st * surface.barycentrics[0] + /*triangle.*/points[1].st * surface.barycentrics[1] + /*triangle.*/points[2].st * surface.barycentrics[2];
+		triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentrics[0] + /*triangle.*/points[1].normal * surface.barycentrics[1] + /*triangle.*/points[2].normal * surface.barycentrics[2];
+		triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentrics[0] + /*triangle.*/points[1].tangent * surface.barycentrics[1] + /*triangle.*/points[2].tangent * surface.barycentrics[2];
+
+		// bind position
+		if ( false ) {
+			surface.position.world = vec3( instance.model * vec4(triangle.point.position, 1.0 ) );
+			surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
+		}
+		// bind normals
+		{
+			surface.normal.world = normalize(vec3( instance.model * vec4(triangle.point.normal, 0.0 ) ));
 			surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
-			surface.uv.xy = uv.xy;
-			surface.uv.z = mips.x;
-			surface.st.xy = uv.zw;
-			surface.st.z = mips.y;
+		}
+		// bind UVs
+		{
+			surface.uv.xy = triangle.point.uv;
+			surface.uv.z = 0;
+			surface.st.xy = triangle.point.st;
+			surface.st.z = 0;
 		}
 	}
 
@@ -364,6 +312,15 @@ void populateSurface() {
 	 	surface.material.metallic = samp.r;
 		surface.material.roughness = samp.g;
 	}
+
+	{
+		vec4 pNDC = ubo.eyes[surface.pass].previous * instance.previous * vec4(surface.position.world, 1);
+		vec4 cNDC = ubo.eyes[surface.pass].model * instance.model * vec4(surface.position.world, 1);
+		pNDC /= pNDC.w;
+		cNDC /= cNDC.w;
+
+		surface.motion = cNDC.xy - pNDC.xy;
+	}
 }
 
 void directLighting() {
@@ -383,7 +340,7 @@ void directLighting() {
 void resolveSurfaceFragment() {
 	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
 		msaa.currentID = i;
-		msaa.IDs[i] = uvec3(IMAGE_LOAD_MS(samplerId, msaa.currentID)).xyz;
+		msaa.IDs[i] = uvec3(IMAGE_LOAD_MS(samplerId, msaa.currentID)).xy;
 
 		// check if ID is already used
 		bool unique = true;

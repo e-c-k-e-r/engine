@@ -72,44 +72,12 @@ void main() {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
 			continue;
 		}
-	//	const DrawCommand drawCommand = drawCommands[drawID];
+		const DrawCommand drawCommand = drawCommands[drawID];
 		surface.instance = instances[instanceID];
 		const Material material = materials[surface.instance.materialID];
 		surface.material.albedo = material.colorBase;
 		surface.fragment = material.colorEmissive;
-/*
-	#if DEFERRED_SAMPLING
-		{
-			vec4 uv = imageLoad(voxelUv[CASCADE], ivec3(tUvw) );
-			surface.uv.xy = uv.xy;
-			surface.st.xy = uv.zw;
-		}
-		if ( validTextureIndex( material.indexAlbedo ) ) {
-			surface.material.albedo = sampleTexture( material.indexAlbedo );
-		}
 
-		// OPAQUE
-		if ( material.modeAlpha == 0 ) {
-			surface.material.albedo.a = 1;
-		// BLEND
-		} else if ( material.modeAlpha == 1 ) {
-
-		// MASK
-		} else if ( material.modeAlpha == 2 ) {
-
-		}
-		// Lightmap
-		if ( validTextureIndex( surface.instance.lightmapID ) ) {
-			surface.material.albedo.rgb *= sampleTexture( surface.instance.lightmapID, surface.st ).rgb;
-		}
-		// Emissive textures
-		if ( validTextureIndex( material.indexEmissive ) ) {
-			surface.material.albedo += sampleTexture( material.indexEmissive, mip );
-		}
-	#else
-		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
-	#endif
-*/
 		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
 		surface.material.metallic = material.factorMetallic;
 		surface.material.roughness = material.factorRoughness;
@@ -152,12 +120,6 @@ void main() {
 				const vec3 specular = (F * D * G) / max(EPSILON, 4.0 * cosLi * cosLo);
 			#endif
 				// lightmapped, compute only specular
-			/*
-				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) surface.light.rgb += (specular) * Lr * cosLi;
-				// point light, compute only diffuse
-				// else if ( abs(light.type) == 1 ) surface.light.rgb += (diffuse) * Lr * cosLi;
-				else surface.light.rgb += (diffuse + specular) * Lr * cosLi;
-			*/
 				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 				surface.light.a += light.power * La * Ls;
 			}

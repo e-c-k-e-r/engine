@@ -4,6 +4,8 @@ layout (constant_id = 0) const uint PASSES = 6;
 #extension GL_ARB_shader_viewport_layer_array : enable
 #endif
 
+#define EXTRA_ATTRIBUTES 1
+
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
@@ -42,17 +44,17 @@ layout (std140, binding = 2) readonly buffer Instances {
 	};
 #endif
 
-layout (location = 0) out vec3 outPosition;
+layout (location = 0) out uvec4 outId;
 layout (location = 1) flat out vec4 outPOS0;
 layout (location = 2) out vec4 outPOS1;
-layout (location = 3) out vec2 outUv;
-layout (location = 4) out vec2 outSt;
-layout (location = 5) out vec4 outColor;
-layout (location = 6) out vec3 outNormal;
-layout (location = 7) out vec3 outTangent;
-layout (location = 8) out uvec4 outId;
-#if LAYERED
-	layout (location = 9) out uint outLayer;
+
+#if EXTRA_ATTRIBUTES
+	layout (location = 3) out vec3 outPosition;
+	layout (location = 4) out vec2 outUv;
+	layout (location = 5) out vec4 outColor;
+	layout (location = 6) out vec2 outSt;
+	layout (location = 7) out vec3 outNormal;
+	layout (location = 8) out vec3 outTangent;
 #endif
 
 vec4 snap(vec4 vertex, vec2 resolution) {
@@ -64,8 +66,6 @@ vec4 snap(vec4 vertex, vec2 resolution) {
 }
 
 void main() {
-	outUv = inUv;
-	outSt = inSt;
 	const uint drawID = gl_DrawIDARB;
 	const uint triangleID = gl_VertexIndex / 3;
 	const uint instanceID = gl_InstanceIndex;
@@ -90,21 +90,22 @@ void main() {
 //	const mat4 model = instances.length() <= 0 ? skinned : (instance.model * skinned);
 	const mat4 model = instance.model * skinned;
 
-	outId = uvec4(drawID, triangleID, instanceID, PushConstant.pass);
-	outColor = instance.color;
-	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
-	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
-	outTangent = normalize(vec3(view * model * vec4(inTangent.xyz, 0.0)));
+
 #if BAKING
 	gl_Position = vec4(inSt * 2.0 - 1.0, 0.0, 1.0);
 #else
 	gl_Position = projection * view * model * vec4(inPos.xyz, 1.0);
 #endif
+	outId = uvec4(drawID, triangleID, instanceID, PushConstant.pass);
 	outPOS0 = gl_Position;
 	outPOS1 = gl_Position;
-
-#if LAYERED
-//	gl_Layer = int(drawCommand.auxID);
- 	outLayer = int(drawCommand.auxID);
+	
+#if EXTRA_ATTRIBUTES
+	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
+	outUv = inUv;
+	outSt = inSt;
+	outColor = inColor * instance.color;
+	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
+	outTangent = normalize(vec3(view * model * vec4(inTangent.xyz, 0.0)));
 #endif
 }

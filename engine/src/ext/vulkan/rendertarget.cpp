@@ -174,7 +174,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 				description.storeOp = attachment.descriptor.usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
 				description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 				description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+				description.initialLayout = attachment.descriptor.layout; // VK_IMAGE_LAYOUT_UNDEFINED;
 				description.finalLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 				description.flags = 0;
 

@@ -13,6 +13,56 @@ VkFormat ext::vulkan::Texture::DefaultFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
 uf::stl::vector<ext::vulkan::Sampler> ext::vulkan::Sampler::samplers;
 
+namespace {
+	void enforceFilterFromFormat( ext::vulkan::Sampler::Descriptor& descriptor, VkFormat format ) {
+		switch ( format ) {
+			case VK_FORMAT_R8_UINT:
+			case VK_FORMAT_R8_SINT:
+			case VK_FORMAT_R8G8_UINT:
+			case VK_FORMAT_R8G8_SINT:
+			case VK_FORMAT_R8G8B8_UINT:
+			case VK_FORMAT_R8G8B8_SINT:
+			case VK_FORMAT_B8G8R8_UINT:
+			case VK_FORMAT_B8G8R8_SINT:
+			case VK_FORMAT_R8G8B8A8_UINT:
+			case VK_FORMAT_R8G8B8A8_SINT:
+			case VK_FORMAT_B8G8R8A8_UINT:
+			case VK_FORMAT_B8G8R8A8_SINT:
+			case VK_FORMAT_R16_UINT:
+			case VK_FORMAT_R16_SINT:
+			case VK_FORMAT_R16G16_UINT:
+			case VK_FORMAT_R16G16_SINT:
+			case VK_FORMAT_R16G16B16_UINT:
+			case VK_FORMAT_R16G16B16_SINT:
+			case VK_FORMAT_R16G16B16A16_UINT:
+			case VK_FORMAT_R16G16B16A16_SINT:
+			case VK_FORMAT_R32_UINT:
+			case VK_FORMAT_R32_SINT:
+			case VK_FORMAT_R32G32_UINT:
+			case VK_FORMAT_R32G32_SINT:
+			case VK_FORMAT_R32G32B32_UINT:
+			case VK_FORMAT_R32G32B32_SINT:
+			case VK_FORMAT_R32G32B32A32_UINT:
+			case VK_FORMAT_R32G32B32A32_SINT:
+			case VK_FORMAT_R64_UINT:
+			case VK_FORMAT_R64_SINT:
+			case VK_FORMAT_R64G64_UINT:
+			case VK_FORMAT_R64G64_SINT:
+			case VK_FORMAT_R64G64B64_UINT:
+			case VK_FORMAT_R64G64B64_SINT:
+			case VK_FORMAT_R64G64B64A64_UINT:
+			case VK_FORMAT_R64G64B64A64_SINT:
+			case VK_FORMAT_S8_UINT:
+			case VK_FORMAT_D16_UNORM_S8_UINT:
+			case VK_FORMAT_D24_UNORM_S8_UINT:
+			case VK_FORMAT_D32_SFLOAT_S8_UINT:
+				descriptor.filter.min = VK_FILTER_NEAREST;
+				descriptor.filter.mag = VK_FILTER_NEAREST;
+			break;
+		}
+	}
+}
+
 ext::vulkan::Sampler ext::vulkan::Sampler::retrieve( const ext::vulkan::Sampler::Descriptor& info ) {
 	ext::vulkan::Sampler sampler;
 	for ( auto& s : samplers ) {
@@ -496,6 +546,7 @@ void ext::vulkan::Texture::fromBuffers(
 	sampler.descriptor.mip.min = 0;
 	sampler.descriptor.mip.max = static_cast<float>(this->mips);
 	// sampler.initialize( device );
+	::enforceFilterFromFormat( sampler.descriptor, format );
 	sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 
 	// Create image view	
@@ -591,6 +642,7 @@ void ext::vulkan::Texture::asRenderTarget( Device& device, uint32_t width, uint3
 
 	// Create sampler
 	// sampler.initialize( device );
+	::enforceFilterFromFormat( sampler.descriptor, format );
 	sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 
 	// Create image view
@@ -652,10 +704,12 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	view = attachment.view;
 	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
+	format = attachment.descriptor.format;
 
 	// Create sampler
 	if ( createSampler ) {
 		// sampler.initialize( ext::vulkan::device );
+		::enforceFilterFromFormat( sampler.descriptor, format );
 		sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 	}
 	
@@ -668,10 +722,12 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	view = attachment.views[layer];
 	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
+	format = attachment.descriptor.format;
 
 	// Create sampler
 	if ( createSampler ) {
 		// sampler.initialize( ext::vulkan::device );
+		::enforceFilterFromFormat( sampler.descriptor, format );
 		sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 	}
 	

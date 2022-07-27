@@ -118,10 +118,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData
 ) {
-//	if ( messageSeverity <= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT ) return VK_FALSE;
 	uf::stl::string message = pCallbackData->pMessage;
 	for ( auto& filter : ext::vulkan::settings::validationFilters ) {
-		if ( message.find(filter) != uf::stl::string::npos ) return VK_FALSE;
+		if ( message.find(::fmt::format("MessageID = {}", filter)) != uf::stl::string::npos ) return VK_FALSE;
 	}
 	UF_MSG_ERROR("[Validation Layer] {}", message);
 	return VK_FALSE;

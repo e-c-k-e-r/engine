@@ -204,7 +204,7 @@ struct Surface {
 #if MULTISAMPLING
 struct MSAA {
 	int currentID;
-	uvec3 IDs[MAX_MSAA_SAMPLES];
+	uvec2 IDs[MAX_MSAA_SAMPLES];
 	vec4 fragment;
 	vec4 fragments[MAX_MSAA_SAMPLES];
 } msaa;
