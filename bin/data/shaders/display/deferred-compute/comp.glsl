@@ -1,7 +1,8 @@
 #version 450
 #pragma shader_stage(compute)
 
-#define DEFERRED_SAMPLING 1
+#define RT 0
+#define VXGI 0
 #define MULTISAMPLING 0
 #include "./comp.h"
 

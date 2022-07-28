@@ -48,15 +48,12 @@ layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 #endif
 
 layout (location = 0) flat in uvec4 inId;
-layout (location = 1) flat in vec4 inPOS0;
-layout (location = 2) /*__explicitInterpAMD*/ in vec4 inPOS1;
-
-layout (location = 3) in vec3 inPosition;
-layout (location = 4) in vec2 inUv;
-layout (location = 5) in vec4 inColor;
-layout (location = 6) in vec2 inSt;
-layout (location = 7) in vec3 inNormal;
-layout (location = 8) in vec3 inTangent;
+layout (location = 1) in vec3 inPosition;
+layout (location = 2) in vec2 inUv;
+layout (location = 3) in vec4 inColor;
+layout (location = 4) in vec2 inSt;
+layout (location = 5) in vec3 inNormal;
+layout (location = 6) in vec3 inTangent;
 
 #include "../../common/functions.h"
 
@@ -66,23 +63,16 @@ void main() {
 	const vec3 P = inPosition.xzy * 0.5 + 0.5;
 	if ( abs(P.x) > 1 || abs(P.y) > 1 || abs(P.z) > 1 ) discard;
 
-	const uint drawID = uint(inId.x);
-	const uint triangleID = uint(inId.y);
+	const uint triangleID = uint(inId.x); // gl_PrimitiveID
+	const uint drawID = uint(inId.y);
 	const uint instanceID = uint(inId.z);
-	const vec2 uv = wrap(inUv.xy);
 
-	surface.uv.xy = uv;
+	surface.uv.xy = wrap(inUv.xy);
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 	surface.st.xy = inSt;
 	surface.st.z = mipLevel(dFdx(inSt), dFdy(inSt));
 
-	vec3 T = inTangent;
-	vec3 N = inNormal;
-	T = normalize(T - dot(T, N) * N);
-	vec3 B = cross(T, N);
-//	mat3 TBN = mat3(T, B, N);
-	mat3 TBN = mat3(N, B, T);
-
+	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
 	const Material material = materials[instance.materialID];
 	surface.instance = instance;
@@ -95,25 +85,33 @@ void main() {
 	// sample albedo
 	if ( validTextureIndex( material.indexAlbedo ) ) {
 		A = sampleTexture( material.indexAlbedo );
-		// alpha mode OPAQUE
-		if ( material.modeAlpha == 0 ) {
-			A.a = 1;
-		// alpha mode BLEND
-		} else if ( material.modeAlpha == 1 ) {
-
-		// alpha mode MASK
-		} else if ( material.modeAlpha == 2 ) {
-			if ( A.a < abs(material.factorAlphaCutoff) ) discard;
-			A.a = 1;
-		}
-		if ( A.a == 0 ) discard;
 	}
+	// alpha mode OPAQUE
+	if ( material.modeAlpha == 0 ) {
+		A.a = 1;
+	// alpha mode BLEND
+	} else if ( material.modeAlpha == 1 ) {
+
+	// alpha mode MASK
+	} else if ( material.modeAlpha == 2 ) {
+		if ( A.a < abs(material.factorAlphaCutoff) ) discard;
+		A.a = 1;
+	}
+	if ( A.a == 0 ) discard;
+
 #if USE_LIGHTMAP && !DEFERRED_SAMPLING
 	if ( validTextureIndex( instance.lightmapID ) ) {
 		A.rgb *= sampleTexture( instance.lightmapID, inSt ).rgb;
 	}
 #endif
+
 	// sample normal
+	vec3 N = inNormal;
+	vec3 T = inTangent;
+	T = normalize(T - dot(T, N) * N);
+	vec3 B = cross(T, N);
+	mat3 TBN = mat3(T, B, N);
+//	mat3 TBN = mat3(N, B, T);
 	if ( T != vec3(0) && validTextureIndex( material.indexNormal ) ) {
 		N = TBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - 1.0 );
 	}

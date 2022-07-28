@@ -1,6 +1,5 @@
 #define TEXTURES 1
 #define CUBEMAPS 1
-#define DEFERRED_SAMPLING 0
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
@@ -13,17 +12,7 @@ layout (location = 0) in vec2 inUv;
 layout (location = 1) in flat Gui inGui;
 layout (location = 7) in flat Glyph inGlyph;
 
-#if 1
 layout (location = 0) out vec4 outAlbedo;
-#else
-layout (location = 0) out uvec2 outId;
-layout (location = 1) out vec2 outNormals;
-#if DEFERRED_SAMPLING
-	layout (location = 2) out vec4 outUvs;
-#else
-	layout (location = 2) out vec4 outAlbedo;
-#endif
-#endif
 
 void main() {
 	if ( inUv.x < inGui.offset.x || inUv.y < inGui.offset.y || inUv.x > inGui.offset.z || inUv.y > inGui.offset.w ) discard;

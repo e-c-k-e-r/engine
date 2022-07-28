@@ -47,48 +47,44 @@ layout (binding = 13, rgba8) uniform volatile coherent image3D outAlbedos;
 #endif
 
 layout (location = 0) flat in uvec4 inId;
-layout (location = 1) flat in vec4 inPOS0;
-layout (location = 2) in vec4 inPOS1;
-
-layout (location = 3) in vec3 inPosition;
-layout (location = 4) in vec2 inUv;
-layout (location = 5) in vec4 inColor;
-layout (location = 6) in vec2 inSt;
-layout (location = 7) in vec3 inNormal;
-layout (location = 8) in vec3 inTangent;
+layout (location = 1) in vec3 inPosition;
+layout (location = 2) in vec2 inUv;
+layout (location = 3) in vec4 inColor;
+layout (location = 4) in vec2 inSt;
+layout (location = 5) in vec3 inNormal;
+layout (location = 6) in vec3 inTangent;
 
 layout (location = 0) out vec4 outAlbedo;
 
 void main() {
-	const uint drawID = uint(inId.x);
-	const uint triangleID = uint(inId.y);
+	const uint triangleID = uint(inId.x); // gl_PrimitiveID
+	const uint drawID = uint(inId.y);
 	const uint instanceID = uint(inId.z);
 
 	const DrawCommand drawCommand = drawCommands[drawID];
 	const Instance instance = instances[instanceID];
-
-	vec3 N = inNormal;
-	vec3 T = inTangent;
-	T = normalize(T - dot(T, N) * N);
-	vec3 B = cross(T, N);
-//	mat3 TBN = mat3(T, B, N);
-	mat3 TBN = mat3(N, B, T);
 
 	surface.uv.xy = wrap(inUv.xy);
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
 	surface.position.world = inPosition;
 	const Material material = materials[instance.materialID];
 
+	vec4 A = material.colorBase;
+	surface.material.metallic = material.factorMetallic;
+	surface.material.roughness = material.factorRoughness;
+	surface.material.occlusion = 1.0f - material.factorOcclusion;
+
+	vec3 N = inNormal;
+	vec3 T = inTangent;
+	T = normalize(T - dot(T, N) * N);
+	vec3 B = cross(T, N);
+	mat3 TBN = mat3(T, B, N);
+//	mat3 TBN = mat3(N, B, T);
 	if ( T != vec3(0) && validTextureIndex( material.indexNormal ) ) {
 		surface.normal.world = TBN * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - 1.0 );
 	} else {
 		surface.normal.world = N;
 	}
-	
-	vec4 A = material.colorBase;
-	surface.material.metallic = material.factorMetallic;
-	surface.material.roughness = material.factorRoughness;
-	surface.material.occlusion = 1.0f - material.factorOcclusion;
 
 	surface.light = material.colorEmissive;
 	surface.material.albedo = vec4(1);

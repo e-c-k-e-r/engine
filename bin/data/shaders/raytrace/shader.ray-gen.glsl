@@ -20,6 +20,7 @@ layout (constant_id = 3) const uint CASCADES = 1;
 #define MAX_TEXTURES TEXTURES
 #define TONE_MAP 0
 #define GAMMA_CORRECT 0
+#define DEFERRED_SAMPLING 1
 
 #include "../common/macros.h"
 #include "../common/structs.h"
@@ -85,65 +86,6 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 	#include "../common/vxgi.h"
 #endif
 
-Triangle parsePayload( RayTracePayload payload ) {
-	Triangle triangle;
-	triangle.instanceID = payload.instanceID;
-
-	if ( !payload.hit ) return triangle;
-
-	const vec3 bary = vec3(
-		1.0 - payload.attributes.x - payload.attributes.y,
-		payload.attributes.x,
-		payload.attributes.y
-	);
-	const InstanceAddresses instanceAddresses = instanceAddresses[triangle.instanceID];
-
-	if ( !(0 < instanceAddresses.index) ) return triangle;
-	
-	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
-	const uint triangleID = payload.primitiveID + (drawCommand.indexID / 3);
-
-	Vertex points[3];
-	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
-	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
-
-	if ( 0 < instanceAddresses.vertex ) {
-		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
-		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
-	} else {
-		if ( 0 < instanceAddresses.position ) {
-			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.uv ) {
-			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.st ) {
-			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.normal ) {
-			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.tangent ) {
-			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
-		}
-	}
-
-	triangle.point.position = /*triangle.*/points[0].position * bary[0] + /*triangle.*/points[1].position * bary[1] + /*triangle.*/points[2].position * bary[2];
-	triangle.point.uv = /*triangle.*/points[0].uv * bary[0] + /*triangle.*/points[1].uv * bary[1] + /*triangle.*/points[2].uv * bary[2];
-	triangle.point.st = /*triangle.*/points[0].st * bary[0] + /*triangle.*/points[1].st * bary[1] + /*triangle.*/points[2].st * bary[2];
-	triangle.point.normal = /*triangle.*/points[0].normal * bary[0] + /*triangle.*/points[1].normal * bary[1] + /*triangle.*/points[2].normal * bary[2];
-	triangle.point.tangent = /*triangle.*/points[0].tangent * bary[0] + /*triangle.*/points[1].tangent * bary[1] + /*triangle.*/points[2].tangent * bary[2];
-	
-	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
-
-	return triangle;
-}
-
 void trace( Ray ray, float tMin, float tMax ) {
 	uint rayFlags = gl_RayFlagsOpaqueEXT;
 	uint cullMask = 0xFF;
@@ -186,93 +128,6 @@ float shadowFactor( const Light light, float def ) {
 	return payload.hit ? 0.0 : 1.0;
 }
 
-void setupSurface( RayTracePayload payload ) {
-	const Triangle triangle = parsePayload( payload );
-	const Instance instance = instances[triangle.instanceID];
-	surface.instance = instance;
-	surface.fragment = vec4(0);
-	surface.light = vec4(0);
-
-	// bind position
-	{
-		surface.position.world = vec3( instance.model * vec4(triangle.point.position, 1.0 ) );
-		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
-	}
-	// bind normals
-	{
-		surface.normal.world = normalize(vec3( instance.model * vec4(triangle.point.normal, 0.0 ) ));
-	//	surface.normal.world = faceforward( surface.normal.world, surface.ray.direction, surface.normal.world );
-	//	surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
-
-	//	surface.tbn[0] = normalize(vec3( instance.model * vec4(triangle.tbn[0], 0.0 ) ));
-	//	surface.tbn[1] = normalize(vec3( instance.model * vec4(triangle.tbn[1], 0.0 ) ));
-	//	surface.tbn[2] = surface.normal.world;
-
-		vec3 tangent = normalize(vec3( instance.model * vec4(triangle.point.tangent, 0.0) ));
-		vec3 bitangent = normalize(vec3( instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
-		if ( triangle.point.tangent != vec3(0) ) {
-			surface.tbn = mat3(tangent, bitangent, triangle.point.normal);
-		} else {
-			surface.tbn = mat3(1);
-		}
-	}
-	// bind UVs
-	{
-		surface.uv.xy = triangle.point.uv;
-		surface.st.xy = triangle.point.st;
-	}
-
-	const Material material = materials[surface.instance.materialID];
-	surface.material.albedo = material.colorBase;
-	surface.material.metallic = material.factorMetallic;
-	surface.material.roughness = material.factorRoughness;
-	surface.material.occlusion = material.factorOcclusion;
-	surface.light = material.colorEmissive;
-
-	if ( validTextureIndex( material.indexAlbedo ) ) {
-		surface.material.albedo *= sampleTexture( material.indexAlbedo );
-	}
-	// OPAQUE
-	if ( material.modeAlpha == 0 ) {
-		surface.material.albedo.a = 1;
-	// BLEND
-	} else if ( material.modeAlpha == 1 ) {
-
-	// MASK
-	} else if ( material.modeAlpha == 2 ) {
-
-	}
-	// Lightmap
-	if ( (surface.subID++ > 0 || bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
-		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
-		surface.material.lightmapped = light.a > 0.001;
-		if ( surface.material.lightmapped )	surface.light += surface.material.albedo * light;
-	} else {
-		surface.material.lightmapped = false;
-	}
-	// Emissive textures
-	if ( validTextureIndex( material.indexEmissive ) ) {
-		surface.light += sampleTexture( material.indexEmissive );
-	}
-	// Occlusion map
-	if ( validTextureIndex( material.indexOcclusion ) ) {
-	 	surface.material.occlusion = sampleTexture( material.indexOcclusion ).r;
-	}
-	// Metallic/Roughness map
-	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
-	 	vec4 samp = sampleTexture( material.indexMetallicRoughness );
-	 	surface.material.metallic = samp.r;
-		surface.material.roughness = samp.g;
-	}
-	// Normals
-	if ( validTextureIndex( material.indexNormal ) && surface.tbn != mat3(1) ) {
-		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
-	}
-	{
-		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
-	}
-}
-
 void directLighting() {
 #if VXGI
 	indirectLighting();
@@ -301,7 +156,7 @@ vec4 traceStep( Ray ray ) {
 		trace( ray );
 
 		if ( payload.hit ) {
-			setupSurface( payload );
+			populateSurface( payload );
 			directLighting();
 		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
@@ -332,7 +187,7 @@ vec4 traceStep( Ray ray ) {
 
 		trace( transparency, ubo.settings.rt.alphaTestOffset );
 		if ( payload.hit ) {
-			setupSurface( payload );
+			populateSurface( payload );
 			directLighting();
 		} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], ray.direction );
@@ -346,7 +201,7 @@ vec4 traceStep( Ray ray ) {
 		eyeDepth = surface.position.eye.z;
 
 		payload = surfacePayload;
-		setupSurface( payload );
+		populateSurface( payload );
 	}
 #if FOG
 	{
@@ -371,7 +226,7 @@ vec4 traceStep( Ray ray ) {
 			trace( reflection );
 
 			if ( payload.hit ) {
-				setupSurface( payload );
+				populateSurface( payload );
 				directLighting();
 			} else if (  0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 				surface.fragment = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], reflection.direction );
@@ -383,7 +238,7 @@ vec4 traceStep( Ray ray ) {
 			outFrag += REFLECTED_ALBEDO * surface.fragment;
 
 			payload = surfacePayload;
-			setupSurface( payload );
+			populateSurface( payload );
 		}
 	}
 

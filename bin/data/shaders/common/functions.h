@@ -197,3 +197,182 @@ vec4 resolve( sampler2DMS t, ivec2 uv ) {
 	resolved /= float(samples);
 	return resolved;
 }
+//
+
+vec2 encodeBarycentrics( vec3 barycentric ) {
+	return barycentric.yz;
+}
+vec3 decodeBarycentrics( vec2 attributes ) {
+	return vec3(
+		1.0 - attributes.x - attributes.y,
+		attributes.x,
+		attributes.y
+	);
+}
+#if DEFERRED_SAMPLING
+
+void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
+	Triangle triangle;
+	Vertex points[3];
+
+	if ( 0 < instanceAddresses.vertex ) {
+		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
+	} else {
+		if ( 0 < instanceAddresses.position ) {
+			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.uv ) {
+			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.st ) {
+			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.normal ) {
+			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.tangent ) {
+			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
+		}
+	}
+
+#if FETCH_BARYCENTRIC
+	{
+		const vec3 p = vec3(inverse( surface.instance.model ) * vec4(surface.position.world, 1));
+	
+		const vec3 a = points[0].position;
+		const vec3 b = points[1].position;
+		const vec3 c = points[2].position;
+
+		const vec3 v0 = b - a;
+		const vec3 v1 = c - a;
+		const vec3 v2 = p - a;
+		const float d00 = dot(v0, v0);
+		const float d01 = dot(v0, v1);
+		const float d11 = dot(v1, v1);
+		const float d20 = dot(v2, v0);
+		const float d21 = dot(v2, v1);
+		const float denom = d00 * d11 - d01 * d01;
+		
+		const float v = (d11 * d20 - d01 * d21) / denom;
+		const float w = (d00 * d21 - d01 * d20) / denom;
+		const float u = 1.0f - v - w;
+
+		surface.barycentric = vec3( u, v, w );
+	}
+#endif
+	
+	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
+	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
+
+	triangle.point.position = /*triangle.*/points[0].position * surface.barycentric[0] + /*triangle.*/points[1].position * surface.barycentric[1] + /*triangle.*/points[2].position * surface.barycentric[2];
+	triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentric[0] + /*triangle.*/points[1].uv * surface.barycentric[1] + /*triangle.*/points[2].uv * surface.barycentric[2];
+	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
+	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
+
+	
+	if ( triangle.point.tangent != vec3(0) ) {
+		vec3 tangent = normalize(vec3( surface.instance.model * vec4(triangle.point.tangent, 0.0) ));
+		vec3 bitangent = normalize(vec3( surface.instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		surface.tbn = mat3(tangent, bitangent, triangle.point.normal);
+	}
+
+	// bind position
+#if !FETCH_BARYCENTRIC
+	{
+		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
+		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
+	}
+#endif
+	// bind normals
+	{
+		surface.normal.world = normalize(vec3( surface.instance.model * vec4(triangle.point.normal, 0.0 ) ));
+	//	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
+	}
+	// bind UVs
+	{
+		surface.uv.xy = triangle.point.uv;
+		surface.uv.z = 0;
+		surface.st.xy = triangle.point.st;
+		surface.st.z = 0;
+	}
+	
+	const Material material = materials[surface.instance.materialID];
+	surface.material.albedo = material.colorBase;
+	surface.material.metallic = material.factorMetallic;
+	surface.material.roughness = material.factorRoughness;
+	surface.material.occlusion = material.factorOcclusion;
+	surface.light = material.colorEmissive;
+
+	if ( validTextureIndex( material.indexAlbedo ) ) {
+		surface.material.albedo *= sampleTexture( material.indexAlbedo );
+	}
+	// OPAQUE
+	if ( material.modeAlpha == 0 ) {
+		surface.material.albedo.a = 1;
+	// BLEND
+	} else if ( material.modeAlpha == 1 ) {
+
+	// MASK
+	} else if ( material.modeAlpha == 2 ) {
+
+	}
+	// Lightmap
+	if ( (surface.subID++ > 0 || bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
+		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
+		surface.material.lightmapped = light.a > 0.001;
+		if ( surface.material.lightmapped )	surface.light += surface.material.albedo * light;
+	} else {
+		surface.material.lightmapped = false;
+	}
+	// Emissive textures
+	if ( validTextureIndex( material.indexEmissive ) ) {
+		surface.light += sampleTexture( material.indexEmissive );
+	}
+	// Occlusion map
+	if ( validTextureIndex( material.indexOcclusion ) ) {
+	 	surface.material.occlusion = sampleTexture( material.indexOcclusion ).r;
+	}
+	// Metallic/Roughness map
+	if ( validTextureIndex( material.indexMetallicRoughness ) ) {
+	 	vec4 samp = sampleTexture( material.indexMetallicRoughness );
+	 	surface.material.metallic = samp.r;
+		surface.material.roughness = samp.g;
+	}
+	// Normals
+	if ( validTextureIndex( material.indexNormal ) && surface.tangent != vec3(0) ) {
+		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
+	}
+	{
+		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
+	}
+}
+void populateSurface( uint instanceID, uint primitiveID ) {
+	surface.fragment = vec4(0);
+	surface.light = vec4(0);
+	surface.instance = instances[instanceID];
+
+	const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
+	if ( !(0 < instanceAddresses.index) ) return;
+	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
+	const uint triangleID = primitiveID + (drawCommand.indexID / 3);
+	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
+
+	populateSurface( instanceAddresses, indices );
+}
+void populateSurface( RayTracePayload payload ) {
+	surface.fragment = vec4(0);
+	surface.light = vec4(0);
+	surface.instance = instances[payload.instanceID];
+
+	if ( !payload.hit ) return;
+	surface.barycentric = decodeBarycentrics(payload.attributes);
+	populateSurface( payload.instanceID, payload.primitiveID );
+}
+#endif

@@ -187,8 +187,9 @@ struct Surface {
 	vec3 st;
 	Space position;
 	Space normal;
+	vec3 tangent;
 	mat3 tbn;
-	vec3 barycentrics;
+	vec3 barycentric;
 	vec2 motion;
 	
 	Ray ray;

@@ -37,7 +37,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	size_t msaa = ext::vulkan::settings::msaa;
 
 	struct {
-		size_t id, bary, mips, normals, uvs, motion, depth, color, bright, scratch, output;
+		size_t id, depth, color, bright, scratch, motion, output;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
@@ -46,13 +46,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format = */VK_FORMAT_R32G32_UINT,
 		/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-		/*.blend = */false,
-		/*.samples = */msaa,
-	});
-	attachments.bary = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format = */VK_FORMAT_R16G16_SFLOAT,
-		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 		/*.blend = */false,
 		/*.samples = */msaa,
@@ -97,7 +90,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	});
 
 	metadata.attachments["id"] = attachments.id;
-	metadata.attachments["bary"] = attachments.bary;
 	metadata.attachments["depth"] = attachments.depth;
 	
 	metadata.attachments["color"] = attachments.color;
@@ -111,7 +103,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 		renderTarget.addPass(
 			/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			/*.colors =*/ { attachments.id, attachments.bary },
+			/*.colors =*/ { attachments.id },
 			/*.inputs =*/ {},
 			/*.resolve =*/{},
 			/*.depth = */ attachments.depth,
@@ -248,7 +240,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
 			this->textures.clear();
 			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["id"]] );
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bary"]] );
 			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["depth"]] );
 			{
 				auto& texture = this->textures.emplace_back();
@@ -341,7 +332,6 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			this->textures.clear();
 
 			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["id"]] );
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bary"]] );
 			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["depth"]] );
 			{
 				auto& texture = this->textures.emplace_back();

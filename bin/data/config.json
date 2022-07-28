@@ -107,7 +107,7 @@
 					"deferred": true,
 					"vsync": false,
 					"hdr": false,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": false,
 					"occlusion": false,
 					"bloom": false,

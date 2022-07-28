@@ -167,7 +167,7 @@ void indirectLighting() {
 
 	surface.material.indirect = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;
 //	outFragColor.rgb = surface.material.indirect.rgb; return;
-#if DEFERRED_SAMPLING
+	
 	// deferred sampling doesn't have a blended albedo buffer
 	// in place we'll just cone trace behind the window
 	if ( surface.material.albedo.a < 1.0 ) {
@@ -177,5 +177,4 @@ void indirectLighting() {
 		vec4 radiance = voxelConeTrace( ray, surface.material.albedo.a * 0.5 );
 		surface.fragment.rgb += (1.0 - surface.material.albedo.a) * radiance.rgb;
 	}
-#endif
 }
