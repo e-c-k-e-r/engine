@@ -17,7 +17,7 @@
 			"gamma": 2.2,
 			"brightnessThreshold": 1.2,
 
-			"fog": {
+			"fog-": {
 			//	"color": [ 0.1, 0.1, 0.1 ],
 			//	"color": [ 0.2, 0.2, 0.2 ],
 				"color": [ 0.3, 0.3, 0.3 ],

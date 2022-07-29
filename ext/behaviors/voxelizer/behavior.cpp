@@ -161,6 +161,8 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 			for ( auto& t : sceneTextures.voxels.radiance ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 			for ( auto& t : sceneTextures.voxels.depth ) vkCmdClearColorImage( commandBuffer, t.image, t.imageLayout, &clearColor, 1, &subresourceRange );
 		});
+
+		// 
 		renderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
 			// parse voxel lighting
 			if ( renderMode.blitter.initialized ) {
@@ -193,136 +195,6 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 				);
 			}
 		});
-	#if 0
-		renderMode.bindCallback( renderMode.EXECUTE_BEGIN, [&]( VkCommandBuffer _, size_t __ ) {
-			auto& controller = scene.getController();
-			auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
-			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
-			controllerPosition.x = floor(controllerPosition.x);
-			controllerPosition.y = floor(controllerPosition.y);
-			controllerPosition.z = floor(controllerPosition.z);
-			controllerPosition += metadata.extents.min;
-			controllerPosition.x = floor(controllerPosition.x);
-			controllerPosition.y = floor(controllerPosition.y);
-			controllerPosition.z = -floor(controllerPosition.z);
-
-			pod::Vector3f min = metadata.extents.min + controllerPosition;
-			pod::Vector3f max = metadata.extents.max + controllerPosition;
-
-			metadata.extents.matrix = uf::matrix::orthographic( min.x, max.x, min.y, max.y, min.z, max.z );
-
-			auto& graph = scene.getGraph();
-			for ( auto entity : graph ) {
-				if ( !entity->hasComponent<uf::Graphic>() ) continue;
-				auto& graphic = entity->getComponent<uf::Graphic>();
-				if ( graphic.material.hasShader("geometry", "vxgi") ) {
-					auto& shader = graphic.material.getShader("geometry", "vxgi");
-					struct UniformDescriptor {
-						/*alignas(16)*/ pod::Matrix4f matrix;
-						/*alignas(4)*/ float cascadePower;
-						/*alignas(4)*/ float padding1;
-						/*alignas(4)*/ float padding2;
-						/*alignas(4)*/ float padding3;
-					};
-				#if UF_UNIFORMS_REUSE
-					auto& uniform = shader.getUniform("UBO");
-					auto& uniforms = uniform.get<UniformDescriptor>();
-					
-					uniforms = UniformDescriptor{
-						.matrix = metadata.extents.matrix,
-						.cascadePower = metadata.cascadePower,
-					};
-					shader.updateUniform( "UBO", uniform );
-				#else
-					UniformDescriptor uniforms = {
-						.matrix = metadata.extents.matrix,
-						.cascadePower = metadata.cascadePower,
-					};
-					shader.updateBuffer( uniforms, shader.getUniformBuffer("UBO") );
-				#endif
-				}
-			}
-		} );
-	#endif
-	#if 0
-		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-		deferredRenderMode.bindCallback( renderMode.CALLBACK_BEGIN, [&]( VkCommandBuffer commandBuffer, size_t _ ){
-			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-			imageMemoryBarrier.subresourceRange.layerCount = 1;
-			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-			for ( auto& t : sceneTextures.voxels.radiance ) {
-				VkPipelineStageFlags srcStageMask, dstStageMask;
-				imageMemoryBarrier.image = t.image;
-				imageMemoryBarrier.oldLayout = t.imageLayout;
-				imageMemoryBarrier.newLayout = t.imageLayout;
-				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
-			
-			
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			
-			
-			/*
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			*/
-				
-				vkCmdPipelineBarrier( commandBuffer,
-					srcStageMask, dstStageMask,
-					VK_FLAGS_NONE,
-					0, NULL,
-					0, NULL,
-					1, &imageMemoryBarrier
-				);
-			}
-		});
-		deferredRenderMode.bindCallback( renderMode.CALLBACK_END, [&]( VkCommandBuffer commandBuffer, size_t _ ){
-			VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED; // ext::vulkan::device.queueFamilyIndices.graphics; //VK_QUEUE_FAMILY_IGNORED
-			imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
-			imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
-			imageMemoryBarrier.subresourceRange.layerCount = 1;
-			imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-			for ( auto& t : sceneTextures.voxels.radiance ) {
-				VkPipelineStageFlags srcStageMask, dstStageMask;
-				imageMemoryBarrier.image = t.image;
-				imageMemoryBarrier.oldLayout = t.imageLayout;
-				imageMemoryBarrier.newLayout = t.imageLayout;
-				imageMemoryBarrier.subresourceRange.levelCount = t.mips;
-			
-			/*
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			*/
-			
-				imageMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
-				imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-				srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				
-				vkCmdPipelineBarrier( commandBuffer,
-					srcStageMask, dstStageMask,
-					VK_FLAGS_NONE,
-					0, NULL,
-					0, NULL,
-					1, &imageMemoryBarrier
-				);
-			}
-		});
-	#endif
 	}
 #endif
 }

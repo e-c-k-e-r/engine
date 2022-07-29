@@ -6,12 +6,12 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 48,
+				"max": 8,
 				"shadows": {
 					"enabled": true,
-					"update": 4,
-					"max": 24,
-					"samples": 16
+					"update": 2,
+					"max": 4,
+					"samples": 1
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -90,7 +90,7 @@
 				//	"size": 0.25
 				//	"size": 0.50
 				//	"size": 0.75
-					"size": 1
+					"size": 0.5
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
@@ -107,13 +107,12 @@
 					"deferred": true,
 					"vsync": false,
 					"hdr": false,
-					"vxgi": true,
-					"culling": false,
-					"occlusion": false,
+					"vxgi": false,
+					"culling": true,
 					"bloom": false,
 					"rt": false,
 					"postProcess": false,
-					"fsr": false
+					"fsr": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",

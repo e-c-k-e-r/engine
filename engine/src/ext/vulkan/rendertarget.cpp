@@ -29,13 +29,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
 
 	if ( attachment ) {
-		if ( attachment->view ) {
-			if ( attachment->view != attachment->views.front() ) {
-				vkDestroyImageView(*device, attachment->view, nullptr);
-				attachment->view = VK_NULL_HANDLE;
-			}
-		}
-		for ( size_t i = 0; i < this->views; ++i ) vkDestroyImageView(*device, attachment->views[i], nullptr);
+		for ( auto& view : attachment->views ) vkDestroyImageView(*device, view, nullptr);
 		attachment->views.clear();
 		if ( attachment->image ) {
 			vmaDestroyImage( allocator, attachment->image, attachment->allocation );
@@ -47,7 +41,6 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	} else {
 		attachment = &attachments.emplace_back();
 		attachment->descriptor = descriptor;
-		attachment->views.resize(this->views);
 	}
 	// un-request transient attachments if not supported yet requested
 	if ( attachment->descriptor.usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT ) {
@@ -68,12 +61,19 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		attachment->descriptor.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
+	if ( attachment->descriptor.mips == 0 ) {
+		attachment->descriptor.mips = 1;
+	} else {
+		attachment->descriptor.mips = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+	}
+	attachment->views.resize(this->views * attachment->descriptor.mips);
+
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageCreateInfo.format = attachment->descriptor.format;
 	imageCreateInfo.extent = { width, height, 1 };
-	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.mipLevels = attachment->descriptor.mips;
 	imageCreateInfo.arrayLayers = this->views;
 	imageCreateInfo.samples = ext::vulkan::sampleCount( attachment->descriptor.samples );
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -108,14 +108,31 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageView.subresourceRange = {};
 	imageView.subresourceRange.aspectMask = aspectMask;
 	imageView.subresourceRange.baseMipLevel = 0;
-	imageView.subresourceRange.levelCount = 1;
 	imageView.subresourceRange.baseArrayLayer = 0;
+	imageView.subresourceRange.levelCount = attachment->descriptor.mips;
 	imageView.subresourceRange.layerCount = this->views;
 	imageView.image = attachment->image;
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
 
+#if 1
+	size_t viewIndex = 0;
+	for ( size_t layer = 0; layer < this->views; ++layer ) {
+		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageView.subresourceRange.levelCount = 1;
+		imageView.subresourceRange.layerCount = 1;
+		for ( size_t mip = 0; mip < attachment->descriptor.mips; ++mip ) {
+			imageView.subresourceRange.baseMipLevel = mip;
+			imageView.subresourceRange.baseArrayLayer = layer;
+			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[viewIndex++]));
+		}
+	}
+#endif
+#if 0
 	if ( this->views == 1 ) {
 		attachment->views[0] = attachment->view;
+		for (  ) {
+
+		}
 	} else {
 		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		imageView.subresourceRange.layerCount = 1;
@@ -124,6 +141,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[i]));
 		}
 	}
+#endif
 
 	{
 		VkBool32 blendEnabled = attachment->descriptor.blend ? VK_TRUE : VK_FALSE;
@@ -299,6 +317,17 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 		framebuffers.resize(ext::vulkan::swapchain.buffers);
 		for ( size_t i = 0; i < framebuffers.size(); ++i ) {
 			uf::stl::vector<VkImageView> attachmentViews;										
+
+			for ( size_t view = 0; view < this->views; ++view ) {
+				for ( auto& attachment : this->attachments ) {
+					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
+						attachmentViews.emplace_back(base.renderTarget.attachments[i].view);
+						continue;
+					}
+					attachmentViews.emplace_back(attachment.views[view * attachment.descriptor.mips]);
+				}
+			}
+		#if 0
 			for ( size_t j = 0; j < this->views; ++j ) {
 				for ( auto& attachment : this->attachments ) {
 					if ( attachment.descriptor.aliased && attachment.descriptor.layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ) {
@@ -306,6 +335,7 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 					} else attachmentViews.emplace_back(attachment.views[j]);
 				}
 			}
+		#endif
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
 			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

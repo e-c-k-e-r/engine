@@ -141,7 +141,7 @@ namespace {
 		if ( !deviceFeatures.geometryShader ) return deviceInfo;
 		//
 		{
-			const uf::stl::vector<const char*> deviceExtensions = {
+			const uf::stl::vector<uf::stl::string> deviceExtensions = {
 				VK_KHR_SWAPCHAIN_EXTENSION_NAME
 			};
 			uint32_t extensionCount;
@@ -748,23 +748,29 @@ VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::t
 }
 
 void ext::vulkan::Device::initialize() {	
-	const uf::stl::vector<const char*> validationLayers = {
-		"VK_LAYER_KHRONOS_validation"
+	uf::stl::vector<uf::stl::string> instanceLayers = {
+		"VK_LAYER_KHRONOS_synchronization2",
 	};
 	// Assert validation layers
-	if ( ext::vulkan::settings::validation ) {
+	if ( ext::vulkan::settings::validation ) instanceLayers.emplace_back("VK_LAYER_KHRONOS_validation");
+	
+	{
 		uint32_t layerCount;
 		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 		uf::stl::vector<VkLayerProperties> availableLayers(layerCount);
 		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-		for ( const char* layerName : validationLayers ) {
+
+		for ( auto& layerName : instanceLayers ) {
 			bool layerFound = false;
-			for ( const auto& layerProperties : availableLayers ) {
-				if ( strcmp(layerName, layerProperties.layerName) == 0 ) {
-					layerFound = true; break;
+			for ( auto& layerProperties : availableLayers ) {
+				if ( layerName == layerProperties.layerName ) {
+					layerFound = true;
+					break;
 				}
 			}
-			if ( !layerFound ) UF_EXCEPTION("Vulkan error: validation layers requested, but not available!");
+			if ( layerFound ) {
+				UF_MSG_VALIDATION("Vulkan layer enabled: {}", layerName);
+			} else UF_EXCEPTION("Vulkan error: layer requested, but not available: {}", layerName);
 		}
 	}
 	// 
@@ -772,6 +778,7 @@ void ext::vulkan::Device::initialize() {
 	uf::stl::vector<uf::stl::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
 	// Load any requested extensions
 	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedInstanceExtensions.begin(), ext::vulkan::settings::requestedInstanceExtensions.end() );
+
 #if UF_USE_OPENVR
 	// OpenVR Support
 	if ( ext::openvr::enabled ) VRInstanceExtensions(requestedExtensions);
@@ -792,11 +799,14 @@ void ext::vulkan::Device::initialize() {
 	}
 	// Create instance
 	{
-		uf::stl::vector<const char*> instanceExtensions;
+		uf::stl::vector<uf::stl::string> instanceExtensions;
 		for ( auto& s : supportedExtensions.instance ) {
 			UF_MSG_VALIDATION("Enabled instance extension: {}", s);
-			instanceExtensions.push_back( s.c_str() );
+			instanceExtensions.emplace_back( s );
 		}
+
+		auto cInstanceExtensions = uf::string::cStrings( instanceExtensions );
+		auto cInstanceLayers = uf::string::cStrings( instanceLayers );
 
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -810,22 +820,18 @@ void ext::vulkan::Device::initialize() {
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		createInfo.pApplicationInfo = &appInfo;
 
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
-		createInfo.ppEnabledExtensionNames = instanceExtensions.data();
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(cInstanceExtensions.size());
+		createInfo.ppEnabledExtensionNames = cInstanceExtensions.data();
 
-		if ( ext::vulkan::settings::validation ) {
-			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			createInfo.ppEnabledLayerNames = validationLayers.data();
-		} else {
-			createInfo.enabledLayerCount = 0;
-		}
+		createInfo.enabledLayerCount = static_cast<uint32_t>(cInstanceLayers.size());
+		createInfo.ppEnabledLayerNames = cInstanceLayers.data();
 
 		VK_CHECK_RESULT( vkCreateInstance( &createInfo, nullptr, &this->instance ));
 
 		{
 			ext::json::Value payload = ext::json::array();
-			for ( auto* c_str : instanceExtensions ) {
-				payload.emplace_back( uf::stl::string(c_str) );
+			for ( auto& s : instanceExtensions ) {
+				payload.emplace_back( s );
 			}
 			uf::hooks.call("vulkan:Instance.ExtensionsEnabled", payload);
 		}
@@ -956,12 +962,12 @@ void ext::vulkan::Device::initialize() {
 			
 			validateRequestedExtensions( extensionProperties.device, requestedExtensions, supportedExtensions.device );
 		}
-		uf::stl::vector<const char*> deviceExtensions = {
+		uf::stl::vector<uf::stl::string> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
 		for ( auto& s : supportedExtensions.device ) {
 			UF_MSG_VALIDATION("Enabled device extension: {}", s);
-			deviceExtensions.push_back( s.c_str() );
+			deviceExtensions.emplace_back( s );
 		}
 
 		// Desired queues need to be requested upon logical device creation
@@ -1009,7 +1015,7 @@ void ext::vulkan::Device::initialize() {
 				queueInfo.queueFamilyIndex = queueFamilyIndices.transfer;
 				queueInfo.queueCount = 1;
 				queueInfo.pQueuePriorities = &defaultQueuePriority;
-				queueCreateInfos.push_back(queueInfo);
+				queueCreateInfos.emplace_back(queueInfo);
 			}
 		} else {
 			// Else we use the same queue
@@ -1019,12 +1025,12 @@ void ext::vulkan::Device::initialize() {
 		// Create the logical device representation
 		if ( useSwapChain ) {
 			// If the device will be used for presenting to a display via a swapchain we need to request the swapchain extension
-			deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+			deviceExtensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 
 		enableRequestedDeviceFeatures( *this );
 
-
+		auto cDeviceExtensions = uf::string::cStrings( deviceExtensions );
 
 		VkDeviceCreateInfo deviceCreateInfo = {};
 		deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1039,8 +1045,8 @@ void ext::vulkan::Device::initialize() {
 		groupDeviceCreateInfo.pPhysicalDevices = physicalDevices.data();
 
 		if ( deviceExtensions.size() > 0 ) {
-			deviceCreateInfo.enabledExtensionCount = (uint32_t) deviceExtensions.size();
-			deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+			deviceCreateInfo.enabledExtensionCount = (uint32_t) cDeviceExtensions.size();
+			deviceCreateInfo.ppEnabledExtensionNames = cDeviceExtensions.data();
 		}
 
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
@@ -1139,7 +1145,9 @@ void ext::vulkan::Device::initialize() {
 
 		{
 			ext::json::Value payload = ext::json::array();
-			for ( auto* c_str : deviceExtensions ) payload.emplace_back( uf::stl::string(c_str) );
+			for ( auto& s : deviceExtensions ) {
+				payload.emplace_back( s );
+			}
 			uf::hooks.call("vulkan:Device.ExtensionsEnabled", payload);
 		}
 		{

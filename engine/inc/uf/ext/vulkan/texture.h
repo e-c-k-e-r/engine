@@ -47,6 +47,7 @@ namespace ext {
 			static VkFormat DefaultFormat;
 
 			Device* device = nullptr;
+			bool aliased = false;
 
 			VkImage image = VK_NULL_HANDLE;
 			VkImageView view = VK_NULL_HANDLE;

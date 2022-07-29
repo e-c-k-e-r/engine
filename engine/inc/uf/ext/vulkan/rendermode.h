@@ -41,12 +41,11 @@ namespace ext {
 				uint8_t eyes = 1;
 				uint8_t views = 1;
 				bool compute = false;
+
 			} metadata;
 			
 			Device* device = VK_NULL_HANDLE;
 			RenderTarget renderTarget;
-
-			uf::stl::vector<Texture2D> textures;
 
 			VkSemaphore renderCompleteSemaphore;
 			uf::stl::vector<VkFence> fences;

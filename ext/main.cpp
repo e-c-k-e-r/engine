@@ -427,7 +427,6 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
-		uf::renderer::settings::pipelines::occlusion = configRenderPipelinesJson["occlusion"].as( uf::renderer::settings::pipelines::occlusion );
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
 		uf::renderer::settings::pipelines::postProcess = configRenderPipelinesJson["postProcess"].as( uf::renderer::settings::pipelines::postProcess );
@@ -436,7 +435,6 @@ void EXT_API ext::initialize() {
 		if ( uf::renderer::settings::pipelines::rt ) {
 			uf::renderer::settings::pipelines::vxgi = false;
 			uf::renderer::settings::pipelines::culling = false;
-			uf::renderer::settings::pipelines::occlusion = false;
 			::json["engine"]["scenes"]["lights"]["shadows"]["enabled"] = false;
 		}
 	#define JSON_TO_FORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
@@ -515,9 +513,6 @@ void EXT_API ext::initialize() {
 			}
 			if ( uf::renderer::settings::pipelines::culling ) {
 				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
-			}
-			if ( uf::renderer::settings::pipelines::occlusion ) {
-				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::occlusion);
 			}
 			
 			uf::renderer::addRenderMode( renderMode, "" );

@@ -5,6 +5,7 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/utils/mesh/mesh.h>
+#include <uf/ext/vulkan/rendermode.h>
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 
@@ -102,6 +103,15 @@ namespace ext {
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
 					uf::stl::unordered_map<uf::stl::string, SpecializationConstants> specializationConstants;
 				} definitions;
+
+				// to automatically grab attachments from the target renderMode
+				struct AttachmentDescriptor {
+					uf::stl::string name{};
+					const ext::vulkan::RenderMode* renderMode{};
+					VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+					VkFilter filter = VK_FILTER_NEAREST;
+				};
+				uf::stl::vector<AttachmentDescriptor> attachments;
 			} metadata;
 
 			ext::vulkan::userdata_t specializationConstants;
@@ -115,6 +125,9 @@ namespace ext {
 			void initialize( Device& device, const uf::stl::string&, VkShaderStageFlagBits );
 			void destroy();
 			bool validate();
+
+			void aliasAttachment( const Metadata::AttachmentDescriptor& descriptor );
+			void aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode = NULL, VkImageLayout = VK_IMAGE_LAYOUT_UNDEFINED, VkFilter filter = VK_FILTER_NEAREST );
 
 			bool hasUniform( const uf::stl::string& name ) const;
 

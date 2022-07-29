@@ -8,6 +8,7 @@ uint tea(uint val0, uint val1) {
 	uint v1 = val1;
 	uint s0 = 0;
 
+	#pragma unroll 16
 	for(uint n = 0; n < 16; n++) {
 		s0 += 0x9e3779b9;
 		v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
@@ -210,98 +211,7 @@ vec3 decodeBarycentrics( vec2 attributes ) {
 	);
 }
 #if DEFERRED_SAMPLING
-
-void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
-	Triangle triangle;
-	Vertex points[3];
-
-	if ( 0 < instanceAddresses.vertex ) {
-		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
-		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
-	} else {
-		if ( 0 < instanceAddresses.position ) {
-			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.uv ) {
-			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.st ) {
-			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.normal ) {
-			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
-		}
-		if ( 0 < instanceAddresses.tangent ) {
-			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
-			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
-		}
-	}
-
-#if FETCH_BARYCENTRIC
-	{
-		const vec3 p = vec3(inverse( surface.instance.model ) * vec4(surface.position.world, 1));
-	
-		const vec3 a = points[0].position;
-		const vec3 b = points[1].position;
-		const vec3 c = points[2].position;
-
-		const vec3 v0 = b - a;
-		const vec3 v1 = c - a;
-		const vec3 v2 = p - a;
-		const float d00 = dot(v0, v0);
-		const float d01 = dot(v0, v1);
-		const float d11 = dot(v1, v1);
-		const float d20 = dot(v2, v0);
-		const float d21 = dot(v2, v1);
-		const float denom = d00 * d11 - d01 * d01;
-		
-		const float v = (d11 * d20 - d01 * d21) / denom;
-		const float w = (d00 * d21 - d01 * d20) / denom;
-		const float u = 1.0f - v - w;
-
-		surface.barycentric = vec3( u, v, w );
-	}
-#endif
-	
-	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
-	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
-
-	triangle.point.position = /*triangle.*/points[0].position * surface.barycentric[0] + /*triangle.*/points[1].position * surface.barycentric[1] + /*triangle.*/points[2].position * surface.barycentric[2];
-	triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentric[0] + /*triangle.*/points[1].uv * surface.barycentric[1] + /*triangle.*/points[2].uv * surface.barycentric[2];
-	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
-	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
-
-	
-	if ( triangle.point.tangent != vec3(0) ) {
-		vec3 tangent = normalize(vec3( surface.instance.model * vec4(triangle.point.tangent, 0.0) ));
-		vec3 bitangent = normalize(vec3( surface.instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
-		surface.tbn = mat3(tangent, bitangent, triangle.point.normal);
-	}
-
-	// bind position
-#if !FETCH_BARYCENTRIC
-	{
-		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
-		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
-	}
-#endif
-	// bind normals
-	{
-		surface.normal.world = normalize(vec3( surface.instance.model * vec4(triangle.point.normal, 0.0 ) ));
-	//	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
-	}
-	// bind UVs
-	{
-		surface.uv.xy = triangle.point.uv;
-		surface.uv.z = 0;
-		surface.st.xy = triangle.point.st;
-		surface.st.z = 0;
-	}
-	
+void populateSurfaceMaterial() {
 	const Material material = materials[surface.instance.materialID];
 	surface.material.albedo = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
@@ -345,12 +255,112 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 		surface.material.roughness = samp.g;
 	}
 	// Normals
-	if ( validTextureIndex( material.indexNormal ) && surface.tangent != vec3(0) ) {
+	if ( validTextureIndex( material.indexNormal ) && surface.tangent.world != vec3(0) ) {
 		surface.normal.world = surface.tbn * normalize( sampleTexture( material.indexNormal ).xyz * 2.0 - vec3(1.0));
 	}
 	{
 		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
 	}
+}
+void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
+	Triangle triangle;
+	Vertex points[3];
+
+	if ( 0 < instanceAddresses.vertex ) {
+		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
+
+		#pragma unroll 3
+		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
+	} else {
+		if ( 0 < instanceAddresses.position ) {
+			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
+			#pragma unroll 3
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.uv ) {
+			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
+			#pragma unroll 3
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.st ) {
+			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
+			#pragma unroll 3
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.normal ) {
+			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
+			#pragma unroll 3
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
+		}
+		if ( 0 < instanceAddresses.tangent ) {
+			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
+			#pragma unroll 3
+			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
+		}
+	}
+
+#if FETCH_BARYCENTRIC
+	{
+		const vec3 p = vec3(inverse( surface.instance.model ) * vec4(surface.position.world, 1));
+	
+		const vec3 a = points[0].position;
+		const vec3 b = points[1].position;
+		const vec3 c = points[2].position;
+
+		const vec3 v0 = b - a;
+		const vec3 v1 = c - a;
+		const vec3 v2 = p - a;
+		const float d00 = dot(v0, v0);
+		const float d01 = dot(v0, v1);
+		const float d11 = dot(v1, v1);
+		const float d20 = dot(v2, v0);
+		const float d21 = dot(v2, v1);
+		const float denom = d00 * d11 - d01 * d01;
+		
+		const float v = (d11 * d20 - d01 * d21) / denom;
+		const float w = (d00 * d21 - d01 * d20) / denom;
+		const float u = 1.0f - v - w;
+
+		surface.barycentric = vec3( u, v, w );
+	}
+#endif
+	
+	triangle.geomNormal = normalize(cross(points[1].position - points[0].position, points[2].position - points[0].position));
+	triangle.point.normal = /*triangle.*/points[0].normal * surface.barycentric[0] + /*triangle.*/points[1].normal * surface.barycentric[1] + /*triangle.*/points[2].normal * surface.barycentric[2];
+
+	triangle.point.position = /*triangle.*/points[0].position * surface.barycentric[0] + /*triangle.*/points[1].position * surface.barycentric[1] + /*triangle.*/points[2].position * surface.barycentric[2];
+	triangle.point.uv = /*triangle.*/points[0].uv * surface.barycentric[0] + /*triangle.*/points[1].uv * surface.barycentric[1] + /*triangle.*/points[2].uv * surface.barycentric[2];
+	triangle.point.st = /*triangle.*/points[0].st * surface.barycentric[0] + /*triangle.*/points[1].st * surface.barycentric[1] + /*triangle.*/points[2].st * surface.barycentric[2];
+	triangle.point.tangent = /*triangle.*/points[0].tangent * surface.barycentric[0] + /*triangle.*/points[1].tangent * surface.barycentric[1] + /*triangle.*/points[2].tangent * surface.barycentric[2];
+
+	
+	if ( triangle.point.tangent != vec3(0) ) {
+		surface.tangent.world = normalize(vec3( surface.instance.model * vec4(triangle.point.tangent, 0.0) ));
+		vec3 bitangent = normalize(vec3( surface.instance.model * vec4(cross( triangle.point.normal, triangle.point.tangent ), 0.0) ));
+		surface.tbn = mat3(surface.tangent.world, bitangent, triangle.point.normal);
+	}
+
+	// bind position
+#if !FETCH_BARYCENTRIC
+	{
+		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
+		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
+	}
+#endif
+	// bind normals
+	{
+		surface.normal.world = normalize(vec3( surface.instance.model * vec4(triangle.point.normal, 0.0 ) ));
+	//	surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) );
+	}
+	// bind UVs
+	{
+		surface.uv.xy = triangle.point.uv;
+		surface.uv.z = 0;
+		surface.st.xy = triangle.point.st;
+		surface.st.z = 0;
+	}
+	
+	populateSurfaceMaterial();
 }
 void populateSurface( uint instanceID, uint primitiveID ) {
 	surface.fragment = vec4(0);
@@ -362,6 +372,7 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
 	const uint triangleID = primitiveID + (drawCommand.indexID / 3);
 	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];
+	#pragma unroll 3
 	for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/indices[_] += drawCommand.vertexID;
 
 	populateSurface( instanceAddresses, indices );

@@ -241,15 +241,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				}
 			}
 		} else if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
-		/*
-			auto previousTextures = std::move(blitter.material.textures);
-			blitter.material.textures.clear();
-			auto& shader = blitter.material.getShader("fragment");
-			for ( auto& prevTex : previousTextures ) {
-				shader.textures.emplace_back(prevTex);
-			}
-		*/
-
 			for ( auto& attachment : renderTarget.attachments ) {
 				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
@@ -261,18 +252,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				texture.aliasAttachment(attachment);
 			}
 		}
-	/*
-		if ( blitter.process ) {
-			auto& mainRenderMode = ext::vulkan::getRenderMode("");
-			size_t eyes = mainRenderMode.metadata["eyes"].as<size_t>();
-			for ( size_t eye = 0; eye < eyes; ++eye ) {
-				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-				descriptor.subpass = 2 * eye + 1;
-				if ( blitter.hasPipeline( descriptor ) ) continue;
-				blitter.initializePipeline( descriptor );
-			}
-		}
-	*/
 	}
 }
 

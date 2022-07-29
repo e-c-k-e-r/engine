@@ -191,7 +191,7 @@ bool ext::vulkan::Texture::generated() const {
 	return view != VK_NULL_HANDLE;
 }
 void ext::vulkan::Texture::destroy() {
-	if ( !device || !device->logicalDevice ) return; // device->logicalDevice should never be null, but it happens, somehow
+	if ( !device || !device->logicalDevice || aliased ) return; // device->logicalDevice should never be null, but it happens, somehow
 
 	if ( view != VK_NULL_HANDLE ) {
 		vkDestroyImageView(device->logicalDevice, view, nullptr);
@@ -664,7 +664,9 @@ ext::vulkan::Texture ext::vulkan::Texture::alias() const {
 }
 void ext::vulkan::Texture::aliasTexture( const Texture& texture ) {
 	*this = {
-		.device = nullptr,
+		.device = texture.device,
+		.aliased = true,
+
 		.image = texture.image,
 		.view = texture.view,
 		.type = texture.type,
@@ -698,6 +700,8 @@ VkImageLayout ext::vulkan::Texture::remapRenderpassLayout( VkImageLayout layout 
 	return layout;
 }
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, bool createSampler ) {
+	device = &ext::vulkan::device;
+	aliased = true;
 	image = attachment.image;
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = attachment.views.size() == 6 ? ext::vulkan::enums::Image::VIEW_TYPE_CUBE : ext::vulkan::enums::Image::VIEW_TYPE_2D;
@@ -705,10 +709,13 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
 	format = attachment.descriptor.format;
+	mips = attachment.descriptor.mips;
 
 	// Create sampler
 	if ( createSampler ) {
 		// sampler.initialize( ext::vulkan::device );
+		sampler.descriptor.mip.min = 0;
+		sampler.descriptor.mip.max = static_cast<float>(this->mips);
 		::enforceFilterFromFormat( sampler.descriptor, format );
 		sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 	}
@@ -716,6 +723,8 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	this->updateDescriptors();
 }
 void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& attachment, size_t layer, bool createSampler ) {
+	device = &ext::vulkan::device;
+	aliased = true;
 	image = attachment.image;
 	type = ext::vulkan::enums::Image::TYPE_2D;
 	viewType = ext::vulkan::enums::Image::VIEW_TYPE_2D;
@@ -723,10 +732,13 @@ void ext::vulkan::Texture::aliasAttachment( const RenderTarget::Attachment& atta
 	imageLayout = ext::vulkan::Texture::remapRenderpassLayout( attachment.descriptor.layout );
 	deviceMemory = attachment.mem;
 	format = attachment.descriptor.format;
+	mips = attachment.descriptor.mips;
 
 	// Create sampler
 	if ( createSampler ) {
 		// sampler.initialize( ext::vulkan::device );
+		sampler.descriptor.mip.min = 0;
+		sampler.descriptor.mip.max = static_cast<float>(this->mips);
 		::enforceFilterFromFormat( sampler.descriptor, format );
 		sampler = ext::vulkan::Sampler::retrieve( sampler.descriptor );
 	}
@@ -821,13 +833,17 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 		blitting = false;
 	}
 
+	bool isDepth = formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	auto aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	auto filter = isDepth ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+
 	// base layer barrier
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.image = image;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.aspectMask = aspectMask;
 	barrier.subresourceRange.baseArrayLayer = layer;
 	barrier.subresourceRange.layerCount = 1;
 	barrier.subresourceRange.levelCount = 1;
@@ -854,13 +870,13 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 			VkImageBlit blit{};
 			blit.srcOffsets[0] = { 0, 0, 0 };
 			blit.srcOffsets[1] = { mipWidth, mipHeight, mipDepth };
-			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.srcSubresource.aspectMask = aspectMask;
 			blit.srcSubresource.mipLevel = i - 1;
 			blit.srcSubresource.baseArrayLayer = layer;
 			blit.srcSubresource.layerCount = 1;
 			blit.dstOffsets[0] = { 0, 0, 0 };
 			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1 };
-			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.dstSubresource.aspectMask = aspectMask;
 			blit.dstSubresource.mipLevel = i;
 			blit.dstSubresource.baseArrayLayer = layer;
 			blit.dstSubresource.layerCount = 1;
@@ -870,10 +886,10 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 				image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &blit,
-				VK_FILTER_LINEAR
+				filter
 			);
 		} else {
-
+			UF_MSG_ERROR("mipmapping not supported without blitting");
 		}
 
 		// transition previous layer back

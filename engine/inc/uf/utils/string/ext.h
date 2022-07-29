@@ -22,6 +22,7 @@ namespace uf {
 		uf::stl::vector<uf::stl::string> UF_API split( const uf::stl::string&, const uf::stl::string& );
 		uf::stl::string UF_API si( double value, const uf::stl::string& unit, size_t precision = 3 );
 		bool UF_API contains( const uf::stl::string&, const uf::stl::string& );
+		uf::stl::vector<const char*> cStrings( const uf::stl::vector<uf::stl::string>& );
 
 		template<typename T>
 		uf::stl::string /*UF_API*/ join( const T&, const uf::stl::string& = "\n", bool = false );

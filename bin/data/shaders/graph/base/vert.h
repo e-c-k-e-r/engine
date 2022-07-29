@@ -45,13 +45,15 @@ layout (std140, binding = 2) readonly buffer Instances {
 #endif
 
 layout (location = 0) out uvec4 outId;
+layout (location = 1) flat out vec4 outPOS0;
+layout (location = 2) out vec4 outPOS1;
 #if EXTRA_ATTRIBUTES
-	layout (location = 1) out vec3 outPosition;
-	layout (location = 2) out vec2 outUv;
-	layout (location = 3) out vec4 outColor;
-	layout (location = 4) out vec2 outSt;
-	layout (location = 5) out vec3 outNormal;
-	layout (location = 6) out vec3 outTangent;
+	layout (location = 3) out vec3 outPosition;
+	layout (location = 4) out vec2 outUv;
+	layout (location = 5) out vec4 outColor;
+	layout (location = 6) out vec2 outSt;
+	layout (location = 7) out vec3 outNormal;
+	layout (location = 8) out vec3 outTangent;
 #endif
 
 vec4 snap(vec4 vertex, vec2 resolution) {
@@ -91,6 +93,9 @@ void main() {
 #else
 	gl_Position = projection * view * model * vec4(inPos.xyz, 1.0);
 #endif
+	outPOS0 = gl_Position;
+	outPOS1 = gl_Position;
+
 	outId = uvec4(triangleID, drawID, instanceID, PushConstant.pass);
 	
 #if EXTRA_ATTRIBUTES

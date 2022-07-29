@@ -851,6 +851,14 @@ bool ext::vulkan::Shader::validate() {
 	}
 	return valid;
 }
+
+void ext::vulkan::Shader::aliasAttachment( const ext::vulkan::Shader::Metadata::AttachmentDescriptor& descriptor ) {
+	metadata.attachments.emplace_back(descriptor);
+}
+void ext::vulkan::Shader::aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode, VkImageLayout layout, VkFilter filter ) {
+	return aliasAttachment({ name, renderMode, layout, filter });
+}
+
 bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) const {
 	return metadata.definitions.uniforms.count(name) > 0;
 }

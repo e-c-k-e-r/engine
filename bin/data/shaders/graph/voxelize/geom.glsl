@@ -5,20 +5,24 @@ layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
 
 layout (location = 0) flat in uvec4 inId[];
-layout (location = 1) in vec3 inPosition[];
-layout (location = 2) in vec2 inUv[];
-layout (location = 3) in vec4 inColor[];
-layout (location = 4) in vec2 inSt[];
-layout (location = 5) in vec3 inNormal[];
-layout (location = 6) in vec3 inTangent[];
+layout (location = 1) flat in vec4 inPOS0[];
+layout (location = 2) in vec4 inPOS1[];
+layout (location = 3) in vec3 inPosition[];
+layout (location = 4) in vec2 inUv[];
+layout (location = 5) in vec4 inColor[];
+layout (location = 6) in vec2 inSt[];
+layout (location = 7) in vec3 inNormal[];
+layout (location = 8) in vec3 inTangent[];
 
 layout (location = 0) flat out uvec4 outId;
-layout (location = 1) out vec3 outPosition;
-layout (location = 2) out vec2 outUv;
-layout (location = 3) out vec4 outColor;
-layout (location = 4) out vec2 outSt;
-layout (location = 5) out vec3 outNormal;
-layout (location = 6) out vec3 outTangent;
+layout (location = 1) flat out vec4 outPOS0;
+layout (location = 2) out vec4 outPOS1;
+layout (location = 3) out vec3 outPosition;
+layout (location = 4) out vec2 outUv;
+layout (location = 5) out vec4 outColor;
+layout (location = 6) out vec2 outSt;
+layout (location = 7) out vec3 outNormal;
+layout (location = 8) out vec3 outTangent;
 
 layout (binding = 4) uniform UBO {
 	mat4 voxel;
@@ -59,10 +63,13 @@ void main(){
 		vec3( ubo.voxel * vec4( inPosition[2], 1 ) ) / cascadePower(CASCADE),
 	};
 
+	#pragma unroll 3
  	for( uint i = 0; i < 3; ++i ){
  		const vec3 D = normalize( inPosition[i] - C ) * HALF_PIXEL;
 
 		outPosition = P[i] + D;
+		outPOS0 = inPOS0[i];
+		outPOS1 = inPOS1[i];
 		outUv = inUv[i];
 		outSt = inSt[i];
 		outColor = inColor[i];

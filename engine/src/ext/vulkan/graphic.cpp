@@ -514,51 +514,66 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}
 		}
 
-		for ( auto& texture : renderMode.textures ) {
-			infos.image.emplace_back(texture.descriptor);
-			switch ( texture.viewType ) {
-				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;
-				default: infos.imageUnknown.emplace_back(texture.descriptor); break;
-			}
+		#define INSERT_IMAGE(texture) {\
+			infos.image.emplace_back(texture.descriptor);\
+			switch ( texture.viewType ) {\
+				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;\
+				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;\
+				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;\
+				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;\
+				default: infos.imageUnknown.emplace_back(texture.descriptor); break;\
+			}\
 		}
-		for ( auto& texture : shader->textures ) {
-			infos.image.emplace_back(texture.descriptor);
-			switch ( texture.viewType ) {
-				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;
-				default: infos.imageUnknown.emplace_back(texture.descriptor); break;
+
+		for ( auto& descriptor : shader->metadata.attachments ) {
+			auto texture = Texture2D::empty.alias();
+			texture.sampler.descriptor.filter.min = descriptor.filter;
+			texture.sampler.descriptor.filter.mag = descriptor.filter;
+
+			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
+			auto name = matches.size() == 2 ? matches[0] : descriptor.name;
+			auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+			const ext::vulkan::RenderTarget::Attachment* attachment = NULL;
+			if ( descriptor.renderMode ) {
+				if ( descriptor.renderMode->hasAttachment(name) ) 
+					attachment = &descriptor.renderMode->getAttachment(name);
+			} else if ( renderMode.hasAttachment(name) ) {
+				attachment = &renderMode.getAttachment(name);
 			}
+
+			if ( attachment ) {
+				
+				// subscript on name will grab the view # from attachment->views 
+				if ( 0 <= view ) {
+					texture.aliasAttachment( *attachment, (size_t) view );
+				} else {
+					texture.aliasAttachment( *attachment );
+				}
+			}
+
+			if ( descriptor.layout != VK_IMAGE_LAYOUT_UNDEFINED ) {
+				texture.imageLayout = descriptor.layout;
+				texture.descriptor.imageLayout = descriptor.layout;
+			}
+			
+			INSERT_IMAGE(texture);
+		}
+
+	#if 0
+		for ( auto& texture : renderMode.textures ) {
+			INSERT_IMAGE(texture);
+		}
+	#endif
+		for ( auto& texture : shader->textures ) {
+			INSERT_IMAGE(texture);
 		}
 		for ( auto& texture : graphic.material.textures ) {
-			infos.image.emplace_back(texture.descriptor);
-			switch ( texture.viewType ) {
-				case VK_IMAGE_VIEW_TYPE_2D: infos.image2D.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_2D_ARRAY: infos.image2DA.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_CUBE: infos.imageCube.emplace_back(texture.descriptor); break;
-				case VK_IMAGE_VIEW_TYPE_3D: infos.image3D.emplace_back(texture.descriptor); break;
-				default: infos.imageUnknown.emplace_back(texture.descriptor); break;
-			}
+			INSERT_IMAGE(texture);
 		}
 
 		for ( auto& sampler : graphic.material.samplers ) {
 			infos.sampler.emplace_back(sampler.descriptor.info);
 		}
-
-		//
-	/*
-		uf::stl::vector<VkWriteDescriptorSetAccelerationStructureKHR> accelerationStructureInfos;
-		{
-			auto& descriptorAccelerationStructureInfo = accelerationStructureInfos.emplace_back();
-			descriptorAccelerationStructureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-			descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
-			descriptorAccelerationStructureInfo.pAccelerationStructures = &graphic.accelerationStructures.tops[0].handle;
-		}
-	*/	
 
 		// check if we can even consume that many infos
 		size_t consumes = 0;

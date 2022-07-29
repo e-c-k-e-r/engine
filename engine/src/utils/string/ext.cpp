@@ -80,6 +80,17 @@ uf::stl::string UF_API uf::string::join( const uf::stl::vector<uf::stl::string>&
 	return ss.str();
 }
 */
+uf::stl::vector<const char*> UF_API uf::string::cStrings( const uf::stl::vector<uf::stl::string>& strings ) {
+	uf::stl::vector<const char*> v;
+	v.reserve( strings.size() );
+
+	for ( auto& s : strings ) {
+		v.emplace_back(s.c_str());
+	}
+
+	return v;
+}
+
 uf::stl::string UF_API uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
 	uf::stl::string result = string;
 

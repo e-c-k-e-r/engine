@@ -140,7 +140,9 @@ bool frustumCull( uint id ) {
 			vec4( instance.bounds.min.x, instance.bounds.max.y, instance.bounds.max.z, 1.0 ),
 		};
 		vec4 planes[6]; {
+			#pragma unroll 3
 			for (int i = 0; i < 3; ++i)
+			#pragma unroll 2
 			for (int j = 0; j < 2; ++j) {
 				planes[i*2+j].x = mat[0][3] + (j == 0 ? mat[0][i] : -mat[0][i]);
 				planes[i*2+j].y = mat[1][3] + (j == 0 ? mat[1][i] : -mat[1][i]);
@@ -149,8 +151,11 @@ bool frustumCull( uint id ) {
 				planes[i*2+j] = normalizePlane( planes[i*2+j] );
 			}
 		}
+		#pragma unroll 8
 		for ( uint p = 0; p < 8; ++p ) corners[p] = mat * corners[p];
+		#pragma unroll 6
 		for ( uint p = 0; p < 6; ++p ) {
+			#pragma unroll 8
 			for ( uint q = 0; q < 8; ++q ) {
 				if ( dot( corners[q], planes[p] ) > 0 ) return true;
 			}

@@ -34,13 +34,15 @@ layout (std140, binding = 11) readonly buffer Lights {
 #include "../../common/functions.h"
 
 layout (location = 0) flat in uvec4 inId;
+layout (location = 1) flat in vec4 inPOS0;
+layout (location = 2) in vec4 inPOS1;
 #if EXTRA_ATTRIBUTES
-	layout (location = 1) in vec3 inPosition;
-	layout (location = 2) in vec2 inUv;
-	layout (location = 3) in vec4 inColor;
-	layout (location = 4) in vec2 inSt;
-	layout (location = 5) in vec3 inNormal;
-	layout (location = 6) in vec3 inTangent;
+	layout (location = 3) in vec3 inPosition;
+	layout (location = 4) in vec2 inUv;
+	layout (location = 5) in vec4 inColor;
+	layout (location = 6) in vec2 inSt;
+	layout (location = 7) in vec3 inNormal;
+	layout (location = 8) in vec3 inTangent;
 #endif
 
 void main() {

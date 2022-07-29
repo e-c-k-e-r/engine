@@ -250,32 +250,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 			shader.buffers.emplace_back( indirect->alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-		}
-	}
-	if ( uf::renderer::settings::pipelines::occlusion ) {
-		uf::renderer::Buffer* indirect = NULL;
-		for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
-		UF_ASSERT( indirect );
-		if ( indirect ) {
-			uf::stl::string compShaderFilename = graph.metadata["shaders"][uf::renderer::settings::pipelines::names::occlusion]["compute"].as<uf::stl::string>("/graph/occlusion/comp.spv");
-			{
-				graphic.material.metadata.autoInitializeUniformBuffers = false;
-				compShaderFilename = entity.resolveURI( compShaderFilename, root );
-				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, uf::renderer::settings::pipelines::names::occlusion);
-				graphic.material.metadata.autoInitializeUniformBuffers = true;
-			}
-			graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
 
-			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::occlusion);
-			auto& renderMode = uf::renderer::getRenderMode( graphic.descriptor.renderMode, true );
-			auto& renderTarget = renderMode.getRenderTarget( graphic.descriptor.renderTarget );
-
-			shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
-			shader.buffers.emplace_back( indirect->alias() );
-			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
-
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[0] ); // alias ID buffer
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[5] ); // alias depth buffer
+			shader.aliasAttachment("depth");
 		}
 	}
 	if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {

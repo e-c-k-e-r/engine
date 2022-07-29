@@ -527,6 +527,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 					int32_t index = -1;
 					// separated texture2Ds
 					if ( metadata.shadow.typeMap == MODE_SEPARATE_2DS ) {
+						UF_MSG_WARNING("deprecated feature used: separate Texture2Ds for shadow maps");
 						index = uf::graph::storage.shadow2Ds.size();
 						for ( auto& attachment : renderMode.renderTarget.attachments ) {
 							if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) ) continue;

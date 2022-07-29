@@ -5,7 +5,7 @@
 	#extension GL_EXT_ray_query : require
 #endif
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 2) in;
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #define COMPUTE 1
 #define TONE_MAP 0
@@ -16,7 +16,8 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 2) in;
 #define PBR 1
 #define BUFFER_REFERENCE 1
 #define DEFERRED_SAMPLING 1
-#define FETCH_BARYCENTRIC 1
+#define FETCH_BARYCENTRIC 0
+#define EXTENDED_ATTRIBUTES 0
 //#define TEXTURE_WORKAROUND 0
 
 #include "../../common/macros.h"
@@ -29,15 +30,28 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 
 #if !MULTISAMPLING
 	layout(binding = 0) uniform utexture2D samplerId;
-	layout(binding = 1) uniform texture2D samplerDepth;
+	#if EXTENDED_ATTRIBUTES
+		layout(binding = 1) uniform texture2D samplerUv;
+		layout(binding = 2) uniform texture2D samplerNormal;
+	#else
+		layout(binding = 1) uniform texture2D samplerBary;
+	#endif
+	layout(binding = 3) uniform texture2D samplerDepth;
 #else
 	layout(binding = 0) uniform utexture2DMS samplerId;
-	layout(binding = 1) uniform texture2DMS samplerDepth;
+	#if EXTENDED_ATTRIBUTES
+		layout(binding = 1) uniform texture2DMS samplerUv;
+		layout(binding = 2) uniform texture2DMS samplerNormal;
+	#else
+		layout(binding = 1) uniform texture2DMS samplerBary;
+	#endif
+	layout(binding = 3) uniform texture2DMS samplerDepth;
 #endif
 
-layout(binding = 2, rgba16f) uniform volatile coherent image2D imageColor;
-layout(binding = 3, rgba16f) uniform volatile coherent image2D imageBright;
-layout(binding = 4, rg16f) uniform volatile coherent image2D imageMotion;
+
+layout(binding = 7, rgba16f) uniform volatile coherent image2D imageColor;
+layout(binding = 8, rgba16f) uniform volatile coherent image2D imageBright;
+layout(binding = 9, rg16f) uniform volatile coherent image2D imageMotion;
 
 layout( push_constant ) uniform PushBlock {
   uint pass;
@@ -46,42 +60,42 @@ layout( push_constant ) uniform PushBlock {
 
 #include "../../common/structs.h"
 
-layout (binding = 5) uniform UBO {
+layout (binding = 10) uniform UBO {
 	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
 /*
 */
-layout (std140, binding = 6) readonly buffer DrawCommands {
+layout (std140, binding = 11) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 7) readonly buffer Instances {
+layout (std140, binding = 12) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 8) readonly buffer InstanceAddresseses {
+layout (std140, binding = 13) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 9) readonly buffer Materials {
+layout (std140, binding = 14) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 10) readonly buffer Textures {
+layout (std140, binding = 15) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 11) readonly buffer Lights {
+layout (std140, binding = 16) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 12) uniform sampler2D samplerTextures[TEXTURES];
-layout (binding = 13) uniform samplerCube samplerCubemaps[CUBEMAPS];
-layout (binding = 14) uniform sampler3D samplerNoise;
+layout (binding = 17) uniform sampler2D samplerTextures[TEXTURES];
+layout (binding = 18) uniform samplerCube samplerCubemaps[CUBEMAPS];
+layout (binding = 19) uniform sampler3D samplerNoise;
 #if VXGI
-	layout (binding = 15) uniform usampler3D voxelId[CASCADES];
-	layout (binding = 16) uniform sampler3D voxelNormal[CASCADES];
-	layout (binding = 17) uniform sampler3D voxelRadiance[CASCADES];
+	layout (binding = 20) uniform usampler3D voxelId[CASCADES];
+	layout (binding = 21) uniform sampler3D voxelNormal[CASCADES];
+	layout (binding = 22) uniform sampler3D voxelRadiance[CASCADES];
 #endif
 #if RT
-	layout (binding = 18) uniform accelerationStructureEXT tlas;
+	layout (binding = 23) uniform accelerationStructureEXT tlas;
 #endif
 
 layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
@@ -137,27 +151,24 @@ void postProcess() {
 }
 
 void populateSurface() {
-	vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / imageSize(imageColor)); // * 2.0f - 1.0f;
-	if ( inUv.x >= 1.0 || inUv.y >= 1.0 ) return;
+	if ( gl_GlobalInvocationID.x >= imageSize(imageColor).x|| gl_GlobalInvocationID.y >= imageSize(imageColor).y ) return;
 
 	surface.fragment = vec4(0);
 	surface.pass = PushConstant.pass;
 
 	{
+		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / imageSize(imageColor)) * 2.0f - 1.0f;
 		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
-		const vec4 near4 = iProjectionView * (vec4(2.0 * inUv - 1.0, -1.0, 1.0));
-		const vec4 far4 = iProjectionView * (vec4(2.0 * inUv - 1.0, 1.0, 1.0));
+		const vec4 near4 = iProjectionView * (vec4(inUv, -1.0, 1.0));
+		const vec4 far4 = iProjectionView * (vec4(inUv, 1.0, 1.0));
 		const vec3 near3 = near4.xyz / near4.w;
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
 		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
-	}
 
-	{
 		const float depth = IMAGE_LOAD(samplerDepth).r;
-		vec2 eUv = inUv * 2.0 - 1.0;
-		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(eUv, depth, 1.0);
+		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(inUv, depth, 1.0);
 		positionEye /= positionEye.w;
 		surface.position.eye = positionEye.xyz;
 		surface.position.world = vec3( ubo.eyes[surface.pass].iView * positionEye );
@@ -181,7 +192,28 @@ void populateSurface() {
 		const uint triangleID = ID.x - 1;
 		const uint instanceID = ID.y - 1;
 		surface.subID = 1;
+
+	#if EXTENDED_ATTRIBUTES
+		vec4 uvst = IMAGE_LOAD(samplerUv);
+		vec4 normaltangent = IMAGE_LOAD(samplerNormal);
+
+		surface.uv.xy = uvst.xy;
+		surface.uv.z = 0;
+		surface.st.xy = uvst.zw;
+		surface.st.z = 0;
+
+		surface.normal.world = decodeNormals(normaltangent.xy);
+	//	surface.tangent.world = decodeNormals(normaltangent.zw);
+		
+		surface.fragment = vec4(0);
+		surface.light = vec4(0);
+		surface.instance = instances[instanceID];
+
+		populateSurfaceMaterial();
+	#else
+		surface.barycentric = decodeBarycentrics(IMAGE_LOAD(samplerBary).xy).xyz;
 		populateSurface( instanceID, triangleID );
+	#endif
 	}
 
 	{

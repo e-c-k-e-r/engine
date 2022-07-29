@@ -14,6 +14,8 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 
+#define EXTENDED_ATTRIBUTES 0
+
 const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
@@ -37,7 +39,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	size_t msaa = ext::vulkan::settings::msaa;
 
 	struct {
-		size_t id, depth, color, bright, scratch, motion, output;
+		size_t id, bary, depth, uv, normal, color, bright, motion, scratch, output;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
@@ -50,14 +52,38 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend = */false,
 		/*.samples = */msaa,
 	});
-	attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-		/*.format = */ext::vulkan::settings::formats::depth,
-		/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+
+#if EXTENDED_ATTRIBUTES
+	attachments.uv = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
+		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
 		/*.blend = */false,
 		/*.samples = */msaa,
 	});
-
+	attachments.normal = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
+		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+		/*.blend = */false,
+		/*.samples = */msaa,
+	});
+#else
+	attachments.bary = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		/*.format = */VK_FORMAT_R16G16_SFLOAT,
+		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+		/*.blend = */false,
+		/*.samples = */msaa,
+	});
+#endif
+	attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		/*.format = */ext::vulkan::settings::formats::depth,
+		/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		/*.blend = */false,
+		/*.samples = */msaa,
+	});
 	// output buffers
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 		/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
@@ -86,12 +112,19 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		/*.blend = */false,
-		/*.samples = */msaa,
+		/*.samples = */1,
 	});
 
 	metadata.attachments["id"] = attachments.id;
-	metadata.attachments["depth"] = attachments.depth;
+
+#if EXTENDED_ATTRIBUTES
+	metadata.attachments["uv"] = attachments.uv;
+	metadata.attachments["normal"] = attachments.normal;
+#else
+	metadata.attachments["bary"] = attachments.bary;
+#endif
 	
+	metadata.attachments["depth"] = attachments.depth;
 	metadata.attachments["color"] = attachments.color;
 	metadata.attachments["bright"] = attachments.bright;
 	metadata.attachments["scratch"] = attachments.scratch;
@@ -103,7 +136,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 		renderTarget.addPass(
 			/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			/*.colors =*/ { attachments.id },
+		#if EXTENDED_ATTRIBUTES
+			/*.colors =*/ { attachments.id, attachments.uv, attachments.normal },
+		#else
+			/*.colors =*/ { attachments.id, attachments.bary },
+		#endif
 			/*.inputs =*/ {},
 			/*.resolve =*/{},
 			/*.depth = */ attachments.depth,
@@ -146,11 +183,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			});
 		}
 
-		{
-			size_t index = metadata.attachments["output"];
+		if ( blitter.material.hasShader("fragment") ) {
 			auto& shader = blitter.material.getShader("fragment");
-			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index] ); // attachments.color
+			shader.aliasAttachment("output", this);
 		}
 		if ( settings::pipelines::deferred ) {
 			uf::stl::string computeShaderFilename = "comp.spv"; {
@@ -172,9 +207,9 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader("compute", "bloom");
 			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["color"]/*attachments.color*/], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]/*attachments.bright*/], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["scratch"]/*attachments.scratch*/], (size_t) 0 );
+			shader.aliasAttachment("color", this);
+			shader.aliasAttachment("bright", this);
+			shader.aliasAttachment("scratch", this);
 			for ( auto& texture : shader.textures ) {
 				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -236,35 +271,21 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				}
 			}
 		}
-		
+	
 		if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
-			this->textures.clear();
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["id"]] );
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["depth"]] );
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["color"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["motion"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
+			auto& shader = blitter.material.getShader("compute", "deferred-compute");
+			shader.aliasAttachment("id", this);
+		#if EXTENDED_ATTRIBUTES
+			shader.aliasAttachment("uv", this);
+			shader.aliasAttachment("normal", this);
+		#else
+			shader.aliasAttachment("bary", this);
+		#endif
+			shader.aliasAttachment("depth", this);
+			
+			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("motion", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
 
 		if ( !blitter.hasPipeline( blitter.descriptor ) ){
@@ -277,6 +298,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			
 			if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
 				descriptor.pipeline = "deferred-compute";
+				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 				if ( !blitter.hasPipeline( descriptor ) ) {
 					blitter.initializePipeline( descriptor );
@@ -284,8 +306,8 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			}
 
 			if ( settings::pipelines::bloom ) {
-				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
+				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 				if ( !blitter.hasPipeline( descriptor ) ) {
 					blitter.initializePipeline( descriptor );
@@ -316,58 +338,9 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	if ( resized ) {
 		this->resized = false;
 		renderTarget.initialize( *renderTarget.device );
-
-		if ( settings::pipelines::bloom ) {
-			auto& shader = blitter.material.getShader("compute", "bloom");
-			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["color"]], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]], (size_t) 0 );
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["scratch"]], (size_t) 0 );
-			for ( auto& texture : shader.textures ) {
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-		}
-		if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
-			this->textures.clear();
-
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["id"]] );
-			this->textures.emplace_back().aliasAttachment( renderTarget.attachments[metadata.attachments["depth"]] );
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["color"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["bright"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-			{
-				auto& texture = this->textures.emplace_back();
-				texture.sampler.descriptor.filter.min = VK_FILTER_NEAREST;
-				texture.sampler.descriptor.filter.mag = VK_FILTER_NEAREST;
-				texture.aliasAttachment( renderTarget.attachments[metadata.attachments["motion"]] );
-				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-			}
-		}
 	}
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
-		{
-			size_t index = metadata.attachments["output"];
-			auto& shader = blitter.material.getShader("fragment");
-			shader.textures.clear();
-			shader.textures.emplace_back().aliasAttachment( renderTarget.attachments[index], (size_t) 0 ); // attachments.color
-		}
-
 		if ( blitter.hasPipeline( blitter.descriptor ) ){
 			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
 		}
@@ -376,6 +349,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			descriptor.renderMode = "";
 			if ( settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
 				descriptor.pipeline = "deferred-compute";
+				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 				if ( blitter.hasPipeline( descriptor ) ) {
 					blitter.getPipeline( descriptor ).update( blitter, descriptor );
@@ -383,8 +357,8 @@ void ext::vulkan::DeferredRenderMode::tick() {
 			}
 
 			if ( settings::pipelines::bloom ) {
-				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.pipeline = "bloom";
+				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 				if ( blitter.hasPipeline( descriptor ) ) {
 					blitter.getPipeline( descriptor ).update( blitter, descriptor );
@@ -558,56 +532,77 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			vkCmdEndRenderPass(commands[i]);
 
 			if ( !settings::pipelines::rt && settings::pipelines::deferred && blitter.material.hasShader("compute", "deferred-compute") ) {
+				auto& shader = blitter.material.getShader("compute", "deferred-compute");
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 				descriptor.renderMode = "";
 				descriptor.pipeline = "deferred-compute";
 				descriptor.inputs.dispatch = { (width / 8) + 1, (height / 8) + 1, 1 };
 				descriptor.subpass = 0;
 
-			#if 1
 				imageMemoryBarrier.subresourceRange.layerCount = metadata.eyes;
-				for ( auto& attachment : this->textures ) {
-					switch ( attachment.imageLayout ) {
-						case VK_IMAGE_LAYOUT_GENERAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL", "VK_IMAGE_LAYOUT_GENERAL");
-							uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, imageMemoryBarrier.subresourceRange );
-						break;
-						case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL", "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL");
-						//	uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );
-						break;
-						case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL", "VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL");
-						//	uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );
-						break;
+				for ( auto& descriptor : shader.metadata.attachments ) {
+					if ( descriptor.layout == VK_IMAGE_LAYOUT_UNDEFINED ) continue;
+					VkImage image = VK_NULL_HANDLE;
+					if ( descriptor.renderMode ) {
+						if ( descriptor.renderMode->hasAttachment(descriptor.name) )
+							image = descriptor.renderMode->getAttachment(descriptor.name).image;
+
+					} else if ( this->hasAttachment(descriptor.name) ) {
+						if ( this->hasAttachment(descriptor.name) )
+							image = this->getAttachment(descriptor.name).image;
 					}
+					if ( image == VK_NULL_HANDLE ) continue;
+					uf::renderer::Texture::setImageLayout( commands[i], image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, descriptor.layout, imageMemoryBarrier.subresourceRange );
 				}
-			#endif
 				
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 					blitter.record(commands[i], descriptor, eye, 0);
 				}
+				for ( auto& descriptor : shader.metadata.attachments ) {
+					if ( descriptor.layout == VK_IMAGE_LAYOUT_UNDEFINED ) continue;
+					VkImage image = VK_NULL_HANDLE;
+					if ( descriptor.renderMode ) {
+						if ( descriptor.renderMode->hasAttachment(descriptor.name) )
+							image = descriptor.renderMode->getAttachment(descriptor.name).image;
+					} else if ( this->hasAttachment(descriptor.name) ) {
+						image = this->getAttachment(descriptor.name).image;
+					}
+					if ( image == VK_NULL_HANDLE ) continue;
+					uf::renderer::Texture::setImageLayout( commands[i], image, descriptor.layout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );
+				}
+				imageMemoryBarrier.subresourceRange.layerCount = 1;
+			}
+
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+		#if 0
+			if ( this->hasAttachment("depth") ) {
+				auto& attachment = this->getAttachment("depth");
+				ext::vulkan::Texture texture; texture.aliasAttachment( attachment );
+				texture.width = width;
+				texture.height = height;
+				texture.depth = 1;
+
+				texture.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+				texture.descriptor.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			#if 1
+				imageMemoryBarrier.subresourceRange.layerCount = metadata.eyes;
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+				uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageMemoryBarrier.subresourceRange );
+			#endif
+
+
+				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+					texture.generateMipmaps(commands[i], eye);
+				}
 
 			#if 1
-				for ( auto& attachment : this->textures ) {
-					switch ( attachment.imageLayout ) {
-						case VK_IMAGE_LAYOUT_GENERAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_GENERAL", "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL");
-							uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );
-						break;
-						case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL", "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL");
-						//	uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, imageMemoryBarrier.subresourceRange );
-						break;
-						case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-						//	UF_MSG_DEBUG("Converting {} to {}", "VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL", "VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL");
-						//	uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, imageMemoryBarrier.subresourceRange );
-						break;
-					}
-				}
+				uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );	
+				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				imageMemoryBarrier.subresourceRange.layerCount = 1;
 			#endif
 			}
+		#endif
 
 			// post-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
