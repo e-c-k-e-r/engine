@@ -114,7 +114,6 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageView.image = attachment->image;
 	VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->view));
 
-#if 1
 	size_t viewIndex = 0;
 	for ( size_t layer = 0; layer < this->views; ++layer ) {
 		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -126,23 +125,6 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[viewIndex++]));
 		}
 	}
-#endif
-#if 0
-	if ( this->views == 1 ) {
-		attachment->views[0] = attachment->view;
-		for (  ) {
-
-		}
-	} else {
-		imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageView.subresourceRange.layerCount = 1;
-		for ( size_t i = 0; i < this->views; ++i ) {
-			imageView.subresourceRange.baseArrayLayer = i;
-			VK_CHECK_RESULT(vkCreateImageView(*device, &imageView, nullptr, &attachment->views[i]));
-		}
-	}
-#endif
-
 	{
 		VkBool32 blendEnabled = attachment->descriptor.blend ? VK_TRUE : VK_FALSE;
 		VkColorComponentFlags writeMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;

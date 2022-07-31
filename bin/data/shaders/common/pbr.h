@@ -1,19 +1,4 @@
 // PBR
-float shadowFactor( const Light light, float def );
-float ndfGGX(float cosLh, float roughness) {
-	const float alpha   = roughness * roughness;
-	const float alphaSq = alpha * alpha;
-	const float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
-	return alphaSq / (PI * denom * denom);
-}
-float gaSchlickG1(float cosTheta, float k) { return cosTheta / (cosTheta * (1.0 - k) + k); }
-float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
-	const float r = roughness + 1.0;
-	const float k = (r * r) / 8.0;
-	return gaSchlickG1(cosLi, k) * gaSchlickG1(cosLo, k);
-}
-vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
-#if (!BAKING && !COMPUTE) || RAYTRACE || DEFERRED
 void pbr() {
 	if ( surface.material.lightmapped ) return;
 
@@ -53,4 +38,3 @@ void pbr() {
 		surface.light.a += light.power * La * Ls;
 	}
 }
-#endif

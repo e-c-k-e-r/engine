@@ -23,18 +23,15 @@ layout (binding = 0) uniform UBO {
 layout (location = 0) out vec2 outUv;
 layout (location = 1) out flat Gui outGui;
 #if GLYPH
-layout (location = 7) out flat Glyph outGlyph;
+	layout (location = 7) out flat Glyph outGlyph;
 #endif
-#if 0
-out gl_PerVertex {
-    vec4 gl_Position;
-};
-#endif
+
 void main() {
 	outUv = inUv;
 	outGui = ubo.gui;
 #if GLYPH
 	outGlyph = ubo.glyph;
 #endif
+	
 	gl_Position = ubo.matrices.model[PushConstant.pass] * vec4(inPos.xy, ubo.gui.depth, 1.0);
 }

@@ -597,8 +597,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
 		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
 		auto& deferredBlitter = *deferredRenderMode.getBlitter();
-		if ( deferredBlitter.material.hasShader("compute", "deferred-compute") ) {
-			ext::ExtSceneBehavior::bindBuffers( *this, "", "compute", "deferred-compute" );
+		if ( deferredBlitter.material.hasShader("compute", "deferred") ) {
+			ext::ExtSceneBehavior::bindBuffers( *this, "", "compute", "deferred" );
 		} else {
 			ext::ExtSceneBehavior::bindBuffers( *this, "", "fragment", "deferred" );
 		}
@@ -633,7 +633,6 @@ void ext::ExtSceneBehavior::Metadata::serialize( uf::Object& self, uf::Serialize
 	serializer["light"]["ambient"] = uf::vector::encode( /*this->*/light.ambient );
 	serializer["light"]["exposure"] = /*this->*/light.exposure;
 	serializer["light"]["gamma"] = /*this->*/light.gamma;
-	serializer["light"]["brightnessThreshold"] = /*this->*/light.brightnessThreshold;
 	serializer["light"]["useLightmaps"] = /*this->*/light.useLightmaps;
 
 	serializer["light"]["fog"]["color"] = uf::vector::encode( /*this->*/fog.color );
@@ -701,9 +700,9 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 	/*this->*/light.exposure = serializer["light"]["exposure"].as(/*this->*/light.exposure);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as(/*this->*/light.gamma);
-	/*this->*/light.brightnessThreshold = serializer["light"]["brightnessThreshold"].as(/*this->*/light.brightnessThreshold);
 	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
 
+	/*this->*/bloom.threshold = serializer["light"]["bloom"]["threshold"].as(/*this->*/bloom.threshold);
 	/*this->*/bloom.scale = serializer["light"]["bloom"]["scale"].as(/*this->*/bloom.scale);
 	/*this->*/bloom.strength = serializer["light"]["bloom"]["strength"].as(/*this->*/bloom.strength);
 	/*this->*/bloom.sigma = serializer["light"]["bloom"]["sigma"].as(/*this->*/bloom.sigma);
@@ -775,7 +774,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 		UniformDescriptor uniforms = {
 			.scale = bloom.scale,
 			.strength = bloom.strength,
-			.threshold = light.brightnessThreshold,
+			.threshold = bloom.threshold,
 			.sigma = bloom.sigma,
 
 			.gamma = light.gamma,
@@ -868,8 +867,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 			struct Bloom {
 				alignas(4) float exposure;
-				alignas(4) float brightnessThreshold;
 				alignas(4) float gamma;
+				alignas(4) float threshold;
 				alignas(4) uint32_t padding2;
 			} bloom;
 
@@ -997,8 +996,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		};
 		uniforms.settings.bloom = UniformDescriptor::Settings::Bloom{
 			.exposure = metadata.light.exposure,
-			.brightnessThreshold = metadata.light.brightnessThreshold,
 			.gamma = metadata.light.gamma,
+			.threshold = metadata.bloom.threshold,
 		};
 		uniforms.settings.vxgi = UniformDescriptor::Settings::VXGI{
 			.matrix = metadataVxgi.extents.matrix,

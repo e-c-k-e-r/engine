@@ -71,43 +71,43 @@ namespace {
 			if ( !uf::renderer::hasRenderMode("Compute:RT", true) ) return;
 
 			auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
-			auto& blitter = *renderMode.getBlitter(); if ( !blitter.material.hasShader("fragment") ) return;
-			auto& shader = blitter.material.getShader("fragment"); if ( shader.textures.empty() ) return;
-
-			auto& attachmentColor = shader.textures.front();
 			pod::Vector2ui renderSize = {
-				attachmentColor.width > 0 ? attachmentColor.width : uf::renderer::settings::width,
-				attachmentColor.height > 0 ? attachmentColor.height : uf::renderer::settings::height,
+				renderMode.width > 0 ? renderMode.width : uf::renderer::settings::width,
+				renderMode.height > 0 ? renderMode.height : uf::renderer::settings::height,
 			};
 			dispatchParameters.renderSize.width = renderSize.x;
 			dispatchParameters.renderSize.height = renderSize.y;
+
+			auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
+			auto& attachmentDepth = renderMode.getAttachment("depth");
+			auto& attachmentMotion = renderMode.getAttachment("motion");
 
 			dispatchParameters.color = ffxGetTextureResourceVK(&::context,
 				attachmentColor.image,
 				attachmentColor.view,
 				renderSize.x,
 				renderSize.y,
-				attachmentColor.format,
+				attachmentColor.descriptor.format,
 				L"FSR2_InputColor"
 			);
 			dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
-				nullptr,
-				nullptr,
-				1,
-				1,
-				VK_FORMAT_UNDEFINED,
+				attachmentDepth.image,
+				attachmentDepth.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentDepth.descriptor.format,
 				L"FSR2_InputDepth"
 			);
 			dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
-				nullptr,
-				nullptr,
-				1,
-				1,
-				VK_FORMAT_UNDEFINED,
+				attachmentMotion.image,
+				attachmentMotion.view,
+				renderSize.x,
+				renderSize.y,
+				attachmentMotion.descriptor.format,
 				L"FSR2_InputMotionVectors"
 			);
-			dispatchParameters.motionVectorScale.x = 0;
-			dispatchParameters.motionVectorScale.y = 0;
+			dispatchParameters.motionVectorScale.x = renderSize.x;
+			dispatchParameters.motionVectorScale.y = renderSize.y;
 		} else {
 			if ( !uf::renderer::hasRenderMode("", true) ) return;
 			

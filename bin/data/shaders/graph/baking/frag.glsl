@@ -13,8 +13,6 @@ layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #define SHADOW_SAMPLES 16
 #define FRAGMENT 1
 #define BAKING 1
-#define PBR 1
-#define LAMBERT 0
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
@@ -42,9 +40,8 @@ layout (binding = 13, rgba8) uniform volatile coherent image3D outAlbedos;
 
 #include "../../common/functions.h"
 #include "../../common/shadows.h"
-#if PBR
-#include "../../common/pbr.h"
-#endif
+
+#define PBR 1
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;

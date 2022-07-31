@@ -27,6 +27,21 @@ float rnd(inout uint prev) { return (float(lcg(prev)) / float(0x01000000)); }
 uint prngSeed;
 float rnd() { return rnd(prngSeed); }
 //
+float shadowFactor( const Light light, float def );
+float ndfGGX(float cosLh, float roughness) {
+	const float alpha   = roughness * roughness;
+	const float alphaSq = alpha * alpha;
+	const float denom = (cosLh * cosLh) * (alphaSq - 1.0) + 1.0;
+	return alphaSq / (PI * denom * denom);
+}
+float gaSchlickG1(float cosTheta, float k) { return cosTheta / (cosTheta * (1.0 - k) + k); }
+float gaSchlickGGX(float cosLi, float cosLo, float roughness) {
+	const float r = roughness + 1.0;
+	const float k = (r * r) / 8.0;
+	return gaSchlickG1(cosLi, k) * gaSchlickG1(cosLo, k);
+}
+vec3 fresnelSchlick(vec3 F0, float cosTheta) { return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0); }
+//
 void tangentBitangent(in vec3 N, out vec3 Nt, out vec3 Nb) {
 	if(abs(N.x) > abs(N.y)) Nt = vec3(N.z, 0, -N.x) / sqrt(N.x * N.x + N.z * N.z);
 	else Nt = vec3(0, -N.z, N.y) / sqrt(N.y * N.y + N.z * N.z);
@@ -52,16 +67,6 @@ vec3 samplingHemisphere(inout uint seed, in vec3 z) {
 	direction      = direction.x * x + direction.y * y + direction.z * z;
 	return direction;
 }
-//
-#if BUFFER_REFERENCE
-
-uint64_t uvec2uint64( uvec2 src ) {
-	uint64_t dst;
-	dst = (src.x << 32) | src.y;
-	return dst;
-}
-
-#endif
 //
 float max3( vec3 v ) { return max(max(v.x, v.y), v.z); }
 float min3( vec3 v ) { return min(min(v.x, v.y), v.z); }
@@ -109,15 +114,12 @@ vec3 decodeSrgb(vec3 rgb) {
 bool validTextureIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_TEXTURES;
 }
+#if MAX_CUBEMAPS
 bool validCubemapIndex( int textureIndex ) {
-	return 0 <= textureIndex && textureIndex < CUBEMAPS;
+	return 0 <= textureIndex && textureIndex < MAX_CUBEMAPS;
 }
-#if !BLOOM && (DEFERRED || FRAGMENT || COMPUTE)
-
-#if !NO_NONUNIFORM_EXT
-	#extension GL_EXT_nonuniform_qualifier : enable
 #endif
-
+#if !BLOOM && (DEFERRED || FRAGMENT || COMPUTE)
 bool validTextureIndex( uint id ) {
 	return 0 <= id && id < MAX_TEXTURES;
 }
@@ -262,44 +264,53 @@ void populateSurfaceMaterial() {
 		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
 	}
 }
+
+bool isValidAddress( uint64_t address ) {
+#if UINT64_ENABLED
+	return bool(address);
+#else
+	return bool(address.x) && bool(address.y);
+#endif
+}
+
 void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	Triangle triangle;
 	Vertex points[3];
 
-	if ( 0 < instanceAddresses.vertex ) {
+	if ( isValidAddress(instanceAddresses.vertex) ) {
 		Vertices vertices = Vertices(nonuniformEXT(instanceAddresses.vertex));
 
 		#pragma unroll 3
 		for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_] = vertices.v[/*triangle.*/indices[_]];
 	} else {
-		if ( 0 < instanceAddresses.position ) {
+		if ( isValidAddress(instanceAddresses.position) ) {
 			VPos buf = VPos(nonuniformEXT(instanceAddresses.position));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].position = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( 0 < instanceAddresses.uv ) {
+		if ( isValidAddress(instanceAddresses.uv) ) {
 			VUv buf = VUv(nonuniformEXT(instanceAddresses.uv));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].uv = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( 0 < instanceAddresses.st ) {
+		if ( isValidAddress(instanceAddresses.st) ) {
 			VSt buf = VSt(nonuniformEXT(instanceAddresses.st));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].st = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( 0 < instanceAddresses.normal ) {
+		if ( isValidAddress(instanceAddresses.normal) ) {
 			VNormal buf = VNormal(nonuniformEXT(instanceAddresses.normal));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].normal = buf.v[/*triangle.*/indices[_]];
 		}
-		if ( 0 < instanceAddresses.tangent ) {
+		if ( isValidAddress(instanceAddresses.tangent) ) {
 			VTangent buf = VTangent(nonuniformEXT(instanceAddresses.tangent));
 			#pragma unroll 3
 			for ( uint _ = 0; _ < 3; ++_ ) /*triangle.*/points[_].tangent = buf.v[/*triangle.*/indices[_]];
 		}
 	}
 
-#if FETCH_BARYCENTRIC
+#if BARYCENTRIC_CALCULATE
 	{
 		const vec3 p = vec3(inverse( surface.instance.model ) * vec4(surface.position.world, 1));
 	
@@ -341,7 +352,7 @@ void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	}
 
 	// bind position
-#if !FETCH_BARYCENTRIC
+#if 1 || BARYCENTRIC_CALCULATE
 	{
 		surface.position.world = vec3( surface.instance.model * vec4(triangle.point.position, 1.0 ) );
 		surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.position.world, 1.0) );
@@ -368,7 +379,7 @@ void populateSurface( uint instanceID, uint primitiveID ) {
 	surface.instance = instances[instanceID];
 
 	const InstanceAddresses instanceAddresses = instanceAddresses[instanceID];
-	if ( !(0 < instanceAddresses.index) ) return;
+	if ( !isValidAddress(instanceAddresses.index) ) return;
 	const DrawCommand drawCommand = Indirects(nonuniformEXT(instanceAddresses.indirect)).dc[instanceAddresses.drawID];
 	const uint triangleID = primitiveID + (drawCommand.indexID / 3);
 	uvec3 indices = Indices(nonuniformEXT(instanceAddresses.index)).i[triangleID];

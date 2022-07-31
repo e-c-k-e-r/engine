@@ -8,19 +8,14 @@
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 #define COMPUTE 1
-#define TONE_MAP 0
-#define GAMMA_CORRECT 0
 #define DEFERRED 1
-#define MAX_TEXTURES TEXTURES
-#define WHITENOISE 0 
+#define DEFERRED_SAMPLING 1
+
 #define PBR 1
 #define BUFFER_REFERENCE 1
-#define DEFERRED_SAMPLING 1
-#define FETCH_BARYCENTRIC 0
-#define EXTENDED_ATTRIBUTES 0
-//#define TEXTURE_WORKAROUND 0
+#define UINT64_ENABLED 1
 
-#include "../../common/macros.h"
+#include "../../../common/macros.h"
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -30,20 +25,24 @@ layout (constant_id = 1) const uint CUBEMAPS = 128;
 
 #if !MULTISAMPLING
 	layout(binding = 0) uniform utexture2D samplerId;
-	#if EXTENDED_ATTRIBUTES
+	#if BARYCENTRIC
+		#if !BARYCENTRIC_CALCULATE
+			layout(binding = 1) uniform texture2D samplerBary;
+		#endif
+	#else
 		layout(binding = 1) uniform texture2D samplerUv;
 		layout(binding = 2) uniform texture2D samplerNormal;
-	#else
-		layout(binding = 1) uniform texture2D samplerBary;
 	#endif
 	layout(binding = 3) uniform texture2D samplerDepth;
 #else
 	layout(binding = 0) uniform utexture2DMS samplerId;
-	#if EXTENDED_ATTRIBUTES
+	#if BARYCENTRIC
+		#if !BARYCENTRIC_CALCULATE
+			layout(binding = 1) uniform texture2DMS samplerBary;
+		#endif
+	#else
 		layout(binding = 1) uniform texture2DMS samplerUv;
 		layout(binding = 2) uniform texture2DMS samplerNormal;
-	#else
-		layout(binding = 1) uniform texture2DMS samplerBary;
 	#endif
 	layout(binding = 3) uniform texture2DMS samplerDepth;
 #endif
@@ -58,7 +57,7 @@ layout( push_constant ) uniform PushBlock {
   uint draw;
 } PushConstant;
 
-#include "../../common/structs.h"
+#include "../../../common/structs.h"
 
 layout (binding = 10) uniform UBO {
 	EyeMatrices eyes[2];
@@ -110,12 +109,12 @@ layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
 layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
 layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
-#include "../../common/functions.h"
-#include "../../common/fog.h"
-#include "../../common/light.h"
-#include "../../common/shadows.h"
+#include "../../../common/functions.h"
+#include "../../../common/fog.h"
+#include "../../../common/light.h"
+#include "../../../common/shadows.h"
 #if VXGI
-	#include "../../common/vxgi.h"
+	#include "../../../common/vxgi.h"
 #endif
 
 #if MULTISAMPLING
@@ -128,7 +127,7 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 void postProcess() {
 	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
-	vec4 outFragBright = brightness > ubo.settings.bloom.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+	vec4 outFragBright = brightness > ubo.settings.bloom.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 	vec2 outFragMotion = surface.motion;
 
 #if FOG
@@ -151,13 +150,14 @@ void postProcess() {
 }
 
 void populateSurface() {
-	if ( gl_GlobalInvocationID.x >= imageSize(imageColor).x|| gl_GlobalInvocationID.y >= imageSize(imageColor).y ) return;
+	uvec2 renderSize = imageSize(imageColor);
+	if ( gl_GlobalInvocationID.x >= renderSize.x|| gl_GlobalInvocationID.y >= renderSize.y ) return;
 
 	surface.fragment = vec4(0);
 	surface.pass = PushConstant.pass;
 
 	{
-		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / imageSize(imageColor)) * 2.0f - 1.0f;
+		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
 		const vec4 near4 = iProjectionView * (vec4(inUv, -1.0, 1.0));
 		const vec4 far4 = iProjectionView * (vec4(inUv, 1.0, 1.0));
@@ -168,10 +168,12 @@ void populateSurface() {
 		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
 
 		const float depth = IMAGE_LOAD(samplerDepth).r;
-		vec4 positionEye = ubo.eyes[surface.pass].iProjection * vec4(inUv, depth, 1.0);
-		positionEye /= positionEye.w;
-		surface.position.eye = positionEye.xyz;
-		surface.position.world = vec3( ubo.eyes[surface.pass].iView * positionEye );
+		
+		vec4 eye = ubo.eyes[surface.pass].iProjection * vec4(inUv, depth, 1.0);
+		eye /= eye.w;
+
+		surface.position.eye = eye.xyz;
+		surface.position.world = vec3( ubo.eyes[surface.pass].iView * eye );
 	}
 
 #if !MULTISAMPLING
@@ -193,7 +195,12 @@ void populateSurface() {
 		const uint instanceID = ID.y - 1;
 		surface.subID = 1;
 
-	#if EXTENDED_ATTRIBUTES
+	#if BARYCENTRIC
+		#if !BARYCENTRIC_CALCULATE
+			surface.barycentric = decodeBarycentrics(IMAGE_LOAD(samplerBary).xy).xyz;
+		#endif
+		populateSurface( instanceID, triangleID );
+	#else
 		vec4 uvst = IMAGE_LOAD(samplerUv);
 		vec4 normaltangent = IMAGE_LOAD(samplerNormal);
 
@@ -210,9 +217,6 @@ void populateSurface() {
 		surface.instance = instances[instanceID];
 
 		populateSurfaceMaterial();
-	#else
-		surface.barycentric = decodeBarycentrics(IMAGE_LOAD(samplerBary).xy).xyz;
-		populateSurface( instanceID, triangleID );
 	#endif
 	}
 

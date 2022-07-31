@@ -25,10 +25,10 @@ namespace ext {
 				pod::Vector4f _placeholder = {1,1,1,1};
 				float exposure = 1.0f;
 				float gamma = 1.0f;
-				float brightnessThreshold = 1.0f;
 				bool useLightmaps = true;
 			} light;
 			struct {
+				float threshold = 1.0f;
 				float scale = 1.0f;
 				float strength = 1.0f;
 				float sigma = 0.8f;

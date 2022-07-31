@@ -9,7 +9,7 @@
 #include <cassert>
 #include <mutex>
 
-#define VK_VALIDATION_MESSAGE(...) if ( ext::vulkan::settings::validation ) UF_MSG_DEBUG(__VA_ARGS__);
+#define VK_VALIDATION_MESSAGE(...) if ( ext::vulkan::settings::validation ) UF_MSG("VULKAN", __VA_ARGS__);
 
 #define VK_CHECK_RESULT(f) { VkResult res = (f); if ( res != VK_SUCCESS ) UF_EXCEPTION("{}", ext::vulkan::errorString( res )); }
 

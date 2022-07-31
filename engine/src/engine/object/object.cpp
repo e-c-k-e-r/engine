@@ -159,7 +159,7 @@ bool uf::Object::reload( bool hard ) {
 		transform.reference = reference;
 	}
 	payload["new"] = metadataJson;
-	this->queueHook("object:Reload.%UID%", payload);
+	this->queueHook("object:Reload.%UID%", metadataJson);
 	return true;
 }
 

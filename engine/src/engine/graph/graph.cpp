@@ -243,7 +243,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 				graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, uf::renderer::settings::pipelines::names::culling);
 				graphic.material.metadata.autoInitializeUniformBuffers = true;
 			}
-			graphic.descriptor.inputs.dispatch = { graphic.descriptor.inputs.indirect.count, 1, 1 };
+			graphic.descriptor.bind.width = graphic.descriptor.inputs.indirect.count;
+			graphic.descriptor.bind.height = 1;
+			graphic.descriptor.bind.depth = 1;
 
 			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
 
@@ -1424,10 +1426,10 @@ void uf::graph::tick() {
 
 		::newGraphAdded = false;
 
-		if ( rebuild ) {
-			UF_MSG_DEBUG("Graph buffers requesting renderer update");
-			uf::renderer::states::rebuild = true;
-		}
+	}
+	if ( rebuild ) {
+		UF_MSG_DEBUG("Graph buffers requesting renderer update");
+		uf::renderer::states::rebuild = true;
 	}
 }
 void uf::graph::render() {	

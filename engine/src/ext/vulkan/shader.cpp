@@ -328,6 +328,10 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 	{
 		spirv_cross::Compiler comp( (uint32_t*) &spirv[0], spirv.size() / 4 );
 		spirv_cross::ShaderResources res = comp.get_shader_resources();
+
+		for ( auto i = 0; i < 3; ++i ) 
+			metadata.definitions.localSize[i] = comp.get_execution_mode_argument( spv::ExecutionModeLocalSize, i );
+
 	#if UF_SHADER_PARSE_AS_JSON
 		std::function<ext::json::Value(spirv_cross::TypeID)> parseMembers = [&]( spirv_cross::TypeID type_id ) {
 			auto parseMember = [&]( auto type_id ){
@@ -857,6 +861,12 @@ void ext::vulkan::Shader::aliasAttachment( const ext::vulkan::Shader::Metadata::
 }
 void ext::vulkan::Shader::aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode, VkImageLayout layout, VkFilter filter ) {
 	return aliasAttachment({ name, renderMode, layout, filter });
+}
+bool ext::vulkan::Shader::hasAttachment( const uf::stl::string& name ) {
+	for ( auto& attachment : metadata.attachments ) {
+		if ( attachment.name == name ) return true;
+	}
+	return false;
 }
 
 bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) const {

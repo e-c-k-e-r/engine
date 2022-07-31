@@ -297,12 +297,17 @@ namespace ext {
 			uint32_t renderTarget = 0;
 			uint32_t subpass = 0;
 
+			
+			struct {
+				size_t width = 1;
+				size_t height = 1;
+				size_t depth = 1;
+				uint32_t point = 0;
+			} bind;
+
 			struct {
 				uf::Mesh::Input vertex, index, instance, indirect;
 				size_t bufferOffset = 0;
-				pod::Vector3ui dispatch = { 0, 0, 0 };
-				size_t width = 0;
-				size_t height = 0;
 			} inputs;
 
 			ext::RENDERER::enums::PrimitiveTopology::type_t topology = ext::RENDERER::enums::PrimitiveTopology::TRIANGLE_LIST;

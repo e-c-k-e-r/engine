@@ -30,14 +30,14 @@ uf::Hooks::return_t uf::Hooks::call( const uf::Hooks::name_t& name, const pod::H
 	results.reserve( container.size() );
 	
 	for ( auto& hook : container ) {
-		if ( payload.size() != hook.type.size && hook.type.size > 0 ) continue;
+		if ( payload.size() != hook.type.size /*&& hook.type.size > 0*/ ) continue;
 
 		pod::Hook::userdata_t& unconst_payload = const_cast<pod::Hook::userdata_t&>(payload);
 		pod::Hook::userdata_t hookResult = hook.callback(unconst_payload);
 		auto& returnResult = results.emplace_back();
 		returnResult.move( hookResult );
 	}
-	
+
 	return results;
 }
 

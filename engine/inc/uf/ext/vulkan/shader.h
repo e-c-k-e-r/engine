@@ -102,6 +102,8 @@ namespace ext {
 					uf::stl::unordered_map<uf::stl::string, AccelerationStructure> accelerationStructure;
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
 					uf::stl::unordered_map<uf::stl::string, SpecializationConstants> specializationConstants;
+
+					pod::Vector3ui localSize{};
 				} definitions;
 
 				// to automatically grab attachments from the target renderMode
@@ -128,6 +130,8 @@ namespace ext {
 
 			void aliasAttachment( const Metadata::AttachmentDescriptor& descriptor );
 			void aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode = NULL, VkImageLayout = VK_IMAGE_LAYOUT_UNDEFINED, VkFilter filter = VK_FILTER_NEAREST );
+
+			bool hasAttachment( const uf::stl::string& name );
 
 			bool hasUniform( const uf::stl::string& name ) const;
 

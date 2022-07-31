@@ -6,10 +6,10 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-#define LAMBERT 0
-#define PBR 1
-#define VXGI 1
 #define COMPUTE 1
+
+#define VXGI 1
+#define MAX_CUBEMAPS CUBEMAPS
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -58,7 +58,7 @@ layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 #include "../../common/light.h"
 #undef VXGI
 #include "../../common/shadows.h"
-
+#define PBR 1
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {

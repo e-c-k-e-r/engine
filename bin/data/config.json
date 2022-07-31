@@ -6,12 +6,12 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": false,
-				"max": 8,
+				"max": 48,
 				"shadows": {
 					"enabled": true,
-					"update": 2,
-					"max": 4,
-					"samples": 1
+					"update": 4,
+					"max": 24,
+					"samples": 16
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -71,7 +71,10 @@
 						"0x7d560045", // VUID-vkCmdPipelineBarrier-dstStageMask-06462 (false positive, pipeline barrier for BLAS)
 
 						"0xde55a405", // VUID-VkDescriptorImageInfo-imageLayout-00344 (bitches because )
-						"0x9410d614" // VUID-vkCmdDrawIndexedIndirect-None-02699 (same as above)
+						"0x9410d614", // VUID-vkCmdDrawIndexedIndirect-None-02699 (same as above)
+
+						"0x97c889fd", // VUID-VkBufferDeviceAddressInfo-buffer-02601 (false positive, lies about not setting flags when I explicitly set flags for scratch)
+						"0xea5edaf3" // VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03674 (same as above)
 
 					//	"0x9cacd67a" // UNASSIGNED-CoreValidation-DrawState-QueryNotReset (false positive)
 
@@ -90,7 +93,7 @@
 				//	"size": 0.25
 				//	"size": 0.50
 				//	"size": 0.75
-					"size": 0.5
+					"size": 1
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
@@ -109,10 +112,10 @@
 					"hdr": false,
 					"vxgi": false,
 					"culling": true,
-					"bloom": false,
+					"bloom": true,
 					"rt": false,
 					"postProcess": false,
-					"fsr": true
+					"fsr": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",

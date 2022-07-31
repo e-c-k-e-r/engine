@@ -124,11 +124,17 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
-		renderMode.blitter.descriptor.inputs.dispatch = {
+		renderMode.blitter.descriptor.bind.width = metadata.voxelSize.x;
+		renderMode.blitter.descriptor.bind.height = metadata.voxelSize.y;
+		renderMode.blitter.descriptor.bind.depth = metadata.voxelSize.z;
+		renderMode.blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+	/*
+		renderMode.blitter.descriptor.bind.dispatch = {
 			(metadata.voxelSize.x / metadata.dispatchSize.x),
 			(metadata.voxelSize.y / metadata.dispatchSize.y),
 			(metadata.voxelSize.z / metadata.dispatchSize.z),
 		};
+	*/
 		renderMode.blitter.process = true;
 
 		size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -212,7 +218,6 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 	if ( renderMode.executed ) {
 		if ( !metadata.initialized ) metadata.initialized = true;
 
-	
 		if ( metadata.limiter.frequency > 0 ) {
 			if ( metadata.limiter.timer > metadata.limiter.frequency ) {
 				metadata.limiter.timer = 0;
@@ -304,8 +309,8 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 
 	auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
 	auto& deferredBlitter = *deferredRenderMode.getBlitter();
-	if ( deferredBlitter.material.hasShader("compute", "deferred-compute") ) {
-		ext::ExtSceneBehavior::bindBuffers( scene, "", "compute", "deferred-compute" );
+	if ( deferredBlitter.material.hasShader("compute", "deferred") ) {
+		ext::ExtSceneBehavior::bindBuffers( scene, "", "compute", "deferred" );
 	} else {
 		ext::ExtSceneBehavior::bindBuffers( scene, "", "fragment", "deferred" );
 	}

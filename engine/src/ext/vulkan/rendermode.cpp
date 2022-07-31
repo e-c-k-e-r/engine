@@ -67,12 +67,15 @@ uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layer
 	vkGetPhysicalDeviceFormatProperties(device->physicalDevice, VK_FORMAT_R8G8B8A8_UNORM, &formatProperties);
 	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) blitting = false;
 
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+
 	VkImage temporary;
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
 	imageCreateInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-	imageCreateInfo.extent = { renderTarget.width, renderTarget.height, 1 };
+	imageCreateInfo.extent = { width, height, 1 };
 	imageCreateInfo.mipLevels = 1;
 	imageCreateInfo.arrayLayers = 1;
 	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -186,8 +189,11 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderMode::bindGraphicDescriptor( c
 	ext::vulkan::GraphicDescriptor descriptor = reference;
 	descriptor.subpass = pass;
 	descriptor.pipeline = metadata.pipeline;
-	descriptor.inputs.width = this->width ? this->width : settings::width;
-	descriptor.inputs.height = this->height ? this->height : settings::height;
+	descriptor.bind.width = this->width ? this->width : settings::width;
+	descriptor.bind.height = this->height ? this->height : settings::height;
+	descriptor.bind.depth = metadata.eyes;
+	descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
 	descriptor.parse( metadata.json["descriptor"] );
 
 //	descriptor.renderMode = this->getName();
@@ -376,6 +382,16 @@ void ext::vulkan::RenderMode::tick() {
 	}
 
 	this->synchronize();
+	
+	if ( metadata.limiter.frequency > 0 ) {
+		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
+			metadata.limiter.timer = 0;
+			metadata.limiter.execute = true;
+		} else {
+			metadata.limiter.timer = metadata.limiter.timer + uf::time::delta;
+			metadata.limiter.execute = false;
+		}
+	}
 }
 
 void ext::vulkan::RenderMode::render() {

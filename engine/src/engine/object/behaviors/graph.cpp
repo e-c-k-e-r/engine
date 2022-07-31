@@ -34,28 +34,6 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(payload.filename) ));
 		assetLoader.remove<pod::Graph>(payload.filename);
 
-	#if 0
-		bool shouldUpdate = false;
-		auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-		if ( !ext::json::isNull(graph.metadata["ambient"]) ) {
-			sceneMetadataJson["light"]["ambient"] = graph.metadata["ambient"];
-			shouldUpdate = true;	
-		}
-		if ( !ext::json::isNull(graph.metadata["fog"]) ) {
-			sceneMetadataJson["light"]["fog"] = graph.metadata["fog"];
-			shouldUpdate = true;	
-		}
-		if ( !ext::json::isNull(graph.metadata["gamma"]) ) {
-			sceneMetadataJson["light"]["gamma"] = graph.metadata["gamma"];
-			shouldUpdate = true;	
-		}
-		if ( !ext::json::isNull(graph.metadata["brightnessThreshold"]) ) {
-			sceneMetadataJson["light"]["brightnessThreshold"] = graph.metadata["brightnessThreshold"];
-			shouldUpdate = true;	
-		}
-		if ( shouldUpdate ) scene.callHook("object:Deserialize.%UID%");
-	#endif
-
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();
 		graph.root.entity->getComponent<pod::Transform<>>().reference = &transform;

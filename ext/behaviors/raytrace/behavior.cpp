@@ -20,6 +20,8 @@ namespace {
 	uf::renderer::Texture emptyTexture;
 }
 
+#define UF_USE_EXTERNAL_IMAGE 1
+
 UF_BEHAVIOR_REGISTER_CPP(ext::RayTraceSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::RayTraceSceneBehavior, ticks = true, renders = false, multithread = true)
 #define this (&self)
@@ -56,7 +58,8 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 	//	renderMode->blitter.process = false;
 		uf::renderer::addRenderMode( renderMode, "Compute:RT" );
 	}
-
+#if !UF_USE_EXTERNAL_IMAGE
+#else
 	{
 		uf::stl::vector<uint8_t> pixels = { 
 			0, 0, 0, 0, 0, 0, 0, 0,
@@ -70,6 +73,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 		auto& blitter = *renderMode.getBlitter();
 		blitter.material.textures.emplace_back().aliasTexture( ::emptyTexture );
 	}
+#endif
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
@@ -119,6 +123,18 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 
 	if ( !metadata.renderer.bound ) {
 		if ( graphic.material.hasShader("ray:gen", uf::renderer::settings::pipelines::names::rt) ) {
+		#if !UF_USE_EXTERNAL_IMAGE
+			auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
+			auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
+			shader.aliasAttachment("color", &renderMode, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("bright", &renderMode, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("motion", &renderMode, VK_IMAGE_LAYOUT_GENERAL);
+
+			graphic.descriptor.bind.width = renderMode.width > 0 ? renderMode.width : ext::vulkan::settings::width;
+			graphic.descriptor.bind.height = renderMode.height > 0 ? renderMode.height : ext::vulkan::settings::height;
+			graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			graphic.descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
+		#else
 			auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
 			//
 			pod::Vector2ui size = metadata.renderer.size;
@@ -139,8 +155,10 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			);
 
 			graphic.descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
-			graphic.descriptor.inputs.width = image.width;
-			graphic.descriptor.inputs.height = image.height;
+			graphic.descriptor.bind.width = image.width;
+			graphic.descriptor.bind.height = image.height;
+			graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+		#endif
 
 			//
 			auto& scene = uf::scene::getCurrentScene();
@@ -196,7 +214,16 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		ext::ExtSceneBehavior::bindBuffers( *this, graphic, "ray:gen", uf::renderer::settings::pipelines::names::rt );
 	}
 	if ( !metadata.renderer.bound ) return;
-
+#if !UF_USE_EXTERNAL_IMAGE
+	if ( uf::renderer::states::resized ) {
+		auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
+		graphic.descriptor.bind.width = renderMode.width > 0 ? renderMode.width : ext::vulkan::settings::width;
+		graphic.descriptor.bind.height = renderMode.height > 0 ? renderMode.height : ext::vulkan::settings::height;
+		graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+		graphic.descriptor.pipeline = uf::renderer::settings::pipelines::names::rt;
+		graphic.getPipeline().update( graphic );
+	}
+#else
 	auto& shader = graphic.material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
 	auto& image = shader.textures.front();
 	
@@ -232,8 +259,9 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL
 		);
 
-		graphic.descriptor.inputs.width = image.width;
-		graphic.descriptor.inputs.height = image.height;
+		graphic.descriptor.bind.width = image.width;
+		graphic.descriptor.bind.height = image.height;
+		graphic.descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 		
 		graphic.getPipeline().update( graphic );
 
@@ -242,7 +270,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			shader.textures.front().aliasTexture( image );
 		}
 	}
-
+#endif
 #if 0
 	TIMER(1.0, uf::Window::isKeyPressed("R") ) {
 		UF_MSG_DEBUG("Screenshotting RT scene...");

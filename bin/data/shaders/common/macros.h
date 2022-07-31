@@ -3,12 +3,19 @@
 	// enable if shaderNonUniform is not supported
 	// Nvidia hardware does not require nonuniformEXT, but AMD does
 #endif
+
+// implicit variables
 #ifndef MULTISAMPLING
 	#define MULTISAMPLING 1
 #endif
 #ifndef MAX_MSAA_SAMPLES
 	#define MAX_MSAA_SAMPLES 16
 #endif
+#ifndef MAX_TEXTURES
+	#define MAX_TEXTURES TEXTURES
+#endif
+
+// implicit shader settings
 #ifndef CAN_DISCARD
 	#define CAN_DISCARD 1
 #endif
@@ -19,16 +26,14 @@
 	#define VXGI_NDC 1
 	#define VXGI_SHADOWS 0
 #endif
-#ifndef MAX_TEXTURES
-	#define MAX_TEXTURES TEXTURES
-#endif
+
+/*
 #ifndef FOG
 	#define FOG 1
 #endif
 #ifndef FOG_RAY_MARCH
 	#define FOG_RAY_MARCH 1
 #endif
-
 #ifndef WHITENOISE
 	#define WHITENOISE 1
 #endif
@@ -38,28 +43,46 @@
 #ifndef TONE_MAP
 	#define TONE_MAP 1
 #endif
+#ifndef PHONG
+	#define PHONG 0
+#endif
 #ifndef LAMBERT
 	#define LAMBERT 0
 #endif
 #ifndef PBR
 	#define PBR 1
 #endif
+*/
 
 #if NO_NONUNIFORM_EXT
 	#define nonuniformEXT(X) X
+#else
+	#extension GL_EXT_nonuniform_qualifier : enable
 #endif
 
-#ifndef BUFFER_REFERENCE
-	#define BUFFER_REFERENCE 1
-#else
-	#define UINT64_ENABLED 1
+#if !UINT64_ENABLED
+	#define uint64_t uvec2
+#endif
+
+// easy and accessible in one place
+#ifndef BARYCENTRIC
+	#define BARYCENTRIC 1
+#endif
+#if BARYCENTRIC
+	#ifndef BARYCENTRIC_CALCULATE
+		#define BARYCENTRIC_CALCULATE 1
+	#endif
 #endif
 
 #if BUFFER_REFERENCE
-	#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+	#extension GL_EXT_scalar_block_layout : enable
 	#extension GL_EXT_buffer_reference : enable
 	#extension GL_EXT_buffer_reference2 : enable
-	#extension GL_EXT_scalar_block_layout : enable
+	#if UINT64_ENABLED
+		#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+	#else
+		#extension GL_EXT_buffer_reference_uvec2 : enable
+	#endif
 #endif
 
 const float PI = 3.14159265359;

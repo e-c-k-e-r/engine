@@ -89,6 +89,7 @@ bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
 uint32_t ext::vulkan::states::frameAccumulate = 0;
 bool ext::vulkan::states::frameAccumulateReset = false;
+bool ext::vulkan::states::frameSkip = false;
 
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
@@ -445,6 +446,10 @@ void ext::vulkan::tick() {
 	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
+	if ( ext::vulkan::states::frameSkip ) {
+		ext::vulkan::states::frameSkip = false;
+		return;
+	}
 	ext::vulkan::mutex.lock();
 
 	// cleanup in-flight commands

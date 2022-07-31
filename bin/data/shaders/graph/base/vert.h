@@ -4,8 +4,6 @@ layout (constant_id = 0) const uint PASSES = 6;
 #extension GL_ARB_shader_viewport_layer_array : enable
 #endif
 
-#define EXTRA_ATTRIBUTES 1
-
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
@@ -47,14 +45,12 @@ layout (std140, binding = 2) readonly buffer Instances {
 layout (location = 0) out uvec4 outId;
 layout (location = 1) flat out vec4 outPOS0;
 layout (location = 2) out vec4 outPOS1;
-#if EXTRA_ATTRIBUTES
-	layout (location = 3) out vec3 outPosition;
-	layout (location = 4) out vec2 outUv;
-	layout (location = 5) out vec4 outColor;
-	layout (location = 6) out vec2 outSt;
-	layout (location = 7) out vec3 outNormal;
-	layout (location = 8) out vec3 outTangent;
-#endif
+layout (location = 3) out vec3 outPosition;
+layout (location = 4) out vec2 outUv;
+layout (location = 5) out vec4 outColor;
+layout (location = 6) out vec2 outSt;
+layout (location = 7) out vec3 outNormal;
+layout (location = 8) out vec3 outTangent;
 
 vec4 snap(vec4 vertex, vec2 resolution) {
     vec4 snappedPos = vertex;
@@ -98,12 +94,10 @@ void main() {
 
 	outId = uvec4(triangleID, drawID, instanceID, PushConstant.pass);
 	
-#if EXTRA_ATTRIBUTES
 	outPosition = vec3(model * vec4(inPos.xyz, 1.0));
 	outUv = inUv;
 	outSt = inSt;
 	outColor = inColor * instance.color;
 	outNormal = normalize(vec3(model * vec4(inNormal.xyz, 0.0)));
 	outTangent = normalize(vec3(view * model * vec4(inTangent.xyz, 0.0)));
-#endif
 }

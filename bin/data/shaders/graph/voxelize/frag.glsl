@@ -1,13 +1,15 @@
 #version 450
 #pragma shader_stage(fragment)
-//#extension GL_EXT_nonuniform_qualifier : enable
 
-#define DEFERRED_SAMPLING 0
+// to-do: convert to use functions.h surface population functions
+
 #define FRAGMENT 1
+#define DEFERRED_SAMPLING 0
+#define CUBEMAPS 1
+
 #define BLEND 1
 #define DEPTH_TEST 0
-#define CUBEMAPS 1
-#define TEXTURE_WORKAROUND 1
+#define USE_LIGHTMAP 1
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CASCADES = 16;
 
@@ -50,14 +52,12 @@ layout (binding = 13, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;
 layout (location = 2) in vec4 inPOS1;
-#if 1 || EXTRA_ATTRIBUTES
-	layout (location = 3) in vec3 inPosition;
-	layout (location = 4) in vec2 inUv;
-	layout (location = 5) in vec4 inColor;
-	layout (location = 6) in vec2 inSt;
-	layout (location = 7) in vec3 inNormal;
-	layout (location = 8) in vec3 inTangent;
-#endif
+layout (location = 3) in vec3 inPosition;
+layout (location = 4) in vec2 inUv;
+layout (location = 5) in vec4 inColor;
+layout (location = 6) in vec2 inSt;
+layout (location = 7) in vec3 inNormal;
+layout (location = 8) in vec3 inTangent;
 
 #include "../../common/functions.h"
 
@@ -103,7 +103,7 @@ void main() {
 	}
 	if ( A.a == 0 ) discard;
 
-#if USE_LIGHTMAP && !DEFERRED_SAMPLING
+#if USE_LIGHTMAP
 	if ( validTextureIndex( instance.lightmapID ) ) {
 		A.rgb *= sampleTexture( instance.lightmapID, inSt ).rgb;
 	}

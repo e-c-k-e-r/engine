@@ -95,6 +95,71 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 				true
 			);
 		}
+	} else if ( metadata.type == settings::pipelines::names::rt )  {
+	#if 1
+		struct {
+			size_t depth, color, bright, motion, scratch, output;
+		} attachments = {};
+
+		auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
+		auto SDR_FORMAT = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; // uf::renderer::enums::Format::R8G8B8A8_UNORM
+
+		bool blend = true;
+		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */ext::vulkan::settings::formats::depth,
+			/*.layout = */VK_IMAGE_LAYOUT_GENERAL,
+			/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			/*.blend = */false,
+			/*.samples = */1,
+		});
+		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
+			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend =*/ blend,
+			/*.samples =*/ 1,
+		});
+		attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
+			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend =*/ blend,
+			/*.samples =*/ 1,
+		});
+		attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
+			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend =*/ blend,
+			/*.samples =*/ 1,
+		});
+		attachments.motion = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		//	/*.format = */VK_FORMAT_R32G32B32A32_SFLOAT,
+			/*.format = */VK_FORMAT_R16G16_SFLOAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
+			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend = */false,
+			/*.samples = */1,
+		});
+
+		renderTarget.addPass(
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			{},
+			{},
+			{},
+			attachments.depth,
+			0,
+			true
+		);
+
+		metadata.attachments["depth"] = attachments.depth;
+		metadata.attachments["color"] = attachments.color;
+		metadata.attachments["bright"] = attachments.bright;
+		metadata.attachments["motion"] = attachments.motion;
+		metadata.attachments["scratch"] = attachments.scratch;
+		
+		metadata.attachments["output"] = attachments.color;
+	#endif
 	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
 			struct {
@@ -240,16 +305,21 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 					else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 				}
 			}
-		} else if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
-			for ( auto& attachment : renderTarget.attachments ) {
-				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
+		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
+		#if 0
+			auto& shader = blitter.material.getShader("fragment");
+			shader.aliasAttachment("output", this);
+		#endif
+		} else {
+			auto& shader = blitter.material.getShader("fragment");
+			for ( auto i = 0; i < renderTarget.attachments.size(); ++i ) {
+				if ( !(renderTarget.attachments[i].descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
 
-				Texture2D& texture = blitter.material.textures.emplace_back();
-				enums::Filter::type_t filter = VK_FILTER_NEAREST;
-
-				texture.sampler.descriptor.filter.min = filter;
-				texture.sampler.descriptor.filter.mag = filter;
-				texture.aliasAttachment(attachment);
+				for ( auto& pair : metadata.attachments ) {
+					if ( pair.second != i ) continue;
+					shader.aliasAttachment(pair.first, this);
+					break;
+				}
 			}
 		}
 	}
@@ -261,46 +331,24 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	bool resized = this->width == 0 && this->height == 0 && (ext::vulkan::states::resized || this->resized);
 	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
 
-	if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
-		if ( resized ) {
-			renderTarget.initialize( *renderTarget.device );
-		}
-		if ( rebuild && blitter.process ) {
-			blitter.getPipeline().update( blitter );
-		}
-		return;
-	}
+	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
+	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+
 	if ( resized ) {
 		this->resized = false;
-		
 		renderTarget.initialize( *renderTarget.device );
-		if ( metadata.type != uf::renderer::settings::pipelines::names::rt ) {
-			blitter.material.textures.clear();
-			for ( auto& attachment : renderTarget.attachments ) {
-				if ( !(attachment.descriptor.usage & VK_IMAGE_USAGE_SAMPLED_BIT) ) continue;
-				Texture2D& texture = blitter.material.textures.emplace_back();
-				enums::Filter::type_t filter = VK_FILTER_NEAREST;
-
-				texture.sampler.descriptor.filter.min = filter;
-				texture.sampler.descriptor.filter.mag = filter;
-				texture.aliasAttachment(attachment);
-			}
-		}
 	}
 	if ( rebuild && blitter.process ) {
-		auto& mainRenderMode = ext::vulkan::getRenderMode("");
-		size_t eyes = mainRenderMode.metadata.eyes;
-		for ( size_t eye = 0; eye < eyes; ++eye ) {
-			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
-			descriptor.subpass = 0; // 2 * eye; // + 1;
-			if ( !blitter.hasPipeline( descriptor ) ) {
-				blitter.initializePipeline( descriptor );
-			} else {
-				blitter.getPipeline( descriptor ).update( blitter, descriptor );
-			}
+		blitter.descriptor.bind.width = width;
+		blitter.descriptor.bind.height = height;
+
+		if ( !blitter.hasPipeline( blitter.descriptor ) ) {
+			blitter.initializePipeline( blitter.descriptor );
+		} else if ( blitter.hasPipeline( blitter.descriptor ) ){
+			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
 		}
 	}
-
+/*
 	if ( metadata.limiter.frequency > 0 ) {
 		if ( metadata.limiter.timer > metadata.limiter.frequency ) {
 			metadata.limiter.timer = 0;
@@ -310,6 +358,7 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 			metadata.limiter.execute = false;
 		}
 	}
+*/
 }
 void ext::vulkan::RenderTargetRenderMode::destroy() {
 	ext::vulkan::RenderMode::destroy();
@@ -423,6 +472,7 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 						descriptor.pipeline = pipeline;
+						if ( pipeline == "rt" ) descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 						graphic->record( commands[i], descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
 					}
 				}

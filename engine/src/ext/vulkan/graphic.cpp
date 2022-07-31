@@ -390,29 +390,37 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, VkCommandBuffer comm
 	return record( graphic, descriptor, commandBuffer, pass, draw );
 }
 void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescriptor& descriptor, VkCommandBuffer commandBuffer, size_t pass, size_t draw ) const {
-	auto bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	auto shaders = getShaders( graphic.material.shaders );
+
+	bool bound = false;
 	for ( auto* shader : shaders ) {
-		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
-		if (
+		// compute shaders
+		if ( shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT ) {
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) bound = true;
+			else continue;
+		// raytrace shaders
+		} else if (
 			shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ||
 			shader->descriptor.stage == VK_SHADER_STAGE_MISS_BIT_KHR ||
 			shader->descriptor.stage == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR ||
 			shader->descriptor.stage == VK_SHADER_STAGE_ANY_HIT_BIT_KHR ||
 			shader->descriptor.stage == VK_SHADER_STAGE_INTERSECTION_BIT_KHR
-		) bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-	#if 1
+		) {
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) bound = true;
+			else continue;
+		// anything else
+		} else {
+			if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_GRAPHICS ) bound = true;
+			else continue;
+		}
+
 		if ( shader->metadata.definitions.pushConstants.count("PushConstant") > 0 ) {
-			if ( shader->descriptor.stage == VK_SHADER_STAGE_VERTEX_BIT || shader->descriptor.stage == VK_SHADER_STAGE_COMPUTE_BIT || shader->descriptor.stage == VK_SHADER_STAGE_RAYGEN_BIT_KHR ) {
-				struct PushConstant {
-					uint32_t pass;
-					uint32_t draw;
-				} pushConstant = { pass, draw };
-				vkCmdPushConstants( commandBuffer, pipelineLayout, shader->descriptor.stage, 0, sizeof(pushConstant), &pushConstant );
-			}
-		} else
-	#endif
-		if ( !shader->pushConstants.empty() ) {
+			struct PushConstant {
+				uint32_t pass;
+				uint32_t draw;
+			} pushConstant = { pass, draw };
+			vkCmdPushConstants( commandBuffer, pipelineLayout, shader->descriptor.stage, 0, sizeof(pushConstant), &pushConstant );
+		} else if ( !shader->pushConstants.empty() ) {
 			auto& pushConstant = shader->pushConstants.front();
 			size_t size = pushConstant.size();
 			void* data = pushConstant.data().data;
@@ -421,25 +429,41 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 			}
 		}
 	}
+
+	// no matching bind point for shaders, skip
+	if ( !bound ) return;
+
 	// Bind descriptor sets describing shader binding points
-	vkCmdBindDescriptorSets(commandBuffer, bindPoint, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, (VkPipelineBindPoint)descriptor.bind.point, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 	// Bind the rendering pipeline
 	// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-	vkCmdBindPipeline(commandBuffer, bindPoint, pipeline);
+	vkCmdBindPipeline(commandBuffer, (VkPipelineBindPoint)descriptor.bind.point, pipeline);
 
-	if ( bindPoint == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
+	uint32_t width = descriptor.bind.width ? descriptor.bind.width : ext::vulkan::settings::width;
+	uint32_t height = descriptor.bind.height ? descriptor.bind.height : ext::vulkan::settings::height;
+	uint32_t depth = descriptor.bind.depth ? descriptor.bind.depth : 1;
+
+	if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR ) {
 		uf::renderer::vkCmdTraceRaysKHR(
 			commandBuffer,
 			&sbtEntries[0],
 			&sbtEntries[1],
 			&sbtEntries[2],
 			&sbtEntries[3],
-			descriptor.inputs.width ? descriptor.inputs.width : ext::vulkan::settings::width,
-			descriptor.inputs.height ? descriptor.inputs.height : ext::vulkan::settings::height,
+			width,
+			height,
 			1
 		);
-	} else if ( bindPoint == VK_PIPELINE_BIND_POINT_COMPUTE && descriptor.inputs.dispatch.x != 0 && descriptor.inputs.dispatch.y != 0 && descriptor.inputs.dispatch.z != 0 ) {
-		vkCmdDispatch(commandBuffer, descriptor.inputs.dispatch.x, descriptor.inputs.dispatch.y, descriptor.inputs.dispatch.z);
+	} else if ( descriptor.bind.point == VK_PIPELINE_BIND_POINT_COMPUTE ) {
+		for ( auto* shader : shaders ) {
+			if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
+			auto& localSize = shader->metadata.definitions.localSize;
+			vkCmdDispatch(commandBuffer,
+				localSize.x ? ((width  / localSize.x) + 1) : 1,
+				localSize.y ? ((height / localSize.y) + 1) : 1,
+				localSize.z ? ((depth  / localSize.z) + 1) : 1
+			);
+		}
 	}
 }
 void ext::vulkan::Pipeline::update( const Graphic& graphic ) {
@@ -1714,7 +1738,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (float) (oldSize - compactedSize) / (float) (oldSize), oldSize, compactedSize, oldSize - compactedSize);
 
 		ext::vulkan::Buffer oldBuffer;
-		oldBuffer.initialize( NULL, tlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+		oldBuffer.initialize( NULL, tlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE );
 		this->buffers[tlasBufferIndex].swap(oldBuffer);
 		
 		tlas.buffer = this->buffers[tlasBufferIndex].alias();

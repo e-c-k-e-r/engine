@@ -121,6 +121,7 @@ namespace ext {
 			
 			extern UF_API uint32_t frameAccumulate;
 			extern UF_API bool frameAccumulateReset;
+			extern UF_API bool frameSkip;
 		}
 
 		extern UF_API Device device;

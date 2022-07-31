@@ -9,18 +9,19 @@ layout (constant_id = 1) const uint TEXTURES = 512;
 layout (constant_id = 2) const uint CUBEMAPS = 8;
 layout (constant_id = 3) const uint CASCADES = 1;
 
+// shader type settings
+#define RT 1
 #define COMPUTE 1
-#define PBR 1
-#define VXGI 0
-#define RAYTRACE 1
-#define BUFFER_REFERENCE 1
-#define FOG 1
-#define BLOOM 0
-#define WHITENOISE 0
-#define MAX_TEXTURES TEXTURES
-#define TONE_MAP 0
-#define GAMMA_CORRECT 0
 #define DEFERRED_SAMPLING 1
+#define BUFFER_REFERENCE 1
+#define UINT64_ENABLED 1
+#define PBR 1
+// shader function settings
+#define FOG 1
+
+//force it off
+#define BARYCENTRIC 0
+#define BARYCENTRIC_CALCULATE 0
 
 #include "../common/macros.h"
 #include "../common/structs.h"
@@ -377,7 +378,8 @@ void main()  {
 	{
 	#if BLOOM
 		float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
-		outFragBright = brightness > ubo.brightnessThreshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+		vec4 outFragBright = brightness > ubo.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+		imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), outFragBright);
 	#endif
 	#if FOG
 		fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
