@@ -33,61 +33,20 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
-	// initialize voxel map
-#if 0
-	{
-		const uint32_t DEFAULT_VOXEL_SIZE = ext::config["engine"]["scenes"]["vxgi"]["size"].as<uint32_t>(256);
-		const float DEFAULT_VOXELIZE_LIMITER = ext::config["engine"]["scenes"]["vxgi"]["limiter"].as<float>(0);
-		const uint32_t DEFAULT_DISPATCH_SIZE = ext::config["engine"]["scenes"]["vxgi"]["dispatch"].as<uint32_t>(8);
-		const uint32_t DEFAULT_CASCADES = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<uint32_t>(8);
-		const float DEFAULT_CASCADE_POWER = ext::config["engine"]["scenes"]["vxgi"]["cascadePower"].as<float>(1.5);
-		const float DEFAULT_GRANULARITY = ext::config["engine"]["scenes"]["vxgi"]["granularity"].as<float>(2.0);
-		const float DEFAULT_SHADOWS = ext::config["engine"]["scenes"]["vxgi"]["shadows"].as<size_t>(8);
-		const float DEFAULT_PIXEL_SCALE = ext::config["engine"]["scenes"]["vxgi"]["voxelizeScale"].as<float>(1);
-		const float DEFAULT_OCCLUSION_FALLOFF = ext::config["engine"]["scenes"]["vxgi"]["occlusionFalloff"].as<float>(128.0f);
-
-		if ( metadata.voxelSize.x == 0 ) metadata.voxelSize.x = DEFAULT_VOXEL_SIZE;
-		if ( metadata.voxelSize.y == 0 ) metadata.voxelSize.y = DEFAULT_VOXEL_SIZE;
-		if ( metadata.voxelSize.z == 0 ) metadata.voxelSize.z = DEFAULT_VOXEL_SIZE;
-		
-		if ( metadata.limiter.frequency == 0 ) metadata.limiter.frequency = DEFAULT_VOXELIZE_LIMITER;
-
-		if ( metadata.dispatchSize.x == 0 ) metadata.dispatchSize.x = DEFAULT_DISPATCH_SIZE;
-		if ( metadata.dispatchSize.y == 0 ) metadata.dispatchSize.y = DEFAULT_DISPATCH_SIZE;
-		if ( metadata.dispatchSize.z == 0 ) metadata.dispatchSize.z = DEFAULT_DISPATCH_SIZE;
-
-		if ( metadata.cascades == 0 ) metadata.cascades = DEFAULT_CASCADES;
-		if ( metadata.cascadePower == 0 ) metadata.cascadePower = DEFAULT_CASCADE_POWER;
-		if ( metadata.granularity == 0 ) metadata.granularity = DEFAULT_GRANULARITY;
-		if ( metadata.voxelizeScale == 0 ) metadata.voxelizeScale = DEFAULT_PIXEL_SCALE;
-		if ( metadata.occlusionFalloff == 0 ) metadata.occlusionFalloff = DEFAULT_OCCLUSION_FALLOFF;
-		if ( metadata.shadows == 0 ) metadata.shadows = DEFAULT_SHADOWS;
-
-		metadata.extents.min = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["min"], pod::Vector3f{-32, -32, -32} );
-		metadata.extents.max = uf::vector::decode( ext::config["engine"]["scenes"]["vxgi"]["extents"]["max"], pod::Vector3f{ 32,  32,  32} );
-
-	//	uf::stl::vector<uint8_t> empty(metadata.voxelSize.x * metadata.voxelSize.y * metadata.voxelSize.z * sizeof(uint8_t) * 4);	
-	}
-#endif
-
 	for ( size_t i = 0; i < metadata.cascades; ++i ) {
 		const bool HDR = false;
 		auto& id = sceneTextures.voxels.id.emplace_back();
-	//	auto& uv = sceneTextures.voxels.uv.emplace_back();
-		auto& normal = sceneTextures.voxels.normal.emplace_back();
-		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
-	//	auto& depth = sceneTextures.voxels.depth.emplace_back();
-
 		id.sampler.descriptor.filter.min = uf::renderer::enums::Filter::NEAREST;
 		id.sampler.descriptor.filter.mag = uf::renderer::enums::Filter::NEAREST;
-
-		auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
-		auto SDR_FORMAT = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; // uf::renderer::enums::Format::R8G8B8A8_UNORM
-
 		id.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_UINT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+	
+	//	auto& uv = sceneTextures.voxels.uv.emplace_back();
 	//	uv.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		auto& normal = sceneTextures.voxels.normal.emplace_back();
 		normal.fromBuffers( NULL, 0, uf::renderer::enums::Format::R16G16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
-		radiance.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+		auto& radiance = sceneTextures.voxels.radiance.emplace_back();
+		radiance.fromBuffers( NULL, 0, uf::renderer::settings::pipelines::hdr ? uf::renderer::enums::Format::HDR : uf::renderer::enums::Format::SDR, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
+	//	auto& depth = sceneTextures.voxels.depth.emplace_back();
 	//	depth.fromBuffers( (void*) empty.data(), empty.size(), uf::renderer::enums::Format::R16_SFLOAT, metadata.voxelSize.x, metadata.voxelSize.y, metadata.voxelSize.z, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 	}
 	// initialize render mode
@@ -108,7 +67,7 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.metadata.samples = 1;
 		renderMode.metadata.subpasses = metadata.cascades;
 
-		renderMode.blitter.device = &ext::vulkan::device;
+		renderMode.blitter.device = &uf::renderer::device;
 		renderMode.width = metadata.fragmentSize.x;
 		renderMode.height = metadata.fragmentSize.y;
 
@@ -118,9 +77,6 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		if ( renderMode.metadata.samples > 1 ) {
 			computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", "msaa.comp" );
 		}
-	//	if ( uf::renderer::settings::invariant::deferredSampling ) {
-	//		computeShaderFilename = uf::string::replace( computeShaderFilename, "comp", "deferredSampling.comp" );
-	//	}
 		renderMode.metadata.json["shaders"]["compute"] = computeShaderFilename;
 		renderMode.blitter.descriptor.renderMode = metadata.renderModeName;
 		renderMode.blitter.descriptor.subpass = -1;
@@ -128,13 +84,6 @@ void ext::VoxelizerSceneBehavior::initialize( uf::Object& self ) {
 		renderMode.blitter.descriptor.bind.height = metadata.voxelSize.y;
 		renderMode.blitter.descriptor.bind.depth = metadata.voxelSize.z;
 		renderMode.blitter.descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
-	/*
-		renderMode.blitter.descriptor.bind.dispatch = {
-			(metadata.voxelSize.x / metadata.dispatchSize.x),
-			(metadata.voxelSize.y / metadata.dispatchSize.y),
-			(metadata.voxelSize.z / metadata.dispatchSize.z),
-		};
-	*/
 		renderMode.blitter.process = true;
 
 		size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
@@ -305,6 +254,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		}
 	#endif
 	}
+
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute", "" );
 
 	auto& deferredRenderMode = uf::renderer::getRenderMode("", true);

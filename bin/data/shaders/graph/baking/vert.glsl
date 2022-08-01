@@ -4,6 +4,5 @@
 #define INSTANCED 1
 #define SKINNED 0
 #define BAKING 1
-#define LAYERED 1
 
 #include "../base/vert.h"

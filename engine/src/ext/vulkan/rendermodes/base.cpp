@@ -40,10 +40,12 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	imageMemoryBarrier.subresourceRange.layerCount = 1;
 	imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"RenderTarget", "Compute:RT", "Deferred"}, false);
-	if ( !settings::pipelines::rt ) {
+	uf::stl::vector<RenderMode*> layers = ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{"Deferred", "Compute:RT", "RenderTarget"}, false);
+#if 0
+	if ( settings::pipelines::rt ) {
 		std::reverse( layers.begin(), layers.end() );
 	}
+#endif
 
 	auto& scene = uf::scene::getCurrentScene();
 	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
@@ -214,6 +216,7 @@ void ext::vulkan::BaseRenderMode::tick() {
 	}
 }
 void ext::vulkan::BaseRenderMode::render() {
+//	if ( ext::vulkan::states::frameSkip ) return;
 //	if ( ext::vulkan::renderModes.size() > 1 ) return;
 //	if ( ext::vulkan::renderModes.back() != this ) return;
 
@@ -273,13 +276,13 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	// create image views for swapchain images
 	
 	renderTarget.attachments.clear();
-	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers + 1 );
+	renderTarget.attachments.resize( ext::vulkan::swapchain.buffers );
 
 //	uint32_t width = windowSize.x; //this->width > 0 ? this->width : windowSize.x;
 //	uint32_t height = windowSize.y; //this->height > 0 ? this->height : windowSize.y;
 
 	size_t attachmentIndex = 0;
-	for ( size_t i = 0; i < images.size(); ++i ) {
+	for ( size_t i = 0; i < ext::vulkan::swapchain.buffers; ++i ) {
 		VkImageViewCreateInfo colorAttachmentView = {};
 		colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		colorAttachmentView.pNext = NULL;
@@ -310,10 +313,11 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 		metadata.attachments["color["+std::to_string((int) i)+"]"] = attachmentIndex++;
 	}
-	// Create depth
-	auto& depthAttachment = renderTarget.attachments.back();
-	metadata.attachments["depth"] = attachmentIndex++;
 	{
+		// Create depth
+		auto& attachment = renderTarget.attachments.emplace_back();
+		metadata.attachments["depth"] = attachmentIndex++;
+		
 		// Create an optimal image used as the depth stencil attachment
 		VkImageCreateInfo imageCreateInfo = {};
 		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -330,25 +334,9 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 	
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &depthAttachment.image, &depthAttachment.allocation, &depthAttachment.allocationInfo));
-		depthAttachment.mem = depthAttachment.allocationInfo.deviceMemory;
+		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment.image, &attachment.allocation, &attachment.allocationInfo));
+		attachment.mem = attachment.allocationInfo.deviceMemory;
 	
-	/*
-		VK_CHECK_RESULT(vkCreateImage(device, &imageCreateInfo, nullptr, &depthAttachment.image));
-
-		// Allocate memory for the image (device local) and bind it to our image
-		VkMemoryAllocateInfo memAlloc = {};
-		memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		VkMemoryRequirements memReqs;
-		vkGetImageMemoryRequirements(device, depthAttachment.image, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-		memAlloc.memoryTypeIndex = getMemoryTypeIndex(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &depthAttachment.mem));
-		VK_CHECK_RESULT(vkBindImageMemory(device, depthAttachment.image, depthAttachment.mem, 0));
-	*/
-		// Create a view for the depth stencil image
-		// Images aren't directly accessed in Vulkan, but rather through views described by a subresource range
-		// This allows for multiple views of one image with differing ranges (e.g. for different layers)
 		VkImageViewCreateInfo depthStencilView = {};
 		depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -359,11 +347,49 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		depthStencilView.subresourceRange.levelCount = 1;
 		depthStencilView.subresourceRange.baseArrayLayer = 0;
 		depthStencilView.subresourceRange.layerCount = 1;
-		depthStencilView.image = depthAttachment.image;
+		depthStencilView.image = attachment.image;
 
-		VK_CHECK_RESULT(vkCreateImageView(device, &depthStencilView, nullptr, &depthAttachment.view));
-	
+		VK_CHECK_RESULT(vkCreateImageView(device, &depthStencilView, nullptr, &attachment.view));
 	}
+	// Create FSR dump
+/*
+	if ( settings::pipelines::fsr ) {
+		auto& attachment = renderTarget.attachments.emplace_back();
+
+		VkImageCreateInfo imageCreateInfo = {};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.format = ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR;
+
+		imageCreateInfo.extent = { width, height, 1 };
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = 1;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	
+		VmaAllocationCreateInfo allocInfo = {};
+		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment.image, &attachment.allocation, &attachment.allocationInfo));
+		attachment.mem = attachment.allocationInfo.deviceMemory;
+
+		VkImageViewCreateInfo imageViewCreateInfo = {};
+		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.format = ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR;
+		imageViewCreateInfo.subresourceRange = {};
+		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewCreateInfo.subresourceRange.levelCount = 1;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.layerCount = 1;
+		imageViewCreateInfo.image = attachment.image;
+
+		VK_CHECK_RESULT(vkCreateImageView(device, &imageViewCreateInfo, nullptr, &attachment.view));
+		metadata.attachments["fsr"] = attachmentIndex++;
+	}
+*/
 	// Create renderpass
 	if ( !renderTarget.renderPass ) {// Create render pass
 		// This example will use a single render pass with one subpass
@@ -459,8 +485,8 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		for (size_t i = 0; i < renderTarget.framebuffers.size(); i++)
 		{
 			std::array<VkImageView, 2> attachments;										
-			attachments[0] = renderTarget.attachments[i].view;	// Color attachment is the view of the swapchain image			
-			attachments[1] = depthAttachment.view;				// Depth/Stencil attachment is the same for all frame buffers			
+			attachments[0] = renderTarget.attachments[i].view;									// Color attachment is the view of the swapchain image			
+			attachments[1] = renderTarget.attachments[metadata.attachments["depth"]].view;		// Depth/Stencil attachment is the same for all frame buffers			
 
 			VkFramebufferCreateInfo frameBufferCreateInfo = {};
 			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

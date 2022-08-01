@@ -79,7 +79,7 @@ ent:bind( "tick", function(self)
 		local center = flattenedTransform.position
 		local direction = flattenedTransform.forward * 4
 
-		local offset = 0.05
+		local offset = 0.25
 		local _, depth = physicsState:rayCast( center, direction )
 		if depth >= 0.5 then
 			depth = 0.5

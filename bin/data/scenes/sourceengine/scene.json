@@ -13,8 +13,8 @@
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
 		//	"ambient": [ 0.1, 0.1, 0.2 ],
 
-			"exposure": 0.125,
-			"gamma": 2.2,
+			"exposure": 1, // 0.125,
+			"gamma": 2.2, // 2.2,
 
 			"bloom": {
 				"threshold": 1.2,

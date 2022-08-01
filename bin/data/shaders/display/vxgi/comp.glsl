@@ -10,6 +10,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 #define VXGI 1
 #define MAX_CUBEMAPS CUBEMAPS
+#define GAMMA_CORRECT 1
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -104,7 +105,7 @@ void main() {
 				const vec3 Liu = light.position - surface.position.world;
 				const vec3 Li = normalize(Liu);
 				const float Ls = shadowFactor( light, 0.0 );
-				const float La = 1.0 / (PI * pow(length(Liu), 2.0));
+				const float La = 1.0 / (1 + (PI * pow(length(Liu), 2.0)));
 				if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 				const float cosLi = max(0.0, dot(surface.normal.world, Li));
@@ -129,6 +130,13 @@ void main() {
 		}
 
 		surface.fragment.rgb += surface.light.rgb;
+
+	#if TONE_MAP
+		toneMap(surface.fragment.rgb, ubo.settings.bloom.exposure);
+	#endif
+	#if GAMMA_CORRECT
+		gammaCorrect(surface.fragment.rgb, 1.0 / ubo.settings.bloom.gamma);
+	#endif
 
 		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 	}

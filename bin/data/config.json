@@ -5,13 +5,13 @@
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": false,
-				"max": 48,
+				"useLightmaps": true,
+				"max": 16,
 				"shadows": {
 					"enabled": true,
-					"update": 4,
-					"max": 24,
-					"samples": 16
+					"update": 2,
+					"max": 4,
+					"samples": 1
 				},
 				"bloom": {
 					"scale": 1.0,
@@ -30,6 +30,7 @@
 			},
 			"vxgi": {
 				"limiter": 0.5,
+			//	"limiter": 0.125,
 				"size": 128,
 				"dispatch": 8,
 				"cascades": 3,
@@ -37,15 +38,16 @@
 				"granularity": 12,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
-				"traceStartOffsetFactor": 2.5,
+				"traceStartOffsetFactor": 1,
 				"shadows": 0,
 				"extents": {
-					"min": [ -8, -4, -8 ],
-					"max": [  8,  4,  8 ]
+					"min": [ -16, -4, -16 ],
+					"max": [  16,  4,  16 ]
 				}
 			},
 			"rt": {
 			//	"size": [ 1280, 720 ],
+				"full": false,
 				"filter": "nearest",
 				"defaultRayBounds": [ 0.5, 256.0 ],
 				"alphaTestOffset": 0.01,
@@ -90,10 +92,7 @@
 				},
 				"framebuffer": {
 					"msaa": 1,
-				//	"size": 0.25
-				//	"size": 0.50
-				//	"size": 0.75
-					"size": 1
+					"size": 1 // 0.5
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
@@ -101,7 +100,7 @@
 				},
 				"gpu": 1,
 				"experimental": {
-					"batch queue submissions": true,
+					"batch queue submissions": false,
 					"rebuild on tick begin": false,
 					"dedicated thread": false
 				},
@@ -110,12 +109,12 @@
 					"deferred": true,
 					"vsync": false,
 					"hdr": false,
-					"vxgi": false,
+					"vxgi": true,
 					"culling": true,
 					"bloom": true,
-					"rt": false,
+					"rt": true,
 					"postProcess": false,
-					"fsr": false
+					"fsr": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -137,6 +136,8 @@
 					"fragmentStoresAndAtomics",
 					"geometryShader",
 					"multiViewport",
+					"shaderInt16",
+					"shaderFloat16",
 					"shaderInt64",
 					"shaderFloat64",
 					"shaderSubgroupClock",
@@ -174,6 +175,7 @@
 						"VK_KHR_shader_float_controls",
 						"VK_KHR_shader_clock",
 						"VK_KHR_ray_query",
+						"VK_EXT_subgroup_size_control",
 						"VK_AMD_shader_explicit_vertex_parameter" // "VK_KHR_fragment_shader_barycentric"
 					]
 				}
@@ -217,7 +219,10 @@
 				"enabled": false
 			},
 			"fsr": {
-				"enabled": true
+				"enabled": true,
+				"sharpness": 1,
+				"jitter scale": 0.0125,
+				"preset": "ultra" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
@@ -321,8 +326,8 @@
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 	//	"size" :  [ 1920, 1080 ],
-	//	"size" :  [ 1280, 720 ],
-		"size" :  [ 960, 540 ],
+		"size" :  [ 1280, 720 ],
+	//	"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",

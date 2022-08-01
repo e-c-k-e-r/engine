@@ -1,8 +1,5 @@
 layout (constant_id = 0) const uint PASSES = 6;
 #extension GL_ARB_shader_draw_parameters : enable
-#if LAYERED
-#extension GL_ARB_shader_viewport_layer_array : enable
-#endif
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"

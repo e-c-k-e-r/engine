@@ -1,20 +1,24 @@
 // PBR
 void pbr() {
-	if ( surface.material.lightmapped ) return;
+//	if ( surface.material.lightmapped ) return;
 
 	const float Rs = 4.0; // specular lighting looks gross without this
 	const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 	const vec3 Lo = normalize( -surface.position.eye );
 	const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
-	
+
+	uint shadows = 0;	
 	for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
 		const Light light = lights[i];
 		if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+		if ( surface.material.lightmapped && light.type >= 0 ) continue;
+
 		const vec3 Liu = vec3(ubo.eyes[surface.pass].view * vec4(light.position, 1)) - surface.position.eye;
 		const vec3 Li = normalize(Liu);
 		const bool reverseZ = light.projection[2][2] < 0.00001;
-		const float Ls = shadowFactor( light, 0.0 );
-		const float La = 1.0 / (PI * pow(length(Liu), 2.0));
+		const float Ls = ( shadows++ < ubo.settings.lighting.maxShadows ) ? shadowFactor( light, 0.0 ) : 1;
+	//	const float La = 1.0 / (PI * pow(length(Liu), 2.0));
+		const float La = 1.0 / (1 + (PI * pow(length(Liu), 2.0)));
 		if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 		const float cosLi = max(0.0, dot(surface.normal.eye, Li));

@@ -11,7 +11,6 @@ layout (constant_id = 3) const uint CASCADES = 1;
 
 // shader type settings
 #define RT 1
-#define COMPUTE 1
 #define DEFERRED_SAMPLING 1
 #define BUFFER_REFERENCE 1
 #define UINT64_ENABLED 1
@@ -379,19 +378,10 @@ void main()  {
 	#if BLOOM
 		float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
 		vec4 outFragBright = brightness > ubo.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
-		imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), outFragBright);
+	//	imageStore(outImage, ivec2(gl_LaunchIDEXT.xy), outFragBright);
 	#endif
 	#if FOG
 		fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
-	#endif
-	#if TONE_MAP
-		surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.settings.bloom.exposure);
-	#endif
-	#if GAMMA_CORRECT
-		surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.settings.bloom.gamma));
-	#endif
-	#if WHITENOISE
-		if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
 	#endif
 	}
 

@@ -1,3 +1,5 @@
+float shadowFactor( const Light light, float def );
+
 #if PBR
 	#include "../common/pbr.h"
 #endif

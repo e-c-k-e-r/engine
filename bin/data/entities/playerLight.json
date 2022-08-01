@@ -26,7 +26,7 @@
 			"radius": [0.001, 0],
 			"resolution": 512,
 			"shadows": false,
-			"static": false
+			"dynamic": true
 		}
 	}
 }

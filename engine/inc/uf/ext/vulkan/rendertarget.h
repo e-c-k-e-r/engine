@@ -47,6 +47,7 @@ namespace ext {
 			uint32_t width = 0;
 			uint32_t height = 0;
 			uint8_t views = 1;
+			float scale = 0;
 			// RAII
 			void initialize( Device& device );
 			void destroy();

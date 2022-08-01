@@ -3,7 +3,7 @@
 	"metadata": {
 		"graph": {
 		//	"renderer": { "separate": true },
-			"baking": { "enabled": false },
+			"baking": { "enabled": true },
 			"tags": {
 				// exact matches
 				"worldspawn": {

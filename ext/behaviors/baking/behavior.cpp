@@ -17,8 +17,14 @@
 
 #define UF_BAKER_SAVE_MULTITHREAD 0
 
+namespace {
+	bool accumulated = false;
+	size_t frames = 0;
+	size_t totalIDs = 0;
+}
+
 UF_BEHAVIOR_REGISTER_CPP(ext::BakingBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::BakingBehavior, ticks = true, renders = false, multithread = false)
 #define this (&self)
 void ext::BakingBehavior::initialize( uf::Object& self ) {
 #if UF_USE_VULKAN
@@ -36,6 +42,12 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 	sceneMetadata.shadow.max = metadata.max.shadows;
 	sceneMetadata.shadow.update = metadata.max.shadows;
 	UF_MSG_DEBUG("Temporarily altering shadow limits...");
+
+	{
+		metadata.uniforms.lights = metadata.max.shadows;
+		metadata.uniforms.currentID = 0;
+		metadata.buffers.uniforms.initialize( (const void*) &metadata.uniforms, sizeof(metadata.uniforms), uf::renderer::enums::Buffer::UNIFORM );
+	}
 
 	this->addHook( "entity:PostInitialization.%UID%", [&](){
 		metadata.output = this->resolveURI( metadataJson["baking"]["output"].as<uf::stl::string>(), metadataJson["baking"]["root"].as<uf::stl::string>() );
@@ -76,17 +88,23 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 		for ( auto& texture : uf::graph::storage.shadow2Ds ) textures2D.emplace_back().aliasTexture(texture);
 		for ( auto& texture : uf::graph::storage.shadowCubes ) texturesCube.emplace_back().aliasTexture(texture);
 
+		::totalIDs = uf::graph::storage.instances.keys.size();
+
 		metadata.buffers.baked.fromBuffers( NULL, 0, uf::renderer::enums::Format::R8G8B8A8_UNORM, metadata.size.x, metadata.size.y, metadata.max.layers, 1, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL );
 
 		scene.process([&]( uf::Entity* entity ) {
 			if ( !entity->hasComponent<uf::Graphic>() ) return;
 			auto& graphic = entity->getComponent<uf::Graphic>();
+			if ( !graphic.material.hasShader("fragment", "baking") ) return;
+
 			auto& shader = graphic.material.getShader("fragment", "baking");
 
 			for ( auto& t : textures2D ) shader.textures.emplace_back().aliasTexture( t );
 			for ( auto& t : texturesCube ) shader.textures.emplace_back().aliasTexture( t );
 
 			shader.textures.emplace_back().aliasTexture( metadata.buffers.baked );
+
+			shader.buffers.insert( shader.buffers.begin(), metadata.buffers.uniforms.alias() );
 		});
 	//	uf::thread::queue([&]{
 			uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
@@ -98,13 +116,30 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 #endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {
+	auto& scene = uf::scene::getCurrentScene();
+	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
+
 #if UF_USE_VULKAN
 	if ( !this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) return;
 	auto& metadata = this->getComponent<ext::BakingBehavior::Metadata>();
 	auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 	if ( renderMode.executed && !metadata.initialized.renderMode ) goto PREPARE;
 	else if ( renderMode.executed && !metadata.initialized.map ) {
-		TIMER(1.0, (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) ) {
+		sceneMetadata.shadow.update = metadata.previous.update;
+		{
+			if ( metadata.uniforms.currentID == ::totalIDs ) {
+				if ( !accumulated ) {
+					accumulated = true;
+					renderMode.execute = false;
+					UF_MSG_DEBUG("Finished accumulating lightmaps");
+				}
+			} else {
+				UF_MSG_DEBUG("Baking instance ID {} / {}", metadata.uniforms.currentID, ::totalIDs);
+				metadata.buffers.uniforms.update( (const void*) &metadata.uniforms, sizeof(metadata.uniforms) );
+				++metadata.uniforms.currentID;
+			}
+		}
+		TIMER(1.0, accumulated && (metadata.trigger.mode == "rendered" || (metadata.trigger.mode == "key" && uf::Window::isKeyPressed(metadata.trigger.value))) ) {
 			goto SAVE;
 		}
 	}
@@ -142,10 +177,8 @@ SAVE: {
 	uf::thread::execute( tasks );
 	
 	UF_MSG_DEBUG("Baked.");
+//	ext::vulkan::states::frameSkip = false;
 	metadata.initialized.map = true;
-
-	auto& scene = uf::scene::getCurrentScene();
-	auto& sceneMetadata = scene.getComponent<ext::ExtSceneBehavior::Metadata>();
 
 	sceneMetadata.light.max = metadata.previous.lights;
 	sceneMetadata.shadow.max = metadata.previous.shadows;

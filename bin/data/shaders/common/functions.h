@@ -3,6 +3,23 @@ float random(vec3 seed, int i){ return fract(sin(dot(vec4(seed,i), vec4(12.9898,
 float rand2(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 143758.5453); }
 float rand3(vec3 co){ return fract(sin(dot(co.xyz ,vec3(12.9898,78.233, 37.719))) * 143758.5453); }
 //
+float mipLevel( in vec2 dx_vtc, in vec2 dy_vtc ) {
+	const float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
+	return 0.5 * log2(delta_max_sqr);
+//	return max(0.0, 0.5 * log2(delta_max_sqr) - 1.0);
+
+//	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
+}
+//
+void toneMap( inout vec3 color, float exposure ) {
+	color.rgb = vec3(1.0) - exp(-color.rgb * exposure);
+}
+void gammaCorrect( inout vec3 color, float gamma ) {
+	color.rgb = pow(color.rgb, vec3(1.0 / gamma));
+}
+void toneMap( inout vec4 color, float exposure ) { toneMap(color.rgb, exposure); }
+void gammaCorrect( inout vec4 color, float gamma ) { gammaCorrect(color.rgb, gamma); }
+//
 uint tea(uint val0, uint val1) {
 	uint v0 = val0;
 	uint v1 = val1;
@@ -27,7 +44,6 @@ float rnd(inout uint prev) { return (float(lcg(prev)) / float(0x01000000)); }
 uint prngSeed;
 float rnd() { return rnd(prngSeed); }
 //
-float shadowFactor( const Light light, float def );
 float ndfGGX(float cosLh, float roughness) {
 	const float alpha   = roughness * roughness;
 	const float alphaSq = alpha * alpha;
@@ -119,7 +135,7 @@ bool validCubemapIndex( int textureIndex ) {
 	return 0 <= textureIndex && textureIndex < MAX_CUBEMAPS;
 }
 #endif
-#if !BLOOM && (DEFERRED || FRAGMENT || COMPUTE)
+#if !BLOOM && (DEFERRED || FRAGMENT || COMPUTE || RT)
 bool validTextureIndex( uint id ) {
 	return 0 <= id && id < MAX_TEXTURES;
 }
@@ -160,7 +176,7 @@ float cascadePower( uint x ) {
 //	return max( 1, x * ubo.settings.vxgi.cascadePower );
 }
 #endif
-#if !COMPUTE
+#if FRAGMENT
 void whitenoise(inout vec3 color, const vec4 parameters) {
 	const float flicker = parameters.x;
 	const float pieces = parameters.y;
@@ -170,13 +186,6 @@ void whitenoise(inout vec3 color, const vec4 parameters) {
 	const float freq = sin(pow(mod(time, flicker) + flicker, 1.9));
 	const float whiteNoise = rand2( floor(gl_FragCoord.xy / pieces) + mod(time, freq) );
 	color = mix( color, vec3(whiteNoise), blend );
-}
-float mipLevel( in vec2 dx_vtc, in vec2 dy_vtc ) {
-	const float delta_max_sqr = max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc));
-	return 0.5 * log2(delta_max_sqr);
-//	return max(0.0, 0.5 * log2(delta_max_sqr) - 1.0);
-
-//	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
 vec4 resolve( subpassInputMS t, const uint samples ) {
 	vec4 resolved = vec4(0);

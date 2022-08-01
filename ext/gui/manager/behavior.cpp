@@ -54,6 +54,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	if ( !uf::renderer::hasRenderMode( "Gui", true ) ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
 		uf::stl::string name = "Gui";
+		renderMode.blitter.descriptor.renderMode = "Swapchain";
 		renderMode.blitter.descriptor.subpass = 0;
 		renderMode.metadata.type = "single";
 		uf::renderer::addRenderMode( &renderMode, name );
@@ -68,6 +69,19 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Resized", [&](pod::payloads::windowResized& payload){
 		ext::gui::size.current = payload.window.size;
 		ext::gui::size.reference = payload.window.size;
+
+	/*
+		uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
+		if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+			renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
+		} else {
+			renderModePointer = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode( "Gui", true );
+		}
+		auto& renderMode = *renderModePointer;
+		renderMode.width = payload.window.size.x;
+		renderMode.height = payload.window.size.y;
+		renderMode.rebuild = true;
+	*/
 	} );
 	this->addHook( "window:Mouse.Moved", [&](pod::payloads::windowMouseMoved& payload){
 		bool clicked = false;
@@ -98,8 +112,36 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 	auto& blitter = renderMode.blitter;
 
 	if ( !blitter.initialized ) return;
-	if ( !blitter.material.hasShader("fragment") ) return;
 
+	/* Update post processing */ {
+		uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
+		if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+			renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
+		} else {
+			renderModePointer = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode( "Gui", true );
+		}
+		auto& renderMode = *renderModePointer;
+		auto& blitter = *renderMode.getBlitter();
+		if ( blitter.material.hasShader("fragment") ) {
+			auto& shader = blitter.material.getShader("fragment");
+
+			struct {
+				float curTime = 0;
+				float gamma = 1.0;
+				float exposure = 1.0;
+				uint32_t padding = 0;
+			} uniforms = {
+				.curTime = uf::time::current,
+				.gamma = 1,
+				.exposure = 1
+			};
+
+			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+		}
+	}
+
+#if 0
+	if ( !blitter.material.hasShader("fragment") ) return;
 	return;
 	
 	auto& scene = uf::scene::getCurrentScene();
@@ -112,56 +154,59 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #else
 //	if ( metadata.overlay.cursor.type == "" ) metadata.deserialize( self, metadataJson );
 #endif
-	struct UniformDescriptor {
-		struct {
-			/*alignas(16)*/ pod::Matrix4f models[2];
-		} matrices;
-		struct {
-			/*alignas(8)*/ pod::Vector2f position = { 0.5f, 0.5f };
-			/*alignas(8)*/ pod::Vector2f radius = { 0.1f, 0.1f };
-			/*alignas(16)*/ pod::Vector4f color = { 1, 1, 1, 1 };
-		} cursor;
-	//	/*alignas(8)*/ pod::Vector2f alpha;
-	};
-	
-	auto& shader = blitter.material.getShader("vertex");
-#if UF_UNIFORMS_REUSE
-	auto& uniform = shader.getUniform("UBO");
-	auto& uniforms = uniform.get<UniformDescriptor>();
-#else
-	UniformDescriptor uniforms;
-#endif
-	for ( size_t i = 0; i < 2; ++i ) {
-	#if UF_USE_OPENVR
-		if ( ext::openvr::enabled && metadata.overlay.enabled ) {
-			if ( metadata.overlay.floating ) {
-				pod::Matrix4f model = uf::transform::model( metadata.overlay.transform );
-				uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
-			} else {
-				auto translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
-				auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
-
-				pod::Matrix4f model = translation * rotation * uf::transform::model( metadata.overlay.transform );
-				uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
-			}
-		} else {
+	{
+		struct UniformDescriptor {
+			struct {
+				/*alignas(16)*/ pod::Matrix4f models[2];
+			} matrices;
+			struct {
+				/*alignas(8)*/ pod::Vector2f position = { 0.5f, 0.5f };
+				/*alignas(8)*/ pod::Vector2f radius = { 0.1f, 0.1f };
+				/*alignas(16)*/ pod::Vector4f color = { 1, 1, 1, 1 };
+			} cursor;
+		//	/*alignas(8)*/ pod::Vector2f alpha;
+		};
+		
+		auto& shader = blitter.material.getShader("vertex");
+	#if UF_UNIFORMS_REUSE
+		auto& uniform = shader.getUniform("UBO");
+		auto& uniforms = uniform.get<UniformDescriptor>();
 	#else
-		{
+		UniformDescriptor uniforms;
 	#endif
-			pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
-			uniforms.matrices.models[i] = model;
-		}
+		for ( size_t i = 0; i < 2; ++i ) {
+		#if UF_USE_OPENVR
+			if ( ext::openvr::enabled && metadata.overlay.enabled ) {
+				if ( metadata.overlay.floating ) {
+					pod::Matrix4f model = uf::transform::model( metadata.overlay.transform );
+					uniforms.matrices.models[i] = camera.getProjection(i) * ext::openvr::hmdEyePositionMatrix( i == 0 ? vr::Eye_Left : vr::Eye_Right ) * model;
+				} else {
+					auto translation = uf::matrix::translate( uf::matrix::identity(), camera.getTransform().position + controller.getComponent<pod::Transform<>>().position );
+					auto rotation = uf::quaternion::matrix( controller.getComponent<pod::Transform<>>().orientation );
 
-		if ( metadata.overlay.cursor.enabled ) {
-			uniforms.cursor.position = metadata.overlay.cursor.position * 0.5f + 0.5f;
-			uniforms.cursor.radius = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , metadata.overlay.transform.scale) ), pod::Vector3f{ metadata.overlay.cursor.radius, metadata.overlay.cursor.radius, 0 } );
+					pod::Matrix4f model = translation * rotation * uf::transform::model( metadata.overlay.transform );
+					uniforms.matrices.models[i] = camera.getProjection(i) * camera.getView(i) * model;
+				}
+			} else {
+		#else
+			{
+		#endif
+				pod::Matrix4t<> model = uf::matrix::translate( uf::matrix::identity(), { 0, 0, 1 } );
+				uniforms.matrices.models[i] = model;
+			}
+
+			if ( metadata.overlay.cursor.enabled ) {
+				uniforms.cursor.position = metadata.overlay.cursor.position * 0.5f + 0.5f;
+				uniforms.cursor.radius = uf::matrix::multiply<float>( uf::matrix::inverse( uf::matrix::scale( uf::matrix::identity() , metadata.overlay.transform.scale) ), pod::Vector3f{ metadata.overlay.cursor.radius, metadata.overlay.cursor.radius, 0 } );
+			}
+			uniforms.cursor.color = metadata.overlay.cursor.color;
 		}
-		uniforms.cursor.color = metadata.overlay.cursor.color;
+	#if UF_UNIFORMS_REUSE
+		shader.updateUniform( "UBO", uniform );
+	#else
+		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+	#endif
 	}
-#if UF_UNIFORMS_REUSE
-	shader.updateUniform( "UBO", uniform );
-#else
-	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 #endif
 #endif
 }

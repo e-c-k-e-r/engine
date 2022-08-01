@@ -251,10 +251,13 @@ void ext::LightBehavior::Metadata::serialize( uf::Object& self, uf::Serializer& 
 	serializer["system"]["renderer"]["mode"] = /*this->*/renderer.mode;
 	serializer["light"]["external update"] = /*this->*/renderer.external;
 //	serializer["system"]["renderer"]["timer"] = /*this->*/renderer.limiter;
-	switch ( /*this->*/type ) {
+	switch ( abs(/*this->*/type) ) {
 		case 0: serializer["light"]["type"] = "point"; break;
 		case 1: serializer["light"]["type"] = "point"; break;
 		case 2: serializer["light"]["type"] = "spot"; break;
+	}
+	if ( type < 0 ) {
+		serializer["light"]["dynamic"] = true;
 	}
 }
 void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer& serializer ){	
@@ -268,16 +271,13 @@ void ext::LightBehavior::Metadata::deserialize( uf::Object& self, uf::Serializer
 	/*this->*/renderer.external = serializer["light"]["external update"].as(/*this->*/renderer.external);
 //	/*this->*/renderer.limiter = serializer["system"]["renderer"]["timer"].as<float>(/*this->*/renderer.limiter);
 
-	if ( serializer["light"]["type"].is<size_t>() ) {
+	if ( serializer["light"]["type"].is<int32_t>() ) {
 		/*this->*/type = serializer["light"]["type"].as(/*this->*/type);
-		if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
-
 	} else if ( serializer["light"]["type"].is<uf::stl::string>() ) {
-		
 		uf::stl::string lightType = serializer["light"]["type"].as<uf::stl::string>();
 		if ( lightType == "point" ) /*this->*/type = 1;
 		else if ( lightType == "spot" ) /*this->*/type = 2;
-		if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 	}
+	if ( serializer["light"]["dynamic"].as<bool>() ) /*this->*/type = -/*this->*/type;
 }
 #undef this

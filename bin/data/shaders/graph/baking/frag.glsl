@@ -17,26 +17,37 @@ layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 
-layout (std140, binding = 7) readonly buffer DrawCommands {
+layout (binding = 7) uniform Camera {
+	Viewport viewport[6];
+} camera;
+
+layout (binding = 8) uniform UBO {
+	uint lights;
+	uint currentID;
+	uint padding1;
+	uint padding2;
+} ubo;
+
+layout (std140, binding = 9) readonly buffer DrawCommands {
 	DrawCommand drawCommands[];
 };
-layout (std140, binding = 8) readonly buffer Instances {
+layout (std140, binding = 10) readonly buffer Instances {
 	Instance instances[];
 };
-layout (std140, binding = 9) readonly buffer InstanceAddresseses {
+layout (std140, binding = 11) readonly buffer InstanceAddresseses {
 	InstanceAddresses instanceAddresses[];
 };
-layout (std140, binding = 10) readonly buffer Materials {
+layout (std140, binding = 12) readonly buffer Materials {
 	Material materials[];
 };
-layout (std140, binding = 11) readonly buffer Textures {
+layout (std140, binding = 13) readonly buffer Textures {
 	Texture textures[];
 };
-layout (std140, binding = 12) readonly buffer Lights {
+layout (std140, binding = 14) readonly buffer Lights {
 	Light lights[];
 };
 
-layout (binding = 13, rgba8) uniform volatile coherent image3D outAlbedos;
+layout (binding = 15, rgba8) uniform volatile coherent image3D outAlbedos;
 
 #include "../../common/functions.h"
 #include "../../common/shadows.h"
@@ -60,19 +71,26 @@ void main() {
 	const uint drawID = uint(inId.y);
 	const uint instanceID = uint(inId.z);
 
-	const DrawCommand drawCommand = drawCommands[drawID];
-	const Instance instance = instances[instanceID];
+	if ( instanceID != ubo.currentID ) discard;
 
 	surface.uv.xy = wrap(inUv.xy);
 	surface.uv.z = mipLevel(dFdx(inUv), dFdy(inUv));
+	
 	surface.position.world = inPosition;
+	surface.normal.world = inNormal;
+
+	const DrawCommand drawCommand = drawCommands[drawID];
+	const Instance instance = instances[instanceID];
 	const Material material = materials[instance.materialID];
+
+	const uint mapID = instance.auxID;
 
 	vec4 A = material.colorBase;
 	surface.material.metallic = material.factorMetallic;
 	surface.material.roughness = material.factorRoughness;
 	surface.material.occlusion = 1.0f - material.factorOcclusion;
 
+#if 0
 	vec3 N = inNormal;
 	vec3 T = inTangent;
 	T = normalize(T - dot(T, N) * N);
@@ -84,14 +102,19 @@ void main() {
 	} else {
 		surface.normal.world = N;
 	}
+#endif
 
 	surface.light = material.colorEmissive;
 	surface.material.albedo = vec4(1);
 #if 1
+#if 1
 	{
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
-		for ( uint i = 0; i < lights.length(); ++i ) {
+		for ( uint i = 0; i < min(ubo.lights, lights.length()); ++i ) {
 			const Light light = lights[i];
+
+			if ( light.type <= 0 ) continue;
+
 			const mat4 mat = light.view; // inverse(light.view);
 			const vec3 position = surface.position.world;
 		//	const vec3 position = vec3( mat * vec4(surface.position.world, 1.0) );
@@ -106,7 +129,7 @@ void main() {
 			if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 			const vec3 Lo = normalize( -position );
-			const float cosLo = max(0.0, dot(normal, Lo));
+			const float cosLo = max(0.0, abs(dot(normal, Lo)));
 
 			const vec3 Li = normalize(Liu);
 			const vec3 Lr = light.color.rgb * light.power * La * Ls;
@@ -168,8 +191,8 @@ void main() {
 			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 			surface.light.a += light.power * La * Ls;
 		}
-	}
-	
+	}	
+#endif
 #endif
 #define EXPOSURE 0
 #define GAMMA 0
@@ -181,7 +204,7 @@ void main() {
 
 	{
 		const vec2 st = inSt.xy * imageSize(outAlbedos).xy;
-		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(drawCommand.auxID));
+		const ivec3 uvw = ivec3(int(st.x), int(st.y), int(mapID));
 		imageStore(outAlbedos, uvw, vec4(surface.light.rgb, 1) );
 	}
 }

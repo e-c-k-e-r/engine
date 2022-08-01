@@ -7,9 +7,13 @@
 #if UF_USE_FFX_FSR
 namespace ext {
 	namespace fsr {
-		extern pod::Vector2f UF_API jitter;
-		extern float UF_API sharpness;
 		extern bool UF_API initialized;
+		
+		extern uf::stl::string UF_API preset;
+
+		extern float UF_API sharpness;
+		extern pod::Vector2f UF_API jitter;
+		extern float UF_API jitterScale;
 
 		void UF_API initialize();
 		void UF_API tick();

@@ -225,8 +225,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.frameAccumulateReset = false;
 	}
 
-	uf::renderer::states::frameAccumulate = metadata.shader.frameAccumulate;
-	uf::renderer::states::frameAccumulateReset = metadata.shader.frameAccumulateReset;
+//	uf::renderer::states::frameAccumulate = metadata.shader.frameAccumulate;
+//	uf::renderer::states::frameAccumulateReset = metadata.shader.frameAccumulateReset;
 
 	/* Print World Tree */ {
 		TIMER(1, uf::inputs::kbm::states::U ) {
@@ -603,6 +603,28 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			ext::ExtSceneBehavior::bindBuffers( *this, "", "fragment", "deferred" );
 		}
 	}
+
+	/* Update post processing */ {
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+		auto& blitter = *renderMode.getBlitter();
+		if ( blitter.material.hasShader("fragment") ) {
+			auto& shader = blitter.material.getShader("fragment");
+
+			struct {
+				float curTime = 0;
+				float gamma = 1.0;
+				float exposure = 1.0;
+				uint32_t padding = 0;
+			} uniforms = {
+				.curTime = uf::time::current,
+				.gamma = metadata.light.gamma,
+				.exposure = metadata.light.exposure
+			};
+
+
+			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+		}
+	}
 }
 void ext::ExtSceneBehavior::render( uf::Object& self ) {}
 void ext::ExtSceneBehavior::destroy( uf::Object& self ) {
@@ -698,6 +720,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/light.max = serializer["light"]["max"].as(/*this->*/light.max);
 	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], /*this->*/light.ambient);
 
+	if ( uf::renderer::settings::pipelines::fsr ) serializer["light"]["exposure"] = 1;
 	/*this->*/light.exposure = serializer["light"]["exposure"].as(/*this->*/light.exposure);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as(/*this->*/light.gamma);
 	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
@@ -841,9 +864,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 
 			struct Lighting {
 				pod::Vector3f ambient;
-				alignas(4) float padding1;
-				
 				alignas(4) uint32_t indexSkybox;
+				
+				alignas(4) uint32_t maxShadows;
 				alignas(4) uint32_t shadowSamples;
 				alignas(4) uint32_t useLightmaps;
 			} lighting;
@@ -941,20 +964,20 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	UniformDescriptor uniforms; {
 		for ( auto i = 0; i < 2; ++i ) {
 		#if UF_USE_FFX_FSR
-			auto jitter = ext::fsr::getJitterMatrix();
+			auto projection = ext::fsr::getJitterMatrix() * camera.getProjection(i);
 		#else
-			auto jitter = uf::matrix::identity();
+			auto projection = camera.getProjection(i);
 		#endif
 			uniforms.matrices[i] = UniformDescriptor::Matrices{
 				.view = camera.getView(i),
-				.projection = jitter * camera.getProjection(i),
+				.projection = projection,
 				
-				.model = jitter * camera.getProjection(i) * camera.getView(i),
+				.model = projection * camera.getView(i),
 				.previous = camera.getPrevious(i),
 
 				.iView = uf::matrix::inverse( camera.getView(i) ),
-				.iProjection = uf::matrix::inverse( jitter * camera.getProjection(i) ),
-			//	.iProjectionView = uf::matrix::inverse( jitter * camera.getProjection(i) * camera.getView(i) ),
+				.iProjection = uf::matrix::inverse( projection ),
+			//	.iProjectionView = uf::matrix::inverse( projection * camera.getView(i) ),
 
 				.eyePos = camera.getEye( i ),
 			};
@@ -976,8 +999,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 		};
 		uniforms.settings.lighting = UniformDescriptor::Settings::Lighting{
 			.ambient = metadata.light.ambient,
-
 			.indexSkybox = indexSkybox,
+
+			.maxShadows = metadata.shadow.max,
 			.shadowSamples = std::min( 0, metadata.shadow.samples ),
 			.useLightmaps = metadata.light.useLightmaps,
 		};
@@ -1017,7 +1041,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 			.paths = metadataRt.settings.paths, // 1,
 			.frameAccumulationMinimum = metadataRt.settings.frameAccumulationMinimum, // 0,
 		};
-
 	}
 
 	uf::stl::vector<VkImage> previousTextures;
@@ -1046,6 +1069,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	bool shouldUpdate2 = !uf::matrix::equals( uniforms.matrices[0].view, previousUniforms.matrices[0].view, 0.0001f );
 	if ( shouldUpdate || shouldUpdate2 ) {
 		metadata.shader.frameAccumulateReset = true;
+		uf::renderer::states::frameAccumulateReset = true;
 		previousUniforms = uniforms;
 	}
 #endif

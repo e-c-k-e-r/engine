@@ -31,7 +31,7 @@ size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
 size_t ext::vulkan::settings::scratchBufferAlignment = 256;
 size_t ext::vulkan::settings::scratchBufferInitialSize = 1024 * 1024;
-size_t ext::vulkan::settings::defaultTimeout = 100000000000;
+size_t ext::vulkan::settings::defaultTimeout = UINT64_MAX; // 100000000000;
 
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
@@ -229,11 +229,22 @@ uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf:
 }
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
 	uf::stl::vector<RenderMode*> targets;
+#if 1
+	// this way keeps the render mode ordered as requested
+	for ( auto& name : names ) {
+		for ( auto& renderMode: renderModes ) {
+			if ( (isName && renderMode->getName() == name) || (!isName && renderMode->getType() == name) ) {
+				targets.emplace_back( renderMode );
+			}
+		}
+	}
+#else
 	for ( auto& renderMode: renderModes ) {
 		if ( ( isName && std::find(names.begin(), names.end(), renderMode->getName()) != names.end() ) || std::find(names.begin(), names.end(), renderMode->getType()) != names.end() ) {
 			targets.push_back(renderMode);
 		}
 	}
+#endif
 	return targets;
 }
 void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
@@ -447,7 +458,7 @@ void ext::vulkan::tick() {
 }
 void ext::vulkan::render() {
 	if ( ext::vulkan::states::frameSkip ) {
-		ext::vulkan::states::frameSkip = false;
+	//	ext::vulkan::states::frameSkip = false;
 		return;
 	}
 	ext::vulkan::mutex.lock();
@@ -543,7 +554,7 @@ void ext::vulkan::render() {
 		}
 	#if UF_USE_FFX_FSR
 		if ( settings::pipelines::fsr ) {
-			ext::fsr::tick();
+			ext::fsr::render();
 		}
 	#endif
 
@@ -555,6 +566,14 @@ void ext::vulkan::render() {
 	} else {
 		for ( auto& renderMode : renderModes ) {
 			if ( !renderMode || !renderMode->execute || !renderMode->metadata.limiter.execute ) continue;
+
+			if ( renderMode->getName() == "Swapchain" ) {
+			#if UF_USE_FFX_FSR
+				if ( settings::pipelines::fsr ) {
+					ext::fsr::render();
+				}
+			#endif
+			}
 
 		//	renderMode->lockMutex( renderMode->mostRecentCommandPoolId );
 		//	auto guard = renderMode->guardMutex( renderMode->mostRecentCommandPoolId );

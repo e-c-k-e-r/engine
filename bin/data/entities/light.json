@@ -31,7 +31,7 @@
 			"radius": [0.1, 0],
 			"resolution": 512,
 			"shadows": true,
-			"static": false
+			"dynamic": true
 		}
 	}
 }

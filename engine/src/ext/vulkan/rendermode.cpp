@@ -343,9 +343,12 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 
 	// this->width = 0; //ext::vulkan::width;
 	// this->height = 0; //ext::vulkan::height;
+	if ( this->scale == 0 ) this->scale = 1;
+	
 	{
 		if ( this->width > 0 ) renderTarget.width = this->width;
 		if ( this->height > 0 ) renderTarget.height = this->height;
+		if ( this->scale > 0 ) renderTarget.scale = this->scale;
 	}
 
 	// Set sync objects

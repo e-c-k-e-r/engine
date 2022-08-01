@@ -2,7 +2,8 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #if RT
-	#extension GL_EXT_ray_query : require
+	#extension GL_EXT_ray_tracing : enable
+	#extension GL_EXT_ray_query : enable
 #endif
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -129,18 +130,8 @@ void postProcess() {
 	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
 	vec4 outFragBright = brightness > ubo.settings.bloom.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 	vec2 outFragMotion = surface.motion;
-
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
-#endif
-#if TONE_MAP
-	surface.fragment.rgb = vec3(1.0) - exp(-surface.fragment.rgb * ubo.settings.bloom.exposure);
-#endif
-#if GAMMA_CORRECT
-	surface.fragment.rgb = pow(surface.fragment.rgb, vec3(1.0 / ubo.settings.bloom.gamma));
-#endif
-#if WHITENOISE
-	if ( enabled(ubo.settings.mode.type, 1) ) whitenoise(surface.fragment.rgb, ubo.settings.mode.parameters);
 #endif
 	vec4 outFragColor = vec4(surface.fragment.rgb, 1.0);
 	
@@ -151,7 +142,7 @@ void postProcess() {
 
 void populateSurface() {
 	uvec2 renderSize = imageSize(imageColor);
-	if ( gl_GlobalInvocationID.x >= renderSize.x|| gl_GlobalInvocationID.y >= renderSize.y ) return;
+	if ( gl_GlobalInvocationID.x >= renderSize.x || gl_GlobalInvocationID.y >= renderSize.y || gl_GlobalInvocationID.z > PushConstant.pass ) return;
 
 	surface.fragment = vec4(0);
 	surface.pass = PushConstant.pass;
@@ -231,6 +222,12 @@ void populateSurface() {
 }
 
 void directLighting() {
+	#if RT && COMPUTE && !VXGI
+	{
+
+	}
+	#endif
+
 	surface.light.rgb += surface.material.albedo.rgb * ubo.settings.lighting.ambient.rgb * surface.material.occlusion; // add ambient lighting
 	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR

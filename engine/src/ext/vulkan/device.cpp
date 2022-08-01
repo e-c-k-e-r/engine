@@ -1058,6 +1058,7 @@ void ext::vulkan::Device::initialize() {
 		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures{};
 		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR fragmentShaderBarycentricFeatures{};
+		VkPhysicalDeviceSubgroupSizeControlFeatures subgroupSizeControlFeatures{};
 
 		VkPhysicalDeviceVulkan12Features enabledPhysicalDeviceVulkan12Features{};
 		VkPhysicalDeviceFeatures2 enabledDeviceFeatures2{}; {
@@ -1121,6 +1122,10 @@ void ext::vulkan::Device::initialize() {
 			fragmentShaderBarycentricFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
 			fragmentShaderBarycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
 		}
+		{
+			subgroupSizeControlFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
+			subgroupSizeControlFeatures.subgroupSizeControl = true;
+		}
 		
 		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
 		physicalDeviceFeatures2.pNext = &physicalDeviceVulkan12Features;
@@ -1133,6 +1138,7 @@ void ext::vulkan::Device::initialize() {
 		rayQueryFeatures.pNext = &accelerationStructureFeatures;
 		accelerationStructureFeatures.pNext = &shaderClockFeatures;
 		shaderClockFeatures.pNext = &fragmentShaderBarycentricFeatures;
+		fragmentShaderBarycentricFeatures.pNext = &subgroupSizeControlFeatures;
 	
 		if ( settings::experimental::enableMultiGPU ) {
 			UF_MSG_DEBUG("Multiple devices supported, using {} devices...", groupDeviceCreateInfo.physicalDeviceCount);

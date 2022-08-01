@@ -200,9 +200,9 @@ struct SettingsMode {
 };
 struct SettingsLighting {
 	vec3 ambient;
-	float padding1;
-
 	uint indexSkybox;
+
+	uint maxShadows;
 	uint shadowSamples;
 	uint useLightmaps;
 };

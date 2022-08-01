@@ -366,9 +366,9 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::defaultCommandBufferWait = configRenderJson["invariant"]["default command buffer wait"].as( uf::renderer::settings::defaultCommandBufferWait );
 
 		if ( configRenderJson["framebuffer"]["size"].is<float>() ) {
-			float scale = configRenderJson["framebuffer"]["size"].as(1.0f);
-			uf::renderer::settings::width *= scale;
-			uf::renderer::settings::height *= scale;
+		//	float scale = configRenderJson["framebuffer"]["size"].as(1.0f);
+		//	uf::renderer::settings::width *= scale;
+		//	uf::renderer::settings::height *= scale;
 		} else if ( ext::json::isArray( configRenderJson["framebuffer"]["size"] ) ) {
 			uf::renderer::settings::width = configRenderJson["framebuffer"]["size"][0].as(uf::renderer::settings::width);
 			uf::renderer::settings::height = configRenderJson["framebuffer"]["size"][1].as(uf::renderer::settings::height);
@@ -431,10 +431,17 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
 		uf::renderer::settings::pipelines::postProcess = configRenderPipelinesJson["postProcess"].as( uf::renderer::settings::pipelines::postProcess );
 		uf::renderer::settings::pipelines::fsr = configRenderPipelinesJson["fsr"].as( uf::renderer::settings::pipelines::fsr );
-		
+
+	#if UF_USE_FFX_FSR
+	//	ext::fsr::enabled = uf::renderer::settings::pipelines::fsr;
+		ext::fsr::preset = ::json["engine"]["ext"]["fsr"]["preset"].as(ext::fsr::preset);
+		ext::fsr::jitterScale = ::json["engine"]["ext"]["fsr"]["jitter scale"].as(ext::fsr::jitterScale);
+		ext::fsr::sharpness = ::json["engine"]["ext"]["fsr"]["sharpness"].as(ext::fsr::sharpness);
+	#endif
+	
 		if ( uf::renderer::settings::pipelines::rt ) {
-			uf::renderer::settings::pipelines::vxgi = false;
-			uf::renderer::settings::pipelines::culling = false;
+		//	uf::renderer::settings::pipelines::vxgi = false;
+		//	uf::renderer::settings::pipelines::culling = false;
 			::json["engine"]["scenes"]["lights"]["shadows"]["enabled"] = false;
 		}
 	#define JSON_TO_FORMAT( key ) if ( configRenderJson["formats"][#key].is<uf::stl::string>() ) {\
@@ -491,6 +498,7 @@ void EXT_API ext::initialize() {
 
 	/* Initialize Vulkan */ {
 		// setup render mode
+	/*
 		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
 			renderMode->blitter.descriptor.renderMode = "Swapchain";
@@ -498,11 +506,29 @@ void EXT_API ext::initialize() {
 			renderMode->metadata.type = "single";
 			uf::renderer::addRenderMode( renderMode, "Gui" );
 		}
+	*/
 		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::DeferredRenderMode;
 			
 			renderMode->blitter.descriptor.renderMode = "Swapchain";
 			renderMode->blitter.descriptor.subpass = 0;
+		#if UF_USE_FFX_FSR
+			if ( uf::renderer::settings::pipelines::fsr ) {
+				auto mode = uf::string::lowercase( ext::fsr::preset );
+				if ( mode == "native" ) renderMode->scale = 1;
+				else if ( mode == "quality" ) renderMode->scale = 1.0f / (1.5f);
+				else if ( mode == "balanced" ) renderMode->scale = 1.0f / (1.7f);
+				else if ( mode == "performance" ) renderMode->scale = 1.0f / (2.0f);
+				else if ( mode == "ultra" ) renderMode->scale = 1.0f / (3.0f);
+				else {
+					renderMode->scale = 1;
+					UF_MSG_WARNING("Invalid FFX FSR preset enum string specified: {}", mode);
+				}
+				UF_MSG_DEBUG("Using FFX FSR Preset: {} ({:.3f}% render scale)", mode, (1.0f / renderMode->scale));
+			} else
+		#endif
+			renderMode->scale = ::json["engine"]["ext"]["vulkan"]["framebuffer"]["size"].as(1.0f);
+			UF_MSG_DEBUG("Geometry render scale: {:.3f}", renderMode->scale);
 
 			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
 				renderMode->metadata.eyes = 2;
@@ -692,7 +718,7 @@ void EXT_API ext::tick() {
 		spec::controller::tick();
 	}
 #if UF_USE_FFX_FSR
-	/* OpenVR */ if ( ext::fsr::initialized ) {
+	/* FFX FSR */ if ( ext::fsr::initialized ) {
 		ext::fsr::tick();
 	}
 #endif

@@ -165,7 +165,16 @@ void indirectLighting() {
 	// 	outFragColor.rgb = indirectSpecular.rgb; return;
 	}
 
-	surface.material.indirect = indirectDiffuse * DIFFUSE_INDIRECT_FACTOR + indirectSpecular * SPECULAR_INDIRECT_FACTOR;
+/*
+	if ( true ) {
+		gammaCorrect(indirectDiffuse.rgb, 1.0 / ubo.settings.bloom.gamma);
+	}
+*/
+	indirectDiffuse *= DIFFUSE_INDIRECT_FACTOR;
+	indirectSpecular *= SPECULAR_INDIRECT_FACTOR;
+
+
+	surface.material.indirect = indirectDiffuse + indirectSpecular;
 //	outFragColor.rgb = surface.material.indirect.rgb; return;
 	
 	// deferred sampling doesn't have a blended albedo buffer

@@ -19,6 +19,9 @@ namespace ext {
 			namespace Format {
 				typedef decltype(VK_FORMAT_R32G32_SFLOAT) type_t;
 				#include "enums/format.inl"
+
+				static const type_t HDR = R32G32B32A32_SFLOAT;
+				static const type_t SDR = R16G16B16A16_SFLOAT;
 			}
 			namespace Face {
 				typedef decltype(VK_FRONT_FACE_CLOCKWISE) type_t;

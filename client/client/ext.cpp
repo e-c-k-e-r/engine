@@ -109,10 +109,8 @@ void client::initialize() {
 		#endif
 
 			if ( !ext::json::isArray( configRenderJson["framebuffer"]["size"] ) ) {
-				float scale = configRenderJson["framebuffer"]["size"].as(1.0f);
-				uf::renderer::settings::width = payload.window.size.x * scale;
-				uf::renderer::settings::height = payload.window.size.y * scale;
-				
+				uf::renderer::settings::width = payload.window.size.x;
+				uf::renderer::settings::height = payload.window.size.y;
 			}
 			uf::renderer::states::resized = true;
 		} );
@@ -126,9 +124,6 @@ void client::initialize() {
 #if UF_ENV_DREAMCAST
 	client::window.pollEvents();
 #endif
-
-	{
-	}
 }
 
 void client::tick() {

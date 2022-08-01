@@ -102,7 +102,33 @@ float omniShadowMap( const Light light, float def ) {
 	return eyeDepth < sampled - bias ? 0.0 : factor;
 }
 #endif
+#if RT
+float shadowFactorRT( const Light light, float def ) {
+	Ray ray;
+	ray.origin = surface.position.world;
+	ray.direction = light.position - ray.origin;
+
+	float tMin = ubo.settings.rt.defaultRayBounds.x;
+	float tMax = length(ray.direction) - 0.0001;
+	
+	ray.direction = normalize(ray.direction);
+
+	uint rayFlags = gl_RayFlagsOpaqueEXT | gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+	uint cullMask = 0xFF;
+
+	rayQueryEXT rayQuery;
+	rayQueryInitializeEXT(rayQuery, tlas, rayFlags, cullMask, ray.origin, tMin, ray.direction, tMax);
+
+	while(rayQueryProceedEXT(rayQuery)) {
+	}
+
+	return rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
+}
+#endif
 float shadowFactor( const Light light, float def ) {
+#if RT
+	return shadowFactorRT( light, def );
+#endif
 	if ( light.typeMap != 0 ) return omniShadowMap( light, def );
 	
 	if ( !validTextureIndex(light.indexMap) )

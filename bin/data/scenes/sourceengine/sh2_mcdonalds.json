@@ -6,6 +6,9 @@
 	],
 	"metadata": {
 		"graph": {
+			"lights": {
+				"lightmap": false
+			},
 			"assets": [
 				"./audio/soundscape/sh2_ambience.ogg"	
 			],

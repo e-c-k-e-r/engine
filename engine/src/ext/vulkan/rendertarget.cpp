@@ -25,8 +25,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	if ( this->views == 0 ) this->views = 1;
 
 	size_t index = attachments.size();
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	if ( attachment ) {
 		for ( auto& view : attachment->views ) vkDestroyImageView(*device, view, nullptr);
@@ -149,8 +149,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 void ext::vulkan::RenderTarget::initialize( Device& device ) {
 	// Bind
 	this->device = &device;
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	// resize attachments if necessary
 	if ( initialized ) {

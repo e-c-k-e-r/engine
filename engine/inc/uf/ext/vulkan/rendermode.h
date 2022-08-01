@@ -18,6 +18,7 @@ namespace ext {
 			
 			uint32_t width = 0;
 			uint32_t height = 0;
+			float scale = 0;
 
 			struct {			
 				uf::Serializer json;

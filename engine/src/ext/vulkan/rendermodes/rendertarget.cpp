@@ -56,6 +56,9 @@ ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicD
 }
 
 void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
+	
 	ext::vulkan::RenderMode::initialize( device );
 
 	this->setTarget( this->getName() );
@@ -101,9 +104,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			size_t depth, color, bright, motion, scratch, output;
 		} attachments = {};
 
-		auto HDR_FORMAT = uf::renderer::enums::Format::R32G32B32A32_SFLOAT;
-		auto SDR_FORMAT = uf::renderer::enums::Format::R16G16B16A16_SFLOAT; // uf::renderer::enums::Format::R8G8B8A8_UNORM
-
 		bool blend = true;
 		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
 			/*.format = */ext::vulkan::settings::formats::depth,
@@ -113,21 +113,21 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			/*.samples = */1,
 		});
 		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			/*.blend =*/ blend,
 			/*.samples =*/ 1,
 		});
 		attachments.bright = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			/*.blend =*/ blend,
 			/*.samples =*/ 1,
 		});
 		attachments.scratch = renderTarget.attach(RenderTarget::Attachment::Descriptor{
-			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? HDR_FORMAT : SDR_FORMAT,
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
 			/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
 			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			/*.blend =*/ blend,
@@ -159,6 +159,71 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		metadata.attachments["scratch"] = attachments.scratch;
 		
 		metadata.attachments["output"] = attachments.color;
+	#endif
+	} else if ( metadata.type == "full" ) {
+	#if 0
+		struct {
+			size_t id, position, normal, depth, color;
+		} attachments = {};
+
+		// input g-buffers
+		attachments.id = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */VK_FORMAT_R32G32_UINT,
+			/*.layout = */VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+			/*.blend = */false,
+			/*.samples = */msaa,
+		});
+		attachments.position = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+			/*.blend = */false,
+			/*.samples = */msaa,
+		});
+		attachments.normal = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */VK_FORMAT_R16G16B16A16_SFLOAT,
+			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage = */VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
+			/*.blend = */false,
+			/*.samples = */msaa,
+		});
+		attachments.depth = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format = */ext::vulkan::settings::formats::depth,
+			/*.layout = */VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+			/*.blend = */false,
+			/*.samples = */msaa,
+		});
+		// output buffers
+		attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+			/*.format =*/ ext::vulkan::settings::pipelines::hdr ? enums::Format::HDR : enums::Format::SDR,
+			/*.layout = */ VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			/*.usage =*/ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			/*.blend =*/ blend,
+			/*.samples =*/ 1,
+		});
+
+		metadata.attachments["id"] = attachments.id;
+		metadata.attachments["position"] = attachments.position;
+		metadata.attachments["normal"] = attachments.normal;
+		
+		metadata.attachments["depth"] = attachments.depth;
+		metadata.attachments["color"] = attachments.color;
+		metadata.attachments["output"] = attachments.color;
+
+		// First pass: fill the G-Buffer
+		for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
+			renderTarget.addPass(
+				/*.*/ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				/*.colors =*/ { attachments.id, attachments.uv, attachments.normal },
+				/*.inputs =*/ {},
+				/*.resolve =*/{},
+				/*.depth = */ attachments.depth,
+				/*.layer = */eye,
+				/*.autoBuildPipeline =*/ true
+			);
+		}
 	#endif
 	} else {
 		for ( size_t currentPass = 0; currentPass < metadata.subpasses; ++currentPass ) {
@@ -331,8 +396,8 @@ void ext::vulkan::RenderTargetRenderMode::tick() {
 	bool resized = this->width == 0 && this->height == 0 && (ext::vulkan::states::resized || this->resized);
 	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
 
-	uint32_t width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	uint32_t height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	if ( resized ) {
 		this->resized = false;
@@ -397,8 +462,8 @@ void ext::vulkan::RenderTargetRenderMode::pipelineBarrier( VkCommandBuffer comma
 }
 void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::vector<ext::vulkan::Graphic*>& graphics ) {
 	// destroy if exists
-	float width = this->width > 0 ? this->width : ext::vulkan::settings::width;
-	float height = this->height > 0 ? this->height : ext::vulkan::settings::height;
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	VkCommandBufferBeginInfo cmdBufInfo = {};
 	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;

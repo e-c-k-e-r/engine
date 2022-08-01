@@ -354,7 +354,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			uf::stl::string geometryShaderFilename = uf::io::resolveURI("/graph/baking/geom.spv");
 			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/frag.spv");
 			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
-			graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "baking");
+		//	graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "baking");
 			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
 			graphic.material.metadata.autoInitializeUniformBuffers = true;
 		}
@@ -539,6 +539,9 @@ void uf::graph::process( pod::Graph& graph ) {
 			}
 		}
 
+		if ( graph.metadata["lights"]["lightmap"].is<bool>() && !graph.metadata["lights"]["lightmap"].as<bool>() ) {
+			graph.metadata["baking"]["enabled"] = false;
+		}
 		if ( !sceneMetadataJson["light"]["useLightmaps"].as<bool>(true) ) {
 			graph.metadata["lights"]["lightmap"] = false;
 			graph.metadata["baking"]["enabled"] = false;
@@ -564,31 +567,38 @@ void uf::graph::process( pod::Graph& graph ) {
 
 		graph.metadata["baking"]["layers"] = lightmapCount;
 		
-		if ( graph.metadata["lights"]["lightmap"].as<bool>() ) for ( auto& pair : filenames ) {
-			auto i = pair.first;
-			auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
-
-			if ( !uf::io::exists( f ) ) {
-				UF_MSG_ERROR( "lightmap does not exist: {} {}", i, f )
-				continue;
+		if ( graph.metadata["lights"]["lightmap"].as<bool>() ) {
+			for ( auto& pair : filenames ) {
+				auto i = pair.first;
+				auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
+				if ( !uf::io::exists( f ) ) {
+					graph.metadata["lights"]["lightmap"] = false;
+					UF_MSG_ERROR( "lightmap does not exist: {} {}, disabling lightmaps", i, f )
+					break;
+				}
 			}
-			
+		}
+		if ( graph.metadata["lights"]["lightmap"].as<bool>() ) {
+			for ( auto& pair : filenames ) {
+				auto i = pair.first;
+				auto f = uf::io::sanitize( pair.second, uf::io::directory( graph.name ) );
 
-			auto textureID = graph.textures.size();
-			auto imageID = graph.images.size();
+				auto textureID = graph.textures.size();
+				auto imageID = graph.images.size();
 
-			auto& texture = /*graph.storage*/uf::graph::storage.textures[graph.textures.emplace_back(f)];
-			auto& image = /*graph.storage*/uf::graph::storage.images[graph.images.emplace_back(f)];
-			image.open( f, false );
+				auto& texture = /*graph.storage*/uf::graph::storage.textures[graph.textures.emplace_back(f)];
+				auto& image = /*graph.storage*/uf::graph::storage.images[graph.images.emplace_back(f)];
+				image.open( f, false );
 
-			texture.index = imageID;
+				texture.index = imageID;
 
-			lightmapIDs[i] = textureID;
+				lightmapIDs[i] = textureID;
 
-			graph.metadata["lights"]["lightmaps"][i] = f;
-			graph.metadata["baking"]["enabled"] = false;
+				graph.metadata["lights"]["lightmaps"][i] = f;
+				graph.metadata["baking"]["enabled"] = false;
 
-			isSrgb[f] = false;
+				isSrgb[f] = false;
+			}
 		}
 				
 		for ( auto& name : graph.instances ) {
@@ -960,7 +970,11 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 	// ignore pesky light_Orientation nodes
 	if ( uf::string::split( node.name, "_" ).back() == "Orientation" ) ignore = true;
 	// for dreamcast, ignore lights if we're baked
-	if ( graph.metadata["lights"]["lightmapped"].as<bool>() && graph.metadata["lights"]["disable if lightmapped"].as<bool>(true) ) if ( graph.lights.count(node.name) > 0 ) ignore = true;
+/*
+	if ( graph.metadata["lights"]["lightmap"].as<bool>() && graph.metadata["lights"]["disable if lightmapped"].as<bool>(true) ) {
+		if ( graph.lights.count(node.name) > 0 ) ignore = true;
+	}
+*/
 	
 	// on systems where frametime is very, very important, we can set all static nodes to not tick
 	
@@ -969,6 +983,19 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		if ( graph.metadata["baking"]["enabled"].as<bool>(false) && !tag["bake"].as<bool>(true) ) ignore = true;
 		if ( tag["ignore"].as<bool>() ) ignore = true;
 	}
+	bool isLight = graph.lights.count(node.name) > 0;
+/*
+	if ( graph.metadata["lights"]["lightmap"].as<bool>() )
+		if ( ext::json::isObject( tag ) ) {
+			if ( !tag["light"]["dynamic"].as<bool>() && !tag["light"]["shadows"].as<bool>() ) {
+				ignore = true;
+				UF_MSG_DEBUG("IGNORING {}", node.name);
+			}
+		} else {
+			ignore = true;
+		}
+	}
+*/
 	if ( ignore ) return;
 		
 	// create child
@@ -1017,7 +1044,7 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 
 	// create as light
 	{
-		if ( graph.lights.count(node.name) > 0 ) {
+		if ( isLight ) {
 			auto& l = graph.lights[node.name];
 			
 		#if UF_USE_OPENGL
@@ -1034,8 +1061,9 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			metadataLight["color"][1] = l.color.y;
 			metadataLight["color"][2] = l.color.z;
 			metadataLight["shadows"] = graph.metadata["lights"]["shadows"].as<bool>();
+			metadataLight["dynamic"] = false;
 
-			if ( uf::string::matched( node.name, "/\\bspot\\b/" ) ) {
+			if ( uf::string::matched( node.name, R"(/\bspot\b/)" ) ) {
 				metadataLight["type"] = "spot";
 			}
 
@@ -1050,28 +1078,20 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 				if ( key == "transform" ) return;
 				metadataLight[key] = value;
 			});
-		#if !UF_USE_OPENGL
+		/*
 			bool should = false;
-			if ( !graph.metadata["lights"]["lightmapped"].as<bool>() ) {
+			if ( !graph.metadata["lights"]["lightmap"].as<bool>() ) {
 				should = true;
 			} else if ( metadataLight["shadows"].as<bool>() || metadataLight["dynamic"].as<bool>() ) {
 				should = true;
 			}
-			if ( should ) {
-				auto& metadataJson = entity.getComponent<uf::Serializer>();
-				entity.load("/light.json");
-				// copy
-				ext::json::forEach( metadataLight, [&]( const uf::stl::string& key, ext::json::Value& value ) {
-					metadataJson["light"][key] = value;
-				});
-			/*
-				if ( metadataJson["light"]["type"].as<uf::stl::string>() == "point" ) {
-					auto& transform = entity.getComponent<pod::Transform<>>();
-					transform.orientation = uf::quaternion::identity();
-				}
-			*/
-			}
-		#endif
+		*/
+			auto& metadataJson = entity.getComponent<uf::Serializer>();
+			entity.load("/light.json");
+			// copy
+			ext::json::forEach( metadataLight, [&]( const uf::stl::string& key, ext::json::Value& value ) {
+				metadataJson["light"][key] = value;
+			});
 		}
 	}
 

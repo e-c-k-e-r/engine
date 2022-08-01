@@ -25,7 +25,14 @@ namespace ext {
 				size_t light = 0;
 
 				uf::renderer::Texture3D baked;
+				uf::renderer::Buffer uniforms;
 			} buffers;
+			struct UBO {
+				alignas(4) uint32_t lights = 0;
+				alignas(4) uint32_t currentID = 0;
+				alignas(4) uint32_t totalIDs = 0;
+				alignas(4) uint32_t padding2 = 0;
+			} uniforms;
 			struct {
 				size_t textures2D = 1024;
 				size_t texturesCube = 512;

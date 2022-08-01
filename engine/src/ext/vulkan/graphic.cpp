@@ -459,9 +459,9 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 			if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 			auto& localSize = shader->metadata.definitions.localSize;
 			vkCmdDispatch(commandBuffer,
-				localSize.x ? ((width  / localSize.x) + 1) : 1,
-				localSize.y ? ((height / localSize.y) + 1) : 1,
-				localSize.z ? ((depth  / localSize.z) + 1) : 1
+				1 < localSize.x ? ((width  / localSize.x) + 1) : 1,
+				1 < localSize.y ? ((height / localSize.y) + 1) : 1,
+				1 < localSize.z ? ((depth  / localSize.z) + 1) : 1
 			);
 		}
 	}
@@ -566,7 +566,6 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}
 
 			if ( attachment ) {
-				
 				// subscript on name will grab the view # from attachment->views 
 				if ( 0 <= view ) {
 					texture.aliasAttachment( *attachment, (size_t) view );
@@ -578,6 +577,10 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			if ( descriptor.layout != VK_IMAGE_LAYOUT_UNDEFINED ) {
 				texture.imageLayout = descriptor.layout;
 				texture.descriptor.imageLayout = descriptor.layout;
+			} else {
+				texture.imageLayout = ext::vulkan::Texture::remapRenderpassLayout( texture.imageLayout );
+				texture.descriptor.imageLayout = ext::vulkan::Texture::remapRenderpassLayout( texture.imageLayout );
+
 			}
 			
 			INSERT_IMAGE(texture);
@@ -1037,14 +1040,6 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 //	if ( mesh.indirect.count == 0  ) mesh.generateIndirect();
 	// ensure our descriptors are proper
 	mesh.updateDescriptor();
-
-#if 0
-	// it makes my life 10000x easier if we interleave a mesh while also requesting RT pipelines
-	if ( !mesh.isInterleaved() && uf::renderer::settings::pipelines::rt ) {
-		auto interleaved = mesh.interleave();
-		return initializeMesh(interleaved);
-	}
-#endif
 
 	// copy descriptors
 	descriptor.inputs.vertex = mesh.vertex;
@@ -1584,6 +1579,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		} else UF_EXCEPTION("Buffers not found: {}", "tlasInstance");
 		rebuild = rebuild || this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
 	}
+
 	size_t instanceBufferAddress = this->buffers[instanceIndex].getAddress();
 
 	// have a front-and-back TLAS (buffer)
@@ -1784,7 +1780,6 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	//	uf::renderer::states::rebuild = true;
 	}
 
-
 	// build SBT
 	if ( !this->material.hasShader("ray:gen", uf::renderer::settings::pipelines::names::rt) ) {
 		{
@@ -1802,7 +1797,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			auto& shader = this->material.getShader("ray:gen", uf::renderer::settings::pipelines::names::rt);
 			shader.buffers.emplace_back( this->buffers[tlasBufferIndex].alias() );
 		}
-	}			
+	}
 }
 bool ext::vulkan::Graphic::hasPipeline( const GraphicDescriptor& descriptor ) const {
 	return pipelines.count( descriptor ) > 0;
