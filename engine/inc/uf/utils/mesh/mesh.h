@@ -296,7 +296,7 @@ namespace ext {
 
 			uint32_t renderTarget = 0;
 			uint32_t subpass = 0;
-
+			uint32_t aux = 0;
 			
 			struct {
 				size_t width = 1;

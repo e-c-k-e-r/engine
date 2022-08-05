@@ -10,6 +10,12 @@ float mipLevel( in vec2 dx_vtc, in vec2 dy_vtc ) {
 
 //	return 0.5 * log2(max(dot(dx_vtc, dx_vtc), dot(dy_vtc, dy_vtc)));
 }
+float mipLevels( vec2 size ) {
+	return floor(log2(max(size.x, size.y)));
+}
+float mipLevels( ivec2 size ) {
+	return floor(log2(max(size.x, size.y)));
+}
 //
 void toneMap( inout vec3 color, float exposure ) {
 	color.rgb = vec3(1.0) - exp(-color.rgb * exposure);

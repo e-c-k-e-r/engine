@@ -168,9 +168,5 @@ void client::render() {
 }
 
 void client::terminate() {
-	/* Close Threads */ {
-		uf::thread::terminate();
-	}
-
 	client::window.terminate();
 }

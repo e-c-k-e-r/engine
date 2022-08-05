@@ -77,7 +77,8 @@ int main(int argc, char** argv){
 		try {	
 	#endif
 			if ( uf::renderer::settings::experimental::dedicatedThread /*&& !uf::renderer::states::rebuild*/ ) {
-				auto& thread = uf::thread::fetchWorker();
+			//	auto& thread = uf::thread::fetchWorker();
+				auto& thread = uf::thread::get("Render");
 				uf::thread::queue(thread, [&]{
 					ext::render();
 					client::render();
@@ -88,14 +89,11 @@ int main(int argc, char** argv){
 
 				uf::thread::wait( thread );
 			} else {
-			//	UF_TIMER_MULTITRACE_START("Frame Start");
 				client::tick();
 				ext::tick();
-			//	UF_TIMER_MULTITRACE("Ticked");
+
 				ext::render();
 				client::render();
-			//	UF_TIMER_MULTITRACE("Rendered");
-			//	UF_TIMER_MULTITRACE_END("Frame End");
 			}
 	#if UF_EXCEPTIONS
 		} catch ( std::runtime_error& e ) {

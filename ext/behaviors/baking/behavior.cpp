@@ -106,13 +106,12 @@ void ext::BakingBehavior::initialize( uf::Object& self ) {
 
 			shader.buffers.insert( shader.buffers.begin(), metadata.buffers.uniforms.alias() );
 		});
-	//	uf::thread::queue([&]{
-			uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
-	//	});
+		uf::renderer::addRenderMode( &renderMode, metadata.renderModeName );
+		uf::renderer::states::rebuild = true;
 		UF_MSG_DEBUG("Finished initialiation.");
 	});
 
-	this->queueHook( "entity:PostInitialization.%UID%", 1.0f );
+	this->queueHook( "entity:PostInitialization.%UID%", 2.0f );
 #endif
 }
 void ext::BakingBehavior::tick( uf::Object& self ) {

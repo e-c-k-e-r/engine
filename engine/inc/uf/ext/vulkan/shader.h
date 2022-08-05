@@ -160,6 +160,10 @@ namespace ext {
 				return updateStorage(name, (const void*) userdata, userdata.size() );
 			}
 
+			void setSpecializationConstants( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
+			void setDescriptorCounts( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values );
+
+
 		/*
 			uf::Serializer getUniformJson( const uf::stl::string& name, bool cache = true );
 			bool updateUniform( const uf::stl::string& name, const ext::json::Value& payload );

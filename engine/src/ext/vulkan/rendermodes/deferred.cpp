@@ -23,6 +23,8 @@
 
 namespace {
 	const uf::stl::string DEFERRED_MODE = "compute";
+	ext::vulkan::Texture depthPyramid;
+	uf::stl::vector<VkImageView> depthPyramidViews;
 }
 
 #include "./transition.inl"
@@ -50,10 +52,10 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 	renderTarget.views = metadata.eyes;
 	size_t msaa = ext::vulkan::settings::msaa;
 
-
 	struct {
 		size_t id, bary, depth, uv, normal;
 		size_t color, bright, motion, scratch, output;
+		size_t depthPyramid;
 	} attachments = {};
 
 	bool blend = true; // !ext::vulkan::settings::invariant::deferredSampling;
@@ -99,6 +101,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.usage = */VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		/*.blend = */false,
 		/*.samples = */msaa,
+		//*.mips = */1,
 	});
 	// output buffers
 	attachments.color = renderTarget.attach(RenderTarget::Attachment::Descriptor{
@@ -130,6 +133,14 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		/*.blend = */false,
 		/*.samples = */1,
 	});
+	attachments.depthPyramid = renderTarget.attach(RenderTarget::Attachment::Descriptor{
+		/*.format = */VK_FORMAT_R32_SFLOAT,
+		/*.layout = */ VK_IMAGE_LAYOUT_GENERAL,
+		/*.usage = */ VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		/*.blend = */false,
+		/*.samples = */1,
+		/*.mips = */1
+	});
 
 	metadata.attachments["id"] = attachments.id;
 
@@ -143,6 +154,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 #endif
 	
 	metadata.attachments["depth"] = attachments.depth;
+	metadata.attachments["depthPyramid"] = attachments.depthPyramid;
 	metadata.attachments["color"] = attachments.color;
 	metadata.attachments["bright"] = attachments.bright;
 	metadata.attachments["scratch"] = attachments.scratch;
@@ -224,22 +236,13 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				{uf::io::resolveURI(vertexShaderFilename), uf::renderer::enums::Shader::VERTEX},
 				{uf::io::resolveURI(fragmentShaderFilename), uf::renderer::enums::Shader::FRAGMENT}
 			});
-		}
 
-		if ( blitter.material.hasShader("fragment") ) {
 			auto& shader = blitter.material.getShader("fragment");
 			if ( !settings::pipelines::fsr ) {
 				shader.aliasAttachment("output", this);
 			}
-		/*
-			if ( settings::pipelines::fsr ) {
-				auto& renderMode = ext::vulkan::getRenderMode("Swapchain", true);
-				shader.aliasAttachment("fsr", &renderMode, VK_IMAGE_LAYOUT_GENERAL);
-			} else {
-				shader.aliasAttachment("output", this);
-			}
-		*/
 		}
+
 		if ( settings::pipelines::deferred ) {
 			if ( DEFERRED_MODE == "compute" ) {
 				uf::stl::string computeShaderFilename = "comp.spv"; {
@@ -267,19 +270,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				blitter.material.attachShader(uf::io::resolveURI(fragmentShaderFilename), uf::renderer::enums::Shader::FRAGMENT, "deferred");
 				UF_MSG_DEBUG("Using deferred shader: {}", fragmentShaderFilename);
 			}
-		}
-		
-		if ( settings::pipelines::bloom ) {
-			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom/comp.spv");
-			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom");
 
-			auto& shader = blitter.material.getShader("compute", "bloom");
-			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
-			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
-		}
-		
-		if ( settings::pipelines::deferred ) {
 			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
@@ -287,6 +278,20 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures2D },
+				{ "CUBEMAPS", maxTexturesCube },
+				{ "CASCADES", maxCascades },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures2D },
+				{ "samplerCubemaps", maxTexturesCube },
+				{ "voxelId", maxCascades },
+				{ "voxelUv", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
+			});
 
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
@@ -297,46 +302,6 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
 
-			if ( ext::vulkan::settings::pipelines::vxgi ) {
-				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-					auto& sc = pair.second;
-					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
-					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
-					else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
-				}
-				for ( auto pair : shader.metadata.definitions.textures ) {
-					auto& tx = pair.second;
-					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding != tx.binding ) continue;
-						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
-						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
-						else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
-						else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
-					}
-				}
-			} else {
-				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-					auto& sc = pair.second;
-					if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
-					else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
-				}
-				for ( auto pair : shader.metadata.definitions.textures ) {
-					auto& tx = pair.second;
-					for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-						if ( layout.binding != tx.binding ) continue;
-						if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
-						else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
-					}
-				}
-			}
-		}
-	
-		if ( settings::pipelines::deferred && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
-			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 			shader.aliasAttachment("id", this);
 		#if BARYCENTRIC
 			#if !BARYCENTRIC_CALCULATE
@@ -352,7 +317,78 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
 			shader.aliasAttachment("motion", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
+		
+		if ( settings::pipelines::bloom ) {
+			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/bloom/comp.spv");
+			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "bloom");
 
+			auto& shader = blitter.material.getShader("compute", "bloom");
+			shader.aliasAttachment("color", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("bright", this, VK_IMAGE_LAYOUT_GENERAL);
+			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
+		}
+
+		if ( settings::pipelines::culling ) {
+			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/depth-pyramid/comp.spv");
+			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "depth-pyramid");
+
+			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
+			auto attachment = this->getAttachment("depth");
+			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+			shader.setSpecializationConstants({
+				{ "MIPS", mips - 1 },
+			});
+			shader.setDescriptorCounts({
+				{ "inImage", mips - 1 },
+				{ "outImage", mips - 1 },
+			});
+
+			shader.aliasAttachment("depth", this);
+
+			ext::vulkan::Texture2D source; source.aliasAttachment( this->getAttachment("depthPyramid") );
+			source.sampler.descriptor.reduction.enabled = true;
+			source.sampler.descriptor.reduction.mode = VK_SAMPLER_REDUCTION_MODE_MIN;
+			
+			for ( auto& view : ::depthPyramidViews ) {
+				vkDestroyImageView(device.logicalDevice, view, nullptr);
+			}
+			::depthPyramidViews.clear();
+			::depthPyramidViews.resize(mips-1);
+			shader.textures.clear();
+			
+			for ( auto i = 1; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i-1];
+				VkImageViewCreateInfo viewCreateInfo = {};
+				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+				viewCreateInfo.pNext = NULL;
+				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+				viewCreateInfo.subresourceRange.baseMipLevel = i;
+				viewCreateInfo.subresourceRange.layerCount = 1;
+				viewCreateInfo.subresourceRange.levelCount = 1;
+				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				viewCreateInfo.viewType = source.viewType;
+				viewCreateInfo.format = source.format;
+				viewCreateInfo.image = source.image;
+				VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
+
+				if ( i + 1 < mips ) {
+					auto& texture = shader.textures.emplace_back();
+					texture.aliasTexture( source );
+					texture.view = view;
+					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+					texture.updateDescriptors();
+				}
+			}
+			for ( auto i = 1; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i-1];
+				auto& texture = shader.textures.emplace_back();
+				texture.aliasTexture( source );
+				texture.view = view;
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.updateDescriptors();
+			}
+		}
+	
 		if ( !blitter.hasPipeline( blitter.descriptor ) ){
 			blitter.initializePipeline( blitter.descriptor );
 		}
@@ -386,6 +422,16 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 					blitter.initializePipeline( descriptor );
 				}
 			}
+
+			if ( settings::pipelines::culling ) {
+				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
+				descriptor.pipeline = "depth-pyramid";
+				descriptor.subpass = 0;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+				if ( !blitter.hasPipeline( descriptor ) ) {
+					blitter.initializePipeline( descriptor );
+				}
+			}
 		}
 	}
 }
@@ -395,22 +441,78 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	bool resized = (this->width == 0 && this->height == 0 && ext::vulkan::states::resized) || this->resized;
 	bool rebuild = resized || ext::vulkan::states::rebuild || this->rebuild;
 
+	uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
+	uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
 
 	if ( resized ) {
 		this->resized = false;
 		rebuild = true;
 		renderTarget.initialize( *renderTarget.device );
+
+		if ( settings::pipelines::culling ) {
+			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
+			auto attachment = this->getAttachment("depth");
+			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+			shader.setSpecializationConstants({
+				{ "MIPS", mips - 1 },
+			});
+			shader.setDescriptorCounts({
+				{ "inImage", mips - 1 },
+				{ "outImage", mips - 1 },
+			});
+
+			ext::vulkan::Texture2D source; source.aliasAttachment( this->getAttachment("depthPyramid") );
+			source.sampler.descriptor.reduction.enabled = true;
+			source.sampler.descriptor.reduction.mode = VK_SAMPLER_REDUCTION_MODE_MIN;
+			
+			for ( auto& view : ::depthPyramidViews ) {
+				vkDestroyImageView(device->logicalDevice, view, nullptr);
+			}
+			::depthPyramidViews.clear();
+			::depthPyramidViews.resize(mips-1);
+			shader.textures.clear();
+			
+			for ( auto i = 1; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i-1];
+				VkImageViewCreateInfo viewCreateInfo = {};
+				viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+				viewCreateInfo.pNext = NULL;
+				viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+				viewCreateInfo.subresourceRange.baseMipLevel = i;
+				viewCreateInfo.subresourceRange.layerCount = 1;
+				viewCreateInfo.subresourceRange.levelCount = 1;
+				viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				viewCreateInfo.viewType = source.viewType;
+				viewCreateInfo.format = source.format;
+				viewCreateInfo.image = source.image;
+				VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+
+				if ( i + 1 < mips ) {
+					auto& texture = shader.textures.emplace_back();
+					texture.aliasTexture( source );
+					texture.view = view;
+					texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+					texture.updateDescriptors();
+				}
+			}
+			for ( auto i = 1; i < mips; ++i ) {
+				auto& view = ::depthPyramidViews[i-1];
+				auto& texture = shader.textures.emplace_back();
+				texture.aliasTexture( source );
+				texture.view = view;
+				texture.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+				texture.updateDescriptors();
+			}
+		}
 	}
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
-		uint32_t width = this->width > 0 ? this->width : (ext::vulkan::settings::width * this->scale);
-		uint32_t height = this->height > 0 ? this->height : (ext::vulkan::settings::height * this->scale);
-
-	//	UF_MSG_DEBUG("{} x {} ({:3f}%)", width, height, this->scale*100.0f);
-
 		if ( blitter.hasPipeline( blitter.descriptor ) ){
 			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
+		} else {
+			blitter.initializePipeline( blitter.descriptor );
 		}
+
 		{
 			ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
 			descriptor.renderMode = "";
@@ -429,6 +531,8 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				}
 				if ( blitter.hasPipeline( descriptor ) ) {
 					blitter.getPipeline( descriptor ).update( blitter, descriptor );
+				} else {
+					blitter.initializePipeline( descriptor );
 				}
 			}
 
@@ -438,6 +542,20 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
 				if ( blitter.hasPipeline( descriptor ) ) {
 					blitter.getPipeline( descriptor ).update( blitter, descriptor );
+				} else {
+					blitter.initializePipeline( descriptor );
+				}
+			}
+
+			if ( settings::pipelines::culling ) {
+				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
+				descriptor.pipeline = "depth-pyramid";
+				descriptor.subpass = 0;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+				if ( blitter.hasPipeline( descriptor ) ) {
+					blitter.getPipeline( descriptor ).update( blitter, descriptor );
+				} else {
+					blitter.initializePipeline( descriptor );
 				}
 			}
 		}
@@ -543,7 +661,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 	}
 	bool shouldRecord = true; // ( settings::pipelines::rt && !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
 	for (size_t i = 0; i < commands.size(); ++i) {
-		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
+		auto commandBuffer = commands[i];
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
 		// Fill GBuffer
 		{
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -576,7 +695,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 
 			// transition layers for read
 			for ( auto layer : layers ) {
-				layer->pipelineBarrier( commands[i], 0 );
+				layer->pipelineBarrier( commandBuffer, 0 );
 			}
 
 			for ( auto& pipeline : metadata.pipelines ) {
@@ -585,16 +704,22 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 					if ( graphic->descriptor.renderMode != this->getName() ) continue;
 					ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
 					descriptor.pipeline = pipeline;
-					graphic->record( commands[i], descriptor, 0, metadata.eyes );
+					if ( pipeline == uf::renderer::settings::pipelines::names::culling ) {
+						descriptor.bind.width = graphic->descriptor.inputs.indirect.count;
+						descriptor.bind.height = 1;
+						descriptor.bind.depth = 1;
+						descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+					}
+					graphic->record( commandBuffer, descriptor, 0, metadata.eyes );
 				}
 			}
 
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
 
-			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdSetViewport(commands[i], 0, 1, &viewport);
-				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 				// render to geometry buffers
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {		
 					size_t currentPass = 0;
@@ -603,10 +728,10 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						// only draw graphics that are assigned to this type of render mode
 						if ( graphic->descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentSubpass);
-						graphic->record( commands[i], descriptor, eye, currentDraw++ );
+						graphic->record( commandBuffer, descriptor, eye, currentDraw++ );
 					}
 					if ( eye + 1 < metadata.eyes ) {
-						vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+						vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
 					}
 				}
 				// skip deferred pass if RT is enabled, we still process geometry for a depth buffer
@@ -619,13 +744,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 						descriptor.pipeline = "deferred";
 						descriptor.subpass = currentSubpass;
 						descriptor.bind.point = VK_PIPELINE_BIND_POINT_GRAPHICS;
-						blitter.record(commands[i], descriptor, eye, currentDraw++);
+						blitter.record(commandBuffer, descriptor, eye, currentDraw++);
 					}
 					if ( eye + 1 < metadata.eyes ) {
-						vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
+						vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE); ++currentSubpass;
 					}
 				}
-			vkCmdEndRenderPass(commands[i]);
+			vkCmdEndRenderPass(commandBuffer);
 
 			if ( settings::pipelines::deferred && DEFERRED_MODE == "compute" && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
 				auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
@@ -639,13 +764,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				descriptor.subpass = 0;
 
 				// transition attachments to general attachments for imageStore
-				::transitionAttachmentsTo( this, shader, commands[i] );
+				::transitionAttachmentsTo( this, shader, commandBuffer );
 
 				// dispatch compute shader				
-				blitter.record(commands[i], descriptor, 0, 0);
+				blitter.record(commandBuffer, descriptor, 0, 0);
 
 				// transition attachments back to shader read layouts
-				::transitionAttachmentsFrom( this, shader, commands[i] );
+				::transitionAttachmentsFrom( this, shader, commandBuffer );
 			}
 
 			if ( settings::pipelines::bloom && blitter.material.hasShader("compute", "bloom") ) {
@@ -660,25 +785,77 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				descriptor.subpass = 0;
 
 				// transition attachments to general attachments for imageStore
-				::transitionAttachmentsTo( this, shader, commands[i] );
+				::transitionAttachmentsTo( this, shader, commandBuffer );
 
 				// dispatch compute shader				
 				VkMemoryBarrier memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
 				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 				memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-				blitter.record(commands[i], descriptor, 0, 1);
-				vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
-				blitter.record(commands[i], descriptor, 0, 2);
-				vkCmdPipelineBarrier( commands[i], VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
-				blitter.record(commands[i], descriptor, 0, 3);
+				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				blitter.record(commandBuffer, descriptor, 0, 1);
+				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				blitter.record(commandBuffer, descriptor, 0, 2);
+				vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				blitter.record(commandBuffer, descriptor, 0, 3);
 
 				// transition attachments back to shader read layouts
-				::transitionAttachmentsFrom( this, shader, commands[i] );
+				::transitionAttachmentsFrom( this, shader, commandBuffer );
+			}
+
+						// construct depth-pyramid
+			if ( settings::pipelines::culling && blitter.material.hasShader("compute", "depth-pyramid") ) {
+				auto& shader = blitter.material.getShader("compute", "depth-pyramid");
+			//	auto mips = attachment.descriptor.mips; // uf::vector::mips( pod::Vector2ui{ renderTarget.width, renderTarget.height } );
+				auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
+
+				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
+				descriptor.renderMode = "";
+				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
+				descriptor.pipeline = "depth-pyramid";
+				descriptor.bind.width = width;
+				descriptor.bind.height = height;
+				descriptor.bind.depth = metadata.eyes;
+				descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+				descriptor.subpass = 0;
+
+			/*
+				// transition attachments to general attachments for imageStore
+				VkImageSubresourceRange subresourceRange;
+				subresourceRange.baseMipLevel = 0;
+				subresourceRange.levelCount = 1;
+				subresourceRange.baseArrayLayer = 0;
+				subresourceRange.layerCount = mips;
+				subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+				subresourceRange.layerCount = this->metadata.eyes;
+
+				auto& attachment = this->getAttachment("depth");
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, subresourceRange );
+			*/
+
+				// dispatch compute shader				
+				VkMemoryBarrier memoryBarrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+				memoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+				memoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+				for ( auto i = 0; i < mips - 1; ++i ) {
+					descriptor.bind.width = width >> i;
+					descriptor.bind.height = height >> i;
+					if ( descriptor.bind.width < 1 ) descriptor.bind.width = 1;
+					if ( descriptor.bind.height < 1 ) descriptor.bind.height = 1;
+
+					blitter.record(commandBuffer, descriptor, 0, i);
+					vkCmdPipelineBarrier( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_FLAGS_NONE, 1, &memoryBarrier, 0, NULL, 0, NULL );
+				}
+
+			/*
+				// transition attachments to general attachments for imageStore
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, subresourceRange );
+			*/
 			}
 
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
 
 		#if 0
 			if ( this->hasAttachment("depth") ) {
@@ -693,16 +870,16 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			#if 1
 				imageMemoryBarrier.subresourceRange.layerCount = metadata.eyes;
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-				uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageMemoryBarrier.subresourceRange );
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, imageMemoryBarrier.subresourceRange );
 			#endif
 
 
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
-					texture.generateMipmaps(commands[i], eye);
+					texture.generateMipmaps(commandBuffer, eye);
 				}
 
 			#if 1
-				uf::renderer::Texture::setImageLayout( commands[i], attachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );	
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, imageMemoryBarrier.subresourceRange );	
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				imageMemoryBarrier.subresourceRange.layerCount = 1;
 			#endif
@@ -710,11 +887,11 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 		#endif
 
 			for ( auto layer : layers ) {
-				layer->pipelineBarrier( commands[i], 1 );
+				layer->pipelineBarrier( commandBuffer, 1 );
 			}
 		}
 
-		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
+		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 	}
 }
 

@@ -195,11 +195,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
 	#if UF_USE_VULKAN
 		uint32_t maxPasses = 6;
-		uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-		for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-			auto& sc = pair.second;
-			if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
-		}
+		shader.setSpecializationConstants({
+			{ "PASSES", maxPasses }
+		});
 	#endif
 	}
 	{
@@ -214,19 +212,12 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	
 	#if UF_USE_VULKAN
 		uint32_t maxTextures = graph.textures.size(); // texture2Ds;
-
-		uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-		for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-			auto& sc = pair.second;
-			if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
-		}
-		for ( auto pair : shader.metadata.definitions.textures ) {
-			auto& tx = pair.second;
-			for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-				if ( layout.binding != tx.binding ) continue;
-				if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
-			}
-		}
+		shader.setSpecializationConstants({
+			{ "TEXTURES", maxTextures },
+		});
+		shader.setDescriptorCounts({
+			{ "samplerTextures", maxTextures },
+		});
 	#endif
 	}
 #if UF_USE_VULKAN
@@ -253,7 +244,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			shader.buffers.emplace_back( indirect->alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
 
-			shader.aliasAttachment("depth");
+			shader.aliasAttachment("depthPyramid");
 		}
 	}
 	if ( geometryShaderFilename != "" && uf::renderer::device.enabledFeatures.geometryShader ) {
@@ -268,21 +259,15 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "depth");
 		graphic.material.metadata.autoInitializeUniformBuffers = true;
 		{
-			uint32_t maxTextures = graph.textures.size(); // texture2Ds;
-
 			auto& shader = graphic.material.getShader("fragment", "depth");
-			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-				auto& sc = pair.second;
-				if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
-			}
-			for ( auto pair : shader.metadata.definitions.textures ) {
-				auto& tx = pair.second;
-				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-					if ( layout.binding != tx.binding ) continue;
-					if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
-				}
-			}
+
+			uint32_t maxTextures = graph.textures.size(); // texture2Ds;
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures },
+			});
 
 			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
@@ -320,23 +305,17 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			uint32_t maxCascades = texture3Ds / voxelTypes;
 
 			auto& shader = graphic.material.getShader("fragment", uf::renderer::settings::pipelines::names::vxgi);
-			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-				auto& sc = pair.second;
-				if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
-				else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
-			}
-			for ( auto pair : shader.metadata.definitions.textures ) {
-				auto& tx = pair.second;
-				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-					if ( layout.binding != tx.binding ) continue;
-					if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
-					else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
-				}
-			}
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures },
+				{ "CASCADES", maxCascades },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures },
+				{ "voxelId", maxCascades },
+				{ "voxelUv", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
+			});
 			
 			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
@@ -353,6 +332,11 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			uf::stl::string vertexShaderFilename = uf::io::resolveURI("/graph/baking/vert.spv");
 			uf::stl::string geometryShaderFilename = uf::io::resolveURI("/graph/baking/geom.spv");
 			uf::stl::string fragmentShaderFilename = uf::io::resolveURI("/graph/baking/frag.spv");
+			std::pair<bool, uf::stl::string> settings[] = {
+				{ uf::renderer::settings::pipelines::rt, "rt.frag" },
+			};
+			FOR_ARRAY(settings) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
+
 			graphic.material.attachShader(vertexShaderFilename, uf::renderer::enums::Shader::VERTEX, "baking");
 		//	graphic.material.attachShader(geometryShaderFilename, uf::renderer::enums::Shader::GEOMETRY, "baking");
 			graphic.material.attachShader(fragmentShaderFilename, uf::renderer::enums::Shader::FRAGMENT, "baking");
@@ -362,11 +346,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			uint32_t maxPasses = 6;
 
 			auto& shader = graphic.material.getShader("vertex", "baking");
-			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-				auto& sc = pair.second;
-				if ( sc.name == "PASSES" ) sc.value.ui = (specializationConstants[sc.index] = maxPasses);
-			}
+			shader.setSpecializationConstants({
+				{ "PASSES", maxPasses },
+			});
 
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
@@ -383,20 +365,14 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 
 			auto& shader = graphic.material.getShader("fragment", "baking");
-			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-				auto& sc = pair.second;
-				if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures);
-				else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxCubemaps);
-			}
-			for ( auto pair : shader.metadata.definitions.textures ) {
-				auto& tx = pair.second;
-				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-					if ( layout.binding != tx.binding ) continue;
-					if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures;
-					else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxCubemaps;
-				}
-			}
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures },
+				{ "CUBEMAPS", maxCubemaps },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures },
+				{ "samplerCubemaps", maxCubemaps },
+			});
 
 			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
@@ -456,9 +432,6 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		}
 	}
 #endif
-
-//	uf::instantiator::bind( "GraphBehavior", entity );
-//	uf::instantiator::unbind( "RenderBehavior", entity );
 
 	graphic.process = true;
 }
@@ -1167,7 +1140,6 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 			}
 		}
 		if ( (graph.metadata["renderer"]["separate"].as<bool>()) && graph.metadata["renderer"]["render"].as<bool>() ) {
-		//	uf::instantiator::bind("RenderBehavior", entity);			
 			uf::graph::initializeGraphics( graph, entity, mesh );
 		}
 		

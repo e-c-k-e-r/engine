@@ -13,7 +13,7 @@
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
 		//	"ambient": [ 0.1, 0.1, 0.2 ],
 
-			"exposure": 1, // 0.125,
+			"exposure": 0.125,
 			"gamma": 2.2, // 2.2,
 
 			"bloom": {
@@ -22,6 +22,22 @@
 				"strength": 1,
 				"sigma": 1.0,
 				"samples": 4
+			},
+
+			"fog": {
+			//	"color": [ 0.1, 0.1, 0.1 ],
+			//	"color": [ 0.2, 0.2, 0.2 ],
+				"color": [ 0.3, 0.3, 0.3 ],
+				"range": [ 64, 256 ],
+				"step scale": 4,
+				"absorbtion": 0.0125,
+				"density": {
+					"threshold": 0.35,
+					"multiplier": 2.0,
+					"scale": 25.0,
+					"offset": [0.2, 0, 1],
+					"timescale": 32
+				}
 			}
 		}
 	}

@@ -76,6 +76,7 @@ namespace ext {
 			Buffer buffer{};
 
 			size_t instanceID{};
+			bool aliased = false;
 		};
 	}
 }

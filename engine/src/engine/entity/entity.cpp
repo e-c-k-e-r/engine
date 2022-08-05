@@ -133,7 +133,7 @@ uf::Entity* uf::Entity::globalFindByUid( size_t uid ) {
 	}
 	{
 		auto& scene = uf::scene::getCurrentScene();
-		auto& graph = scene.getGraph();
+		auto/*&*/ graph = scene.getGraph();
 		for ( uf::Entity* entity : graph ) {
 			if ( entity->getUid() == uid ) return entity;
 		}
@@ -148,7 +148,7 @@ uf::Entity* uf::Entity::globalFindByName( const uf::stl::string& name ) {
 	}
 	{
 		auto& scene = uf::scene::getCurrentScene();
-		auto& graph = scene.getGraph();
+		auto/*&*/ graph = scene.getGraph();
 		for ( uf::Entity* entity : graph ) {
 			if ( entity->getName() == name ) return entity;
 		}

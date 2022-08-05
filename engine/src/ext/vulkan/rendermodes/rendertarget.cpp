@@ -333,15 +333,30 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 		}
 		if ( metadata.type == uf::renderer::settings::pipelines::names::vxgi  ) {
 			auto& scene = uf::scene::getCurrentScene();
-
 			auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
+
+			auto& shader = blitter.material.getShader("compute");
+			
 			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
 			size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
 			size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
 			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
 			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
-			auto& shader = blitter.material.getShader("compute");
+			shader.setSpecializationConstants({
+				{ "TEXTURES", maxTextures2D },
+				{ "CUBEMAPS", maxTexturesCube },
+				{ "CASCADES", maxCascades },
+			});
+			shader.setDescriptorCounts({
+				{ "samplerTextures", maxTextures2D },
+				{ "samplerCubemaps", maxTexturesCube },
+				{ "voxelId", maxCascades },
+				{ "voxelUv", maxCascades },
+				{ "voxelNormal", maxCascades },
+				{ "voxelRadiance", maxCascades },
+			});
+
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
 		//	shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
@@ -350,26 +365,6 @@ void ext::vulkan::RenderTargetRenderMode::initialize( Device& device ) {
 			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
-
-			uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
-			for ( auto pair : shader.metadata.definitions.specializationConstants ) {
-				auto& sc = pair.second;
-				if ( sc.name == "TEXTURES" ) sc.value.ui = (specializationConstants[sc.index] = maxTextures2D);
-				else if ( sc.name == "CUBEMAPS" ) sc.value.ui = (specializationConstants[sc.index] = maxTexturesCube);
-				else if ( sc.name == "CASCADES" ) sc.value.ui = (specializationConstants[sc.index] = maxCascades);
-			}
-			for ( auto pair : shader.metadata.definitions.textures ) {
-				auto& tx = pair.second;
-				for ( auto& layout : shader.descriptorSetLayoutBindings ) {
-					if ( layout.binding != tx.binding ) continue;
-					if ( tx.name == "samplerTextures" ) layout.descriptorCount = maxTextures2D;
-					else if ( tx.name == "samplerCubemaps" ) layout.descriptorCount = maxTexturesCube;
-					else if ( tx.name == "voxelId" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelUv" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelNormal" ) layout.descriptorCount = maxCascades;
-					else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
-				}
-			}
 		} else if ( metadata.type == uf::renderer::settings::pipelines::names::rt ) {
 		#if 0
 			auto& shader = blitter.material.getShader("fragment");
@@ -490,7 +485,8 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 
 	auto& commands = getCommands();
 	for (size_t i = 0; i < commands.size(); ++i) {
-		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
+		auto& commandBuffer = commands[i];
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
 		{
 
 			VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -522,15 +518,16 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 			size_t subpasses = renderTarget.passes.size();
 			size_t currentPass = 0;
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
 			
 			if ( this->getName() == "Compute" ) {
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 					if ( graphic->descriptor.pipeline != uf::renderer::settings::pipelines::names::rt ) continue;
-					graphic->record( commands[i] );
+					graphic->record( commandBuffer );
 				}
 			} else {
+			#if 0
 				for ( auto& pipeline : metadata.pipelines ) {
 					if ( pipeline == metadata.pipeline ) continue;
 					for ( auto graphic : graphics ) {
@@ -538,31 +535,54 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
 						descriptor.pipeline = pipeline;
 						if ( pipeline == "rt" ) descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-						graphic->record( commands[i], descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
+						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
+					}
+				}
+			#endif
+				for ( auto& pipeline : metadata.pipelines ) {
+					if ( pipeline == metadata.pipeline ) continue;
+					for ( auto graphic : graphics ) {
+						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
+						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
+						descriptor.pipeline = pipeline;
+						if ( pipeline == uf::renderer::settings::pipelines::names::culling ) {
+							descriptor.bind.width = graphic->descriptor.inputs.indirect.count;
+							descriptor.bind.height = 1;
+							descriptor.bind.depth = 1;
+							descriptor.bind.point = VK_PIPELINE_BIND_POINT_COMPUTE;
+						} else if ( pipeline == uf::renderer::settings::pipelines::names::rt ) {
+							descriptor.bind.width = width;
+							descriptor.bind.height = height;
+							descriptor.bind.depth = 1;
+							descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+						} else {
+							UF_MSG_DEBUG("Aux pipeline: {}", pipeline);
+						}
+						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
 					}
 				}
 
-				vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-					vkCmdSetViewport(commands[i], 0, 1, &viewport);
-					vkCmdSetScissor(commands[i], 0, 1, &scissor);
+				vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+					vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+					vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 					for ( ; currentPass < subpasses; ++currentPass ) {
 						size_t currentDraw = 0;
 						for ( auto graphic : graphics ) {
 							if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
 							ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-							graphic->record( commands[i], descriptor, currentPass, currentDraw++ );
+							graphic->record( commandBuffer, descriptor, currentPass, currentDraw++ );
 						}
-						if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commands[i], i );
-						if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commands[i], VK_SUBPASS_CONTENTS_INLINE);
+						if ( commandBufferCallbacks.count( currentPass ) > 0 ) commandBufferCallbacks[currentPass]( commandBuffer, i );
+						if ( currentPass + 1 < subpasses ) vkCmdNextSubpass(commandBuffer, VK_SUBPASS_CONTENTS_INLINE);
 					}
-				vkCmdEndRenderPass(commands[i]);
+				vkCmdEndRenderPass(commandBuffer);
 			}
 			
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
 		}
 
-		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
+		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 	}
 }
 

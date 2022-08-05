@@ -44,6 +44,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
 	this->addHook( "system:Quit.%UID%", [&](ext::json::Value& payload){
+		uf::renderer::settings::experimental::dedicatedThread = false;
 		ext::ready = false;
 	});
 
@@ -355,7 +356,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 #if UF_USE_OPENGL
 	if ( metadata.light.enabled ) {
-		auto& graph = this->getGraph();
+		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
@@ -420,7 +421,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #elif UF_USE_VULKAN
 	{
-		auto& graph = this->getGraph();
+		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 		auto& camera = controller.getComponent<uf::Camera>();
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
@@ -720,7 +721,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/light.max = serializer["light"]["max"].as(/*this->*/light.max);
 	/*this->*/light.ambient = uf::vector::decode( serializer["light"]["ambient"], /*this->*/light.ambient);
 
-	if ( uf::renderer::settings::pipelines::fsr ) serializer["light"]["exposure"] = 1;
+//	if ( uf::renderer::settings::pipelines::fsr ) serializer["light"]["exposure"] = 1;
 	/*this->*/light.exposure = serializer["light"]["exposure"].as(/*this->*/light.exposure);
 	/*this->*/light.gamma = serializer["light"]["gamma"].as(/*this->*/light.gamma);
 	/*this->*/light.useLightmaps = serializer["light"]["useLightmaps"].as(/*this->*/light.useLightmaps);
@@ -816,7 +817,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 	bindBuffers( self, *blitters.front(), shaderType, shaderPipeline );
 }
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
-	auto& graph = this->getGraph();
+	auto/*&*/ graph = this->getGraph();
 	auto& controller = this->getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 	auto& controllerMetadata = controller.getComponent<uf::Serializer>();

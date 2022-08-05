@@ -25,6 +25,7 @@ namespace {
 					image = self->getAttachment(descriptor.name).image;
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 			uf::renderer::Texture::setImageLayout( commandBuffer, image, layout, descriptor.layout, subresourceRange );
 		}
 	}
@@ -54,6 +55,7 @@ namespace {
 					image = self->getAttachment(descriptor.name).image;
 			}
 			if ( image == VK_NULL_HANDLE ) continue;
+			subresourceRange.aspectMask = descriptor.name == "depth" ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 			uf::renderer::Texture::setImageLayout( commandBuffer, image, descriptor.layout, layout, subresourceRange );
 		}
 	}

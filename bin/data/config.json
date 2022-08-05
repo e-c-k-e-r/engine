@@ -100,20 +100,20 @@
 				},
 				"gpu": 1,
 				"experimental": {
-					"batch queue submissions": false,
 					"rebuild on tick begin": false,
-					"dedicated thread": false
+					"batch queue submissions": true,
+					"dedicated thread": true
 				},
 				"invariant": {},
 				"pipelines": {
 					"deferred": true,
-					"vsync": false,
-					"hdr": false,
+					"vsync": true,
+					"hdr": true,
 					"vxgi": true,
-					"culling": true,
+					"culling": false,
 					"bloom": true,
 					"rt": true,
-					"postProcess": false,
+					"postProcess": true,
 					"fsr": true
 				},
 				"formats": {
@@ -221,7 +221,7 @@
 			"fsr": {
 				"enabled": true,
 				"sharpness": 1,
-				"jitter scale": 0.0125,
+				"jitter scale": 0.0625,
 				"preset": "ultra" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"reactphysics": {

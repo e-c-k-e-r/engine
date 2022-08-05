@@ -15,6 +15,7 @@ uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 #define UF_SCENE_GLOBAL_GRAPH 1
 #define UF_TICK_MULTITHREAD_OVERRIDE 0
 #define UF_TICK_FROM_TASKS 1
+#define UF_SCENE_INVALIDATE_IMMEDIATE 1
 
 #if UF_SCENE_GLOBAL_GRAPH
 namespace {
@@ -61,20 +62,27 @@ void uf::Scene::invalidateGraph() {
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
 	metadata.invalidationQueued = true;
+/*
 	metadata.cache.clear();
 	metadata.tasks.serial.clear();
 	metadata.tasks.parallel.clear();
+
+	metadata.graph.clear();
+*/
 }
 const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
 #endif
+#if UF_SCENE_INVALIDATE_IMMEDIATE
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
+		metadata.cache.clear();
 		metadata.graph.clear();
 		metadata.tasks.serial.clear();
 		metadata.tasks.parallel.clear();
 	}
+#endif
 	if ( !metadata.graph.empty() ) return metadata.graph;
 
 	metadata.tasks.serial = uf::thread::schedule(false);
@@ -89,7 +97,7 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 
 	#if UF_TICK_FROM_TASKS
 		auto* self = (uf::Object*) entity;
-		auto& behaviorGraph = entity->getGraph();
+		auto/*&*/ behaviorGraph = entity->getGraph();
 #if 1
 	#if UF_TICK_MULTITHREAD_OVERRIDE
 		for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.parallel.queue([=]{ fun(*self); });
@@ -124,7 +132,7 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 	return metadata.graph;
 }
 uf::stl::vector<uf::Entity*> uf::Scene::getGraph( bool reverse ) {
-	auto graph = this->getGraph();
+	auto/*&*/ graph = this->getGraph();
 	if ( reverse ) std::reverse( graph.begin(), graph.end() );
 	return graph;
 }
@@ -160,7 +168,7 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 void uf::scene::unloadScene() {
 	uf::Scene* current = uf::scene::scenes.back();
 //	current->destroy();
-	auto graph = current->getGraph(true);
+	auto/*&*/ graph = current->getGraph(true);
 	for ( auto entity : graph ) entity->destroy();
 	uf::scene::scenes.pop_back();
 }
@@ -176,11 +184,20 @@ void uf::scene::invalidateGraphs() {
 
 void uf::scene::tick() {
 	if ( scenes.empty() ) return;
+#if !UF_SCENE_INVALIDATE_IMMEDIATE
+	if ( metadata.invalidationQueued ) {
+		metadata.invalidationQueued = false;
+		metadata.graph.clear();
+		metadata.tasks.serial.clear();
+		metadata.tasks.parallel.clear();
+	}
+#endif
+
 	auto& scene = uf::scene::getCurrentScene();
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = scene.getComponent<uf::SceneBehavior::Metadata>();
 #endif
-	auto graph = scene.getGraph(true);
+	auto/*&*/ graph = scene.getGraph(true);
 #if UF_TICK_FROM_TASKS
 	// copy because executing from the tasks erases them all
 	auto tasks = metadata.tasks;
@@ -194,7 +211,8 @@ void uf::scene::tick() {
 }
 void uf::scene::render() {
 	if ( scenes.empty() ) return;
-	auto graph = uf::scene::getCurrentScene().getGraph(true);
+	auto& scene = uf::scene::getCurrentScene();
+	auto/*&*/ graph = scene.getGraph(true);
 	for ( auto entity : graph ) entity->render();
 }
 void uf::scene::destroy() {

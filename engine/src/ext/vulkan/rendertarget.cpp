@@ -64,7 +64,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	if ( attachment->descriptor.mips == 0 ) {
 		attachment->descriptor.mips = 1;
 	} else {
-		attachment->descriptor.mips = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
+		attachment->descriptor.mips = uf::vector::mips( pod::Vector2ui{ width, height } );
 	}
 	attachment->views.resize(this->views * attachment->descriptor.mips);
 

@@ -87,8 +87,8 @@ struct DrawCommand {
 	 int vertexID; // starting vertex position
 
 	uint instanceID; // starting instance position
-	uint auxID; //
-	uint materialID; // material to use for this draw call
+	float padding1; //
+	float padding2; // material to use for this draw call
 	uint vertices; // number of vertices used
 };
 

@@ -38,7 +38,7 @@ void UF_API uf::thread::tick( pod::Thread& thread ) {
 	while ( thread.running ) {
 		std::unique_lock<std::mutex> lock(*thread.mutex);
 		thread.conditions.queued.wait(lock, [&]{
-			return !thread.queue.empty() || !thread.running;
+			return (!thread.container.empty() || !thread.queue.empty()) || !thread.running;
 		});
 
 		uf::thread::process( thread );

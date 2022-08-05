@@ -201,7 +201,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 
 			metadata.extents.matrix = uf::matrix::orthographic( min.x, max.x, min.y, max.y, min.z, max.z );
 
-			auto& graph = scene.getGraph();
+			auto/*&*/ graph = scene.getGraph();
 			for ( auto entity : graph ) {
 				if ( !entity->hasComponent<uf::Graphic>() ) continue;
 				auto& graphic = entity->getComponent<uf::Graphic>();

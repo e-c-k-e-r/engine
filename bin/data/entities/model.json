@@ -46,9 +46,9 @@
 				"output": "./lightmap.%i.png",
 				"settings": {
 					"useInputMeshUvs": true,
-					"maxIterations": 1,
+					"maxIterations": 4,
 				//	"maxChartSize": 0,
-					"padding": 4,
+					"padding": 2,
 				//	"texelsPerUnit": 0,
 					"bilinear": true,
 					"blockAlign": true,

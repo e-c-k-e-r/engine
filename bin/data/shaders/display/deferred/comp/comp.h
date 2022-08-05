@@ -15,6 +15,8 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 #define PBR 1
 #define BUFFER_REFERENCE 1
 #define UINT64_ENABLED 1
+#define FOG 1
+#define FOG_RAY_MARCH 1
 
 #include "../../../common/macros.h"
 
@@ -222,12 +224,6 @@ void populateSurface() {
 }
 
 void directLighting() {
-	#if RT && COMPUTE && !VXGI
-	{
-
-	}
-	#endif
-
 	surface.light.rgb += surface.material.albedo.rgb * ubo.settings.lighting.ambient.rgb * surface.material.occlusion; // add ambient lighting
 	surface.light.rgb += surface.material.indirect.rgb; // add indirect lighting
 #if PBR

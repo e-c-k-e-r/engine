@@ -163,6 +163,8 @@ namespace uf {
 		
 		template<typename T, size_t N> pod::Vector<T,N>& decode( const ext::json::Value& v, pod::Vector<T,N>& ); 							// 	Parses a JSON value into a vector
 		template<typename T, size_t N> pod::Vector<T,N> decode( const ext::json::Value& v, const pod::Vector<T,N>& = {} ); 				// 	Parses a JSON value into a vector
+		
+		template<typename T> typename T::type_t /*UF_API*/ mips( const T& size ); 							// 	Calculate amount of mips to use given a size
 	}
 }
 

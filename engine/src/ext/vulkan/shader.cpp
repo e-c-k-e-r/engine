@@ -728,7 +728,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 
 				size_t size = 4;
 				uint8_t buffer[size];
-				memset( &buffer[0], size, 0 );
+				memset( &buffer[0], 0, size );
 				
 				auto& definition = metadata.definitions.specializationConstants[name];
 				definition.name = name;
@@ -936,6 +936,26 @@ bool ext::vulkan::Shader::updateStorage( const uf::stl::string& name, const void
 	updateBuffer( data, size, getStorageBuffer(name) );
 	return true;
 }
+
+void ext::vulkan::Shader::setSpecializationConstants( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values ) {
+	uint32_t* specializationConstants = (uint32_t*) (void*) this->specializationConstants;
+	for ( auto pair : this->metadata.definitions.specializationConstants ) {
+		auto& sc = pair.second;
+		if ( values.count(sc.name) == 0 ) continue;
+		sc.value.ui = (specializationConstants[sc.index] = values.at(sc.name));
+	}
+}
+void ext::vulkan::Shader::setDescriptorCounts( const uf::stl::unordered_map<uf::stl::string, uint32_t>& values ) {
+	for ( auto pair : this->metadata.definitions.textures ) {
+		auto& tx = pair.second;
+		if ( values.count(tx.name) == 0 ) continue;
+		for ( auto& layout : this->descriptorSetLayoutBindings ) {
+			if ( layout.binding != tx.binding ) continue;
+			layout.descriptorCount = values.at(tx.name);
+		}
+	}
+}
+
 // JSON shit
 #if 0 && UF_SHADER_PARSE_AS_JSON
 uf::Serializer ext::vulkan::Shader::getUniformJson( const uf::stl::string& name, bool cache ) {

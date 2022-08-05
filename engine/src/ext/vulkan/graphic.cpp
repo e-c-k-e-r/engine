@@ -458,10 +458,16 @@ void ext::vulkan::Pipeline::record( const Graphic& graphic, const GraphicDescrip
 		for ( auto* shader : shaders ) {
 			if ( shader->descriptor.stage != VK_SHADER_STAGE_COMPUTE_BIT ) continue;
 			auto& localSize = shader->metadata.definitions.localSize;
+			auto dispatch = pod::Vector3ui{
+				std::ceil( (float) width / localSize.x ),
+				std::ceil( (float) height / localSize.y ),
+				std::ceil( (float) depth / localSize.z ),
+			};
+
 			vkCmdDispatch(commandBuffer,
-				1 < localSize.x ? ((width  / localSize.x) + 1) : 1,
-				1 < localSize.y ? ((height / localSize.y) + 1) : 1,
-				1 < localSize.z ? ((depth  / localSize.z) + 1) : 1
+				dispatch.x,
+				dispatch.y,
+				dispatch.z
 			);
 		}
 	}
@@ -480,6 +486,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 
 	auto shaders = getShaders( graphic.material.shaders );
 	uf::stl::vector<VkWriteDescriptorSet> writeDescriptorSets;
+	uf::stl::vector<uf::renderer::AccelerationStructure> tlases;
 
 	struct Infos {
 		uf::stl::vector<VkDescriptorBufferInfo> uniform;
@@ -646,14 +653,25 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		}
 
 		if ( !graphic.accelerationStructures.tops.empty() )  {
-			infos.accelerationStructure.emplace_back(graphic.accelerationStructures.tops[0].buffer.descriptor);
+			auto tlas = graphic.accelerationStructures.tops.front();
+			if ( tlas.handle != VK_NULL_HANDLE ) tlases.emplace_back(tlas);
 		}
 
-		for ( auto& info : infos.accelerationStructure ) {
+		if ( infos.accelerationStructure.empty() ) {
+			uf::stl::string renderModeName = uf::renderer::hasRenderMode("Compute:RT", true) ? "Compute:RT" : "";
+			auto& blitter = *(uf::renderer::getRenderMode(renderModeName, true).getBlitter());
+			if ( !blitter.accelerationStructures.tops.empty() ) {
+				tlases.emplace_back(blitter.accelerationStructures.tops.front());
+			}
+		}
+
+		for ( auto& tlas : tlases ) {
+			infos.accelerationStructure.emplace_back(tlas.buffer.descriptor);
+
 			auto& descriptorAccelerationStructureInfo = infos.accelerationStructureInfos.emplace_back();
 			descriptorAccelerationStructureInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
 			descriptorAccelerationStructureInfo.accelerationStructureCount = 1;
-			descriptorAccelerationStructureInfo.pAccelerationStructures = &graphic.accelerationStructures.tops[infos.accelerationStructureInfos.size()-1].handle;
+			descriptorAccelerationStructureInfo.pAccelerationStructures = &tlas.handle;
 		}
 		
 		auto uniformBufferInfo = infos.uniform.begin();
@@ -1958,11 +1976,13 @@ void ext::vulkan::Graphic::record( VkCommandBuffer commandBuffer, const GraphicD
 void ext::vulkan::Graphic::destroy() {
 	if ( device ) {
 		for ( auto& as : accelerationStructures.bottoms ) {
+			if ( as.aliased ) continue;
 			uf::renderer::vkDestroyAccelerationStructureKHR(*device, as.handle, nullptr);
 		}
 		accelerationStructures.bottoms.clear();
 		
 		for ( auto& as : accelerationStructures.tops ) {
+			if ( as.aliased ) continue;
 			uf::renderer::vkDestroyAccelerationStructureKHR(*device, as.handle, nullptr);
 		}
 		accelerationStructures.tops.clear();
@@ -1996,69 +2016,8 @@ void ext::vulkan::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 }
 ext::vulkan::GraphicDescriptor::hash_t ext::vulkan::GraphicDescriptor::hash() const {
 	size_t seed{};
-#if 0
-	for ( auto i = 0; i < inputs.vertex.attributes.size(); ++i ) {
-		uf::hash( inputs.vertex.attributes[i].descriptor.format );
-		uf::hash( inputs.vertex.attributes[i].descriptor.offset );
-	}
-	for ( auto i = 0; i < inputs.index.attributes.size(); ++i ) {
-		uf::hash( inputs.index.attributes[i].descriptor.format );
-		uf::hash( inputs.index.attributes[i].descriptor.offset );
-	}
-	for ( auto i = 0; i < inputs.instance.attributes.size(); ++i ) {
-		uf::hash( inputs.instance.attributes[i].descriptor.format );
-		uf::hash( inputs.instance.attributes[i].descriptor.offset );
-	}
-	for ( auto i = 0; i < inputs.indirect.attributes.size(); ++i ) {
-		uf::hash( inputs.indirect.attributes[i].descriptor.format );
-		uf::hash( inputs.indirect.attributes[i].descriptor.offset );
-	}
-#endif
-	uf::hash( seed, subpass, renderMode, renderTarget, pipeline, topology, cullMode, fill, lineWidth, frontFace, depth.test, depth.write, depth.operation, depth.bias.enable, depth.bias.constant, depth.bias.slope, depth.bias.clamp );
+	uf::hash( seed, aux, subpass, renderMode, renderTarget, pipeline, topology, cullMode, fill, lineWidth, frontFace, depth.test, depth.write, depth.operation, depth.bias.enable, depth.bias.constant, depth.bias.slope, depth.bias.clamp );
 	return seed;
-#if 0
-
-	hash += std::hash<decltype(subpass)>{}(subpass);
-	if ( settings::invariant::individualPipelines )
-		hash += std::hash<decltype(renderMode)>{}(renderMode);
-	
-	hash += std::hash<decltype(renderTarget)>{}(renderTarget);
-	hash += std::hash<decltype(pipeline)>{}(pipeline);
-
-	for ( auto i = 0; i < inputs.vertex.attributes.size(); ++i ) {
-		hash += std::hash<decltype(inputs.vertex.attributes[i].descriptor.format)>{}(inputs.vertex.attributes[i].descriptor.format);
-		hash += std::hash<decltype(inputs.vertex.attributes[i].descriptor.offset)>{}(inputs.vertex.attributes[i].descriptor.offset);
-	}
-	for ( auto i = 0; i < inputs.index.attributes.size(); ++i ) {
-		hash += std::hash<decltype(inputs.index.attributes[i].descriptor.format)>{}(inputs.index.attributes[i].descriptor.format);
-		hash += std::hash<decltype(inputs.index.attributes[i].descriptor.offset)>{}(inputs.index.attributes[i].descriptor.offset);
-	}
-	for ( auto i = 0; i < inputs.instance.attributes.size(); ++i ) {
-		hash += std::hash<decltype(inputs.instance.attributes[i].descriptor.format)>{}(inputs.instance.attributes[i].descriptor.format);
-		hash += std::hash<decltype(inputs.instance.attributes[i].descriptor.offset)>{}(inputs.instance.attributes[i].descriptor.offset);
-	}
-/*
-	for ( auto i = 0; i < inputs.indirect.attributes.size(); ++i ) {
-		hash += std::hash<decltype(inputs.indirect.attributes[i].descriptor.format)>{}(inputs.indirect.attributes[i].descriptor.format);
-		hash += std::hash<decltype(inputs.indirect.attributes[i].descriptor.offset)>{}(inputs.indirect.attributes[i].descriptor.offset);
-	}
-*/
-
-	hash += std::hash<decltype(topology)>{}(topology);
-	hash += std::hash<decltype(cullMode)>{}(cullMode);
-	hash += std::hash<decltype(fill)>{}(fill);
-	hash += std::hash<decltype(lineWidth)>{}(lineWidth);
-	hash += std::hash<decltype(frontFace)>{}(frontFace);
-	hash += std::hash<decltype(depth.test)>{}(depth.test);
-	hash += std::hash<decltype(depth.write)>{}(depth.write);
-	hash += std::hash<decltype(depth.operation)>{}(depth.operation);
-	hash += std::hash<decltype(depth.bias.enable)>{}(depth.bias.enable);
-	hash += std::hash<decltype(depth.bias.constant)>{}(depth.bias.constant);
-	hash += std::hash<decltype(depth.bias.slope)>{}(depth.bias.slope);
-	hash += std::hash<decltype(depth.bias.clamp)>{}(depth.bias.clamp);
-
-	return hash;
-#endif
 }
 
 #endif

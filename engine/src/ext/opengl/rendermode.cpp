@@ -59,7 +59,7 @@ void ext::opengl::RenderMode::createCommandBuffers() {
 
 	uf::stl::vector<ext::opengl::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
-	auto& graph = scene.getGraph();
+	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();
@@ -89,7 +89,7 @@ void ext::opengl::RenderMode::bindPipelines() {
 
 	uf::stl::vector<ext::opengl::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene(); 
-	auto& graph = scene.getGraph();
+	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		ext::opengl::Graphic& graphic = entity->getComponent<uf::Graphic>();

@@ -19,10 +19,10 @@ namespace ext {
 				} filter;
 				struct {
 					VkSamplerAddressMode u = VK_SAMPLER_ADDRESS_MODE_REPEAT, v = VK_SAMPLER_ADDRESS_MODE_REPEAT, w = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-					VkBool32 unnormalizedCoordinates = VK_FALSE;
+					bool unnormalizedCoordinates = VK_FALSE;
 				} addressMode;
 				struct {
-					VkBool32 compareEnable = VK_FALSE;
+					bool compareEnable = VK_FALSE;
 					VkCompareOp compareOp = VK_COMPARE_OP_ALWAYS;
 					VkSamplerMipmapMode mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 					float lodBias = 0.0f;
@@ -30,9 +30,13 @@ namespace ext {
 					float max = 0.0f;
 				} mip;
 				struct {
-					VkBool32 enabled = VK_TRUE;
+					bool enabled = VK_TRUE;
 					float max = 16.0f;
 				} anisotropy;
+				struct {
+					bool enabled = false;
+					VkSamplerReductionMode mode = {};
+				} reduction;
 				VkDescriptorImageInfo info;
 			} descriptor = {};
 

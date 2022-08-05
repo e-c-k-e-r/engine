@@ -93,7 +93,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
 	uf::stl::vector<uf::Graphic*> graphics;
 	auto& scene = uf::scene::getCurrentScene();
-	auto& graph = scene.getGraph();
+	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
 		if ( !entity->hasComponent<uf::Graphic>() ) continue;
 		auto& graphic = entity->getComponent<uf::Graphic>();
@@ -182,6 +182,21 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
 
+				shader.setSpecializationConstants({
+					{ "TEXTURES", maxTextures2D },
+					{ "CUBEMAPS", maxTexturesCube },
+					{ "CASCADES", maxCascades },
+				});
+				shader.setDescriptorCounts({
+					{ "samplerTextures", maxTextures2D },
+					{ "samplerCubemaps", maxTexturesCube },
+					{ "voxelId", maxCascades },
+					{ "voxelUv", maxCascades },
+					{ "voxelNormal", maxCascades },
+					{ "voxelRadiance", maxCascades },
+				});
+
+			/*
 				uint32_t* specializationConstants = (uint32_t*) (void*) shader.specializationConstants;
 				for ( auto pair : shader.metadata.definitions.specializationConstants ) {
 					auto& sc = pair.second;
@@ -201,7 +216,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 						else if ( tx.name == "voxelRadiance" ) layout.descriptorCount = maxCascades;
 					}
 				}
-
+			*/
 			}
 		}
 	}

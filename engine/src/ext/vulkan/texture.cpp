@@ -112,6 +112,14 @@ void ext::vulkan::Sampler::initialize( Device& device ) {
 
 		samplerCreateInfo.anisotropyEnable = descriptor.anisotropy.enabled;
 		samplerCreateInfo.maxAnisotropy = descriptor.anisotropy.max;
+
+		VkSamplerReductionModeCreateInfoEXT createInfoReduction{};
+		if ( descriptor.reduction.enabled ) {
+			createInfoReduction.sType = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+			createInfoReduction.reductionMode = descriptor.reduction.mode;
+			samplerCreateInfo.pNext = &createInfoReduction;
+		}
+
 		VK_CHECK_RESULT(vkCreateSampler(device.logicalDevice, &samplerCreateInfo, nullptr, &sampler));
 	}
 	{
@@ -493,7 +501,7 @@ void ext::vulkan::Texture::fromBuffers(
 //	} else if ( this->depth == 1 ) {
 	} else {
 	//	this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
-		this->mips = static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(texWidth, texHeight),texDepth)))) + 1;
+		this->mips = uf::vector::mips( pod::Vector3ui{ texWidth, texHeight, texDepth } );
 		VkFormatProperties formatProperties;
 		vkGetPhysicalDeviceFormatProperties(device.physicalDevice, format, &formatProperties);
 		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
@@ -834,6 +842,15 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 	}
 
 	bool isDepth = formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	switch ( format ) {
+		case ext::vulkan::enums::Format::D16_UNORM:
+		case ext::vulkan::enums::Format::D32_SFLOAT:
+		case ext::vulkan::enums::Format::D16_UNORM_S8_UINT:
+		case ext::vulkan::enums::Format::D24_UNORM_S8_UINT:
+		case ext::vulkan::enums::Format::D32_SFLOAT_S8_UINT:
+			isDepth = true;
+		break;
+	}
 	auto aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	auto filter = isDepth ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
 

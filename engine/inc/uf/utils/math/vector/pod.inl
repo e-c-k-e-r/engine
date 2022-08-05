@@ -463,13 +463,12 @@ T /*UF_API*/ uf::vector::cross( const T& a, const T& b ) {
 }
 template<typename T> 														// Normalizes a vector
 uf::stl::string /*UF_API*/ uf::vector::toString( const T& v ) {
-	uint_fast8_t size = T::size;
 	uf::stl::stringstream ss;
 	ss << "Vector(";
 	#pragma unroll // GCC unroll T::size
-	for ( auto i = 0; i < size; ++i ) {
+	for ( auto i = 0; i < T::size; ++i ) {
 		ss << v[i];
-		if ( i + 1 < size ) ss << ", ";
+		if ( i + 1 < T::size ) ss << ", ";
 	}
 	ss << ")";
 	return ss.str();
@@ -521,6 +520,15 @@ pod::Vector<T,N> /*UF_API*/ uf::vector::decode( const ext::json::Value& json, co
 	}
 	return v;
 }
+
+template<typename T>
+typename T::type_t /*UF_API*/ uf::vector::mips( const T& size ) {
+	typename T::type_t max = 0;
+	#pragma unroll // GCC unroll T::size
+	for ( auto i = 0; i < T::size; ++i ) max = std::max(max, size[i]);
+	return static_cast<uint32_t>(std::floor(std::log2(max))) + 1;
+}
+
 #if !__clang__ && __GNUC__
 	#pragma GCC pop_options
 #endif

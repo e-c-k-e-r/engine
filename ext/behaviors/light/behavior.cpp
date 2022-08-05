@@ -32,10 +32,10 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 	auto& camera = this->getComponent<uf::Camera>();
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
-	auto& sceneMetadata = scene.getComponent<uf::Serializer>();
+	auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
 
-	if ( !sceneMetadata["system"]["lights"]["round robin hook bound"].as<bool>() ) {
-		sceneMetadata["system"]["lights"]["round robin hook bound"] = true;
+	if ( !sceneMetadataJson["system"]["lights"]["round robin hook bound"].as<bool>() ) {
+		sceneMetadataJson["system"]["lights"]["round robin hook bound"] = true;
 		scene.addHook("game:Frame.Start", [&]( ext::json::Value& payload ){
 			if ( ++::roundRobin.current >= ::roundRobin.lights.size() ) ::roundRobin.current = 0;
 		});
@@ -56,8 +56,9 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadata["light"]["shadows"]["enabled"].as<bool>(true) )
+	if ( !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadows"]["enabled"].as<bool>(true) ) {
 		metadataJson["light"]["shadows"] = false;
+	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {
 		auto& cameraTransform = camera.getTransform();
 		cameraTransform.reference = &transform;
