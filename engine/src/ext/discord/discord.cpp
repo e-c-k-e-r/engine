@@ -55,7 +55,7 @@ namespace {
 	DiscordState state{};
 }
 
-void UF_API ext::discord::initialize(){
+void ext::discord::initialize(){
 
 	::discord::Core* core{};
 	auto result = ::discord::Core::Create(600081027943366656, DiscordCreateFlags_Default, &core);
@@ -297,7 +297,7 @@ void UF_API ext::discord::initialize(){
 */
 }
 
-void UF_API ext::discord::tick() {
+void ext::discord::tick() {
 	state.core->RunCallbacks();
 }
 
@@ -391,7 +391,7 @@ namespace {
 	struct Application app;
 }
 
-void UF_API ext::::discord::initialize() {
+void ext::::discord::initialize() {
 	memset(&app, 0, sizeof(app));
 
 	struct IDiscordUserEvents users_events;
@@ -432,13 +432,13 @@ void UF_API ext::::discord::initialize() {
 	app.relationships = app.core->get_relationship_manager(app.core);
 }
 
-void UF_API ext::::discord::tick() {
+void ext::::discord::tick() {
 	DISCORD_REQUIRE(app.core->run_callbacks(app.core));
 }
 */
 #else
-void UF_API ext::discord::initialize(){
+void ext::discord::initialize(){
 }
-void UF_API ext::discord::tick(){
+void ext::discord::tick(){
 }
 #endif

@@ -9,16 +9,16 @@
 #include <regex>
 
 /*
-bool UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
+bool uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 	std::regex regex(r);
 	std::smatch match;
 	return std::regex_search( str, match, regex );
 }
 */
-bool UF_API uf::string::isRegex( const uf::stl::string& str ) {
+bool uf::string::isRegex( const uf::stl::string& str ) {
 	return str.front() == '/' && str.back() == '/';
 }
-uf::stl::vector<uf::stl::string> UF_API uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
+uf::stl::vector<uf::stl::string> uf::string::match( const uf::stl::string& str, const uf::stl::string& r ) {
 	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
 	std::smatch match;
 	uf::stl::vector<uf::stl::string> matches;
@@ -30,23 +30,23 @@ uf::stl::vector<uf::stl::string> UF_API uf::string::match( const uf::stl::string
 	
 	return matches;
 }
-bool UF_API uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
+bool uf::string::matched( const uf::stl::string& str, const uf::stl::string& r ) {
 	std::regex regex(uf::string::isRegex(r) ? r.substr(1,r.length()-2) : r);
 	std::smatch match;
 	return std::regex_search( str, match, regex );
 }
 
-uf::stl::string UF_API uf::string::lowercase( const uf::stl::string& str ) {
+uf::stl::string uf::string::lowercase( const uf::stl::string& str ) {
 	uf::stl::string lower = str;
 	std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 	return lower;
 }
-uf::stl::string UF_API uf::string::uppercase( const uf::stl::string& str ) {
+uf::stl::string uf::string::uppercase( const uf::stl::string& str ) {
 	uf::stl::string upper = str;
 	std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
 	return upper;
 }
-uf::stl::vector<uf::stl::string> UF_API uf::string::split( const uf::stl::string& str, const uf::stl::string& delim ) {
+uf::stl::vector<uf::stl::string> uf::string::split( const uf::stl::string& str, const uf::stl::string& delim ) {
 	uf::stl::vector<uf::stl::string> tokens;
 	size_t prev = 0, pos = 0;
 	do {
@@ -70,7 +70,7 @@ uf::stl::vector<uf::stl::string> UF_API uf::string::split( const uf::stl::string
 */
 }
 /*
-uf::stl::string UF_API uf::string::join( const uf::stl::vector<uf::stl::string>& strings, const uf::stl::string& delim, bool trailing ) {
+uf::stl::string uf::string::join( const uf::stl::vector<uf::stl::string>& strings, const uf::stl::string& delim, bool trailing ) {
 	uf::stl::stringstream ss;
 	size_t len = strings.size();
 	for ( size_t i = 0; i < len; ++i ) {
@@ -80,7 +80,7 @@ uf::stl::string UF_API uf::string::join( const uf::stl::vector<uf::stl::string>&
 	return ss.str();
 }
 */
-uf::stl::vector<const char*> UF_API uf::string::cStrings( const uf::stl::vector<uf::stl::string>& strings ) {
+uf::stl::vector<const char*> uf::string::cStrings( const uf::stl::vector<uf::stl::string>& strings ) {
 	uf::stl::vector<const char*> v;
 	v.reserve( strings.size() );
 
@@ -91,7 +91,7 @@ uf::stl::vector<const char*> UF_API uf::string::cStrings( const uf::stl::vector<
 	return v;
 }
 
-uf::stl::string UF_API uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
+uf::stl::string uf::string::replace( const uf::stl::string& string, const uf::stl::string& search, const uf::stl::string& replace ) {
 	uf::stl::string result = string;
 
 	if ( uf::string::isRegex(search) ) {
@@ -104,10 +104,10 @@ uf::stl::string UF_API uf::string::replace( const uf::stl::string& string, const
 	}
 	return result;
 }
-bool UF_API uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {
+bool uf::string::contains( const uf::stl::string& string, const uf::stl::string& search ) {
 	return string.find(search) != uf::stl::string::npos;
 }
-uf::stl::string UF_API uf::string::si( double value, const uf::stl::string& unit, size_t precision ) {
+uf::stl::string uf::string::si( double value, const uf::stl::string& unit, size_t precision ) {
 	int power = floor(std::log10( value ));
 	double base = value / std::pow( 10, power );
 

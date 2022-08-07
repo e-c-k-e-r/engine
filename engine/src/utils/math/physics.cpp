@@ -10,10 +10,12 @@ float uf::physics::time::clamp = 0;
 */
 
 
-void UF_API uf::physics::initialize() {
+void uf::physics::initialize() {
 	uf::physics::impl::initialize();
 }
-void UF_API uf::physics::tick() {
+void uf::physics::tick() {
+	++uf::physics::time::frame;
+	
 	uf::physics::time::previous = uf::physics::time::current;
 	uf::physics::time::current = uf::physics::time::timer.elapsed();
 	
@@ -23,6 +25,6 @@ void UF_API uf::physics::tick() {
 	}
 	uf::physics::impl::tick();
 }
-void UF_API uf::physics::terminate() {
+void uf::physics::terminate() {
 	uf::physics::impl::terminate();
 }

@@ -64,8 +64,10 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
 		if ( payload.monoThreaded ) {
+		//	UF_MSG_DEBUG("Queued: {}", payload.filename);
 			if ( assetLoader.load( payload ) != "" ) this->queueHook( callback, payload );
 		} else {
+		//	UF_MSG_DEBUG("Immediate: {}", payload.filename);
 			assetLoader.load( callback, payload );
 		}
 	});
@@ -97,8 +99,6 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		}
 	});
 
-	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
-
 	if ( ext::json::isObject(metadataJson["physics"]) ) {
 		auto& collider = this->getComponent<pod::PhysicsState>();
 		collider.stats.flags = metadataJson["physics"]["flags"].as(collider.stats.flags);
@@ -122,6 +122,8 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			uf::physics::impl::create( *this, radius, height );
 		}
 	}
+
+	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 }
 void uf::ObjectBehavior::destroy( uf::Object& self ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
@@ -217,27 +219,25 @@ void uf::ObjectBehavior::tick( uf::Object& self ) {
 	}
 
 	auto& queue = metadata.hooks.queue;
+//	if ( !queue.empty() )
+	{
+		decltype(metadata.hooks.queue) unprocessed;
+		unprocessed.reserve( metadata.hooks.queue.size() );
 
-//	if ( !uf::Object::timer.running() ) uf::Object::timer.start();
-//	double curTime = uf::Object::timer.elapsed().asDouble();
-	auto curTime = uf::time::current;
+		decltype(metadata.hooks.queue) executeQueue;
+		executeQueue.reserve( metadata.hooks.queue.size() );
 
-	decltype(metadata.hooks.queue) unprocessed;
-	unprocessed.reserve( metadata.hooks.queue.size() );
-
-	decltype(metadata.hooks.queue) executeQueue;
-	executeQueue.reserve( metadata.hooks.queue.size() );
-
-	for ( auto& q : queue ) {
-		if ( q.timeout < curTime ) executeQueue.emplace_back(q);
-		else unprocessed.emplace_back(q);
+		for ( auto& q : queue ) {
+			if ( q.timeout < uf::time::current ) executeQueue.emplace_back(q);
+			else unprocessed.emplace_back(q);
+		}
+		for ( auto& q : executeQueue ) {
+			if ( q.type == 1 ) this->callHook( q.name, q.userdata );
+			else if ( q.type == -1 ) this->callHook( q.name, q.json );
+			else this->callHook( q.name );
+		}
+		queue = std::move(unprocessed);
 	}
-	for ( auto& q : executeQueue ) {
-		if ( q.type == 1 ) this->callHook( q.name, q.userdata );
-		else if ( q.type == -1 ) this->callHook( q.name, q.json );
-		else this->callHook( q.name );
-	}
-	queue = std::move(unprocessed);
 
 #if UF_ENTITY_METADATA_USE_JSON
 	metadata.serialize(self, metadataJson);

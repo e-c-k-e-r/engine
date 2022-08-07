@@ -6,7 +6,7 @@
 // compile-time assert to ensure objects are of same size, if using multiple types of objects
 
 // takes a vector of primitives and groups them under leaves (end point of a tree)
-uf::stl::vector<pod::Tree> UF_API uf::primitive::populate( const uf::stl::vector<pod::Primitive>& cubes ) { // assert(cubes.size() > 0);
+uf::stl::vector<pod::Tree> uf::primitive::populate( const uf::stl::vector<pod::Primitive>& cubes ) { // assert(cubes.size() > 0);
 	uf::stl::vector<pod::Tree> trees;
 	uf::stl::vector<const pod::Primitive*> copy;
 	uf::stl::vector<const pod::Primitive*> alloced;
@@ -79,7 +79,7 @@ uf::stl::vector<pod::Tree> UF_API uf::primitive::populate( const uf::stl::vector
 }
 
 // takes a list of leaves (ends of trees) and properly populate an entire tree
-uf::stl::vector<pod::Tree> UF_API uf::primitive::populateEntirely( const uf::stl::vector<pod::Tree>& trees, bool rooted ) { // assert(trees.size() > 0);
+uf::stl::vector<pod::Tree> uf::primitive::populateEntirely( const uf::stl::vector<pod::Tree>& trees, bool rooted ) { // assert(trees.size() > 0);
 	// generate first layer
 	uf::stl::vector<pod::Tree> tree = trees;
 	uf::stl::vector<uint32_t> referred;

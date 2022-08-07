@@ -5,13 +5,13 @@
 #include <iostream> 						
 
 // Constructs a pod::PointeredUserdata struct
-pod::PointeredUserdata UF_API uf::pointeredUserdata::create( size_t len, void* data ) {
+pod::PointeredUserdata uf::pointeredUserdata::create( size_t len, void* data ) {
 	return uf::pointeredUserdata::create( uf::userdata::memoryPool, len, data );
 }
-void UF_API uf::pointeredUserdata::destroy( pod::PointeredUserdata& userdata ) {
+void uf::pointeredUserdata::destroy( pod::PointeredUserdata& userdata ) {
 	return uf::pointeredUserdata::destroy( uf::userdata::memoryPool, userdata );
 }
-pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( const pod::PointeredUserdata& userdata ) {
+pod::PointeredUserdata uf::pointeredUserdata::copy( const pod::PointeredUserdata& userdata ) {
 	return uf::pointeredUserdata::copy( uf::userdata::memoryPool, userdata );
 }
 
@@ -20,7 +20,7 @@ size_t uf::pointeredUserdata::size( size_t len, size_t padding ) {
 }
 
 //
-pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
+pod::PointeredUserdata uf::pointeredUserdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
 	if ( len <= 0 ) return {};
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
@@ -43,7 +43,7 @@ pod::PointeredUserdata UF_API uf::pointeredUserdata::create( uf::MemoryPool& req
 	userdata.type = UF_USERDATA_CTTI(void);
 	return userdata;
 }
-void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::PointeredUserdata& userdata ) {
+void uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::PointeredUserdata& userdata ) {
 	if ( !userdata.data ) return;
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
@@ -59,17 +59,17 @@ void UF_API uf::pointeredUserdata::destroy( uf::MemoryPool& requestedMemoryPool,
 	userdata.len = 0;
 	userdata.data = NULL;
 }
-pod::PointeredUserdata UF_API uf::pointeredUserdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::PointeredUserdata& userdata ) {
+pod::PointeredUserdata uf::pointeredUserdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::PointeredUserdata& userdata ) {
 	if ( !userdata.data || userdata.len <= 0 ) return {};
 	pod::PointeredUserdata copied = uf::pointeredUserdata::create( userdata.len, const_cast<void*>(userdata.data) );
 	copied.type = userdata.type;
 	return copied;
 }
 
-uf::stl::string UF_API uf::pointeredUserdata::toBase64( pod::PointeredUserdata& userdata ) {
+uf::stl::string uf::pointeredUserdata::toBase64( pod::PointeredUserdata& userdata ) {
 	return uf::base64::encode( static_cast<uint8_t*>(userdata.data), userdata.len );
 }
-pod::PointeredUserdata UF_API uf::pointeredUserdata::fromBase64( const uf::stl::string& base64 ) {
+pod::PointeredUserdata uf::pointeredUserdata::fromBase64( const uf::stl::string& base64 ) {
 	uf::stl::vector<uint8_t> decoded = uf::base64::decode( base64 );
 	return uf::pointeredUserdata::create( decoded.size(), decoded.data() );
 }

@@ -269,9 +269,6 @@ void uf::Image::copy( const uf::Image& copy ) {
 	this->m_format = copy.m_format;
 }
 // 	D-tor
-uf::Image::~Image() {
-	this->clear();
-}
 // empties pixel container
 void uf::Image::clear() {
 	this->m_pixels.clear();
@@ -319,12 +316,12 @@ uf::stl::string uf::Image::getHash() const {
 }
 uf::Image::pixel_t uf::Image::at( const uf::Image::vec2_t& at ) {
 	std::size_t i = at.x * this->m_channels + this->m_dimensions.x*this->m_channels*at.y;
-	uf::Image::pixel_t pixel;
-	pixel.r = this->m_pixels[i++];
-	pixel.g = this->m_pixels[i++];
-	pixel.b = this->m_pixels[i++];
-	pixel.a = this->m_pixels[i++];
-	return pixel;
+	return {
+		this->m_pixels[i++],
+		this->m_pixels[i++],
+		this->m_pixels[i++],
+		this->m_pixels[i++],
+	};
 }
 // 	Modifiers
 // to file

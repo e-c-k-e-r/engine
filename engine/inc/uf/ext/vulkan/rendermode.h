@@ -5,6 +5,7 @@
 #include <uf/ext/vulkan/device.h>
 #include <uf/ext/vulkan/buffer.h>
 #include <uf/ext/vulkan/texture.h>
+#include <uf/ext/vulkan/graphic.h>
 
 namespace ext {
 	namespace vulkan {
@@ -20,6 +21,8 @@ namespace ext {
 			uint32_t height = 0;
 			float scale = 0;
 
+			ext::vulkan::Graphic blitter;
+
 			struct {			
 				uf::Serializer json;
 
@@ -28,8 +31,10 @@ namespace ext {
 				uf::stl::string target = "";
 				uf::stl::string pipeline = "";
 				uf::stl::vector<uf::stl::string> pipelines;
-				uf::stl::vector<uint8_t> outputs;
+			//	uf::stl::vector<uint8_t> outputs;
+				
 				uf::stl::unordered_map<uf::stl::string, uint8_t> attachments;
+				uf::stl::unordered_map<uf::stl::string, uint8_t> buffers;
 
 				struct {
 					float frequency = 0.0f;
@@ -75,23 +80,25 @@ namespace ext {
 			
 			void cleanupAllCommands();
 			void cleanupCommands( std::thread::id = std::this_thread::get_id() );
+			
+			ext::vulkan::Graphic& getBlitter();
+			RenderTarget& getRenderTarget();
+
+			bool hasAttachment( const uf::stl::string& ) const;
+			const RenderTarget::Attachment& getAttachment( const uf::stl::string& ) const;
+			size_t getAttachmentIndex( const uf::stl::string& ) const;
+
+			bool hasBuffer( const uf::stl::string& ) const;
+			const Buffer& getBuffer( const uf::stl::string& ) const;
+			size_t getBufferIndex( const uf::stl::string& ) const;
+
+			const uf::stl::string getTarget() const;
+			void setTarget( const uf::stl::string& );
 
 			virtual ~RenderMode();
 			// RAII
 			virtual const uf::stl::string getName() const;
 			virtual const uf::stl::string getType() const;
-			virtual RenderTarget& getRenderTarget(size_t = 0);
-			virtual const RenderTarget& getRenderTarget(size_t = 0) const;
-
-			virtual bool hasAttachment( const uf::stl::string& ) const;
-			virtual const RenderTarget::Attachment& getAttachment( const uf::stl::string& ) const;
-			virtual size_t getAttachmentIndex( const uf::stl::string& ) const;
-
-			virtual const size_t blitters() const;
-			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
-			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
-			
-
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			
 			virtual void initialize( Device& device );

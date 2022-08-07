@@ -2,7 +2,7 @@
 
 #ifdef UF_ENV_UNKNOWN
 /*
-spec::uni::Time::time_t UF_API_CALL spec::Time::getTime() {
+spec::uni::Time::time_t spec::Time::getTime() {
 	return spec::uni::Time::getTime();
 }
 */

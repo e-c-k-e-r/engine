@@ -103,7 +103,7 @@ namespace {
 	}
 }
 
-pod::Graph& UF_API uf::graph::convert( uf::Object& object, bool process ) {
+pod::Graph& uf::graph::convert( uf::Object& object, bool process ) {
 	auto& graph = object.getComponent<pod::Graph>();
 
 	graph.name = object.getName();

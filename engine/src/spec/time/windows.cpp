@@ -11,7 +11,7 @@ namespace {
 }
 
 
-spec::uni::Time::time_t UF_API_CALL spec::win32::Time::getTime() {
+spec::uni::Time::time_t spec::win32::Time::getTime() {
 	HANDLE curThread = GetCurrentThread();
 	DWORD_PTR prevMask = SetThreadAffinityMask(curThread, 1);
 	static LARGE_INTEGER freq = getFrequency();
@@ -21,7 +21,7 @@ spec::uni::Time::time_t UF_API_CALL spec::win32::Time::getTime() {
 
 	return 1000000 * time.QuadPart / freq.QuadPart;
 }
-spec::uni::Time& UF_API_CALL spec::win32::Time::getUniversal() {
+spec::uni::Time& spec::win32::Time::getUniversal() {
 	return (spec::uni::Time&) *this;
 }
 

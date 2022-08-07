@@ -10,26 +10,26 @@
 uf::Collider::~Collider() {
 	this->clear();
 }
-void UF_API uf::Collider::clear() {
+void uf::Collider::clear() {
 	for ( pod::Collider* pointer : this->m_container ) delete pointer;
 	this->m_container.clear();
 }
 
-void UF_API uf::Collider::add( pod::Collider* pointer ) {
+void uf::Collider::add( pod::Collider* pointer ) {
 	this->m_container.push_back(pointer);
 }
-uf::Collider::container_t& UF_API uf::Collider::getContainer() {
+uf::Collider::container_t& uf::Collider::getContainer() {
 	return this->m_container;
 }
-const uf::Collider::container_t& UF_API uf::Collider::getContainer() const {
+const uf::Collider::container_t& uf::Collider::getContainer() const {
 	return this->m_container;
 }
 
-std::size_t UF_API uf::Collider::getSize() const {
+std::size_t uf::Collider::getSize() const {
 	return this->m_container.size();
 }
 
-uf::stl::vector<pod::Collider::Manifold> UF_API uf::Collider::intersects( const uf::Collider& body, bool smart ) const {
+uf::stl::vector<pod::Collider::Manifold> uf::Collider::intersects( const uf::Collider& body, bool smart ) const {
 	uf::stl::vector<pod::Collider::Manifold> manifolds;
 	manifolds.reserve( this->m_container.size() * body.m_container.size() );
 	for ( const pod::Collider* pointer : body.m_container ) {
@@ -39,7 +39,7 @@ uf::stl::vector<pod::Collider::Manifold> UF_API uf::Collider::intersects( const 
 	return manifolds;
 }
 
-uf::stl::vector<pod::Collider::Manifold> UF_API uf::Collider::intersects( const pod::Collider& body, bool smart ) const {
+uf::stl::vector<pod::Collider::Manifold> uf::Collider::intersects( const pod::Collider& body, bool smart ) const {
 	// smart = false;
 	uf::stl::vector<pod::Collider::Manifold> manifolds;
 	for ( const pod::Collider* pointer : this->m_container ) {

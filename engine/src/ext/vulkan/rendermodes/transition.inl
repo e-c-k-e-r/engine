@@ -13,7 +13,7 @@ namespace {
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresourceRange.layerCount = self->metadata.eyes;
 
-		for ( auto& descriptor : shader.metadata.attachments ) {
+		for ( auto& descriptor : shader.metadata.aliases.attachments ) {
 			if ( descriptor.layout == VK_IMAGE_LAYOUT_UNDEFINED ) continue;
 			VkImage image = VK_NULL_HANDLE;
 			if ( descriptor.renderMode ) {
@@ -43,7 +43,7 @@ namespace {
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresourceRange.layerCount = self->metadata.eyes;
 
-		for ( auto& descriptor : shader.metadata.attachments ) {
+		for ( auto& descriptor : shader.metadata.aliases.attachments ) {
 			if ( descriptor.layout == VK_IMAGE_LAYOUT_UNDEFINED ) continue;
 			VkImage image = VK_NULL_HANDLE;
 			if ( descriptor.renderMode ) {

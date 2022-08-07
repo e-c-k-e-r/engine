@@ -129,13 +129,17 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 #define IMAGE_STORE(X, Y) imageStore( X, ivec2(gl_GlobalInvocationID.xy), Y )
 
 void postProcess() {
-	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
-	vec4 outFragBright = brightness > ubo.settings.bloom.threshold ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
-	vec2 outFragMotion = surface.motion;
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
+	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
+	bool bloom = brightness > ubo.settings.bloom.threshold;
+	if ( bloom ) {
+		toneMap( surface.fragment.rgb, brightness );
+	}
 	vec4 outFragColor = vec4(surface.fragment.rgb, 1.0);
+	vec4 outFragBright = bloom ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
+	vec2 outFragMotion = surface.motion;
 	
 	IMAGE_STORE( imageColor, outFragColor );
 	IMAGE_STORE( imageBright, outFragBright );

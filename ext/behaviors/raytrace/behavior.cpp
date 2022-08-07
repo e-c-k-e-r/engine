@@ -77,7 +77,7 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 			);
 
 			auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
-			auto& blitter = *renderMode.getBlitter();
+			auto& blitter = renderMode.getBlitter();
 			blitter.material.textures.emplace_back().aliasTexture( ::emptyTexture );
 		}
 	#endif
@@ -104,7 +104,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	
 	bool update = false;
 	auto& renderMode = uf::renderer::getRenderMode("", true);
-	auto& graphic = metadata.renderer.full ? this->getComponent<uf::renderer::Graphic>() : *renderMode.getBlitter();
+	auto& graphic = metadata.renderer.full ? this->getComponent<uf::renderer::Graphic>() : renderMode.getBlitter();
 	if ( !metadata.renderer.bound ) {
 		if ( metadata.renderer.full ) {
 			graphic.initialize("Compute:RT");
@@ -240,7 +240,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			auto& image = shader.textures.front();
 			
 			auto& renderMode = uf::renderer::getRenderMode("Compute:RT", true);
-			auto& blitter = *renderMode.getBlitter();
+			auto& blitter = renderMode.getBlitter();
 
 			if ( blitter.material.hasShader("fragment") ) {
 				auto& shader = blitter.material.getShader("fragment");

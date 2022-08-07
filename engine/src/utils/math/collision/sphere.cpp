@@ -1,29 +1,29 @@
 #if UF_USE_UNUSED
 #include <uf/utils/math/collision/sphere.h>
 
-UF_API uf::SphereCollider::SphereCollider( float r, const pod::Vector3& origin ) {
+uf::SphereCollider::SphereCollider( float r, const pod::Vector3& origin ) {
 	this->m_radius = r;
 	this->m_origin = origin;
 }
-uf::stl::string UF_API uf::SphereCollider::type() const { return "Sphere"; }
-float UF_API uf::SphereCollider::getRadius() const {
+uf::stl::string uf::SphereCollider::type() const { return "Sphere"; }
+float uf::SphereCollider::getRadius() const {
 	return this->m_radius;
 }
-const pod::Vector3& UF_API uf::SphereCollider::getOrigin() const {
+const pod::Vector3& uf::SphereCollider::getOrigin() const {
 	return this->m_origin;
 }
 
-void UF_API uf::SphereCollider::setRadius( float r ) {
+void uf::SphereCollider::setRadius( float r ) {
 	this->m_radius = r;
 }
-void UF_API uf::SphereCollider::setOrigin( const pod::Vector3& origin ) {
+void uf::SphereCollider::setOrigin( const pod::Vector3& origin ) {
 	this->m_origin = origin;
 }
 
-pod::Vector3* UF_API uf::SphereCollider::expand() const {
+pod::Vector3* uf::SphereCollider::expand() const {
 	return NULL;
 }
-pod::Vector3 UF_API uf::SphereCollider::support( const pod::Vector3& direction ) const {
+pod::Vector3 uf::SphereCollider::support( const pod::Vector3& direction ) const {
 	pod::Vector3f position = this->getPosition() + this->m_origin;
 //	const pod::Vector3f& position = this->m_origin;
 	return position + direction * (this->m_radius/uf::vector::magnitude(direction));

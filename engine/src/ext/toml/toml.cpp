@@ -75,7 +75,7 @@ TOML_NAMESPACE_START
 }
 TOML_NAMESPACE_END;
 
-uf::stl::string UF_API ext::toml::fromJson( const uf::stl::string& source ) {
+uf::stl::string ext::toml::fromJson( const uf::stl::string& source ) {
 	ext::json::Value j;
 	ext::json::decode( j, source );
 
@@ -88,13 +88,13 @@ uf::stl::string UF_API ext::toml::fromJson( const uf::stl::string& source ) {
 		std::stringstream ss; ss << tbl;
 		return ss.str();
 #if UF_EXCEPTIONS
-	} catch ( const ::toml::parse_error& err ) {
+	} catch ( const ::toml::parse_error& e ) {
 		UF_MSG_ERROR("TOML error: {}", e.what());
 	}
 	return "";
 #endif
 }
-uf::stl::vector<uint8_t> UF_API ext::toml::fromJson( const uf::stl::vector<uint8_t>& source ) {
+uf::stl::vector<uint8_t> ext::toml::fromJson( const uf::stl::vector<uint8_t>& source ) {
 	ext::json::Value j;
 	ext::json::decode( j, source );
 
@@ -108,13 +108,13 @@ uf::stl::vector<uint8_t> UF_API ext::toml::fromJson( const uf::stl::vector<uint8
 		uf::stl::string str = ss.str();
 		return uf::stl::vector<uint8_t>{ str.begin(), str.end() };
 #if UF_EXCEPTIONS
-	} catch ( const ::toml::parse_error& err ) {
+	} catch ( const ::toml::parse_error& e ) {
 		UF_MSG_ERROR("TOML error: {}", e.what());
 	}
 	return {};
 #endif
 }
-uf::stl::string UF_API ext::toml::toJson( const uf::stl::string& source ) {
+uf::stl::string ext::toml::toJson( const uf::stl::string& source ) {
 #if UF_EXCEPTIONS
 	try {
 #endif
@@ -127,13 +127,13 @@ uf::stl::string UF_API ext::toml::toJson( const uf::stl::string& source ) {
 	std::stringstream ss; ss << ::toml::json_formatter{ result };
 	return ss.str();
 #if UF_EXCEPTIONS
-	} catch ( const ::toml::parse_error& err ) {
+	} catch ( const ::toml::parse_error& e ) {
 		UF_MSG_ERROR("TOML error: {}", e.what());
 	}
 	return "";
 #endif
 }
-uf::stl::vector<uint8_t> UF_API ext::toml::toJson( const uf::stl::vector<uint8_t>& source ) {
+uf::stl::vector<uint8_t> ext::toml::toJson( const uf::stl::vector<uint8_t>& source ) {
 #if UF_EXCEPTIONS
 	try {
 #endif
@@ -148,7 +148,7 @@ uf::stl::vector<uint8_t> UF_API ext::toml::toJson( const uf::stl::vector<uint8_t
 	uf::stl::string str = ss.str();
 	return uf::stl::vector<uint8_t>{ str.begin(), str.end() };
 #if UF_EXCEPTIONS
-	} catch ( const ::toml::parse_error& err ) {
+	} catch ( const ::toml::parse_error& e ) {
 		UF_MSG_ERROR("TOML error: {}", e.what());
 	}
 	return {};

@@ -570,18 +570,34 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
 
+#if 0
+	if ( immediate ) {
+		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		auto queue = getQueue( queueType );
+		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
+	}
+#else
 	VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
-	auto& queue = getQueue( queueType );
+	auto queue = getQueue( queueType );
 	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 	if ( immediate ) {
 		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
-	} else {
+	}
+#endif
+	else {
+		ext::vulkan::mutex.lock();
 		this->transient.commandBuffers[queueType].emplace_back(commandBuffer);
+		ext::vulkan::mutex.unlock();
 	}
 }
 /*
@@ -623,6 +639,16 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer commandBuffer ) {
 	return this->flushCommandBuffer( commandBuffer.handle, commandBuffer.queueType, commandBuffer.immediate );
 }
+ext::vulkan::Buffer ext::vulkan::Device::createBuffer(
+	const void* data,
+	VkDeviceSize size,
+	VkBufferUsageFlags usage,
+	VkMemoryPropertyFlags memoryProperties
+) {
+	ext::vulkan::Buffer buffer;
+	VK_CHECK_RESULT(createBuffer(data, size, usage, memoryProperties, buffer));
+	return buffer;
+}
 VkResult ext::vulkan::Device::createBuffer(
 	const void* data,
 	VkDeviceSize size,
@@ -641,15 +667,15 @@ VkResult ext::vulkan::Device::createBuffer(
 	if ( data != nullptr ) {
 		void* map = buffer.map();
 		memcpy(map, data, size);
-		if ((memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
 		buffer.unmap();
+	//	if ((memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
 	}
 
 	// Initialize a default descriptor that covers the whole buffer size
-	buffer.setupDescriptor();
+	buffer.updateDescriptor();
 
 	// Attach the memory to the buffer object
-	return buffer.bind();
+	return VK_SUCCESS;
 }
 ext::vulkan::Buffer ext::vulkan::Device::fetchTransientBuffer(
 	const void* data,
@@ -657,92 +683,81 @@ ext::vulkan::Buffer ext::vulkan::Device::fetchTransientBuffer(
 	VkBufferUsageFlags usage,
 	VkMemoryPropertyFlags memoryProperties
 ) {
+
+	ext::vulkan::mutex.lock();
 	auto& buffer = this->transient.buffers.emplace_back();
 	VK_CHECK_RESULT(this->createBuffer(data, size, usage, memoryProperties, buffer));
+	ext::vulkan::mutex.unlock();
 	return buffer.alias();
 }
-VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum) {
+VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum) {
 	return this->getCommandPool( queueEnum, std::this_thread::get_id() );
 }
-VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum ) {
+VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum ) {
 	return this->getQueue( queueEnum, std::this_thread::get_id() );
 }
-VkCommandPool& ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
-	uint32_t index = 0;
-	VkCommandPool* pool = NULL;
-	bool exists = false;
+VkCommandPool ext::vulkan::Device::getCommandPool( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+	uint32_t index{0};
+	uf::ThreadUnique<VkCommandPool>* commandPool{NULL};
+
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;
-		//	if ( commandPool.graphics.count(id) > 0 ) exists = true;
-		//	pool = &commandPool.graphics[id];
-			exists = commandPool.graphics.has(id);
-			pool = &commandPool.graphics.get(id);
+			commandPool = &this->commandPool.graphics;
 		break;
 		case QueueEnum::COMPUTE:
 			index = device.queueFamilyIndices.compute;
-		//	if ( commandPool.compute.count(id) > 0 ) exists = true;
-		//	pool = &commandPool.compute[id];
-			exists = commandPool.compute.has(id);
-			pool = &commandPool.compute.get(id);
+			commandPool = &this->commandPool.compute;
 		break;
 		case QueueEnum::TRANSFER:
 			index = device.queueFamilyIndices.transfer;
-		//	if ( commandPool.transfer.count(id) > 0 ) exists = true;
-		//	pool = &commandPool.transfer[id];
-			exists = commandPool.transfer.has(id);
-			pool = &commandPool.transfer.get(id);
+			commandPool = &this->commandPool.transfer;
 		break;
 	}
+	UF_ASSERT( commandPool );
+	auto guard = commandPool->guardMutex();
+	bool exists = commandPool->has(id);
+	VkCommandPool& pool = commandPool->get(id);
 	if ( !exists ) {
 		VkCommandPoolCreateFlags createFlags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		VkCommandPoolCreateInfo cmdPoolInfo = {};
 		cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		cmdPoolInfo.queueFamilyIndex = index;
 		cmdPoolInfo.flags = createFlags;
-		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, pool ) != VK_SUCCESS )
+		if ( vkCreateCommandPool( this->logicalDevice, &cmdPoolInfo, nullptr, &pool ) != VK_SUCCESS )
 			UF_EXCEPTION("Vulkan error: failed to create command pool for graphics!");
 	}
-	return *pool;
+	return pool;
 }
-VkQueue& ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
+VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::thread::id id ) {
 	uint32_t index = 0;
-	VkQueue* queue = NULL;
-	bool exists = false;
+	uf::ThreadUnique<VkQueue>* commandPool{NULL};
 	switch ( queueEnum ) {
 		case QueueEnum::GRAPHICS:
 			index = device.queueFamilyIndices.graphics;
-			exists = queues.graphics.has(id);
-			queue = &queues.graphics.get(id);
-		//	if ( queues.graphics.count(id) > 0 ) exists = true;
-		//	queue = &queues.graphics[id];
+			commandPool = &queues.graphics;
 		break;
 		case QueueEnum::PRESENT:
 			index = device.queueFamilyIndices.present;
-			exists = queues.present.has(id);
-			queue = &queues.present.get(id);
-		//	if ( queues.present.count(id) > 0 ) exists = true;
-		//	queue = &queues.present[id];
+			commandPool = &queues.present;
 		break;
 		case QueueEnum::COMPUTE:
 			index = device.queueFamilyIndices.compute;
-			exists = queues.compute.has(id);
-			queue = &queues.compute.get(id);
-		//	if ( queues.compute.count(id) > 0 ) exists = true;
-		//	queue = &queues.compute[id];
+			commandPool = &queues.compute;
 		break;
 		case QueueEnum::TRANSFER:
 			index = device.queueFamilyIndices.transfer;
-			exists = queues.transfer.has(id);
-			queue = &queues.transfer.get(id);
-		//	if ( queues.transfer.count(id) > 0 ) exists = true;
-		//	queue = &queues.transfer[id];
+			commandPool = &queues.transfer;
 		break;
 	}
+	UF_ASSERT( commandPool );
+	auto guard = commandPool->guardMutex();
+	bool exists = commandPool->has(id);
+	VkQueue& queue = commandPool->get(id);
 	if ( !exists ) {
-		vkGetDeviceQueue( device, index, 0, queue );
+		vkGetDeviceQueue( device, index, 0, &queue );
 	}
-	return *queue;
+	return queue;
 }
 
 void ext::vulkan::Device::initialize() {	

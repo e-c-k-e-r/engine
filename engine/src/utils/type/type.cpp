@@ -39,7 +39,7 @@ void uf::typeInfo::registerType( const uf::typeInfo::index_t& index, size_t size
 #endif
 	if ( !exists || pretty != "" ) type.name.pretty = pretty != "" ? pretty : demangle( type.name.compiler );
 }
-const pod::TypeInfo& UF_API uf::typeInfo::getType( size_t hash ) {
+const pod::TypeInfo& uf::typeInfo::getType( size_t hash ) {
 	if ( !uf::typeInfo::types ) uf::typeInfo::types = new uf::stl::unordered_map<uf::typeInfo::index_t, pod::TypeInfo>;
 	auto& types = *uf::typeInfo::types;
 	for ( auto& pair : types ) {

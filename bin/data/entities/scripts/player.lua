@@ -77,7 +77,7 @@ ent:bind( "tick", function(self)
 	-- toggle flashlight
 	if light.enabled then
 		local center = flattenedTransform.position
-		local direction = flattenedTransform.forward * 4
+		local direction = flattenedTransform.forward * 8
 
 		local offset = 0.25
 		local _, depth = physicsState:rayCast( center, direction )

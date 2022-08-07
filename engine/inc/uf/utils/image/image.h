@@ -10,7 +10,7 @@ namespace uf {
 	class UF_API Image {
 	public:
 		typedef pod::Vector2ui vec2_t;
-		typedef pod::PixelRgba8 pixel_t;
+		typedef pod::Vector<uint8_t, 4> pixel_t;
 		typedef uf::stl::vector<pixel_t::type_t> container_t;
 	protected:
 		uf::stl::string m_filename;
@@ -21,21 +21,12 @@ namespace uf {
 		std::size_t m_format;
 	public:
 	// 	C-tor
-	/*
-		Image(); 																				// Default
-		Image( const Image::vec2_t& size ); 													// Just Size
-		Image( Image&& move ); 																	// Move pixels
-		Image( const Image& copy ); 															// Copy pixels
-		Image( Image::container_t&& move, const Image::vec2_t& size ); 							// Move from vector of pixels
-		Image( const Image::container_t& copy, const Image::vec2_t& size ); 					// Copy from vector of pixels
-	*/
 		bool open( const uf::stl::string& filename, bool = true ); 									// from file
 		void open( const std::istream& stream ); 												// from stream
 		void move( Image::container_t&& move,  const Image::vec2_t& size );						// move from vector of pixels
 		void copy( const Image::container_t& copy,  const Image::vec2_t& size );				// copy from vector of pixels
 		void copy( const uf::Image& );															// copy from image object
 	// 	D-tor
-		~Image();
 		void clear(); 																			// empties pixel container
 	// 	Getters
 		void loadFromBuffer( const Image::pixel_t::type_t* pointer, const pod::Vector2ui& size, std::size_t bpp, std::size_t channels, bool flip = false );

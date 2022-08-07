@@ -17,7 +17,7 @@
 #define BARYCENTRIC 1
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 1
+		#define BARYCENTRIC_CALCULATE 0
 	#endif
 #endif
 
@@ -31,15 +31,6 @@ namespace {
 
 const uf::stl::string ext::vulkan::DeferredRenderMode::getType() const {
 	return "Deferred";
-}
-const size_t ext::vulkan::DeferredRenderMode::blitters() const {
-	return 1;
-}
-ext::vulkan::Graphic* ext::vulkan::DeferredRenderMode::getBlitter( size_t i ) {
-	return &this->blitter;
-}
-uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::DeferredRenderMode::getBlitters() {
-	return { &this->blitter };
 }
 
 void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {

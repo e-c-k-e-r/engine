@@ -43,9 +43,10 @@ uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedInstanceExtensi
 VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 
 // these go hand in hand for the above
-bool ext::vulkan::settings::experimental::dedicatedThread = false;
+bool ext::vulkan::settings::experimental::dedicatedThread = true;
+bool ext::vulkan::settings::experimental::batchQueueSubmissions = true;
+
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
-bool ext::vulkan::settings::experimental::batchQueueSubmissions = false;
 bool ext::vulkan::settings::experimental::enableMultiGPU = false;
 
 // not so experimental
@@ -258,24 +259,24 @@ void ext::vulkan::removeRenderMode( ext::vulkan::RenderMode* mode, bool free ) {
 	if ( free ) delete mode;
 	ext::vulkan::states::rebuild = true;
 }
-ext::vulkan::RenderMode* UF_API ext::vulkan::getCurrentRenderMode() {
+ext::vulkan::RenderMode* ext::vulkan::getCurrentRenderMode() {
 	return getCurrentRenderMode( std::this_thread::get_id() );
 }
-ext::vulkan::RenderMode* UF_API ext::vulkan::getCurrentRenderMode( std::thread::id id ) {
+ext::vulkan::RenderMode* ext::vulkan::getCurrentRenderMode( std::thread::id id ) {
 //	bool exists = ext::vulkan::currentRenderMode.has(id);
 //	auto& currentRenderMode = ext::vulkan::currentRenderMode.get(id);
 //	return currentRenderMode;
 	return ext::vulkan::currentRenderMode.get(id);
 }
-void UF_API ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode ) {
+void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode ) {
 	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
 }
-void UF_API ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, std::thread::id id ) {
+void ext::vulkan::setCurrentRenderMode( ext::vulkan::RenderMode* renderMode, std::thread::id id ) {
 	ext::vulkan::currentRenderMode.get(id) = renderMode;
 }
 
 void ext::vulkan::initialize() {
-	ext::vulkan::mutex.lock();
+//	ext::vulkan::mutex.lock();
 	device.initialize();
 	swapchain.initialize( device );
 
@@ -370,104 +371,73 @@ void ext::vulkan::initialize() {
 	}
 #endif
 
-	ext::vulkan::mutex.unlock();
+//	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::tick() {
-	ext::vulkan::mutex.lock();
+//	ext::vulkan::mutex.lock();
 	if ( ext::vulkan::states::resized || ext::vulkan::settings::experimental::rebuildOnTickBegin ) {
 		ext::vulkan::states::rebuild = true;
 	}
-	#if 0
-	{
-		auto& scene = uf::scene::getCurrentScene(); 
-		auto/*&*/ graph = scene.getGraph();
-		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread);
-		for ( auto entity : graph ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) continue;
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
-			tasks.queue([&]{
-				graphic.initializePipeline();
-				ext::vulkan::states::rebuild = true;
-			});
-		}
-		uf::thread::execute( tasks );
+	auto& scene = uf::scene::getCurrentScene(); 
+	auto/*&*/ graph = scene.getGraph();
+	for ( auto entity : graph ) {
+		if ( !entity->hasComponent<uf::Graphic>() ) continue;
+		ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
+		if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
+		graphic.initializePipeline();
+		ext::vulkan::states::rebuild = true;
 	}
-	#else
-	{
-		auto& scene = uf::scene::getCurrentScene(); 
-		auto/*&*/ graph = scene.getGraph();
-		for ( auto entity : graph ) {
-			if ( !entity->hasComponent<uf::Graphic>() ) continue;
-			ext::vulkan::Graphic& graphic = entity->getComponent<uf::Graphic>();
-			if ( graphic.initialized || !graphic.process || graphic.initialized ) continue;
-			graphic.initializePipeline();
+
+	for ( auto& renderMode : renderModes ) {
+		if ( !renderMode ) continue;
+		if ( !renderMode->device ) {
+			renderMode->initialize(ext::vulkan::device);
 			ext::vulkan::states::rebuild = true;
 		}
+		renderMode->tick();
 	}
-	#endif
-	#if 0
-	{
-		auto tasks = uf::thread::schedule(settings::experimental::dedicatedThread);
-		for ( auto& renderMode : renderModes ) {
-			if ( !renderMode ) continue;
-			if ( !renderMode->device ) {
-				tasks.queue([&]{
-					renderMode->initialize(ext::vulkan::device);
-					ext::vulkan::states::rebuild = true;
-					renderMode->tick();
-				});
-			} else {
-				tasks.queue([&]{
-					renderMode->tick();
-				});
-			}
-		}
-		uf::thread::execute( tasks );
+
+	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
+	for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
+		if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
+			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
+			renderMode->createCommandBuffers();
+		});
 	}
-	#else
-	{
-		for ( auto& renderMode : renderModes ) {
-			if ( !renderMode ) continue;
-			if ( !renderMode->device ) {
-				renderMode->initialize(ext::vulkan::device);
-				ext::vulkan::states::rebuild = true;
-			}
-			renderMode->tick();
-		}
-	}
-	#endif
-	{
-		auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
-		for ( auto& renderMode : renderModes ) { if ( !renderMode ) continue;
-			if ( ext::vulkan::states::rebuild || renderMode->rebuild ) tasks.queue([&]{
-				if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
-				renderMode->createCommandBuffers();
-			});
-		}
-		uf::thread::execute( tasks );
-	}
+
+	uf::thread::execute( tasks );
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
-	ext::vulkan::mutex.unlock();
+//	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::render() {
 	if ( ext::vulkan::states::frameSkip ) {
 		ext::vulkan::states::frameSkip = false;
 		return;
 	}
-	ext::vulkan::mutex.lock();
+//	ext::vulkan::mutex.lock();
 
 	// cleanup in-flight commands
+	ext::vulkan::mutex.lock();
 	auto transient = std::move(device.transient);
+	ext::vulkan::mutex.unlock();
+
 	for ( auto& pair : /*device.*/transient.commandBuffers ) {
 		auto queueType = pair.first;
 		auto& commandBuffers = pair.second;
 		
-		auto& queue = device.getQueue( queueType );
-		auto& commandPool = device.getCommandPool( queueType );
+	#if 0
+		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
+		submitInfo.commandBufferCount = commandBuffers.size();
+		submitInfo.pCommandBuffers = commandBuffers.data();
 
+		auto queue = device.getQueue( queueType );
+		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+	#else
+		auto queue = device.getQueue( queueType );
+	#endif
+		auto commandPool = device.getCommandPool( queueType );
 		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
 		vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
 
@@ -481,8 +451,8 @@ void ext::vulkan::render() {
 			auto& cb = pair.second;
 			auto& commandBuffer = cb.commandBuffer;
 
-			auto& queue = device.getQueue( queueType );
-			auto& commandPool = device.getCommandPool( queueType );
+			auto queue = device.getQueue( queueType );
+			auto commandPool = device.getCommandPool( queueType );
 
 			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
 			vkResetCommandBuffer(device, commandPool, 1, &commandBuffer);
@@ -508,7 +478,7 @@ void ext::vulkan::render() {
 		uf::stl::vector<VkSubmitInfo> submitsCompute; submitsCompute.reserve( auxRenderModes.size() );
 
 		// stuff we can batch
-	//	auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
+//		auto tasks = uf::thread::schedule( settings::invariant::multithreadedRecording );
 		for ( auto renderMode : auxRenderModes ) {
 			auto submitInfo = renderMode->queue();
 			if ( submitInfo.sType != VK_STRUCTURE_TYPE_SUBMIT_INFO ) continue;
@@ -516,14 +486,14 @@ void ext::vulkan::render() {
 			else submitsGraphics.emplace_back(submitInfo);
 			renderMode->executed = true;
 
-	//		tasks.queue([&]{
+//			tasks.queue([&]{
 				ext::vulkan::setCurrentRenderMode(renderMode);
 				uf::graph::render();
 				uf::scene::render();
 				ext::vulkan::setCurrentRenderMode(NULL);
-	//		});
+//			});
 		}
-	//	uf::thread::execute( tasks );
+//		uf::thread::execute( tasks );
 		
 		VK_CHECK_RESULT(vkWaitForFences(device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 		VK_CHECK_RESULT(vkResetFences(device, fences.size(), fences.data()));
@@ -531,20 +501,22 @@ void ext::vulkan::render() {
 		VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::COMPUTE ), submitsCompute.size(), submitsCompute.data(), ::auxFences.compute[states::currentBuffer]));
 		VK_CHECK_RESULT(vkQueueSubmit(device.getQueue( QueueEnum::GRAPHICS ), submitsGraphics.size(), submitsGraphics.data(), ::auxFences.graphics[states::currentBuffer]));
 
+
 		// stuff we can't batch
 		for ( auto renderMode : specialRenderModes ) {
 			ext::vulkan::setCurrentRenderMode(renderMode);
 			uf::graph::render();
 			uf::scene::render();
+		#if UF_USE_FFX_FSR
+			if ( renderMode->getName() == "Swapchain" && settings::pipelines::fsr && ext::fsr::initialized ) {
+				ext::fsr::tick();
+				ext::fsr::render();
+			}
+		#endif
 			renderMode->render();
 			ext::vulkan::setCurrentRenderMode(NULL);
 		}
 
-	#if UF_USE_FFX_FSR
-		if ( settings::pipelines::fsr ) {
-			ext::fsr::render();
-		}
-	#endif
 
 		for ( auto renderMode : renderModes ) {
 			if ( renderMode->commandBufferCallbacks.count(RenderMode::EXECUTE_END) > 0 ) renderMode->commandBufferCallbacks[RenderMode::EXECUTE_END]( VkCommandBuffer{}, 0 );
@@ -572,10 +544,10 @@ void ext::vulkan::render() {
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
 
-	ext::vulkan::mutex.unlock();
+//	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::destroy() {
-	ext::vulkan::mutex.lock();
+//	ext::vulkan::mutex.lock();
 	synchronize();
 
 #if UF_USE_FFX_FSR
@@ -603,7 +575,7 @@ void ext::vulkan::destroy() {
 
 	swapchain.destroy();
 	device.destroy();
-	ext::vulkan::mutex.unlock();
+//	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::synchronize( uint8_t flag ) {
 	if ( flag & 0b01 ) {

@@ -22,24 +22,24 @@
 
 const uf::stl::string uf::io::root = UF_IO_ROOT;
 
-uf::stl::string UF_API uf::io::absolute( const uf::stl::string& path ) {
+uf::stl::string uf::io::absolute( const uf::stl::string& path ) {
 	char buff[FILENAME_MAX];
 	GetCurrentDir( buff, FILENAME_MAX );
 	return uf::stl::string(buff) + path;
 }
-uf::stl::string UF_API uf::io::filename( const uf::stl::string& str ) {
+uf::stl::string uf::io::filename( const uf::stl::string& str ) {
 	return str.substr( str.find_last_of('/') + 1 );
 }
-uf::stl::string UF_API uf::io::basename( const uf::stl::string& filename ) {
+uf::stl::string uf::io::basename( const uf::stl::string& filename ) {
 	uf::stl::string str = uf::io::filename( filename );
 	uf::stl::string extension = uf::io::extension( filename );
 	return uf::string::replace( str, "." + extension, "" );
 }
-uf::stl::string UF_API uf::io::extension( const uf::stl::string& str ) {
+uf::stl::string uf::io::extension( const uf::stl::string& str ) {
 	uf::stl::string filename = uf::io::filename(str);
 	return filename.substr( filename.find_last_of('.') + 1 );
 }
-uf::stl::string UF_API uf::io::extension( const uf::stl::string& str, int32_t count ) {
+uf::stl::string uf::io::extension( const uf::stl::string& str, int32_t count ) {
 	uf::stl::string filename = uf::io::filename(str);
 	uf::stl::string extension = "";
 	auto split = uf::string::split( filename, "." );
@@ -55,16 +55,16 @@ uf::stl::string UF_API uf::io::extension( const uf::stl::string& str, int32_t co
 	}
 	return extension;
 }
-uf::stl::string UF_API uf::io::directory( const uf::stl::string& str ) {
+uf::stl::string uf::io::directory( const uf::stl::string& str ) {
 	return str.substr( 0, str.find_last_of('/') ) + "/";
 }
-size_t UF_API uf::io::size( const uf::stl::string& filename ) {
+size_t uf::io::size( const uf::stl::string& filename ) {
 	std::ifstream is(filename, std::ios::binary | std::ios::in | std::ios::ate);
 	if ( !is.is_open() ) return 0;
 	is.seekg(0, std::ios::end);
 	return is.tellg();
 }
-uf::stl::string UF_API uf::io::sanitize( const uf::stl::string& str, const uf::stl::string& _root ) {
+uf::stl::string uf::io::sanitize( const uf::stl::string& str, const uf::stl::string& _root ) {
 	// resolve %root% to hard root
 	uf::stl::string path = str;
 	uf::stl::string root = _root;
@@ -93,7 +93,7 @@ uf::stl::string UF_API uf::io::sanitize( const uf::stl::string& str, const uf::s
 	return path;
 }
 // would just use readAsBuffer and convert to string, but that's double the memory cost
-uf::stl::string UF_API uf::io::readAsString( const uf::stl::string& _filename, const uf::stl::string& hash ) {
+uf::stl::string uf::io::readAsString( const uf::stl::string& _filename, const uf::stl::string& hash ) {
 	uf::stl::string buffer;
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension( filename );
@@ -117,7 +117,7 @@ uf::stl::string UF_API uf::io::readAsString( const uf::stl::string& _filename, c
 	}
 	return buffer;
 }
-uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::string& hash ) {
+uf::stl::vector<uint8_t> uf::io::readAsBuffer( const uf::stl::string& _filename, const uf::stl::string& hash ) {
 	uf::stl::vector<uint8_t> buffer;
 	uf::stl::string filename = sanitize(_filename);
 	uf::stl::string extension = uf::io::extension( filename );
@@ -140,7 +140,7 @@ uf::stl::vector<uint8_t> UF_API uf::io::readAsBuffer( const uf::stl::string& _fi
 	return buffer;
 }
 
-size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
+size_t uf::io::write( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" || extension == "lz4" ) return uf::io::compress( filename, buffer, size );
 
@@ -152,14 +152,14 @@ size_t UF_API uf::io::write( const uf::stl::string& filename, const void* buffer
 }
 
 // indirection for different compression formats, currently only using zlib's gzFile shit
-uf::stl::vector<uint8_t> UF_API uf::io::decompress( const uf::stl::string& filename ) {
+uf::stl::vector<uint8_t> uf::io::decompress( const uf::stl::string& filename ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::decompressFromFile( filename );
 //	if ( extension == "lz4" ) return ext::lz4::decompressFromFile( filename );
 	UF_MSG_ERROR("unsupported compression format requested: {}", extension);
 	return {};
 }
-size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
+size_t uf::io::compress( const uf::stl::string& filename, const void* buffer, size_t size ) {
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( extension == "gz" ) return ext::zlib::compressToFile( filename, buffer, size );
 //	if ( extension == "lz4" ) return ext::lz4::compressToFile( filename, buffer, size );
@@ -167,21 +167,21 @@ size_t UF_API uf::io::compress( const uf::stl::string& filename, const void* buf
 	return 0;
 }
 
-uf::stl::string UF_API uf::io::hash( const uf::stl::string& filename ) {
+uf::stl::string uf::io::hash( const uf::stl::string& filename ) {
 	return uf::string::sha256( uf::io::readAsBuffer( filename ) );
 }
-bool UF_API uf::io::exists( const uf::stl::string& _filename ) {
+bool uf::io::exists( const uf::stl::string& _filename ) {
 	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
 	return stat(filename.c_str(), &buffer) == 0;
 }
-size_t UF_API uf::io::mtime( const uf::stl::string& _filename ) {
+size_t uf::io::mtime( const uf::stl::string& _filename ) {
 	uf::stl::string filename = sanitize(_filename);
 	static struct stat buffer;
 	if ( stat(filename.c_str(), &buffer) != 0 ) return 0;
 	return buffer.st_mtime;
 }
-bool UF_API uf::io::mkdir( const uf::stl::string& _filename ) {
+bool uf::io::mkdir( const uf::stl::string& _filename ) {
 #if UF_ENV_DREAMCAST
 	return false;
 #else
@@ -190,7 +190,7 @@ bool UF_API uf::io::mkdir( const uf::stl::string& _filename ) {
 	return status != -1;
 #endif
 }
-uf::stl::string UF_API uf::io::resolveURI( const uf::stl::string& filename, const uf::stl::string& _root ) {
+uf::stl::string uf::io::resolveURI( const uf::stl::string& filename, const uf::stl::string& _root ) {
 	uf::stl::string root = _root;
 	if ( filename.substr(0,8) == "https://" ) return filename;
 	const uf::stl::string extension = uf::io::extension(filename);

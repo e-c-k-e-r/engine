@@ -67,7 +67,7 @@ namespace {
 		"hoverable"
 	};
 
-	struct /*UF_API*/ GuiMesh {
+	struct GuiMesh {
 		pod::Vector3f position;
 		pod::Vector2f uv;
 	#if EXT_COLOR_FLOATS

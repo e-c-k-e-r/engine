@@ -5,7 +5,6 @@
 #include <uf/ext/vulkan/initializers.h>
 #include <uf/ext/vulkan/texture.h>
 #include <uf/utils/mesh/mesh.h>
-#include <uf/ext/vulkan/rendermode.h>
 
 #define UF_GRAPHIC_POINTERED_USERDATA 1
 
@@ -19,6 +18,8 @@ namespace ext {
 
 		ext::json::Value definitionToJson(/*const*/ ext::json::Value& definition );
 		ext::vulkan::userdata_t jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition );
+
+		struct RenderMode;
 
 		struct UF_API Shader : public Buffers {
 			bool aliased = false;
@@ -113,7 +114,16 @@ namespace ext {
 					VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
 					VkFilter filter = VK_FILTER_NEAREST;
 				};
-				uf::stl::vector<AttachmentDescriptor> attachments;
+				struct BufferDescriptor {
+					uf::stl::string name{};
+					ext::vulkan::Buffer fallback;
+					const ext::vulkan::RenderMode* renderMode{};
+					VkBufferUsageFlags flags{};
+				};
+				struct {
+					uf::stl::vector<AttachmentDescriptor> attachments;
+					uf::stl::vector<BufferDescriptor> buffers;
+				} aliases;
 			} metadata;
 
 			ext::vulkan::userdata_t specializationConstants;
@@ -128,10 +138,13 @@ namespace ext {
 			void destroy();
 			bool validate();
 
+			bool hasAttachment( const uf::stl::string& name );
 			void aliasAttachment( const Metadata::AttachmentDescriptor& descriptor );
 			void aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode = NULL, VkImageLayout = VK_IMAGE_LAYOUT_UNDEFINED, VkFilter filter = VK_FILTER_NEAREST );
 
-			bool hasAttachment( const uf::stl::string& name );
+			bool hasBuffer( const uf::stl::string& name );
+			void aliasBuffer( const Metadata::BufferDescriptor& descriptor );
+			void aliasBuffer( const uf::stl::string& name, const ext::vulkan::Buffer& = {}, const ext::vulkan::RenderMode* renderMode = NULL, VkBufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT );
 
 			bool hasUniform( const uf::stl::string& name ) const;
 

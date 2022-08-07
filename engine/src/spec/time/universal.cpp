@@ -12,7 +12,7 @@ namespace {
 	chrono_time_t start = getTimePoint();
 }
 
-spec::uni::Time::time_t UF_API_CALL spec::uni::Time::getTime() {
+spec::uni::Time::time_t spec::uni::Time::getTime() {
 	std::chrono::duration<double> elapsed = getTimePoint() - start;
 	return elapsed.count() * 1000000;
 }

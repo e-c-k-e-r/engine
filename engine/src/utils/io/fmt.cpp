@@ -10,7 +10,7 @@
 #endif
 
 
-uf::stl::string UF_API uf::io::log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message ) {
+uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message ) {
 #if UF_USE_FMT
 	auto string = ::fmt::format("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
 	::fmt::print("{}\n", string);

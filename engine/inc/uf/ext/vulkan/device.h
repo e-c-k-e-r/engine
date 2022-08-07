@@ -97,6 +97,12 @@ namespace ext {
 			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_WAIT );
 			void flushCommandBuffer( CommandBuffer commandBuffer );
 
+			ext::vulkan::Buffer createBuffer(
+				const void* data,
+				VkDeviceSize size,
+				VkBufferUsageFlags usage,
+				VkMemoryPropertyFlags memoryProperties
+			);
 			VkResult createBuffer(
 				const void* data,
 				VkDeviceSize size,
@@ -111,10 +117,10 @@ namespace ext {
 				VkMemoryPropertyFlags memoryProperties
 			);
 
-			VkQueue& getQueue( QueueEnum );
-			VkCommandPool& getCommandPool( QueueEnum );
-			VkQueue& getQueue( QueueEnum, std::thread::id );
-			VkCommandPool& getCommandPool( QueueEnum, std::thread::id );
+			VkQueue getQueue( QueueEnum );
+			VkCommandPool getCommandPool( QueueEnum );
+			VkQueue getQueue( QueueEnum, std::thread::id );
+			VkCommandPool getCommandPool( QueueEnum, std::thread::id );
 
 			// RAII
 			void initialize();

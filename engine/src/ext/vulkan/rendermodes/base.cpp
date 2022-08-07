@@ -12,11 +12,6 @@ namespace {
 	uf::stl::vector<VkImage> images;
 }
 
-/*
-ext::vulkan::BaseRenderMode::~BaseRenderMode() {
-	this->destroy();
-}
-*/
 const uf::stl::string ext::vulkan::BaseRenderMode::getType() const {
 	return "Swapchain";
 }

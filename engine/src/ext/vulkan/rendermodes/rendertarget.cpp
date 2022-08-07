@@ -10,27 +10,8 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/utils/camera/camera.h>
 
-const uf::stl::string ext::vulkan::RenderTargetRenderMode::getTarget() const {
-//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-//	return metadata["target"].as<uf::stl::string>();
-	return metadata.target;
-}
-void ext::vulkan::RenderTargetRenderMode::setTarget( const uf::stl::string& target ) {
-//	this->metadata["target"] = target;
-	metadata.target = target;
-}
-
 const uf::stl::string ext::vulkan::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
-}
-const size_t ext::vulkan::RenderTargetRenderMode::blitters() const {
-	return 1;
-}
-ext::vulkan::Graphic* ext::vulkan::RenderTargetRenderMode::getBlitter( size_t i ) {
-	return &this->blitter;
-}
-uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderTargetRenderMode::getBlitters() {
-	return { &this->blitter };
 }
 
 ext::vulkan::GraphicDescriptor ext::vulkan::RenderTargetRenderMode::bindGraphicDescriptor( const ext::vulkan::GraphicDescriptor& reference, size_t pass ) {

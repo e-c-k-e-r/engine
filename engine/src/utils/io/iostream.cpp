@@ -55,17 +55,17 @@ namespace {
 bool uf::IoStream::ncurses = false;
 uf::IoStream uf::iostream;
 
-UF_API_CALL uf::IoStream::IoStream() {
+uf::IoStream::IoStream() {
 	spec::terminal.setLocale();
 }
 uf::IoStream::~IoStream() {
 }
 
-void UF_API_CALL uf::IoStream::initialize() {
+void uf::IoStream::initialize() {
 }
-void UF_API_CALL uf::IoStream::terminate() {
+void uf::IoStream::terminate() {
 }
-void UF_API_CALL uf::IoStream::clear(bool all) {
+void uf::IoStream::clear(bool all) {
 	spec::terminal.clear();
 }
 uf::stl::string uf::IoStream::getBuffer() {
@@ -74,16 +74,16 @@ uf::stl::string uf::IoStream::getBuffer() {
 uf::stl::vector<uf::stl::string> uf::IoStream::getHistory() {
 	return ::info.output.history;
 }
-void UF_API_CALL uf::IoStream::back() {
+void uf::IoStream::back() {
 }
-char UF_API_CALL uf::IoStream::readChar(const bool& loop) {
+char uf::IoStream::readChar(const bool& loop) {
 	auto ch = std::cin.get();
 	
 	addCh(ch);
 //	::info.input.history.push_back( std::to_string(ch) );
 	return ch;
 }
-uf::stl::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
+uf::stl::string uf::IoStream::readString(const bool& loop) {
 	uf::stl::string str;
 	std::getline(std::cin, str);
 
@@ -91,7 +91,7 @@ uf::stl::string UF_API_CALL uf::IoStream::readString(const bool& loop) {
 //	::info.input.history.push_back( str );
 	return str;
 }
-uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
+uf::String uf::IoStream::readUString(const bool& loop) {
 	uf::stl::string str;
 	std::getline(std::cin, str);
 
@@ -99,7 +99,7 @@ uf::String UF_API_CALL uf::IoStream::readUString(const bool& loop) {
 //	::info.input.history.push_back( str );
 	return str;
 }
-char UF_API_CALL uf::IoStream::writeChar( char ch ) {
+char uf::IoStream::writeChar( char ch ) {
 	addCh(ch);
 
 	if ( ch == '\n' ) std::cout << std::endl;
@@ -107,7 +107,7 @@ char UF_API_CALL uf::IoStream::writeChar( char ch ) {
 //	::info.input.history.push_back( std::to_string(ch) );
 	return ch;
 }
-const uf::stl::string& UF_API_CALL uf::IoStream::writeString( const uf::stl::string& str ) {
+const uf::stl::string& uf::IoStream::writeString( const uf::stl::string& str ) {
 	addStr(str);
 	
 	if ( str == "\n" ) std::cout << std::endl;
@@ -115,7 +115,7 @@ const uf::stl::string& UF_API_CALL uf::IoStream::writeString( const uf::stl::str
 //	::info.input.history.push_back( str );
 	return str;
 }
-const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str ) {
+const uf::String& uf::IoStream::writeUString( const uf::String& str ) {
 	addUStr(str);
 	
 	std::cout << (const char*) str.getString().c_str();
@@ -123,85 +123,85 @@ const uf::String& UF_API_CALL uf::IoStream::writeUString( const uf::String& str 
 	return str;
 }
 
-void UF_API_CALL uf::IoStream::operator>> (bool& val) {
+void uf::IoStream::operator>> (bool& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
 
-void UF_API_CALL uf::IoStream::operator>> (char& val) {
+void uf::IoStream::operator>> (char& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (short& val) {
+void uf::IoStream::operator>> (short& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (unsigned short& val) {
+void uf::IoStream::operator>> (unsigned short& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (int& val) {
+void uf::IoStream::operator>> (int& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (unsigned int& val) {
+void uf::IoStream::operator>> (unsigned int& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (long& val) {
+void uf::IoStream::operator>> (long& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (unsigned long& val) {
+void uf::IoStream::operator>> (unsigned long& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (long long& val) {
+void uf::IoStream::operator>> (long long& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (unsigned long long& val) {
+void uf::IoStream::operator>> (unsigned long long& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (float& val) {
+void uf::IoStream::operator>> (float& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (double& val) {
+void uf::IoStream::operator>> (double& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (long double& val) {
+void uf::IoStream::operator>> (long double& val) {
 	uf::stl::stringstream ss;
 	ss << this->readString();
 	ss >> val;
 }
-void UF_API_CALL uf::IoStream::operator>> (uf::stl::string& val) {
+void uf::IoStream::operator>> (uf::stl::string& val) {
 	val = this->readString();
 }
-void UF_API_CALL uf::IoStream::operator>> (uf::String& val) {
+void uf::IoStream::operator>> (uf::String& val) {
 	val = this->readUString();
 }
-std::istream& UF_API_CALL uf::IoStream::operator>> ( std::istream& is ) {
+std::istream& uf::IoStream::operator>> ( std::istream& is ) {
 	uf::stl::string input;
 	is >> input;
 	this->writeString(input);
 	return is;
 }
-std::istream& UF_API_CALL operator>> ( std::istream& is, uf::IoStream& io ) {
+std::istream& operator>> ( std::istream& is, uf::IoStream& io ) {
 	uf::stl::string input;
 	is >> input;
 	io.writeString(input);
@@ -210,113 +210,113 @@ std::istream& UF_API_CALL operator>> ( std::istream& is, uf::IoStream& io ) {
 
 
 
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const bool& val) {
+uf::IoStream& uf::IoStream::operator<< (const bool& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const char& val) {
+uf::IoStream& uf::IoStream::operator<< (const char& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const short& val) {
+uf::IoStream& uf::IoStream::operator<< (const short& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const unsigned short& val) {
+uf::IoStream& uf::IoStream::operator<< (const unsigned short& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const int& val) {
+uf::IoStream& uf::IoStream::operator<< (const int& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const unsigned int& val) {
+uf::IoStream& uf::IoStream::operator<< (const unsigned int& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const long& val) {
+uf::IoStream& uf::IoStream::operator<< (const long& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const unsigned long& val) {
+uf::IoStream& uf::IoStream::operator<< (const unsigned long& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const long long& val) {
+uf::IoStream& uf::IoStream::operator<< (const long long& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const unsigned long long& val) {
+uf::IoStream& uf::IoStream::operator<< (const unsigned long long& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const float& val) {
+uf::IoStream& uf::IoStream::operator<< (const float& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const double& val) {
+uf::IoStream& uf::IoStream::operator<< (const double& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const long double& val) {
+uf::IoStream& uf::IoStream::operator<< (const long double& val) {
 	uf::stl::stringstream ss;
 	ss << val;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::stl::string& val) {
+uf::IoStream& uf::IoStream::operator<< (const uf::stl::string& val) {
 	this->writeString(val);
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::String& val) {
+uf::IoStream& uf::IoStream::operator<< (const uf::String& val) {
 	this->writeUString(val);
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const char* cstr) {
+uf::IoStream& uf::IoStream::operator<< (const char* cstr) {
 	this->writeString(uf::stl::string(cstr));
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::Serializer& val) {
+uf::IoStream& uf::IoStream::operator<< (const uf::Serializer& val) {
 	this->writeString(val.serialize());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (void* ptr) {
+uf::IoStream& uf::IoStream::operator<< (void* ptr) {
 	uf::stl::stringstream ss;
 	ss << ptr;
 	this->writeString(ss.str());
 	return *this;
 }
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< ( std::ostream& os ) {
+uf::IoStream& uf::IoStream::operator<< ( std::ostream& os ) {
 	uf::stl::stringstream str;
 	str << os.rdbuf();
 	this->writeString( str.str() );
 	return *this;
 }
-std::ostream& UF_API_CALL operator<< ( std::ostream& os, uf::IoStream& io ) {
+std::ostream& operator<< ( std::ostream& os, uf::IoStream& io ) {
 	uf::stl::string output = io.readString();
 	os << output;
 	return os;
@@ -325,30 +325,30 @@ std::ostream& UF_API_CALL operator<< ( std::ostream& os, uf::IoStream& io ) {
 uf::stl::string uf::IoStream::getColor() {
 	return this->m_currentColor;
 }
-void UF_API_CALL uf::IoStream::setColor( const uf::stl::string& str ) {
+void uf::IoStream::setColor( const uf::stl::string& str ) {
 }
 
 // manip via stream manipulator
-UF_API_CALL uf::IoStream::Color::Manip1::Manip1( uf::IoStream& _io ) : io(_io) {}
-uf::IoStream::Color::Manip1 UF_API_CALL uf::IoStream::operator<< ( const uf::IoStream::Color& color) {
+uf::IoStream::Color::Manip1::Manip1( uf::IoStream& _io ) : io(_io) {}
+uf::IoStream::Color::Manip1 uf::IoStream::operator<< ( const uf::IoStream::Color& color) {
 	return uf::IoStream::Color::Manip1(*this);
 }
-uf::IoStream& UF_API_CALL uf::IoStream::Color::Manip1::operator<<( const uf::stl::string& name ) {
+uf::IoStream& uf::IoStream::Color::Manip1::operator<<( const uf::stl::string& name ) {
 	this->io.setColor(name);
 	return this->io;
 }
 
 // manip via function call
-UF_API_CALL uf::IoStream::Color::Manip2::Manip2( const uf::stl::string& _name ) : name(_name) {}
-uf::IoStream::Color::Manip2 UF_API_CALL uf::IoStream::Color::operator()( const uf::stl::string& name ) const {
+uf::IoStream::Color::Manip2::Manip2( const uf::stl::string& _name ) : name(_name) {}
+uf::IoStream::Color::Manip2 uf::IoStream::Color::operator()( const uf::stl::string& name ) const {
 	return uf::IoStream::Color::Manip2(name);
 }
-uf::IoStream& UF_API_CALL uf::IoStream::Color::operator()( uf::IoStream& io, const uf::stl::string& name ) const {
+uf::IoStream& uf::IoStream::Color::operator()( uf::IoStream& io, const uf::stl::string& name ) const {
 	io.setColor(name);
 	return io;
 }
 
-uf::IoStream& UF_API_CALL uf::IoStream::operator<< (const uf::IoStream::Color::Manip2& color) {
+uf::IoStream& uf::IoStream::operator<< (const uf::IoStream::Color::Manip2& color) {
 	this->setColor(color.name);
 	return *this;
 }

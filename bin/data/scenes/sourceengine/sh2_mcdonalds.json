@@ -7,7 +7,7 @@
 	"metadata": {
 		"graph": {
 			"lights": {
-//				"lightmap": false
+				"scale": 4.0
 			},
 			"assets": [
 				"./audio/soundscape/sh2_ambience.ogg"	
@@ -31,12 +31,12 @@
 
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
 					"color": [0.05, 0.05, 0.05],
-					"power": 100000,
+					"power": 10,
 					"global": true,
 					"bias": {
 						"constant": 1.25,
 						"slope": 1.75,
-						"shader": 0.0000025
+						"shader": 0.000005
 					},
 					"radius": [0.95, 0],
 					"resolution": 1536
@@ -44,9 +44,10 @@
 				
 				// regex matches
 			//	"/^prop_physics_[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },
-				"/^prop_physics_override/": { "action": "load", "payload": {} },
-				"/^prop_physics_/": { "action": "load", "payload": {} },
-				"/^func_physbox/": { "action": "load", "payload": {} },
+			//	"/^prop_physics_override/": { "action": "load", "payload": {} },
+			//	"/^prop_physics_/": { "action": "load", "payload": {} },
+			//	"/^func_physbox/": { "action": "load", "payload": {} },
+				"/^.+?_phys.+?[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },
 
 				"materials/models/props_wasteland/prison_lamp001a": { "material": { "emissive": [0, 0, 0, 0] } },
 				"/^tools\\/toolsnodraw/": { "material": {

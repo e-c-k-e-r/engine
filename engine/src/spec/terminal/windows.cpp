@@ -2,7 +2,7 @@
 
 #ifdef UF_ENV_WINDOWS
 
-void UF_API_CALL spec::Terminal::clear() {
+void spec::Terminal::clear() {
 	spec::uni::Terminal::clear();
 
 	COORD topLeft  = { 0, 0 };
@@ -20,16 +20,16 @@ void UF_API_CALL spec::Terminal::clear() {
 	);
 	SetConsoleCursorPosition(console, topLeft);
 }
-void UF_API_CALL spec::Terminal::setLocale() {
+void spec::Terminal::setLocale() {
 	spec::uni::Terminal::setLocale();
 
 	SetConsoleOutputCP(CP_UTF8);
 }
 
-void UF_API_CALL spec::Terminal::hide() {
+void spec::Terminal::hide() {
 	ShowWindow( GetConsoleWindow(), SW_HIDE);
 }
-void UF_API_CALL spec::Terminal::show() {
+void spec::Terminal::show() {
 	ShowWindow( GetConsoleWindow(), SW_RESTORE);
 }
 

@@ -4,7 +4,7 @@
 
 ext::freetype::Library ext::freetype::library;
 
-UF_API ext::freetype::Library::Library() : loaded(false) {
+ext::freetype::Library::Library() : loaded(false) {
 	ext::freetype::initialize();
 }
 ext::freetype::Library::~Library() {
@@ -15,7 +15,7 @@ ext::freetype::Glyph::~Glyph() {
 	ext::freetype::destroy(*this);
 }
 
-UF_API bool ext::freetype::initialize() {
+bool ext::freetype::initialize() {
 	int error = 0;
 	if ( (error = FT_Init_FreeType( &ext::freetype::library.library ) )) {
 		std::cout << "Error #" << ext::freetype::getError(error) << ": FreeType failed to initialize" << std::endl;
@@ -24,16 +24,16 @@ UF_API bool ext::freetype::initialize() {
 	ext::freetype::library.loaded = true;
 	return true;
 }
-UF_API bool ext::freetype::initialized() {
+bool ext::freetype::initialized() {
 	return ext::freetype::library.loaded;
 }
-UF_API void ext::freetype::terminate() {
+void ext::freetype::terminate() {
 	if ( !ext::freetype::library.loaded ) return;
 	FT_Done_FreeType(ext::freetype::library.library);
 	ext::freetype::library.loaded = false;
 }
 
-UF_API ext::freetype::Glyph ext::freetype::initialize( const uf::stl::string& font ) {
+ext::freetype::Glyph ext::freetype::initialize( const uf::stl::string& font ) {
 	if ( !ext::freetype::initialized() ) ext::freetype::initialize();
 	ext::freetype::Glyph glyph;
 	int error = 0;
@@ -45,7 +45,7 @@ UF_API ext::freetype::Glyph ext::freetype::initialize( const uf::stl::string& fo
 	}
 	return glyph;
 }
-UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const uf::stl::string& font ) {
+bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const uf::stl::string& font ) {
 	if ( !ext::freetype::initialized() ) ext::freetype::initialize();
 	int error = 0;
 	if ( (error = FT_New_Face( ext::freetype::library.library, font.c_str(), 0, &glyph.face )) ) {
@@ -58,18 +58,18 @@ UF_API bool ext::freetype::initialize( ext::freetype::Glyph& glyph, const uf::st
 	}
 	return true;
 }
-UF_API void ext::freetype::destroy( ext::freetype::Glyph& glyph ) {
+void ext::freetype::destroy( ext::freetype::Glyph& glyph ) {
 	FT_Done_Face( glyph.face );
 }
 
-UF_API void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int height ) {
+void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int height ) {
 	FT_Set_Pixel_Sizes( glyph.face, 0, height );
 }
-UF_API void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int width, int height ) {
+void ext::freetype::setPixelSizes( ext::freetype::Glyph& glyph, int width, int height ) {
 	FT_Set_Pixel_Sizes( glyph.face, width, height );
 }
 
-UF_API bool ext::freetype::load( ext::freetype::Glyph& glyph, unsigned long c ) {
+bool ext::freetype::load( ext::freetype::Glyph& glyph, unsigned long c ) {
 	int error = 0;
 	if ( (error = FT_Load_Char(glyph.face, c, FT_LOAD_RENDER) )) {
 		std::cout << "Error #" << ext::freetype::getError(error) << ": FreeType failed to load glyph `" << c << "`" << std::endl;
@@ -77,7 +77,7 @@ UF_API bool ext::freetype::load( ext::freetype::Glyph& glyph, unsigned long c ) 
 	}
 	return true;
 }
-UF_API bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& string ) {
+bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& string ) {
 	unsigned long c = string.translate<uf::locale::Utf32>().at(0);
 	int error = 0;
 	if ( (error = FT_Load_Char(glyph.face, FT_Get_Char_Index(glyph.face, c), FT_LOAD_RENDER) )) {
@@ -87,7 +87,7 @@ UF_API bool ext::freetype::load( ext::freetype::Glyph& glyph, const uf::String& 
 	return true;
 }
 
-UF_API uf::stl::string ext::freetype::getError( int error ) {
+uf::stl::string ext::freetype::getError( int error ) {
 	#undef FTERRORS_H_
 	#define FT_ERRORDEF( e, v, s )  { e, s },
 	#define FT_ERROR_START_LIST     {

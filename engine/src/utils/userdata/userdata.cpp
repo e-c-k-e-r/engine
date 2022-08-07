@@ -8,13 +8,13 @@ uf::MemoryPool uf::userdata::memoryPool;
 bool uf::userdata::autoDestruct = true;
 bool uf::userdata::autoValidate = true;
 // Constructs a pod::Userdata struct
-pod::Userdata* UF_API uf::userdata::create( std::size_t len, void* data ) {
+pod::Userdata* uf::userdata::create( std::size_t len, void* data ) {
 	return uf::userdata::create( uf::userdata::memoryPool, len, data );
 }
-void UF_API uf::userdata::destroy( pod::Userdata* userdata ) {
+void uf::userdata::destroy( pod::Userdata* userdata ) {
 	return uf::userdata::destroy( uf::userdata::memoryPool, userdata );
 }
-pod::Userdata* UF_API uf::userdata::copy( const pod::Userdata* userdata ) {
+pod::Userdata* uf::userdata::copy( const pod::Userdata* userdata ) {
 	return uf::userdata::copy( uf::userdata::memoryPool, userdata );
 }
 
@@ -23,7 +23,7 @@ size_t uf::userdata::size( size_t len, size_t padding ) {
 }
 
 //
-pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
+pod::Userdata* uf::userdata::create( uf::MemoryPool& requestedMemoryPool, size_t len, void* data ) {
 	if ( len <= 0 ) return NULL;
 	size_t requestedLen = size( len );
 #if UF_MEMORYPOOL_INVALID_MALLOC
@@ -46,7 +46,7 @@ pod::Userdata* UF_API uf::userdata::create( uf::MemoryPool& requestedMemoryPool,
 	userdata->type = UF_USERDATA_CTTI(void);
 	return userdata;
 }
-void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Userdata* userdata ) {
+void uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Userdata* userdata ) {
 #if UF_MEMORYPOOL_INVALID_FREE
 	uf::MemoryPool& memoryPool = requestedMemoryPool.size() > 0 ? requestedMemoryPool : uf::memoryPool::global;
 	memoryPool.free( userdata, size(userdata->len) );
@@ -59,17 +59,17 @@ void UF_API uf::userdata::destroy( uf::MemoryPool& requestedMemoryPool, pod::Use
 	else uf::allocator::free_m(userdata);
 #endif
 }
-pod::Userdata* UF_API uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
+pod::Userdata* uf::userdata::copy( uf::MemoryPool& requestedMemoryPool, const pod::Userdata* userdata ) {
 	if ( !userdata || userdata->len <= 0 ) return NULL;
 	auto* copied = uf::userdata::create( userdata->len, const_cast<void*>((const void*) &userdata->data[0]) );
 	copied->type = userdata->type;
 	return copied;
 }
 
-uf::stl::string UF_API uf::userdata::toBase64( pod::Userdata* userdata ) {
+uf::stl::string uf::userdata::toBase64( pod::Userdata* userdata ) {
 	return uf::base64::encode( userdata->data, userdata->len );
 }
-pod::Userdata* UF_API uf::userdata::fromBase64( const uf::stl::string& base64 ) {
+pod::Userdata* uf::userdata::fromBase64( const uf::stl::string& base64 ) {
 	uf::stl::vector<uint8_t> decoded = uf::base64::decode( base64 );
 	return uf::userdata::create( decoded.size(), decoded.data() );
 }

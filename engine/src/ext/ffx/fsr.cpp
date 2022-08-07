@@ -193,7 +193,7 @@ float ext::fsr::sharpness = 1.0f;
 float ext::fsr::jitterScale = 2.0f;
 bool ext::fsr::initialized = false;
 
-void UF_API ext::fsr::initialize() {
+void ext::fsr::initialize() {
 	ffxFsr2SetInstanceFunctions( uf::renderer::device.instance, vkGetInstanceProcAddr );
 
 	scratchBuffer.resize(ffxFsr2GetScratchMemorySizeVK(uf::renderer::device.physicalDevice, uf::renderer::device.extensionProperties.device.size()));
@@ -226,13 +226,13 @@ void UF_API ext::fsr::initialize() {
 		);
 
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-		auto& blitter = *renderMode.getBlitter();
+		auto& blitter = renderMode.getBlitter();
 		auto& shader = blitter.material.getShader("fragment");
 		shader.textures.clear();
 		shader.textures.emplace_back().aliasTexture( fsrTarget );
 	}
 }
-void UF_API ext::fsr::tick() {
+void ext::fsr::tick() {
 	if ( !ext::fsr::initialized ) return;
 	pod::Vector2ui renderSize = {};
 	pod::Vector2ui displaySize = {};
@@ -252,7 +252,7 @@ void UF_API ext::fsr::tick() {
 		);
 
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-		auto& blitter = *renderMode.getBlitter();
+		auto& blitter = renderMode.getBlitter();
 		auto& shader = blitter.material.getShader("fragment");
 		shader.textures.clear();
 		shader.textures.emplace_back().aliasTexture( fsrTarget );
@@ -293,18 +293,18 @@ void UF_API ext::fsr::tick() {
 //	UF_MSG_DEBUG("{}, {} x {} ({} {})", ext::fsr::jitterScale, jitter.x, jitter.y, index, jitterPhaseCount);
 	::jitterMatrix = uf::matrix::translate( uf::matrix::identity(), pod::Vector3f{ jitter.x, jitter.y, 0 } );
 }
-void UF_API ext::fsr::render() {
+void ext::fsr::render() {
 	if ( !ext::fsr::initialized ) return;
 	auto commandBuffer = uf::renderer::device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS, true);
 	draw(commandBuffer, uf::renderer::states::currentBuffer);
 	uf::renderer::device.flushCommandBuffer(commandBuffer);
 }
-void UF_API ext::fsr::terminate() {
+void ext::fsr::terminate() {
 	if ( !ext::fsr::initialized ) return;
 	FFX_ERROR_CHECK(ffxFsr2ContextDestroy( &::context ));
 }
 
-pod::Matrix4f UF_API ext::fsr::getJitterMatrix() {
+pod::Matrix4f ext::fsr::getJitterMatrix() {
 	return ::jitterMatrix;
 }
 

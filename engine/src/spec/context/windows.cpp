@@ -3,7 +3,7 @@
 #include <uf/utils/io/iostream.h>
 
 #if UF_ENV_WINDOWS && UF_USE_OPENGL && !UF_USE_OPENGL_GLDC
-UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
+spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings ) : 
 	uni::Context( NULL, true, settings ),
 	m_deviceContext 	(NULL),
 	m_context 			(NULL)
@@ -18,7 +18,7 @@ UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::
 
 	if ( this->m_deviceContext ) this->create(shared);
 }
-UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, const Context::window_t& window ) :
+spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, const Context::window_t& window ) :
 	uni::Context( NULL, false, settings ),
 	m_deviceContext 	(NULL),
 	m_context 			(NULL)
@@ -31,14 +31,14 @@ UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::
 	if ( this->m_deviceContext )
 		this->create(shared);
 }
-UF_API_CALL spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, unsigned int width, unsigned int height ) : Context( shared, settings ) {
+spec::win32::Context::Context( uni::Context* shared, const Context::Settings& settings, unsigned int width, unsigned int height ) : Context( shared, settings ) {
 	
 }
 spec::win32::Context::~Context() {
 	this->terminate();
 }
 
-void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
+void spec::win32::Context::create( uni::Context* shared ) {
 //	this->m_settings = settings;
 	Context::Settings glSettings{24, 4, 8, 0, 3, 3};
 
@@ -188,7 +188,7 @@ void UF_API_CALL spec::win32::Context::create( uni::Context* shared ) {
 		}
 	}
 }
-void UF_API_CALL spec::win32::Context::terminate() {
+void spec::win32::Context::terminate() {
 	// Destroy the OpenGL context
 	if ( this->m_context ) {
 		if ( wglGetCurrentContext() == this->m_context) wglMakeCurrent(NULL, NULL);

@@ -4,10 +4,7 @@
 
 namespace ext {
 	namespace vulkan {
-		struct UF_API BaseRenderMode : RenderMode {
-			// virtual ~RenderMode();
-			
-			//
+		struct UF_API BaseRenderMode : public RenderMode {			
 			virtual const uf::stl::string getType() const;
 			
 			virtual void initialize( Device& device );

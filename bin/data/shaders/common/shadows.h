@@ -109,7 +109,7 @@ float shadowFactorRT( const Light light, float def ) {
 	ray.direction = light.position - ray.origin;
 
 	float tMin = ubo.settings.rt.defaultRayBounds.x;
-	float tMax = length(ray.direction) - 0.0001;
+	float tMax = length(ray.direction) - ubo.settings.rt.defaultRayBounds.x;
 	
 	ray.direction = normalize(ray.direction);
 
@@ -119,8 +119,7 @@ float shadowFactorRT( const Light light, float def ) {
 	rayQueryEXT rayQuery;
 	rayQueryInitializeEXT(rayQuery, tlas, rayFlags, cullMask, ray.origin, tMin, ray.direction, tMax);
 
-	while(rayQueryProceedEXT(rayQuery)) {
-	}
+	while(rayQueryProceedEXT(rayQuery));
 
 	return rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionNoneEXT ? 1.0 : 0.0;
 }

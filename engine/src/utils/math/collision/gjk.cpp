@@ -20,8 +20,8 @@ void pod::Simplex::set( const pod::Vector3& b, const pod::Vector3& c, const pod:
 }
 */
 pod::Collider::~Collider(){}
-uf::stl::string UF_API pod::Collider::type() const { return ""; }
-pod::Collider::Manifold UF_API pod::Collider::intersects( const pod::Collider& y ) const {
+uf::stl::string pod::Collider::type() const { return ""; }
+pod::Collider::Manifold pod::Collider::intersects( const pod::Collider& y ) const {
 	const pod::Collider& x = *this;
 	
 	pod::Simplex::SupportPoint a;

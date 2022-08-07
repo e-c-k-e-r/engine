@@ -1,7 +1,7 @@
 #if UF_USE_UNUSED
 #include <uf/utils/math/collision/boundingbox.h>
 
-UF_API uf::BoundingBox::BoundingBox( const pod::Vector3& origin, const pod::Vector3& corner ) {
+uf::BoundingBox::BoundingBox( const pod::Vector3& origin, const pod::Vector3& corner ) {
 	this->m_origin = origin;
 	this->m_corner = corner;
 }
@@ -66,8 +66,8 @@ pod::Vector3 uf::BoundingBox::closest( const pod::Vector3f& point ) const {
 
 	return vector;
 }
-uf::stl::string UF_API uf::BoundingBox::type() const { return "BoundingBox"; }
-pod::Vector3* UF_API uf::BoundingBox::expand() const {
+uf::stl::string uf::BoundingBox::type() const { return "BoundingBox"; }
+pod::Vector3* uf::BoundingBox::expand() const {
 	pod::Vector3* raw = new pod::Vector3[8];
 	raw[0] = pod::Vector3{  this->m_corner.x,  this->m_corner.y,  this->m_corner.z};
 	raw[1] = pod::Vector3{  this->m_corner.x,  this->m_corner.y, -this->m_corner.z};
@@ -84,7 +84,7 @@ pod::Vector3* UF_API uf::BoundingBox::expand() const {
 
 	return raw;
 }
-pod::Vector3 UF_API uf::BoundingBox::support( const pod::Vector3& direction ) const {
+pod::Vector3 uf::BoundingBox::support( const pod::Vector3& direction ) const {
 	pod::Vector3f position = this->getPosition() + this->m_origin;
 	// const pod::Vector3f& position = this->m_origin;
 	pod::Vector3 res = {
@@ -95,7 +95,7 @@ pod::Vector3 UF_API uf::BoundingBox::support( const pod::Vector3& direction ) co
 	return res;
 }
 
-pod::Collider::Manifold UF_API uf::BoundingBox::intersects( const uf::BoundingBox& b ) const {
+pod::Collider::Manifold uf::BoundingBox::intersects( const uf::BoundingBox& b ) const {
 	const uf::BoundingBox& a = *this;
 	pod::Collider::Manifold manifold(a, b);
 

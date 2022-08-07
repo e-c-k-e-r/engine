@@ -39,7 +39,7 @@ namespace {
 	}
 }
 //
-bool UF_API_CALL spec::uni::Context::setActive(bool active) {
+bool spec::uni::Context::setActive(bool active) {
 	if (active) {
 		if (this != currentContext) {
 			// Activate the context
@@ -61,11 +61,11 @@ bool UF_API_CALL spec::uni::Context::setActive(bool active) {
 	return true; // This context is not the active one on this thread, don't do anything
 }
 //
-void UF_API_CALL spec::uni::Context::initialize() {
+void spec::uni::Context::initialize() {
 	// Activate the context
 	this->setActive(true);
 }
-void UF_API_CALL spec::uni::Context::globalInit() {
+void spec::uni::Context::globalInit() {
 	// Create the shared context
 	sharedContext = new spec::Context(NULL);
 	sharedContext->initialize();
@@ -75,7 +75,7 @@ void UF_API_CALL spec::uni::Context::globalInit() {
 	// - another valid context is activated in the current thread
 	sharedContext->setActive(false);
 }
-void UF_API_CALL spec::uni::Context::globalCleanup() {
+void spec::uni::Context::globalCleanup() {
 	// Destroy the shared context
 	delete sharedContext;
 	sharedContext = NULL;
@@ -85,17 +85,17 @@ void UF_API_CALL spec::uni::Context::globalCleanup() {
 	for (std::set<spec::uni::Context*>::iterator it = internalContexts.begin(); it != internalContexts.end(); ++it) delete *it;
 	internalContexts.clear();
 }
-void UF_API_CALL spec::uni::Context::ensureContext() {
+void spec::uni::Context::ensureContext() {
 	// If there's no active context on the current thread, activate an internal one
 	if (!currentContext) getInternalContext()->setActive(true);
 }
-spec::uni::Context* UF_API_CALL spec::uni::Context::create() {
+spec::uni::Context* spec::uni::Context::create() {
 	spec::uni::Context* context = new spec::Context(sharedContext);
 	context->initialize();
 
 	return context;
 }
-spec::uni::Context* UF_API_CALL spec::uni::Context::create(const spec::uni::Context::Settings& settings, const Context::window_t& owner) {
+spec::uni::Context* spec::uni::Context::create(const spec::uni::Context::Settings& settings, const Context::window_t& owner) {
 	// Make sure that there's an active context (context creation may need extensions, and thus a valid context)
 	Context::ensureContext();
 	// Create the context
@@ -103,7 +103,7 @@ spec::uni::Context* UF_API_CALL spec::uni::Context::create(const spec::uni::Cont
 	context->initialize();
 	return context;
 }
-spec::uni::Context* UF_API_CALL spec::uni::Context::create(const spec::uni::Context::Settings& settings, unsigned int width, unsigned int height) {
+spec::uni::Context* spec::uni::Context::create(const spec::uni::Context::Settings& settings, unsigned int width, unsigned int height) {
 	// Make sure that there's an active context (context creation may need extensions, and thus a valid context)
 	Context::ensureContext();
 	// Create the context
@@ -113,14 +113,12 @@ spec::uni::Context* UF_API_CALL spec::uni::Context::create(const spec::uni::Cont
 }
 //
 
-//
-UF_API_CALL spec::uni::Context::Context() :
+spec::uni::Context::Context() :
 	m_window 		(NULL),
 	m_ownsWindow 	(false)
 {
 
-}
-UF_API_CALL spec::uni::Context::Context( Context::window_t::handle_t window, bool ownsWindow, const spec::uni::Context::Settings& settings ) :
+} spec::uni::Context::Context( Context::window_t::handle_t window, bool ownsWindow, const spec::uni::Context::Settings& settings ) :
 	m_window 		(window),
 	m_ownsWindow 	(ownsWindow),
 	m_settings 		(settings)
@@ -132,7 +130,7 @@ spec::uni::Context::~Context() {
 //	this->terminate();
 }
 
-int UF_API_CALL spec::uni::Context::evaluateFormat( const spec::uni::Context::Settings& settings, int colorBits, int depthBits, int stencilBits, int antialiasing ) {
+int spec::uni::Context::evaluateFormat( const spec::uni::Context::Settings& settings, int colorBits, int depthBits, int stencilBits, int antialiasing ) {
 	return std::abs(int(settings.bitsPerPixel	  - colorBits))   +
 		   std::abs(int(settings.depthBits		 - depthBits))   +
 		   std::abs(int(settings.stencilBits	   - stencilBits)) +

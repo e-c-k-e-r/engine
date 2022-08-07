@@ -350,9 +350,9 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 
 	if ( !ext::json::isArray(graph.metadata["decode"]["attributes"]) ) {
 	#if UF_USE_OPENGL
-		graph.metadata["decode"]["attributes"] = uf::stl::vector({ "position", "uv", "st" });
+		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "uv", "st" });
 	#else
-		graph.metadata["decode"]["attributes"] = uf::stl::vector({ "position", "color", "uv", "st", "tangent", "joints", "weights", "normal", "id" });
+		graph.metadata["decode"]["attributes"] = uf::stl::vector<uf::stl::string>({ "position", "color", "uv", "st", "tangent", "joints", "weights", "normal", "id" });
 	#endif
 	}
 

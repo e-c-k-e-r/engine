@@ -1,6 +1,6 @@
 #include <uf/utils/component/component.h>
 
-UF_API uf::MemoryPool uf::component::memoryPool;
+uf::MemoryPool uf::component::memoryPool;
 uf::Component::~Component() {
 	this->destroyComponents();
 }

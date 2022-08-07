@@ -6,11 +6,11 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": true,
-				"max": 16,
+				"max": 32,
 				"shadows": {
 					"enabled": true,
 					"update": 2,
-					"max": 4,
+					"max": 12,
 					"samples": 1
 				},
 				"bloom": {
@@ -29,20 +29,20 @@
 				}
 			},
 			"vxgi": {
-				"limiter": 0.5,
-			//	"limiter": 0.125,
-				"size": 128,
+			//	"limiter": 0.5,
+				"limiter": 0.125,
+				"size": 256,
 				"dispatch": 8,
 				"cascades": 3,
-				"cascadePower": 3,
-				"granularity": 12,
+				"cascadePower": 1.5,
+				"granularity": 4,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
 				"shadows": 0,
 				"extents": {
-					"min": [ -16, -4, -16 ],
-					"max": [  16,  4,  16 ]
+					"min": [ -8, -4, -8 ],
+					"max": [  8,  4,  8 ]
 				}
 			},
 			"rt": {
@@ -61,8 +61,10 @@
 		},
 		"ext": {
 			"vulkan": {
-				"validation": { "enabled": false,
+				"validation": { "enabled": true,
 					"filters": [
+						"0x1feed437", // VUID-VkImageMemoryBarrier-synchronization2-03857 (screams because of FSR2 retardation)
+					//	"0x141cb623", // UNASSIGNED-Threading-MultipleThreads (screams at me, a part of transient command buffer recording/submitting)
 						"0x35d7ea98", // VUID-vkUpdateDescriptorSets-None-03047 ()
 
 						"0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
@@ -92,29 +94,30 @@
 				},
 				"framebuffer": {
 					"msaa": 1,
-					"size": 1 // 0.5
+					"size": 1
+				//	"size": 0.8
 				//	"size": [ 640, 480, "NEAREST" ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
 				//	"size": [ 640, 480 ]
 				},
-				"gpu": 1,
 				"experimental": {
-					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": true
+					"dedicated thread": false
 				},
-				"invariant": {},
+				"invariant": {
+					"multithreaded recording": true
+				},
 				"pipelines": {
 					"deferred": true,
-					"vsync": true,
-					"hdr": true,
-					"vxgi": true,
+					"vsync": false,
+					"hdr": false,
+					"vxgi": false,
 					"culling": false,
-					"bloom": true,
-					"rt": true,
-					"postProcess": true,
-					"fsr": true
+					"bloom": false,
+					"rt": false,
+					"fsr": false,
+					"postProcess": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -321,7 +324,7 @@
 			"visible" : true,
 			"center" : false,
 			"sensitivity": [ 0.75, 0.75 ],
-			"smoothing": [ 4, 4 ]
+			"smoothing": [ 2, 2 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

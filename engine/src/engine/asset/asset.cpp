@@ -76,7 +76,10 @@ void uf::Asset::processQueue() {
 		if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
 	});
 
+//	bool bitch = !tasks.container.empty();
+//	if ( bitch ) UF_MSG_DEBUG("Batching Jobs: {}", tasks.container.size());
 	uf::thread::execute( tasks );
+//	if ( bitch ) UF_MSG_DEBUG("Finished Jobs: {}", tasks.container.size());
 }
 void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
 	mutex.lock();

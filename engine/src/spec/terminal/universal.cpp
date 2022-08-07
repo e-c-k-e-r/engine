@@ -7,17 +7,17 @@
 
 
 spec::Terminal spec::terminal;
-spec::uni::Terminal& UF_API_CALL spec::Terminal::getUniversal() {
+spec::uni::Terminal& spec::Terminal::getUniversal() {
 	return (spec::uni::Terminal&) *this;
 }
 
-void UF_API_CALL spec::uni::Terminal::clear() {
+void spec::uni::Terminal::clear() {
 }
-void UF_API_CALL spec::uni::Terminal::hide() {
+void spec::uni::Terminal::hide() {
 }
-void UF_API_CALL spec::uni::Terminal::show() {
+void spec::uni::Terminal::show() {
 }
-void UF_API_CALL spec::uni::Terminal::setLocale() {
+void spec::uni::Terminal::setLocale() {
 #if UF_ENV_DREAMCAST
 #else
 	const char* locales[4] = {

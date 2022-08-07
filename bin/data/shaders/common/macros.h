@@ -70,7 +70,7 @@
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
-		#define BARYCENTRIC_CALCULATE 1
+		#define BARYCENTRIC_CALCULATE 0
 	#endif
 #endif
 

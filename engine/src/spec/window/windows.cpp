@@ -440,7 +440,7 @@ namespace {
 	float lastMouseWheel;
 }
 
-UF_API_CALL spec::win32::Window::Window() : 
+spec::win32::Window::Window() : 
 	m_handle 			(NULL),
 	m_context 			(NULL),
 	m_callback			(0),
@@ -455,7 +455,7 @@ UF_API_CALL spec::win32::Window::Window() :
 	m_asyncParse		(false)
 {
 }
-UF_API_CALL spec::win32::Window::Window( spec::win32::Window::handle_t handle ) :
+spec::win32::Window::Window( spec::win32::Window::handle_t handle ) :
 	m_handle 			(handle),
 	m_callback			(0),
 	m_cursor			(NULL),
@@ -473,7 +473,7 @@ UF_API_CALL spec::win32::Window::Window( spec::win32::Window::handle_t handle ) 
 		m_callback = SetWindowLongPtrW(this->m_handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&::globalOnEvent));
 	}
 }
-UF_API_CALL spec::win32::Window::Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title ) : 
+spec::win32::Window::Window( const spec::win32::Window::vector_t& size, const spec::win32::Window::title_t& title ) : 
 	m_handle 			(NULL),
 	m_context 			(NULL),
 	m_callback			(0),
@@ -488,7 +488,7 @@ UF_API_CALL spec::win32::Window::Window( const spec::win32::Window::vector_t& si
 {
 	this->create(size, title);
 }
-void UF_API_CALL spec::win32::Window::create( const spec::win32::Window::vector_t& _size, const spec::win32::Window::title_t& title ) {
+void spec::win32::Window::create( const spec::win32::Window::vector_t& _size, const spec::win32::Window::title_t& title ) {
 	setProcessDpiAware();
 	if ( windowCount == 0 ) this->registerWindowClass();
 
@@ -553,7 +553,7 @@ spec::win32::Window::~Window() {
 	}
 #endif
 }
-void UF_API_CALL spec::win32::Window::terminate() {
+void spec::win32::Window::terminate() {
 	if ( this == (spec::win32::Window*) fullscreenWindow ) {
 		ChangeDisplaySettingsW(NULL, 0);
 		fullscreenWindow = NULL;
@@ -563,10 +563,10 @@ void UF_API_CALL spec::win32::Window::terminate() {
 	ReleaseCapture();
 }
 
-spec::win32::Window::handle_t UF_API_CALL spec::win32::Window::getHandle() const {
+spec::win32::Window::handle_t spec::win32::Window::getHandle() const {
 	return this->m_handle;
 }
-spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getPosition() const {
+spec::win32::Window::vector_t spec::win32::Window::getPosition() const {
 	RECT rectangle;
 	GetWindowRect( this->m_handle, &rectangle );
 	spec::win32::Window::vector_t vec;
@@ -574,7 +574,7 @@ spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getPosition() con
 	vec.y = rectangle.top;
 	return vec;
 }
-spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getSize() const {
+spec::win32::Window::vector_t spec::win32::Window::getSize() const {
 	RECT rectangle;
 	GetClientRect( this->m_handle, &rectangle );
 	spec::win32::Window::vector_t vec;
@@ -582,14 +582,14 @@ spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getSize() const {
 	vec.y = rectangle.bottom - rectangle.top;
 	return vec;
 }
-size_t UF_API_CALL spec::win32::Window::getRefreshRate() const {
+size_t spec::win32::Window::getRefreshRate() const {
 	HDC screenDC = GetDC(NULL);
 	int refreshRate = GetDeviceCaps( screenDC, VREFRESH );
 	ReleaseDC(NULL, screenDC);
 	return refreshRate;
 }
 
-void UF_API_CALL spec::win32::Window::centerWindow() {
+void spec::win32::Window::centerWindow() {
 	if ( fullscreenWindow == (void*) this ) return;
 	RECT rect;
 	GetWindowRect ( this->m_handle, &rect ) ;
@@ -601,24 +601,24 @@ void UF_API_CALL spec::win32::Window::centerWindow() {
 	offset /= 2;
 	SetWindowPos( this->m_handle, 0, offset.x, offset.y, 0, 0, SWP_NOZORDER | SWP_NOSIZE );
 }
-void UF_API_CALL spec::win32::Window::setPosition( const spec::win32::Window::vector_t& position ) {
+void spec::win32::Window::setPosition( const spec::win32::Window::vector_t& position ) {
 	if ( fullscreenWindow == (void*) this ) return;
 	SetWindowPos(this->m_handle, NULL, position.x, position.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
-void UF_API_CALL spec::win32::Window::setMousePosition( const spec::win32::Window::vector_t& position ) {
+void spec::win32::Window::setMousePosition( const spec::win32::Window::vector_t& position ) {
 	POINT pt = { position.x, position.y };
 	ClientToScreen(this->m_handle, &pt);
 	ReleaseCapture();
 	SetCursorPos(pt.x,pt.y);
 	SetCapture(this->m_handle);
 }
-spec::win32::Window::vector_t UF_API_CALL spec::win32::Window::getMousePosition( ) {
+spec::win32::Window::vector_t spec::win32::Window::getMousePosition( ) {
 	POINT pt;
 	GetCursorPos( &pt );
 	ScreenToClient( this->m_handle, &pt );
 	return { pt.x, pt.y };
 }
-void UF_API_CALL spec::win32::Window::setSize( const spec::win32::Window::vector_t& size ) {
+void spec::win32::Window::setSize( const spec::win32::Window::vector_t& size ) {
 	if ( fullscreenWindow == (void*) this ) return;
 	RECT rectangle = { 0, 0, size.x, size.y };
 	if ( rectangle.right <= 0 && rectangle.bottom <= 0 ) {
@@ -629,11 +629,11 @@ void UF_API_CALL spec::win32::Window::setSize( const spec::win32::Window::vector
 	SetWindowPos(this->m_handle, NULL, 0, 0, rectangle.right - rectangle.left, rectangle.bottom - rectangle.top, SWP_NOMOVE | SWP_NOZORDER);
 }
 
-void UF_API_CALL spec::win32::Window::setTitle( const spec::win32::Window::title_t& title ) {
+void spec::win32::Window::setTitle( const spec::win32::Window::title_t& title ) {
 	SetWindowTextW(this->m_handle, std::wstring(title).c_str());
 //	SetWindowTextW(this->m_handle, (wchar_t*) std::wstring(title).c_str());
 }
-void UF_API_CALL spec::win32::Window::setIcon( const spec::win32::Window::vector_t& size, uint8_t* pixels ) {
+void spec::win32::Window::setIcon( const spec::win32::Window::vector_t& size, uint8_t* pixels ) {
 	// First destroy the previous one
 
 	uf::stl::vector<uint8_t> iconPixels(size.x * size.y * 4);
@@ -666,18 +666,18 @@ void UF_API_CALL spec::win32::Window::setIcon( const spec::win32::Window::vector
 	}
 */
 }
-void UF_API_CALL spec::win32::Window::setVisible( bool visibility ) {
+void spec::win32::Window::setVisible( bool visibility ) {
 	ShowWindow(this->m_handle, visibility ? SW_SHOW : SW_HIDE);
 }
-void UF_API_CALL spec::win32::Window::setCursorVisible( bool visibility ) {
+void spec::win32::Window::setCursorVisible( bool visibility ) {
 	this->m_cursor = ( visibility ? LoadCursor(NULL, IDC_ARROW) : NULL );
 	SetCursor(this->m_cursor);
 }
-void UF_API_CALL spec::win32::Window::setKeyRepeatEnabled( bool state ) {
+void spec::win32::Window::setKeyRepeatEnabled( bool state ) {
 	this->m_keyRepeatEnabled = state;
 }
 
-void UF_API_CALL spec::win32::Window::requestFocus() {
+void spec::win32::Window::requestFocus() {
 	DWORD thisPid = GetWindowThreadProcessId(this->m_handle, NULL);
 	DWORD forePid = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
 
@@ -694,11 +694,11 @@ void UF_API_CALL spec::win32::Window::requestFocus() {
 		FlashWindowEx(&info);
 	}
 }
-bool UF_API_CALL spec::win32::Window::hasFocus() const {
+bool spec::win32::Window::hasFocus() const {
 	return this->m_handle == GetForegroundWindow();
 }
 
-void UF_API_CALL spec::win32::Window::bufferInputs() {
+void spec::win32::Window::bufferInputs() {
 	uf::Window::focused = this->hasFocus();
 
 	uf::inputs::kbm::states::LShift = GetAsyncKeyState(VK_LSHIFT) & 0x8000;
@@ -822,7 +822,7 @@ void UF_API_CALL spec::win32::Window::bufferInputs() {
 	uf::inputs::kbm::states::MouseWheel = ::lastMouseWheel;
 	::lastMouseWheel = 0;
 }
-void UF_API_CALL spec::win32::Window::processEvents() {
+void spec::win32::Window::processEvents() {
 	if ( !this->m_callback ) {
 		MSG message;
 		while ( PeekMessageW( &message, NULL, 0, 0, PM_REMOVE ) ) {
@@ -882,7 +882,7 @@ void UF_API_CALL spec::win32::Window::processEvents() {
 		}
 	}
 }
-bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
+bool spec::win32::Window::pollEvents( bool block ) {
 	if ( this->m_events.empty() ) {
 		do {
 			this->processEvents();
@@ -960,7 +960,7 @@ bool UF_API_CALL spec::win32::Window::pollEvents( bool block ) {
 #endif
 }
 
-void UF_API_CALL spec::win32::Window::registerWindowClass() {
+void spec::win32::Window::registerWindowClass() {
 	WNDCLASSW windowClass;
 	windowClass.style 			= 0;
 	windowClass.lpfnWndProc 	= &(::globalOnEvent);
@@ -974,7 +974,7 @@ void UF_API_CALL spec::win32::Window::registerWindowClass() {
 	windowClass.lpszClassName 	= className.c_str();
 	RegisterClassW(&windowClass);
 }
-void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lParam) {
+void spec::win32::Window::processEvent(UINT message, WPARAM wParam, LPARAM lParam) {
 	if (!this->m_handle) return;
 	
 	uf::stl::string hook = "window:Unknown";
@@ -1434,7 +1434,7 @@ void UF_API_CALL spec::win32::Window::processEvent(UINT message, WPARAM wParam, 
 	}
 }
 
-void UF_API_CALL spec::win32::Window::setTracking(bool state) {
+void spec::win32::Window::setTracking(bool state) {
 	TRACKMOUSEEVENT mouseEvent;
 	mouseEvent.cbSize = sizeof(TRACKMOUSEEVENT);
 	mouseEvent.hwndTrack = this->m_handle;
@@ -1442,11 +1442,11 @@ void UF_API_CALL spec::win32::Window::setTracking(bool state) {
 	mouseEvent.dwHoverTime = HOVER_DEFAULT;
 	TrackMouseEvent(&mouseEvent);
 }
-void UF_API_CALL spec::win32::Window::setMouseGrabbed(bool state) {
+void spec::win32::Window::setMouseGrabbed(bool state) {
 	this->m_mouseGrabbed = state;
 	this->grabMouse(state);
 }
-void UF_API_CALL spec::win32::Window::grabMouse(bool state) {
+void spec::win32::Window::grabMouse(bool state) {
 	if (state) {
 		RECT rect;
 		GetClientRect(m_handle, &rect);
@@ -1456,10 +1456,10 @@ void UF_API_CALL spec::win32::Window::grabMouse(bool state) {
 		ClipCursor(NULL);
 	}
 }
-pod::Vector2ui UF_API_CALL spec::win32::Window::getResolution() {
+pod::Vector2ui spec::win32::Window::getResolution() {
 	return { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
 }
-void UF_API_CALL spec::win32::Window::toggleFullscreen( bool borderless ) {
+void spec::win32::Window::toggleFullscreen( bool borderless ) {
 	static pod::Vector2ui lastSize = this->getSize();
 	static LONG lastStyle;
 	static LONG lastExStyle;
@@ -1494,19 +1494,19 @@ void UF_API_CALL spec::win32::Window::toggleFullscreen( bool borderless ) {
 	fullscreenWindow = (void*) this;
 }
 
-bool UF_API_CALL spec::win32::Window::isKeyPressed(const uf::stl::string& key) {
+bool spec::win32::Window::isKeyPressed(const uf::stl::string& key) {
 	return uf::Window::focused && (GetAsyncKeyState( GetKeyCode( key ) ) & 0x8000);
 }
-uf::stl::string UF_API_CALL spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
+uf::stl::string spec::win32::Window::getKey(WPARAM key, LPARAM flags) {
 	return GetKeyName( key, flags );
 }
 #if defined(UF_USE_VULKAN) && UF_USE_VULKAN == 1
-uf::stl::vector<uf::stl::string> UF_API_CALL spec::win32::Window::getExtensions( bool validationEnabled ) {
+uf::stl::vector<uf::stl::string> spec::win32::Window::getExtensions( bool validationEnabled ) {
 	uf::stl::vector<uf::stl::string> instanceExtensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
 	if ( validationEnabled ) instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	return instanceExtensions;
 }
-void UF_API_CALL spec::win32::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
+void spec::win32::Window::createSurface( VkInstance instance, VkSurfaceKHR& surface ) {
 	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
 	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	surfaceCreateInfo.hinstance = (HINSTANCE) GetModuleHandleW(NULL);
@@ -1515,7 +1515,7 @@ void UF_API_CALL spec::win32::Window::createSurface( VkInstance instance, VkSurf
 }
 #endif
 
-void UF_API_CALL spec::win32::Window::display() {
+void spec::win32::Window::display() {
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	if ( this->m_context ){
 		spec::Context* context = (spec::Context*) this->m_context;

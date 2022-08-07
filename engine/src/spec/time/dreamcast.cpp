@@ -2,10 +2,10 @@
 #ifdef UF_ENV_DREAMCAST
 #include <arch/timer.h>
 
-spec::uni::Time::time_t UF_API_CALL spec::dreamcast::Time::getTime() {
+spec::uni::Time::time_t spec::dreamcast::Time::getTime() {
 	return timer_us_gettime64();
 }
-spec::uni::Time& UF_API_CALL spec::dreamcast::Time::getUniversal() {
+spec::uni::Time& spec::dreamcast::Time::getUniversal() {
 	return (spec::uni::Time&) *this;
 }
 

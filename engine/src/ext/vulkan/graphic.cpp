@@ -218,7 +218,7 @@ void ext::vulkan::Pipeline::initialize( const Graphic& graphic, const GraphicDes
 	// Graphic
 	{
 		RenderMode& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
-		auto& renderTarget = renderMode.getRenderTarget( descriptor.renderTarget );
+		auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
 
 		VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = ext::vulkan::initializers::pipelineInputAssemblyStateCreateInfo(
 			descriptor.topology,
@@ -481,8 +481,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 	this->descriptor = descriptor;
 
 	RenderMode& renderMode = ext::vulkan::getRenderMode(descriptor.renderMode, true);
-	auto& renderTarget = renderMode.getRenderTarget(descriptor.renderTarget );
-
+	auto& renderTarget = renderMode.getRenderTarget(/*descriptor.renderTarget*/);
 
 	auto shaders = getShaders( graphic.material.shaders );
 	uf::stl::vector<VkWriteDescriptorSet> writeDescriptorSets;
@@ -510,12 +509,31 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 		auto& infos = INFOS.emplace_back();
 		uf::stl::vector<ext::vulkan::enums::Image::viewType_t> types;
 
+		for ( auto& descriptor : shader->metadata.aliases.buffers ) {
+			auto matches = uf::string::match(descriptor.name, R"(/^(.+?)\[(\d+)\]$/)");
+			auto name = matches.size() == 2 ? matches[0] : descriptor.name;
+			auto view = matches.size() == 2 ? stoi(matches[1]) : -1;
+			const ext::vulkan::Buffer* buffer = &descriptor.fallback;
+			if ( descriptor.renderMode ) {
+				if ( descriptor.renderMode->hasBuffer(name) ) 
+					buffer = &descriptor.renderMode->getBuffer(name);
+			} else if ( renderMode.hasBuffer(name) ) {
+				buffer = &renderMode.getBuffer(name);
+			}
+
+			if ( !buffer ) continue;
+
+			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer->descriptor);
+			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer->descriptor);
+		}
+	#if 0
 		// add per-rendermode buffers
 		for ( auto& buffer : renderMode.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
 			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
 		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
+	#endif
 		// add per-shader buffers
 		for ( auto& buffer : shader->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
@@ -556,7 +574,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}\
 		}
 
-		for ( auto& descriptor : shader->metadata.attachments ) {
+		for ( auto& descriptor : shader->metadata.aliases.attachments ) {
 			auto texture = Texture2D::empty.alias();
 			texture.sampler.descriptor.filter.min = descriptor.filter;
 			texture.sampler.descriptor.filter.mag = descriptor.filter;
@@ -659,7 +677,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 
 		if ( infos.accelerationStructure.empty() ) {
 			uf::stl::string renderModeName = uf::renderer::hasRenderMode("Compute:RT", true) ? "Compute:RT" : "";
-			auto& blitter = *(uf::renderer::getRenderMode(renderModeName, true).getBlitter());
+			auto& blitter = uf::renderer::getRenderMode(renderModeName, true).getBlitter();
 			if ( !blitter.accelerationStructures.tops.empty() ) {
 				tlases.emplace_back(blitter.accelerationStructures.tops.front());
 			}
@@ -1486,6 +1504,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		}
 
 		ext::vulkan::Buffer oldBuffer;
+		oldBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 		oldBuffer.initialize( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
 		this->buffers[blasBufferIndex].swap(oldBuffer);
 		

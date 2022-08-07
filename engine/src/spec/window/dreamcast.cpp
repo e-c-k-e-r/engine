@@ -317,8 +317,8 @@ uf::stl::string spec::dreamcast::pvr_malloc_stats( bool verbose ) {
 	return str.str();
 }
 
-UF_API_CALL spec::dreamcast::Window::Window() : m_context(NULL) {}
-void UF_API_CALL spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
+spec::dreamcast::Window::Window() : m_context(NULL) {}
+void spec::dreamcast::Window::create( const spec::dreamcast::Window::vector_t& _size, const spec::dreamcast::Window::title_t& title ) {
 	::keyboard.device = maple_enum_type(1, MAPLE_FUNC_KEYBOARD);
 
 	this->setSize(_size);
@@ -338,32 +338,32 @@ spec::dreamcast::Window::~Window() {
 	}
 #endif
 }
-void UF_API_CALL spec::dreamcast::Window::terminate() {
+void spec::dreamcast::Window::terminate() {
 }
 
-spec::dreamcast::Window::handle_t UF_API_CALL spec::dreamcast::Window::getHandle() const {
+spec::dreamcast::Window::handle_t spec::dreamcast::Window::getHandle() const {
 	return NULL; // this->m_handle;
 }
-spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getPosition() const {
+spec::dreamcast::Window::vector_t spec::dreamcast::Window::getPosition() const {
 	return { 0, 0 };
 }
-spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getSize() const {
+spec::dreamcast::Window::vector_t spec::dreamcast::Window::getSize() const {
 	return ::resolution;
 }
-size_t UF_API_CALL spec::dreamcast::Window::getRefreshRate() const {
+size_t spec::dreamcast::Window::getRefreshRate() const {
 	return 60;
 }
 
-void UF_API_CALL spec::dreamcast::Window::centerWindow() {
+void spec::dreamcast::Window::centerWindow() {
 }
-void UF_API_CALL spec::dreamcast::Window::setPosition( const spec::dreamcast::Window::vector_t& position ) {
+void spec::dreamcast::Window::setPosition( const spec::dreamcast::Window::vector_t& position ) {
 }
-void UF_API_CALL spec::dreamcast::Window::setMousePosition( const spec::dreamcast::Window::vector_t& position ) {
+void spec::dreamcast::Window::setMousePosition( const spec::dreamcast::Window::vector_t& position ) {
 }
-spec::dreamcast::Window::vector_t UF_API_CALL spec::dreamcast::Window::getMousePosition( ) {
+spec::dreamcast::Window::vector_t spec::dreamcast::Window::getMousePosition( ) {
 	return { ::resolution.x / 2, ::resolution.y / 2 };
 }
-void UF_API_CALL spec::dreamcast::Window::setSize( const spec::dreamcast::Window::vector_t& size ) {
+void spec::dreamcast::Window::setSize( const spec::dreamcast::Window::vector_t& size ) {
 	int e = 0;
 	int p = PM_RGB565;
 
@@ -384,28 +384,28 @@ void UF_API_CALL spec::dreamcast::Window::setSize( const spec::dreamcast::Window
 	UF_MSG_DEBUG("Changing resolution to {}", uf::vector::toString( size ));
 }
 
-void UF_API_CALL spec::dreamcast::Window::setTitle( const spec::dreamcast::Window::title_t& title ) {
+void spec::dreamcast::Window::setTitle( const spec::dreamcast::Window::title_t& title ) {
 }
-void UF_API_CALL spec::dreamcast::Window::setIcon( const spec::dreamcast::Window::vector_t& size, uint8_t* pixels ) {
+void spec::dreamcast::Window::setIcon( const spec::dreamcast::Window::vector_t& size, uint8_t* pixels ) {
 }
-void UF_API_CALL spec::dreamcast::Window::setVisible( bool visibility ) {
+void spec::dreamcast::Window::setVisible( bool visibility ) {
 }
-void UF_API_CALL spec::dreamcast::Window::setCursorVisible( bool visibility ) {
+void spec::dreamcast::Window::setCursorVisible( bool visibility ) {
 }
-void UF_API_CALL spec::dreamcast::Window::setKeyRepeatEnabled( bool state ) {
+void spec::dreamcast::Window::setKeyRepeatEnabled( bool state ) {
 //	this->m_keyRepeatEnabled = state;
 }
 
-void UF_API_CALL spec::dreamcast::Window::requestFocus() {
+void spec::dreamcast::Window::requestFocus() {
 }
-bool UF_API_CALL spec::dreamcast::Window::hasFocus() const {
+bool spec::dreamcast::Window::hasFocus() const {
 //	return (uf::Window::focused = true);
 	return uf::Window::focused;
 }
 
 
 #include <uf/utils/serialize/serializer.h>
-void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
+void spec::dreamcast::Window::bufferInputs() {
 	uf::Window::focused = true;
 
 	uf::inputs::kbm::states::LShift = GetModifier(KBD_MOD_LSHIFT);
@@ -522,7 +522,7 @@ void UF_API_CALL spec::dreamcast::Window::bufferInputs() {
 	uf::inputs::kbm::states::Num9 = GetKeyState(KBD_KEY_9);
 	uf::inputs::kbm::states::Num0 = GetKeyState(KBD_KEY_0);
 }
-void UF_API_CALL spec::dreamcast::Window::processEvents() {
+void spec::dreamcast::Window::processEvents() {
 	if ( !::keyboard.device ) ::keyboard.device = maple_enum_type(0, MAPLE_FUNC_KEYBOARD);
 	if ( ::keyboard.device ) ::keyboard.state = (kbd_state_t*) maple_dev_status(::keyboard.device);
 	
@@ -579,7 +579,7 @@ void UF_API_CALL spec::dreamcast::Window::processEvents() {
 		}
 	}
 }
-bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
+bool spec::dreamcast::Window::pollEvents( bool block ) {
 	if ( this->m_events.empty() ) {
 		do {
 			this->processEvents();
@@ -609,34 +609,34 @@ bool UF_API_CALL spec::dreamcast::Window::pollEvents( bool block ) {
 	return true;
 }
 
-void UF_API_CALL spec::dreamcast::Window::registerWindowClass() {
+void spec::dreamcast::Window::registerWindowClass() {
 }
-void UF_API_CALL spec::dreamcast::Window::processEvent(/*UINT message, WPARAM wParam, LPARAM lParam*/) {
+void spec::dreamcast::Window::processEvent(/*UINT message, WPARAM wParam, LPARAM lParam*/) {
 }
 
-void UF_API_CALL spec::dreamcast::Window::setTracking(bool state) {
+void spec::dreamcast::Window::setTracking(bool state) {
 }
-void UF_API_CALL spec::dreamcast::Window::setMouseGrabbed(bool state) {
+void spec::dreamcast::Window::setMouseGrabbed(bool state) {
 //	this->m_mouseGrabbed = state;
 	this->grabMouse(state);
 }
-void UF_API_CALL spec::dreamcast::Window::grabMouse(bool state) {
+void spec::dreamcast::Window::grabMouse(bool state) {
 }
-pod::Vector2ui UF_API_CALL spec::dreamcast::Window::getResolution() {
+pod::Vector2ui spec::dreamcast::Window::getResolution() {
 	return ::resolution;
 }
 
-void UF_API_CALL spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
+void spec::dreamcast::Window::toggleFullscreen( bool borderless ) {
 }
 
-bool UF_API_CALL spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
+bool spec::dreamcast::Window::isKeyPressed(const uf::stl::string& key) {
 	auto code = GetKeyCode(key);
 	auto keys = GetKeys();
 	for ( auto key : keys ) if ( key == code ) return true;
 	return false;//
 }
 
-void UF_API_CALL spec::dreamcast::Window::display() {
+void spec::dreamcast::Window::display() {
 #if UF_USE_OPENGL && UF_OPENGL_CONTEXT_IN_WINDOW
 	if ( this->m_context ){
 		spec::Context* context = (spec::Context*) this->m_context;

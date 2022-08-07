@@ -29,15 +29,15 @@ namespace ext {
 
 			void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 			void unmap();
-			void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
-			void unmap() const;
+		//	void* map( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
+		//	void unmap() const;
+		//	VkResult bind( VkDeviceSize offset = 0 );
+		//	void copyTo( void* data, VkDeviceSize size );
+		//	VkResult flush( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
+		//	VkResult invalidate( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 
-			VkResult bind( VkDeviceSize offset = 0 );
 
-			void setupDescriptor( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
-			void copyTo( void* data, VkDeviceSize size );
-			VkResult flush( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 ) const;
-			VkResult invalidate( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
+			void updateDescriptor( VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0 );
 			void allocate( VkBufferCreateInfo );
 
 			uint64_t getAddress();

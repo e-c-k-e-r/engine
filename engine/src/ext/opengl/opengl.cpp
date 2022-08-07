@@ -97,10 +97,10 @@ uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::renderModes = {
 	new ext::opengl::BaseRenderMode,
 };
 
-uf::stl::string UF_API ext::opengl::errorString() {
+uf::stl::string ext::opengl::errorString() {
 	return ext::opengl::errorString(glGetError());
 }
-uf::stl::string UF_API ext::opengl::errorString( GLenum error ) {
+uf::stl::string ext::opengl::errorString( GLenum error ) {
 	uf::stl::string str = "";
 	if (error == GL_NO_ERROR) return str;
 #if UF_ENV_DREAMCAST
@@ -173,27 +173,27 @@ uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf:
 	}
 	return targets;
 }
-void UF_API ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool free ) {
+void ext::opengl::removeRenderMode( ext::opengl::RenderMode* mode, bool free ) {
 	if ( !mode ) return;
 	renderModes.erase( std::remove( renderModes.begin(), renderModes.end(), mode ), renderModes.end() );
 	mode->destroy();
 	if ( free ) delete mode;
 	ext::opengl::states::rebuild = true;
 }
-ext::opengl::RenderMode* UF_API ext::opengl::getCurrentRenderMode() {
+ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode() {
 	return getCurrentRenderMode( std::this_thread::get_id() );
 }
-ext::opengl::RenderMode* UF_API ext::opengl::getCurrentRenderMode( std::thread::id id ) {
+ext::opengl::RenderMode* ext::opengl::getCurrentRenderMode( std::thread::id id ) {
 	return ext::opengl::currentRenderMode.get(id);
 }
-void UF_API ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode ) {
+void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode ) {
 	return setCurrentRenderMode( renderMode, std::this_thread::get_id() );
 }
-void UF_API ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode, std::thread::id id ) {
+void ext::opengl::setCurrentRenderMode( ext::opengl::RenderMode* renderMode, std::thread::id id ) {
 	ext::opengl::currentRenderMode.get(id) = renderMode;
 }
 
-void UF_API ext::opengl::initialize() {
+void ext::opengl::initialize() {
 	device.initialize();
 	// swapchain.initialize( device );
 	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
@@ -376,7 +376,7 @@ void UF_API ext::opengl::initialize() {
 	}
 #endif
 }
-void UF_API ext::opengl::tick(){
+void ext::opengl::tick(){
 	ext::opengl::mutex.lock();
 	if ( ext::opengl::states::resized || ext::opengl::settings::experimental::rebuildOnTickBegin ) {
 		ext::opengl::states::rebuild = true;
@@ -413,7 +413,7 @@ void UF_API ext::opengl::tick(){
 	ext::opengl::states::resized = false;
 	ext::opengl::mutex.unlock();
 }
-void UF_API ext::opengl::render(){
+void ext::opengl::render(){
 	ext::opengl::mutex.lock();
 #if !UF_ENV_DREAMCAST
 	ext::opengl::device.activateContext();
@@ -480,7 +480,7 @@ void UF_API ext::opengl::render(){
 #endif
 	ext::opengl::mutex.unlock();
 }
-void UF_API ext::opengl::destroy() {
+void ext::opengl::destroy() {
 	ext::opengl::mutex.lock();
 	synchronize();
 
@@ -503,7 +503,7 @@ void UF_API ext::opengl::destroy() {
 	device.destroy();
 	ext::opengl::mutex.unlock();
 }
-void UF_API ext::opengl::synchronize( uint8_t flag ) {
+void ext::opengl::synchronize( uint8_t flag ) {
 	if ( flag & 0b01 ) {
 		for ( auto& renderMode : renderModes ) {
 			if ( !renderMode ) continue;
@@ -515,7 +515,7 @@ void UF_API ext::opengl::synchronize( uint8_t flag ) {
 	//	vkDeviceWaitIdle( device );
 	}
 }
-uf::stl::string UF_API ext::opengl::allocatorStats(){
+uf::stl::string ext::opengl::allocatorStats(){
 	return "";
 }
 ext::opengl::enums::Format::type_t ext::opengl::formatFromString( const uf::stl::string& string ) {

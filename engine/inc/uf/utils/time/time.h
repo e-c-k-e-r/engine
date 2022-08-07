@@ -83,6 +83,8 @@ namespace uf {
 	};
 
 	namespace time {
+		extern UF_API size_t frame;
+		
 		extern UF_API uf::Timer<> timer;
 		extern UF_API double current;
 		extern UF_API double previous;

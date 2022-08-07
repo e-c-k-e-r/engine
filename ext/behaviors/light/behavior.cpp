@@ -94,7 +94,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		}
 		if ( radius.y < radius.x ) radius.y = 256;
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
-		camera.update(true);
+	//	camera.update(true);
 		
 		uf::stl::string name = "RT:" + std::to_string((int) this->getUid());
 		renderMode.blitter.process = false;
@@ -222,7 +222,7 @@ void ext::LightBehavior::tick( uf::Object& self ) {
 					camera.setView( uf::matrix::inverse( model ), i );
 				}
 			} else {
-				camera.update(true);
+			//	camera.update(true);
 			}
 		}
 	}

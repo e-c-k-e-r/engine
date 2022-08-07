@@ -2,16 +2,16 @@
 
 #ifdef UF_ENV_DREAMCAST
 
-void UF_API_CALL spec::Terminal::clear() {
+void spec::Terminal::clear() {
 	spec::uni::Terminal::clear();
 }
-void UF_API_CALL spec::Terminal::setLocale() {
+void spec::Terminal::setLocale() {
 	spec::uni::Terminal::setLocale();
 }
 
-void UF_API_CALL spec::Terminal::hide() {
+void spec::Terminal::hide() {
 }
-void UF_API_CALL spec::Terminal::show() {
+void spec::Terminal::show() {
 }
 
 #endif

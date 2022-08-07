@@ -183,10 +183,19 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	uf::renderer::Buffer* indirect = NULL;
 	for ( auto& buffer : graphic.buffers ) if ( !indirect && buffer.usage & uf::renderer::enums::Buffer::INDIRECT ) indirect = &buffer;
 
+/*
+	{
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+		if ( !renderMode.hasBuffer("camera") ) {
+			renderMode.metadata.buffers["camera"] = renderMode.initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+		}
+	}
+*/
 	{
 		auto& shader = graphic.material.getShader("vertex");
 
-		shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+	//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+		shader.aliasBuffer( "camera", uf::graph::storage.buffers.camera );
 //	//	shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 	#if UF_USE_VULKAN
 		shader.buffers.emplace_back( indirect->alias() );
@@ -240,7 +249,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 
 			auto& shader = graphic.material.getShader("compute", uf::renderer::settings::pipelines::names::culling);
 
-			shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+			shader.aliasBuffer( "camera", uf::graph::storage.buffers.camera );
 			shader.buffers.emplace_back( indirect->alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
 
@@ -350,8 +360,6 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 				{ "PASSES", maxPasses },
 			});
 
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
-		//	shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 		#if UF_USE_VULKAN
 			shader.buffers.emplace_back( indirect->alias() );
 		#endif
@@ -1025,11 +1033,12 @@ void uf::graph::process( pod::Graph& graph, int32_t index, uf::Object& parent ) 
 		#else
 			metadata.system.ignoreGraph = graph.metadata["debug"]["static"].as<bool>();
 		#endif
+			float powerScale = graph.metadata["lights"]["scale"].as<float>(1);
 			
 			uf::Serializer metadataLight;
 			metadataLight["radius"][0] = 0.001;
 			metadataLight["radius"][1] = l.range; // l.range <= 0.001f ? graph.metadata["lights"]["range cap"].as<float>() : l.range;
-			metadataLight["power"] = l.intensity; //  * graph.metadata["lights"]["power scale"].as<float>();
+			metadataLight["power"] = l.intensity * powerScale; //  * graph.metadata["lights"]["power scale"].as<float>();
 			metadataLight["color"][0] = l.color.x;
 			metadataLight["color"][1] = l.color.y;
 			metadataLight["color"][2] = l.color.z;
@@ -1429,12 +1438,15 @@ void uf::graph::render() {
 	auto& controller = scene.getController();
 	auto& camera = controller.getComponent<uf::Camera>();
 	
+	camera.update();
 	auto viewport = camera.data().viewport;
 
 #if UF_USE_FFX_FSR
-	auto jitter = ext::fsr::getJitterMatrix();
-	for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
-		viewport.matrices[i].projection = jitter * viewport.matrices[i].projection;
+	if ( ext::fsr::initialized ) {
+		auto jitter = ext::fsr::getJitterMatrix();
+		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
+			viewport.matrices[i].projection = jitter * viewport.matrices[i].projection;
+		}
 	}
 #endif
 
@@ -1443,16 +1455,10 @@ void uf::graph::render() {
 #if UF_USE_VULKAN
 	auto* renderMode = uf::renderer::getCurrentRenderMode();
 	if ( !renderMode ) return;
+	if ( !renderMode->hasBuffer("camera") ) return;
+	auto& buffer = renderMode->getBuffer("camera");
+	buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 /*
-	TIMER(1, renderMode->getType() == "Deferred") {
-		UF_MSG_DEBUG("{}: {}", renderMode->getName(), renderMode->getType());
-		UF_MSG_DEBUG("{}: {}", controller.getName(), controller.getUid());
-		UF_MSG_DEBUG("\tTransform[0]: {}", uf::transform::toString( controller.getComponent<pod::Transform<>>() ));
-		UF_MSG_DEBUG("\tTransform[1]: {}", uf::transform::toString( camera.getTransform() ));
-		UF_MSG_DEBUG("\tMatrix: {}", uf::matrix::toString( viewport.matrices[0].view ));
-	}
-*/
-
 	for ( auto& buffer : renderMode->buffers ) {
 		if ( !(buffer.usage & uf::renderer::enums::Buffer::UNIFORM) ) continue;
 		if ( buffer.allocationInfo.size != sizeof(pod::Camera::Viewports) ) continue;
@@ -1460,6 +1466,7 @@ void uf::graph::render() {
 		buffer.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 		return;
 	}
+*/
 #endif
 }
 void uf::graph::destroy() {

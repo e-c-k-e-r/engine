@@ -597,7 +597,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 #endif
 	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
 		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-		auto& deferredBlitter = *deferredRenderMode.getBlitter();
+		auto& deferredBlitter = deferredRenderMode.getBlitter();
 		if ( deferredBlitter.material.hasShader("compute", "deferred") ) {
 			ext::ExtSceneBehavior::bindBuffers( *this, "", "compute", "deferred" );
 		} else {
@@ -607,7 +607,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 
 	/* Update post processing */ {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-		auto& blitter = *renderMode.getBlitter();
+		auto& blitter = renderMode.getBlitter();
 		if ( blitter.material.hasShader("fragment") ) {
 			auto& shader = blitter.material.getShader("fragment");
 
@@ -780,7 +780,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 	if ( uf::renderer::settings::pipelines::bloom ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
-		auto& blitter = *renderMode.getBlitter();
+		auto& blitter = renderMode.getBlitter();
 		auto& shader = blitter.material.getShader("compute", "bloom");
 
 		struct UniformDescriptor {
@@ -812,9 +812,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto& renderMode = uf::renderer::getRenderMode(renderModeName, true);
-	auto blitters = renderMode.getBlitters();
-
-	bindBuffers( self, *blitters.front(), shaderType, shaderPipeline );
+	bindBuffers( self, renderMode.getBlitter(), shaderType, shaderPipeline );
 }
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto/*&*/ graph = this->getGraph();

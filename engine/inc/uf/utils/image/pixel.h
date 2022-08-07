@@ -1,5 +1,5 @@
 #pragma once
-
+#if 0
 #include <uf/config.h>
 
 namespace pod {
@@ -121,3 +121,4 @@ namespace uf {
 	}
 }
 #include "pixel.inl"
+#endif

@@ -9,6 +9,7 @@
 #include <uf/ext/vulkan/rendertarget.h>
 #include <uf/utils/graphic/graphic.h>
 #include <uf/utils/serialize/serializer.h>
+#include <uf/utils/camera/camera.h>
 #include <uf/engine/scene/scene.h>
 
 #include <uf/ext/openvr/openvr.h>
@@ -24,26 +25,27 @@ const uf::stl::string ext::vulkan::RenderMode::getName() const {
 //	return metadata["name"].as<uf::stl::string>();
 	return metadata.name;
 }
-ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) {
+ext::vulkan::Graphic& ext::vulkan::RenderMode::getBlitter() {
+	return blitter;
+}
+ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget() {
 	return renderTarget;
 }
-const ext::vulkan::RenderTarget& ext::vulkan::RenderMode::getRenderTarget( size_t i ) const {
-	return renderTarget;
+const uf::stl::string ext::vulkan::RenderMode::getTarget() const {
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["target"].as<uf::stl::string>();
+	return metadata.target;
+}
+void ext::vulkan::RenderMode::setTarget( const uf::stl::string& target ) {
+//	this->metadata["target"] = target;
+	metadata.target = target;
 }
 
 void ext::vulkan::RenderMode::bindCallback( int32_t subpass, const ext::vulkan::RenderMode::callback_t& callback ) {
 	commandBufferCallbacks[subpass] = callback;
 }
 
-const size_t ext::vulkan::RenderMode::blitters() const {
-	return 0;
-}
-ext::vulkan::Graphic* ext::vulkan::RenderMode::getBlitter( size_t i ) {
-	return NULL;
-}
-uf::stl::vector<ext::vulkan::Graphic*> ext::vulkan::RenderMode::getBlitters() {
-	return {};
-}
+
 bool ext::vulkan::RenderMode::hasAttachment( const uf::stl::string& name ) const {
 	return metadata.attachments.count(name) > 0;
 }
@@ -53,6 +55,16 @@ const ext::vulkan::RenderTarget::Attachment& ext::vulkan::RenderMode::getAttachm
 }
 size_t ext::vulkan::RenderMode::getAttachmentIndex( const uf::stl::string& name ) const {
 	return hasAttachment( name ) ? metadata.attachments.at(name) : SIZE_MAX;
+}
+bool ext::vulkan::RenderMode::hasBuffer( const uf::stl::string& name ) const {
+	return metadata.buffers.count(name) > 0;
+}
+const ext::vulkan::Buffer& ext::vulkan::RenderMode::getBuffer( const uf::stl::string& name ) const {
+	UF_ASSERT_MSG( hasBuffer( name ), "attachment in `{}`: {} not found: {}", this->getName(), this->getType(), name );
+	return this->buffers[metadata.buffers.at(name)];
+}
+size_t ext::vulkan::RenderMode::getBufferIndex( const uf::stl::string& name ) const {
+	return hasAttachment( name ) ? metadata.buffers.at(name) : SIZE_MAX;
 }
 
 uf::Image ext::vulkan::RenderMode::screenshot( size_t attachmentID, size_t layerID ) {
@@ -377,6 +389,9 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 		metadata.pipelines.emplace_back(metadata.pipeline);
 	}
 
+	if ( !this->hasBuffer("camera") ) {
+		this->metadata.buffers["camera"] = this->initializeBuffer( (const void*) nullptr, sizeof(pod::Camera::Viewports), uf::renderer::enums::Buffer::UNIFORM );
+	}
 }
 
 void ext::vulkan::RenderMode::tick() {

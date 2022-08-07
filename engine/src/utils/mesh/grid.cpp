@@ -8,7 +8,7 @@ namespace {
 
 }
 
-void UF_API uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
+void uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
 	UF_MSG_DEBUG( "== == == ==");
 	float total = 0.0f;
 	for ( auto& pair : grid.nodes ) { auto& node = pair.second;
@@ -41,7 +41,7 @@ void UF_API uf::meshgrid::print( const uf::meshgrid::Grid& grid ) {
 	UF_MSG_DEBUG( "== == == ==");
 */
 }
-void UF_API uf::meshgrid::cleanup( uf::meshgrid::Grid& grid ) {
+void uf::meshgrid::cleanup( uf::meshgrid::Grid& grid ) {
 	uf::stl::vector<pod::Vector3ui> eraseNodes;
 
 	for ( auto& pair : grid.nodes ) { auto& node = pair.second;
@@ -254,7 +254,7 @@ void uf::meshgrid::partition( uf::meshgrid::Grid& grid,
 
 	grid.indices += iCount;
 }
-void UF_API uf::meshgrid::partition( uf::meshgrid::Grid& grid, uf::Mesh& mesh, const pod::Primitive& primitive ) {
+void uf::meshgrid::partition( uf::meshgrid::Grid& grid, uf::Mesh& mesh, const pod::Primitive& primitive ) {
 	uf::Mesh::Input vertexInput = mesh.vertex;
 	uf::Mesh::Input indexInput = mesh.index;
 

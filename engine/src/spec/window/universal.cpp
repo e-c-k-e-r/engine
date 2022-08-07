@@ -7,12 +7,12 @@
 
 bool spec::uni::Window::focused = false;
 /*
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument ) {
+void spec::uni::Window::pushEvent( const uf::ReadableHook::name_t& name, const uf::ReadableHook::argument_t& argument ) {
 	if ( !uf::hooks.prefersReadable() ) return;
 	if ( !uf::hooks.exists(name) ) return;
 	this->m_events.readable.push({name, argument});
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& name, const uf::OptimalHook::argument_t& argument ) {
+void spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& name, const uf::OptimalHook::argument_t& argument ) {
 	if ( uf::hooks.prefersReadable() ) {
 		uf::userdata::destroy(argument);
 		return;
@@ -24,13 +24,13 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::name_t& na
 	this->m_events.optimal.push({name});
 	this->m_events.optimal.back().argument = argument;
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::ReadableHook::argument_t& serialized ) {
+void spec::uni::Window::pushEvent( const uf::ReadableHook::argument_t& serialized ) {
 	if ( !uf::hooks.prefersReadable() ) return;
 	uf::Serializer json = serialized;
 	if ( !uf::hooks.exists(json["type"].as<uf::stl::string>()) ) return;
 	this->m_events.readable.push({json["type"].as<uf::stl::string>(), serialized});
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t& userdata ) {
+void spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t& userdata ) {
 	if ( uf::hooks.prefersReadable() ) return;
 	// Header userdata
 	struct Header {
@@ -47,29 +47,29 @@ void UF_API_CALL spec::uni::Window::pushEvent( const uf::OptimalHook::argument_t
 }
 */
 /*
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload ) {
+void spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::stl::string& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload ) {
+void spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const ext::json::Value& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload ) {
+void spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const uf::Serializer& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
 	event.payload.create<ext::json::Value>( uf::Serializer(payload) );
 }
 */
-void UF_API_CALL spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
+void spec::uni::Window::pushEvent( const uf::Hooks::name_t& name, const pod::Hook::userdata_t& payload ) {
 	auto& event = this->m_events.emplace();
 	event.name = name;
 	event.payload = payload;
 }
 /*
-void UF_API_CALL spec::uni::Window::pushEvent( const pod::Hook::userdata_t& payload ) {
+void spec::uni::Window::pushEvent( const pod::Hook::userdata_t& payload ) {
 	struct Header {
 		uf::stl::string type;
 	};
@@ -79,12 +79,12 @@ void UF_API_CALL spec::uni::Window::pushEvent( const pod::Hook::userdata_t& payl
 }
 */
 #if 0
-void UF_API_CALL spec::uni::Window::processEvents() {
+void spec::uni::Window::processEvents() {
 }
-bool UF_API_CALL spec::uni::Window::isKeyPressed(const uf::stl::string& key) {
+bool spec::uni::Window::isKeyPressed(const uf::stl::string& key) {
 	return false;
 }
-bool UF_API_CALL spec::uni::Window::pollEvents( bool block ) {
+bool spec::uni::Window::pollEvents( bool block ) {
 	if ( this->m_events.empty() ) {
 		do {
 			this->processEvents();

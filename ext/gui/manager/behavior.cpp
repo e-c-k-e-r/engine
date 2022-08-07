@@ -121,7 +121,7 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 			renderModePointer = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode( "Gui", true );
 		}
 		auto& renderMode = *renderModePointer;
-		auto& blitter = *renderMode.getBlitter();
+		auto& blitter = renderMode.getBlitter();
 		if ( blitter.material.hasShader("fragment") ) {
 			auto& shader = blitter.material.getShader("fragment");
 

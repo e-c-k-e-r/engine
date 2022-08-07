@@ -72,14 +72,16 @@ int main(int argc, char** argv){
 		}
 	}
 
+	auto& renderer = uf::thread::fetchWorker();
+//	auto& renderer = uf::thread::get("Render");
+
 	while ( client::ready && ext::ready ) {
 	#if UF_EXCEPTIONS
 		try {	
 	#endif
-			if ( uf::renderer::settings::experimental::dedicatedThread /*&& !uf::renderer::states::rebuild*/ ) {
-			//	auto& thread = uf::thread::fetchWorker();
-				auto& thread = uf::thread::get("Render");
-				uf::thread::queue(thread, [&]{
+		#if 1
+			if ( uf::renderer::settings::experimental::dedicatedThread ) {
+				uf::thread::queue(renderer, [&]{
 					ext::render();
 					client::render();
 				});
@@ -87,8 +89,10 @@ int main(int argc, char** argv){
 				client::tick();
 				ext::tick();
 
-				uf::thread::wait( thread );
-			} else {
+				uf::thread::wait(renderer);
+			} else
+		#endif
+			{
 				client::tick();
 				ext::tick();
 

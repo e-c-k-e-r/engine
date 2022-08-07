@@ -10,7 +10,7 @@
 
 size_t ext::zlib::bufferSize = 2048;
 /*
-uf::stl::vector<uint8_t> UF_API ext::zlib::compress( const void* data, size_t size ) {
+uf::stl::vector<uint8_t> ext::zlib::compress( const void* data, size_t size ) {
 	uf::stl::vector<uint8_t> buffer;
 
 	// zlib struct
@@ -31,13 +31,13 @@ uf::stl::vector<uint8_t> UF_API ext::zlib::compress( const void* data, size_t si
 
 	return buffer;
 }
-uf::stl::vector<uint8_t> UF_API ext::zlib::decompress( const void* data, size_t size ) {
+uf::stl::vector<uint8_t> ext::zlib::decompress( const void* data, size_t size ) {
 	uf::stl::vector<uint8_t> buffer;
 
 	return buffer;
 }
 */
-uf::stl::vector<uint8_t> UF_API ext::zlib::decompressFromFile( const uf::stl::string& filename ) {
+uf::stl::vector<uint8_t> ext::zlib::decompressFromFile( const uf::stl::string& filename ) {
 	uf::stl::vector<uint8_t> buffer;
 	
 	gzFile in = gzopen( filename.c_str(), "rb" );
@@ -58,7 +58,7 @@ uf::stl::vector<uint8_t> UF_API ext::zlib::decompressFromFile( const uf::stl::st
 	gzclose( in );
 	return buffer;
 }
-size_t UF_API ext::zlib::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {
+size_t ext::zlib::compressToFile( const uf::stl::string& filename, const void* data, size_t size ) {
 	gzFile out = gzopen( filename.c_str(), "wb" );
 	if ( !out ) {
 		UF_MSG_ERROR("Zlib: failed to open file for write: {}", filename);

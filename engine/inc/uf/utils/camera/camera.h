@@ -15,8 +15,9 @@ namespace uf {
 
 namespace pod {
 	struct UF_API Camera {
-		bool modified = false;
+	//	bool modified = false;
 		bool stereoscopic = false;
+		size_t ttl{};
 		pod::Transform<> transform;
 		
 		struct Viewports {

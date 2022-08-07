@@ -220,23 +220,6 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 						/*alignas(4)*/ uint32_t padding3;
 					};
 
-
-				#if UF_UNIFORMS_REUSE
-					auto& uniform = shader.getUniform("UBO");
-					auto& uniforms = uniform.get<UniformDescriptor>();
-					
-					uniforms = UniformDescriptor{
-						.matrix = metadata.extents.matrix,
-						.cascadePower = metadata.cascadePower,
-						.granularity = metadata.granularity,
-						.voxelizeScale = 1.0f / (metadata.voxelizeScale * std::max<uint32_t>( metadata.voxelSize.x, std::max<uint32_t>(metadata.voxelSize.y, metadata.voxelSize.z))),
-						.occlusionFalloff = metadata.occlusionFalloff,
-						
-						.traceStartOffsetFactor = metadata.traceStartOffsetFactor,
-						.shadows = metadata.shadows,
-					};
-					shader.updateUniform( "UBO", uniform );
-				#else
 					UniformDescriptor uniforms = {
 						.matrix = metadata.extents.matrix,
 						.cascadePower = metadata.cascadePower,
@@ -248,7 +231,6 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 						.shadows = metadata.shadows,
 					};
 					shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
-				#endif
 				}
 			}
 		}
@@ -258,7 +240,7 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 	ext::ExtSceneBehavior::bindBuffers( scene, metadata.renderModeName, "compute", "" );
 
 	auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
-	auto& deferredBlitter = *deferredRenderMode.getBlitter();
+	auto& deferredBlitter = deferredRenderMode.getBlitter();
 	if ( deferredBlitter.material.hasShader("compute", "deferred") ) {
 		ext::ExtSceneBehavior::bindBuffers( scene, "", "compute", "deferred" );
 	} else {

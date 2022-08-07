@@ -408,6 +408,7 @@ void EXT_API ext::initialize() {
 	*/
 
 	#if 1
+		uf::renderer::settings::experimental::dedicatedThread = false;
 		::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 	#else
 		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
@@ -717,11 +718,6 @@ void EXT_API ext::tick() {
 	/* Tick controllers */ {
 		spec::controller::tick();
 	}
-#if UF_USE_FFX_FSR
-	/* FFX FSR */ if ( ext::fsr::initialized ) {
-		ext::fsr::tick();
-	}
-#endif
 #if UF_USE_OPENVR
 	/* OpenVR */ if ( ext::openvr::context ) {
 		ext::openvr::tick();
@@ -834,7 +830,7 @@ void EXT_API ext::tick() {
 		timer.reset();
 	}
 
-	if ( ::requestDedicatedRenderThread ) {
+	if ( ::requestDedicatedRenderThread && uf::scene::getCurrentScene().getController().getName() == "Player" ) {
 		::requestDedicatedRenderThread = false;
 		uf::renderer::settings::experimental::dedicatedThread = true;
 	//	uf::renderer::settings::experimental::rebuildOnTickBegin = true;

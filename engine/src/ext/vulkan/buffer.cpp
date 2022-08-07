@@ -50,6 +50,7 @@ void ext::vulkan::Buffer::unmap() {
 	vmaUnmapMemory( allocator, allocation );
 	mapped = nullptr;
 }
+/*
 void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) const {
 	void* mapped{};
 	VK_CHECK_RESULT(vmaMapMemory( allocator, allocation, &mapped ));
@@ -58,28 +59,26 @@ void* ext::vulkan::Buffer::map( VkDeviceSize size, VkDeviceSize offset ) const {
 void ext::vulkan::Buffer::unmap() const {
 	vmaUnmapMemory( allocator, allocation );
 }
-
 VkResult ext::vulkan::Buffer::bind( VkDeviceSize offset ) {
 	return VK_SUCCESS;
 }
-
-void ext::vulkan::Buffer::setupDescriptor( VkDeviceSize size, VkDeviceSize offset ) {
-	descriptor.offset = offset;
-	descriptor.buffer = buffer;
-	descriptor.range = size;
-}
-
-void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
-	assert(mapped);
-	memcpy(mapped, data, size);
-}
-
 VkResult ext::vulkan::Buffer::flush( VkDeviceSize size, VkDeviceSize offset ) const {
 	return VK_SUCCESS;
 }
 
 VkResult ext::vulkan::Buffer::invalidate( VkDeviceSize size, VkDeviceSize offset ) {
 	return VK_SUCCESS;
+}
+void ext::vulkan::Buffer::copyTo( void* data, VkDeviceSize size ) {
+	assert(mapped);
+	memcpy(mapped, data, size);
+}
+*/
+
+void ext::vulkan::Buffer::updateDescriptor( VkDeviceSize size, VkDeviceSize offset ) {
+	descriptor.offset = offset;
+	descriptor.buffer = buffer;
+	descriptor.range = size;
 }
 
 void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
@@ -117,7 +116,9 @@ void ext::vulkan::Buffer::initialize( ext::vulkan::Device& device, size_t alignm
 void ext::vulkan::Buffer::destroy(bool defer) {
 	if ( !device || aliased ) return;
 	if ( defer ) {
+		ext::vulkan::mutex.lock();
 		device->transient.buffers.emplace_back(*this);
+		ext::vulkan::mutex.unlock();
 	} else if ( buffer ) {
 		vmaDestroyBuffer( allocator, buffer, allocation );
 	}
@@ -159,15 +160,16 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	}
 	if ( !data ) return false;
 	if ( !stage ) {
-		void* map = this->map();
+		auto* self = const_cast<ext::vulkan::Buffer*>(this);
+		void* map = self->map();
 		memcpy(map, data, length);
-		if ((this->memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) this->flush();
-		this->unmap();
+		self->unmap();
 		return false;
 	}
 
 	ext::vulkan::Device* device = this->device ? this->device : &ext::vulkan::device;
 	Buffer staging = device->fetchTransientBuffer(
+//	Buffer staging = device->createBuffer(
 		data,
 		length,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

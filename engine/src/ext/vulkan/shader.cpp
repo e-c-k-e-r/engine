@@ -856,17 +856,30 @@ bool ext::vulkan::Shader::validate() {
 	return valid;
 }
 
+bool ext::vulkan::Shader::hasAttachment( const uf::stl::string& name ) {
+	for ( auto& attachment : metadata.aliases.attachments ) {
+		if ( attachment.name == name ) return true;
+	}
+	return false;
+}
 void ext::vulkan::Shader::aliasAttachment( const ext::vulkan::Shader::Metadata::AttachmentDescriptor& descriptor ) {
-	metadata.attachments.emplace_back(descriptor);
+	metadata.aliases.attachments.emplace_back(descriptor);
 }
 void ext::vulkan::Shader::aliasAttachment( const uf::stl::string& name, const ext::vulkan::RenderMode* renderMode, VkImageLayout layout, VkFilter filter ) {
 	return aliasAttachment({ name, renderMode, layout, filter });
 }
-bool ext::vulkan::Shader::hasAttachment( const uf::stl::string& name ) {
-	for ( auto& attachment : metadata.attachments ) {
+
+bool ext::vulkan::Shader::hasBuffer( const uf::stl::string& name ) {
+	for ( auto& attachment : metadata.aliases.buffers ) {
 		if ( attachment.name == name ) return true;
 	}
 	return false;
+}
+void ext::vulkan::Shader::aliasBuffer( const ext::vulkan::Shader::Metadata::BufferDescriptor& descriptor ) {
+	metadata.aliases.buffers.emplace_back(descriptor);
+}
+void ext::vulkan::Shader::aliasBuffer( const uf::stl::string& name, const ext::vulkan::Buffer& fallback, const ext::vulkan::RenderMode* renderMode, VkBufferUsageFlags flags ) {
+	return aliasBuffer({ name, fallback.alias(), renderMode, flags });
 }
 
 bool ext::vulkan::Shader::hasUniform( const uf::stl::string& name ) const {

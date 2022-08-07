@@ -1,22 +1,11 @@
 #pragma once
 
 #include <uf/ext/vulkan/rendermode.h>
-#include <uf/ext/vulkan/graphic.h>
 
 namespace ext {
 	namespace vulkan {
 		struct UF_API RenderTargetRenderMode : public ext::vulkan::RenderMode {
-			ext::vulkan::Graphic blitter;
-
-			//
-			const uf::stl::string getTarget() const;
-			void setTarget( const uf::stl::string& );
-
-			//
 			virtual const uf::stl::string getType() const;
-			virtual const size_t blitters() const;
-			virtual ext::vulkan::Graphic* getBlitter(size_t = 0);
-			virtual uf::stl::vector<ext::vulkan::Graphic*> getBlitters();
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			

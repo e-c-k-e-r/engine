@@ -5,10 +5,10 @@
 #define UF_XATLAS_UNWRAP_MULTITHREAD 1
 #define UF_XATLAS_UNWRAP_SERIAL 1 // really big scenes will gorge on memory
 
-size_t UF_API ext::xatlas::unwrap( pod::Graph& graph ) {
+size_t ext::xatlas::unwrap( pod::Graph& graph ) {
 	return graph.metadata["exporter"]["unwrap lazy"].as<bool>(false) ? unwrapLazy( graph ) : unwrapExperimental( graph );
 }
-size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
+size_t ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	struct Entry {
 		size_t index = 0;
 		size_t commandID = 0;
@@ -382,7 +382,7 @@ size_t UF_API ext::xatlas::unwrapExperimental( pod::Graph& graph ) {
 	return atlasCount;
 }
 
-size_t UF_API ext::xatlas::unwrapLazy( pod::Graph& graph ) {
+size_t ext::xatlas::unwrapLazy( pod::Graph& graph ) {
 	struct Entry {
 		size_t index = 0;
 		size_t commandID = 0;
