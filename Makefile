@@ -105,9 +105,11 @@ ifneq (,$(findstring fmt,$(REQ_DEPS)))
 	endif
 endif
 ifneq (,$(findstring ffx:fsr,$(REQ_DEPS)))
-	FLAGS 				+= -DUF_USE_FFX_FSR
-	#INCS 				+= -I./dep/include/ffx_fsr2/
-	DEPS 				+= -lffx_fsr2_api_x64 -lffx_fsr2_api_vk_x64
+	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
+		FLAGS 				+= -DUF_USE_FFX_FSR
+		#INCS 				+= -I./dep/include/ffx_fsr2/
+		DEPS 				+= -lffx_fsr2_api_x64 -lffx_fsr2_api_vk_x64
+	endif
 endif
 ifneq (,$(findstring imgui,$(REQ_DEPS)))
 	FLAGS 				+= -DUF_USE_IMGUI

@@ -596,7 +596,7 @@ void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, Que
 #endif
 	else {
 		ext::vulkan::mutex.lock();
-		this->transient.commandBuffers[queueType].emplace_back(commandBuffer);
+		this->transient.commandBuffers[queueType][std::this_thread::get_id()].emplace_back(commandBuffer);
 		ext::vulkan::mutex.unlock();
 	}
 }
@@ -610,6 +610,7 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 		.immediate = immediate,
 		.queueType = queueType,
 		.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true ),
+		.threadId = std::this_thread::get_id(),
 	};
 #if 0
 	if ( transient ) {
@@ -637,7 +638,40 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 #endif
 }
 void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer commandBuffer ) {
-	return this->flushCommandBuffer( commandBuffer.handle, commandBuffer.queueType, commandBuffer.immediate );
+//	return this->flushCommandBuffer( commandBuffer.handle, commandBuffer.queueType, commandBuffer.immediate );
+	if ( commandBuffer.handle == VK_NULL_HANDLE ) return;
+
+	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer.handle ) );
+
+#if 0
+	if ( commandBuffer.immediate ) {
+		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer.handle;
+
+		auto queue = getQueue( commandBuffer.queueType );
+		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType ), 1, &commandBuffer.handle);
+	}
+#else
+	VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer.handle;
+
+	auto queue = getQueue( commandBuffer.queueType, commandBuffer.threadId );
+	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+
+	if ( commandBuffer.immediate ) {
+		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType, commandBuffer.threadId ), 1, &commandBuffer.handle);
+	}
+#endif
+	else {
+		ext::vulkan::mutex.lock();
+		this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId].emplace_back(commandBuffer.handle);
+		ext::vulkan::mutex.unlock();
+	}
 }
 ext::vulkan::Buffer ext::vulkan::Device::createBuffer(
 	const void* data,
@@ -668,7 +702,6 @@ VkResult ext::vulkan::Device::createBuffer(
 		void* map = buffer.map();
 		memcpy(map, data, size);
 		buffer.unmap();
-	//	if ((memoryProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) buffer.flush();
 	}
 
 	// Initialize a default descriptor that covers the whole buffer size
@@ -762,7 +795,7 @@ VkQueue ext::vulkan::Device::getQueue( ext::vulkan::QueueEnum queueEnum, std::th
 
 void ext::vulkan::Device::initialize() {	
 	uf::stl::vector<uf::stl::string> instanceLayers = {
-		"VK_LAYER_KHRONOS_synchronization2",
+	//	"VK_LAYER_KHRONOS_synchronization2",
 	};
 	// Assert validation layers
 	if ( ext::vulkan::settings::validation ) instanceLayers.emplace_back("VK_LAYER_KHRONOS_validation");

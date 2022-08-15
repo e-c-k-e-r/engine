@@ -6,8 +6,8 @@
 	],
 	"metadata": {
 		"light": {
-		//	"ambient": [ 0, 0, 0 ],
-			"ambient": [ 0.05, 0.05, 0.05 ],
+			"ambient": [ 0, 0, 0 ],
+		//	"ambient": [ 0.05, 0.05, 0.05 ],
 		//	"ambient": [ 0.15, 0.15, 0.15 ],
 		//	"ambient": [ 0.5, 0.5, 0.5 ],
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
@@ -20,11 +20,11 @@
 				"threshold": 1.2,
 				"scale": 1.0,
 				"strength": 1,
-				"sigma": 1.0,
+				"sigma": 2.0,
 				"samples": 4
 			},
 
-			"fog": {
+			"fog-": {
 			//	"color": [ 0.1, 0.1, 0.1 ],
 			//	"color": [ 0.2, 0.2, 0.2 ],
 				"color": [ 0.3, 0.3, 0.3 ],

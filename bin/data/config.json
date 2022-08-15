@@ -30,12 +30,14 @@
 			},
 			"vxgi": {
 			//	"limiter": 0.5,
-				"limiter": 0.125,
+			//	"limiter": 0.125,
+			//	"limiter": 0.0125,
+				"limiter": 0.0,
 				"size": 256,
 				"dispatch": 8,
-				"cascades": 3,
-				"cascadePower": 1.5,
-				"granularity": 4,
+				"cascades": 2,
+				"cascadePower": 2,
+				"granularity": 6,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
 				"traceStartOffsetFactor": 1,
@@ -57,11 +59,11 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 131072
+			"initial buffer elements": 4096
 		},
 		"ext": {
 			"vulkan": {
-				"validation": { "enabled": true,
+				"validation": { "enabled": false,
 					"filters": [
 						"0x1feed437", // VUID-VkImageMemoryBarrier-synchronization2-03857 (screams because of FSR2 retardation)
 					//	"0x141cb623", // UNASSIGNED-Threading-MultipleThreads (screams at me, a part of transient command buffer recording/submitting)
@@ -97,6 +99,7 @@
 					"size": 1
 				//	"size": 0.8
 				//	"size": [ 640, 480, "NEAREST" ]
+				//	"size": [ 1920, 1080 ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
 				//	"size": [ 640, 480 ]
@@ -110,14 +113,14 @@
 				},
 				"pipelines": {
 					"deferred": true,
-					"vsync": false,
+					"vsync": true,
 					"hdr": false,
-					"vxgi": false,
-					"culling": false,
-					"bloom": false,
-					"rt": false,
-					"fsr": false,
-					"postProcess": false
+					"vxgi": true,
+					"culling": true,
+					"bloom": true,
+					"rt": true,
+					"fsr": true,
+					"postProcess": true
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -224,8 +227,8 @@
 			"fsr": {
 				"enabled": true,
 				"sharpness": 1,
-				"jitter scale": 0.0625,
-				"preset": "ultra" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
+				"jitter scale": 0.03125,
+				"preset": "quality" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
@@ -258,7 +261,7 @@
 				"count": 4
 			},
 			"volumes": {
-				"sfx": 0.35,
+				"sfx": 0.5,
 				"bgm": 0.15,
 				"voice": 1.0
 			},
@@ -323,8 +326,8 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 0.75, 0.75 ],
-			"smoothing": [ 2, 2 ]
+			"sensitivity": [ 1, 1 ],
+			"smoothing": [ 8, 8 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",

@@ -12,11 +12,6 @@
 			"tags": {
 				// exact matches
 			//	"worldspawn_skybox": { "ignore": true },
-				"worldspawn_skybox": {
-					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true },
-					"unwrap mesh": true,
-					"optimize mesh": { "simplify": 0 }
-				},
 				"worldspawn_water": {},
 
 				// regex matches

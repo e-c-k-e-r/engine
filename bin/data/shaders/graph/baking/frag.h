@@ -14,6 +14,10 @@ layout (binding = 6) uniform samplerCube samplerCubemaps[CUBEMAPS];
 #define SHADOW_SAMPLES 16
 #define FRAGMENT 1
 #define BAKING 1
+#define PBR 1
+#define MAX_LIGHTS min(ubo.lights, lights.length())
+#define MAX_SHADOWS MAX_LIGHTS
+#define VIEW_MATRIX camera.viewport[0].view
 
 #include "../../common/macros.h"
 #include "../../common/structs.h"
@@ -80,7 +84,7 @@ float shadowFactor( const Light light, float def ) {
 	#include "../../common/shadows.h"
 #endif
 
-#define PBR 1
+#include "../../common/light.h"
 
 layout (location = 0) flat in uvec4 inId;
 layout (location = 1) flat in vec4 inPOS0;
@@ -135,6 +139,10 @@ void main() {
 	surface.light = material.colorEmissive;
 	surface.material.albedo = vec4(1);
 	{
+		surface.normal.eye = surface.normal.eye;
+		surface.position.eye = surface.position.eye;
+		pbr();
+	/*
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 		for ( uint i = 0; i < min(ubo.lights, lights.length()); ++i ) {
 			const Light light = lights[i];
@@ -179,6 +187,7 @@ void main() {
 			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 			surface.light.a += light.power * La * Ls;
 		}
+	*/
 	}
 #define EXPOSURE 0
 #define GAMMA 0

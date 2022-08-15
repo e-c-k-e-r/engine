@@ -16,7 +16,6 @@ layout (binding = 1) uniform UBO {
 	uint padding;
 } ubo;
 
-
 #define TONE_MAP 1
 #define GAMMA_CORRECT 1
 #define TEXTURES 1
@@ -24,6 +23,102 @@ layout (binding = 1) uniform UBO {
 #include "../../common/macros.h"
 #include "../../common/structs.h"
 #include "../../common/functions.h"
+
+#define M_PI 3.1415926535897932384626433832795
+
+const float u_imgx = 0;
+const float u_imgy = 0;
+const float u_imgw = 1;
+const float u_imgh = 1;
+const float u_img_gain = 2;
+const float u_img_bias = 0;
+const float u_beam_bias = 0.185;
+const float u_beam_gain = 0.25;
+const float u_corner = 0.05;
+const float u_zoom = 1.0;
+const float u_shape = 2;
+const float u_round = -0.02;
+const float u_grain = 0.4;
+const float u_vpitch = 936.1;
+const float u_hpitch = 1024.6;
+const float u_top = 1;
+const float u_bot = 1;
+
+void main() {
+	const vec2 screenResolution = textureSize( samplerColor, 0 );
+	const float u_lines = screenResolution.y * 0.5;
+
+	vec2 uv_orig = (inUv.xy * 2.0 - 1.0);
+	vec2 uv_mod = uv_orig * pow(1.0-abs(uv_orig),vec2(u_round)) * (u_zoom + u_corner * pow( abs(uv_orig.yx), vec2(u_shape)) );
+	vec2 uv = uv_mod / 2.0 + 0.5;
+
+	if ( abs(uv_mod).x > 1.0 || abs(uv_mod.y) > 1.0 ) {
+		outColor = vec4(0.0, 0.0, 0.0, 1.0);
+		return;
+	}
+
+	float spacing = 1.0/u_lines;
+	uv+=spacing*0.5;
+
+	float line_top = ( ceil(uv.y*u_lines)) / u_lines;
+	float line_bot = line_top - spacing;
+
+	vec2 scale = vec2(u_imgw, u_imgh);
+	vec2 offset = vec2(u_imgx, u_imgy);
+
+	vec2 uv_top = (vec2(uv.x, line_top)+offset) * scale - (scale-1.0)*0.5 ;
+	vec2 uv_bot = (vec2(uv.x, line_bot)+offset) * scale - (scale-1.0)*0.5 ;
+
+	uv_top -= spacing * 0.5;
+	uv_bot -= spacing * 0.5;
+
+	vec4 sampled_top = texture(samplerColor, uv_top);
+	vec4 sampled_bot = texture(samplerColor, uv_bot);
+
+	vec3 color_top = sampled_top.xyz * u_img_gain + u_img_bias;
+	vec3 color_bot = sampled_bot.xyz * u_img_gain + u_img_bias;
+
+	float dist_top = pow(abs(uv.y - line_top), 1.0);
+	float dist_bot = pow(abs(uv.y - line_bot), 1.0);
+
+	vec3 beam_top = 1.0 - (dist_top / (spacing * (color_top * u_beam_gain + u_beam_bias)));
+	vec3 beam_bot = 1.0 - (dist_bot / (spacing * (color_bot * u_beam_gain + u_beam_bias)));
+	
+	beam_top = clamp(beam_top, 0.0, 1.0) ;
+	beam_bot = clamp(beam_bot, 0.0, 1.0) ;
+
+	vec3 color = (color_top*beam_top)*u_top + (color_bot*beam_bot)*u_bot;
+
+	vec2 dot;
+	dot.y = floor(uv.y * u_vpitch) ;
+	dot.x = uv.x;
+
+	if (mod(dot.y, 2.0) > 0.5)
+		dot.x += (4.5/3.0) / u_hpitch;
+
+	dot.x = (floor(dot.x*u_hpitch)) ;
+
+	int fil = int(mod(dot.x, 3.0));
+	
+	vec3 out_color = color * (1.0-u_grain);
+	
+	vec3 passthru = vec3( 
+		float(fil == 0), 
+		float(fil == 1),
+		float(fil == 2)
+	) * (u_grain);
+
+	out_color += color * passthru;
+
+	outColor = vec4(out_color, (sampled_top.a + sampled_bot.a) * 0.5 );
+
+#if TONE_MAP
+	toneMap(outColor, ubo.exposure);
+#endif
+#if GAMMA_CORRECT
+	gammaCorrect(outColor, ubo.gamma);
+#endif
+}
 
 #if 0
 float iTime = 0;
@@ -89,7 +184,7 @@ void main() {
 #endif
 }
 #endif
-#if 1
+#if 0
 vec2 curveRemapUV(vec2 uv, vec2 curvature) {
 	uv = uv * 2.0 - 1.0;
 	vec2 offset = abs(uv.yx) / vec2(curvature.x, curvature.y);

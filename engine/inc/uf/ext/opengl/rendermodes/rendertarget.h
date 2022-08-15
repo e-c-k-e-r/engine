@@ -6,16 +6,7 @@
 namespace ext {
 	namespace opengl {
 		struct UF_API RenderTargetRenderMode : public RenderMode {
-			ext::opengl::Graphic blitter;		
-			//
-			const uf::stl::string getTarget() const;
-			void setTarget( const uf::stl::string& );
-
-			// RAII
 			virtual const uf::stl::string getType() const;
-			virtual const size_t blitters() const;
-			virtual ext::opengl::Graphic* getBlitter(size_t = 0);
-			virtual uf::stl::vector<ext::opengl::Graphic*> getBlitters();
 
 			virtual GraphicDescriptor bindGraphicDescriptor( const GraphicDescriptor&, size_t = 0 );
 			

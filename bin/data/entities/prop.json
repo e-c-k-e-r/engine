@@ -6,12 +6,12 @@
 	"metadata": {
 		"holdable": true,
 		"physics": {
-			"gravity": [ 0, -9.81, 0 ],
-			"inertia": [10, 10, 10],
-			"mass": 10,
+		//	"gravity": [ 0, -9.81, 0 ],
+		//	"inertia": [10, 10, 10],
+		//	"mass": 10,
 
 			"type": "bounding box",
-			"recenter": true
+			"recenter": false
 		}
 	}
 }

@@ -278,6 +278,8 @@ void populateSurfaceMaterial() {
 	{
 		surface.normal.eye = normalize(vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0.0) ));
 	}
+	
+	surface.light *= surface.material.albedo;
 }
 
 bool isValidAddress( uint64_t address ) {

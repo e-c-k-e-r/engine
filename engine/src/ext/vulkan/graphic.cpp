@@ -1095,16 +1095,6 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		descriptor.inputs.bufferOffset = buffers.size(); // buffers.empty() ? 0 : buffers.size() - 1;
 		VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-	/*
-		#define PARSE_ATTRIBUTE(i, usage) {\
-			auto& buffer = mesh.buffers[i];\
-			if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage | baseUsage });\
-		}
-		#define PARSE_INPUT(name, usage){\
-			if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage | baseUsage)\
-			else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage | baseUsage)\
-		}
-	*/
 		#define PARSE_INPUT(name, usage){\
 			if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
 				auto& buffer = mesh.buffers[mesh.name.interleaved];\
@@ -1128,7 +1118,6 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
 		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
 		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | uf::renderer::enums::Buffer::STORAGE)
-	// 	for ( auto& q : queue ) initializeBuffer( q.data, q.size, q.usage );
 		this->requestedAlignment = previousRequestedAlignment;
 	}
 
@@ -1144,27 +1133,6 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	// ensure our descriptors are proper
 	mesh.updateDescriptor();
 
-/*
-	// copy descriptors
-	#define UPDATE_DESCRIPTOR(N) {\
-		for ( size_t i = 0; i < mesh.N.attributes.size(); ++i ) {\
-			descriptor.inputs.N.attributes[i].descriptor = mesh.N.attributes[i].descriptor;\
-			descriptor.inputs.N.attributes[i].offset = mesh.N.attributes[i].offset;\
-			descriptor.inputs.N.attributes[i].stride = mesh.N.attributes[i].stride;\
-			descriptor.inputs.N.attributes[i].length = mesh.N.attributes[i].length;\
-			descriptor.inputs.N.attributes[i].pointer = mesh.N.attributes[i].pointer;\
-		}\
-		descriptor.inputs.N.count = mesh.N.count;\
-		descriptor.inputs.N.first = mesh.N.first;\
-		descriptor.inputs.N.size = mesh.N.size;\
-		descriptor.inputs.N.offset = mesh.N.offset;\
-	}
-
-	UPDATE_DESCRIPTOR(vertex);
-	UPDATE_DESCRIPTOR(index);
-	UPDATE_DESCRIPTOR(instance);
-	UPDATE_DESCRIPTOR(indirect);
-*/
 	descriptor.inputs.vertex = mesh.vertex;
 	descriptor.inputs.index = mesh.index;
 	descriptor.inputs.instance = mesh.instance;
@@ -1179,27 +1147,6 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	};
 	uf::stl::vector<Queue> queue;
 
-/*
-	#define PARSE_ATTRIBUTE(i, usage) {\
-		auto& buffer = mesh.buffers[i];\
-		if ( !buffer.empty() ) queue.emplace_back(Queue{ (void*) buffer.data(), buffer.size(), usage });\
-	}
-	#define PARSE_INPUT(name, usage){\
-		if ( mesh.isInterleaved( mesh.name.interleaved ) ) PARSE_ATTRIBUTE(descriptor.inputs.name.interleaved, usage)\
-		else for ( auto& attribute : descriptor.inputs.name.attributes ) PARSE_ATTRIBUTE(attribute.buffer, usage)\
-	}
-*/
-/*
-	#define PARSE_INPUT(name, usage){\
-		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
-			auto& buffer = mesh.buffers[mesh.name.interleaved];\
-			if ( !buffer.empty() ) rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.interleaved );\
-		} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
-			auto& buffer = mesh.buffers[mesh.name.attributes[i].buffer];\
-			if ( !buffer.empty() ) rebuild = rebuild || updateBuffer( (const void*) buffer.data(), buffer.size(), descriptor.inputs.name.attributes[i].buffer );\
-		}\
-	}
-*/
 	#define PARSE_INPUT(name, usage){\
 		if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
 			auto& buffer = mesh.buffers[mesh.name.interleaved];\
@@ -1230,14 +1177,7 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 	PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
 	PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT)
 	this->requestedAlignment = previousRequestedAlignment;
-/*
-	// allocate buffers
-	bool rebuild = false;
-	for ( auto i = 0; i < queue.size(); ++i ) {
-		auto& q = queue[i];
-		rebuild = rebuild || updateBuffer( q.data, q.size, descriptor.inputs.bufferOffset + i );
-	}
-*/
+
 	if ( mesh.instance.count == 0 && mesh.instance.attributes.empty() ) {
 		descriptor.inputs.instance.count = 1;
 	}

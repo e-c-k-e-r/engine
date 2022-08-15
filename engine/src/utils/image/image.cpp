@@ -153,9 +153,11 @@ bool uf::Image::open( const uf::stl::string& filename, bool flip ) {
 #endif
 	{
 		stbi_set_flip_vertically_on_load(flip);
-		uint8_t* buffer = stbi_load( filename.c_str(), &width, &height, &channelsDud, STBI_rgb_alpha );
+		uint8_t* buffer = stbi_load( filename.c_str(), &width, &height, &channels, STBI_rgb_alpha );
 		size_t len = width * height * channels;
-		this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
+		this->m_pixels.resize( len );
+		memcpy( &this->m_pixels[0], buffer, len );
+	//	this->m_pixels.insert( this->m_pixels.end(), (uint8_t*) buffer, buffer + len );
 		stbi_image_free(buffer);
 	}
 

@@ -134,9 +134,7 @@ void postProcess() {
 #endif
 	float brightness = dot(surface.fragment.rgb, vec3(0.2126, 0.7152, 0.0722));
 	bool bloom = brightness > ubo.settings.bloom.threshold;
-	if ( bloom ) {
-		toneMap( surface.fragment.rgb, brightness );
-	}
+//if ( bloom ) toneMap( surface.fragment.rgb, brightness );
 	vec4 outFragColor = vec4(surface.fragment.rgb, 1.0);
 	vec4 outFragBright = bloom ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 	vec2 outFragMotion = surface.motion;
@@ -162,7 +160,7 @@ void populateSurface() {
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
-		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+		surface.ray.origin = near3.xyz; // ubo.eyes[surface.pass].eyePos.xyz;
 
 		const float depth = IMAGE_LOAD(samplerDepth).r;
 		

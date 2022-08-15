@@ -5,8 +5,6 @@
 namespace ext {
 	namespace opengl {
 		struct UF_API BaseRenderMode : public RenderMode {
-			// virtual ~RenderMode();
-			// RAII
 			virtual const uf::stl::string getType() const;
 			
 			virtual void initialize( Device& device );

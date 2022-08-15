@@ -14,6 +14,15 @@
 #ifndef MAX_TEXTURES
 	#define MAX_TEXTURES TEXTURES
 #endif
+#ifndef MAX_LIGHTS
+	#define MAX_LIGHTS ubo.settings.lengths.lights
+#endif
+#ifndef MAX_SHADOWS
+	#define MAX_SHADOWS ubo.settings.lighting.maxShadows
+#endif
+#ifndef VIEW_MATRIX
+	#define VIEW_MATRIX ubo.eyes[surface.pass].view
+#endif
 
 // implicit shader settings
 #ifndef CAN_DISCARD

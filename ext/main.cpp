@@ -396,25 +396,18 @@ void EXT_API ext::initialize() {
 		for ( int i = 0; i < configRenderJson["features"].size(); ++i ) {
 			uf::renderer::settings::requestedDeviceFeatures.emplace_back( configRenderJson["features"][i].as<uf::stl::string>() );
 		}
-	/*
-		"rebuild on tick begin": false,
-		"wait on render end": false,
+	#endif
 
-		"multithreaded recording": true,
-		"individual pipelines": true,
-		"deferred mode": "",
-		"deferred reconstruct position": true,
-		"deferred alias output to swapchain": false,
-	*/
-
+	#if UF_USE_VULKAN
 	#if 1
 		uf::renderer::settings::experimental::dedicatedThread = false;
 		::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 	#else
 		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 	#endif
-		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
 		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
+	#endif
+		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
 
 		uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
 		uf::renderer::settings::invariant::waitOnRenderEnd = configRenderInvariantJson["wait on render end"].as( uf::renderer::settings::invariant::waitOnRenderEnd );
@@ -424,7 +417,7 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::vsync = configRenderPipelinesJson["vsync"].as( uf::renderer::settings::pipelines::vsync );
 		uf::renderer::settings::pipelines::culling = configRenderPipelinesJson["culling"].as( uf::renderer::settings::pipelines::culling );
 
-#if UF_USE_VULKAN
+	#if UF_USE_VULKAN
 		uf::renderer::settings::pipelines::deferred = configRenderPipelinesJson["deferred"].as( uf::renderer::settings::pipelines::deferred );
 		uf::renderer::settings::pipelines::hdr = configRenderPipelinesJson["hdr"].as( uf::renderer::settings::pipelines::hdr );
 		uf::renderer::settings::pipelines::vxgi = configRenderPipelinesJson["vxgi"].as( uf::renderer::settings::pipelines::vxgi );
@@ -455,7 +448,6 @@ void EXT_API ext::initialize() {
 		JSON_TO_FORMAT(depth);
 	#endif
 	}
-#endif
 
 	/* Init controllers */ {
 		spec::controller::initialize();
@@ -499,15 +491,6 @@ void EXT_API ext::initialize() {
 
 	/* Initialize Vulkan */ {
 		// setup render mode
-	/*
-		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
-			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
-			renderMode->blitter.descriptor.renderMode = "Swapchain";
-			renderMode->blitter.descriptor.subpass = 0;
-			renderMode->metadata.type = "single";
-			uf::renderer::addRenderMode( renderMode, "Gui" );
-		}
-	*/
 		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::DeferredRenderMode;
 			
@@ -534,13 +517,14 @@ void EXT_API ext::initialize() {
 			if ( ::json["engine"]["render modes"]["stereo deferred"].as<bool>() ) {
 				renderMode->metadata.eyes = 2;
 			}
-
+		#if UF_USE_VULKAN
 			if ( uf::renderer::settings::pipelines::deferred ) {
 				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::deferred);
 			}
 			if ( uf::renderer::settings::pipelines::culling ) {
 				renderMode->metadata.pipelines.emplace_back(uf::renderer::settings::pipelines::names::culling);
 			}
+		#endif
 			
 			uf::renderer::addRenderMode( renderMode, "" );
 		}
@@ -784,7 +768,7 @@ void EXT_API ext::tick() {
 	}
 #endif
 	/* Update vulkan */ {
-	//	uf::renderer::tick();
+		uf::renderer::tick();
 	}
 	//UF_TIMER_TRACE("ticking renderer");
 #if UF_USE_DISCORD
@@ -852,7 +836,7 @@ void EXT_API ext::render() {
 	}
 #endif
 	/* Render scene */ {
-		uf::renderer::tick();
+	//	uf::renderer::tick();
 		uf::renderer::render();
 	}
 #if UF_USE_OPENVR

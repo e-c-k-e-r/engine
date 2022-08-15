@@ -17,8 +17,8 @@
 	},
 */
 	"assets":  [
-	//	{ "filename": "./playerModel.json", "delay": 1 },
-		"./playerModel.json",
+		{ "filename": "./playerModel.json", "delay": 1 },
+	//	"./playerModel.json",
 		"./playerLight.json",
 		"./playerHands.json",
 		"./scripts/player.lua"

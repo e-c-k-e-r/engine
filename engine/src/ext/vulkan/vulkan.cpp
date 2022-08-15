@@ -281,7 +281,9 @@ void ext::vulkan::initialize() {
 	swapchain.initialize( device );
 
 	ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
-	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE );
+	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize,
+		uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE
+	);
 	
 	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
 		uf::Image image;
@@ -427,19 +429,24 @@ void ext::vulkan::render() {
 		auto queueType = pair.first;
 		auto& commandBuffers = pair.second;
 		
-	#if 0
-		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
-		submitInfo.commandBufferCount = commandBuffers.size();
-		submitInfo.pCommandBuffers = commandBuffers.data();
+		for ( auto& pair : commandBuffers ) {
+			auto threadId = pair.first;
+			auto commandBuffers = pair.second;
+		#if 0
+			VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
+			submitInfo.commandBufferCount = commandBuffers.size();
+			submitInfo.pCommandBuffers = commandBuffers.data();
 
-		auto queue = device.getQueue( queueType );
-		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
-	#else
-		auto queue = device.getQueue( queueType );
-	#endif
-		auto commandPool = device.getCommandPool( queueType );
-		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-		vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+			auto queue = device.getQueue( queueType, threadId );
+			VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+		#else
+			auto queue = device.getQueue( queueType, threadId );
+		#endif
+			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+
+			auto commandPool = device.getCommandPool( queueType, threadId );
+			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+		}
 
 		commandBuffers.clear();
 	}

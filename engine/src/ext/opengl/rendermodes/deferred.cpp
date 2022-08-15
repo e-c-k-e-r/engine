@@ -18,15 +18,6 @@
 const uf::stl::string ext::opengl::DeferredRenderMode::getType() const {
 	return "Deferred";
 }
-const size_t ext::opengl::DeferredRenderMode::blitters() const {
-	return 1;
-}
-ext::opengl::Graphic* ext::opengl::DeferredRenderMode::getBlitter( size_t i ) {
-	return &this->blitter;
-}
-uf::stl::vector<ext::opengl::Graphic*> ext::opengl::DeferredRenderMode::getBlitters() {
-	return { &this->blitter };
-}
 
 void ext::opengl::DeferredRenderMode::initialize( Device& device ) {
 	ext::opengl::RenderMode::initialize( device );

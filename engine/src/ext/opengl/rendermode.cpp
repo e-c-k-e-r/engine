@@ -27,21 +27,20 @@ const uf::stl::string ext::opengl::RenderMode::getName() const {
 //	return metadata["name"].as<uf::stl::string>();
 	return metadata.name;
 }
-ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget( size_t i ) {
+ext::opengl::Graphic& ext::opengl::RenderMode::getBlitter() {
+	return blitter;
+}
+ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget() {
 	return renderTarget;
 }
-const ext::opengl::RenderTarget& ext::opengl::RenderMode::getRenderTarget( size_t i ) const {
-	return renderTarget;
+const uf::stl::string ext::opengl::RenderMode::getTarget() const {
+//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
+//	return metadata["target"].as<uf::stl::string>();
+	return metadata.target;
 }
-
-const size_t ext::opengl::RenderMode::blitters() const {
-	return 0;
-}
-ext::opengl::Graphic* ext::opengl::RenderMode::getBlitter( size_t i ) {
-	return NULL;
-}
-uf::stl::vector<ext::opengl::Graphic*> ext::opengl::RenderMode::getBlitters() {
-	return {};
+void ext::opengl::RenderMode::setTarget( const uf::stl::string& target ) {
+//	this->metadata["target"] = target;
+	metadata.target = target;
 }
 
 ext::opengl::GraphicDescriptor ext::opengl::RenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {

@@ -19,6 +19,7 @@ namespace ext {
 
 		struct Graphic;
 		struct CommandBuffer;
+		struct RenderMode;
 
 		ext::json::Value definitionToJson(/*const*/ ext::json::Value& definition );
 		ext::opengl::userdata_t jsonToUserdata( const ext::json::Value& payload, const ext::json::Value& definition );
@@ -79,6 +80,24 @@ namespace ext {
 					uf::stl::unordered_map<uf::stl::string, Storage> storage;
 					uf::stl::unordered_map<uf::stl::string, PushConstant> pushConstants;
 				} definitions;
+
+				// to automatically grab attachments from the target renderMode
+				struct AttachmentDescriptor {
+					uf::stl::string name{};
+					const ext::opengl::RenderMode* renderMode{};
+					GLenum layout = 0;
+					GLenum filter = GL_LINEAR;
+				};
+				struct BufferDescriptor {
+					uf::stl::string name{};
+					ext::opengl::Buffer fallback;
+					const ext::opengl::RenderMode* renderMode{};
+					GLenum flags{};
+				};
+				struct {
+					uf::stl::vector<AttachmentDescriptor> attachments;
+					uf::stl::vector<BufferDescriptor> buffers;
+				} aliases;
 			} metadata;
 
 			ext::opengl::userdata_t specializationConstants;

@@ -11,6 +11,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 #define VXGI 1
 #define MAX_CUBEMAPS CUBEMAPS
 #define GAMMA_CORRECT 1
+#define PBR 1
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -20,7 +21,7 @@ layout (constant_id = 2) const uint CASCADES = 16;
 #include "../../common/structs.h"
 
 layout (binding = 0) uniform UBO {
-	EyeMatrices matrices[2];
+	EyeMatrices eyes[2];
 
 	Settings settings;
 } ubo;
@@ -57,9 +58,8 @@ layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 
 #include "../../common/functions.h"
 #include "../../common/light.h"
-#undef VXGI
+#undef VXGI // 
 #include "../../common/shadows.h"
-#define PBR 1
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
@@ -93,6 +93,10 @@ void main() {
 		} else {
 			surface.fragment.rgb += surface.material.albedo.rgb * ambient;
 			// corrections
+			surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4( surface.position.world, 1 ) );
+			surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0) );
+			pbr();
+		/*
 			surface.material.roughness *= 4.0;
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
@@ -127,6 +131,7 @@ void main() {
 				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 				surface.light.a += light.power * La * Ls;
 			}
+		*/
 		}
 
 		surface.fragment.rgb += surface.light.rgb;

@@ -7,21 +7,23 @@
 	"metadata": {
 		"graph": {
 			"lights": {
-				"scale": 4.0
+			//	"scale": 4.0
 			},
 			"assets": [
 				"./audio/soundscape/sh2_ambience.ogg"	
 			],
 			"tags": {
 				// exact matches
+			/*
 				"worldspawn_sh2": {
 					"physics": { "type": "mesh", "static": true },
-					"grid": { "size": [5,1,5], "epsilon": 1.0, "cleanup": true, "print": true },
+					"grid": { "size": [9,1,9], "epsilon": 1.0, "cleanup": true, "print": true },
 					"unwrap mesh": true,
 					"optimize mesh": { "simplify": 0 }
 				},
-				"worldspawn_barrier": { "ignore": true },
-				"worldspawn_skybox": { "ignore": true },
+			*/
+				"/^worldspawn_barrier$/": { "ignore": true },
+			//	"/^worldspawn_skybox/": { "ignore": true },
 
 				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
 				"func_door_rotating_5509": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },

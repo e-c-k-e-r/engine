@@ -175,7 +175,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
-	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER, true); // waits on finish
+	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER, false); // waits on finish
 		VkBufferCopy region = {};
 		region.size = length;
 		vkCmdCopyBuffer(commandBuffer, staging.buffer, buffer, 1, &region);

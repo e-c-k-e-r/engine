@@ -226,6 +226,20 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		metadata.shader.frameAccumulateReset = false;
 	}
 
+	static bool lagged = false;
+	/* funi sound */ if ( lagged || uf::time::current - uf::time::previous > 5 ) {
+		lagged = true;
+		auto& controller = this->getController().as<uf::Object>();
+		if ( controller.getUid() != this->getUid() ) {
+			lagged = false;
+			ext::json::Value payload;
+			payload["filename"] = "/ui/pl_drown1.ogg";
+			payload["volume"] = "sfx";
+			payload["spatial"] = true;
+			controller.queueHook("sound:Emit.%UID%", payload);
+		}
+	}
+
 //	uf::renderer::states::frameAccumulate = metadata.shader.frameAccumulate;
 //	uf::renderer::states::frameAccumulateReset = metadata.shader.frameAccumulateReset;
 
@@ -257,6 +271,12 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			const uf::stl::string filename = ::fmt::format("{}/screenshots/{:%Y-%m-%d_%H-%M-%S}.png", uf::io::root, ::fmt::localtime(t));
 			image.save(filename);
 			UF_MSG_DEBUG("Screenshot saved to {}", filename);
+		}
+	}
+	/* Screenshot */ {
+		TIMER(1, uf::inputs::kbm::states::R ) {
+			uf::renderer::states::rebuild = true;
+			UF_MSG_DEBUG("Rebuild requested");
 		}
 	}
 #endif
@@ -595,6 +615,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		uf::graph::storage.buffers.light.update( (const void*) uf::graph::storage.lights.data(), uf::graph::storage.lights.size() * sizeof(pod::Light) );
 	}
 #endif
+#if UF_USE_VULKAN
 	/* Update lights */ if ( uf::renderer::settings::pipelines::deferred && !uf::renderer::settings::pipelines::vxgi ) {
 		auto& deferredRenderMode = uf::renderer::getRenderMode("", true);
 		auto& deferredBlitter = deferredRenderMode.getBlitter();
@@ -604,6 +625,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			ext::ExtSceneBehavior::bindBuffers( *this, "", "fragment", "deferred" );
 		}
 	}
+#endif
 
 	/* Update post processing */ {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
@@ -777,7 +799,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 		GL_ERROR_CHECK(glDisable(GL_LIGHTING));
 	}
 #endif
-
+#if UF_USE_VULKAN
 	if ( uf::renderer::settings::pipelines::bloom ) {
 		auto& renderMode = uf::renderer::getRenderMode("", true);
 		auto& blitter = renderMode.getBlitter();
@@ -808,6 +830,7 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 
 		shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 	}
+#endif
 }
 
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string& renderModeName, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {

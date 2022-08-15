@@ -151,8 +151,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	const uf::stl::string filename = _filename != "" ? _filename : (uf::stl::string("/") + uf::string::lowercase(name) + "/scene.json");
 #endif
 	scene->load(filename);
+#if UF_USE_VULKAN
 	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
+#endif
 	scene->initialize();
 	return *scene;
 }
@@ -160,8 +162,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
 	if ( data != "" ) scene->load(data);
+#if UF_USE_VULKAN
 	if ( uf::renderer::settings::pipelines::rt ) uf::instantiator::bind( "RayTraceSceneBehavior", *scene );
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
+#endif
 	scene->initialize();
 	return *scene;
 }

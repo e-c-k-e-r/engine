@@ -18,6 +18,7 @@ namespace ext {
 			bool immediate{true};
 			QueueEnum queueType{QueueEnum::TRANSFER};
 			VkCommandBuffer handle{VK_NULL_HANDLE};
+			std::thread::id threadId{std::this_thread::get_id()};
 
 			operator VkCommandBuffer() { return handle; }
 		};
@@ -66,7 +67,7 @@ namespace ext {
 
 			struct {
 				uf::stl::vector<Buffer> buffers;
-				uf::stl::unordered_map<QueueEnum, uf::stl::vector<VkCommandBuffer>> commandBuffers;
+				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<std::thread::id, std::vector<VkCommandBuffer>>> commandBuffers;
 			} transient;
 
 		/*

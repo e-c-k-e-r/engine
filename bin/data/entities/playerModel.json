@@ -1,7 +1,7 @@
 {
 	"type": "Object",
 	"name": "Player: Model",
-	"ignore": true,
+	"ignore": false,
 	"import": "/model.json",
 	"assets": [
 		"/player/bear.glb"

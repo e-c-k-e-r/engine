@@ -8,39 +8,14 @@
 #include <uf/ext/opengl/graphic.h>
 #include <uf/utils/camera/camera.h>
 
-
-const uf::stl::string ext::opengl::RenderTargetRenderMode::getTarget() const {
-//	auto& metadata = *const_cast<uf::Serializer*>(&this->metadata);
-//	return metadata["target"].as<uf::stl::string>();
-	return metadata.target;
-}
-void ext::opengl::RenderTargetRenderMode::setTarget( const uf::stl::string& target ) {
-//	this->metadata["target"] = target;
-	metadata.target = target;
-}
-
 const uf::stl::string ext::opengl::RenderTargetRenderMode::getType() const {
 	return "RenderTarget";
-}
-const size_t ext::opengl::RenderTargetRenderMode::blitters() const {
-	return 1;
-}
-ext::opengl::Graphic* ext::opengl::RenderTargetRenderMode::getBlitter( size_t i ) {
-	return &this->blitter;
-}
-uf::stl::vector<ext::opengl::Graphic*> ext::opengl::RenderTargetRenderMode::getBlitters() {
-	return { &this->blitter };
 }
 
 ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicDescriptor( const ext::opengl::GraphicDescriptor& reference, size_t pass ) {
 	ext::opengl::GraphicDescriptor descriptor = ext::opengl::RenderMode::bindGraphicDescriptor(reference, pass);
 	descriptor.parse(metadata.json["descriptor"]);
-	if ( 0 <= pass && pass < metadata.subpasses && metadata.type == uf::renderer::settings::pipelines::names::vxgi ) {
-	//	descriptor.cullMode = GL_CULL_MODE_NONE;
-		descriptor.depth.test = false;
-		descriptor.depth.write = false;
-		descriptor.pipeline = uf::renderer::settings::pipelines::names::vxgi;
-	} else if ( metadata.type == "depth" ) {
+	if ( metadata.type == "depth" ) {
 	//	descriptor.cullMode = GL_CULL_MODE_NONE;
 	}
 	// invalidate

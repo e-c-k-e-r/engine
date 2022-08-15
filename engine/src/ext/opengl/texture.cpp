@@ -220,7 +220,7 @@ void ext::opengl::Texture::fromBuffers(
 	if ( this->mips == 0 ) {
 		this->mips = 1;
 	} else if ( this->depth == 1 ) {
-		this->mips = uf::vector::mips( pod::Vector2ui{ texWidth, texHeight, texDepth } );
+		this->mips = uf::vector::mips( pod::Vector3ui{ texWidth, texHeight, texDepth } );
 	}
 
 	if ( this->mips > 1 ) {

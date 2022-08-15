@@ -5,7 +5,7 @@
 	//	"GuiBehavior"
 	],
 	"assets": [
-		{ "filename": "./mcdonalds.json", "delay": 0 }
+		{ "filename": "./sm64.json", "delay": 0 }
 	],
 	"ignore": false,
 	"transform": {

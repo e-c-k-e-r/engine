@@ -495,7 +495,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		auto& scene = uf::scene::getCurrentScene();
 		auto& assetLoader = scene.getComponent<uf::Asset>();
 		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
-		auto image = assetLoader.get<uf::Image>(payload.filename);
+		auto& image = assetLoader.get<uf::Image>(payload.filename);
 		this->as<ext::Gui>().load( image );
 	});
 

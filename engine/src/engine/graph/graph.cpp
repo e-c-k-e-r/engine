@@ -135,6 +135,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		for ( auto& key : uf::graph::storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
 
 		// bind scene's voxel texture
+	#if UF_USE_VULKAN
 		if ( uf::renderer::settings::pipelines::vxgi ) {
 			auto& scene = uf::scene::getCurrentScene();
 			auto& sceneTextures = scene.getComponent<pod::SceneTextures>();
@@ -144,6 +145,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			for ( auto& t : sceneTextures.voxels.radiance ) graphic.material.textures.emplace_back().aliasTexture(t);
 			for ( auto& t : sceneTextures.voxels.depth ) graphic.material.textures.emplace_back().aliasTexture(t);
 		}
+	#endif
 	}
 	
 	uf::stl::string root = uf::io::directory( graph.name );
@@ -193,9 +195,11 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 */
 	{
 		auto& shader = graphic.material.getShader("vertex");
-
-	//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+	#if UF_USE_VULKAN
 		shader.aliasBuffer( "camera", uf::graph::storage.buffers.camera );
+	#else
+		shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+	#endif
 //	//	shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 	#if UF_USE_VULKAN
 		shader.buffers.emplace_back( indirect->alias() );

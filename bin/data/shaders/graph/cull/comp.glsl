@@ -279,7 +279,7 @@ void main() {
 	if ( !(0 <= gID && gID < drawCommands.length()) ) return;
 
 	bool visible = frustumCull( gID );
-	if ( visible ) visible = occlusionCull( gID );
+//	if ( visible ) visible = occlusionCull( gID );
 //	bool visible = occlusionCull( gID );
 	drawCommands[gID].instances = visible ? 1 : 0;
 }
