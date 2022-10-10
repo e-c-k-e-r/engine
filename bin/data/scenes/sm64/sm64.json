@@ -1,8 +1,8 @@
 {
 	"import": "/model.json",
 	"assets": [	
-		{ "filename": "./models/sm64_bbb.glb" }
-	//	{ "filename": "./models/sm64_bbb/graph.json" }
+	//	{ "filename": "./models/sm64_bbb.glb" }
+		{ "filename": "./models/sm64_bbb/graph.json" }
 	],
 	"metadata": {
 		"graph": {

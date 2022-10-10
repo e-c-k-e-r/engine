@@ -399,7 +399,6 @@ void ext::vulkan::Texture::loadFromImage(
 		break;
 	}
 */
-
 	switch ( image.getChannels() ) {
 		// R
 		case 1:

@@ -14,7 +14,7 @@
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
 
-#define BARYCENTRIC 1
+#define BARYCENTRIC 0
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
 		#define BARYCENTRIC_CALCULATE 0

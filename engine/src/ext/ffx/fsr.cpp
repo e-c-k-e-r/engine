@@ -173,10 +173,10 @@ namespace {
 		dispatchParameters.jitterOffset.x = ext::fsr::jitter.x; // m_JitterX;
 		dispatchParameters.jitterOffset.y = ext::fsr::jitter.y; // m_JitterY;
 
-		dispatchParameters.reset = uf::renderer::states::frameAccumulateReset; // pState->bReset;
+		dispatchParameters.reset = false; // uf::renderer::states::frameAccumulateReset; // pState->bReset;
 		dispatchParameters.enableSharpening = ext::fsr::sharpness > 0.0f; // pState->bUseRcas;
 		dispatchParameters.sharpness = ext::fsr::sharpness; //1.0f; // pState->sharpening;
-		dispatchParameters.frameTimeDelta = uf::time::delta;
+		dispatchParameters.frameTimeDelta = uf::time::delta * 1000;
 		dispatchParameters.preExposure = 1.0f;
 		dispatchParameters.cameraFar = FLT_MAX; // pState->camera.GetFarPlane();
 		dispatchParameters.cameraNear = 0.01f; // pState->camera.GetNearPlane();

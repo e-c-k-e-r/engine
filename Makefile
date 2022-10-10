@@ -43,7 +43,8 @@ EXT_LIB_NAME 			+= ext
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.2.198.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.204.1/
 #VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.211.0/
-VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.216.0/
+#VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.216.0/
+VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.224.1/
 
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
@@ -108,7 +109,7 @@ ifneq (,$(findstring ffx:fsr,$(REQ_DEPS)))
 	ifneq (,$(findstring vulkan,$(REQ_DEPS)))
 		FLAGS 				+= -DUF_USE_FFX_FSR
 		#INCS 				+= -I./dep/include/ffx_fsr2/
-		DEPS 				+= -lffx_fsr2_api_x64 -lffx_fsr2_api_vk_x64
+		DEPS 				+= -lffx_fsr2_api_ -lffx_fsr2_api_vk_
 	endif
 endif
 ifneq (,$(findstring imgui,$(REQ_DEPS)))

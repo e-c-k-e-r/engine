@@ -8,6 +8,8 @@ void pbr() {
 	const vec3 Lo = normalize( -surface.position.eye );
 	// angle of outcoming light
 	const float cosLo = max(0.0, dot(surface.normal.eye, Lo));
+
+	const float Rs = 4.0;
 	
 	for ( uint i = 0, shadows = 0; i < MAX_LIGHTS; ++i ) {
 	#if BAKING
@@ -50,9 +52,9 @@ void pbr() {
 		// Fresnel term for direct lighting
 		const vec3 F = fresnelSchlick(F0, max(0.0, dot(Lh, Lo)));
 		// Distribution for specular lighting
-		const float D = ndfGGX( cosLh, surface.material.roughness );
+		const float D = ndfGGX( cosLh, surface.material.roughness * Rs);
 		// Geometric attenuation for specular lighting
-		const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness);
+		const float G = gaSchlickGGX(cosLi, cosLo, surface.material.roughness * Rs);
 
 		// final lighting
 		const vec3 diffuse = mix(vec3(1.0) - F, vec3(0), surface.material.metallic) * surface.material.albedo.rgb;

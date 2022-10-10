@@ -16,7 +16,9 @@ layout (constant_id = 0) const uint TEXTURES = 1;
 
 #if BARYCENTRIC && !BARYCENTRIC_CALCULATE
 	#define BARYCENTRIC_STABILIZE 1
-	#extension GL_EXT_fragment_shader_barycentric : enable
+// 	#define BARY_COORD  gl_BaryCoordEXT
+//	#extension GL_EXT_fragment_shader_barycentric : enable
+	#define BARY_COORD gl_BaryCoordSmoothAMD
 	#extension GL_AMD_shader_explicit_vertex_parameter : enable
 #endif
 
@@ -108,16 +110,17 @@ void main() {
 	outId = uvec2(triangleID + 1, instanceID + 1);
 
 #if BARYCENTRIC && !BARYCENTRIC_CALCULATE
+	vec3 bary = vec3(gl_BaryCoordSmoothAMD.xy, 1 - gl_BaryCoordSmoothAMD.x - gl_BaryCoordSmoothAMD.y);
+	bary = bary.yzx;
 	#if BARYCENTRIC_STABILIZE
 		vec4 v0 = interpolateAtVertexAMD(inPOS1, 0);
 		vec4 v1 = interpolateAtVertexAMD(inPOS1, 1);
 		vec4 v2 = interpolateAtVertexAMD(inPOS1, 2);
-		
-		if (v0 == inPOS0) outBary = encodeBarycentrics(gl_BaryCoordEXT.yzx);
-		else if (v1 == inPOS0) outBary = encodeBarycentrics(gl_BaryCoordEXT.zxy);
-		else if (v2 == inPOS0) outBary = encodeBarycentrics(gl_BaryCoordEXT.xyz);
+		if (v0 == inPOS0) outBary = encodeBarycentrics(bary.yzx);
+		else if (v1 == inPOS0) outBary = encodeBarycentrics(bary.zxy);
+		else if (v2 == inPOS0) outBary = encodeBarycentrics(bary.xyz);
 	#else
-		outBary = encodeBarycentrics(gl_BaryCoordEXT.xyz);
+		outBary = encodeBarycentrics(bary.xyz);
 	#endif
 #endif
 }

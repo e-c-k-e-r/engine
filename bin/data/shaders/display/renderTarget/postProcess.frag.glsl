@@ -46,7 +46,7 @@ const float u_bot = 1;
 
 void main() {
 	const vec2 screenResolution = textureSize( samplerColor, 0 );
-	const float u_lines = screenResolution.y * 0.5;
+	const float u_lines = screenResolution.y * 0.75;
 
 	vec2 uv_orig = (inUv.xy * 2.0 - 1.0);
 	vec2 uv_mod = uv_orig * pow(1.0-abs(uv_orig),vec2(u_round)) * (u_zoom + u_corner * pow( abs(uv_orig.yx), vec2(u_shape)) );

@@ -29,18 +29,18 @@
 				}
 			},
 			"vxgi": {
-			//	"limiter": 0.5,
+				"limiter": 0.5,
 			//	"limiter": 0.125,
 			//	"limiter": 0.0125,
-				"limiter": 0.0,
+			//	"limiter": 0.0,
 				"size": 256,
 				"dispatch": 8,
-				"cascades": 2,
+				"cascades": 1,
 				"cascadePower": 2,
 				"granularity": 6,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
-				"traceStartOffsetFactor": 1,
+				"traceStartOffsetFactor": 2,
 				"shadows": 0,
 				"extents": {
 					"min": [ -8, -4, -8 ],
@@ -113,14 +113,14 @@
 				},
 				"pipelines": {
 					"deferred": true,
-					"vsync": true,
+					"vsync": false,
 					"hdr": false,
 					"vxgi": true,
-					"culling": true,
-					"bloom": true,
-					"rt": true,
-					"fsr": true,
-					"postProcess": true
+					"culling": false,
+					"bloom": false,
+					"rt": false,
+					"fsr": false,
+					"postProcess": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -182,6 +182,7 @@
 						"VK_KHR_shader_clock",
 						"VK_KHR_ray_query",
 						"VK_EXT_subgroup_size_control",
+						"VK_KHR_fragment_shader_barycentric",
 						"VK_AMD_shader_explicit_vertex_parameter" // "VK_KHR_fragment_shader_barycentric"
 					]
 				}
