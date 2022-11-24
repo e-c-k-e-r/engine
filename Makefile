@@ -346,6 +346,8 @@ endif
 	$(GLSLC) --target-env=vulkan1.2 -o $@ $<
 	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
+shaders: $(TARGET_SHADERS)
+
 clean:
 	@-rm $(EX_DLL)
 	@-rm $(EXT_EX_DLL)

@@ -26,10 +26,10 @@
 			"bias": {
 				"constant": 1.25,
 				"slope": 1.75,
-				"shader": 0.000005 //0.000000005
+				"shader": 0.000025 // 0.000005 //0.000000005
 			},
-			"radius": [0.1, 0],
-			"resolution": 512,
+			"radius": [0.25, 0],
+			"resolution": 256,
 			"shadows": true,
 			"dynamic": true
 		}

@@ -6,11 +6,11 @@
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
 				"useLightmaps": true,
-				"max": 32,
+				"max": 16,
 				"shadows": {
 					"enabled": true,
 					"update": 2,
-					"max": 12,
+					"max": 4,
 					"samples": 1
 				},
 				"bloom": {
@@ -31,20 +31,18 @@
 			"vxgi": {
 				"limiter": 0.5,
 			//	"limiter": 0.125,
-			//	"limiter": 0.0125,
-			//	"limiter": 0.0,
-				"size": 256,
+				"size": 128,
 				"dispatch": 8,
-				"cascades": 1,
-				"cascadePower": 2,
-				"granularity": 6,
+				"cascades": 3,
+				"cascadePower": 3,
+				"granularity": 12,
 				"voxelizeScale": 1,
 				"occlusionFalloff": 2,
-				"traceStartOffsetFactor": 2,
+				"traceStartOffsetFactor": 1,
 				"shadows": 0,
 				"extents": {
-					"min": [ -8, -4, -8 ],
-					"max": [  8,  4,  8 ]
+					"min": [ -16, -4, -16 ],
+					"max": [  16,  4,  16 ]
 				}
 			},
 			"rt": {
@@ -59,14 +57,12 @@
 			}
 		},
 		"graph": {
-			"initial buffer elements": 4096
+			"initial buffer elements": 131072
 		},
 		"ext": {
 			"vulkan": {
 				"validation": { "enabled": false,
 					"filters": [
-						"0x1feed437", // VUID-VkImageMemoryBarrier-synchronization2-03857 (screams because of FSR2 retardation)
-					//	"0x141cb623", // UNASSIGNED-Threading-MultipleThreads (screams at me, a part of transient command buffer recording/submitting)
 						"0x35d7ea98", // VUID-vkUpdateDescriptorSets-None-03047 ()
 
 						"0x4dae5635", // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout (false positive for cubemaps)
@@ -96,31 +92,29 @@
 				},
 				"framebuffer": {
 					"msaa": 1,
-					"size": 1
-				//	"size": 0.8
+					"size": 0.75 // 1
 				//	"size": [ 640, 480, "NEAREST" ]
-				//	"size": [ 1920, 1080 ]
 				//	"size": [ 1280, 720 ]
 				//	"size": [ 960, 540 ]
 				//	"size": [ 640, 480 ]
 				},
+				"gpu": 1,
 				"experimental": {
+					"rebuild on tick begin": false,
 					"batch queue submissions": true,
-					"dedicated thread": false
+					"dedicated thread": true
 				},
-				"invariant": {
-					"multithreaded recording": true
-				},
+				"invariant": {},
 				"pipelines": {
 					"deferred": true,
 					"vsync": false,
 					"hdr": false,
 					"vxgi": true,
-					"culling": false,
+					"culling": true,
 					"bloom": false,
 					"rt": false,
-					"fsr": false,
-					"postProcess": false
+					"postProcess": false,
+					"fsr": false
 				},
 				"formats": {
 					"depth": "D32_SFLOAT",
@@ -182,7 +176,6 @@
 						"VK_KHR_shader_clock",
 						"VK_KHR_ray_query",
 						"VK_EXT_subgroup_size_control",
-						"VK_KHR_fragment_shader_barycentric",
 						"VK_AMD_shader_explicit_vertex_parameter" // "VK_KHR_fragment_shader_barycentric"
 					]
 				}
@@ -228,8 +221,8 @@
 			"fsr": {
 				"enabled": true,
 				"sharpness": 1,
-				"jitter scale": 0.03125,
-				"preset": "quality" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
+				"jitter scale": 0.0625,
+				"preset": "ultra" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
 			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
@@ -262,7 +255,7 @@
 				"count": 4
 			},
 			"volumes": {
-				"sfx": 0.5,
+				"sfx": 0.35,
 				"bgm": 0.15,
 				"voice": 1.0
 			},
@@ -327,14 +320,14 @@
 		"cursor" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 1, 1 ],
-			"smoothing": [ 8, 8 ]
+			"sensitivity": [ 0.75, 0.75 ],
+			"smoothing": [ 4, 4 ]
 		},
 		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 	//	"size" :  [ 1920, 1080 ],
-		"size" :  [ 1280, 720 ],
-	//	"size" :  [ 960, 540 ],
+	//	"size" :  [ 1280, 720 ],
+		"size" :  [ 960, 540 ],
 	//	"size" :  [ 640, 480 ],
 	//	"size" :  [ 256, 224 ],
 		"title" : "Grimgram",

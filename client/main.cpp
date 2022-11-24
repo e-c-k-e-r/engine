@@ -45,14 +45,6 @@ namespace {
 	}
 }
 
-bool hasDispatchedThread = false;
-void renderProc() {
-	while ( !client::ready || !ext::ready ) {
-		ext::render();
-		client::render();
-	}
-}
-
 int main(int argc, char** argv){
 	for ( size_t i = 0; i < argc; ++i ) {
 		char* c_str = argv[i];
@@ -80,35 +72,14 @@ int main(int argc, char** argv){
 		}
 	}
 
-//	auto& renderer = uf::thread::fetchWorker();
-	auto& renderer = uf::thread::get("Render");
-	
-/*
-	UF_MSG_DEBUG("?");
-	std::thread dispatchedThread;
-	UF_MSG_DEBUG("!");
-*/
 	while ( client::ready && ext::ready ) {
 	#if UF_EXCEPTIONS
 		try {	
 	#endif
-	/*
-		client::tick();
-		ext::tick();
-
-		if ( !hasDispatchedThread ) {
-			if ( uf::renderer::settings::experimental::dedicatedThread ) {
-				hasDispatchedThread = true;
-				dispatchedThread = std::thread(renderProc);
-			} else {
-				ext::render();
-				client::render();
-			}
-		}
-	*/
-		#if 1
-			if ( uf::renderer::settings::experimental::dedicatedThread ) {
-				uf::thread::queue(renderer, [&]{
+			if ( uf::renderer::settings::experimental::dedicatedThread /*&& !uf::renderer::states::rebuild*/ ) {
+			//	auto& thread = uf::thread::fetchWorker();
+				auto& thread = uf::thread::get("Render");
+				uf::thread::queue(thread, [&]{
 					ext::render();
 					client::render();
 				});
@@ -116,10 +87,8 @@ int main(int argc, char** argv){
 				client::tick();
 				ext::tick();
 
-				uf::thread::wait(renderer);
-			} else
-		#endif
-			{
+				uf::thread::wait( thread );
+			} else {
 				client::tick();
 				ext::tick();
 
@@ -144,13 +113,6 @@ int main(int argc, char** argv){
 		}
 	#endif
 	}
-
-/*
-	if ( hasDispatchedThread ) {
-		dispatchedThread.join();
-	}
-*/
-
 	if ( !client::terminated ) {
 		client::terminated = true;
 		UF_MSG_INFO("Natural termination!");

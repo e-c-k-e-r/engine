@@ -2,7 +2,8 @@
 	"import": "./base_sourceengine.json",
 	"assets": [	
 	//	{ "filename": "./models/sh2_mcdonalds.glb" }
-		{ "filename": "./models/sh2_mcdonalds/graph.json" }
+		{ "filename": "./models/sh2_mcdonalds/graph.json" },
+		{ "filename": "/burger.json", "delay": 1 }
 	],
 	"metadata": {
 		"graph": {
