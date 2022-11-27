@@ -1,6 +1,6 @@
-#include <uf/ext/ffx/fsr.h>
-
 #if UF_USE_FFX_FSR
+
+#include <uf/ext/ffx/fsr.h>
 
 #include <ffx_fsr2/ffx_fsr2.h>
 #include <ffx_fsr2/vk/ffx_fsr2_vk.h>

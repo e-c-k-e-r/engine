@@ -2,77 +2,81 @@
 #if UF_USE_LUA
 #include <uf/utils/math/quaternion.h>
 
+namespace {
+	typedef pod::Quaternion<> Quaternion;
+}
+
 namespace binds {
-	float index( const pod::Quaternion<>& self, size_t index ) {
+	float index( const ::Quaternion& self, size_t index ) {
 		return self[index];
 	}
-	pod::Quaternion<> lookAt( const pod::Vector3f& at, const pod::Vector3f& up ) {
+	::Quaternion lookAt( const pod::Vector3f& at, const pod::Vector3f& up ) {
 		return uf::quaternion::lookAt( at, up );
 	}
-	pod::Quaternion<> normalize( const pod::Quaternion<>& self ) {
+	::Quaternion normalize( const ::Quaternion& self ) {
 		return uf::quaternion::normalize( self );
 	}
-	pod::Quaternion<> multiply( const pod::Quaternion<>& left, const pod::Quaternion<>& right ) {
+	::Quaternion multiply( const ::Quaternion& left, const ::Quaternion& right ) {
 		return uf::quaternion::multiply( left, right );
 	}
-	pod::Quaternion<> axisAngle( sol::object arg, float angle ){
+	::Quaternion axisAngle( sol::object arg, float angle ){
 		if ( arg.is<pod::Vector3f>() ) {
 			return uf::quaternion::axisAngle( arg.as<pod::Vector3f>(), angle );
 		} else if ( arg.is<sol::table>() ) {
 			sol::table table = arg.as<sol::table>();
 			return uf::quaternion::axisAngle( pod::Vector3f{ table[0], table[1], table[2] }, angle );
 		}
-		return pod::Quaternion<>{};
+		return ::Quaternion{};
 	}
-	pod::Vector3f rotate( const pod::Quaternion<>& left, const pod::Vector3f& right ) {
+	pod::Vector3f rotate( const ::Quaternion& left, const pod::Vector3f& right ) {
 		return uf::quaternion::rotate( left, right );
 	}
-	pod::Quaternion<> eulerAngles( const pod::Quaternion<>& quaternion ) {
+	::Quaternion eulerAngles( const ::Quaternion& quaternion ) {
 		return uf::quaternion::eulerAngles( quaternion );
 	}
-	pod::Quaternion<> conjugate( const pod::Quaternion<>& quaternion ) {
+	::Quaternion conjugate( const ::Quaternion& quaternion ) {
 		return uf::quaternion::conjugate( quaternion );
 	}
-	pod::Quaternion<> inverse( const pod::Quaternion<>& quaternion ) {
+	::Quaternion inverse( const ::Quaternion& quaternion ) {
 		return uf::quaternion::inverse( quaternion );
 	}
-	float pitch( const pod::Quaternion<>& quaternion ) {
+	float pitch( const ::Quaternion& quaternion ) {
 		return uf::quaternion::pitch( quaternion );
 	}
-	float yaw( const pod::Quaternion<>& quaternion ) {
+	float yaw( const ::Quaternion& quaternion ) {
 		return uf::quaternion::yaw( quaternion );
 	}
-	float roll( const pod::Quaternion<>& quaternion ) {
+	float roll( const ::Quaternion& quaternion ) {
 		return uf::quaternion::roll( quaternion );
 	}
-	pod::Quaternion<> slerp( const pod::Quaternion<>& left, const pod::Quaternion<>& right, float a ) {
+	::Quaternion slerp( const ::Quaternion& left, const ::Quaternion& right, float a ) {
 		return uf::quaternion::slerp( left, right, a );
 	}
-	pod::Matrix4f matrix( const pod::Quaternion<>& q ) {
+	pod::Matrix4f matrix( const ::Quaternion& q ) {
 		return uf::quaternion::matrix( q );
 	}
-	uf::stl::string __tostring( const pod::Quaternion<>& self ) {
+	uf::stl::string __tostring( const ::Quaternion& self ) {
 		return uf::string::toString( self );
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(pod::Quaternion<>,
+UF_LUA_REGISTER_USERTYPE(::Quaternion,
 	sol::call_constructor, sol::initializers( 
-		[]( pod::Quaternion<>& self ) {
+		[]( ::Quaternion& self ) {
 			return self = {0,0,0,1};
 		},
-		[]( pod::Quaternion<>& self, const pod::Quaternion<>& copy ) {
+		[]( ::Quaternion& self, const ::Quaternion& copy ) {
 			return self = copy;
 		},
-		[]( pod::Quaternion<>& self, float x, float y, float z, float w ) {
+		[]( ::Quaternion& self, float x, float y, float z, float w ) {
 			return self = uf::vector::create(x, y, z, w);
 		}
 	),
 
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Quaternion<>::x),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Quaternion<>::y),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Quaternion<>::z),
-	UF_LUA_REGISTER_USERTYPE_MEMBER(pod::Quaternion<>::w),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(::Quaternion::x),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(::Quaternion::y),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(::Quaternion::z),
+	UF_LUA_REGISTER_USERTYPE_MEMBER(::Quaternion::w),
 
 	UF_LUA_REGISTER_USERTYPE_DEFINE( v, UF_LUA_C_FUN(::binds::index) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( lookAt, UF_LUA_C_FUN(::binds::lookAt) ),

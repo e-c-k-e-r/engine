@@ -3,11 +3,10 @@
 #if UF_USE_FMT
 	#if UF_ENV_DREAMCAST
 		#define FMT_HEADER_ONLY
-		#include <fmt-7/format.h>
-	#else
-	//	#include <fmt/core.h>
 	#endif
+	#include <fmt/core.h>
 	#include <fmt/format.h>
+	#include <fmt/chrono.h>
 #endif
 #include <uf/utils/memory/string.h>
 

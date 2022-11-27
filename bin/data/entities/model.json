@@ -38,7 +38,7 @@
 			},
 			"baking": {
 				"enabled": true,
-				"resolution": 4096,
+				"resolution": 2048,
 				"shadows": 1024,
 				"layers": 1,
 				"trigger": { "mode": "rendered", "quit": true },

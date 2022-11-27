@@ -141,8 +141,8 @@ void main() {
 	{
 		surface.normal.eye = surface.normal.eye;
 		surface.position.eye = surface.position.eye;
-		pbr();
-	/*
+	//	pbr();
+	
 		const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 		for ( uint i = 0; i < min(ubo.lights, lights.length()); ++i ) {
 			const Light light = lights[i];
@@ -187,7 +187,6 @@ void main() {
 			surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 			surface.light.a += light.power * La * Ls;
 		}
-	*/
 	}
 #define EXPOSURE 0
 #define GAMMA 0

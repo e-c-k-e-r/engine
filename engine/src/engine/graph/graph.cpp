@@ -102,7 +102,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			if ( uf::matrix::reverseInfiniteProjection ) {
 				graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
 			} else {
-				graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CCW : uf::renderer::enums::Face::CW;
+				graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CW : uf::renderer::enums::Face::CCW;
+			//	graphic.descriptor.frontFace = graph.metadata["renderer"]["invert"].as<bool>(true) ? uf::renderer::enums::Face::CCW : uf::renderer::enums::Face::CW;
 			}
 		}
 		else UF_MSG_WARNING("Invalid Face enum string specified: {}", mode);
@@ -386,6 +387,8 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 				{ "samplerCubemaps", maxCubemaps },
 			});
 
+		//	shader.buffers.emplace_back( uf::graph::storage.buffers.camera.alias() );
+			shader.aliasBuffer( "camera", uf::graph::storage.buffers.camera );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
 			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
@@ -503,7 +506,7 @@ void uf::graph::process( pod::Graph& graph ) {
 	// process lightmap
 
 	UF_DEBUG_TIMER_MULTITRACE("Parsing lightmaps");
-	{
+	if ( true ) {
 		constexpr const char* UF_GRAPH_DEFAULT_LIGHTMAP = "./lightmap.%i.png";
 		uf::stl::unordered_map<size_t, uf::stl::string> filenames;
 		uf::stl::unordered_map<size_t, size_t> lightmapIDs;

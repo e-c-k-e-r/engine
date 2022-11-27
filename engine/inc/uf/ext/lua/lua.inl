@@ -18,7 +18,14 @@ namespace {\
 		});\
 	});\
 }
+/*
 
+namespace sol {\
+	template <>\
+	struct is_automagical<type> : std::false_type {};\
+}\
+
+*/
 
 #define UF_LUA_REGISTER_USERTYPE(type, ...) \
 namespace {\
@@ -31,6 +38,7 @@ namespace {\
 
 #define UF_LUA_REGISTER_USERTYPE_DEFINE(k, v) #k, v
 #define UF_LUA_REGISTER_USERTYPE_MEMBER(member) UF_NS_GET_LAST(member), &member
+//#define UF_LUA_REGISTER_USERTYPE_MEMBER(member) UF_NS_GET_LAST(member), sol::as_function(&member)
 #define UF_LUA_REGISTER_USERTYPE_MEMBER_FUN(member) UF_NS_GET_LAST(member), UF_LUA_C_FUN(member)
 
 #define UF_LUA_C_FUN(x) sol::c_call<decltype(&x), &x>

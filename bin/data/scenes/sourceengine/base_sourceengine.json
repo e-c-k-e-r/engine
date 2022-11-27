@@ -24,11 +24,12 @@
 					"bias": {
 						"constant": 1.25,
 						"slope": 1.75,
-						"shader": 0.0000025
+						"shader": 0.000000000005
 					},
-					"radius": [0.95, 0],
-					"resolution": 8196
+					"radius": [50, 0],
+					"resolution": 1024
 				} },
+			//	"/^light_[^e]/": { "ignore": true },
 
 				// regexp matches
 				"/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },

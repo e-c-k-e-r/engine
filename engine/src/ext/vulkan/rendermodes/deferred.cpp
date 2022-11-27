@@ -319,7 +319,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 			shader.aliasAttachment("scratch", this, VK_IMAGE_LAYOUT_GENERAL);
 		}
 
-		if ( settings::pipelines::culling ) {
+		if ( false && settings::pipelines::culling ) {
 			uf::stl::string computeShaderFilename = uf::io::resolveURI(uf::io::root+"/shaders/display/depth-pyramid/comp.spv");
 			blitter.material.attachShader(computeShaderFilename, uf::renderer::enums::Shader::COMPUTE, "depth-pyramid");
 
@@ -414,7 +414,7 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 				}
 			}
 
-			if ( settings::pipelines::culling ) {
+			if ( false && settings::pipelines::culling ) {
 				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
 				descriptor.pipeline = "depth-pyramid";
 				descriptor.subpass = 0;
@@ -440,7 +440,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 		rebuild = true;
 		renderTarget.initialize( *renderTarget.device );
 
-		if ( settings::pipelines::culling ) {
+		if ( false && settings::pipelines::culling ) {
 			auto& shader = blitter.material.getShader("compute", "depth-pyramid");
 			auto attachment = this->getAttachment("depth");
 			auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );
@@ -538,7 +538,7 @@ void ext::vulkan::DeferredRenderMode::tick() {
 				}
 			}
 
-			if ( settings::pipelines::culling ) {
+			if ( false && settings::pipelines::culling ) {
 				descriptor.aux = uf::vector::mips( pod::Vector2ui{ width, height } );
 				descriptor.pipeline = "depth-pyramid";
 				descriptor.subpass = 0;
@@ -794,8 +794,8 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				::transitionAttachmentsFrom( this, shader, commandBuffer );
 			}
 
-						// construct depth-pyramid
-			if ( settings::pipelines::culling && blitter.material.hasShader("compute", "depth-pyramid") ) {
+			// construct depth-pyramid
+			if ( false && settings::pipelines::culling && blitter.material.hasShader("compute", "depth-pyramid") ) {
 				auto& shader = blitter.material.getShader("compute", "depth-pyramid");
 			//	auto mips = attachment.descriptor.mips; // uf::vector::mips( pod::Vector2ui{ renderTarget.width, renderTarget.height } );
 				auto mips = uf::vector::mips( pod::Vector2ui{ width, height } );

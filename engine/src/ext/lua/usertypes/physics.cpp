@@ -27,10 +27,8 @@ UF_LUA_REGISTER_USERTYPE(pod::Physics,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( rotationalVelocity, UF_LUA_C_FUN(::binds::rotationalVelocity) ),
 	
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setLinearVelocity, UF_LUA_C_FUN(::binds::setLinearVelocity) ),
-	UF_LUA_REGISTER_USERTYPE_DEFINE( setRotationalVelocity, UF_LUA_C_FUN(::binds::setRotationalVelocity) )
-)
+	UF_LUA_REGISTER_USERTYPE_DEFINE( setRotationalVelocity, UF_LUA_C_FUN(::binds::setRotationalVelocity) ),
 
-UF_LUA_REGISTER_USERTYPE(pod::PhysicsState,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setVelocity, UF_LUA_C_FUN(uf::physics::impl::setVelocity) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( setImpulse, UF_LUA_C_FUN(uf::physics::impl::setImpulse) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( applyImpulse, UF_LUA_C_FUN(uf::physics::impl::applyImpulse) ),

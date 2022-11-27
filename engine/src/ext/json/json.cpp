@@ -1,5 +1,6 @@
 #include <uf/ext/json/json.h>
 #include <uf/utils/io/iostream.h>
+#include <uf/utils/string/ext.h>
 #include <iomanip>
 
 uf::stl::string ext::json::PREFERRED_COMPRESSION = "";

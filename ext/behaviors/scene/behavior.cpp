@@ -33,8 +33,6 @@
 #include "../../ext.h"
 #include "../../gui/gui.h"
 
-#include <fmt/chrono.h>
-
 UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
 #define this ((uf::Scene*) &self)

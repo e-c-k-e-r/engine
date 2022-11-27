@@ -464,7 +464,11 @@ void ext::reactphysics::syncTo() {
 		float mass = body->getMass();
 		switch ( ext::reactphysics::gravity::mode ) {
 			case ext::reactphysics::gravity::Mode::PER_OBJECT: if ( body->isGravityEnabled() ) {
+			#if UF_ENV_DREAMCAST
+				body->applyForceToCenterOfMass( ::convert(state.stats.gravity * mass) );
+			#else
 				body->applyLocalForceAtCenterOfMass( ::convert(state.stats.gravity * mass) );
+			#endif
 			} break;
 			case ext::reactphysics::gravity::Mode::UNIVERSAL: if ( mass > 0 ) {
 				auto transform = ::convert( body->getTransform() );
@@ -492,8 +496,13 @@ void ext::reactphysics::syncTo() {
 				const float r2 = uf::vector::distanceSquared( b1.position, b2.position );
 				const float F = G * m1 * m2 / r2;
 
+			#if UF_ENV_DREAMCAST
+				if ( b1.body ) b1.body->applyForceToCenterOfMass(direction *  F);
+				if ( b2.body ) b2.body->applyForceToCenterOfMass(direction * -F);
+			#else
 				if ( b1.body ) b1.body->applyLocalForceAtCenterOfMass(direction *  F);
 				if ( b2.body ) b2.body->applyLocalForceAtCenterOfMass(direction * -F);
+			#endif
 			}
 		}
 	}
@@ -555,9 +564,10 @@ void ext::reactphysics::syncFrom( float interp ) {
 // apply impulse
 void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
 	if ( !state.body ) return;
-
+#if !UF_ENV_DREAMCAST
 	state.body->resetForce();
 	state.body->resetTorque();
+#endif
 	state.body->setLinearVelocity( ::convert(pod::Vector3f{}) );
 	state.body->setAngularVelocity( ::convert(pod::Vector3f{}) );
 //	ext::reactphysics::applyImpulse( state, v );
@@ -565,7 +575,11 @@ void ext::reactphysics::setImpulse( pod::PhysicsState& state, const pod::Vector3
 void ext::reactphysics::applyImpulse( pod::PhysicsState& state, const pod::Vector3f& v ) {
 	if ( !state.body ) return;
 
+#if UF_ENV_DREAMCAST
+	state.body->applyForceToCenterOfMass( ::convert(v) );
+#else
 	state.body->applyLocalForceAtCenterOfMass( ::convert(v) );
+#endif
 }
 // directly move a transform
 void ext::reactphysics::applyMovement( pod::PhysicsState& state, const pod::Vector3f& v ) {

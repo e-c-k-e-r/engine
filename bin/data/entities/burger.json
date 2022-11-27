@@ -1,7 +1,7 @@
 {
 	"type": "Object",
 	"name": "Burger",
-	"ignore": false,
+	"ignore": true,
 	"import": "/model.json",
 	"assets": [
 	//	"/burger/burger.glb"
@@ -12,6 +12,7 @@
 	"behaviors": [],
 	"transform": {
 		"position": [ -0.574743, 2.3547, -5.05161 ],
+	//	"position": [ -4.66561, 0.0736207, -5.98057 ],
 		"rotation": {
 			"axis": [ 0, 1, 0 ],
 			"angle": 0

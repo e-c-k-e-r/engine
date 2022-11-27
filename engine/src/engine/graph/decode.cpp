@@ -236,7 +236,7 @@ namespace {
 
 		// remove extraneous buffers
 		uf::stl::vector<uf::stl::string> attributesKept = ext::json::vector<uf::stl::string>(graph.metadata["decode"]["attributes"]);
-	#if 1
+	#if 0
 		if ( !mesh.isInterleaved() ) {
 			uf::stl::vector<size_t> remove; remove.reserve(mesh.vertex.attributes.size());
 
@@ -252,7 +252,7 @@ namespace {
 				mesh.vertex.attributes.erase(mesh.vertex.attributes.begin() + i);
 			}
 		} else {
-			UF_MSG_DEBUG("Attribute removal requested yet mesh is not interleaved, ignoring...");
+			UF_MSG_DEBUG("Attribute removal requested yet mesh is interleaved, ignoring...");
 		}
 	#endif
 
