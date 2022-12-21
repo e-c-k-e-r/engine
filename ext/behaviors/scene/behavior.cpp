@@ -37,7 +37,7 @@ UF_BEHAVIOR_REGISTER_CPP(ext::ExtSceneBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::ExtSceneBehavior, ticks = true, renders = false, multithread = false) // hangs on initialization
 #define this ((uf::Scene*) &self)
 void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
-	auto& assetLoader = this->getComponent<uf::Asset>();
+//	auto& assetLoader = this->getComponent<uf::asset>();
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 
@@ -47,15 +47,11 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	});
 
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::AUDIO ) ) return;
-
-		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
-		auto& asset = assetLoader.get<uf::Audio>(payload.filename);
-		auto& audio = this->getComponent<uf::Audio>();
-
-		audio.destroy();
-		audio = std::move(asset);
-		assetLoader.remove<uf::Audio>(payload.filename);
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::AUDIO ) ) return;
+	//	if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		auto& audio = uf::asset::get<uf::Audio>( payload );
+	//	if ( !uf::asset::has(payload.filename) ) uf::asset::load( payload );
+	//	auto& audio = this->getComponent<uf::Audio>();
 
 	#if UF_AUDIO_MAPPED_VOLUMES
 		audio.setVolume(uf::audio::volumes.count("bgm") > 0 ? uf::audio::volumes.at("bgm") : 1.0);
@@ -64,6 +60,10 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 		audio.loop( true );
 		audio.play();
+
+		if ( !payload.asComponent ) {
+			this->moveComponent<uf::Audio>( uf::asset::get( payload.filename ) );
+		}
 	});
 
 	this->addHook( "menu:Open", [&](pod::payloads::menuOpen& payload){
@@ -78,7 +78,9 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		};
 	});
 	this->addHook( "world:Entity.LoadAsset", [&](pod::payloads::assetLoad& payload){
-		assetLoader.load("asset:Load." + std::to_string(payload.uid), payload);
+		if ( !payload.object ) return;
+
+		uf::asset::load("asset:Load." + std::to_string(payload.object.uid), payload);
 	});
 	this->addHook( "shader:Update.%UID%", [&](ext::json::Value& json){
 		metadata.shader.mode = json["mode"].as<uint32_t>();
@@ -208,8 +210,8 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 	#endif
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
-	auto& assetLoader = this->getComponent<uf::Asset>();
-	assetLoader.processQueue();
+//	auto& assetLoader = this->getComponent<uf::asset>();
+	uf::asset::processQueue();
 	
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
@@ -242,7 +244,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 //	uf::renderer::states::frameAccumulateReset = metadata.shader.frameAccumulateReset;
 
 	/* Print World Tree */ {
-		TIMER(1, uf::inputs::kbm::states::U ) {
+		TIMER(1, uf::inputs::kbm::states::U || uf::scene::printTaskCalls )
+		{
 			std::function<void(uf::Entity*, int)> filter = []( uf::Entity* entity, int indent ) {
 				for ( int i = 0; i < indent; ++i ) uf::iostream << "\t";
 				uf::iostream << uf::string::toString(entity->as<uf::Object>()) << " ";
@@ -345,9 +348,9 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		if ( (current + epsilon >= end || !bgm.playing()) && !bgm.loops() ) {
 			// intro to main transition
 			uf::stl::string filename = bgm.getFilename();
-			filename = assetLoader.getOriginal(filename);
+			filename = uf::asset::getOriginal(filename);
 			if ( filename.find("_intro") != uf::stl::string::npos ) {
-				assetLoader.load(uf::string::replace( filename, "_intro", "" ), this->formatHookName("asset:Load.%UID%"));
+				uf::asset::load(uf::string::replace( filename, "_intro", "" ), this->formatHookName("asset:Load.%UID%"));
 			// loop
 			} else {
 				bgm.setTime(0);

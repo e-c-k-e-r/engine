@@ -524,33 +524,33 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			if ( !buffer ) continue;
 
 			if ( buffer->usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer->descriptor);
-			if ( buffer->usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer->descriptor);
+			if ( buffer->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer->descriptor);
 		}
 	#if 0
 		// add per-rendermode buffers
 		for ( auto& buffer : renderMode.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 	#endif
 		// add per-shader buffers
 		for ( auto& buffer : shader->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-pipeline buffers
 		for ( auto& buffer : this->buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 		// add per-graphics buffers
 		for ( auto& buffer : graphic.buffers ) {
 			if ( buffer.usage & uf::renderer::enums::Buffer::UNIFORM ) infos.uniform.emplace_back(buffer.descriptor);
-			if ( buffer.usage & uf::renderer::enums::Buffer::STORAGE ) infos.storage.emplace_back(buffer.descriptor);
-		//	if ( buffer.usage & uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE ) infos.accelerationStructure.emplace_back(buffer.descriptor);
+			if ( buffer.usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) infos.storage.emplace_back(buffer.descriptor);
+		//	if ( buffer.usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) infos.accelerationStructure.emplace_back(buffer.descriptor);
 		}
 
 		if ( descriptor.subpass < renderTarget.passes.size() ) {
@@ -1093,7 +1093,8 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		};
 		uf::stl::vector<Queue> queue;
 		descriptor.inputs.bufferOffset = buffers.size(); // buffers.empty() ? 0 : buffers.size() - 1;
-		VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+		VkBufferUsageFlags baseUsage = uf::renderer::settings::invariant::deviceAddressing ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0;
+	//	VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
 		#define PARSE_INPUT(name, usage){\
 			if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
@@ -1114,10 +1115,10 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		// allocate buffers
 		auto previousRequestedAlignment = this->requestedAlignment;
 		this->requestedAlignment = 16;
-		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX)
-		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX)
-		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX)
-		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | uf::renderer::enums::Buffer::STORAGE)
+		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX )
+		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
 		this->requestedAlignment = previousRequestedAlignment;
 	}
 
@@ -1360,7 +1361,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	}
 
 	// create BLAS buffer and handle
-	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
 	this->metadata.buffers["blasBuffer"] = blasBufferIndex;
 	
 	VkQueryPool queryPool{VK_NULL_HANDLE};
@@ -1445,7 +1446,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 
 		ext::vulkan::Buffer oldBuffer;
 		oldBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-		oldBuffer.initialize( NULL, totalBlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS );
+		oldBuffer.initialize( NULL, totalBlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
 		this->buffers[blasBufferIndex].swap(oldBuffer);
 		
 		size_t blasBufferOffset{};
@@ -1547,7 +1548,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
 		instanceIndex = this->initializeBuffer(
 			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
-			uf::renderer::enums::Buffer::ADDRESS | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
+			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
 		);
 		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
@@ -1601,7 +1602,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		);
 
 		// create BLAS buffer and handle
-		auto tlasBufferUsageFlags = uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS;
+		auto tlasBufferUsageFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		if ( !update ) {
 			const size_t EXTRANEOUS_SIZE = 1024 * 1024; // oversize, to avoid having to constantly resize
 			size_t bufferSize = MAX( sizeInfo.accelerationStructureSize, EXTRANEOUS_SIZE );
@@ -1711,7 +1712,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 	//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (float) (oldSize - compactedSize) / (float) (oldSize), oldSize, compactedSize, oldSize - compactedSize);
 
 		ext::vulkan::Buffer oldBuffer;
-		oldBuffer.initialize( NULL, tlasBufferSize, uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE );
+		oldBuffer.initialize( NULL, tlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT );
 		this->buffers[tlasBufferIndex].swap(oldBuffer);
 		
 		tlas.buffer = this->buffers[tlasBufferIndex].alias();

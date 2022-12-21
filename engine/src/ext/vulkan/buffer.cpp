@@ -1,6 +1,7 @@
 #if UF_USE_VULKAN
 
 #define VMA_VULKAN_VERSION 1002000
+#define VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE (200ull * 1024 * 1024)
 #define VMA_IMPLEMENTATION
 
 #include <uf/ext/vulkan/buffer.h>
@@ -94,12 +95,18 @@ void ext::vulkan::Buffer::allocate( VkBufferCreateInfo bufferCreateInfo ) {
 }
 
 size_t ext::vulkan::Buffer::getAddress() {
+//	if ( !(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) ) UF_MSG_DEBUG("CALLING GETADDRESS ON BUFFER WITHOUT ADDRESS BIT: {}", fmt::ptr(this->buffer));
+	if ( this->address ) return this->address;
+
 	VkBufferDeviceAddressInfoKHR info{};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	info.buffer = buffer;
 	return (this->address = vkGetBufferDeviceAddressKHR(this->device ? *this->device : ext::vulkan::device, &info));
 }
 size_t ext::vulkan::Buffer::getAddress() const {
+//	if ( !(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) ) UF_MSG_DEBUG("CALLING GETADDRESS ON BUFFER WITHOUT ADDRESS BIT: {}", fmt::ptr(this->buffer));
+	if ( this->address ) return this->address;
+
 	VkBufferDeviceAddressInfoKHR info{};
 	info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	info.buffer = buffer;
@@ -126,17 +133,20 @@ void ext::vulkan::Buffer::destroy(bool defer) {
 	this->buffer = {};
 	this->memory = {};
 	this->descriptor = {};
-	this->alignment = {};
+//	this->alignment = {};
 	this->address = {};
 	this->mapped = {};
-	this->usage = {};
-	this->memoryProperties = {};
+//	this->usage = {};
+//	this->memoryProperties = {};
 	this->allocation = {};
 	this->allocationInfo = {};
 }
 void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, bool stage ) {
 	if ( !device ) device = &ext::vulkan::device;
 	if ( stage ) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; // implicitly set properties
+
+//	if ( usage != VK_BUFFER_USAGE_TRANSFER_SRC_BIT ) usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
 	VK_CHECK_RESULT(device->createBuffer(
 		nullptr,
 		length,
@@ -144,7 +154,31 @@ void ext::vulkan::Buffer::initialize( const void* data, VkDeviceSize length, VkB
 		memoryProperties,
 		*this
 	));
+
 	if ( data && length ) update( data, length, stage );
+	
+/*
+	{
+		uf::stl::string type;
+
+		if ( usage & VK_BUFFER_USAGE_TRANSFER_SRC_BIT ) type += "transfer_src,";
+		if ( usage & VK_BUFFER_USAGE_TRANSFER_DST_BIT ) type += "transfer_dst,";
+		if ( usage & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT ) type += "uniform_texel,";
+		if ( usage & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT ) type += "storage_texel,";
+		if ( usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT ) type += "uniform,";
+		if ( usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT ) type += "storage,";
+		if ( usage & VK_BUFFER_USAGE_INDEX_BUFFER_BIT ) type += "index,";
+		if ( usage & VK_BUFFER_USAGE_VERTEX_BUFFER_BIT ) type += "vertex,";
+		if ( usage & VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT ) type += "indirect,";
+		if ( usage & VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR ) type += "acceleration_structure,";
+		if ( usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT ) type += "address,";
+		if ( usage & VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR ) type += "binding_table,";
+
+		UF_MSG_DEBUG("CREATING BUFFER: {}: {}({})", fmt::ptr(this->buffer), type, usage);
+	}
+*/
+
+	this->usage = usage;
 }
 bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool stage ) const {
 //	if ( !data || !length ) return false;
@@ -168,6 +202,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	}
 
 	ext::vulkan::Device* device = this->device ? this->device : &ext::vulkan::device;
+	
 	Buffer staging = device->fetchTransientBuffer(
 //	Buffer staging = device->createBuffer(
 		data,

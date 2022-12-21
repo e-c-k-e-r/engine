@@ -237,12 +237,13 @@ void EXT_API ext::initialize() {
 		uf::Entity::deleteComponentsOnDestroy = ::json["engine"]["debug"]["entity"]["delete components on destroy"].as( uf::Entity::deleteComponentsOnDestroy );
 
 		uf::Object::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Object::assertionLoad );
-		uf::Asset::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::Asset::assertionLoad );
+		uf::asset::assertionLoad = ::json["engine"]["debug"]["loader"]["assert"].as( uf::asset::assertionLoad );
 		
 		uf::userdata::autoDestruct = ::json["engine"]["debug"]["userdata"]["auto destruct"].as( uf::userdata::autoDestruct );
 		uf::userdata::autoValidate = ::json["engine"]["debug"]["userdata"]["auto validate"].as( uf::userdata::autoValidate );
 		
 		uf::Object::deferLazyCalls = ::json["engine"]["debug"]["hooks"]["defer lazy calls"].as( uf::Object::deferLazyCalls );
+		uf::scene::printTaskCalls = ::json["engine"]["debug"]["scene"]["print task calls"].as( uf::scene::printTaskCalls );
 	}
 
 	{
@@ -379,6 +380,8 @@ void EXT_API ext::initialize() {
 		}
 
 	#if UF_USE_VULKAN
+		uf::renderer::settings::version = configRenderJson["version"].as<float>(1.3);
+
 		if ( configRenderJson["gpu"].as<uf::stl::string>() == "auto" ) {
 			uf::renderer::settings::gpuID = -1;
 		} else {
@@ -387,26 +390,41 @@ void EXT_API ext::initialize() {
 		for ( int i = 0; i < configRenderJson["validation"]["filters"].size(); ++i ) {
 			uf::renderer::settings::validationFilters.emplace_back( configRenderJson["validation"]["filters"][i].as<uf::stl::string>() );
 		}
-		for ( int i = 0; i < configRenderJson["extensions"]["device"].size(); ++i ) {
-			uf::renderer::settings::requestedDeviceExtensions.emplace_back( configRenderJson["extensions"]["device"][i].as<uf::stl::string>() );
-		}
-		for ( int i = 0; i < configRenderJson["extensions"]["instance"].size(); ++i ) {
-			uf::renderer::settings::requestedInstanceExtensions.emplace_back( configRenderJson["extensions"]["instance"][i].as<uf::stl::string>() );
-		}
-		for ( int i = 0; i < configRenderJson["features"].size(); ++i ) {
-			uf::renderer::settings::requestedDeviceFeatures.emplace_back( configRenderJson["features"][i].as<uf::stl::string>() );
-		}
-	#endif
 
-	#if UF_USE_VULKAN
+		#define VK_LOAD_VERSION_LEVEL(VERSION) if ( VERSION <= uf::renderer::settings::version ) {\
+			auto& configVersionLevel = configRenderJson["versions"][#VERSION];\
+			for ( int i = 0; i < configVersionLevel["extensions"]["device"].size(); ++i ) {\
+				uf::renderer::settings::requestedDeviceExtensions.emplace_back( configVersionLevel["extensions"]["device"][i].as<uf::stl::string>() );\
+			}\
+			for ( int i = 0; i < configVersionLevel["extensions"]["instance"].size(); ++i ) {\
+				uf::renderer::settings::requestedInstanceExtensions.emplace_back( configVersionLevel["extensions"]["instance"][i].as<uf::stl::string>() );\
+			}\
+			for ( int i = 0; i < configVersionLevel["features"].size(); ++i ) {\
+				uf::renderer::settings::requestedDeviceFeatures.emplace_back( configVersionLevel["features"][i].as<uf::stl::string>() );\
+			}\
+			for ( int i = 0; i < configVersionLevel["featureChain"].size(); ++i ) {\
+				uf::stl::string key = configVersionLevel["featureChain"][i].as<uf::stl::string>();\
+				uf::renderer::settings::requestedFeatureChain[key] = true;\
+			}\
+		}
+
+		VK_LOAD_VERSION_LEVEL(1.0);
+		VK_LOAD_VERSION_LEVEL(1.1);
+		VK_LOAD_VERSION_LEVEL(1.2);
+		VK_LOAD_VERSION_LEVEL(1.3);
+		
+		ext::vulkan::settings::defaultStageBuffers = configRenderInvariantJson["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
+		uf::renderer::settings::invariant::deviceAddressing = uf::renderer::settings::requestedFeatureChain["physicalDeviceVulkan12"].as<bool>(false) || uf::renderer::settings::requestedFeatureChain["bufferDeviceAddress"].as<bool>(false);
+		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
+		uf::renderer::settings::experimental::memoryBudgetBit = configRenderExperimentalJson["memory budget"].as( uf::renderer::settings::experimental::memoryBudgetBit );
 	#if 1
 		uf::renderer::settings::experimental::dedicatedThread = false;
 		::requestDedicatedRenderThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 	#else
 		uf::renderer::settings::experimental::dedicatedThread = configRenderExperimentalJson["dedicated thread"].as( uf::renderer::settings::experimental::dedicatedThread );
 	#endif
-		uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
 	#endif
+
 		uf::renderer::settings::experimental::rebuildOnTickBegin = configRenderExperimentalJson["rebuild on tick begin"].as( uf::renderer::settings::experimental::rebuildOnTickBegin );
 
 		uf::renderer::settings::invariant::multithreadedRecording = configRenderInvariantJson["multithreaded recording"].as( uf::renderer::settings::invariant::multithreadedRecording );
@@ -687,9 +705,7 @@ void EXT_API ext::initialize() {
 	
 /*
 	uf::thread::add( uf::thread::fetchWorker(), [&]{
-		auto& scene = uf::scene::getCurrentScene();
-		auto& assetLoader = scene.getComponent<uf::Asset>();
-		assetLoader.processQueue();
+		uf::asset::processQueue();
 	});
 */
 	
@@ -802,13 +818,13 @@ void EXT_API ext::tick() {
 		}
 	}
 #if !UF_ENV_DREAMCAST
-	/* Frame limiter of sorts I guess */ if ( ::times.limiter > 0 ) {
+	if ( ::times.limiter > 0 ) {
 		static uf::Timer<long long> timer(false);
 		if ( !timer.running() ) timer.start();
 		auto elapsed = timer.elapsed().asMilliseconds();
 		long long sleep = (::times.limiter * 1000) - elapsed;
 		if ( sleep > 0 ) {
-		 //	if ( ::config.engine.limiter.print ) UF_MSG_DEBUG("Frame limiting: " << elapsed << "ms exceeds limit, sleeping for " << elapsed << "ms");
+		 	if ( ::config.engine.limiter.print ) UF_MSG_DEBUG("Frame limiting: sleeping for {}ms (from {})", elapsed, ::times.limiter * 1000);
 			std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
 		}
 		timer.reset();

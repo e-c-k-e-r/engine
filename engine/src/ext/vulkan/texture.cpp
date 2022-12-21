@@ -494,6 +494,7 @@ void ext::vulkan::Texture::fromBuffers(
 	VkImageLayout imageLayout
 ) {
 	this->initialize(device, texWidth, texHeight, texDepth, layers);
+	this->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	if ( this->mips == 0 ) {
 		this->mips = 1;
@@ -515,6 +516,7 @@ void ext::vulkan::Texture::fromBuffers(
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.compute ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.compute);
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.transfer ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.transfer);
 
+
 	bool exclusive = device.queueFamilyIndices.graphics == 0 && device.queueFamilyIndices.present == 0 && device.queueFamilyIndices.compute == 0 && device.queueFamilyIndices.transfer == 0;
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
@@ -528,7 +530,7 @@ void ext::vulkan::Texture::fromBuffers(
 	imageCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
 //	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCreateInfo.sharingMode = exclusive ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
-	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imageCreateInfo.initialLayout = this->imageLayout;
 	imageCreateInfo.extent = { width, height, depth };
 	imageCreateInfo.usage = imageUsageFlags;
 	// Ensure that the TRANSFER_SRC bit is set for mip creation
@@ -570,6 +572,12 @@ void ext::vulkan::Texture::fromBuffers(
 	viewCreateInfo.image = image;
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
+	{
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+		uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, (this->imageLayout = imageLayout), viewCreateInfo.subresourceRange );
+		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS, true);
+	}
+
 	if ( data && bufferSize ) {
 		uint8_t* layerPointer = (uint8_t*) data;
 		VkDeviceSize layerSize = bufferSize / this->layers;
@@ -577,7 +585,9 @@ void ext::vulkan::Texture::fromBuffers(
 			this->update( (void*) layerPointer, layerSize, imageLayout, layer );
 			layerPointer += layerSize;
 		}
-	} else {
+	}
+/*
+	else {
 		// Create image view
 		VkImageSubresourceRange subresourceRange = {};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -594,10 +604,11 @@ void ext::vulkan::Texture::fromBuffers(
 			imageLayout,
 			subresourceRange
 		);
-		device.flushCommandBuffer(commandBuffer);
+		device.flushCommandBuffer(commandBuffer, QueueEnum::GRAPHICS, true);
 
 		this->imageLayout = imageLayout;
 	}
+*/
 
 	this->updateDescriptors();
 }

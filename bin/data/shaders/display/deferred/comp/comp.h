@@ -6,15 +6,18 @@
 	#extension GL_EXT_ray_query : enable
 #endif
 
-layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 #define COMPUTE 1
 #define DEFERRED 1
 #define DEFERRED_SAMPLING 1
 
 #define PBR 1
-#define BUFFER_REFERENCE 1
-#define UINT64_ENABLED 1
+#define LAMBERT 0
+#if RT || BARYCENTRIC
+	#define BUFFER_REFERENCE 0
+	#define UINT64_ENABLED 0
+#endif
 #define FOG 1
 #define FOG_RAY_MARCH 1
 
@@ -100,17 +103,19 @@ layout (binding = 19) uniform sampler3D samplerNoise;
 	layout (binding = 23) uniform accelerationStructureEXT tlas;
 #endif
 
-layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
-layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
-layout(buffer_reference, scalar) buffer Indirects { DrawCommand dc[]; };
+#if BUFFER_REFERENCE
+	layout(buffer_reference, scalar) buffer Vertices { Vertex v[]; };
+	layout(buffer_reference, scalar) buffer Indices { uvec3 i[]; };
+	layout(buffer_reference, scalar) buffer Indirects { DrawCommand dc[]; };
 
-layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
-layout(buffer_reference, scalar) buffer VUv { vec2 v[]; };
-layout(buffer_reference, scalar) buffer VColor { uint v[]; };
-layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
-layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
-layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
-layout(buffer_reference, scalar) buffer VID { uint v[]; };
+	layout(buffer_reference, scalar) buffer VPos { vec3 v[]; };
+	layout(buffer_reference, scalar) buffer VUv { vec2 v[]; };
+	layout(buffer_reference, scalar) buffer VColor { uint v[]; };
+	layout(buffer_reference, scalar) buffer VSt { vec2 v[]; };
+	layout(buffer_reference, scalar) buffer VNormal { vec3 v[]; };
+	layout(buffer_reference, scalar) buffer VTangent { vec3 v[]; };
+	layout(buffer_reference, scalar) buffer VID { uint v[]; };
+#endif
 
 #include "../../../common/functions.h"
 #include "../../../common/fog.h"
@@ -128,7 +133,14 @@ layout(buffer_reference, scalar) buffer VID { uint v[]; };
 
 #define IMAGE_STORE(X, Y) imageStore( X, ivec2(gl_GlobalInvocationID.xy), Y )
 
+bool USE_SKYBOX_ON_DIVERGENCE = false;
+
 void postProcess() {
+	if ( USE_SKYBOX_ON_DIVERGENCE ) {
+		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
+			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
+		}
+	}
 #if FOG
 	fog( surface.ray, surface.fragment.rgb, surface.fragment.a );
 #endif
@@ -138,6 +150,26 @@ void postProcess() {
 	vec4 outFragColor = vec4(surface.fragment.rgb, 1.0);
 	vec4 outFragBright = bloom ? vec4(surface.fragment.rgb, 1.0) : vec4(0, 0, 0, 1);
 	vec2 outFragMotion = surface.motion;
+
+	if ( ubo.settings.mode.type > 0x0000 ) {
+		uvec2 renderSize = imageSize(imageColor);
+		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
+		if ( inUv.x < 0 ) {
+			if ( ubo.settings.mode.type == 0x0001 ) {
+				outFragColor = vec4(surface.material.albedo.rgb, 1);
+			} else if ( ubo.settings.mode.type == 0x0002 ) {
+				outFragColor = vec4(surface.light.rgb, 1);
+			} else if ( ubo.settings.mode.type == 0x0003 ) {
+				outFragColor = vec4(surface.light.a, surface.light.a, surface.light.a, 1);
+			} else if ( ubo.settings.mode.type == 0x0004 ) {
+				outFragColor = vec4(surface.normal.eye.rgb, 1);
+			} else if ( ubo.settings.mode.type == 0x0005 ) {
+				outFragColor = vec4(surface.uv.xy, 0, 1);
+			} else if ( ubo.settings.mode.type == 0x0006 ) {
+				outFragColor = vec4(surface.st.xy, 0, 1);
+			}
+		}
+	}
 	
 	IMAGE_STORE( imageColor, outFragColor );
 	IMAGE_STORE( imageBright, outFragBright );
@@ -145,12 +177,16 @@ void postProcess() {
 }
 
 void populateSurface() {
-	uvec2 renderSize = imageSize(imageColor);
+	const uvec2 renderSize = imageSize(imageColor);
 	if ( gl_GlobalInvocationID.x >= renderSize.x || gl_GlobalInvocationID.y >= renderSize.y || gl_GlobalInvocationID.z > PushConstant.pass ) return;
 
-	surface.fragment = vec4(0);
 	surface.pass = PushConstant.pass;
+	surface.fragment = vec4(0);
+	surface.light = vec4(0);
+	surface.motion = vec2(0);
+	surface.material.indirect = vec4(0);
 
+	float depth = 0.0;
 	{
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 		const mat4 iProjectionView = inverse( ubo.eyes[surface.pass].projection * mat4(mat3(ubo.eyes[surface.pass].view)) );
@@ -162,7 +198,7 @@ void populateSurface() {
 		surface.ray.direction = normalize( far3 - near3 );
 		surface.ray.origin = /*near3.xyz;*/ ubo.eyes[surface.pass].eyePos.xyz;
 
-		const float depth = IMAGE_LOAD(samplerDepth).r;
+		depth = IMAGE_LOAD(samplerDepth).r;
 		
 		vec4 eye = ubo.eyes[surface.pass].iProjection * vec4(inUv, depth, 1.0);
 		eye /= eye.w;
@@ -171,23 +207,27 @@ void populateSurface() {
 		surface.position.world = vec3( ubo.eyes[surface.pass].iView * eye );
 	}
 
+
 #if !MULTISAMPLING
 	const uvec2 ID = uvec2(IMAGE_LOAD(samplerId).xy);
 #else
 	const uvec2 ID = msaa.IDs[msaa.currentID];
 #endif
-	surface.motion = vec2(0);
 
-	if ( ID.x == 0 || ID.y == 0 ) {
+	if ( ID.x == 0 || ID.y == 0 || depth <= 0.0 ) {
+		USE_SKYBOX_ON_DIVERGENCE = true;
+	}
+/*
+	if ( ID.x == 0 || ID.y == 0 || depth <= 0.0 ) {
 		if ( 0 <= ubo.settings.lighting.indexSkybox && ubo.settings.lighting.indexSkybox < CUBEMAPS ) {
 			surface.fragment.rgb = texture( samplerCubemaps[ubo.settings.lighting.indexSkybox], surface.ray.direction ).rgb;
 		}
-		surface.fragment.a = 0.0;
 		return;
 	}
+*/
 	{
-		const uint triangleID = ID.x - 1;
-		const uint instanceID = ID.y - 1;
+		const uint triangleID = ID.x == 0 ? 0 : ID.x - 1;
+		const uint instanceID = ID.y == 0 ? 0 : ID.y - 1;
 		surface.subID = 1;
 
 	#if BARYCENTRIC
@@ -206,9 +246,7 @@ void populateSurface() {
 
 		surface.normal.world = decodeNormals(normaltangent.xy);
 	//	surface.tangent.world = decodeNormals(normaltangent.zw);
-		
-		surface.fragment = vec4(0);
-		surface.light = vec4(0);
+
 		surface.instance = instances[instanceID];
 
 		populateSurfaceMaterial();
@@ -235,6 +273,7 @@ void directLighting() {
 #elif PHONG
 	phong();
 #endif
+
 	surface.fragment.rgb += surface.light.rgb;
 }
 

@@ -21,6 +21,7 @@ namespace {
 	} auxFences;
 }
 
+float ext::vulkan::settings::version = 1.3;
 uint32_t ext::vulkan::settings::width = 1280;
 uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
@@ -39,6 +40,7 @@ uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceExtensions;
 uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedInstanceExtensions;
+uf::Serializer ext::vulkan::settings::requestedFeatureChain;
 
 VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
 
@@ -48,11 +50,13 @@ bool ext::vulkan::settings::experimental::batchQueueSubmissions = true;
 
 bool ext::vulkan::settings::experimental::rebuildOnTickBegin = false;
 bool ext::vulkan::settings::experimental::enableMultiGPU = false;
+bool ext::vulkan::settings::experimental::memoryBudgetBit = true;
 
 // not so experimental
 bool ext::vulkan::settings::invariant::waitOnRenderEnd = false;
 bool ext::vulkan::settings::invariant::individualPipelines = true;
 bool ext::vulkan::settings::invariant::multithreadedRecording = true;
+bool ext::vulkan::settings::invariant::deviceAddressing = false;
 
 uf::stl::string ext::vulkan::settings::invariant::deferredMode = "";
 
@@ -280,10 +284,12 @@ void ext::vulkan::initialize() {
 	device.initialize();
 	swapchain.initialize( device );
 
-	ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
-	ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize,
-		uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE
-	);
+	if ( uf::renderer::settings::invariant::deviceAddressing ) {
+		ext::vulkan::scratchBuffer.alignment = ext::vulkan::settings::scratchBufferAlignment;
+		ext::vulkan::scratchBuffer.initialize( NULL, ext::vulkan::settings::scratchBufferInitialSize,
+			uf::renderer::enums::Buffer::ACCELERATION_STRUCTURE | uf::renderer::enums::Buffer::ADDRESS | uf::renderer::enums::Buffer::STORAGE
+		);
+	}
 	
 	if ( uf::io::exists(uf::io::root + "/textures/missing.png") ) {
 		uf::Image image;

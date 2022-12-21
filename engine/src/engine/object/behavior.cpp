@@ -17,7 +17,7 @@ UF_BEHAVIOR_TRAITS_CPP(uf::ObjectBehavior, ticks = true, renders = false, multit
 #define this (&self)
 void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	auto& scene = uf::scene::getCurrentScene();
-	auto& assetLoader = scene.getComponent<uf::Asset>();
+//	auto& assetLoader = scene.getComponent<uf::asset>();
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& transform = this->getComponent<pod::Transform<>>();
@@ -35,7 +35,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 			auto& parent = this->getParent().as<uf::Object>();
 
 			pod::payloads::assetLoad payload;
-			payload.uid = this->getUid();
+			payload.object = this->resolvable<>();
 			parent.lazyCallHook("asset:Parsed.%UID%", payload);
 		}
 	}
@@ -63,20 +63,46 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 	});
 	this->addHook( "asset:QueueLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		uf::stl::string callback = this->formatHookName("asset:FinishedLoad.%UID%");
-		if ( payload.monoThreaded ) {
-		//	UF_MSG_DEBUG("Queued: {}", payload.filename);
-			if ( assetLoader.load( payload ) != "" ) this->queueHook( callback, payload );
-		} else {
-		//	UF_MSG_DEBUG("Immediate: {}", payload.filename);
-			assetLoader.load( callback, payload );
+	/*
+		switch ( payload.type ) {
+			case uf::asset::Type::AUDIO:
+			case uf::asset::Type::IMAGE:
+			case uf::asset::Type::LUA: {
+				if ( payload.monoThreaded ) {
+					if ( uf::asset::cache( payload ) != "" ) this->queueHook( callback, payload );
+				} else {
+					uf::asset::cache( callback, payload );
+				}
+			} break;
+
+			case uf::asset::Type::GRAPH: {
+				if ( payload.monoThreaded ) {
+					if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
+				} else {
+					uf::asset::load( callback, payload );
+				}
+			} break;
 		}
+	*/
+		if ( payload.monoThreaded ) {
+			if ( uf::asset::load( payload ) != "" ) this->queueHook( callback, payload );
+		} else {
+			uf::asset::load( callback, payload );
+		}
+	/*
+		if ( payload.monoThreaded ) {
+			if ( uf::asset::cache( payload ) != "" ) this->queueHook( callback, payload );
+		} else {
+			uf::asset::cache( callback, payload );
+		}
+	*/
 	});
 	this->addHook( "asset:FinishedLoad.%UID%", [&](pod::payloads::assetLoad& payload){
 		this->queueHook("asset:Load.%UID%", payload);
 		this->queueHook("asset:Parsed.%UID%", payload);
 	});	
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::JSON ) ) return;
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::JSON ) ) return;
 
 		uf::Serializer json;
 		if ( !json.readFromFile(payload.filename) ) return;
@@ -93,8 +119,7 @@ void uf::ObjectBehavior::initialize( uf::Object& self ) {
 		metadata.system.load.progress += portion;
 		if ( metadata.system.load.progress == metadata.system.load.total ) {
 			auto& parent = this->getParent().as<uf::Object>();
-
-			payload.uid = this->getUid();
+			payload.object = this->resolvable<>();
 			parent.lazyCallHook("asset:Parsed.%UID%", payload);
 		}
 	});

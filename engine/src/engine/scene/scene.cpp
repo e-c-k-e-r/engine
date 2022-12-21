@@ -98,34 +98,36 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 	#if UF_TICK_FROM_TASKS
 		auto* self = (uf::Object*) entity;
 		auto/*&*/ behaviorGraph = entity->getGraph();
-#if 1
-	#if UF_TICK_MULTITHREAD_OVERRIDE
-		for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.parallel.queue([=]{ fun(*self); });
-	#else
-		for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.serial.queue([=]{ fun(*self); });
-	#endif
+		if ( uf::scene::printTaskCalls ) {
+			for ( auto& behavior : self->getBehaviors() ) {
+				if ( !behavior.traits.ticks ) continue;
 
-		for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
-#else
-		for ( auto& behavior : self->getBehaviors() ) {
-			if ( !behavior.traits.ticks ) continue;
+				auto name = behavior.type.name().str();
+			#if UF_TICK_MULTITHREAD_OVERRIDE
+				if ( true )
+			#else
+				if ( behavior.traits.multithread )
+			#endif
+				metadata.tasks.parallel.queue([=]{
+					UF_MSG_DEBUG("Parallel {} task executing: {}: {}", name, self->getName(), self->getUid());
+					behavior.tick(*self);
+					UF_MSG_DEBUG("Parallel {} task exectued: {}: {}", name, self->getName(), self->getUid());
+				}); else metadata.tasks.serial.queue([=]{
+					UF_MSG_DEBUG("Serial {} task executing: {}: {}", name, self->getName(), self->getUid());
+					behavior.tick(*self);
+					UF_MSG_DEBUG("Serial {} task exectued: {}: {}", name, self->getName(), self->getUid());
+				});
+			}
+		} else {
+			#if UF_TICK_MULTITHREAD_OVERRIDE
+				for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+			#else
+				for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.serial.queue([=]{ fun(*self); });
+			#endif
 
-			auto name = behavior.type.name().str();
-		#if UF_TICK_MULTITHREAD_OVERRIDE
-			if ( true )
-		#else
-			if ( behavior.traits.multithread )
-		#endif
-			metadata.tasks.parallel.queue([=]{
-				behavior.tick(*self);
-				UF_MSG_DEBUG("Parallel {} task exectued: {}: {}", name, self->getName(), self->getUid());
-			}); else metadata.tasks.serial.queue([=]{
-				behavior.tick(*self);
-				UF_MSG_DEBUG("Serial {} task exectued: {}: {}", name, self->getName(), self->getUid());
-			});
-		}
+				for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+		}	
 	#endif
-#endif
 	});
 
 	uf::renderer::states::rebuild = true;
@@ -138,6 +140,8 @@ uf::stl::vector<uf::Entity*> uf::Scene::getGraph( bool reverse ) {
 }
 
 uf::stl::vector<uf::Scene*> uf::scene::scenes;
+bool uf::scene::printTaskCalls = false;
+
 uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::string& _filename ) {
 	uf::Scene* scene = uf::instantiator::objects->has( name ) ? (uf::Scene*) &uf::instantiator::instantiate( name ) : new uf::Scene;
 	uf::scene::scenes.emplace_back( scene );
@@ -197,6 +201,8 @@ void uf::scene::tick() {
 	}
 #endif
 
+	if ( uf::scene::printTaskCalls ) UF_MSG_DEBUG("Scene tick start");
+
 	auto& scene = uf::scene::getCurrentScene();
 #if !UF_SCENE_GLOBAL_GRAPH
 	auto& metadata = scene.getComponent<uf::SceneBehavior::Metadata>();
@@ -212,6 +218,8 @@ void uf::scene::tick() {
 #else
 	for ( auto entity : graph ) entity->tick();
 #endif
+	
+	if ( uf::scene::printTaskCalls ) UF_MSG_DEBUG("Scene tick end");
 }
 void uf::scene::render() {
 	if ( scenes.empty() ) return;

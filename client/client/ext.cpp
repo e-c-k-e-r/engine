@@ -49,7 +49,7 @@ void client::initialize() {
 		ext::config["window"]["refresh rate"] = client::window.getRefreshRate();
 		// Miscellaneous
 		client::window.setVisible(client::config["window"]["visible"].as<bool>());
-		client::window.setCursorVisible(client::config["window"]["cursor"]["visible"].as<bool>());
+		client::window.setCursorVisible(client::config["window"]["mouse"]["visible"].as<bool>());
 		if ( client::config["engine"]["ext"]["imgui"]["enabled"].as<bool>() ) {
 			client::window.setCursorVisible(false);
 		}
@@ -138,7 +138,7 @@ void client::tick() {
 		}
 		// mouse move
 		uf::inputs::kbm::states::Mouse = {};
-		if ( client::config["window"]["mouse"]["center"].as<bool>() ) {
+		if ( client::config["window"]["mouse"]["center"].as<bool>(false) ) {
 			auto size = client::window.getSize();
 			auto current = client::window.getMousePosition();
 			auto center = client::window.getSize() / 2.0f;
@@ -158,6 +158,10 @@ void client::tick() {
 				},
 				{ center, current - center, 0 }
 			});
+		#endif
+		} else {
+		#if UF_INPUT_USE_ENUM_MOUSE
+		//	uf::inputs::kbm::states::Mouse = { 0, 0 };
 		#endif
 		}
 	}

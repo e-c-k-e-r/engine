@@ -403,7 +403,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 	}
 
 	// grab addresses
-	if ( /*uf::renderer::settings::pipelines::rt*/ true ) {
+	if ( uf::renderer::settings::invariant::deviceAddressing ) {
 		pod::DrawCommand* drawCommands = (pod::DrawCommand*) mesh.getBuffer( mesh.indirect ).data();
 		for ( size_t drawID = 0; drawID < mesh.indirect.count; ++drawID ) {
 			auto& drawCommand = drawCommands[drawID];

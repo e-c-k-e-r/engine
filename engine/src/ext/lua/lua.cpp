@@ -297,10 +297,14 @@ bool ext::lua::run( const uf::stl::string& s, bool safe ) {
 pod::LuaScript ext::lua::script( const uf::stl::string& filename ) {
 	pod::LuaScript script;
 	if ( !ext::lua::enabled ) return script;
-	
 	script.file = filename;
 	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
 	return script;
+}
+void ext::lua::script( const uf::stl::string& filename, pod::LuaScript& script ) {
+	if ( !ext::lua::enabled ) return;
+	script.file = filename;
+	script.env = sol::environment( ext::lua::state, sol::create, ext::lua::state.globals() );
 }
 bool ext::lua::run( const pod::LuaScript& s, bool safe ) {
 	// is file

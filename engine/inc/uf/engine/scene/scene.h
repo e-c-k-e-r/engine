@@ -26,6 +26,7 @@ namespace uf {
 
 	namespace scene {
 		extern UF_API uf::stl::vector<uf::Scene*> scenes;
+		extern UF_API bool printTaskCalls;
 	//	extern UF_API uf::stl::vector<uf::Entity*> graph;
 	//	extern UF_API bool queuedInvalidation;
 	//	extern UF_API bool useGraph;

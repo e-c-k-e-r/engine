@@ -3,7 +3,7 @@
 	"metadata": {
 		"graph": {
 		//	"renderer": { "separate": true },
-			"baking": { "enabled": false },
+			"baking": { "enabled": true },
 			"tags": {
 				// exact matches
 				"worldspawn": {
@@ -19,6 +19,7 @@
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
+					"color": [0.1, 0.1, 0.1],
 					"power": 100000,
 					"global": true,
 					"bias": {

@@ -60,6 +60,7 @@ namespace uf {
 		void UF_API_CALL back();
 		uf::stl::string getBuffer();
 		uf::stl::vector<uf::stl::string> getHistory();
+		void pushHistory( const uf::stl::string& str );
 		
 		char UF_API_CALL readChar(const bool& = true);
 		uf::stl::string UF_API_CALL readString(const bool& = true);

@@ -74,6 +74,9 @@ uf::stl::string uf::IoStream::getBuffer() {
 uf::stl::vector<uf::stl::string> uf::IoStream::getHistory() {
 	return ::info.output.history;
 }
+void uf::IoStream::pushHistory( const uf::stl::string& str ) {
+	::info.output.history.emplace_back(str);
+}
 void uf::IoStream::back() {
 }
 char uf::IoStream::readChar(const bool& loop) {

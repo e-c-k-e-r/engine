@@ -167,12 +167,12 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& assetLoader = scene.getComponent<uf::Asset>();
+//	auto& assetLoader = scene.getComponent<uf::asset>();
 
 	ext::json::Value json = _json;
 
-	#define ASSET_ENTRY(type) { uf::string::lowercase(#type), uf::Asset::Type::type }
-	const uf::stl::unordered_map<uf::stl::string, uf::Asset::Type> assets = {
+	#define ASSET_ENTRY(type) { uf::string::lowercase(#type), uf::asset::Type::type }
+	const uf::stl::unordered_map<uf::stl::string, uf::asset::Type> assets = {
 		ASSET_ENTRY(AUDIO),
 		ASSET_ENTRY(IMAGE),
 		ASSET_ENTRY(GRAPH),
@@ -202,30 +202,38 @@ void uf::Object::loadAssets( const uf::Serializer& _json ){
 			uf::stl::string f = isObject ? target[i]["filename"].as<uf::stl::string>() : target[i].as<uf::stl::string>();
 			uf::stl::string filename = uf::io::resolveURI( f, metadata.system.root );
 			uf::stl::string mime = isObject ? target[i]["mime"].as<uf::stl::string>("") : "";
-			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
-			if ( !uf::Asset::isExpected( payload, assetType ) ) continue;
-			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
-			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
-			this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );
 			bool bind = isObject ? target[i]["bind"].as<bool>(true) : true;
 
+			uf::asset::Payload payload = uf::asset::resolveToPayload( filename, mime );
+			if ( !uf::asset::isExpected( payload, assetType ) ) continue;
+
+			payload.hash = isObject ? target[i]["hash"].as<uf::stl::string>("") : "";
+			payload.object = this->resolvable<>();
+			payload.monoThreaded = isObject ? !target[i]["multithreaded"].as<bool>(true) : !true;
+			payload.asComponent = isObject ? !target[i]["component"].as<bool>(false) : false;
+			payload.asComponent = true;
+			
 			switch ( assetType ) {
-				case uf::Asset::Type::LUA: {
+				case uf::asset::Type::LUA: {
+				//	payload.asComponent = true;
 					if ( bind ) uf::instantiator::bind("LuaBehavior", *this);
 				} break;
-				case uf::Asset::Type::GRAPH: {
-					auto graphMetadata = json["metadata"]["graph"];
-					auto& aMetadata = assetLoader.getComponent<uf::Serializer>();
-					aMetadata[filename] = graphMetadata;
-					aMetadata[filename]["root"] = json["root"];
+				case uf::asset::Type::GRAPH: {
+				//	payload.asComponent = true;
 					if ( bind ) uf::instantiator::bind("GraphBehavior", *this);
 
+					auto metadata = json["metadata"]["graph"];
+					payload.metadata = metadata;
+					payload.metadata["root"] = json["root"];
+
 					// nasty hack to get soundscapes/music to load while the rest of the graph loads
-					if ( ext::json::isObject(graphMetadata["assets"]) || ext::json::isArray(graphMetadata["assets"]) ) {
-						scene.loadAssets(graphMetadata["assets"]);
+					if ( ext::json::isObject(metadata["assets"]) || ext::json::isArray(metadata["assets"]) ) {
+						scene.loadAssets(metadata["assets"]);
 					}
 				} break;
 			}
+
+			this->queueHook( "asset:QueueLoad.%UID%", payload, isObject ? target[i]["delay"].as<float>() : 0 );
 		}
 	}
 }
@@ -234,7 +242,7 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	auto& metadataJson = this->getComponent<uf::Serializer>();
 	auto& scene = uf::scene::getCurrentScene();
-	auto& assetLoader = scene.getComponent<uf::Asset>();
+//	auto& assetLoader = scene.getComponent<uf::asset>();
 	uf::Serializer json = _json;
 
 	// setup root/source/mtime
@@ -363,9 +371,9 @@ bool uf::Object::load( const uf::Serializer& _json ) {
 			uf::stl::string mime = ext::json::isObject( target[i] ) ? target[i]["mime"].as<uf::stl::string>() : "";
 			uf::stl::string hash = ext::json::isObject( target[i] ) ? target[i]["hash"].as<uf::stl::string>() : "";
 			
-			uf::Asset::Payload payload = uf::Asset::resolveToPayload( filename, mime );
-			if ( !uf::Asset::isExpected( payload, uf::Asset::Type::JSON ) ) continue;
-			if ( (filename = assetLoader.load( payload )) == "" ) continue;
+			uf::asset::Payload payload = uf::asset::resolveToPayload( filename, mime );
+			if ( !uf::asset::isExpected( payload, uf::asset::Type::JSON ) ) continue;
+			if ( (filename = uf::asset::load( payload )) == "" ) continue;
 			
 			float delay = ext::json::isObject( target[i] ) ? target[i]["delay"].as<float>() : -1;
 			if ( delay > -1 ) {

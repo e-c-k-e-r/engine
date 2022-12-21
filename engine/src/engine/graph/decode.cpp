@@ -12,10 +12,10 @@
 #if UF_ENV_DREAMCAST
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 1
+	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #endif
 
-#if UF_ENV_DREAMCAST
+#if 1 || UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
@@ -366,6 +366,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			graph.instances.emplace_back(name);
 			UF_MSG_DEBUG( "{}", name );
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read instances");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -379,6 +380,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.primitives[name] = decodePrimitives( value, graph );
 			graph.primitives.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read primitives.");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -392,6 +394,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.drawCommands[name] = decodeDrawCommands( value, graph );
 			graph.drawCommands.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read drawCommands");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -405,6 +408,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.meshes[name] = decodeMesh( value, graph );
 			graph.meshes.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read meshes"); 
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -418,6 +422,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.images[name] = decodeImage( value, graph );
 			graph.images.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read images");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -445,6 +450,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.textures[name] = decodeTexture( value, graph );
 			graph.textures.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read texture information");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -458,6 +464,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.samplers[name] = decodeSampler( value, graph );
 			graph.samplers.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read sampler information");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -471,6 +478,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			/*graph.storage*/uf::graph::storage.materials[name] = decodeMaterial( value, graph );
 			graph.materials.emplace_back(name);
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read material information");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -483,6 +491,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			auto name = value["name"].as<uf::stl::string>();
 			graph.lights[name] = decodeLight( value, graph );
 		});
+		UF_DEBUG_TIMER_MULTITRACE("Read lighting information");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif
@@ -529,6 +538,7 @@ pod::Graph uf::graph::load( const uf::stl::string& filename, const uf::Serialize
 			graph.nodes.emplace_back(decodeNode( value, graph ));
 		});
 		graph.root = decodeNode( serializer["root"], graph );
+		UF_DEBUG_TIMER_MULTITRACE("Read nodes");
 	#if UF_ENV_DREAMCAST
 		DC_STATS();
 	#endif

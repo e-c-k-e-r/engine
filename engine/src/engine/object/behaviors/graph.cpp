@@ -26,13 +26,9 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		uf::graph::animate( graph, name );
 	});
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::GRAPH ) ) return;
-
-		auto& scene = uf::scene::getCurrentScene();
-		auto& assetLoader = scene.getComponent<uf::Asset>();
-		if ( !assetLoader.has<pod::Graph>(payload.filename) ) return;
-		auto& graph = (this->getComponent<pod::Graph>() = std::move( assetLoader.get<pod::Graph>(payload.filename) ));
-		assetLoader.remove<pod::Graph>(payload.filename);
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::GRAPH ) ) return;
+		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		auto& graph = uf::asset::get<pod::Graph>( payload );
 
 		// deferred shader loading
 		auto& transform = this->getComponent<pod::Transform<>>();
@@ -47,6 +43,10 @@ void uf::GraphBehavior::initialize( uf::Object& self ) {
 		}
 
 		this->addChild(graph.root.entity->as<uf::Entity>());
+
+		if ( !payload.asComponent ) {
+			this->moveComponent<pod::Graph>( uf::asset::get( payload.filename ) );
+		}
 	});
 }
 void uf::GraphBehavior::destroy( uf::Object& self ) {}

@@ -235,7 +235,7 @@ void ext::reactphysics::tick( float delta ) {
 		accumulator -= ext::reactphysics::timescale; 
 	}
 
-	TIMER(ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled ) {
+	TIMER( ext::reactphysics::debugDraw::rate, ext::reactphysics::debugDraw::enabled ) {
 		auto& scene = uf::scene::getCurrentScene();
 		::debugDraw( scene );
 	}
@@ -489,12 +489,14 @@ void ext::reactphysics::syncTo() {
 				const auto& b1 = bodies[i1];
 				const auto& b2 = bodies[i2];
 
+				const float T = uf::physics::time::delta / ext::reactphysics::timescale;
+
 				const auto direction = ::convert(uf::vector::normalize( b2.position - b1.position ));
 				const float G = ext::reactphysics::gravity::constant;
 				const float m1 = b1.mass;
 				const float m2 = b2.mass;
 				const float r2 = uf::vector::distanceSquared( b1.position, b2.position );
-				const float F = G * m1 * m2 / r2;
+				const float F = T * G * m1 * m2 / r2;
 
 			#if UF_ENV_DREAMCAST
 				if ( b1.body ) b1.body->applyForceToCenterOfMass(direction *  F);

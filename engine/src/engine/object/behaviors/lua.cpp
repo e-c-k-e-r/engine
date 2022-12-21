@@ -20,15 +20,15 @@ void uf::LuaBehavior::initialize( uf::Object& self ) {
 	if ( !ext::lua::enabled ) return;
 	
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::LUA ) ) return;
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::LUA ) ) return;
+		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		auto& script = uf::asset::get<pod::LuaScript>( payload );
 
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-		const pod::LuaScript* assetPointer = NULL;
-		if ( !assetLoader.has<pod::LuaScript>(payload.filename) ) return;
-		assetPointer = &assetLoader.get<pod::LuaScript>(payload.filename);
-		if ( !assetPointer ) return;
-		pod::LuaScript script = *assetPointer;
+	/*
+		if ( !uf::asset::has(payload.filename) ) uf::asset::load( payload );
+		auto& script = uf::asset::get<pod::LuaScript>(payload.filename);
+	*/
+	//	auto& script = this->getComponent<pod::LuaScript>();
 		script.env["ent"] = &this->as<uf::Object>();
 		ext::lua::run( script );
 	});

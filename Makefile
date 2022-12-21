@@ -49,6 +49,7 @@ VULKAN_SDK_PATH 		+= /c/VulkanSDK/1.3.224.1/
 
 GLSLC 					+= $(VULKAN_SDK_PATH)/Bin/glslc
 SPV_OPTIMIZER 			+= $(VULKAN_SDK_PATH)/Bin/spirv-opt
+SPV_LINTER 				+= $(VULKAN_SDK_PATH)/Bin/spirv-lint
 # Base Engine's DLL
 INC_DIR 				+= $(ENGINE_INC_DIR)
 LIB_DIR 				+= $(ENGINE_LIB_DIR)
@@ -343,6 +344,7 @@ endif
 
 %.spv: %.glsl
 	$(GLSLC) --target-env=vulkan1.2 -o $@ $<
+	$(SPV_LINTER) $@
 	$(SPV_OPTIMIZER) --preserve-bindings --preserve-spec-constants -O $@ -o $@
 
 shaders: $(TARGET_SHADERS)

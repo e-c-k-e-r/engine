@@ -70,12 +70,17 @@ void main() {
 		surface.position.world = vec3( inverse(ubo.settings.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
 		
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
-		const uint drawID = ID.x - 1;
-		const uint instanceID = ID.y - 1;
+		const bool DISCARD_DUE_TO_DIVERGENCE = ID.x == 0 || ID.y == 0;
+		
+		const uint drawID = ID.x == 0 ? 0 : ID.x - 1;
+		const uint instanceID = ID.y == 0 ? 0 : ID.y - 1;
+
+	/*
 		if ( ID.x == 0 || ID.y == 0 ) {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
 			continue;
 		}
+	*/
 		const DrawCommand drawCommand = drawCommands[drawID];
 		surface.instance = instances[instanceID];
 		const Material material = materials[surface.instance.materialID];
@@ -143,6 +148,10 @@ void main() {
 		gammaCorrect(surface.fragment.rgb, 1.0 / ubo.settings.bloom.gamma);
 	#endif
 
-		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+		if ( DISCARD_DUE_TO_DIVERGENCE ) {
+			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
+		} else {
+			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+		}
 	}
 }

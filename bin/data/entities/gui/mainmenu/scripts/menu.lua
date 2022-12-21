@@ -28,8 +28,8 @@ if not timer:running() then timer:start() end
 
 local playSound = function( key )
 	local url = "/ui/" .. key .. ".ogg"
-	local assetLoader = scene:getComponent("Asset")
-	assetLoader:cache(ent:formatHookName("asset:Load.%UID%"), string.resolveURI(url))
+--	local assetLoader = scene:getComponent("Asset")
+--	assetLoader:cache(ent:formatHookName("asset:Load.%UID%"), string.resolveURI(url))
 end
 local destination = function( obj, x, y, z )
 	local static = Static.get(obj)

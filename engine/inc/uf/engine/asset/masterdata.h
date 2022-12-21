@@ -2,6 +2,7 @@
 
 #include <uf/engine/asset/asset.h>
 
+/*
 namespace uf {
 	class UF_API MasterData {
 	protected:
@@ -19,3 +20,4 @@ namespace uf {
 		const uf::stl::string& keyName() const;
 	};
 }
+*/

@@ -857,10 +857,28 @@ void ext::vulkan::Device::initialize() {
 		VkApplicationInfo appInfo = {};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		appInfo.pApplicationName = "Program";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 3, 0);
 		appInfo.pEngineName = "Engine";
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 3, 0);
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_3;
+
+		if ( uf::renderer::settings::version <= 1.0 ) {
+			appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+			appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+			appInfo.apiVersion = VK_API_VERSION_1_0;
+		} else if ( uf::renderer::settings::version <= 1.1 ) {
+			appInfo.applicationVersion = VK_MAKE_VERSION(1, 1, 0);
+			appInfo.engineVersion = VK_MAKE_VERSION(1, 1, 0);
+			appInfo.apiVersion = VK_API_VERSION_1_1;
+		} else if ( uf::renderer::settings::version <= 1.2 ) {
+			appInfo.applicationVersion = VK_MAKE_VERSION(1, 2, 0);
+			appInfo.engineVersion = VK_MAKE_VERSION(1, 2, 0);
+			appInfo.apiVersion = VK_API_VERSION_1_2;
+		} else if ( uf::renderer::settings::version <= 1.3 ) {
+			appInfo.applicationVersion = VK_MAKE_VERSION(1, 3, 0);
+			appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
+			appInfo.apiVersion = VK_API_VERSION_1_3;
+		}
 
 		VkInstanceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -916,6 +934,7 @@ void ext::vulkan::Device::initialize() {
 		size_t bestDeviceIndex = 0;
 		for ( size_t i = 0; i < deviceCount; ++i ) {
 			auto& deviceInfo = deviceInfos.emplace_back( rate(*this, physicalDevices[i]) );
+			VK_VALIDATION_MESSAGE("[{}] Found device: {} (score: {} | device ID: {} | vendor ID: {} | API version: {} | driver version: {})", i, deviceInfo.properties.deviceName, deviceInfo.score, deviceInfo.properties.deviceID, deviceInfo.properties.vendorID, deviceInfo.properties.apiVersion, deviceInfo.properties.driverVersion );
 		/*
 			VK_VALIDATION_MESSAGE("[" << i << "] "
 				"Found device: " << deviceInfo.properties.deviceName << " ("
@@ -926,6 +945,11 @@ void ext::vulkan::Device::initialize() {
 				"driver version: " << deviceInfo.properties.driverVersion << ")"
 			);
 		*/
+			if ( ext::vulkan::settings::gpuID == deviceInfo.properties.deviceID ) {
+				bestDeviceIndex = i;
+				break;
+			}
+			
 			if ( settings::experimental::enableMultiGPU && deviceInfos[bestDeviceIndex].properties.vendorID != deviceInfo.properties.vendorID ) settings::experimental::enableMultiGPU = false;
 			if ( deviceInfos[bestDeviceIndex].score >= deviceInfo.score ) continue;
 			bestDeviceIndex = i;
@@ -935,6 +959,7 @@ void ext::vulkan::Device::initialize() {
 		}
 		auto& deviceInfo = deviceInfos[bestDeviceIndex];
 		this->physicalDevice = deviceInfo.handle;
+		VK_VALIDATION_MESSAGE("Usind device #{}: (score: {} | device ID: {} | vendor ID: {} | API version: {} | driver version: {})", bestDeviceIndex, deviceInfo.properties.deviceName, deviceInfo.score, deviceInfo.properties.deviceID, deviceInfo.properties.vendorID, deviceInfo.properties.apiVersion, deviceInfo.properties.driverVersion );
 	/*
 		VK_VALIDATION_MESSAGE("Using device #" << bestDeviceIndex << " ("
 			"score: " << deviceInfo.score << " | "
@@ -1095,10 +1120,16 @@ void ext::vulkan::Device::initialize() {
 			deviceCreateInfo.ppEnabledExtensionNames = cDeviceExtensions.data();
 		}
 
+		struct BaseStructure {
+			VkStructureType    sType;
+			void*              pNext;
+		};
+		std::queue<void*> chain = {};
+
 		VkPhysicalDeviceFeatures2 physicalDeviceFeatures2{};
 		VkPhysicalDeviceVulkan12Features physicalDeviceVulkan12Features{};
-	//	VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
-	//	VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddresFeatures{};
+		VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures{};
+		VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddressFeatures{};
 		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParametersFeatures{};
 		VkPhysicalDeviceRobustness2FeaturesEXT robustnessFeatures{};
 		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
@@ -1118,75 +1149,97 @@ void ext::vulkan::Device::initialize() {
 			vkGetPhysicalDeviceFeatures2(device.physicalDevice, &enabledDeviceFeatures2);
 		}
 
-		{
+		if ( ext::vulkan::settings::requestedFeatureChain["physicalDevice2"].as<bool>(false) ) {
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			physicalDeviceFeatures2.features = enabledFeatures;
+			chain.push( &physicalDeviceFeatures2 );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceFeatures2" );
 		}
-		{
-
+		if ( ext::vulkan::settings::requestedFeatureChain["physicalDeviceVulkan12"].as<bool>(false) ) {
 			physicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 			enableRequestedDeviceFeatures12( enabledPhysicalDeviceVulkan12Features, physicalDeviceVulkan12Features );
+			chain.push( &physicalDeviceVulkan12Features );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceVulkan12Features" );
+		} else {
+			if ( ext::vulkan::settings::requestedFeatureChain["descriptorIndexing"].as<bool>(false) ) {
+				// core for Vulkan 1.3+
+				descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+				descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+				descriptorIndexingFeatures.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+				descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
+				descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
+				chain.push( &descriptorIndexingFeatures );
+				VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "descriptorIndexingFeatures" );
+			}
+			// core for Vulkan 1.3+
+			if ( ext::vulkan::settings::requestedFeatureChain["bufferDeviceAddress"].as<bool>(false) ) {
+				bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+				bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
+				chain.push( &bufferDeviceAddressFeatures );
+				VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "bufferDeviceAddressFeatures" );
+			}
 		}
-	/*
-		{
-			descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
-			descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-			descriptorIndexingFeatures.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-			descriptorIndexingFeatures.runtimeDescriptorArray = VK_TRUE;
-			descriptorIndexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
-		}
-		{
-			bufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-			bufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
-		}
-	*/
-		{
+
+		//
+		if ( ext::vulkan::settings::requestedFeatureChain["shaderDrawParameters"].as<bool>(false) ) {
 			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
+			chain.push( &shaderDrawParametersFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderDrawParametersFeatures" );
 		}
-		{
+		if ( ext::vulkan::settings::requestedFeatureChain["robustness"].as<bool>(false) ) {
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;
+			chain.push( &robustnessFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "robustnessFeatures" );
 		}
-		{
-			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
-		}
-		{
-			rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-			rayQueryFeatures.rayQuery = VK_TRUE;
-		}
-		{
-			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
-		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
-		}
-		{
+
+		if ( ext::vulkan::settings::requestedFeatureChain["shaderClock"].as<bool>(false) ) {
 			shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
 			shaderClockFeatures.shaderSubgroupClock = VK_TRUE;
 			shaderClockFeatures.shaderDeviceClock = VK_TRUE;
+			chain.push( &shaderClockFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderClockFeatures" );
 		}
-		{
+		if ( ext::vulkan::settings::requestedFeatureChain["fragmentShaderBarycentric"].as<bool>(false) ) {
 			fragmentShaderBarycentricFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
 			fragmentShaderBarycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
+			chain.push( &fragmentShaderBarycentricFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "fragmentShaderBarycentricFeatures" );
 		}
-		{
+		if ( ext::vulkan::settings::requestedFeatureChain["rayTracingPipeline"].as<bool>(false) ) {
+			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+			chain.push( &rayTracingPipelineFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayTracingPipelineFeatures" );
+		}
+		if ( ext::vulkan::settings::requestedFeatureChain["rayQuery"].as<bool>(false) ) {
+			rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
+			rayQueryFeatures.rayQuery = VK_TRUE;
+			chain.push( &rayQueryFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayQueryFeatures" );
+		}
+		if ( ext::vulkan::settings::requestedFeatureChain["accelerationStructure"].as<bool>(false) ) {
+			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
+		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
+			chain.push( &accelerationStructureFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "accelerationStructureFeatures" );
+		}
+		if ( ext::vulkan::settings::requestedFeatureChain["subgroupSizeControl"].as<bool>(false) ) {
 			subgroupSizeControlFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
-			subgroupSizeControlFeatures.subgroupSizeControl = true;
+			subgroupSizeControlFeatures.subgroupSizeControl = VK_TRUE;
+			chain.push( &subgroupSizeControlFeatures );
+			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "subgroupSizeControlFeatures" );
 		}
-		
-		deviceCreateInfo.pNext = &physicalDeviceFeatures2;
-		physicalDeviceFeatures2.pNext = &physicalDeviceVulkan12Features;
-		physicalDeviceVulkan12Features.pNext = &shaderDrawParametersFeatures;
-	//	descriptorIndexingFeatures.pNext = &bufferDeviceAddresFeatures;
-	//	bufferDeviceAddresFeatures.pNext = &shaderDrawParametersFeatures;
-		shaderDrawParametersFeatures.pNext = &robustnessFeatures;
-		robustnessFeatures.pNext = &rayTracingPipelineFeatures;
-		rayTracingPipelineFeatures.pNext = &rayQueryFeatures;
-		rayQueryFeatures.pNext = &accelerationStructureFeatures;
-		accelerationStructureFeatures.pNext = &shaderClockFeatures;
-		shaderClockFeatures.pNext = &fragmentShaderBarycentricFeatures;
-		fragmentShaderBarycentricFeatures.pNext = &subgroupSizeControlFeatures;
+
+		BaseStructure* next = (BaseStructure*) &deviceCreateInfo;
+		while ( !chain.empty() ) {
+			BaseStructure* front = (BaseStructure*) chain.front();
+			next->pNext = front;
+			next = front;
+			chain.pop();
+		}
 	
 		if ( settings::experimental::enableMultiGPU ) {
 			UF_MSG_DEBUG("Multiple devices supported, using {} devices...", groupDeviceCreateInfo.physicalDeviceCount);
@@ -1207,6 +1260,13 @@ void ext::vulkan::Device::initialize() {
 			VK_VALIDATION_MESSAGE("{}", payload.dump());
 			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
 		}
+	/*
+		{
+			ext::json::Value payload = retrieveDeviceFeatures12( *this );
+			VK_VALIDATION_MESSAGE("{}", payload.dump());
+			uf::hooks.call("vulkan:Device.FeaturesEnabled", payload);
+		}
+	*/
 	}
 	// Create command pool
 	getCommandPool( QueueEnum::GRAPHICS );
@@ -1355,12 +1415,28 @@ void ext::vulkan::Device::initialize() {
 		vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
 		 
 		VmaAllocatorCreateInfo allocatorInfo = {};
-		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
 		allocatorInfo.physicalDevice = physicalDevice;
 		allocatorInfo.instance = instance;
 		allocatorInfo.device = logicalDevice;
-		allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 		allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+
+		if ( uf::renderer::settings::version <= 1.0 ) allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+		else if ( uf::renderer::settings::version <= 1.1 ) allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_1;
+		else if ( uf::renderer::settings::version <= 1.2 ) allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+	//	else if ( uf::renderer::settings::version <= 1.3 ) allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+
+		if ( uf::renderer::settings::invariant::deviceAddressing ) {
+			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		} else {
+			allocatorInfo.flags = 0;
+		}
+		if ( uf::renderer::settings::experimental::memoryBudgetBit ) {
+			UF_MSG_DEBUG("MEMORY BUDGET BIT SET");
+			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT;
+		}
+
+		UF_MSG_DEBUG("Allocator flags: {}", allocatorInfo.flags);
 		 
 		vmaCreateAllocator(&allocatorInfo, &allocator);
 	}

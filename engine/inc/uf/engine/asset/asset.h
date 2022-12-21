@@ -8,10 +8,7 @@
 #include <functional>
 
 namespace uf {
-	class UF_API Asset : public uf::Component {
-	protected:
-		static uf::Asset masterAssetLoader;
-	public:
+	namespace asset {
 		enum Type {
 			UNKNOWN,
 			IMAGE,
@@ -21,115 +18,105 @@ namespace uf {
 			GRAPH,
 		};
 
-		struct Payload {
-			uf::Asset::Type type = {};
+		struct UF_API Payload {
+			uf::asset::Type type = {};
 			uf::stl::string filename = "";
 			uf::stl::string mime = "";
 			uf::stl::string hash = "";
 
 			bool initialize = true;
 			bool monoThreaded = false;
-			size_t uid = 0;
+			bool asComponent = false;
+
+			uf::Serializer metadata;
+
+			pod::Resolvable<uf::Entity> object;
 		};
 
-		static uf::Asset::Payload resolveToPayload( const uf::stl::string&, const uf::stl::string& = "" );
-		static bool isExpected( const uf::Asset::Payload&, uf::Asset::Type expected );
+		struct UF_API Job {
+			typedef uf::stl::vector<Job> container_t;
 
-		static bool assertionLoad;
+			uf::stl::string callback = "";
+			uf::stl::string type = "";
+			uf::asset::Payload payload = {};
+		};
+
+	#if UF_COMPONENT_POINTERED_USERDATA
+		typedef pod::PointeredUserdata userdata_t;
+	#else
+		typedef pod::Userdata* userdata_t;
+	#endif
+
+		extern UF_API bool assertionLoad;
+		extern UF_API uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> map;
+		extern UF_API Job::container_t jobs;
+		extern UF_API uf::Serializer metadata;
+	
+	//	extern UF_API uf::Serializer map;
+
+		uf::asset::Payload UF_API resolveToPayload( const uf::stl::string&, const uf::stl::string& = "" );
+		bool UF_API isExpected( const uf::asset::Payload&, uf::asset::Type expected );
 
 		// URL or file path
-		void processQueue();
+		void UF_API processQueue();
 
-		void cache( const uf::stl::string&, const uf::Asset::Payload& );
-		void load( const uf::stl::string&, const uf::Asset::Payload& );
+		void UF_API cache( const uf::stl::string&, const uf::asset::Payload& );
+		void UF_API load( const uf::stl::string&, const uf::asset::Payload& );
 
-		uf::stl::string cache( const uf::Asset::Payload& );
-		uf::stl::string load( const uf::Asset::Payload& );
+		uf::stl::string UF_API cache( uf::asset::Payload& );
+		uf::stl::string UF_API load( uf::asset::Payload& );
 
-		uf::stl::string getOriginal( const uf::stl::string& );
+		bool has( const uf::stl::string& url );
+		bool has( const uf::asset::Payload& payload );
 
-		template<typename T>
-		uf::stl::vector<T>& getContainer() {
-			return this->getComponent<uf::stl::vector<T>>();
-		}
+		uf::asset::userdata_t& get( const uf::stl::string& url );
+		void remove( const uf::stl::string& url );
 
-		template<typename T>
-		bool has( std::size_t i = 0 ) {
-			auto& container = this->getContainer<T>();
-			return container.size() > i;
-		}
-		template<typename T>
-		bool has( const uf::stl::string& url ) {
-			auto& container = this->getContainer<T>();
-			if ( container.empty() ) return false;
-			uf::stl::string extension = uf::io::extension( url, -1 );
-			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			if ( ext::json::isNull( map[extension] ) ) return false;
-			if ( ext::json::isNull( map[extension][url] ) ) return false;
-			if ( ext::json::isNull( map[extension][url]["index"] ) ) return false;
-			return true;
-		}
-		template<typename T>
-		T& get( std::size_t i = 0 ) {
-			auto& container = this->getContainer<T>();
-			return container.at(i);
-		}
 		template<typename T>
 		T& get( const uf::stl::string& url ) {
-			uf::stl::string extension = uf::io::extension( url, -1 );
-			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			size_t index = map[extension][url]["index"].as<size_t>(0);
-			return this->get<T>(index);
+			if ( !uf::asset::has( url ) ) {
+			#if UF_COMPONENT_POINTERED_USERDATA
+				uf::asset::map[url] = uf::pointeredUserdata::create<T>();
+			#else
+				uf::asset::map[url] = uf::userdata::create<T>();
+			#endif
+			}
+
+		#if UF_COMPONENT_POINTERED_USERDATA
+			return uf::pointeredUserdata::get<T>( uf::asset::map[url] );
+		#else
+			return uf::userdata::get<T>( uf::asset::map[url] );
+		#endif
+		}
+		template<typename T>
+		T& get( uf::asset::Payload& payload ) {
+			return payload.asComponent && payload.object ? uf::Entity::resolve( payload.object ).getComponent<T>() : uf::asset::get<T>( payload.filename );
 		}
 
+		template<typename T>
+		T& add( const uf::stl::string& url ) {
+		#if UF_COMPONENT_POINTERED_USERDATA
+			uf::asset::map[url] = uf::pointeredUserdata::create<T>();
+		#else
+			uf::asset::map[url] = uf::userdata::create<T>();
+		#endif
+			return uf::asset::get<T>( url );
+		}
 		template<typename T>
 		T& add( const uf::stl::string& url, const T& copy ) {
-			uf::stl::string extension = uf::io::extension( url, -1 );
-			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			auto& container = this->getContainer<T>();
-			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
-			
-			container.push_back( copy );
-			return container.back();
-		}
-		template<typename T>
-		T& add( const uf::stl::string& url, T&& move ) {
-			uf::stl::string extension = uf::io::extension( url, -1 );
-			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			auto& container = this->getContainer<T>();
-
-			if ( !ext::json::isNull( map[extension][url]["index"] ) ) return this->get<T>(url);
-		
-			container.push_back( move );
-			return container.back();
+		#if UF_COMPONENT_POINTERED_USERDATA
+			uf::asset::map[url] = uf::pointeredUserdata::create<T>( copy );
+		#else
+			uf::asset::map[url] = uf::userdata::create<T>( copy );
+		#endif
+			return uf::asset::get<T>( url );
 		}
 
-		template<typename T>
-		void remove( const uf::stl::string& url ) {
-			if ( !this->has<T>( url ) ) return;
-			auto& container = this->getContainer<T>();
-
-			uf::stl::string extension = uf::io::extension( url, -1 );
-			uf::Serializer& map = this->getComponent<uf::Serializer>();
-			std::size_t index = map[extension][url]["index"].as<size_t>();
-		//	container.erase( container.begin() + index );
-		//	map[extension][url] = ext::json::null();
-		//	map[extension][url]["erased"] = true;
-			
-			uf::stl::string key = "";
-			ext::json::forEach( map[extension], [&]( const uf::stl::string& k, ext::json::Value& v ) {
-				std::size_t i = v["index"].as<size_t>();
-				if ( index == i && key != url ) key = k;
-			});
-			if ( key != "" ) map[extension][key] = ext::json::null();
-			map[extension][url] = ext::json::null();
-			return;
-		}
-	};
+	}
 }
 
 namespace pod {
 	namespace payloads {
-		typedef uf::Asset::Payload assetLoad;
+		typedef uf::asset::Payload assetLoad;
 	}
 }

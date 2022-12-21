@@ -335,7 +335,7 @@ uf::stl::vector<pod::GlyphBox> ext::Gui::generateGlyphs( const uf::stl::string& 
 
 void ext::Gui::load( const uf::Image& image ) {
 	auto& scene = uf::scene::getCurrentScene();
-	auto& assetLoader = scene.getComponent<uf::Asset>();
+//	auto& assetLoader = scene.getComponent<uf::asset>();
 /*
 	image.open( payload.filename );
 	auto& image = this->getComponent<uf::Image>();
@@ -490,12 +490,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 	UF_BEHAVIOR_METADATA_BIND_SERIALIZER_HOOKS(metadata, metadataJson);
 
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
-
-		auto& scene = uf::scene::getCurrentScene();
-		auto& assetLoader = scene.getComponent<uf::Asset>();
-		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
-		auto& image = assetLoader.get<uf::Image>(payload.filename);
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::IMAGE ) ) return;
+		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		const auto& image = uf::asset::get<uf::Image>( payload );
+		
 		this->as<ext::Gui>().load( image );
 	});
 

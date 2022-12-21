@@ -14,7 +14,7 @@ namespace binds {
 			Metadata,
 			Transform,
 			Audio,
-			Asset,
+		//	Asset,
 			Camera,
 			Physics,
 			PhysicsState,
@@ -27,7 +27,7 @@ namespace binds {
 					UF_LUA_REGISTER_ENUM(Metadata),
 					UF_LUA_REGISTER_ENUM(Transform),
 					UF_LUA_REGISTER_ENUM(Audio),
-					UF_LUA_REGISTER_ENUM(Asset),
+			//		UF_LUA_REGISTER_ENUM(Asset),
 					UF_LUA_REGISTER_ENUM(Camera),
 					UF_LUA_REGISTER_ENUM(Physics),
 					UF_LUA_REGISTER_ENUM(PhysicsState)
@@ -56,7 +56,7 @@ namespace binds {
 			} break;
 			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Transform, pod::Transform<> );
 			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Audio, uf::Audio );
-			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Asset, uf::Asset );
+		//	UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Asset, uf::asset );
 			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Camera, uf::Camera );
 			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( Physics, pod::Physics );
 			UF_LUA_RETRIEVE_COMPONENT_FROM_ENUM( PhysicsState, pod::PhysicsState );
@@ -81,7 +81,7 @@ namespace binds {
 		}
 		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::Transform<>)
 		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Audio)
-		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Asset)
+	//	UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::asset)
 		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(uf::Camera)
 		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::Physics)
 		UF_LUA_RETRIEVE_COMPONENT_FROM_STRING(pod::PhysicsState)
@@ -110,7 +110,7 @@ namespace binds {
 		}
 		UF_LUA_UPDATE_COMPONENT(pod::Transform<>)
 		UF_LUA_UPDATE_COMPONENT(uf::Audio)
-		UF_LUA_UPDATE_COMPONENT(uf::Asset)
+	//	UF_LUA_UPDATE_COMPONENT(uf::asset)
 		UF_LUA_UPDATE_COMPONENT(uf::Camera)
 		UF_LUA_UPDATE_COMPONENT(pod::Physics)
 		UF_LUA_UPDATE_COMPONENT(pod::PhysicsState)

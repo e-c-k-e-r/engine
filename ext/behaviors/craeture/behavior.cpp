@@ -23,7 +23,7 @@ UF_BEHAVIOR_REGISTER_CPP(ext::CraetureBehavior)
 UF_BEHAVIOR_TRAITS_CPP(ext::CraetureBehavior, ticks = false, renders = false, multithread = false)
 #define this (&self)
 namespace {
-	void load( uf::Object& self, uf::Image& image ) {
+	void load( uf::Object& self, const uf::Image& image ) {
 		auto& graphic = self.getComponent<uf::Graphic>();
 		auto& texture = graphic.material.textures.emplace_back();
 		texture.loadFromImage( image );
@@ -50,12 +50,10 @@ namespace {
 }
 void ext::CraetureBehavior::initialize( uf::Object& self ) {
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::IMAGE ) ) return;
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::IMAGE ) ) return;
+		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		const auto& image = uf::asset::get<uf::Image>( payload );
 
-		uf::Scene& scene = uf::scene::getCurrentScene();
-		uf::Asset& assetLoader = scene.getComponent<uf::Asset>();
-		if ( !assetLoader.has<uf::Image>(payload.filename) ) return;
-		auto& image = assetLoader.get<uf::Image>(payload.filename);
 		::load( self, image );
 	});
 

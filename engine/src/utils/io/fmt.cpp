@@ -1,5 +1,6 @@
 #include <uf/utils/io/fmt.h>
 #include <uf/utils/io/payloads.h>
+#include <uf/utils/io/iostream.h>
 
 #include <uf/utils/hook/hook.h>
 #if UF_USE_IMGUI
@@ -14,11 +15,13 @@ uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::str
 #if UF_USE_FMT
 	auto string = ::fmt::format("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
 	::fmt::print("{}\n", string);
+	uf::iostream.pushHistory(string);
 #else
 	std::stringstream ss;
 	ss << "[" << category << "] [" << file << ":" << function << "@" << line << "]: " << message << "\n";
 	auto string = ss.str();
 	std::cout << string;
+	uf::iostream.pushHistory(string);
 #endif
 	std::cout.flush();
 

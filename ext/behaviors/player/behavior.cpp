@@ -75,8 +75,8 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	}
 	
 	// sloppy
-	metadata.mouse.sensitivity = uf::vector::decode( ext::config["window"]["cursor"]["sensitivity"], metadata.mouse.sensitivity );
-	metadata.mouse.smoothing = uf::vector::decode( ext::config["window"]["cursor"]["smoothing"], metadata.mouse.smoothing );
+	metadata.mouse.sensitivity = uf::vector::decode( ext::config["window"]["mouse"]["sensitivity"], metadata.mouse.sensitivity );
+	metadata.mouse.smoothing = uf::vector::decode( ext::config["window"]["mouse"]["smoothing"], metadata.mouse.smoothing );
 
 	this->addHook( "window:Mouse.CursorVisibility", [&](pod::payloads::windowMouseCursorVisibility& payload){
 		metadata.system.control = !payload.mouse.visible;
@@ -512,7 +512,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		combinedDeltaOrientation = uf::quaternion::multiply( deltaOrientation, combinedDeltaOrientation );\
 		storedCameraOrientation = ORIENTATION;\
 	}
-	{
+	if ( false ) {
 		pod::Quaternion<> combinedDeltaOrientation = {0,0,0,1};
 		pod::Vector3f combinedDeltaAngles = {};
 		TRACK_ORIENTATION(transform.orientation);

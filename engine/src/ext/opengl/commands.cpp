@@ -131,7 +131,33 @@ void ext::opengl::CommandBuffer::submit() {
 }
 void ext::opengl::CommandBuffer::flush() {
 	mutex->lock();
-	for ( auto& userdata : infos ) userdata.destroy();
+	for ( auto& info : infos ) {
+		CommandBuffer::Info* header = (CommandBuffer::Info*) (void*) info;
+		switch ( header->type ) {
+			case ext::opengl::enums::Command::CLEAR: {
+				InfoClear* info = (InfoClear*) header;
+				info->~InfoClear();
+			} break;
+			case ext::opengl::enums::Command::VIEWPORT: {
+				InfoViewport* info = (InfoViewport*) header;
+				info->~InfoViewport();
+			} break;
+			case ext::opengl::enums::Command::VARIANT: {
+				InfoVariant* info = (InfoVariant*) header;
+				info->~InfoVariant();
+			} break;
+			case ext::opengl::enums::Command::DRAW: {
+				InfoDraw* info = (InfoDraw*) header;
+				info->~InfoDraw();
+			} break;
+			default: {
+			} break;
+		}
+	}
+	for ( auto& userdata : infos ) {
+		userdata.autoDestruct = true;
+		userdata.destroy();
+	}
 	infos.clear();
 	state = 0;
 	mutex->unlock();
@@ -300,10 +326,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
 		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
 
-		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
-			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
-		}
-	/*
 		if ( !(drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer) ) {
 			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
 		} else {
@@ -318,7 +340,6 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 
 			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
 		}
-	*/
 	}
 
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (static_cast<uint8_t*>(drawInfo.attributes.normal.pointer) + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));

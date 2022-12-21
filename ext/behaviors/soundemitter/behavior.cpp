@@ -17,7 +17,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 	auto& sounds = emitter.get();
 	
 	auto& scene = uf::scene::getCurrentScene();
-	auto& assetLoader = scene.getComponent<uf::Asset>();
+//	auto& assetLoader = scene.getComponent<uf::asset>();
 
 	if ( !metadata["audio"]["epsilon"].is<float>() )
 		metadata["audio"]["epsilon"] = 0.001f;
@@ -49,12 +49,7 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 
 		uf::Audio& audio = exists ? emitter.get( filename ) : emitter.add();
 		if ( !exists ) {
-			if ( assetLoader.has<uf::Audio>(filename) ) {
-				audio = std::move( assetLoader.get<uf::Audio>(filename) );
-				assetLoader.remove<uf::Audio>(filename);
-			} else {
-				audio.open( filename, json["streamed"].as<bool>() );
-			}
+			audio.open( filename, json["streamed"].as<bool>() );
 		}
 
 		if ( json["pitch"].is<double>() ) audio.setPitch(json["pitch"].as<float>());
@@ -80,9 +75,9 @@ void ext::SoundEmitterBehavior::initialize( uf::Object& self ) {
 		audio.play();
 	});
 	this->addHook( "asset:Load.%UID%", [&](pod::payloads::assetLoad& payload){
-		if ( !uf::Asset::isExpected( payload, uf::Asset::Type::AUDIO ) ) return;
-
-		if ( !assetLoader.has<uf::Audio>(payload.filename) ) return;
+		if ( !uf::asset::isExpected( payload, uf::asset::Type::AUDIO ) ) return;
+		if ( !uf::asset::has( payload ) ) uf::asset::load( payload );
+		const auto& audio = uf::asset::get<uf::Audio>( payload );
 		
 		ext::json::Value json = metadata["audio"];
 		json["filename"] = payload.filename;

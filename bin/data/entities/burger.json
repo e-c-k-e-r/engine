@@ -1,7 +1,7 @@
 {
 	"type": "Object",
 	"name": "Burger",
-	"ignore": true,
+	"ignore": false,
 	"import": "/model.json",
 	"assets": [
 	//	"/burger/burger.glb"

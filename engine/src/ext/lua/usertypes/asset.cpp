@@ -1,9 +1,10 @@
+/*
 #include <uf/ext/lua/lua.h>
 #if UF_USE_LUA
 #include <uf/engine/asset/asset.h>
 
 namespace binds {
-	void load( uf::Asset& asset, sol::variadic_args va ) {
+	void load( uf::asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();
 		uf::stl::string callback = "";
 		uf::stl::string uri = "";
@@ -14,13 +15,13 @@ namespace binds {
 		if ( it != va.end() ) hash = *(it++);
 		if ( it != va.end() ) mime = *(it++);
 
-		auto payload = uf::Asset::resolveToPayload( uri, mime );
+		auto payload = uf::asset::resolveToPayload( uri, mime );
 		payload.hash = hash;
 
 		if ( callback == "" ) asset.load( payload );
 		else asset.load( callback, payload );
 	}
-	void cache( uf::Asset& asset, sol::variadic_args va ) {
+	void cache( uf::asset& asset, sol::variadic_args va ) {
 		auto it = va.begin();
 		uf::stl::string callback = "";
 		uf::stl::string uri = "";
@@ -31,7 +32,7 @@ namespace binds {
 		if ( it != va.end() ) hash = *(it++);
 		if ( it != va.end() ) mime = *(it++);
 
-		auto payload = uf::Asset::resolveToPayload( uri, mime );
+		auto payload = uf::asset::resolveToPayload( uri, mime );
 		payload.hash = hash;
 
 		if ( callback == "" )
@@ -39,14 +40,15 @@ namespace binds {
 		else
 			asset.cache( callback, payload );
 	}
-	uf::stl::string getOriginal( uf::Asset& asset, const uf::stl::string& n ) {
+	uf::stl::string getOriginal( uf::asset& asset, const uf::stl::string& n ) {
 		return asset.getOriginal( n );
 	}
 }
 
-UF_LUA_REGISTER_USERTYPE(uf::Asset,
+UF_LUA_REGISTER_USERTYPE(uf::asset,
 	UF_LUA_REGISTER_USERTYPE_DEFINE( load, UF_LUA_C_FUN(::binds::load) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( cache, UF_LUA_C_FUN(::binds::cache) ),
 	UF_LUA_REGISTER_USERTYPE_DEFINE( getOriginal, UF_LUA_C_FUN(::binds::getOriginal) )
 	)
 #endif
+*/

@@ -4,9 +4,11 @@
 #include <uf/engine/behavior/behavior.h>
 #include <uf/utils/serialize/serializer.h>
 #include <uf/utils/memory/vector.h>
-#include <functional>
+#include <uf/utils/resolvable/resolvable.h>
 
 #include <uf/utils/memory/pool.h>
+
+#include <functional>
 
 namespace uf {
 	class UF_API Entity : public uf::Behaviors {
@@ -26,6 +28,7 @@ namespace uf {
 
 	public:
 		static uf::MemoryPool memoryPool;
+
 		Entity();
 		~Entity();
 		// identifiers
@@ -42,6 +45,8 @@ namespace uf {
 		template<typename T=uf::Entity> T& getRootParent();
 		template<typename T=uf::Entity> const T& getParent() const;
 		template<typename T=uf::Entity> const T& getRootParent() const;
+
+		template<typename T=uf::Entity> pod::Resolvable<T> resolvable();
 
 		void setUid();
 		void unsetUid();
@@ -70,6 +75,7 @@ namespace uf {
 		static uf::Entity* globalFindByUid( size_t id );
 		static uf::Entity* globalFindByName( const uf::stl::string& name );
 
+		template<typename T=uf::Entity> static T& resolve( const pod::Resolvable<T>& );
 	};
 }
 

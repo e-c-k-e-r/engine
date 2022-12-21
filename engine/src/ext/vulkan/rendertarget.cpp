@@ -68,6 +68,8 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	}
 	attachment->views.resize(this->views * attachment->descriptor.mips);
 
+	bool isDepth = attachment->descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
 	VkImageCreateInfo imageCreateInfo = {};
 	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -79,6 +81,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = attachment->descriptor.usage;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
 	if ( this->views == 6 ) {
 		imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	}
@@ -93,7 +96,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 
 	VkImageAspectFlags aspectMask = 0;
 	// specialization: depth buffer
-	if ( attachment->descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ) {
+	if ( isDepth ) {
 		aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; // | VK_IMAGE_ASPECT_STENCIL_BIT;
 	} else {
 		aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -142,6 +145,32 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 			blendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
 		}
 		attachment->blendState = blendAttachmentState;
+	}
+
+	if ( false ) {
+		auto commandBuffer = device->fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+		if ( isDepth ) {
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.levelCount = attachment->descriptor.mips;
+			subresourceRange.layerCount = this->views;
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
+		} else {
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.levelCount = attachment->descriptor.mips;
+			subresourceRange.layerCount = this->views;
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachment->image, VK_IMAGE_LAYOUT_UNDEFINED, attachment->descriptor.layout, subresourceRange );
+		}
+		device->flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
 	}
 
 	return index;
@@ -332,6 +361,41 @@ void ext::vulkan::RenderTarget::initialize( Device& device ) {
 			VK_CHECK_RESULT(vkCreateFramebuffer( device, &frameBufferCreateInfo, nullptr, &framebuffers[i]));
 		}
 	}
+
+#if 0
+	{
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::TRANSFER);
+		for ( auto& attachment : attachments ) {
+			bool isDepth = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+			if ( isDepth ) {
+				// transition attachments to general attachments for imageStore
+				VkImageSubresourceRange subresourceRange;
+				subresourceRange.baseMipLevel = 0;
+				subresourceRange.levelCount = 1;
+				subresourceRange.baseArrayLayer = 0;
+				subresourceRange.layerCount = 1;
+				subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+				subresourceRange.layerCount = 1;
+
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, subresourceRange );
+			} else {
+				// transition attachments to general attachments for imageStore
+				VkImageSubresourceRange subresourceRange;
+				subresourceRange.baseMipLevel = 0;
+				subresourceRange.levelCount = 1;
+				subresourceRange.baseArrayLayer = 0;
+				subresourceRange.layerCount = 1;
+				subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				subresourceRange.layerCount = 1;
+
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
+			}
+		}
+		device.flushCommandBuffer(commandBuffer);
+	}
+#endif
+
 	initialized = true;
 }
 

@@ -131,12 +131,14 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				layer->pipelineBarrier( commands[i], 0 );
 			}
 		*/
+		/*
 			for ( auto _ : layers ) {
 				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 				auto& blitter = layer->blitter;
 				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
 				layer->pipelineBarrier( commands[i], 0 );
 			}
+		*/
 
 			// pre-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
@@ -154,7 +156,6 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 						RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 						auto& blitter = layer->blitter;
 						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.descriptor.renderMode != this->getName() ) continue;
-					//	UF_MSG_DEBUG("`{}`: {} | `{}` | {} | {} | {}", layer->getName(), layer->getType(), blitter.descriptor.renderMode, blitter.initialized, blitter.process, blitter.descriptor.subpass);
 						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // bindGraphicDescriptor(blitter.descriptor, currentSubpass);
 						blitter.record(commands[i], descriptor);
 					}
@@ -186,12 +187,14 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				vkCmdPipelineBarrier(commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
 
+		/*
 			for ( auto _ : layers ) {
 				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
 				auto& blitter = layer->blitter;
 				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
 				layer->pipelineBarrier( commands[i], 1 );
 			}
+		*/
 		/*
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commands[i], 1 );
@@ -300,7 +303,8 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VK_CHECK_RESULT(vkCreateImageView( device, &colorAttachmentView, nullptr, &renderTarget.attachments[i].view));
 
 		renderTarget.attachments[i].descriptor.format = ext::vulkan::settings::formats::color;
-		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	//	renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		renderTarget.attachments[i].descriptor.layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		renderTarget.attachments[i].descriptor.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		renderTarget.attachments[i].descriptor.aliased = true;
 		renderTarget.attachments[i].image = images[i];
@@ -330,6 +334,13 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 		VK_CHECK_RESULT(vmaCreateImage(allocator, &imageCreateInfo, &allocInfo, &attachment.image, &attachment.allocation, &attachment.allocationInfo));
+		
+
+		attachment.descriptor.format = ext::vulkan::settings::formats::depth;
+	//	attachment.descriptor.layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachment.descriptor.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		attachment.descriptor.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		attachment.descriptor.aliased = true;
 		attachment.mem = attachment.allocationInfo.deviceMemory;
 	
 		VkImageViewCreateInfo depthStencilView = {};
@@ -346,6 +357,39 @@ void ext::vulkan::BaseRenderMode::initialize( Device& device ) {
 
 		VK_CHECK_RESULT(vkCreateImageView(device, &depthStencilView, nullptr, &attachment.view));
 	}
+
+#if 1
+	auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+	for ( auto& attachment : renderTarget.attachments ) {
+		bool isDepth = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		if ( isDepth ) {
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.levelCount = 1;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.layerCount = 1;
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			subresourceRange.layerCount = 1;
+
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, subresourceRange );
+		} else {
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.levelCount = 1;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.layerCount = 1;
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresourceRange.layerCount = 1;
+
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, subresourceRange );
+		}
+	}
+	device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS);
+#endif
+
 	// Create FSR dump
 /*
 	if ( settings::pipelines::fsr ) {

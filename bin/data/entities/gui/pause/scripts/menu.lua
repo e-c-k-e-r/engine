@@ -48,8 +48,8 @@ destination(children.quit, -1.5, nil, 0)
 
 local playSound = function( key )
 	local url = "/ui/" .. key .. ".ogg"
-	local assetLoader = scene:getComponent("Asset")
-	assetLoader:cache(soundEmitter:formatHookName("asset:Load.%UID%"), string.resolveURI(url), "")
+--	local assetLoader = scene:getComponent("Asset")
+--	assetLoader:cache(soundEmitter:formatHookName("asset:Load.%UID%"), string.resolveURI(url), "")
 end
 
 ent:addHook("menu:Close.%UID%", function( json )

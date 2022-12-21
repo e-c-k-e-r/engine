@@ -44,16 +44,19 @@ namespace {
 
 		uf::stl::string callback;
 		uf::stl::string type;
-		uf::Asset::Payload payload;
+		uf::asset::Payload payload;
 	};
 }
 
-uf::Asset uf::Asset::masterAssetLoader;
-bool uf::Asset::assertionLoad = true;
+// uf::asset uf::asset::masterAssetLoader;
+bool uf::asset::assertionLoad = true;
+uf::asset::Job::container_t uf::asset::jobs;
+uf::stl::unordered_map<uf::stl::string, uf::asset::userdata_t> uf::asset::map;
+uf::Serializer uf::asset::metadata;
 
 #define UF_ASSET_MULTITHREAD 1
 
-void uf::Asset::processQueue() {
+void uf::asset::processQueue() {
 #if UF_ASSET_MULTITHREAD
 	auto tasks = uf::thread::schedule(true, false);
 #else
@@ -61,97 +64,100 @@ void uf::Asset::processQueue() {
 #endif
 
 	mutex.lock();
-	auto jobs = std::move(this->getComponent<Job::container_t>());
+	auto jobs = std::move(uf::asset::jobs);
 	mutex.unlock();
 
-	for ( auto& job : jobs ) tasks.queue([=, this]{ // C++20 retardation
+	for ( auto& job : jobs ) tasks.queue([=]{
 		uf::stl::string callback = job.callback;
 		uf::stl::string type = job.type;
-		uf::Asset::Payload payload = job.payload;
+		uf::asset::Payload payload = job.payload;
 
 		if ( payload.filename == "" || callback == "" ) return;
 
-		uf::stl::string filename = type == "cache" ? this->cache(payload) : this->load(payload);
-			
-		if ( callback != "" && filename != "" ) uf::hooks.call(callback, payload);
+		uf::stl::string filename = type == "cache" ? uf::asset::cache(payload) : uf::asset::load(payload);
+		
+		if ( callback != "" && filename != "" ) {
+			uf::hooks.call(callback, payload);
+		}
 	});
 
-//	bool bitch = !tasks.container.empty();
-//	if ( bitch ) UF_MSG_DEBUG("Batching Jobs: {}", tasks.container.size());
 	uf::thread::execute( tasks );
-//	if ( bitch ) UF_MSG_DEBUG("Finished Jobs: {}", tasks.container.size());
 }
-void uf::Asset::cache( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
+void uf::asset::cache( const uf::stl::string& callback, const uf::asset::Payload& payload ) {
 	mutex.lock();
-	auto& jobs = this->getComponent<Job::container_t>();
+	auto& jobs = uf::asset::jobs;
 	jobs.emplace_back(Job{ callback, "cache", payload });
 	mutex.unlock();
 }
-void uf::Asset::load( const uf::stl::string& callback, const uf::Asset::Payload& payload ) {
+void uf::asset::load( const uf::stl::string& callback, const uf::asset::Payload& payload ) {
 	mutex.lock();
-	auto& jobs = this->getComponent<Job::container_t>();
+	auto& jobs = uf::asset::jobs;
 	jobs.emplace_back(Job{ callback, "load", payload });
 	mutex.unlock();
 }
 
-uf::Asset::Payload uf::Asset::resolveToPayload( const uf::stl::string& uri, const uf::stl::string& mime ) {
+uf::asset::Payload uf::asset::resolveToPayload( const uf::stl::string& uri, const uf::stl::string& mime ) {
 	uf::stl::string extension = uf::string::lowercase( uf::io::extension( uri, -1 ) );
 	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( uri ), "/.(?:gz|lz4?)$/", "" ) );
-	uf::Asset::Payload payload;
+	uf::asset::Payload payload;
 
-	static uf::stl::unordered_map<uf::stl::string,uf::Asset::Type> typemap = {
-		{ "jpg", 	uf::Asset::Type::IMAGE },
-		{ "jpeg", 	uf::Asset::Type::IMAGE },
-		{ "png", 	uf::Asset::Type::IMAGE },
+	static uf::stl::unordered_map<uf::stl::string,uf::asset::Type> typemap = {
+		{ "jpg", 	uf::asset::Type::IMAGE },
+		{ "jpeg", 	uf::asset::Type::IMAGE },
+		{ "png", 	uf::asset::Type::IMAGE },
 		
-		{ "ogg", 	uf::Asset::Type::AUDIO },
+		{ "ogg", 	uf::asset::Type::AUDIO },
 
-		{ "json", 	uf::Asset::Type::JSON },
-		{ "bson", 	uf::Asset::Type::JSON },
-		{ "cbor", 	uf::Asset::Type::JSON },
-		{ "msgpack",uf::Asset::Type::JSON },
-		{ "ubjson", uf::Asset::Type::JSON },
-		{ "bjdata", uf::Asset::Type::JSON },
-		{ "toml", uf::Asset::Type::JSON },
+		{ "json", 	uf::asset::Type::JSON },
+		{ "bson", 	uf::asset::Type::JSON },
+		{ "cbor", 	uf::asset::Type::JSON },
+		{ "msgpack",uf::asset::Type::JSON },
+		{ "ubjson", uf::asset::Type::JSON },
+		{ "bjdata", uf::asset::Type::JSON },
+		{ "toml", uf::asset::Type::JSON },
 
-		{ "lua", 	uf::Asset::Type::LUA },
+		{ "lua", 	uf::asset::Type::LUA },
 		
-		{ "glb",  	uf::Asset::Type::GRAPH },
+		{ "glb",  	uf::asset::Type::GRAPH },
 	#if !UF_USE_OPENGL
-		{ "gltf", 	uf::Asset::Type::GRAPH },
-		{ "mdl",  	uf::Asset::Type::GRAPH },
+		{ "gltf", 	uf::asset::Type::GRAPH },
+		{ "mdl",  	uf::asset::Type::GRAPH },
 	#endif
 	};
 
 	payload.filename = uri;
 	payload.mime = mime;
 
+	if ( payload.filename.substr(0,5) != "https" && extension == "json" ) {
+		payload.filename = uf::Serializer::resolveFilename( payload.filename );
+	}
+
 	if ( typemap.count( extension ) == 1 ) payload.type = typemap[extension];
-	if ( basename == "graph.json" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.bson" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.cbor" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.msgpack" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.ubjson" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.bjdata" ) payload.type = uf::Asset::Type::GRAPH;
-	else if ( basename == "graph.toml" ) payload.type = uf::Asset::Type::GRAPH;
+	if ( basename == "graph.json" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.bson" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.cbor" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.msgpack" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.ubjson" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.bjdata" ) payload.type = uf::asset::Type::GRAPH;
+	else if ( basename == "graph.toml" ) payload.type = uf::asset::Type::GRAPH;
 
 	return payload;
 }
 
-bool uf::Asset::isExpected( const uf::Asset::Payload& payload, uf::Asset::Type expected ) {
+bool uf::asset::isExpected( const uf::asset::Payload& payload, uf::asset::Type expected ) {
 	if ( payload.filename == "" ) return false;
 	if ( payload.type != expected ) return false;
 	return true;
 }
 
-uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
+uf::stl::string uf::asset::cache( uf::asset::Payload& payload ) {
 	uf::stl::string filename = payload.filename;
 	uf::stl::string extension = uf::io::extension( filename );
 	if ( filename.substr(0,5) == "https" ) {
 		uf::stl::string hash = uf::string::sha256( filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( filename, cached, hash ) ) {
-			if ( !uf::Asset::assertionLoad ) {
+			if ( !uf::asset::assertionLoad ) {
 				UF_MSG_ERROR("Failed to preload {} ({}): HTTP error", filename, cached);
 			} else {
 				UF_EXCEPTION("Failed to preload {} ({}): HTTP error", filename, cached);
@@ -159,15 +165,9 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 			return "";
 		}
 		filename = cached;
-	} else {
-		// do implicit loading of json files (could be encoded as bson, cbor, and compressed as gz, lz4)
-		if ( extension == "json" ) {
-			filename = uf::Serializer::resolveFilename( filename );
-			extension = uf::io::extension( extension );
-		}
 	}
 	if ( !uf::io::exists( filename ) ) {
-		if ( !uf::Asset::assertionLoad ) {
+		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to preload {}, does not exist", filename);
 		} else {
 			UF_EXCEPTION("Failed to preload {}, does not exist", filename);
@@ -176,7 +176,7 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
-		if ( !uf::Asset::assertionLoad ) {
+		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to preload {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		} else {
 			UF_EXCEPTION("Failed to preload {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
@@ -189,7 +189,7 @@ uf::stl::string uf::Asset::cache( const uf::Asset::Payload& payload ) {
 #endif
 	return filename;
 }
-uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
+uf::stl::string uf::asset::load( uf::asset::Payload& payload ) {
 	uf::stl::string filename = payload.filename;
 	uf::stl::string extension = uf::string::lowercase(uf::io::extension( payload.filename, -1 ));
 	uf::stl::string basename = uf::string::lowercase( uf::string::replace( uf::io::filename( payload.filename ), "/.(?:gz|lz4?)$/", "" ) );
@@ -197,7 +197,7 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 		uf::stl::string hash = uf::string::sha256( payload.filename );
 		uf::stl::string cached = uf::io::root + "/cache/http/" + hash + "." + extension;
 		if ( !uf::io::exists( cached ) && !retrieve( payload.filename, cached, hash ) ) {
-			if ( !uf::Asset::assertionLoad ) {
+			if ( !uf::asset::assertionLoad ) {
 				UF_MSG_ERROR("Failed to load {} ({}): HTTP error", payload.filename, cached);
 			} else {
 				UF_EXCEPTION("Failed to load {} ({}): HTTP error", payload.filename, cached);
@@ -205,15 +205,9 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 			return "";
 		}
 		filename = cached;
-	} else {
-		// do implicit loading of json files (could be encoded as bson, cbor, and compressed as gz, lz4)
-		if ( extension == "json" ) {
-			filename = uf::Serializer::resolveFilename( filename );
-			extension = uf::io::extension( extension );
-		}
 	}
 	if ( !uf::io::exists( filename ) ) {
-		if ( !uf::Asset::assertionLoad ) {
+		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to load {}: does not exist", filename);
 		} else {
 			UF_EXCEPTION("Failed to load {}: does not exist", filename);
@@ -222,7 +216,7 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 	}
 	uf::stl::string actual = payload.hash;
 	if ( payload.hash != "" && (actual = uf::io::hash( filename )) != payload.hash ) {
-		if ( !uf::Asset::assertionLoad ) {
+		if ( !uf::asset::assertionLoad ) {
 			UF_MSG_ERROR("Failed to load {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
 		} else {
 			UF_EXCEPTION("Failed to load {}: Hash mismatch; expected {}, got {}", filename, payload.hash, actual);
@@ -235,47 +229,37 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 	DC_STATS();
 #endif
 
-	auto& map = this->getComponent<uf::Serializer>();
 	#define UF_ASSET_REGISTER(type)\
-		auto& container = this->getContainer<type>();\
-		if ( !ext::json::isNull( map[extension][payload.filename]["index"] ) ) return filename;\
-		if ( !ext::json::isNull( map[extension][filename]["index"] ) ) return filename;\
-		map[extension][payload.filename]["index"] = container.size();\
-		map[extension][filename]["index"] = container.size();\
-		type& asset = container.emplace_back();
+		type& asset = uf::asset::get<type>( payload );
 
+	//	if ( uf::asset::has( filename ) ) return filename;
+	//	if ( uf::asset::has( payload.filename ) ) return filename;
 
 	switch ( payload.type ) {
-		case uf::Asset::Type::IMAGE: {
+		case uf::asset::Type::IMAGE: {
 			UF_ASSET_REGISTER(uf::Image)
 			asset.open(filename);
 		} break;
-		case uf::Asset::Type::AUDIO: {
+		case uf::asset::Type::AUDIO: {
 			UF_ASSET_REGISTER(uf::Audio)
 			asset.open(filename, true);
 		} break;
-		case uf::Asset::Type::JSON: {
+		case uf::asset::Type::JSON: {
 			UF_ASSET_REGISTER(uf::Serializer)
 			asset.readFromFile(filename);
 		} break;
 	#if UF_USE_LUA
-		case uf::Asset::Type::LUA: {
+		case uf::asset::Type::LUA: {
 			UF_ASSET_REGISTER(pod::LuaScript)
 			asset = ext::lua::script( filename );
 		} break;
 	#endif
-		case uf::Asset::Type::GRAPH: {
+		case uf::asset::Type::GRAPH: {
 			UF_ASSET_REGISTER(pod::Graph)
-			auto& metadata = this->getComponent<uf::Serializer>();
 
-		#if UF_USE_OPENGL
-			// combining mesh is only really a (negligent) gain on Vulkan
-			// collision meshes still use separated meshes, so avoid having to duplicate a mesh for very little gains, if any
-			metadata[payload.filename]["renderer"]["atlas"] = false;
-			metadata[payload.filename]["renderer"]["separate"] = true;
-		#endif
-			asset = uf::graph::load( filename, metadata[payload.filename] );
+			asset = uf::graph::load( filename, payload.metadata );
 			uf::graph::process( asset );
+
 		#if !UF_ENV_DREAMCAST
 			if ( asset.metadata["debug"]["print"]["stats"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::stats( asset ));
 			if ( asset.metadata["debug"]["print"]["tree"].as<bool>() ) UF_MSG_INFO("{}", uf::graph::print( asset ));
@@ -294,9 +278,31 @@ uf::stl::string uf::Asset::load(const uf::Asset::Payload& payload ) {
 
 	return filename;
 }
-uf::stl::string uf::Asset::getOriginal( const uf::stl::string& uri ) {
+bool uf::asset::has( const uf::stl::string& url ) {
+	return uf::asset::map.count( url ) > 0;
+}
+bool uf::asset::has( const uf::asset::Payload& payload ) {
+	if ( payload.asComponent ) return true;
+	return uf::asset::has( payload.filename );
+}
+void uf::asset::remove( const uf::stl::string& url ) {
+	if ( !uf::asset::has( url ) ) return;
+	auto& userdata = uf::asset::map[url];
+#if UF_COMPONENT_POINTERED_USERDATA
+	if ( userdata.data ) uf::pointeredUserdata::destroy( userdata );
+#else
+	if ( userdata ) uf::userdata::destroy( userdata );
+#endif
+	uf::asset::map.erase( url );
+}
+uf::asset::userdata_t& uf::asset::get( const uf::stl::string& url ) {
+	return uf::asset::map[url];
+}
+/*
+uf::stl::string uf::asset::getOriginal( const uf::stl::string& uri ) {
+	return uri;
 	uf::stl::string extension = uf::io::extension( uri );
-	auto& map = this->getComponent<uf::Serializer>();
+	auto& map = uf::asset::map; //getComponent<uf::Serializer>();
 	if ( ext::json::isNull( map[extension][uri]["index"] ) ) return uri;
 	std::size_t index = map[extension][uri]["index"].as<size_t>();
 
@@ -307,3 +313,4 @@ uf::stl::string uf::Asset::getOriginal( const uf::stl::string& uri ) {
 	});
 	return key;
 }
+*/

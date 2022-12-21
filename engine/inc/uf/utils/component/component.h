@@ -13,14 +13,15 @@ namespace pod {
 	struct UF_API Component {
 		typedef TYPE_HASH_T id_t;
 		typedef uf::stl::unordered_map<pod::Component::id_t, pod::Component> container_t;
-	//	typedef uf::stl::unordered_map<pod::Component::id_t, pod::Component::id_t> alias_t;
+
+	#if UF_COMPONENT_POINTERED_USERDATA
+		typedef pod::PointeredUserdata userdata_t;
+	#else
+		typedef pod::Userdata* userdata_t;
+	#endif
 
 		pod::Component::id_t id;
-	#if UF_COMPONENT_POINTERED_USERDATA
-		pod::PointeredUserdata userdata;
-	#else
-		pod::Userdata* userdata;
-	#endif
+		pod::Component::userdata_t userdata;
 	};
 }
 namespace uf {
@@ -55,6 +56,24 @@ namespace uf {
 
 		template<typename T> T& addComponent( const T& = T() );
 		template<typename T> void deleteComponent();
+
+	#if UF_COMPONENT_POINTERED_USERDATA
+		pod::PointeredUserdata addComponent( pod::PointeredUserdata& userdata );
+		pod::PointeredUserdata moveComponent( pod::PointeredUserdata& userdata );
+
+		template<typename T> T& moveComponent( pod::PointeredUserdata& userdata ) {
+			this->moveComponent( userdata );
+			return this->getComponent<T>();
+		}
+	#else
+		pod::Userdata* addComponent( pod::Userdata* userdata );
+		pod::Userdata* moveComponent( pod::Userdata*& userdata );
+
+		template<typename T> T& moveComponent( pod::Userdata*& userdata ) {
+			this->moveComponent( userdata );
+			return this->getComponent<T>();
+		}
+	#endif
 
 		void destroyComponents();
 	};

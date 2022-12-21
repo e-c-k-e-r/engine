@@ -684,10 +684,30 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			
 			size_t currentSubpass = 0;
 
+		/*
 			// transition layers for read
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commandBuffer, 0 );
 			}
+		*/
+		// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		// VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+
+		#if 1
+			for ( auto& attachment : renderTarget.attachments ) {
+				// transition attachments to general attachments for imageStore
+				VkImageSubresourceRange subresourceRange;
+				subresourceRange.baseMipLevel = 0;
+				subresourceRange.baseArrayLayer = 0;
+				subresourceRange.levelCount = attachment.descriptor.mips;
+				subresourceRange.layerCount = renderTarget.views;
+				subresourceRange.aspectMask = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
+			}
+		#endif
 
 			for ( auto& pipeline : metadata.pipelines ) {
 				if ( pipeline == metadata.pipeline ) continue;
@@ -743,6 +763,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 				}
 			vkCmdEndRenderPass(commandBuffer);
 
+		#if 1
 			if ( settings::pipelines::deferred && DEFERRED_MODE == "compute" && blitter.material.hasShader(DEFERRED_MODE, "deferred") ) {
 				auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 				ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor;
@@ -876,10 +897,13 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			#endif
 			}
 		#endif
+		#endif
 
+		/*
 			for ( auto layer : layers ) {
 				layer->pipelineBarrier( commandBuffer, 1 );
 			}
+		*/
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

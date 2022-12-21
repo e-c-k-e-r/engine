@@ -42,6 +42,8 @@ namespace ext {
 		bool UF_API run( const uf::stl::string&, bool = true );
 		
 		pod::LuaScript UF_API script( const uf::stl::string& );
+		void UF_API script( const uf::stl::string&, pod::LuaScript& );
+		
 		bool UF_API run( const pod::LuaScript&, bool = true );
 
 		sol::table createTable();

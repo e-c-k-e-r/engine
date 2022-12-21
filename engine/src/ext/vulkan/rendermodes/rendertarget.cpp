@@ -498,9 +498,32 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 
 			size_t subpasses = renderTarget.passes.size();
 			size_t currentPass = 0;
+
+			//
+		//	this->pipelineBarrier( commands[i], 1 );
+
+		// VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		// VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		// VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+
+		#if 1
+			for ( auto& attachment : renderTarget.attachments ) {
+				// transition attachments to general attachments for imageStore
+				VkImageSubresourceRange subresourceRange;
+				subresourceRange.baseMipLevel = 0;
+				subresourceRange.baseArrayLayer = 0;
+				subresourceRange.levelCount = attachment.descriptor.mips;
+				subresourceRange.layerCount = renderTarget.views;
+				subresourceRange.aspectMask = attachment.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+				uf::renderer::Texture::setImageLayout( commandBuffer, attachment.image, VK_IMAGE_LAYOUT_UNDEFINED, attachment.descriptor.layout, subresourceRange );
+			}
+		#endif
+
 			// pre-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
-			
+
 			if ( this->getName() == "Compute" ) {
 				for ( auto graphic : graphics ) {
 					if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
@@ -508,18 +531,6 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 					graphic->record( commandBuffer );
 				}
 			} else {
-			#if 0
-				for ( auto& pipeline : metadata.pipelines ) {
-					if ( pipeline == metadata.pipeline ) continue;
-					for ( auto graphic : graphics ) {
-						if ( graphic->descriptor.renderMode != this->getTarget() ) continue;
-						ext::vulkan::GraphicDescriptor descriptor = bindGraphicDescriptor(graphic->descriptor, currentPass);
-						descriptor.pipeline = pipeline;
-						if ( pipeline == "rt" ) descriptor.bind.point = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-						graphic->record( commandBuffer, descriptor, 0, metadata.type == uf::renderer::settings::pipelines::names::vxgi ? 0 : MIN(subpasses,6) );
-					}
-				}
-			#endif
 				for ( auto& pipeline : metadata.pipelines ) {
 					if ( pipeline == metadata.pipeline ) continue;
 					for ( auto graphic : graphics ) {
@@ -558,9 +569,12 @@ void ext::vulkan::RenderTargetRenderMode::createCommandBuffers( const uf::stl::v
 					}
 				vkCmdEndRenderPass(commandBuffer);
 			}
+
 			
 			// post-renderpass commands
 			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
+
+		//	this->pipelineBarrier( commands[i], 1 );
 		}
 
 		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));

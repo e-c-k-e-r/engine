@@ -51,6 +51,7 @@ namespace ext {
 		namespace settings {
 			constexpr size_t maxViews = 6;
 
+			extern UF_API float version;
 			extern UF_API uint32_t width;
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
@@ -65,6 +66,7 @@ namespace ext {
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceFeatures;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceExtensions;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedInstanceExtensions;
+			extern UF_API uf::Serializer requestedFeatureChain;
 			
 			extern UF_API VkFilter swapchainUpscaleFilter;
 
@@ -73,9 +75,12 @@ namespace ext {
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool batchQueueSubmissions;
 				extern UF_API bool enableMultiGPU;
+				extern UF_API bool memoryBudgetBit;
 			}
 
 			namespace invariant {
+				extern UF_API bool deviceAddressing;
+
 				extern UF_API bool waitOnRenderEnd;
 				extern UF_API bool individualPipelines;
 				extern UF_API bool multithreadedRecording;

@@ -36,6 +36,21 @@ template<typename T> const T& uf::Entity::getRootParent() const {
 	}
 	return *(const T*) last;
 }
+
+template<typename T> pod::Resolvable<T> uf::Entity::resolvable() {
+	return pod::Resolvable<T>{
+		.uid = this->m_uid,
+		.pointer = (T*) this,
+	};
+}
+template<typename T> T& uf::Entity::resolve( const pod::Resolvable<T>& resolvable ) {
+	if ( resolvable.uid ) {
+		uf::Entity* entity = uf::Entity::globalFindByUid( resolvable.uid );
+		if ( entity ) return entity->as<T>();
+	}
+	if ( resolvable.pointer ) return ((uf::Entity*) resolvable.pointer)->as<T>();
+	return uf::Entity::null.as<T>();
+}
 /*
 template<typename T> void uf::Entity::initialize() {
 	static_cast<T*>(this)->initialize();
