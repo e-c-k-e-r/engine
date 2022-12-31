@@ -3,14 +3,16 @@
 #include <uf/utils/io/iostream.h>
 
 #include <uf/utils/hook/hook.h>
-#if UF_USE_IMGUI
-	#include <uf/ext/imgui/imgui.h>
-#else
-	#include <iostream>
-	#include <sstream>
-#endif
+#include <uf/utils/io/console.h>
 
+#include <iostream>
+#include <sstream>
 
+/*
+void uf::io::exception( const uf::stl::string& exception ) {
+	std::abort(-1);
+}
+*/
 uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message ) {
 #if UF_USE_FMT
 	auto string = ::fmt::format("[{}] [{}:{}@{}]: {}", category, file, function, line, message);
@@ -25,9 +27,7 @@ uf::stl::string uf::io::log( const uf::stl::string& category, const uf::stl::str
 #endif
 	std::cout.flush();
 
-#if UF_USE_IMGUI
-	ext::imgui::log( string );
-#endif
+	uf::console::print( string );
 
 	return string;
 }

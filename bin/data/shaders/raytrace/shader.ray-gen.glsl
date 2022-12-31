@@ -251,6 +251,11 @@ void main()  {
 	prngSeed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, int(clockARB()));
 	surface.pass = PushConstant.pass;
 	surface.subID = 0;
+	surface.fragment = vec4(0);
+	surface.light = vec4(0);
+	surface.motion = vec2(0);
+	surface.material.indirect = vec4(0);
+	
 	vec4 outFrag = vec4(0);
 
 	const uint SAMPLES = min(ubo.settings.rt.samples, 4);

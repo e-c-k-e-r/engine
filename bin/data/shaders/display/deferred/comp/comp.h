@@ -15,8 +15,8 @@ layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 #define PBR 1
 #define LAMBERT 0
 #if RT || BARYCENTRIC
-	#define BUFFER_REFERENCE 0
-	#define UINT64_ENABLED 0
+	#define BUFFER_REFERENCE 1
+	#define UINT64_ENABLED 1
 #endif
 #define FOG 1
 #define FOG_RAY_MARCH 1
@@ -124,6 +124,9 @@ layout (binding = 19) uniform sampler3D samplerNoise;
 #if VXGI
 	#include "../../../common/vxgi.h"
 #endif
+#if RT
+	#include "../../../common/rt.h"
+#endif
 
 #if MULTISAMPLING
 	#define IMAGE_LOAD(X) texelFetch( X, ivec2(gl_GlobalInvocationID.xy), msaa.currentID )
@@ -155,19 +158,15 @@ void postProcess() {
 		uvec2 renderSize = imageSize(imageColor);
 		vec2 inUv = (vec2(gl_GlobalInvocationID.xy) / vec2(renderSize)) * 2.0f - 1.0f;
 		if ( inUv.x < 0 ) {
-			if ( ubo.settings.mode.type == 0x0001 ) {
-				outFragColor = vec4(surface.material.albedo.rgb, 1);
-			} else if ( ubo.settings.mode.type == 0x0002 ) {
-				outFragColor = vec4(surface.light.rgb, 1);
-			} else if ( ubo.settings.mode.type == 0x0003 ) {
-				outFragColor = vec4(surface.light.a, surface.light.a, surface.light.a, 1);
-			} else if ( ubo.settings.mode.type == 0x0004 ) {
-				outFragColor = vec4(surface.normal.eye.rgb, 1);
-			} else if ( ubo.settings.mode.type == 0x0005 ) {
-				outFragColor = vec4(surface.uv.xy, 0, 1);
-			} else if ( ubo.settings.mode.type == 0x0006 ) {
-				outFragColor = vec4(surface.st.xy, 0, 1);
-			}
+			if ( ubo.settings.mode.type == 0x0001 ) outFragColor = vec4(surface.material.albedo.rgb, 1);
+			else if ( ubo.settings.mode.type == 0x0002 ) outFragColor = vec4(surface.light.rgb, 1);
+			else if ( ubo.settings.mode.type == 0x0003 ) outFragColor = vec4(vec3(surface.light.a), 1);
+			else if ( ubo.settings.mode.type == 0x0004 ) outFragColor = vec4(surface.normal.eye.rgb, 1);
+			else if ( ubo.settings.mode.type == 0x0005 ) outFragColor = vec4(surface.uv.xy, 0, 1);
+			else if ( ubo.settings.mode.type == 0x0006 ) outFragColor = vec4(surface.st.xy, 0, 1);
+			else if ( ubo.settings.mode.type == 0x0007 ) outFragColor = vec4(vec3(surface.material.metallic), 1);
+			else if ( ubo.settings.mode.type == 0x0008 ) outFragColor = vec4(vec3(surface.material.roughness * 4), 1);
+			else if ( ubo.settings.mode.type == 0x0009 ) outFragColor = vec4(vec3(surface.material.occlusion), 1);
 		}
 	}
 	
@@ -185,6 +184,9 @@ void populateSurface() {
 	surface.light = vec4(0);
 	surface.motion = vec2(0);
 	surface.material.indirect = vec4(0);
+	surface.material.metallic = 1;
+	surface.material.roughness = 0;
+	surface.material.occlusion = 0;
 
 	float depth = 0.0;
 	{
@@ -196,7 +198,9 @@ void populateSurface() {
 		const vec3 far3 = far4.xyz / far4.w;
 
 		surface.ray.direction = normalize( far3 - near3 );
-		surface.ray.origin = /*near3.xyz;*/ ubo.eyes[surface.pass].eyePos.xyz;
+//	surface.ray.origin = near3.xyz;
+		surface.ray.origin = ubo.eyes[surface.pass].eyePos.xyz;
+//	surface.ray.origin = vec3( -ubo.eyes[surface.pass].view[0][3], -ubo.eyes[surface.pass].view[1][3], -ubo.eyes[surface.pass].view[2][3] );
 
 		depth = IMAGE_LOAD(samplerDepth).r;
 		
@@ -277,6 +281,20 @@ void directLighting() {
 	surface.fragment.rgb += surface.light.rgb;
 }
 
+void indirectLighting() {
+	uint scale = 0;
+#if RT
+	++scale;
+	indirectLightingRT();
+#endif
+#if VXGI
+	++scale;
+	indirectLightingVXGI();
+#endif
+
+//	if ( scale > 1 ) surface.material.indirect.rgb /= scale;
+}
+
 #if MULTISAMPLING
 void resolveSurfaceFragment() {
 	for ( int i = 0; i < ubo.settings.mode.msaa; ++i ) {
@@ -295,7 +313,7 @@ void resolveSurfaceFragment() {
 
 		if ( unique ) {
 			populateSurface();
-		#if VXGI
+		#if VXGI || RT
 			indirectLighting();
 		#endif
 			directLighting();

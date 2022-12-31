@@ -695,131 +695,136 @@ void spec::win32::Window::requestFocus() {
 	}
 }
 bool spec::win32::Window::hasFocus() const {
+#if UF_USE_IMGUI
+	if ( ext::imgui::focused ) return false;
+#endif
 	return this->m_handle == GetForegroundWindow();
 }
 
 void spec::win32::Window::bufferInputs() {
 	uf::Window::focused = this->hasFocus();
 
-	uf::inputs::kbm::states::LShift = GetAsyncKeyState(VK_LSHIFT) & 0x8000;
-	uf::inputs::kbm::states::RShift = GetAsyncKeyState(VK_RSHIFT) & 0x8000;
+#define GET_KEYSTATE(X) uf::Window::focused ? GetAsyncKeyState(X) & 0x8000 : false;
 
-	uf::inputs::kbm::states::LAlt = GetAsyncKeyState(VK_LMENU) & 0x8000;
-	uf::inputs::kbm::states::RAlt = GetAsyncKeyState(VK_RMENU) & 0x8000;
+	uf::inputs::kbm::states::LShift = GET_KEYSTATE(VK_LSHIFT);
+	uf::inputs::kbm::states::RShift = GET_KEYSTATE(VK_RSHIFT);
 
-	uf::inputs::kbm::states::LControl = GetAsyncKeyState(VK_LCONTROL) & 0x8000;
-	uf::inputs::kbm::states::RControl = GetAsyncKeyState(VK_RCONTROL) & 0x8000;
+	uf::inputs::kbm::states::LAlt = GET_KEYSTATE(VK_LMENU);
+	uf::inputs::kbm::states::RAlt = GET_KEYSTATE(VK_RMENU);
 
-	uf::inputs::kbm::states::LSystem = GetAsyncKeyState(VK_LWIN) & 0x8000;
-	uf::inputs::kbm::states::RSystem = GetAsyncKeyState(VK_RWIN) & 0x8000;
+	uf::inputs::kbm::states::LControl = GET_KEYSTATE(VK_LCONTROL);
+	uf::inputs::kbm::states::RControl = GET_KEYSTATE(VK_RCONTROL);
 
-	uf::inputs::kbm::states::Menu = GetAsyncKeyState(VK_APPS) & 0x8000;
-	uf::inputs::kbm::states::SemiColon = GetAsyncKeyState(VK_OEM_1) & 0x8000;
-	uf::inputs::kbm::states::Slash = GetAsyncKeyState(VK_OEM_2) & 0x8000;
-	uf::inputs::kbm::states::Equal = GetAsyncKeyState(VK_OEM_PLUS) & 0x8000;
-	uf::inputs::kbm::states::Dash = GetAsyncKeyState(VK_OEM_MINUS) & 0x8000;
-	uf::inputs::kbm::states::LBracket = GetAsyncKeyState(VK_OEM_4) & 0x8000;
-	uf::inputs::kbm::states::RBracket = GetAsyncKeyState(VK_OEM_6) & 0x8000;
-	uf::inputs::kbm::states::Comma = GetAsyncKeyState(VK_OEM_COMMA) & 0x8000;
-	uf::inputs::kbm::states::Period = GetAsyncKeyState(VK_OEM_PERIOD) & 0x8000;
-	uf::inputs::kbm::states::Quote = GetAsyncKeyState(VK_OEM_7) & 0x8000;
-	uf::inputs::kbm::states::BackSlash = GetAsyncKeyState(VK_OEM_5) & 0x8000;
-	uf::inputs::kbm::states::Tilde = GetAsyncKeyState(VK_OEM_3) & 0x8000;
-	
-	uf::inputs::kbm::states::Escape = GetAsyncKeyState(VK_ESCAPE) & 0x8000;
-	uf::inputs::kbm::states::Space = GetAsyncKeyState(VK_SPACE) & 0x8000;
-	uf::inputs::kbm::states::Enter = GetAsyncKeyState(VK_RETURN) & 0x8000;
-	uf::inputs::kbm::states::BackSpace = GetAsyncKeyState(VK_BACK) & 0x8000;
-	uf::inputs::kbm::states::Tab = GetAsyncKeyState(VK_TAB) & 0x8000;
-	uf::inputs::kbm::states::PageUp = GetAsyncKeyState(VK_PRIOR) & 0x8000;
-	uf::inputs::kbm::states::PageDown = GetAsyncKeyState(VK_NEXT) & 0x8000;
-	uf::inputs::kbm::states::End = GetAsyncKeyState(VK_END) & 0x8000;
-	uf::inputs::kbm::states::Home = GetAsyncKeyState(VK_HOME) & 0x8000;
-	uf::inputs::kbm::states::Insert = GetAsyncKeyState(VK_INSERT) & 0x8000;
-	uf::inputs::kbm::states::Delete = GetAsyncKeyState(VK_DELETE) & 0x8000;
-	uf::inputs::kbm::states::Add = GetAsyncKeyState(VK_ADD) & 0x8000;
-	uf::inputs::kbm::states::Subtract = GetAsyncKeyState(VK_SUBTRACT) & 0x8000;
-	uf::inputs::kbm::states::Multiply = GetAsyncKeyState(VK_MULTIPLY) & 0x8000;
-	uf::inputs::kbm::states::Divide = GetAsyncKeyState(VK_DIVIDE) & 0x8000;
-	uf::inputs::kbm::states::Pause = GetAsyncKeyState(VK_PAUSE) & 0x8000;
-	
-	uf::inputs::kbm::states::F1 = GetAsyncKeyState(VK_F1) & 0x8000;
-	uf::inputs::kbm::states::F2 = GetAsyncKeyState(VK_F2) & 0x8000;
-	uf::inputs::kbm::states::F3 = GetAsyncKeyState(VK_F3) & 0x8000;
-	uf::inputs::kbm::states::F4 = GetAsyncKeyState(VK_F4) & 0x8000;
-	uf::inputs::kbm::states::F5 = GetAsyncKeyState(VK_F5) & 0x8000;
-	uf::inputs::kbm::states::F6 = GetAsyncKeyState(VK_F6) & 0x8000;
-	uf::inputs::kbm::states::F7 = GetAsyncKeyState(VK_F7) & 0x8000;
-	uf::inputs::kbm::states::F8 = GetAsyncKeyState(VK_F8) & 0x8000;
-	uf::inputs::kbm::states::F9 = GetAsyncKeyState(VK_F9) & 0x8000;
-	uf::inputs::kbm::states::F10 = GetAsyncKeyState(VK_F10) & 0x8000;
-	uf::inputs::kbm::states::F11 = GetAsyncKeyState(VK_F11) & 0x8000;
-	uf::inputs::kbm::states::F12 = GetAsyncKeyState(VK_F12) & 0x8000;
-	uf::inputs::kbm::states::F13 = GetAsyncKeyState(VK_F13) & 0x8000;
-	uf::inputs::kbm::states::F14 = GetAsyncKeyState(VK_F14) & 0x8000;
-	uf::inputs::kbm::states::F15 = GetAsyncKeyState(VK_F15) & 0x8000;
-	
-	uf::inputs::kbm::states::Left = GetAsyncKeyState(VK_LEFT) & 0x8000;
-	uf::inputs::kbm::states::Right = GetAsyncKeyState(VK_RIGHT) & 0x8000;
-	uf::inputs::kbm::states::Up = GetAsyncKeyState(VK_UP) & 0x8000;
-	uf::inputs::kbm::states::Down = GetAsyncKeyState(VK_DOWN) & 0x8000;
+	uf::inputs::kbm::states::LSystem = GET_KEYSTATE(VK_LWIN);
+	uf::inputs::kbm::states::RSystem = GET_KEYSTATE(VK_RWIN);
 
-	uf::inputs::kbm::states::Numpad0 = GetAsyncKeyState(VK_NUMPAD0) & 0x8000;
-	uf::inputs::kbm::states::Numpad1 = GetAsyncKeyState(VK_NUMPAD1) & 0x8000;
-	uf::inputs::kbm::states::Numpad2 = GetAsyncKeyState(VK_NUMPAD2) & 0x8000;
-	uf::inputs::kbm::states::Numpad3 = GetAsyncKeyState(VK_NUMPAD3) & 0x8000;
-	uf::inputs::kbm::states::Numpad4 = GetAsyncKeyState(VK_NUMPAD4) & 0x8000;
-	uf::inputs::kbm::states::Numpad5 = GetAsyncKeyState(VK_NUMPAD5) & 0x8000;
-	uf::inputs::kbm::states::Numpad6 = GetAsyncKeyState(VK_NUMPAD6) & 0x8000;
-	uf::inputs::kbm::states::Numpad7 = GetAsyncKeyState(VK_NUMPAD7) & 0x8000;
-	uf::inputs::kbm::states::Numpad8 = GetAsyncKeyState(VK_NUMPAD8) & 0x8000;
-	uf::inputs::kbm::states::Numpad9 = GetAsyncKeyState(VK_NUMPAD9) & 0x8000;
+	uf::inputs::kbm::states::Menu = GET_KEYSTATE(VK_APPS);
+	uf::inputs::kbm::states::SemiColon = GET_KEYSTATE(VK_OEM_1);
+	uf::inputs::kbm::states::Slash = GET_KEYSTATE(VK_OEM_2);
+	uf::inputs::kbm::states::Equal = GET_KEYSTATE(VK_OEM_PLUS);
+	uf::inputs::kbm::states::Dash = GET_KEYSTATE(VK_OEM_MINUS);
+	uf::inputs::kbm::states::LBracket = GET_KEYSTATE(VK_OEM_4);
+	uf::inputs::kbm::states::RBracket = GET_KEYSTATE(VK_OEM_6);
+	uf::inputs::kbm::states::Comma = GET_KEYSTATE(VK_OEM_COMMA);
+	uf::inputs::kbm::states::Period = GET_KEYSTATE(VK_OEM_PERIOD);
+	uf::inputs::kbm::states::Quote = GET_KEYSTATE(VK_OEM_7);
+	uf::inputs::kbm::states::BackSlash = GET_KEYSTATE(VK_OEM_5);
+	uf::inputs::kbm::states::Tilde = GET_KEYSTATE(VK_OEM_3);
+	
+	uf::inputs::kbm::states::Escape = GET_KEYSTATE(VK_ESCAPE);
+	uf::inputs::kbm::states::Space = GET_KEYSTATE(VK_SPACE);
+	uf::inputs::kbm::states::Enter = GET_KEYSTATE(VK_RETURN);
+	uf::inputs::kbm::states::BackSpace = GET_KEYSTATE(VK_BACK);
+	uf::inputs::kbm::states::Tab = GET_KEYSTATE(VK_TAB);
+	uf::inputs::kbm::states::PageUp = GET_KEYSTATE(VK_PRIOR);
+	uf::inputs::kbm::states::PageDown = GET_KEYSTATE(VK_NEXT);
+	uf::inputs::kbm::states::End = GET_KEYSTATE(VK_END);
+	uf::inputs::kbm::states::Home = GET_KEYSTATE(VK_HOME);
+	uf::inputs::kbm::states::Insert = GET_KEYSTATE(VK_INSERT);
+	uf::inputs::kbm::states::Delete = GET_KEYSTATE(VK_DELETE);
+	uf::inputs::kbm::states::Add = GET_KEYSTATE(VK_ADD);
+	uf::inputs::kbm::states::Subtract = GET_KEYSTATE(VK_SUBTRACT);
+	uf::inputs::kbm::states::Multiply = GET_KEYSTATE(VK_MULTIPLY);
+	uf::inputs::kbm::states::Divide = GET_KEYSTATE(VK_DIVIDE);
+	uf::inputs::kbm::states::Pause = GET_KEYSTATE(VK_PAUSE);
+	
+	uf::inputs::kbm::states::F1 = GET_KEYSTATE(VK_F1);
+	uf::inputs::kbm::states::F2 = GET_KEYSTATE(VK_F2);
+	uf::inputs::kbm::states::F3 = GET_KEYSTATE(VK_F3);
+	uf::inputs::kbm::states::F4 = GET_KEYSTATE(VK_F4);
+	uf::inputs::kbm::states::F5 = GET_KEYSTATE(VK_F5);
+	uf::inputs::kbm::states::F6 = GET_KEYSTATE(VK_F6);
+	uf::inputs::kbm::states::F7 = GET_KEYSTATE(VK_F7);
+	uf::inputs::kbm::states::F8 = GET_KEYSTATE(VK_F8);
+	uf::inputs::kbm::states::F9 = GET_KEYSTATE(VK_F9);
+	uf::inputs::kbm::states::F10 = GET_KEYSTATE(VK_F10);
+	uf::inputs::kbm::states::F11 = GET_KEYSTATE(VK_F11);
+	uf::inputs::kbm::states::F12 = GET_KEYSTATE(VK_F12);
+	uf::inputs::kbm::states::F13 = GET_KEYSTATE(VK_F13);
+	uf::inputs::kbm::states::F14 = GET_KEYSTATE(VK_F14);
+	uf::inputs::kbm::states::F15 = GET_KEYSTATE(VK_F15);
+	
+	uf::inputs::kbm::states::Left = GET_KEYSTATE(VK_LEFT);
+	uf::inputs::kbm::states::Right = GET_KEYSTATE(VK_RIGHT);
+	uf::inputs::kbm::states::Up = GET_KEYSTATE(VK_UP);
+	uf::inputs::kbm::states::Down = GET_KEYSTATE(VK_DOWN);
 
-	uf::inputs::kbm::states::Q = GetAsyncKeyState('Q') & 0x8000;
-	uf::inputs::kbm::states::W = GetAsyncKeyState('W') & 0x8000;
-	uf::inputs::kbm::states::E = GetAsyncKeyState('E') & 0x8000;
-	uf::inputs::kbm::states::R = GetAsyncKeyState('R') & 0x8000;
-	uf::inputs::kbm::states::T = GetAsyncKeyState('T') & 0x8000;
-	uf::inputs::kbm::states::Y = GetAsyncKeyState('Y') & 0x8000;
-	uf::inputs::kbm::states::U = GetAsyncKeyState('U') & 0x8000;
-	uf::inputs::kbm::states::I = GetAsyncKeyState('I') & 0x8000;
-	uf::inputs::kbm::states::O = GetAsyncKeyState('O') & 0x8000;
-	uf::inputs::kbm::states::P = GetAsyncKeyState('P') & 0x8000;
-	
-	uf::inputs::kbm::states::A = GetAsyncKeyState('A') & 0x8000;
-	uf::inputs::kbm::states::S = GetAsyncKeyState('S') & 0x8000;
-	uf::inputs::kbm::states::D = GetAsyncKeyState('D') & 0x8000;
-	uf::inputs::kbm::states::F = GetAsyncKeyState('F') & 0x8000;
-	uf::inputs::kbm::states::G = GetAsyncKeyState('G') & 0x8000;
-	uf::inputs::kbm::states::H = GetAsyncKeyState('H') & 0x8000;
-	uf::inputs::kbm::states::J = GetAsyncKeyState('J') & 0x8000;
-	uf::inputs::kbm::states::K = GetAsyncKeyState('K') & 0x8000;
-	uf::inputs::kbm::states::L = GetAsyncKeyState('L') & 0x8000;
-	
-	uf::inputs::kbm::states::Z = GetAsyncKeyState('Z') & 0x8000;
-	uf::inputs::kbm::states::X = GetAsyncKeyState('X') & 0x8000;
-	uf::inputs::kbm::states::C = GetAsyncKeyState('C') & 0x8000;
-	uf::inputs::kbm::states::V = GetAsyncKeyState('V') & 0x8000;
-	uf::inputs::kbm::states::B = GetAsyncKeyState('B') & 0x8000;
-	uf::inputs::kbm::states::N = GetAsyncKeyState('N') & 0x8000;
-	uf::inputs::kbm::states::M = GetAsyncKeyState('M') & 0x8000;
-	
-	uf::inputs::kbm::states::Num1 = GetAsyncKeyState('1') & 0x8000;
-	uf::inputs::kbm::states::Num2 = GetAsyncKeyState('2') & 0x8000;
-	uf::inputs::kbm::states::Num3 = GetAsyncKeyState('3') & 0x8000;
-	uf::inputs::kbm::states::Num4 = GetAsyncKeyState('4') & 0x8000;
-	uf::inputs::kbm::states::Num5 = GetAsyncKeyState('5') & 0x8000;
-	uf::inputs::kbm::states::Num6 = GetAsyncKeyState('6') & 0x8000;
-	uf::inputs::kbm::states::Num7 = GetAsyncKeyState('7') & 0x8000;
-	uf::inputs::kbm::states::Num8 = GetAsyncKeyState('8') & 0x8000;
-	uf::inputs::kbm::states::Num9 = GetAsyncKeyState('9') & 0x8000;
-	uf::inputs::kbm::states::Num0 = GetAsyncKeyState('0') & 0x8000;
-	
-	uf::inputs::kbm::states::Mouse1 = GetAsyncKeyState(VK_LBUTTON) & 0x8000;
-	uf::inputs::kbm::states::Mouse2 = GetAsyncKeyState(VK_RBUTTON) & 0x8000;
-	uf::inputs::kbm::states::Mouse3 = GetAsyncKeyState(VK_MBUTTON) & 0x8000;
+	uf::inputs::kbm::states::Numpad0 = GET_KEYSTATE(VK_NUMPAD0);
+	uf::inputs::kbm::states::Numpad1 = GET_KEYSTATE(VK_NUMPAD1);
+	uf::inputs::kbm::states::Numpad2 = GET_KEYSTATE(VK_NUMPAD2);
+	uf::inputs::kbm::states::Numpad3 = GET_KEYSTATE(VK_NUMPAD3);
+	uf::inputs::kbm::states::Numpad4 = GET_KEYSTATE(VK_NUMPAD4);
+	uf::inputs::kbm::states::Numpad5 = GET_KEYSTATE(VK_NUMPAD5);
+	uf::inputs::kbm::states::Numpad6 = GET_KEYSTATE(VK_NUMPAD6);
+	uf::inputs::kbm::states::Numpad7 = GET_KEYSTATE(VK_NUMPAD7);
+	uf::inputs::kbm::states::Numpad8 = GET_KEYSTATE(VK_NUMPAD8);
+	uf::inputs::kbm::states::Numpad9 = GET_KEYSTATE(VK_NUMPAD9);
 
-	uf::inputs::kbm::states::MouseWheel = ::lastMouseWheel;
+	uf::inputs::kbm::states::Q = GET_KEYSTATE('Q');
+	uf::inputs::kbm::states::W = GET_KEYSTATE('W');
+	uf::inputs::kbm::states::E = GET_KEYSTATE('E');
+	uf::inputs::kbm::states::R = GET_KEYSTATE('R');
+	uf::inputs::kbm::states::T = GET_KEYSTATE('T');
+	uf::inputs::kbm::states::Y = GET_KEYSTATE('Y');
+	uf::inputs::kbm::states::U = GET_KEYSTATE('U');
+	uf::inputs::kbm::states::I = GET_KEYSTATE('I');
+	uf::inputs::kbm::states::O = GET_KEYSTATE('O');
+	uf::inputs::kbm::states::P = GET_KEYSTATE('P');
+	
+	uf::inputs::kbm::states::A = GET_KEYSTATE('A');
+	uf::inputs::kbm::states::S = GET_KEYSTATE('S');
+	uf::inputs::kbm::states::D = GET_KEYSTATE('D');
+	uf::inputs::kbm::states::F = GET_KEYSTATE('F');
+	uf::inputs::kbm::states::G = GET_KEYSTATE('G');
+	uf::inputs::kbm::states::H = GET_KEYSTATE('H');
+	uf::inputs::kbm::states::J = GET_KEYSTATE('J');
+	uf::inputs::kbm::states::K = GET_KEYSTATE('K');
+	uf::inputs::kbm::states::L = GET_KEYSTATE('L');
+	
+	uf::inputs::kbm::states::Z = GET_KEYSTATE('Z');
+	uf::inputs::kbm::states::X = GET_KEYSTATE('X');
+	uf::inputs::kbm::states::C = GET_KEYSTATE('C');
+	uf::inputs::kbm::states::V = GET_KEYSTATE('V');
+	uf::inputs::kbm::states::B = GET_KEYSTATE('B');
+	uf::inputs::kbm::states::N = GET_KEYSTATE('N');
+	uf::inputs::kbm::states::M = GET_KEYSTATE('M');
+	
+	uf::inputs::kbm::states::Num1 = GET_KEYSTATE('1');
+	uf::inputs::kbm::states::Num2 = GET_KEYSTATE('2');
+	uf::inputs::kbm::states::Num3 = GET_KEYSTATE('3');
+	uf::inputs::kbm::states::Num4 = GET_KEYSTATE('4');
+	uf::inputs::kbm::states::Num5 = GET_KEYSTATE('5');
+	uf::inputs::kbm::states::Num6 = GET_KEYSTATE('6');
+	uf::inputs::kbm::states::Num7 = GET_KEYSTATE('7');
+	uf::inputs::kbm::states::Num8 = GET_KEYSTATE('8');
+	uf::inputs::kbm::states::Num9 = GET_KEYSTATE('9');
+	uf::inputs::kbm::states::Num0 = GET_KEYSTATE('0');
+	
+	uf::inputs::kbm::states::Mouse1 = GET_KEYSTATE(VK_LBUTTON);
+	uf::inputs::kbm::states::Mouse2 = GET_KEYSTATE(VK_RBUTTON);
+	uf::inputs::kbm::states::Mouse3 = GET_KEYSTATE(VK_MBUTTON);
+
+	uf::inputs::kbm::states::MouseWheel = uf::Window::focused ? ::lastMouseWheel : 0;
 	::lastMouseWheel = 0;
 }
 void spec::win32::Window::processEvents() {

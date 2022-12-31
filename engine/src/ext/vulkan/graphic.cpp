@@ -878,13 +878,18 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 			}
 		}
 	}
-
-	{
+	// really needs some love
+	if ( this->metadata.built ) {
+	//	renderMode.synchronize();
 		bool locked = renderMode.tryMutex();
 		renderMode.rebuild = true;
+	//	uf::renderer::flushCommandBuffers();
 		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
 		if ( locked ) renderMode.unlockMutex();
+	} else {
+		vkUpdateDescriptorSets( *device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL );
 	}
+	this->metadata.built = true;
 	return;
 
 PIPELINE_UPDATE_INVALID:
@@ -1096,26 +1101,26 @@ void ext::vulkan::Graphic::initializeMesh( uf::Mesh& mesh, bool buffer ) {
 		VkBufferUsageFlags baseUsage = uf::renderer::settings::invariant::deviceAddressing ? VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR : 0;
 	//	VkBufferUsageFlags baseUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-		#define PARSE_INPUT(name, usage){\
-			if ( mesh.isInterleaved( mesh.name.interleaved ) ) {\
-				auto& buffer = mesh.buffers[mesh.name.interleaved];\
+		#define PARSE_INPUT(NAME, USAGE){\
+			if ( mesh.isInterleaved( mesh.NAME.interleaved ) ) {\
+				auto& buffer = mesh.buffers[mesh.NAME.interleaved];\
 				if ( !buffer.empty() ) {\
-					descriptor.inputs.name.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
-					this->metadata.buffers[#name"[0]"] = descriptor.inputs.name.interleaved;\
-				} else mesh.name.interleaved = -1;\
-			} else for ( size_t i = 0; i < descriptor.inputs.name.attributes.size(); ++i ) {\
-				auto& attribute = descriptor.inputs.name.attributes[i];\
+					descriptor.inputs.NAME.interleaved = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE | baseUsage );\
+					this->metadata.buffers[#NAME] = descriptor.inputs.NAME.interleaved;\
+				} else mesh.NAME.interleaved = -1;\
+			} else for ( size_t i = 0; i < descriptor.inputs.NAME.attributes.size(); ++i ) {\
+				auto& attribute = descriptor.inputs.NAME.attributes[i];\
 				auto& buffer = mesh.buffers[attribute.buffer];\
 				if ( !buffer.empty() ) {\
-					attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), usage | baseUsage );\
-					this->metadata.buffers[#name"["+std::to_string(i)+"]"] = attribute.buffer;\
+					attribute.buffer = initializeBuffer( (const void*) buffer.data(), buffer.size(), USAGE | baseUsage );\
+					this->metadata.buffers[#NAME"["+attribute.descriptor.name+"]"] = attribute.buffer;\
 				} else attribute.buffer = -1;\
 			}\
 		}
 		// allocate buffers
 		auto previousRequestedAlignment = this->requestedAlignment;
 		this->requestedAlignment = 16;
-		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX )
+		PARSE_INPUT(vertex, uf::renderer::enums::Buffer::VERTEX | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
 		PARSE_INPUT(index, uf::renderer::enums::Buffer::INDEX )
 		PARSE_INPUT(instance, uf::renderer::enums::Buffer::VERTEX )
 		PARSE_INPUT(indirect, uf::renderer::enums::Buffer::INDIRECT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT )
@@ -1186,6 +1191,7 @@ bool ext::vulkan::Graphic::updateMesh( uf::Mesh& mesh ) {
 }
 void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	auto& device = *this->device; // ext::vulkan::device;
+	bool update = !this->accelerationStructures.bottoms.empty();
 
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR acclerationStructureProperties{};
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
@@ -1211,7 +1217,8 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 
     	const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo;
     	uf::renderer::AccelerationStructure as;
-    	uf::renderer::AccelerationStructure cleanup;
+    	
+    	uf::renderer::AccelerationStructure previous;
   	};
   	uf::stl::vector<BlasData> blasDatas;
 
@@ -1230,6 +1237,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			UF_ASSERT( vertexAttribute.descriptor.name == "position" );
 
 			size_t vertexBufferIndex = (0 <= mesh.vertex.interleaved ? mesh.vertex.interleaved : vertexAttribute.buffer) + mesh.bufferOffset;
+			if ( this->metadata.buffers.count("vertexSkinned") > 0 ) vertexBufferIndex = this->metadata.buffers["vertexSkinned"];
 			vertexBufferAddress = this->buffers[vertexBufferIndex].getAddress();
 		}
 
@@ -1332,12 +1340,14 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 
 	// determine BLAS size and its scratch buffer
 	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-	if ( shouldCompact) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+	if ( shouldCompact ) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+	if ( this->metadata.buffers.count("vertexSkinned") > 0 ) flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
 	size_t totalBlasBufferSize{};
 	size_t maxScratchBufferSize{};
 	for ( auto& blasData : blasDatas ) {
 		blasData.buildInfo.type				= VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-		blasData.buildInfo.mode				= VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+	//	blasData.buildInfo.mode				= VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		blasData.buildInfo.mode				= update ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR : VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
 		blasData.buildInfo.flags			= blasData.flags | flags;
 		blasData.buildInfo.geometryCount	= static_cast<uint32_t>(blasData.asGeom.size());
 		blasData.buildInfo.pGeometries		= blasData.asGeom.data();
@@ -1361,8 +1371,24 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 	}
 
 	// create BLAS buffer and handle
-	size_t blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
-	this->metadata.buffers["blasBuffer"] = blasBufferIndex;
+	size_t blasBufferIndex{};
+	bool rebuild = false;
+
+	if ( !update ) {
+		blasBufferIndex = this->initializeBuffer( NULL, totalBlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
+		this->metadata.buffers["blasBuffer"] = blasBufferIndex;
+	} else {
+		if ( this->metadata.buffers.count("blasBuffer") > 0 ) {
+			blasBufferIndex = this->metadata.buffers["blasBuffer"];
+		} else UF_EXCEPTION("Buffers not found: {}", "blasBuffer");
+
+		auto& buffer = this->buffers.at( blasBufferIndex );
+		if ( totalBlasBufferSize > buffer.allocationInfo.size ) {
+			rebuild = true;
+			buffer.destroy(true);
+			buffer.initialize( NULL, totalBlasBufferSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT );
+		}
+	}
 	
 	VkQueryPool queryPool{VK_NULL_HANDLE};
 	if ( shouldCompact ) {
@@ -1381,28 +1407,48 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		scratchBuffer.update( NULL, maxScratchBufferSize );
 		
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
-		for ( auto& blasData : blasDatas ) {
+		for ( auto i = 0; i < blasDatas.size(); ++i ) {
+			auto& blasData = blasDatas[i];
+
 			blasData.as.buffer = this->buffers[blasBufferIndex].alias();
 			blasData.as.buffer.descriptor.offset = blasBufferOffset;
 			blasBufferOffset += blasData.sizeInfo.accelerationStructureSize;
 
-			VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
-			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-			createInfo.size = blasData.sizeInfo.accelerationStructureSize;
-			createInfo.buffer = blasData.as.buffer.buffer;
-			createInfo.offset = blasData.as.buffer.descriptor.offset;
+			if ( !update || rebuild ) {
+				VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
+				createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+				createInfo.size = blasData.sizeInfo.accelerationStructureSize;
+				createInfo.buffer = blasData.as.buffer.buffer;
+				createInfo.offset = blasData.as.buffer.descriptor.offset;
 
-			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+				VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &blasData.as.handle));
+				
+				VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
+				accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+				accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
 
-			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
-			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-			accelerationDeviceAddressInfo.accelerationStructure = blasData.as.handle;
-			blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+				blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
+
+				if ( update ) {
+					blasData.previous = this->accelerationStructures.bottoms[i];
+					blasData.buildInfo.srcAccelerationStructure  = blasData.previous.handle;
+
+					device.transient.ass.emplace_back(blasData.previous);
+				} else {
+					blasData.buildInfo.srcAccelerationStructure  = VK_NULL_HANDLE;
+				}
+			} else {
+				blasData.as.deviceAddress = this->accelerationStructures.bottoms[i].deviceAddress;
+				blasData.as.handle = this->accelerationStructures.bottoms[i].handle;
+
+				blasData.buildInfo.srcAccelerationStructure  = blasData.as.handle;
+			}
 
 			// write to BLAS
 			blasData.buildInfo.dstAccelerationStructure  = blasData.as.handle;
 			blasData.buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
 
+			device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "buildBLAS" );
 			uf::renderer::vkCmdBuildAccelerationStructuresKHR(
 				commandBuffer,
 				1,
@@ -1427,6 +1473,7 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		}
 		device.flushCommandBuffer(commandBuffer);
 	}
+
 	// compact
 	if ( queryPool ) {
 		uf::stl::vector<VkDeviceSize> compactSizes(blasDatas.size());
@@ -1438,7 +1485,9 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			size_t compactedSize = compactSizes[queryIndex++];
 			size_t oldSize = blasData.sizeInfo.accelerationStructureSize;
 
-			blasData.cleanup = blasData.as;
+			blasData.previous = blasData.as;
+			device.transient.ass.emplace_back(blasData.previous);
+
 			blasData.sizeInfo.accelerationStructureSize = ALIGNED_SIZE(compactedSize, 256);
 			totalBlasBufferSize += blasData.sizeInfo.accelerationStructureSize;
 		//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (oldSize - compactedSize) * 100.0f / oldSize, oldSize, compactedSize, oldSize - compactedSize);
@@ -1470,10 +1519,11 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 			blasData.as.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
 
 			VkCopyAccelerationStructureInfoKHR copyInfo{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
-			copyInfo.src  = blasData.cleanup.handle;
+			copyInfo.src  = blasData.previous.handle;
 			copyInfo.dst  = blasData.as.handle;
 			copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 			
+			device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyBLAS" );
 			uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
 		}
 		device.flushCommandBuffer(commandBuffer);
@@ -1481,10 +1531,9 @@ void ext::vulkan::Graphic::generateBottomAccelerationStructures() {
 		oldBuffer.destroy();
 	}
 
+	this->accelerationStructures.bottoms.clear();
 	for ( auto& blasData : blasDatas ) {
 		this->accelerationStructures.bottoms.emplace_back(blasData.as);
-
-		if ( blasData.cleanup.handle ) uf::renderer::vkDestroyAccelerationStructureKHR(device, blasData.cleanup.handle, nullptr);
 	}
 
 	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
@@ -1546,31 +1595,22 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 
 	if ( !update ) {
 		// do not stage, because apparently vkQueueWaitIdle doesn't actually wait for the transfer to complete
+		this->requestedAlignment = 16;
 		instanceIndex = this->initializeBuffer(
 			(const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR),
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, false
 		);
+		this->requestedAlignment = 0;
 		this->metadata.buffers["tlasInstance"] = instanceIndex;
 	} else {
 		if ( this->metadata.buffers.count("tlasInstance") > 0 ) {
 			instanceIndex = this->metadata.buffers["tlasInstance"];
 		} else UF_EXCEPTION("Buffers not found: {}", "tlasInstance");
-		rebuild = rebuild || this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
+		/*rebuild = rebuild ||*/ this->updateBuffer( (const void*) instancesVK.data(), instancesVK.size() * sizeof(VkAccelerationStructureInstanceKHR), instanceIndex, false );
 	}
 
 	size_t instanceBufferAddress = this->buffers[instanceIndex].getAddress();
-
-	// have a front-and-back TLAS (buffer)
-	// provides zero benefit so far
-#define TLAS_FRONT_AND_BACK 0
-
-#if TLAS_FRONT_AND_BACK
-	rebuild = true;
-	auto& tlasBack 	= this->accelerationStructures.tops[0];
-	auto& tlas 		= this->accelerationStructures.tops[1];
-#else
 	auto& tlas 		= this->accelerationStructures.tops[0];
-#endif
 
 	{
 		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR;
@@ -1604,32 +1644,34 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		// create BLAS buffer and handle
 		auto tlasBufferUsageFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		if ( !update ) {
-			const size_t EXTRANEOUS_SIZE = 1024 * 1024; // oversize, to avoid having to constantly resize
-			size_t bufferSize = MAX( sizeInfo.accelerationStructureSize, EXTRANEOUS_SIZE );
+		//	const size_t EXTRANEOUS_SIZE = 1024 * 1024; // oversize, to avoid having to constantly resize
+		//	size_t bufferSize = MAX( sizeInfo.accelerationStructureSize, EXTRANEOUS_SIZE );
+			size_t bufferSize = sizeInfo.accelerationStructureSize; // MAX( sizeInfo.accelerationStructureSize, EXTRANEOUS_SIZE );
 
 			tlasBufferIndex = this->initializeBuffer( NULL, bufferSize, tlasBufferUsageFlags);
 			this->metadata.buffers["tlasBuffer"] = tlasBufferIndex;
-		#if TLAS_FRONT_AND_BACK
-			tlasBackBufferIndex = this->initializeBuffer( NULL, bufferSize, tlasBufferUsageFlags);
-			this->metadata.buffers["tlasBackBuffer"] = tlasBackBufferIndex;
-		#endif
 		} else {
 			if ( this->metadata.buffers.count("tlasBuffer") > 0 ) {
 				tlasBufferIndex = this->metadata.buffers["tlasBuffer"];
 			} else UF_EXCEPTION("Buffers not found: {}", "tlasBuffer");
-		#if TLAS_FRONT_AND_BACK
-			if ( this->metadata.buffers.count("tlasBackBuffer") > 0 ) {
-				tlasBackBufferIndex = this->metadata.buffers["tlasBackBuffer"];
-			} else UF_EXCEPTION("Buffers not found: {}", "tlasBackBuffer");
-		#endif
-			rebuild = rebuild || this->updateBuffer( NULL, sizeInfo.accelerationStructureSize, tlasBufferIndex );
+		//	rebuild = rebuild || this->updateBuffer( NULL, sizeInfo.accelerationStructureSize, tlasBufferIndex );
+			auto& buffer = this->buffers.at( tlasBufferIndex );
+			if ( sizeInfo.accelerationStructureSize > buffer.allocationInfo.size ) {
+				rebuild = true;
+				buffer.destroy(true);
+				buffer.initialize( NULL, sizeInfo.accelerationStructureSize, tlasBufferUsageFlags );
+			}
 		}
 		
-		if ( !update ) {
+		if ( !update || rebuild ) {
+			if ( update ) {
+				buildInfo.srcAccelerationStructure  = tlas.handle;
+				device.transient.ass.emplace_back( tlas );
+			} else {
+				buildInfo.srcAccelerationStructure  = VK_NULL_HANDLE;
+			}
+
 			tlas.buffer = this->buffers[tlasBufferIndex].alias();
-		#if TLAS_FRONT_AND_BACK
-			tlasBack.buffer = this->buffers[tlasBackBufferIndex].alias();
-		#endif
 
 			VkAccelerationStructureCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR};
 			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
@@ -1637,32 +1679,19 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 			createInfo.buffer = tlas.buffer.buffer;
 
 			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlas.handle));
-			
-		#if TLAS_FRONT_AND_BACK
-			// create back TLAS
-			createInfo.buffer = tlasBack.buffer.buffer;			
-			VK_CHECK_RESULT(uf::renderer::vkCreateAccelerationStructureKHR(device, &createInfo, nullptr, &tlasBack.handle));
-		#endif
-		}
 
-		{
 			VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo{};
 			accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
 			accelerationDeviceAddressInfo.accelerationStructure = tlas.handle;
 			tlas.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
-			
-		#if TLAS_FRONT_AND_BACK
-			// create back TLAS
-			accelerationDeviceAddressInfo.accelerationStructure = tlasBack.handle;
-			tlasBack.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
-		#endif
+		} else {
+			buildInfo.srcAccelerationStructure  = tlas.handle;
 		}
 
 		// write to TLAS
 		scratchBuffer.alignment = acclerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
 		scratchBuffer.update( NULL, sizeInfo.buildScratchSize );
 
-		buildInfo.srcAccelerationStructure  = update ? tlas.handle : VK_NULL_HANDLE;
 		buildInfo.dstAccelerationStructure  = tlas.handle;
 		buildInfo.scratchData.deviceAddress = scratchBuffer.getAddress();
 
@@ -1670,6 +1699,7 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		const VkAccelerationStructureBuildRangeInfoKHR* rangeInfo = &buildOffsetInfo;
 
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
+		device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "buildTLAS" );
 		uf::renderer::vkCmdBuildAccelerationStructuresKHR(
 			commandBuffer,
 			1,
@@ -1689,25 +1719,14 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		device.flushCommandBuffer(commandBuffer);
 	}
 
-#if TLAS_FRONT_AND_BACK
-	if ( !update ) {
-		VkCopyAccelerationStructureInfoKHR copyInfo{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
-		copyInfo.src  = tlas.handle;
-		copyInfo.dst  = tlasBack.handle;
-		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
-		
-		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
-		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
-		device.flushCommandBuffer(commandBuffer);
-	}
-#endif
-
 	// compact
 	if ( queryPool ) {
 		VkDeviceSize compactSize{};
 		vkGetQueryPoolResults(device, queryPool, 0, 1, sizeof(VkDeviceSize), &compactSize, sizeof(VkDeviceSize), VK_QUERY_RESULT_WAIT_BIT);
 
-		auto cleanup = tlas;
+		auto previous = tlas;
+		device.transient.ass.emplace_back(previous);
+
 		size_t tlasBufferSize = ALIGNED_SIZE(compactSize, 256);
 	//	UF_MSG_DEBUG("Reduced size to {}% ({} -> {} = {})", (float) (oldSize - compactedSize) / (float) (oldSize), oldSize, compactedSize, oldSize - compactedSize);
 
@@ -1732,30 +1751,24 @@ void ext::vulkan::Graphic::generateTopAccelerationStructure( const uf::stl::vect
 		tlas.deviceAddress = uf::renderer::vkGetAccelerationStructureDeviceAddressKHR(device, &accelerationDeviceAddressInfo);
 
 		VkCopyAccelerationStructureInfoKHR copyInfo{VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR};
-		copyInfo.src  = cleanup.handle;
+		copyInfo.src  = previous.handle;
 		copyInfo.dst  = tlas.handle;
 		copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 		
 		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::COMPUTE);
+		device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyTLAS" );
 		uf::renderer::vkCmdCopyAccelerationStructureKHR(commandBuffer, &copyInfo);
 		device.flushCommandBuffer(commandBuffer);
 
-		uf::renderer::vkDestroyAccelerationStructureKHR(device, cleanup.handle, nullptr);
 		oldBuffer.destroy();
 	}
 
-	// swap from back to front
-#if TLAS_FRONT_AND_BACK
-	std::swap( tlas, tlasBack );
-//	UF_MSG_DEBUG("{} {}", tlas.deviceAddress, tlasBack.deviceAddress);
-#endif
-
 	if ( queryPool ) vkDestroyQueryPool(device, queryPool, nullptr);
 
-	if ( rebuild ) {
+	if ( !update || rebuild ) {
 		auto& renderMode = ext::vulkan::getRenderMode( descriptor.renderMode, true );
 		renderMode.rebuild = true;
-	//	uf::renderer::states::rebuild = true;
+		uf::renderer::states::rebuild = true;
 	}
 
 	// build SBT

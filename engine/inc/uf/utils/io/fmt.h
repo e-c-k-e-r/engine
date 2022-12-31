@@ -15,6 +15,7 @@ namespace uf {
 	using namespace fmt;
 #endif
 	namespace io {
+	//	void UF_API exception( const uf::stl::string& message );
 		uf::stl::string UF_API log( const uf::stl::string& category, const uf::stl::string& file, const uf::stl::string& function, size_t line, const uf::stl::string& message );
 	}
 }

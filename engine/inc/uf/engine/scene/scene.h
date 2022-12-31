@@ -1,6 +1,7 @@
 #pragma once
 
 #include <uf/engine/object/object.h>
+#include <uf/utils/camera/camera.h>
 
 #define UF_SCENE_USE_GRAPH 1
 
@@ -22,6 +23,9 @@ namespace uf {
 		template<typename T> const T& getController() const {
 			return this->getController().as<T>();
 		}
+
+		uf::Camera& getCamera( uf::Entity& );
+		const uf::Camera& getCamera( const uf::Entity& ) const;
 	};
 
 	namespace scene {

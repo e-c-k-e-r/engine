@@ -213,6 +213,7 @@ bool ext::vulkan::Buffer::update( const void* data, VkDeviceSize length, bool st
 	auto commandBuffer = device->fetchCommandBuffer(QueueEnum::TRANSFER, false); // waits on finish
 		VkBufferCopy region = {};
 		region.size = length;
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyBuffer" );
 		vkCmdCopyBuffer(commandBuffer, staging.buffer, buffer, 1, &region);
 	device->flushCommandBuffer(commandBuffer);
 	return false;

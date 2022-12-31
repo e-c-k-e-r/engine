@@ -69,77 +69,70 @@ namespace {
 		FfxFsr2DispatchDescription dispatchParameters = {};
 		dispatchParameters.commandList = ffxGetCommandListVK(commandBuffer);
 	
+		if ( !uf::renderer::hasRenderMode("", true) ) return;	
+		auto& renderMode = uf::renderer::getRenderMode("", true);
+
+		pod::Vector2ui renderSize = {
+			renderMode.width > 0 ? renderMode.width : (uf::renderer::settings::width * renderMode.scale),
+			renderMode.height > 0 ? renderMode.height : (uf::renderer::settings::height * renderMode.scale),
+		};
+		dispatchParameters.renderSize.width = renderSize.x;
+		dispatchParameters.renderSize.height = renderSize.y;
+
+		auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
+		auto& attachmentDepth = renderMode.getAttachment("depth");
+		auto& attachmentMotion = renderMode.getAttachment("motion");
+
+		//
 		{
-			if ( !uf::renderer::hasRenderMode("", true) ) return;
-			
-			auto& renderMode = uf::renderer::getRenderMode("", true);
-			pod::Vector2ui renderSize = {
-				renderMode.width > 0 ? renderMode.width : (uf::renderer::settings::width * renderMode.scale),
-				renderMode.height > 0 ? renderMode.height : (uf::renderer::settings::height * renderMode.scale),
-			};
-			dispatchParameters.renderSize.width = renderSize.x;
-			dispatchParameters.renderSize.height = renderSize.y;
-
-			auto& attachmentColor = renderMode.hasAttachment("output") ? renderMode.getAttachment("output") : renderMode.getAttachment("color");
-			auto& attachmentDepth = renderMode.getAttachment("depth");
-			auto& attachmentMotion = renderMode.getAttachment("motion");
-
-			dispatchParameters.color = ffxGetTextureResourceVK(&::context,
-				attachmentColor.image,
-				attachmentColor.view,
-				renderSize.x,
-				renderSize.y,
-				attachmentColor.descriptor.format,
-				L"FSR2_InputColor"
-			);
-			dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
-				attachmentDepth.image,
-				attachmentDepth.view,
-				renderSize.x,
-				renderSize.y,
-				attachmentDepth.descriptor.format,
-				L"FSR2_InputDepth"
-			);
-			dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
-				attachmentMotion.image,
-				attachmentMotion.view,
-				renderSize.x,
-				renderSize.y,
-				attachmentMotion.descriptor.format,
-				L"FSR2_InputMotionVectors"
-			);
-			dispatchParameters.motionVectorScale.x = renderSize.x;
-			dispatchParameters.motionVectorScale.y = renderSize.y;
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.levelCount = attachmentDepth.descriptor.mips;
+			subresourceRange.layerCount = renderMode.renderTarget.views;
+			subresourceRange.aspectMask = attachmentDepth.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachmentDepth.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange );
 		}
-		{
-		/*
-			if ( !uf::renderer::hasRenderMode("Swapchain", true) ) return;
 
-			auto& swapchainRenderMode = uf::renderer::getRenderMode("Swapchain", true);
-		//	auto& attachmentOutput = swapchainRenderMode.getAttachment("color["+std::to_string(swapchainIndex)+"]");
-			pod::Vector2ui displaySize = {
-				swapchainRenderMode.width, // uf::renderer::settings::width
-				swapchainRenderMode.height, // uf::renderer::settings::height
-			};
-			auto& attachmentOutput = swapchainRenderMode.getAttachment("fsr");
-			dispatchParameters.output = ffxGetTextureResourceVK(&::context,
-				attachmentOutput.image,
-				attachmentOutput.view,
-				displaySize.x,
-				displaySize.y,
-				attachmentOutput.descriptor.format,
-				L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS
-			);
-		*/
-			dispatchParameters.output = ffxGetTextureResourceVK(&::context,
-				fsrTarget.image,
-				fsrTarget.view,
-				fsrTarget.width,
-				fsrTarget.height,
-				fsrTarget.format,
-				L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS
-			);
-		}
+		dispatchParameters.color = ffxGetTextureResourceVK(&::context,
+			attachmentColor.image,
+			attachmentColor.view,
+			renderSize.x,
+			renderSize.y,
+			attachmentColor.descriptor.format,
+			L"FSR2_InputColor"
+		);
+
+		dispatchParameters.depth = ffxGetTextureResourceVK(&::context,
+			attachmentDepth.image,
+			attachmentDepth.view,
+			renderSize.x,
+			renderSize.y,
+			attachmentDepth.descriptor.format,
+			L"FSR2_InputDepth"
+		);
+
+		dispatchParameters.motionVectors = ffxGetTextureResourceVK(&::context,
+			attachmentMotion.image,
+			attachmentMotion.view,
+			renderSize.x,
+			renderSize.y,
+			attachmentMotion.descriptor.format,
+			L"FSR2_InputMotionVectors"
+		);
+
+		dispatchParameters.motionVectorScale.x = renderSize.x;
+		dispatchParameters.motionVectorScale.y = renderSize.y;
+
+		dispatchParameters.output = ffxGetTextureResourceVK(&::context,
+			fsrTarget.image,
+			fsrTarget.view,
+			fsrTarget.width,
+			fsrTarget.height,
+			fsrTarget.format,
+			L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS
+		);
 
 		dispatchParameters.exposure = ffxGetTextureResourceVK(&::context,
 			nullptr,
@@ -149,6 +142,7 @@ namespace {
 			VK_FORMAT_UNDEFINED,
 			L"FSR2_InputExposure"
 		);
+
 		dispatchParameters.reactive = ffxGetTextureResourceVK(&::context,
 			nullptr,
 			nullptr,
@@ -157,6 +151,7 @@ namespace {
 			VK_FORMAT_UNDEFINED,
 			L"FSR2_InputReactiveMap"
 		);
+
 		dispatchParameters.transparencyAndComposition = ffxGetTextureResourceVK(&::context,
 			nullptr,
 			nullptr,
@@ -173,7 +168,7 @@ namespace {
 		dispatchParameters.jitterOffset.x = ext::fsr::jitter.x; // m_JitterX;
 		dispatchParameters.jitterOffset.y = ext::fsr::jitter.y; // m_JitterY;
 
-		dispatchParameters.reset = false; // uf::renderer::states::frameAccumulateReset; // pState->bReset;
+		dispatchParameters.reset = uf::renderer::states::frameAccumulateReset; // pState->bReset;
 		dispatchParameters.enableSharpening = ext::fsr::sharpness > 0.0f; // pState->bUseRcas;
 		dispatchParameters.sharpness = ext::fsr::sharpness; //1.0f; // pState->sharpening;
 		dispatchParameters.frameTimeDelta = uf::time::delta * 1000;
@@ -183,6 +178,17 @@ namespace {
 		dispatchParameters.cameraFovAngleVertical = 1.5708f; // pState->camera.GetFovV();
 
 		FFX_ERROR_CHECK(ffxFsr2ContextDispatch(&::context, &dispatchParameters));
+
+		{
+			// transition attachments to general attachments for imageStore
+			VkImageSubresourceRange subresourceRange;
+			subresourceRange.baseMipLevel = 0;
+			subresourceRange.baseArrayLayer = 0;
+			subresourceRange.levelCount = attachmentDepth.descriptor.mips;
+			subresourceRange.layerCount = renderMode.renderTarget.views;
+			subresourceRange.aspectMask = attachmentDepth.descriptor.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+			uf::renderer::Texture::setImageLayout( commandBuffer, attachmentDepth.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL, subresourceRange );
+		}
 	#endif
 	}
 }
@@ -196,7 +202,7 @@ bool ext::fsr::initialized = false;
 void ext::fsr::initialize() {
 	ffxFsr2SetInstanceFunctions( uf::renderer::device.instance, vkGetInstanceProcAddr );
 
-	scratchBuffer.resize(ffxFsr2GetScratchMemorySizeVK(uf::renderer::device.physicalDevice, uf::renderer::device.extensionProperties.device.size()));
+	scratchBuffer.resize(ffxFsr2GetScratchMemorySizeVK(uf::renderer::device.physicalDevice, uf::renderer::device.extensions.properties.device.size()));
 
 	::contextDescription.device = ffxGetDeviceVK(uf::renderer::device.logicalDevice);
 	::contextDescription.maxRenderSize.width = 3840; // uf::renderer::settings::width;

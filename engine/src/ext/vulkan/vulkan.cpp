@@ -25,24 +25,28 @@ float ext::vulkan::settings::version = 1.3;
 uint32_t ext::vulkan::settings::width = 1280;
 uint32_t ext::vulkan::settings::height = 720;
 uint8_t ext::vulkan::settings::msaa = 1;
-bool ext::vulkan::settings::validation = true;
+
 bool ext::vulkan::settings::defaultStageBuffers = true;
 bool ext::vulkan::settings::defaultDeferBufferDestroy = true;
-bool ext::vulkan::settings::defaultCommandBufferWait = true;
+bool ext::vulkan::settings::defaultCommandBufferImmediate = true;
+size_t ext::vulkan::settings::defaultTimeout = UINT64_MAX; // 100000000000;
 
 size_t ext::vulkan::settings::viewCount = 2;
 size_t ext::vulkan::settings::gpuID = -1;
 size_t ext::vulkan::settings::scratchBufferAlignment = 256;
 size_t ext::vulkan::settings::scratchBufferInitialSize = 1024 * 1024;
-size_t ext::vulkan::settings::defaultTimeout = UINT64_MAX; // 100000000000;
-
-uf::stl::vector<uf::stl::string> ext::vulkan::settings::validationFilters;
-uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceFeatures;
-uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedDeviceExtensions;
-uf::stl::vector<uf::stl::string> ext::vulkan::settings::requestedInstanceExtensions;
-uf::Serializer ext::vulkan::settings::requestedFeatureChain;
 
 VkFilter ext::vulkan::settings::swapchainUpscaleFilter = VK_FILTER_LINEAR;
+
+bool ext::vulkan::settings::validation::enabled = false;
+bool ext::vulkan::settings::validation::messages = false;
+bool ext::vulkan::settings::validation::checkpoints = false;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::validation::filters;
+
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requested::deviceFeatures;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requested::deviceExtensions;
+uf::stl::vector<uf::stl::string> ext::vulkan::settings::requested::instanceExtensions;
+uf::Serializer ext::vulkan::settings::requested::featureChain;
 
 // these go hand in hand for the above
 bool ext::vulkan::settings::experimental::dedicatedThread = true;
@@ -91,12 +95,13 @@ ext::vulkan::Allocator ext::vulkan::allocator;
 ext::vulkan::Swapchain ext::vulkan::swapchain;
 std::mutex ext::vulkan::mutex;
 
+bool ext::vulkan::states::initialized = false;
 bool ext::vulkan::states::resized = false;
 bool ext::vulkan::states::rebuild = false;
 uint32_t ext::vulkan::states::currentBuffer = 0;
 uint32_t ext::vulkan::states::frameAccumulate = 0;
 bool ext::vulkan::states::frameAccumulateReset = false;
-bool ext::vulkan::states::frameSkip = false;
+uint32_t ext::vulkan::states::frameSkip = 0;
 
 uf::ThreadUnique<ext::vulkan::RenderMode*> ext::vulkan::currentRenderMode;
 
@@ -124,14 +129,32 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData
 ) {
+	if ( !(messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) ) return VK_FALSE;
+
 	uf::stl::string message = pCallbackData->pMessage;
-	for ( auto& filter : ext::vulkan::settings::validationFilters ) {
+	for ( auto& filter : ext::vulkan::settings::validation::filters ) {
 		if ( message.find(::fmt::format("MessageID = {}", filter)) != uf::stl::string::npos ) return VK_FALSE;
 	}
 	UF_MSG_ERROR("[Validation Layer] {}", message);
 	return VK_FALSE;
 }
 
+uf::stl::string ext::vulkan::retrieveCheckpoint( VkQueue queue ) {
+	uint32_t size = 0;
+	vkGetQueueCheckpointDataNV(queue, &size, 0);
+
+	std::vector<VkCheckpointDataNV> checkpoints(size, { VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV });
+	vkGetQueueCheckpointDataNV(queue, &size, checkpoints.data());
+
+	uf::stl::vector<uf::stl::string> strings;
+	UF_MSG_DEBUG("{}: {}", size, checkpoints.size());
+
+	for ( auto& checkpoint : checkpoints ) {
+		strings.emplace_back(::fmt::format( "{} | {} | {}:\n{}", ::fmt::ptr(queue), checkpoint.stage, ::fmt::ptr(checkpoint.pCheckpointMarker), uf::checkpoint::traverse( (pod::Checkpoint*) checkpoint.pCheckpointMarker )));
+	}
+
+	return uf::string::join( strings, "\n" );
+}
 uf::stl::string ext::vulkan::errorString( VkResult result ) {
 	switch ( result ) {
 #define STR(r) case VK_ ##r: return #r
@@ -379,6 +402,7 @@ void ext::vulkan::initialize() {
 	}
 #endif
 
+	ext::vulkan::states::initialized = true;
 //	ext::vulkan::mutex.unlock();
 }
 void ext::vulkan::tick() {
@@ -411,68 +435,34 @@ void ext::vulkan::tick() {
 			if ( settings::invariant::individualPipelines ) renderMode->bindPipelines();
 			renderMode->createCommandBuffers();
 		});
-	}
+		else if ( renderMode->rerecord ) tasks.queue([&]{
+			renderMode->createCommandBuffers();
+		});
+	} 
 
 	uf::thread::execute( tasks );
 	
 	ext::vulkan::states::rebuild = false;
 	ext::vulkan::states::resized = false;
+	
+//	ext::vulkan::flushCommandBuffers();
 //	ext::vulkan::mutex.unlock();
 }
-void ext::vulkan::render() {
+void ext::vulkan::render() {	
+//	ext::vulkan::mutex.lock();
+	ext::vulkan::flushCommandBuffers();
+
+/*
 	if ( ext::vulkan::states::frameSkip ) {
-		ext::vulkan::states::frameSkip = false;
+		--ext::vulkan::states::frameSkip;
+		ext::vulkan::states::rebuild = true;
 		return;
 	}
-//	ext::vulkan::mutex.lock();
+*/
 
-	// cleanup in-flight commands
 	ext::vulkan::mutex.lock();
 	auto transient = std::move(device.transient);
 	ext::vulkan::mutex.unlock();
-
-	for ( auto& pair : /*device.*/transient.commandBuffers ) {
-		auto queueType = pair.first;
-		auto& commandBuffers = pair.second;
-		
-		for ( auto& pair : commandBuffers ) {
-			auto threadId = pair.first;
-			auto commandBuffers = pair.second;
-		#if 0
-			VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
-			submitInfo.commandBufferCount = commandBuffers.size();
-			submitInfo.pCommandBuffers = commandBuffers.data();
-
-			auto queue = device.getQueue( queueType, threadId );
-			VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
-		#else
-			auto queue = device.getQueue( queueType, threadId );
-		#endif
-			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-
-			auto commandPool = device.getCommandPool( queueType, threadId );
-			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
-		}
-
-		commandBuffers.clear();
-	}
-#if 0
-	// process reusable commands
-	{
-		for ( auto& pair : device.reusable.commandBuffers ) {
-			auto queueType = pair.first;
-			auto& cb = pair.second;
-			auto& commandBuffer = cb.commandBuffer;
-
-			auto queue = device.getQueue( queueType );
-			auto commandPool = device.getCommandPool( queueType );
-
-			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-			vkResetCommandBuffer(device, commandPool, 1, &commandBuffer);
-			cb.state = 0;
-		}
-	}
-#endif
 
 	if ( settings::experimental::batchQueueSubmissions ) {
 		uf::stl::vector<VkFence> fences = { ::auxFences.compute[states::currentBuffer], ::auxFences.graphics[states::currentBuffer] };
@@ -507,6 +497,8 @@ void ext::vulkan::render() {
 //			});
 		}
 //		uf::thread::execute( tasks );
+
+//		ext::vulkan::flushCommandBuffers();
 		
 		VK_CHECK_RESULT(vkWaitForFences(device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT));
 		VK_CHECK_RESULT(vkResetFences(device, fences.size(), fences.data()));
@@ -553,13 +545,18 @@ void ext::vulkan::render() {
 	if ( ext::vulkan::settings::invariant::waitOnRenderEnd ) synchronize();
 //	if ( ext::openvr::context ) ext::openvr::postSubmit();
 
+//	ext::vulkan::mutex.unlock();
+
 	// cleanup in-flight buffers
 	for ( auto& buffer : transient.buffers ) buffer.destroy(false);
 	transient.buffers.clear();
-
-//	ext::vulkan::mutex.unlock();
+	
+	for ( auto& as : transient.ass ) uf::renderer::vkDestroyAccelerationStructureKHR(device, as.handle, nullptr);
+	transient.ass.clear();
 }
 void ext::vulkan::destroy() {
+	ext::vulkan::flushCommandBuffers();
+
 //	ext::vulkan::mutex.lock();
 	synchronize();
 
@@ -600,6 +597,58 @@ void ext::vulkan::synchronize( uint8_t flag ) {
 	}
 	if ( flag & 0b10 )
 		vkDeviceWaitIdle( device );
+}
+void ext::vulkan::flushCommandBuffers() {
+	// cleanup in-flight commands
+	ext::vulkan::mutex.lock();
+	auto transientCommandBuffers = std::move(device.transient.commandBuffers);
+	ext::vulkan::mutex.unlock();
+
+	for ( auto& pair : transientCommandBuffers ) {
+		auto queueType = pair.first;
+		auto& commandBuffers = pair.second;
+		
+		for ( auto& pair : commandBuffers ) {
+			auto threadId = pair.first;
+			auto& tuple = pair.second;
+		
+			auto queue = device.getQueue( queueType, threadId );
+
+			VkResult res = vkWaitForFences( device, tuple.fences.size(), tuple.fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+
+			for ( auto& commandBuffer : tuple.commandBuffers ) {
+				uf::checkpoint::deallocate(device.checkpoints[commandBuffer]);
+				device.checkpoints[commandBuffer] = NULL;
+				device.checkpoints.erase(commandBuffer);
+			}
+			for ( auto& fence : tuple.fences ) {
+				device.destroyFence( fence );
+			}
+
+			auto commandPool = device.getCommandPool( queueType, threadId );
+			vkFreeCommandBuffers(device, commandPool, tuple.commandBuffers.size(), tuple.commandBuffers.data());
+		}
+
+		commandBuffers.clear();
+	}
+#if 0
+	// process reusable commands
+	{
+		for ( auto& pair : device.reusable.commandBuffers ) {
+			auto queueType = pair.first;
+			auto& cb = pair.second;
+			auto& commandBuffer = cb.commandBuffer;
+
+			auto queue = device.getQueue( queueType );
+			auto commandPool = device.getCommandPool( queueType );
+
+			VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+			vkResetCommandBuffer(device, commandPool, 1, &commandBuffer);
+			cb.state = 0;
+		}
+	}
+#endif
 }
 
 uf::stl::string ext::vulkan::allocatorStats() {

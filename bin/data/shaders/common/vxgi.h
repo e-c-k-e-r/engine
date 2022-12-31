@@ -69,7 +69,7 @@ vec4 voxelTrace( inout Ray ray, float maxDistance ) {
 	return voxelTrace( ray, 0, maxDistance );
 }
 uint voxelShadowsCount = 0;
-float voxelShadowFactor( const Light light, float def ) {
+float shadowFactorVXGI( const Light light, float def ) {
 	if ( ubo.settings.vxgi.shadows < ++voxelShadowsCount ) return 1.0;
 
 	const float SHADOW_APERTURE = 0.2;
@@ -81,7 +81,7 @@ float voxelShadowFactor( const Light light, float def ) {
 	float z = distance( surface.position.world, light.position ) - DEPTH_BIAS;
 	return 1.0 - voxelTrace( ray, SHADOW_APERTURE, z ).a;
 }
-void indirectLighting() {
+void indirectLightingVXGI() {
 	voxelInfo.radianceSize = textureSize( voxelRadiance[0], 0 ).x;
 	voxelInfo.radianceSizeRecip = 1.0 / voxelInfo.radianceSize;
 	voxelInfo.mipmapLevels = log2(voxelInfo.radianceSize) + 1;
@@ -174,11 +174,12 @@ void indirectLighting() {
 	indirectSpecular *= SPECULAR_INDIRECT_FACTOR;
 
 
-	surface.material.indirect = indirectDiffuse + indirectSpecular;
+	surface.material.indirect += indirectDiffuse + indirectSpecular;
 //	outFragColor.rgb = surface.material.indirect.rgb; return;
 	
 	// deferred sampling doesn't have a blended albedo buffer
 	// in place we'll just cone trace behind the window
+#if !RT
 	if ( surface.material.albedo.a < 1.0 ) {
 		Ray ray;
 		ray.direction = surface.ray.direction;
@@ -186,4 +187,5 @@ void indirectLighting() {
 		vec4 radiance = voxelConeTrace( ray, surface.material.albedo.a * 0.5 );
 		surface.fragment.rgb += (1.0 - surface.material.albedo.a) * radiance.rgb;
 	}
+#endif
 }

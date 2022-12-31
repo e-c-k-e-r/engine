@@ -266,7 +266,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	/* Screenshot */ {
 		TIMER(1, uf::inputs::kbm::states::F11 ) {
 			auto& renderMode = uf::renderer::getRenderMode("Swapchain", true);
-			auto image = renderMode.screenshot(uf::renderer::states::currentBuffer);
+			auto image = renderMode.screenshot(uf::renderer::states::currentBuffer ? 0 : 1);
 
 			std::time_t t = std::time(nullptr);
 			const uf::stl::string filename = ::fmt::format("{}/screenshots/{:%Y-%m-%d_%H-%M-%S}.png", uf::io::root, ::fmt::localtime(t));
@@ -274,12 +274,14 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 			UF_MSG_DEBUG("Screenshot saved to {}", filename);
 		}
 	}
-	/* Screenshot */ {
+#if 0
+	/* Force Rebuild */ {
 		TIMER(1, uf::inputs::kbm::states::R ) {
 			uf::renderer::states::rebuild = true;
 			UF_MSG_DEBUG("Rebuild requested");
 		}
 	}
+#endif
 #endif
 #if 0
 	/* Mark as ready for multithreading */ {
@@ -379,7 +381,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	if ( metadata.light.enabled ) {
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
-		auto& camera = controller.getComponent<uf::Camera>();
+	//	auto& camera = controller.getComponent<uf::Camera>();
+		auto& camera = this->getCamera( controller );
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -444,7 +447,8 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	{
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
-		auto& camera = controller.getComponent<uf::Camera>();
+	//	auto& camera = controller.getComponent<uf::Camera>();
+		auto& camera = this->getCamera( controller );
 		auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 		auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 		auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -841,7 +845,8 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, const uf::stl::string
 void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic& graphic, const uf::stl::string& shaderType, const uf::stl::string& shaderPipeline ) {
 	auto/*&*/ graph = this->getGraph();
 	auto& controller = this->getController();
-	auto& camera = controller.getComponent<uf::Camera>();
+//	auto& camera = controller.getComponent<uf::Camera>();
+	auto& camera = this->getCamera( controller );
 	auto& controllerMetadata = controller.getComponent<uf::Serializer>();
 	auto& controllerTransform = controller.getComponent<pod::Transform<>>();
 	auto& metadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -982,6 +987,9 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	while ( texturesCube.size() < metadata.max.texturesCube ) texturesCube.emplace_back().aliasTexture(uf::renderer::TextureCube::empty);
 	while ( textures3D.size() < metadata.max.textures3D ) textures3D.emplace_back().aliasTexture(uf::renderer::Texture3D::empty);
 
+	static uf::stl::unordered_map<uf::stl::string, UniformDescriptor> previousUniformsMap;
+	auto& previousUniforms = previousUniformsMap[shaderType+":"+shaderPipeline+":"+std::to_string(&graphic)];
+
 	// update uniform information
 	// hopefully write combining kicks in
 	UniformDescriptor uniforms; {
@@ -996,7 +1004,7 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 				.projection = projection,
 				
 				.model = projection * camera.getView(i),
-				.previous = camera.getPrevious(i),
+				.previous = previousUniforms.matrices[i].model,
 
 				.iView = uf::matrix::inverse( camera.getView(i) ),
 				.iProjection = uf::matrix::inverse( projection ),
@@ -1088,7 +1096,6 @@ void ext::ExtSceneBehavior::bindBuffers( uf::Object& self, uf::renderer::Graphic
 	auto& shader = graphic.material.getShader(shaderType, shaderPipeline);
 	shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 
-	static UniformDescriptor previousUniforms;
 	bool shouldUpdate2 = !uf::matrix::equals( uniforms.matrices[0].view, previousUniforms.matrices[0].view, 0.0001f );
 	if ( shouldUpdate || shouldUpdate2 ) {
 		metadata.shader.frameAccumulateReset = true;

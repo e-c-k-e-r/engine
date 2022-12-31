@@ -31,6 +31,7 @@ namespace ext {
 				uf::stl::string type = "";
 				bool process = true;
 				bool rebuild = false;
+				bool built = false;
 			} metadata;
 
 			void initialize( const Graphic& graphic );

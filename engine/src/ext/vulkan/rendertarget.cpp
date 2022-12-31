@@ -61,7 +61,7 @@ size_t ext::vulkan::RenderTarget::attach( const Attachment::Descriptor& descript
 		attachment->descriptor.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	if ( attachment->descriptor.mips == 0 ) {
+	if ( attachment->descriptor.mips <= 1 ) {
 		attachment->descriptor.mips = 1;
 	} else {
 		attachment->descriptor.mips = uf::vector::mips( pod::Vector2ui{ width, height } );

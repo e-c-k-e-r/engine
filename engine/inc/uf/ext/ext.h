@@ -44,6 +44,7 @@ namespace ext {
 	extern uf::Serializer EXT_API config;
 	
 	extern void EXT_API load();
+	extern void EXT_API load( ext::json::Value& );
 	extern void EXT_API initialize();
 	extern bool EXT_API running();
 	extern void EXT_API tick();

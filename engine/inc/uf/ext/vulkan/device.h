@@ -5,6 +5,8 @@
 #include <uf/utils/window/window.h>
 #include <uf/utils/thread/thread.h>
 #include <uf/utils/thread/perthread.h>
+#include <uf/utils/memory/stack.h>
+#include <uf/utils/debug/checkpoint.h>
 
 namespace ext {
 	namespace vulkan {
@@ -18,7 +20,10 @@ namespace ext {
 			bool immediate{true};
 			QueueEnum queueType{QueueEnum::TRANSFER};
 			VkCommandBuffer handle{VK_NULL_HANDLE};
+			VkFence fence{VK_NULL_HANDLE};
 			std::thread::id threadId{std::this_thread::get_id()};
+			
+			pod::Checkpoint* checkpoint = NULL;
 
 			operator VkCommandBuffer() { return handle; }
 		};
@@ -46,13 +51,19 @@ namespace ext {
 			VkPhysicalDeviceMemoryProperties2 memoryProperties2;
 
 			struct {
-				uf::stl::vector<VkExtensionProperties> instance;
-				uf::stl::vector<VkExtensionProperties> device;
-			} extensionProperties;
-			struct {
-				uf::stl::vector<uf::stl::string> instance;
-				uf::stl::vector<uf::stl::string> device;
-			} supportedExtensions;
+				struct {
+					uf::stl::vector<VkExtensionProperties> instance;
+					uf::stl::vector<VkExtensionProperties> device;
+				} properties;
+				struct {
+					uf::stl::vector<uf::stl::string> instance;
+					uf::stl::vector<uf::stl::string> device;
+				} supported;
+				struct {
+					uf::stl::unordered_map<uf::stl::string, bool> instance;
+					uf::stl::unordered_map<uf::stl::string, bool> device;
+				} enabled;
+			} extensions;
 			
 			VkPipelineCache pipelineCache;
 
@@ -66,16 +77,22 @@ namespace ext {
 			} queues;
 
 			struct {
+				struct CommandBuffer {
+					std::vector<VkCommandBuffer> commandBuffers;
+					std::vector<VkFence> fences;
+				};
+
+				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<std::thread::id, CommandBuffer>> commandBuffers;
+				
 				uf::stl::vector<Buffer> buffers;
-				uf::stl::unordered_map<QueueEnum, uf::stl::unordered_map<std::thread::id, std::vector<VkCommandBuffer>>> commandBuffers;
+				uf::stl::vector<AccelerationStructure> ass;
 			} transient;
 
-		/*
 			struct {
-				uf::stl::vector<Buffer> buffers;
-				uf::stl::unordered_map<QueueEnum, CommandBuffer> commandBuffers;
+				uf::stl::stack<VkFence> fences;
 			} reusable;
-		*/
+
+			uf::stl::unordered_map<VkCommandBuffer, pod::Checkpoint*> checkpoints;
 
 			uf::Window* window;
 
@@ -92,11 +109,15 @@ namespace ext {
 			uint32_t getMemoryType( uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32 *memTypeFound = nullptr );
 
 			VkCommandBuffer createCommandBuffer( VkCommandBufferLevel level, QueueEnum queue, bool begin = true );
-			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool wait = false );
+			void flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queue, bool wait = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
+			pod::Checkpoint* markCommandBuffer( VkCommandBuffer commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
 
-		//	CommandBuffer fetchCommandBuffer( QueueEnum queue );
-			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_WAIT );
-			void flushCommandBuffer( CommandBuffer commandBuffer );
+			CommandBuffer fetchCommandBuffer( QueueEnum queue, bool waits = VK_DEFAULT_COMMAND_BUFFER_IMMEDIATE );
+			void flushCommandBuffer( CommandBuffer& commandBuffer );
+			pod::Checkpoint* markCommandBuffer( CommandBuffer& commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info );
+
+			VkFence getFence();
+			void destroyFence( VkFence );
 
 			ext::vulkan::Buffer createBuffer(
 				const void* data,

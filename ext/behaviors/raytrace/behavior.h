@@ -30,6 +30,10 @@ namespace ext {
 				uint32_t samples = 1;
 				uint32_t paths = 1;
 				uint32_t frameAccumulationMinimum = 0;
+				bool rebuild = false;
+				
+				bool ready = false;
+				float readyTimer = 0;
 			} settings;
 		);
 	}

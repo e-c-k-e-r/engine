@@ -27,7 +27,7 @@ namespace pod {
 			} matrices[uf::camera::maxViews];
 		} viewport;
 		
-		pod::Matrix4f previous[uf::camera::maxViews];
+	//	pod::Matrix4f previous[uf::camera::maxViews];
 
 	/*
 		struct Metadata {

@@ -133,6 +133,7 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 
 	//	for ( auto& i : graph.images ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[i] );
 	//	for ( auto pair : uf::graph::storage.texture2Ds.map ) graphic.material.textures.emplace_back().aliasTexture( pair.second );
+
 		for ( auto& key : uf::graph::storage.texture2Ds.keys ) graphic.material.textures.emplace_back().aliasTexture( uf::graph::storage.texture2Ds.map[key] );
 
 		// bind scene's voxel texture
@@ -397,8 +398,122 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
 		}
 	}
-	// rt pipeline
 	if ( uf::renderer::settings::pipelines::rt ) {
+		// rt pipeline
+		if ( mesh.vertex.count && graph.metadata["renderer"]["skinned"].as<bool>() ) {
+
+			struct PushConstant {
+				uint32_t jointID;
+			};
+
+			if ( mesh.isInterleaved( mesh.vertex ) ) {
+				auto& vertexSourceData = mesh.buffers[mesh.vertex.interleaved];
+				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+				
+			/*
+				auto& vertexIn = graphic.buffers.at(vertexSourceDataIndex);
+				auto& vertexOut = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
+			*/
+				auto& vertexIn = graphic.buffers.at(graphic.descriptor.inputs.vertex.interleaved);
+				auto& vertexOut = graphic.buffers.at(vertexSourceDataIndex);
+				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.interleaved.comp.spv");
+				{
+					graphic.material.metadata.autoInitializeUniformBuffers = false;
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
+					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+					graphic.material.metadata.autoInitializeUniformBuffers = true;
+				}
+				graphic.descriptor.bind.width = mesh.vertex.count;
+				graphic.descriptor.bind.height = 1;
+				graphic.descriptor.bind.depth = 1;
+
+				auto& shader = graphic.material.getShader("compute", "skinning");
+
+				struct {
+					uint32_t jointID;
+				} uniforms = {
+					.jointID = 0
+				};
+
+				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+				shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+				shader.buffers.emplace_back( vertexIn.alias() );
+				shader.buffers.emplace_back( vertexOut.alias() );
+			} else {
+				uf::Mesh::Attribute vertexPos;
+				uf::Mesh::Attribute vertexJoints;
+				uf::Mesh::Attribute vertexWeights;
+
+				size_t vertexPosIndex = 0;
+				size_t vertexJointsIndex = 0;
+				size_t vertexWeightsIndex = 0;
+
+				for ( size_t i = 0; i < graphic.descriptor.inputs.vertex.attributes.size(); ++i ) {
+					auto& attribute = graphic.descriptor.inputs.vertex.attributes[i];
+
+					if ( attribute.buffer < 0 ) continue;
+					if ( attribute.descriptor.name == "position" ) {
+						vertexPos = attribute; 
+						vertexPosIndex = graphic.metadata.buffers["vertex[position]"];
+					}
+					else if ( attribute.descriptor.name == "joints" ) {
+						vertexJoints = attribute;
+						vertexJointsIndex = graphic.metadata.buffers["vertex[joints]"];
+					}
+					else if ( attribute.descriptor.name == "weights" ) {
+						vertexWeights = attribute;
+						vertexWeightsIndex = graphic.metadata.buffers["vertex[weights]"];
+					}
+				}
+
+				auto& vertexSourceData = mesh.buffers[vertexPos.buffer];
+				size_t vertexSourceDataIndex = graphic.initializeBuffer( (const void*) vertexSourceData.data(), vertexSourceData.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR );
+
+			/*
+				auto& vertexPositionBuffer = graphic.buffers.at(vertexSourceDataIndex);
+				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
+				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
+
+				auto& vertexOutPosition = graphic.buffers.at(vertexPosIndex);
+			*/
+				auto& vertexPositionBuffer = graphic.buffers.at(vertexPosIndex);
+				auto& vertexJointsBuffer = graphic.buffers.at(vertexJointsIndex);
+				auto& vertexWeightsBuffer = graphic.buffers.at(vertexWeightsIndex);
+
+				auto& vertexOutPosition = graphic.buffers.at(vertexSourceDataIndex);
+				graphic.metadata.buffers["vertexSkinned"] = vertexSourceDataIndex;
+
+				uf::stl::string compShaderFilename = graph.metadata["shaders"]["skinning"]["compute"].as<uf::stl::string>("/graph/skinning/skinning.deinterleaved.comp.spv");
+				{
+				//	graphic.material.metadata.autoInitializeUniformBuffers = false;
+					compShaderFilename = entity.resolveURI( compShaderFilename, root );
+					graphic.material.attachShader(compShaderFilename, uf::renderer::enums::Shader::COMPUTE, "skinning");
+				//	graphic.material.metadata.autoInitializeUniformBuffers = true;
+				}
+				graphic.descriptor.bind.width = mesh.vertex.count;
+				graphic.descriptor.bind.height = 1;
+				graphic.descriptor.bind.depth = 1;
+
+				auto& shader = graphic.material.getShader("compute", "skinning");
+
+				struct {
+					uint32_t jointID;
+				} uniforms = {
+					.jointID = 0
+				};
+
+				shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+
+				shader.buffers.emplace_back( uf::graph::storage.buffers.joint.alias() );
+				shader.buffers.emplace_back( vertexPositionBuffer.alias() );
+				shader.buffers.emplace_back( vertexJointsBuffer.alias() );
+				shader.buffers.emplace_back( vertexWeightsBuffer.alias() );
+				shader.buffers.emplace_back( vertexOutPosition.alias() );
+			}
+		}
 		graphic.generateBottomAccelerationStructures();
 	}
 
@@ -1441,11 +1556,13 @@ void uf::graph::tick() {
 	}
 }
 void uf::graph::render() {	
+	auto* renderMode = uf::renderer::getCurrentRenderMode();
+	
 	auto& scene = uf::scene::getCurrentScene();
 	auto& controller = scene.getController();
-	auto& camera = controller.getComponent<uf::Camera>();
+	auto& camera = scene.getCamera( controller ); // controller.getComponent<uf::Camera>();
 	
-	camera.update();
+//	camera.update();
 	auto viewport = camera.data().viewport;
 
 #if UF_USE_FFX_FSR
@@ -1460,7 +1577,6 @@ void uf::graph::render() {
 	uf::graph::storage.buffers.camera.update( (const void*) &viewport, sizeof(pod::Camera::Viewports) );
 
 #if UF_USE_VULKAN
-	auto* renderMode = uf::renderer::getCurrentRenderMode();
 	if ( !renderMode ) return;
 	if ( !renderMode->hasBuffer("camera") ) return;
 	auto& buffer = renderMode->getBuffer("camera");

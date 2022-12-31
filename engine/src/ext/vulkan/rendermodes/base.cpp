@@ -90,10 +90,13 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 	scissor.offset.y = 0;
 	
 	for (size_t i = 0; i < commands.size(); ++i) {
+		
+		auto& commandBuffer = commands[i];
 		renderPassBeginInfo.framebuffer = renderTarget.framebuffers[i];
 		
-		VK_CHECK_RESULT(vkBeginCommandBuffer(commands[i], &cmdBufInfo));
-		// Fill GBuffer
+
+		VK_CHECK_RESULT(vkBeginCommandBuffer(commandBuffer, &cmdBufInfo));
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
 		{
 			size_t currentSubpass = 0;
 
@@ -114,7 +117,6 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 					imageMemoryBarrier.dstQueueFamilyIndex = ext::vulkan::device.queueFamilyIndices.graphics;
 				}
 				imageMemoryBarrier.image = renderTarget.attachments[i].image;
-			//	imageMemoryBarrier.subresourceRange = subResourceRange;
 				imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
 				imageMemoryBarrier.subresourceRange.levelCount = 1;
 				imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
@@ -122,30 +124,20 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
 
-				vkCmdPipelineBarrier(commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
 			
-			// transition layers for read
-		/*
-			for ( auto layer : layers ) {
-				layer->pipelineBarrier( commands[i], 0 );
-			}
-		*/
-		/*
-			for ( auto _ : layers ) {
-				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-				auto& blitter = layer->blitter;
-				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
-				layer->pipelineBarrier( commands[i], 0 );
-			}
-		*/
-
 			// pre-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) commandBufferCallbacks[CALLBACK_BEGIN]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_BEGIN) > 0 ) {
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[begin]" );
+				commandBufferCallbacks[CALLBACK_BEGIN]( commandBuffer, i );
+			}
 
-			vkCmdBeginRenderPass(commands[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-				vkCmdSetViewport(commands[i], 0, 1, &viewport);
-				vkCmdSetScissor(commands[i], 0, 1, &scissor);
+			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "renderPass[begin]" );
+			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 				// render to geometry buffers
 				for ( size_t eye = 0; eye < metadata.eyes; ++eye ) {
 					size_t currentPass = 0;
@@ -157,13 +149,18 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 						auto& blitter = layer->blitter;
 						if ( !blitter.initialized || !blitter.process || blitter.descriptor.subpass != currentPass || blitter.descriptor.renderMode != this->getName() ) continue;
 						ext::vulkan::GraphicDescriptor descriptor = blitter.descriptor; // bindGraphicDescriptor(blitter.descriptor, currentSubpass);
-						blitter.record(commands[i], descriptor);
+						device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, ::fmt::format("blitter[{}: {}]", layer->getName(), layer->getType()) );
+						blitter.record(commandBuffer, descriptor);
 					}
 				}
-			vkCmdEndRenderPass(commands[i]);
+			device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "renderPass[end]" );
+			vkCmdEndRenderPass(commandBuffer);
 
 			// post-renderpass commands
-			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) commandBufferCallbacks[CALLBACK_END]( commands[i], i );
+			if ( commandBufferCallbacks.count(CALLBACK_END) > 0 ) {
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "callback[end]" );
+				commandBufferCallbacks[CALLBACK_END]( commandBuffer, i );
+			}
 
 			// need to transfer it back, if they differ
 			if ( ext::vulkan::device.queueFamilyIndices.graphics != ext::vulkan::device.queueFamilyIndices.present ) {
@@ -184,24 +181,13 @@ void ext::vulkan::BaseRenderMode::createCommandBuffers( const uf::stl::vector<ex
 				imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 				renderTarget.attachments[i].descriptor.layout = imageMemoryBarrier.newLayout;
 
-				vkCmdPipelineBarrier(commands[i], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+				device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
+				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 			}
-
-		/*
-			for ( auto _ : layers ) {
-				RenderTargetRenderMode* layer = (RenderTargetRenderMode*) _;
-				auto& blitter = layer->blitter;
-				if ( !blitter.initialized || !blitter.process || blitter.descriptor.renderMode != this->getName() ) continue;
-				layer->pipelineBarrier( commands[i], 1 );
-			}
-		*/
-		/*
-			for ( auto layer : layers ) {
-				layer->pipelineBarrier( commands[i], 1 );
-			}
-		*/
 		}
-		VK_CHECK_RESULT(vkEndCommandBuffer(commands[i]));
+
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
+		VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
 	}
 }
 
@@ -241,14 +227,23 @@ void ext::vulkan::BaseRenderMode::render() {
 	submitInfo.commandBufferCount = 1;
 
 	// Submit to the graphics queue passing a wait fence
-	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));
-	//vkQueueSubmit(device->queues.graphics, 1, &submitInfo, fences[states::currentBuffer]);
+//	VK_CHECK_RESULT(vkQueueSubmit( device->getQueue( QueueEnum::GRAPHICS ), 1, &submitInfo, fences[states::currentBuffer]));	
+	{
+		VkQueue queue = device->getQueue( QueueEnum::GRAPHICS );
+		VkResult res = vkQueueSubmit( queue, 1, &submitInfo, fences[states::currentBuffer]);
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	}
 	
 	// Present the current buffer to the swap chain
 	// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
 	// This ensures that the image is not presented to the windowing system until all commands have been submitted
 	VK_CHECK_RESULT(swapchain.queuePresent(device->getQueue( QueueEnum::PRESENT ), states::currentBuffer, renderCompleteSemaphore));
-	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT )));
+//	VK_CHECK_RESULT(vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT )));
+	{
+		VkQueue queue = device->getQueue( QueueEnum::PRESENT );
+		VkResult res = vkQueueWaitIdle(device->getQueue( QueueEnum::PRESENT ));
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+	}
 
 	this->executed = true;
 

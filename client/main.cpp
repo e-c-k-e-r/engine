@@ -11,13 +11,22 @@
 
 #include <filesystem>
 #include <signal.h>
+#include <cstdlib>
 
 namespace {
+	bool killing = true;
 	namespace handlers {
+
 		void exit() {
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
 		#endif
+
+			std::ofstream output;
+			output.open(uf::io::root+"/logs/crash.txt");
+			for ( const auto& str : uf::iostream.getHistory() ) output << str << "\n";
+			output.close();
+			
 			if ( client::terminated ) return;
 			UF_MSG_INFO("Termination via std::atexit()!");
 			ext::ready = false;
@@ -28,19 +37,31 @@ namespace {
 		}
 
 		void abrt( int sig ) {
-			ext::ready = false;
 			UF_MSG_ERROR("Abort detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
 		#endif
+
+			if ( ::killing ) {
+				std::_Exit(0);
+			} else if ( !client::terminated ) {
+				::killing = true;
+				exit();
+			}
 		}
 
 		void segv( int sig ) {
-			ext::ready = false;
 			UF_MSG_ERROR("Segfault detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
 		#endif
+
+			if ( ::killing ) {
+				std::_Exit(0);
+			} else if ( !client::terminated ) {
+				::killing = true;
+				exit();
+			}
 		}
 	}
 }

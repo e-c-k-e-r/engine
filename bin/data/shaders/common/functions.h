@@ -290,6 +290,17 @@ bool isValidAddress( uint64_t address ) {
 #endif
 }
 
+uvec4 uvec2_16x4( uvec2 i ) {
+	uvec4 converted;
+
+	converted.x = (i.x >> 16) & 0xFFFF;
+	converted.y = (i.x >>  0) & 0xFFFF;
+	converted.z = (i.y >> 16) & 0xFFFF;
+	converted.w = (i.y >>  0) & 0xFFFF;
+
+	return converted;
+}
+
 #if BUFFER_REFERENCE
 void populateSurface( InstanceAddresses instanceAddresses, uvec3 indices ) {
 	Triangle triangle;

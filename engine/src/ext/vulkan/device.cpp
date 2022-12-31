@@ -12,6 +12,9 @@
 
 #include <uf/utils/serialize/serializer.h>
 
+PFN_vkCmdSetCheckpointNV ext::vulkan::vkCmdSetCheckpointNV = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+PFN_vkGetQueueCheckpointDataNV ext::vulkan::vkGetQueueCheckpointDataNV = NULL; // = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
+
 namespace {
 	struct DeviceInfo {
 		VkPhysicalDevice handle = VK_NULL_HANDLE;
@@ -234,7 +237,7 @@ namespace {
 			} else VK_VALIDATION_MESSAGE("Failed to enable feature: {}", feature);\
 		}
 
-		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
+		for ( auto& feature : ext::vulkan::settings::requested::deviceFeatures ) {
 			CHECK_FEATURE(robustBufferAccess);
 			CHECK_FEATURE(fullDrawIndexUint32);
 			CHECK_FEATURE(imageCubeArray);
@@ -385,7 +388,7 @@ namespace {
 			} else VK_VALIDATION_MESSAGE("Failed to enable feature: {}", feature);\
 		}
 
-		for ( auto& feature : ext::vulkan::settings::requestedDeviceFeatures ) {
+		for ( auto& feature : ext::vulkan::settings::requested::deviceFeatures ) {
 			CHECK_FEATURE(samplerMirrorClampToEdge);
 			CHECK_FEATURE(drawIndirectCount);
 			CHECK_FEATURE(storageBuffer8BitAccess);
@@ -562,49 +565,54 @@ VkCommandBuffer ext::vulkan::Device::createCommandBuffer( VkCommandBufferLevel l
 	if ( begin ) {
 		VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
 		VK_CHECK_RESULT( vkBeginCommandBuffer( commandBuffer, &cmdBufInfo ) );
+		UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::BEGIN, "begin" );
 	}
 	return commandBuffer;
 }
 void ext::vulkan::Device::flushCommandBuffer( VkCommandBuffer commandBuffer, QueueEnum queueType, bool immediate ) {
 	if ( commandBuffer == VK_NULL_HANDLE ) return;
 
+	UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::END, "end" );
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer ) );
 
-#if 0
-	if ( immediate ) {
-		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
+	VkFence fence = this->getFence();
 
-		auto queue = getQueue( queueType );
-		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
-	}
-#else
 	VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer;
 
 	auto queue = getQueue( queueType );
-	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
 
 	if ( immediate ) {
-		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+
+		uf::checkpoint::deallocate(checkpoints[commandBuffer]);
+		checkpoints[commandBuffer] = NULL;
+		checkpoints.erase(commandBuffer);
+
+		this->destroyFence( fence );
+
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( queueType ), 1, &commandBuffer);
-	}
-#endif
-	else {
+	} else {
 		ext::vulkan::mutex.lock();
-		this->transient.commandBuffers[queueType][std::this_thread::get_id()].emplace_back(commandBuffer);
+		auto& transient = this->transient.commandBuffers[queueType][std::this_thread::get_id()];
+		transient.commandBuffers.emplace_back(commandBuffer);
+		transient.fences.emplace_back(fence);
 		ext::vulkan::mutex.unlock();
 	}
 }
-/*
-ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType ){
-	return fetchCommandBuffer( queueType, ext::vulkan::settings::defaultCommandBufferWait );
+pod::Checkpoint* ext::vulkan::Device::markCommandBuffer( VkCommandBuffer commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info ) {
+	if ( !ext::vulkan::settings::validation::checkpoints ) return NULL;
+
+	pod::Checkpoint* previous = checkpoints[commandBuffer];
+	pod::Checkpoint* pointer = uf::checkpoint::allocate( type, name, info, previous );
+	if ( ext::vulkan::vkCmdSetCheckpointNV ) ext::vulkan::vkCmdSetCheckpointNV(commandBuffer, pointer);
+	checkpoints[commandBuffer] = pointer;
+	return pointer;	
 }
-*/
+
 ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan::QueueEnum queueType, bool immediate ){
 	return {
 		.immediate = immediate,
@@ -612,67 +620,71 @@ ext::vulkan::CommandBuffer ext::vulkan::Device::fetchCommandBuffer( ext::vulkan:
 		.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true ),
 		.threadId = std::this_thread::get_id(),
 	};
-#if 0
-	if ( transient ) {
-		ext::vulkan::CommandBuffer commandBuffer;
-		commandBuffer.waits = waits;
-		commandBuffer.queueType = queueType;
-		commandBuffer.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true );
-		return;
-	}
-
-//	bool exists = this->reusable.commandBuffers.count( queueType ) > 0;
-	auto& commandBuffer = this->reusable.commandBuffers[queueType];
-//	if ( !exists ) {
-	if ( commandBuffer.handle == VK_NULL_HANDLE ) {
-		commandBuffer.state = 1;
-		commandBuffer.handle = this->createCommandBuffer( VK_COMMAND_BUFFER_LEVEL_PRIMARY, queueType, true );
-		return commandBuffer;
-	}
-	if ( commandBuffer.state == 0 ) {
-		commandBuffer.state = 1;
-		VkCommandBufferBeginInfo cmdBufInfo = ext::vulkan::initializers::commandBufferBeginInfo();
-		VK_CHECK_RESULT( vkBeginCommandBuffer( commandBuffer.handle, &cmdBufInfo ) );
-	}
-	return commandBuffer;
-#endif
 }
-void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer commandBuffer ) {
+void ext::vulkan::Device::flushCommandBuffer( ext::vulkan::CommandBuffer& commandBuffer ) {
 //	return this->flushCommandBuffer( commandBuffer.handle, commandBuffer.queueType, commandBuffer.immediate );
 	if ( commandBuffer.handle == VK_NULL_HANDLE ) return;
 
+	UF_CHECKPOINT_MARK( commandBuffer.handle, pod::Checkpoint::END, "end" );
 	VK_CHECK_RESULT( vkEndCommandBuffer( commandBuffer.handle ) );
 
-#if 0
-	if ( commandBuffer.immediate ) {
-		VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer.handle;
+	VkFence fence = this->getFence();
 
-		auto queue = getQueue( commandBuffer.queueType );
-		VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
-		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
-		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType ), 1, &commandBuffer.handle);
-	}
-#else
 	VkSubmitInfo submitInfo = ext::vulkan::initializers::submitInfo();
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffer.handle;
 
 	auto queue = getQueue( commandBuffer.queueType, commandBuffer.threadId );
-	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, VK_NULL_HANDLE));
+	VK_CHECK_RESULT(vkQueueSubmit( queue, 1, &submitInfo, fence));
 
 	if ( commandBuffer.immediate ) {
-		VK_CHECK_RESULT(vkQueueWaitIdle( queue ));
+		VkResult res = vkWaitForFences( this->logicalDevice, 1, &fence, VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+
+		uf::checkpoint::deallocate(checkpoints[commandBuffer.handle]);
+		checkpoints[commandBuffer.handle] = NULL;
+		checkpoints.erase(commandBuffer.handle);
+
+		this->destroyFence( fence );
+
 		vkFreeCommandBuffers(logicalDevice, getCommandPool( commandBuffer.queueType, commandBuffer.threadId ), 1, &commandBuffer.handle);
-	}
-#endif
-	else {
+	} else {
 		ext::vulkan::mutex.lock();
-		this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId].emplace_back(commandBuffer.handle);
+		auto& transient = this->transient.commandBuffers[commandBuffer.queueType][commandBuffer.threadId];
+		transient.commandBuffers.emplace_back(commandBuffer.handle);
+		transient.fences.emplace_back(fence);
 		ext::vulkan::mutex.unlock();
 	}
 }
+
+pod::Checkpoint* ext::vulkan::Device::markCommandBuffer( CommandBuffer& commandBuffer, pod::Checkpoint::Type type, const uf::stl::string& name, const uf::stl::string& info ) {
+	if ( !ext::vulkan::settings::validation::checkpoints ) return NULL;
+
+	pod::Checkpoint* previous = checkpoints[commandBuffer];
+	pod::Checkpoint* pointer = uf::checkpoint::allocate( type, name, info, previous );
+	if ( ext::vulkan::vkCmdSetCheckpointNV ) ext::vulkan::vkCmdSetCheckpointNV(commandBuffer, pointer);
+	checkpoints[commandBuffer] = pointer;
+	return pointer;
+}
+
+VkFence ext::vulkan::Device::getFence() {
+	VkFence fence;
+
+	if ( !this->reusable.fences.empty() ) {
+		fence = this->reusable.fences.top();
+		this->reusable.fences.pop();
+		return fence;
+	}
+
+	VkFenceCreateInfo fenceCreateInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+	VK_CHECK_RESULT(vkCreateFence( this->logicalDevice, &fenceCreateInfo, nullptr, &fence ) );
+	return fence;
+}
+void ext::vulkan::Device::destroyFence( VkFence fence ) {
+	VK_CHECK_RESULT(vkResetFences( this->logicalDevice, 1, &fence ) );
+	this->reusable.fences.emplace( fence );
+}
+
 ext::vulkan::Buffer ext::vulkan::Device::createBuffer(
 	const void* data,
 	VkDeviceSize size,
@@ -798,7 +810,7 @@ void ext::vulkan::Device::initialize() {
 	//	"VK_LAYER_KHRONOS_synchronization2",
 	};
 	// Assert validation layers
-	if ( ext::vulkan::settings::validation ) instanceLayers.emplace_back("VK_LAYER_KHRONOS_validation");
+	if ( ext::vulkan::settings::validation::enabled ) instanceLayers.emplace_back("VK_LAYER_KHRONOS_validation");
 	
 	{
 		uint32_t layerCount;
@@ -821,16 +833,16 @@ void ext::vulkan::Device::initialize() {
 	}
 	// 
 	// Get extensions
-	uf::stl::vector<uf::stl::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation );
+	uf::stl::vector<uf::stl::string> requestedExtensions = window->getExtensions( ext::vulkan::settings::validation::enabled );
 	// Load any requested extensions
-	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedInstanceExtensions.begin(), ext::vulkan::settings::requestedInstanceExtensions.end() );
+	requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requested::instanceExtensions.begin(), ext::vulkan::settings::requested::instanceExtensions.end() );
 
 #if UF_USE_OPENVR
 	// OpenVR Support
 	if ( ext::openvr::enabled ) VRInstanceExtensions(requestedExtensions);
 #endif
 	{
-		if ( ext::vulkan::settings::validation )
+		if ( ext::vulkan::settings::validation::enabled )
 			for ( auto ext : requestedExtensions )
 				UF_MSG_INFO("Requested instance extension: {}", ext);
 
@@ -838,17 +850,18 @@ void ext::vulkan::Device::initialize() {
 		uint32_t enabledExtensionsCount = 0;
 		
 		VK_CHECK_RESULT(vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, NULL ));
-		extensionProperties.instance.resize(extensionsCount);
-		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, extensionProperties.instance.data() ) );
+		extensions.properties.instance.resize(extensionsCount);
+		VK_CHECK_RESULT( vkEnumerateInstanceExtensionProperties( NULL, &extensionsCount, extensions.properties.instance.data() ) );
 
-		validateRequestedExtensions( extensionProperties.instance, requestedExtensions, supportedExtensions.instance );
+		validateRequestedExtensions( extensions.properties.instance, requestedExtensions, extensions.supported.instance );
 	}
 	// Create instance
 	{
 		uf::stl::vector<uf::stl::string> instanceExtensions;
-		for ( auto& s : supportedExtensions.instance ) {
+		for ( auto& s : extensions.supported.instance ) {
 			VK_VALIDATION_MESSAGE("Enabled instance extension: {}", s);
 			instanceExtensions.emplace_back( s );
+			extensions.enabled.instance[s] = true;
 		}
 
 		auto cInstanceExtensions = uf::string::cStrings( instanceExtensions );
@@ -901,7 +914,7 @@ void ext::vulkan::Device::initialize() {
 		}
 	}
 	// Setup debug
-	if ( ext::vulkan::settings::validation ) {
+	if ( ext::vulkan::settings::validation::enabled ) {
 		VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
 
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -1013,7 +1026,7 @@ void ext::vulkan::Device::initialize() {
 		bool useSwapChain = true;
 		VkQueueFlags requestedQueueTypes = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
 		uf::stl::vector<uf::stl::string> requestedExtensions;
-		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requestedDeviceExtensions.begin(), ext::vulkan::settings::requestedDeviceExtensions.end() );
+		requestedExtensions.insert( requestedExtensions.end(), ext::vulkan::settings::requested::deviceExtensions.begin(), ext::vulkan::settings::requested::deviceExtensions.end() );
 	#if UF_USE_OPENVR		
 		// OpenVR Support
 		if ( ext::openvr::enabled ) {
@@ -1028,17 +1041,18 @@ void ext::vulkan::Device::initialize() {
 			uint32_t enabledExtensionsCount = 0;
 			
 			VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, NULL ));
-			extensionProperties.device.resize( extensionsCount );
-			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, extensionProperties.device.data() ) );
+			extensions.properties.device.resize( extensionsCount );
+			VK_CHECK_RESULT( vkEnumerateDeviceExtensionProperties( this->physicalDevice, NULL, &extensionsCount, extensions.properties.device.data() ) );
 			
-			validateRequestedExtensions( extensionProperties.device, requestedExtensions, supportedExtensions.device );
+			validateRequestedExtensions( extensions.properties.device, requestedExtensions, extensions.supported.device );
 		}
 		uf::stl::vector<uf::stl::string> deviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
-		for ( auto& s : supportedExtensions.device ) {
+		for ( auto& s : extensions.supported.device ) {
 			VK_VALIDATION_MESSAGE("Enabled device extension: {}", s);
 			deviceExtensions.emplace_back( s );
+			extensions.enabled.device[s] = true;
 		}
 
 		// Desired queues need to be requested upon logical device creation
@@ -1149,19 +1163,19 @@ void ext::vulkan::Device::initialize() {
 			vkGetPhysicalDeviceFeatures2(device.physicalDevice, &enabledDeviceFeatures2);
 		}
 
-		if ( ext::vulkan::settings::requestedFeatureChain["physicalDevice2"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["physicalDevice2"].as<bool>(false) ) {
 			physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			physicalDeviceFeatures2.features = enabledFeatures;
 			chain.push( &physicalDeviceFeatures2 );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceFeatures2" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["physicalDeviceVulkan12"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["physicalDeviceVulkan12"].as<bool>(false) ) {
 			physicalDeviceVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 			enableRequestedDeviceFeatures12( enabledPhysicalDeviceVulkan12Features, physicalDeviceVulkan12Features );
 			chain.push( &physicalDeviceVulkan12Features );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "physicalDeviceVulkan12Features" );
 		} else {
-			if ( ext::vulkan::settings::requestedFeatureChain["descriptorIndexing"].as<bool>(false) ) {
+			if ( ext::vulkan::settings::requested::featureChain["descriptorIndexing"].as<bool>(false) ) {
 				// core for Vulkan 1.3+
 				descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
 				descriptorIndexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -1172,7 +1186,7 @@ void ext::vulkan::Device::initialize() {
 				VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "descriptorIndexingFeatures" );
 			}
 			// core for Vulkan 1.3+
-			if ( ext::vulkan::settings::requestedFeatureChain["bufferDeviceAddress"].as<bool>(false) ) {
+			if ( ext::vulkan::settings::requested::featureChain["bufferDeviceAddress"].as<bool>(false) ) {
 				bufferDeviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
 				bufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
 				chain.push( &bufferDeviceAddressFeatures );
@@ -1181,52 +1195,52 @@ void ext::vulkan::Device::initialize() {
 		}
 
 		//
-		if ( ext::vulkan::settings::requestedFeatureChain["shaderDrawParameters"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["shaderDrawParameters"].as<bool>(false) ) {
 			shaderDrawParametersFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 			shaderDrawParametersFeatures.shaderDrawParameters = VK_TRUE;
 			chain.push( &shaderDrawParametersFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderDrawParametersFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["robustness"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["robustness"].as<bool>(false) ) {
 			robustnessFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
 			robustnessFeatures.nullDescriptor = VK_TRUE;
 			chain.push( &robustnessFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "robustnessFeatures" );
 		}
 
-		if ( ext::vulkan::settings::requestedFeatureChain["shaderClock"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["shaderClock"].as<bool>(false) ) {
 			shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
 			shaderClockFeatures.shaderSubgroupClock = VK_TRUE;
 			shaderClockFeatures.shaderDeviceClock = VK_TRUE;
 			chain.push( &shaderClockFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "shaderClockFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["fragmentShaderBarycentric"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["fragmentShaderBarycentric"].as<bool>(false) ) {
 			fragmentShaderBarycentricFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
 			fragmentShaderBarycentricFeatures.fragmentShaderBarycentric = VK_TRUE;
 			chain.push( &fragmentShaderBarycentricFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "fragmentShaderBarycentricFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["rayTracingPipeline"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["rayTracingPipeline"].as<bool>(false) ) {
 			rayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 			rayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
 			chain.push( &rayTracingPipelineFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayTracingPipelineFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["rayQuery"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["rayQuery"].as<bool>(false) ) {
 			rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 			rayQueryFeatures.rayQuery = VK_TRUE;
 			chain.push( &rayQueryFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "rayQueryFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["accelerationStructure"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["accelerationStructure"].as<bool>(false) ) {
 			accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 			accelerationStructureFeatures.accelerationStructure = VK_TRUE;
 		//	accelerationStructureFeatures.accelerationStructureHostCommands = VK_TRUE;
 			chain.push( &accelerationStructureFeatures );
 			VK_VALIDATION_MESSAGE("Enabled feature chain: {}", "accelerationStructureFeatures" );
 		}
-		if ( ext::vulkan::settings::requestedFeatureChain["subgroupSizeControl"].as<bool>(false) ) {
+		if ( ext::vulkan::settings::requested::featureChain["subgroupSizeControl"].as<bool>(false) ) {
 			subgroupSizeControlFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES;
 			subgroupSizeControlFeatures.subgroupSizeControl = VK_TRUE;
 			chain.push( &subgroupSizeControlFeatures );
@@ -1454,10 +1468,21 @@ void ext::vulkan::Device::initialize() {
 		vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(device, "vkCreateRayTracingPipelinesKHR"));
 		vkCmdWriteAccelerationStructuresPropertiesKHR = reinterpret_cast<PFN_vkCmdWriteAccelerationStructuresPropertiesKHR>(vkGetDeviceProcAddr(device, "vkCmdWriteAccelerationStructuresPropertiesKHR"));
 		vkCmdCopyAccelerationStructureKHR = reinterpret_cast<PFN_vkCmdCopyAccelerationStructureKHR>(vkGetDeviceProcAddr(device, "vkCmdCopyAccelerationStructureKHR"));
+		
+		if ( extensions.enabled.device["VK_NV_device_diagnostic_checkpoints"] ) {
+			vkCmdSetCheckpointNV = reinterpret_cast<PFN_vkCmdSetCheckpointNV>(vkGetDeviceProcAddr(device, "vkCmdSetCheckpointNV"));
+			vkGetQueueCheckpointDataNV = reinterpret_cast<PFN_vkGetQueueCheckpointDataNV>(vkGetDeviceProcAddr(device, "vkGetQueueCheckpointDataNV"));
+		}
 	}
 }
 
 void ext::vulkan::Device::destroy() {
+	while ( !this->reusable.fences.empty() ) {
+		VkFence fence = this->reusable.fences.top();
+		this->reusable.fences.pop();
+
+		vkDestroyFence( this->logicalDevice, fence, nullptr );
+	}
 	if ( this->pipelineCache ) {
 		// write cache on disk
 		{

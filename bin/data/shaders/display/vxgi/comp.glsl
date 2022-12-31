@@ -12,6 +12,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 #define MAX_CUBEMAPS CUBEMAPS
 #define GAMMA_CORRECT 1
 #define PBR 1
+#define LAMBERT 0
 
 layout (constant_id = 0) const uint TEXTURES = 512;
 layout (constant_id = 1) const uint CUBEMAPS = 128;
@@ -58,8 +59,9 @@ layout (binding = 11, rg16f) uniform volatile coherent image3D voxelNormal[CASCA
 
 #include "../../common/functions.h"
 #include "../../common/light.h"
-#undef VXGI // 
+#undef VXGI
 #include "../../common/shadows.h"
+
 void main() {
 	const vec3 tUvw = gl_GlobalInvocationID.xzy;
 	for ( uint CASCADE = 0; CASCADE < CASCADES; ++CASCADE ) {
@@ -68,19 +70,31 @@ void main() {
 	
 		surface.position.eye = (vec3(gl_GlobalInvocationID.xyz) / vec3(imageSize(voxelRadiance[CASCADE])) * 2.0f - 1.0f) * cascadePower(CASCADE);
 		surface.position.world = vec3( inverse(ubo.settings.vxgi.matrix) * vec4( surface.position.eye, 1.0f ) );
-		
+
+		surface.pass = 0; // PushConstant.pass;
+		surface.fragment = vec4(0);
+		surface.light = vec4(0);
+		surface.motion = vec2(0);
+		surface.material.indirect = vec4(0);
+
+#if 0
+		surface.material.albedo = imageLoad(voxelRadiance[CASCADE], ivec3(tUvw) );
+		surface.fragment.rgb = surface.material.albedo.rgb;
+#else
 		const uvec2 ID = uvec2(imageLoad(voxelId[CASCADE], ivec3(tUvw) ).xy);
 		const bool DISCARD_DUE_TO_DIVERGENCE = ID.x == 0 || ID.y == 0;
-		
+
 		const uint drawID = ID.x == 0 ? 0 : ID.x - 1;
 		const uint instanceID = ID.y == 0 ? 0 : ID.y - 1;
-
-	/*
-		if ( ID.x == 0 || ID.y == 0 ) {
+	
+	//	if ( ID.x == 0 || ID.y == 0 ) {
+	#if 1
+		if ( DISCARD_DUE_TO_DIVERGENCE ) {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
 			continue;
 		}
-	*/
+	#endif
+	
 		const DrawCommand drawCommand = drawCommands[drawID];
 		surface.instance = instances[instanceID];
 		const Material material = materials[surface.instance.materialID];
@@ -100,22 +114,26 @@ void main() {
 			// corrections
 			surface.position.eye = vec3( ubo.eyes[surface.pass].view * vec4( surface.position.world, 1 ) );
 			surface.normal.eye = vec3( ubo.eyes[surface.pass].view * vec4(surface.normal.world, 0) );
+		#if 0
 			pbr();
-		/*
+		#else
 			surface.material.roughness *= 4.0;
 			const vec3 F0 = mix(vec3(0.04), surface.material.albedo.rgb, surface.material.metallic); 
 			const vec3 Lo = normalize( surface.position.world );
 			const float cosLo = max(0.0, dot(surface.normal.world, Lo));
 			for ( uint i = 0; i < ubo.settings.lengths.lights; ++i ) {
 				const Light light = lights[i];
-				if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
-				if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;
+			
+			//	if ( light.power <= LIGHT_POWER_CUTOFF ) continue;
+			//	if ( light.type >= 0 && validTextureIndex( surface.instance.lightmapID ) ) continue;
+
 				const vec3 Lp = light.position;
 				const vec3 Liu = light.position - surface.position.world;
 				const vec3 Li = normalize(Liu);
 				const float Ls = shadowFactor( light, 0.0 );
 				const float La = 1.0 / (1 + (PI * pow(length(Liu), 2.0)));
-				if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
+			
+			//	if ( light.power * La * Ls <= LIGHT_POWER_CUTOFF ) continue;
 
 				const float cosLi = max(0.0, dot(surface.normal.world, Li));
 				const vec3 Lr = light.color.rgb * light.power * La * Ls;
@@ -136,10 +154,10 @@ void main() {
 				surface.light.rgb += (diffuse + specular) * Lr * cosLi;
 				surface.light.a += light.power * La * Ls;
 			}
-		*/
+		#endif
 		}
-
 		surface.fragment.rgb += surface.light.rgb;
+	#endif
 
 	#if TONE_MAP
 		toneMap(surface.fragment.rgb, ubo.settings.bloom.exposure);
@@ -148,10 +166,14 @@ void main() {
 		gammaCorrect(surface.fragment.rgb, 1.0 / ubo.settings.bloom.gamma);
 	#endif
 
+	#if 0
+		imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
+	#else
 		if ( DISCARD_DUE_TO_DIVERGENCE ) {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(0));
 		} else {
 			imageStore(voxelRadiance[CASCADE], ivec3(tUvw), vec4(surface.fragment.rgb, surface.material.albedo.a));
 		}
+	#endif
 	}
 }

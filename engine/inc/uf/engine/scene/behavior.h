@@ -15,7 +15,11 @@ namespace uf {
 			} cached;
 		#else
 		// 	we could keep a cache of controllers for each rendermode, but we have to invalidate the cache every time the graph regenerates
-			uf::stl::unordered_map<uf::stl::string, uf::Entity*> cache;
+			struct {
+				uf::stl::unordered_map<uf::stl::string, uf::Entity*> controllers;
+				uf::stl::unordered_map<size_t, uf::Camera> cameras;
+				uf::stl::unordered_map<size_t, size_t> frameNumbers;
+			} cache;
 		#endif
 
 			struct {

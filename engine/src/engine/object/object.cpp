@@ -27,9 +27,13 @@ UF_OBJECT_REGISTER_END()
 uf::Object::Object() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Object)
 
 void uf::Object::queueDeletion() {
-	for ( uf::Entity* kv : this->getChildren() ) ((uf::Object*) kv)->queueDeletion();
+	uf::scene::invalidateGraphs();
+	uf::renderer::states::rebuild = true;
 
-	if ( this->hasParent() )this->getParent().removeChild(*this);
+	auto children = this->getChildren();
+	for ( uf::Entity* kv : children ) ((uf::Object*) kv)->queueDeletion();
+
+	if ( this->hasParent() ) this->getParent().removeChild(*this);
 	auto& metadata = this->getComponent<uf::ObjectBehavior::Metadata>();
 	metadata.system.markedForDeletion = true;
 }

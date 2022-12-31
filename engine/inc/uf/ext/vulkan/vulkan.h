@@ -42,9 +42,12 @@ namespace ext {
 		extern UF_API PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
 		extern UF_API PFN_vkCmdWriteAccelerationStructuresPropertiesKHR vkCmdWriteAccelerationStructuresPropertiesKHR;
 		extern UF_API PFN_vkCmdCopyAccelerationStructureKHR vkCmdCopyAccelerationStructureKHR;
+		extern UF_API PFN_vkCmdSetCheckpointNV vkCmdSetCheckpointNV;
+		extern UF_API PFN_vkGetQueueCheckpointDataNV vkGetQueueCheckpointDataNV;
 
-		uf::stl::string errorString( VkResult result );
-		VkSampleCountFlagBits sampleCount( uint8_t );
+		uf::stl::string UF_API retrieveCheckpoint( VkQueue queue );
+		uf::stl::string UF_API errorString( VkResult result );
+		VkSampleCountFlagBits UF_API sampleCount( uint8_t );
 
 		typedef VmaAllocator Allocator;
 
@@ -55,20 +58,22 @@ namespace ext {
 			extern UF_API uint32_t width;
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
-			extern UF_API bool validation;
+
 			extern UF_API size_t viewCount;
 			extern UF_API size_t gpuID;
 			extern UF_API size_t scratchBufferAlignment;
 			extern UF_API size_t scratchBufferInitialSize;
 			extern UF_API size_t defaultTimeout;
 
-			extern UF_API uf::stl::vector<uf::stl::string> validationFilters;
-			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceFeatures;
-			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceExtensions;
-			extern UF_API uf::stl::vector<uf::stl::string> requestedInstanceExtensions;
-			extern UF_API uf::Serializer requestedFeatureChain;
-			
 			extern UF_API VkFilter swapchainUpscaleFilter;
+
+			namespace requested {
+				extern UF_API uf::stl::vector<uf::stl::string> deviceFeatures;
+				extern UF_API uf::stl::vector<uf::stl::string> deviceExtensions;
+				extern UF_API uf::stl::vector<uf::stl::string> instanceExtensions;
+				extern UF_API uf::Serializer featureChain;
+			}
+			
 
 			namespace experimental {
 				extern UF_API bool dedicatedThread;
@@ -76,6 +81,13 @@ namespace ext {
 				extern UF_API bool batchQueueSubmissions;
 				extern UF_API bool enableMultiGPU;
 				extern UF_API bool memoryBudgetBit;
+			}
+
+			namespace validation {
+				extern UF_API bool enabled;
+				extern UF_API bool messages;
+				extern UF_API bool checkpoints;
+				extern UF_API uf::stl::vector<uf::stl::string> filters;
 			}
 
 			namespace invariant {
@@ -120,13 +132,14 @@ namespace ext {
 			}
 		}
 		namespace states {
+			extern UF_API bool initialized;
 			extern UF_API bool rebuild;
 			extern UF_API bool resized;
 			extern UF_API uint32_t currentBuffer;
 			
 			extern UF_API uint32_t frameAccumulate;
 			extern UF_API bool frameAccumulateReset;
-			extern UF_API bool frameSkip;
+			extern UF_API uint32_t frameSkip;
 		}
 
 		extern UF_API Device device;
@@ -156,7 +169,10 @@ namespace ext {
 		void UF_API tick();
 		void UF_API render();
 		void UF_API destroy();
+		
 		void UF_API synchronize( uint8_t = 0b11 );
+		void UF_API flushCommandBuffers();
+
 		uf::stl::string UF_API allocatorStats();
 		ext::vulkan::enums::Format::type_t UF_API formatFromString( const uf::stl::string& );
 	}

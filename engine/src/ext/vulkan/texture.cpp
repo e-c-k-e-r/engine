@@ -517,7 +517,7 @@ void ext::vulkan::Texture::fromBuffers(
 	if ( std::find( queueFamilyIndices.begin(), queueFamilyIndices.end(), device.queueFamilyIndices.transfer ) == queueFamilyIndices.end() ) queueFamilyIndices.emplace_back(device.queueFamilyIndices.transfer);
 
 
-	bool exclusive = device.queueFamilyIndices.graphics == 0 && device.queueFamilyIndices.present == 0 && device.queueFamilyIndices.compute == 0 && device.queueFamilyIndices.transfer == 0;
+	bool exclusive = true; // device.queueFamilyIndices.graphics == 0 && device.queueFamilyIndices.present == 0 && device.queueFamilyIndices.compute == 0 && device.queueFamilyIndices.transfer == 0;
 	// Create optimal tiled target image
 	VkImageCreateInfo imageCreateInfo = ext::vulkan::initializers::imageCreateInfo();
 	imageCreateInfo.imageType = this->type;
@@ -573,9 +573,10 @@ void ext::vulkan::Texture::fromBuffers(
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
 	{
-		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS, true);
+		device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
 		uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, (this->imageLayout = imageLayout), viewCreateInfo.subresourceRange );
-		device.flushCommandBuffer(commandBuffer, uf::renderer::QueueEnum::GRAPHICS, true);
+		device.flushCommandBuffer(commandBuffer);
 	}
 
 	if ( data && bufferSize ) {
@@ -815,6 +816,7 @@ void ext::vulkan::Texture::update( void* data, VkDeviceSize bufferSize, VkImageL
 		subresourceRange
 	);
 	// Copy mip levels from staging buffer
+	device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyBuffer" );
 	vkCmdCopyBufferToImage(
 		commandBuffer,
 		staging.buffer,
@@ -908,6 +910,7 @@ void ext::vulkan::Texture::generateMipmaps( VkCommandBuffer commandBuffer, uint3
 			blit.dstSubresource.baseArrayLayer = layer;
 			blit.dstSubresource.layerCount = 1;
 
+			device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "blitImage" );
 			vkCmdBlitImage(
 				commandBuffer,
 				image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1009,6 +1012,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 		imageBlit.dstSubresource.layerCount = 1;
 		imageBlit.dstOffsets[1] = blitSize;
 
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "blitImage" );
 		vkCmdBlitImage( commandBuffer, this->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_NEAREST);
 	} else {
 		VkImageCopy imageCopy{};
@@ -1020,6 +1024,7 @@ uf::Image ext::vulkan::Texture2D::screenshot( uint32_t layerID ) {
 		imageCopy.dstSubresource.layerCount = 1;
 		imageCopy.extent = { this->width, this->height, 1 };
 
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyImage" );
 		vkCmdCopyImage( commandBuffer, this->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy );
 	}
 	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1119,6 +1124,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 		imageBlit.dstOffsets[0] = { 0, 0, 0 };
 		imageBlit.dstOffsets[1] = { this->width, this->height, 1 };
 
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "blitImage" );
 		vkCmdBlitImage( commandBuffer, this->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageBlit, VK_FILTER_NEAREST);
 	} else {
 		VkImageCopy imageCopy{};
@@ -1133,6 +1139,7 @@ uf::Image ext::vulkan::Texture3D::screenshot( uint32_t layerID ) {
 		imageCopy.dstOffset = { 0, 0, 0 };
 		imageCopy.extent = { this->width, this->height, 1 };
 
+		device->UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "copyImage" );
 		vkCmdCopyImage( commandBuffer, this->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, temporary, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy );
 	}
 	imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;

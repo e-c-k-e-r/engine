@@ -7,7 +7,7 @@
 	"metadata": {
 		"graph": {
 			"lights": {
-				"scale": 1
+				"scale": 2
 			},
 			"assets": [
 				"./audio/soundscape/sh2_ambience.ogg"	

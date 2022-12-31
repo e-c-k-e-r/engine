@@ -20,14 +20,14 @@
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
 					"color": [0.1, 0.1, 0.1],
-					"power": 100000,
+					"power": 10000,
 					"global": true,
 					"bias": {
 						"constant": 1.25,
 						"slope": 1.75,
 						"shader": 0.000000000005
 					},
-					"radius": [50, 0],
+					"radius": [8, 0],
 					"resolution": 1024
 				} },
 			//	"/^light_[^e]/": { "ignore": true },

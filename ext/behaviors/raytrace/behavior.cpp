@@ -85,13 +85,22 @@ void ext::RayTraceSceneBehavior::initialize( uf::Object& self ) {
 }
 void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 	auto& metadata = this->getComponent<ext::RayTraceSceneBehavior::Metadata>();
+	if ( !metadata.settings.ready ) {
+		TIMER(metadata.settings.readyTimer, !metadata.settings.ready ) {
+			metadata.settings.ready = true;
+		} else return;
+	}
 
 	static uf::stl::vector<pod::Instance> previousInstances;
 	uf::stl::vector<pod::Instance> instances = uf::graph::storage.instances.flatten();
 	if ( instances.empty() ) return;
 
 	static uf::stl::vector<uf::Graphic*> previousGraphics;
-	uf::stl::vector<uf::Graphic*> graphics;
+	static uf::stl::vector<uf::renderer::AccelerationStructure> previousBlases;
+
+	uf::stl::vector<uf::Graphic*> graphics; graphics.reserve( previousGraphics.size() );
+	uf::stl::vector<uf::renderer::AccelerationStructure> blases; blases.reserve( previousBlases.size() );
+
 	auto& scene = uf::scene::getCurrentScene();
 	auto/*&*/ graph = scene.getGraph();
 	for ( auto entity : graph ) {
@@ -99,10 +108,13 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 		auto& graphic = entity->getComponent<uf::Graphic>();
 		if ( graphic.accelerationStructures.bottoms.empty() ) continue;
 		graphics.emplace_back(&graphic);
+		
+		for ( auto& as : graphic.accelerationStructures.bottoms ) blases.emplace_back(as);
 	}
 	if ( graphics.empty() ) return;
 	
-	bool update = false;
+	bool update = metadata.settings.rebuild;
+	metadata.settings.rebuild = false;
 	auto& renderMode = uf::renderer::getRenderMode("", true);
 	auto& graphic = metadata.renderer.full ? this->getComponent<uf::renderer::Graphic>() : renderMode.getBlitter();
 	if ( !metadata.renderer.bound ) {
@@ -110,17 +122,22 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 			graphic.initialize("Compute:RT");
 		}
 		update = true;
-	} else {
+	} else if ( !update ) {
 		if ( previousInstances.size() != instances.size() ) update = true;
 		else if ( previousGraphics.size() != graphics.size() ) update = true;
+		else if ( previousBlases.size() != blases.size() ) update = true;
 	//	else if ( memcmp( previousInstances.data(), instances.data(), instances.size() * sizeof(decltype(instances)::value_type) ) != 0 ) update = true;
 		else if ( memcmp( previousGraphics.data(), graphics.data(), graphics.size() * sizeof(decltype(graphics)::value_type) ) != 0 ) update = true;
+		else if ( memcmp( previousBlases.data(), blases.data(), blases.size() * sizeof(decltype(blases)::value_type) ) != 0 ) update = true;
 		else for ( size_t i = 0; i < instances.size() && !update; ++i ) {
 			if ( !uf::matrix::equals( instances[i].model, previousInstances[i].model, 0.0001f ) )
 				update = true;
 		}
 	}
 	if ( update ) {
+		for ( auto* graphic : graphics ) {
+			if ( graphic->metadata.buffers.count("vertexSkinned") > 0 ) graphic->generateBottomAccelerationStructures();
+		}
 		graphic.generateTopAccelerationStructure( graphics, instances );
 
 		auto& sceneMetadata = this->getComponent<ext::ExtSceneBehavior::Metadata>();
@@ -129,6 +146,7 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 
 		previousInstances = instances;
 		previousGraphics = graphics;
+		previousBlases = blases;
 	}
 
 	if ( !metadata.renderer.bound ) {
@@ -282,12 +300,12 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 					shader.textures.front().aliasTexture( image );
 				}
 			}
-		}
-	#endif
-	#if 0
-		TIMER(1.0, uf::Window::isKeyPressed("R") ) {
-			UF_MSG_DEBUG("Screenshotting RT scene...");
-			image.screenshot().save("./data/rt.png");
+		#if 0
+			TIMER(1.0, uf::Window::isKeyPressed("M") ) {
+				UF_MSG_DEBUG("Screenshotting RT scene...");
+				image.screenshot().save("./data/rt.png");
+			}
+		#endif
 		}
 	#endif
 	}
@@ -335,6 +353,10 @@ void ext::RayTraceSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Se
 	/*this->*/settings.samples = serializer["rt"]["samples"].as(/*this->*/settings.samples);
 	/*this->*/settings.paths = serializer["rt"]["paths"].as(/*this->*/settings.paths);
 	/*this->*/settings.frameAccumulationMinimum = serializer["rt"]["frameAccumulationMinimum"].as(/*this->*/settings.frameAccumulationMinimum);
+
+	/*this->*/settings.rebuild = serializer["rt"]["rebuild"].as(/*this->*/settings.rebuild);
+	/*this->*/settings.ready = serializer["rt"]["ready"].as(/*this->*/settings.ready);
+	/*this->*/settings.readyTimer = serializer["rt"]["readyTimer"].as(/*this->*/settings.readyTimer);
 }
 #undef this
 #endif

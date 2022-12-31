@@ -240,6 +240,7 @@ void ext::vulkan::RenderMode::createCommandBuffers() {
 
 	this->mostRecentCommandPoolId = std::this_thread::get_id();
 	this->rebuild = false;
+	this->rerecord = false;
 }
 ext::vulkan::RenderMode::commands_container_t& ext::vulkan::RenderMode::getCommands( std::thread::id id ) {
 	bool exists = this->commands.has(id); //this->commands.count(id) > 0;
@@ -273,7 +274,19 @@ void ext::vulkan::RenderMode::cleanupAllCommands() {
 	auto& container = this->commands.container();
 	for ( auto& pair : container ) {
 		if ( pair.second.empty() ) continue;
-		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+
+		auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
+		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+		
+		for ( auto& commandBuffer : pair.second ) {
+			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
+			device->checkpoints[commandBuffer] = NULL;
+			device->checkpoints.erase(commandBuffer);
+		}
+
+		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		pair.second.clear();
 	}
 	container.clear();
@@ -283,7 +296,19 @@ void ext::vulkan::RenderMode::cleanupCommands( std::thread::id id ) {
 	for ( auto& pair : container ) {
 		if ( pair.first == id ) continue;
 		if ( pair.second.empty() ) continue;
-		vkFreeCommandBuffers( *device, device->getCommandPool(this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
+		
+		auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
+		VkQueue queue = device->getQueue( queueEnum, pair.first );
+		VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+		VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+
+		for ( auto& commandBuffer : pair.second ) {
+			uf::checkpoint::deallocate(device->checkpoints[commandBuffer]);
+			device->checkpoints[commandBuffer] = NULL;
+			device->checkpoints.erase(commandBuffer);
+		}
+
+		vkFreeCommandBuffers( *device, device->getCommandPool(queueEnum, pair.first), static_cast<uint32_t>(pair.second.size()), pair.second.data());
 		pair.second.clear();
 	}
 	this->commands.cleanup( id );
@@ -395,10 +420,11 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 }
 
 void ext::vulkan::RenderMode::tick() {
+/*
 	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
 		cleanupAllCommands();
 	}
-
+*/
 	this->synchronize();
 	
 	if ( metadata.limiter.frequency > 0 ) {
@@ -438,13 +464,16 @@ void ext::vulkan::RenderMode::destroy() {
 	fences.clear();
 }
 void ext::vulkan::RenderMode::synchronize( uint64_t timeout ) {
-/*
 	if ( !device ) return;
 	if ( fences.empty() ) return;
 	lockMutex();
-	VK_CHECK_RESULT(vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout ));
+	
+	auto queueEnum = this->getType() == "Compute" ? QueueEnum::COMPUTE : QueueEnum::GRAPHICS;
+	VkQueue queue = device->getQueue( queueEnum, this->mostRecentCommandPoolId );
+	VkResult res = vkWaitForFences( *device, fences.size(), fences.data(), VK_TRUE, timeout );
+	VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+
 	unlockMutex();
-*/
 }
 void ext::vulkan::RenderMode::pipelineBarrier( VkCommandBuffer commandBuffer, uint8_t state ) {
 	VkImageMemoryBarrier imageMemoryBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };

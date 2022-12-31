@@ -186,7 +186,8 @@ void ext::VoxelizerSceneBehavior::tick( uf::Object& self ) {
 		if ( renderMode.metadata.limiter.execute ) {
 	//	if ( should ) {
 			auto& controller = scene.getController();
-			auto controllerTransform = uf::transform::flatten( controller.getComponent<uf::Camera>().getTransform() );
+			auto& camera = scene.getCamera( controller ); // controller.getComponent<uf::Camera>();
+			auto controllerTransform = uf::transform::flatten( camera.getTransform() );
 			pod::Vector3f controllerPosition = controllerTransform.position - metadata.extents.min;
 			controllerPosition.x = floor(controllerPosition.x);
 			controllerPosition.y = floor(controllerPosition.y);

@@ -13,6 +13,7 @@ UF_OBJECT_REGISTER_END()
 uf::Scene::Scene() UF_BEHAVIOR_ENTITY_CPP_ATTACH(uf::Scene)
 
 #define UF_SCENE_GLOBAL_GRAPH 1
+#define UF_TICK_SINGLETHREAD_OVERRIDE 0
 #define UF_TICK_MULTITHREAD_OVERRIDE 0
 #define UF_TICK_FROM_TASKS 1
 #define UF_SCENE_INVALIDATE_IMMEDIATE 1
@@ -32,27 +33,79 @@ uf::Entity& uf::Scene::getController() {
 	if ( currentRenderMode ) {
 		auto& renderMode = *currentRenderMode;
 		auto& name = renderMode.getName();
-		if ( metadata.cache.count(name) > 0 ) {
-			controller = metadata.cache[name];
+		if ( metadata.cache.controllers.count(name) > 0 ) {
+			controller = metadata.cache.controllers[name];
 			if ( controller->isValid() ) return *controller;
 		}
 
 		auto split = uf::string::split( name, ":" );
 		if ( split.front() == "RT" ) {
 			controller = this->findByUid( std::stoi( split.back() ) );
-			if ( controller->isValid() ) return *(metadata.cache[name] = controller);
+			if ( controller->isValid() ) return *(metadata.cache.controllers[name] = controller);
 		}
 	}
-	if ( metadata.cache.count("") > 0 ) {
-		controller = metadata.cache[""];
+	if ( metadata.cache.controllers.count("") > 0 ) {
+		controller = metadata.cache.controllers[""];
 		if ( controller->isValid() ) return *controller;
 	}
 	controller = this->findByName("Player");
-	return *(metadata.cache[""] = controller ? controller : this);
+	return *(metadata.cache.controllers[""] = controller ? controller : this);
 }
 const uf::Entity& uf::Scene::getController() const {
 	uf::Scene& scene = *const_cast<uf::Scene*>(this);
 	return scene.getController();
+}
+
+uf::Camera& uf::Scene::getCamera( uf::Entity& controller ) {
+	auto currentRenderMode = uf::renderer::getCurrentRenderMode();
+	if ( currentRenderMode && currentRenderMode->getName() != "" ) return controller.getComponent<uf::Camera>();
+#if !UF_SCENE_GLOBAL_GRAPH
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#endif
+	auto& cachedCamera = metadata.cache.cameras[controller.getUid()];
+
+	if ( metadata.cache.frameNumbers[controller.getUid()] != uf::time::frame ) {
+		metadata.cache.frameNumbers[controller.getUid()] = uf::time::frame;
+
+		auto& camera = controller.getComponent<uf::Camera>();
+	//	cachedCamera = camera;
+		cachedCamera.setTransform( uf::transform::flatten( camera.getTransform() ) );
+		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
+			cachedCamera.setView( camera.getView(i), i );
+			cachedCamera.setProjection( camera.getProjection(i), i );
+		}
+		cachedCamera.update(true);
+
+//		UF_MSG_DEBUG("New frame time: {}: {} ({})", uf::time::frame, controller.getName(), controller.getUid());
+	}
+
+	return cachedCamera;
+}
+
+const uf::Camera& uf::Scene::getCamera( const uf::Entity& controller ) const {
+	auto currentRenderMode = uf::renderer::getCurrentRenderMode();
+	if ( currentRenderMode && currentRenderMode->getName() != "" ) return controller.getComponent<uf::Camera>();
+#if !UF_SCENE_GLOBAL_GRAPH
+	auto& metadata = this->getComponent<uf::SceneBehavior::Metadata>();
+#endif
+	auto& cachedCamera = metadata.cache.cameras[controller.getUid()];
+
+	if ( metadata.cache.frameNumbers[controller.getUid()] != uf::time::frame ) {
+		metadata.cache.frameNumbers[controller.getUid()] = uf::time::frame;
+
+		auto& camera = controller.getComponent<uf::Camera>();
+	//	cachedCamera = camera;
+		cachedCamera.setTransform( uf::transform::flatten( camera.getTransform() ) );
+		for ( auto i = 0; i < uf::camera::maxViews; ++i ) {
+			cachedCamera.setView( camera.getView(i), i );
+			cachedCamera.setProjection( camera.getProjection(i), i );
+		}
+		cachedCamera.update(true);
+
+//		UF_MSG_DEBUG("New frame time: {}: {} ({})", uf::time::frame, controller.getName(), controller.getUid());
+	}
+
+	return cachedCamera;
 }
 
 
@@ -63,7 +116,7 @@ void uf::Scene::invalidateGraph() {
 #endif
 	metadata.invalidationQueued = true;
 /*
-	metadata.cache.clear();
+	metadata.cache.controllers.clear();
 	metadata.tasks.serial.clear();
 	metadata.tasks.parallel.clear();
 
@@ -77,7 +130,7 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 #if UF_SCENE_INVALIDATE_IMMEDIATE
 	if ( metadata.invalidationQueued ) {
 		metadata.invalidationQueued = false;
-		metadata.cache.clear();
+		metadata.cache.controllers.clear();
 		metadata.graph.clear();
 		metadata.tasks.serial.clear();
 		metadata.tasks.parallel.clear();
@@ -105,6 +158,8 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 				auto name = behavior.type.name().str();
 			#if UF_TICK_MULTITHREAD_OVERRIDE
 				if ( true )
+			#elif UF_TICK_SINGLETHREAD_OVERRIDE
+				if ( false )
 			#else
 				if ( behavior.traits.multithread )
 			#endif
@@ -121,11 +176,15 @@ const uf::stl::vector<uf::Entity*>& uf::Scene::getGraph() {
 		} else {
 			#if UF_TICK_MULTITHREAD_OVERRIDE
 				for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+				for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
+			#elif UF_TICK_SINGLETHREAD_OVERRIDE
+				for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.serial.queue([=]{ fun(*self); });
+				for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.serial.queue([=]{ fun(*self); });
 			#else
 				for ( auto fun : behaviorGraph.tick.serial ) metadata.tasks.serial.queue([=]{ fun(*self); });
+				for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
 			#endif
 
-				for ( auto fun : behaviorGraph.tick.parallel ) metadata.tasks.parallel.queue([=]{ fun(*self); });
 		}	
 	#endif
 	});
@@ -160,6 +219,10 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::stl::str
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
 #endif
 	scene->initialize();
+//	uf::renderer::states::renderSkip = false;
+	
+//	uf::renderer::states::frameSkip = 60;
+
 	return *scene;
 }
 uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializer& data ) {
@@ -171,13 +234,22 @@ uf::Scene& uf::scene::loadScene( const uf::stl::string& name, const uf::Serializ
 	if ( uf::renderer::settings::pipelines::vxgi ) uf::instantiator::bind( "VoxelizerSceneBehavior", *scene );
 #endif
 	scene->initialize();
+//	uf::renderer::states::renderSkip = false;
+	
+//	uf::renderer::states::frameSkip = 60;
+
 	return *scene;
 }
 void uf::scene::unloadScene() {
+//	uf::renderer::states::frameSkip = 60;
+
 	uf::Scene* current = uf::scene::scenes.back();
 //	current->destroy();
-	auto/*&*/ graph = current->getGraph(true);
+	current->queueDeletion();
+/*
+	auto graph = current->getGraph(true);
 	for ( auto entity : graph ) entity->destroy();
+*/
 	uf::scene::scenes.pop_back();
 }
 uf::Scene& uf::scene::getCurrentScene() {

@@ -46,7 +46,7 @@ ext::gui::Size ext::gui::size = {
 
 
 UF_BEHAVIOR_REGISTER_CPP(ext::GuiManagerBehavior)
-UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = false, multithread = true)
+UF_BEHAVIOR_TRAITS_CPP(ext::GuiManagerBehavior, ticks = true, renders = true, multithread = true)
 UF_BEHAVIOR_REGISTER_AS_OBJECT(ext::GuiManagerBehavior, ext::GuiManager)
 #define this (&self)
 void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
@@ -102,6 +102,7 @@ void ext::GuiManagerBehavior::initialize( uf::Object& self ) {
 }
 void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #if UF_USE_VULKAN
+#if 0
 	uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
@@ -139,7 +140,7 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
 		}
 	}
-
+#endif
 #if 0
 	if ( !blitter.material.hasShader("fragment") ) return;
 	return;
@@ -210,7 +211,50 @@ void ext::GuiManagerBehavior::tick( uf::Object& self ) {
 #endif
 #endif
 }
-void ext::GuiManagerBehavior::render( uf::Object& self ){}
+void ext::GuiManagerBehavior::render( uf::Object& self ){
+#if 1
+	uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
+	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+		renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
+	} else {
+		renderModePointer = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode( "Gui", true );
+	}
+
+	if ( renderModePointer != uf::renderer::getCurrentRenderMode() ) return;
+
+	auto& renderMode = *renderModePointer;
+	auto& blitter = renderMode.blitter;
+
+	if ( !blitter.initialized ) return;
+
+	/* Update post processing */ {
+		uf::renderer::RenderTargetRenderMode* renderModePointer = NULL;
+		if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
+			renderModePointer = this->getComponentPointer<uf::renderer::RenderTargetRenderMode>();
+		} else {
+			renderModePointer = (uf::renderer::RenderTargetRenderMode*) &uf::renderer::getRenderMode( "Gui", true );
+		}
+		auto& renderMode = *renderModePointer;
+		auto& blitter = renderMode.getBlitter();
+		if ( blitter.material.hasShader("fragment") ) {
+			auto& shader = blitter.material.getShader("fragment");
+
+			struct {
+				float curTime = 0;
+				float gamma = 1.0;
+				float exposure = 1.0;
+				uint32_t padding = 0;
+			} uniforms = {
+				.curTime = uf::time::current,
+				.gamma = 1,
+				.exposure = 1
+			};
+
+			shader.updateBuffer( (const void*) &uniforms, sizeof(uniforms), shader.getUniformBuffer("UBO") );
+		}
+	}
+#endif
+}
 void ext::GuiManagerBehavior::destroy( uf::Object& self ){
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();

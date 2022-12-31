@@ -56,6 +56,7 @@ void ext::PlayerModelBehavior::tick( uf::Object& self ) {
 		metadata.set = true;
 	});
 	metadata.set = true;
+	uf::renderer::states::rebuild = true;
 }
 
 void ext::PlayerModelBehavior::render( uf::Object& self ){}

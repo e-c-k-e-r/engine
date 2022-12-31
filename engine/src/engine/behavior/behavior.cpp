@@ -60,7 +60,7 @@ void uf::Behaviors::generateGraph() {
 			else m_graph.tick.serial.emplace_back(f);
 		}
 	#else
-		if ( behavior.traits.ticks ) m_graph.tick.emplace_back(behavior.tick);
+		if ( behavior.traits.ticks ) m_graph.tick.serial.emplace_back(behavior.tick);
 	#endif
 		if ( behavior.traits.renders ) m_graph.render.emplace_back(behavior.render);
 		m_graph.destroy.emplace_back(behavior.destroy);

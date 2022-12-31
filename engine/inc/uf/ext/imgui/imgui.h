@@ -11,7 +11,7 @@ namespace ext {
 		void render();
 		void terminate();
 
-		void log( const uf::stl::string& message );
+		extern UF_API bool focused;
 	}
 }
 
