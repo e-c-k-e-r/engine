@@ -254,6 +254,7 @@ void ext::VoxelizerSceneBehavior::destroy( uf::Object& self ){
 #if UF_USE_VULKAN
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+		
 		uf::renderer::removeRenderMode( &renderMode, false );
 		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}

@@ -188,11 +188,11 @@ void ext::RayTraceSceneBehavior::tick( uf::Object& self ) {
 				//
 				auto& scene = uf::scene::getCurrentScene();
 				auto& sceneMetadataJson = scene.getComponent<uf::Serializer>();
-				size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-				size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-				size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-				size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
-				size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+				size_t maxLights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+				size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+				size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+				size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(1);
+				size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 				shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
 				shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );

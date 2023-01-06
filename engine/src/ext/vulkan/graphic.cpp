@@ -880,7 +880,7 @@ void ext::vulkan::Pipeline::update( const Graphic& graphic, const GraphicDescrip
 	}
 	// really needs some love
 	if ( this->metadata.built ) {
-	//	renderMode.synchronize();
+		renderMode.synchronize();
 		bool locked = renderMode.tryMutex();
 		renderMode.rebuild = true;
 	//	uf::renderer::flushCommandBuffers();

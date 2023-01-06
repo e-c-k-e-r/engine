@@ -573,7 +573,7 @@ void ext::vulkan::Texture::fromBuffers(
 	VK_CHECK_RESULT(vkCreateImageView(device.logicalDevice, &viewCreateInfo, nullptr, &view));
 
 	{
-		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS, true);
+		auto commandBuffer = device.fetchCommandBuffer(uf::renderer::QueueEnum::GRAPHICS);
 		device.UF_CHECKPOINT_MARK( commandBuffer, pod::Checkpoint::GENERIC, "setImageLayout" );
 		uf::renderer::Texture::setImageLayout( commandBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, (this->imageLayout = imageLayout), viewCreateInfo.subresourceRange );
 		device.flushCommandBuffer(commandBuffer);

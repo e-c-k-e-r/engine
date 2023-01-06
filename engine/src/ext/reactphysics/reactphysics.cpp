@@ -244,6 +244,15 @@ void ext::reactphysics::tick( float delta ) {
 }
 void ext::reactphysics::terminate() {
 	if ( !::world ) return;
+
+	size_t count = ::world->getNbRigidBodies();
+	for ( size_t i = 0; i < count; ++i ) {
+		auto* body = ::world->getRigidBody(i); if ( !body ) continue;
+		uf::Object* object = (uf::Object*) body->getUserData(); if ( !object || !object->isValid() ) continue;
+		auto& state = object->getComponent<pod::PhysicsState>(); // if ( !state.shared ) continue;
+		state.body = NULL;
+	}
+
 	::common.destroyPhysicsWorld(::world);
 	::world = NULL;
 }

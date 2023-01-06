@@ -13,6 +13,7 @@
 
 #include <uf/ext/vulkan/graphic.h>
 #include <uf/engine/graph/graph.h>
+#include <uf/ext/ext.h>
 
 #define BARYCENTRIC 0
 #if BARYCENTRIC
@@ -216,9 +217,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 		{
 			uf::stl::string vertexShaderFilename = uf::io::root+"/shaders/display/renderTarget/vert.spv";
 			uf::stl::string fragmentShaderFilename = uf::io::root+"/shaders/display/renderTarget/frag.spv";
+
+			uf::stl::string postProcess = ::fmt::format("{}.frag", metadata.json["postProcess"].as<uf::stl::string>("postProcess"));
 			{
 				std::pair<bool, uf::stl::string> settings[] = {
-					{ settings::pipelines::postProcess /*&& !settings::pipelines::rt*/, "postProcess.frag" },
+					{ settings::pipelines::postProcess /*&& !settings::pipelines::rt*/, postProcess },
 				//	{ msaa > 1, "msaa.frag" },
 				};
 				FOR_ARRAY( settings ) if ( settings[i].first ) fragmentShaderFilename = uf::string::replace( fragmentShaderFilename, "frag", settings[i].second );
@@ -264,11 +267,11 @@ void ext::vulkan::DeferredRenderMode::initialize( Device& device ) {
 
 			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
 
-			size_t maxLights = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
-			size_t maxTextures2D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxTexturesCube = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
-			size_t maxCascades = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
+			size_t maxLights = ext::config["engine"]["scenes"]["lights"]["max"].as<size_t>(512);
+			size_t maxTextures2D = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxTexturesCube = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+			size_t maxCascades = ext::config["engine"]["scenes"]["vxgi"]["cascades"].as<size_t>(16);
 
 			shader.setSpecializationConstants({
 				{ "TEXTURES", maxTextures2D },
@@ -498,6 +501,24 @@ void ext::vulkan::DeferredRenderMode::tick() {
 	}
 	// update blitter descriptor set
 	if ( rebuild && blitter.initialized ) {
+		if ( true ) {
+			auto& shader = blitter.material.getShader(DEFERRED_MODE, "deferred");
+
+			auto moved = std::move( shader.buffers );
+			for ( auto& buffer : moved ) {
+				if ( buffer.aliased ) continue;
+				shader.buffers.emplace_back( buffer );
+				buffer.aliased = true;
+			}
+
+			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		}
+		
 		if ( blitter.hasPipeline( blitter.descriptor ) ){
 			blitter.getPipeline( blitter.descriptor ).update( blitter, blitter.descriptor );
 		} else {
@@ -652,7 +673,7 @@ void ext::vulkan::DeferredRenderMode::createCommandBuffers( const uf::stl::vecto
 			}
 		}
 	}
-	bool shouldRecord = true; // ( settings::pipelines::rt && !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
+	bool shouldRecord = true; // ( settings::pipelines::rt && !ext::config["engine"]["scenes"]["rt"]["full"].as<bool>() ) || !settings::pipelines::rt;
 	for (size_t i = 0; i < commands.size(); ++i) {
 		auto commandBuffer = commands[i];
 		VK_CHECK_RESULT( vkBeginCommandBuffer(commandBuffer, &cmdBufInfo) );

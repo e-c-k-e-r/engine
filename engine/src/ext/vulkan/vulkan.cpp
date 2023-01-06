@@ -140,6 +140,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL ext::vulkan::debugCallback(
 }
 
 uf::stl::string ext::vulkan::retrieveCheckpoint( VkQueue queue ) {
+	if ( !ext::vulkan::settings::validation::checkpoints || !vkGetQueueCheckpointDataNV ) return "";
 	uint32_t size = 0;
 	vkGetQueueCheckpointDataNV(queue, &size, 0);
 
@@ -183,7 +184,7 @@ uf::stl::string ext::vulkan::errorString( VkResult result ) {
 		STR(ERROR_INVALID_SHADER_NV);
 #undef STR
 	default:
-		return "UNKNOWN_ERROR";
+		return ::fmt::format("UNKNOWN_ERROR: {}", result);
 	}
 }
 VkSampleCountFlagBits ext::vulkan::sampleCount( uint8_t count ) {
@@ -614,8 +615,21 @@ void ext::vulkan::flushCommandBuffers() {
 		
 			auto queue = device.getQueue( queueType, threadId );
 
-			VkResult res = vkWaitForFences( device, tuple.fences.size(), tuple.fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
-			VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+			// AMD driver has a limitation on how many fences to wait on at once
+			constexpr size_t totalFences = 64;
+			if ( tuple.fences.size() < totalFences ) {
+				VkResult res = vkWaitForFences( device, tuple.fences.size(), tuple.fences.data(), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+				VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+			} else {
+				auto it = tuple.fences.begin();
+				auto end = tuple.fences.end();
+				while ( it != end ) {
+					size_t advance = MIN(end - it, totalFences);
+					VkResult res = vkWaitForFences( device, advance, &(*it), VK_TRUE, VK_DEFAULT_FENCE_TIMEOUT );
+					VK_CHECK_QUEUE_CHECKPOINT( queue, res );
+					it += advance;
+				}
+			}
 
 			for ( auto& commandBuffer : tuple.commandBuffers ) {
 				uf::checkpoint::deallocate(device.checkpoints[commandBuffer]);

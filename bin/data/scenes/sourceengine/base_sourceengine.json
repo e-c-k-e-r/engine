@@ -19,7 +19,7 @@
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
 				"light_environment": { "transform": { "orientation": [0,0,0,1] }, "light": {
-					"color": [0.1, 0.1, 0.1],
+				//	"color": [0.1, 0.1, 0.1],
 					"power": 10000,
 					"global": true,
 					"bias": {

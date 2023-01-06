@@ -10,7 +10,7 @@
 #include <uf/utils/memory/map.h>
 #include <uf/ext/xatlas/xatlas.h>
 #include <uf/ext/ffx/fsr.h>
-
+#include <uf/ext/ext.h>
 
 #if UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
@@ -374,9 +374,9 @@ void uf::graph::initializeGraphics( pod::Graph& graph, uf::Object& entity, uf::M
 		}
 
 		{
-			size_t maxTextures = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
-			size_t maxCubemaps = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
-			size_t maxTextures3D = sceneMetadataJson["system"]["config"]["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
+			size_t maxTextures = ext::config["engine"]["scenes"]["textures"]["max"]["2D"].as<size_t>(512);
+			size_t maxCubemaps = ext::config["engine"]["scenes"]["textures"]["max"]["cube"].as<size_t>(128);
+			size_t maxTextures3D = ext::config["engine"]["scenes"]["textures"]["max"]["3D"].as<size_t>(128);
 
 			auto& shader = graphic.material.getShader("fragment", "baking");
 			shader.setSpecializationConstants({
@@ -1553,6 +1553,30 @@ void uf::graph::tick() {
 	if ( rebuild ) {
 		UF_MSG_DEBUG("Graph buffers requesting renderer update");
 		uf::renderer::states::rebuild = true;
+
+	/*
+		if ( uf::renderer::hasRenderMode("", true) ) {
+			auto& renderMode = uf::renderer::getRenderMode("", true);
+			auto& blitter = renderMode.getBlitter();
+			auto& shader = blitter.material.getShader(blitter.material.hasShader("compute", "deferred") ? "compute" : "fragment", "deferred");
+
+			blitter.material.textures.clear();
+
+			auto moved = std::move( shader.buffers );
+			for ( auto& buffer : moved ) {
+				if ( buffer.aliased ) continue;
+				shader.buffers.emplace_back( buffer );
+				buffer.aliased = true;
+			}
+
+			shader.buffers.emplace_back( uf::graph::storage.buffers.drawCommands.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instance.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.instanceAddresses.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.material.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.texture.alias() );
+			shader.buffers.emplace_back( uf::graph::storage.buffers.light.alias() );
+		}
+	*/
 	}
 }
 void uf::graph::render() {	

@@ -56,7 +56,7 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 #if UF_USE_OPENGL
 	metadataJson["light"]["shadows"] = false;
 #endif
-	if ( !sceneMetadataJson["system"]["config"]["engine"]["scenes"]["lights"]["shadows"]["enabled"].as<bool>(true) ) {
+	if ( !sceneMetadataJson["lights"]["shadows"]["enabled"].as<bool>(true) ) {
 		metadataJson["light"]["shadows"] = false;
 	}
 	if ( metadataJson["light"]["shadows"].as<bool>() ) {
@@ -236,6 +236,7 @@ void ext::LightBehavior::render( uf::Object& self ){}
 void ext::LightBehavior::destroy( uf::Object& self ){
 	if ( this->hasComponent<uf::renderer::RenderTargetRenderMode>() ) {
 		auto& renderMode = this->getComponent<uf::renderer::RenderTargetRenderMode>();
+
 		uf::renderer::removeRenderMode( &renderMode, false );
 		this->deleteComponent<uf::renderer::RenderTargetRenderMode>();
 	}

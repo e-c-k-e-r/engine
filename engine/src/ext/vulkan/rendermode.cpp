@@ -420,11 +420,9 @@ void ext::vulkan::RenderMode::initialize( Device& device ) {
 }
 
 void ext::vulkan::RenderMode::tick() {
-/*
 	if ( ext::vulkan::states::resized || uf::renderer::states::rebuild || rebuild ) {
 		cleanupAllCommands();
 	}
-*/
 	this->synchronize();
 	
 	if ( metadata.limiter.frequency > 0 ) {

@@ -681,6 +681,7 @@ VkFence ext::vulkan::Device::getFence() {
 	return fence;
 }
 void ext::vulkan::Device::destroyFence( VkFence fence ) {
+//	vkDestroyFence( this->logicalDevice, fence, nullptr );
 	VK_CHECK_RESULT(vkResetFences( this->logicalDevice, 1, &fence ) );
 	this->reusable.fences.emplace( fence );
 }

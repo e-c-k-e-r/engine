@@ -128,6 +128,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		uf::hooks.call("window:Mouse.CursorVisibility", payload);
 		uf::hooks.call("window:Mouse.Lock");
 	}
+
 	auto& sceneTextures = this->getComponent<pod::SceneTextures>();
 	// initialize perlin noise
 	#if UF_USE_VULKAN
@@ -208,6 +209,14 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 		}
 	}
 	#endif
+
+	if ( false ) {
+		uf::physics::terminate();
+		uf::graph::destroy();
+		
+		uf::physics::initialize();
+		uf::graph::initialize();
+	}
 }
 void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 //	auto& assetLoader = this->getComponent<uf::asset>();

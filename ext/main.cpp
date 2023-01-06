@@ -254,7 +254,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	uf::renderer::settings::defaultDeferBufferDestroy = configRenderInvariantJson["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
 #if 1
 	uf::renderer::settings::defaultCommandBufferImmediate = true;
-	::requestDeferredCommandBufferSubmit = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
+	::requestDeferredCommandBufferSubmit = !configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
 #else
 	uf::renderer::settings::defaultCommandBufferImmediate = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
 #endif
@@ -412,7 +412,7 @@ void EXT_API ext::initialize() {
 		uf::Scene& scene = uf::instantiator::instantiate<uf::Scene>(); //new uf::Scene;
 		uf::scene::scenes.emplace_back(&scene);
 		auto& metadata = scene.getComponent<uf::Serializer>();
-		metadata["system"]["config"] = ::json;
+	//	metadata["system"]["config"] = ::json;
 	}
 
 	ext::load( ::json );
@@ -499,6 +499,10 @@ void EXT_API ext::initialize() {
 		uf::renderer::settings::pipelines::bloom = configRenderPipelinesJson["bloom"].as( uf::renderer::settings::pipelines::bloom );
 		uf::renderer::settings::pipelines::rt = configRenderPipelinesJson["rt"].as( uf::renderer::settings::pipelines::rt );
 		uf::renderer::settings::pipelines::postProcess = configRenderPipelinesJson["postProcess"].as( uf::renderer::settings::pipelines::postProcess );
+		
+		if ( configRenderPipelinesJson["postProcess"].is<uf::stl::string>() ) {
+			uf::renderer::settings::pipelines::postProcess = true;
+		}
 
 	#if UF_USE_FFX_FSR
 		uf::renderer::settings::pipelines::fsr = configRenderPipelinesJson["fsr"].as( uf::renderer::settings::pipelines::fsr );
@@ -566,6 +570,9 @@ void EXT_API ext::initialize() {
 		if ( ::json["engine"]["render modes"]["deferred"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::DeferredRenderMode;
 			
+			if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
+				renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
+
 			renderMode->blitter.descriptor.renderMode = "Swapchain";
 			renderMode->blitter.descriptor.subpass = 0;
 		#if UF_USE_FFX_FSR
@@ -606,6 +613,9 @@ void EXT_API ext::initialize() {
 
 		if ( ::json["engine"]["render modes"]["gui"].as<bool>(true) ) {
 			auto* renderMode = new uf::renderer::RenderTargetRenderMode;
+			if ( ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"].is<uf::stl::string>() )
+				renderMode->metadata.json["postProcess"] = ::json["engine"]["ext"]["vulkan"]["pipelines"]["postProcess"];
+			
 			uf::stl::string name = "Gui";
 			renderMode->blitter.descriptor.renderMode = "Swapchain";
 			renderMode->blitter.descriptor.subpass = 0;
@@ -705,11 +715,8 @@ void EXT_API ext::initialize() {
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
 			auto function = [json](){
 				uf::hooks.call("game:Scene.Cleanup");
-			/*
 				auto& scene = uf::scene::loadScene( json["scene"].as<uf::stl::string>() );
 				auto& metadata = scene.getComponent<uf::Serializer>();
-				metadata["system"]["config"] = ::json;
-			*/
 			};
 		
 
@@ -718,31 +725,30 @@ void EXT_API ext::initialize() {
 		});
 
 		uf::hooks.addHook( "game:Scene.Cleanup", [&](){
+			if ( ::requestDedicatedRenderThread ) {
+				::requestDedicatedRenderThread = true;
+				uf::renderer::settings::experimental::dedicatedThread = false;
+			}
+			if ( ::requestDeferredCommandBufferSubmit ) {
+				::requestDeferredCommandBufferSubmit = true;
+				uf::renderer::settings::defaultCommandBufferImmediate = true;
+			}
+
 			uf::renderer::synchronize();
+			uf::renderer::flushCommandBuffers();
+
 			uf::scene::unloadScene();
 
+		/*
 			// do GC
 			{
 				size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 				if ( collected > 0 ) {
 					if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
-				//	uf::renderer::states::rebuild = true;
+					uf::renderer::states::rebuild = true;
 				}
 			}
-			// reset physics world
-			{
-				uf::physics::terminate();
-				uf::physics::initialize();
-			}
-			// reset graph state
-			{
-				uf::graph::destroy();
-				uf::graph::initialize();
-			}
-
-			uf::renderer::states::rebuild = true;
-			uf::renderer::tick();
-			uf::renderer::synchronize();
+		*/
 		});
 	#endif
 		uf::hooks.addHook( "game:Scene.Load", [&](ext::json::Value& json){
@@ -765,7 +771,6 @@ void EXT_API ext::initialize() {
 	*/
 		auto& scene = uf::scene::loadScene( ::json["engine"]["scenes"]["start"] );
 		auto& metadata = scene.getComponent<uf::Serializer>();
-		metadata["system"]["config"] = ::json;
 	}
 	
 /*
@@ -780,43 +785,51 @@ void EXT_API ext::initialize() {
 }
 
 void EXT_API ext::tick() {
-
+#if 1
 	if ( !ext::json::isNull( ::sceneTransition ) ) {
 		auto target = ::sceneTransition["scene"].as<uf::stl::string>();
-		::sceneTransition = ext::json::null();
+
 		UF_MSG_DEBUG("STARTING SCENE TRANSITION: {}", target);
 
-	/*
+		if ( ::requestDedicatedRenderThread ) {
+			::requestDedicatedRenderThread = true;
+			uf::renderer::settings::experimental::dedicatedThread = false;
+		}
+		if ( ::requestDeferredCommandBufferSubmit ) {
+			::requestDeferredCommandBufferSubmit = true;
+			uf::renderer::settings::defaultCommandBufferImmediate = true;
+		}
+
 		uf::renderer::synchronize();
 		uf::renderer::flushCommandBuffers();
+
 		uf::scene::unloadScene();
 
+	/*
 		// do GC
 		{
 			size_t collected = uf::instantiator::collect( ::config.engine.gc.mode );
 			if ( collected > 0 ) {
 				if ( ::config.engine.gc.announce ) UF_MSG_DEBUG("GC collected {} unused entities", (int) collected);
-			//	uf::renderer::states::rebuild = true;
+				uf::renderer::states::rebuild = true;
 			}
-		}
-		// reset physics world
-		{
-			uf::physics::terminate();
-			uf::physics::initialize();
-		}
-		// reset graph state
-		{
-			uf::graph::destroy();
-			uf::graph::initialize();
 		}
 	*/
 
 		auto& scene = uf::scene::loadScene( target );
 		auto& metadata = scene.getComponent<uf::Serializer>();
-		metadata["system"]["config"] = ::json;
+	//	metadata["system"]["config"] = ::json;
 
+		::sceneTransition = ext::json::null();
 		UF_MSG_DEBUG("FINISHED SCENE TRANSITION: {}", target);
+
+		uf::physics::terminate();
+		uf::graph::destroy();
+		
+		uf::physics::initialize();
+		uf::graph::initialize();
 	}
+#endif
 
 	/* Tick controllers */ {
 		spec::controller::tick();
