@@ -40,28 +40,30 @@ namespace {
 			UF_MSG_ERROR("Abort detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
-		#endif
-
+			exit();
+		#else
 			if ( ::killing ) {
 				std::_Exit(0);
 			} else if ( !client::terminated ) {
 				::killing = true;
 				exit();
 			}
+		#endif
 		}
 
 		void segv( int sig ) {
 			UF_MSG_ERROR("Segfault detected");
 		#if UF_ENV_DREAMCAST
 			arch_stk_trace(1);
-		#endif
-
+			exit();
+		#else
 			if ( ::killing ) {
 				std::_Exit(0);
 			} else if ( !client::terminated ) {
 				::killing = true;
 				exit();
 			}
+		#endif
 		}
 	}
 }

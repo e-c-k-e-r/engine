@@ -68,7 +68,7 @@ ifneq (,$(findstring win64,$(ARCH)))
 	INCS 				:= -I./dep/master/include $(INCS)
 else ifneq (,$(findstring dreamcast,$(ARCH)))
 	FLAGS 				+= -DUF_ENV_DREAMCAST
-	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt # ogg openal aldc gltf freetype bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
+	REQ_DEPS 			+= simd opengl gldc json:nlohmann reactphysics png zlib ctti lua fmt imgui freetype openal aldc ogg # gltf bullet meshoptimizer draco luajit ultralight-ux ncurses curl openvr discord
 	INCS 				:= -I./dep/dreamcast/include $(INCS)
 endif
 ifneq (,$(findstring vulkan,$(REQ_DEPS)))
@@ -144,7 +144,7 @@ ifneq (,$(findstring openal,$(REQ_DEPS)))
 	ifneq (,$(findstring dreamcast,$(ARCH)))
 		ifneq (,$(findstring aldc,$(REQ_DEPS)))
 			DEPS 		+= -lALdc
-			FLAGS 		+= -DUF_USE_OPENAL_ALDC
+			FLAGS 		+= -DUF_USE_OPENAL_ALDC -DUF_USE_ALUT
 		else
 			DEPS 		+= -lAL
 		endif
@@ -279,7 +279,7 @@ ifneq (,$(findstring dreamcast,$(ARCH)))
 $(PREFIX): $(TARGET) ./bin/dreamcast/$(TARGET_NAME).cdi
 
 #SRCS_DLL 				= $(wildcard $(ENGINE_SRC_DIR)/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*.cpp) $(wildcard $(ENGINE_SRC_DIR)/*/*/*/*/*.cpp)
-SRCS_DLL 				= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp")
+SRCS_DLL 				= $(shell find $(ENGINE_SRC_DIR) -name "*.cpp") $(shell find $(DEP_SRC_DIR) -name "*.cpp")
 OBJS_DLL 				= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL))
 OBJS 					= $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS_EXT_DLL)) $(patsubst %.cpp,%.$(PREFIX).o,$(SRCS))
 
@@ -375,6 +375,17 @@ else
 	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
 	@echo "Setting defaults: $(ARCH).$(CC).$(RENDERER)"
 	./program.sh
+endif
+
+run-debug:
+ifneq (,$(findstring dreamcast,$(ARCH)))
+	 $(KOS_EMU_DEBUG) ./bin/dreamcast/$(TARGET_NAME).cdi
+else
+	@echo -n $(ARCH) > "./bin/exe/default/arch"
+	@echo -n $(CC) > "./bin/exe/default/cc"
+	@echo -n $(RENDERER) > "./bin/exe/default/renderer"
+	@echo "Setting defaults: $(ARCH).$(CC).$(RENDERER)"
+	./debug.sh
 endif
 
 clean-zips:

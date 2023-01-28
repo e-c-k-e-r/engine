@@ -100,7 +100,7 @@
 
 #define ALIGNED_SIZE(V, A) ((V + A - 1) & ~(A - 1))
 
-#define UF_MSG_PEEK(X) #X"="+std::to_string(X)
+#define UF_MSG_PEEK(X) #X": {}", X
 
 #if UF_ENV_DREAMCAST
 	#define DC_STATS() {\

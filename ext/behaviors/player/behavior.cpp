@@ -81,6 +81,9 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 	this->addHook( "window:Mouse.CursorVisibility", [&](pod::payloads::windowMouseCursorVisibility& payload){
 		metadata.system.control = !payload.mouse.visible;
 	});
+	this->addHook( "system:Control.%UID%", [&]( ext::json::Value& value ){
+		metadata.system.control = value["control"].as<bool>(!metadata.system.control);
+	});
 
 	// Rotate Camera
 #if !UF_INPUT_USE_ENUM_MOUSE
@@ -179,7 +182,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			if ( uf::inputs::controller::states::A ) keys.jump = true;
 			if ( uf::inputs::controller::states::B ) keys.running = true;
 			if ( uf::inputs::controller::states::X ) keys.crouch = true, keys.walk = true;
-			if ( uf::inputs::controller::states::Y ) keys.vee = true;
+		//	if ( uf::inputs::controller::states::Y ) keys.vee = true;
+			if ( uf::inputs::controller::states::Y ) keys.use = true;
 			if ( uf::inputs::controller::states::L_TRIGGER ) keys.left = true;
 			if ( uf::inputs::controller::states::R_TRIGGER ) keys.right = true;
 			if ( uf::inputs::controller::states::START ) keys.paused = true;
@@ -501,7 +505,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		}
 	}
 #endif
-#if UF_USE_LUA && !UF_ENV_DREAMCAST
+#if 0 && UF_USE_LUA && !UF_ENV_DREAMCAST
 	#define TRACK_ORIENTATION(ORIENTATION) {\
 		static pod::Quaternion<> storedCameraOrientation = ORIENTATION;\
 		const pod::Quaternion<> prevCameraOrientation = storedCameraOrientation;\
@@ -512,7 +516,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		combinedDeltaOrientation = uf::quaternion::multiply( deltaOrientation, combinedDeltaOrientation );\
 		storedCameraOrientation = ORIENTATION;\
 	}
-	if ( false ) {
+	// this causes bigly memory leaks
+	{
 		pod::Quaternion<> combinedDeltaOrientation = {0,0,0,1};
 		pod::Vector3f combinedDeltaAngles = {};
 		TRACK_ORIENTATION(transform.orientation);

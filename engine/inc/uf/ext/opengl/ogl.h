@@ -58,7 +58,7 @@
 #define UF_USE_OPENGL_IMMEDIATE_MODE 0
 
 #define GL_DEBUG_MESSAGE(...) UF_MSG_ERROR(__VA_ARGS__);
-#define GL_VALIDATION_MESSAGE(...) if ( ext::opengl::settings::validation ) GL_DEBUG_MESSAGE(__VA_ARGS__);
+#define GL_VALIDATION_MESSAGE(...) if ( ext::opengl::settings::validation::enabled ) GL_DEBUG_MESSAGE(__VA_ARGS__);
 
 #if UF_ENV_DREAMCAST
 	#define GL_VALIDATION_ENABLED 0
@@ -69,7 +69,7 @@
 #if GL_VALIDATION_ENABLED
 	#define GL_ERROR_CHECK(f) {																									\
 		{f;}																													\
-		if ( ext::opengl::settings::validation ) {																				\
+		if ( ext::opengl::settings::validation::enabled ) {																				\
 			GLenum res = glGetError();																							\
 			if (res != GL_NO_ERROR) GL_DEBUG_MESSAGE("[Validation Error] {}: {}", #f, ext::opengl::errorString( res )); 		\
 		}																														\

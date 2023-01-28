@@ -1002,10 +1002,49 @@ void uf::graph::process( pod::Graph& graph ) {
 	}
 #endif
 
-	if ( graph.metadata["debug"]["print"]["lights"].as<bool>() ) for ( auto& pair : graph.lights ) UF_MSG_DEBUG("Light: {}", pair.first);
-	if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) for ( auto& name : graph.meshes ) UF_MSG_DEBUG("Mesh: {}", name);
-	if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) for ( auto& name : graph.materials ) UF_MSG_DEBUG("Material: {}", name);
-	if ( graph.metadata["debug"]["print"]["textures"].as<bool>() ) for ( auto& name : graph.textures ) UF_MSG_DEBUG("Texture: {}", name);
+	if ( graph.metadata["debug"]["print"]["lights"].as<bool>() ) {
+		UF_MSG_DEBUG("Lights: {}", graph.lights.size());
+		for ( auto& pair : graph.lights ) {
+			UF_MSG_DEBUG("\tLight: {}", pair.first);
+		}
+	}
+	if ( graph.metadata["debug"]["print"]["meshes"].as<bool>() ) {
+		UF_MSG_DEBUG("Meshs: {}", graph.meshes.size());
+		for ( auto& name : graph.meshes ) {
+			UF_MSG_DEBUG("\tMesh: {}", name);
+		}
+	}
+
+	if ( graph.metadata["debug"]["print"]["instances"].as<bool>() ) {
+		UF_MSG_DEBUG("Instances: {}", graph.instances.size());
+		for ( auto& name : graph.instances ) {
+			auto& instance = uf::graph::storage.instances[name];
+			UF_MSG_DEBUG("\tInstance: {} | {} | {}", name,
+				instance.materialID,
+				instance.lightmapID
+			);
+		}
+	}
+	if ( graph.metadata["debug"]["print"]["materials"].as<bool>() ) {
+		UF_MSG_DEBUG("Materials: {}", graph.materials.size());
+		for ( auto& name : graph.materials ) {
+			auto& material = uf::graph::storage.materials[name];
+			UF_MSG_DEBUG("\tMaterial: {} | {}", name, material.indexAlbedo);
+		}
+	}
+	if ( graph.metadata["debug"]["print"]["textures"].as<bool>() ) {
+		UF_MSG_DEBUG("Textures: {}", graph.textures.size());
+		for ( auto& name : graph.textures ) {
+			auto& texture = uf::graph::storage.textures[name];
+			UF_MSG_DEBUG("\tTexture: {} | {}", name, texture.index);
+		}
+	}
+	if ( graph.metadata["debug"]["print"]["images"].as<bool>() ) {
+		UF_MSG_DEBUG("Images: {}", graph.images.size());
+		for ( auto& name : graph.images ) {
+			UF_MSG_DEBUG("\tImage: {}", name);
+		}
+	}
 
 	UF_DEBUG_TIMER_MULTITRACE("Updating master graph");
 	uf::graph::reload();

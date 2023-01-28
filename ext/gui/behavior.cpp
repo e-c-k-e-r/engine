@@ -371,7 +371,7 @@ void ext::Gui::load( const uf::Image& image ) {
 		{ pod::Vector3f{ 1.0f,  1.0f, 0.0f}, pod::Vector2f{1.0f, 1.0f}, color },
 		{ pod::Vector3f{ 1.0f, -1.0f, 0.0f}, pod::Vector2f{1.0f, 0.0f}, color },
 	};
-	uf::stl::vector<size_t> indices = {
+	uf::stl::vector<uint16_t> indices = {
 		0, 1, 2, 3, 4, 5
 	};
 
@@ -393,9 +393,9 @@ void ext::Gui::load( const uf::Image& image ) {
 	} else {
 	#if UF_USE_OPENGL
 		if ( ext::json::isNull(metadataJson["cull mode"]) ) metadataJson["cull mode"] = "front";
-		transform.position.z = metadata.depth;
+		if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
+	//	transform.position.z = metadata.depth;
 	#else
-	//	if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = -metadata.depth;
 		if ( metadataJson["flip uv"].as<bool>() ) for ( auto& v : vertices ) v.uv.y = 1 - v.uv.y;
 	#endif
 		for ( auto& v : vertices ) v.position.z = metadata.depth;
@@ -443,9 +443,9 @@ void ext::Gui::load( const uf::Image& image ) {
 //	graphic.initialize();
 
 	auto& mesh = this->getComponent<uf::Mesh>();
-	mesh.bind<::GuiMesh>();
+	mesh.bind<::GuiMesh, uint16_t>();
 	mesh.insertVertices( vertices );
-//	mesh.insertIndices( indices );
+	mesh.insertIndices( indices );
 	graphic.initializeMesh( mesh );
 
 	struct {
@@ -514,6 +514,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 				click.x = (click.x * 2.0f) - 1.0f;
 				click.y = (click.y * 2.0f) - 1.0f;
+			#if UF_USE_OPENGL
+				click.y = -click.y;
+			#endif
 
 				float x = click.x;
 				float y = click.y;
@@ -546,6 +549,10 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		} );
 
 
+		this->addHook( "gui:Clicked.%UID%", [&]( ext::json::Value& json ){
+			pod::payloads::windowMouseClick payload;
+			this->callHook("gui:Clicked.%UID%", payload);
+		});
 		this->addHook( "gui:Clicked.%UID%", [&](pod::payloads::windowMouseClick& payload){
 			if ( ext::json::isObject( metadataJson["events"]["click"] ) ) {
 				ext::json::Value event = metadataJson["events"]["click"];
@@ -581,6 +588,9 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 
 			click.x = (click.x * 2.0f) - 1.0f;
 			click.y = (click.y * 2.0f) - 1.0f;
+		#if UF_USE_OPENGL
+			click.y = -click.y;
+		#endif
 			float x = click.x;
 			float y = click.y;
 
@@ -694,12 +704,25 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				const uint8_t* buffer = glyph.getBuffer();
 				uf::Image::container_t pixels;
 				std::size_t len = glyph.getSize().x * glyph.getSize().y;
+			#if 1 || UF_ENV_DREAMCAST
+				pixels.reserve( len * 4 );
+				for ( size_t i = 0; i < len; ++i ) {
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+					pixels.emplace_back( buffer[i] );
+				//	pixels.emplace_back( buffer[i] > 127 ? 255 : 0 );
+				}
+				glyphHashMap[glyphKey] = atlas.addImage( &pixels[0], glyph.getSize(), 8, 4, true );
+			#else
 				pixels.reserve( len * 2 );
 				for ( size_t i = 0; i < len; ++i ) {
 					pixels.emplace_back( buffer[i] );
 					pixels.emplace_back( buffer[i] );
+				//	pixels.emplace_back( buffer[i] > 127 ? 255 : 0 );
 				}
 				glyphHashMap[glyphKey] = atlas.addImage( &pixels[0], glyph.getSize(), 8, 2, true );
+			#endif
 			#else
 				glyphHashMap[glyphKey] = atlas.addImage( glyph.getBuffer(), glyph.getSize(), 8, 1, true );
 			#endif
@@ -717,7 +740,7 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 		#else
 			auto& vertices = this->getComponent<uf::stl::vector<::GuiMesh>>();
 		#endif
-			uf::stl::vector<size_t> indices;
+			uf::stl::vector<uint16_t> indices;
 			vertices.reserve( glyphs.size() * 6 );
 			indices.reserve( glyphs.size() * 6 );
 
@@ -738,17 +761,32 @@ void ext::GuiBehavior::initialize( uf::Object& self ) {
 				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y          , 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 1.0f }, hash ), color}); indices.emplace_back( indices.size() );
 				vertices.emplace_back(::GuiMesh{pod::Vector3f{ g.box.x + g.box.w, g.box.y + g.box.h, 0 }, atlas.mapUv( pod::Vector2f{ 1.0f, 0.0f }, hash ), color}); indices.emplace_back( indices.size() );
 			}
+		
+			if ( !metadataJson["world"].as<bool>() ) {
+			#if UF_USE_OPENGL
+				if ( uf::matrix::reverseInfiniteProjection ) metadata.depth = 1 - metadata.depth;
+			#endif
+			}
+
 			for ( size_t i = 0; i < vertices.size(); i += 6 ) {
 				for ( size_t j = 0; j < 6; ++j ) {
 					auto& vertex = vertices[i+j];
 					vertex.position.x /= ext::gui::size.reference.x;
 					vertex.position.y /= ext::gui::size.reference.y;
 					vertex.position.z = metadata.depth;
+
+				#if UF_USE_OPENGL
+					vertex.position.y = -vertex.position.y;
+				#endif
 				}
 			}
-			mesh.bind<::GuiMesh>();
+
+
+			graphic.descriptor.parse( metadataJson );
+
+			mesh.bind<::GuiMesh, uint16_t>();
 			mesh.insertVertices( vertices );
-		//	mesh.insertIndices( indices );
+			mesh.insertIndices( indices );
 
 			auto& texture = graphic.material.textures.emplace_back();
 			texture.loadFromImage( atlas.getAtlas() );
@@ -1079,6 +1117,8 @@ void ext::GuiBehavior::GlyphMetadata::deserialize( uf::Object& self, uf::Seriali
 	/*this->*/weight = serializer["gui"]["weight"].as(/*this->*/weight);
 #if UF_USE_OPENGL
 	/*this->*/sdf = false;
+	/*this->*/scale *= 4.0f;
+	/*this->*/size /= 4.0f;
 #else
 	/*this->*/sdf = serializer["gui"]["sdf"].as(/*this->*/sdf);
 #endif

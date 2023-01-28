@@ -1,18 +1,25 @@
 {
 	"engine": {
 		"scenes": {
-			"start": "SS2",
+			"start": "StartMenu",
+			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
-			"matrix": { "reverseInfinite": false },
-			"lights": { "enabled": false,
+			"lights": { "enabled": true,
 				"useLightmaps": true,
-				"max": 1
-			},
-			"shadows": {
-				"enabled": false,
-				"update": 2,
-				"max": 8,
-				"samples": 1
+				"max": 1,
+				"shadows": {
+					"enabled": false,
+					"update": 4,
+					"max": 8,
+					"samples": 4
+				},
+				"bloom": {
+					"scale": 1.0,
+					"strength": 0.125,
+					"sigma": 0.8,
+					"samples": 5,
+					"threshold": 1.0
+				}
 			},
 			"textures": {
 				"max": {
@@ -21,6 +28,9 @@
 					"3D": 1
 				}
 			}
+		},
+		"graph": {
+			"initial buffer elements": 128
 		},
 		"ext": {
 			"opengl": {
@@ -52,26 +62,49 @@
 				"encoding": "msgpack",
 				"compression": "gz"
 			},
+			"imgui": {
+				"enabled": false
+			},
+			"fsr": {
+				"enabled": true,
+				"sharpness": 1,
+				"jitter scale": 0.0625,
+				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
+			},
 			"reactphysics": {
 				"timescale": 0.01666666666,
 				"interpolate": false,
+				"gravity": {
+					"mode": "per-object", // "universal",
+					"constant": 6.67408e-11
+				},
 				"debug draw": {
 					"enabled": false,
+					"line width": 8,
 				//	"layer": "Gui",
 					"rate": 0.0125
 				}
-			}
+			},
+			"vr" :  {
+				"enable" : false,
+				"manifest": "./data/openvr_manifest.json",
+				"swap eyes": false,
+				"dominant eye": 0,
+				"scale": 1.0
+			},
+			"ultralight": { "enabled": true, "scale": 1.5 },
+			"discord": { "enabled": false }
 		},
 		"audio": {
-			"mute": true,
+			"mute": false,
 			"buffers": {
-				"size": 16384,
-				"count": 3
+				"size": 24576,
+				"count": 6
 			},
 			"volumes": {
-				"sfx": 1.0,
-				"bgm": 1.0,
-				"voice": 1.0
+				"sfx": 2.0,
+				"bgm": 2.0,
+				"voice": 2.0
 			},
 			"streams by default": true
 		},
@@ -93,13 +126,13 @@
 			"framerate": 60
 		},
 		"threads": {
-			"workers" : 1, // "auto",
-			"frame limiter": "auto"
+			"workers" : 1,
+			"frame limiter": 0 // "auto"
 		},
 		"debug": {
 			"framerate": {
 				"print": true,
-				"every": 1
+				"every": 2
 			},
 			"garbage collection": {
 				"enabled": true,
@@ -111,8 +144,18 @@
 				"delete children on destroy": false,
 				"delete components on destroy": false
 			},
+			"userdata": {
+				"auto destruct": true,
+				"auto validate": false
+			},
 			"loader": {
 				"assert": true
+			},
+			"hooks": {
+				"defer lazy calls": true
+			},
+			"scene": {
+				"print task calls": false
 			}
 		}
 	},
@@ -124,16 +167,15 @@
 		"keyboard" :  {
 			"repeat" : false
 		},
-		"cursor" :  {
+		"mouse" :  {
 			"visible" : true,
 			"center" : false,
-			"sensitivity": [ 1.25, 1.25 ],
-			"smoothing": [ 10, 10 ]
+			"sensitivity": [ 2, 2 ],
+			"smoothing": [ 4, 4 ]
 		},
-		"mode" : "windowed",
+		"mode" : "windowed", // fullscreen, borderless, windowed
 		"icon" : "./data/textures/icon.png",
 		"size" :  [ 640, 480 ],
-	//	"size" :  [ 320, 240 ],
 		"title" : "Grimgram",
 		"visible" : true
 	}

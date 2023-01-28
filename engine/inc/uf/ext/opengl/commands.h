@@ -71,23 +71,11 @@ namespace ext {
 					uint8_t modeAlpha{};
 					float alphaCutoff = 0.001f;
 				} blend;
-			/*
-				GraphicDescriptor descriptor = {};
-				ext::opengl::Buffer::Descriptor vertexBuffer = {};
-				ext::opengl::Buffer::Descriptor indexBuffer = {};
-				ext::opengl::Buffer::Descriptor indirectBuffer = {};
-				ext::opengl::Buffer::Descriptor uniformBuffer = {};
-				ext::opengl::Texture::Descriptor texture = {};
-				ext::opengl::Texture::Descriptor auxTexture = {};
 
 				struct {
-					uint8_t position = 0;
-					uint8_t uv = 0;
-					uint8_t st = 0;
-					uint8_t normal = 0;
-					uint8_t color = 0;
-				} attributes;
-			*/
+					bool enabled = false;
+					pod::Vector4f value = { 1, 1, 1, 1 };
+				} color;
 			};
 		/*
 			struct UF_API InfoBuffer : public Info {

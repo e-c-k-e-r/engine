@@ -18,6 +18,10 @@ ext::opengl::GraphicDescriptor ext::opengl::RenderTargetRenderMode::bindGraphicD
 	if ( metadata.type == "depth" ) {
 	//	descriptor.cullMode = GL_CULL_MODE_NONE;
 	}
+
+//	descriptor.depth.write = true;
+//	descriptor.depth.test = false;
+
 	// invalidate
 	if ( metadata.target != "" && descriptor.renderMode != this->getName() && descriptor.renderMode != metadata.target ) {
 		descriptor.invalidated = true;

@@ -256,7 +256,7 @@ ext::vulkan::RenderMode& ext::vulkan::getRenderMode( const uf::stl::string& name
 }
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::string& name, bool isName ) {
 	if ( isName && renderModesMap.count(name) > 0 ) return { renderModesMap[name] };
-	return ext::vulkan::getRenderModes({name}, isName);
+	return ext::vulkan::getRenderModes(uf::stl::vector<uf::stl::string>{name}, isName);
 }
 uf::stl::vector<ext::vulkan::RenderMode*> ext::vulkan::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
 	uf::stl::vector<RenderMode*> targets;

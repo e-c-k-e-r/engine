@@ -372,8 +372,8 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		if ( attribute.descriptor.name == "position" ) drawCommandInfoBase.attributes.position = attribute;
 		else if ( attribute.descriptor.name == "uv" ) drawCommandInfoBase.attributes.uv = attribute;
 		else if ( attribute.descriptor.name == "st" ) drawCommandInfoBase.attributes.st = attribute;
-		else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
-		else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
+	//	else if ( attribute.descriptor.name == "normal" ) drawCommandInfoBase.attributes.normal = attribute;
+	//	else if ( attribute.descriptor.name == "color" ) drawCommandInfoBase.attributes.color = attribute;
 	}
 
 	if ( uniformBufferSize == sizeof(pod::Camera::Viewports) ) {
@@ -413,10 +413,14 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 		for ( auto i = 0; i < descriptor.inputs.indirect.count; ++i ) {
 			auto& drawCommand = drawCommands[i];
 			auto instanceID = drawCommand.instanceID;
+
 			auto& instance = instances[instanceID];
 			auto materialID = instance.materialID;
+			auto lightmapID = instance.lightmapID;
+
 			auto& material = materials[materialID];
 			auto textureID = material.indexAlbedo;
+
 			auto& infos = pool[textureID];
 			CommandBuffer::InfoDraw& drawCommandInfo = infos.emplace_back( drawCommandInfoBase );
 		//	CommandBuffer::InfoDraw drawCommandInfo = drawCommandInfoBase;
@@ -437,14 +441,17 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 
 			drawCommandInfo.blend.modeAlpha = material.modeAlpha;
 			drawCommandInfo.blend.alphaCutoff = material.factorAlphaCutoff;
-			
-			if ( 0 <= material.indexAlbedo ) {
-				auto texture2DID = textures[material.indexAlbedo].index;
+
+			drawCommandInfo.color.value = instance.color * material.colorBase;
+			drawCommandInfo.color.enabled = drawCommandInfo.color.value != pod::Vector4f{1.0f, 1.0f, 1.0f, 1.0f};
+
+			if ( 0 <= textureID ) {
+				auto texture2DID = textures[textureID].index;
 				drawCommandInfo.textures.primary = this->material.textures.at(texture2DID).descriptor;
 			}
-			if ( 0 <= instance.lightmapID ) {
-				auto textureID = instance.lightmapID;
-				auto texture2DID = textures[instance.lightmapID].index;
+			if ( 0 <= lightmapID ) {
+				auto textureID = lightmapID;
+				auto texture2DID = textures[lightmapID].index;
 				drawCommandInfo.textures.secondary = this->material.textures.at(texture2DID).descriptor;
 			}
 			switch ( drawCommandInfo.blend.modeAlpha ) {
@@ -470,7 +477,7 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 				case enums::Format::R8G8B8A8_UNORM:
 				case enums::Format::R8G8B8A8_SRGB:
 					drawCommandInfo.blend.modeAlpha = 1;
-				//	drawCommandInfo.blend.alphaCutoff = 0.001f; // material.factorAlphaCutoff;
+					drawCommandInfo.blend.alphaCutoff = 0.0001f; // material.factorAlphaCutoff;
 				break;
 			}
 		}
@@ -480,8 +487,21 @@ void ext::opengl::Graphic::record( CommandBuffer& commandBuffer, const GraphicDe
 			default: drawCommandInfos.translucents.emplace_back(drawCommandInfo); break;
 		}
 	}
-	for ( auto& drawCommandInfo : drawCommandInfos.opaques ) commandBuffer.record(drawCommandInfo);
-	for ( auto& drawCommandInfo : drawCommandInfos.translucents ) commandBuffer.record(drawCommandInfo);
+
+	if ( uf::matrix::reverseInfiniteProjection ) {
+		for ( auto it = drawCommandInfos.opaques.rbegin(); it != drawCommandInfos.opaques.rend(); ++it ) {
+			auto& drawCommandInfo = (*it);
+			commandBuffer.record(drawCommandInfo);
+		}
+		for ( auto it = drawCommandInfos.translucents.rbegin(); it != drawCommandInfos.translucents.rend(); ++it ) {
+			auto& drawCommandInfo = (*it);
+			commandBuffer.record(drawCommandInfo);
+		}
+	} else {
+		for ( auto& drawCommandInfo : drawCommandInfos.opaques ) commandBuffer.record(drawCommandInfo);
+		for ( auto& drawCommandInfo : drawCommandInfos.translucents ) commandBuffer.record(drawCommandInfo);
+	}
+//	UF_MSG_DEBUG("END")
 }
 void ext::opengl::Graphic::destroy() {
 	for ( auto& pair : pipelines ) pair.second.destroy();
@@ -513,6 +533,9 @@ void ext::opengl::GraphicDescriptor::parse( ext::json::Value& metadata ) {
 		depth.bias.slope = metadata["depth bias"]["slope"].as<float>();
 		depth.bias.clamp = metadata["depth bias"]["clamp"].as<float>();
 	}
+
+	depth.test = metadata["depth test"].as<bool>( depth.test );
+	depth.write = metadata["depth write"].as<bool>( depth.write );
 }
 ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() const {
 	size_t hash{};
@@ -542,7 +565,7 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 		hash += std::hash<decltype(inputs.indirect.attributes[i].descriptor.offset)>{}(inputs.indirect.attributes[i].descriptor.offset);
 	}
 */
-
+/*
 	hash += std::hash<decltype(topology)>{}(topology);
 	hash += std::hash<decltype(cullMode)>{}(cullMode);
 	hash += std::hash<decltype(fill)>{}(fill);
@@ -555,6 +578,7 @@ ext::opengl::GraphicDescriptor::hash_t ext::opengl::GraphicDescriptor::hash() co
 	hash += std::hash<decltype(depth.bias.constant)>{}(depth.bias.constant);
 	hash += std::hash<decltype(depth.bias.slope)>{}(depth.bias.slope);
 	hash += std::hash<decltype(depth.bias.clamp)>{}(depth.bias.clamp);
+*/
 
 	return hash;
 }

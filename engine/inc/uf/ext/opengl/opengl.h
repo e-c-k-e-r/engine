@@ -14,7 +14,6 @@ namespace ext {
 			extern UF_API uint32_t width;
 			extern UF_API uint32_t height;
 			extern UF_API uint8_t msaa;
-			extern UF_API bool validation;
 			extern UF_API bool defaultStageBuffers;
 			extern UF_API bool defaultDeferBufferDestroy;
 			extern UF_API bool defaultCommandBufferWait;
@@ -25,7 +24,6 @@ namespace ext {
 
 			constexpr size_t maxViews = 6;
 
-			extern UF_API uf::stl::vector<uf::stl::string> validationFilters;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceFeatures;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedDeviceExtensions;
 			extern UF_API uf::stl::vector<uf::stl::string> requestedInstanceExtensions;
@@ -36,6 +34,13 @@ namespace ext {
 				extern UF_API bool dedicatedThread;
 				extern UF_API bool rebuildOnTickBegin;
 				extern UF_API bool batchQueueSubmissions;
+			}
+
+			namespace validation {
+				extern UF_API bool enabled;
+				extern UF_API bool messages;
+				extern UF_API bool checkpoints;
+				extern UF_API uf::stl::vector<uf::stl::string> filters;
 			}
 
 			namespace invariant {

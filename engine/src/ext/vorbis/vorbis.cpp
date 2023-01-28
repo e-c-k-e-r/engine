@@ -203,7 +203,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 	}
 
 //	UF_MSG_DEBUG( "filename\tchannels\tbitDepth\tfrequency\tduration\tchannels" );
-//	UF_MSG_DEBUG( metadata.filename << "\t" <<  (int)metadata.info.channels << "\t" << (int)metadata.info.bitDepth << "\t" << (int)metadata.info.frequency << "\t" << metadata.info.duration << "\t" << (int) metadata.info.channels );
+//	UF_MSG_DEBUG( "{}\t{}\t{}\t{}\t{}\t{}", metadata.filename, (int) metadata.info.channels, (int) metadata.info.bitDepth, (int) metadata.info.frequency, metadata.info.duration, (int) metadata.info.channels );
 
 	// fill and queue initial buffers
 	char buffer[uf::audio::bufferSize];
@@ -212,7 +212,6 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 		int32_t read = 0;
 		while ( read < uf::audio::bufferSize ) {
 			int32_t result = ov_read( &vorbisFile, &buffer[read], uf::audio::bufferSize - read, endian, 2, 1, &metadata.stream.bitStream );
-		
 			if ( result == OV_HOLE ) {
 				UF_MSG_ERROR("Vorbis: OV_HOLE found in buffer read: {} {}", (int) queuedBuffers, metadata.filename);
 				break;
@@ -239,7 +238,7 @@ void ext::vorbis::stream( uf::Audio::Metadata& metadata ) {
 		}
 	
 		if ( read == 0 ) {
-		//	UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: " << (int) queuedBuffers << " " << metadata.filename);
+		//	UF_MSG_WARNING("Vorbis: consumed file stream before buffers are filled: {} {}", (int) queuedBuffers, metadata.filename);
 		//	if ( metadata.settings.loopMode == 0 ) metadata.settings.loopMode = 1;
 		//	if ( metadata.settings.loop ) metadata.al.source.set( AL_LOOPING, AL_TRUE );
 			break;

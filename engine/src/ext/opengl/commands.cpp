@@ -272,7 +272,21 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		if ( drawCommand.instances == 0 ) return;
 	}
 
+	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
+	GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
 
+	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
+	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
+
+#if UF_ENV_DREAMCAST
+	// washingtondc has a regression where non-alpha-tested polys do not render
+	// more convenient to just work around the regression since later builds have working opengl backends
+	GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
+	GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
+
+	GL_ERROR_CHECK(glEnable(GL_BLEND));
+	GL_ERROR_CHECK(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+#else
 	if ( drawInfo.blend.modeAlpha > 0 ) {
 		GL_ERROR_CHECK(glEnable(GL_ALPHA_TEST));
 		GL_ERROR_CHECK(glAlphaFunc(GL_GREATER, drawInfo.blend.alphaCutoff));
@@ -283,12 +297,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisable(GL_ALPHA_TEST));
 		GL_ERROR_CHECK(glDisable(GL_BLEND));
 	}
-
-	GL_ERROR_CHECK(glMatrixMode(GL_MODELVIEW));
-	GL_ERROR_CHECK(glLoadMatrixf( &modelView[0] ));
-
-	GL_ERROR_CHECK(glMatrixMode(GL_PROJECTION));
-	GL_ERROR_CHECK(glLoadMatrixf( &projection[0] ));
+#endif
 
 	if ( drawInfo.descriptor.cullMode == GL_NONE ) {
 		GL_ERROR_CHECK(glDisable(GL_CULL_FACE));
@@ -303,12 +312,14 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		GL_ERROR_CHECK(glDisable(GL_DEPTH_TEST));
 	}
 	GL_ERROR_CHECK(glDepthMask(drawInfo.descriptor.depth.write ? GL_TRUE : GL_FALSE));
+	
+	uf::stl::vector<pod::Vector4f> colors;
 
 	// CPU-buffer based command dispatching
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) GL_ERROR_CHECK(glEnableClientState(GL_COLOR_ARRAY));
 	GL_ERROR_CHECK(glEnableClientState(GL_VERTEX_ARRAY));
-
+	
 	GLenum indicesType = GL_UNSIGNED_INT;
 	switch ( drawInfo.attributes.index.stride ) {
 		case sizeof(uint32_t): indicesType = GL_UNSIGNED_INT; break;
@@ -316,33 +327,9 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 		case sizeof(uint8_t): indicesType = GL_UNSIGNED_BYTE; break;
 	}
 
-	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {		
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-
-		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
-		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
-		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
-
-		if ( !(drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer) ) {
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-		} else {
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
-		
-			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
-			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
-			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
-			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
-			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
-			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
-
-			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
-		}
-	}
-
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glNormalPointer(GL_FLOAT, drawInfo.attributes.normal.stride, (static_cast<uint8_t*>(drawInfo.attributes.normal.pointer) + drawInfo.attributes.normal.stride * drawInfo.descriptor.inputs.vertex.first)));
+
+
 	if ( drawInfo.attributes.color.pointer ) {
 		GLenum format = GL_UNSIGNED_BYTE;
 		switch ( drawInfo.attributes.color.descriptor.size / drawInfo.attributes.color.descriptor.components ) {
@@ -350,13 +337,57 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 			case sizeof(float): format = GL_FLOAT; break;
 		}
 		GL_ERROR_CHECK(glColorPointer(drawInfo.attributes.color.descriptor.components, format, drawInfo.attributes.color.stride, (static_cast<uint8_t*>(drawInfo.attributes.color.pointer) + drawInfo.attributes.color.stride * drawInfo.descriptor.inputs.vertex.first)));
+	} else if ( drawInfo.color.enabled ) {
+		colors = uf::stl::vector<pod::Vector4f>( drawInfo.descriptor.inputs.vertex.count, drawInfo.color.value );
+		GL_ERROR_CHECK(glColorPointer(4, GL_FLOAT, sizeof(pod::Vector4f), &(colors[0][0])));
+
+	//	GL_ERROR_CHECK(glColor4f( drawInfo.color.value[0], drawInfo.color.value[1], drawInfo.color.value[2], drawInfo.color.value[3] ));
 	}
+
+	if ( drawInfo.textures.primary.image && drawInfo.attributes.uv.pointer ) {		
+		GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE0));
+		GL_ERROR_CHECK(glEnable(drawInfo.textures.primary.viewType));
+		GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+		GL_ERROR_CHECK(glBindTexture(drawInfo.textures.primary.viewType, drawInfo.textures.primary.image));
+		GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.uv.stride, (static_cast<uint8_t*>(drawInfo.attributes.uv.pointer) + drawInfo.attributes.uv.stride * drawInfo.descriptor.inputs.vertex.first)));
+
+	#if 0 && UF_ENV_DREAMCAST
+		if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) {
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+		} else {
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+		}
+	#else
+		// modern drivers for fixed function OpenGL does not implement GL_MODULATE properly for vertex colored + texture sampling
+		GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE));
+	#endif
+
+		if ( drawInfo.textures.secondary.image && drawInfo.attributes.st.pointer ) {
+			GL_ERROR_CHECK(glClientActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glActiveTexture(GL_TEXTURE1));
+			GL_ERROR_CHECK(glEnable(drawInfo.textures.secondary.viewType));
+			GL_ERROR_CHECK(glEnableClientState(GL_TEXTURE_COORD_ARRAY));
+			GL_ERROR_CHECK(glBindTexture(drawInfo.textures.secondary.viewType, drawInfo.textures.secondary.image));
+			GL_ERROR_CHECK(glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE));
+			GL_ERROR_CHECK(glTexCoordPointer(2, GL_FLOAT, drawInfo.attributes.st.stride, (static_cast<uint8_t*>(drawInfo.attributes.st.pointer) + drawInfo.attributes.st.stride * drawInfo.descriptor.inputs.vertex.first)));
+		}
+	}
+
 	GL_ERROR_CHECK(glVertexPointer(3, GL_FLOAT, drawInfo.attributes.position.stride, (static_cast<uint8_t*>(drawInfo.attributes.position.pointer) + drawInfo.attributes.position.stride * drawInfo.descriptor.inputs.vertex.first)));
-	
+
 	if ( drawInfo.descriptor.inputs.index.count ) {
 		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, drawInfo.descriptor.inputs.index.count, indicesType, (static_cast<uint8_t*>(drawInfo.attributes.index.pointer) + drawInfo.attributes.index.stride * drawInfo.descriptor.inputs.index.first)));
 	} else {
+	#if UF_ENV_DREAMCAST
+		// GLdc has a "regression" where glDrawArrays does not work
+		// everything should be using indices anyways so this path shouldn't really ever be taken
+		uf::stl::vector<uint16_t> indices(drawInfo.descriptor.inputs.vertex.count);
+		for ( auto i = 0; i < drawInfo.descriptor.inputs.vertex.count; ++i ) indices[i] = i;
+		GL_ERROR_CHECK(glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, indices.data()));
+	#else
 		GL_ERROR_CHECK(glDrawArrays(GL_TRIANGLES, drawInfo.descriptor.inputs.vertex.first, drawInfo.descriptor.inputs.vertex.count));
+	#endif
 	}
 
 	if ( drawInfo.textures.secondary.image ) {
@@ -373,7 +404,7 @@ void ext::opengl::CommandBuffer::drawIndexed( const ext::opengl::CommandBuffer::
 	}
 
 	if ( drawInfo.attributes.normal.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_NORMAL_ARRAY));
-	if ( drawInfo.attributes.color.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
+	if ( drawInfo.attributes.color.pointer || drawInfo.color.enabled ) GL_ERROR_CHECK(glDisableClientState(GL_COLOR_ARRAY));
 	if ( drawInfo.attributes.uv.pointer ) GL_ERROR_CHECK(glDisableClientState(GL_TEXTURE_COORD_ARRAY));
 	GL_ERROR_CHECK(glDisableClientState(GL_VERTEX_ARRAY));
 }

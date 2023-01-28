@@ -72,7 +72,7 @@ void ext::ExtSceneBehavior::initialize( uf::Object& self ) {
 			if ( !manager ) return;
 
 			uf::stl::string key = payload.name;
-			uf::Object& gui = manager->loadChild(metadataJson["menus"][key].as<uf::stl::string>("/entites/gui/"+key+"/menu.json"), false);
+			uf::Object& gui = manager->loadChild(metadataJson["menus"][key].as<uf::stl::string>("/gui/"+key+"/menu.json"), false);
 			uf::Serializer& metadataJson = gui.getComponent<uf::Serializer>();
 			gui.initialize();
 		};
@@ -387,7 +387,7 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 	}
 #endif
 #if UF_USE_OPENGL
-	if ( metadata.light.enabled ) {
+	if ( false && metadata.light.enabled ) {
 		auto/*&*/ graph = this->getGraph();
 		auto& controller = this->getController();
 	//	auto& camera = controller.getComponent<uf::Camera>();
@@ -807,11 +807,13 @@ void ext::ExtSceneBehavior::Metadata::deserialize( uf::Object& self, uf::Seriali
 	}
 #if UF_USE_OPENGL_FIXED_FUNCTION
 	uf::renderer::states::rebuild = true;
+/*
 	if ( light.enabled ) {
 		GL_ERROR_CHECK(glEnable(GL_LIGHTING));
 	} else {
 		GL_ERROR_CHECK(glDisable(GL_LIGHTING));
 	}
+*/
 #endif
 #if UF_USE_VULKAN
 	if ( uf::renderer::settings::pipelines::bloom ) {

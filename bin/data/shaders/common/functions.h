@@ -251,7 +251,7 @@ void populateSurfaceMaterial() {
 	}
 	// Lightmap
 	if ( (/*surface.subID++ > 0 ||*/ bool(ubo.settings.lighting.useLightmaps)) && validTextureIndex( surface.instance.lightmapID ) ) {
-		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st );
+		vec4 light = sampleTexture( surface.instance.lightmapID, surface.st.xy, 0 );
 		/*surface.material.lightmapped = light.a > 0.000000001;
 		if ( surface.material.lightmapped )*/ surface.light += surface.material.albedo * light;
 	} else {

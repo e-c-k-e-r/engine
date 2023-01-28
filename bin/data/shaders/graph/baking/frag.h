@@ -103,6 +103,17 @@ void main() {
 	const uint drawID = uint(inId.y);
 	const uint instanceID = uint(inId.z);
 
+/*
+	surface.pass = 0; // PushConstant.pass;
+	surface.fragment = vec4(0);
+	surface.light = vec4(0);
+	surface.motion = vec2(0);
+	surface.material.indirect = vec4(0);
+	surface.material.metallic = 1;
+	surface.material.roughness = 0;
+	surface.material.occlusion = 0;
+*/
+
 	if ( instanceID != ubo.currentID ) discard;
 
 	surface.uv.xy = wrap(inUv.xy);

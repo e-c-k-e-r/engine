@@ -2,12 +2,10 @@
 
 #include <uf/config.h>
 #if UF_USE_LUA
-	#if UF_USE_LUAJIT
-		#define SOL_LUAJIT 1
-//		#define SOL_USING_CXX_LUA_JIT 1
-	#else
-//		#define SOL_USING_CXX_LUA 1
-	#endif
+
+#if UF_USE_LUAJIT
+	#define SOL_LUAJIT 1
+#endif
 #define SOL_NO_EXCEPTIONS 1
 #if UF_ENV_DREAMCAST
 	#define SOL_NO_THREAD_LOCAL 1

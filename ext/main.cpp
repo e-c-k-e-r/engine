@@ -121,11 +121,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 
 	uf::Mesh::defaultInterleaved = json["engine"]["scenes"]["meshes"]["interleaved"].as( uf::Mesh::defaultInterleaved );
 
-#if UF_USE_OPENGL
-	uf::matrix::reverseInfiniteProjection = false;
-#else
 	uf::matrix::reverseInfiniteProjection = json["engine"]["scenes"]["matrix"]["reverseInfinite"].as( uf::matrix::reverseInfiniteProjection );
-#endif
 
 	uf::graph::initialBufferElements = json["engine"]["graph"]["initial buffer elements"].as(uf::graph::initialBufferElements);
 
@@ -250,6 +246,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	
 	uf::renderer::settings::experimental::batchQueueSubmissions = configRenderExperimentalJson["batch queue submissions"].as( uf::renderer::settings::experimental::batchQueueSubmissions );
 
+#if UF_USE_VULKAN
 	uf::renderer::settings::defaultStageBuffers = configRenderInvariantJson["default stage buffers"].as( uf::renderer::settings::defaultStageBuffers );
 	uf::renderer::settings::defaultDeferBufferDestroy = configRenderInvariantJson["default defer buffer destroy"].as( uf::renderer::settings::defaultDeferBufferDestroy );
 #if 1
@@ -257,6 +254,7 @@ void EXT_API ext::load( ext::json::Value& json ) {
 	::requestDeferredCommandBufferSubmit = !configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
 #else
 	uf::renderer::settings::defaultCommandBufferImmediate = configRenderInvariantJson["default command buffer immediate"].as( uf::renderer::settings::defaultCommandBufferImmediate );
+#endif
 #endif
 #if 1
 	uf::renderer::settings::experimental::dedicatedThread = false;
@@ -795,14 +793,17 @@ void EXT_API ext::tick() {
 			::requestDedicatedRenderThread = true;
 			uf::renderer::settings::experimental::dedicatedThread = false;
 		}
+	#if UF_USE_VULKAN
 		if ( ::requestDeferredCommandBufferSubmit ) {
 			::requestDeferredCommandBufferSubmit = true;
 			uf::renderer::settings::defaultCommandBufferImmediate = true;
 		}
+	#endif
 
 		uf::renderer::synchronize();
+	#if UF_USE_VULKAN
 		uf::renderer::flushCommandBuffers();
-
+	#endif
 		uf::scene::unloadScene();
 
 	/*
@@ -981,11 +982,13 @@ void EXT_API ext::tick() {
 		uf::renderer::settings::experimental::dedicatedThread = true;
 		UF_MSG_DEBUG("Dedicated render requested");
 	}
+#if UF_USE_VULKAN
 	if ( ::requestDeferredCommandBufferSubmit && uf::scene::getCurrentScene().getController().getName() == "Player" ) {
 		::requestDeferredCommandBufferSubmit = false;
 		uf::renderer::settings::defaultCommandBufferImmediate = false;
 		UF_MSG_DEBUG("Defer command buffer submit requested");
 	}
+#endif
 #endif
 }
 void EXT_API ext::render() {

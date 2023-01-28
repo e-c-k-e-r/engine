@@ -9,13 +9,13 @@
 #include <uf/utils/camera/camera.h>
 #include <uf/ext/xatlas/xatlas.h>
 
-#if UF_ENV_DREAMCAST
+#if UF_USE_OPENGL
 	#define UF_GRAPH_LOAD_MULTITHREAD 0
 #else
-	#define UF_GRAPH_LOAD_MULTITHREAD 0
+	#define UF_GRAPH_LOAD_MULTITHREAD 1
 #endif
 
-#if UF_ENV_DREAMCAST
+#if 0 && UF_ENV_DREAMCAST
 	#define UF_DEBUG_TIMER_MULTITRACE_START(...) UF_TIMER_MULTITRACE_START(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE(...) UF_TIMER_MULTITRACE(__VA_ARGS__)
 	#define UF_DEBUG_TIMER_MULTITRACE_END(...) UF_TIMER_MULTITRACE_END(__VA_ARGS__)
@@ -244,7 +244,7 @@ namespace {
 				auto& attribute = mesh.vertex.attributes[i];
 				if ( std::find( attributesKept.begin(), attributesKept.end(), attribute.descriptor.name ) != attributesKept.end() ) continue;
 				remove.insert(remove.begin(), i);
-			//	UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
+				UF_MSG_DEBUG("Removing mesh attribute: {}", attribute.descriptor.name);
 			}
 			for ( auto& i : remove ) {
 				mesh.buffers[mesh.vertex.attributes[i].buffer].clear();

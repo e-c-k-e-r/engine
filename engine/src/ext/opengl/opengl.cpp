@@ -20,7 +20,7 @@
 uint32_t ext::opengl::settings::width = 640;
 uint32_t ext::opengl::settings::height = 480;
 uint8_t ext::opengl::settings::msaa = 1;
-bool ext::opengl::settings::validation = false;
+
 bool ext::opengl::settings::defaultStageBuffers = true;
 bool ext::opengl::settings::defaultDeferBufferDestroy = true;
 bool ext::opengl::settings::defaultCommandBufferWait = true;
@@ -31,12 +31,16 @@ size_t ext::opengl::settings::scratchBufferAlignment = 0;
 size_t ext::opengl::settings::scratchBufferInitialSize = 256;
 size_t ext::opengl::settings::defaultTimeout = 100000000000;
 
-uf::stl::vector<uf::stl::string> ext::opengl::settings::validationFilters;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceFeatures;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedDeviceExtensions;
 uf::stl::vector<uf::stl::string> ext::opengl::settings::requestedInstanceExtensions;
 
 ext::opengl::enums::Filter::type_t ext::opengl::settings::swapchainUpscaleFilter = ext::opengl::enums::Filter::LINEAR;
+
+bool ext::opengl::settings::validation::enabled = false;
+bool ext::opengl::settings::validation::messages = false;
+bool ext::opengl::settings::validation::checkpoints = false;
+uf::stl::vector<uf::stl::string> ext::opengl::settings::validation::filters;
 
 // these go hand in hand for the above
 #if UF_ENV_DREAMCAST
@@ -110,19 +114,19 @@ bool ext::opengl::hasRenderMode( const uf::stl::string& name, bool isName ) {
 ext::opengl::RenderMode& ext::opengl::addRenderMode( ext::opengl::RenderMode* mode, const uf::stl::string& name ) {
 	mode->metadata.name = name;
 	renderModes.push_back(mode);
-	if ( ext::opengl::settings::validation ) UF_MSG_DEBUG("Adding RenderMode: {}: {}", name, mode->getType());
+	if ( ext::opengl::settings::validation::enabled ) UF_MSG_DEBUG("Adding RenderMode: {}: {}", name, mode->getType());
 	// reorder
-	if ( hasRenderMode("Gui", true) ) {
-		RenderMode& primary = getRenderMode("Gui", true);
-		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
-		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
-	}
 	if ( hasRenderMode("", true) ) {
 		RenderMode& primary = getRenderMode("", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	} else {
 		RenderMode& primary = getRenderMode("Swapchain", true);
+		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
+		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
+	}
+	if ( hasRenderMode("Gui", true) ) {
+		RenderMode& primary = getRenderMode("Gui", true);
 		auto it = std::find( renderModes.begin(), renderModes.end(), &primary );
 		if ( it + 1 != renderModes.end() ) std::rotate( it, it + 1, renderModes.end() );
 	}
@@ -149,7 +153,7 @@ ext::opengl::RenderMode& ext::opengl::getRenderMode( const uf::stl::string& name
 	return *target;
 }
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::string& name, bool isName ) {
-	return ext::opengl::getRenderModes({name}, isName);
+	return ext::opengl::getRenderModes(uf::stl::vector<uf::stl::string>{name}, isName);
 }
 uf::stl::vector<ext::opengl::RenderMode*> ext::opengl::getRenderModes( const uf::stl::vector<uf::stl::string>& names, bool isName ) {
 	uf::stl::vector<RenderMode*> targets;
@@ -435,15 +439,15 @@ void ext::opengl::render(){
 		if ( !renderMode || !renderMode->execute ) continue;
 		ext::opengl::setCurrentRenderMode( renderMode );
 
-	#if UF_USE_IMGUI
-		if ( renderMode->getName() == "Gui" ) {
-			ext::imgui::render();
-		}
-	#endif
-
 		uf::graph::render();
 		uf::scene::render();
 		renderMode->render();
+
+		if ( renderMode->getName() == "Gui" ) {
+		#if UF_USE_IMGUI
+			ext::imgui::render();
+		#endif
+		}
 
 		ext::opengl::setCurrentRenderMode(NULL);
 	}
