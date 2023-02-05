@@ -1,0 +1,35 @@
+{
+	"name": "HUD Overlay",
+	"type": "Gui",
+	"ignore": false,
+	"assets": [
+		{ "filename": "./textures/mp.png", "hash": "68e7c459f9aecd6815ff7df1e2eefa82db60a23713b0134f0bfc15d82f55453d" }
+	//	{ "filename": "./textures/ss2.png" }
+	],
+	"transform": {
+		"position": [ 0, 0, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+	//	"scale": [ 1.7776, -1, -1 ]
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"clickable": false,
+		"hoverable": false,
+
+		"uv": [ 0, 0, 1, 1 ],
+	//	"color": [ 0.8, 0.8, 1, 1 ],
+	//	"color": [ 0.416, 0.573, 0.667, 1 ],
+		"color": [ 1, 1, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+	//	"depth": 0.1,
+	//	"alpha": 0.5,
+		"alpha": 0.75,
+		"mode": 1,
+		"gui layer": true,
+		"only model": true
+	}
+}

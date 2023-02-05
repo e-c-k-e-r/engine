@@ -1,0 +1,39 @@
+{
+	"type": "Object",
+	"name": "Cornell Box",
+	"ignore": false,
+	"import": "/model.json",
+	"assets": [
+	//	"/cornell/cornell.glb"
+		{ "filename": "/cornell/cornell/graph.json" }
+	],
+	"behaviors": [],
+	"transform": {
+		"position": [ -0.23807, -0.984829, -30.4967 ],
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"track": true,
+		"hide": true,
+		"graph": {
+			"lightmap": false,
+			"exporter": {
+				"enabled": false,
+				"unwrap": false,
+				"optimize": false
+			},
+			"baking": {
+				"enabled": false
+			}
+		}
+	}
+}

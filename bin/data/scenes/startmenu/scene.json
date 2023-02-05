@@ -1,0 +1,19 @@
+{
+	"type": "Main Menu",
+	"behaviors": [
+		"SceneBehavior",
+		"ExtSceneBehavior"
+	],
+	"assets": [
+		"/gui.json",
+		"/ui/main menu.ogg",
+		"/gui/mainmenu/menu.json"
+	],
+	"metadata": {
+		"volumes": {
+			"sfx": 0.25,
+			"bgm": 0.15,
+			"voice": 1.0
+		}
+	}
+}

@@ -1,0 +1,32 @@
+{
+	"import": "/light.json",
+	"ignore": false,
+	"assets": [
+	],
+	"transform": {
+	//	"track": "parent",
+		"position": [ 0, 1.7, 0 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"light": {
+			"type": "spot",
+			"color": [1, 1, 1],
+			"power": 30,
+			"fov": 90,
+			"bias": {
+				"constant": 1.25,
+				"slope": 1.75,
+				"shader": 0.000005 //0.000000005
+			},
+			"radius": [0.001, 0],
+			"resolution": 512,
+			"shadows": false,
+			"dynamic": true
+		}
+	}
+}

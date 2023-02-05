@@ -1,0 +1,48 @@
+{
+	"import": "/model.json",
+	"metadata": {
+		"graph": {
+		//	"renderer": { "separate": true },
+			"baking": { "enabled": true },
+			"tags": {
+				// exact matches
+				"worldspawn": {
+					"physics": { "type": "mesh", "static": true },
+					"grid": { "size": [3,1,3], "epsilon": 1.0, "cleanup": true, "print": true },
+					"unwrap mesh": true,
+					"optimize mesh": { "simplify": 0 }
+				},
+				"worldspawn_skybox": {
+					"grid": { "size": [3,1,3], "epsilon": 1.0, "cleanup": true, "print": true },
+					"unwrap mesh": true,
+					"optimize mesh": { "simplify": 0 }
+				},
+				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
+				"light_environment": { "ignore": true, "transform": { "orientation": [0,0,0,1] }, "light": {
+				//	"color": [0.1, 0.1, 0.1],
+					"power": 10000,
+					"global": true,
+					"bias": {
+						"constant": 1.25,
+						"slope": 1.75,
+						"shader": 0.000000000005
+					},
+					"radius": [8, 0],
+					"resolution": 1024
+				} },
+			//	"/^light_[^e]/": { "ignore": true },
+
+				// regexp matches
+				"/^worldspawn_/": { "physics": { "type": "mesh", "static": true } },
+				"/^func_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^prop_door_/": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [-1,0,0] } } },
+				"/^prop_static/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				"/^prop_dynamic/": { /*"action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } }*/ },
+				"/^func_physbox/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"/^prop_physics/": { "action": "load", "payload": { "import": "/prop.json" } },
+
+				"/^tools\\/toolsnodraw/": { "material": { "base": [ 1.0, 1.0, 1.0, 0.0 ] } }
+			}
+		}	
+	}
+}

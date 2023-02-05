@@ -1,0 +1,60 @@
+{
+	"name": "Scene",
+	"assets": [
+		"/gui.json"
+	],
+	"behaviors": [
+		"SceneBehavior",
+		"ExtSceneBehavior"
+	],
+	"system": {
+		"hot reload": {
+			"enabled": true
+		},
+		"renderer": {
+			"clear values": [
+				[ 0, 0, 0, 0 ]
+			],
+			"shader": {
+				"mode": 0,
+				"scalar": 16,
+				"parameters": [ 0, 0, 0, "time" ]
+			}
+		}
+	},
+	"metadata": {
+		// sky, and not skybox, so i can supply parameters for global lighting
+		"sky": {
+			// sky.box.filename, so i can add in additional parameters, for example, using it as a render target
+			"box": {
+				"filename": "/skybox/%d.png"
+			}
+		},
+		"menus": {
+			"pause": "/gui/pause/menu.json"
+		},
+		"light": {
+			"enabled": true,
+
+			"ambient": [ 0.0, 0.0, 0.0 ],
+		//	"ambient": [ 0.1, 0.1, 0.2 ],
+
+			"exposure": 0.125,
+			"gamma": 2.2,
+
+			"bloom": {
+				"threshold": 1.0,
+				"scale": 1.0,
+				"strength": 0.25,
+				"sigma": 1.0,
+				"samples": 4
+			},
+			"shadows": {
+				"enabled": true
+			}
+		},
+		"noise": {
+			"size": [ 32, 32, 32 ]
+		}
+	}
+}

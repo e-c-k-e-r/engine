@@ -1,0 +1,397 @@
+{
+	"engine": {
+		"scenes": {
+			"start": "SourceEngine",
+			"matrix": { "reverseInfinite": true },
+			"meshes": { "interleaved": false },
+			"lights": { "enabled": true,
+				"useLightmaps": true,
+				"max": 32,
+				"shadows": {
+					"enabled": true,
+					"update": 4,
+					"max": 8,
+					"samples": 4
+				},
+				"bloom": {
+					"scale": 1.0,
+					"strength": 0.125,
+					"sigma": 0.8,
+					"samples": 5,
+					"threshold": 1.0
+				}
+			},
+			"textures": {
+				"max": {
+					"2D": 1024,
+					"cube": 1024,
+					"3D": 128
+				}
+			},
+			"vxgi": {
+				"limiter": 0.125,
+			//	"limiter": 0.125,
+				"size": 192,
+				"dispatch": 8,
+				"cascades": 3,
+				"cascadePower": 1.5,
+				"granularity": 12,
+				"voxelizeScale": 1,
+				"occlusionFalloff": 2,
+				"traceStartOffsetFactor": 1,
+				"shadows": 0,
+				"extents": {
+					"min": [ -4, -4, -4 ],
+					"max": [  4,  4,  4 ]
+				}
+			},
+			"rt": {
+			//	"size": [ 1280, 720 ],
+				"full": false,
+				"filter": "nearest",
+				"defaultRayBounds": [ 0.75, 256.0 ],
+				"alphaTestOffset": 0.05,
+				"samples": 1,
+				"paths": 2,
+				"frameAccumulationMinimum": 0,
+				"readyTimer": 3
+			}
+		},
+		"graph": {
+			"initial buffer elements": 1024
+		},
+		"ext": {
+			"vulkan": {
+				"version": 1.3,
+				"validation": {
+					"enabled": false,
+					"messages": false,
+					"checkpoints": false,
+					"filters": [
+						"0x71500fba" // VUID-vkDestroyDevice-device-00378 (don't care about a clean cleanup)
+						,"0xe5d1743c" // VUID-vkCmdDispatch-None-02699 (problem when using VXGI)
+						
+					//	,"0x141cb623" // UNASSIGNED-Threading-MultipleThreads ("false-positive" multithreading)
+
+					/*
+						 "0x609a13b" // UNASSIGNED-CoreValidation-Shader-OutputNotConsumed (from depth-only calls)
+						,"0x35d7ea98" // VUID-vkUpdateDescriptorSets-None-03047 (bitches without VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT or VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT)
+						,"0x8e1000ad" // VUID-vkCmdDrawIndexedIndirect-None-04008 (bitches without nullDescriptor)
+						,"0x9dd97212" // VUID-vkCmdDrawIndexedIndirect-None-02721 (bitches without nullDescriptor)
+						,"0x36481fcb" // VUID-vkCmdBindVertexBuffers-pBuffers-04001 (bitches without nullDescriptor)
+					*/
+					//	,"0x4dae5635" // UNASSIGNED-CoreValidation-DrawState-InvalidImageLayout
+					]
+				},
+				"framebuffer": {
+					"msaa": 1,
+					"size": 1
+				//	"size": [ 640, 480, "NEAREST" ]
+				//	"size": [ 1280, 720 ]
+				//	"size": [ 960, 540 ]
+				//	"size": [ 640, 480 ]
+				},
+				"gpu": 7817, // 2060
+			//	"gpu": 29631, // 6800XT
+				"experimental": {
+					"rebuild on tick begin": false,
+					"batch queue submissions": true,
+					"dedicated thread": false,
+					"memory budget": false
+				},
+				"invariant": {
+					"default stage buffers": true,
+					"default defer buffer destroy": true,
+					"default command buffer immediate": true,
+					"multithreaded recording": true
+				},
+				"pipelines": {
+					"deferred": true,
+					"vsync": true,
+					"hdr": true,
+					"vxgi": true,
+					"culling": true,
+					"bloom": true,
+					"rt": false,
+					"fsr": false,
+					"postProcess": false // "postProcess.chromab" // false
+				},
+				"formats": {
+					"depth": "D32_SFLOAT",
+					"color": "R16G16B16A16_SFLOAT", // "R32G32B32A32_SFLOAT",
+					"normal": "R16G16B16A16_SFLOAT",
+					"position": "R16G16B16A16_SFLOAT"
+				},
+				"versions": {
+					"1.0": {
+						"extensions": {
+							"instance": [],
+							"device": [
+								"VK_KHR_swapchain"
+							]
+						},
+						"features": [
+							"shaderDrawParameters",
+							"multiDrawIndirect",
+							"fillModeNonSolid",
+							"wideLines",
+							"independentBlend",
+							"deviceCoherentMemory",
+							"robustBufferAccess",
+							"samplerAnisotropy",
+							"sampleRateShading"
+						],
+						"featureChain": []
+					},
+					"1.1": {
+						"extensions": {
+							"instance": [
+								"VK_KHR_get_physical_device_properties2"
+								,"VK_KHR_get_surface_capabilities2"
+							],
+							"device": [
+								"VK_EXT_memory_budget"
+								,"VK_EXT_descriptor_indexing"
+								,"VK_KHR_buffer_device_address"
+								,"VK_NV_device_diagnostic_checkpoints"
+							]
+						},
+						"features": [
+							"nullDescriptor"
+							,"fragmentStoresAndAtomics"
+							,"geometryShader"
+							,"multiViewport"
+							,"shaderInt16"
+							,"shaderFloat16"
+							,"shaderInt64"
+							,"shaderFloat64"
+							,"shaderSubgroupClock"
+							,"shaderSampledImageArrayDynamicIndexing"
+							,"shaderStorageImageArrayDynamicIndexing"
+							,"shaderStorageImageMultisample"
+							
+							,"shaderSampledImageArrayNonUniformIndexing"
+							,"shaderStorageImageArrayNonUniformIndexing"
+
+							,"descriptorIndexing"
+							,"bufferDeviceAddress"
+						],
+						"featureChain": [
+							"physicalDevice2"
+							,"shaderDrawParameters"
+							,"robustness"
+							,"shaderClock"
+
+							,"descriptorIndexing"
+							,"bufferDeviceAddress"
+						]
+					},
+					"1.2": {
+						"extensions": {
+							"instance": [
+								"VK_KHR_get_physical_device_properties2",
+								"VK_KHR_get_surface_capabilities2"
+							],
+							"device": [
+								"VK_KHR_deferred_host_operations"
+								,"VK_EXT_shader_viewport_index_layer"
+								,"VK_KHR_spirv_1_4"
+								,"VK_KHR_shader_float_controls"
+								,"VK_KHR_shader_clock"
+								,"VK_EXT_subgroup_size_control"
+								,"VK_KHR_acceleration_structure"
+								,"VK_KHR_ray_tracing_pipeline"
+								,"VK_KHR_ray_query"
+
+							//	,"VK_AMD_shader_explicit_vertex_parameter"
+							// 	,"VK_KHR_fragment_shader_barycentric"
+							]
+						},
+						"features": [
+							"hostQueryReset",
+
+							"runtimeDescriptorArray",
+							"descriptorBindingVariableDescriptorCount",
+
+							"shaderOutputViewportIndex",
+							"shaderOutputLayer"
+						],
+						"featureChain": [
+							"physicalDeviceVulkan12"
+							// for advanced gbuffer
+							,"fragmentShaderBarycentric"
+							// for ray-tracing
+							,"rayTracingPipeline"
+							,"rayQuery"
+							,"accelerationStructure"
+							// for FSR2
+							,"subgroupSizeControl"
+						]
+					},
+					"1.3": {
+						"extensions": {
+							"instance": [],
+							"device": []
+						},
+						"features": [],
+						"featureChain": []
+					}
+				}
+			},
+			"opengl": {
+				"validation": { "enabled": false },
+				"framebuffer": { "size": 1, "msaa": 1 },
+				"experimental": {
+					"rebuild on tick begin": true
+				},
+				"pipelines": {
+					"culling": true
+				},
+				"experimental": {
+					"rebuild on tick begin": true
+				},
+				"invariant": {
+					"multithreaded recording": false
+				},
+				"formats": {
+					"depth": "D32_SFLOAT",
+					"color": "R8G8B8A8_UNORM", // "R32G32B32A32_SFLOAT",
+					"normal": "R16G16B16A16_SFLOAT",
+					"position": "R16G16B16A16_SFLOAT"
+				},
+				"features": [],
+				"extensions": { "instance": [], "device": [] }
+			},
+			"lua": {
+				"enabled": true,
+				"main": "/main.lua",
+				"modules": {
+					"json": "/json.lua"
+				}
+			},
+			"json": {
+				"encoding": "msgpack",
+				"compression": "gz"
+			},
+			"imgui": {
+				"enabled": true
+			},
+			"fsr": {
+				"enabled": true,
+				"sharpness": 1,
+				"jitter scale": 0.0625,
+				"preset": "native" // native (1x), quality (1.5x), balanced (1.7x), performance (2.0x), ultra (3.0x)
+			},
+			"reactphysics": {
+				"timescale": 0.01666666666,
+				"interpolate": false,
+				"gravity": {
+					"mode": "universal",
+					"constant": 6.67408e-11
+				},
+				"debug draw": {
+					"enabled": false,
+					"line width": 8,
+				//	"layer": "Gui",
+					"rate": 0.0125
+				}
+			},
+			"vr" :  {
+				"enable" : false,
+				"manifest": "./data/openvr_manifest.json",
+				"swap eyes": false,
+				"dominant eye": 0,
+				"scale": 1.0
+			},
+			"ultralight": { "enabled": true, "scale": 1.5 },
+			"discord": { "enabled": false }
+		},
+		"audio": {
+			"mute": false,
+			"buffers": {
+				"size": 32768,
+				"count": 4
+			},
+			"volumes": {
+				"sfx": 0.35,
+				"bgm": 0.15,
+				"voice": 1.0
+			},
+			"streams by default": true
+		},
+		"memory pool": {
+			"enabled": true,
+			"subPools": true,
+			"alignment": 64,
+			"override": false,
+			"size": "512 MiB",
+			"pools": {
+				"entity": "128 MiB",
+				"userdata": "128 MiB",
+				"component": "128 MiB"
+			}
+		},
+		"render modes": { "gui": true, "deferred": true },
+		"limiters": {
+			"deltaTime": 5,
+			"framerate": "auto"
+		},
+		"threads": {
+			"workers" : "auto",
+			"frame limiter": 0 // "auto"
+		},
+		"debug": {
+			"framerate": {
+				"print": true,
+				"every": 2
+			},
+			"garbage collection": {
+				"enabled": true,
+				"mode": 1,
+				"rate": 4,
+				"announce": true
+			},
+			"entity": {
+				"delete children on destroy": false,
+				"delete components on destroy": false
+			},
+			"userdata": {
+				"auto destruct": true,
+				"auto validate": false
+			},
+			"loader": {
+				"assert": true
+			},
+			"hooks": {
+				"defer lazy calls": true
+			},
+			"scene": {
+				"print task calls": false
+			}
+		}
+	},
+	"window" : {
+		"terminal" :  {
+			"ncurses" : false,
+			"visible" : true
+		},
+		"keyboard" :  {
+			"repeat" : false
+		},
+		"mouse" :  {
+			"visible" : true,
+			"center" : false,
+			"sensitivity": [ 2, 2 ],
+			"smoothing": [ 4, 4 ]
+		},
+		"mode" : "windowed", // fullscreen, borderless, windowed
+		"icon" : "./data/textures/icon.png",
+	//	"size" :  [ 1920, 1080 ],
+		"size" :  [ 1280, 720 ],
+	//	"size" :  [ 960, 540 ],
+	//	"size" :  [ 640, 480 ],
+	//	"size" :  [ 256, 224 ],
+		"title" : "Grimgram",
+		"visible" : true
+	}
+}

@@ -1,0 +1,37 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [	
+	//	{ "filename": "./models/mds_mcdonalds.glb" }
+		{ "filename": "./models/mds_mcdonalds/graph.json" },
+		{ "filename": "/burger.json", "delay": 1 }
+	],
+	"metadata": {
+		"graph": {
+			"assets": [
+				"./audio/soundscape/sh2_ambience.ogg"	
+			],
+			"tags": {
+				// exact matches
+				"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5509": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				
+				// regex matches
+			//	"/^prop_physics_override/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
+			//	"/^prop_physics_[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },
+
+				"/^tools\\/toolsnodraw/": { "material": {
+					 "base": [ 1.0, 1.0, 1.0, 1.0 ],
+					"emissive": [ 0.0, 0.0, 0.0, 0.0 ],
+					"fMetallic": 0.0,
+					"fRoughness": 0.10000000149011612,
+					"fOcclusion": 1.0,
+					"fAlphaCutoff": 0.5,
+					"iAlbedo": 27,
+					"modeAlpha": 1
+				} }
+			}
+		}	
+	}
+}

@@ -1,0 +1,10 @@
+{
+	"name": "Scene",
+	"assets": [
+		"/gui.json"
+	],
+	"behaviors": [
+		"SceneBehavior",
+		"ExtSceneBehavior"
+	]
+}

@@ -1,0 +1,36 @@
+{
+	"name": "Menu: Close Option",
+	"type": "Gui",
+	"ignore": false,
+	"transform": {
+		"position": [ -0.75622, 0.638136, 0 ],
+		"rotation": {
+			"axis": [ 0, 0, 1 ],
+			"angle": 0
+		},
+		"scale": [ 1, 1, 1 ]
+	},
+	"metadata": {
+		"clickable": true,
+		"hoverable": true,
+		
+		"uv": [ 0, 0, 1, 1 ],
+		"location": "",
+		"scaling": "relative",
+		"debug": {
+			"moveable": false
+		},
+		"events": {
+			"click": {
+				"name": "system:Quit",
+				"payload": {
+					"scene": "StartMenu"
+				}
+			}
+		},
+		"text settings": {
+			"legacy": false,
+			"string": "Quit"
+		}
+	}
+}

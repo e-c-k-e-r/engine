@@ -1,0 +1,165 @@
+{
+	"default_bindings": [
+	 {
+			"controller_type": "knuckles",
+			"binding_url": "./openvr_bindings_knuckles.json"
+	 }
+	], 
+	"actions": [
+		{
+			"name": "/actions/global/in/a.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/a.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/b.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/b.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/trackpad.left",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/touchpad.left",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/trackpad.right",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/touchpad.right",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/clickpad.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/clickpad.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/grip.left",
+			"type": "vector1"
+		},
+		{
+			"name": "/actions/global/in/grip.right",
+			"type": "vector1"
+		},
+		{
+			"name": "/actions/global/in/grab.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/grab.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/click.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/click.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/trigger.left",
+			"type": "vector1"
+		},
+		{
+			"name": "/actions/global/in/trigger.right",
+			"type": "vector1"
+		},
+		{
+			"name": "/actions/global/in/dpadUp.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadDown.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadRight.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadLeft.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadUp.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadDown.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadRight.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/dpadLeft.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/thumbclick.left",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/thumbclick.right",
+			"type": "boolean"
+		},
+		{
+			"name": "/actions/global/in/thumbstick.left",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/thumbstick.right",
+			"type": "vector2"
+		},
+		{
+			"name": "/actions/global/in/handPose.left",
+			"type": "pose"
+		},
+		{
+			"name": "/actions/global/in/handPose.right",
+			"type": "pose"
+		},
+		{
+			"name": "/actions/global/in/handTip.left",
+			"type": "pose"
+		},
+		{
+			"name": "/actions/global/in/handTip.right",
+			"type": "pose"
+		},
+		{
+			"name": "/actions/global/out/hapticVibration.left",
+			"type": "vibration"
+		},
+		{
+			"name": "/actions/global/out/hapticVibration.right",
+			"type": "vibration"
+		}
+	],
+	"action_sets": [
+		{
+			"name": "/actions/global",
+			"usage": "leftright"
+		}
+	],
+	"localization" : [
+	 {
+			 "language_tag": "en_us"
+		}
+	]
+}

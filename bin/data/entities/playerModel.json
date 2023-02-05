@@ -1,0 +1,62 @@
+{
+	"type": "Object",
+	"name": "Player: Model",
+	"ignore": true,
+	"import": "/model.json",
+	"assets": [
+		"/player/bear.glb"
+	//	{ "filename": "/player/bear/graph.json" }
+	],
+	"behaviors": [
+		"PlayerModelBehavior"
+	],
+	"transform": {
+		"position": [ 0, -2.0, 0 ],
+	//	"position": [ 12.5715, 3.53811, 7.6238 ],
+	//	"position": [ 1.635, -0.384, -20.409 ], // -0.384
+		"rotation": {
+			"axis": [ 0, 1, 0 ],
+			"angle": 0
+		},
+		"scale": [ 0.16, 0.16, 0.16 ]
+	},
+	"system": {
+		"hot reload": {
+			"enabled": true
+		}
+	},
+	"metadata": {
+		"track": true,
+		"hide": true,
+		"graph": {
+			"debug": {
+				"print": {
+					"animations": true
+				}
+			},
+			"exporter": {
+				"enabled": false,
+				"unwrap": false,
+				"optimize": false
+			},
+			"baking": {
+				"enabled": false
+			},
+			"renderer": {
+				"cull mode": "back",
+				"filter": "linear"
+			},
+			"lights": {
+				"lightmap": false
+			},
+			"renderer": {
+				"flip textures": false,
+				"invert": false,
+				"skinned": true
+			},
+			"animations": {
+				"animation": "wank"
+			}
+		}
+	}
+}
