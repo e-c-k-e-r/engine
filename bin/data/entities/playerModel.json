@@ -1,7 +1,7 @@
 {
 	"type": "Object",
 	"name": "Player: Model",
-	"ignore": true,
+	"ignore": false,
 	"import": "/model.json",
 	"assets": [
 		"/player/bear.glb"
@@ -27,7 +27,7 @@
 	},
 	"metadata": {
 		"track": true,
-		"hide": true,
+		"hide": false,
 		"graph": {
 			"debug": {
 				"print": {
@@ -42,14 +42,12 @@
 			"baking": {
 				"enabled": false
 			},
-			"renderer": {
-				"cull mode": "back",
-				"filter": "linear"
-			},
 			"lights": {
 				"lightmap": false
 			},
 			"renderer": {
+				"cull mode": "front",
+				"filter": "linear",
 				"flip textures": false,
 				"invert": false,
 				"skinned": true

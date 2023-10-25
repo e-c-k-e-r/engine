@@ -111,7 +111,7 @@ inline T uf::Vector<T,N>::dot( const Vector<T,N> right ) const {
 	return uf::vector::dot( this->m_pod, right );
 }
 template<typename T, std::size_t N> 											// 	Compute the angle between two vectors
-inline pod::Angle uf::Vector<T,N>::angle( const Vector<T,N>& b ) const {
+inline float uf::Vector<T,N>::angle( const Vector<T,N>& b ) const {
 	return uf::vector::angle( this->m_pod, b );
 }
 

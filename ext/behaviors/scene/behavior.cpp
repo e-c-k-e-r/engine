@@ -343,9 +343,13 @@ void ext::ExtSceneBehavior::tick( uf::Object& self ) {
 		pod::Transform<> transform = controller.getComponent<pod::Transform<>>();
 		if ( controller.hasComponent<uf::Camera>() ) {
 			auto& camera = controller.getComponent<uf::Camera>();
+			transform = camera.getTransform();
+		/*
 			transform.position += camera.getTransform().position;
 			transform = uf::transform::reorient( transform );
+		*/
 		}
+		transform = uf::transform::flatten( transform );
 		transform.forward *= -1;
 		
 		ext::al::listener( transform );

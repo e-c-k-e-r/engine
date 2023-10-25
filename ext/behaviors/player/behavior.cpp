@@ -39,9 +39,13 @@ void ext::PlayerBehavior::initialize( uf::Object& self ) {
 				
 		cameraTransform.position = uf::vector::decode( metadataJson["camera"]["position"], cameraTransform.position );
 		cameraTransform.scale = uf::vector::decode( metadataJson["camera"]["scale"], cameraTransform.scale );
-		cameraTransform.reference = &transform;
+		cameraTransform.orientation = uf::vector::decode( metadataJson["camera"]["orientation"], cameraTransform.orientation );
+		
+		cameraTransform.reference = metadata.camera.fixed ? NULL : &transform;
 
 		auto cameraSettingsJson = metadataJson["camera"]["settings"];
+
+		metadata.camera.offset = uf::vector::decode( metadataJson["camera"]["offset"], metadata.camera.offset );
 
 		if ( metadataJson["camera"]["ortho"].as<bool>() ) {
 			float l = cameraSettingsJson["left"].as<float>();
@@ -124,6 +128,14 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	auto& physics = this->getComponent<pod::Physics>();
 	auto& scene = uf::scene::getCurrentScene();
 
+	{
+		static bool first = false;
+		if ( !first ) {
+			first = true;
+			uf::transform::rotate( transform, {0, 1, 0}, 3.1415926f );
+		}
+	}
+
 	struct {
 		bool forward = false;
 		bool backwards = false;
@@ -132,6 +144,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	
 		bool lookLeft = false;
 		bool lookRight = false;
+		bool lookUp = false;
+		bool lookDown = false;
 		bool running = false;
 		bool walk = false;
 		bool jump = false;
@@ -150,6 +164,8 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 			.right = uf::inputs::kbm::states::D,
 			.lookLeft = uf::inputs::kbm::states::Left,
 			.lookRight = uf::inputs::kbm::states::Right,
+			.lookUp = uf::inputs::kbm::states::Up,
+			.lookDown = uf::inputs::kbm::states::Down,
 			.running = uf::inputs::kbm::states::LShift,
 			.walk = uf::inputs::kbm::states::LAlt,
 			.jump = uf::inputs::kbm::states::Space,
@@ -345,7 +361,11 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 #endif
 	// un-flatted if noclipped
 
-	if ( stats.noclipped || collider.stats.gravity == pod::Vector3f{0,0,0} ){
+	if ( metadata.camera.fixed ) {
+		translator = cameraTransform;
+		translator.forward.y = 0;
+		translator.forward = uf::vector::normalize( translator.forward );
+	} else if ( stats.noclipped || collider.stats.gravity == pod::Vector3f{0,0,0} ){
 		translator.forward.y += cameraTransform.forward.y;
 		translator.forward = uf::vector::normalize( translator.forward );
 	}
@@ -373,15 +393,24 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 		physics.linear.velocity *= { speed.friction, 1, speed.friction };
 
 		stats.walking = (keys.forward ^ keys.backwards) || (keys.left ^ keys.right);
+		
 		if ( stats.walking ) {
 			float factor = stats.floored ? 1.0f : speed.air;
 			if ( stats.noclipped ) {
 				physics.linear.velocity += target * speed.move;
 			} else {
-			//	float delta = collider.body ? uf::physics::impl::timescale : uf::physics::time::delta;
-				float delta = uf::physics::time::delta;
+				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * uf::physics::time::delta );
+			}
 
-				physics.linear.velocity += target * std::clamp( speed.move * factor - uf::vector::dot( physics.linear.velocity, target ), 0.0f, speed.move * 10 * delta );
+			auto dot = uf::vector::dot( transform.forward, target );
+			if ( !metadata.movement.strafe && dot < 1.0f ) {
+			//	auto cross = uf::vector::normalize( uf::vector::cross( transform.forward, target ) );
+			//	auto axis = cross == pod::Vector3f{0, 0, 0} ? transform.up : cross;
+				auto axis = transform.up;
+				float angle = uf::vector::signedAngle( transform.forward, target, axis ) * uf::physics::time::delta * 4; // speed.rotate;
+
+				if ( collider.body ) uf::physics::impl::applyRotation( collider, axis, angle ); else
+				uf::transform::rotate( transform, axis, angle );
 			}
 		}
 		if ( !stats.floored ) stats.walking = false;		
@@ -406,7 +435,7 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	{
 		const pod::Vector2ui deadZone{0, 0};
 		const auto& mouseDelta = uf::inputs::kbm::states::Mouse;
-		bool shouldnt = (mouseDelta.x == 0 && mouseDelta.y == 0) || !metadata.system.control;
+		bool shouldnt = (mouseDelta.x == 0 && mouseDelta.y == 0) || !metadata.system.control || metadata.camera.fixed;
 		if ( !shouldnt ) {
 			pod::Vector2f delta = {
 				(float) metadata.mouse.sensitivity.x * (abs(mouseDelta.x) < deadZone.x ? 0 : mouseDelta.x),
@@ -417,30 +446,50 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 	#endif
 
-	if ( metadata.camera.queued.x != 0 || metadata.camera.queued.y != 0 ) {
-		auto lookDelta = metadata.camera.queued;
-		if ( abs(lookDelta.x) > uf::physics::time::delta / metadata.mouse.smoothing.x ) lookDelta.x *= uf::physics::time::delta * metadata.mouse.smoothing.x;
-		if ( abs(lookDelta.y) > uf::physics::time::delta / metadata.mouse.smoothing.y ) lookDelta.y *= uf::physics::time::delta * metadata.mouse.smoothing.y;
-		metadata.camera.queued -= lookDelta;
-		if ( lookDelta.x != 0 ) {
-			if ( metadata.camera.invert.x ) lookDelta.x *= -1;
-			metadata.camera.limit.current.x += lookDelta.x;
-			if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
-				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, lookDelta.x ); else
-					uf::transform::rotate( transform, transform.up, lookDelta.x );
-			} else metadata.camera.limit.current.x -= lookDelta.x;
+	if ( !metadata.camera.fixed ) {
+		if ( metadata.camera.queued.x != 0 || metadata.camera.queued.y != 0 ) {
+			auto lookDelta = metadata.camera.queued;
+			if ( abs(lookDelta.x) > uf::physics::time::delta / metadata.mouse.smoothing.x ) lookDelta.x *= uf::physics::time::delta * metadata.mouse.smoothing.x;
+			if ( abs(lookDelta.y) > uf::physics::time::delta / metadata.mouse.smoothing.y ) lookDelta.y *= uf::physics::time::delta * metadata.mouse.smoothing.y;
+			metadata.camera.queued -= lookDelta;
+			if ( lookDelta.x != 0 ) {
+				if ( metadata.camera.invert.x ) lookDelta.x *= -1;
+				metadata.camera.limit.current.x += lookDelta.x;
+				if ( metadata.camera.limit.current.x != metadata.camera.limit.current.x || ( metadata.camera.limit.current.x < metadata.camera.limit.max.x && metadata.camera.limit.current.x > metadata.camera.limit.min.x ) ) {
+					if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, lookDelta.x ); else
+						uf::transform::rotate( transform, transform.up, lookDelta.x );
+				} else metadata.camera.limit.current.x -= lookDelta.x;
+			}
+			if ( lookDelta.y != 0 ) {
+				if ( metadata.camera.invert.y ) lookDelta.y *= -1;
+				metadata.camera.limit.current.y += lookDelta.y;
+					if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
+					//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
+						uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
+				} else metadata.camera.limit.current.y -= lookDelta.y;
+			}
+		} else {
+			if ( keys.lookRight ^ keys.lookLeft ) {
+				if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
+				uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
+			}
+			if ( keys.lookUp ^ keys.lookDown ) {
+				float direction = keys.lookUp ? 1 : -1;
+				if ( metadata.camera.invert.y ) direction *= -1;
+				uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
+			}
+		}	
+	} else {
+		if ( keys.lookRight ^ keys.lookLeft ) {
+		//	auto rotation = uf::quaternion::axisAngle( cameraTransform.up, uf::physics::time::delta * (keys.lookRight ? 1 : -1) );
+		//	cameraTransform.position = uf::quaternion::rotate( rotation, cameraTransform.position - transform.position );
 		}
-		if ( lookDelta.y != 0 ) {
-			if ( metadata.camera.invert.y ) lookDelta.y *= -1;
-			metadata.camera.limit.current.y += lookDelta.y;
-				if ( metadata.camera.limit.current.y != metadata.camera.limit.current.y || ( metadata.camera.limit.current.y < metadata.camera.limit.max.y && metadata.camera.limit.current.y > metadata.camera.limit.min.y ) ) {
-				//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
-					uf::transform::rotate( cameraTransform, cameraTransform.right, lookDelta.y );
-			} else metadata.camera.limit.current.y -= lookDelta.y;
+		if ( keys.lookUp ^ keys.lookDown ) {
+		//	if ( collider.body && !collider.shared ) uf::physics::impl::applyRotation( collider, cameraTransform.right, lookDelta.y ); else
+			float direction = keys.lookUp ? 1 : -1;
+			if ( metadata.camera.invert.y ) direction *= -1;
+			uf::transform::rotate( cameraTransform, cameraTransform.right, speed.rotate * direction );
 		}
-	} else if ( keys.lookRight ^ keys.lookLeft ) {
-		if ( collider.body ) uf::physics::impl::applyRotation( collider, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) ); else
-		uf::transform::rotate( transform, transform.up, speed.rotate * (keys.lookRight ? 1 : -1) );
 	}
 	{
 		if ( collider.body ) uf::physics::impl::setVelocity( collider, physics.linear.velocity ); else 
@@ -448,10 +497,25 @@ void ext::PlayerBehavior::tick( uf::Object& self ) {
 	}
 
 
-	if ( stats.deltaCrouch ) {
-		float delta = metadata.movement.crouch;
-		if ( metadata.system.crouching ) cameraTransform.position.y -= delta;
-		else cameraTransform.position.y += delta;
+	if ( metadata.camera.fixed ) {
+		cameraTransform.reference = NULL;
+		cameraTransform.position = transform.position + metadata.camera.offset;
+	//	cameraTransform.orientation = uf::vector::decode( metadataJson["camera"]["orientation"], uf::quaternion::identity() );
+		cameraTransform = uf::transform::reorient( cameraTransform );
+	} else {
+		if ( metadata.camera.offset != pod::Vector3f{0,0,0} ) {
+			//auto flattened = uf::transform::flatten( cameraTransform );
+			auto& flattened = transform;
+			metadata.camera.intermediary.position = uf::quaternion::rotate( flattened.orientation, metadata.camera.offset );
+
+			metadata.camera.intermediary.reference = &transform;
+			cameraTransform.reference = &metadata.camera.intermediary;
+		}
+		if ( stats.deltaCrouch ) {
+			float delta = metadata.movement.crouch;
+			if ( metadata.system.crouching ) cameraTransform.position.y -= delta;
+			else cameraTransform.position.y += delta;
+		}
 	}
 
 #if UF_USE_OPENAL
@@ -550,6 +614,7 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	auto& serializerAudioFootstep = serializer["audio"]["footstep"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
+	auto& serializerCameraSettings = serializerCamera["settings"];
 	
 	serializerSystem["menu"] = /*this->*/system.menu;
 	serializerSystem["control"] = /*this->*/system.control;
@@ -561,6 +626,7 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerMovement["run"] = /*this->*/movement.run;
 	serializerMovement["walk"] = /*this->*/movement.walk;
 	serializerMovement["air"] = /*this->*/movement.air;
+	serializerMovement["strafe"] = /*this->*/movement.strafe;
 	serializerMovement["jump"] = uf::vector::encode(/*this->*/movement.jump);
 	serializerMovement["floored"]["feet"] = uf::vector::encode(/*this->*/movement.floored.feet);
 	serializerMovement["floored"]["floor"] = uf::vector::encode(/*this->*/movement.floored.floor);
@@ -573,6 +639,7 @@ void ext::PlayerBehavior::Metadata::serialize( uf::Object& self, uf::Serializer&
 	serializerCameraLimit["current"] = uf::vector::encode(/*this->*/camera.limit.current);
 	serializerCameraLimit["minima"] = uf::vector::encode(/*this->*/camera.limit.min);
 	serializerCameraLimit["maxima"] = uf::vector::encode(/*this->*/camera.limit.max);
+	serializerCameraSettings["fixed"] = camera.fixed;
 
 	serializer["use"]["length"] = /*this->*/use.length;
 }
@@ -583,6 +650,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	auto& serializerMovement = serializer["movement"];
 	auto& serializerCamera = serializer["camera"];
 	auto& serializerCameraLimit = serializerCamera["limit"];
+	auto& serializerCameraSettings = serializerCamera["settings"];
 
 	/*this->*/system.menu = serializerSystem["menu"].as(/*this->*/system.menu);
 	/*this->*/system.control = serializerSystem["control"].as(/*this->*/system.control);
@@ -594,6 +662,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/movement.run = serializerMovement["run"].as(/*this->*/movement.run);
 	/*this->*/movement.walk = serializerMovement["walk"].as(/*this->*/movement.walk);
 	/*this->*/movement.air = serializerMovement["air"].as(/*this->*/movement.air);
+	/*this->*/movement.strafe = serializerMovement["strafe"].as(/*this->*/movement.strafe);
 	/*this->*/movement.jump = uf::vector::decode(serializerMovement["jump"], /*this->*/movement.jump);
 	/*this->*/movement.floored.feet = uf::vector::decode(serializerMovement["floored"]["feet"], /*this->*/movement.floored.feet);
 	/*this->*/movement.floored.floor = uf::vector::decode(serializerMovement["floored"]["floor"], /*this->*/movement.floored.floor);
@@ -609,6 +678,7 @@ void ext::PlayerBehavior::Metadata::deserialize( uf::Object& self, uf::Serialize
 	/*this->*/camera.limit.current = uf::vector::decode( serializerCameraLimit["current"], /*this->*/camera.limit.current );
 	/*this->*/camera.limit.min = uf::vector::decode( serializerCameraLimit["minima"], /*this->*/camera.limit.min );
 	/*this->*/camera.limit.max = uf::vector::decode( serializerCameraLimit["maxima"], /*this->*/camera.limit.max );
+	/*this->*/camera.fixed = serializerCameraSettings["fixed"].as( /*this->*/camera.fixed );
 
 	/*this->*/use.length = serializer["use"]["length"].as(/*this->*/use.length);
 }

@@ -1,0 +1,53 @@
+{
+	"import": "./base_sourceengine.json",
+	"assets": [	
+	//	{ "filename": "./models/animal_crossing.glb" }
+		{ "filename": "./models/animal_crossing/graph.json" }
+	//	{ "filename": "/burger.json", "delay": 1 }
+	],
+	"metadata": {
+		"graph": {
+			"assets": [
+				"./audio/music/5pm.ogg"	
+			],
+			"tags": {
+				// exact matches
+			//	"func_door_rotating_5473": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+			//	"func_door_rotating_5509": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+			//	"func_door_rotating_5568": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+			//	"func_door_rotating_5584": { "action": "load", "payload": { "import": "/door.json", "metadata": { "angle":-1.570795, "normal": [1,0,0] } } },
+				
+				// regex matches
+			//	"/^prop_physics_override/": { "action": "load", "payload": { "import": "/prop.json", "metadata": { "physics": { "gravity": [ 0, 0, 0 ] } } } },
+			//	"/^prop_physics_[^o]/": { "action": "load", "payload": { "import": "/prop.json" } },
+				"light_environment": { "ignore": false, 
+					"transform": {
+						"position": [250.3781, 148.704, 202.286]
+					},
+					"light": {
+						"color": [0.95, 0.25, 0.25],
+						"power": 1000000,
+						"global": true,
+						"bias": {
+							"constant": 0,
+							"slope": 5,
+							"shader": 0.0000175
+						},
+						"radius": [0.9999999, 0],
+						"resolution": 4096
+					}
+				},
+				"/^tools\\/toolsnodraw/": { "material": {
+					 "base": [ 1.0, 1.0, 1.0, 1.0 ],
+					"emissive": [ 0.0, 0.0, 0.0, 0.0 ],
+					"fMetallic": 0.0,
+					"fRoughness": 0.10000000149011612,
+					"fOcclusion": 1.0,
+					"fAlphaCutoff": 0.5,
+					"iAlbedo": 27,
+					"modeAlpha": 1
+				} }
+			}
+		}	
+	}
+}

@@ -92,9 +92,9 @@ void ext::LightBehavior::initialize( uf::Object& self ) {
 		} else {
 			size = pod::Vector2ui{ uf::renderer::settings::width, uf::renderer::settings::height };
 		}
-		if ( radius.y < radius.x ) radius.y = 256;
+		if ( radius.y < radius.x ) radius.y = 2048;
 		camera.setProjection( uf::matrix::perspective( fov, (float) size.x / (float) size.y, radius.x, radius.y ) );
-	//	camera.update(true);
+		camera.update(true);
 		
 		uf::stl::string name = "RT:" + std::to_string((int) this->getUid());
 		renderMode.blitter.process = false;

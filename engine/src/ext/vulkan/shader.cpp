@@ -309,6 +309,7 @@ void ext::vulkan::Shader::initialize( ext::vulkan::Device& device, const uf::stl
 		moduleCreateInfo.pCode = (uint32_t*) spirv.data();
 
 		VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &module));
+		//UF_MSG_DEBUG("Shader: {}", filename);
 	}
 	
 	{

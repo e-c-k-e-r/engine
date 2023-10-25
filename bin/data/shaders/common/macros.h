@@ -75,11 +75,14 @@
 
 // easy and accessible in one place
 #ifndef BARYCENTRIC
-	#define BARYCENTRIC 0
+	#define BARYCENTRIC 1
 #endif
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
 		#define BARYCENTRIC_CALCULATE 0
+	#endif
+	#ifndef BUFFER_REFERENCE
+		#define BUFFER_REFERENCE 1
 	#endif
 #endif
 

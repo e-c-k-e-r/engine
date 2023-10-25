@@ -5,7 +5,7 @@
 			"matrix": { "reverseInfinite": true },
 			"meshes": { "interleaved": false },
 			"lights": { "enabled": true,
-				"useLightmaps": true,
+				"useLightmaps": false,
 				"max": 32,
 				"shadows": {
 					"enabled": true,
@@ -29,9 +29,9 @@
 				}
 			},
 			"vxgi": {
+			//	"limiter": 0,
 				"limiter": 0.125,
-			//	"limiter": 0.125,
-				"size": 192,
+				"size": 256,
 				"dispatch": 8,
 				"cascades": 3,
 				"cascadePower": 1.5,
@@ -41,8 +41,8 @@
 				"traceStartOffsetFactor": 1,
 				"shadows": 0,
 				"extents": {
-					"min": [ -4, -4, -4 ],
-					"max": [  4,  4,  4 ]
+					"min": [ -8, -8, -8 ],
+					"max": [  8,  8,  8 ]
 				}
 			},
 			"rt": {
@@ -91,8 +91,8 @@
 				//	"size": [ 960, 540 ]
 				//	"size": [ 640, 480 ]
 				},
-				"gpu": 7817, // 2060
-			//	"gpu": 29631, // 6800XT
+			//	"gpu": 7817, // 2060
+				"gpu": 29631, // 6800XT
 				"experimental": {
 					"rebuild on tick begin": false,
 					"batch queue submissions": true,
@@ -204,7 +204,7 @@
 								,"VK_KHR_ray_query"
 
 							//	,"VK_AMD_shader_explicit_vertex_parameter"
-							// 	,"VK_KHR_fragment_shader_barycentric"
+							 	,"VK_KHR_fragment_shader_barycentric"
 							]
 						},
 						"features": [
@@ -292,7 +292,7 @@
 				"debug draw": {
 					"enabled": false,
 					"line width": 8,
-				//	"layer": "Gui",
+					"layer": "Gui",
 					"rate": 0.0125
 				}
 			},

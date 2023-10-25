@@ -18,17 +18,17 @@
 					"optimize mesh": { "simplify": 0 }
 				},
 				"info_player_spawn": { "action": "attach", "filename": "./player.json", "transform": { "orientation": [ 0, 1, 0, 0 ] } },
-				"light_environment": { "ignore": true, "transform": { "orientation": [0,0,0,1] }, "light": {
+				"light_environment": { "ignore": false, "light": {
 				//	"color": [0.1, 0.1, 0.1],
-					"power": 10000,
+					"power": 1000000,
 					"global": true,
 					"bias": {
-						"constant": 1.25,
-						"slope": 1.75,
-						"shader": 0.000000000005
+						"constant": 0,
+						"slope": 5,
+						"shader": 0.000025
 					},
-					"radius": [8, 0],
-					"resolution": 1024
+					"radius": [0.9999999, 0],
+					"resolution": 4096
 				} },
 			//	"/^light_[^e]/": { "ignore": true },
 

@@ -141,8 +141,9 @@ namespace uf {
 		template<typename T> T  /*UF_API*/ round( const T& vector ); 										// 	
 	// 	Complex arithmetic
 		template<typename T> typename T::type_t /*UF_API*/ dot( const T& left, const T& right ); 			// 	Compute the dot product between two vectors
-		template<typename T> pod::Angle /*UF_API*/ angle( const T& a, const T& b ); 						// 	Compute the angle between two vectors
-		template<typename T> T /*UF_API*/ cross( const T& a, const T& b ); 									// 	Compute the angle between two vectors
+		template<typename T> float /*UF_API*/ angle( const T& a, const T& b ); 						// 	Compute the angle between two vectors
+		template<typename T> float /*UF_API*/ signedAngle( const T& a, const T& b, const T& axis ); 	// 	Compute the signed angle between two vectors
+		template<typename T> T /*UF_API*/ cross( const T& a, const T& b ); 									// 	Compute the cross product between two vectors
 		
 		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, double, bool = true  ); 		// 	Linearly interpolate between two vectors
 		template<typename T> T /*UF_API*/ lerp( const T& from, const T& to, const T&, bool = true  ); 		// 	Linearly interpolate between two vectors
@@ -220,7 +221,7 @@ namespace uf {
 		inline uf::Vector<T,N>& negate();												// 	Flip sign of all components
 	// 	Complex arithmetic
 		inline T dot( const Vector<T,N> right ) const; 									// 	Compute the dot product between two vectors
-		inline pod::Angle angle( const Vector<T,N>& b ) const; 							// 	Compute the angle between two vectors
+		inline float angle( const Vector<T,N>& b ) const; 							// 	Compute the angle between two vectors
 		
 		inline uf::Vector<T,N> lerp( const Vector<T,N> to, double delta ) const; 		// 	Linearly interpolate between two vectors
 		inline uf::Vector<T,N> slerp( const Vector<T,N> to, double delta ) const; 		// 	Spherically interpolate between two vectors

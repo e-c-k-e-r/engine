@@ -15,7 +15,7 @@
 #include <uf/engine/graph/graph.h>
 #include <uf/ext/ext.h>
 
-#define BARYCENTRIC 0
+#define BARYCENTRIC 1
 #if BARYCENTRIC
 	#ifndef BARYCENTRIC_CALCULATE
 		#define BARYCENTRIC_CALCULATE 0

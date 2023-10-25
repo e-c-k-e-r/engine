@@ -26,6 +26,7 @@ namespace ext {
 				float walk = 1.0f;
 				float friction = 0.8f;
 				float air = 1.0f;
+				bool strafe = true;
 				pod::Vector3f jump = {0,8,0};
 				struct {
 					pod::Vector3f feet = {0,-1.5,0};
@@ -41,6 +42,11 @@ namespace ext {
 				} limit;
 				pod::Vector3t<bool> invert;
 				pod::Vector2f queued;
+
+				pod::Vector3f offset;
+				pod::Transform<> intermediary;
+				
+				bool fixed = false;
 			} camera;
 			struct {
 				pod::Vector2f sensitivity = {1,1};

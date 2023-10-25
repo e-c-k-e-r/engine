@@ -6,9 +6,9 @@
 	],
 	"metadata": {
 		"light": {
-			"ambient": [ 0, 0, 0 ],
+		//	"ambient": [ 0, 0, 0 ],
 		//	"ambient": [ 0.05, 0.05, 0.05 ],
-		//	"ambient": [ 0.15, 0.15, 0.15 ],
+			"ambient": [ 0.15, 0.15, 0.15 ],
 		//	"ambient": [ 0.5, 0.5, 0.5 ],
 		//	"ambient": [ 0.8, 0.8, 0.8 ],
 		//	"ambient": [ 0.1, 0.1, 0.2 ],
@@ -24,13 +24,13 @@
 				"samples": 4
 			},
 
-			"fog-": {
+			"fog": {
 			//	"color": [ 0.1, 0.1, 0.1 ],
 			//	"color": [ 0.2, 0.2, 0.2 ],
 				"color": [ 0.3, 0.3, 0.3 ],
 				"range": [ 64, 256 ],
 				"step scale": 4,
-				"absorbtion": 0.0125,
+				"absorbtion": 0.125,
 				"density": {
 					"threshold": 0.35,
 					"multiplier": 2.0,

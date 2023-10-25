@@ -314,8 +314,20 @@ typename T::type_t /*UF_API*/ uf::vector::dot( const T& left, const T& right ) {
 	return uf::vector::sum(uf::vector::multiply(left, right));
 }
 template<typename T> 														// Compute the angle between two vectors
-pod::Angle /*UF_API*/ uf::vector::angle( const T& a, const T& b ) {
-	return acos(uf::vector::dot(a, b));
+float /*UF_API*/ uf::vector::angle( const T& a, const T& b ) {
+	auto dot = uf::vector::dot(a, b);
+	if ( dot < -1.0f ) dot = -1.0f;
+	if ( dot > 1.0f ) dot = 1.0f;
+	return acos(dot);
+}
+template<typename T> 														// Compute the angle between two vectors
+float /*UF_API*/ uf::vector::signedAngle( const T& a, const T& b, const T& axis ) {
+	auto unsignedAngle = uf::vector::angle(a, b);
+	float cross_x = a.y * b.z - a.z * b.y;
+	float cross_y = a.z * b.x - a.x * b.z;
+	float cross_z = a.x * b.y - a.y * b.x;
+	float sign = (axis.x * cross_x + axis.y * cross_y + axis.z * cross_z) >= 0.0f ? 1.0f : -1.0f;
+	return unsignedAngle * sign;
 }
 template<typename T> 														// Linearly interpolate between two vectors
 T /*UF_API*/ uf::vector::lerp( const T& from, const T& to, double delta, bool clamp ) {

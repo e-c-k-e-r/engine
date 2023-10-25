@@ -885,11 +885,11 @@ void EXT_API ext::tick() {
 	/* Update physics timer */ {
 		uf::physics::tick();
 	}
-	/* Update graph */ {
-		uf::graph::tick();
-	}
 	/* Update entities */ {
 		uf::scene::tick();
+	}
+	/* Update graph */ {
+		uf::graph::tick();
 	}
 
 	/* Tick Main Thread Queue */ {
